@@ -205,6 +205,7 @@ Daemon::~Daemon() {
         accept_posted_control_tasks_.store(false, std::memory_order_release);
         lifecycle_executor_.shutdown();
         resolver_hook_executor_.shutdown();
+        resolver_stream_executor_.shutdown();
         resolver_io_executor_.shutdown();
         blocking_executor_.shutdown();
 
@@ -419,10 +420,11 @@ void Daemon::handle_ipc_control_socket() {
                         ? ResolverType::DNSMASQ_NFTSET
                         : generation.resolver_type);
                 const auto request_id = request.at("request_id").get<std::string>();
-                const bool queued = resolver_io_executor_.try_post(
+                const bool queued = resolver_stream_executor_.try_post(
                     "generate-resolver-config",
-                    [client, generation, dns_config, cache_dir, type, request_id] {
+                    [this, client, generation, dns_config, cache_dir, type, request_id] {
                         bool stream_started = false;
+                        bool stream_completed = false;
                         try {
                             const Config& active_config = generation.config;
                             CacheManager cache(cache_dir, max_file_size_bytes(active_config));
@@ -450,6 +452,7 @@ void Daemon::handle_ipc_control_socket() {
                             const std::uint32_t end_of_stream = 0;
                             send_all(client, reinterpret_cast<const char*>(&end_of_stream),
                                      sizeof(end_of_stream));
+                            stream_completed = true;
                         } catch (const std::exception& error) {
                             if (!stream_started) {
                                 const auto response = ipc::make_error_response(
@@ -461,6 +464,9 @@ void Daemon::handle_ipc_control_socket() {
                             }
                         }
                         close(client);
+                        if (stream_completed) {
+                            resolver_stream_completed_.fetch_add(1, std::memory_order_release);
+                        }
                     });
                 if (queued) {
                     resolver_stream_dispatched = true;
@@ -1133,7 +1139,7 @@ void Daemon::continue_startup_after_lists(
                 bool hook_succeeded = false;
                 std::string hook_error;
                 try {
-                    hook_succeeded = run_system_resolver_hook("reload");
+                    hook_succeeded = run_system_resolver_hook_reload();
                     if (!hook_succeeded) hook_error = "system resolver reload hook failed";
                 } catch (const std::exception& exception) {
                     hook_error = exception.what();
@@ -1241,11 +1247,17 @@ void Daemon::run() {
                  error.what());
     }
 
+    // Some init scripts return before dnsmasq invokes its conf-script. Keep
+    // the control socket alive long enough to answer that final fallback
+    // request instead of closing the connection underneath the helper.
+    drain_shutdown_resolver_callbacks(std::chrono::seconds{1});
+
     event_loop_active_.store(false, std::memory_order_release);
     event_loop_thread_id_.store(std::thread::id{}, std::memory_order_relaxed);
     accept_posted_control_tasks_.store(false, std::memory_order_release);
     lifecycle_executor_.shutdown();
     resolver_hook_executor_.shutdown();
+    resolver_stream_executor_.shutdown();
     resolver_io_executor_.shutdown();
     blocking_executor_.shutdown();
 

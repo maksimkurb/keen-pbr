@@ -86,14 +86,44 @@ bool Daemon::run_system_resolver_hook(std::string_view action) {
 }
 
 bool Daemon::run_system_resolver_hook_reload() {
+    const auto stream_baseline = resolver_stream_completed_.load(std::memory_order_acquire);
     if (!run_system_resolver_hook("reload")) {
         return false;
     }
-    // The hook synchronously asks the daemon to stream dnsmasq directives.
+    if (!wait_for_resolver_stream_after(stream_baseline, std::chrono::seconds{5})) {
+        Logger::instance().warn(
+            "System resolver hook completed without a dnsmasq configuration request");
+        return false;
+    }
+    // The init script may return before dnsmasq invokes its conf-script. The
+    // completed-stream wait above makes this the true reload boundary.
     // Recompute only the tiny expected hash afterwards, so confirmation uses
     // the current list/DNS cache state without retaining the large config.
     update_resolver_config_hash();
     return true;
+}
+
+bool Daemon::wait_for_resolver_stream_after(std::uint64_t baseline,
+                                            std::chrono::milliseconds timeout) {
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (resolver_stream_completed_.load(std::memory_order_acquire) > baseline) {
+            return true;
+        }
+        if (is_event_loop_thread()) {
+            handle_ipc_control_socket();
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
+    return resolver_stream_completed_.load(std::memory_order_acquire) > baseline;
+}
+
+void Daemon::drain_shutdown_resolver_callbacks(std::chrono::milliseconds duration) {
+    const auto deadline = std::chrono::steady_clock::now() + duration;
+    while (std::chrono::steady_clock::now() < deadline) {
+        handle_ipc_control_socket();
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
 }
 
 bool Daemon::routing_runtime_active() const {

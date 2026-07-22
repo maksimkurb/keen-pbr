@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
@@ -215,6 +216,9 @@ private:
     void transition_runtime_or_throw(RuntimeState next, const char* reason);
     bool run_system_resolver_hook(std::string_view action);
     bool run_system_resolver_hook_reload();
+    bool wait_for_resolver_stream_after(std::uint64_t baseline,
+                                        std::chrono::milliseconds timeout);
+    void drain_shutdown_resolver_callbacks(std::chrono::milliseconds duration);
     void schedule_lists_autoupdate();
     ListsRefreshExecutionResult execute_remote_list_refresh(
         const std::set<std::string>* target_lists = nullptr,
@@ -371,6 +375,7 @@ private:
     // Resolver hooks can synchronously call back into resolver config streaming,
     // so hook execution and resolver I/O must never share a worker.
     BlockingExecutor resolver_hook_executor_{1, 16};
+    BlockingExecutor resolver_stream_executor_{1, 16};
     BlockingExecutor resolver_io_executor_{1, 32};
     BlockingExecutor lifecycle_executor_{1, 16};
     std::atomic<std::uint64_t> runtime_generation_{1};
@@ -378,6 +383,7 @@ private:
     std::atomic<bool> ipc_mutation_inflight_{false};
     std::atomic<bool> ipc_resolver_hook_inflight_{false};
     std::atomic<bool> resolver_hash_refresh_inflight_{false};
+    std::atomic<std::uint64_t> resolver_stream_completed_{0};
     TracedMutex system_resolver_hook_mutex_;
 
 #ifdef WITH_API
