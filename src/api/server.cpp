@@ -379,6 +379,10 @@ void ApiServer::get(const std::string& path, RouteHandler handler) {
             std::string body = h();
             res.set_content(body, "application/json");
             log_request_end(req, "api", res.status == 0 ? 200 : res.status, started_at);
+        } catch (const ApiAccepted& accepted) {
+            res.status = 202;
+            res.set_content(accepted.body(), "application/json");
+            log_request_end(req, "api", res.status, started_at);
         } catch (const ApiError& e) {
             res.status = e.status();
             res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
@@ -404,6 +408,10 @@ void ApiServer::post(const std::string& path, RouteHandler handler) {
             std::string body = h();
             res.set_content(body, "application/json");
             log_request_end(req, "api", res.status == 0 ? 200 : res.status, started_at);
+        } catch (const ApiAccepted& accepted) {
+            res.status = 202;
+            res.set_content(accepted.body(), "application/json");
+            log_request_end(req, "api", res.status, started_at);
         } catch (const ApiError& e) {
             res.status = e.status();
             res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
@@ -429,6 +437,10 @@ void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
             std::string result = h(req.body);
             res.set_content(result, "application/json");
             log_request_end(req, "api", res.status == 0 ? 200 : res.status, started_at);
+        } catch (const ApiAccepted& accepted) {
+            res.status = 202;
+            res.set_content(accepted.body(), "application/json");
+            log_request_end(req, "api", res.status, started_at);
         } catch (const ApiError& e) {
             res.status = e.status();
             res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");

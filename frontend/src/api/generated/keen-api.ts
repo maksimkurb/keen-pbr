@@ -30,9 +30,9 @@ import type {
   ConfigUpdateResponse,
   ErrorResponse,
   HealthResponse,
+  LifecycleOperationAcceptedResponse,
   ListRefreshRequest,
   ListRefreshResponse,
-  ReloadResponse,
   RoutingHealthErrorResponse,
   RoutingHealthResponse,
   RoutingTestRequest,
@@ -166,17 +166,24 @@ export function useGetHealthService<TData = Awaited<ReturnType<typeof getHealthS
 
  * @summary Start routing runtime
  */
-export type postServiceStartResponse200 = {
-  data: ReloadResponse
-  status: 200
+export type postServiceStartResponse202 = {
+  data: LifecycleOperationAcceptedResponse
+  status: 202
 }
 
-export type postServiceStartResponseSuccess = (postServiceStartResponse200) & {
+export type postServiceStartResponse409 = {
+  data: void
+  status: 409
+}
+
+export type postServiceStartResponseSuccess = (postServiceStartResponse202) & {
   headers: Headers;
 };
-;
+export type postServiceStartResponseError = (postServiceStartResponse409) & {
+  headers: Headers;
+};
 
-export type postServiceStartResponse = (postServiceStartResponseSuccess)
+export type postServiceStartResponse = (postServiceStartResponseSuccess | postServiceStartResponseError)
 
 export const getPostServiceStartUrl = () => {
 
@@ -200,7 +207,7 @@ export const postServiceStart = async ( options?: RequestInit): Promise<postServ
 
 
 
-export const getPostServiceStartMutationOptions = <TError = unknown,
+export const getPostServiceStartMutationOptions = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceStart>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof postServiceStart>>, TError,void, TContext> => {
 
@@ -229,12 +236,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type PostServiceStartMutationResult = NonNullable<Awaited<ReturnType<typeof postServiceStart>>>
 
-    export type PostServiceStartMutationError = unknown
+    export type PostServiceStartMutationError = void
 
     /**
  * @summary Start routing runtime
  */
-export const usePostServiceStart = <TError = unknown,
+export const usePostServiceStart = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceStart>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postServiceStart>>,
@@ -250,17 +257,24 @@ export const usePostServiceStart = <TError = unknown,
 
  * @summary Stop routing runtime
  */
-export type postServiceStopResponse200 = {
-  data: ReloadResponse
-  status: 200
+export type postServiceStopResponse202 = {
+  data: LifecycleOperationAcceptedResponse
+  status: 202
 }
 
-export type postServiceStopResponseSuccess = (postServiceStopResponse200) & {
+export type postServiceStopResponse409 = {
+  data: void
+  status: 409
+}
+
+export type postServiceStopResponseSuccess = (postServiceStopResponse202) & {
   headers: Headers;
 };
-;
+export type postServiceStopResponseError = (postServiceStopResponse409) & {
+  headers: Headers;
+};
 
-export type postServiceStopResponse = (postServiceStopResponseSuccess)
+export type postServiceStopResponse = (postServiceStopResponseSuccess | postServiceStopResponseError)
 
 export const getPostServiceStopUrl = () => {
 
@@ -284,7 +298,7 @@ export const postServiceStop = async ( options?: RequestInit): Promise<postServi
 
 
 
-export const getPostServiceStopMutationOptions = <TError = unknown,
+export const getPostServiceStopMutationOptions = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceStop>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof postServiceStop>>, TError,void, TContext> => {
 
@@ -313,12 +327,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type PostServiceStopMutationResult = NonNullable<Awaited<ReturnType<typeof postServiceStop>>>
 
-    export type PostServiceStopMutationError = unknown
+    export type PostServiceStopMutationError = void
 
     /**
  * @summary Stop routing runtime
  */
-export const usePostServiceStop = <TError = unknown,
+export const usePostServiceStop = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceStop>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postServiceStop>>,
@@ -334,17 +348,24 @@ export const usePostServiceStop = <TError = unknown,
 
  * @summary Restart routing runtime
  */
-export type postServiceRestartResponse200 = {
-  data: ReloadResponse
-  status: 200
+export type postServiceRestartResponse202 = {
+  data: LifecycleOperationAcceptedResponse
+  status: 202
 }
 
-export type postServiceRestartResponseSuccess = (postServiceRestartResponse200) & {
+export type postServiceRestartResponse409 = {
+  data: void
+  status: 409
+}
+
+export type postServiceRestartResponseSuccess = (postServiceRestartResponse202) & {
   headers: Headers;
 };
-;
+export type postServiceRestartResponseError = (postServiceRestartResponse409) & {
+  headers: Headers;
+};
 
-export type postServiceRestartResponse = (postServiceRestartResponseSuccess)
+export type postServiceRestartResponse = (postServiceRestartResponseSuccess | postServiceRestartResponseError)
 
 export const getPostServiceRestartUrl = () => {
 
@@ -368,7 +389,7 @@ export const postServiceRestart = async ( options?: RequestInit): Promise<postSe
 
 
 
-export const getPostServiceRestartMutationOptions = <TError = unknown,
+export const getPostServiceRestartMutationOptions = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceRestart>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof postServiceRestart>>, TError,void, TContext> => {
 
@@ -397,12 +418,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type PostServiceRestartMutationResult = NonNullable<Awaited<ReturnType<typeof postServiceRestart>>>
 
-    export type PostServiceRestartMutationError = unknown
+    export type PostServiceRestartMutationError = void
 
     /**
  * @summary Restart routing runtime
  */
-export const usePostServiceRestart = <TError = unknown,
+export const usePostServiceRestart = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceRestart>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postServiceRestart>>,
@@ -737,9 +758,9 @@ export const usePostConfig = <TError = ErrorResponse,
 
  * @summary Apply staged config
  */
-export type postConfigSaveResponse200 = {
-  data: ConfigUpdateResponse
-  status: 200
+export type postConfigSaveResponse202 = {
+  data: LifecycleOperationAcceptedResponse
+  status: 202
 }
 
 export type postConfigSaveResponse400 = {
@@ -747,15 +768,20 @@ export type postConfigSaveResponse400 = {
   status: 400
 }
 
+export type postConfigSaveResponse409 = {
+  data: void
+  status: 409
+}
+
 export type postConfigSaveResponse500 = {
   data: ErrorResponse
   status: 500
 }
 
-export type postConfigSaveResponseSuccess = (postConfigSaveResponse200) & {
+export type postConfigSaveResponseSuccess = (postConfigSaveResponse202) & {
   headers: Headers;
 };
-export type postConfigSaveResponseError = (postConfigSaveResponse400 | postConfigSaveResponse500) & {
+export type postConfigSaveResponseError = (postConfigSaveResponse400 | postConfigSaveResponse409 | postConfigSaveResponse500) & {
   headers: Headers;
 };
 
@@ -783,7 +809,7 @@ export const postConfigSave = async ( options?: RequestInit): Promise<postConfig
 
 
 
-export const getPostConfigSaveMutationOptions = <TError = ErrorResponse,
+export const getPostConfigSaveMutationOptions = <TError = ErrorResponse | void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfigSave>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof postConfigSave>>, TError,void, TContext> => {
 
@@ -812,12 +838,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type PostConfigSaveMutationResult = NonNullable<Awaited<ReturnType<typeof postConfigSave>>>
 
-    export type PostConfigSaveMutationError = ErrorResponse
+    export type PostConfigSaveMutationError = ErrorResponse | void
 
     /**
  * @summary Apply staged config
  */
-export const usePostConfigSave = <TError = ErrorResponse,
+export const usePostConfigSave = <TError = ErrorResponse | void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfigSave>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postConfigSave>>,

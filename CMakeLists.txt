@@ -258,6 +258,7 @@ set(SOURCES
   src/runtime/resolver_coordinator.cpp
   src/runtime/runtime_state_machine.cpp
   src/runtime/operation_coordinator.cpp
+  src/runtime/lifecycle_operation.cpp
   src/firewall/firewall_reconciler.cpp
   src/lists/ipset.cpp
   src/lists/kernel_set_tester.cpp

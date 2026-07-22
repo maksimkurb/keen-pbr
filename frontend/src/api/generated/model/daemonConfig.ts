@@ -43,6 +43,11 @@ export interface DaemonConfig {
      */
   exec_timeout_seconds?: number;
   /**
+     * Deadline for dnsmasq process stabilization and DNS readiness after a helper completes.
+     * @minimum 1
+     */
+  resolver_ready_timeout_seconds?: number;
+  /**
      * Grace period after SIGTERM before a timed-out helper receives SIGKILL.
      * @minimum 0
      */

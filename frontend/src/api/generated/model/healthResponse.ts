@@ -7,6 +7,7 @@
  */
 import type { HealthResponseRuntimeState } from './healthResponseRuntimeState';
 import type { HealthResponseStatus } from './healthResponseStatus';
+import type { LifecycleOperation } from './lifecycleOperation';
 import type { ResolverConfigProbeStatus } from './resolverConfigProbeStatus';
 import type { ResolverConfigSyncState } from './resolverConfigSyncState';
 import type { RuntimeOutboundStatus } from './runtimeOutboundStatus';
@@ -49,4 +50,5 @@ export interface HealthResponse {
   /** Whether a newer configuration has been staged in memory but not yet persisted and applied.
    */
   config_is_draft: boolean;
+  lifecycle_operation?: LifecycleOperation;
 }

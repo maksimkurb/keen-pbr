@@ -71,6 +71,13 @@ std::string serialize_config_pretty(const Config& config) {
     return json.dump(1, '\t') + "\n";
 }
 
+std::vector<LifecycleOperationStage> apply_stages() {
+    return {{"prepare", "Prepare configuration"},
+            {"runtime", "Apply routing and firewall"},
+            {"resolver", "Verify dnsmasq lifecycle"},
+            {"commit", "Save configuration"}};
+}
+
 } // namespace
 
 void register_config_handler(ApiServer& server, ApiContext& ctx) {
@@ -115,75 +122,48 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         return nlohmann::json(resp).dump();
     });
 
-    // POST /api/config/save - dry-run check, apply staged config, then persist it
+    // POST /api/config/save - register work immediately; the daemon owns progress.
     server.post("/api/config/save", [&ctx]() -> std::string {
-        ctx.begin_save_operation();
-
         std::optional<std::pair<Config, std::string>> staged_snapshot;
-        try {
-            staged_snapshot = ctx.get_staged_config_snapshot();
-        } catch (...) {
-            ctx.finish_config_operation();
-            throw;
-        }
+        staged_snapshot = ctx.get_staged_config_snapshot();
 
         if (!staged_snapshot.has_value()) {
-            ctx.finish_config_operation();
             throw ApiError("No staged config to save", 400);
         }
-
-        // Phase 1: validation + dry-run apply check.
-        try {
-            ctx.validate_candidate_config(staged_snapshot->first);
-        } catch (const ConfigValidationError& e) {
-            ctx.finish_config_operation();
-            nlohmann::json error_payload = make_validation_error_json(e);
-            error_payload["saved"] = false;
-            error_payload["applied"] = false;
-            error_payload["rolled_back"] = false;
-            throw ApiError("Dry-run apply check failed", 400, error_payload.dump());
-        } catch (const std::exception& e) {
-            ctx.finish_config_operation();
-            nlohmann::json error_payload = {
-                {"error", std::string("Dry-run apply check failed: ") + e.what()},
-                {"saved", false},
-                {"applied", false},
-                {"rolled_back", false},
-            };
-            throw ApiError("Dry-run apply check failed", 500, error_payload.dump());
+        if (ctx.lifecycle_operations == nullptr) throw ApiError("Lifecycle coordinator is unavailable", 503);
+        LifecycleOperationSnapshot operation;
+        if (const auto active = ctx.lifecycle_operations->begin(
+                LifecycleOperationType::ApplyConfig, apply_stages(), operation)) {
+            throw ApiError("A lifecycle operation is already active", 409,
+                           nlohmann::json{{"error", "A lifecycle operation is already active"},
+                                          {"active_operation_id", *active}}.dump());
         }
-
-        // Phase 2: apply + durable commit.
-        try {
-            ConfigApplyResult apply_result =
-                ctx.enqueue_apply_validated_config(staged_snapshot->first, staged_snapshot->second);
-
-            if (!apply_result.error.empty()) {
-                nlohmann::json error_payload = {
-                    {"error", std::string("Commit/apply failed: ") + apply_result.error},
-                    {"saved", apply_result.saved},
-                    {"applied", apply_result.applied},
-                    {"rolled_back", apply_result.rolled_back},
-                };
-                throw ApiError("Commit/apply failed", 500, error_payload.dump());
-            }
-
-            nlohmann::json response = {
-                {"status", "ok"},
-                {"message", "Config saved and applied"},
-                {"saved", apply_result.saved},
-                {"applied", apply_result.applied},
-                {"rolled_back", apply_result.rolled_back},
-            };
-            if (apply_result.apply_started_ts.has_value()) {
-                response["apply_started_ts"] = *apply_result.apply_started_ts;
-            }
-            ctx.finish_config_operation();
-            return response.dump();
-        } catch (...) {
-            ctx.finish_config_operation();
-            throw;
+        const auto config = staged_snapshot->first;
+        const auto serialized = staged_snapshot->second;
+        const std::string operation_id = operation.id;
+        if (!ctx.enqueue_lifecycle_task("api-lifecycle-apply", [&ctx, config, serialized, operation_id]() {
+                try {
+                    ctx.lifecycle_operations->start_stage(operation_id, "prepare");
+                    ctx.validate_candidate_config(config);
+                    ctx.lifecycle_operations->succeed_stage(operation_id, "prepare");
+                    ctx.lifecycle_operations->start_stage(operation_id, "runtime");
+                    ctx.lifecycle_operations->start_stage(operation_id, "resolver");
+                    const ConfigApplyResult result = ctx.enqueue_apply_validated_config(config, serialized);
+                    if (!result.error.empty()) throw std::runtime_error(result.error);
+                    ctx.lifecycle_operations->succeed_stage(operation_id, "runtime");
+                    ctx.lifecycle_operations->succeed_stage(operation_id, "resolver");
+                    ctx.lifecycle_operations->start_stage(operation_id, "commit");
+                    ctx.lifecycle_operations->succeed_stage(operation_id, "commit");
+                    ctx.lifecycle_operations->finish(operation_id);
+                } catch (const std::exception& error) {
+                    ctx.lifecycle_operations->fail_stage(operation_id, "runtime", error.what());
+                    ctx.lifecycle_operations->finish(operation_id, error.what());
+                }
+            })) {
+            ctx.lifecycle_operations->finish(operation_id, "Lifecycle executor is unavailable");
+            throw ApiError("Lifecycle executor is unavailable", 503);
         }
+        throw ApiAccepted(nlohmann::json{{"operation_id", operation_id}, {"status", "accepted"}}.dump());
     });
 }
 

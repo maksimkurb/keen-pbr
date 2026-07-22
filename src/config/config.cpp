@@ -698,6 +698,9 @@ Config parse_config(const std::string& json_str) {
     validate_optional_integer_field(
         parsed_json, "daemon", "exec_timeout_seconds", "daemon.exec_timeout_seconds", issues);
     validate_optional_integer_field(
+        parsed_json, "daemon", "resolver_ready_timeout_seconds",
+        "daemon.resolver_ready_timeout_seconds", issues);
+    validate_optional_integer_field(
         parsed_json, "daemon", "exec_kill_grace_seconds", "daemon.exec_kill_grace_seconds", issues);
     validate_optional_integer_field(
         parsed_json, "api", "max_request_body_bytes", "api.max_request_body_bytes", issues);
@@ -756,6 +759,10 @@ void validate_config(const Config& cfg) {
     if (cfg.daemon && cfg.daemon->exec_timeout_seconds.value_or(30) < 1) {
         add_issue(issues, "daemon.exec_timeout_seconds",
                   "daemon.exec_timeout_seconds must be >= 1");
+    }
+    if (cfg.daemon && cfg.daemon->resolver_ready_timeout_seconds.value_or(120) < 1) {
+        add_issue(issues, "daemon.resolver_ready_timeout_seconds",
+                  "daemon.resolver_ready_timeout_seconds must be >= 1");
     }
     if (cfg.daemon && cfg.daemon->exec_kill_grace_seconds.value_or(2) < 0) {
         add_issue(issues, "daemon.exec_kill_grace_seconds",

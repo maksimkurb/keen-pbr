@@ -22,6 +22,25 @@ api::RuntimeState to_api_runtime_state(const std::string& state) {
 
 } // namespace
 
+namespace {
+nlohmann::json lifecycle_operation_json(const LifecycleOperationSnapshot& operation) {
+    nlohmann::json stages = nlohmann::json::array();
+    for (const auto& stage : operation.stages) {
+        stages.push_back({{"id", stage.id}, {"title", stage.title},
+                          {"status", lifecycle_operation_status_name(stage.status)},
+                          {"detail", stage.detail}});
+    }
+    nlohmann::json result{{"id", operation.id},
+                          {"type", lifecycle_operation_type_name(operation.type)},
+                          {"status", lifecycle_operation_result_name(operation.result)},
+                          {"started_at", operation.started_at},
+                          {"stages", std::move(stages)}};
+    if (operation.finished_at) result["finished_at"] = *operation.finished_at;
+    if (!operation.error.empty()) result["error"] = operation.error;
+    return result;
+}
+} // namespace
+
 api::HealthResponse build_health_response(const ServiceHealthState& service_health) {
         api::HealthResponse resp;
         resp.version = KEEN_PBR3_VERSION_STRING;
@@ -48,7 +67,12 @@ api::HealthResponse build_health_response(const ServiceHealthState& service_heal
 void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
     // GET /api/health/service - daemon version/status + resolver/config summary
     server.get("/api/health/service", [&ctx]() -> std::string {
-        return nlohmann::json(build_health_response(ctx.get_service_health())).dump();
+        const ServiceHealthState health = ctx.get_service_health();
+        nlohmann::json response = build_health_response(health);
+        if (health.lifecycle_operation) {
+            response["lifecycle_operation"] = lifecycle_operation_json(*health.lifecycle_operation);
+        }
+        return response.dump();
     });
 }
 

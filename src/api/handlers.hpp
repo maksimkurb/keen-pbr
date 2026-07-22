@@ -9,6 +9,7 @@
 #include "../health/routing_health.hpp"
 #include "sse_broadcaster.hpp"
 #include "status_stream.hpp"
+#include "../runtime/lifecycle_operation.hpp"
 #include "server.hpp"
 
 #include <cstdint>
@@ -50,6 +51,7 @@ struct ServiceHealthState {
     std::optional<std::int64_t> apply_started_ts;
     std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
     bool config_is_draft{false};
+    std::optional<LifecycleOperationSnapshot> lifecycle_operation;
 };
 
 struct ListRefreshOperationResult {
@@ -89,6 +91,13 @@ struct ApiContext {
     std::function<void()> restart_runtime_fn;
     std::function<ListRefreshOperationResult(std::optional<std::string>)> refresh_lists_fn;
     StatusStream* status_stream{nullptr};
+    // Owned by the daemon; exposed here only for API registration.
+    LifecycleOperationCoordinator* lifecycle_operations{nullptr};
+    std::function<bool(std::string, std::function<void()>)> enqueue_lifecycle_task_fn;
+
+    bool enqueue_lifecycle_task(std::string label, std::function<void()> task) const {
+        return enqueue_lifecycle_task_fn(std::move(label), std::move(task));
+    }
 
     Config get_visible_config() const {
         return get_visible_config_fn();

@@ -503,6 +503,7 @@ void Daemon::setup_api() {
             service_health.resolver_config_sync_state =
                 runtime_snapshot.resolver_config_sync_state;
             service_health.config_is_draft = config_store_.config_is_draft();
+            service_health.lifecycle_operation = lifecycle_operation_store_.snapshot();
             return service_health;
         },
         [this]() {
@@ -609,6 +610,10 @@ void Daemon::setup_api() {
             return refresh_lists_via_api(requested_name);
         },
         nullptr,
+        &lifecycle_operations_,
+        [this](std::string label, std::function<void()> task) {
+            return blocking_executor_.try_post(std::move(label), std::move(task));
+        },
     });
     status_stream_ = std::make_unique<StatusStream>([this]() {
         return StatusSnapshot{

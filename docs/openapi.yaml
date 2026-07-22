@@ -34,12 +34,14 @@ paths:
         stopping the API process.
       operationId: postServiceStart
       responses:
-        "200":
-          description: Service start requested successfully
+        "202":
+          description: Lifecycle operation accepted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReloadResponse"
+                $ref: "#/components/schemas/LifecycleOperationAcceptedResponse"
+        "409":
+          description: Another lifecycle operation is active
 
   /api/service/stop:
     post:
@@ -50,12 +52,14 @@ paths:
         API process running.
       operationId: postServiceStop
       responses:
-        "200":
-          description: Service stop requested successfully
+        "202":
+          description: Lifecycle operation accepted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReloadResponse"
+                $ref: "#/components/schemas/LifecycleOperationAcceptedResponse"
+        "409":
+          description: Another lifecycle operation is active
 
   /api/service/restart:
     post:
@@ -65,12 +69,14 @@ paths:
         registration hooks for the managed resolver config.
       operationId: postServiceRestart
       responses:
-        "200":
-          description: Service restart requested successfully
+        "202":
+          description: Lifecycle operation accepted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReloadResponse"
+                $ref: "#/components/schemas/LifecycleOperationAcceptedResponse"
+        "409":
+          description: Another lifecycle operation is active
 
   /api/lists/refresh:
     post:
@@ -174,12 +180,14 @@ paths:
         it to the routing runtime.
       operationId: postConfigSave
       responses:
-        "200":
-          description: Config saved and applied successfully
+        "202":
+          description: Lifecycle operation accepted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ConfigUpdateResponse"
+                $ref: "#/components/schemas/LifecycleOperationAcceptedResponse"
+        "409":
+          description: Another lifecycle operation is active
         "400":
           description: No staged config or validation/dry-run failure
           content:
@@ -455,6 +463,11 @@ components:
           minimum: 1
           default: 30
           description: Deadline for privileged helper and hook processes.
+        resolver_ready_timeout_seconds:
+          type: integer
+          minimum: 1
+          default: 120
+          description: Deadline for dnsmasq process stabilization and DNS readiness after a helper completes.
         exec_kill_grace_seconds:
           type: integer
           minimum: 0
@@ -1293,6 +1306,58 @@ components:
             Whether a newer configuration has been staged in memory but not yet
             persisted and applied.
           example: false
+        lifecycle_operation:
+          $ref: "#/components/schemas/LifecycleOperation"
+
+    LifecycleOperationAcceptedResponse:
+      type: object
+      required: [operation_id, status]
+      properties:
+        operation_id:
+          type: string
+          example: "lifecycle-42"
+        status:
+          type: string
+          enum: [accepted]
+
+    LifecycleOperation:
+      type: object
+      required: [id, type, status, started_at, stages]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [apply_config, start, stop, restart]
+        status:
+          type: string
+          enum: [running, succeeded, failed]
+        started_at:
+          type: integer
+          format: int64
+        finished_at:
+          type: integer
+          format: int64
+        error:
+          type: string
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/LifecycleOperationStage"
+
+    LifecycleOperationStage:
+      type: object
+      required: [id, title, status]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, succeeded, failed, skipped]
+        detail:
+          type: string
 
     ResolverConfigSyncState:
       type: string

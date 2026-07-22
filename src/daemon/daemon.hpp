@@ -34,6 +34,7 @@
 #include "../runtime/resolver_coordinator.hpp"
 #include "../runtime/runtime_state_machine.hpp"
 #include "../runtime/operation_coordinator.hpp"
+#include "../runtime/lifecycle_operation.hpp"
 
 namespace keen_pbr3 {
 
@@ -334,6 +335,8 @@ private:
     ConfigStore config_store_;
     ListService list_service_;
     RuntimeStateStore runtime_state_store_;
+    LifecycleOperationStore lifecycle_operation_store_;
+    LifecycleOperationCoordinator lifecycle_operations_{lifecycle_operation_store_};
 
     // Event-loop-owned controller state
     Config config_;

@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes9JmqJk data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesEFtlCp data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -132,6 +132,7 @@ namespace api {
         std::optional<bool> ipv6_enabled;
         std::optional<int64_t> max_file_size_bytes;
         std::optional<std::string> pid_file;
+        std::optional<int64_t> resolver_ready_timeout_seconds;
         std::optional<bool> skip_marked_packets;
         std::optional<bool> strict_enforcement;
         std::optional<StrictEnforcementAction> strict_enforcement_action;
@@ -299,6 +300,29 @@ namespace api {
         CheckStatus status;
     };
 
+    enum class LifecycleOperationStageStatus : int { FAILED, PENDING, RUNNING, SKIPPED, SUCCEEDED };
+
+    struct LifecycleOperationStageElement {
+        std::optional<std::string> detail;
+        std::string id;
+        LifecycleOperationStageStatus status;
+        std::string title;
+    };
+
+    enum class LifecycleOperationStatus : int { FAILED, RUNNING, SUCCEEDED };
+
+    enum class LifecycleOperationType : int { APPLY_CONFIG, RESTART, START, STOP };
+
+    struct LifecycleOperation {
+        std::optional<std::string> error;
+        std::optional<int64_t> finished_at;
+        std::string id;
+        std::vector<LifecycleOperationStageElement> stages;
+        int64_t started_at;
+        LifecycleOperationStatus status;
+        LifecycleOperationType type;
+    };
+
     enum class ResolverConfigProbeStatus : int { INVALID_TXT, MISSING_TXT, NOT_CONFIGURED, QUERY_FAILED, SUCCESS, UNKNOWN };
 
     enum class ResolverConfigSyncState : int { CONVERGED, CONVERGING, STALE };
@@ -314,6 +338,7 @@ namespace api {
         std::string build;
         std::string build_variant;
         bool config_is_draft;
+        std::optional<LifecycleOperation> lifecycle_operation;
         std::string os_type;
         std::string os_version;
         std::optional<std::string> resolver_config_hash;
@@ -327,6 +352,13 @@ namespace api {
         std::optional<std::string> runtime_state_reason;
         HealthResponseStatus status;
         std::string version;
+    };
+
+    enum class LifecycleOperationAcceptedResponseStatus : int { ACCEPTED };
+
+    struct LifecycleOperationAcceptedResponse {
+        std::string operation_id;
+        LifecycleOperationAcceptedResponseStatus status;
     };
 
     struct ListRefreshRequest {
@@ -513,7 +545,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypes9JmqJk {
+    struct KeenPbrTypesEFtlCp {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -534,6 +566,9 @@ namespace api {
         std::optional<Fwmark> fwmark_config;
         std::optional<HealthResponse> health_response;
         std::optional<Iproute> iproute_config;
+        std::optional<LifecycleOperation> lifecycle_operation;
+        std::optional<LifecycleOperationAcceptedResponse> lifecycle_operation_accepted_response;
+        std::optional<LifecycleOperationStageElement> lifecycle_operation_stage;
         std::optional<ListConfigValue> list_config;
         std::optional<ListRefreshRequest> list_refresh_request;
         std::optional<ListRefreshResponse> list_refresh_response;
@@ -654,8 +689,17 @@ namespace api {
     void from_json(const json & j, FirewallRuleCheck & x);
     void to_json(json & j, const FirewallRuleCheck & x);
 
+    void from_json(const json & j, LifecycleOperationStageElement & x);
+    void to_json(json & j, const LifecycleOperationStageElement & x);
+
+    void from_json(const json & j, LifecycleOperation & x);
+    void to_json(json & j, const LifecycleOperation & x);
+
     void from_json(const json & j, HealthResponse & x);
     void to_json(json & j, const HealthResponse & x);
+
+    void from_json(const json & j, LifecycleOperationAcceptedResponse & x);
+    void to_json(json & j, const LifecycleOperationAcceptedResponse & x);
 
     void from_json(const json & j, ListRefreshRequest & x);
     void to_json(json & j, const ListRefreshRequest & x);
@@ -726,8 +770,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypes9JmqJk & x);
-    void to_json(json & j, const KeenPbrTypes9JmqJk & x);
+    void from_json(const json & j, KeenPbrTypesEFtlCp & x);
+    void to_json(json & j, const KeenPbrTypesEFtlCp & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -750,6 +794,15 @@ namespace api {
     void from_json(const json & j, ConfigUpdateResponseStatus & x);
     void to_json(json & j, const ConfigUpdateResponseStatus & x);
 
+    void from_json(const json & j, LifecycleOperationStageStatus & x);
+    void to_json(json & j, const LifecycleOperationStageStatus & x);
+
+    void from_json(const json & j, LifecycleOperationStatus & x);
+    void to_json(json & j, const LifecycleOperationStatus & x);
+
+    void from_json(const json & j, LifecycleOperationType & x);
+    void to_json(json & j, const LifecycleOperationType & x);
+
     void from_json(const json & j, ResolverConfigProbeStatus & x);
     void to_json(json & j, const ResolverConfigProbeStatus & x);
 
@@ -764,6 +817,9 @@ namespace api {
 
     void from_json(const json & j, HealthResponseStatus & x);
     void to_json(json & j, const HealthResponseStatus & x);
+
+    void from_json(const json & j, LifecycleOperationAcceptedResponseStatus & x);
+    void to_json(json & j, const LifecycleOperationAcceptedResponseStatus & x);
 
     void from_json(const json & j, ExpectedAction & x);
     void to_json(json & j, const ExpectedAction & x);
@@ -860,6 +916,7 @@ namespace api {
         x.ipv6_enabled = get_stack_optional<bool>(j, "ipv6_enabled");
         x.max_file_size_bytes = get_stack_optional<int64_t>(j, "max_file_size_bytes");
         x.pid_file = get_stack_optional<std::string>(j, "pid_file");
+        x.resolver_ready_timeout_seconds = get_stack_optional<int64_t>(j, "resolver_ready_timeout_seconds");
         x.skip_marked_packets = get_stack_optional<bool>(j, "skip_marked_packets");
         x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
         x.strict_enforcement_action = get_stack_optional<StrictEnforcementAction>(j, "strict_enforcement_action");
@@ -876,6 +933,7 @@ namespace api {
         j["ipv6_enabled"] = x.ipv6_enabled;
         j["max_file_size_bytes"] = x.max_file_size_bytes;
         j["pid_file"] = x.pid_file;
+        j["resolver_ready_timeout_seconds"] = x.resolver_ready_timeout_seconds;
         j["skip_marked_packets"] = x.skip_marked_packets;
         j["strict_enforcement"] = x.strict_enforcement;
         j["strict_enforcement_action"] = x.strict_enforcement_action;
@@ -1211,11 +1269,48 @@ namespace api {
         j["status"] = x.status;
     }
 
+    inline void from_json(const json & j, LifecycleOperationStageElement& x) {
+        x.detail = get_stack_optional<std::string>(j, "detail");
+        x.id = j.at("id").get<std::string>();
+        x.status = j.at("status").get<LifecycleOperationStageStatus>();
+        x.title = j.at("title").get<std::string>();
+    }
+
+    inline void to_json(json & j, const LifecycleOperationStageElement & x) {
+        j = json::object();
+        j["detail"] = x.detail;
+        j["id"] = x.id;
+        j["status"] = x.status;
+        j["title"] = x.title;
+    }
+
+    inline void from_json(const json & j, LifecycleOperation& x) {
+        x.error = get_stack_optional<std::string>(j, "error");
+        x.finished_at = get_stack_optional<int64_t>(j, "finished_at");
+        x.id = j.at("id").get<std::string>();
+        x.stages = j.at("stages").get<std::vector<LifecycleOperationStageElement>>();
+        x.started_at = j.at("started_at").get<int64_t>();
+        x.status = j.at("status").get<LifecycleOperationStatus>();
+        x.type = j.at("type").get<LifecycleOperationType>();
+    }
+
+    inline void to_json(json & j, const LifecycleOperation & x) {
+        j = json::object();
+        j["error"] = x.error;
+        j["finished_at"] = x.finished_at;
+        j["id"] = x.id;
+        j["stages"] = x.stages;
+        j["started_at"] = x.started_at;
+        j["status"] = x.status;
+        j["type"] = x.type;
+    }
+
     inline void from_json(const json & j, HealthResponse& x) {
         x.apply_started_ts = get_stack_optional<int64_t>(j, "apply_started_ts");
         x.build = j.at("build").get<std::string>();
         x.build_variant = j.at("build_variant").get<std::string>();
         x.config_is_draft = j.at("config_is_draft").get<bool>();
+        x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "lifecycle_operation");
         x.os_type = j.at("os_type").get<std::string>();
         x.os_version = j.at("os_version").get<std::string>();
         x.resolver_config_hash = get_stack_optional<std::string>(j, "resolver_config_hash");
@@ -1237,6 +1332,7 @@ namespace api {
         j["build"] = x.build;
         j["build_variant"] = x.build_variant;
         j["config_is_draft"] = x.config_is_draft;
+        j["lifecycle_operation"] = x.lifecycle_operation;
         j["os_type"] = x.os_type;
         j["os_version"] = x.os_version;
         j["resolver_config_hash"] = x.resolver_config_hash;
@@ -1250,6 +1346,17 @@ namespace api {
         j["runtime_state_reason"] = x.runtime_state_reason;
         j["status"] = x.status;
         j["version"] = x.version;
+    }
+
+    inline void from_json(const json & j, LifecycleOperationAcceptedResponse& x) {
+        x.operation_id = j.at("operation_id").get<std::string>();
+        x.status = j.at("status").get<LifecycleOperationAcceptedResponseStatus>();
+    }
+
+    inline void to_json(json & j, const LifecycleOperationAcceptedResponse & x) {
+        j = json::object();
+        j["operation_id"] = x.operation_id;
+        j["status"] = x.status;
     }
 
     inline void from_json(const json & j, ListRefreshRequest& x) {
@@ -1603,7 +1710,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes9JmqJk& x) {
+    inline void from_json(const json & j, KeenPbrTypesEFtlCp& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1624,6 +1731,9 @@ namespace api {
         x.fwmark_config = get_stack_optional<Fwmark>(j, "FwmarkConfig");
         x.health_response = get_stack_optional<HealthResponse>(j, "HealthResponse");
         x.iproute_config = get_stack_optional<Iproute>(j, "IprouteConfig");
+        x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "LifecycleOperation");
+        x.lifecycle_operation_accepted_response = get_stack_optional<LifecycleOperationAcceptedResponse>(j, "LifecycleOperationAcceptedResponse");
+        x.lifecycle_operation_stage = get_stack_optional<LifecycleOperationStageElement>(j, "LifecycleOperationStage");
         x.list_config = get_stack_optional<ListConfigValue>(j, "ListConfig");
         x.list_refresh_request = get_stack_optional<ListRefreshRequest>(j, "ListRefreshRequest");
         x.list_refresh_response = get_stack_optional<ListRefreshResponse>(j, "ListRefreshResponse");
@@ -1662,7 +1772,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes9JmqJk & x) {
+    inline void to_json(json & j, const KeenPbrTypesEFtlCp & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1684,6 +1794,9 @@ namespace api {
         j["FwmarkConfig"] = x.fwmark_config;
         j["HealthResponse"] = x.health_response;
         j["IprouteConfig"] = x.iproute_config;
+        j["LifecycleOperation"] = x.lifecycle_operation;
+        j["LifecycleOperationAcceptedResponse"] = x.lifecycle_operation_accepted_response;
+        j["LifecycleOperationStage"] = x.lifecycle_operation_stage;
         j["ListConfig"] = x.list_config;
         j["ListRefreshRequest"] = x.list_refresh_request;
         j["ListRefreshResponse"] = x.list_refresh_response;
@@ -1828,6 +1941,60 @@ namespace api {
         }
     }
 
+    inline void from_json(const json & j, LifecycleOperationStageStatus & x) {
+        if (j == "failed") x = LifecycleOperationStageStatus::FAILED;
+        else if (j == "pending") x = LifecycleOperationStageStatus::PENDING;
+        else if (j == "running") x = LifecycleOperationStageStatus::RUNNING;
+        else if (j == "skipped") x = LifecycleOperationStageStatus::SKIPPED;
+        else if (j == "succeeded") x = LifecycleOperationStageStatus::SUCCEEDED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"LifecycleOperationStageStatus\""); }
+    }
+
+    inline void to_json(json & j, const LifecycleOperationStageStatus & x) {
+        switch (x) {
+            case LifecycleOperationStageStatus::FAILED: j = "failed"; break;
+            case LifecycleOperationStageStatus::PENDING: j = "pending"; break;
+            case LifecycleOperationStageStatus::RUNNING: j = "running"; break;
+            case LifecycleOperationStageStatus::SKIPPED: j = "skipped"; break;
+            case LifecycleOperationStageStatus::SUCCEEDED: j = "succeeded"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"LifecycleOperationStageStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, LifecycleOperationStatus & x) {
+        if (j == "failed") x = LifecycleOperationStatus::FAILED;
+        else if (j == "running") x = LifecycleOperationStatus::RUNNING;
+        else if (j == "succeeded") x = LifecycleOperationStatus::SUCCEEDED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"LifecycleOperationStatus\""); }
+    }
+
+    inline void to_json(json & j, const LifecycleOperationStatus & x) {
+        switch (x) {
+            case LifecycleOperationStatus::FAILED: j = "failed"; break;
+            case LifecycleOperationStatus::RUNNING: j = "running"; break;
+            case LifecycleOperationStatus::SUCCEEDED: j = "succeeded"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"LifecycleOperationStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, LifecycleOperationType & x) {
+        if (j == "apply_config") x = LifecycleOperationType::APPLY_CONFIG;
+        else if (j == "restart") x = LifecycleOperationType::RESTART;
+        else if (j == "start") x = LifecycleOperationType::START;
+        else if (j == "stop") x = LifecycleOperationType::STOP;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"LifecycleOperationType\""); }
+    }
+
+    inline void to_json(json & j, const LifecycleOperationType & x) {
+        switch (x) {
+            case LifecycleOperationType::APPLY_CONFIG: j = "apply_config"; break;
+            case LifecycleOperationType::RESTART: j = "restart"; break;
+            case LifecycleOperationType::START: j = "start"; break;
+            case LifecycleOperationType::STOP: j = "stop"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"LifecycleOperationType\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
     inline void from_json(const json & j, ResolverConfigProbeStatus & x) {
         if (j == "invalid_txt") x = ResolverConfigProbeStatus::INVALID_TXT;
         else if (j == "missing_txt") x = ResolverConfigProbeStatus::MISSING_TXT;
@@ -1919,6 +2086,18 @@ namespace api {
             case HealthResponseStatus::RUNNING: j = "running"; break;
             case HealthResponseStatus::STOPPED: j = "stopped"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"HealthResponseStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, LifecycleOperationAcceptedResponseStatus & x) {
+        if (j == "accepted") x = LifecycleOperationAcceptedResponseStatus::ACCEPTED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"LifecycleOperationAcceptedResponseStatus\""); }
+    }
+
+    inline void to_json(json & j, const LifecycleOperationAcceptedResponseStatus & x) {
+        switch (x) {
+            case LifecycleOperationAcceptedResponseStatus::ACCEPTED: j = "accepted"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"LifecycleOperationAcceptedResponseStatus\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

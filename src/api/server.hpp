@@ -49,6 +49,15 @@ private:
     std::optional<std::string> body_;
 };
 
+// A deliberate non-error response status for asynchronous endpoints.
+class ApiAccepted final : public std::runtime_error {
+public:
+    explicit ApiAccepted(std::string body) : std::runtime_error("Accepted"), body_(std::move(body)) {}
+    const std::string& body() const noexcept { return body_; }
+private:
+    std::string body_;
+};
+
 // HTTP REST API server using cpp-httplib.
 // Runs in a background thread and integrates with the Daemon event loop
 // for shutdown coordination.
