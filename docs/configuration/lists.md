@@ -131,5 +131,5 @@ Both entries match the domain and all its subdomains. Writing `*.example.com` is
 }
 ```
 
-All four sources are merged into a single list. `ttl_ms: 86400000` sets a 24-hour TTL for dnsmasq-resolved IPs in the dynamic set (`kpbr4d_combined` / `kpbr6d_combined`). Static IPs from `ip_cidrs` and the cached URL/file are loaded into the permanent static set (`kpbr4_combined` / `kpbr6_combined`) and are never expired automatically.
+All four sources are merged into a single list. `ttl_ms: 86400000` sets a 24-hour TTL for dnsmasq-resolved IPs in the stable dynamic set (`kpbr4d_combined` / `kpbr6d_combined`). Static IPs from `ip_cidrs` and the cached URL/file are loaded into the active A/B iptables set (`kpbr4s_combined` or `kpbr4S_combined`) or the stable nftables set (`kpbr4_combined`) and never expire automatically.
 

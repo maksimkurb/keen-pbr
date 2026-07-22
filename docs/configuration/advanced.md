@@ -13,6 +13,7 @@ Controls the PID file path, cache directory, and global routing behaviour.
 | `pid_file` | string | — | Path to write the PID file |
 | `cache_dir` | string | `/var/cache/keen-pbr` | Directory for cached list data |
 | `firewall_backend` | string | `"auto"` | Firewall backend selection: `auto`, `iptables`, or `nftables` |
+| `clear_dynamic_sets_on_apply` | boolean | `true` | Clear dnsmasq-managed dynamic sets during a full config apply or runtime restart. Preserve-set and list-only reconciles never clear them. |
 | `strict_enforcement` | boolean | `false` | Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. |
 | `strict_enforcement_action` | string | `"unreachable"` | Terminal action for strict enforcement: `unreachable` returns an immediate network error; `blackhole` silently drops packets until the application times out. |
 | `max_file_size_bytes` | integer | `8388608` (8 MiB) | Maximum allowed size in bytes for downloaded remote list content |
@@ -24,6 +25,7 @@ Controls the PID file path, cache directory, and global routing behaviour.
     "pid_file": "/var/run/keen-pbr.pid",
     "cache_dir": "/var/cache/keen-pbr",
     "firewall_backend": "auto",
+    "clear_dynamic_sets_on_apply": true,
     "strict_enforcement": false,
     "strict_enforcement_action": "unreachable",
     "max_file_size_bytes": 8388608,

@@ -42,7 +42,7 @@
 Коротко: вы создаёте список сайтов, выбираете, какое соединение должно их обслуживать, а keen-pbr сам следит за тем, чтобы DNS и маршрутизация оставались согласованы и нужный трафик шёл нужным путём.
 Эта страница объясняет, что происходит «под капотом», — для тех, кто хочет разобраться глубже.
 Основные сущности Списки Именованные наборы IP-адресов, CIDR-диапазонов и доменных имён. Источники можно комбинировать в любых сочетаниях:">
-	<meta itemprop="wordCount" content="766">
+	<meta itemprop="wordCount" content="780">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Принцип работы">
 	<meta name="twitter:description" content="Для обычной настройки эту страницу читать необязательно.
@@ -1004,7 +1004,7 @@
 <li><strong>Домены напрямую</strong> (<code>domains</code>) — берутся прямо из конфига</li>
 <li><strong>Локальный файл</strong> (<code>file</code>) — читается с диска</li>
 </ul>
-<p>При запуске IP/CIDR-записи загружаются в ipsets или nftsets (<code>kpbr4_&lt;list&gt;</code>, <code>kpbr6_&lt;list&gt;</code>) без ограничения времени жизни записей.</p>
+<p>При запуске IP/CIDR-записи загружаются в kernel sets. Бэкенд iptables чередует <code>kpbr4s_/kpbr4S_</code> и <code>kpbr6s_/kpbr6S_</code>, а nftables сохраняет стабильные имена <code>kpbr4_</code>/<code>kpbr6_</code>. Время жизни статических записей не ограничено.</p>
 <p>Домены превращаются в директивы dnsmasq <code>ipset=</code>/<code>nftset=</code>: при разрешении домена его IP динамически добавляются в соответствующий набор (<code>kpbr4d_&lt;list&gt;</code>, <code>kpbr6d_&lt;list&gt;</code>) и хранятся там до истечения <code>ttl_ms</code>, заданного для этого списка.</p>
 <p>См. <a href="/ru/docs/configuration/lists/">Списки</a> для полного справочника.</p>
 <h3>Outbounds<span class="hx:absolute hx:-mt-20" id="outbounds"></span>
@@ -1061,7 +1061,7 @@
 <h2>Как это работает — последовательность запуска<span class="hx:absolute hx:-mt-20" id="как-это-работает--последовательность-запуска"></span>
     <a href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><ol>
 <li><strong>Загрузка списков</strong> — скачиваются удалённые URL (при недоступности берётся кэш), читаются локальные файлы и встроенные записи</li>
-<li><strong>Заполнение ipsets/nftsets</strong> — IP/CIDR-записи из списков загружаются в ядерные наборы (<code>kpbr4_&lt;list&gt;</code>, <code>kpbr6_&lt;list&gt;</code>)</li>
+<li><strong>Заполнение ipsets/nftsets</strong> — IP/CIDR-записи загружаются в неактивные A/B-наборы iptables или стабильные наборы nftables</li>
 <li><strong>Настройка правил firewall</strong> — в таблице <code>mangle</code> iptables или в таблице <code>inet KeenPbrTable</code> nftables создаются правила сопоставления по спискам и фильтрам, после чего в <code>PREROUTING</code> / <code>prerouting</code> проставляются нужные fwmark</li>
 <li><strong>Настройка маршрутизации</strong> — под каждый outbound создаются таблица маршрутизации и запись <code>ip rule</code> на основе назначенных fwmark</li>
 <li><strong>Генерация конфигурации резолвера</strong> — файл <code>/tmp/keen-pbr-dnsmasq.conf</code> с директивами <code>server=</code> и <code>ipset=</code>/<code>nftset=</code> записывается на диск; dnsmasq получает сигнал перезагрузки</li>
@@ -1080,7 +1080,7 @@
     end
 
     subgraph Kernel[&#34;Linux Kernel&#34;]
-        Ipsets[&#34;ipsets / nftsets\n(kpbr4_&amp;lt;list&amp;gt;, kpbr6_&amp;lt;list&amp;gt;)&#34;]
+        Ipsets[&#34;ipsets / nftsets\n(статические A/B + стабильные динамические)&#34;]
         FwmarkRules[&#34;Firewall rules\n(PREROUTING →\nmark, drop, or pass)&#34;]
         IpRules[&#34;ip rules\n(fwmark → table)&#34;]
         RoutingTables[&#34;Routing tables\n(table → interfaces)&#34;]

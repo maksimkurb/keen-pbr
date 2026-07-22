@@ -42,7 +42,7 @@ Core Entities
 The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
 This page explains what happens under the hood for readers who want the deeper technical model.
 Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:">
-	<meta itemprop="wordCount" content="806">
+	<meta itemprop="wordCount" content="823">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Concepts">
 	<meta name="twitter:description" content="You do not need this page to finish a normal setup.
@@ -1004,7 +1004,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 <li><strong>Inline domains</strong> (<code>domains</code>) — loaded directly from config</li>
 <li><strong>Local file</strong> (<code>file</code>) — read from disk</li>
 </ul>
-<p>At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (<code>kpbr4_&lt;list&gt;</code>, <code>kpbr6_&lt;list&gt;</code>, no timeout on entries).</p>
+<p>At startup, IP/CIDR entries are loaded into kernel sets. The iptables backend alternates between <code>kpbr4s_/kpbr4S_</code> and <code>kpbr6s_/kpbr6S_</code>; nftables keeps stable <code>kpbr4_</code>/<code>kpbr6_</code> names. Static entries have no timeout.</p>
 <p>Domain entries generate dnsmasq <code>ipset=</code>/<code>nftset=</code> directives so that when a domain is resolved, its IPs are dynamically added to the matching set (<code>kpbr4d_&lt;list&gt;</code>, <code>kpbr6d_&lt;list&gt;</code>, entries are timing out after <code>ttl_ms</code> configured for domain list).</p>
 <p>See <a href="/docs/configuration/lists/">Lists</a> for the full reference.</p>
 <h3>Outbounds<span class="hx:absolute hx:-mt-20" id="outbounds"></span>
@@ -1061,7 +1061,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 <h2>How It Works — Startup Sequence<span class="hx:absolute hx:-mt-20" id="how-it-works--startup-sequence"></span>
     <a href="#how-it-works--startup-sequence" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ol>
 <li><strong>Load lists</strong> — download remote URLs (using cache if unavailable), read local files and inline entries</li>
-<li><strong>Populate ipsets/nftsets</strong> — IP/CIDR entries from lists are inserted into kernel sets (<code>kpbr4_&lt;list&gt;</code>, <code>kpbr6_&lt;list&gt;</code>)</li>
+<li><strong>Populate ipsets/nftsets</strong> — IP/CIDR entries are inserted into the inactive A/B iptables sets or stable nftables sets</li>
 <li><strong>Install firewall rules</strong> — create rules in the <code>iptables</code> <code>mangle</code> table or the <code>nftables</code> <code>inet KeenPbrTable</code> table that match configured lists and filters, then set the appropriate fwmark in <code>PREROUTING</code> / <code>prerouting</code></li>
 <li><strong>Install routing</strong> — create routing tables and <code>ip rule</code> entries for each outbound based on assigned fwmarks</li>
 <li><strong>Generate resolver config</strong> — write <code>/tmp/keen-pbr-dnsmasq.conf</code> with <code>server=</code> + <code>ipset=</code>/<code>nftset=</code> directives; signal dnsmasq to reload</li>
@@ -1080,7 +1080,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
     end
 
     subgraph Kernel[&#34;Linux Kernel&#34;]
-        Ipsets[&#34;ipsets / nftsets\n(kpbr4_&amp;lt;list&amp;gt;, kpbr6_&amp;lt;list&amp;gt;)&#34;]
+        Ipsets[&#34;ipsets / nftsets\n(static A/B + stable dynamic sets)&#34;]
         FwmarkRules[&#34;Firewall rules\n(PREROUTING →\nmark, drop, or pass)&#34;]
         IpRules[&#34;ip rules\n(fwmark → table)&#34;]
         RoutingTables[&#34;Routing tables\n(table → interfaces)&#34;]

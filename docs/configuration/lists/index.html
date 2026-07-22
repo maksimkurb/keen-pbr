@@ -105,7 +105,7 @@ The lists key is an object where each key is the list name and the value is the 
 List names must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users start with a simple domain list such as:
 config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline DNS-compatible domain patterns (supports a leading *.) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. Inline, local-file, and URL-backed lists use the same domain syntax. A leading *. and one trailing root dot are normalized away, so *.google.com is emitted to dnsmasq as google.com. DNS service labels containing underscores are allowed; whitespace, directive separators, malformed wildcards, and invalid labels are skipped in files and rejected in inline configuration.">
-	<meta itemprop="wordCount" content="583">
+	<meta itemprop="wordCount" content="590">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Lists">
 	<meta name="twitter:description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
@@ -1253,7 +1253,7 @@ and each physical line is limited to 4096 bytes.</p>
   </button>
 </div>
 </div>
-<p>All four sources are merged into a single list. <code>ttl_ms: 86400000</code> sets a 24-hour TTL for dnsmasq-resolved IPs in the dynamic set (<code>kpbr4d_combined</code> / <code>kpbr6d_combined</code>). Static IPs from <code>ip_cidrs</code> and the cached URL/file are loaded into the permanent static set (<code>kpbr4_combined</code> / <code>kpbr6_combined</code>) and are never expired automatically.</p>
+<p>All four sources are merged into a single list. <code>ttl_ms: 86400000</code> sets a 24-hour TTL for dnsmasq-resolved IPs in the stable dynamic set (<code>kpbr4d_combined</code> / <code>kpbr6d_combined</code>). Static IPs from <code>ip_cidrs</code> and the cached URL/file are loaded into the active A/B iptables set (<code>kpbr4s_combined</code> or <code>kpbr4S_combined</code>) or the stable nftables set (<code>kpbr4_combined</code>) and never expire automatically.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

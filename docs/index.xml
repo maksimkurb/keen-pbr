@@ -1064,7 +1064,7 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 &lt;li&gt;&lt;strong&gt;Inline domains&lt;/strong&gt; (&lt;code&gt;domains&lt;/code&gt;) — loaded directly from config&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Local file&lt;/strong&gt; (&lt;code&gt;file&lt;/code&gt;) — read from disk&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (&lt;code&gt;kpbr4_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6_&amp;lt;list&amp;gt;&lt;/code&gt;, no timeout on entries).&lt;/p&gt;
+&lt;p&gt;At startup, IP/CIDR entries are loaded into kernel sets. The iptables backend alternates between &lt;code&gt;kpbr4s_/kpbr4S_&lt;/code&gt; and &lt;code&gt;kpbr6s_/kpbr6S_&lt;/code&gt;; nftables keeps stable &lt;code&gt;kpbr4_&lt;/code&gt;/&lt;code&gt;kpbr6_&lt;/code&gt; names. Static entries have no timeout.&lt;/p&gt;
 &lt;p&gt;Domain entries generate dnsmasq &lt;code&gt;ipset=&lt;/code&gt;/&lt;code&gt;nftset=&lt;/code&gt; directives so that when a domain is resolved, its IPs are dynamically added to the matching set (&lt;code&gt;kpbr4d_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6d_&amp;lt;list&amp;gt;&lt;/code&gt;, entries are timing out after &lt;code&gt;ttl_ms&lt;/code&gt; configured for domain list).&lt;/p&gt;
 &lt;p&gt;See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/lists/&#34;&gt;Lists&lt;/a&gt; for the full reference.&lt;/p&gt;
 &lt;h3&gt;Outbounds&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;outbounds&#34;&gt;&lt;/span&gt;
@@ -1121,7 +1121,7 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 &lt;h2&gt;How It Works — Startup Sequence&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-it-works--startup-sequence&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#how-it-works--startup-sequence&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;Load lists&lt;/strong&gt; — download remote URLs (using cache if unavailable), read local files and inline entries&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Populate ipsets/nftsets&lt;/strong&gt; — IP/CIDR entries from lists are inserted into kernel sets (&lt;code&gt;kpbr4_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6_&amp;lt;list&amp;gt;&lt;/code&gt;)&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Populate ipsets/nftsets&lt;/strong&gt; — IP/CIDR entries are inserted into the inactive A/B iptables sets or stable nftables sets&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Install firewall rules&lt;/strong&gt; — create rules in the &lt;code&gt;iptables&lt;/code&gt; &lt;code&gt;mangle&lt;/code&gt; table or the &lt;code&gt;nftables&lt;/code&gt; &lt;code&gt;inet KeenPbrTable&lt;/code&gt; table that match configured lists and filters, then set the appropriate fwmark in &lt;code&gt;PREROUTING&lt;/code&gt; / &lt;code&gt;prerouting&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Install routing&lt;/strong&gt; — create routing tables and &lt;code&gt;ip rule&lt;/code&gt; entries for each outbound based on assigned fwmarks&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Generate resolver config&lt;/strong&gt; — write &lt;code&gt;/tmp/keen-pbr-dnsmasq.conf&lt;/code&gt; with &lt;code&gt;server=&lt;/code&gt; + &lt;code&gt;ipset=&lt;/code&gt;/&lt;code&gt;nftset=&lt;/code&gt; directives; signal dnsmasq to reload&lt;/li&gt;
@@ -1140,7 +1140,7 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
     end
 
     subgraph Kernel[&amp;#34;Linux Kernel&amp;#34;]
-        Ipsets[&amp;#34;ipsets / nftsets\n(kpbr4_&amp;amp;lt;list&amp;amp;gt;, kpbr6_&amp;amp;lt;list&amp;amp;gt;)&amp;#34;]
+        Ipsets[&amp;#34;ipsets / nftsets\n(static A/B + stable dynamic sets)&amp;#34;]
         FwmarkRules[&amp;#34;Firewall rules\n(PREROUTING →\nmark, drop, or pass)&amp;#34;]
         IpRules[&amp;#34;ip rules\n(fwmark → table)&amp;#34;]
         RoutingTables[&amp;#34;Routing tables\n(table → interfaces)&amp;#34;]
@@ -1431,7 +1431,7 @@ and each physical line is limited to 4096 bytes.&lt;/p&gt;
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;All four sources are merged into a single list. &lt;code&gt;ttl_ms: 86400000&lt;/code&gt; sets a 24-hour TTL for dnsmasq-resolved IPs in the dynamic set (&lt;code&gt;kpbr4d_combined&lt;/code&gt; / &lt;code&gt;kpbr6d_combined&lt;/code&gt;). Static IPs from &lt;code&gt;ip_cidrs&lt;/code&gt; and the cached URL/file are loaded into the permanent static set (&lt;code&gt;kpbr4_combined&lt;/code&gt; / &lt;code&gt;kpbr6_combined&lt;/code&gt;) and are never expired automatically.&lt;/p&gt;
+&lt;p&gt;All four sources are merged into a single list. &lt;code&gt;ttl_ms: 86400000&lt;/code&gt; sets a 24-hour TTL for dnsmasq-resolved IPs in the stable dynamic set (&lt;code&gt;kpbr4d_combined&lt;/code&gt; / &lt;code&gt;kpbr6d_combined&lt;/code&gt;). Static IPs from &lt;code&gt;ip_cidrs&lt;/code&gt; and the cached URL/file are loaded into the active A/B iptables set (&lt;code&gt;kpbr4s_combined&lt;/code&gt; or &lt;code&gt;kpbr4S_combined&lt;/code&gt;) or the stable nftables set (&lt;code&gt;kpbr4_combined&lt;/code&gt;) and never expire automatically.&lt;/p&gt;
 
       </description>
     </item>
@@ -3313,6 +3313,12 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 					&lt;td&gt;Firewall backend selection: &lt;code&gt;auto&lt;/code&gt;, &lt;code&gt;iptables&lt;/code&gt;, or &lt;code&gt;nftables&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;clear_dynamic_sets_on_apply&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;boolean&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;true&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Clear dnsmasq-managed dynamic sets during a full config apply or runtime restart. Preserve-set and list-only reconciles never clear them.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;strict_enforcement&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;boolean&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;false&lt;/code&gt;&lt;/td&gt;
@@ -3345,6 +3351,7 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;pid_file&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;/var/run/keen-pbr.pid&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;cache_dir&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;/var/cache/keen-pbr&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;firewall_backend&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;auto&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;clear_dynamic_sets_on_apply&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;true&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;strict_enforcement&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;false&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;strict_enforcement_action&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;unreachable&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;max_file_size_bytes&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;8388608&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
@@ -4373,6 +4380,10 @@ and routing state.&lt;/p&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Skip packets that already have an fwmark before keen-pbr touches them.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Default: (shown below)
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;skip_marked_packets&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;true&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Clear dnsmasq-managed dynamic sets during a full apply or runtime restart.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Default: (shown below)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;clear_dynamic_sets_on_apply&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;true&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Default strict routing behavior for interface outbounds.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Default: (shown below)

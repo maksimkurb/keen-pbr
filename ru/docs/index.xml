@@ -1493,7 +1493,7 @@
 &lt;li&gt;&lt;strong&gt;Домены напрямую&lt;/strong&gt; (&lt;code&gt;domains&lt;/code&gt;) — берутся прямо из конфига&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Локальный файл&lt;/strong&gt; (&lt;code&gt;file&lt;/code&gt;) — читается с диска&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;При запуске IP/CIDR-записи загружаются в ipsets или nftsets (&lt;code&gt;kpbr4_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6_&amp;lt;list&amp;gt;&lt;/code&gt;) без ограничения времени жизни записей.&lt;/p&gt;
+&lt;p&gt;При запуске IP/CIDR-записи загружаются в kernel sets. Бэкенд iptables чередует &lt;code&gt;kpbr4s_/kpbr4S_&lt;/code&gt; и &lt;code&gt;kpbr6s_/kpbr6S_&lt;/code&gt;, а nftables сохраняет стабильные имена &lt;code&gt;kpbr4_&lt;/code&gt;/&lt;code&gt;kpbr6_&lt;/code&gt;. Время жизни статических записей не ограничено.&lt;/p&gt;
 &lt;p&gt;Домены превращаются в директивы dnsmasq &lt;code&gt;ipset=&lt;/code&gt;/&lt;code&gt;nftset=&lt;/code&gt;: при разрешении домена его IP динамически добавляются в соответствующий набор (&lt;code&gt;kpbr4d_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6d_&amp;lt;list&amp;gt;&lt;/code&gt;) и хранятся там до истечения &lt;code&gt;ttl_ms&lt;/code&gt;, заданного для этого списка.&lt;/p&gt;
 &lt;p&gt;См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/lists/&#34;&gt;Списки&lt;/a&gt; для полного справочника.&lt;/p&gt;
 &lt;h3&gt;Outbounds&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;outbounds&#34;&gt;&lt;/span&gt;
@@ -1550,7 +1550,7 @@
 &lt;h2&gt;Как это работает — последовательность запуска&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-это-работает--последовательность-запуска&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;Загрузка списков&lt;/strong&gt; — скачиваются удалённые URL (при недоступности берётся кэш), читаются локальные файлы и встроенные записи&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Заполнение ipsets/nftsets&lt;/strong&gt; — IP/CIDR-записи из списков загружаются в ядерные наборы (&lt;code&gt;kpbr4_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6_&amp;lt;list&amp;gt;&lt;/code&gt;)&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Заполнение ipsets/nftsets&lt;/strong&gt; — IP/CIDR-записи загружаются в неактивные A/B-наборы iptables или стабильные наборы nftables&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Настройка правил firewall&lt;/strong&gt; — в таблице &lt;code&gt;mangle&lt;/code&gt; iptables или в таблице &lt;code&gt;inet KeenPbrTable&lt;/code&gt; nftables создаются правила сопоставления по спискам и фильтрам, после чего в &lt;code&gt;PREROUTING&lt;/code&gt; / &lt;code&gt;prerouting&lt;/code&gt; проставляются нужные fwmark&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Настройка маршрутизации&lt;/strong&gt; — под каждый outbound создаются таблица маршрутизации и запись &lt;code&gt;ip rule&lt;/code&gt; на основе назначенных fwmark&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Генерация конфигурации резолвера&lt;/strong&gt; — файл &lt;code&gt;/tmp/keen-pbr-dnsmasq.conf&lt;/code&gt; с директивами &lt;code&gt;server=&lt;/code&gt; и &lt;code&gt;ipset=&lt;/code&gt;/&lt;code&gt;nftset=&lt;/code&gt; записывается на диск; dnsmasq получает сигнал перезагрузки&lt;/li&gt;
@@ -1569,7 +1569,7 @@
     end
 
     subgraph Kernel[&amp;#34;Linux Kernel&amp;#34;]
-        Ipsets[&amp;#34;ipsets / nftsets\n(kpbr4_&amp;amp;lt;list&amp;amp;gt;, kpbr6_&amp;amp;lt;list&amp;amp;gt;)&amp;#34;]
+        Ipsets[&amp;#34;ipsets / nftsets\n(статические A/B + стабильные динамические)&amp;#34;]
         FwmarkRules[&amp;#34;Firewall rules\n(PREROUTING →\nmark, drop, or pass)&amp;#34;]
         IpRules[&amp;#34;ip rules\n(fwmark → table)&amp;#34;]
         RoutingTables[&amp;#34;Routing tables\n(table → interfaces)&amp;#34;]
@@ -1860,7 +1860,7 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Все четыре источника объединяются в один список. &lt;code&gt;ttl_ms: 86400000&lt;/code&gt; устанавливает 24-часовой TTL для разрешённых IPs dnsmasq в динамическом наборе (&lt;code&gt;kpbr4d_combined&lt;/code&gt; / &lt;code&gt;kpbr6d_combined&lt;/code&gt;). Статические IP из &lt;code&gt;ip_cidrs&lt;/code&gt; и кэшированного URL/файла загружаются в постоянный статический набор (&lt;code&gt;kpbr4_combined&lt;/code&gt; / &lt;code&gt;kpbr6_combined&lt;/code&gt;) и никогда не истекают автоматически.&lt;/p&gt;
+&lt;p&gt;Все четыре источника объединяются в один список. &lt;code&gt;ttl_ms: 86400000&lt;/code&gt; устанавливает 24-часовой TTL для разрешённых IPs dnsmasq в стабильном динамическом наборе (&lt;code&gt;kpbr4d_combined&lt;/code&gt; / &lt;code&gt;kpbr6d_combined&lt;/code&gt;). Статические IP из &lt;code&gt;ip_cidrs&lt;/code&gt; и кэшированного URL/файла загружаются в активный A/B-набор iptables (&lt;code&gt;kpbr4s_combined&lt;/code&gt; или &lt;code&gt;kpbr4S_combined&lt;/code&gt;) либо стабильный набор nftables (&lt;code&gt;kpbr4_combined&lt;/code&gt;) и никогда не истекают автоматически.&lt;/p&gt;
 
       </description>
     </item>
@@ -3905,6 +3905,12 @@
 					&lt;td&gt;Бэкенд firewall: &lt;code&gt;auto&lt;/code&gt;, &lt;code&gt;iptables&lt;/code&gt; или &lt;code&gt;nftables&lt;/code&gt;&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;clear_dynamic_sets_on_apply&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;boolean&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;true&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Очищать динамические наборы dnsmasq при полном применении конфигурации или перезапуске runtime. Reconcile в режимах preserve/list-only их не очищает.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;strict_enforcement&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;boolean&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;false&lt;/code&gt;&lt;/td&gt;
@@ -3937,6 +3943,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;pid_file&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;/var/run/keen-pbr.pid&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;cache_dir&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;/var/cache/keen-pbr&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;firewall_backend&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;auto&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;clear_dynamic_sets_on_apply&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;true&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;strict_enforcement&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;false&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;strict_enforcement_action&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;unreachable&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;max_file_size_bytes&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;8388608&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
@@ -4364,6 +4371,10 @@ runtime использовал изменённые lists. Используйт�
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Пропускать пакеты, которые уже имеют fwmark, до обработки keen-pbr.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// По умолчанию: (показано ниже)
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;skip_marked_packets&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;true&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Очищать динамические наборы dnsmasq при полном применении или перезапуске runtime.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// По умолчанию: (показано ниже)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;clear_dynamic_sets_on_apply&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;true&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Глобальное поведение strict routing для outbounds типа interface.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// По умолчанию: (показано ниже)

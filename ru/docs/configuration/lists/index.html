@@ -105,7 +105,7 @@ config.json{
 Имена списков должны соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
 Большинство пользователей начинают с простого списка доменов:
 config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Встроенные DNS-совместимые доменные паттерны (поддерживает начальный *.) ip_cidrs array of string нет Встроенные IP-адреса или диапазоны CIDR file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение 0. Встроенные списки, локальные файлы и списки по URL используют одинаковый синтаксис доменов. Начальный *. и одна завершающая корневая точка удаляются, поэтому *.google.com передаётся в dnsmasq как google.com. В служебных DNS-метках разрешены символы подчёркивания; пробелы, разделители директив, некорректные маски и метки в файлах пропускаются, а во встроенной конфигурации отклоняются.">
-	<meta itemprop="wordCount" content="535">
+	<meta itemprop="wordCount" content="541">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Списки">
 	<meta name="twitter:description" content="Списки — это группы сайтов или диапазонов IP, которые вы хотите, чтобы keen-pbr сопоставлял.
@@ -1253,7 +1253,7 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
   </button>
 </div>
 </div>
-<p>Все четыре источника объединяются в один список. <code>ttl_ms: 86400000</code> устанавливает 24-часовой TTL для разрешённых IPs dnsmasq в динамическом наборе (<code>kpbr4d_combined</code> / <code>kpbr6d_combined</code>). Статические IP из <code>ip_cidrs</code> и кэшированного URL/файла загружаются в постоянный статический набор (<code>kpbr4_combined</code> / <code>kpbr6_combined</code>) и никогда не истекают автоматически.</p>
+<p>Все четыре источника объединяются в один список. <code>ttl_ms: 86400000</code> устанавливает 24-часовой TTL для разрешённых IPs dnsmasq в стабильном динамическом наборе (<code>kpbr4d_combined</code> / <code>kpbr6d_combined</code>). Статические IP из <code>ip_cidrs</code> и кэшированного URL/файла загружаются в активный A/B-набор iptables (<code>kpbr4s_combined</code> или <code>kpbr4S_combined</code>) либо стабильный набор nftables (<code>kpbr4_combined</code>) и никогда не истекают автоматически.</p>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a
