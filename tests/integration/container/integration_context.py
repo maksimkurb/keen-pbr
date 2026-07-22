@@ -190,8 +190,15 @@ class SystemContext:
         staged = self.api("/api/config", "POST", config)
         assert staged["status"] == "ok", staged
         saved = self.api("/api/config/save", "POST")
-        assert saved["status"] == "ok" and saved["saved"] and saved["applied"], saved
-        health = self.wait_for("service after config apply", self.health_running)
+        assert saved["status"] == "accepted" and saved["operation_id"], saved
+        def applied_operation():
+            health = self.api("/api/health/service")
+            operation = health.get("lifecycle_operation", {})
+            return health if (operation.get("id") == saved["operation_id"] and
+                              operation.get("status") == "succeeded") else False
+
+        health = self.wait_for("config lifecycle completion", applied_operation)
+        self.health_running()
         routing = self.api("/api/health/routing")
         assert routing["overall"] == "ok", routing
         assert routing["firewall_backend"] == self.backend, routing

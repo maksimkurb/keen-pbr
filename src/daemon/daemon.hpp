@@ -52,6 +52,7 @@ struct ApiContext;
 class SseBroadcaster;
 class StatusStream;
 struct ConfigApplyResult;
+struct LifecycleRequest;
 struct ListRefreshOperationResult;
 #endif
 
@@ -201,8 +202,12 @@ private:
                                        bool publish_active_snapshot = true);
     PreparedRuntimeInputs prepare_runtime_inputs(const Config& config,
                                                 bool refresh_remote_lists = true);
-    void apply_config_with_rollback(const Config& next_config, bool& rolled_back);
     void reload_from_disk();
+    void teardown_routing_and_firewall(bool explicit_stop);
+    void setup_routing_and_firewall();
+    void reconcile_prepared_runtime(PreparedRuntimeInputs prepared);
+    void complete_running_runtime(const char* reason);
+    bool has_system_resolver(const Config& config) const;
     void start_routing_runtime();
     void stop_routing_runtime();
     void restart_routing_runtime();
@@ -257,6 +262,9 @@ private:
         Config config,
         std::string saved_config_json,
         bool persist_config = true);
+    std::string submit_lifecycle_operation(LifecycleRequest request);
+    void execute_lifecycle_operation(std::string operation_id,
+                                     LifecycleRequest request);
     void run_runtime_control_operation_or_throw(const std::string& label,
                                                 const char* operation_name,
                                                 std::function<void()> task);
@@ -360,6 +368,11 @@ private:
     std::unique_ptr<Scheduler> scheduler_;
     std::unique_ptr<UrltestManager> urltest_manager_;
     BlockingExecutor blocking_executor_{2, 64};
+    // Resolver hooks can synchronously call back into resolver config streaming,
+    // so hook execution and resolver I/O must never share a worker.
+    BlockingExecutor resolver_hook_executor_{1, 16};
+    BlockingExecutor resolver_io_executor_{1, 32};
+    BlockingExecutor lifecycle_executor_{1, 16};
     std::atomic<std::uint64_t> runtime_generation_{1};
     std::atomic<bool> remote_list_refresh_inflight_{false};
     std::atomic<bool> ipc_mutation_inflight_{false};

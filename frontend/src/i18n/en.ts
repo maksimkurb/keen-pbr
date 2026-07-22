@@ -120,6 +120,15 @@ export const enTranslation = {
         "dnsmasq needs a restart to update its resolver config.",
       dnsmasqRestarting: "Restarting dnsmasq...",
       dnsmasqRestartingDescription: "dnsmasq is restarting. Please wait.",
+      runtimeReloading: "Reloading keen-pbr...",
+      runtimeReloadingDescription: "Current stage: {{stage}}",
+      runtimeReloadSucceeded: "keen-pbr is ready",
+      runtimeReloadSucceededDescription:
+        "Routing and dnsmasq are serving the expected configuration.",
+      runtimeStartingDescription: "Routing and firewall are starting. Please wait.",
+      runtimeReloadFailed: "keen-pbr reload failed",
+      runtimeReloadFailedDescription:
+        "The routing runtime could not finish reloading. Try Apply & Restart again.",
       dnsmasqUnavailable: "dnsmasq probe failed",
       dnsmasqUnavailableDescription:
         "keen-pbr could not query the dnsmasq health TXT record. Try Apply & Restart if this persists.",
@@ -131,6 +140,19 @@ export const enTranslation = {
       staleTitle: "dnsmasq is using a stale resolver config",
       staleDescription:
         "The expected resolver hash ({{expected}}…) doesn't match dnsmasq's active hash ({{actual}}…).",
+    },
+  },
+  lifecycle: {
+    stages: {
+      validate_config: "Validate configuration",
+      prepare_remote_lists: "Prepare remote lists",
+      reconcile_runtime: "Reconcile routing and firewall",
+      stop_routing: "Stop routing and firewall",
+      start_routing: "Start routing and firewall",
+      reload_dnsmasq: "Reload dnsmasq",
+      verify_dnsmasq: "Verify dnsmasq configuration",
+      reload_fallback: "Reload dnsmasq with fallback configuration",
+      commit_config: "Commit configuration",
     },
   },
   overview: {

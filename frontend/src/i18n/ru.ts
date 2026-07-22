@@ -123,6 +123,15 @@ export const ruTranslation = {
       dnsmasqRestarting: "Перезапуск dnsmasq...",
       dnsmasqRestartingDescription:
         "DNS-сервер перезапускается, подождите немного.",
+      runtimeReloading: "Перезагрузка keen-pbr...",
+      runtimeReloadingDescription: "Текущий этап: {{stage}}",
+      runtimeReloadSucceeded: "keen-pbr готов",
+      runtimeReloadSucceededDescription:
+        "Маршрутизация и dnsmasq используют ожидаемую конфигурацию.",
+      runtimeStartingDescription: "Маршрутизация и межсетевой экран запускаются. Подождите.",
+      runtimeReloadFailed: "Не удалось перезагрузить keen-pbr",
+      runtimeReloadFailedDescription:
+        "Не удалось завершить перезагрузку маршрутизации. Попробуйте применить настройки и перезапустить ещё раз.",
       dnsmasqUnavailable: "проверка dnsmasq не прошла",
       dnsmasqUnavailableDescription:
         "keen-pbr не смог запросить TXT-запись состояния dnsmasq. Если статус не меняется, попробуйте применить и перезапустить.",
@@ -134,6 +143,19 @@ export const ruTranslation = {
       staleTitle: "dnsmasq использует устаревший конфиг резолвера",
       staleDescription:
         "Ожидаемый хеш резолвера ({{expected}}…) не совпадает с активным хешем dnsmasq ({{actual}}…).",
+    },
+  },
+  lifecycle: {
+    stages: {
+      validate_config: "Проверка конфигурации",
+      prepare_remote_lists: "Подготовка удалённых списков",
+      reconcile_runtime: "Согласование маршрутизации и межсетевого экрана",
+      stop_routing: "Остановка маршрутизации и межсетевого экрана",
+      start_routing: "Запуск маршрутизации и межсетевого экрана",
+      reload_dnsmasq: "Перезагрузка dnsmasq",
+      verify_dnsmasq: "Проверка конфигурации dnsmasq",
+      reload_fallback: "Перезагрузка dnsmasq с резервной конфигурацией",
+      commit_config: "Сохранение конфигурации",
     },
   },
   overview: {

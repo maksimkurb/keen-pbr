@@ -21,8 +21,8 @@ namespace keen_pbr3 {
 namespace {
 
 constexpr auto kResolverConfigHashActualRefreshInterval = std::chrono::seconds{5};
-constexpr auto kResolverApplyProbeTimeout = std::chrono::seconds{15};
-constexpr auto kResolverApplyProbeInterval = std::chrono::milliseconds{250};
+constexpr auto kResolverApplyProbeTimeout = std::chrono::seconds{30};
+constexpr auto kResolverApplyProbeInterval = std::chrono::seconds{1};
 
 bool dns_config_uses_keenetic_server(const std::optional<DnsConfig>& dns_cfg_opt) {
     if (!dns_cfg_opt.has_value()) {
@@ -363,7 +363,7 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
 
     const auto generation = runtime_generation_.load(std::memory_order_acquire);
     const TraceId trace_id = ensure_trace_id();
-    const bool enqueued = blocking_executor_.try_post(
+    const bool enqueued = resolver_io_executor_.try_post(
         "resolver-config-hash-actual",
         [this, resolver_addr, generation, trace_id]() mutable {
             ScopedTraceContext trace_scope(trace_id);

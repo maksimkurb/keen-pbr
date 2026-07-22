@@ -4,7 +4,6 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { AppBrandHeader } from "@/components/layout/app-brand-header"
 import { useWarningBannerState } from "@/components/layout/warning-banner-state"
 import { WarningBanner } from "@/components/layout/warning-banner"
-import { LifecycleOperationDialog } from "@/components/layout/lifecycle-operation-dialog"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { useSidebar } from "@/components/ui/sidebar-context"
 import { cn } from "@/lib/utils"
@@ -39,7 +38,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </main>
           <WarningBanner state={warningBannerState} />
-          <LifecycleOperationDialog />
         </SidebarInset>
       </div>
     </SidebarProvider>

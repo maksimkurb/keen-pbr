@@ -7,7 +7,6 @@ enum class ConfigApplyTransactionState {
     CandidateApplied,
     ResolverConfirmed,
     Committed,
-    RolledBack,
 };
 
 // Encodes the irreversible ordering for config apply. It deliberately owns no
@@ -17,7 +16,6 @@ public:
     void candidate_applied();
     void resolver_confirmed();
     void committed();
-    void rolled_back();
 
     bool may_commit() const noexcept;
     ConfigApplyTransactionState state() const noexcept { return state_; }

@@ -42,8 +42,18 @@ std::optional<LifecycleOperationSnapshot> LifecycleOperationStore::snapshot() co
 }
 
 void LifecycleOperationStore::publish(LifecycleOperationSnapshot snapshot) {
+    std::function<void()> callback;
+    {
+        KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
+        snapshot_ = std::move(snapshot);
+        callback = publish_callback_;
+    }
+    if (callback) callback();
+}
+
+void LifecycleOperationStore::set_publish_callback(std::function<void()> callback) {
     KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
-    snapshot_ = std::move(snapshot);
+    publish_callback_ = std::move(callback);
 }
 
 std::int64_t LifecycleOperationCoordinator::now_seconds() {
@@ -89,6 +99,7 @@ void LifecycleOperationCoordinator::succeed_stage(const std::string& id, const s
                                                    std::string detail) {
     mutate(id, [&](auto& op) {
         for (auto& stage : op.stages) if (stage.id == stage_id) {
+            if (stage.status != LifecycleOperationStatus::Running) break;
             stage.status = LifecycleOperationStatus::Succeeded;
             stage.detail = std::move(detail);
             break;
@@ -99,11 +110,21 @@ void LifecycleOperationCoordinator::succeed_stage(const std::string& id, const s
 void LifecycleOperationCoordinator::fail_stage(const std::string& id, const std::string& stage_id,
                                                 std::string detail) {
     mutate(id, [&](auto& op) {
+        bool failed = false;
         for (auto& stage : op.stages) if (stage.id == stage_id) {
+            if (stage.status != LifecycleOperationStatus::Pending &&
+                stage.status != LifecycleOperationStatus::Running) break;
             stage.status = LifecycleOperationStatus::Failed;
             stage.detail = detail;
             op.error = std::move(detail);
+            failed = true;
             break;
+        }
+        if (!failed) return;
+        for (auto& stage : op.stages) {
+            if (stage.status == LifecycleOperationStatus::Pending) {
+                stage.status = LifecycleOperationStatus::Skipped;
+            }
         }
     });
 }
@@ -112,6 +133,7 @@ void LifecycleOperationCoordinator::skip_stage(const std::string& id, const std:
                                                 std::string detail) {
     mutate(id, [&](auto& op) {
         for (auto& stage : op.stages) if (stage.id == stage_id) {
+            if (stage.status != LifecycleOperationStatus::Pending) break;
             stage.status = LifecycleOperationStatus::Skipped;
             stage.detail = std::move(detail);
             break;
@@ -122,6 +144,13 @@ void LifecycleOperationCoordinator::skip_stage(const std::string& id, const std:
 void LifecycleOperationCoordinator::finish(const std::string& id, std::string error) {
     mutate(id, [&](auto& op) {
         if (!error.empty()) op.error = std::move(error);
+        if (!op.error.empty()) {
+            for (auto& stage : op.stages) {
+                if (stage.status == LifecycleOperationStatus::Pending) {
+                    stage.status = LifecycleOperationStatus::Skipped;
+                }
+            }
+        }
         op.result = op.error.empty() ? LifecycleOperationResult::Succeeded
                                      : LifecycleOperationResult::Failed;
         op.finished_at = now_seconds();

@@ -30,9 +30,14 @@ enum class ConfigOperationState : uint8_t {
 struct ConfigApplyResult {
     bool saved{false};
     bool applied{false};
-    bool rolled_back{false};
     std::optional<std::int64_t> apply_started_ts;
     std::string error;
+};
+
+struct LifecycleRequest {
+    LifecycleOperationType type{LifecycleOperationType::Restart};
+    std::optional<Config> config;
+    std::string serialized_config;
 };
 
 struct ServiceHealthState {
@@ -94,6 +99,7 @@ struct ApiContext {
     // Owned by the daemon; exposed here only for API registration.
     LifecycleOperationCoordinator* lifecycle_operations{nullptr};
     std::function<bool(std::string, std::function<void()>)> enqueue_lifecycle_task_fn;
+    std::function<std::string(LifecycleRequest)> submit_lifecycle_operation_fn;
 
     bool enqueue_lifecycle_task(std::string label, std::function<void()> task) const {
         return enqueue_lifecycle_task_fn(std::move(label), std::move(task));
@@ -179,6 +185,13 @@ struct ApiContext {
     ListRefreshOperationResult refresh_lists(
         const std::optional<std::string>& requested_name) const {
         return refresh_lists_fn(requested_name);
+    }
+
+    std::string submit_lifecycle_operation(LifecycleRequest request) const {
+        if (!submit_lifecycle_operation_fn) {
+            throw ApiError("Lifecycle runner is unavailable", 503);
+        }
+        return submit_lifecycle_operation_fn(std::move(request));
     }
 };
 

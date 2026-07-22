@@ -203,6 +203,9 @@ Daemon::Daemon(Config config,
 Daemon::~Daemon() {
     try {
         accept_posted_control_tasks_.store(false, std::memory_order_release);
+        lifecycle_executor_.shutdown();
+        resolver_hook_executor_.shutdown();
+        resolver_io_executor_.shutdown();
         blocking_executor_.shutdown();
 
         if (control_fd_ >= 0) {
@@ -416,7 +419,7 @@ void Daemon::handle_ipc_control_socket() {
                         ? ResolverType::DNSMASQ_NFTSET
                         : generation.resolver_type);
                 const auto request_id = request.at("request_id").get<std::string>();
-                const bool queued = blocking_executor_.try_post(
+                const bool queued = resolver_io_executor_.try_post(
                     "generate-resolver-config",
                     [client, generation, dns_config, cache_dir, type, request_id] {
                         bool stream_started = false;
@@ -1110,11 +1113,8 @@ void Daemon::continue_startup_after_lists(
     }
 
     try {
-        register_urltest_outbounds();
         apply_firewall(FirewallApplyMode::Destructive);
         log.info("Firewall rules and routing applied.");
-        schedule_lists_autoupdate();
-
         if (result.any_dns_relevant_changed()) {
             log.info("Startup lists: DNS-relevant list(s) changed: {}",
                      format_list_names(result.dns_relevant_changed_lists));
@@ -1127,7 +1127,7 @@ void Daemon::continue_startup_after_lists(
         update_resolver_config_hash();
         publish_runtime_state();
 
-        const bool queued = blocking_executor_.try_post(
+        const bool queued = resolver_hook_executor_.try_post(
             "startup-resolver-hook",
             [this] {
                 bool hook_succeeded = false;
@@ -1163,17 +1163,43 @@ void Daemon::finish_startup_after_resolver_hook(bool hook_succeeded, std::string
     }
 
     try {
-        // Resolver convergence is health information, not a startup gate. A
-        // synchronous TXT wait here used to hide the WebUI and permanently
-        // mark a healthy runtime broken on a transient DNS response.
         update_resolver_config_hash();
         setup_dns_probe();
         register_interface_monitor_fd();
-        refresh_resolver_config_hash_actual_async();
-        schedule_resolver_config_hash_actual_refresh();
-        transition_runtime_or_throw(RuntimeState::running, "startup complete");
-        publish_runtime_state();
-        Logger::instance().info("Routing runtime started.");
+        if (!has_system_resolver(config_)) {
+            complete_running_runtime("startup complete");
+            schedule_resolver_config_hash_actual_refresh();
+            Logger::instance().info("Routing runtime started.");
+            return;
+        }
+
+        const Config candidate = config_;
+        const std::string expected =
+            resolver_sync_.snapshot(unix_timestamp_now_seconds()).expected_hash;
+        const std::int64_t started = apply_started_ts_.load(std::memory_order_acquire);
+        const bool queued = resolver_io_executor_.try_post(
+            "startup-resolver-verification",
+            [this, candidate, expected, started] {
+                std::string verification_error;
+                const bool verified = wait_for_resolver_config_hash_confirmation(
+                    candidate, expected, started, verification_error);
+                post_control_task(
+                    [this, verified, verification_error = std::move(verification_error)]() mutable {
+                        if (!verified) {
+                            fail_startup_runtime(verification_error);
+                            return;
+                        }
+                        try {
+                            complete_running_runtime("startup complete");
+                            schedule_resolver_config_hash_actual_refresh();
+                            Logger::instance().info("Routing runtime started.");
+                        } catch (const std::exception& exception) {
+                            fail_startup_runtime(exception.what());
+                        }
+                    },
+                    "startup-after-resolver-verification");
+            });
+        if (!queued) throw DaemonError("startup resolver verification executor is unavailable");
     } catch (const std::exception& exception) {
         fail_startup_runtime(exception.what());
     } catch (...) {
@@ -1218,6 +1244,9 @@ void Daemon::run() {
     event_loop_active_.store(false, std::memory_order_release);
     event_loop_thread_id_.store(std::thread::id{}, std::memory_order_relaxed);
     accept_posted_control_tasks_.store(false, std::memory_order_release);
+    lifecycle_executor_.shutdown();
+    resolver_hook_executor_.shutdown();
+    resolver_io_executor_.shutdown();
     blocking_executor_.shutdown();
 
 #ifdef WITH_API

@@ -31,14 +31,6 @@ void ConfigApplyTransaction::committed() {
     state_ = ConfigApplyTransactionState::Committed;
 }
 
-void ConfigApplyTransaction::rolled_back() {
-    if (state_ == ConfigApplyTransactionState::Committed ||
-        state_ == ConfigApplyTransactionState::RolledBack) {
-        throw std::logic_error("invalid config apply transaction rollback");
-    }
-    state_ = ConfigApplyTransactionState::RolledBack;
-}
-
 bool ConfigApplyTransaction::may_commit() const noexcept {
     return state_ == ConfigApplyTransactionState::ResolverConfirmed;
 }

@@ -18,12 +18,3 @@ TEST_CASE("config apply transaction commits only after resolver confirmation") {
     transaction.committed();
     CHECK(transaction.state() == ConfigApplyTransactionState::Committed);
 }
-
-TEST_CASE("config apply transaction makes rollback terminal") {
-    ConfigApplyTransaction transaction;
-    transaction.candidate_applied();
-    transaction.rolled_back();
-    CHECK(transaction.state() == ConfigApplyTransactionState::RolledBack);
-    CHECK_THROWS(transaction.resolver_confirmed());
-    CHECK_THROWS(transaction.rolled_back());
-}

@@ -37,10 +37,12 @@ class LifecycleOperationStore {
 public:
     std::optional<LifecycleOperationSnapshot> snapshot() const;
     void publish(LifecycleOperationSnapshot snapshot);
+    void set_publish_callback(std::function<void()> callback);
 
 private:
     mutable TracedSharedMutex mutex_;
     std::optional<LifecycleOperationSnapshot> snapshot_ GUARDED_BY(mutex_);
+    std::function<void()> publish_callback_ GUARDED_BY(mutex_);
 };
 
 // Serializes lifecycle operations and performs legal stage state transitions.

@@ -57,7 +57,7 @@ bool Daemon::run_system_resolver_hook(std::string_view action) {
             // event-loop thread. Run the external hook on the existing
             // bounded executor and service only its resolver stream while
             // waiting. This avoids both deadlock and an extra thread/stack.
-            auto hook_result = blocking_executor_.submit(
+            auto hook_result = resolver_hook_executor_.submit(
                 "system-resolver-hook-command", std::move(execute_hook));
             while (hook_result.wait_for(std::chrono::milliseconds{10}) !=
                    std::future_status::ready) {
@@ -108,6 +108,20 @@ void Daemon::transition_runtime_or_throw(RuntimeState next, const char* reason) 
 }
 
 void Daemon::stop_routing_runtime() {
+    teardown_routing_and_firewall(true);
+    if (has_system_resolver(config_) && !run_system_resolver_hook("deactivate")) {
+        throw DaemonError("System resolver deactivate hook failed");
+    }
+    refresh_resolver_config_hash_actual_async();
+    Logger::instance().info("Routing runtime stopped.");
+}
+
+bool Daemon::has_system_resolver(const Config& config) const {
+    return config.dns.has_value() && config.dns->system_resolver.has_value() &&
+           !config.dns->system_resolver->address.empty();
+}
+
+void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     auto& log = Logger::instance();
     if (!routing_runtime_active_) {
         return;
@@ -139,21 +153,31 @@ void Daemon::stop_routing_runtime() {
     }
 
     routing_runtime_active_ = false;
-    transition_runtime_or_throw(RuntimeState::stopped, "runtime stopped");
+    transition_runtime_or_throw(explicit_stop ? RuntimeState::stopped : RuntimeState::applying,
+                                explicit_stop ? "runtime stopped" : "runtime restarting");
     publish_runtime_state();
-
-    if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
-        if (!run_system_resolver_hook("deactivate")) {
-            throw DaemonError("System resolver deactivate hook failed");
-        }
-    }
-
-    refresh_resolver_config_hash_actual_async();
-    log.info("Routing runtime stopped.");
+    log.info("Routing and firewall stopped.");
 }
 
 void Daemon::start_routing_runtime() {
-    auto& log = Logger::instance();
+    setup_routing_and_firewall();
+    if (has_system_resolver(config_)) {
+        if (!run_system_resolver_hook_reload()) {
+            throw DaemonError("system resolver reload hook failed");
+        }
+        std::string error;
+        const auto snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
+        if (!wait_for_resolver_config_hash_confirmation(
+                config_, snapshot.expected_hash,
+                apply_started_ts_.load(std::memory_order_acquire), error)) {
+            throw DaemonError(error);
+        }
+    }
+    complete_running_runtime("runtime started");
+    Logger::instance().info("Routing runtime started.");
+}
+
+void Daemon::setup_routing_and_firewall() {
     if (routing_runtime_active_) {
         return;
     }
@@ -161,28 +185,25 @@ void Daemon::start_routing_runtime() {
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
 
     setup_static_routing();
-    register_urltest_outbounds();
     (void)refresh_keenetic_dns_cache(true);
     apply_firewall(FirewallApplyMode::Destructive);
     routing_runtime_active_ = true;
-    transition_runtime_or_throw(RuntimeState::applying, "runtime starting");
+    if (runtime_state_machine_.state() != RuntimeState::applying) {
+        transition_runtime_or_throw(RuntimeState::applying, "runtime starting");
+    }
     publish_runtime_state();
     apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
     update_resolver_config_hash();
-    if (!run_system_resolver_hook("activate")) {
-        routing_runtime_active_ = false;
-        std::string ignored_error;
-        (void)runtime_state_machine_.transition(
-            RuntimeState::broken, "runtime resolver activation failed", ignored_error);
-        publish_runtime_state();
-        throw DaemonError("system resolver activate hook failed");
-    }
-    update_resolver_config_hash();
+    setup_dns_probe();
+}
+
+void Daemon::complete_running_runtime(const char* reason) {
+    register_urltest_outbounds();
     schedule_keenetic_dns_refresh();
+    schedule_lists_autoupdate();
     refresh_resolver_config_hash_actual_async();
-    transition_runtime_or_throw(RuntimeState::running, "runtime started");
+    transition_runtime_or_throw(RuntimeState::running, reason);
     publish_runtime_state();
-    log.info("Routing runtime started.");
 }
 
 void Daemon::restart_routing_runtime() {
@@ -190,9 +211,21 @@ void Daemon::restart_routing_runtime() {
         throw DaemonError("Routing runtime is stopped");
     }
 
-    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
-    stop_routing_runtime();
-    start_routing_runtime();
+    teardown_routing_and_firewall(false);
+    setup_routing_and_firewall();
+    if (has_system_resolver(config_)) {
+        if (!run_system_resolver_hook_reload()) {
+            throw DaemonError("system resolver reload hook failed");
+        }
+        std::string error;
+        const auto snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
+        if (!wait_for_resolver_config_hash_confirmation(
+                config_, snapshot.expected_hash,
+                apply_started_ts_.load(std::memory_order_acquire), error)) {
+            throw DaemonError(error);
+        }
+    }
+    complete_running_runtime("runtime restarted");
 }
 
 void Daemon::setup_static_routing() {
@@ -600,7 +633,15 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
         config.outbounds.value_or(std::vector<Outbound>{}));
 
     if (refresh_remote_lists) {
-        (void)list_service_.download_uncached(prepared.config, prepared.outbound_marks);
+        // Preparation runs while the current runtime is still active. Use only
+        // marks that runtime can actually route; a newly introduced detour is
+        // downloaded through the current/default route until reconciliation.
+        const auto refresh = list_service_.download_uncached(
+            prepared.config, config_store_.outbound_marks());
+        if (refresh.any_failed()) {
+            throw DaemonError("Failed to prepare remote list(s): " +
+                              format_list_names(refresh.failed_lists));
+        }
         prepared.remote_lists_refreshed = true;
     }
 
@@ -609,8 +650,29 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
 
 void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
                                            bool publish_active_snapshot) {
+    reconcile_prepared_runtime(std::move(prepared));
+    if (has_system_resolver(config_) && !run_system_resolver_hook_reload()) {
+        throw DaemonError("system resolver reload hook failed");
+    }
+    if (has_system_resolver(config_)) {
+        std::string error;
+        const auto snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
+        if (!wait_for_resolver_config_hash_confirmation(
+                config_, snapshot.expected_hash,
+                apply_started_ts_.load(std::memory_order_acquire), error)) {
+            throw DaemonError(error);
+        }
+    }
+    complete_running_runtime("config apply complete");
+    if (publish_active_snapshot) {
+        config_store_.replace_active(config_, outbound_marks_);
+        publish_runtime_state();
+    }
+}
+
+void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
     if (event_loop_active_.load(std::memory_order_acquire) && !is_event_loop_thread()) {
-        throw DaemonError("apply_prepared_runtime_inputs must run on the control/event-loop thread");
+        throw DaemonError("reconcile_prepared_runtime must run on the control/event-loop thread");
     }
 
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
@@ -647,23 +709,14 @@ void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
         urltest_manager_->clear();
     }
     reconcile_static_routing();
-    register_urltest_outbounds();
     (void)refresh_keenetic_dns_cache(true);
-    apply_firewall(FirewallApplyMode::Destructive);
-    schedule_keenetic_dns_refresh();
-    schedule_lists_autoupdate();
+    apply_firewall(FirewallApplyMode::PreserveSets);
+    routing_runtime_active_ = true;
+    transition_runtime_or_throw(RuntimeState::applying, "config apply");
+    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
     update_resolver_config_hash();
     setup_dns_probe();
-    if (!run_system_resolver_hook_reload()) {
-        throw DaemonError("system resolver reload hook failed");
-    }
-    refresh_resolver_config_hash_actual_async();
-    schedule_resolver_config_hash_actual_refresh();
-
-    if (publish_active_snapshot) {
-        config_store_.replace_active(config_, outbound_marks_);
-        publish_runtime_state();
-    }
+    publish_runtime_state();
 }
 
 void Daemon::apply_config(Config config, bool refresh_remote_lists) {
@@ -671,34 +724,11 @@ void Daemon::apply_config(Config config, bool refresh_remote_lists) {
         throw DaemonError("apply_config must run on the control/event-loop thread");
     }
 
-    transition_runtime_or_throw(RuntimeState::applying, "config apply");
     try {
         apply_prepared_runtime_inputs(prepare_runtime_inputs(config, refresh_remote_lists));
-        transition_runtime_or_throw(RuntimeState::running, "config apply complete");
     } catch (...) {
         std::string ignored_error;
         (void)runtime_state_machine_.transition(RuntimeState::broken, "config apply failed", ignored_error);
-        throw;
-    }
-}
-
-void Daemon::apply_config_with_rollback(const Config& next_config, bool& rolled_back) {
-    Config previous_config = config_;
-
-    try {
-        apply_config(next_config);
-        rolled_back = false;
-    } catch (...) {
-        try {
-            apply_config(previous_config);
-            rolled_back = true;
-        } catch (const std::exception& rollback_error) {
-            Logger::instance().error("Rollback to previous config failed: {}", rollback_error.what());
-            rolled_back = false;
-        } catch (...) {
-            Logger::instance().error("Rollback to previous config failed: unknown error");
-            rolled_back = false;
-        }
         throw;
     }
 }
@@ -713,19 +743,13 @@ void Daemon::reload_from_disk() {
     ss << ifs.rdbuf();
     Config next_config = parse_config(ss.str());
     validate_config(next_config);
-    const Config previous_config = config_store_.active_config();
     try {
         apply_config(std::move(next_config));
     } catch (...) {
-        try {
-            apply_config(previous_config, false);
-        } catch (const std::exception& rollback_error) {
-            std::string ignored_error;
-            (void)runtime_state_machine_.transition(
-                RuntimeState::broken, "disk reload rollback failed", ignored_error);
-            publish_runtime_state();
-            Logger::instance().error("Disk reload rollback failed: {}", rollback_error.what());
-        }
+        std::string ignored_error;
+        (void)runtime_state_machine_.transition(
+            RuntimeState::broken, "disk reload failed", ignored_error);
+        publish_runtime_state();
         throw;
     }
 }

@@ -7,9 +7,16 @@ def register(registry):
         assert routing["overall"] == "ok", routing
         assert routing["firewall_backend"] == context.backend, routing
         stopped = context.api("/api/service/stop", "POST")
-        assert stopped["status"] == "ok", stopped
-        context.wait_for("stopped runtime",
-                         lambda: context.api("/api/health/service")["status"] == "stopped")
+        assert stopped["status"] == "accepted" and stopped["operation_id"], stopped
+        context.wait_for(
+            "stopped runtime",
+            lambda: ((health := context.api("/api/health/service"))["status"] == "stopped" and
+                     health.get("lifecycle_operation", {}).get("id") == stopped["operation_id"] and
+                     health["lifecycle_operation"].get("status") == "succeeded"))
         started = context.api("/api/service/start", "POST")
-        assert started["status"] == "ok", started
-        context.wait_for("restarted runtime", context.health_running)
+        assert started["status"] == "accepted" and started["operation_id"], started
+        context.wait_for(
+            "restarted runtime",
+            lambda: ((health := context.api("/api/health/service"))["status"] == "running" and
+                     health.get("lifecycle_operation", {}).get("id") == started["operation_id"] and
+                     health["lifecycle_operation"].get("status") == "succeeded"))
