@@ -43,6 +43,18 @@ TEST_CASE("ListParser applies identical domain rules to streamed sources") {
     CHECK(visitor.entries[1].second == "valid_example.test");
 }
 
+TEST_CASE("ListParser skips blank and comment entries") {
+    std::istringstream input(
+        "\n"
+        "   \t\r\n"
+        "  # comment\n"
+        "example.com\n");
+    RecordingVisitor visitor;
+    ListParser::stream_parse(input, visitor, "test-list");
+    REQUIRE(visitor.entries.size() == 1);
+    CHECK(visitor.entries[0].second == "example.com");
+}
+
 TEST_CASE("ListParser rejects malformed DNS labels") {
     const std::vector<std::string> invalid = {
              "", "*", "*.*.example.com", "example..com", ".example.com",

@@ -1,6 +1,5 @@
 #include "config.hpp"
 #include "addr_spec.hpp"
-#include "list_parser.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
 
@@ -838,16 +837,6 @@ void validate_config(const Config& cfg) {
                       "List URL must use the http or https scheme");
         }
 
-        for (std::size_t index = 0;
-             index < list_cfg.domains.value_or(std::vector<std::string>{}).size();
-             ++index) {
-            const auto& domain = list_cfg.domains->at(index);
-            if (!ListParser::normalize_domain(domain).has_value()) {
-                add_issue(issues,
-                          list_path + ".domains[" + std::to_string(index) + "]",
-                          "Invalid domain entry '" + domain + "'");
-            }
-        }
     }
 
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});

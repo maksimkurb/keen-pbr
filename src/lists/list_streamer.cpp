@@ -45,14 +45,17 @@ void ListStreamer::stream_all_sources(const std::string& name,
         stream_file(config.file.value(), visitor);
     }
 
-    // 3. Inline ip_cidrs via classify_entry()
+    // 3. Inline entries use parse_line() too, so comments, blank entries, and
+    // malformed entries are handled consistently with file and URL sources.
+    const std::string inline_source = "inline list '" + name + "'";
+    std::size_t inline_line_number = 1;
     for (const auto& entry : config.ip_cidrs.value_or(std::vector<std::string>{})) {
-        ListParser::classify_entry(entry, visitor);
+        ListParser::parse_line(entry, visitor, inline_source, inline_line_number++);
     }
 
-    // 4. Inline domains use the same parser and normalization as file/URL entries.
+    // 4. Inline domains use the same parser and normalization as every other source.
     for (const auto& domain : config.domains.value_or(std::vector<std::string>{})) {
-        ListParser::classify_entry(domain, visitor);
+        ListParser::parse_line(domain, visitor, inline_source, inline_line_number++);
     }
 
     // Signal that all sources for this list have been processed

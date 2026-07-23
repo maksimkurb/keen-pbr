@@ -439,7 +439,7 @@ TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before ro
   const std::string iface =
       "-A KeenPbrTable ! -i br0 -j RETURN\n";
   const std::string mark =
-      "[0:0] -A KeenPbrTable -m set --match-set myset dst -j MARK --set-xmark 0x100/0xffffffff\n";
+      "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-xmark 0x100/0xffffffff\n";
 
   const auto dnat_pos = s.find(dnat);
   const auto marked_pos = s.find(marked);
@@ -518,7 +518,7 @@ TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body unch
 
   const std::string iface = "-A KeenPbrTable ! -i br0 -j RETURN\n";
   const std::string mark =
-      "[0:0] -A KeenPbrTable -m set --match-set kpbr4_local dst -j MARK --set-xmark 0x100/0xffffffff\n";
+      "-A KeenPbrTable -m set --match-set kpbr4_local dst -j MARK --set-xmark 0x100/0xffffffff\n";
   const auto iface_pos = s.find(iface);
   const auto mark_pos = s.find(mark);
   REQUIRE(iface_pos != std::string::npos);
@@ -532,12 +532,13 @@ TEST_CASE("build_ipt_script: config rejects interface restore injection before s
       "\"rules\":[]}}"));
 }
 
-TEST_CASE("build_ipt_script_for_rule: masked mark rule uses set-xmark and rule counters") {
+TEST_CASE("build_ipt_script_for_rule: masked mark rule uses set-xmark") {
   FirewallRuleCriteria criteria;
   auto s = T::build_ipt_script_for_rule(false, Rule::Mark, 0x00010000, criteria,
                                         true, 0x00FF0000);
-  CHECK(s.find("[0:0] -A KeenPbrTable -m set --match-set pairwise_set dst -j MARK --set-xmark 0x10000/0xff0000\n") !=
+  CHECK(s.find("-A KeenPbrTable -m set --match-set pairwise_set dst -j MARK --set-xmark 0x10000/0xff0000\n") !=
         std::string::npos);
+  CHECK(s.find("[0:0] -A") == std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: config-derived prefilter omits interface guard when inbound list is empty") {
@@ -1211,7 +1212,7 @@ std::vector<std::string> expected_rule_lines(const PairwiseIptablesCase &tc,
         prefix += proto_port_frag;
 
         if (tc.action == PairwiseAction::Mark) {
-          lines.push_back("[0:0] " + prefix + " -j MARK --set-xmark " + format_fwmark(fwmark) +
+          lines.push_back(prefix + " -j MARK --set-xmark " + format_fwmark(fwmark) +
                           "/0xffffffff" +
                           "\n");
           lines.push_back(prefix + " -j RETURN\n");

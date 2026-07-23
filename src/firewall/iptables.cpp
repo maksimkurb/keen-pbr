@@ -367,7 +367,7 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                         pr.fwmark,
                         pr.fwmark_mask);
                     append_mark_and_save(keen_pbr3::format(
-                        "[0:0] -A {}{}{}{}{} {}\n",
+                        "-A {}{}{}{}{} {}\n",
                         CHAIN_NAME,
                         iface_frag,
                         addr_frag,
@@ -405,7 +405,7 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                         pr.fwmark,
                         pr.fwmark_mask);
                     append_mark_and_save(keen_pbr3::format(
-                        "[0:0] -A {} -m set --match-set {} dst{}{}{}{} {}\n",
+                        "-A {} -m set --match-set {} dst{}{}{}{} {}\n",
                         CHAIN_NAME,
                         *pr.criteria.dst_set_name,
                         iface_frag,
