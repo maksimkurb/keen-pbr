@@ -2954,6 +2954,7 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --config &amp;lt;path&amp;gt;    Path to JSON config file
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --log-level &amp;lt;lvl&amp;gt;  Log level: error, warn, info, verbose, debug
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --no-api           Disable REST API at runtime
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --version          Show version and exit
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --help             Show this help and exit
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
@@ -2998,6 +2999,10 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 					&lt;td&gt;Disable the REST API even if enabled in config.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;--use-raw-prerouting&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Opt in to raw-table IPv4 forwarded-traffic classification; available only with iptables.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;--version&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;Print version and exit.&lt;/td&gt;
 			&lt;/tr&gt;
@@ -3007,6 +3012,32 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
+&lt;h3&gt;&lt;code&gt;--use-raw-prerouting&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;--use-raw-prerouting&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#--use-raw-prerouting&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;This disabled-by-default option is intended for systems such as KeeneticOS where
+an external firewall manager periodically replaces the &lt;code&gt;mangle&lt;/code&gt; table. It moves
+only IPv4 forwarded-traffic classification from &lt;code&gt;mangle PREROUTING&lt;/code&gt; to &lt;code&gt;raw PREROUTING&lt;/code&gt;; locally generated traffic remains in &lt;code&gt;mangle OUTPUT&lt;/code&gt;, and IPv6
+continues using its existing mangle path.&lt;/p&gt;
+&lt;p&gt;The Keenetic service loads the matching &lt;code&gt;iptable_raw.ko&lt;/code&gt; only when the flag is
+present in &lt;code&gt;KEEN_PBR_ARGS&lt;/code&gt; in &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;. Startup fails instead
+of silently falling back if raw is unusable. Raw PREROUTING deliberately does not
+use connmark acceleration: each forwarded packet is classified directly.&lt;/p&gt;
+&lt;p&gt;Troubleshoot the required capability with:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ls -l &lt;span class=&#34;s2&#34;&gt;&amp;#34;/lib/modules/&lt;/span&gt;&lt;span class=&#34;k&#34;&gt;$(&lt;/span&gt;uname -r&lt;span class=&#34;k&#34;&gt;)&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;/iptable_raw.ko&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;grep -x raw /proc/net/ip_tables_names
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;iptables -t raw -S&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
 &lt;h2&gt;Commands&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;commands&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#commands&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;table&gt;
 	&lt;thead&gt;
