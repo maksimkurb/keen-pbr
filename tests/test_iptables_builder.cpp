@@ -415,15 +415,18 @@ TEST_CASE("build_ipt_script: empty rules still build KeenPbrTable scaffold") {
 TEST_CASE("build_ipt_script: replacement rebuilds inactive B chain and switches dispatcher") {
   const auto script = keen_pbr3::IptablesBuilderTest::build_replacement_script();
   const auto flush = script.find("-F KeenPbrTable_B");
-  const auto replace = script.find("-R KeenPbrTable 1 -j KeenPbrTable_B");
-  const auto output_replace = script.find("-R KeenPbrTable_OUTPUT 1 -j KeenPbrTable_B");
+  const auto dispatcher_flush = script.find("-F KeenPbrTable\n-F KeenPbrTable_OUTPUT");
+  const auto dispatcher_jump = script.find("-A KeenPbrTable -j KeenPbrTable_B");
+  const auto output_jump = script.find("-A KeenPbrTable_OUTPUT -j KeenPbrTable_B");
 
   REQUIRE(flush != std::string::npos);
-  REQUIRE(replace != std::string::npos);
-  REQUIRE(output_replace != std::string::npos);
-  CHECK(flush < replace);
+  REQUIRE(dispatcher_flush != std::string::npos);
+  REQUIRE(dispatcher_jump != std::string::npos);
+  REQUIRE(output_jump != std::string::npos);
+  CHECK(flush < dispatcher_flush);
+  CHECK(dispatcher_flush < dispatcher_jump);
   CHECK(script.find("-X KeenPbrTable_A") == std::string::npos);
-  CHECK(script.find("-D PREROUTING -j KeenPbrTable") == std::string::npos);
+  CHECK(script.find("-R KeenPbrTable") == std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before route rules") {

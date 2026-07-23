@@ -3,6 +3,7 @@
 
 #include <arpa/inet.h>
 
+#include <algorithm>
 #include <charconv>
 
 namespace keen_pbr3 {
@@ -15,6 +16,36 @@ static std::string_view trim(std::string_view sv) {
         sv.remove_suffix(1);
     }
     return sv;
+}
+
+static std::string format_entry_for_log(std::string_view entry) {
+    constexpr std::size_t kMaxLoggedBytes = 256;
+    std::string result;
+    result.reserve(std::min(entry.size(), kMaxLoggedBytes) + 2);
+    result.push_back('\'');
+    const std::size_t length = std::min(entry.size(), kMaxLoggedBytes);
+    for (std::size_t index = 0; index < length; ++index) {
+        const unsigned char ch = static_cast<unsigned char>(entry[index]);
+        switch (ch) {
+            case '\\': result += "\\\\"; break;
+            case '\'': result += "\\'"; break;
+            case '\n': result += "\\n"; break;
+            case '\r': result += "\\r"; break;
+            case '\t': result += "\\t"; break;
+            default:
+                if (ch < 0x20 || ch == 0x7f) {
+                    constexpr char hex[] = "0123456789abcdef";
+                    result += "\\x";
+                    result.push_back(hex[ch >> 4]);
+                    result.push_back(hex[ch & 0x0f]);
+                } else {
+                    result.push_back(static_cast<char>(ch));
+                }
+        }
+    }
+    if (entry.size() > length) result += "…";
+    result.push_back('\'');
+    return result;
 }
 
 bool ListParser::is_ipv4(std::string_view s) {
@@ -140,7 +171,8 @@ void ListParser::parse_line(std::string_view line,
     const auto value = trim(line);
     if (value.empty() || value.front() == '#') return;
     if (!classify_entry(value, visitor)) {
-        Logger::instance().warn("Skipping invalid list entry in {} at line {}",
+        Logger::instance().warn("Skipping invalid list entry {} in {} at line {}",
+                                format_entry_for_log(value),
                                 source_name.empty() ? std::string("list source")
                                                     : std::string(source_name),
                                 line_number);

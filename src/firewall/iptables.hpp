@@ -100,6 +100,7 @@ private:
         const PendingRule& pr,
         const FirewallGlobalPrefilter& prefilter);
     bool ipv6_backend_available() const;
+    bool dispatcher_chains_exist(bool ipv6) const;
     // Expand filter (proto, src_addr, dst_addr) into cross-product of PendingRules
     // and append them to out.  tcp/udp is split into two entries.  Multiple CIDRs
     // in src_addr / dst_addr each become separate rules (OR semantics when combined).

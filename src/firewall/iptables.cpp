@@ -227,6 +227,14 @@ bool IptablesFirewall::ipv6_backend_available() const {
     return iptables_ipv6_supported();
 }
 
+bool IptablesFirewall::dispatcher_chains_exist(bool ipv6) const {
+    const char* command = ipv6 ? "ip6tables" : "iptables";
+    return safe_exec({command, "-t", "mangle", "-S", CHAIN_NAME},
+                     /*suppress_output=*/true) == 0
+        && safe_exec({command, "-t", "mangle", "-S", std::string(CHAIN_NAME) + "_OUTPUT"},
+                     /*suppress_output=*/true) == 0;
+}
+
 std::string IptablesFirewall::build_proto_port_fragment(L4Proto proto,
                                                          const PortSpec& src_port,
                                                          const PortSpec& dst_port,
@@ -485,7 +493,11 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
             CHAIN_NAME, CHAIN_NAME, CHAIN_NAME, CHAIN_NAME,
             CHAIN_NAME, active_chain, CHAIN_NAME, active_chain);
     } else {
-        s += keen_pbr3::format("-R {} 1 -j {}\n-R {}_OUTPUT 1 -j {}\n",
+        // Rebuild both daemon-owned dispatchers instead of assuming their jump
+        // is at position 1. The complete restore transaction remains atomic.
+        s += keen_pbr3::format("-F {}\n-F {}_OUTPUT\n"
+                               "-A {} -j {}\n-A {}_OUTPUT -j {}\n",
+                               CHAIN_NAME, CHAIN_NAME,
                                CHAIN_NAME, active_chain, CHAIN_NAME, active_chain);
     }
     std::string prefilter_lines = build_prefilter_lines(prefilter);
@@ -535,7 +547,7 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
     {
         std::string ipset_script;
         std::set<std::string> disabled_ipv6_sets;
-        for (const auto& ps : pending_sets_) {
+    for (const auto& ps : pending_sets_) {
             if (ps.family_str == "inet6" && !effective_ipv6) {
                 disabled_ipv6_sets.insert(ps.name);
                 continue;
@@ -566,6 +578,19 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
         if (!ipset_script.empty()) {
             pipe_to_cmd({"ipset", "restore", "-exist"}, ipset_script);
         }
+    }
+
+    // The daemon can outlive externally flushed iptables state (for example,
+    // after a firewall reload). Do not use the incremental A/B switch unless
+    // both dispatcher chains still exist; recreate the whole scaffold instead.
+    const bool v4_dispatchers_missing = active_v4_generation_.has_value()
+        && !dispatcher_chains_exist(false);
+    const bool v6_dispatchers_missing = effective_ipv6 && active_v6_generation_.has_value()
+        && !dispatcher_chains_exist(true);
+    if (v4_dispatchers_missing || v6_dispatchers_missing) {
+        Logger::instance().warn(
+            "iptables dispatcher chains are missing; recreating the firewall scaffold");
+        cleanup_rules_impl(/*sweep_live_state=*/true);
     }
 
     // Phase 2: iptables rules via iptables-restore / ip6tables-restore.
