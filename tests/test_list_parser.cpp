@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/config/list_parser.hpp"
+#include "../src/log/logger.hpp"
 
 #include <sstream>
 #include <string>
@@ -53,6 +54,33 @@ TEST_CASE("ListParser skips blank and comment entries") {
     ListParser::stream_parse(input, visitor, "test-list");
     REQUIRE(visitor.entries.size() == 1);
     CHECK(visitor.entries[0].second == "example.com");
+}
+
+TEST_CASE("ListParser limits malformed-entry warnings per parse") {
+    auto& logger = Logger::instance();
+    const LogLevel previous_level = logger.level();
+    logger.set_level(LogLevel::warn);
+    std::string log;
+    logger.set_sink([&log](const std::string& line) {
+        log += line;
+        log.push_back('\n');
+    });
+
+    RecordingVisitor visitor;
+    ListParser::ParseContext context;
+    for (std::size_t line = 1; line <= 7; ++line) {
+        ListParser::parse_line("bad/domain" + std::to_string(line), visitor,
+                               "limited-test-list", line, &context);
+    }
+
+    logger.clear_sink();
+    logger.set_level(previous_level);
+    CHECK(log.find("Skipping invalid list entry 'bad/domain1' in limited-test-list") !=
+          std::string::npos);
+    CHECK(log.find("Skipping invalid list entry 'bad/domain5' in limited-test-list") !=
+          std::string::npos);
+    CHECK(log.find("Skipping invalid list entry 'bad/domain6'") == std::string::npos);
+    CHECK(log.find("Too many invalid list entries in limited-test-list") != std::string::npos);
 }
 
 TEST_CASE("ListParser rejects malformed DNS labels") {

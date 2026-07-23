@@ -11,6 +11,11 @@ namespace keen_pbr3 {
 
 class ListParser {
 public:
+    struct ParseContext {
+        bool log_invalid_entries{true};
+        std::size_t invalid_entry_count{0};
+    };
+
     // Stream-parse from an istream, dispatching each entry to the visitor.
     static void stream_parse(std::istream& input,
                              ListEntryVisitor& visitor,
@@ -23,7 +28,8 @@ public:
     static void parse_line(std::string_view line,
                            ListEntryVisitor& visitor,
                            std::string_view source_name,
-                           std::size_t line_number);
+                           std::size_t line_number,
+                           ParseContext* context = nullptr);
 
     // Validate and normalize a DNS-compatible domain. Leading "*." and one
     // trailing root dot are removed from the returned value.

@@ -158,19 +158,31 @@ void ListParser::stream_parse(std::istream& input,
                               std::string_view source_name) {
     std::string line;
     std::size_t line_number = 0;
+    ParseContext context;
     while (std::getline(input, line)) {
         ++line_number;
-        parse_line(line, visitor, source_name, line_number);
+        parse_line(line, visitor, source_name, line_number, &context);
     }
 }
 
 void ListParser::parse_line(std::string_view line,
                             ListEntryVisitor& visitor,
                             std::string_view source_name,
-                            std::size_t line_number) {
+                            std::size_t line_number,
+                            ParseContext* context) {
     const auto value = trim(line);
     if (value.empty() || value.front() == '#') return;
-    if (!classify_entry(value, visitor)) {
+    if (!classify_entry(value, visitor)
+        && (!context || context->log_invalid_entries)) {
+        constexpr std::size_t kMaxDetailedInvalidEntries = 5;
+        const std::size_t count = context ? ++context->invalid_entry_count : 1;
+        if (count > kMaxDetailedInvalidEntries + 1) return;
+        if (count == kMaxDetailedInvalidEntries + 1) {
+            Logger::instance().warn(
+                "Too many invalid list entries in {}; further entries will be skipped without warnings",
+                source_name.empty() ? std::string("list source") : std::string(source_name));
+            return;
+        }
         Logger::instance().warn("Skipping invalid list entry {} in {} at line {}",
                                 format_entry_for_log(value),
                                 source_name.empty() ? std::string("list source")

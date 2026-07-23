@@ -36,7 +36,9 @@ private:
                             bool include_cache);
 
     // Open a file and stream its entries through the visitor.
-    void stream_file(const std::filesystem::path& path, ListEntryVisitor& visitor);
+    void stream_file(const std::filesystem::path& path,
+                     ListEntryVisitor& visitor,
+                     bool log_invalid_entries);
 
     const CacheManager& cache_;
     std::size_t max_file_size_bytes_;
