@@ -311,18 +311,26 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
         std::chrono::steady_clock::now() - started_at).count();
     if (!wait_result.timed_out && wait_result.reaped && WIFEXITED(wait_result.status)) {
         const int exit_code = WEXITSTATUS(wait_result.status);
-        Logger::instance().trace("safe_exec_pipe_end",
-                                 "cmd={} exit_code={} duration_ms={}",
-                                 command,
-                                 exit_code,
-                                 duration_ms);
+        if (exit_code == 0) {
+            Logger::instance().trace("safe_exec_pipe_end",
+                                     "cmd={} exit_code={} duration_ms={}",
+                                     command,
+                                     exit_code,
+                                     duration_ms);
+        } else {
+            Logger::instance().error("safe_exec_pipe_failed cmd={} exit_code={} duration_ms={}",
+                                     command,
+                                     exit_code,
+                                     duration_ms);
+            Logger::instance().error("safe_exec_pipe_input cmd={}:\n{}", command, input);
+        }
         return exit_code;
     }
-    Logger::instance().trace("safe_exec_pipe_error",
-                             "cmd={} duration_ms={} reason={}",
+    Logger::instance().error("safe_exec_pipe_failed cmd={} duration_ms={} reason={}",
                              command,
                              duration_ms,
                              wait_result.timed_out ? "timeout" : "abnormal_exit");
+    Logger::instance().error("safe_exec_pipe_input cmd={}:\n{}", command, input);
     return -1;
 }
 

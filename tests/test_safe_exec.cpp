@@ -105,6 +105,13 @@ private:
     SafeExecTimeouts previous_;
 };
 
+class LoggerSinkGuard {
+public:
+    ~LoggerSinkGuard() {
+        Logger::instance().clear_sink();
+    }
+};
+
 void write_executable(const std::filesystem::path& path, const std::string& content) {
     std::ofstream output(path);
     output << content;
@@ -197,6 +204,23 @@ TEST_CASE("safe_exec_pipe_stdin: child that does not read is bounded by deadline
 
     CHECK(exit_code == -1);
     CHECK(elapsed < std::chrono::seconds{2});
+}
+
+TEST_CASE("safe_exec_pipe_stdin: failed command logs arguments and input") {
+    LoggerSinkGuard logger_sink_guard;
+    std::string log;
+    Logger::instance().set_sink([&log](const std::string& line) {
+        log += line;
+        log += '\n';
+    });
+
+    const std::string input = "*mangle\nCOMMIT\n";
+    const int exit_code = safe_exec_pipe_stdin(
+        {"/bin/sh", "-c", "cat >/dev/null; exit 42"}, input);
+
+    CHECK(exit_code == 42);
+    CHECK(log.find("cmd=/bin/sh -c cat >/dev/null; exit 42") != std::string::npos);
+    CHECK(log.find(input) != std::string::npos);
 }
 
 TEST_CASE("safe_exec_capture: ignored SIGTERM cannot hang capture") {

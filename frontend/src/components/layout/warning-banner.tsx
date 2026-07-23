@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from "react"
 import {
   CircleCheckBigIcon,
   CircleIcon,
+  CircleOffIcon,
   CircleXIcon,
   LoaderCircleIcon,
   SaveIcon,
@@ -174,6 +175,9 @@ function StepIcon({ status }: { status: WarningBannerState["operationSteps"][num
   }
   if (status === "failed") {
     return <CircleXIcon className="relative z-10 size-5 shrink-0 text-destructive" />
+  }
+  if (status === "skipped") {
+    return <CircleOffIcon className="relative z-10 size-5 shrink-0 text-muted-foreground" />
   }
   return (
     <span className={cn(markerClassName, "bg-card text-muted-foreground")}>

@@ -108,6 +108,17 @@ TEST_CASE("resolver sync state machine: fresh apply converges after matching TXT
     CHECK(snapshot.live_status == api::ResolverLiveStatus::HEALTHY);
 }
 
+TEST_CASE("resolver sync state machine: matching older TXT after non-DNS apply is converged") {
+    ResolverSyncStateMachine machine;
+    machine.apply_started(100, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    machine.probe_succeeded("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 99, 101);
+
+    const auto snapshot = machine.snapshot(101);
+    CHECK(snapshot.sync_state ==
+          std::optional<api::ResolverConfigSyncState>{api::ResolverConfigSyncState::CONVERGED});
+    CHECK(snapshot.live_status == api::ResolverLiveStatus::HEALTHY);
+}
+
 TEST_CASE("resolver sync state machine: hash mismatch after window is stale") {
     ResolverSyncStateMachine machine;
     machine.apply_started(100, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
