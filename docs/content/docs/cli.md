@@ -17,6 +17,7 @@ Options:
   --config <path>    Path to JSON config file
   --log-level <lvl>  Log level: error, warn, info, verbose, debug
   --no-api           Disable REST API at runtime
+  --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
   --version          Show version and exit
   --help             Show this help and exit
 
@@ -38,8 +39,30 @@ The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, an
 | `--config <path>` | Path to the JSON config file. |
 | `--log-level <lvl>` | Log verbosity: `error`, `warn`, `info`, `verbose`, or `debug`. |
 | `--no-api` | Disable the REST API even if enabled in config. |
+| `--use-raw-prerouting` | Opt in to raw-table IPv4 forwarded-traffic classification; available only with iptables. |
 | `--version` | Print version and exit. |
 | `--help` | Print help and exit. |
+
+### `--use-raw-prerouting`
+
+This disabled-by-default option is intended for systems such as KeeneticOS where
+an external firewall manager periodically replaces the `mangle` table. It moves
+only IPv4 forwarded-traffic classification from `mangle PREROUTING` to `raw
+PREROUTING`; locally generated traffic remains in `mangle OUTPUT`, and IPv6
+continues using its existing mangle path.
+
+The Keenetic service loads the matching `iptable_raw.ko` only when the flag is
+present in `KEEN_PBR_ARGS` in `/opt/etc/keen-pbr/defaults`. Startup fails instead
+of silently falling back if raw is unusable. Raw PREROUTING deliberately does not
+use connmark acceleration: each forwarded packet is classified directly.
+
+Troubleshoot the required capability with:
+
+```sh
+ls -l "/lib/modules/$(uname -r)/iptable_raw.ko"
+grep -x raw /proc/net/ip_tables_names
+iptables -t raw -S
+```
 
 ## Commands
 

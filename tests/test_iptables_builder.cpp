@@ -6,10 +6,10 @@
 #include "../src/firewall/iptables.hpp"
 #include "../src/lists/list_entry_visitor.hpp"
 
+#include <array>
+#include <set>
 #include <sstream>
 #include <string>
-#include <set>
-#include <array>
 #include <sys/socket.h>
 #include <vector>
 
@@ -17,11 +17,15 @@ namespace keen_pbr3 {
 
 namespace {
 
-L4Proto parse_test_proto(const std::string& proto) {
-  if (proto.empty()) return L4Proto::Any;
-  if (proto == "tcp") return L4Proto::Tcp;
-  if (proto == "udp") return L4Proto::Udp;
-  if (proto == "tcp/udp") return L4Proto::TcpUdp;
+L4Proto parse_test_proto(const std::string &proto) {
+  if (proto.empty())
+    return L4Proto::Any;
+  if (proto == "tcp")
+    return L4Proto::Tcp;
+  if (proto == "udp")
+    return L4Proto::Udp;
+  if (proto == "tcp/udp")
+    return L4Proto::TcpUdp;
   throw std::invalid_argument("unexpected proto in test: " + proto);
 }
 
@@ -50,22 +54,21 @@ public:
     return IptablesFirewall::build_ipset_create_line(ps);
   }
 
-  static bool is_dynamic_set_name(const std::string& name) {
+  static bool is_dynamic_set_name(const std::string &name) {
     return IptablesFirewall::is_dynamic_set_name(name);
   }
 
   static std::string static_set_name(FirewallSetGeneration generation,
-                                     const std::string& name,
-                                     int family) {
+                                     const std::string &name, int family) {
     IptablesFirewall firewall;
     firewall.target_v4_generation_ = generation;
     firewall.target_v6_generation_ = generation;
     return firewall.static_set_name(name, family);
   }
 
-  static std::string prepared_static_set_name(
-      std::optional<FirewallSetGeneration> active,
-      FirewallApplyMode mode) {
+  static std::string
+  prepared_static_set_name(std::optional<FirewallSetGeneration> active,
+                           FirewallApplyMode mode) {
     IptablesFirewall firewall;
     firewall.active_v4_generation_ = active;
     firewall.prepare_apply(mode);
@@ -98,17 +101,35 @@ public:
   }
 
   static std::string build_replacement_script() {
-    return IptablesFirewall::build_ipt_script(
-        false, "KeenPbrTable_B", true, "KeenPbrTable_A", {}, {});
+    return IptablesFirewall::build_ipt_script(false, "KeenPbrTable_B", true,
+                                              "KeenPbrTable_A", {}, {});
   }
 
-  static std::string build_ipt_script_for_rule(bool ipv6,
-                                               RuleDesc::Action action,
-                                               uint32_t fwmark,
-                                               FirewallRuleCriteria criteria,
-                                               bool list_backed,
-                                               uint32_t fwmark_mask = 0xFFFFFFFFu,
-                                               FirewallGlobalPrefilter prefilter = {}) {
+  static std::string build_raw_script(const std::vector<RuleDesc> &descs,
+                                      FirewallGlobalPrefilter prefilter = {}) {
+    std::vector<IptablesFirewall::PendingRule> rules;
+    for (const auto &d : descs) {
+      IptablesFirewall::PendingRule pr;
+      pr.ipv6 = d.ipv6;
+      pr.action =
+          d.action == RuleDesc::Mark   ? IptablesFirewall::PendingRule::Mark
+          : d.action == RuleDesc::Drop ? IptablesFirewall::PendingRule::Drop
+                                       : IptablesFirewall::PendingRule::Pass;
+      pr.fwmark = d.fwmark;
+      pr.criteria = d.filter;
+      if (!d.set_name.empty())
+        pr.criteria.dst_set_name = d.set_name;
+      rules.push_back(std::move(pr));
+    }
+    return IptablesFirewall::build_raw_prerouting_script("KeenPbrRaw_A", false,
+                                                         rules, prefilter);
+  }
+
+  static std::string
+  build_ipt_script_for_rule(bool ipv6, RuleDesc::Action action, uint32_t fwmark,
+                            FirewallRuleCriteria criteria, bool list_backed,
+                            uint32_t fwmark_mask = 0xFFFFFFFFu,
+                            FirewallGlobalPrefilter prefilter = {}) {
     IptablesFirewall fw;
     fw.set_fwmark_mask(fwmark_mask);
     if (list_backed) {
@@ -125,7 +146,8 @@ public:
     }
 
     fw.append_rules_for_family(ipv6, mapped_action, fwmark, criteria);
-    return IptablesFirewall::build_ipt_script(ipv6, fw.pending_rules_, prefilter);
+    return IptablesFirewall::build_ipt_script(ipv6, fw.pending_rules_,
+                                              prefilter);
   }
 
   static std::string build_proto_port_fragment(const std::string &proto,
@@ -150,7 +172,7 @@ public:
     firewall.create_ipset("kpbr4_shared", AF_INET);
     try {
       firewall.create_ipset("kpbr4_shared", AF_INET6);
-    } catch (const FirewallError&) {
+    } catch (const FirewallError &) {
       return true;
     }
     return false;
@@ -168,9 +190,26 @@ TEST_CASE("IptablesFirewall deduplicates repeated static ipset declarations") {
   CHECK(T::conflicting_duplicate_create_throws());
 }
 
+TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
+  Rule rule{"kpbr4s_minecraft", false, false, Rule::Mark, 0x100, {}};
+  FirewallGlobalPrefilter prefilter;
+  prefilter.restore_conntrack_mark = true;
+  prefilter.conntrack_mark_mask = 0xff00;
+  prefilter.skip_established_or_dnat = true;
+  const std::string script = T::build_raw_script({rule}, prefilter);
+  CHECK(script.find("*raw\n") != std::string::npos);
+  CHECK(script.find("-A PREROUTING -j KeenPbrRaw") != std::string::npos);
+  CHECK(script.find("--set-xmark 0x100/0xffffffff") != std::string::npos);
+  CHECK(script.find("CONNMARK") == std::string::npos);
+  CHECK(script.find("-m conntrack") == std::string::npos);
+  CHECK(script.find("-m connmark") == std::string::npos);
+  CHECK(script.find("--ctstate") == std::string::npos);
+  CHECK(script.find("--ctdir") == std::string::npos);
+}
+
 namespace {
 
-Config parse_valid_config(const std::string& json) {
+Config parse_valid_config(const std::string &json) {
   Config cfg = parse_config(json);
   if (!cfg.dns.has_value()) {
     cfg.dns = DnsConfig{};
@@ -228,9 +267,9 @@ static Rule pass_rule(const std::string &set_name, bool ipv6,
   return r;
 }
 
-static FirewallGlobalPrefilter prefilter_with_interfaces(
-    std::vector<std::string> interfaces,
-    bool skip_established_or_dnat = true) {
+static FirewallGlobalPrefilter
+prefilter_with_interfaces(std::vector<std::string> interfaces,
+                          bool skip_established_or_dnat = true) {
   FirewallGlobalPrefilter prefilter;
   prefilter.skip_established_or_dnat = skip_established_or_dnat;
   prefilter.skip_marked_packets = true;
@@ -304,10 +343,14 @@ TEST_CASE("ipset reconcile: only dnsmasq names are dynamic") {
 
 TEST_CASE("ipset reconcile: static A/B names fit the ipset limit") {
   const std::string longest_name(24, 'a');
-  const auto v4a = T::static_set_name(FirewallSetGeneration::A, longest_name, AF_INET);
-  const auto v4b = T::static_set_name(FirewallSetGeneration::B, longest_name, AF_INET);
-  const auto v6a = T::static_set_name(FirewallSetGeneration::A, longest_name, AF_INET6);
-  const auto v6b = T::static_set_name(FirewallSetGeneration::B, longest_name, AF_INET6);
+  const auto v4a =
+      T::static_set_name(FirewallSetGeneration::A, longest_name, AF_INET);
+  const auto v4b =
+      T::static_set_name(FirewallSetGeneration::B, longest_name, AF_INET);
+  const auto v6a =
+      T::static_set_name(FirewallSetGeneration::A, longest_name, AF_INET6);
+  const auto v6b =
+      T::static_set_name(FirewallSetGeneration::B, longest_name, AF_INET6);
   CHECK(v4a == "kpbr4s_" + longest_name);
   CHECK(v4b == "kpbr4S_" + longest_name);
   CHECK(v6a == "kpbr6s_" + longest_name);
@@ -320,9 +363,10 @@ TEST_CASE("ipset reconcile: static A/B names fit the ipset limit") {
   CHECK(("kpbr6d_" + longest_name).size() == 31);
 }
 
-TEST_CASE("ipset reconcile: prepared generation alternates A/B without growth") {
-  CHECK(T::prepared_static_set_name(std::nullopt, FirewallApplyMode::Destructive) ==
-        "kpbr4s_sample");
+TEST_CASE(
+    "ipset reconcile: prepared generation alternates A/B without growth") {
+  CHECK(T::prepared_static_set_name(
+            std::nullopt, FirewallApplyMode::Destructive) == "kpbr4s_sample");
   CHECK(T::prepared_static_set_name(FirewallSetGeneration::A,
                                     FirewallApplyMode::PreserveSets) ==
         "kpbr4S_sample");
@@ -412,12 +456,16 @@ TEST_CASE("build_ipt_script: empty rules still build KeenPbrTable scaffold") {
              "-A KeenPbrTable_OUTPUT -j KeenPbrTable\nCOMMIT\n");
 }
 
-TEST_CASE("build_ipt_script: replacement rebuilds inactive B chain and switches dispatcher") {
-  const auto script = keen_pbr3::IptablesBuilderTest::build_replacement_script();
+TEST_CASE("build_ipt_script: replacement rebuilds inactive B chain and "
+          "switches dispatcher") {
+  const auto script =
+      keen_pbr3::IptablesBuilderTest::build_replacement_script();
   const auto flush = script.find("-F KeenPbrTable_B");
-  const auto dispatcher_flush = script.find("-F KeenPbrTable\n-F KeenPbrTable_OUTPUT");
+  const auto dispatcher_flush =
+      script.find("-F KeenPbrTable\n-F KeenPbrTable_OUTPUT");
   const auto dispatcher_jump = script.find("-A KeenPbrTable -j KeenPbrTable_B");
-  const auto output_jump = script.find("-A KeenPbrTable_OUTPUT -j KeenPbrTable_B");
+  const auto output_jump =
+      script.find("-A KeenPbrTable_OUTPUT -j KeenPbrTable_B");
 
   REQUIRE(flush != std::string::npos);
   REQUIRE(dispatcher_flush != std::string::npos);
@@ -429,20 +477,18 @@ TEST_CASE("build_ipt_script: replacement rebuilds inactive B chain and switches 
   CHECK(script.find("-R KeenPbrTable") == std::string::npos);
 }
 
-TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before route rules") {
-  auto s = T::build_ipt_script(
-      false,
-      {mark_rule("myset", false, 0x100)},
-      prefilter_with_interfaces({"br0"}));
+TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before "
+          "route rules") {
+  auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100)},
+                               prefilter_with_interfaces({"br0"}));
 
   const std::string dnat =
       "-A KeenPbrTable -m conntrack --ctstate DNAT -j RETURN\n";
   const std::string marked =
       "-A KeenPbrTable -m mark ! --mark 0x0/0xffffffff -j ACCEPT\n";
-  const std::string iface =
-      "-A KeenPbrTable ! -i br0 -j RETURN\n";
-  const std::string mark =
-      "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-xmark 0x100/0xffffffff\n";
+  const std::string iface = "-A KeenPbrTable ! -i br0 -j RETURN\n";
+  const std::string mark = "-A KeenPbrTable -m set --match-set myset dst -j "
+                           "MARK --set-xmark 0x100/0xffffffff\n";
 
   const auto dnat_pos = s.find(dnat);
   const auto marked_pos = s.find(marked);
@@ -458,18 +504,27 @@ TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before ro
   CHECK(iface_pos < mark_pos);
 }
 
-TEST_CASE("build_ipt_script: conntrack restore is original-direction and mask scoped") {
+TEST_CASE("build_ipt_script: conntrack restore is original-direction and mask "
+          "scoped") {
   FirewallGlobalPrefilter prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0x00FF0000U;
-  const auto script = T::build_ipt_script(false, {mark_rule("myset", false, 0x100)}, prefilter);
-  CHECK(script.find("-m conntrack --ctdir ORIGINAL -m connmark ! --mark 0/0xff0000") != std::string::npos);
-  CHECK(script.find("CONNMARK --restore-mark --mask 0xff0000") != std::string::npos);
-  CHECK(script.find("CONNMARK --save-mark --mask 0xff0000") != std::string::npos);
-  const auto restore = script.find("--ctdir ORIGINAL -m connmark ! --mark 0/0xff0000");
-  const auto restored_return = script.find("-m conntrack --ctdir ORIGINAL -m mark ! --mark 0/0xff0000 -j RETURN");
+  const auto script =
+      T::build_ipt_script(false, {mark_rule("myset", false, 0x100)}, prefilter);
+  CHECK(script.find(
+            "-m conntrack --ctdir ORIGINAL -m connmark ! --mark 0/0xff0000") !=
+        std::string::npos);
+  CHECK(script.find("CONNMARK --restore-mark --mask 0xff0000") !=
+        std::string::npos);
+  CHECK(script.find("CONNMARK --save-mark --mask 0xff0000") !=
+        std::string::npos);
+  const auto restore =
+      script.find("--ctdir ORIGINAL -m connmark ! --mark 0/0xff0000");
+  const auto restored_return = script.find(
+      "-m conntrack --ctdir ORIGINAL -m mark ! --mark 0/0xff0000 -j RETURN");
   const auto policy = script.find("--match-set myset dst -j MARK");
-  const auto save = script.find("--match-set myset dst -j CONNMARK --save-mark --mask 0xff0000");
+  const auto save = script.find(
+      "--match-set myset dst -j CONNMARK --save-mark --mask 0xff0000");
   REQUIRE(restore != std::string::npos);
   REQUIRE(restored_return != std::string::npos);
   REQUIRE(policy != std::string::npos);
@@ -484,23 +539,26 @@ TEST_CASE("build_ipt_script: skip_marked_packets prefilter can be disabled") {
   prefilter.skip_established_or_dnat = true;
   prefilter.skip_marked_packets = false;
 
-  auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100)}, prefilter);
-  CHECK(s.find("-m mark ! --mark 0x0/0xffffffff -j ACCEPT") == std::string::npos);
-}
-
-TEST_CASE("build_ipt_script: multi-interface prefilter expands route rules with -i matches") {
-  auto s = T::build_ipt_script(
-      false,
-      {pass_rule("allowlist", false)},
-      prefilter_with_interfaces({"br0", "wg0"}, false));
-
-  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -i br0 -j RETURN\n") !=
-        std::string::npos);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -i wg0 -j RETURN\n") !=
+  auto s =
+      T::build_ipt_script(false, {mark_rule("myset", false, 0x100)}, prefilter);
+  CHECK(s.find("-m mark ! --mark 0x0/0xffffffff -j ACCEPT") ==
         std::string::npos);
 }
 
-TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body unchanged") {
+TEST_CASE("build_ipt_script: multi-interface prefilter expands route rules "
+          "with -i matches") {
+  auto s =
+      T::build_ipt_script(false, {pass_rule("allowlist", false)},
+                          prefilter_with_interfaces({"br0", "wg0"}, false));
+
+  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -i br0 -j "
+               "RETURN\n") != std::string::npos);
+  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -i wg0 -j "
+               "RETURN\n") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body "
+          "unchanged") {
   auto cfg = parse_valid_config(R"({
     "outbounds":[
       {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
@@ -517,11 +575,12 @@ TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body unch
   })");
 
   const auto prefilter = build_firewall_global_prefilter(cfg);
-  auto s = T::build_ipt_script(false, {mark_rule("kpbr4_local", false, 0x100)}, prefilter);
+  auto s = T::build_ipt_script(false, {mark_rule("kpbr4_local", false, 0x100)},
+                               prefilter);
 
   const std::string iface = "-A KeenPbrTable ! -i br0 -j RETURN\n";
-  const std::string mark =
-      "-A KeenPbrTable -m set --match-set kpbr4_local dst -j MARK --set-xmark 0x100/0xffffffff\n";
+  const std::string mark = "-A KeenPbrTable -m set --match-set kpbr4_local dst "
+                           "-j MARK --set-xmark 0x100/0xffffffff\n";
   const auto iface_pos = s.find(iface);
   const auto mark_pos = s.find(mark);
   REQUIRE(iface_pos != std::string::npos);
@@ -529,7 +588,8 @@ TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body unch
   CHECK(iface_pos < mark_pos);
 }
 
-TEST_CASE("build_ipt_script: config rejects interface restore injection before serialization") {
+TEST_CASE("build_ipt_script: config rejects interface restore injection before "
+          "serialization") {
   CHECK_THROWS(parse_valid_config(
       "{\"route\":{\"inbound_interfaces\":[\"br0\\n-A KeenPbrTable -j DROP\"],"
       "\"rules\":[]}}"));
@@ -539,12 +599,13 @@ TEST_CASE("build_ipt_script_for_rule: masked mark rule uses set-xmark") {
   FirewallRuleCriteria criteria;
   auto s = T::build_ipt_script_for_rule(false, Rule::Mark, 0x00010000, criteria,
                                         true, 0x00FF0000);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set pairwise_set dst -j MARK --set-xmark 0x10000/0xff0000\n") !=
-        std::string::npos);
+  CHECK(s.find("-A KeenPbrTable -m set --match-set pairwise_set dst -j MARK "
+               "--set-xmark 0x10000/0xff0000\n") != std::string::npos);
   CHECK(s.find("[0:0] -A") == std::string::npos);
 }
 
-TEST_CASE("build_ipt_script: config-derived prefilter omits interface guard when inbound list is empty") {
+TEST_CASE("build_ipt_script: config-derived prefilter omits interface guard "
+          "when inbound list is empty") {
   auto cfg = parse_valid_config(R"({
     "outbounds":[
       {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
@@ -561,11 +622,12 @@ TEST_CASE("build_ipt_script: config-derived prefilter omits interface guard when
   })");
 
   const auto prefilter = build_firewall_global_prefilter(cfg);
-  auto s = T::build_ipt_script(false, {mark_rule("kpbr4_local", false, 0x100)}, prefilter);
+  auto s = T::build_ipt_script(false, {mark_rule("kpbr4_local", false, 0x100)},
+                               prefilter);
 
   CHECK(s.find("! -i ") == std::string::npos);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set kpbr4_local dst -j MARK --set-xmark 0x100/0xffffffff\n") !=
-        std::string::npos);
+  CHECK(s.find("-A KeenPbrTable -m set --match-set kpbr4_local dst -j MARK "
+               "--set-xmark 0x100/0xffffffff\n") != std::string::npos);
 }
 
 // =============================================================================
@@ -611,7 +673,8 @@ TEST_CASE("build_ipt_script: tcp + single dest_port in rule") {
   f.dst_port = "443";
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
   CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp --dport "
-               "443 -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
+               "443 -j MARK --set-xmark 0x100/0xffffffff") !=
+        std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: dscp matcher is emitted") {
@@ -649,17 +712,20 @@ TEST_CASE("build_ipt_script: tcp/udp + port list → two rules") {
   CHECK(s.find("-p udp -m multiport --dports 80,443") != std::string::npos);
 }
 
-TEST_CASE("build_ipt_script: any proto + src_port expands to tcp and udp rules") {
+TEST_CASE(
+    "build_ipt_script: any proto + src_port expands to tcp and udp rules") {
   ProtoPortFilter f;
   f.proto = L4Proto::Any;
   f.src_port = "11111";
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
   CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp --sport "
-               "11111 -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
+               "11111 -j MARK --set-xmark 0x100/0xffffffff") !=
+        std::string::npos);
   CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p udp --sport "
-               "11111 -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst --sport 11111")
-        == std::string::npos);
+               "11111 -j MARK --set-xmark 0x100/0xffffffff") !=
+        std::string::npos);
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst --sport 11111") ==
+        std::string::npos);
 }
 
 TEST_CASE(
@@ -698,7 +764,8 @@ TEST_CASE("build_ipt_script: src_addr + dest_addr → both flags") {
   f.dst_addr = {"8.8.8.0/24"};
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
   CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -s 192.168.1.0/24 "
-               "-d 8.8.8.0/24 -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
+               "-d 8.8.8.0/24 -j MARK --set-xmark 0x100/0xffffffff") !=
+        std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: src_addr + tcp/udp + dest_port → addr and proto "
@@ -748,15 +815,13 @@ TEST_CASE("build_proto_port_fragment: negated src_port only → ! --sport 1024")
   CHECK(frag == " -p tcp ! --sport 1024");
 }
 
-TEST_CASE(
-    "build_proto_port_fragment: both ports negated → sport and dport") {
+TEST_CASE("build_proto_port_fragment: both ports negated → sport and dport") {
   auto frag =
       T::build_proto_port_fragment("tcp", "1024-65535", "80", true, true);
   CHECK(frag == " -p tcp ! --sport 1024:65535 ! --dport 80");
 }
 
-TEST_CASE(
-    "build_proto_port_fragment: mixed negation → sport and dport") {
+TEST_CASE("build_proto_port_fragment: mixed negation → sport and dport") {
   auto frag = T::build_proto_port_fragment("tcp", "1024", "443", true, false);
   CHECK(frag == " -p tcp ! --sport 1024 --dport 443");
 }
@@ -771,7 +836,8 @@ TEST_CASE("build_ipt_script: negated src_addr → ! -s flag") {
   f.negate_src_addr = true;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
   CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst ! -s "
-               "192.168.1.0/24 -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
+               "192.168.1.0/24 -j MARK --set-xmark 0x100/0xffffffff") !=
+        std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: negated dest_addr → ! -d flag") {
@@ -790,7 +856,8 @@ TEST_CASE("build_ipt_script: negated dest_port in full rule") {
   f.negate_dst_port = true;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
   CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp ! --dport "
-               "443 -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
+               "443 -j MARK --set-xmark 0x100/0xffffffff") !=
+        std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: combined negated src_addr + negated dest_port") {
@@ -902,19 +969,24 @@ TEST_CASE("dynamic set naming: kpbr4d_ prefix, no timeout when ttl_ms=0") {
 
 TEST_CASE("dynamic set naming: kpbr4d_ prefix, with timeout when ttl_ms set") {
   auto line = T::build_ipset_create_line("kpbr4d_mylist", "inet", 3600);
-  CHECK(line == "create kpbr4d_mylist hash:net family inet timeout 3600 -exist\n");
+  CHECK(line ==
+        "create kpbr4d_mylist hash:net family inet timeout 3600 -exist\n");
 }
 
 TEST_CASE("dynamic set naming: kpbr6d_ IPv6 with timeout") {
   auto line = T::build_ipset_create_line("kpbr6d_mylist", "inet6", 86400);
-  CHECK(line == "create kpbr6d_mylist hash:net family inet6 timeout 86400 -exist\n");
+  CHECK(line ==
+        "create kpbr6d_mylist hash:net family inet6 timeout 86400 -exist\n");
 }
 
 TEST_CASE("dual-set mark rules: both static and dynamic sets get mark rules") {
-  auto s = T::build_ipt_script(false, {mark_rule("kpbr4_mylist", false, 0x100),
-                                       mark_rule("kpbr4d_mylist", false, 0x100)});
-  CHECK(s.find("--match-set kpbr4_mylist dst -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
-  CHECK(s.find("--match-set kpbr4d_mylist dst -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
+  auto s =
+      T::build_ipt_script(false, {mark_rule("kpbr4_mylist", false, 0x100),
+                                  mark_rule("kpbr4d_mylist", false, 0x100)});
+  CHECK(s.find("--match-set kpbr4_mylist dst -j MARK --set-xmark "
+               "0x100/0xffffffff") != std::string::npos);
+  CHECK(s.find("--match-set kpbr4d_mylist dst -j MARK --set-xmark "
+               "0x100/0xffffffff") != std::string::npos);
 }
 
 TEST_CASE("dual-set drop rules: both static and dynamic sets get drop rules") {
@@ -927,12 +999,15 @@ TEST_CASE("dual-set drop rules: both static and dynamic sets get drop rules") {
 TEST_CASE("dual-set IPv6 mark rules: kpbr6_ and kpbr6d_ both matched") {
   auto s = T::build_ipt_script(true, {mark_rule("kpbr6_mylist", true, 0x200),
                                       mark_rule("kpbr6d_mylist", true, 0x200)});
-  CHECK(s.find("--match-set kpbr6_mylist dst -j MARK --set-xmark 0x200/0xffffffff") != std::string::npos);
-  CHECK(s.find("--match-set kpbr6d_mylist dst -j MARK --set-xmark 0x200/0xffffffff") != std::string::npos);
+  CHECK(s.find("--match-set kpbr6_mylist dst -j MARK --set-xmark "
+               "0x200/0xffffffff") != std::string::npos);
+  CHECK(s.find("--match-set kpbr6d_mylist dst -j MARK --set-xmark "
+               "0x200/0xffffffff") != std::string::npos);
 }
 
 // Helper for direct (no-set) mark rules
-static Rule direct_mark_rule(bool ipv6, uint32_t fwmark, ProtoPortFilter filter = {}) {
+static Rule direct_mark_rule(bool ipv6, uint32_t fwmark,
+                             ProtoPortFilter filter = {}) {
   Rule r;
   r.set_name = "";
   r.ipv6 = ipv6;
@@ -1112,11 +1187,10 @@ std::string format_fwmark(uint32_t fwmark) {
   return os.str();
 }
 
-std::vector<L4Proto> expand_proto(L4Proto proto,
-                                  const PortVariant &src_port,
+std::vector<L4Proto> expand_proto(L4Proto proto, const PortVariant &src_port,
                                   const PortVariant &dst_port) {
-  if (proto == L4Proto::Any &&
-      (src_port.shape != PortShape::Empty || dst_port.shape != PortShape::Empty)) {
+  if (proto == L4Proto::Any && (src_port.shape != PortShape::Empty ||
+                                dst_port.shape != PortShape::Empty)) {
     return {L4Proto::Tcp, L4Proto::Udp};
   }
   if (proto == L4Proto::TcpUdp) {
@@ -1148,32 +1222,38 @@ std::string expected_proto_port_fragment(L4Proto proto,
     if (src_list || dst_list) {
       if (src_list) {
         frag += " -m multiport";
-        if (src_port.negated) frag += " !";
+        if (src_port.negated)
+          frag += " !";
         frag += " --sports ";
         frag += src_port.iptables_spec;
       } else if (has_src) {
-        if (src_port.negated) frag += " !";
+        if (src_port.negated)
+          frag += " !";
         frag += " --sport ";
         frag += src_port.iptables_spec;
       }
       if (dst_list) {
         frag += " -m multiport";
-        if (dst_port.negated) frag += " !";
+        if (dst_port.negated)
+          frag += " !";
         frag += " --dports ";
         frag += dst_port.iptables_spec;
       } else if (has_dst) {
-        if (dst_port.negated) frag += " !";
+        if (dst_port.negated)
+          frag += " !";
         frag += " --dport ";
         frag += dst_port.iptables_spec;
       }
     } else {
       if (has_src) {
-        if (src_port.negated) frag += " !";
+        if (src_port.negated)
+          frag += " !";
         frag += " --sport ";
         frag += src_port.iptables_spec;
       }
       if (has_dst) {
-        if (dst_port.negated) frag += " !";
+        if (dst_port.negated)
+          frag += " !";
         frag += " --dport ";
         frag += dst_port.iptables_spec;
       }
@@ -1186,12 +1266,12 @@ std::string expected_proto_port_fragment(L4Proto proto,
 std::vector<std::string> expected_rule_lines(const PairwiseIptablesCase &tc,
                                              uint32_t fwmark) {
   std::vector<std::string> lines;
-  const std::vector<std::string> src_addrs =
-      tc.src_addr.addrs.empty() ? std::vector<std::string>{""}
-                                : tc.src_addr.addrs;
-  const std::vector<std::string> dst_addrs =
-      tc.dst_addr.addrs.empty() ? std::vector<std::string>{""}
-                                : tc.dst_addr.addrs;
+  const std::vector<std::string> src_addrs = tc.src_addr.addrs.empty()
+                                                 ? std::vector<std::string>{""}
+                                                 : tc.src_addr.addrs;
+  const std::vector<std::string> dst_addrs = tc.dst_addr.addrs.empty()
+                                                 ? std::vector<std::string>{""}
+                                                 : tc.dst_addr.addrs;
 
   for (L4Proto proto : expand_proto(tc.proto.proto, tc.src_port, tc.dst_port)) {
     const std::string proto_port_frag =
@@ -1215,9 +1295,8 @@ std::vector<std::string> expected_rule_lines(const PairwiseIptablesCase &tc,
         prefix += proto_port_frag;
 
         if (tc.action == PairwiseAction::Mark) {
-          lines.push_back(prefix + " -j MARK --set-xmark " + format_fwmark(fwmark) +
-                          "/0xffffffff" +
-                          "\n");
+          lines.push_back(prefix + " -j MARK --set-xmark " +
+                          format_fwmark(fwmark) + "/0xffffffff" + "\n");
           lines.push_back(prefix + " -j RETURN\n");
         } else if (tc.action == PairwiseAction::Drop) {
           lines.push_back(prefix + " -j DROP\n");
@@ -1245,8 +1324,8 @@ std::vector<std::string> extract_rule_lines(const std::string &script) {
 
 std::set<std::string> build_uncovered_pairs() {
   const std::array<size_t, 7> axis_sizes{
-      kModeNames.size(),      kActionNames.size(), kProtoVariants.size(),
-      kPortVariants.size(),   kPortVariants.size(), kAddrVariants.size(),
+      kModeNames.size(),    kActionNames.size(),  kProtoVariants.size(),
+      kPortVariants.size(), kPortVariants.size(), kAddrVariants.size(),
       kAddrVariants.size(),
   };
 
@@ -1281,11 +1360,14 @@ std::vector<PairwiseIndex> generate_pairwise_indices() {
     for (size_t action = 0; action < kActionNames.size(); ++action) {
       for (size_t proto = 0; proto < kProtoVariants.size(); ++proto) {
         for (size_t src_port = 0; src_port < kPortVariants.size(); ++src_port) {
-          for (size_t dst_port = 0; dst_port < kPortVariants.size(); ++dst_port) {
-            for (size_t src_addr = 0; src_addr < kAddrVariants.size(); ++src_addr) {
-              for (size_t dst_addr = 0; dst_addr < kAddrVariants.size(); ++dst_addr) {
-                all_combos.push_back(
-                    {mode, action, proto, src_port, dst_port, src_addr, dst_addr});
+          for (size_t dst_port = 0; dst_port < kPortVariants.size();
+               ++dst_port) {
+            for (size_t src_addr = 0; src_addr < kAddrVariants.size();
+                 ++src_addr) {
+              for (size_t dst_addr = 0; dst_addr < kAddrVariants.size();
+                   ++dst_addr) {
+                all_combos.push_back({mode, action, proto, src_port, dst_port,
+                                      src_addr, dst_addr});
               }
             }
           }
@@ -1348,8 +1430,9 @@ std::vector<PairwiseIptablesCase> generate_pairwise_cases() {
     cases.push_back({
         pairwise_combo_name(idx),
         idx[0] == 0 ? PairwiseRuleMode::ListBacked : PairwiseRuleMode::Direct,
-        idx[1] == 0 ? PairwiseAction::Mark
-                    : (idx[1] == 1 ? PairwiseAction::Drop : PairwiseAction::Pass),
+        idx[1] == 0
+            ? PairwiseAction::Mark
+            : (idx[1] == 1 ? PairwiseAction::Drop : PairwiseAction::Pass),
         kProtoVariants[idx[2]],
         kPortVariants[idx[3]],
         kPortVariants[idx[4]],

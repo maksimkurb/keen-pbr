@@ -5,7 +5,7 @@
 ENABLED=yes
 PROCS=$(basename "$KEEN_PBR")
 PIDFILE="/opt/var/run/keen-pbr.pid"
-ARGS="--config $CONFIG --pid-file $PIDFILE service"
+ARGS="--config $CONFIG --pid-file $PIDFILE ${KEEN_PBR_ARGS:-} service"
 PREARGS=""
 POSTCMD=""
 DESC="keen-pbr"
@@ -139,6 +139,32 @@ check_runtime_dependencies() {
     ensure_xt_multiport_loaded
 }
 
+has_daemon_arg() {
+    for arg in $ARGS; do
+        [ "$arg" = "$1" ] && return 0
+    done
+    return 1
+}
+
+ensure_raw_table_available() {
+    local raw_module
+
+    grep -qx raw /proc/net/ip_tables_names 2>/dev/null && return 0
+    raw_module="/lib/modules/$(uname -r)/iptable_raw.ko"
+    if [ ! -f "$raw_module" ]; then
+        log_error "--use-raw-prerouting was requested, but $raw_module is unavailable"
+        return 1
+    fi
+    if ! insmod "$raw_module" 2>/dev/null && ! grep -qx raw /proc/net/ip_tables_names 2>/dev/null; then
+        log_error "--use-raw-prerouting was requested, but failed to load $raw_module"
+        return 1
+    fi
+    if ! grep -qx raw /proc/net/ip_tables_names 2>/dev/null || ! iptables -t raw -S >/dev/null 2>&1; then
+        log_error "--use-raw-prerouting was requested, but raw table probe failed after loading $raw_module"
+        return 1
+    fi
+}
+
 enable_hwnat() {
     log "Enabling HW NAT..."
     sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=1 2>/dev/null || true
@@ -187,6 +213,9 @@ pidof() {
 
 prepare_start() {
     check_runtime_dependencies
+    if has_daemon_arg --use-raw-prerouting; then
+        ensure_raw_table_available || return 1
+    fi
     disable_hwnat
 }
 
