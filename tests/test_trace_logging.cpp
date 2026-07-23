@@ -146,7 +146,7 @@ TEST_CASE("blocking executor workers use explicit urltest-safe stack size") {
     CHECK(stack_size <= expected_stack_size * 2);
 }
 
-TEST_CASE("traced mutex logs lock lifecycle and supports condition_variable_any") {
+TEST_CASE("traced mutex omits uncontended locks and supports condition_variable_any") {
     LoggerCapture capture;
     TracedMutex mutex;
     std::condition_variable_any cv;
@@ -170,9 +170,9 @@ TEST_CASE("traced mutex logs lock lifecycle and supports condition_variable_any"
 
     notifier.join();
 
-    CHECK(capture.contains("event=lock_wait_start"));
-    CHECK(capture.contains("event=lock_acquired"));
-    CHECK(capture.contains("event=lock_released"));
+    CHECK_FALSE(capture.contains("event=lock_wait_start"));
+    CHECK_FALSE(capture.contains("event=lock_acquired"));
+    CHECK_FALSE(capture.contains("event=lock_released"));
 }
 
 TEST_CASE("traced mutex logs waiting during contention") {
@@ -190,6 +190,8 @@ TEST_CASE("traced mutex logs waiting during contention") {
 
     waiter.join();
     CHECK(capture.contains("event=lock_waiting"));
+    CHECK(capture.contains("event=lock_acquired_slow"));
+    CHECK(capture.contains("event=lock_held_slow"));
 }
 
 TEST_CASE("safe_exec capture emits trace events") {

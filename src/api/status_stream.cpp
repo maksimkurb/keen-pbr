@@ -62,34 +62,40 @@ void StatusStream::unsubscribe(
 }
 
 void StatusStream::reconcile() {
-  KPBR_LOCK_GUARD(mutex_);
   const auto snapshot = builder_();
   const auto service = serialize(snapshot.service);
   const auto outbounds = serialize(snapshot.outbounds);
   const auto interfaces = serialize(snapshot.interfaces);
+  std::vector<std::string> frames;
 
-  if (!initialized_) {
-    service_ = service;
-    outbounds_ = outbounds;
-    interfaces_ = interfaces;
-    initialized_ = true;
-    return;
-  }
+  {
+    KPBR_LOCK_GUARD(mutex_);
+    if (!initialized_) {
+      service_ = service;
+      outbounds_ = outbounds;
+      interfaces_ = interfaces;
+      initialized_ = true;
+      return;
+    }
 
-  if (service != service_) {
-    service_ = service;
-    broadcaster_.publish(make_named_sse_frame(
-        "service", make_event_payload("service", snapshot.service)));
+    if (service != service_) {
+      service_ = service;
+      frames.push_back(make_named_sse_frame(
+          "service", make_event_payload("service", snapshot.service)));
+    }
+    if (outbounds != outbounds_) {
+      outbounds_ = outbounds;
+      frames.push_back(make_named_sse_frame(
+          "outbounds", make_event_payload("outbounds", snapshot.outbounds)));
+    }
+    if (interfaces != interfaces_) {
+      interfaces_ = interfaces;
+      frames.push_back(make_named_sse_frame(
+          "interfaces", make_event_payload("interfaces", snapshot.interfaces)));
+    }
   }
-  if (outbounds != outbounds_) {
-    outbounds_ = outbounds;
-    broadcaster_.publish(make_named_sse_frame(
-        "outbounds", make_event_payload("outbounds", snapshot.outbounds)));
-  }
-  if (interfaces != interfaces_) {
-    interfaces_ = interfaces;
-    broadcaster_.publish(make_named_sse_frame(
-        "interfaces", make_event_payload("interfaces", snapshot.interfaces)));
+  for (const auto &frame : frames) {
+    broadcaster_.publish(frame);
   }
 }
 

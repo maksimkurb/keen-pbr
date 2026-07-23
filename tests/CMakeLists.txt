@@ -186,6 +186,7 @@ if(WITH_API)
     ../src/api/sse_broadcaster.cpp
     ../src/api/status_stream.cpp
     ../src/api/handler_runtime_interfaces.cpp
+    ../src/api/handler_health_service.cpp
     ../src/api/handler_status_events.cpp
     ../src/api/handler_test_routing.cpp
   ../src/health/runtime_interface_inventory.cpp

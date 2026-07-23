@@ -1,5 +1,12 @@
 import { useLayoutEffect, useRef } from "react"
-import { CheckIcon, CircleIcon, LoaderCircleIcon, SaveIcon, XIcon } from "lucide-react"
+import {
+  CircleCheckBigIcon,
+  CircleIcon,
+  CircleXIcon,
+  LoaderCircleIcon,
+  SaveIcon,
+  XIcon,
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -10,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar-context"
 import { cn } from "@/lib/utils"
+import type { LifecycleOperationType } from "@/api/generated/model"
 import type {
   WarningBannerMode,
   WarningBannerState,
@@ -94,14 +102,14 @@ export function WarningBanner({
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 space-y-1">
-            <AlertTitle>{t(getWarningBannerTitleKey(state.mode))}</AlertTitle>
-            <AlertDescription>
-              {state.operationStage
-                ? t("warning.compact.runtimeReloadingDescription", {
-                    stage: state.operationStage,
-                  })
-                : t(getWarningBannerDescriptionKey(state.mode))}
-            </AlertDescription>
+            <AlertTitle>
+              {t(getWarningBannerTitleKey(state.mode, state.operationType))}
+            </AlertTitle>
+            {!isProgressing ? (
+              <AlertDescription>
+                {t(getWarningBannerDescriptionKey(state.mode))}
+              </AlertDescription>
+            ) : null}
           </div>
 
           {!isProgressing ? (
@@ -133,9 +141,16 @@ export function WarningBanner({
         </div>
 
         {isProgressing ? (
-          <ol className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-            {state.operationSteps.map((step) => (
-              <li className="flex items-center gap-2" key={step.id}>
+          <ol className="space-y-3 text-sm">
+            {state.operationSteps.map((step, index) => (
+              <li
+                className={cn(
+                  "relative grid grid-cols-[20px_minmax(0,1fr)] items-center gap-2",
+                  index < state.operationSteps.length - 1 &&
+                    "after:absolute after:top-5 after:bottom-[-0.75rem] after:left-[9px] after:w-px after:bg-border"
+                )}
+                key={step.id}
+              >
                 <StepIcon status={step.status} />
                 <span>{step.title}</span>
               </li>
@@ -148,14 +163,29 @@ export function WarningBanner({
 }
 
 function StepIcon({ status }: { status: WarningBannerState["operationSteps"][number]["status"] }) {
-  const className = "size-4 shrink-0"
-  if (status === "succeeded") return <CheckIcon className={cn(className, "text-emerald-600")} />
-  if (status === "running") return <LoaderCircleIcon className={cn(className, "animate-spin text-primary")} />
-  if (status === "failed") return <XIcon className={cn(className, "text-destructive")} />
-  return <CircleIcon className={cn(className, "text-muted-foreground")} />
+  const markerClassName =
+    "relative z-10 flex size-5 shrink-0 items-center justify-center rounded-full"
+
+  if (status === "succeeded") {
+    return <CircleCheckBigIcon className="relative z-10 size-5 shrink-0 text-emerald-600" />
+  }
+  if (status === "running") {
+    return <LoaderCircleIcon className="relative z-10 size-5 shrink-0 animate-spin text-primary" />
+  }
+  if (status === "failed") {
+    return <CircleXIcon className="relative z-10 size-5 shrink-0 text-destructive" />
+  }
+  return (
+    <span className={cn(markerClassName, "bg-card text-muted-foreground")}>
+      <CircleIcon className="size-4" />
+    </span>
+  )
 }
 
-function getWarningBannerTitleKey(mode: WarningBannerMode) {
+function getWarningBannerTitleKey(
+  mode: WarningBannerMode,
+  operationType?: LifecycleOperationType
+) {
   switch (mode) {
     case "draft":
       return "warning.compact.keenRestartRequired"
@@ -166,13 +196,43 @@ function getWarningBannerTitleKey(mode: WarningBannerMode) {
     case "dnsmasq-error":
       return "warning.compact.dnsmasqUnavailable"
     case "lifecycle-running":
-      return "warning.compact.runtimeReloading"
+      return getLifecycleOperationTitleKey("running", operationType)
     case "lifecycle-success":
-      return "warning.compact.runtimeReloadSucceeded"
+      return getLifecycleOperationTitleKey("succeeded", operationType)
     case "lifecycle-error":
-      return "warning.compact.runtimeReloadFailed"
+      return getLifecycleOperationTitleKey("failed", operationType)
     case "hidden":
       return "warning.compact.keenRestartRequired"
+  }
+}
+
+function getLifecycleOperationTitleKey(
+  status: "running" | "succeeded" | "failed",
+  operationType?: LifecycleOperationType
+) {
+  if (status === "running") {
+    switch (operationType) {
+      case "apply_config":
+        return "warning.compact.runtimeApplying"
+      case "start":
+        return "warning.compact.runtimeStarting"
+      case "stop":
+        return "warning.compact.runtimeStopping"
+      default:
+        return "warning.compact.runtimeReloading"
+    }
+  }
+
+  const suffix = status === "succeeded" ? "Succeeded" : "Failed"
+  switch (operationType) {
+    case "apply_config":
+      return `warning.compact.runtimeApply${suffix}`
+    case "start":
+      return `warning.compact.runtimeStart${suffix}`
+    case "stop":
+      return `warning.compact.runtimeStop${suffix}`
+    default:
+      return `warning.compact.runtimeReload${suffix}`
   }
 }
 

@@ -128,6 +128,15 @@ export const ruTranslation = {
       runtimeReloadSucceeded: "keen-pbr готов",
       runtimeReloadSucceededDescription:
         "Маршрутизация и dnsmasq используют ожидаемую конфигурацию.",
+      runtimeApplying: "Применение конфигурации keen-pbr...",
+      runtimeApplySucceeded: "Конфигурация keen-pbr применена",
+      runtimeApplyFailed: "Не удалось применить конфигурацию keen-pbr",
+      runtimeStarting: "Запуск keen-pbr...",
+      runtimeStartSucceeded: "keen-pbr запущен",
+      runtimeStartFailed: "Не удалось запустить keen-pbr",
+      runtimeStopping: "Остановка keen-pbr...",
+      runtimeStopSucceeded: "keen-pbr остановлен",
+      runtimeStopFailed: "Не удалось остановить keen-pbr",
       runtimeStartingDescription: "Маршрутизация и межсетевой экран запускаются. Подождите.",
       runtimeReloadFailed: "Не удалось перезагрузить keen-pbr",
       runtimeReloadFailedDescription:

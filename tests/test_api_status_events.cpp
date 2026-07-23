@@ -4,6 +4,7 @@
 #include <httplib.h>
 
 #include "api/handler_status_events.hpp"
+#include "api/handler_health_service.hpp"
 #include "api/handlers.hpp"
 #include "api/server.hpp"
 #include "api/status_stream.hpp"
@@ -90,6 +91,31 @@ TEST_CASE("status events endpoint returns SSE headers and snapshot first") {
   CHECK(status == 200);
   CHECK(content_type.find("text/event-stream") != std::string::npos);
   CHECK(body.rfind("event: snapshot\ndata: ", 0) == 0);
+}
+
+TEST_CASE("health response includes lifecycle operation for SSE snapshots") {
+  ServiceHealthState health;
+  health.status = api::HealthResponseStatus::RUNNING;
+  health.runtime_state = "running";
+  health.lifecycle_operation = LifecycleOperationSnapshot{
+      "restart-1",
+      LifecycleOperationType::Restart,
+      LifecycleOperationResult::Running,
+      123,
+      std::nullopt,
+      "",
+      {{"stop_routing", "Stopping routing and firewall", LifecycleOperationStatus::Succeeded, ""},
+       {"start_routing", "Starting routing and firewall", LifecycleOperationStatus::Running, ""}},
+  };
+
+  const api::HealthResponse response = build_health_response(health);
+  REQUIRE(response.lifecycle_operation.has_value());
+  CHECK(response.lifecycle_operation->id == "restart-1");
+  CHECK(response.lifecycle_operation->type == api::LifecycleOperationType::RESTART);
+  CHECK(response.lifecycle_operation->status == api::LifecycleOperationStatus::RUNNING);
+  REQUIRE(response.lifecycle_operation->stages.size() == 2);
+  CHECK(response.lifecycle_operation->stages[1].status ==
+        api::LifecycleOperationStageStatus::RUNNING);
 }
 
 } // namespace keen_pbr3

@@ -40,6 +40,11 @@ describe("lifecycle operation retention", () => {
     expect(retainLifecycleOperation(failed, retry)?.id).toBe("two")
   })
 
+  test("does not retain a completed operation that was not observed running", () => {
+    const completed = operation("one", "succeeded", "succeeded")
+    expect(retainLifecycleOperation(null, completed)).toBeNull()
+  })
+
   test("retained terminal operations take precedence over standalone warnings", () => {
     expect(getWarningBannerMode(null, operation("one", "failed", "failed"))).toBe(
       "lifecycle-error"

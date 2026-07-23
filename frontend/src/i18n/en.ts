@@ -125,6 +125,15 @@ export const enTranslation = {
       runtimeReloadSucceeded: "keen-pbr is ready",
       runtimeReloadSucceededDescription:
         "Routing and dnsmasq are serving the expected configuration.",
+      runtimeApplying: "Applying keen-pbr configuration...",
+      runtimeApplySucceeded: "keen-pbr configuration applied",
+      runtimeApplyFailed: "keen-pbr configuration could not be applied",
+      runtimeStarting: "Starting keen-pbr...",
+      runtimeStartSucceeded: "keen-pbr is running",
+      runtimeStartFailed: "keen-pbr could not be started",
+      runtimeStopping: "Stopping keen-pbr...",
+      runtimeStopSucceeded: "keen-pbr is stopped",
+      runtimeStopFailed: "keen-pbr could not be stopped",
       runtimeStartingDescription: "Routing and firewall are starting. Please wait.",
       runtimeReloadFailed: "keen-pbr reload failed",
       runtimeReloadFailedDescription:

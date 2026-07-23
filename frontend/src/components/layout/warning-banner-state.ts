@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import type { HealthResponse, LifecycleOperation } from "@/api/generated/model"
+import type {
+  HealthResponse,
+  LifecycleOperation,
+  LifecycleOperationType,
+} from "@/api/generated/model"
 import { useRoutingControlPendingState } from "@/api/mutations"
 import { useGetHealthService } from "@/api/queries"
 
@@ -30,7 +34,7 @@ export type WarningBannerState = {
   isActionDisabled: boolean
   isVisible: boolean
   mode: WarningBannerMode
-  operationStage?: string
+  operationType?: LifecycleOperationType
   operationSteps: WarningBannerStep[]
 }
 
@@ -87,10 +91,6 @@ export function useWarningBannerState(): WarningBannerState {
       })) ?? [],
     [t, visibleOperation]
   )
-  const operationStage = operationSteps.find(
-    (stage) => stage.status === "running"
-  )?.title
-
   return {
     actionPending: anyPending,
     dismissFailure: () => {
@@ -107,7 +107,7 @@ export function useWarningBannerState(): WarningBannerState {
       anyPending || visibleOperation?.status === "running" || !serviceHealth,
     isVisible: mode !== "hidden",
     mode,
-    operationStage,
+    operationType: visibleOperation?.type,
     operationSteps,
   }
 }
@@ -141,6 +141,12 @@ export function retainLifecycleOperation(
   incoming: LifecycleOperation | null | undefined
 ): LifecycleOperation | null {
   if (!incoming) return previous
+  if (
+    incoming.status === "succeeded" &&
+    (!previous || previous.id !== incoming.id)
+  ) {
+    return null
+  }
   if (!previous || previous.id !== incoming.id) return incoming
   const rank = { pending: 0, running: 1, skipped: 2, succeeded: 2, failed: 2 }
   const previousStages = new Map(previous.stages.map((stage) => [stage.id, stage]))

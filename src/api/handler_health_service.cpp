@@ -60,6 +60,11 @@ api::HealthResponse build_health_response(const ServiceHealthState& service_heal
         resp.apply_started_ts = service_health.apply_started_ts;
         resp.resolver_config_sync_state = service_health.resolver_config_sync_state;
 
+        if (service_health.lifecycle_operation) {
+            resp.lifecycle_operation = lifecycle_operation_json(*service_health.lifecycle_operation)
+                                           .get<api::LifecycleOperation>();
+        }
+
         resp.config_is_draft = service_health.config_is_draft;
         return resp;
 }
@@ -67,12 +72,7 @@ api::HealthResponse build_health_response(const ServiceHealthState& service_heal
 void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
     // GET /api/health/service - daemon version/status + resolver/config summary
     server.get("/api/health/service", [&ctx]() -> std::string {
-        const ServiceHealthState health = ctx.get_service_health();
-        nlohmann::json response = build_health_response(health);
-        if (health.lifecycle_operation) {
-            response["lifecycle_operation"] = lifecycle_operation_json(*health.lifecycle_operation);
-        }
-        return response.dump();
+        return nlohmann::json(build_health_response(ctx.get_service_health())).dump();
     });
 }
 

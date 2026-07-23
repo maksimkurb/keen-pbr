@@ -140,28 +140,41 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
 
             const bool resolver_configured = has_system_resolver(*request.config);
             if (resolver_configured) {
-                start_stage("reload_dnsmasq");
-                auto reload = resolver_hook_executor_.submit(
-                    "lifecycle-resolver-reload", [this] { return run_system_resolver_hook_reload(); });
-                if (!reload.get()) throw DaemonError("system resolver reload hook failed");
-                succeed_stage();
-
-                start_stage("verify_dnsmasq");
                 const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
                 const std::string expected_hash = resolver_snapshot.expected_hash;
-                const std::int64_t apply_started =
-                    apply_started_ts_.load(std::memory_order_acquire);
-                auto verification = resolver_io_executor_.submit(
-                    "lifecycle-resolver-verification",
-                    [this, candidate = *request.config, expected_hash, apply_started] {
-                        std::string error;
-                        const bool ok = wait_for_resolver_config_hash_confirmation(
-                            candidate, expected_hash, apply_started, error);
-                        return std::make_pair(ok, error);
-                    });
-                const auto [verified, verification_error] = verification.get();
-                if (!verified) throw DaemonError(verification_error);
-                succeed_stage();
+                const bool resolver_is_current =
+                    !expected_hash.empty() &&
+                    resolver_snapshot.actual_hash == expected_hash &&
+                    resolver_snapshot.live_status == api::ResolverLiveStatus::HEALTHY;
+                if (resolver_is_current) {
+                    Logger::instance().info(
+                        "Skipping dnsmasq reload: resolver configuration is already confirmed");
+                    lifecycle_operations_.skip_stage(
+                        id, "reload_dnsmasq", "Resolver configuration is unchanged and healthy");
+                    lifecycle_operations_.skip_stage(
+                        id, "verify_dnsmasq", "Resolver configuration is already confirmed");
+                } else {
+                    start_stage("reload_dnsmasq");
+                    auto reload = resolver_hook_executor_.submit(
+                        "lifecycle-resolver-reload", [this] { return run_system_resolver_hook_reload(); });
+                    if (!reload.get()) throw DaemonError("system resolver reload hook failed");
+                    succeed_stage();
+
+                    start_stage("verify_dnsmasq");
+                    const std::int64_t apply_started =
+                        apply_started_ts_.load(std::memory_order_acquire);
+                    auto verification = resolver_io_executor_.submit(
+                        "lifecycle-resolver-verification",
+                        [this, candidate = *request.config, expected_hash, apply_started] {
+                            std::string error;
+                            const bool ok = wait_for_resolver_config_hash_confirmation(
+                                candidate, expected_hash, apply_started, error);
+                            return std::make_pair(ok, error);
+                        });
+                    const auto [verified, verification_error] = verification.get();
+                    if (!verified) throw DaemonError(verification_error);
+                    succeed_stage();
+                }
             } else {
                 lifecycle_operations_.skip_stage(id, "reload_dnsmasq", "No system resolver configured");
                 lifecycle_operations_.skip_stage(id, "verify_dnsmasq", "No system resolver configured");
