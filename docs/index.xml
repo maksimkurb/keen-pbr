@@ -3017,10 +3017,10 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 an external firewall manager periodically replaces the &lt;code&gt;mangle&lt;/code&gt; table. It moves
 only IPv4 forwarded-traffic classification from &lt;code&gt;mangle PREROUTING&lt;/code&gt; to &lt;code&gt;raw PREROUTING&lt;/code&gt;; locally generated traffic remains in &lt;code&gt;mangle OUTPUT&lt;/code&gt;, and IPv6
 continues using its existing mangle path.&lt;/p&gt;
-&lt;p&gt;The Keenetic service loads the matching &lt;code&gt;iptable_raw.ko&lt;/code&gt; only when the flag is
-present in &lt;code&gt;KEEN_PBR_ARGS&lt;/code&gt; in &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;. Startup fails instead
-of silently falling back if raw is unusable. Raw PREROUTING deliberately does not
-use connmark acceleration: each forwarded packet is classified directly.&lt;/p&gt;
+&lt;p&gt;On Keenetic, the service probes and loads the matching &lt;code&gt;iptable_raw.ko&lt;/code&gt; at startup.
+It enables the flag automatically only after the raw table probe succeeds; otherwise
+it logs a warning and keeps the normal mangle path. Raw PREROUTING deliberately
+does not use connmark acceleration: each forwarded packet is classified directly.&lt;/p&gt;
 &lt;p&gt;Troubleshoot the required capability with:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 

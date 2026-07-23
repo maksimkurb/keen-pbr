@@ -45,10 +45,10 @@ only IPv4 forwarded-traffic classification from `mangle PREROUTING` to `raw
 PREROUTING`; locally generated traffic remains in `mangle OUTPUT`, and IPv6
 continues using its existing mangle path.
 
-The Keenetic service loads the matching `iptable_raw.ko` only when the flag is
-present in `KEEN_PBR_ARGS` in `/opt/etc/keen-pbr/defaults`. Startup fails instead
-of silently falling back if raw is unusable. Raw PREROUTING deliberately does not
-use connmark acceleration: each forwarded packet is classified directly.
+On Keenetic, the service probes and loads the matching `iptable_raw.ko` at startup.
+It enables the flag automatically only after the raw table probe succeeds; otherwise
+it logs a warning and keeps the normal mangle path. Raw PREROUTING deliberately
+does not use connmark acceleration: each forwarded packet is classified directly.
 
 Troubleshoot the required capability with:
 
