@@ -1,5 +1,6 @@
 KEEN_PBR="/opt/usr/bin/keen-pbr"
 CONFIG="/opt/etc/keen-pbr/config.json"
 DNSMASQ_HELPER="/opt/usr/lib/keen-pbr/dnsmasq.sh"
-# Extra daemon arguments, for example: --use-raw-prerouting
+# Extra daemon arguments. Raw PREROUTING is selected automatically by the
+# Keenetic init script when the matching kernel module is usable.
 KEEN_PBR_ARGS=""

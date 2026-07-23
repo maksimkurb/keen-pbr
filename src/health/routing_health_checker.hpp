@@ -16,6 +16,7 @@ namespace keen_pbr3 {
 // lock and perform the expensive live verification work after releasing it.
 RoutingHealthReport build_routing_health_report(
     FirewallBackend firewall_backend,
+    bool use_raw_prerouting,
     const FirewallState& firewall_state,
     const std::vector<RouteSpec>& tracked_routes,
     const std::vector<RuleSpec>& tracked_policy_rules,

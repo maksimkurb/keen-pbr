@@ -61,6 +61,7 @@ protected:
 // runner defaults to run_command_capture; override for testing.
 std::unique_ptr<FirewallVerifier> create_firewall_verifier(
     FirewallBackend backend,
+    bool use_raw_prerouting = false,
     CommandRunner runner = run_command_capture);
 
 } // namespace keen_pbr3

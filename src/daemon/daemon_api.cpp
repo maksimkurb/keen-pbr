@@ -685,6 +685,7 @@ void Daemon::setup_api() {
 
             return build_routing_health_report(
                 firewall_->backend(),
+                firewall_->uses_raw_prerouting(),
                 runtime_snapshot.firewall_state,
                 runtime_snapshot.route_specs,
                 runtime_snapshot.policy_rule_specs,

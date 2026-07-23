@@ -202,7 +202,11 @@ public:
   virtual void cleanup() = 0;
 
   // Return the backend type for this firewall instance.
-  virtual FirewallBackend backend() const = 0;
+    virtual FirewallBackend backend() const = 0;
+
+    // True when IPv4 forwarded traffic is deliberately installed in raw
+    // PREROUTING instead of mangle PREROUTING.
+    virtual bool uses_raw_prerouting() const { return false; }
 
   // Non-copyable
   Firewall(const Firewall &) = delete;

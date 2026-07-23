@@ -46,7 +46,8 @@ public:
   // KeenPbrTable chain from both iptables and ip6tables mangle tables.
   void cleanup() override;
   // Returns FirewallBackend::iptables.
-  FirewallBackend backend() const override;
+    FirewallBackend backend() const override;
+    bool uses_raw_prerouting() const override { return use_raw_prerouting_; }
 
 private:
   static constexpr const char *CHAIN_NAME = "KeenPbrTable";

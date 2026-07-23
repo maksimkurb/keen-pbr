@@ -33,10 +33,11 @@ CommandResult run_command_capture(const std::vector<std::string>& args) {
 
 std::unique_ptr<FirewallVerifier> create_firewall_verifier(
     FirewallBackend backend,
+    bool use_raw_prerouting,
     CommandRunner runner) {
     switch (backend) {
         case FirewallBackend::iptables:
-            return create_iptables_verifier(std::move(runner));
+            return create_iptables_verifier(std::move(runner), use_raw_prerouting);
         case FirewallBackend::nftables:
             return create_nftables_verifier(std::move(runner));
     }

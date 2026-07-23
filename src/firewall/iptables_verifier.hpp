@@ -47,7 +47,7 @@ std::vector<ParsedIpset> parse_ipset_save(const std::string& output);
 // FirewallVerifier implementation for the iptables/ip6tables backend.
 class IptablesFirewallVerifier : public FirewallVerifier {
 public:
-    explicit IptablesFirewallVerifier(CommandRunner runner);
+    explicit IptablesFirewallVerifier(CommandRunner runner, bool use_raw_prerouting = false);
 
     // Verify KeenPbrTable chain existence and PREROUTING hook for both v4 and v6.
     FirewallChainCheck verify_chain() override;
@@ -67,10 +67,12 @@ private:
     const CachedState& get_state() const;
 
     CommandRunner runner_;
+    bool use_raw_prerouting_{false};
     mutable std::optional<CachedState> cached_state_;
 };
 
 // Factory function called from firewall_verifier.cpp
-std::unique_ptr<FirewallVerifier> create_iptables_verifier(CommandRunner runner);
+std::unique_ptr<FirewallVerifier> create_iptables_verifier(CommandRunner runner,
+                                                            bool use_raw_prerouting = false);
 
 } // namespace keen_pbr3
