@@ -47,9 +47,10 @@ void log_lock_event(std::string_view event,
               duration_ms);
 }
 
-template<typename LockFn, typename TryLockFn>
+template<typename LockFn, typename TryLockFn, typename TimedTryLockFn>
 void lock_with_trace(LockFn lock_fn,
                      TryLockFn try_lock_fn,
+                     TimedTryLockFn timed_try_lock_fn,
                      const char* mutex_name,
                      const char* mode,
                      const char* file,
@@ -68,7 +69,7 @@ void lock_with_trace(LockFn lock_fn,
     }
 
     const auto started_at = mono_ms_now();
-    while (!try_lock_fn()) {
+    do {
         log_lock_event("lock_waiting",
                        mutex_name,
                        mode,
@@ -76,7 +77,7 @@ void lock_with_trace(LockFn lock_fn,
                        line,
                        function,
                        mono_ms_now() - started_at);
-    }
+    } while (!timed_try_lock_fn());
     const auto waited_ms = mono_ms_now() - started_at;
     if (waited_ms >= static_cast<std::uint64_t>(kSlowLockWait.count())) {
         log_lock_event("lock_acquired_slow", mutex_name, mode, file, line, function, waited_ms);
@@ -107,6 +108,7 @@ void TracedMutex::lock(const char* mutex_name,
                        const char* function) {
     lock_with_trace(
         [this]() { mutex_.lock(); },
+        [this]() { return mutex_.try_lock(); },
         [this]() { return mutex_.try_lock_for(kWaitProgressInterval); },
         mutex_name,
         "exclusive",
@@ -125,6 +127,7 @@ void TracedSharedMutex::lock(const char* mutex_name,
                              const char* function) {
     lock_with_trace(
         [this]() { mutex_.lock(); },
+        [this]() { return mutex_.try_lock(); },
         [this]() { return mutex_.try_lock_for(kWaitProgressInterval); },
         mutex_name,
         "exclusive",
@@ -143,6 +146,7 @@ void TracedSharedMutex::lock_shared(const char* mutex_name,
                                     const char* function) {
     lock_with_trace(
         [this]() { mutex_.lock_shared(); },
+        [this]() { return mutex_.try_lock_shared(); },
         [this]() { return mutex_.try_lock_shared_for(kWaitProgressInterval); },
         mutex_name,
         "shared",
