@@ -150,6 +150,19 @@ inline std::string safe_exec_command_string(const std::vector<std::string>& args
     return out.str();
 }
 
+inline void log_failed_pipe_input(const std::string& command, const std::string& input) {
+    constexpr std::size_t max_preview_bytes = 4096;
+    const bool truncated = input.size() > max_preview_bytes;
+    const std::string preview = input.substr(0, std::min(input.size(), max_preview_bytes));
+    Logger::instance().error(
+        "safe_exec_pipe_input cmd={} input_bytes={} preview_bytes={} truncated={}:\n{}",
+        command,
+        input.size(),
+        preview.size(),
+        truncated ? "true" : "false",
+        preview);
+}
+
 // Execute a command with arguments directly via fork()+execvp(), bypassing
 // the shell entirely. This prevents shell injection attacks.
 // Returns the process exit code (0-255), or -1 on fork/exec failure.
@@ -322,7 +335,7 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
                                      command,
                                      exit_code,
                                      duration_ms);
-            Logger::instance().error("safe_exec_pipe_input cmd={}:\n{}", command, input);
+            log_failed_pipe_input(command, input);
         }
         return exit_code;
     }
@@ -330,7 +343,7 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
                              command,
                              duration_ms,
                              wait_result.timed_out ? "timeout" : "abnormal_exit");
-    Logger::instance().error("safe_exec_pipe_input cmd={}:\n{}", command, input);
+    log_failed_pipe_input(command, input);
     return -1;
 }
 

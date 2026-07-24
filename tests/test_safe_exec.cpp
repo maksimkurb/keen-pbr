@@ -194,6 +194,12 @@ TEST_CASE("safe_exec: timeout escalates to SIGKILL") {
 
 TEST_CASE("safe_exec_pipe_stdin: child that does not read is bounded by deadline") {
     SafeExecTimeoutGuard guard;
+    LoggerSinkGuard logger_sink_guard;
+    std::string log;
+    Logger::instance().set_sink([&log](const std::string& line) {
+        log += line;
+        log += '\n';
+    });
     set_safe_exec_timeouts(std::chrono::milliseconds{100},
                            std::chrono::milliseconds{50});
     const std::string input(2U * 1024U * 1024U, 'x');
@@ -204,6 +210,9 @@ TEST_CASE("safe_exec_pipe_stdin: child that does not read is bounded by deadline
 
     CHECK(exit_code == -1);
     CHECK(elapsed < std::chrono::seconds{2});
+    CHECK(log.size() < 16U * 1024U);
+    CHECK(log.find("input_bytes=2097152") != std::string::npos);
+    CHECK(log.find("truncated=true") != std::string::npos);
 }
 
 TEST_CASE("safe_exec_pipe_stdin: failed command logs arguments and input") {
