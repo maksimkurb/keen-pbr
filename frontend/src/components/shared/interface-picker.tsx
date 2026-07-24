@@ -376,16 +376,14 @@ export function InterfaceRowContent({
 
   const content = (
     <>
-      <div className="flex min-w-0 flex-col">
-        <span className="truncate text-sm font-medium text-foreground">
-          {name}
-        </span>
+      <span className="truncate text-sm font-medium text-foreground">
+        {name}
         {interfaceEntry?.description ? (
-          <span className="truncate text-xs text-muted-foreground">
-            {interfaceEntry.description}
+          <span className="font-normal text-muted-foreground">
+            {` (${interfaceEntry.description})`}
           </span>
         ) : null}
-      </div>
+      </span>
       {interfaceEntry ? (
         <>
           <InterfaceStatusBadge status={interfaceEntry.status} />
@@ -457,8 +455,8 @@ export function OutboundInterfaceLabel({
             ({interfaceName})
           </span>
           {runtimeInterface?.description ? (
-            <span className="truncate text-xs text-muted-foreground">
-              {runtimeInterface.description}
+            <span className="truncate text-sm text-muted-foreground">
+              {`(${runtimeInterface.description})`}
             </span>
           ) : null}
           {runtimeInterface ? (

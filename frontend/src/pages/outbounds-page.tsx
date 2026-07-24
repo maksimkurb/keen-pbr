@@ -545,9 +545,32 @@ function getOutboundSummary(
   t: (key: string, options?: Record<string, unknown>) => string
 ): ReactNode {
   if (outbound.type === "interface") {
-    return t("pages.outbounds.summary.interface", {
-      value: outbound.interface ?? "-",
-    })
+    return (
+      <div className="space-y-1">
+        <div>
+          {t("pages.outbounds.summary.interface", {
+            value: outbound.interface ?? "-",
+          })}
+        </div>
+        {outbound.gateway ? (
+          <div>
+            {t("pages.outbounds.summary.gateway4", {
+              value: outbound.gateway,
+            })}
+          </div>
+        ) : null}
+        {outbound.gateway6 ? (
+          <div>
+            {t("pages.outbounds.summary.gateway6", {
+              value: outbound.gateway6,
+            })}
+          </div>
+        ) : null}
+        {typeof outbound.strict_enforcement === "boolean" ? (
+          <div>{`kill-switch=${outbound.strict_enforcement ? "on" : "off"}`}</div>
+        ) : null}
+      </div>
+    )
   }
 
   if (outbound.type === "table") {
@@ -565,14 +588,6 @@ function getOutboundSummary(
   }
 
   return t("common.noneShort")
-}
-
-function SummaryChip({ value }: { value: string }) {
-  return (
-    <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-      {value}
-    </code>
-  )
 }
 
 function OutboundRuntimeCell({
@@ -616,20 +631,6 @@ function OutboundRuntimeCell({
           isVirtual={!runtimeInterface}
           name={outbound.interface ?? "-"}
         />
-        {outbound.gateway ? (
-          <SummaryChip
-            value={t("pages.outbounds.summary.gateway4", {
-              value: outbound.gateway,
-            })}
-          />
-        ) : null}
-        {outbound.gateway6 ? (
-          <SummaryChip
-            value={t("pages.outbounds.summary.gateway6", {
-              value: outbound.gateway6,
-            })}
-          />
-        ) : null}
       </RuntimeInterfaceStatusRow>
     )
   }
