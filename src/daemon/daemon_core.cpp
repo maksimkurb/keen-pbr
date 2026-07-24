@@ -31,6 +31,7 @@
 #include "../dns/dnsmasq_gen.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
+#include "../health/routing_health_checker.hpp"
 #include "../ipc/control_protocol.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
@@ -575,12 +576,26 @@ void Daemon::handle_ipc_control_socket() {
               missing_cached_lists.push_back(list_name);
             }
           }
+          RoutingHealthReport routing_health;
+          if (snapshot.runtime_state == RuntimeState::starting) {
+            routing_health.firewall_backend = firewall_->backend();
+            routing_health.firewall_chain.detail =
+                "routing runtime initialization is in progress";
+          } else {
+            routing_health = build_routing_health_report(
+                firewall_->backend(), firewall_->uses_raw_prerouting(),
+                snapshot.firewall_state, snapshot.route_specs,
+                snapshot.policy_rule_specs, netlink_);
+          }
           response = {
               {"protocol_version", ipc::kControlProtocolVersion},
               {"request_id", request.at("request_id")},
               {"ok", true},
               {"result",
                {{"runtime_state", runtime_state_name(snapshot.runtime_state)},
+                {"config_path", config_path_},
+                {"config", active_config},
+                {"routing_health", routing_health_report_to_json(routing_health)},
                 {"runtime_state_reason", snapshot.runtime_state_reason},
                 {"routing_runtime_active", snapshot.routing_runtime_active},
                 {"resolver_config_hash", snapshot.resolver_config_hash},

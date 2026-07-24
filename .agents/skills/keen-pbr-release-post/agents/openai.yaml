@@ -1,0 +1,4 @@
+interface:
+  display_name: "Keen PBR Release Post"
+  short_description: "Draft keen-pbr release posts"
+  default_prompt: "Use $keen-pbr-release-post to analyze the latest keen-pbr release changes and draft GitHub and Telegram posts."
