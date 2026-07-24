@@ -295,58 +295,64 @@ void print_outbound_section(const Config& config,
                             const RoutingHealthReport& report) {
     std::map<std::string, std::vector<const RouteTableCheck*>> routes_by_outbound;
     for (const auto& rt : report.route_tables) {
-        routes_by_outbound[rt.outbound_tag].push_back(&rt);
-    }
-
-    std::map<std::pair<uint32_t, uint32_t>, const PolicyRuleCheck*> rules_by_mark_table;
-    for (const auto& pr : report.policy_rules) {
-        rules_by_mark_table[{pr.fwmark, pr.expected_table}] = &pr;
+        for (const auto& outbound : config.outbounds.value_or(std::vector<Outbound>{})) {
+            if (rt.outbound_tag == outbound.tag ||
+                rt.outbound_tag == internal_detour_mark_key(outbound.tag)) {
+                routes_by_outbound[outbound.tag].push_back(&rt);
+                break;
+            }
+        }
     }
 
     std::cout << "\nOutbounds:\n";
 
-    uint32_t table_start = static_cast<uint32_t>(
-        config.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
-    uint32_t table_offset = 0;
-
     const auto& outbounds = config.outbounds.value_or(std::vector<Outbound>{});
     for (const auto& ob : outbounds) {
-        const bool routable =
-            (ob.type == OutboundType::INTERFACE ||
-             ob.type == OutboundType::TABLE ||
-             ob.type == OutboundType::URLTEST);
-
-        uint32_t table_id = 0;
-        uint32_t priority = 0;
-
-        if (routable) {
-            if (ob.type == OutboundType::TABLE) {
-                table_id = static_cast<uint32_t>(ob.table.value_or(0));
-                priority = table_start + table_offset;
-            } else {
-                table_id = table_start + table_offset;
-                priority = table_id;
-            }
-            ++table_offset;
-        }
-
         uint32_t fwmark = 0;
         auto mark_it = marks.find(ob.tag);
         if (mark_it != marks.end()) {
             fwmark = mark_it->second;
+        }
+        std::optional<uint32_t> internal_detour_fwmark;
+        if (const auto internal_mark = marks.find(internal_detour_mark_key(ob.tag));
+            internal_mark != marks.end()) {
+            internal_detour_fwmark = internal_mark->second;
+        }
+
+        std::vector<const PolicyRuleCheck*> outbound_rules;
+        for (const auto& pr : report.policy_rules) {
+            if (pr.fwmark == fwmark ||
+                (internal_detour_fwmark.has_value() &&
+                 pr.fwmark == *internal_detour_fwmark)) {
+                outbound_rules.push_back(&pr);
+            }
+        }
+
+        std::optional<uint32_t> table_id;
+        for (const auto* pr : outbound_rules) {
+            if (pr->fwmark == fwmark && pr->expected_action == "lookup") {
+                table_id = pr->expected_table;
+                break;
+            }
+        }
+        if (!table_id) {
+            const auto route_it = routes_by_outbound.find(ob.tag);
+            if (route_it != routes_by_outbound.end() && !route_it->second.empty()) {
+                table_id = route_it->second.front()->table_id;
+            }
         }
 
         std::cout << "  " << ob.tag << " [" << outbound_type_label(ob.type) << "]";
         if (ob.type == OutboundType::INTERFACE) {
             std::cout << " iface=" << ob.interface.value_or("")
                       << " fwmark=" << fwmark_hex(fwmark)
-                      << " table=" << table_id;
+                      << (table_id ? " table=" + std::to_string(*table_id) : "");
         } else if (ob.type == OutboundType::TABLE) {
-            std::cout << " table=" << table_id
+            std::cout << " table=" << table_id.value_or(static_cast<uint32_t>(ob.table.value_or(0)))
                       << " fwmark=" << fwmark_hex(fwmark);
         } else if (ob.type == OutboundType::URLTEST) {
             std::cout << " fwmark=" << fwmark_hex(fwmark)
-                      << " table=" << table_id;
+                      << (table_id ? " table=" + std::to_string(*table_id) : "");
         }
         std::cout << "\n";
 
@@ -361,30 +367,23 @@ void print_outbound_section(const Config& config,
             }
         }
 
-        if (fwmark != 0) {
-            auto pr_it = rules_by_mark_table.find({fwmark, table_id});
-            if (pr_it != rules_by_mark_table.end()) {
-                const auto& pr = *pr_it->second;
-                std::string suffix = check_status_label(pr.status);
-                const auto families = format_rule_presence(pr);
-                if (!families.empty()) {
-                    suffix += " " + families;
-                }
-                const std::string rule_desc = keen_pbr3::format("rule    {}/{} -> table={} pri={}",
-                                                                fwmark_hex(pr.fwmark),
-                                                                fwmark_hex(pr.fwmask),
-                                                                pr.expected_table,
-                                                                pr.priority);
-                std::cout << "    " << pad_dots(rule_desc, suffix) << "\n";
-                if (pr.status != CheckStatus::ok) {
-                    print_detail_if_needed(pr.detail, "      ");
-                }
-            } else if (routable) {
-                const std::string rule_desc = keen_pbr3::format("rule    {} -> table={} pri={}",
-                                                                fwmark_hex(fwmark),
-                                                                table_id,
-                                                                priority);
-                std::cout << "    " << pad_dots(rule_desc, "MISSING") << "\n";
+        for (const auto* pr : outbound_rules) {
+            std::string suffix = check_status_label(pr->status);
+            const auto families = format_rule_presence(*pr);
+            if (!families.empty()) suffix += " " + families;
+            const std::string target = pr->expected_action == "lookup"
+                ? "table=" + std::to_string(pr->expected_table)
+                : pr->expected_action;
+            std::string rule_desc = keen_pbr3::format("rule    {}/{} -> {} pri={}",
+                                                       fwmark_hex(pr->fwmark),
+                                                       fwmark_hex(pr->fwmask),
+                                                       target, pr->priority);
+            if (internal_detour_fwmark && pr->fwmark == *internal_detour_fwmark) {
+                rule_desc += " [internal detour]";
+            }
+            std::cout << "    " << pad_dots(rule_desc, suffix) << "\n";
+            if (pr->status != CheckStatus::ok) {
+                print_detail_if_needed(pr->detail, "      ");
             }
         }
     }
