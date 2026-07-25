@@ -16,6 +16,34 @@ on:
         required: false
         default: ""
         type: string
+      source_run_id:
+        required: false
+        default: ""
+        type: string
+  workflow_dispatch:
+    inputs:
+      target_root:
+        description: "Target root directory in repository"
+        required: true
+        type: string
+      source_ref_type:
+        description: "Source reference type (branch, tag, pr)"
+        required: true
+        type: string
+      source_ref_name:
+        description: "Source reference name"
+        required: true
+        type: string
+      source_pr_number:
+        description: "Source PR number (if ref type is pr)"
+        required: false
+        default: ""
+        type: string
+      source_run_id:
+        description: "Run ID of the workflow that produced the artifacts"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -32,12 +60,16 @@ jobs:
       - name: Download package artifacts
         uses: actions/download-artifact@v8
         with:
+          run-id: ${{ inputs.source_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: packages-*
           path: downloaded-artifacts
 
       - name: Download debug symbol artifacts
         uses: actions/download-artifact@v8
         with:
+          run-id: ${{ inputs.source_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: debug-symbols-*
           path: downloaded-artifacts
 
@@ -147,14 +179,54 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add assets keys repository
-
-          if git diff --cached --quiet; then
-            echo "No repository updates to publish"
-            exit 0
-          fi
+          git config http.postBuffer 524288000
 
           app_version="$("$GITHUB_WORKSPACE/src/build_scripts/resolve-version.sh" full "$GITHUB_WORKSPACE/src")"
-          git commit -m "publish repository tree for ${GITHUB_SHA} (${app_version})"
-          git push origin HEAD:main
+
+          commit_and_push() {
+            local msg="$1"
+            if ! git diff --cached --quiet; then
+              git commit -m "$msg"
+              for i in 1 2 3 4 5; do
+                if git push origin HEAD:main; then
+                  return 0
+                fi
+                echo "Push failed, retrying in 5 seconds..."
+                git pull --rebase origin main || true
+                sleep 5
+              done
+              echo "Failed to push after multiple attempts."
+              return 1
+            fi
+            return 0
+          }
+
+          # 1. Assets and Keys
+          git add assets keys 2>/dev/null || true
+          commit_and_push "publish repository tree (assets/keys) for ${GITHUB_SHA} (${app_version})"
+
+          # 2. Chunk by OS and version
+          TARGET_ROOT="repository/${{ steps.normalized-target-root.outputs.value }}"
+          if [ -d "$TARGET_ROOT" ]; then
+            for os_dir in "$TARGET_ROOT"/*; do
+              if [ -d "$os_dir" ]; then
+                for version_dir in "$os_dir"/*; do
+                  if [ -d "$version_dir" ]; then
+                    git add --all "$version_dir"
+                    commit_and_push "publish repository tree ($(basename "$os_dir")/$(basename "$version_dir")) for ${GITHUB_SHA} (${app_version})"
+                  fi
+                done
+                # Commit any remaining files in os_dir
+                git add --all "$os_dir"
+                commit_and_push "publish repository tree ($(basename "$os_dir")) for ${GITHUB_SHA} (${app_version})"
+              fi
+            done
+          fi
+
+          # 3. Catch all remaining files
+          git add --all
+          if ! git diff --cached --quiet; then
+            commit_and_push "publish repository tree (misc) for ${GITHUB_SHA} (${app_version})"
+          else
+            echo "No further repository updates to publish"
+          fi
