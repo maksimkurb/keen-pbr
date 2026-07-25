@@ -58,6 +58,7 @@ update_feeds() {
 
 install_required_feed_packages() {
     local packages="
+        conntrack
         dnsmasq-full
         libatomic
         libcurl
