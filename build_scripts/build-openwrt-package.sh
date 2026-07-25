@@ -90,6 +90,15 @@ install_required_feed_packages
 
 cp "$WORKSPACE/packages/openwrt/packages.config" .config
 make defconfig
+
+# Fail-fast check
+for package in keen-pbr keen-pbr-headless; do
+    if ! grep -Eq "^CONFIG_PACKAGE_${package}=(m|y)$" .config; then
+        echo "[build-openwrt-package] Required package is not selected: $package" >&2
+        exit 1
+    fi
+done
+
 make package/keen-pbr/compile V=s "-j$(nproc)" \
     KEEN_PBR_SRC="$WORKSPACE" \
     KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" \
