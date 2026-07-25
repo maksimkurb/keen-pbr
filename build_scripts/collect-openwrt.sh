@@ -62,6 +62,23 @@ find "$SDK_DIR/build_dir" -type f -path '*/debug-artifacts/*/keen-pbr.debug' | w
     cp "$f" "$DEBUG_DEST_ROOT/keen-pbr_${VERSION_RELEASE}_openwrt_${TAG}_${ARCHITECTURE}_${variant}.debug"
 done
 
+package_count=$(find "$RELEASE_DIR/openwrt/${TAG}" -type f \
+    \( -name 'keen-pbr_*.ipk' \
+       -o -name 'keen-pbr-headless_*.ipk' \
+       -o -name 'keen-pbr-*.apk' \
+       -o -name 'keen-pbr-headless-*.apk' \) 2>/dev/null | wc -l)
+debug_count=$(find "$DEBUG_DEST_ROOT" -type f -name '*.debug' 2>/dev/null | wc -l)
+
+if [ "$package_count" -eq 0 ]; then
+    echo "[collect-openwrt] No keen-pbr packages were produced for ${TAG}/${ARCHITECTURE}" >&2
+    exit 1
+fi
+
+if [ "$debug_count" -eq 0 ]; then
+    echo "[collect-openwrt] No debug artifacts were produced for ${TAG}/${ARCHITECTURE}" >&2
+    exit 1
+fi
+
 # ── IPK: generate Packages index per architecture ────────────────────────────
 
 IPKG_INDEXER="$SDK_DIR/scripts/ipkg-make-index.sh"

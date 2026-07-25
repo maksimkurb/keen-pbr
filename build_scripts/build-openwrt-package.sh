@@ -58,6 +58,7 @@ update_feeds() {
 
 install_required_feed_packages() {
     local packages="
+        conntrack
         dnsmasq-full
         libatomic
         libcurl
@@ -76,9 +77,6 @@ install_required_feed_packages() {
 
 bash "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST"
 
-cp -r "$WORKSPACE/packages/openwrt/keen-pbr" "$SDK_DIR/package/"
-cp "$WORKSPACE/version.mk" "$SDK_DIR/package/keen-pbr/version.mk"
-
 cd "$SDK_DIR"
 retry "$FEED_UPDATE_RETRIES" "$FEED_UPDATE_RETRY_DELAY" update_feeds || {
     echo "[build-openwrt-package] Feed update failed after $FEED_UPDATE_RETRIES attempts." >&2
@@ -86,8 +84,20 @@ retry "$FEED_UPDATE_RETRIES" "$FEED_UPDATE_RETRY_DELAY" update_feeds || {
 }
 install_required_feed_packages
 
+rm -rf "$SDK_DIR/package/keen-pbr"
+cp -r "$WORKSPACE/packages/openwrt/keen-pbr" "$SDK_DIR/package/"
+cp "$WORKSPACE/version.mk" "$SDK_DIR/package/keen-pbr/version.mk"
+
 cp "$WORKSPACE/packages/openwrt/packages.config" .config
 make defconfig
+for package in keen-pbr keen-pbr-headless; do
+    if ! grep -Fqx "CONFIG_PACKAGE_${package}=m" .config; then
+        echo "[build-openwrt-package] Package was disabled by defconfig: $package" >&2
+        grep -E '^CONFIG_PACKAGE_(keen-pbr|keen-pbr-headless|conntrack)=' .config >&2 || true
+        exit 1
+    fi
+done
+
 make package/keen-pbr/compile V=s "-j$(nproc)" \
     KEEN_PBR_SRC="$WORKSPACE" \
     KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" \
