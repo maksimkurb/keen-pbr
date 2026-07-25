@@ -50,14 +50,12 @@ jobs:
         with:
           name: packages-openwrt-${{ inputs.openwrt_version }}-${{ inputs.architecture }}
           path: build/packages/openwrt
-          if-no-files-found: error
       - name: Upload unsigned packaged artifacts
         if: ${{ !inputs.use_signing_secrets }}
         uses: actions/upload-artifact@v6
         with:
           name: staging-openwrt-${{ inputs.openwrt_version }}-${{ inputs.architecture }}
           path: build/packages/openwrt
-          if-no-files-found: error
       - name: Upload debug symbol artifacts
         uses: actions/upload-artifact@v6
         with:
