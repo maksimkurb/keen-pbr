@@ -30,10 +30,10 @@ export function DiagnosticsDownloadDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  config: ConfigObject
-  serviceHealth: HealthResponse
-  routingHealth: RoutingHealthResponse
-  runtimeOutbounds: RuntimeOutboundsResponse
+  config?: ConfigObject
+  serviceHealth?: HealthResponse
+  routingHealth?: RoutingHealthResponse
+  runtimeOutbounds?: RuntimeOutboundsResponse
   dnsCheckStatus: DnsCheckStatus
 }) {
   const { t } = useTranslation()
@@ -44,10 +44,20 @@ export function DiagnosticsDownloadDialog({
 
     return {
       generated_at: generatedAt,
-      config: hideListsContent ? redactConfigLists(config) : config,
-      service_health: serviceHealth,
-      routing_health: routingHealth,
-      outbounds_status: runtimeOutbounds,
+      runtime_state: serviceHealth
+        ? {
+            state: serviceHealth.runtime_state ?? serviceHealth.status,
+            reason: serviceHealth.runtime_state_reason ?? null,
+          }
+        : null,
+      config: config
+        ? hideListsContent
+          ? redactConfigLists(config)
+          : config
+        : null,
+      service_health: serviceHealth ?? null,
+      routing_health: routingHealth ?? null,
+      outbounds_status: runtimeOutbounds ?? null,
       dnscheck_status: {
         status: dnsCheckStatus,
       },
@@ -105,7 +115,7 @@ export function DiagnosticsDownloadDialog({
           <Button
             className="w-full"
             onClick={() => {
-              downloadDiagnosticsFile(diagnosticsPayload)
+              void downloadDiagnosticsFile(diagnosticsPayload)
               onOpenChange(false)
             }}
           >
@@ -140,10 +150,24 @@ function redactConfigLists(config: ConfigObject): ConfigObject {
   }
 }
 
-function downloadDiagnosticsFile(payload: Record<string, unknown>) {
+async function downloadDiagnosticsFile(payload: Record<string, unknown>) {
+  let commandFailureLog: string | undefined
+  try {
+    const response = await fetch("/api/diagnostics/command-failure")
+    if (response.status === 200) {
+      commandFailureLog = await response.text()
+    }
+  } catch {
+    // Diagnostics must remain downloadable when this optional source is unavailable.
+  }
+
+  const completePayload =
+    commandFailureLog === undefined
+      ? payload
+      : { ...payload, command_failure_log: commandFailureLog }
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
   const filename = `keen-pbr-diagnostics-${timestamp}.json`
-  const content = `${JSON.stringify(payload, null, 2)}\n`
+  const content = `${JSON.stringify(completePayload, null, 2)}\n`
   const blob = new Blob([content], { type: "application/json;charset=utf-8" })
   const url = URL.createObjectURL(blob)
 

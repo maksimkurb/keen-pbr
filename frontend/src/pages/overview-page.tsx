@@ -104,18 +104,6 @@ export function OverviewPage() {
   )
   const hasServiceHealth = Boolean(serviceHealth)
   const isServiceRunning = serviceHealth?.status === "running"
-  const configIsDraft =
-    configQuery.data?.status === 200 ? configQuery.data.data.is_draft : false
-
-  const diagnosticsDownloadReady =
-    Boolean(loadedConfig) &&
-    Boolean(serviceHealth) &&
-    Boolean(routingHealth) &&
-    runtimeOutboundsQuery.data?.status === 200 &&
-    dnsCheckStatus !== "idle" &&
-    dnsCheckStatus !== "checking" &&
-    !configIsDraft
-
   const outboundRows = useMemo(() => {
     const configuredOutbounds = loadedConfig?.outbounds ?? []
     if (configuredOutbounds.length === 0) {
@@ -296,8 +284,9 @@ export function OverviewPage() {
             <Button
               size="sm"
               variant="outline"
-              disabled={!diagnosticsDownloadReady}
-              onClick={() => setIsDiagnosticsDialogOpen(true)}
+              onClick={() => {
+                setIsDiagnosticsDialogOpen(true)
+              }}
             >
               <Download className="h-4 w-4" />
               {t("overview.diagnosticsDownload.button")}
@@ -334,20 +323,19 @@ export function OverviewPage() {
         </SectionCard>
       </div>
 
-      {loadedConfig &&
-      serviceHealth &&
-      routingHealth &&
-      runtimeOutboundsQuery.data?.status === 200 ? (
-        <DiagnosticsDownloadDialog
-          config={loadedConfig}
-          dnsCheckStatus={dnsCheckStatus}
-          onOpenChange={setIsDiagnosticsDialogOpen}
-          open={isDiagnosticsDialogOpen}
-          routingHealth={routingHealth}
-          runtimeOutbounds={runtimeOutboundsQuery.data.data}
-          serviceHealth={serviceHealth}
-        />
-      ) : null}
+      <DiagnosticsDownloadDialog
+        config={loadedConfig}
+        dnsCheckStatus={dnsCheckStatus}
+        onOpenChange={setIsDiagnosticsDialogOpen}
+        open={isDiagnosticsDialogOpen}
+        routingHealth={routingHealth}
+        runtimeOutbounds={
+          runtimeOutboundsQuery.data?.status === 200
+            ? runtimeOutboundsQuery.data.data
+            : undefined
+        }
+        serviceHealth={serviceHealth}
+      />
     </div>
   )
 }

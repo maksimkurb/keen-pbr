@@ -342,6 +342,7 @@ if(WITH_API)
     src/api/handler_test_routing.cpp
     src/api/handler_status_events.cpp
     src/api/handler_dns_test.cpp
+    src/api/handler_diagnostics.cpp
   )
 endif()
 

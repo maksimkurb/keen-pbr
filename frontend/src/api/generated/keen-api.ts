@@ -1180,6 +1180,124 @@ export function useGetRuntimeOutbounds<TData = Awaited<ReturnType<typeof getRunt
 
 
 /**
+ * Returns the contents of `/tmp/keen-pbr-cmdfail.log` when command execution failures have been recorded. The response remains successful when the file does not exist so diagnostics can be collected safely.
+
+ * @summary Most recent failed command records
+ */
+export type getDiagnosticsCommandFailureResponse200 = {
+  data: string
+  status: 200
+}
+
+export type getDiagnosticsCommandFailureResponse204 = {
+  data: void
+  status: 204
+}
+
+export type getDiagnosticsCommandFailureResponseSuccess = (getDiagnosticsCommandFailureResponse200 | getDiagnosticsCommandFailureResponse204) & {
+  headers: Headers;
+};
+;
+
+export type getDiagnosticsCommandFailureResponse = (getDiagnosticsCommandFailureResponseSuccess)
+
+export const getGetDiagnosticsCommandFailureUrl = () => {
+
+
+
+
+  return `/api/diagnostics/command-failure`
+}
+
+export const getDiagnosticsCommandFailure = async ( options?: RequestInit): Promise<getDiagnosticsCommandFailureResponse> => {
+
+  return apiFetch<getDiagnosticsCommandFailureResponse>(getGetDiagnosticsCommandFailureUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDiagnosticsCommandFailureQueryKey = () => {
+    return [
+    `/api/diagnostics/command-failure`
+    ] as const;
+    }
+
+
+export const getGetDiagnosticsCommandFailureQueryOptions = <TData = Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDiagnosticsCommandFailureQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>> = ({ signal }) => getDiagnosticsCommandFailure({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetDiagnosticsCommandFailureQueryResult = NonNullable<Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>>
+export type GetDiagnosticsCommandFailureQueryError = unknown
+
+
+export function useGetDiagnosticsCommandFailure<TData = Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>,
+          TError,
+          Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDiagnosticsCommandFailure<TData = Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>,
+          TError,
+          Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDiagnosticsCommandFailure<TData = Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Most recent failed command records
+ */
+
+export function useGetDiagnosticsCommandFailure<TData = Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDiagnosticsCommandFailure>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetDiagnosticsCommandFailureQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+/**
  * Returns the daemon's current system interface inventory derived from live netlink link and address state. This endpoint is interface-centric and is intended for UI selectors and diagnostics rather than outbound health. It includes all detected system interfaces, optional live detail such as carrier and operstate, and best-effort IPv4/IPv6 addresses. On KeeneticOS, it also includes cached human-readable interface descriptions when they can be resolved through RCI.
 
  * @summary Live system interface inventory

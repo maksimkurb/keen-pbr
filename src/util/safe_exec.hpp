@@ -7,7 +7,12 @@
 #include <atomic>
 #include <cstdint>
 #include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
 #include <fcntl.h>
+#include <fstream>
+#include <mutex>
 #include <signal.h>
 #include <poll.h>
 #include <sstream>
@@ -150,6 +155,59 @@ inline std::string safe_exec_command_string(const std::vector<std::string>& args
     return out.str();
 }
 
+inline const char* command_failure_log_path() {
+    if (const char* test_path = std::getenv("KEEN_PBR_CMDFAIL_LOG_PATH")) {
+        return test_path;
+    }
+    return "/tmp/keen-pbr-cmdfail.log";
+}
+
+inline void record_command_failure(const std::string& command,
+                                   int exit_code,
+                                   const std::string& input,
+                                   const std::string& response,
+                                   const std::string& reason = {}) {
+    static std::mutex mutex;
+    const std::lock_guard<std::mutex> lock(mutex);
+    const std::string final_path = command_failure_log_path();
+    const std::string temporary_path = final_path + ".tmp." + std::to_string(getpid());
+    std::ofstream output(temporary_path, std::ios::trunc | std::ios::binary);
+    if (!output) return;
+
+    const auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::tm timestamp{};
+    gmtime_r(&now, &timestamp);
+    char timestamp_buffer[32];
+    std::strftime(timestamp_buffer, sizeof(timestamp_buffer), "%Y-%m-%dT%H:%M:%SZ", &timestamp);
+
+    output << "=== " << timestamp_buffer << " ===\n"
+           << "command: " << command << '\n'
+           << "exit_code: " << exit_code << '\n';
+    if (!reason.empty()) output << "reason: " << reason << '\n';
+    output << "stdin_bytes: " << input.size() << "\n--- stdin ---\n"
+           << input
+           << (input.empty() || input.back() == '\n' ? "" : "\n")
+           << "response_bytes: " << response.size() << "\n--- response ---\n"
+           << response
+           << (response.empty() || response.back() == '\n' ? "" : "\n")
+           << "=== end ===\n";
+    output.close();
+    if (!output || rename(temporary_path.c_str(), final_path.c_str()) != 0) {
+        (void)unlink(temporary_path.c_str());
+    }
+}
+
+inline std::string read_temporary_file(FILE* file) {
+    if (file == nullptr) return {};
+    std::string content;
+    std::rewind(file);
+    char buffer[4096];
+    while (const size_t count = std::fread(buffer, 1, sizeof(buffer), file)) {
+        content.append(buffer, count);
+    }
+    return content;
+}
+
 inline void log_failed_pipe_input(const std::string& command, const std::string& input) {
     constexpr std::size_t max_preview_bytes = 4096;
     const bool truncated = input.size() > max_preview_bytes;
@@ -163,73 +221,17 @@ inline void log_failed_pipe_input(const std::string& command, const std::string&
         preview);
 }
 
+inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
+                                           bool suppress_stderr,
+                                           size_t max_bytes,
+                                           bool merge_stderr);
+
 // Execute a command with arguments directly via fork()+execvp(), bypassing
 // the shell entirely. This prevents shell injection attacks.
 // Returns the process exit code (0-255), or -1 on fork/exec failure.
 inline int safe_exec(const std::vector<std::string>& args, bool suppress_output = false) {
-    if (args.empty()) return -1;
-    const std::string command = safe_exec_command_string(args);
-    const auto started_at = std::chrono::steady_clock::now();
-    Logger::instance().debug("safe_exec_start cmd={} suppress_output={}",
-                             command,
-                             suppress_output ? "true" : "false");
-
-    std::vector<const char*> argv;
-    argv.reserve(args.size() + 1);
-    for (const auto& arg : args) {
-        argv.push_back(arg.c_str());
-    }
-    argv.push_back(nullptr);
-
-    const pid_t pid = fork();
-    if (pid == -1) {
-        Logger::instance().verbose("safe_exec_error cmd={} duration_ms={} reason=fork_failed errno={}",
-                                 command,
-                                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     std::chrono::steady_clock::now() - started_at).count(),
-                                 errno);
-        return -1;
-    }
-
-    if (pid == 0) {
-        // Child process
-        prepare_child_process_group();
-        reset_child_signal_mask();
-        if (!redirect_child_stdin_to_devnull()) {
-            _exit(127);
-        }
-        if (suppress_output) {
-            const int devnull = open("/dev/null", O_WRONLY);
-            if (devnull >= 0) {
-                dup2(devnull, STDOUT_FILENO);
-                dup2(devnull, STDERR_FILENO);
-                close(devnull);
-            }
-        }
-        execvp(argv[0], const_cast<char* const*>(argv.data()));
-        _exit(127); // execvp failed
-    }
-    prepare_parent_process_group(pid);
-    const auto timeouts = safe_exec_timeouts();
-    const auto wait_result = wait_for_child_until(pid, started_at + timeouts.timeout,
-                                                  timeouts.kill_grace);
-    const auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - started_at).count();
-    if (!wait_result.timed_out && wait_result.reaped && WIFEXITED(wait_result.status)) {
-        const int exit_code = WEXITSTATUS(wait_result.status);
-        Logger::instance().trace("safe_exec_end",
-                                 "cmd={} exit_code={} duration_ms={}",
-                                 command,
-                                 exit_code,
-                                 duration_ms);
-        return exit_code;
-    }
-    Logger::instance().verbose("safe_exec_error",
-                                    "cmd={} duration_ms={} reason={}",
-                                    command,
-                                    duration_ms,
-                                    wait_result.timed_out ? "timeout" : "abnormal_exit");
-    return -1;
+    const auto result = safe_exec_capture(args, suppress_output, 0, true);
+    return result.exit_code;
 }
 
 // Execute a command with arguments, piping input data to its stdin.
@@ -262,10 +264,19 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
         return -1;
     }
 
+    FILE* response_file = tmpfile();
+    if (response_file == nullptr) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        record_command_failure(command, -1, input, "", "response_capture_failed");
+        return -1;
+    }
+
     const pid_t pid = fork();
     if (pid == -1) {
         close(pipefd[0]);
         close(pipefd[1]);
+        fclose(response_file);
         Logger::instance().trace("safe_exec_pipe_error",
                                  "cmd={} duration_ms={} reason=fork_failed errno={}",
                                  command,
@@ -282,6 +293,9 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
         close(pipefd[1]);
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
+        dup2(fileno(response_file), STDOUT_FILENO);
+        dup2(fileno(response_file), STDERR_FILENO);
+        fclose(response_file);
         execvp(argv[0], const_cast<char* const*>(argv.data()));
         _exit(127);
     }
@@ -320,6 +334,8 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
     close(pipefd[1]);
 
     const auto wait_result = wait_for_child_until(pid, deadline, timeouts.kill_grace);
+    const std::string response = read_temporary_file(response_file);
+    std::fclose(response_file);
     const auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started_at).count();
     if (!wait_result.timed_out && wait_result.reaped && WIFEXITED(wait_result.status)) {
@@ -336,6 +352,7 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
                                      exit_code,
                                      duration_ms);
             log_failed_pipe_input(command, input);
+            record_command_failure(command, exit_code, input, response);
         }
         return exit_code;
     }
@@ -344,6 +361,8 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
                              duration_ms,
                              wait_result.timed_out ? "timeout" : "abnormal_exit");
     log_failed_pipe_input(command, input);
+    record_command_failure(command, -1, input, response,
+                           wait_result.timed_out ? "timeout" : "abnormal_exit");
     return -1;
 }
 
@@ -379,6 +398,15 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
                                  std::chrono::duration_cast<std::chrono::milliseconds>(
                                      std::chrono::steady_clock::now() - started_at).count(),
                                  errno);
+        record_command_failure(command, -1, "", "", "pipe_failed");
+        return result;
+    }
+
+    FILE* stderr_file = merge_stderr ? nullptr : tmpfile();
+    if (!merge_stderr && stderr_file == nullptr) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        record_command_failure(command, -1, "", "", "stderr_capture_failed");
         return result;
     }
 
@@ -386,12 +414,14 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
     if (pid == -1) {
         close(pipefd[0]);
         close(pipefd[1]);
+        if (stderr_file != nullptr) fclose(stderr_file);
         Logger::instance().trace("safe_exec_capture_error",
                                  "cmd={} duration_ms={} reason=fork_failed errno={}",
                                  command,
                                  std::chrono::duration_cast<std::chrono::milliseconds>(
                                      std::chrono::steady_clock::now() - started_at).count(),
                                  errno);
+        record_command_failure(command, -1, "", "", "fork_failed");
         return result;
     }
 
@@ -406,12 +436,9 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
         dup2(pipefd[1], STDOUT_FILENO);
         if (merge_stderr) {
             dup2(pipefd[1], STDERR_FILENO);
-        } else if (suppress_stderr) {
-            const int devnull = open("/dev/null", O_WRONLY);
-            if (devnull >= 0) {
-                dup2(devnull, STDERR_FILENO);
-                close(devnull);
-            }
+        } else {
+            dup2(fileno(stderr_file), STDERR_FILENO);
+            fclose(stderr_file);
         }
         close(pipefd[1]);
         execvp(argv[0], const_cast<char* const*>(argv.data()));
@@ -442,6 +469,8 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
                 const auto wait_result = wait_for_child_until(
                     pid, std::chrono::steady_clock::now(), timeouts.kill_grace);
                 result.exit_code = child_exit_code(wait_result);
+                const std::string stderr_output = read_temporary_file(stderr_file);
+                if (stderr_file != nullptr) fclose(stderr_file);
                 Logger::instance().trace("safe_exec_capture_end",
                                          "cmd={} exit_code={} duration_ms={} bytes={} truncated=true",
                                          command,
@@ -449,6 +478,9 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
                                          std::chrono::duration_cast<std::chrono::milliseconds>(
                                              std::chrono::steady_clock::now() - started_at).count(),
                                          result.stdout_output.size());
+                record_command_failure(command, result.exit_code, "",
+                                       result.stdout_output + stderr_output,
+                                       "response_truncated");
                 return result;
             }
         } else if (n == 0) {
@@ -476,6 +508,11 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
         timeouts.kill_grace);
     result.timed_out = result.timed_out || wait_result.timed_out;
     result.exit_code = child_exit_code(wait_result);
+    const std::string stderr_output = read_temporary_file(stderr_file);
+    if (stderr_file != nullptr) fclose(stderr_file);
+    if (result.exit_code == 0 && !suppress_stderr && !stderr_output.empty()) {
+        (void)write(STDERR_FILENO, stderr_output.data(), stderr_output.size());
+    }
     Logger::instance().trace("safe_exec_capture_end",
                              "cmd={} exit_code={} duration_ms={} bytes={} truncated={} timed_out={}",
                              command,
@@ -485,6 +522,11 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
                              result.stdout_output.size(),
                              result.truncated ? "true" : "false",
                              result.timed_out ? "true" : "false");
+    if (result.exit_code != 0) {
+        record_command_failure(command, result.exit_code, "",
+                               result.stdout_output + stderr_output,
+                               result.timed_out ? "timeout" : "");
+    }
     return result;
 }
 

@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesEFtlCp data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesEhxcaO data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -545,7 +545,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesEFtlCp {
+    struct KeenPbrTypesEhxcaO {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -770,8 +770,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesEFtlCp & x);
-    void to_json(json & j, const KeenPbrTypesEFtlCp & x);
+    void from_json(const json & j, KeenPbrTypesEhxcaO & x);
+    void to_json(json & j, const KeenPbrTypesEhxcaO & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1710,7 +1710,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesEFtlCp& x) {
+    inline void from_json(const json & j, KeenPbrTypesEhxcaO& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1772,7 +1772,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesEFtlCp & x) {
+    inline void to_json(json & j, const KeenPbrTypesEhxcaO & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

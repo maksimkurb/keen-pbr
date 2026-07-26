@@ -194,6 +194,9 @@ TEST_CASE("safe_exec: timeout escalates to SIGKILL") {
 
 TEST_CASE("safe_exec_pipe_stdin: child that does not read is bounded by deadline") {
     SafeExecTimeoutGuard guard;
+    TempDir temp_dir;
+    EnvironmentGuard failure_log_guard("KEEN_PBR_CMDFAIL_LOG_PATH");
+    failure_log_guard.set(temp_dir.path() / "cmdfail.log");
     LoggerSinkGuard logger_sink_guard;
     std::string log;
     Logger::instance().set_sink([&log](const std::string& line) {
@@ -216,6 +219,10 @@ TEST_CASE("safe_exec_pipe_stdin: child that does not read is bounded by deadline
 }
 
 TEST_CASE("safe_exec_pipe_stdin: failed command logs arguments and input") {
+    TempDir temp_dir;
+    EnvironmentGuard failure_log_guard("KEEN_PBR_CMDFAIL_LOG_PATH");
+    const auto failure_log_path = temp_dir.path() / "cmdfail.log";
+    failure_log_guard.set(failure_log_path);
     LoggerSinkGuard logger_sink_guard;
     std::string log;
     Logger::instance().set_sink([&log](const std::string& line) {
@@ -225,11 +232,45 @@ TEST_CASE("safe_exec_pipe_stdin: failed command logs arguments and input") {
 
     const std::string input = "*mangle\nCOMMIT\n";
     const int exit_code = safe_exec_pipe_stdin(
-        {"/bin/sh", "-c", "cat >/dev/null; exit 42"}, input);
+        {"/bin/sh", "-c", "cat >/dev/null; echo restore-failed >&2; exit 42"}, input);
 
     CHECK(exit_code == 42);
-    CHECK(log.find("cmd=/bin/sh -c cat >/dev/null; exit 42") != std::string::npos);
+    CHECK(log.find("cmd=/bin/sh -c cat >/dev/null; echo restore-failed >&2; exit 42")
+          != std::string::npos);
     CHECK(log.find(input) != std::string::npos);
+    const std::string failure_log = read_file(failure_log_path);
+    CHECK(failure_log.find("command: /bin/sh -c cat >/dev/null; echo restore-failed >&2; exit 42")
+          != std::string::npos);
+    CHECK(failure_log.find(input) != std::string::npos);
+    CHECK(failure_log.find("restore-failed") != std::string::npos);
+    CHECK(failure_log.find("exit_code: 42") != std::string::npos);
+}
+
+TEST_CASE("safe_exec: failed command stores captured response") {
+    TempDir temp_dir;
+    EnvironmentGuard failure_log_guard("KEEN_PBR_CMDFAIL_LOG_PATH");
+    const auto failure_log_path = temp_dir.path() / "cmdfail.log";
+    failure_log_guard.set(failure_log_path);
+
+    const int exit_code = safe_exec(
+        {"/bin/sh", "-c", "echo command-response; exit 7"}, true);
+
+    CHECK(exit_code == 7);
+    const std::string failure_log = read_file(failure_log_path);
+    CHECK(failure_log.find("command-response") != std::string::npos);
+    CHECK(failure_log.find("exit_code: 7") != std::string::npos);
+
+    std::ifstream old_snapshot(failure_log_path);
+    REQUIRE(old_snapshot);
+    CHECK(safe_exec({"/bin/sh", "-c", "echo newer-response; exit 8"}, true) == 8);
+    const std::string replaced_failure_log = read_file(failure_log_path);
+    CHECK(replaced_failure_log.find("newer-response") != std::string::npos);
+    CHECK(replaced_failure_log.find("command-response") == std::string::npos);
+    const std::string old_snapshot_content{
+        std::istreambuf_iterator<char>(old_snapshot),
+        std::istreambuf_iterator<char>()};
+    CHECK(old_snapshot_content.find("command-response") != std::string::npos);
+    CHECK(old_snapshot_content.find("newer-response") == std::string::npos);
 }
 
 TEST_CASE("safe_exec_capture: ignored SIGTERM cannot hang capture") {

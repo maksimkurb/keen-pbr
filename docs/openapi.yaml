@@ -269,6 +269,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/RuntimeOutboundsResponse"
 
+  /api/diagnostics/command-failure:
+    get:
+      summary: Most recent failed command records
+      description: >
+        Returns the contents of `/tmp/keen-pbr-cmdfail.log` when command
+        execution failures have been recorded. The response remains successful
+        when the file does not exist so diagnostics can be collected safely.
+      operationId: getDiagnosticsCommandFailure
+      responses:
+        "200":
+          description: Command failure log contents
+          content:
+            text/plain:
+              schema:
+                type: string
+        "204":
+          description: No command failure log exists
+
   /api/runtime/interfaces:
     get:
       summary: Live system interface inventory
@@ -1258,6 +1276,7 @@ components:
             Host platform build variant. On OpenWrt this includes
             `target/subtarget`; on other OSes it contains the detected target.
           example: "mediatek/filogic"
+
         resolver_config_hash:
           type: string
           description: >
