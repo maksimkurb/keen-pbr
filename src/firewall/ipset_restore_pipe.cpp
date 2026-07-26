@@ -12,8 +12,22 @@ void IpsetRestoreVisitor::on_entry(EntryType type, std::string_view entry) {
         return; // Ignore domain entries
     }
 
-    buffer_ << "add " << set_name_ << " " << entry << " -exist";
-    buffer_ << "\n";
+    // hash:net deliberately rejects a zero prefix.  Preserve the meaning of
+    // an all-addresses CIDR by expressing it as the two /1 networks.
+    if (type == EntryType::Cidr && entry.size() >= 2 &&
+        entry.substr(entry.size() - 2) == "/0") {
+        if (entry.find(':') != std::string_view::npos) {
+            buffer_ << "add " << set_name_ << " ::/1 -exist\n";
+            buffer_ << "add " << set_name_ << " 8000::/1 -exist\n";
+        } else {
+            buffer_ << "add " << set_name_ << " 0.0.0.0/1 -exist\n";
+            buffer_ << "add " << set_name_ << " 128.0.0.0/1 -exist\n";
+        }
+        count_ += 2;
+        return;
+    }
+
+    buffer_ << "add " << set_name_ << " " << entry << " -exist\n";
     ++count_;
 }
 

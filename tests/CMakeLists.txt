@@ -137,6 +137,7 @@ target_include_directories(keen-pbr-tests PRIVATE
   ${CMAKE_SOURCE_DIR}/src
   ${CMAKE_SOURCE_DIR}/third_party/doctest
   ${CMAKE_SOURCE_DIR}/third_party/nlohmann_json/include
+  ${CMAKE_SOURCE_DIR}/third_party/rapidxml
   ${LIBNL_INCLUDE_DIRS}
   ${LIBNL_ROUTE_INCLUDE_DIRS}
 )

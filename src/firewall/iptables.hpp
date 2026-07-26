@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <map>
 #include <memory>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -84,10 +83,9 @@ private:
   // Build the 'create <name> hash:net family <f> [timeout <t>]' line.
   static std::string build_ipset_create_line(const PendingSet &ps);
   static bool is_dynamic_set_name(const std::string &set_name);
-  // Build a complete iptables-restore script for the given protocol and rules.
-  static std::string
-  build_ipt_script(bool ipv6, const std::vector<PendingRule> &rules,
-                   const FirewallGlobalPrefilter &prefilter = {});
+  static bool dynamic_set_schema_compatible(const std::string &saved_sets,
+                                            const PendingSet &expected);
+  void preflight_dynamic_set_schemas(bool effective_ipv6) const;
   static std::string
   build_raw_prerouting_script(FirewallSetGeneration target_generation,
                               const std::vector<PendingRule> &rules,
@@ -106,11 +104,11 @@ private:
                         const std::string &chain, bool allow_conntrack);
   // Build the proto/port fragment for a single rule (single proto, not
   // tcp/udp).
-  static std::string build_proto_port_fragment(L4Proto proto,
-                                               const PortSpec &src_port,
-                                               const PortSpec &dst_port,
-                                               bool negate_src_port = false,
-                                               bool negate_dst_port = false);
+  static std::vector<std::string>
+  build_proto_port_fragments(L4Proto proto, const PortSpec &src_port,
+                             const PortSpec &dst_port,
+                             bool negate_src_port = false,
+                             bool negate_dst_port = false);
   // Build one or more iptables-restore lines for a queued rule.
   static std::vector<std::string>
   build_rule_lines(const PendingRule &pr,
@@ -119,12 +117,22 @@ private:
   bool ipv6_backend_available() const;
   void validate_raw_prerouting_capability() const;
   LiveGenerationState inspect_live_generation(bool ipv6) const;
+  LiveGenerationState inspect_dispatcher(
+      const char *command, const char *table, const std::string &dispatcher,
+      const std::string &generation_a,
+      const std::string &generation_b) const;
+  FirewallSetGeneration select_target_generation(bool ipv6) const;
+  void ensure_target_generation_inactive(
+      bool ipv6, FirewallSetGeneration target) const;
+  void publish_dispatcher(bool ipv6, bool output,
+                          FirewallSetGeneration generation) const;
   static LiveGenerationState
   parse_live_generation(const std::string &rules, const std::string &dispatcher,
                         const std::string &generation_a,
                         const std::string &generation_b);
   static FirewallSetGeneration
-  target_generation_for_state(LiveGenerationState state);
+  target_generation_for_states(LiveGenerationState primary,
+                               LiveGenerationState secondary);
   void reconcile_hooks(bool ipv6) const;
   void verify_applied_generation(bool ipv6, FirewallSetGeneration target) const;
   static size_t count_exact_jump(const std::string &rules,
@@ -163,8 +171,6 @@ private:
   bool chain_v4_created_ = false;
   bool chain_v6_created_ = false;
   static const char *generation_chain(FirewallSetGeneration generation);
-  std::optional<FirewallSetGeneration> active_v4_generation_;
-  std::optional<FirewallSetGeneration> active_v6_generation_;
   FirewallSetGeneration target_v4_generation_{FirewallSetGeneration::A};
   FirewallSetGeneration target_v6_generation_{FirewallSetGeneration::A};
   bool apply_prepared_{false};
@@ -172,8 +178,6 @@ private:
 
 #ifdef KEEN_PBR3_TESTING
   friend class IptablesBuilderTest;
-  // Allow test access to build_proto_port_fragment
-  friend struct IptablesBuilderTestHelper;
 #endif
 };
 

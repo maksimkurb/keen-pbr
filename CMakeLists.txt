@@ -363,6 +363,7 @@ target_include_directories(keen-pbr PRIVATE
   "${KEEN_PBR_GENERATED_INCLUDE_DIR}"
   include
   src
+  third_party/rapidxml
 )
 target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"

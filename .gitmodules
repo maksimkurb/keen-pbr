@@ -13,3 +13,6 @@
 [submodule "third_party/cpptrace"]
 	path = third_party/cpptrace
 	url = https://github.com/jeremy-rifkin/cpptrace.git
+[submodule "third_party/rapidxml"]
+	path = third_party/rapidxml
+	url = https://salsa.debian.org/debian/rapidxml.git

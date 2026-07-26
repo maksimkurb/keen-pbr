@@ -58,6 +58,14 @@ public:
     return IptablesFirewall::is_dynamic_set_name(name);
   }
 
+  static bool dynamic_set_schema_compatible(const std::string &saved,
+                                            const std::string &name,
+                                            const std::string &family,
+                                            uint32_t timeout) {
+    IptablesFirewall::PendingSet set{name, family, timeout};
+    return IptablesFirewall::dynamic_set_schema_compatible(saved, set);
+  }
+
   static std::string static_set_name(FirewallSetGeneration generation,
                                      const std::string &name, int family) {
     IptablesFirewall firewall;
@@ -71,7 +79,8 @@ public:
     const auto state = IptablesFirewall::parse_live_generation(
         rules, "KeenPbrTable", "KeenPbrTable_A", "KeenPbrTable_B");
     firewall.target_v4_generation_ =
-        IptablesFirewall::target_generation_for_state(state);
+        IptablesFirewall::target_generation_for_states(
+            state, IptablesFirewall::LiveGenerationState::Missing);
     return firewall.static_set_name("sample", AF_INET);
   }
 
@@ -97,7 +106,8 @@ public:
       }
       rules.push_back(std::move(pr));
     }
-    return IptablesFirewall::build_ipt_script(ipv6, rules, prefilter);
+    return IptablesFirewall::build_ipt_script(
+        ipv6, FirewallSetGeneration::A, rules, prefilter);
   }
 
   static std::string build_replacement_script() {
@@ -170,6 +180,12 @@ public:
     return static_cast<int>(IptablesFirewall::LiveGenerationState::Invalid);
   }
 
+  static FirewallSetGeneration target_for_states(int primary, int secondary) {
+    return IptablesFirewall::target_generation_for_states(
+        static_cast<IptablesFirewall::LiveGenerationState>(primary),
+        static_cast<IptablesFirewall::LiveGenerationState>(secondary));
+  }
+
   static size_t count_exact_jump(const std::string &rules,
                                  const std::string &source,
                                  const std::string &target) {
@@ -197,8 +213,8 @@ public:
     }
 
     fw.append_rules_for_family(ipv6, mapped_action, fwmark, criteria);
-    return IptablesFirewall::build_ipt_script(ipv6, fw.pending_rules_,
-                                              prefilter);
+    return IptablesFirewall::build_ipt_script(
+        ipv6, FirewallSetGeneration::A, fw.pending_rules_, prefilter);
   }
 
   static std::string build_proto_port_fragment(const std::string &proto,
@@ -206,9 +222,14 @@ public:
                                                const std::string &dst_port,
                                                bool negate_src = false,
                                                bool negate_dst = false) {
-    return IptablesFirewall::build_proto_port_fragment(
+    const auto fragments = IptablesFirewall::build_proto_port_fragments(
         parse_test_proto(proto), PortSpec(src_port), PortSpec(dst_port),
         negate_src, negate_dst);
+    if (fragments.size() != 1) {
+      throw std::invalid_argument(
+          "Port specification requires multiple iptables rules");
+    }
+    return fragments.front();
   }
 
   static size_t pending_set_count_after_duplicate_create() {
@@ -251,7 +272,7 @@ TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
   CHECK(script.find("*raw\n") != std::string::npos);
   CHECK(script.find(":KeenPbrRaw - [0:0]") != std::string::npos);
   CHECK(script.find(":KeenPbrRaw_A - [0:0]") != std::string::npos);
-  CHECK(script.find(":KeenPbrRaw_B - [0:0]") != std::string::npos);
+  CHECK(script.find(":KeenPbrRaw_B - [0:0]") == std::string::npos);
   CHECK(script.find("-A KeenPbrRaw -j KeenPbrRaw_A") != std::string::npos);
   CHECK(script.find("-A PREROUTING -j KeenPbrRaw") == std::string::npos);
   CHECK(script.find("--set-xmark 0x100/0xffffffff") != std::string::npos);
@@ -352,6 +373,24 @@ TEST_CASE("IpsetRestoreVisitor: CIDR entry") {
   CHECK(v.count() == 1);
 }
 
+TEST_CASE("IpsetRestoreVisitor: IPv4 zero prefix expands for hash:net") {
+  std::ostringstream buf;
+  IpsetRestoreVisitor v(buf, "myset");
+  v.on_entry(EntryType::Cidr, "0.0.0.0/0");
+  CHECK(buf.str() == "add myset 0.0.0.0/1 -exist\n"
+                     "add myset 128.0.0.0/1 -exist\n");
+  CHECK(v.count() == 2);
+}
+
+TEST_CASE("IpsetRestoreVisitor: IPv6 zero prefix expands for hash:net") {
+  std::ostringstream buf;
+  IpsetRestoreVisitor v(buf, "myset");
+  v.on_entry(EntryType::Cidr, "::/0");
+  CHECK(buf.str() == "add myset ::/1 -exist\n"
+                     "add myset 8000::/1 -exist\n");
+  CHECK(v.count() == 2);
+}
+
 TEST_CASE("IpsetRestoreVisitor: Domain entry is ignored") {
   std::ostringstream buf;
   IpsetRestoreVisitor v(buf, "myset");
@@ -396,6 +435,57 @@ TEST_CASE("ipset reconcile: only dnsmasq names are dynamic") {
   CHECK_FALSE(T::is_dynamic_set_name("foreign_kpbr4d_domains"));
 }
 
+TEST_CASE("ipset reconcile: dynamic schema accepts terse ipset XML") {
+  CHECK(T::dynamic_set_schema_compatible(
+      R"(<?xml version="1.0" encoding="utf-8"?>
+<ipsets>
+  <ipset name="kpbr4d_domains">
+    <type>hash:net</type>
+    <revision>7</revision>
+    <header>
+      <family>inet</family>
+      <hashsize>1024</hashsize>
+      <maxelem>65536</maxelem>
+      <timeout>300</timeout>
+      <memsize>440</memsize>
+      <references>1</references>
+      <numentries>1000000</numentries>
+    </header>
+  </ipset>
+</ipsets>)",
+      "kpbr4d_domains", "inet", 300));
+  CHECK(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr6d_domains"><type>hash:net</type><header><family>inet6</family></header></ipset></ipsets>)",
+      "kpbr6d_domains", "inet6", 0));
+}
+
+TEST_CASE("ipset reconcile: dynamic schema rejects incompatible live sets") {
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:ip</type><header><family>inet</family><timeout>300</timeout></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 300));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet6</family><timeout>300</timeout></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 300));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><timeout>60</timeout></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 300));
+}
+
+TEST_CASE("ipset reconcile: dynamic schema rejects malformed or ambiguous XML") {
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 0));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><type>hash:ip</type><header><family>inet</family></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 0));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><timeout>-1</timeout></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 0));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family></header></ipset><ipset name="foreign"><type>hash:net</type><header><family>inet</family></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 0));
+}
+
 TEST_CASE("ipset reconcile: static A/B names fit the ipset limit") {
   const std::string longest_name(24, 'a');
   const auto v4a =
@@ -426,8 +516,8 @@ TEST_CASE("ipset reconcile: live dispatcher selects the inactive static slot") {
   CHECK(T::static_set_name_for_live_rules(
             "-N KeenPbrTable\n-A KeenPbrTable -j KeenPbrTable_B\n") ==
         "kpbr4s_sample");
-  CHECK(T::static_set_name_for_live_rules(
-            "-A KeenPbrTable -j UnknownGeneration\n") == "kpbr4s_sample");
+  CHECK_THROWS(T::static_set_name_for_live_rules(
+      "-A KeenPbrTable -j UnknownGeneration\n"));
 }
 
 TEST_CASE("live generation parser rejects damaged dispatchers") {
@@ -446,6 +536,28 @@ TEST_CASE("live generation parser rejects damaged dispatchers") {
         T::state_invalid());
   CHECK(T::live_generation_state("-A KeenPbrTable -j ForeignTarget\n") ==
         T::state_invalid());
+}
+
+TEST_CASE("target generation accounts for both dispatchers") {
+  CHECK(T::target_for_states(T::state_missing(), T::state_missing()) ==
+        FirewallSetGeneration::A);
+  CHECK(T::target_for_states(T::state_a(), T::state_missing()) ==
+        FirewallSetGeneration::B);
+  CHECK(T::target_for_states(T::state_missing(), T::state_b()) ==
+        FirewallSetGeneration::A);
+  CHECK(T::target_for_states(T::state_a(), T::state_a()) ==
+        FirewallSetGeneration::B);
+  CHECK(T::target_for_states(T::state_b(), T::state_b()) ==
+        FirewallSetGeneration::A);
+  // On a partial publication, PREROUTING is authoritative; OUTPUT is rolled
+  // back to it before this target is used.
+  CHECK(T::target_for_states(T::state_a(), T::state_b()) ==
+        FirewallSetGeneration::B);
+  CHECK(T::target_for_states(T::state_b(), T::state_a()) ==
+        FirewallSetGeneration::A);
+  CHECK_THROWS(
+      T::target_for_states(T::state_invalid(), T::state_missing()));
+  CHECK_THROWS(T::target_for_states(T::state_missing(), T::state_invalid()));
 }
 
 TEST_CASE("hook parser counts only exact daemon-owned jumps") {
@@ -467,12 +579,13 @@ TEST_CASE("build_ipt_script: IPv4 mark rule") {
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100)});
   CHECK(s.find("*mangle") != std::string::npos);
   CHECK(s.find(":KeenPbrTable") != std::string::npos);
-  CHECK(s.find("-A PREROUTING -j KeenPbrTable") != std::string::npos);
-  CHECK(s.find("-A OUTPUT -j KeenPbrTable_OUTPUT") != std::string::npos);
-  CHECK(s.find("-A KeenPbrTable_OUTPUT -j KeenPbrTable") != std::string::npos);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j MARK "
+  CHECK(s.find("-A PREROUTING -j KeenPbrTable") == std::string::npos);
+  CHECK(s.find("-A OUTPUT -j KeenPbrTable_OUTPUT") == std::string::npos);
+  CHECK(s.find("-A KeenPbrTable_OUTPUT -j KeenPbrTable_A") !=
+        std::string::npos);
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -j MARK "
                "--set-xmark 0x100/0xffffffff") != std::string::npos);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j RETURN") !=
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -j RETURN") !=
         std::string::npos);
   CHECK(s.size() >= 7);
   CHECK(s.substr(s.size() - 7) == "COMMIT\n");
@@ -480,21 +593,21 @@ TEST_CASE("build_ipt_script: IPv4 mark rule") {
 
 TEST_CASE("build_ipt_script: IPv4 drop rule") {
   auto s = T::build_ipt_script(false, {drop_rule("blacklist", false)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set blacklist dst -j DROP") !=
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set blacklist dst -j DROP") !=
         std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: IPv4 pass rule") {
   auto s = T::build_ipt_script(false, {pass_rule("allowlist", false)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -j RETURN") !=
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set allowlist dst -j RETURN") !=
         std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: IPv6 mark rule") {
   auto s = T::build_ipt_script(true, {mark_rule("v6set", true, 0x200)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set v6set dst -j MARK "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set v6set dst -j MARK "
                "--set-xmark 0x200/0xffffffff") != std::string::npos);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set v6set dst -j RETURN") !=
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set v6set dst -j RETURN") !=
         std::string::npos);
   CHECK(s.substr(s.size() - 7) == "COMMIT\n");
 }
@@ -532,12 +645,13 @@ TEST_CASE("build_ipt_script: empty rules still build KeenPbrTable scaffold") {
   auto s = T::build_ipt_script(false, {});
   CHECK(s.find("*mangle\n") != std::string::npos);
   CHECK(s.find(":KeenPbrTable - [0:0]\n") != std::string::npos);
-  CHECK(s.find("-A PREROUTING -j KeenPbrTable\n") != std::string::npos);
-  CHECK(s.find("-A OUTPUT -j KeenPbrTable_OUTPUT\n") != std::string::npos);
-  CHECK(s.find("-A KeenPbrTable ") == std::string::npos);
-  CHECK(s == "*mangle\n:KeenPbrTable - [0:0]\n:KeenPbrTable_OUTPUT - [0:0]\n"
-             "-A PREROUTING -j KeenPbrTable\n-A OUTPUT -j KeenPbrTable_OUTPUT\n"
-             "-A KeenPbrTable_OUTPUT -j KeenPbrTable\nCOMMIT\n");
+  CHECK(s.find("-A PREROUTING -j KeenPbrTable\n") == std::string::npos);
+  CHECK(s.find("-A OUTPUT -j KeenPbrTable_OUTPUT\n") == std::string::npos);
+  CHECK(s ==
+        "*mangle\n:KeenPbrTable - [0:0]\n:KeenPbrTable_OUTPUT - [0:0]\n"
+        ":KeenPbrTable_A - [0:0]\n-F KeenPbrTable_A\n-F KeenPbrTable\n"
+        "-F KeenPbrTable_OUTPUT\n-A KeenPbrTable -j KeenPbrTable_A\n"
+        "-A KeenPbrTable_OUTPUT -j KeenPbrTable_A\nCOMMIT\n");
 }
 
 TEST_CASE("build_ipt_script: replacement rebuilds inactive B chain and "
@@ -555,7 +669,7 @@ TEST_CASE("build_ipt_script: replacement rebuilds inactive B chain and "
   REQUIRE(dispatcher_flush != std::string::npos);
   REQUIRE(dispatcher_jump != std::string::npos);
   REQUIRE(output_jump != std::string::npos);
-  CHECK(script.find(":KeenPbrTable_A - [0:0]") != std::string::npos);
+  CHECK(script.find(":KeenPbrTable_A - [0:0]") == std::string::npos);
   CHECK(script.find(":KeenPbrTable_B - [0:0]") != std::string::npos);
   CHECK(flush < dispatcher_flush);
   CHECK(dispatcher_flush < dispatcher_jump);
@@ -566,11 +680,11 @@ TEST_CASE("build_ipt_script: replacement rebuilds inactive B chain and "
   CHECK(script.find("-A OUTPUT -j KeenPbrTable_OUTPUT") == std::string::npos);
 }
 
-TEST_CASE("raw and output desired-state scripts declare both slots and flush "
-          "only the target") {
+TEST_CASE("generation scripts declare only the target slot so noflush "
+          "preserves the active slot") {
   const auto raw = T::build_raw_script_for_generation(FirewallSetGeneration::B);
   CHECK(raw.find(":KeenPbrRaw - [0:0]") != std::string::npos);
-  CHECK(raw.find(":KeenPbrRaw_A - [0:0]") != std::string::npos);
+  CHECK(raw.find(":KeenPbrRaw_A - [0:0]") == std::string::npos);
   CHECK(raw.find(":KeenPbrRaw_B - [0:0]") != std::string::npos);
   CHECK(raw.find("-F KeenPbrRaw_B\n") != std::string::npos);
   CHECK(raw.find("-F KeenPbrRaw_A\n") == std::string::npos);
@@ -581,7 +695,7 @@ TEST_CASE("raw and output desired-state scripts declare both slots and flush "
   const auto output =
       T::build_output_script_for_generation(FirewallSetGeneration::B);
   CHECK(output.find(":KeenPbrOutput - [0:0]") != std::string::npos);
-  CHECK(output.find(":KeenPbrOutput_A - [0:0]") != std::string::npos);
+  CHECK(output.find(":KeenPbrOutput_A - [0:0]") == std::string::npos);
   CHECK(output.find(":KeenPbrOutput_B - [0:0]") != std::string::npos);
   CHECK(output.find("-F KeenPbrOutput_B\n") != std::string::npos);
   CHECK(output.find("-F KeenPbrOutput_A\n") == std::string::npos);
@@ -614,11 +728,11 @@ TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before "
                                prefilter_with_interfaces({"br0"}));
 
   const std::string dnat =
-      "-A KeenPbrTable -m conntrack --ctstate DNAT -j RETURN\n";
+      "-A KeenPbrTable_A -m conntrack --ctstate DNAT -j RETURN\n";
   const std::string marked =
-      "-A KeenPbrTable -m mark ! --mark 0x0/0xffffffff -j ACCEPT\n";
-  const std::string iface = "-A KeenPbrTable ! -i br0 -j RETURN\n";
-  const std::string mark = "-A KeenPbrTable -m set --match-set myset dst -j "
+      "-A KeenPbrTable_A -m mark ! --mark 0x0/0xffffffff -j ACCEPT\n";
+  const std::string iface = "-A KeenPbrTable_A ! -i br0 -j RETURN\n";
+  const std::string mark = "-A KeenPbrTable_A -m set --match-set myset dst -j "
                            "MARK --set-xmark 0x100/0xffffffff\n";
 
   const auto dnat_pos = s.find(dnat);
@@ -682,9 +796,9 @@ TEST_CASE("build_ipt_script: multi-interface prefilter expands route rules "
       T::build_ipt_script(false, {pass_rule("allowlist", false)},
                           prefilter_with_interfaces({"br0", "wg0"}, false));
 
-  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -i br0 -j "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set allowlist dst -i br0 -j "
                "RETURN\n") != std::string::npos);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -i wg0 -j "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set allowlist dst -i wg0 -j "
                "RETURN\n") != std::string::npos);
 }
 
@@ -709,8 +823,8 @@ TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body "
   auto s = T::build_ipt_script(false, {mark_rule("kpbr4_local", false, 0x100)},
                                prefilter);
 
-  const std::string iface = "-A KeenPbrTable ! -i br0 -j RETURN\n";
-  const std::string mark = "-A KeenPbrTable -m set --match-set kpbr4_local dst "
+  const std::string iface = "-A KeenPbrTable_A ! -i br0 -j RETURN\n";
+  const std::string mark = "-A KeenPbrTable_A -m set --match-set kpbr4_local dst "
                            "-j MARK --set-xmark 0x100/0xffffffff\n";
   const auto iface_pos = s.find(iface);
   const auto mark_pos = s.find(mark);
@@ -730,7 +844,7 @@ TEST_CASE("build_ipt_script_for_rule: masked mark rule uses set-xmark") {
   FirewallRuleCriteria criteria;
   auto s = T::build_ipt_script_for_rule(false, Rule::Mark, 0x00010000, criteria,
                                         true, 0x00FF0000);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set pairwise_set dst -j MARK "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set pairwise_set dst -j MARK "
                "--set-xmark 0x10000/0xff0000\n") != std::string::npos);
   CHECK(s.find("[0:0] -A") == std::string::npos);
 }
@@ -757,7 +871,7 @@ TEST_CASE("build_ipt_script: config-derived prefilter omits interface guard "
                                prefilter);
 
   CHECK(s.find("! -i ") == std::string::npos);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set kpbr4_local dst -j MARK "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set kpbr4_local dst -j MARK "
                "--set-xmark 0x100/0xffffffff\n") != std::string::npos);
 }
 
@@ -803,7 +917,7 @@ TEST_CASE("build_ipt_script: tcp + single dest_port in rule") {
   f.proto = L4Proto::Tcp;
   f.dst_port = "443";
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp --dport "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -p tcp --dport "
                "443 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -812,7 +926,7 @@ TEST_CASE("build_ipt_script: dscp matcher is emitted") {
   ProtoPortFilter f;
   f.dscp = 46;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -m dscp --dscp "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -m dscp --dscp "
                "46 -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
 }
 
@@ -821,7 +935,7 @@ TEST_CASE("build_ipt_script: udp + port range in rule") {
   f.proto = L4Proto::Udp;
   f.dst_port = "8000-9000";
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set bl dst -p udp --dport "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set bl dst -p udp --dport "
                "8000:9000 -j DROP") != std::string::npos);
 }
 
@@ -843,26 +957,134 @@ TEST_CASE("build_ipt_script: tcp/udp + port list → two rules") {
   CHECK(s.find("-p udp -m multiport --dports 80,443") != std::string::npos);
 }
 
+TEST_CASE("build_ipt_script: oversized multiport list is split at 15 slots") {
+  ProtoPortFilter f;
+  f.proto = L4Proto::Tcp;
+  f.dst_port = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16";
+  auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
+  CHECK(s.find("--dports 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 -j DROP") !=
+        std::string::npos);
+  CHECK(s.find("--dports 16 -j DROP") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: multiport ranges consume two slots") {
+  ProtoPortFilter f;
+  f.proto = L4Proto::Udp;
+  f.dst_port = "1-2,3-4,5-6,7-8,9-10,11-12,13-14,15-16";
+  auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
+  CHECK(s.find("--dports 1:2,3:4,5:6,7:8,9:10,11:12,13:14 -j DROP") !=
+        std::string::npos);
+  CHECK(s.find("--dports 15:16 -j DROP") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: oversized negated multiport list remains AND") {
+  ProtoPortFilter f;
+  f.proto = L4Proto::Tcp;
+  f.dst_port = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16";
+  f.negate_dst_port = true;
+  auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
+  CHECK(s.find("-m multiport ! --dports "
+               "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 "
+               "-m multiport ! --dports 16 -j DROP") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: source list preserves single destination port") {
+  ProtoPortFilter f;
+  f.proto = L4Proto::Tcp;
+  f.src_port = "80,443";
+  f.dst_port = "8443";
+  auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
+  CHECK(s.find("-m multiport --sports 80,443 --dport 8443 -j DROP") !=
+        std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: destination list preserves single source port") {
+  ProtoPortFilter f;
+  f.proto = L4Proto::Tcp;
+  f.src_port = "1024";
+  f.dst_port = "80,443";
+  auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
+  CHECK(s.find("--sport 1024 -m multiport --dports 80,443 -j DROP") !=
+        std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: oversized positive port lists cross product") {
+  ProtoPortFilter f;
+  f.proto = L4Proto::Tcp;
+  f.src_port = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16";
+  f.dst_port =
+      "101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116";
+  auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
+  const std::string src_a =
+      "-m multiport --sports 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15";
+  const std::string src_b = "-m multiport --sports 16";
+  const std::string dst_a =
+      "-m multiport --dports "
+      "101,102,103,104,105,106,107,108,109,110,111,112,113,114,115";
+  const std::string dst_b = "-m multiport --dports 116";
+  CHECK(s.find(src_a + " " + dst_a + " -j DROP") != std::string::npos);
+  CHECK(s.find(src_a + " " + dst_b + " -j DROP") != std::string::npos);
+  CHECK(s.find(src_b + " " + dst_a + " -j DROP") != std::string::npos);
+  CHECK(s.find(src_b + " " + dst_b + " -j DROP") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: negated chunks combine with positive alternatives") {
+  ProtoPortFilter f;
+  f.proto = L4Proto::Udp;
+  f.src_port = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16";
+  f.negate_src_port = true;
+  f.dst_port =
+      "101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116";
+  auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
+  const std::string excluded =
+      "-m multiport ! --sports 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 "
+      "-m multiport ! --sports 16";
+  CHECK(s.find(excluded + " -m multiport --dports "
+                          "101,102,103,104,105,106,107,108,109,110,111,112,"
+                          "113,114,115 -j DROP") != std::string::npos);
+  CHECK(s.find(excluded + " -m multiport --dports 116 -j DROP") !=
+        std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: positive chunks combine with negated destination") {
+  ProtoPortFilter f;
+  f.proto = L4Proto::Udp;
+  f.src_port = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16";
+  f.dst_port =
+      "101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116";
+  f.negate_dst_port = true;
+  auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
+  const std::string excluded =
+      "-m multiport ! --dports "
+      "101,102,103,104,105,106,107,108,109,110,111,112,113,114,115 "
+      "-m multiport ! --dports 116";
+  CHECK(s.find("-m multiport --sports "
+               "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 " +
+               excluded + " -j DROP") != std::string::npos);
+  CHECK(s.find("-m multiport --sports 16 " + excluded + " -j DROP") !=
+        std::string::npos);
+}
+
 TEST_CASE(
     "build_ipt_script: any proto + src_port expands to tcp and udp rules") {
   ProtoPortFilter f;
   f.proto = L4Proto::Any;
   f.src_port = "11111";
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp --sport "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -p tcp --sport "
                "11111 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p udp --sport "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -p udp --sport "
                "11111 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst --sport 11111") ==
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst --sport 11111") ==
         std::string::npos);
 }
 
 TEST_CASE(
     "build_ipt_script: no proto, no ports → no extra flags (regression)") {
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j MARK "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -j MARK "
                "--set-xmark 0x100/0xffffffff") != std::string::npos);
   CHECK(s.find("-p ") == std::string::npos);
   CHECK(s.find("--dport") == std::string::npos);
@@ -876,7 +1098,7 @@ TEST_CASE("build_ipt_script: single src_addr → -s flag") {
   ProtoPortFilter f;
   f.src_addr = {"192.168.10.0/24"};
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -s "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -s "
                "192.168.10.0/24 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -885,7 +1107,7 @@ TEST_CASE("build_ipt_script: single dest_addr → -d flag") {
   ProtoPortFilter f;
   f.dst_addr = {"10.0.0.0/8"};
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -d 10.0.0.0/8 -j "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -d 10.0.0.0/8 -j "
                "MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
 }
 
@@ -894,7 +1116,7 @@ TEST_CASE("build_ipt_script: src_addr + dest_addr → both flags") {
   f.src_addr = {"192.168.1.0/24"};
   f.dst_addr = {"8.8.8.0/24"};
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -s 192.168.1.0/24 "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -s 192.168.1.0/24 "
                "-d 8.8.8.0/24 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -906,7 +1128,7 @@ TEST_CASE("build_ipt_script: src_addr + tcp/udp + dest_port → addr and proto "
   f.proto = L4Proto::Tcp;
   f.dst_port = "443";
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -s 192.168.1.0/24 "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -s 192.168.1.0/24 "
                "-p tcp --dport 443 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -915,7 +1137,7 @@ TEST_CASE("build_ipt_script: drop rule with src_addr → -s flag on DROP") {
   ProtoPortFilter f;
   f.src_addr = {"10.10.0.0/16"};
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set bl dst -s 10.10.0.0/16 -j "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set bl dst -s 10.10.0.0/16 -j "
                "DROP") != std::string::npos);
 }
 
@@ -966,7 +1188,7 @@ TEST_CASE("build_ipt_script: negated src_addr → ! -s flag") {
   f.src_addr = {"192.168.1.0/24"};
   f.negate_src_addr = true;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst ! -s "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst ! -s "
                "192.168.1.0/24 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -976,7 +1198,7 @@ TEST_CASE("build_ipt_script: negated dest_addr → ! -d flag") {
   f.dst_addr = {"10.0.0.0/8"};
   f.negate_dst_addr = true;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst ! -d 10.0.0.0/8 "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst ! -d 10.0.0.0/8 "
                "-j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
 }
 
@@ -986,7 +1208,7 @@ TEST_CASE("build_ipt_script: negated dest_port in full rule") {
   f.dst_port = "443";
   f.negate_dst_port = true;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp ! --dport "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -p tcp ! --dport "
                "443 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -1000,7 +1222,7 @@ TEST_CASE("build_ipt_script: combined negated src_addr + negated dest_port") {
   f.negate_dst_port = true;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
   CHECK(
-      s.find("-A KeenPbrTable -m set --match-set myset dst ! -s 192.168.1.0/24 "
+      s.find("-A KeenPbrTable_A -m set --match-set myset dst ! -s 192.168.1.0/24 "
              "-p tcp ! --dport 443 -j MARK --set-xmark 0x100/0xffffffff") !=
       std::string::npos);
 }
@@ -1010,7 +1232,7 @@ TEST_CASE("build_ipt_script: drop rule with negated src_addr") {
   f.src_addr = {"10.10.0.0/16"};
   f.negate_src_addr = true;
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
-  CHECK(s.find("-A KeenPbrTable -m set --match-set bl dst ! -s 10.10.0.0/16 -j "
+  CHECK(s.find("-A KeenPbrTable_A -m set --match-set bl dst ! -s 10.10.0.0/16 -j "
                "DROP") != std::string::npos);
 }
 

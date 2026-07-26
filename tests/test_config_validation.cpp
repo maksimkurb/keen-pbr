@@ -885,10 +885,12 @@ TEST_CASE("route inbound_interfaces: restore control characters are rejected") {
 
 TEST_CASE("route inbound_interfaces: Linux-invalid names are rejected") {
     for (const std::string& iface : {".", "..", "bad/name", "bad:name",
-                                     "bad name", "0123456789abcdef"}) {
+                                     "bad name", "bad\"name", "bad\\name",
+                                     "eth+", "0123456789abcdef"}) {
         const auto issues = parse_issues(
-            "{\"route\":{\"inbound_interfaces\":[\"" + iface +
-            "\"],\"rules\":[{\"list\":[\"ads\"],\"outbound\":\"vpn\"}]}}");
+            "{\"route\":{\"inbound_interfaces\":[" +
+            nlohmann::json(iface).dump() +
+            "],\"rules\":[{\"list\":[\"ads\"],\"outbound\":\"vpn\"}]}}");
         CAPTURE(iface);
         REQUIRE_FALSE(issues.empty());
         CHECK(issues.front().path == "route.inbound_interfaces[0]");

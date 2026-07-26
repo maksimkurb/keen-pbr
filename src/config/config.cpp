@@ -530,16 +530,17 @@ void validate_route_inbound_interfaces(const json& root, std::vector<ConfigValid
 
         const bool invalid_character = std::any_of(
             iface.begin(), iface.end(), [](unsigned char ch) {
-                return ch == '/' || ch == ':' || std::isspace(ch) != 0 ||
+                return ch == '/' || ch == ':' || ch == '"' || ch == '\\' ||
+                       std::isspace(ch) != 0 ||
                        std::iscntrl(ch) != 0;
             });
         if (iface.size() >= IFNAMSIZ || iface == "." || iface == ".." ||
-            invalid_character) {
+            invalid_character || (!iface.empty() && iface.back() == '+')) {
             add_issue(
                 issues,
                 iface_path,
                 iface_path +
-                    " must be a valid Linux interface name (shorter than IFNAMSIZ and without '/', ':', whitespace, or control characters)");
+                    " must be a valid iptables interface name (shorter than IFNAMSIZ, without '/', ':', quotes, backslashes, whitespace, or control characters, and not ending in '+')");
             continue;
         }
 
