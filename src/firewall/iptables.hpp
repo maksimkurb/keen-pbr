@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -15,8 +16,9 @@ class IptablesFirewall : public Firewall {
 public:
   // Initialize the iptables backend; does not modify firewall state yet.
   explicit IptablesFirewall(bool use_raw_prerouting = false);
-  // Destructor performs best-effort cleanup without virtual dispatch.
-  ~IptablesFirewall() override;
+  // Kernel firewall state is persistent and is removed only by explicit
+  // cleanup(), never as a side effect of C++ object destruction.
+  ~IptablesFirewall() override = default;
 
   void prepare_apply(FirewallApplyMode mode) override;
   std::string static_set_name(const std::string &list_name,
@@ -46,8 +48,8 @@ public:
   // KeenPbrTable chain from both iptables and ip6tables mangle tables.
   void cleanup() override;
   // Returns FirewallBackend::iptables.
-    FirewallBackend backend() const override;
-    bool uses_raw_prerouting() const override { return use_raw_prerouting_; }
+  FirewallBackend backend() const override;
+  bool uses_raw_prerouting() const override { return use_raw_prerouting_; }
 
 private:
   static constexpr const char *CHAIN_NAME = "KeenPbrTable";
@@ -77,6 +79,8 @@ private:
     FirewallRuleCriteria criteria;           // optional packet match criteria
   };
 
+  enum class LiveGenerationState { A, B, Missing, Invalid };
+
   // Build the 'create <name> hash:net family <f> [timeout <t>]' line.
   static std::string build_ipset_create_line(const PendingSet &ps);
   static bool is_dynamic_set_name(const std::string &set_name);
@@ -85,18 +89,15 @@ private:
   build_ipt_script(bool ipv6, const std::vector<PendingRule> &rules,
                    const FirewallGlobalPrefilter &prefilter = {});
   static std::string
-  build_raw_prerouting_script(const std::string &active_chain,
-                              bool replace_active_chain,
+  build_raw_prerouting_script(FirewallSetGeneration target_generation,
                               const std::vector<PendingRule> &rules,
                               const FirewallGlobalPrefilter &prefilter);
   static std::string
-  build_output_script(const std::string &active_chain,
-                      bool replace_active_chain,
+  build_output_script(FirewallSetGeneration target_generation,
                       const std::vector<PendingRule> &rules,
                       const FirewallGlobalPrefilter &prefilter);
   static std::string
-  build_ipt_script(bool ipv6, const std::string &active_chain,
-                   bool replace_active_chain, const std::string &previous_chain,
+  build_ipt_script(bool ipv6, FirewallSetGeneration target_generation,
                    const std::vector<PendingRule> &rules,
                    const FirewallGlobalPrefilter &prefilter = {});
   // Build early RETURN lines for the global prefilter.
@@ -116,8 +117,25 @@ private:
                    const FirewallGlobalPrefilter &prefilter,
                    const std::string &chain, bool allow_conntrack);
   bool ipv6_backend_available() const;
-  bool dispatcher_chains_exist(bool ipv6) const;
   void validate_raw_prerouting_capability() const;
+  LiveGenerationState inspect_live_generation(bool ipv6) const;
+  static LiveGenerationState
+  parse_live_generation(const std::string &rules, const std::string &dispatcher,
+                        const std::string &generation_a,
+                        const std::string &generation_b);
+  static FirewallSetGeneration
+  target_generation_for_state(LiveGenerationState state);
+  void reconcile_hooks(bool ipv6) const;
+  void verify_applied_generation(bool ipv6, FirewallSetGeneration target) const;
+  static size_t count_exact_jump(const std::string &rules,
+                                 const std::string &source_chain,
+                                 const std::string &target_chain);
+  static void reconcile_hook(const char *command, const char *table,
+                             const char *builtin_chain,
+                             const char *target_chain);
+  static void remove_all_hooks(const char *command, const char *table,
+                               const char *builtin_chain,
+                               const char *target_chain);
   const char *prerouting_table_name(bool ipv6) const;
   const char *prerouting_dispatcher_chain_name(bool ipv6) const;
   const char *prerouting_generation_chain(FirewallSetGeneration generation,
@@ -145,8 +163,6 @@ private:
   bool chain_v4_created_ = false;
   bool chain_v6_created_ = false;
   static const char *generation_chain(FirewallSetGeneration generation);
-  static FirewallSetGeneration
-  opposite_generation(FirewallSetGeneration generation);
   std::optional<FirewallSetGeneration> active_v4_generation_;
   std::optional<FirewallSetGeneration> active_v6_generation_;
   FirewallSetGeneration target_v4_generation_{FirewallSetGeneration::A};

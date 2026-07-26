@@ -25,7 +25,8 @@ class IntegrationModulesTest(unittest.TestCase):
     def test_registration_is_explicit_ordered_and_complete(self):
         module = load_system_module()
         expected = (
-            "service_lifecycle", "dns_routing_save", "urltest_rebuild", "rule_shapes",
+            "service_lifecycle", "dns_routing_save", "urltest_rebuild",
+            "iptables_ab_convergence", "rule_shapes",
             "table_interface", "multiport_validation", "route_list", "route_proto",
             "route_dscp", "route_src_port", "route_dest_port", "route_src_addr",
             "route_dest_addr", "route_all_criteria", "dns_upstream_ipv4",
@@ -33,7 +34,9 @@ class IntegrationModulesTest(unittest.TestCase):
         )
         registry = module.build_registry()
         self.assertEqual(registry.names, expected)
-        self.assertEqual(tuple(case.name for case in registry.select("all", "nftables")), expected)
+        self.assertEqual(
+            tuple(case.name for case in registry.select("all", "nftables")),
+            tuple(name for name in expected if name != "iptables_ab_convergence"))
         selected = registry.select("route_dscp,dns_no_leak", "iptables")
         self.assertEqual([case.name for case in selected], ["route_dscp", "dns_no_leak"])
 

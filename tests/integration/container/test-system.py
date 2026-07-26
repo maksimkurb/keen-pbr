@@ -14,12 +14,13 @@ from cases import (dns_no_leak, dns_routing_save, dns_upstream_ipv4,
                    route_dest_addr, route_dest_port, route_dscp, route_list,
                    route_proto, route_src_addr, route_src_port, rule_shapes,
                    service_lifecycle, sigusr1_no_packet_leak, table_interface,
-                   urltest_rebuild)
+                   urltest_rebuild, iptables_ab_convergence)
 
 CASE_MODULES = (
     service_lifecycle,
     dns_routing_save,
     urltest_rebuild,
+    iptables_ab_convergence,
     rule_shapes,
     table_interface,
     multiport_validation,
