@@ -186,6 +186,57 @@ Groups are checked in order. Within the first healthy group, outbounds are selec
 - `open` — failed, traffic blocked during cooldown period
 - `half_open` — testing recovery with limited probe requests
 
+## `icmptest`
+
+`icmptest` selects candidates like `urltest`, but sends ICMP Echo packets through
+each candidate's fwmark. Every candidate needs one explicit literal IPv4 or IPv6
+destination in its group entry.
+
+```json { filename="config.json" }
+{
+  "type": "icmptest",
+  "tag": "auto_ping",
+  "interval_ms": 60000,
+  "count": 3,
+  "max_failed": 0,
+  "packet_interval_ms": 200,
+  "probe_timeout_ms": 1000,
+  "max_rtt_ms": 500,
+  "tolerance_ms": 10,
+  "outbound_groups": [
+    {
+      "candidates": [
+        { "outbound": "vpn", "target": "1.1.1.1" },
+        { "outbound": "wan", "target": "9.9.9.9" }
+      ]
+    }
+  ]
+}
+```
+
+The legacy `outbound_groups[].outbounds` plus top-level `probes` form is accepted
+and migrated in memory when the configuration is loaded. The canonical nested
+form is written on the next explicit configuration save; startup does not rewrite
+the file automatically. Mixing legacy and canonical fields is rejected.
+
+Attempts are sequential. After one reply or timeout is fully processed, the
+daemon waits `packet_interval_ms` before sending the next request. Therefore the
+worst case for one candidate is
+`count * probe_timeout_ms + (count - 1) * packet_interval_ms`. The configured
+`interval_ms` must cover all candidates plus a 25% reserve.
+
+Replies are matched by target address, ICMP type, identifier, and sequence.
+Unrelated or late replies are ignored until the current attempt's deadline. A
+matched reply over `max_rtt_ms` counts as failed, but remains visible in runtime
+packet statistics.
+
+The server limits a run to 1–10 packets per candidate, 1–16 unique candidates,
+160 packets total, and a worst-case sweep of 10 minutes. The pause must be
+100–1000 ms, the reply timeout 100–5000 ms, and the sweep interval between one
+second and 24 hours. Datagram ICMP sockets require the daemon account to be
+allowed by the platform's ping-socket policy (or have the corresponding network
+capability).
+
 ```json { filename="config.json" }
 {
   "outbounds": [

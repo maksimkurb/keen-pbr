@@ -13,7 +13,7 @@
 Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
 Большинству пользователей достаточно:
 одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/outbounds/" itemprop="url" />
+Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы icmptest icmptest выбирает кандидатов так же, как urltest, но проверяет каждый путь строгими ICMP Echo request/reply. Для каждого кандидата задаётся отдельный literal IPv4- или IPv6-адрес в записи группы." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/outbounds/" itemprop="url" />
 
 <meta property="og:title" content="Outbounds">
 <meta
@@ -55,8 +55,10 @@ config.json{
 
 
 Типы
-    interface
-    Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.
+    icmptest
+    icmptest выбирает кандидатов так же, как urltest, но проверяет каждый путь
+строгими ICMP Echo request/reply. Для каждого кандидата задаётся отдельный
+literal IPv4- или IPv6-адрес в записи группы.
     
   ">
 <meta
@@ -74,15 +76,15 @@ config.json{
 Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
 Большинству пользователей достаточно:
 одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
-	<meta itemprop="wordCount" content="840">
+Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы icmptest icmptest выбирает кандидатов так же, как urltest, но проверяет каждый путь строгими ICMP Echo request/reply. Для каждого кандидата задаётся отдельный literal IPv4- или IPv6-адрес в записи группы.">
+	<meta itemprop="wordCount" content="1050">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Outbounds">
 	<meta name="twitter:description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
 Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
 Большинству пользователей достаточно:
 одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
+Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы icmptest icmptest выбирает кандидатов так же, как urltest, но проверяет каждый путь строгими ICMP Echo request/reply. Для каждого кандидата задаётся отдельный literal IPv4- или IPv6-адрес в записи группы.">
 
     <link rel="preload" href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" as="style" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
     <link href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" rel="stylesheet" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
@@ -346,6 +348,12 @@ config.json{
                 href="#%d1%82%d0%b8%d0%bf%d1%8b"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Типы</a>
+            </li>
+          <li>
+              <a
+                href="#icmptest"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >icmptest</a>
             </li>
           <li>
               <a
@@ -931,6 +939,10 @@ config.json{
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#icmptest">icmptest
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#interface">interface
         </a>
       </li>
@@ -1085,7 +1097,60 @@ config.json{
 </div>
 </div>
 <h2>Типы<span class="hx:absolute hx:-mt-20" id="типы"></span>
-    <a href="#%d1%82%d0%b8%d0%bf%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h2><code>interface</code><span class="hx:absolute hx:-mt-20" id="interface"></span>
+    <a href="#%d1%82%d0%b8%d0%bf%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h2><code>icmptest</code><span class="hx:absolute hx:-mt-20" id="icmptest"></span>
+    <a href="#icmptest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p><code>icmptest</code> выбирает кандидатов так же, как <code>urltest</code>, но проверяет каждый путь
+строгими ICMP Echo request/reply. Для каждого кандидата задаётся отдельный
+literal IPv4- или IPv6-адрес в записи группы.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;icmptest&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;auto_ping&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;interval_ms&#34;</span><span class="p">:</span> <span class="mi">60000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;count&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;max_failed&#34;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;packet_interval_ms&#34;</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;probe_timeout_ms&#34;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;max_rtt_ms&#34;</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;tolerance_ms&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;outbound_groups&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;candidates&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;1.1.1.1&#34;</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span><span class="p">,</span> <span class="nt">&#34;target&#34;</span><span class="p">:</span> <span class="s2">&#34;9.9.9.9&#34;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Старый формат с <code>outbound_groups[].outbounds</code> и верхнеуровневым <code>probes</code>
+при загрузке мигрируется в памяти. Канонический вложенный формат будет записан
+при следующем явном сохранении конфигурации; сам запуск файл не перезаписывает.
+Смешивать старые и новые поля нельзя.</p>
+<p>Попытки выполняются последовательно. После обработки ответа или таймаута демон
+ждёт <code>packet_interval_ms</code> и только затем отправляет следующий пакет. Worst-case
+для кандидата равен
+<code>count * probe_timeout_ms + (count - 1) * packet_interval_ms</code>; <code>interval_ms</code>
+должен покрывать все кандидатские проверки и запас 25%.</p>
+<p>Ответ засчитывается только при совпадении target, ICMP type, identifier и
+sequence. Посторонние и запоздавшие ответы игнорируются до deadline текущей
+попытки. Ответ медленнее <code>max_rtt_ms</code> считается ошибкой, но отображается в
+runtime-счётчиках полученных пакетов.</p>
+<p>Сервер разрешает 1–10 пакетов на кандидата, 1–16 уникальных кандидатов, не более
+160 пакетов и не более 10 минут worst-case на sweep. Пауза ограничена
+100–1000 мс, timeout — 100–5000 мс, а интервал sweep — от одной секунды до
+24 часов.</p>
+<h2><code>interface</code><span class="hx:absolute hx:-mt-20" id="interface"></span>
     <a href="#interface" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.</p>
 <table>
 	<thead>
