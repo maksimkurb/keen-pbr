@@ -64,8 +64,14 @@ type OutboundDraft = {
   table: string
   outbounds: string[][]
   probeUrl: string
+  probeTargets: Record<string, string>
   interval: string
   tolerance: string
+  count: string
+  maxFailed: string
+  packetInterval: string
+  probeTimeout: string
+  maxRtt: string
   retryAttempts: string
   retryInterval: string
   circuitBreakerFailures: string
@@ -84,8 +90,14 @@ const OUTBOUND_FIELD_NAMES = {
   table: "table",
   outbounds: "outbounds",
   probeUrl: "probeUrl",
+  probeTargets: "probeTargets",
   interval: "interval",
   tolerance: "tolerance",
+  count: "count",
+  maxFailed: "maxFailed",
+  packetInterval: "packetInterval",
+  probeTimeout: "probeTimeout",
+  maxRtt: "maxRtt",
   retryAttempts: "retryAttempts",
   retryInterval: "retryInterval",
   circuitBreakerFailures: "circuitBreakerFailures",
@@ -107,8 +119,14 @@ const sampleNewOutbound: OutboundDraft = {
   table: "",
   outbounds: [[]],
   probeUrl: "https://www.gstatic.com/generate_204",
+  probeTargets: {},
   interval: "180000",
   tolerance: "100",
+  count: "3",
+  maxFailed: "0",
+  packetInterval: "200",
+  probeTimeout: "1000",
+  maxRtt: "500",
   retryAttempts: "3",
   retryInterval: "1000",
   circuitBreakerFailures: "5",
@@ -126,6 +144,7 @@ const outboundTypeOptions: Outbound["type"][] = [
   "blackhole",
   "ignore",
   "urltest",
+  "icmptest",
 ]
 
 export function OutboundUpsertPage({
@@ -246,13 +265,21 @@ function OutboundForm({
       runtimeInterface,
     ])
   )
-  const interfaceOutboundByTag = new Map(
+  const candidateOutboundByTag = new Map(
     existingOutbounds
-      .filter((item) => item.type === "interface" && item.tag !== draft.tag)
+      .filter(
+        (item) =>
+          (item.type === "interface" || item.type === "table") &&
+          item.tag !== draft.tag
+      )
       .map((item) => [item.tag, item])
   )
-  const interfaceOutboundOptions = existingOutbounds
-    .filter((item) => item.type === "interface" && item.tag !== draft.tag)
+  const candidateOutboundOptions = existingOutbounds
+    .filter(
+      (item) =>
+        (item.type === "interface" || item.type === "table") &&
+        item.tag !== draft.tag
+    )
     .map((item) => item.tag)
   const strictSelectItems = strictOptions.map((option) => ({
     value: option,
@@ -355,6 +382,10 @@ function OutboundForm({
   const postConfigMutation = usePostConfigMutation()
 
   const outboundType = useStore(form.store, (state) => state.values.type)
+  const selectedGroups = useStore(form.store, (state) => state.values.outbounds)
+  const selectedCandidates = [
+    ...new Set(normalizeOutboundGroups(selectedGroups).flat()),
+  ]
   const apiErrorMessage = useStore(
     form.store,
     (state) =>
@@ -375,6 +406,8 @@ function OutboundForm({
   const isBlackhole = outboundType === "blackhole"
   const isIgnore = outboundType === "ignore"
   const isUrltest = outboundType === "urltest"
+  const isIcmptest = outboundType === "icmptest"
+  const isProbeTest = isUrltest || isIcmptest
   const tagId = useId()
   const interfaceId = useId()
   const gatewayId = useId()
@@ -389,6 +422,11 @@ function OutboundForm({
   const circuitBreakerSuccessesId = useId()
   const circuitBreakerTimeoutId = useId()
   const circuitBreakerHalfOpenId = useId()
+  const countId = useId()
+  const maxFailedId = useId()
+  const packetIntervalId = useId()
+  const probeTimeoutId = useId()
+  const maxRttId = useId()
 
   return (
     <form
@@ -459,11 +497,40 @@ function OutboundForm({
                         `pages.outboundUpsert.fields.typeOptions.${type}`
                       ),
                     }))}
-                    onValueChange={(value) =>
-                      field.handleChange(
-                        (value as Outbound["type"]) ?? draft.type
-                      )
-                    }
+                    onValueChange={(value) => {
+                      const nextType = (value as Outbound["type"]) ?? draft.type
+                      if (
+                        nextType === "icmptest" &&
+                        field.state.value !== "icmptest"
+                      ) {
+                        form.setFieldValue(
+                          OUTBOUND_FIELD_NAMES.interval,
+                          "60000"
+                        )
+                        form.setFieldValue(OUTBOUND_FIELD_NAMES.tolerance, "10")
+                        form.setFieldValue(
+                          OUTBOUND_FIELD_NAMES.circuitBreakerTimeout,
+                          "60000"
+                        )
+                      } else if (
+                        nextType === "urltest" &&
+                        field.state.value === "icmptest"
+                      ) {
+                        form.setFieldValue(
+                          OUTBOUND_FIELD_NAMES.interval,
+                          "180000"
+                        )
+                        form.setFieldValue(
+                          OUTBOUND_FIELD_NAMES.tolerance,
+                          "100"
+                        )
+                        form.setFieldValue(
+                          OUTBOUND_FIELD_NAMES.circuitBreakerTimeout,
+                          "30000"
+                        )
+                      }
+                      field.handleChange(nextType)
+                    }}
                     value={field.state.value}
                   >
                     <SelectTrigger aria-invalid={Boolean(error)}>
@@ -653,7 +720,7 @@ function OutboundForm({
         </SectionCard>
       ) : null}
 
-      {isUrltest ? (
+      {isProbeTest ? (
         <form.Field name={OUTBOUND_FIELD_NAMES.outbounds}>
           {(field) => {
             const error = getFirstFieldError(field.state.meta.errors)
@@ -702,7 +769,7 @@ function OutboundForm({
                           {t("pages.outboundUpsert.urltest.interfaceOutbounds")}
                         </FieldLabel>
                         <FieldContent>
-                          {interfaceOutboundOptions.length ? (
+                          {candidateOutboundOptions.length ? (
                             <MultiSelectList
                               error={error}
                               name={OUTBOUND_FIELD_NAMES.outbounds}
@@ -722,21 +789,21 @@ function OutboundForm({
                                   )
                                 )
                               }
-                              options={interfaceOutboundOptions}
+                              options={candidateOutboundOptions}
                               getSearchText={(tag) =>
                                 getInterfaceOutboundSearchText(
                                   tag,
-                                  interfaceOutboundByTag.get(tag)?.interface,
+                                  candidateOutboundByTag.get(tag)?.interface,
                                   runtimeInterfaceByName
                                 )
                               }
                               renderItem={(tag) => (
                                 <OutboundInterfaceLabel
                                   interfaceName={
-                                    interfaceOutboundByTag.get(tag)?.interface
+                                    candidateOutboundByTag.get(tag)?.interface
                                   }
                                   runtimeInterface={runtimeInterfaceByName.get(
-                                    interfaceOutboundByTag.get(tag)
+                                    candidateOutboundByTag.get(tag)
                                       ?.interface ?? ""
                                   )}
                                   t={t}
@@ -756,7 +823,7 @@ function OutboundForm({
                               )}
                             </div>
                           )}
-                          {interfaceOutboundOptions.length ? (
+                          {candidateOutboundOptions.length ? (
                             <FieldHint error={error ?? null} />
                           ) : null}
                         </FieldContent>
@@ -769,7 +836,7 @@ function OutboundForm({
                         field.handleChange([
                           ...groups,
                           getNextAvailableOutbounds(
-                            interfaceOutboundOptions,
+                            candidateOutboundOptions,
                             groups
                           ),
                         ])
@@ -947,7 +1014,125 @@ function OutboundForm({
         </SectionCard>
       ) : null}
 
-      {isUrltest ? (
+      {isIcmptest ? (
+        <SectionCard
+          description={t("pages.outboundUpsert.icmptest.description")}
+          title={t("pages.outboundUpsert.icmptest.title")}
+        >
+          <div className="space-y-5">
+            <form.Field name={OUTBOUND_FIELD_NAMES.probeTargets}>
+              {(field) => (
+                <div className="grid gap-4">
+                  {selectedCandidates.length ? (
+                    selectedCandidates.map((candidate) => (
+                      <Field key={candidate}>
+                        <FieldLabel>{candidate}</FieldLabel>
+                        <FieldContent>
+                          <Input
+                            onBlur={field.handleBlur}
+                            onChange={(event) =>
+                              field.handleChange({
+                                ...field.state.value,
+                                [candidate]: event.target.value,
+                              })
+                            }
+                            placeholder="1.1.1.1"
+                            value={field.state.value[candidate] ?? ""}
+                          />
+                          <FieldHint
+                            description={t(
+                              "pages.outboundUpsert.icmptest.targetHint"
+                            )}
+                          />
+                        </FieldContent>
+                      </Field>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground md:text-xs">
+                      {t("pages.outboundUpsert.icmptest.targetsEmpty")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </form.Field>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <form.Field name={OUTBOUND_FIELD_NAMES.count}>
+                {(field) => (
+                  <IcmpNumberField
+                    field={field}
+                    id={countId}
+                    label={t("pages.outboundUpsert.icmptest.count")}
+                    hint={t("pages.outboundUpsert.icmptest.countHint")}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={OUTBOUND_FIELD_NAMES.maxFailed}>
+                {(field) => (
+                  <IcmpNumberField
+                    field={field}
+                    id={maxFailedId}
+                    label={t("pages.outboundUpsert.icmptest.maxFailed")}
+                    hint={t("pages.outboundUpsert.icmptest.maxFailedHint")}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={OUTBOUND_FIELD_NAMES.packetInterval}>
+                {(field) => (
+                  <IcmpNumberField
+                    field={field}
+                    id={packetIntervalId}
+                    label={t("pages.outboundUpsert.icmptest.packetInterval")}
+                    hint={t("pages.outboundUpsert.icmptest.packetIntervalHint")}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={OUTBOUND_FIELD_NAMES.probeTimeout}>
+                {(field) => (
+                  <IcmpNumberField
+                    field={field}
+                    id={probeTimeoutId}
+                    label={t("pages.outboundUpsert.icmptest.probeTimeout")}
+                    hint={t("pages.outboundUpsert.icmptest.probeTimeoutHint")}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={OUTBOUND_FIELD_NAMES.maxRtt}>
+                {(field) => (
+                  <IcmpNumberField
+                    field={field}
+                    id={maxRttId}
+                    label={t("pages.outboundUpsert.icmptest.maxRtt")}
+                    hint={t("pages.outboundUpsert.icmptest.maxRttHint")}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={OUTBOUND_FIELD_NAMES.interval}>
+                {(field) => (
+                  <IcmpNumberField
+                    field={field}
+                    id={intervalId}
+                    label={t("pages.outboundUpsert.icmptest.interval")}
+                    hint={t("pages.outboundUpsert.icmptest.intervalHint")}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={OUTBOUND_FIELD_NAMES.tolerance}>
+                {(field) => (
+                  <IcmpNumberField
+                    field={field}
+                    id={toleranceId}
+                    label={t("pages.outboundUpsert.icmptest.tolerance")}
+                    hint={t("pages.outboundUpsert.icmptest.toleranceHint")}
+                  />
+                )}
+              </form.Field>
+            </div>
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {isProbeTest ? (
         <SectionCard
           description={t("pages.outboundUpsert.circuitBreaker.description")}
           title={t("pages.outboundUpsert.circuitBreaker.title")}
@@ -1158,6 +1343,40 @@ function getFirstFieldError(errors: unknown[]) {
   return typeof firstError === "string" ? firstError : null
 }
 
+function IcmpNumberField({
+  field,
+  id,
+  label,
+  hint,
+}: {
+  field: {
+    state: { value: string; meta: { errors: unknown[] } }
+    handleBlur: () => void
+    handleChange: (value: string) => void
+  }
+  id: string
+  label: string
+  hint: string
+}) {
+  const error = getFirstFieldError(field.state.meta.errors)
+  return (
+    <Field invalid={Boolean(error)}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldContent>
+        <Input
+          aria-invalid={Boolean(error)}
+          id={id}
+          inputMode="numeric"
+          onBlur={field.handleBlur}
+          onChange={(event) => field.handleChange(event.target.value)}
+          value={field.state.value}
+        />
+        <FieldHint description={hint} error={error ?? null} />
+      </FieldContent>
+    </Field>
+  )
+}
+
 function getOutboundTagError(
   value: string,
   outbounds: Outbound[],
@@ -1177,6 +1396,10 @@ function getOutboundTagError(
 }
 
 function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
+  const isIcmp = outbound.type === "icmptest"
+  const defaultBreakerTimeout = isIcmp
+    ? Math.max(60000, outbound.interval_ms ?? 60000).toString()
+    : sampleNewOutbound.circuitBreakerTimeout
   return {
     tag: outbound.tag,
     type: outbound.type,
@@ -1185,11 +1408,31 @@ function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
     gateway6: outbound.gateway6 ?? "",
     table: outbound.table?.toString() ?? "",
     outbounds:
-      outbound.outbound_groups?.map((group) => [...group.outbounds]) ??
-      sampleNewOutbound.outbounds,
+      outbound.outbound_groups?.map((group) =>
+        isIcmp
+          ? (group.candidates ?? []).map((candidate) => candidate.outbound)
+          : [...(group.outbounds ?? [])]
+      ) ?? sampleNewOutbound.outbounds,
     probeUrl: outbound.url ?? sampleNewOutbound.probeUrl,
-    interval: outbound.interval_ms?.toString() ?? sampleNewOutbound.interval,
-    tolerance: outbound.tolerance_ms?.toString() ?? sampleNewOutbound.tolerance,
+    probeTargets: Object.fromEntries(
+      (outbound.outbound_groups ?? [])
+        .flatMap((group) => group.candidates ?? [])
+        .map((candidate) => [candidate.outbound, candidate.target])
+    ),
+    interval:
+      outbound.interval_ms?.toString() ??
+      (isIcmp ? "60000" : sampleNewOutbound.interval),
+    tolerance:
+      outbound.tolerance_ms?.toString() ??
+      (isIcmp ? "10" : sampleNewOutbound.tolerance),
+    count: outbound.count?.toString() ?? sampleNewOutbound.count,
+    maxFailed: outbound.max_failed?.toString() ?? sampleNewOutbound.maxFailed,
+    packetInterval:
+      outbound.packet_interval_ms?.toString() ??
+      sampleNewOutbound.packetInterval,
+    probeTimeout:
+      outbound.probe_timeout_ms?.toString() ?? sampleNewOutbound.probeTimeout,
+    maxRtt: outbound.max_rtt_ms?.toString() ?? sampleNewOutbound.maxRtt,
     retryAttempts:
       outbound.retry?.attempts?.toString() ?? sampleNewOutbound.retryAttempts,
     retryInterval:
@@ -1202,8 +1445,7 @@ function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
       outbound.circuit_breaker?.success_threshold?.toString() ??
       sampleNewOutbound.circuitBreakerSuccesses,
     circuitBreakerTimeout:
-      outbound.circuit_breaker?.timeout_ms?.toString() ??
-      sampleNewOutbound.circuitBreakerTimeout,
+      outbound.circuit_breaker?.timeout_ms?.toString() ?? defaultBreakerTimeout,
     circuitBreakerHalfOpen:
       outbound.circuit_breaker?.half_open_max_requests?.toString() ??
       sampleNewOutbound.circuitBreakerHalfOpen,
@@ -1253,6 +1495,33 @@ function buildOutboundPayload(draft: OutboundDraft): Outbound {
         attempts: parseNumber(draft.retryAttempts),
         interval_ms: parseNumber(draft.retryInterval),
       },
+      circuit_breaker: {
+        failure_threshold: parseNumber(draft.circuitBreakerFailures),
+        success_threshold: parseNumber(draft.circuitBreakerSuccesses),
+        timeout_ms: parseNumber(draft.circuitBreakerTimeout),
+        half_open_max_requests: parseNumber(draft.circuitBreakerHalfOpen),
+      },
+    }
+  }
+
+  if (draft.type === "icmptest") {
+    const groups = normalizeOutboundGroups(draft.outbounds)
+    return {
+      type: "icmptest",
+      tag,
+      count: parseNumber(draft.count),
+      max_failed: parseNumber(draft.maxFailed),
+      packet_interval_ms: parseNumber(draft.packetInterval),
+      probe_timeout_ms: parseNumber(draft.probeTimeout),
+      max_rtt_ms: parseNumber(draft.maxRtt),
+      interval_ms: parseNumber(draft.interval),
+      tolerance_ms: parseNumber(draft.tolerance),
+      outbound_groups: groups.map((groupCandidates) => ({
+        candidates: groupCandidates.map((outbound) => ({
+          outbound,
+          target: draft.probeTargets[outbound]?.trim() ?? "",
+        })),
+      })),
       circuit_breaker: {
         failure_threshold: parseNumber(draft.circuitBreakerFailures),
         success_threshold: parseNumber(draft.circuitBreakerSuccesses),
@@ -1375,12 +1644,15 @@ function validateUrltestGroupReferences(
   const tags = new Set(outbounds.map((outbound) => outbound.tag))
 
   for (const outbound of outbounds) {
-    if (outbound.type !== "urltest") {
+    if (outbound.type !== "urltest" && outbound.type !== "icmptest") {
       continue
     }
 
     for (const group of outbound.outbound_groups ?? []) {
-      for (const referencedTag of group.outbounds) {
+      const referencedTags =
+        group.outbounds ??
+        (group.candidates ?? []).map((candidate) => candidate.outbound)
+      for (const referencedTag of referencedTags) {
         if (!tags.has(referencedTag)) {
           return t("pages.outboundUpsert.validation.missingReference", {
             outbound: outbound.tag,
@@ -1462,6 +1734,21 @@ function resolveOutboundFieldPath(
 
   if (path === `${prefix}.tolerance_ms`) {
     return OUTBOUND_FIELD_NAMES.tolerance
+  }
+
+  if (path === `${prefix}.count`) return OUTBOUND_FIELD_NAMES.count
+  if (path === `${prefix}.max_failed`) return OUTBOUND_FIELD_NAMES.maxFailed
+  if (path === `${prefix}.packet_interval_ms`)
+    return OUTBOUND_FIELD_NAMES.packetInterval
+  if (path === `${prefix}.probe_timeout_ms`)
+    return OUTBOUND_FIELD_NAMES.probeTimeout
+  if (path === `${prefix}.max_rtt_ms`) return OUTBOUND_FIELD_NAMES.maxRtt
+  if (
+    new RegExp(
+      `^${prefix.replaceAll(".", "\\.")}\\.outbound_groups(?:\\[\\d+\\])?\\.candidates(?:\\[\\d+\\])?(?:\\.(?:target|outbound))?$`
+    ).test(path)
+  ) {
+    return OUTBOUND_FIELD_NAMES.probeTargets
   }
 
   if (path === `${prefix}.retry.attempts`) {

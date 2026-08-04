@@ -42,9 +42,20 @@ inline nlohmann::json outbound_to_json(const Outbound& ob, const OutboundMarkMap
         if (ob.gateway6)  j["gateway6"]  = *ob.gateway6;
     } else if (ob.type == OutboundType::TABLE) {
         if (ob.table) j["table"] = *ob.table;
-    } else if (ob.type == OutboundType::URLTEST) {
+    } else if (ob.type == OutboundType::URLTEST || ob.type == OutboundType::ICMPTEST) {
         if (ob.url)         j["url"]         = *ob.url;
         if (ob.interval_ms) j["interval_ms"] = *ob.interval_ms;
+        if (ob.tolerance_ms) j["tolerance_ms"] = *ob.tolerance_ms;
+        if (ob.probe_timeout_ms) j["probe_timeout_ms"] = *ob.probe_timeout_ms;
+        if (ob.outbound_groups) j["outbound_groups"] = *ob.outbound_groups;
+        if (ob.circuit_breaker) j["circuit_breaker"] = *ob.circuit_breaker;
+        if (ob.type == OutboundType::URLTEST && ob.retry) j["retry"] = *ob.retry;
+        if (ob.type == OutboundType::ICMPTEST) {
+            if (ob.count) j["count"] = *ob.count;
+            if (ob.max_failed) j["max_failed"] = *ob.max_failed;
+            if (ob.packet_interval_ms) j["packet_interval_ms"] = *ob.packet_interval_ms;
+            if (ob.max_rtt_ms) j["max_rtt_ms"] = *ob.max_rtt_ms;
+        }
     }
 
     auto mark_it = marks.find(ob.tag);

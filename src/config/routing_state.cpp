@@ -305,7 +305,7 @@ std::vector<const Outbound*> ordered_urltest_children(const std::vector<Outbound
 
     for (const auto& group_ref : groups) {
         const auto& group = urltest.outbound_groups->at(group_ref.index);
-        for (const auto& child_tag : group.outbounds) {
+        for (const auto& child_tag : outbound_group_tags(group)) {
             const Outbound* child = find_outbound(outbounds, child_tag);
             if (child) {
                 ordered.push_back(child);
@@ -344,7 +344,8 @@ void populate_routing_state(const Config& cfg,
             switch (type) {
             case OutboundType::INTERFACE: return 0;
             case OutboundType::TABLE: return 1;
-            case OutboundType::URLTEST: return 2;
+            case OutboundType::URLTEST:
+            case OutboundType::ICMPTEST: return 2;
             default: return 3;
             }
         };
@@ -435,7 +436,7 @@ void populate_routing_state(const Config& cfg,
                                  static_cast<uint32_t>(ob.table.value_or(0)), ob, strict);
             add_internal_detour_guard(static_cast<uint32_t>(ob.table.value_or(0)), ob);
             ++table_offset;
-        } else if (ob.type == OutboundType::URLTEST) {
+        } else if (ob.type == OutboundType::URLTEST || ob.type == OutboundType::ICMPTEST) {
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
 
@@ -623,7 +624,7 @@ std::optional<std::string> infer_urltest_selection_from_routes(
 
         std::optional<std::string> route_tag;
         for (const auto& group : urltest.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
-            for (const auto& child_tag : group.outbounds) {
+            for (const auto& child_tag : outbound_group_tags(group)) {
                 const Outbound* child = find_outbound(outbounds, child_tag);
                 if (!child || !route_matches_outbound(route, *child)) {
                     continue;
@@ -725,7 +726,7 @@ std::vector<RuleState> build_fw_rule_states(
         std::string effective_tag = ob->tag;
         const Outbound* effective_ob = ob;
 
-        if (ob->type == OutboundType::URLTEST) {
+        if (ob->type == OutboundType::URLTEST || ob->type == OutboundType::ICMPTEST) {
             auto selected = resolve_urltest_selection(urltest_selections, effective_tag);
             if (!selected.empty()) {
                 const Outbound* child = find_outbound(all_outbounds, selected);

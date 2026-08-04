@@ -10,7 +10,7 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "api:generate": "orval --config ./orval.config.ts",
+    "api:generate": "orval --config ./orval.config.ts --clean",
     "api:check": "bun run api:generate && git diff --exit-code -- src/api/generated"
   },
   "dependencies": {

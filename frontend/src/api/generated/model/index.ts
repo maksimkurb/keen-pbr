@@ -33,6 +33,7 @@ export * from './fwmarkConfig';
 export * from './healthResponse';
 export * from './healthResponseRuntimeState';
 export * from './healthResponseStatus';
+export * from './icmpCandidate';
 export * from './iprouteConfig';
 export * from './lifecycleOperation';
 export * from './lifecycleOperationAcceptedResponse';

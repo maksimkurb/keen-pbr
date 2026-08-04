@@ -62,7 +62,8 @@ std::vector<const Outbound*> ordered_urltest_children(const std::vector<Outbound
     });
 
     for (const auto& group : groups) {
-        for (const auto& child_tag : urltest.outbound_groups->at(group.index).outbounds) {
+        for (const auto& child_tag :
+             outbound_group_tags(urltest.outbound_groups->at(group.index))) {
             const Outbound* child = find_outbound(outbounds, child_tag);
             if (child) {
                 ordered.push_back(child);
@@ -321,7 +322,15 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
         if (urltest_state.has_value()) {
             const auto result_it = urltest_state->last_results.find(child->tag);
             if (result_it != urltest_state->last_results.end()) {
-                interface_state.latency_ms = static_cast<int64_t>(result_it->second.latency_ms);
+                const auto& result = result_it->second;
+                if (result.success || result.latency_ms > 0) {
+                    interface_state.latency_ms = static_cast<int64_t>(result.latency_ms);
+                }
+                interface_state.probe_target = result.probe_target;
+                if (result.packets_attempted) interface_state.packets_attempted = *result.packets_attempted;
+                if (result.packets_sent) interface_state.packets_sent = *result.packets_sent;
+                if (result.packets_received) interface_state.packets_received = *result.packets_received;
+                if (result.packets_failed) interface_state.packets_failed = *result.packets_failed;
                 if (!result_it->second.error.empty()) {
                     interface_state.detail = result_it->second.error;
                 }
@@ -377,6 +386,7 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response(
                     build_table_outbound_state(outbound, outbound_marks, policy_rules, netlink));
                 break;
             case OutboundType::URLTEST:
+            case OutboundType::ICMPTEST:
                 response.outbounds.push_back(
                     build_urltest_outbound_state(config, outbound, outbound_marks,
                                                  policy_rules, netlink, urltest_state_lookup));

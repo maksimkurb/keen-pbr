@@ -15,4 +15,5 @@ export const RuntimeOutboundStateType = {
   blackhole: 'blackhole',
   ignore: 'ignore',
   urltest: 'urltest',
+  icmptest: 'icmptest',
 } as const;

@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "addr_spec.hpp"
+#include "icmptest_limits.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
 
@@ -45,6 +46,110 @@ void add_issue(std::vector<ConfigValidationIssue>& issues,
                std::string path,
                std::string message) {
     issues.push_back({std::move(path), std::move(message)});
+}
+
+void migrate_legacy_icmptest(json& root,
+                             std::vector<ConfigValidationIssue>& issues) {
+    auto outbounds = root.find("outbounds");
+    if (outbounds == root.end() || !outbounds->is_array()) return;
+
+    for (size_t outbound_index = 0; outbound_index < outbounds->size(); ++outbound_index) {
+        auto& outbound = outbounds->at(outbound_index);
+        if (!outbound.is_object()) continue;
+        const auto type = outbound.find("type");
+        if (type == outbound.end() || !type->is_string() ||
+            type->get_ref<const std::string&>() != "icmptest") {
+            continue;
+        }
+        const auto tag_value = outbound.find("tag");
+        const std::string tag =
+            tag_value != outbound.end() && tag_value->is_string()
+                ? tag_value->get<std::string>()
+                : std::to_string(outbound_index);
+        const std::string path = "outbounds." + tag;
+        auto groups = outbound.find("outbound_groups");
+        if (groups == outbound.end() || !groups->is_array()) continue;
+
+        bool has_candidates = false;
+        bool has_legacy_outbounds = false;
+        for (const auto& group : *groups) {
+            if (!group.is_object()) continue;
+            const auto candidates = group.find("candidates");
+            const auto legacy_outbounds = group.find("outbounds");
+            has_candidates = has_candidates ||
+                             (candidates != group.end() && !candidates->is_null());
+            has_legacy_outbounds = has_legacy_outbounds ||
+                                   (legacy_outbounds != group.end() &&
+                                    !legacy_outbounds->is_null());
+        }
+        const auto legacy_probes = outbound.find("probes");
+        const bool has_legacy_probes = legacy_probes != outbound.end() &&
+                                       !legacy_probes->is_null();
+
+        if (has_candidates) {
+            if (has_legacy_outbounds || has_legacy_probes) {
+                add_issue(issues, path + ".outbound_groups",
+                          "Icmptest cannot mix legacy outbounds/probes with candidates");
+            }
+            continue;
+        }
+        if (!has_legacy_outbounds || !has_legacy_probes) continue;
+
+        const auto& probes = outbound["probes"];
+        if (!probes.is_array()) {
+            add_issue(issues, path + ".probes", "Legacy icmptest probes must be an array");
+            continue;
+        }
+
+        std::map<std::string, std::string> targets;
+        const size_t issue_count_before = issues.size();
+        for (size_t probe_index = 0; probe_index < probes.size(); ++probe_index) {
+            const auto& probe = probes[probe_index];
+            const std::string probe_path = path + ".probes[" +
+                                           std::to_string(probe_index) + "]";
+            if (!probe.is_object() || !probe.contains("outbound") ||
+                !probe["outbound"].is_string() || !probe.contains("target") ||
+                !probe["target"].is_string()) {
+                add_issue(issues, probe_path,
+                          "Legacy icmptest probe requires string outbound and target");
+                continue;
+            }
+            const auto candidate_tag = probe["outbound"].get<std::string>();
+            if (!targets.emplace(candidate_tag, probe["target"].get<std::string>()).second) {
+                add_issue(issues, probe_path + ".outbound",
+                          "Legacy icmptest has duplicate probe outbound");
+            }
+        }
+        if (issues.size() != issue_count_before) continue;
+
+        std::set<std::string> used_targets;
+        for (auto& group : *groups) {
+            if (!group.is_object() || !group.contains("outbounds") ||
+                !group["outbounds"].is_array()) continue;
+            json candidates = json::array();
+            for (const auto& candidate : group["outbounds"]) {
+                if (!candidate.is_string()) continue;
+                const auto candidate_tag = candidate.get<std::string>();
+                const auto target = targets.find(candidate_tag);
+                used_targets.insert(candidate_tag);
+                candidates.push_back({
+                    {"outbound", candidate_tag},
+                    {"target", target == targets.end() ? "" : target->second},
+                });
+            }
+            group.erase("outbounds");
+            group["candidates"] = std::move(candidates);
+        }
+        for (const auto& [candidate_tag, target] : targets) {
+            (void)target;
+            if (used_targets.find(candidate_tag) == used_targets.end()) {
+                add_issue(issues, path + ".probes",
+                          "Legacy icmptest probe references outbound outside "
+                          "outbound_groups: '" + candidate_tag + "'");
+            }
+        }
+        outbound.erase("probes");
+    }
 }
 
 void validate_optional_integer_field(const json& root,
@@ -682,6 +787,8 @@ Config parse_config(const std::string& json_str) {
         });
     }
 
+    migrate_legacy_icmptest(parsed_json, issues);
+
     validate_optional_hex_string_field(
         parsed_json, "fwmark", "start", "fwmark.start", issues);
     validate_optional_hex_string_field(
@@ -866,12 +973,13 @@ void validate_config(const Config& cfg) {
             }
         }
 
-        if (ob.type != OutboundType::URLTEST) continue;
+        if (ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) continue;
+        const bool is_icmp = ob.type == OutboundType::ICMPTEST;
 
-        if (!ob.url.has_value() || ob.url->empty()) {
+        if (!is_icmp && (!ob.url.has_value() || ob.url->empty())) {
             add_issue(issues, "outbounds." + ob.tag + ".url",
                       "Urltest outbound '" + ob.tag + "' requires a URL");
-        } else if (!is_http_url(*ob.url)) {
+        } else if (!is_icmp && !is_http_url(*ob.url)) {
             add_issue(issues, "outbounds." + ob.tag + ".url",
                       "Urltest URL must use the http or https scheme");
         }
@@ -883,18 +991,47 @@ void validate_config(const Config& cfg) {
             continue;
         }
 
+        std::set<std::string> candidates;
+        std::set<std::string> candidate_entries;
         for (size_t group_index = 0; group_index < ob.outbound_groups->size(); ++group_index) {
             const auto& group = ob.outbound_groups->at(group_index);
             const std::string group_path =
                 "outbounds." + ob.tag + ".outbound_groups[" + std::to_string(group_index) + "]";
 
-            if (group.outbounds.empty()) {
+            if (is_icmp && group.outbounds) {
                 add_issue(issues, group_path + ".outbounds",
-                          "Urltest outbound '" + ob.tag +
-                              "' outbound_group has empty 'outbounds' array");
+                          "Icmptest groups must use 'candidates', not 'outbounds'");
+            }
+            if (!is_icmp && group.candidates) {
+                add_issue(issues, group_path + ".candidates",
+                          "Urltest groups must use 'outbounds', not 'candidates'");
+            }
+            if (is_icmp && (!group.candidates || group.candidates->empty())) {
+                add_issue(issues, group_path + ".candidates",
+                          "Icmptest outbound_group has an empty 'candidates' array");
+            }
+            if (!is_icmp && (!group.outbounds || group.outbounds->empty())) {
+                add_issue(issues, group_path + ".outbounds",
+                          "Urltest outbound_group has an empty 'outbounds' array");
             }
 
-            for (const auto& ref_tag : group.outbounds) {
+            const auto group_tags = outbound_group_tags(group);
+            for (size_t candidate_index = 0; candidate_index < group_tags.size(); ++candidate_index) {
+                const auto& ref_tag = group_tags[candidate_index];
+                candidates.insert(ref_tag);
+                if (!candidate_entries.insert(ref_tag).second) {
+                    add_issue(issues, group_path + (is_icmp ? ".candidates" : ".outbounds"),
+                              "Outbound '" + ref_tag + "' occurs more than once across outbound_groups");
+                }
+                if (is_icmp && group.candidates && candidate_index < group.candidates->size()) {
+                    const auto& candidate = group.candidates->at(candidate_index);
+                    if (!is_valid_ipv4_address(candidate.target) &&
+                        !is_valid_ipv6_address(candidate.target)) {
+                        add_issue(issues, group_path + ".candidates[" +
+                                              std::to_string(candidate_index) + "].target",
+                                  "Icmptest target must be a literal IPv4 or IPv6 address");
+                    }
+                }
                 bool found = false;
                 for (const auto& target : outbounds) {
                     if (target.tag != ref_tag) {
@@ -904,10 +1041,10 @@ void validate_config(const Config& cfg) {
                     found = true;
                     if (target.type != OutboundType::INTERFACE &&
                         target.type != OutboundType::TABLE &&
-                        target.type != OutboundType::BLACKHOLE) {
+                        (!is_icmp && target.type != OutboundType::BLACKHOLE)) {
                         add_issue(
                             issues,
-                            group_path + ".outbounds",
+                            group_path + (is_icmp ? ".candidates" : ".outbounds"),
                             "Urltest outbound '" + ob.tag +
                                 "' references outbound '" + ref_tag +
                                 "' which is not an interface, table, or blackhole outbound");
@@ -918,11 +1055,55 @@ void validate_config(const Config& cfg) {
                 if (!found) {
                     add_issue(
                         issues,
-                        group_path + ".outbounds",
+                        group_path + (is_icmp ? ".candidates" : ".outbounds"),
                         "Urltest outbound '" + ob.tag +
                             "' references unknown outbound tag '" + ref_tag + "'");
                 }
             }
+        }
+        if (!is_icmp) continue;
+        const auto count = ob.count.value_or(icmptest_limits::default_count);
+        const auto max_failed = ob.max_failed.value_or(icmptest_limits::default_max_failed);
+        const auto packet_interval = ob.packet_interval_ms.value_or(icmptest_limits::default_packet_interval_ms);
+        const auto timeout = ob.probe_timeout_ms.value_or(icmptest_limits::default_timeout_ms);
+        const auto max_rtt = ob.max_rtt_ms.value_or(icmptest_limits::default_max_rtt_ms);
+        const auto interval = ob.interval_ms.value_or(icmptest_limits::default_interval_ms);
+        const bool count_valid = count >= 1 && count <= icmptest_limits::max_count;
+        const bool packet_interval_valid = packet_interval >= 100 && packet_interval <= 1000;
+        const bool timeout_valid = timeout >= 100 && timeout <= 5000;
+        if (!count_valid) add_issue(issues, "outbounds." + ob.tag + ".count", "Icmptest count must be between 1 and 10");
+        if (max_failed < 0 || max_failed >= count) add_issue(issues, "outbounds." + ob.tag + ".max_failed", "Icmptest max_failed must be non-negative and less than count");
+        if (!packet_interval_valid) add_issue(issues, "outbounds." + ob.tag + ".packet_interval_ms", "Icmptest packet_interval_ms must be between 100 and 1000");
+        if (!timeout_valid) add_issue(issues, "outbounds." + ob.tag + ".probe_timeout_ms", "Icmptest probe_timeout_ms must be between 100 and 5000");
+        if (max_rtt < 1 || max_rtt > timeout) add_issue(issues, "outbounds." + ob.tag + ".max_rtt_ms", "Icmptest max_rtt_ms must be between 1 and probe_timeout_ms");
+        if (candidates.size() > icmptest_limits::max_candidates) add_issue(issues, "outbounds." + ob.tag + ".outbound_groups", "Icmptest supports at most 16 unique candidates");
+        if (interval < icmptest_limits::min_interval_ms || interval > icmptest_limits::max_interval_ms) add_issue(issues, "outbounds." + ob.tag + ".interval_ms", "Icmptest interval_ms must be between 1000 and 86400000");
+        if (count_valid && packet_interval_valid && timeout_valid &&
+            candidates.size() <= icmptest_limits::max_candidates) {
+            const int64_t packet_count = count * static_cast<int64_t>(candidates.size());
+            if (packet_count > icmptest_limits::max_packets_per_sweep) {
+                add_issue(issues, "outbounds." + ob.tag + ".count", "Icmptest supports at most 160 packets per sweep");
+            }
+            const int64_t per_candidate = icmptest_limits::candidate_worst_case_ms(
+                count, timeout, packet_interval);
+            const int64_t sweep = per_candidate * static_cast<int64_t>(candidates.size());
+            if (sweep > icmptest_limits::max_sweep_ms) {
+                add_issue(issues, "outbounds." + ob.tag + ".interval_ms", "Icmptest worst-case sweep must not exceed 600000 ms");
+            }
+            const int64_t minimum_interval =
+                icmptest_limits::minimum_interval_with_reserve_ms(sweep);
+            if (interval < minimum_interval) add_issue(issues, "outbounds." + ob.tag + ".interval_ms", "Icmptest interval_ms is too short; minimum is " + std::to_string(minimum_interval) + " ms including 25% reserve");
+        }
+        if (ob.circuit_breaker) {
+            const auto failure_threshold = ob.circuit_breaker->failure_threshold.value_or(5);
+            const auto success_threshold = ob.circuit_breaker->success_threshold.value_or(2);
+            const auto half_open = ob.circuit_breaker->half_open_max_requests.value_or(1);
+            const auto breaker_timeout = ob.circuit_breaker->timeout_ms.value_or(
+                std::max(icmptest_limits::default_breaker_timeout_ms, interval));
+            if (failure_threshold < 1 || failure_threshold > 20) add_issue(issues, "outbounds." + ob.tag + ".circuit_breaker.failure_threshold", "Icmptest failure_threshold must be between 1 and 20");
+            if (success_threshold < 1 || success_threshold > 20) add_issue(issues, "outbounds." + ob.tag + ".circuit_breaker.success_threshold", "Icmptest success_threshold must be between 1 and 20");
+            if (half_open < 1 || half_open > 10) add_issue(issues, "outbounds." + ob.tag + ".circuit_breaker.half_open_max_requests", "Icmptest half_open_max_requests must be between 1 and 10");
+            if (breaker_timeout < interval || breaker_timeout > icmptest_limits::max_interval_ms) add_issue(issues, "outbounds." + ob.tag + ".circuit_breaker.timeout_ms", "Icmptest circuit breaker timeout_ms must be between interval_ms and 86400000");
         }
     }
 
@@ -998,7 +1179,8 @@ void validate_config(const Config& cfg) {
             [](const Outbound& outbound) {
                 return outbound.type == OutboundType::INTERFACE ||
                        outbound.type == OutboundType::TABLE ||
-                       outbound.type == OutboundType::URLTEST;
+                       outbound.type == OutboundType::URLTEST ||
+                       outbound.type == OutboundType::ICMPTEST;
             });
         if (priority_start_valid &&
             (rule_priority_start == 0 ||
@@ -1234,7 +1416,7 @@ OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
     for (const auto& ob : outbounds) {
         if (ob.type != OutboundType::INTERFACE &&
             ob.type != OutboundType::TABLE &&
-            ob.type != OutboundType::URLTEST) continue;
+            ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) continue;
         routable.push_back(&ob);
     }
     std::sort(routable.begin(), routable.end(), [](const Outbound* left, const Outbound* right) {

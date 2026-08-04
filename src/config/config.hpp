@@ -73,6 +73,25 @@ inline bool dns_rule_enabled(const DnsRule& rule) {
     return rule.enabled.value_or(true);
 }
 
+inline std::vector<std::string> outbound_group_tags(const OutboundGroup& group) {
+    if (group.outbounds) return *group.outbounds;
+    std::vector<std::string> tags;
+    for (const auto& candidate : group.candidates.value_or(
+             std::vector<api::IcmpCandidateElement>{})) {
+        tags.push_back(candidate.outbound);
+    }
+    return tags;
+}
+
+inline std::string outbound_group_target(const OutboundGroup& group,
+                                         const std::string& tag) {
+    for (const auto& candidate : group.candidates.value_or(
+             std::vector<api::IcmpCandidateElement>{})) {
+        if (candidate.outbound == tag) return candidate.target;
+    }
+    return {};
+}
+
 // --- JSON deserialization and validation ---
 
 Config parse_config(const std::string& json_str);

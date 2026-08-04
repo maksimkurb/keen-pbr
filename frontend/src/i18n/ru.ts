@@ -137,7 +137,8 @@ export const ruTranslation = {
       runtimeStopping: "Остановка keen-pbr...",
       runtimeStopSucceeded: "keen-pbr остановлен",
       runtimeStopFailed: "Не удалось остановить keen-pbr",
-      runtimeStartingDescription: "Маршрутизация и межсетевой экран запускаются. Подождите.",
+      runtimeStartingDescription:
+        "Маршрутизация и межсетевой экран запускаются. Подождите.",
       runtimeReloadFailed: "Не удалось перезагрузить keen-pbr",
       runtimeReloadFailedDescription:
         "Не удалось завершить перезагрузку маршрутизации. Попробуйте применить настройки и перезапустить ещё раз.",
@@ -651,9 +652,9 @@ export const ruTranslation = {
           ruleDetail: "{{label}}: {{value}}",
           dnsDetour: 'DNS-сервер "{{server}}" будет изменён.',
           urltestGroupChanged:
-            'Группа #{{group}} urltest outbound "{{outbound}}" будет изменена.',
+            'Группа #{{group}} тестового outbound "{{outbound}}" будет изменена.',
           urltestGroupRemoved:
-            'Группа #{{group}} urltest outbound "{{outbound}}" будет удалена.',
+            'Группа #{{group}} тестового outbound "{{outbound}}" будет удалена.',
           groupOutbounds: "Outbounds",
         },
       },
@@ -710,6 +711,7 @@ export const ruTranslation = {
           interface: "Интерфейс",
           table: "Таблица маршрутизации",
           urltest: "Автовыбор (urltest)",
+          icmptest: "Автовыбор (ICMP)",
           blackhole: "Blackhole",
           ignore: "Ignore",
         },
@@ -774,6 +776,35 @@ export const ruTranslation = {
         retryInterval: "Интервал повтора (мс)",
         retryIntervalHint:
           "Задержка между повторами после неудачной проверки (в миллисекундах).",
+      },
+      icmptest: {
+        title: "ICMP-проверки",
+        description:
+          "Настройте строгие ICMP echo-проверки. Для каждого кандидата нужен отдельный IPv4- или IPv6-адрес.",
+        targetHint:
+          "IPv4- или IPv6-адрес, который пингуется через этот outbound.",
+        targetsEmpty:
+          "Добавьте кандидатов в группу outbound, чтобы настроить их цели.",
+        count: "Пакетов за проверку",
+        countHint:
+          "От 1 до 10 последовательных ICMP-попыток для каждого кандидата.",
+        maxFailed: "Допустимо ошибок",
+        maxFailedHint:
+          "Кандидат успешен, только если число ошибок не превышает это значение.",
+        packetInterval: "Пауза между попытками (мс)",
+        packetIntervalHint:
+          "Пауза после завершения попытки перед следующей (100–1000 мс).",
+        probeTimeout: "Таймаут ответа (мс)",
+        probeTimeoutHint:
+          "Максимальное ожидание строго сопоставленного echo reply (100–5000 мс).",
+        maxRtt: "Максимальный RTT (мс)",
+        maxRttHint: "Более медленные ответы считаются неуспешными пакетами.",
+        interval: "Интервал sweep (мс)",
+        intervalHint:
+          "Должен покрывать worst-case всех последовательных проверок и запас 25%.",
+        tolerance: "Допуск выбора (мс)",
+        toleranceHint:
+          "Сохранять текущего кандидата, пока его RTT отличается от лучшего не больше этого значения.",
       },
       circuitBreaker: {
         title: "Circuit breaker - ограничение проверок при устойчивых сбоях",

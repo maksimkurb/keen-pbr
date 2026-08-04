@@ -131,7 +131,7 @@ RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
 
     if (urltest_manager_) {
         for (const auto& outbound : config_.outbounds.value_or(std::vector<Outbound>{})) {
-            if (outbound.type != OutboundType::URLTEST) {
+            if (outbound.type != OutboundType::URLTEST && outbound.type != OutboundType::ICMPTEST) {
                 continue;
             }
             auto state = urltest_manager_->get_state(outbound.tag);

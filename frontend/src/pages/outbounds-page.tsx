@@ -51,6 +51,7 @@ import { getApiErrorMessage } from "@/lib/api-errors"
 import {
   buildUpdatedConfigForOutboundsDelete,
   getOutboundDeleteImpact,
+  getOutboundGroupTags,
   type OutboundDeleteImpact,
 } from "@/pages/outbounds-utils"
 
@@ -393,10 +394,10 @@ function getOutboundDeleteImpactItems(
     const group = config?.outbounds?.find(
       (outbound) => outbound.tag === membership.outboundTag
     )?.outbound_groups?.[membership.groupIndex]
-    const remainingTags =
-      group?.outbounds.filter(
-        (tag) => !impact.deletedOutboundTags.includes(tag)
-      ) ?? []
+    const groupTags = group ? getOutboundGroupTags(group) : []
+    const remainingTags = groupTags.filter(
+      (tag) => !impact.deletedOutboundTags.includes(tag)
+    )
     const isRemoved = remainingTags.length === 0
 
     items.push({
@@ -413,8 +414,8 @@ function getOutboundDeleteImpactItems(
         formatDetail(
           t("pages.outbounds.deleteDialog.items.groupOutbounds"),
           isRemoved
-            ? formatListValue(group?.outbounds ?? [], t)
-            : formatTransition(group?.outbounds ?? [], remainingTags, t)
+            ? formatListValue(groupTags, t)
+            : formatTransition(groupTags, remainingTags, t)
         ),
       ],
     })
@@ -581,7 +582,7 @@ function getOutboundSummary(
 
   if (outbound.type === "urltest") {
     const allOutbounds =
-      outbound.outbound_groups?.flatMap((group) => group.outbounds) ?? []
+      outbound.outbound_groups?.flatMap(getOutboundGroupTags) ?? []
     return t("pages.outbounds.summary.urltest", {
       value: allOutbounds.join(","),
     })

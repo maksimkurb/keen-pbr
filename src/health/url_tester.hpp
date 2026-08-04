@@ -4,8 +4,9 @@
 #include "../http/http_transport.hpp"
 
 #include <cstdint>
-#include <string>
 #include <memory>
+#include <optional>
+#include <string>
 
 namespace keen_pbr3 {
 
@@ -16,6 +17,11 @@ struct URLTestResult {
     bool success{false};
     uint32_t latency_ms{0};
     std::string error;
+    std::optional<std::string> probe_target;
+    std::optional<uint32_t> packets_attempted;
+    std::optional<uint32_t> packets_sent;
+    std::optional<uint32_t> packets_received;
+    std::optional<uint32_t> packets_failed;
 };
 
 class URLTester {

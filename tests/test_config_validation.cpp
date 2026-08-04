@@ -40,6 +40,111 @@ Config parse_test_config(const std::string& json_str) {
 
 } // namespace
 
+static std::vector<ConfigValidationIssue> validate_issues(const std::string& json);
+
+TEST_CASE("icmptest validation accepts a timing-safe complete probe set") {
+    const auto cfg = parse_test_config(R"({"outbounds":[
+      {"type":"interface","tag":"wan","interface":"wan"},
+      {"type":"icmptest","tag":"auto","interval_ms":60000,
+       "outbound_groups":[{"candidates":[{"outbound":"wan","target":"1.1.1.1"}]}]}
+    ]})");
+    REQUIRE(cfg.outbounds);
+    REQUIRE(cfg.outbounds->at(1).outbound_groups);
+    const auto& group = cfg.outbounds->at(1).outbound_groups->at(0);
+    CHECK_FALSE(group.outbounds.has_value());
+    REQUIRE(group.candidates);
+    CHECK(group.candidates->at(0).outbound == "wan");
+    CHECK(group.candidates->at(0).target == "1.1.1.1");
+    CHECK_NOTHROW(parse_test_config(nlohmann::json(cfg).dump()));
+}
+
+TEST_CASE("icmptest migrates the legacy split probe form in memory") {
+    const auto cfg = parse_test_config(R"({"outbounds":[
+      {"type":"interface","tag":"wan","interface":"wan"},
+      {"type":"icmptest","tag":"auto","interval_ms":60000,
+       "outbound_groups":[{"outbounds":["wan"],"weight":2}],
+       "probes":[{"outbound":"wan","target":"1.1.1.1"}]}
+    ]})");
+    const auto& group = cfg.outbounds->at(1).outbound_groups->at(0);
+    CHECK_FALSE(group.outbounds.has_value());
+    REQUIRE(group.candidates);
+    CHECK(group.candidates->at(0).outbound == "wan");
+    CHECK(group.candidates->at(0).target == "1.1.1.1");
+    CHECK(group.weight == 2);
+}
+
+TEST_CASE("icmptest rejects mixed legacy and canonical forms") {
+    const auto issues = validate_issues(R"({"outbounds":[
+      {"type":"interface","tag":"wan","interface":"wan"},
+      {"type":"icmptest","tag":"auto","interval_ms":60000,
+       "outbound_groups":[{"outbounds":["wan"],
+         "candidates":[{"outbound":"wan","target":"1.1.1.1"}]}],
+       "probes":[{"outbound":"wan","target":"1.1.1.1"}]}
+    ]})");
+    CHECK_FALSE(issues.empty());
+}
+
+TEST_CASE("icmptest rejects an unused legacy probe") {
+    const auto issues = validate_issues(R"({"outbounds":[
+      {"type":"interface","tag":"wan","interface":"wan"},
+      {"type":"interface","tag":"backup","interface":"backup"},
+      {"type":"icmptest","tag":"auto","interval_ms":60000,
+       "outbound_groups":[{"outbounds":["wan"]}],
+       "probes":[{"outbound":"wan","target":"1.1.1.1"},
+                 {"outbound":"backup","target":"9.9.9.9"}]}
+    ]})");
+    CHECK_FALSE(issues.empty());
+}
+
+TEST_CASE("icmptest validation rejects an interval shorter than the probe cycle") {
+    const auto issues = validate_issues(R"({"outbounds":[
+      {"type":"interface","tag":"wan","interface":"wan"},
+      {"type":"icmptest","tag":"auto","interval_ms":1000,"count":10,
+       "probe_timeout_ms":5000,"outbound_groups":[{"candidates":[
+         {"outbound":"wan","target":"1.1.1.1"}]}]}
+    ]})");
+    CHECK_FALSE(issues.empty());
+}
+
+TEST_CASE("icmptest timing uses timeout for every attempt and post-attempt pauses") {
+    const auto invalid = validate_issues(R"({"outbounds":[
+      {"type":"interface","tag":"wan","interface":"wan"},
+      {"type":"icmptest","tag":"auto","interval_ms":4249,"count":3,
+       "probe_timeout_ms":1000,"packet_interval_ms":200,
+       "outbound_groups":[{"candidates":[{"outbound":"wan","target":"1.1.1.1"}]}]}
+    ]})");
+    CHECK_FALSE(invalid.empty());
+    CHECK_NOTHROW(parse_test_config(R"({"outbounds":[
+      {"type":"interface","tag":"wan","interface":"wan"},
+      {"type":"icmptest","tag":"auto","interval_ms":4250,"count":3,
+       "probe_timeout_ms":1000,"packet_interval_ms":200,
+       "outbound_groups":[{"candidates":[{"outbound":"wan","target":"1.1.1.1"}]}]}
+    ]})"));
+}
+
+TEST_CASE("icmptest rejects duplicate candidates and unsafe breaker values") {
+    const auto issues = validate_issues(R"({"outbounds":[
+      {"type":"interface","tag":"wan","interface":"wan"},
+      {"type":"icmptest","tag":"auto","interval_ms":60000,
+       "outbound_groups":[
+         {"candidates":[{"outbound":"wan","target":"1.1.1.1"}]},
+         {"candidates":[{"outbound":"wan","target":"1.1.1.1"}]}],
+       "circuit_breaker":{"failure_threshold":0,"success_threshold":21,
+         "half_open_max_requests":0,"timeout_ms":1}}
+    ]})");
+    CHECK(issues.size() >= 5);
+}
+
+TEST_CASE("icmptest validation handles extreme integers without overflowing") {
+    CHECK_NOTHROW(validate_issues(R"({"outbounds":[
+      {"type":"interface","tag":"wan","interface":"wan"},
+      {"type":"icmptest","tag":"auto","interval_ms":9223372036854775807,
+       "count":9223372036854775807,"probe_timeout_ms":9223372036854775807,
+       "packet_interval_ms":9223372036854775807,"max_rtt_ms":9223372036854775807,
+       "outbound_groups":[{"candidates":[{"outbound":"wan","target":"1.1.1.1"}]}]}
+    ]})"));
+}
+
 // Helper: build a minimal valid config JSON with a single list entry.
 static std::string list_config_json(const std::string& list_name,
                                     const std::string& list_body = R"({"ip_cidrs":["10.0.0.1"]})") {

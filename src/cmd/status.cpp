@@ -56,7 +56,8 @@ std::string outbound_type_label(OutboundType t) {
         case OutboundType::TABLE: return "table";
         case OutboundType::BLACKHOLE: return "blackhole";
         case OutboundType::IGNORE: return "ignore";
-        case OutboundType::URLTEST: return "urltest";
+case OutboundType::URLTEST: return "urltest";
+case OutboundType::ICMPTEST: return "icmptest";
     }
     return "unknown";
 }
@@ -136,7 +137,7 @@ std::map<std::string, std::string> infer_urltest_selections(const Config& config
         const bool routable =
             (ob.type == OutboundType::INTERFACE ||
              ob.type == OutboundType::TABLE ||
-             ob.type == OutboundType::URLTEST);
+ob.type == OutboundType::URLTEST || ob.type == OutboundType::ICMPTEST);
         if (!routable) {
             continue;
         }
@@ -149,7 +150,7 @@ std::map<std::string, std::string> infer_urltest_selections(const Config& config
         }
         ++table_offset;
 
-        if (ob.type != OutboundType::URLTEST) {
+        if (ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) {
             continue;
         }
 
@@ -172,7 +173,7 @@ std::map<std::string, UrltestRuleInfo> build_urltest_rule_info_by_set(
 
     for (const auto& rs : rule_states) {
         const Outbound* outbound = find_outbound(outbounds, rs.outbound_tag);
-        if (!outbound || outbound->type != OutboundType::URLTEST) {
+        if (!outbound || (outbound->type != OutboundType::URLTEST && outbound->type != OutboundType::ICMPTEST)) {
             continue;
         }
 
@@ -181,7 +182,7 @@ std::map<std::string, UrltestRuleInfo> build_urltest_rule_info_by_set(
 
         if (outbound->outbound_groups) {
             for (const auto& group : *outbound->outbound_groups) {
-                for (const auto& child_tag : group.outbounds) {
+                for (const auto& child_tag : outbound_group_tags(group)) {
                     auto mark_it = marks.find(child_tag);
                     if (mark_it != marks.end()) {
                         info.child_tags_by_mark.emplace(mark_it->second, child_tag);
@@ -350,7 +351,7 @@ void print_outbound_section(const Config& config,
         } else if (ob.type == OutboundType::TABLE) {
             std::cout << " table=" << table_id.value_or(static_cast<uint32_t>(ob.table.value_or(0)))
                       << " fwmark=" << fwmark_hex(fwmark);
-        } else if (ob.type == OutboundType::URLTEST) {
+        } else if (ob.type == OutboundType::URLTEST || ob.type == OutboundType::ICMPTEST) {
             std::cout << " fwmark=" << fwmark_hex(fwmark)
                       << (table_id ? " table=" + std::to_string(*table_id) : "");
         }

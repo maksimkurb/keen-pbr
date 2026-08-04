@@ -134,7 +134,8 @@ export const enTranslation = {
       runtimeStopping: "Stopping keen-pbr...",
       runtimeStopSucceeded: "keen-pbr is stopped",
       runtimeStopFailed: "keen-pbr could not be stopped",
-      runtimeStartingDescription: "Routing and firewall are starting. Please wait.",
+      runtimeStartingDescription:
+        "Routing and firewall are starting. Please wait.",
       runtimeReloadFailed: "keen-pbr reload failed",
       runtimeReloadFailedDescription:
         "The routing runtime could not finish reloading. Try Apply & Restart again.",
@@ -635,9 +636,9 @@ export const enTranslation = {
           ruleDetail: "{{label}}: {{value}}",
           dnsDetour: 'DNS server "{{server}}" will be changed.',
           urltestGroupChanged:
-            'Group #{{group}} in urltest outbound "{{outbound}}" will be changed.',
+            'Group #{{group}} in test outbound "{{outbound}}" will be changed.',
           urltestGroupRemoved:
-            'Group #{{group}} in urltest outbound "{{outbound}}" will be deleted.',
+            'Group #{{group}} in test outbound "{{outbound}}" will be deleted.',
           groupOutbounds: "Outbounds",
         },
       },
@@ -692,6 +693,7 @@ export const enTranslation = {
           interface: "Interface",
           table: "Routing table",
           urltest: "Auto-select (urltest)",
+          icmptest: "Auto-select (ICMP)",
           blackhole: "Blackhole",
           ignore: "Ignore",
         },
@@ -754,6 +756,34 @@ export const enTranslation = {
         retryInterval: "Retry interval (ms)",
         retryIntervalHint:
           "Delay between retries after a failed probe (in milliseconds).",
+      },
+      icmptest: {
+        title: "ICMP probing",
+        description:
+          "Configure strict ICMP echo checks. Each candidate must have its own literal IPv4 or IPv6 target.",
+        targetHint:
+          "Literal IPv4 or IPv6 address pinged through this outbound.",
+        targetsEmpty:
+          "Add candidates to an outbound group to configure their targets.",
+        count: "Packets per run",
+        countHint: "1–10 sequential ICMP attempts for each candidate.",
+        maxFailed: "Allowed failed packets",
+        maxFailedHint:
+          "The candidate succeeds only when failures do not exceed this value.",
+        packetInterval: "Pause between attempts (ms)",
+        packetIntervalHint:
+          "Wait after an attempt finishes before starting the next one (100–1000 ms).",
+        probeTimeout: "Reply timeout (ms)",
+        probeTimeoutHint:
+          "Maximum wait for each strictly matched echo reply (100–5000 ms).",
+        maxRtt: "Maximum accepted RTT (ms)",
+        maxRttHint: "Slower matched replies count as failed packets.",
+        interval: "Sweep interval (ms)",
+        intervalHint:
+          "Must cover the full worst-case sequential sweep plus a 25% reserve.",
+        tolerance: "Selection tolerance (ms)",
+        toleranceHint:
+          "Keep the current candidate while it remains within this RTT of the best result.",
       },
       circuitBreaker: {
         title: "Circuit breaker - limit probing on persistent failure",

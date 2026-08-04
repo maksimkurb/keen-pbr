@@ -543,28 +543,35 @@ components:
       properties:
         failure_threshold:
           type: integer
+          minimum: 1
+          maximum: 20
           description: Number of consecutive failures before opening the circuit.
           default: 5
           example: 5
         success_threshold:
           type: integer
+          minimum: 1
+          maximum: 20
           description: Number of consecutive successes in half-open state to close the circuit.
           default: 2
           example: 2
         timeout_ms:
           type: integer
+          minimum: 1
+          maximum: 86400000
           description: Time in milliseconds before the circuit transitions from open to half-open.
           default: 30000
           example: 30000
         half_open_max_requests:
           type: integer
+          minimum: 1
+          maximum: 10
           description: Maximum number of probe requests allowed in half-open state.
           default: 1
           example: 1
 
     OutboundGroup:
       type: object
-      required: [outbounds]
       properties:
         weight:
           type: integer
@@ -573,10 +580,28 @@ components:
           example: 1
         outbounds:
           type: array
-          description: Ordered list of outbound tags to try within this group.
+          description: Ordered outbound tags. Required for `urltest` groups.
           items:
             type: string
           example: ["vpn"]
+        candidates:
+          type: array
+          description: Ordered ICMP candidates. Required for `icmptest` groups.
+          items:
+            $ref: "#/components/schemas/IcmpCandidate"
+
+    IcmpCandidate:
+      type: object
+      required: [outbound, target]
+      properties:
+        outbound:
+          type: string
+          description: Candidate interface or table outbound tag.
+          example: "wan"
+        target:
+          type: string
+          description: Literal IPv4 or IPv6 address to ping through this outbound.
+          example: "1.1.1.1"
 
     Outbound:
       type: object
@@ -586,7 +611,7 @@ components:
       properties:
         type:
           type: string
-          enum: [interface, table, blackhole, ignore, urltest]
+          enum: [interface, table, blackhole, ignore, urltest, icmptest]
           description: Outbound type.
           example: "interface"
         tag:
@@ -632,27 +657,52 @@ components:
           description: >
             Probe URL for latency measurements. Required for `urltest` outbound type.
           example: "https://www.gstatic.com/generate_204"
+        count:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: ICMP echo requests sent per candidate probe run. Used with `icmptest`.
+          default: 3
+          example: 3
+        max_failed:
+          type: integer
+          minimum: 0
+          description: Maximum failed ICMP packets allowed in a successful run. Used with `icmptest`.
+          default: 0
+          example: 0
+        packet_interval_ms:
+          type: integer
+          minimum: 100
+          maximum: 1000
+          description: Pause after one ICMP attempt finishes and before the next starts. Used with `icmptest`.
+          default: 200
+          example: 200
+        max_rtt_ms:
+          type: integer
+          minimum: 1
+          description: ICMP replies slower than this are counted as failed. Used with `icmptest`.
+          default: 500
+          example: 500
         interval_ms:
           type: integer
           description: >
-            Interval between probes in milliseconds. Used with `urltest` outbound type.
-          default: 180000
-          example: 180000
+            Interval between probes in milliseconds. Defaults to 180000 for
+            `urltest` and 60000 for `icmptest`.
+          example: 60000
         probe_timeout_ms:
           type: integer
           nullable: true
           description: >
-            Timeout for each individual urltest probe attempt in milliseconds.
-            Used with `urltest` outbound type. When omitted or null, the daemon
-            uses a default of `5000`.
-          example: 5000
+            Timeout for each individual probe attempt in milliseconds. Used with
+            `urltest` or `icmptest`; defaults are 5000 and 1000 respectively.
+          example: 1000
         tolerance_ms:
           type: integer
+          minimum: 0
           description: >
             Latency tolerance in milliseconds; outbounds within this range of the
-            best are considered equivalent. Used with `urltest` outbound type.
-          default: 100
-          example: 100
+            best are considered equivalent. Used with `urltest` or `icmptest`.
+          example: 10
         conntrack_on_switch:
           $ref: "#/components/schemas/ConntrackOnSwitch"
           default: preserve
@@ -664,7 +714,7 @@ components:
         outbound_groups:
           type: array
           description: >
-            Ordered list of outbound groups. Required for `urltest` outbound type.
+            Ordered list of outbound groups. Required for `urltest` and `icmptest`.
             Groups are tried in order; within a group the outbound is selected by weight.
           items:
             $ref: "#/components/schemas/OutboundGroup"
@@ -1438,8 +1488,24 @@ components:
           $ref: "#/components/schemas/RuntimeInterfaceStatus"
         latency_ms:
           type: integer
-          description: Optional probe latency in milliseconds for runtime entries backed by urltest data.
+          description: Optional successful probe latency in milliseconds.
           example: 42
+        probe_target:
+          type: string
+          description: ICMP destination configured for this candidate.
+          example: "1.1.1.1"
+        packets_attempted:
+          type: integer
+          description: ICMP attempts configured for the last candidate run.
+        packets_sent:
+          type: integer
+          description: ICMP echo requests successfully handed to the socket.
+        packets_received:
+          type: integer
+          description: Strictly matched ICMP echo replies, including replies over max_rtt_ms.
+        packets_failed:
+          type: integer
+          description: Attempts failed by send error, timeout, or max_rtt_ms policy.
         detail:
           type: string
           description: Optional runtime detail explaining degradation or mismatch.
@@ -1455,7 +1521,7 @@ components:
           example: "auto-select"
         type:
           type: string
-          enum: [interface, table, blackhole, ignore, urltest]
+          enum: [interface, table, blackhole, ignore, urltest, icmptest]
           example: "urltest"
         status:
           $ref: "#/components/schemas/RuntimeOutboundStatus"

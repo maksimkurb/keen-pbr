@@ -81,7 +81,9 @@ export function RuntimeOutboundDetails({
   }
 
   const items =
-    runtimeState.type === "interface" || runtimeState.type === "urltest"
+    runtimeState.type === "interface" ||
+    runtimeState.type === "urltest" ||
+    runtimeState.type === "icmptest"
       ? runtimeState.interfaces.map((interfaceState, index) =>
           mapRuntimeInterfaceToItem(
             interfaceState,
@@ -109,13 +111,13 @@ function mapRuntimeInterfaceToItem(
 ): OutboundInterfaceStatusItem {
   const hasInterfaceName = Boolean(interfaceState.interface_name?.trim().length)
   const name =
-    parentType === "urltest"
+    parentType === "urltest" || parentType === "icmptest"
       ? interfaceState.outbound_tag
       : hasInterfaceName
         ? interfaceState.interface_name!
         : interfaceState.outbound_tag
   const secondaryLabel =
-    parentType === "urltest" &&
+    (parentType === "urltest" || parentType === "icmptest") &&
     hasInterfaceName &&
     interfaceState.interface_name !== interfaceState.outbound_tag
       ? `(${interfaceState.interface_name})`
@@ -127,6 +129,15 @@ function mapRuntimeInterfaceToItem(
     typeof interfaceState.latency_ms === "number"
       ? `${interfaceState.latency_ms} ms`
       : undefined
+  const packetLabel =
+    parentType === "icmptest" &&
+    typeof interfaceState.packets_attempted === "number"
+      ? `${interfaceState.packets_received ?? 0}/${interfaceState.packets_attempted} replies, ${interfaceState.packets_failed ?? 0} failed`
+      : undefined
+  const probeLabel =
+    [interfaceState.probe_target, latencyLabel, packetLabel]
+      .filter(Boolean)
+      .join(" · ") || undefined
   const content =
     runtimeInterfaces && hasInterfaceName ? (
       <InterfaceRowContent
@@ -137,9 +148,9 @@ function mapRuntimeInterfaceToItem(
               label={t(`runtime.interfaceStatus.${interfaceState.status}`)}
               tone={getInterfaceTone(interfaceState.status)}
             />
-            {latencyLabel ? (
+            {probeLabel ? (
               <span className="text-xs text-muted-foreground">
-                {latencyLabel}
+                {probeLabel}
               </span>
             ) : null}
           </>
@@ -148,7 +159,8 @@ function mapRuntimeInterfaceToItem(
         interfaceEntry={inventoryEntry}
         isVirtual={!inventoryEntry}
         name={
-          parentType === "urltest" && hasInterfaceName
+          (parentType === "urltest" || parentType === "icmptest") &&
+          hasInterfaceName
             ? `${interfaceState.outbound_tag} (${interfaceState.interface_name})`
             : name
         }
@@ -161,7 +173,7 @@ function mapRuntimeInterfaceToItem(
     tone: getInterfaceTone(interfaceState.status),
     active: interfaceState.status === "active",
     isLast,
-    latency: content ? undefined : latencyLabel,
+    latency: content ? undefined : probeLabel,
     secondaryLabel,
     stateLabel: content
       ? undefined

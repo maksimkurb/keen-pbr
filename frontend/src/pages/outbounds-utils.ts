@@ -1,5 +1,12 @@
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { Outbound } from "@/api/generated/model/outbound"
+import type { OutboundGroup } from "@/api/generated/model/outboundGroup"
+
+export function getOutboundGroupTags(group: OutboundGroup): string[] {
+  return (
+    group.outbounds ?? (group.candidates ?? []).map((item) => item.outbound)
+  )
+}
 
 export type OutboundDeleteImpact = {
   deletedOutboundTags: string[]
@@ -27,16 +34,16 @@ export function getOutboundDeleteImpact(
     changed = false
 
     for (const outbound of config.outbounds ?? []) {
-      if (outbound.type !== "urltest" || deletedTags.has(outbound.tag)) {
+      if (
+        (outbound.type !== "urltest" && outbound.type !== "icmptest") ||
+        deletedTags.has(outbound.tag)
+      ) {
         continue
       }
 
       const remainingGroups = (outbound.outbound_groups ?? [])
-        .map((group) => ({
-          ...group,
-          outbounds: group.outbounds.filter((tag) => !deletedTags.has(tag)),
-        }))
-        .filter((group) => group.outbounds.length > 0)
+        .map((group) => cleanupGroupReferences(group, deletedTags))
+        .filter((group) => getOutboundGroupTags(group).length > 0)
 
       if (remainingGroups.length === 0) {
         deletedTags.add(outbound.tag)
@@ -56,14 +63,18 @@ export function getOutboundDeleteImpact(
   const removedUrltestGroups: OutboundDeleteImpact["removedUrltestGroups"] = []
 
   for (const outbound of config.outbounds ?? []) {
-    if (outbound.type !== "urltest" || deletedTags.has(outbound.tag)) {
+    if (
+      (outbound.type !== "urltest" && outbound.type !== "icmptest") ||
+      deletedTags.has(outbound.tag)
+    ) {
       continue
     }
 
     for (const [groupIndex, group] of (
       outbound.outbound_groups ?? []
     ).entries()) {
-      const removedTags = group.outbounds.filter((tag) => deletedTags.has(tag))
+      const groupTags = getOutboundGroupTags(group)
+      const removedTags = groupTags.filter((tag) => deletedTags.has(tag))
 
       if (removedTags.length > 0) {
         urltestMemberships.push({
@@ -75,7 +86,7 @@ export function getOutboundDeleteImpact(
 
       if (
         removedTags.length > 0 &&
-        group.outbounds.every((tag) => deletedTags.has(tag))
+        groupTags.every((tag) => deletedTags.has(tag))
       ) {
         removedUrltestGroups.push({
           outboundTag: outbound.tag,
@@ -131,17 +142,32 @@ function cleanupOutboundReferences(
   outbound: Outbound,
   deletedTags: ReadonlySet<string>
 ): Outbound {
-  if (outbound.type !== "urltest") {
+  if (outbound.type !== "urltest" && outbound.type !== "icmptest") {
     return outbound
   }
 
   return {
     ...outbound,
     outbound_groups: (outbound.outbound_groups ?? [])
-      .map((group) => ({
-        ...group,
-        outbounds: group.outbounds.filter((tag) => !deletedTags.has(tag)),
-      }))
-      .filter((group) => group.outbounds.length > 0),
+      .map((group) => cleanupGroupReferences(group, deletedTags))
+      .filter((group) => getOutboundGroupTags(group).length > 0),
+  }
+}
+
+function cleanupGroupReferences(
+  group: OutboundGroup,
+  deletedTags: ReadonlySet<string>
+): OutboundGroup {
+  if (group.candidates) {
+    return {
+      ...group,
+      candidates: group.candidates.filter(
+        (candidate) => !deletedTags.has(candidate.outbound)
+      ),
+    }
+  }
+  return {
+    ...group,
+    outbounds: (group.outbounds ?? []).filter((tag) => !deletedTags.has(tag)),
   }
 }

@@ -1,5 +1,6 @@
 #include "urltest_manager.hpp"
 
+#include "../config/icmptest_limits.hpp"
 #include "../daemon/scheduler.hpp"
 #include "../log/logger.hpp"
 
@@ -19,25 +20,63 @@ struct TestCandidate {
     uint32_t fwmark{0};
     uint32_t timeout_ms{0};
     RetryConfig retry;
+    std::string target;
+    uint32_t count{0};
+    uint32_t max_failed{0};
+    uint32_t packet_interval_ms{0};
+    uint32_t max_rtt_ms{0};
+    bool is_icmp{false};
 };
 
-std::chrono::seconds normalize_interval_seconds(const Outbound& outbound) {
-    auto interval = std::chrono::seconds(outbound.interval_ms.value_or(180000) / 1000);
+std::chrono::milliseconds normalize_interval(const Outbound& outbound) {
+    auto interval = std::chrono::milliseconds(outbound.interval_ms.value_or(
+        outbound.type == OutboundType::ICMPTEST
+            ? icmptest_limits::default_interval_ms
+            : 180000));
     if (interval.count() < 1) {
-        interval = std::chrono::seconds(1);
+        interval = std::chrono::milliseconds(1);
     }
     return interval;
 }
 
+CircuitBreakerConfig effective_breaker_config(const Outbound& outbound) {
+    auto config = outbound.circuit_breaker.value_or(CircuitBreakerConfig{});
+    if (outbound.type == OutboundType::ICMPTEST && !config.timeout_ms.has_value()) {
+        config.timeout_ms = std::max(
+            icmptest_limits::default_breaker_timeout_ms,
+            outbound.interval_ms.value_or(icmptest_limits::default_interval_ms));
+    }
+    return config;
+}
+
+template <typename Fn>
+class ScopeExit {
+public:
+    explicit ScopeExit(Fn fn) : fn_(std::move(fn)) {}
+    ~ScopeExit() { if (active_) fn_(); }
+    ScopeExit(const ScopeExit&) = delete;
+    ScopeExit& operator=(const ScopeExit&) = delete;
+    void dismiss() { active_ = false; }
+private:
+    Fn fn_;
+    bool active_{true};
+};
+
+template <typename Fn>
+ScopeExit<Fn> make_scope_exit(Fn fn) {
+    return ScopeExit<Fn>(std::move(fn));
+}
+
 } // namespace
 
-UrltestManager::UrltestManager(URLTester& tester,
+UrltestManager::UrltestManager(URLTester& tester, IcmpTester& icmp_tester,
                                const OutboundMarkMap& marks,
                                Scheduler& scheduler,
                                BlockingExecutor& blocking_executor,
                                UrltestChangeCallback on_change,
                                UrltestCommitCallback on_commit)
     : tester_(tester)
+    , icmp_tester_(icmp_tester)
     , marks_(marks)
     , scheduler_(scheduler)
     , blocking_executor_(blocking_executor)
@@ -64,16 +103,16 @@ void UrltestManager::register_urltest(const Outbound& ut) {
         state.config = ut;
 
         for (const auto& group : ut.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
-            for (const auto& child_tag : group.outbounds) {
+            for (const auto& child_tag : outbound_group_tags(group)) {
                 state.circuit_breakers.emplace(
                     child_tag,
-                    CircuitBreaker(ut.circuit_breaker.value_or(CircuitBreakerConfig{})));
+                    CircuitBreaker(effective_breaker_config(ut)));
             }
         }
 
         const std::string tag = ut.tag;
         state.scheduler_task_id = scheduler_.schedule_repeating(
-            normalize_interval_seconds(ut),
+            normalize_interval(ut),
             [this, tag]() {
                 run_tests(tag);
             },
@@ -196,6 +235,20 @@ bool UrltestManager::is_probe_current(const std::string& tag,
     return it != states_.end() && it->second.generation == generation;
 }
 
+void UrltestManager::abandon_probe(const std::string& tag, std::uint64_t generation,
+                                   const std::vector<std::string>& child_tags) {
+    KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
+    auto it = states_.find(tag);
+    if (it == states_.end() || it->second.generation != generation) return;
+    it->second.probe_inflight = false;
+    for (const auto& child_tag : child_tags) {
+        auto breaker = it->second.circuit_breakers.find(child_tag);
+        if (breaker != it->second.circuit_breakers.end()) {
+            breaker->second.end_request(child_tag);
+        }
+    }
+}
+
 bool UrltestManager::queue_probe_unlocked(const std::string& tag,
                                           const std::string& reason) {
     std::vector<TestCandidate> candidates;
@@ -227,7 +280,7 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
         probe_generation = state.generation;
 
         for (const auto& group : state.config.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
-            for (const auto& child_tag : group.outbounds) {
+            for (const auto& child_tag : outbound_group_tags(group)) {
                 const auto mark_it = marks_.find(child_tag);
                 if (mark_it == marks_.end()) {
                     continue;
@@ -248,8 +301,17 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
                     .url = state.config.url.value_or(""),
                     .fwmark = mark_it->second,
                     .timeout_ms = static_cast<uint32_t>(
-                        state.config.probe_timeout_ms.value_or(kDefaultUrltestProbeTimeoutMs)),
+                        state.config.probe_timeout_ms.value_or(
+                            state.config.type == OutboundType::ICMPTEST
+                                ? icmptest_limits::default_timeout_ms
+                                : kDefaultUrltestProbeTimeoutMs)),
                     .retry = state.config.retry.value_or(RetryConfig{}),
+                    .target = outbound_group_target(group, child_tag),
+                    .count = static_cast<uint32_t>(state.config.count.value_or(3)),
+                    .max_failed = static_cast<uint32_t>(state.config.max_failed.value_or(0)),
+                    .packet_interval_ms = static_cast<uint32_t>(state.config.packet_interval_ms.value_or(200)),
+                    .max_rtt_ms = static_cast<uint32_t>(state.config.max_rtt_ms.value_or(500)),
+                    .is_icmp = state.config.type == OutboundType::ICMPTEST,
                 });
             }
         }
@@ -262,6 +324,10 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
                              reason,
                              candidates.size());
 
+    std::vector<std::string> candidate_tags;
+    candidate_tags.reserve(candidates.size());
+    for (const auto& candidate : candidates) candidate_tags.push_back(candidate.child_tag);
+
     const bool enqueued = blocking_executor_.try_post(
         "urltest:" + tag,
         [this,
@@ -269,10 +335,14 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
          probe_generation,
          reason,
          candidates_for_probe = candidates,
+         candidate_tags_for_probe = candidate_tags,
          trace_id]() mutable {
             ScopedTraceContext trace_scope(trace_id);
+            auto completion_guard = make_scope_exit([this, &tag, probe_generation,
+                                                     &candidate_tags_for_probe] {
+                abandon_probe(tag, probe_generation, candidate_tags_for_probe);
+            });
             std::map<std::string, URLTestResult> results;
-            results.clear();
 
             for (const auto& candidate : candidates_for_probe) {
                 {
@@ -298,10 +368,19 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
                                          candidate.fwmark,
                                          reason);
 
-                auto result = tester_.test(candidate.url,
-                                           candidate.fwmark,
-                                           candidate.timeout_ms,
-                                           candidate.retry);
+                URLTestResult result;
+                try {
+                    result = candidate.is_icmp
+                        ? icmp_tester_.test(candidate.target, candidate.fwmark, candidate.count,
+                                            candidate.max_failed, candidate.packet_interval_ms,
+                                            candidate.timeout_ms, candidate.max_rtt_ms)
+                        : tester_.test(candidate.url, candidate.fwmark, candidate.timeout_ms,
+                                       candidate.retry);
+                } catch (const std::exception& error) {
+                    result.error = std::string("probe exception: ") + error.what();
+                } catch (...) {
+                    result.error = "probe exception: unknown error";
+                }
 
                 const auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::steady_clock::now() - started_at).count();
@@ -318,9 +397,17 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
                 results.emplace(candidate.child_tag, std::move(result));
             }
 
-            if (on_commit_) {
-                on_commit_(tag, probe_generation, std::move(results), trace_id);
+            bool accepted = false;
+            try {
+                accepted = on_commit_ &&
+                    on_commit_(tag, probe_generation, std::move(results), trace_id);
+            } catch (...) {
+                accepted = false;
             }
+            if (!accepted) {
+                return;
+            }
+            completion_guard.dismiss();
         },
         trace_id);
 
@@ -382,9 +469,10 @@ std::string UrltestManager::select_outbound(const std::string& tag) {
 
     for (const auto& group_ref : sorted_groups) {
         const auto& group = groups[group_ref.index];
+        const auto group_tags = outbound_group_tags(group);
         uint32_t min_latency = std::numeric_limits<uint32_t>::max();
 
-        for (const auto& child_tag : group.outbounds) {
+        for (const auto& child_tag : group_tags) {
             const auto cb_it = state.circuit_breakers.find(child_tag);
             if (cb_it == state.circuit_breakers.end()) {
                 continue;
@@ -404,13 +492,16 @@ std::string UrltestManager::select_outbound(const std::string& tag) {
             continue;
         }
 
-        const uint32_t tolerance = static_cast<uint32_t>(ut.tolerance_ms.value_or(100));
+        const uint32_t tolerance = static_cast<uint32_t>(ut.tolerance_ms.value_or(
+            ut.type == OutboundType::ICMPTEST
+                ? icmptest_limits::default_tolerance_ms
+                : 100));
 
         if (!state.selected_outbound.empty()) {
-            const auto existing_it = std::find(group.outbounds.begin(),
-                                               group.outbounds.end(),
+            const auto existing_it = std::find(group_tags.begin(),
+                                               group_tags.end(),
                                                state.selected_outbound);
-            if (existing_it != group.outbounds.end()) {
+            if (existing_it != group_tags.end()) {
                 const auto cb_it = state.circuit_breakers.find(state.selected_outbound);
                 if (cb_it != state.circuit_breakers.end() &&
                     cb_it->second.state(state.selected_outbound) != CircuitState::open) {
@@ -424,7 +515,7 @@ std::string UrltestManager::select_outbound(const std::string& tag) {
             }
         }
 
-        for (const auto& child_tag : group.outbounds) {
+        for (const auto& child_tag : group_tags) {
             const auto cb_it = state.circuit_breakers.find(child_tag);
             if (cb_it == state.circuit_breakers.end()) {
                 continue;

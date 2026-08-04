@@ -13,8 +13,18 @@ export interface RuntimeInterfaceState {
   /** Interface name when the candidate resolves to an interface outbound. */
   interface_name?: string;
   status: RuntimeInterfaceStatus;
-  /** Optional probe latency in milliseconds for runtime entries backed by urltest data. */
+  /** Optional successful probe latency in milliseconds. */
   latency_ms?: number;
+  /** ICMP destination configured for this candidate. */
+  probe_target?: string;
+  /** ICMP attempts configured for the last candidate run. */
+  packets_attempted?: number;
+  /** ICMP echo requests successfully handed to the socket. */
+  packets_sent?: number;
+  /** Strictly matched ICMP echo replies, including replies over max_rtt_ms. */
+  packets_received?: number;
+  /** Attempts failed by send error, timeout, or max_rtt_ms policy. */
+  packets_failed?: number;
   /** Optional runtime detail explaining degradation or mismatch. */
   detail?: string;
 }

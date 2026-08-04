@@ -191,7 +191,7 @@ std::vector<RuleState> apply_runtime_firewall(
             }
 
             std::string effective_tag = detour_outbound->tag;
-            if (detour_outbound->type == OutboundType::URLTEST) {
+    if (detour_outbound->type == OutboundType::URLTEST || detour_outbound->type == OutboundType::ICMPTEST) {
                 // A URLTEST route is switched behind its stable table/mark.
                 // DNS detours must not pin existing flows to the transient
                 // selected child mark.

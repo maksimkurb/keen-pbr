@@ -42,7 +42,7 @@ frontend-build: ## Build frontend assets with bun
 	bash build_scripts/build-frontend.sh "$(abspath .)" "$(abspath frontend/dist)"
 
 frontend-api-generate: ## Regenerate frontend API client using the Orval version pinned in frontend/package.json
-	cd frontend && bunx --bun orval@$(ORVAL_VERSION) --config ./orval.config.ts
+	cd frontend && bunx --bun orval@$(ORVAL_VERSION) --config ./orval.config.ts --clean
 
 generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (requires Node.js)
 	bash build_scripts/generate_api_types.sh

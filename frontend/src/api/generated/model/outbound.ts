@@ -38,19 +38,44 @@ export interface Outbound {
   /** Probe URL for latency measurements. Required for `urltest` outbound type.
    */
   url?: string;
-  /** Interval between probes in milliseconds. Used with `urltest` outbound type.
+  /**
+     * ICMP echo requests sent per candidate probe run. Used with `icmptest`.
+     * @minimum 1
+     * @maximum 10
+     */
+  count?: number;
+  /**
+     * Maximum failed ICMP packets allowed in a successful run. Used with `icmptest`.
+     * @minimum 0
+     */
+  max_failed?: number;
+  /**
+     * Pause after one ICMP attempt finishes and before the next starts. Used with `icmptest`.
+     * @minimum 100
+     * @maximum 1000
+     */
+  packet_interval_ms?: number;
+  /**
+     * ICMP replies slower than this are counted as failed. Used with `icmptest`.
+     * @minimum 1
+     */
+  max_rtt_ms?: number;
+  /** Interval between probes in milliseconds. Defaults to 180000 for `urltest` and 60000 for `icmptest`.
    */
   interval_ms?: number;
-  /** Timeout for each individual urltest probe attempt in milliseconds. Used with `urltest` outbound type. When omitted or null, the daemon uses a default of `5000`.
+  /** Timeout for each individual probe attempt in milliseconds. Used with `urltest` or `icmptest`; defaults are 5000 and 1000 respectively.
    */
   probe_timeout_ms?: number | null;
-  /** Latency tolerance in milliseconds; outbounds within this range of the best are considered equivalent. Used with `urltest` outbound type.
-   */
+  /**
+     * Latency tolerance in milliseconds; outbounds within this range of the best are considered equivalent. Used with `urltest` or `icmptest`.
+
+     * @minimum 0
+     */
   tolerance_ms?: number;
   /** URLTEST conntrack handling when the selected child changes. `preserve` keeps established flows on their existing path; `delete` removes only conntrack entries bearing this URLTEST outbound's reserved mark after the replacement route is active.
    */
   conntrack_on_switch?: ConntrackOnSwitch;
-  /** Ordered list of outbound groups. Required for `urltest` outbound type. Groups are tried in order; within a group the outbound is selected by weight.
+  /** Ordered list of outbound groups. Required for `urltest` and `icmptest`. Groups are tried in order; within a group the outbound is selected by weight.
    */
   outbound_groups?: OutboundGroup[];
   retry?: RetryConfig;

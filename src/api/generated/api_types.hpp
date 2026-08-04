@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesEhxcaO data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesXMo5NF data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -197,8 +197,14 @@ namespace api {
 
     enum class ConntrackOnSwitch : int { DELETE, PRESERVE };
 
+    struct IcmpCandidateElement {
+        std::string outbound;
+        std::string target;
+    };
+
     struct OutboundGroupElement {
-        std::vector<std::string> outbounds;
+        std::optional<std::vector<IcmpCandidateElement>> candidates;
+        std::optional<std::vector<std::string>> outbounds;
         std::optional<int64_t> weight;
     };
 
@@ -207,16 +213,20 @@ namespace api {
         std::optional<int64_t> interval_ms;
     };
 
-    enum class OutboundType : int { BLACKHOLE, IGNORE, INTERFACE, TABLE, URLTEST };
+    enum class OutboundType : int { BLACKHOLE, ICMPTEST, IGNORE, INTERFACE, TABLE, URLTEST };
 
     struct OutboundElement {
         std::optional<CircuitBreakerConfig> circuit_breaker;
         std::optional<ConntrackOnSwitch> conntrack_on_switch;
+        std::optional<int64_t> count;
         std::optional<std::string> gateway;
         std::optional<std::string> gateway6;
         std::optional<std::string> interface;
         std::optional<int64_t> interval_ms;
+        std::optional<int64_t> max_failed;
+        std::optional<int64_t> max_rtt_ms;
         std::optional<std::vector<OutboundGroupElement>> outbound_groups;
+        std::optional<int64_t> packet_interval_ms;
         std::optional<int64_t> probe_timeout_ms;
         std::optional<Retry> retry;
         std::optional<bool> strict_enforcement;
@@ -496,6 +506,11 @@ namespace api {
         std::optional<std::string> interface_name;
         std::optional<int64_t> latency_ms;
         std::string outbound_tag;
+        std::optional<int64_t> packets_attempted;
+        std::optional<int64_t> packets_failed;
+        std::optional<int64_t> packets_received;
+        std::optional<int64_t> packets_sent;
+        std::optional<std::string> probe_target;
         RuntimeInterfaceStatusEnum status;
     };
 
@@ -545,7 +560,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesEhxcaO {
+    struct KeenPbrTypesXMo5NF {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -565,6 +580,7 @@ namespace api {
         std::optional<FirewallRuleCheck> firewall_rule_check;
         std::optional<Fwmark> fwmark_config;
         std::optional<HealthResponse> health_response;
+        std::optional<IcmpCandidateElement> icmp_candidate;
         std::optional<Iproute> iproute_config;
         std::optional<LifecycleOperation> lifecycle_operation;
         std::optional<LifecycleOperationAcceptedResponse> lifecycle_operation_accepted_response;
@@ -649,6 +665,9 @@ namespace api {
 
     void from_json(const json & j, ListsAutoupdate & x);
     void to_json(json & j, const ListsAutoupdate & x);
+
+    void from_json(const json & j, IcmpCandidateElement & x);
+    void to_json(json & j, const IcmpCandidateElement & x);
 
     void from_json(const json & j, OutboundGroupElement & x);
     void to_json(json & j, const OutboundGroupElement & x);
@@ -770,8 +789,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesEhxcaO & x);
-    void to_json(json & j, const KeenPbrTypesEhxcaO & x);
+    void from_json(const json & j, KeenPbrTypesXMo5NF & x);
+    void to_json(json & j, const KeenPbrTypesXMo5NF & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1058,13 +1077,26 @@ namespace api {
         j["enabled"] = x.enabled;
     }
 
+    inline void from_json(const json & j, IcmpCandidateElement& x) {
+        x.outbound = j.at("outbound").get<std::string>();
+        x.target = j.at("target").get<std::string>();
+    }
+
+    inline void to_json(json & j, const IcmpCandidateElement & x) {
+        j = json::object();
+        j["outbound"] = x.outbound;
+        j["target"] = x.target;
+    }
+
     inline void from_json(const json & j, OutboundGroupElement& x) {
-        x.outbounds = j.at("outbounds").get<std::vector<std::string>>();
+        x.candidates = get_stack_optional<std::vector<IcmpCandidateElement>>(j, "candidates");
+        x.outbounds = get_stack_optional<std::vector<std::string>>(j, "outbounds");
         x.weight = get_stack_optional<int64_t>(j, "weight");
     }
 
     inline void to_json(json & j, const OutboundGroupElement & x) {
         j = json::object();
+        j["candidates"] = x.candidates;
         j["outbounds"] = x.outbounds;
         j["weight"] = x.weight;
     }
@@ -1083,11 +1115,15 @@ namespace api {
     inline void from_json(const json & j, OutboundElement& x) {
         x.circuit_breaker = get_stack_optional<CircuitBreakerConfig>(j, "circuit_breaker");
         x.conntrack_on_switch = get_stack_optional<ConntrackOnSwitch>(j, "conntrack_on_switch");
+        x.count = get_stack_optional<int64_t>(j, "count");
         x.gateway = get_stack_optional<std::string>(j, "gateway");
         x.gateway6 = get_stack_optional<std::string>(j, "gateway6");
         x.interface = get_stack_optional<std::string>(j, "interface");
         x.interval_ms = get_stack_optional<int64_t>(j, "interval_ms");
+        x.max_failed = get_stack_optional<int64_t>(j, "max_failed");
+        x.max_rtt_ms = get_stack_optional<int64_t>(j, "max_rtt_ms");
         x.outbound_groups = get_stack_optional<std::vector<OutboundGroupElement>>(j, "outbound_groups");
+        x.packet_interval_ms = get_stack_optional<int64_t>(j, "packet_interval_ms");
         x.probe_timeout_ms = get_stack_optional<int64_t>(j, "probe_timeout_ms");
         x.retry = get_stack_optional<Retry>(j, "retry");
         x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
@@ -1103,11 +1139,15 @@ namespace api {
         j = json::object();
         j["circuit_breaker"] = x.circuit_breaker;
         j["conntrack_on_switch"] = x.conntrack_on_switch;
+        j["count"] = x.count;
         j["gateway"] = x.gateway;
         j["gateway6"] = x.gateway6;
         j["interface"] = x.interface;
         j["interval_ms"] = x.interval_ms;
+        j["max_failed"] = x.max_failed;
+        j["max_rtt_ms"] = x.max_rtt_ms;
         j["outbound_groups"] = x.outbound_groups;
+        j["packet_interval_ms"] = x.packet_interval_ms;
         j["probe_timeout_ms"] = x.probe_timeout_ms;
         j["retry"] = x.retry;
         j["strict_enforcement"] = x.strict_enforcement;
@@ -1615,6 +1655,11 @@ namespace api {
         x.interface_name = get_stack_optional<std::string>(j, "interface_name");
         x.latency_ms = get_stack_optional<int64_t>(j, "latency_ms");
         x.outbound_tag = j.at("outbound_tag").get<std::string>();
+        x.packets_attempted = get_stack_optional<int64_t>(j, "packets_attempted");
+        x.packets_failed = get_stack_optional<int64_t>(j, "packets_failed");
+        x.packets_received = get_stack_optional<int64_t>(j, "packets_received");
+        x.packets_sent = get_stack_optional<int64_t>(j, "packets_sent");
+        x.probe_target = get_stack_optional<std::string>(j, "probe_target");
         x.status = j.at("status").get<RuntimeInterfaceStatusEnum>();
     }
 
@@ -1624,6 +1669,11 @@ namespace api {
         j["interface_name"] = x.interface_name;
         j["latency_ms"] = x.latency_ms;
         j["outbound_tag"] = x.outbound_tag;
+        j["packets_attempted"] = x.packets_attempted;
+        j["packets_failed"] = x.packets_failed;
+        j["packets_received"] = x.packets_received;
+        j["packets_sent"] = x.packets_sent;
+        j["probe_target"] = x.probe_target;
         j["status"] = x.status;
     }
 
@@ -1710,7 +1760,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesEhxcaO& x) {
+    inline void from_json(const json & j, KeenPbrTypesXMo5NF& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1730,6 +1780,7 @@ namespace api {
         x.firewall_rule_check = get_stack_optional<FirewallRuleCheck>(j, "FirewallRuleCheck");
         x.fwmark_config = get_stack_optional<Fwmark>(j, "FwmarkConfig");
         x.health_response = get_stack_optional<HealthResponse>(j, "HealthResponse");
+        x.icmp_candidate = get_stack_optional<IcmpCandidateElement>(j, "IcmpCandidate");
         x.iproute_config = get_stack_optional<Iproute>(j, "IprouteConfig");
         x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "LifecycleOperation");
         x.lifecycle_operation_accepted_response = get_stack_optional<LifecycleOperationAcceptedResponse>(j, "LifecycleOperationAcceptedResponse");
@@ -1772,7 +1823,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesEhxcaO & x) {
+    inline void to_json(json & j, const KeenPbrTypesXMo5NF & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1793,6 +1844,7 @@ namespace api {
         j["FirewallRuleCheck"] = x.firewall_rule_check;
         j["FwmarkConfig"] = x.fwmark_config;
         j["HealthResponse"] = x.health_response;
+        j["IcmpCandidate"] = x.icmp_candidate;
         j["IprouteConfig"] = x.iproute_config;
         j["LifecycleOperation"] = x.lifecycle_operation;
         j["LifecycleOperationAcceptedResponse"] = x.lifecycle_operation_accepted_response;
@@ -1911,6 +1963,7 @@ namespace api {
 
     inline void from_json(const json & j, OutboundType & x) {
         if (j == "blackhole") x = OutboundType::BLACKHOLE;
+        else if (j == "icmptest") x = OutboundType::ICMPTEST;
         else if (j == "ignore") x = OutboundType::IGNORE;
         else if (j == "interface") x = OutboundType::INTERFACE;
         else if (j == "table") x = OutboundType::TABLE;
@@ -1921,6 +1974,7 @@ namespace api {
     inline void to_json(json & j, const OutboundType & x) {
         switch (x) {
             case OutboundType::BLACKHOLE: j = "blackhole"; break;
+            case OutboundType::ICMPTEST: j = "icmptest"; break;
             case OutboundType::IGNORE: j = "ignore"; break;
             case OutboundType::INTERFACE: j = "interface"; break;
             case OutboundType::TABLE: j = "table"; break;

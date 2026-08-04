@@ -5,10 +5,13 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { IcmpCandidate } from './icmpCandidate';
 
 export interface OutboundGroup {
   /** Relative weight for selecting this group when multiple groups are healthy. */
   weight?: number;
-  /** Ordered list of outbound tags to try within this group. */
-  outbounds: string[];
+  /** Ordered outbound tags. Required for `urltest` groups. */
+  outbounds?: string[];
+  /** Ordered ICMP candidates. Required for `icmptest` groups. */
+  candidates?: IcmpCandidate[];
 }

@@ -3,6 +3,7 @@
 #include "../config/config.hpp"
 #include "../health/circuit_breaker.hpp"
 #include "../health/url_tester.hpp"
+#include "../health/icmp_tester.hpp"
 #include "../util/blocking_executor.hpp"
 #include "../util/traced_mutex.hpp"
 
@@ -10,6 +11,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace keen_pbr3 {
 
@@ -30,7 +32,7 @@ struct UrltestState {
 // Parameters: (urltest_tag, new_child_outbound_tag)
 // Guaranteed to be called without any UrltestManager lock held.
 using UrltestChangeCallback = std::function<void(const std::string&, const std::string&)>;
-using UrltestCommitCallback = std::function<void(const std::string&,
+using UrltestCommitCallback = std::function<bool(const std::string&,
                                                  std::uint64_t,
                                                  std::map<std::string, URLTestResult>,
                                                  TraceId)>;
@@ -42,7 +44,7 @@ using UrltestCommitCallback = std::function<void(const std::string&,
 // All public methods are thread-safe.
 class UrltestManager {
 public:
-    UrltestManager(URLTester& tester, const OutboundMarkMap& marks,
+    UrltestManager(URLTester& tester, IcmpTester& icmp_tester, const OutboundMarkMap& marks,
                    Scheduler& scheduler,
                    BlockingExecutor& blocking_executor,
                    UrltestChangeCallback on_change,
@@ -79,6 +81,8 @@ private:
     // state for the given tag. Caller must hold at least a shared_lock.
     bool is_probe_current(const std::string& tag,
                           std::uint64_t generation) const REQUIRES_SHARED(mutex_);
+    void abandon_probe(const std::string& tag, std::uint64_t generation,
+                       const std::vector<std::string>& child_tags);
 
     // Run URL tests for all child outbounds of the given urltest and update
     // the internal selection. Returns the new selection if it changed.
@@ -94,6 +98,7 @@ private:
     std::string select_outbound(const std::string& tag) REQUIRES_SHARED(mutex_);
 
     URLTester& tester_;
+    IcmpTester& icmp_tester_;
     const OutboundMarkMap& marks_;
     Scheduler& scheduler_;
     BlockingExecutor& blocking_executor_;
