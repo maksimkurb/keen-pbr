@@ -17,8 +17,12 @@ on:
 
 jobs:
   build:
-    name: "build: ubuntu-amd64"
+    name: "build: ${{ matrix.debian_version }}-amd64"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        debian_version: [bullseye, bookworm, trixie]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -38,10 +42,11 @@ jobs:
         uses: actions/cache@v5
         with:
           path: /tmp/.buildx-cache-debian
-          key: buildx-debian-${{ hashFiles('docker/Dockerfile.debian-builder') }}
+          key: buildx-debian-${{ matrix.debian_version }}-${{ hashFiles('docker/Dockerfile.debian-builder') }}
       - name: Build Debian packages
         run: |
           make deb-packages \
+            DEBIAN_VERSION="${{ matrix.debian_version }}" \
             DEBIAN_DOCKER_CACHE_FROM="/tmp/.buildx-cache-debian" \
             DEBIAN_DOCKER_CACHE_TO="/tmp/.buildx-cache-debian-new"
       - name: Persist Debian image cache
@@ -54,7 +59,7 @@ jobs:
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: staging-debian-amd64
+          name: staging-debian-${{ matrix.debian_version }}-amd64
           path: build/packages/debian
 
   sign:
@@ -62,6 +67,10 @@ jobs:
     name: "sign: ubuntu-amd64"
     runs-on: ubuntu-latest
     needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        debian_version: [bullseye, bookworm, trixie]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -69,7 +78,7 @@ jobs:
       - name: Download unsigned package artifacts
         uses: actions/download-artifact@v8
         with:
-          name: staging-debian-amd64
+          name: staging-debian-${{ matrix.debian_version }}-amd64
           path: build/packages/debian
       - name: Sign Debian repository metadata
         env:
@@ -80,5 +89,5 @@ jobs:
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: packages-debian-amd64
+          name: packages-debian-${{ matrix.debian_version }}-amd64
           path: build/packages/debian

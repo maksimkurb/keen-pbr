@@ -9,8 +9,26 @@ echo "--------------------------------"
 
 mkdir -p /opt/usr/lib/keen-pbr
 
+has_keen_pbr_managed_block() {
+    [ -f "$DNSMASQ_CONF" ] || return 1
+
+    awk '
+        $0 == "# BEGIN keen-pbr managed block" {
+            if ((getline notice) > 0 &&
+                notice == "# Do not remove the following line, it is required for keen-pbr to function properly." &&
+                (getline config) > 0 &&
+                config == "conf-script=/opt/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry" &&
+                (getline end) > 0 &&
+                end == "# END keen-pbr managed block") {
+                found = 1
+            }
+        }
+        END { exit found ? 0 : 1 }
+    ' "$DNSMASQ_CONF"
+}
+
 answer=""
-if [ -f "$DNSMASQ_TEMPLATE" ]; then
+if [ -f "$DNSMASQ_TEMPLATE" ] && ! has_keen_pbr_managed_block; then
     if [ -n "${KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS:-}" ]; then
         answer="$KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS"
     elif [ -t 0 ] && [ -t 1 ]; then

@@ -5,7 +5,7 @@
 #   DEBIAN_VERSION         — Debian distribution name for build/packages layout
 #   DEBIAN_DOCKER_CACHE_FROM / DEBIAN_DOCKER_CACHE_TO — Optional buildx cache dirs
 
-DEBIAN_DOCKER_IMAGE ?= keen-pbr-debian-builder:latest
+DEBIAN_DOCKER_IMAGE ?= keen-pbr-debian-builder:$(DEBIAN_VERSION)
 DEBIAN_VERSION ?= bullseye
 DEBIAN_DOCKER_CACHE_FROM ?=
 DEBIAN_DOCKER_CACHE_TO   ?=
@@ -44,10 +44,12 @@ debian-builder-image: ## Build the Debian builder Docker image locally
 	    cache_args="$$cache_args --cache-to type=local,dest=$(DEBIAN_DOCKER_CACHE_TO),mode=max"; \
 	  fi; \
 	  docker buildx build --load $$cache_args \
+	    --build-arg DEBIAN_VERSION="$(DEBIAN_VERSION)" \
 	    -f docker/Dockerfile.debian-builder \
 	    -t "$(DEBIAN_DOCKER_IMAGE)" .; \
 	else \
 	  docker buildx build --load \
+	    --build-arg DEBIAN_VERSION="$(DEBIAN_VERSION)" \
 	    -f docker/Dockerfile.debian-builder \
 	    -t "$(DEBIAN_DOCKER_IMAGE)" .; \
 	fi
