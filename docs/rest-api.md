@@ -13,10 +13,39 @@ The REST API is available when:
 {
   "api": {
     "enabled": true,
-    "listen": "0.0.0.0:12121"
+    "listen": "0.0.0.0:12121",
+    "authentication": {
+      "enabled": true,
+      "password_hash": "pbkdf2-sha256$200000$..."
+    },
+    "cors": {
+      "allowed_origins": ["https://panel.example.com"]
+    }
   }
 }
 ```
+
+Generate a verifier interactively:
+
+```bash
+keen-pbr hash-password
+```
+
+To enable authentication and write the generated verifier directly to the
+configured `config.json`, use `keen-pbr --config /path/to/config.json hash-password --update`.
+The command updates the file atomically and reminds
+you to restart the keen-pbr service. A restart is required for authentication
+and CORS changes to affect the running HTTP server.
+
+Authenticated API clients may use Basic authentication with username `admin`
+or a Bearer token returned by `POST /api/auth/login`. Only one Bearer session is
+valid at a time; a successful login immediately invalidates the previous UI
+session. Bearer sessions expire after 24 hours and are lost on daemon restart.
+
+When authentication is disabled, cross-origin browser requests are rejected.
+When enabled, exact configured origins and Chrome/Firefox extension origins are
+allowed. Since passwords are sent to the API during login or Basic auth, use a
+trusted network or an HTTPS reverse proxy.
 
 By default, the API listens on `0.0.0.0:12121`. All endpoints are served at the configured `api.listen` address.
 

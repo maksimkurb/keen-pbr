@@ -11,7 +11,7 @@
 <title>REST API – keen-pbr</title>
   <meta name="description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34; } } By default, the API listens on 0.0.0.0:12121. All endpoints are served at the configured api.listen address." /><link rel="canonical" href="https://keen-pbr.fyi/docs/rest-api/" itemprop="url" />
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;pbkdf2-sha256$200000$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/rest-api/" itemprop="url" />
 
 <meta property="og:title" content="REST API">
 <meta
@@ -31,7 +31,14 @@ Configuration
 config.json{
   &#34;api&#34;: {
     &#34;enabled&#34;: true,
-    &#34;listen&#34;: &#34;0.0.0.0:12121&#34;
+    &#34;listen&#34;: &#34;0.0.0.0:12121&#34;,
+    &#34;authentication&#34;: {
+      &#34;enabled&#34;: true,
+      &#34;password_hash&#34;: &#34;pbkdf2-sha256$200000$...&#34;
+    },
+    &#34;cors&#34;: {
+      &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;]
+    }
   }
 }
   
@@ -40,7 +47,7 @@ config.json{
   
 
 
-By default, the API listens on 0.0.0.0:12121. All endpoints are served at the configured api.listen address.
+Generate a verifier interactively:
     
   ">
 <meta
@@ -56,13 +63,13 @@ By default, the API listens on 0.0.0.0:12121. All endpoints are served at the co
 	<meta itemprop="name" content="REST API">
 	<meta itemprop="description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34; } } By default, the API listens on 0.0.0.0:12121. All endpoints are served at the configured api.listen address.">
-	<meta itemprop="wordCount" content="915">
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;pbkdf2-sha256$200000$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
+	<meta itemprop="wordCount" content="1070">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34; } } By default, the API listens on 0.0.0.0:12121. All endpoints are served at the configured api.listen address.">
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;pbkdf2-sha256$200000$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
 
     <link rel="preload" href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" as="style" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
     <link href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" rel="stylesheet" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
@@ -1113,7 +1120,14 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;api&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;authentication&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;password_hash&#34;</span><span class="p">:</span> <span class="s2">&#34;pbkdf2-sha256$200000$...&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;cors&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;allowed_origins&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;https://panel.example.com&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1127,6 +1141,34 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
   </button>
 </div>
 </div>
+<p>Generate a verifier interactively:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr hash-password</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>To enable authentication and write the generated verifier directly to the
+configured <code>config.json</code>, use <code>keen-pbr --config /path/to/config.json hash-password --update</code>.
+The command updates the file atomically and reminds
+you to restart the keen-pbr service. A restart is required for authentication
+and CORS changes to affect the running HTTP server.</p>
+<p>Authenticated API clients may use Basic authentication with username <code>admin</code>
+or a Bearer token returned by <code>POST /api/auth/login</code>. Only one Bearer session is
+valid at a time; a successful login immediately invalidates the previous UI
+session. Bearer sessions expire after 24 hours and are lost on daemon restart.</p>
+<p>When authentication is disabled, cross-origin browser requests are rejected.
+When enabled, exact configured origins and Chrome/Firefox extension origins are
+allowed. Since passwords are sent to the API during login or Basic auth, use a
+trusted network or an HTTPS reverse proxy.</p>
 <p>By default, the API listens on <code>0.0.0.0:12121</code>. All endpoints are served at the configured <code>api.listen</code> address.</p>
 <hr>
 <h2>GET /api/health/service<span class="hx:absolute hx:-mt-20" id="get-apihealthservice"></span>
