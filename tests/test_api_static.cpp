@@ -9,6 +9,7 @@
 #include <fstream>
 #include <string>
 #include <unistd.h>
+#include <zlib.h>
 
 namespace keen_pbr3 {
 
@@ -32,6 +33,16 @@ void write_file(const std::filesystem::path& path, const std::string& content) {
         throw std::runtime_error("failed to open test file: " + path.string());
     }
     file << content;
+}
+
+void write_gzip_file(const std::filesystem::path& path, const std::string& content) {
+    gzFile file = gzopen(path.c_str(), "wb9");
+    if (!file) throw std::runtime_error("failed to create gzip file: " + path.string());
+    const int written = gzwrite(file, content.data(), static_cast<unsigned>(content.size()));
+    const int close_result = gzclose(file);
+    if (written != static_cast<int>(content.size()) || close_result != Z_OK) {
+        throw std::runtime_error("failed to write gzip file: " + path.string());
+    }
 }
 
 } // namespace
@@ -62,14 +73,15 @@ TEST_CASE("static frontend gzip response does not duplicate compression headers"
     CHECK(response->get_header_value("Content-Encoding") == "gzip");
     CHECK(response->get_header_value_count("Vary") == 1);
     CHECK(response->get_header_value("Vary") == "Accept-Encoding");
+    CHECK(response->get_header_value("Cache-Control") == "no-cache");
+    CHECK_FALSE(response->get_header_value("ETag").empty());
     CHECK(response->get_header_value("Content-Length") == "18");
     CHECK(response->body == "pretend-gzip-bytes");
 }
 
 TEST_CASE("static frontend gzip variant is skipped without gzip accept header") {
     const auto root = make_temp_static_root();
-    write_file(root / "index.html", "<!doctype html><title>keen-pbr</title>");
-    write_file(root / "index.html.gz", "pretend-gzip-bytes");
+    write_gzip_file(root / "index.html.gz", "<!doctype html><title>keen-pbr</title>");
 
     ApiConfig api_config;
     api_config.listen = std::string("127.0.0.1:18191");
@@ -89,8 +101,46 @@ TEST_CASE("static frontend gzip variant is skipped without gzip accept header") 
     REQUIRE(response != nullptr);
     CHECK(response->status == 200);
     CHECK(response->get_header_value_count("Content-Encoding") == 0);
-    CHECK(response->get_header_value_count("Vary") == 0);
+    CHECK(response->get_header_value("Vary") == "Accept-Encoding");
+    CHECK(response->get_header_value("Cache-Control") == "no-cache");
+    CHECK(response->get_header_value_count("Content-Encoding") == 0);
     CHECK(response->body == "<!doctype html><title>keen-pbr</title>");
+}
+
+TEST_CASE("fingerprinted gzip-only assets are immutable and support ETag revalidation") {
+    const auto root = make_temp_static_root();
+    std::filesystem::create_directory(root / "assets");
+    write_gzip_file(root / "index.html.gz", "<!doctype html>");
+    write_gzip_file(root / "assets" / "index-abc123.js.gz", "console.log('cached');");
+
+    ApiConfig api_config;
+    api_config.listen = std::string("127.0.0.1:18193");
+
+    ApiServer server(api_config);
+    REQUIRE(server.register_static_root(root.string()));
+    server.start();
+
+    httplib::Client client("127.0.0.1", 18193);
+    client.set_decompress(false);
+    const httplib::Headers gzip_headers{{"Accept-Encoding", "gzip"}};
+    const auto response = client.Get("/assets/index-abc123.js", gzip_headers);
+    REQUIRE(response != nullptr);
+    const std::string etag = response->get_header_value("ETag");
+    const httplib::Headers conditional_headers{
+        {"Accept-Encoding", "gzip"}, {"If-None-Match", etag}};
+    const auto revalidated = client.Get("/assets/index-abc123.js", conditional_headers);
+    server.stop();
+
+    std::filesystem::remove_all(root);
+
+    CHECK(response->status == 200);
+    CHECK(response->get_header_value("Content-Encoding") == "gzip");
+    CHECK(response->get_header_value("Cache-Control") ==
+          "public, max-age=31536000, immutable");
+    CHECK_FALSE(etag.empty());
+    REQUIRE(revalidated != nullptr);
+    CHECK(revalidated->status == 304);
+    CHECK(revalidated->body.empty());
 }
 
 TEST_CASE("static frontend gzip variant respects explicit q zero") {

@@ -226,6 +226,7 @@ set_target_properties(monocypher PROPERTIES
 # cpp-httplib (bundled as git submodule, only if WITH_API — no TLS needed)
 if(WITH_API)
   set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF CACHE INTERNAL "")
+  set(HTTPLIB_REQUIRE_ZLIB ON CACHE BOOL "" FORCE)
   set(HTTPLIB_INSTALL OFF CACHE INTERNAL "")
   find_library(HTTPLIB_ANL_LIB anl)
   if(HTTPLIB_ANL_LIB)

@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
       ext: ".gz",
       threshold: 0,
       filter: textAssetPattern,
-      deleteOriginFile: false,
+      deleteOriginFile: true,
       disable: mode === "development",
       compressionOptions: {
         level: constants.Z_BEST_COMPRESSION,
