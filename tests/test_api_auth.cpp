@@ -9,12 +9,29 @@
 
 namespace keen_pbr3 {
 
-TEST_CASE("PBKDF2 password verifiers validate and reject other passwords") {
+TEST_CASE("Argon2id password verifiers validate and reject other passwords") {
     const auto verifier = auth::generate_password_hash("correct horse");
+    CHECK(verifier.rfind("argon2id$v=19$m=19456,t=2,p=1$", 0) == 0);
     CHECK(auth::valid_password_hash(verifier));
     CHECK(auth::verify_password("correct horse", verifier));
     CHECK_FALSE(auth::verify_password("wrong", verifier));
     CHECK_FALSE(auth::valid_password_hash("sha256$invalid"));
+    CHECK_FALSE(auth::valid_password_hash("pbkdf2-sha256$200000$legacy$verifier"));
+    auto modified = verifier;
+    modified.replace(modified.find("m=19456"), 7, "m=32768");
+    CHECK_FALSE(auth::valid_password_hash(modified));
+}
+
+TEST_CASE("Monocypher provides token entropy and BLAKE2b hashing") {
+    const auto first = auth::random_token();
+    const auto second = auth::random_token();
+    CHECK(first.size() == 64);
+    CHECK(first.find_first_not_of("0123456789abcdef") == std::string::npos);
+    CHECK(first != second);
+    CHECK(auth::blake2b_hex("") ==
+          "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8");
+    CHECK(auth::constant_time_equal(first, first));
+    CHECK_FALSE(auth::constant_time_equal(first, second));
 }
 
 TEST_CASE("API accepts Basic auth and keeps only the newest Bearer session") {

@@ -19,6 +19,11 @@ process.stdin.on('end', () => {
   const spec = JSON.parse(d);
   const schemas = spec.components.schemas;
 
+  // password_hash is daemon-internal configuration state. Keep it out of the
+  // public OpenAPI contract (and therefore out of browser-generated models),
+  // while retaining it in the C++ configuration representation.
+  schemas.AuthenticationConfig.properties.password_hash = { type: 'string' };
+
   // Remove OpenAPI-specific extensions that QuickType does not understand
   function clean(obj) {
     if (typeof obj !== 'object' || obj === null) return;

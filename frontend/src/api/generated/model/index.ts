@@ -10,6 +10,8 @@ export * from './apiConfig';
 export * from './authenticationConfig';
 export * from './authLoginRequest';
 export * from './authLoginResponse';
+export * from './authPasswordRequest';
+export * from './authPasswordStatus';
 export * from './authStatusResponse';
 export * from './cacheMetadata';
 export * from './checkStatus';

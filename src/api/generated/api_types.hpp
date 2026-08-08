@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesYuU7AU data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesJaK9Bt data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -117,6 +117,14 @@ namespace api {
     struct AuthLoginResponse {
         int64_t expires_at;
         std::string token;
+    };
+
+    struct AuthPasswordRequest {
+        std::string password;
+    };
+
+    struct AuthPasswordStatus {
+        bool password_set;
     };
 
     struct AuthStatusResponse {
@@ -585,11 +593,13 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesYuU7AU {
+    struct KeenPbrTypesJaK9Bt {
         std::optional<ApiConfig> api_config;
         std::optional<Authentication> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
         std::optional<AuthLoginResponse> auth_login_response;
+        std::optional<AuthPasswordRequest> auth_password_request;
+        std::optional<AuthPasswordStatus> auth_password_status;
         std::optional<AuthStatusResponse> auth_status_response;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -671,6 +681,12 @@ namespace api {
 
     void from_json(const json & j, AuthLoginResponse & x);
     void to_json(json & j, const AuthLoginResponse & x);
+
+    void from_json(const json & j, AuthPasswordRequest & x);
+    void to_json(json & j, const AuthPasswordRequest & x);
+
+    void from_json(const json & j, AuthPasswordStatus & x);
+    void to_json(json & j, const AuthPasswordStatus & x);
 
     void from_json(const json & j, AuthStatusResponse & x);
     void to_json(json & j, const AuthStatusResponse & x);
@@ -834,8 +850,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesYuU7AU & x);
-    void to_json(json & j, const KeenPbrTypesYuU7AU & x);
+    void from_json(const json & j, KeenPbrTypesJaK9Bt & x);
+    void to_json(json & j, const KeenPbrTypesJaK9Bt & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -976,6 +992,24 @@ namespace api {
         j = json::object();
         j["expires_at"] = x.expires_at;
         j["token"] = x.token;
+    }
+
+    inline void from_json(const json & j, AuthPasswordRequest& x) {
+        x.password = j.at("password").get<std::string>();
+    }
+
+    inline void to_json(json & j, const AuthPasswordRequest & x) {
+        j = json::object();
+        j["password"] = x.password;
+    }
+
+    inline void from_json(const json & j, AuthPasswordStatus& x) {
+        x.password_set = j.at("password_set").get<bool>();
+    }
+
+    inline void to_json(json & j, const AuthPasswordStatus & x) {
+        j = json::object();
+        j["password_set"] = x.password_set;
     }
 
     inline void from_json(const json & j, AuthStatusResponse& x) {
@@ -1860,11 +1894,13 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesYuU7AU& x) {
+    inline void from_json(const json & j, KeenPbrTypesJaK9Bt& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<Authentication>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
         x.auth_login_response = get_stack_optional<AuthLoginResponse>(j, "AuthLoginResponse");
+        x.auth_password_request = get_stack_optional<AuthPasswordRequest>(j, "AuthPasswordRequest");
+        x.auth_password_status = get_stack_optional<AuthPasswordStatus>(j, "AuthPasswordStatus");
         x.auth_status_response = get_stack_optional<AuthStatusResponse>(j, "AuthStatusResponse");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1928,12 +1964,14 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesYuU7AU & x) {
+    inline void to_json(json & j, const KeenPbrTypesJaK9Bt & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
         j["AuthLoginRequest"] = x.auth_login_request;
         j["AuthLoginResponse"] = x.auth_login_response;
+        j["AuthPasswordRequest"] = x.auth_password_request;
+        j["AuthPasswordStatus"] = x.auth_password_status;
         j["AuthStatusResponse"] = x.auth_status_response;
         j["CacheMetadata"] = x.cache_metadata;
         j["CheckStatus"] = x.check_status;

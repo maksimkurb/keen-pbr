@@ -20,7 +20,8 @@ export const enTranslation = {
         "Protect the WebUI and API with the administrator password. A new UI login signs out the previous UI session.",
       enable: "Enable authentication",
       newPassword: "New password",
-      newPasswordPlaceholder: "Leave blank to keep current password",
+      newPasswordPlaceholder: "Enter a new password",
+      passwordSetPlaceholder: "Password is set — enter a new one to replace it",
       confirmPassword: "Confirm password",
       allowedOrigins: "Allowed CORS origins",
       originsPlaceholder:
@@ -34,6 +35,8 @@ export const enTranslation = {
       passwordMismatch: "Passwords do not match.",
       passwordRequired: "Set a password before enabling authentication.",
       updateFailed: "Unable to update authentication settings.",
+      invalidOrigin:
+        "Each CORS entry must be an exact HTTP or HTTPS origin without a path, credentials, query, fragment, or wildcard.",
       staged:
         "Authentication settings staged. Save the configuration, then restart keen-pbr.",
     },

@@ -27,6 +27,8 @@ import type {
 import type {
   AuthLoginRequest,
   AuthLoginResponse,
+  AuthPasswordRequest,
+  AuthPasswordStatus,
   AuthStatusResponse,
   ConfigObject,
   ConfigStateResponse,
@@ -332,6 +334,208 @@ export const usePostAuthLogout = <TError = unknown,
         TContext
       > => {
       return useMutation(getPostAuthLogoutMutationOptions(options), queryClient);
+    }
+
+/**
+ * @summary Get administrator password state
+ */
+export type getAuthPasswordStatusResponse200 = {
+  data: AuthPasswordStatus
+  status: 200
+}
+
+export type getAuthPasswordStatusResponseSuccess = (getAuthPasswordStatusResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getAuthPasswordStatusResponse = (getAuthPasswordStatusResponseSuccess)
+
+export const getGetAuthPasswordStatusUrl = () => {
+
+
+
+
+  return `/api/auth/password`
+}
+
+export const getAuthPasswordStatus = async ( options?: RequestInit): Promise<getAuthPasswordStatusResponse> => {
+
+  return apiFetch<getAuthPasswordStatusResponse>(getGetAuthPasswordStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAuthPasswordStatusQueryKey = () => {
+    return [
+    `/api/auth/password`
+    ] as const;
+    }
+
+
+export const getGetAuthPasswordStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAuthPasswordStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAuthPasswordStatus>>> = ({ signal }) => getAuthPasswordStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAuthPasswordStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAuthPasswordStatus>>>
+export type GetAuthPasswordStatusQueryError = unknown
+
+
+export function useGetAuthPasswordStatus<TData = Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAuthPasswordStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getAuthPasswordStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAuthPasswordStatus<TData = Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAuthPasswordStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getAuthPasswordStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAuthPasswordStatus<TData = Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get administrator password state
+ */
+
+export function useGetAuthPasswordStatus<TData = Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthPasswordStatus>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAuthPasswordStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+/**
+ * Accepts the clear-text password and stores only its verifier in the staged server configuration.
+ * @summary Set the administrator password
+ */
+export type postAuthPasswordResponse200 = {
+  data: AuthPasswordStatus
+  status: 200
+}
+
+export type postAuthPasswordResponse400 = {
+  data: void
+  status: 400
+}
+
+export type postAuthPasswordResponseSuccess = (postAuthPasswordResponse200) & {
+  headers: Headers;
+};
+export type postAuthPasswordResponseError = (postAuthPasswordResponse400) & {
+  headers: Headers;
+};
+
+export type postAuthPasswordResponse = (postAuthPasswordResponseSuccess | postAuthPasswordResponseError)
+
+export const getPostAuthPasswordUrl = () => {
+
+
+
+
+  return `/api/auth/password`
+}
+
+export const postAuthPassword = async (authPasswordRequest: AuthPasswordRequest, options?: RequestInit): Promise<postAuthPasswordResponse> => {
+
+  return apiFetch<postAuthPasswordResponse>(getPostAuthPasswordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      authPasswordRequest,)
+  }
+);}
+
+
+
+
+export const getPostAuthPasswordMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthPassword>>, TError,{data: AuthPasswordRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postAuthPassword>>, TError,{data: AuthPasswordRequest}, TContext> => {
+
+const mutationKey = ['postAuthPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAuthPassword>>, {data: AuthPasswordRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postAuthPassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAuthPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof postAuthPassword>>>
+    export type PostAuthPasswordMutationBody = AuthPasswordRequest
+    export type PostAuthPasswordMutationError = void
+
+    /**
+ * @summary Set the administrator password
+ */
+export const usePostAuthPassword = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthPassword>>, TError,{data: AuthPasswordRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAuthPassword>>,
+        TError,
+        {data: AuthPasswordRequest},
+        TContext
+      > => {
+      return useMutation(getPostAuthPasswordMutationOptions(options), queryClient);
     }
 
 /**

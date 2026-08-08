@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 
-export interface AuthenticationConfig {
-  enabled?: boolean;
+export interface AuthPasswordRequest {
+  /** @minLength 1 */
+  password: string;
 }

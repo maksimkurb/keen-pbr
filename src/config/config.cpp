@@ -883,7 +883,7 @@ void validate_config(const Config& cfg) {
             const auto& verifier = cfg.api->authentication->password_hash;
             if (!verifier || !auth::valid_password_hash(*verifier)) {
                 add_issue(issues, "api.authentication.password_hash",
-                          "api.authentication.password_hash must be a valid PBKDF2-SHA256 verifier");
+                          "api.authentication.password_hash must be a valid Argon2id verifier");
             }
         }
         if (cfg.api->cors) {

@@ -6,10 +6,15 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
+import { postAuthPassword } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
-import { useGetConfig, useGetRuntimeInterfaces } from "@/api/queries"
+import {
+  useGetAuthPasswordStatus,
+  useGetConfig,
+  useGetRuntimeInterfaces,
+} from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import {
   Field,
@@ -102,8 +107,8 @@ export function GeneralConfigPage() {
         <GeneralConfigPageSkeleton />
       ) : configQuery.isError || !loadedConfig ? (
         <ListPlaceholder
-          description="We can't load settings right now. Try refreshing the page."
-          title="Unable to load data"
+          description={t("common.loadErrorDescription")}
+          title={t("common.unableToLoadData")}
           variant="error"
         />
       ) : (
@@ -123,6 +128,7 @@ function LoadedGeneralConfigPage({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const runtimeInterfacesQuery = useGetRuntimeInterfaces()
+  const passwordStatusQuery = useGetAuthPasswordStatus()
 
   const postConfigMutation = usePostConfigMutation()
   const [authEnabled, setAuthEnabled] = useState(loadedConfig.api?.authentication?.enabled ?? false)
@@ -131,30 +137,42 @@ function LoadedGeneralConfigPage({
   const [allowedOrigins, setAllowedOrigins] = useState((loadedConfig.api?.cors?.allowed_origins ?? []).join("\n"))
   const [authPending, setAuthPending] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
+  const passwordSet = passwordStatusQuery.data?.status === 200 &&
+    passwordStatusQuery.data.data.password_set
 
   const saveAuthentication = async () => {
     setAuthError(null)
     if (authPassword !== authConfirmation) { setAuthError(t("auth.settings.passwordMismatch")); return }
-    if (authEnabled && !authPassword && !loadedConfig.api?.authentication?.enabled) {
+    if (authEnabled && !authPassword && !passwordSet) {
       setAuthError(t("auth.settings.passwordRequired")); return
+    }
+    const origins = allowedOrigins.split("\n").map((value) => value.trim()).filter(Boolean)
+    if (origins.some((origin) => !isExactHttpOrigin(origin))) {
+      setAuthError(t("auth.settings.invalidOrigin")); return
     }
     setAuthPending(true)
     try {
-      const password_hash = authPassword ? await derivePasswordHash(authPassword) : undefined
+      if (authPassword) {
+        const passwordResponse = await postAuthPassword({ password: authPassword })
+        if (passwordResponse.status !== 200) throw new Error("password update failed")
+      }
       await postConfigMutation.mutateAsync({ data: {
         ...loadedConfig,
         api: {
           ...loadedConfig.api,
           enabled: true,
-          authentication: { enabled: authEnabled, ...(password_hash ? { password_hash } : {}) },
-          cors: { allowed_origins: allowedOrigins.split("\n").map((v) => v.trim()).filter(Boolean) },
+          authentication: { enabled: authEnabled },
+          cors: { allowed_origins: origins },
         },
       } })
       setAuthPassword(""); setAuthConfirmation("")
       toast.success(t("auth.settings.staged"))
-      await queryClient.invalidateQueries({ queryKey: queryKeys.config() })
-    } catch (error) {
-      setAuthError((error as ApiError).message ?? t("auth.settings.updateFailed"))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
+        passwordStatusQuery.refetch(),
+      ])
+    } catch {
+      setAuthError(t("auth.settings.updateFailed"))
     } finally { setAuthPending(false) }
   }
 
@@ -242,7 +260,7 @@ function LoadedGeneralConfigPage({
             <FieldLabel htmlFor="authentication-enabled">{t("auth.settings.enable")}</FieldLabel>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field><FieldLabel htmlFor="new-auth-password">{t("auth.settings.newPassword")}</FieldLabel><Input autoComplete="new-password" id="new-auth-password" onChange={(event) => setAuthPassword(event.target.value)} placeholder={t("auth.settings.newPasswordPlaceholder")} type="password" value={authPassword} /></Field>
+            <Field><FieldLabel htmlFor="new-auth-password">{t("auth.settings.newPassword")}</FieldLabel><Input autoComplete="new-password" id="new-auth-password" onChange={(event) => setAuthPassword(event.target.value)} placeholder={t(passwordSet ? "auth.settings.passwordSetPlaceholder" : "auth.settings.newPasswordPlaceholder")} type="password" value={authPassword} /></Field>
             <Field><FieldLabel htmlFor="confirm-auth-password">{t("auth.settings.confirmPassword")}</FieldLabel><Input autoComplete="new-password" id="confirm-auth-password" onChange={(event) => setAuthConfirmation(event.target.value)} type="password" value={authConfirmation} /></Field>
           </div>
           <Field>
@@ -252,7 +270,7 @@ function LoadedGeneralConfigPage({
           </Field>
           {authError ? <Alert variant="destructive"><AlertDescription>{authError}</AlertDescription></Alert> : null}
           <Alert><AlertDescription>{t("auth.settings.restartNotice")}</AlertDescription></Alert>
-          <Button disabled={authPending} onClick={() => void saveAuthentication()}>{authPending ? t("auth.settings.updating") : t("auth.settings.update")}</Button>
+          <Button disabled={authPending || passwordStatusQuery.isLoading} onClick={() => void saveAuthentication()}>{authPending ? t("auth.settings.updating") : t("auth.settings.update")}</Button>
         </CardContent>
       </Card>
       <Card>
@@ -853,26 +871,21 @@ function toBackendIntegerValue(parsed: number | null, raw: string): number {
   return raw as unknown as number
 }
 
-async function derivePasswordHash(password: string) {
-  const salt = crypto.getRandomValues(new Uint8Array(16))
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"]
-  )
-  const digest = new Uint8Array(await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt, iterations: 200_000 },
-    key,
-    256
-  ))
-  const encode = (value: Uint8Array) =>
-    btoa(String.fromCharCode(...value))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "")
-  return `pbkdf2-sha256$200000$${encode(salt)}$${encode(digest)}`
+function isExactHttpOrigin(value: string) {
+  try {
+    const url = new URL(value)
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.origin === value &&
+      url.username === "" &&
+      url.password === "" &&
+      url.pathname === "/" &&
+      url.search === "" &&
+      url.hash === ""
+    )
+  } catch {
+    return false
+  }
 }
 
 function getCrontabGuruUrl(value: string) {

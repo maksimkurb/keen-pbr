@@ -3,6 +3,7 @@
 #include "handler_config.hpp"
 #include "generated/api_types.hpp"
 
+#include "../auth/password.hpp"
 #include "../config/config.hpp"
 #include <nlohmann/json.hpp>
 
@@ -28,6 +29,8 @@ nlohmann::json make_validation_error_json(const ConfigValidationError& error) {
     };
 }
 
+} // namespace
+
 Config normalize_config_for_api_response(Config config) {
     if (!config.daemon.has_value()) {
         config.daemon = DaemonConfig{};
@@ -46,6 +49,24 @@ Config normalize_config_for_api_response(Config config) {
 
     return config;
 }
+
+void protect_config_password_hash(Config& candidate, const Config& visible) {
+    const auto existing_password_hash =
+        visible.api && visible.api->authentication
+            ? visible.api->authentication->password_hash
+            : std::nullopt;
+    if (existing_password_hash) {
+        if (!candidate.api) candidate.api = ApiConfig{};
+        if (!candidate.api->authentication) {
+            candidate.api->authentication = AuthenticationConfig{};
+        }
+        candidate.api->authentication->password_hash = existing_password_hash;
+    } else if (candidate.api && candidate.api->authentication) {
+        candidate.api->authentication->password_hash.reset();
+    }
+}
+
+namespace {
 
 std::string serialize_config_pretty(const Config& config) {
     nlohmann::json json = config;
@@ -97,14 +118,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         Config staged;
         try {
             staged = parse_config(body);
-            if (staged.api && staged.api->authentication &&
-                !staged.api->authentication->password_hash.has_value()) {
-                const auto visible = ctx.get_visible_config();
-                if (visible.api && visible.api->authentication) {
-                    staged.api->authentication->password_hash =
-                        visible.api->authentication->password_hash;
-                }
-            }
+            protect_config_password_hash(staged, ctx.get_visible_config());
             validate_config(staged);
         } catch (const ConfigValidationError& e) {
             throw ApiError(e.what(), 400, make_validation_error_json(e).dump());
@@ -125,6 +139,41 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         resp.status = api::ConfigUpdateResponseStatus::OK;
         resp.message = "Config staged in memory";
         return nlohmann::json(resp).dump();
+    });
+
+    // Password state is deliberately separate from the config representation.
+    // Neither this endpoint nor GET /api/config exposes the verifier.
+    server.get("/api/auth/password", [&ctx]() -> std::string {
+        const auto visible = ctx.get_visible_config();
+        const bool password_set = visible.api && visible.api->authentication &&
+                                  visible.api->authentication->password_hash.has_value();
+        return nlohmann::json{{"password_set", password_set}}.dump();
+    });
+
+    // Accept clear text only on this write-only operation and stage the verifier.
+    server.post("/api/auth/password", [&ctx](const std::string& body) -> std::string {
+        try {
+            const auto request = nlohmann::json::parse(body);
+            if (!request.contains("password") || !request["password"].is_string() ||
+                request["password"].get_ref<const std::string&>().empty()) {
+                throw ApiError("password must not be empty", 400);
+            }
+
+            auto staged = ctx.get_visible_config();
+            if (!staged.api) staged.api = ApiConfig{};
+            if (!staged.api->authentication) {
+                staged.api->authentication = AuthenticationConfig{};
+            }
+            staged.api->authentication->password_hash =
+                auth::generate_password_hash(request["password"].get<std::string>());
+            validate_config(staged);
+            ctx.stage_config(staged, serialize_config_pretty(staged));
+            return nlohmann::json{{"password_set", true}}.dump();
+        } catch (const ApiError&) {
+            throw;
+        } catch (const nlohmann::json::exception&) {
+            throw ApiError("invalid request", 400);
+        }
     });
 
     // POST /api/config/save - register work immediately; the daemon owns progress.

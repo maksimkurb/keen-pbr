@@ -200,7 +200,7 @@ inline void record_command_failure(const std::string& command,
 inline std::string read_temporary_file(FILE* file) {
     if (file == nullptr) return {};
     std::string content;
-    std::rewind(file);
+    if (std::fseek(file, 0, SEEK_SET) != 0) return {};
     char buffer[4096];
     while (const size_t count = std::fread(buffer, 1, sizeof(buffer), file)) {
         content.append(buffer, count);

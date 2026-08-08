@@ -41,7 +41,7 @@ if(NOT KEEN_PBR_RELEASE MATCHES "^[0-9]+$")
   message(FATAL_ERROR "KEEN_PBR_RELEASE must contain only digits")
 endif()
 
-project(keen-pbr VERSION ${KEEN_PBR_VERSION} LANGUAGES CXX)
+project(keen-pbr VERSION ${KEEN_PBR_VERSION} LANGUAGES C CXX)
 
 include(GNUInstallDirs)
 
@@ -213,6 +213,15 @@ set(FMT_TEST OFF CACHE INTERNAL "")
 set(FMT_FUZZ OFF CACHE INTERNAL "")
 set(FMT_CUDA_TEST OFF CACHE INTERNAL "")
 add_subdirectory(third_party/fmt)
+
+# Monocypher (pinned git submodule, compiled into the final executable)
+add_library(monocypher STATIC third_party/monocypher/src/monocypher.c)
+target_include_directories(monocypher PUBLIC third_party/monocypher/src)
+set_target_properties(monocypher PROPERTIES
+  C_STANDARD 99
+  C_STANDARD_REQUIRED YES
+  C_EXTENSIONS NO
+)
 
 # cpp-httplib (bundled as git submodule, only if WITH_API — no TLS needed)
 if(WITH_API)
@@ -391,6 +400,7 @@ target_link_libraries(keen-pbr PRIVATE
   Threads::Threads
   fmt::fmt-header-only
   keen_pbr_libunwind
+  monocypher
   nlohmann_json::nlohmann_json
 )
 keen_pbr_apply_project_options(keen-pbr)

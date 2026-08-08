@@ -38,6 +38,7 @@ add_executable(keen-pbr-tests
   test_api_test_routing.cpp
   test_api_static.cpp
   test_api_auth.cpp
+  test_api_config_password.cpp
   test_resolver_health.cpp
   test_system_resolver_hook.cpp
   test_system_info.cpp
@@ -153,6 +154,7 @@ target_link_libraries(keen-pbr-tests PRIVATE
   PkgConfig::LIBNL_ROUTE
   fmt::fmt-header-only
   keen_pbr_libunwind
+  monocypher
   ${LIBRESOLV}
 )
 
@@ -188,6 +190,7 @@ if(WITH_API)
   target_compile_definitions(keen-pbr-tests PRIVATE WITH_API)
   target_sources(keen-pbr-tests PRIVATE
     ../src/api/server.cpp
+    ../src/api/handler_config.cpp
     ../src/api/sse_broadcaster.cpp
     ../src/api/status_stream.cpp
     ../src/api/handler_runtime_interfaces.cpp

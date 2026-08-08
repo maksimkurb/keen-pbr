@@ -386,8 +386,8 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
     auto bearer_authenticated = [this](const httplib::Request& req) {
         const auto header = req.get_header_value("Authorization");
         constexpr std::string_view prefix = "Bearer ";
-        if (header.rfind(prefix.data(), 0) != 0) return false;
-        const auto hash = auth::sha256_hex(header.substr(prefix.size()));
+        if (header.compare(0, prefix.size(), prefix.data(), prefix.size()) != 0) return false;
+        const auto hash = auth::blake2b_hex(header.substr(prefix.size()));
         const std::lock_guard lock(impl_->auth_mutex);
         if (std::chrono::system_clock::now() >= impl_->session_expires) {
             impl_->session_token_hash.clear();
@@ -400,8 +400,8 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
         if (bearer_authenticated(req)) return true;
         const auto header = req.get_header_value("Authorization");
         constexpr std::string_view prefix = "Basic ";
-        if (header.rfind(prefix.data(), 0) != 0) return false;
-        const auto header_hash = auth::sha256_hex(header);
+        if (header.compare(0, prefix.size(), prefix.data(), prefix.size()) != 0) return false;
+        const auto header_hash = auth::blake2b_hex(header);
         {
             const std::lock_guard lock(impl_->auth_mutex);
             if (std::chrono::steady_clock::now() < impl_->basic_cache_expires &&
@@ -513,7 +513,7 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
             {
                 const std::lock_guard lock(impl_->auth_mutex);
                 // There is deliberately only one UI session. A new login invalidates the old token.
-                impl_->session_token_hash = auth::sha256_hex(token);
+                impl_->session_token_hash = auth::blake2b_hex(token);
                 impl_->session_expires = expires;
                 impl_->failed_logins = 0;
             }
