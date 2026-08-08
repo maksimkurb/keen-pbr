@@ -1,4 +1,43 @@
 export const enTranslation = {
+  auth: {
+    loading: "Loading keen-pbr…",
+    title: "Sign in to keen-pbr",
+    description: "Enter the administrator password to continue.",
+    password: "Password",
+    signIn: "Sign in",
+    signingIn: "Signing in…",
+    invalid: "Invalid password",
+    failed: "Unable to sign in",
+    signOut: "Sign out",
+    warning: {
+      prefix: "Authentication is disabled. ",
+      action: "Set an administrator password",
+      suffix: " to protect the API and WebUI.",
+    },
+    settings: {
+      title: "Authentication and CORS",
+      description:
+        "Protect the WebUI and API with the administrator password. A new UI login signs out the previous UI session.",
+      enable: "Enable authentication",
+      newPassword: "New password",
+      newPasswordPlaceholder: "Leave blank to keep current password",
+      confirmPassword: "Confirm password",
+      allowedOrigins: "Allowed CORS origins",
+      originsPlaceholder:
+        "https://panel.example.com\nhttps://admin.example.net",
+      originsDescription:
+        "One exact HTTP or HTTPS origin per line. Chrome and Firefox extension origins are allowed automatically when authentication is enabled.",
+      restartNotice:
+        "Authentication and CORS changes take effect after saving the staged configuration and restarting the keen-pbr service.",
+      update: "Update authentication settings",
+      updating: "Updating…",
+      passwordMismatch: "Passwords do not match.",
+      passwordRequired: "Set a password before enabling authentication.",
+      updateFailed: "Unable to update authentication settings.",
+      staged:
+        "Authentication settings staged. Save the configuration, then restart keen-pbr.",
+    },
+  },
   common: {
     language: "Language",
     theme: "Theme",

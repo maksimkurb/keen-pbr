@@ -7,6 +7,10 @@
  */
 
 export * from './apiConfig';
+export * from './authenticationConfig';
+export * from './authLoginRequest';
+export * from './authLoginResponse';
+export * from './authStatusResponse';
 export * from './cacheMetadata';
 export * from './checkStatus';
 export * from './circuitBreakerConfig';
@@ -17,6 +21,7 @@ export * from './configStateResponseListRefreshState';
 export * from './configUpdateResponse';
 export * from './configUpdateResponseStatus';
 export * from './conntrackOnSwitch';
+export * from './corsConfig';
 export * from './daemonConfig';
 export * from './daemonConfigFirewallBackend';
 export * from './daemonConfigStrictEnforcementAction';

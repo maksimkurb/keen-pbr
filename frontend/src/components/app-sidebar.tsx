@@ -1,7 +1,7 @@
 "use client"
 
 import type { ComponentProps } from "react"
-import { LayoutGridIcon, ShieldIcon, WaypointsIcon } from "lucide-react"
+import { LayoutGridIcon, LogOutIcon, ShieldIcon, WaypointsIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { LanguageSelector } from "@/components/language-selector"
@@ -15,10 +15,13 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import { useSidebar } from "@/components/ui/sidebar-context"
+import { useAuth } from "@/auth/auth-context"
+import { Button } from "@/components/ui/button"
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const { isMobile, toggleSidebar } = useSidebar()
   const { t } = useTranslation()
+  const auth = useAuth()
 
   const data = {
     navMain: [
@@ -86,6 +89,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         <div className="space-y-3">
           <LanguageSelector />
           <ThemeSelector />
+          {auth.enabled ? <Button className="w-full justify-start" onClick={() => void auth.logout()} variant="ghost"><LogOutIcon /> {t("auth.signOut")}</Button> : null}
         </div>
       </SidebarFooter>
     </Sidebar>

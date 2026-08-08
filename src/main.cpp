@@ -10,10 +10,13 @@
 #include <cerrno>
 #include <csignal>
 #include <unistd.h>
+#include <termios.h>
 
 #include <keen-pbr/version.hpp>
 
 #include "config/config.hpp"
+#include "config/config_writer.hpp"
+#include "auth/password.hpp"
 #include "cmd/status.hpp"
 #include "cmd/test_routing.hpp"
 #include "crash/crash_diagnostics.hpp"
@@ -70,6 +73,8 @@ struct CliOptions {
   std::string test_routing_target;
   bool show_help{false};
   bool show_version{false};
+  bool hash_password{false};
+  bool update_password{false};
 };
 
 void print_usage(const char *argv0) {
@@ -104,7 +109,8 @@ void print_usage(const char *argv0) {
             << "  resolver-config-hash               Print MD5 hash of "
                "domain-to-ipset mapping and exit\n"
             << "  test-routing <ip-or-domain>        Test expected vs actual "
-               "routing for an IP or domain\n";
+               "routing for an IP or domain\n"
+            << "  hash-password [--update]           Generate an authentication password hash; --update writes config.json\n";
 }
 
 CliOptions parse_args(int argc, char *argv[]) {
@@ -173,6 +179,10 @@ CliOptions parse_args(int argc, char *argv[]) {
       }
       opts.test_routing_target = argv[++i];
       opts.run_test_routing = true;
+    } else if (std::strcmp(argv[i], "hash-password") == 0) {
+      opts.hash_password = true;
+    } else if (std::strcmp(argv[i], "--update") == 0) {
+      opts.update_password = true;
     } else {
       std::cerr << "Unknown option: " << argv[i] << "\n";
       print_usage(argv[0]);
@@ -190,6 +200,24 @@ std::string read_file(const std::string &path) {
   std::ostringstream ss;
   ss << ifs.rdbuf();
   return ss.str();
+}
+
+std::string read_secret(const char *prompt) {
+  std::cerr << prompt << std::flush;
+  termios old_settings{};
+  const bool tty = ::isatty(STDIN_FILENO) && ::tcgetattr(STDIN_FILENO, &old_settings) == 0;
+  if (tty) {
+    auto hidden = old_settings;
+    hidden.c_lflag &= static_cast<tcflag_t>(~ECHO);
+    ::tcsetattr(STDIN_FILENO, TCSAFLUSH, &hidden);
+  }
+  std::string value;
+  std::getline(std::cin, value);
+  if (tty) {
+    ::tcsetattr(STDIN_FILENO, TCSAFLUSH, &old_settings);
+    std::cerr << '\n';
+  }
+  return value;
 }
 
 void set_signal_action(int signum, void (*handler)(int)) {
@@ -267,7 +295,7 @@ int main(int argc, char *argv[]) {
 
     if (!opts.download_lists && !opts.generate_resolver_config &&
         !opts.resolver_config_hash && !opts.run_service && !opts.run_status &&
-        !opts.run_test_routing) {
+        !opts.run_test_routing && !opts.hash_password) {
       print_usage(argv[0]);
       return 0;
     }
@@ -275,6 +303,29 @@ int main(int argc, char *argv[]) {
     // Initialize logger
     auto &logger = keen_pbr3::Logger::instance();
     logger.set_level(keen_pbr3::parse_log_level(opts.log_level));
+
+    if (opts.hash_password) {
+      const auto password = read_secret("Password: ");
+      const auto confirmation = read_secret("Confirm password: ");
+      if (password.empty()) throw std::runtime_error("Password cannot be empty");
+      if (password != confirmation) throw std::runtime_error("Passwords do not match");
+      const auto verifier = keen_pbr3::auth::generate_password_hash(password);
+      if (!opts.update_password) {
+        std::cout << "Password hash: " << verifier << '\n';
+        return 0;
+      }
+      auto root = nlohmann::json::parse(read_file(opts.config_path));
+      root["api"]["enabled"] = true;
+      root["api"]["authentication"]["enabled"] = true;
+      root["api"]["authentication"]["password_hash"] = verifier;
+      const auto body = root.dump(1, '\t') + "\n";
+      auto updated = keen_pbr3::parse_config(body);
+      keen_pbr3::validate_config(updated);
+      keen_pbr3::write_config_atomically(opts.config_path, body);
+      std::cout << "Authentication password updated in " << opts.config_path << ".\n"
+                << "Restart the keen-pbr service for authentication changes to take effect.\n";
+      return 0;
+    }
 
     if (opts.generate_resolver_config) {
       if (opts.config_path != KEEN_PBR_DEFAULT_CONFIG_PATH) {

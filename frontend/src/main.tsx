@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
@@ -11,6 +12,17 @@ import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { StatusEventBridge } from "@/api/status-event-bridge"
+import { AuthProvider, useAuth } from "@/auth/auth-context"
+import { LoginPage } from "@/auth/login-page"
+import { useTranslation } from "react-i18next"
+
+function AuthenticatedRoot() {
+  const auth = useAuth()
+  const { t } = useTranslation()
+  if (auth.loading) return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">{t("auth.loading")}</div>
+  if (auth.enabled && !auth.authenticated) return <LoginPage />
+  return <><StatusEventBridge /><App /></>
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,11 +54,10 @@ const toasterBottomOffset =
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <StatusEventBridge />
       <TooltipProvider>
         <LanguageProvider>
           <ThemeProvider>
-            <App />
+            <AuthProvider><AuthenticatedRoot /></AuthProvider>
             <Toaster
               offset={{ bottom: toasterBottomOffset }}
               mobileOffset={{ bottom: toasterBottomOffset }}

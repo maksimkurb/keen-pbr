@@ -244,6 +244,7 @@ endfunction()
 
 # Sources
 set(SOURCES
+  src/auth/password.cpp
   src/log/logger.cpp
   src/log/trace.cpp
   src/http/http_client.cpp

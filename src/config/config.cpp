@@ -3,6 +3,7 @@
 #include "icmptest_limits.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
+#include "../auth/password.hpp"
 
 #include <arpa/inet.h>
 #include <cctype>
@@ -877,6 +878,30 @@ void validate_config(const Config& cfg) {
     }
 
     if (cfg.api) {
+        if (cfg.api->authentication &&
+            cfg.api->authentication->enabled.value_or(false)) {
+            const auto& verifier = cfg.api->authentication->password_hash;
+            if (!verifier || !auth::valid_password_hash(*verifier)) {
+                add_issue(issues, "api.authentication.password_hash",
+                          "api.authentication.password_hash must be a valid PBKDF2-SHA256 verifier");
+            }
+        }
+        if (cfg.api->cors) {
+            for (const auto& origin : cfg.api->cors->allowed_origins.value_or(
+                     std::vector<std::string>{})) {
+                const bool scheme = origin.rfind("http://", 0) == 0 ||
+                                    origin.rfind("https://", 0) == 0;
+                const auto authority = origin.find("://");
+                const bool bad_tail = authority == std::string::npos ||
+                    origin.find_first_of("/?#", authority + 3) != std::string::npos ||
+                    origin.find('@', authority + 3) != std::string::npos;
+                if (!scheme || bad_tail || origin.size() <= authority + 3) {
+                    add_issue(issues, "api.cors.allowed_origins",
+                              "CORS entries must be exact HTTP or HTTPS origins without paths or wildcards");
+                    break;
+                }
+            }
+        }
         if (cfg.api->max_request_body_bytes.value_or(1024 * 1024) < 1024) {
             add_issue(issues, "api.max_request_body_bytes",
                       "api.max_request_body_bytes must be >= 1024");

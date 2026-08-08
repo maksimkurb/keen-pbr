@@ -38,9 +38,12 @@ import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-dow
 import { getDnsmasqBadgeState } from "@/components/overview/dnsmasq-status"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
+import { useAuth } from "@/auth/auth-context"
+import { Link } from "wouter"
 
 export function OverviewPage() {
   const { t } = useTranslation()
+  const auth = useAuth()
   const [dnsCheckStatus, setDnsCheckStatus] = useState<DnsCheckStatus>("idle")
   const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false)
   const serviceHealthQuery = useGetHealthService()
@@ -144,6 +147,13 @@ export function OverviewPage() {
 
   return (
     <div className="space-y-6">
+      {!auth.enabled ? (
+        <Alert className="border-amber-500/40 bg-amber-500/10">
+          <AlertDescription>
+            {t("auth.warning.prefix")}<Link className="font-medium underline" href="/general#authentication">{t("auth.warning.action")}</Link>{t("auth.warning.suffix")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <PageHeader
         description={t("overview.pageDescription")}
         title={t("nav.items.systemMonitor")}

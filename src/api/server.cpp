@@ -6,6 +6,7 @@
 #include "../log/logger.hpp"
 #include "../log/trace.hpp"
 #include "../util/traced_mutex.hpp"
+#include "../auth/password.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -19,6 +20,7 @@
 #include <cstdlib>
 #include <optional>
 #include <unordered_map>
+#include <mutex>
 #include <nlohmann/json.hpp>
 
 namespace keen_pbr3 {
@@ -309,6 +311,26 @@ bool is_regular_file_or_gzip(const std::filesystem::path& path) {
     return std::filesystem::is_regular_file(gzip_path, ec);
 }
 
+std::optional<std::string> decode_basic_base64(std::string_view input) {
+    static constexpr std::string_view alphabet =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string output;
+    unsigned value = 0;
+    int bits = -8;
+    for (const unsigned char ch : input) {
+        if (ch == '=') break;
+        const auto position = alphabet.find(static_cast<char>(ch));
+        if (position == std::string_view::npos) return std::nullopt;
+        value = (value << 6U) | static_cast<unsigned>(position);
+        bits += 6;
+        if (bits >= 0) {
+            output.push_back(static_cast<char>((value >> bits) & 0xffU));
+            bits -= 8;
+        }
+    }
+    return output;
+}
+
 } // namespace
 
 struct ApiServer::Impl {
@@ -322,6 +344,16 @@ struct ApiServer::Impl {
     TracedMutex state_mutex;
     std::condition_variable_any startup_cv;
     std::string listen_error_message;
+    bool auth_enabled{false};
+    std::string password_hash;
+    std::vector<std::string> allowed_origins;
+    std::mutex auth_mutex;
+    std::string session_token_hash;
+    std::chrono::system_clock::time_point session_expires{};
+    std::string basic_cache_hash;
+    std::chrono::steady_clock::time_point basic_cache_expires{};
+    unsigned failed_logins{0};
+    std::chrono::steady_clock::time_point failure_window{};
 };
 
 ApiServerLimits api_server_limits(const ApiConfig& config) {
@@ -342,6 +374,164 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
     impl_->server.set_read_timeout(limits.read_timeout_seconds);
     impl_->server.set_write_timeout(limits.write_timeout_seconds);
     impl_->server.set_keep_alive_timeout(limits.keep_alive_timeout_seconds);
+    if (config.authentication) {
+        impl_->auth_enabled = config.authentication->enabled.value_or(false);
+        impl_->password_hash = config.authentication->password_hash.value_or("");
+    }
+    if (config.cors) {
+        impl_->allowed_origins = config.cors->allowed_origins.value_or(
+            std::vector<std::string>{});
+    }
+
+    auto bearer_authenticated = [this](const httplib::Request& req) {
+        const auto header = req.get_header_value("Authorization");
+        constexpr std::string_view prefix = "Bearer ";
+        if (header.rfind(prefix.data(), 0) != 0) return false;
+        const auto hash = auth::sha256_hex(header.substr(prefix.size()));
+        const std::lock_guard lock(impl_->auth_mutex);
+        if (std::chrono::system_clock::now() >= impl_->session_expires) {
+            impl_->session_token_hash.clear();
+            return false;
+        }
+        return !impl_->session_token_hash.empty() &&
+               auth::constant_time_equal(hash, impl_->session_token_hash);
+    };
+    auto request_authenticated = [this, bearer_authenticated](const httplib::Request& req) {
+        if (bearer_authenticated(req)) return true;
+        const auto header = req.get_header_value("Authorization");
+        constexpr std::string_view prefix = "Basic ";
+        if (header.rfind(prefix.data(), 0) != 0) return false;
+        const auto header_hash = auth::sha256_hex(header);
+        {
+            const std::lock_guard lock(impl_->auth_mutex);
+            if (std::chrono::steady_clock::now() < impl_->basic_cache_expires &&
+                auth::constant_time_equal(header_hash, impl_->basic_cache_hash)) {
+                return true;
+            }
+        }
+        const auto decoded_value = decode_basic_base64(header.substr(prefix.size()));
+        if (!decoded_value) return false;
+        const auto& decoded = *decoded_value;
+        const auto colon = decoded.find(':');
+        const bool valid = colon != std::string::npos && decoded.substr(0, colon) == "admin" &&
+                           auth::verify_password(decoded.substr(colon + 1), impl_->password_hash);
+        if (valid) {
+            const std::lock_guard lock(impl_->auth_mutex);
+            impl_->basic_cache_hash = header_hash;
+            impl_->basic_cache_expires = std::chrono::steady_clock::now() + std::chrono::minutes(5);
+        }
+        return valid;
+    };
+    auto apply_cors = [this](const httplib::Request& req, httplib::Response& res) {
+        const auto origin = req.get_header_value("Origin");
+        if (origin.empty()) return true;
+        const auto host = req.get_header_value("Host");
+        const bool same_origin = origin == "http://" + host;
+        bool allowed = same_origin;
+        if (impl_->auth_enabled && !allowed) {
+            const bool extension = origin.rfind("chrome-extension://", 0) == 0 ||
+                                   origin.rfind("moz-extension://", 0) == 0;
+            allowed = extension || std::find(impl_->allowed_origins.begin(),
+                                              impl_->allowed_origins.end(), origin) !=
+                                     impl_->allowed_origins.end();
+        }
+        if (!allowed) return false;
+        if (!same_origin) {
+            res.set_header("Access-Control-Allow-Origin", origin);
+            res.set_header("Vary", "Origin");
+            res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            res.set_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept");
+            res.set_header("Access-Control-Max-Age", "600");
+        }
+        return true;
+    };
+
+    impl_->server.set_pre_routing_handler(
+        [this, request_authenticated, apply_cors](const httplib::Request& req,
+                                                  httplib::Response& res) {
+            if (!apply_cors(req, res)) {
+                res.status = 403;
+                res.set_content(make_error_json("origin not allowed"), "application/json");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+            if (req.method == "OPTIONS") {
+                res.status = 204;
+                return httplib::Server::HandlerResponse::Handled;
+            }
+            const bool api = req.path == "/api" || req.path.rfind("/api/", 0) == 0;
+            const bool public_auth = req.path == "/api/auth/status" ||
+                                     req.path == "/api/auth/login";
+            if (api && impl_->auth_enabled && !public_auth && !request_authenticated(req)) {
+                res.status = 401;
+                res.set_header("WWW-Authenticate", "Basic realm=\"keen-pbr\"");
+                res.set_content(make_error_json("authentication required"), "application/json");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+            return httplib::Server::HandlerResponse::Unhandled;
+        });
+
+    impl_->server.Get("/api/auth/status", [this, bearer_authenticated](const httplib::Request& req,
+                                                                        httplib::Response& res) {
+        res.set_content(nlohmann::json{{"enabled", impl_->auth_enabled},
+                                       {"authenticated", !impl_->auth_enabled ||
+                                                             bearer_authenticated(req)}}.dump(),
+                        "application/json");
+    });
+    impl_->server.Post("/api/auth/login", [this](const httplib::Request& req,
+                                                   httplib::Response& res) {
+        if (!impl_->auth_enabled) {
+            res.status = 409;
+            res.set_content(make_error_json("authentication is disabled"), "application/json");
+            return;
+        }
+        try {
+            {
+                const std::lock_guard lock(impl_->auth_mutex);
+                const auto now = std::chrono::steady_clock::now();
+                if (now - impl_->failure_window >= std::chrono::minutes(1)) {
+                    impl_->failure_window = now;
+                    impl_->failed_logins = 0;
+                }
+                if (impl_->failed_logins >= 5) {
+                    res.status = 429;
+                    res.set_header("Retry-After", "60");
+                    res.set_content(make_error_json("too many authentication attempts"), "application/json");
+                    return;
+                }
+            }
+            const auto body = nlohmann::json::parse(req.body);
+            if (!body.contains("password") || !body["password"].is_string() ||
+                !auth::verify_password(body["password"].get<std::string>(), impl_->password_hash)) {
+                const std::lock_guard lock(impl_->auth_mutex);
+                ++impl_->failed_logins;
+                res.status = 401;
+                res.set_content(make_error_json("invalid credentials"), "application/json");
+                return;
+            }
+            const auto token = auth::random_token();
+            const auto expires = std::chrono::system_clock::now() + std::chrono::hours(24);
+            {
+                const std::lock_guard lock(impl_->auth_mutex);
+                // There is deliberately only one UI session. A new login invalidates the old token.
+                impl_->session_token_hash = auth::sha256_hex(token);
+                impl_->session_expires = expires;
+                impl_->failed_logins = 0;
+            }
+            const auto epoch = std::chrono::duration_cast<std::chrono::seconds>(
+                expires.time_since_epoch()).count();
+            res.set_content(nlohmann::json{{"token", token}, {"expires_at", epoch}}.dump(),
+                            "application/json");
+        } catch (const nlohmann::json::exception&) {
+            res.status = 400;
+            res.set_content(make_error_json("invalid request"), "application/json");
+        }
+    });
+    impl_->server.Post("/api/auth/logout", [this](const httplib::Request&,
+                                                    httplib::Response& res) {
+        const std::lock_guard lock(impl_->auth_mutex);
+        impl_->session_token_hash.clear();
+        res.status = 204;
+    });
     // Parse "host:port" from config.listen
     const std::string listen = config.listen.value_or("0.0.0.0:12121");
     auto colon = listen.rfind(':');

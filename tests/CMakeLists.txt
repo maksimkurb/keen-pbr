@@ -1,4 +1,5 @@
 add_executable(keen-pbr-tests
+  ../src/auth/password.cpp
   test_main.cpp
   test_firewall_verifier.cpp
   test_firewall_reconciler.cpp
@@ -36,6 +37,7 @@ add_executable(keen-pbr-tests
   test_api_status_events.cpp
   test_api_test_routing.cpp
   test_api_static.cpp
+  test_api_auth.cpp
   test_resolver_health.cpp
   test_system_resolver_hook.cpp
   test_system_info.cpp

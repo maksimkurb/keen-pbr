@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { consumeAuthenticatedSse } from "@/api/authenticated-sse"
 
 export type DnsCheckStatus =
   | "idle"
@@ -39,7 +40,7 @@ const pcCheckTimeoutMs = 300_000
 const pcWarningTimeoutMs = 30_000
 
 export function useDnsCheck(): UseDnsCheckReturn {
-  const eventSourceRef = useRef<EventSource | null>(null)
+  const eventSourceRef = useRef<AbortController | null>(null)
   const fetchControllerRef = useRef<AbortController | null>(null)
   const checkTimeoutRef = useRef<number | null>(null)
   const warningTimeoutRef = useRef<number | null>(null)
@@ -53,7 +54,7 @@ export function useDnsCheck(): UseDnsCheckReturn {
 
   const cleanup = useCallback(() => {
     if (eventSourceRef.current) {
-      eventSourceRef.current.close()
+      eventSourceRef.current.abort()
       eventSourceRef.current = null
     }
 
@@ -95,13 +96,13 @@ export function useDnsCheck(): UseDnsCheckReturn {
         }, pcWarningTimeoutMs)
       }
 
-      const eventSource = new EventSource("/api/dns/test")
+      const eventSource = new AbortController()
       eventSourceRef.current = eventSource
 
       let sseConnected = false
 
-      eventSource.onmessage = (event) => {
-        const payload = parseDnsCheckEvent(event.data)
+      void consumeAuthenticatedSse("/api/dns/test", eventSource.signal, ({ data }) => {
+        const payload = parseDnsCheckEvent(data)
         if (!payload) {
           return
         }
@@ -140,11 +141,7 @@ export function useDnsCheck(): UseDnsCheckReturn {
           showWarning: false,
         }))
         setStatus(performBrowserRequest ? "success" : "pc-success")
-      }
-
-      eventSource.onerror = () => {
-        // Let the timeout decide whether the connection or lookup failed.
-      }
+      }).catch(() => { /* Let the timeout report the failure. */ })
 
       checkTimeoutRef.current = window.setTimeout(
         () => {

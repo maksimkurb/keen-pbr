@@ -1,4 +1,43 @@
 export const ruTranslation = {
+  auth: {
+    loading: "Загрузка keen-pbr…",
+    title: "Вход в keen-pbr",
+    description: "Введите пароль администратора, чтобы продолжить.",
+    password: "Пароль",
+    signIn: "Войти",
+    signingIn: "Вход…",
+    invalid: "Неверный пароль",
+    failed: "Не удалось войти",
+    signOut: "Выйти",
+    warning: {
+      prefix: "Аутентификация отключена. ",
+      action: "Задайте пароль администратора",
+      suffix: ", чтобы защитить API и веб-интерфейс.",
+    },
+    settings: {
+      title: "Аутентификация и CORS",
+      description:
+        "Защитите веб-интерфейс и API паролем администратора. Новый вход в веб-интерфейс завершает предыдущую сессию.",
+      enable: "Включить аутентификацию",
+      newPassword: "Новый пароль",
+      newPasswordPlaceholder: "Оставьте пустым, чтобы сохранить текущий пароль",
+      confirmPassword: "Подтвердите пароль",
+      allowedOrigins: "Разрешённые источники CORS",
+      originsPlaceholder:
+        "https://panel.example.com\nhttps://admin.example.net",
+      originsDescription:
+        "Указывайте по одному точному HTTP- или HTTPS-источнику в строке. Источники расширений Chrome и Firefox разрешаются автоматически при включённой аутентификации.",
+      restartNotice:
+        "Изменения аутентификации и CORS вступят в силу после сохранения подготовленной конфигурации и перезапуска службы keen-pbr.",
+      update: "Обновить настройки аутентификации",
+      updating: "Обновление…",
+      passwordMismatch: "Пароли не совпадают.",
+      passwordRequired: "Перед включением аутентификации задайте пароль.",
+      updateFailed: "Не удалось обновить настройки аутентификации.",
+      staged:
+        "Настройки аутентификации подготовлены. Сохраните конфигурацию и перезапустите keen-pbr.",
+    },
+  },
   common: {
     language: "Язык",
     theme: "Тема",

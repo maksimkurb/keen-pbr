@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesXMo5NF data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesYuU7AU data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -90,13 +90,38 @@ namespace api {
     }
     #endif
 
+    struct Authentication {
+        std::optional<bool> enabled;
+        std::optional<std::string> password_hash;
+    };
+
+    struct Cors {
+        std::optional<std::vector<std::string>> allowed_origins;
+    };
+
     struct ApiConfig {
+        std::optional<Authentication> authentication;
+        std::optional<Cors> cors;
         std::optional<bool> enabled;
         std::optional<int64_t> keep_alive_timeout_seconds;
         std::optional<std::string> listen;
         std::optional<int64_t> max_request_body_bytes;
         std::optional<int64_t> read_timeout_seconds;
         std::optional<int64_t> write_timeout_seconds;
+    };
+
+    struct AuthLoginRequest {
+        std::string password;
+    };
+
+    struct AuthLoginResponse {
+        int64_t expires_at;
+        std::string token;
+    };
+
+    struct AuthStatusResponse {
+        bool authenticated;
+        bool enabled;
     };
 
     struct CacheMetadata {
@@ -560,8 +585,12 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesXMo5NF {
+    struct KeenPbrTypesYuU7AU {
         std::optional<ApiConfig> api_config;
+        std::optional<Authentication> authentication_config;
+        std::optional<AuthLoginRequest> auth_login_request;
+        std::optional<AuthLoginResponse> auth_login_response;
+        std::optional<AuthStatusResponse> auth_status_response;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
         std::optional<CircuitBreakerConfig> circuit_breaker_config;
@@ -569,6 +598,7 @@ namespace api {
         std::optional<ConfigStateResponse> config_state_response;
         std::optional<ConfigUpdateResponse> config_update_response;
         std::optional<ConntrackOnSwitch> conntrack_on_switch;
+        std::optional<Cors> cors_config;
         std::optional<Daemon> daemon_config;
         std::optional<Dns> dns_config;
         std::optional<DnsRuleElement> dns_rule;
@@ -627,8 +657,23 @@ namespace api {
 
 namespace keen_pbr3 {
 namespace api {
+    void from_json(const json & j, Authentication & x);
+    void to_json(json & j, const Authentication & x);
+
+    void from_json(const json & j, Cors & x);
+    void to_json(json & j, const Cors & x);
+
     void from_json(const json & j, ApiConfig & x);
     void to_json(json & j, const ApiConfig & x);
+
+    void from_json(const json & j, AuthLoginRequest & x);
+    void to_json(json & j, const AuthLoginRequest & x);
+
+    void from_json(const json & j, AuthLoginResponse & x);
+    void to_json(json & j, const AuthLoginResponse & x);
+
+    void from_json(const json & j, AuthStatusResponse & x);
+    void to_json(json & j, const AuthStatusResponse & x);
 
     void from_json(const json & j, CacheMetadata & x);
     void to_json(json & j, const CacheMetadata & x);
@@ -789,8 +834,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesXMo5NF & x);
-    void to_json(json & j, const KeenPbrTypesXMo5NF & x);
+    void from_json(const json & j, KeenPbrTypesYuU7AU & x);
+    void to_json(json & j, const KeenPbrTypesYuU7AU & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -870,7 +915,29 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshotType & x);
     void to_json(json & j, const StatusEventSnapshotType & x);
 
+    inline void from_json(const json & j, Authentication& x) {
+        x.enabled = get_stack_optional<bool>(j, "enabled");
+        x.password_hash = get_stack_optional<std::string>(j, "password_hash");
+    }
+
+    inline void to_json(json & j, const Authentication & x) {
+        j = json::object();
+        j["enabled"] = x.enabled;
+        j["password_hash"] = x.password_hash;
+    }
+
+    inline void from_json(const json & j, Cors& x) {
+        x.allowed_origins = get_stack_optional<std::vector<std::string>>(j, "allowed_origins");
+    }
+
+    inline void to_json(json & j, const Cors & x) {
+        j = json::object();
+        j["allowed_origins"] = x.allowed_origins;
+    }
+
     inline void from_json(const json & j, ApiConfig& x) {
+        x.authentication = get_stack_optional<Authentication>(j, "authentication");
+        x.cors = get_stack_optional<Cors>(j, "cors");
         x.enabled = get_stack_optional<bool>(j, "enabled");
         x.keep_alive_timeout_seconds = get_stack_optional<int64_t>(j, "keep_alive_timeout_seconds");
         x.listen = get_stack_optional<std::string>(j, "listen");
@@ -881,12 +948,45 @@ namespace api {
 
     inline void to_json(json & j, const ApiConfig & x) {
         j = json::object();
+        j["authentication"] = x.authentication;
+        j["cors"] = x.cors;
         j["enabled"] = x.enabled;
         j["keep_alive_timeout_seconds"] = x.keep_alive_timeout_seconds;
         j["listen"] = x.listen;
         j["max_request_body_bytes"] = x.max_request_body_bytes;
         j["read_timeout_seconds"] = x.read_timeout_seconds;
         j["write_timeout_seconds"] = x.write_timeout_seconds;
+    }
+
+    inline void from_json(const json & j, AuthLoginRequest& x) {
+        x.password = j.at("password").get<std::string>();
+    }
+
+    inline void to_json(json & j, const AuthLoginRequest & x) {
+        j = json::object();
+        j["password"] = x.password;
+    }
+
+    inline void from_json(const json & j, AuthLoginResponse& x) {
+        x.expires_at = j.at("expires_at").get<int64_t>();
+        x.token = j.at("token").get<std::string>();
+    }
+
+    inline void to_json(json & j, const AuthLoginResponse & x) {
+        j = json::object();
+        j["expires_at"] = x.expires_at;
+        j["token"] = x.token;
+    }
+
+    inline void from_json(const json & j, AuthStatusResponse& x) {
+        x.authenticated = j.at("authenticated").get<bool>();
+        x.enabled = j.at("enabled").get<bool>();
+    }
+
+    inline void to_json(json & j, const AuthStatusResponse & x) {
+        j = json::object();
+        j["authenticated"] = x.authenticated;
+        j["enabled"] = x.enabled;
     }
 
     inline void from_json(const json & j, CacheMetadata& x) {
@@ -1760,8 +1860,12 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesXMo5NF& x) {
+    inline void from_json(const json & j, KeenPbrTypesYuU7AU& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
+        x.authentication_config = get_stack_optional<Authentication>(j, "AuthenticationConfig");
+        x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
+        x.auth_login_response = get_stack_optional<AuthLoginResponse>(j, "AuthLoginResponse");
+        x.auth_status_response = get_stack_optional<AuthStatusResponse>(j, "AuthStatusResponse");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
         x.circuit_breaker_config = get_stack_optional<CircuitBreakerConfig>(j, "CircuitBreakerConfig");
@@ -1769,6 +1873,7 @@ namespace api {
         x.config_state_response = get_stack_optional<ConfigStateResponse>(j, "ConfigStateResponse");
         x.config_update_response = get_stack_optional<ConfigUpdateResponse>(j, "ConfigUpdateResponse");
         x.conntrack_on_switch = get_stack_optional<ConntrackOnSwitch>(j, "ConntrackOnSwitch");
+        x.cors_config = get_stack_optional<Cors>(j, "CorsConfig");
         x.daemon_config = get_stack_optional<Daemon>(j, "DaemonConfig");
         x.dns_config = get_stack_optional<Dns>(j, "DnsConfig");
         x.dns_rule = get_stack_optional<DnsRuleElement>(j, "DnsRule");
@@ -1823,9 +1928,13 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesXMo5NF & x) {
+    inline void to_json(json & j, const KeenPbrTypesYuU7AU & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
+        j["AuthenticationConfig"] = x.authentication_config;
+        j["AuthLoginRequest"] = x.auth_login_request;
+        j["AuthLoginResponse"] = x.auth_login_response;
+        j["AuthStatusResponse"] = x.auth_status_response;
         j["CacheMetadata"] = x.cache_metadata;
         j["CheckStatus"] = x.check_status;
         j["CircuitBreakerConfig"] = x.circuit_breaker_config;
@@ -1833,6 +1942,7 @@ namespace api {
         j["ConfigStateResponse"] = x.config_state_response;
         j["ConfigUpdateResponse"] = x.config_update_response;
         j["ConntrackOnSwitch"] = x.conntrack_on_switch;
+        j["CorsConfig"] = x.cors_config;
         j["DaemonConfig"] = x.daemon_config;
         j["DnsConfig"] = x.dns_config;
         j["DnsRule"] = x.dns_rule;

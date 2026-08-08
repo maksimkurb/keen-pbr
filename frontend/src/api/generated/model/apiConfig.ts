@@ -5,6 +5,8 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { AuthenticationConfig } from './authenticationConfig';
+import type { CorsConfig } from './corsConfig';
 
 export interface ApiConfig {
   enabled?: boolean;
@@ -30,4 +32,6 @@ export interface ApiConfig {
      * @minimum 1
      */
   keep_alive_timeout_seconds?: number;
+  authentication?: AuthenticationConfig;
+  cors?: CorsConfig;
 }

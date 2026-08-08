@@ -40,6 +40,10 @@ Config normalize_config_for_api_response(Config config) {
     config.daemon->ipv6_enabled =
         config.daemon->ipv6_enabled.value_or(true);
 
+    if (config.api && config.api->authentication) {
+        config.api->authentication->password_hash.reset();
+    }
+
     return config;
 }
 
@@ -93,6 +97,14 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         Config staged;
         try {
             staged = parse_config(body);
+            if (staged.api && staged.api->authentication &&
+                !staged.api->authentication->password_hash.has_value()) {
+                const auto visible = ctx.get_visible_config();
+                if (visible.api && visible.api->authentication) {
+                    staged.api->authentication->password_hash =
+                        visible.api->authentication->password_hash;
+                }
+            }
             validate_config(staged);
         } catch (const ConfigValidationError& e) {
             throw ApiError(e.what(), 400, make_validation_error_json(e).dump());

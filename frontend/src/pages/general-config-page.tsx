@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useForm } from "@tanstack/react-form"
@@ -34,6 +35,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   clearFormServerErrors,
   setFormServerErrors,
@@ -122,6 +125,38 @@ function LoadedGeneralConfigPage({
   const runtimeInterfacesQuery = useGetRuntimeInterfaces()
 
   const postConfigMutation = usePostConfigMutation()
+  const [authEnabled, setAuthEnabled] = useState(loadedConfig.api?.authentication?.enabled ?? false)
+  const [authPassword, setAuthPassword] = useState("")
+  const [authConfirmation, setAuthConfirmation] = useState("")
+  const [allowedOrigins, setAllowedOrigins] = useState((loadedConfig.api?.cors?.allowed_origins ?? []).join("\n"))
+  const [authPending, setAuthPending] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  const saveAuthentication = async () => {
+    setAuthError(null)
+    if (authPassword !== authConfirmation) { setAuthError(t("auth.settings.passwordMismatch")); return }
+    if (authEnabled && !authPassword && !loadedConfig.api?.authentication?.enabled) {
+      setAuthError(t("auth.settings.passwordRequired")); return
+    }
+    setAuthPending(true)
+    try {
+      const password_hash = authPassword ? await derivePasswordHash(authPassword) : undefined
+      await postConfigMutation.mutateAsync({ data: {
+        ...loadedConfig,
+        api: {
+          ...loadedConfig.api,
+          enabled: true,
+          authentication: { enabled: authEnabled, ...(password_hash ? { password_hash } : {}) },
+          cors: { allowed_origins: allowedOrigins.split("\n").map((v) => v.trim()).filter(Boolean) },
+        },
+      } })
+      setAuthPassword(""); setAuthConfirmation("")
+      toast.success(t("auth.settings.staged"))
+      await queryClient.invalidateQueries({ queryKey: queryKeys.config() })
+    } catch (error) {
+      setAuthError((error as ApiError).message ?? t("auth.settings.updateFailed"))
+    } finally { setAuthPending(false) }
+  }
 
   const form = useForm({
     defaultValues: getDraftFromConfig(loadedConfig),
@@ -196,6 +231,30 @@ function LoadedGeneralConfigPage({
 
   return (
     <>
+      <Card id="authentication">
+        <CardHeader>
+          <CardTitle>{t("auth.settings.title")}</CardTitle>
+          <CardDescription>{t("auth.settings.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center gap-3">
+            <Checkbox checked={authEnabled} id="authentication-enabled" onCheckedChange={(value) => setAuthEnabled(value === true)} />
+            <FieldLabel htmlFor="authentication-enabled">{t("auth.settings.enable")}</FieldLabel>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field><FieldLabel htmlFor="new-auth-password">{t("auth.settings.newPassword")}</FieldLabel><Input autoComplete="new-password" id="new-auth-password" onChange={(event) => setAuthPassword(event.target.value)} placeholder={t("auth.settings.newPasswordPlaceholder")} type="password" value={authPassword} /></Field>
+            <Field><FieldLabel htmlFor="confirm-auth-password">{t("auth.settings.confirmPassword")}</FieldLabel><Input autoComplete="new-password" id="confirm-auth-password" onChange={(event) => setAuthConfirmation(event.target.value)} type="password" value={authConfirmation} /></Field>
+          </div>
+          <Field>
+            <FieldLabel htmlFor="cors-origins">{t("auth.settings.allowedOrigins")}</FieldLabel>
+            <Textarea id="cors-origins" onChange={(event) => setAllowedOrigins(event.target.value)} placeholder={t("auth.settings.originsPlaceholder")} value={allowedOrigins} />
+            <FieldDescription>{t("auth.settings.originsDescription")}</FieldDescription>
+          </Field>
+          {authError ? <Alert variant="destructive"><AlertDescription>{authError}</AlertDescription></Alert> : null}
+          <Alert><AlertDescription>{t("auth.settings.restartNotice")}</AlertDescription></Alert>
+          <Button disabled={authPending} onClick={() => void saveAuthentication()}>{authPending ? t("auth.settings.updating") : t("auth.settings.update")}</Button>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>{t("pages.settings.general.title")}</CardTitle>
@@ -792,6 +851,28 @@ function toBackendIntegerValue(parsed: number | null, raw: string): number {
   }
 
   return raw as unknown as number
+}
+
+async function derivePasswordHash(password: string) {
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  )
+  const digest = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations: 200_000 },
+    key,
+    256
+  ))
+  const encode = (value: Uint8Array) =>
+    btoa(String.fromCharCode(...value))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "")
+  return `pbkdf2-sha256$200000$${encode(salt)}$${encode(digest)}`
 }
 
 function getCrontabGuruUrl(value: string) {
