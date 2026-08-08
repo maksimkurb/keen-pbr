@@ -15,6 +15,7 @@
 
 #include "config/config.hpp"
 #include "cmd/status.hpp"
+#include "cmd/test_routing.hpp"
 #include "crash/crash_diagnostics.hpp"
 #include "daemon/daemon.hpp"
 #include "http/curl_runtime.hpp"
@@ -298,7 +299,7 @@ int main(int argc, char *argv[]) {
              {"request_id", "cli-generate-resolver-config"},
              {"operation", "generate-resolver-config"},
              {"resolver", opts.resolver_type}},
-            std::cout, 15000);
+            std::cout);
         return 0;
       } catch (const keen_pbr3::ipc::ControlStreamError &error) {
         const auto fallback_reason = resolver_fallback_reason(error.what());
@@ -342,6 +343,8 @@ int main(int argc, char *argv[]) {
                   << error.value("code", "daemon_error") << ": "
                   << error.value("message", "status request failed") << '\n';
         return 1;
+      } else if (opts.run_test_routing && response.contains("result")) {
+        return keen_pbr3::run_test_routing_command(response);
       } else if (opts.resolver_config_hash && response.value("ok", false)) {
         std::cout << response.at("result").value("resolver_config_hash", "")
                   << '\n';

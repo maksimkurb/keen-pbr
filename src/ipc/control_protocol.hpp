@@ -3,13 +3,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 #include <nlohmann/json.hpp>
 
 namespace keen_pbr3::ipc {
 
-constexpr std::uint32_t kControlProtocolVersion = 1;
+constexpr std::uint32_t kControlProtocolVersion = 2;
 constexpr std::size_t kMaxControlMessageBytes = std::size_t{1024} * 1024U;
+constexpr std::string_view kControlHelloMarker = "HELO";
 
 class ControlProtocolError : public std::runtime_error {
   public:

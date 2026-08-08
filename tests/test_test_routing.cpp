@@ -12,6 +12,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -310,4 +312,35 @@ TEST_CASE("compute_test_routing includes route rule conditions in diagnostics") 
     CHECK(diagnostic_rule.dest_port == "443");
 
     std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("daemon test-routing response is rendered as a human-readable table") {
+    const nlohmann::json response = {
+        {"ok", true},
+        {"result",
+         {{"target", "example.com"},
+          {"resolved_ips", {"203.0.113.10"}},
+          {"warnings", nlohmann::json::array()},
+          {"dns_error", nullptr},
+          {"entries",
+           {{{"ip", "203.0.113.10"},
+             {"expected_outbound", "vpn"},
+             {"actual_outbound", "vpn"},
+             {"ok", true},
+             {"list_match", {{"list_name", "domains"}, {"via", "example.com"}}}}}}}}};
+
+    std::ostringstream stdout_capture;
+    std::ostringstream stderr_capture;
+    auto* previous_stdout = std::cout.rdbuf(stdout_capture.rdbuf());
+    auto* previous_stderr = std::cerr.rdbuf(stderr_capture.rdbuf());
+    const int exit_code = run_test_routing_command(response);
+    std::cout.rdbuf(previous_stdout);
+    std::cerr.rdbuf(previous_stderr);
+
+    CHECK(exit_code == 0);
+    CHECK(stderr_capture.str().empty());
+    CHECK(stdout_capture.str().find("Target: example.com") != std::string::npos);
+    CHECK(stdout_capture.str().find("Expected Outbound") != std::string::npos);
+    CHECK(stdout_capture.str().find("domains (via example.com)") != std::string::npos);
+    CHECK(stdout_capture.str().find("{\"") == std::string::npos);
 }

@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include <atomic>
+#include <chrono>
 #include <cstring>
 #include <thread>
 
@@ -70,6 +71,8 @@ TEST_CASE("control client exchanges one framed request with a Unix daemon socket
             return;
         }
         const auto request = decode_message(frame);
+        (void)send(client, kControlHelloMarker.data(), kControlHelloMarker.size(),
+                   MSG_NOSIGNAL);
         const auto response = encode_message({{"protocol_version", kControlProtocolVersion},
                                               {"request_id", request.at("request_id")},
                                               {"ok", true},
@@ -93,6 +96,47 @@ TEST_CASE("control client exchanges one framed request with a Unix daemon socket
     (void)unlink(path.c_str());
 }
 
+TEST_CASE("control client uses a separate total response timeout after HELO") {
+    const auto path = "/tmp/keen-pbr-control-deferred-" + std::to_string(getpid()) + ".sock";
+    (void)unlink(path.c_str());
+    const int listener = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    REQUIRE(listener >= 0);
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    std::strncpy(address.sun_path, path.c_str(), sizeof(address.sun_path) - 1U);
+    REQUIRE(bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0);
+    REQUIRE(listen(listener, 1) == 0);
+
+    std::thread server([&] {
+        const int client = accept4(listener, nullptr, nullptr, SOCK_CLOEXEC);
+        if (client < 0) return;
+        std::uint32_t request_size = 0;
+        if (recv(client, &request_size, sizeof(request_size), MSG_WAITALL) != sizeof(request_size)) return;
+        std::string discard(ntohl(request_size), '\0');
+        (void)recv(client, discard.data(), discard.size(), MSG_WAITALL);
+        (void)send(client, kControlHelloMarker.data(), kControlHelloMarker.size(), MSG_NOSIGNAL);
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        const auto response = encode_message({{"protocol_version", kControlProtocolVersion},
+                                              {"request_id", "deferred-1"},
+                                              {"ok", true},
+                                              {"result", {{"value", "ready"}}}});
+        (void)send(client, response.data(), response.size(), MSG_NOSIGNAL);
+        close(client);
+    });
+
+    nlohmann::json response;
+    CHECK_NOTHROW(response = request_control(
+        path,
+        {{"protocol_version", kControlProtocolVersion},
+         {"request_id", "deferred-1"},
+         {"operation", "test-routing"}},
+        100, 1000));
+    server.join();
+    CHECK(response.at("result").at("value") == "ready");
+    close(listener);
+    (void)unlink(path.c_str());
+}
+
 TEST_CASE("control client streams bounded resolver chunks without buffering the response") {
     const auto path = "/tmp/keen-pbr-control-stream-" + std::to_string(getpid()) + ".sock";
     (void)unlink(path.c_str());
@@ -111,6 +155,8 @@ TEST_CASE("control client streams bounded resolver chunks without buffering the 
         if (recv(client, &request_size, sizeof(request_size), MSG_WAITALL) != sizeof(request_size)) return;
         std::string discard(ntohl(request_size), '\0');
         (void)recv(client, discard.data(), discard.size(), MSG_WAITALL);
+        (void)send(client, kControlHelloMarker.data(), kControlHelloMarker.size(),
+                   MSG_NOSIGNAL);
         const auto header = encode_message({{"protocol_version", kControlProtocolVersion},
                                             {"request_id", "stream-1"}, {"ok", true}, {"stream", true}});
         (void)send(client, header.data(), header.size(), MSG_NOSIGNAL);
@@ -153,6 +199,8 @@ TEST_CASE("control client reports a truncated resolver stream after active bytes
         if (recv(client, &request_size, sizeof(request_size), MSG_WAITALL) != sizeof(request_size)) return;
         std::string discard(ntohl(request_size), '\0');
         (void)recv(client, discard.data(), discard.size(), MSG_WAITALL);
+        (void)send(client, kControlHelloMarker.data(), kControlHelloMarker.size(),
+                   MSG_NOSIGNAL);
         const auto header = encode_message({{"protocol_version", kControlProtocolVersion},
                                             {"request_id", "stream-2"}, {"ok", true}, {"stream", true}});
         (void)send(client, header.data(), header.size(), MSG_NOSIGNAL);

@@ -7,10 +7,14 @@
 
 namespace keen_pbr3::ipc {
 
-// Perform one bounded request/response exchange with the running daemon.
+// Perform one bounded request/response exchange with the running daemon. The
+// first timeout covers connecting, sending the request, and receiving the
+// daemon's HELO acknowledgement. The second is the total deadline for the
+// framed response after that acknowledgement.
 nlohmann::json request_control(const std::string& socket_path,
                                const nlohmann::json& request,
-                               int timeout_ms = 5000);
+                               int connect_timeout_ms = 5000,
+                               int total_read_timeout_ms = 60000);
 
 class ControlStreamError : public ControlProtocolError {
 public:
@@ -25,10 +29,12 @@ private:
 };
 
 // Receive a framed stream-start envelope and copy following raw bytes directly
-// to output. The timeout applies only while waiting for the next server chunk.
+// to output. The connect timeout also covers the HELO acknowledgement; the
+// idle timeout applies while waiting for each subsequent frame or chunk.
 void stream_control(const std::string& socket_path,
                     const nlohmann::json& request,
                     std::ostream& output,
+                    int connect_timeout_ms = 5000,
                     int idle_timeout_ms = 15000);
 
 } // namespace keen_pbr3::ipc

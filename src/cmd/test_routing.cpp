@@ -618,13 +618,13 @@ TestRoutingResult compute_test_routing(const Config& config,
     return result;
 }
 
-int run_test_routing_command(const Config& config,
-                              const CacheManager& cache,
-                              const std::string& target) {
-    auto result = compute_test_routing(config, cache, target);
-
+namespace {
+int render_test_routing_result(const TestRoutingResult& result) {
     for (const auto& w : result.warnings) {
         std::cerr << "Warning: " << w << "\n";
+    }
+    if (result.dns_error.has_value()) {
+        std::cerr << "DNS error: " << *result.dns_error << "\n";
     }
 
     std::cout << "Target: " << result.target << "\n";
@@ -651,7 +651,7 @@ int run_test_routing_command(const Config& config,
     std::cout << std::string(ip_w + 3 + list_w + 3 + outbound_w + 3 + outbound_w + 3 + 6, '-')
               << "\n";
 
-    bool all_ok = true;
+    bool all_ok = !result.dns_error.has_value();
     for (const auto& entry : result.entries) {
         std::string list_str = "-";
         if (entry.list_match) {
@@ -673,6 +673,38 @@ int run_test_routing_command(const Config& config,
     }
 
     return all_ok ? 0 : 1;
+}
+} // namespace
+
+int run_test_routing_command(const Config& config,
+                              const CacheManager& cache,
+                              const std::string& target) {
+    return render_test_routing_result(compute_test_routing(config, cache, target));
+}
+
+int run_test_routing_command(const nlohmann::json& response) {
+    const auto& payload = response.at("result");
+    TestRoutingResult result;
+    result.target = payload.value("target", "");
+    result.resolved_ips = payload.value("resolved_ips", std::vector<std::string>{});
+    result.warnings = payload.value("warnings", std::vector<std::string>{});
+    if (payload.contains("dns_error") && !payload.at("dns_error").is_null()) {
+        result.dns_error = payload.at("dns_error").get<std::string>();
+    }
+    for (const auto& item : payload.value("entries", nlohmann::json::array())) {
+        TestRoutingEntry entry;
+        entry.ip = item.value("ip", "");
+        entry.expected_outbound = item.value("expected_outbound", "(unknown)");
+        entry.actual_outbound = item.value("actual_outbound", "(unknown)");
+        entry.ok = item.value("ok", false);
+        if (item.contains("list_match") && item.at("list_match").is_object()) {
+            entry.list_match = ListMatchInfo{
+                item.at("list_match").value("list_name", ""),
+                item.at("list_match").value("via", "")};
+        }
+        result.entries.push_back(std::move(entry));
+    }
+    return render_test_routing_result(result);
 }
 
 } // namespace keen_pbr3

@@ -59,4 +59,7 @@ int run_test_routing_command(const Config& config,
                               const CacheManager& cache,
                               const std::string& target);
 
+// Render a test-routing response obtained from the daemon control socket.
+int run_test_routing_command(const nlohmann::json& response);
+
 } // namespace keen_pbr3

@@ -63,7 +63,7 @@ void send_all(int fd, const char *data, std::size_t size) {
     const ssize_t count =
         send(fd, data + written, size - written, MSG_NOSIGNAL);
     if (count <= 0) {
-      throw ipc::ControlProtocolError("resolver stream write failed: " +
+      throw ipc::ControlProtocolError("control socket write failed: " +
                                       std::string(strerror(errno)));
     }
     written += static_cast<std::size_t>(count);
@@ -364,6 +364,8 @@ void Daemon::handle_ipc_control_socket() {
         throw ipc::ControlProtocolError("truncated control request body");
       }
       request = ipc::decode_message(frame);
+      send_all(client, ipc::kControlHelloMarker.data(),
+               ipc::kControlHelloMarker.size());
       ipc::validate_request_envelope(request);
       const std::string operation = request.at("operation").get<std::string>();
       const bool resolver_hook_inflight =
@@ -403,10 +405,17 @@ void Daemon::handle_ipc_control_socket() {
                                    list_service_.cache_manager(), target);
           nlohmann::json entries = nlohmann::json::array();
           for (const auto &entry : result.entries) {
-            entries.push_back({{"ip", entry.ip},
-                               {"expected_outbound", entry.expected_outbound},
-                               {"actual_outbound", entry.actual_outbound},
-                               {"ok", entry.ok}});
+            nlohmann::json entry_json = {
+                {"ip", entry.ip},
+                {"expected_outbound", entry.expected_outbound},
+                {"actual_outbound", entry.actual_outbound},
+                {"ok", entry.ok}};
+            if (entry.list_match.has_value()) {
+              entry_json["list_match"] = {
+                  {"list_name", entry.list_match->list_name},
+                  {"via", entry.list_match->via}};
+            }
+            entries.push_back(std::move(entry_json));
           }
           response = {{"protocol_version", ipc::kControlProtocolVersion},
                       {"request_id", request.at("request_id")},
