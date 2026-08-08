@@ -16,8 +16,8 @@ constexpr int64_t default_tolerance_ms = 10;
 constexpr int64_t default_breaker_timeout_ms = 60000;
 
 constexpr int64_t min_interval_ms = 1000;
-constexpr int64_t max_interval_ms = 24 * 60 * 60 * 1000;
-constexpr int64_t max_sweep_ms = 10 * 60 * 1000;
+constexpr int64_t max_interval_ms = int64_t{24} * 60 * 60 * 1000;
+constexpr int64_t max_sweep_ms = int64_t{10} * 60 * 1000;
 constexpr int64_t max_count = 10;
 constexpr std::size_t max_candidates = 16;
 constexpr int64_t max_packets_per_sweep = 160;
