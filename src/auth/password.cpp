@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <fstream>
-#include <sstream>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -87,7 +87,10 @@ Bytes unb64(std::string_view in) {
   return out;
 }
 Bytes random_bytes(std::size_t n) {
-  Bytes out(n);std::ifstream f("/dev/urandom",std::ios::binary);f.read(reinterpret_cast<char*>(out.data()),n);
+  if (n > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max()))
+    throw std::length_error("random byte request is too large");
+  Bytes out(n);std::ifstream f("/dev/urandom",std::ios::binary);
+  f.read(reinterpret_cast<char*>(out.data()),static_cast<std::streamsize>(n));
   if(!f)throw std::runtime_error("failed to read secure random bytes");return out;
 }
 bool parse(std::string_view value,std::uint32_t& iterations,Bytes& salt,Bytes& digest){
