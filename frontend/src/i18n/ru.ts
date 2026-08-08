@@ -9,7 +9,6 @@ export const ruTranslation = {
     invalid: "Неверный пароль",
     failed: "Не удалось войти",
     signOut: "Выйти",
-    documentation: "Документация",
     warning: {
       prefix: "Аутентификация отключена. ",
       action: "Задайте пароль администратора",
@@ -43,6 +42,7 @@ export const ruTranslation = {
     },
   },
   common: {
+    documentation: "Документация",
     language: "Язык",
     theme: "Тема",
     enabled: "Включено",

@@ -1,10 +1,10 @@
 import { useState } from "react"
 import type { FormEvent } from "react"
-import { ExternalLinkIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import logoUrl from "@/assets/logo.svg"
 import { useAuth } from "@/auth/auth-context"
+import { DocumentationLink } from "@/components/documentation-link"
 import { LanguageSelector } from "@/components/language-selector"
 import { ThemeSelector } from "@/components/theme-selector"
 import { Field, FieldGroup, FieldLabel } from "@/components/shared/field"
@@ -113,15 +113,7 @@ export function LoginPage() {
       <footer
         className="border-t border-border bg-background px-5 pt-4 pb-[max(1.125rem,env(safe-area-inset-bottom))] text-foreground md:col-start-1 md:row-start-2 md:border-white/10 md:bg-[#1A2D35] md:px-6 md:pt-4.5 md:pb-5.5 md:text-white"
       >
-        <a
-          className="inline-flex min-h-7 items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground md:text-[13px] md:text-white/65 md:hover:text-white"
-          href="https://keen-pbr.fyi"
-          rel="noreferrer"
-          target="_blank"
-        >
-          {t("auth.documentation")}
-          <ExternalLinkIcon className="size-3.5" />
-        </a>
+        <DocumentationLink className="text-muted-foreground md:text-white/65 md:hover:bg-white/10 md:hover:text-white" />
 
         <div className="mt-3.5 grid grid-cols-1 gap-3.5 md:grid-cols-2 md:gap-2.5 [&_p]:!text-muted-foreground md:[&_p]:!text-white/55 [&_[data-slot=select-trigger]]:!bg-background md:[&_[data-slot=select-trigger]]:!border-white/15 md:[&_[data-slot=select-trigger]]:!bg-white/5 md:[&_[data-slot=select-trigger]]:!text-white md:[&_[data-slot=select-trigger]_svg]:!text-white/60">
           <LanguageSelector />

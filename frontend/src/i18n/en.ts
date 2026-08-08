@@ -9,7 +9,6 @@ export const enTranslation = {
     invalid: "Invalid password",
     failed: "Unable to sign in",
     signOut: "Sign out",
-    documentation: "Documentation",
     warning: {
       prefix: "Authentication is disabled. ",
       action: "Set an administrator password",
@@ -43,6 +42,7 @@ export const enTranslation = {
     },
   },
   common: {
+    documentation: "Documentation",
     language: "Language",
     theme: "Theme",
     enabled: "Enabled",

@@ -5,6 +5,7 @@ import { LayoutGridIcon, LogOutIcon, ShieldIcon, WaypointsIcon } from "lucide-re
 import { useTranslation } from "react-i18next"
 
 import { LanguageSelector } from "@/components/language-selector"
+import { DocumentationLink } from "@/components/documentation-link"
 import { AppBrandHeader } from "@/components/layout/app-brand-header"
 import { ThemeSelector } from "@/components/theme-selector"
 import { NavMain } from "@/components/nav-main"
@@ -84,6 +85,9 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
+        <div className="mt-auto px-2 pb-2">
+          <DocumentationLink />
+        </div>
       </SidebarContent>
       <SidebarFooter className={isMobile ? "border-t px-4 py-3" : "border-t"}>
         <div className="space-y-3">
