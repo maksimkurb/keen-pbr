@@ -411,6 +411,23 @@ TEST_CASE("dns servers: keenetic type is accepted on KeeneticOS 3.x") {
     })"));
 }
 
+TEST_CASE("dns servers: keenetic type is accepted when KeeneticOS version is temporarily unknown") {
+    SystemInfoTestGuard guard;
+    set_system_info_for_tests(SystemInfo{
+        .os_type = "keenetic",
+        .os_version = "unknown",
+        .build_variant = "keenetic",
+    });
+
+    CHECK_NOTHROW(parse_test_config(R"({
+        "dns":{
+            "servers":[{"tag":"router_dns","type":"keenetic"}],
+            "fallback":["router_dns"],
+            "system_resolver":{"address":"127.0.0.1"}
+        }
+    })"));
+}
+
 #ifdef USE_KEENETIC_API
 TEST_CASE("dns servers: at most one keenetic type server is allowed") {
     std::string json = R"({

@@ -28,7 +28,7 @@ TEST_CASE("parse_keenetic_version_from_rci_response reads legacy release field")
     REQUIRE(version.has_value());
     CHECK(*version == "2.16.D.12.0-12");
     CHECK(parse_keenetic_major_version(*version) == std::optional<int>(2));
-    CHECK_FALSE(keenetic_version_supports_encrypted_dns(*version));
+    CHECK(keenetic_version_supports_encrypted_dns(*version) == std::optional<bool>(false));
 }
 
 TEST_CASE("parse_keenetic_version_from_rci_response accepts plain title payloads") {
@@ -37,7 +37,11 @@ TEST_CASE("parse_keenetic_version_from_rci_response accepts plain title payloads
     REQUIRE(version.has_value());
     CHECK(*version == "4.3.2");
     CHECK(parse_keenetic_major_version(*version) == std::optional<int>(4));
-    CHECK(keenetic_version_supports_encrypted_dns(*version));
+    CHECK(keenetic_version_supports_encrypted_dns(*version) == std::optional<bool>(true));
+}
+
+TEST_CASE("keenetic DNS support is unknown when the version is unknown") {
+    CHECK_FALSE(keenetic_version_supports_encrypted_dns("unknown").has_value());
 }
 
 } // namespace keen_pbr3

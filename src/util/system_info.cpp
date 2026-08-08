@@ -1,6 +1,7 @@
 #include "system_info.hpp"
 
 #include "../http/http_client.hpp"
+#include "../log/logger.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -159,9 +160,12 @@ std::optional<int> parse_keenetic_major_version(const std::string& version) {
     }
 }
 
-bool keenetic_version_supports_encrypted_dns(const std::string& version) {
+std::optional<bool> keenetic_version_supports_encrypted_dns(const std::string& version) {
     const auto major = parse_keenetic_major_version(version);
-    return major.has_value() && *major >= 3;
+    if (!major.has_value()) {
+        return std::nullopt;
+    }
+    return *major >= 3;
 }
 
 std::optional<std::string> detect_keenetic_version() {
@@ -171,7 +175,10 @@ std::optional<std::string> detect_keenetic_version() {
         client.set_max_response_size(2048);
         return parse_keenetic_version_from_rci_response(
             client.download("http://127.0.0.1:79/rci/show/version"));
-    } catch (const HttpError&) {
+    } catch (const HttpError& error) {
+        Logger::instance().warn(
+            "Keenetic RCI is unavailable; unable to detect KeeneticOS version: {}",
+            error.what());
         return std::nullopt;
     }
 }

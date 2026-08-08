@@ -26,7 +26,8 @@ std::optional<std::string> parse_keenetic_version_from_rci_response(
 std::optional<int> parse_keenetic_major_version(const std::string& version);
 
 // Encrypted upstream DNS via Keenetic built-in DNS requires KeeneticOS 3.x+.
-bool keenetic_version_supports_encrypted_dns(const std::string& version);
+// Returns nullopt when the version cannot be determined.
+std::optional<bool> keenetic_version_supports_encrypted_dns(const std::string& version);
 
 #ifdef KEEN_PBR3_TESTING
 void set_system_info_for_tests(std::optional<SystemInfo> info);

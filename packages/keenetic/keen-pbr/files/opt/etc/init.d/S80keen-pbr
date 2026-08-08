@@ -12,6 +12,7 @@ DESC="keen-pbr"
 PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 IPSET_PROBE_SET="kpbr_probe_hash_net"
 IPSET_COMPONENTS_MESSAGE="ipset kernel modules are not available. Make sure that you followed the installation process and installed all required components: Netfilter Subsystem Kernel Modules and Xtables-addons Extension Package for Netfilter."
+KEENETIC_RCI_STARTUP_ATTEMPTS=15
 
 log() {
     logger -s -t "keen-pbr" "$1"
@@ -101,6 +102,28 @@ check_netfilter_addons_component() {
             return 0
             ;;
     esac
+}
+
+wait_for_keenetic_rci() {
+    local attempt=1
+
+    while [ "$attempt" -le "$KEENETIC_RCI_STARTUP_ATTEMPTS" ]; do
+        if wget -O /dev/null localhost:79/rci/show/version 2>/dev/null; then
+            if [ "$attempt" -gt 1 ]; then
+                log "Keenetic RCI became available after $attempt attempts"
+            fi
+            return 0
+        fi
+
+        if [ "$attempt" -lt "$KEENETIC_RCI_STARTUP_ATTEMPTS" ]; then
+            log "Keenetic RCI is unavailable (attempt $attempt/$KEENETIC_RCI_STARTUP_ATTEMPTS); retrying in 1 second"
+            sleep 1
+        fi
+        attempt=$((attempt + 1))
+    done
+
+    log_error "Keenetic RCI is still unavailable after $KEENETIC_RCI_STARTUP_ATTEMPTS attempts; continuing startup"
+    return 0
 }
 
 ensure_ipset_modules_loaded() {
@@ -225,6 +248,7 @@ pidof() {
 }
 
 prepare_start() {
+    wait_for_keenetic_rci
     check_runtime_dependencies
     enable_raw_prerouting_if_available
     disable_hwnat

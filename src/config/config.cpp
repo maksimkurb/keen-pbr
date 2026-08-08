@@ -1234,9 +1234,11 @@ void validate_config(const Config& cfg) {
                           "dns.servers[\"" + srv.tag +
                               "\"].type='keenetic' requires build with USE_KEENETIC_API=ON");
 #endif
+                const auto encrypted_dns_supported =
+                    keenetic_version_supports_encrypted_dns(system_info.os_version);
                 if (system_info.os_type == "keenetic" &&
-                    !system_info.os_version.empty() &&
-                    !keenetic_version_supports_encrypted_dns(system_info.os_version)) {
+                    encrypted_dns_supported.has_value() &&
+                    !*encrypted_dns_supported) {
                     add_issue(issues, "dns.servers." + srv.tag + ".type",
                               "dns.servers[\"" + srv.tag +
                                   "\"].type='keenetic' requires KeeneticOS 3.x or newer; detected " +
