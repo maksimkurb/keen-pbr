@@ -11,7 +11,7 @@
 <title>REST API – keen-pbr</title>
   <meta name="description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;pbkdf2-sha256$200000$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/rest-api/" itemprop="url" />
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/rest-api/" itemprop="url" />
 
 <meta property="og:title" content="REST API">
 <meta
@@ -34,7 +34,7 @@ config.json{
     &#34;listen&#34;: &#34;0.0.0.0:12121&#34;,
     &#34;authentication&#34;: {
       &#34;enabled&#34;: true,
-      &#34;password_hash&#34;: &#34;pbkdf2-sha256$200000$...&#34;
+      &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34;
     },
     &#34;cors&#34;: {
       &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;]
@@ -63,13 +63,13 @@ Generate a verifier interactively:
 	<meta itemprop="name" content="REST API">
 	<meta itemprop="description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;pbkdf2-sha256$200000$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
-	<meta itemprop="wordCount" content="1070">
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
+	<meta itemprop="wordCount" content="1123">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;pbkdf2-sha256$200000$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
 
     <link rel="preload" href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" as="style" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
     <link href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" rel="stylesheet" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
@@ -1123,7 +1123,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;authentication&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;password_hash&#34;</span><span class="p">:</span> <span class="s2">&#34;pbkdf2-sha256$200000$...&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;password_hash&#34;</span><span class="p">:</span> <span class="s2">&#34;argon2id$v=19$m=19456,t=2,p=1$...&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;cors&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;allowed_origins&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;https://panel.example.com&#34;</span><span class="p">]</span>
@@ -1161,6 +1161,11 @@ configured <code>config.json</code>, use <code>keen-pbr --config /path/to/config
 The command updates the file atomically and reminds
 you to restart the keen-pbr service. A restart is required for authentication
 and CORS changes to affect the running HTTP server.</p>
+<p>Password verifiers use Monocypher&rsquo;s Argon2id implementation. Verifiers from
+older PBKDF2-based releases are not accepted and must be regenerated.
+The config API never returns or accepts the stored verifier. The WebUI reads
+only <code>GET /api/auth/password</code> state and sends a new clear-text password only to
+the write-only <code>POST /api/auth/password</code> operation; hashing happens in the daemon.</p>
 <p>Authenticated API clients may use Basic authentication with username <code>admin</code>
 or a Bearer token returned by <code>POST /api/auth/login</code>. Only one Bearer session is
 valid at a time; a successful login immediately invalidates the previous UI

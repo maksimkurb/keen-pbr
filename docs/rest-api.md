@@ -16,7 +16,7 @@ The REST API is available when:
     "listen": "0.0.0.0:12121",
     "authentication": {
       "enabled": true,
-      "password_hash": "pbkdf2-sha256$200000$..."
+      "password_hash": "argon2id$v=19$m=19456,t=2,p=1$..."
     },
     "cors": {
       "allowed_origins": ["https://panel.example.com"]
@@ -36,6 +36,12 @@ configured `config.json`, use `keen-pbr --config /path/to/config.json hash-passw
 The command updates the file atomically and reminds
 you to restart the keen-pbr service. A restart is required for authentication
 and CORS changes to affect the running HTTP server.
+
+Password verifiers use Monocypher's Argon2id implementation. Verifiers from
+older PBKDF2-based releases are not accepted and must be regenerated.
+The config API never returns or accepts the stored verifier. The WebUI reads
+only `GET /api/auth/password` state and sends a new clear-text password only to
+the write-only `POST /api/auth/password` operation; hashing happens in the daemon.
 
 Authenticated API clients may use Basic authentication with username `admin`
 or a Bearer token returned by `POST /api/auth/login`. Only one Bearer session is

@@ -11,7 +11,7 @@
 <title>REST API – keen-pbr</title>
   <meta name="description" content="Эта страница описывает встроенный HTTP REST API.
 REST API доступен, если:
-Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34; } } По умолчанию API прослушивает 0.0.0.0:12121. Все эндпоинты обслуживаются на настроенном адресе api.listen." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/rest-api/" itemprop="url" />
+Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/rest-api/" itemprop="url" />
 
 <meta property="og:title" content="REST API">
 <meta
@@ -31,7 +31,14 @@ REST API доступен, если:
 config.json{
   &#34;api&#34;: {
     &#34;enabled&#34;: true,
-    &#34;listen&#34;: &#34;0.0.0.0:12121&#34;
+    &#34;listen&#34;: &#34;0.0.0.0:12121&#34;,
+    &#34;authentication&#34;: {
+      &#34;enabled&#34;: true,
+      &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34;
+    },
+    &#34;cors&#34;: {
+      &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;]
+    }
   }
 }
   
@@ -40,7 +47,7 @@ config.json{
   
 
 
-По умолчанию API прослушивает 0.0.0.0:12121. Все эндпоинты обслуживаются на настроенном адресе api.listen.
+Интерактивно сгенерировать хеш пароля:
     
   ">
 <meta
@@ -56,13 +63,13 @@ config.json{
 	<meta itemprop="name" content="REST API">
 	<meta itemprop="description" content="Эта страница описывает встроенный HTTP REST API.
 REST API доступен, если:
-Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34; } } По умолчанию API прослушивает 0.0.0.0:12121. Все эндпоинты обслуживаются на настроенном адресе api.listen.">
-	<meta itemprop="wordCount" content="863">
+Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:">
+	<meta itemprop="wordCount" content="1042">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="Эта страница описывает встроенный HTTP REST API.
 REST API доступен, если:
-Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34; } } По умолчанию API прослушивает 0.0.0.0:12121. Все эндпоинты обслуживаются на настроенном адресе api.listen.">
+Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:">
 
     <link rel="preload" href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" as="style" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
     <link href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" rel="stylesheet" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
@@ -1113,7 +1120,14 @@ REST API доступен, если:
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;api&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;authentication&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;password_hash&#34;</span><span class="p">:</span> <span class="s2">&#34;argon2id$v=19$m=19456,t=2,p=1$...&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;cors&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;allowed_origins&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;https://panel.example.com&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1127,6 +1141,39 @@ REST API доступен, если:
   </button>
 </div>
 </div>
+<p>Интерактивно сгенерировать хеш пароля:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr hash-password</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Чтобы включить аутентификацию и сразу записать новый хеш в выбранный
+<code>config.json</code>, выполните <code>keen-pbr --config /path/to/config.json hash-password --update</code>.
+Команда атомарно обновит файл и напомнит о необходимости перезапуска службы.
+Изменения аутентификации и CORS применяются только после перезапуска keen-pbr.</p>
+<p>Для хеширования пароля используется реализация Argon2id из Monocypher. Хеши
+PBKDF2 из предыдущих версий не поддерживаются — их необходимо создать заново.
+API конфигурации никогда не возвращает и не принимает сохранённый хеш. Веб-интерфейс
+получает только состояние через <code>GET /api/auth/password</code>, а новый пароль в открытом
+виде отправляет только в <code>POST /api/auth/password</code>; хеширование выполняет демон.</p>
+<p>Клиенты API могут использовать Basic-аутентификацию с именем пользователя
+<code>admin</code> или Bearer-токен, полученный через <code>POST /api/auth/login</code>. Одновременно
+действует только одна Bearer-сессия: новый успешный вход немедленно завершает
+предыдущую сессию веб-интерфейса. Сессия истекает через 24 часа и теряется при
+перезапуске демона.</p>
+<p>Когда аутентификация отключена, межсайтовые запросы браузера запрещены. Когда
+она включена, разрешены точно указанные источники, а также источники расширений
+Chrome и Firefox. При входе и Basic-аутентификации пароль передаётся API,
+поэтому используйте доверенную сеть или HTTPS reverse proxy.</p>
 <p>По умолчанию API прослушивает <code>0.0.0.0:12121</code>. Все эндпоинты обслуживаются на настроенном адресе <code>api.listen</code>.</p>
 <hr>
 <h2>GET /api/health/service<span class="hx:absolute hx:-mt-20" id="get-apihealthservice"></span>
