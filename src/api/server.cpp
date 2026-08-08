@@ -109,7 +109,7 @@ bool read_gzip_file(const std::filesystem::path& path, std::string& output) {
     gzFile file = gzopen(path.c_str(), "rb");
     if (!file) return false;
 
-    std::array<char, 16 * 1024> buffer{};
+    std::array<char, std::size_t{16} * 1024U> buffer{};
     bool ok = true;
     for (;;) {
         const int count = gzread(file, buffer.data(), static_cast<unsigned>(buffer.size()));

@@ -10,6 +10,13 @@ make
 
 This runs `cmake -S . -B cmake-build ...` followed by `cmake --build cmake-build`.
 
+## C++
+
+When a multiplication produces a size or count for a wider integer type, make
+an operand the destination type so the multiplication itself is evaluated in
+that type. For example, use `std::size_t{16} * 1024U`, not `16 * 1024` or a cast
+of the completed product.
+
 ## Generated Files
 
 Never edit generated files by hand. Update the source schema/config and run the
