@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -347,6 +348,7 @@ struct ApiServer::Impl {
     bool auth_enabled{false};
     std::string password_hash;
     std::vector<std::string> allowed_origins;
+    std::string device_name;
     std::mutex auth_mutex;
     std::string session_token_hash;
     std::chrono::system_clock::time_point session_expires{};
@@ -354,6 +356,7 @@ struct ApiServer::Impl {
     std::chrono::steady_clock::time_point basic_cache_expires{};
     unsigned failed_logins{0};
     std::chrono::steady_clock::time_point failure_window{};
+    std::uint64_t security_generation{0};
 };
 
 ApiServerLimits api_server_limits(const ApiConfig& config) {
@@ -367,21 +370,15 @@ ApiServerLimits api_server_limits(const ApiConfig& config) {
     return limits;
 }
 
-ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) {
+ApiServer::ApiServer(const ApiConfig& config, std::string device_name)
+    : impl_(std::make_unique<Impl>()) {
     impl_->server.new_task_queue = [] { return new CrashAwareTaskQueue(); };
     const ApiServerLimits limits = api_server_limits(config);
     impl_->server.set_payload_max_length(limits.max_request_body_bytes);
     impl_->server.set_read_timeout(limits.read_timeout_seconds);
     impl_->server.set_write_timeout(limits.write_timeout_seconds);
     impl_->server.set_keep_alive_timeout(limits.keep_alive_timeout_seconds);
-    if (config.authentication) {
-        impl_->auth_enabled = config.authentication->enabled.value_or(false);
-        impl_->password_hash = config.authentication->password_hash.value_or("");
-    }
-    if (config.cors) {
-        impl_->allowed_origins = config.cors->allowed_origins.value_or(
-            std::vector<std::string>{});
-    }
+    update_runtime_config(config, std::move(device_name));
 
     auto bearer_authenticated = [this](const httplib::Request& req) {
         const auto header = req.get_header_value("Authorization");
@@ -409,14 +406,22 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
                 return true;
             }
         }
+        std::string password_hash;
+        std::uint64_t security_generation = 0;
+        {
+            const std::lock_guard lock(impl_->auth_mutex);
+            password_hash = impl_->password_hash;
+            security_generation = impl_->security_generation;
+        }
         const auto decoded_value = decode_basic_base64(header.substr(prefix.size()));
         if (!decoded_value) return false;
         const auto& decoded = *decoded_value;
         const auto colon = decoded.find(':');
         const bool valid = colon != std::string::npos && decoded.substr(0, colon) == "admin" &&
-                           auth::verify_password(decoded.substr(colon + 1), impl_->password_hash);
+                           auth::verify_password(decoded.substr(colon + 1), password_hash);
         if (valid) {
             const std::lock_guard lock(impl_->auth_mutex);
+            if (impl_->security_generation != security_generation) return false;
             impl_->basic_cache_hash = header_hash;
             impl_->basic_cache_expires = std::chrono::steady_clock::now() + std::chrono::minutes(5);
         }
@@ -427,13 +432,20 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
         if (origin.empty()) return true;
         const auto host = req.get_header_value("Host");
         const bool same_origin = origin == "http://" + host;
+        bool auth_enabled = false;
+        std::vector<std::string> allowed_origins;
+        {
+            const std::lock_guard lock(impl_->auth_mutex);
+            auth_enabled = impl_->auth_enabled;
+            allowed_origins = impl_->allowed_origins;
+        }
         bool allowed = same_origin;
-        if (impl_->auth_enabled && !allowed) {
+        if (auth_enabled && !allowed) {
             const bool extension = origin.rfind("chrome-extension://", 0) == 0 ||
                                    origin.rfind("moz-extension://", 0) == 0;
-            allowed = extension || std::find(impl_->allowed_origins.begin(),
-                                              impl_->allowed_origins.end(), origin) !=
-                                     impl_->allowed_origins.end();
+            allowed = extension || std::find(allowed_origins.begin(),
+                                              allowed_origins.end(), origin) !=
+                                     allowed_origins.end();
         }
         if (!allowed) return false;
         if (!same_origin) {
@@ -461,7 +473,12 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
             const bool api = req.path == "/api" || req.path.rfind("/api/", 0) == 0;
             const bool public_auth = req.path == "/api/auth/status" ||
                                      req.path == "/api/auth/login";
-            if (api && impl_->auth_enabled && !public_auth && !request_authenticated(req)) {
+            bool auth_enabled = false;
+            {
+                const std::lock_guard lock(impl_->auth_mutex);
+                auth_enabled = impl_->auth_enabled;
+            }
+            if (api && auth_enabled && !public_auth && !request_authenticated(req)) {
                 res.status = 401;
                 res.set_header("WWW-Authenticate", "Basic realm=\"keen-pbr\"");
                 res.set_content(make_error_json("authentication required"), "application/json");
@@ -472,14 +489,31 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
 
     impl_->server.Get("/api/auth/status", [this, bearer_authenticated](const httplib::Request& req,
                                                                         httplib::Response& res) {
-        res.set_content(nlohmann::json{{"enabled", impl_->auth_enabled},
-                                       {"authenticated", !impl_->auth_enabled ||
-                                                             bearer_authenticated(req)}}.dump(),
+        const bool bearer_valid = bearer_authenticated(req);
+        bool enabled = false;
+        std::string device_name;
+        {
+            const std::lock_guard lock(impl_->auth_mutex);
+            enabled = impl_->auth_enabled;
+            device_name = impl_->device_name;
+        }
+        res.set_content(nlohmann::json{{"enabled", enabled},
+                                       {"authenticated", !enabled || bearer_valid},
+                                       {"device_name", device_name}}.dump(),
                         "application/json");
     });
     impl_->server.Post("/api/auth/login", [this](const httplib::Request& req,
                                                    httplib::Response& res) {
-        if (!impl_->auth_enabled) {
+        bool auth_enabled = false;
+        std::string password_hash;
+        std::uint64_t security_generation = 0;
+        {
+            const std::lock_guard lock(impl_->auth_mutex);
+            auth_enabled = impl_->auth_enabled;
+            password_hash = impl_->password_hash;
+            security_generation = impl_->security_generation;
+        }
+        if (!auth_enabled) {
             res.status = 409;
             res.set_content(make_error_json("authentication is disabled"), "application/json");
             return;
@@ -501,7 +535,7 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
             }
             const auto body = nlohmann::json::parse(req.body);
             if (!body.contains("password") || !body["password"].is_string() ||
-                !auth::verify_password(body["password"].get<std::string>(), impl_->password_hash)) {
+                !auth::verify_password(body["password"].get<std::string>(), password_hash)) {
                 const std::lock_guard lock(impl_->auth_mutex);
                 ++impl_->failed_logins;
                 res.status = 401;
@@ -512,6 +546,13 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
             const auto expires = std::chrono::system_clock::now() + std::chrono::hours(24);
             {
                 const std::lock_guard lock(impl_->auth_mutex);
+                if (impl_->security_generation != security_generation ||
+                    !impl_->auth_enabled) {
+                    res.status = 409;
+                    res.set_content(make_error_json("authentication configuration changed"),
+                                    "application/json");
+                    return;
+                }
                 // There is deliberately only one UI session. A new login invalidates the old token.
                 impl_->session_token_hash = auth::blake2b_hex(token);
                 impl_->session_expires = expires;
@@ -556,6 +597,35 @@ ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) 
 
 ApiServer::~ApiServer() {
     stop();
+}
+
+void ApiServer::update_runtime_config(const ApiConfig& config,
+                                      std::string device_name) {
+    const bool auth_enabled = config.authentication &&
+                              config.authentication->enabled.value_or(false);
+    const std::string password_hash = config.authentication
+        ? config.authentication->password_hash.value_or("")
+        : std::string{};
+    const std::vector<std::string> allowed_origins = config.cors
+        ? config.cors->allowed_origins.value_or(std::vector<std::string>{})
+        : std::vector<std::string>{};
+
+    const std::lock_guard lock(impl_->auth_mutex);
+    const bool authentication_changed = impl_->auth_enabled != auth_enabled ||
+                                        impl_->password_hash != password_hash;
+    impl_->auth_enabled = auth_enabled;
+    impl_->password_hash = password_hash;
+    impl_->allowed_origins = allowed_origins;
+    impl_->device_name = std::move(device_name);
+    if (authentication_changed) {
+        ++impl_->security_generation;
+        impl_->session_token_hash.clear();
+        impl_->session_expires = {};
+        impl_->basic_cache_hash.clear();
+        impl_->basic_cache_expires = {};
+        impl_->failed_logins = 0;
+        impl_->failure_window = {};
+    }
 }
 
 void ApiServer::get(const std::string& path, RouteHandler handler) {

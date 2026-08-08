@@ -186,6 +186,11 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             start_stage("commit_config");
             write_config_atomically(config_path_, request.serialized_config);
             enqueue_control_task([this, serialized = request.serialized_config] {
+                if (api_server_) {
+                    api_server_->update_runtime_config(
+                        config_.api.value_or(ApiConfig{}),
+                        config_.device_name.value_or(""));
+                }
                 config_store_.replace_active(config_, outbound_marks_);
                 config_store_.clear_staged_if_matches(serialized);
                 publish_runtime_state();
@@ -588,7 +593,8 @@ ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::stri
 void Daemon::setup_api() {
     if (!config_.api || !config_.api->enabled.value_or(false) || opts_.no_api) return;
 
-    api_server_ = std::make_unique<ApiServer>(*config_.api);
+    api_server_ = std::make_unique<ApiServer>(
+        *config_.api, config_.device_name.value_or(""));
 
     api_ctx_ = std::make_unique<ApiContext>(ApiContext{
         config_path_,

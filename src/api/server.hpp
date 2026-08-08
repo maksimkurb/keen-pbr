@@ -65,7 +65,7 @@ class ApiServer {
 public:
     // Construct with listen address from ApiConfig.
     // Does not start listening until start() is called.
-    explicit ApiServer(const ApiConfig& config);
+    explicit ApiServer(const ApiConfig& config, std::string device_name = {});
     ~ApiServer();
 
     // Non-copyable, non-movable
@@ -104,6 +104,10 @@ public:
 
     // Returns true if the server is currently listening.
     bool listening() const;
+
+    // Apply authentication, CORS, and WebUI identity settings without
+    // restarting the listening socket. Auth changes revoke active sessions.
+    void update_runtime_config(const ApiConfig& config, std::string device_name);
 
 private:
     struct Impl;

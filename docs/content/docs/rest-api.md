@@ -16,6 +16,7 @@ The REST API is available when:
 
 ```json { filename="config.json" }
 {
+  "device_name": "Home router",
   "api": {
     "enabled": true,
     "listen": "0.0.0.0:12121",
@@ -38,9 +39,13 @@ keen-pbr hash-password
 
 To enable authentication and write the generated verifier directly to the
 configured `config.json`, use `keen-pbr --config /path/to/config.json hash-password --update`.
-The command updates the file atomically and reminds
-you to restart the keen-pbr service. A restart is required for authentication
-and CORS changes to affect the running HTTP server.
+The command updates the file atomically and reminds you to restart the keen-pbr
+service because it edits the file outside the running daemon. Authentication
+and CORS changes made through the WebUI take effect immediately after the
+staged configuration is successfully applied.
+
+`device_name` is optional and may be empty. When set, the WebUI uses it in the
+browser page title and beneath the keen-pbr logo to distinguish devices.
 
 Password verifiers use Monocypher's Argon2id implementation. Verifiers from
 older PBKDF2-based releases are not accepted and must be regenerated.

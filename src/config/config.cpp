@@ -49,6 +49,13 @@ void add_issue(std::vector<ConfigValidationIssue>& issues,
     issues.push_back({std::move(path), std::move(message)});
 }
 
+std::size_t utf8_code_point_count(const std::string& value) {
+    return static_cast<std::size_t>(std::count_if(
+        value.begin(), value.end(), [](unsigned char byte) {
+            return (byte & 0xc0U) != 0x80U;
+        }));
+}
+
 void migrate_legacy_icmptest(json& root,
                              std::vector<ConfigValidationIssue>& issues) {
     auto outbounds = root.find("outbounds");
@@ -851,6 +858,10 @@ Config parse_config(const std::string& json_str) {
 
 void validate_config(const Config& cfg) {
     std::vector<ConfigValidationIssue> issues;
+
+    if (cfg.device_name && utf8_code_point_count(*cfg.device_name) > 128) {
+        add_issue(issues, "device_name", "device_name must be at most 128 characters");
+    }
 
     if (cfg.daemon && cfg.daemon->firewall_verify_max_bytes.has_value() &&
         *cfg.daemon->firewall_verify_max_bytes < 0) {

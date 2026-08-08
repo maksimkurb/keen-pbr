@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import logoUrl from "@/assets/logo.svg"
 import { IconButtonWithTooltip } from "@/components/shared/icon-button-with-tooltip"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/auth/auth-context"
 
 export function AppBrandHeader({
   onMenuClick,
@@ -14,6 +15,7 @@ export function AppBrandHeader({
   className?: string
 }) {
   const { t } = useTranslation()
+  const { deviceName } = useAuth()
 
   return (
     <div className={cn("flex items-center gap-3 px-0 py-0", className)}>
@@ -38,7 +40,7 @@ export function AppBrandHeader({
       <div className="grid min-w-0 flex-1 text-left leading-tight">
         <span className="truncate text-base font-medium">keen-pbr</span>
         <span className="truncate text-xs text-muted-foreground">
-          {t("brand.tagline")}
+          {deviceName || t("brand.tagline")}
         </span>
       </div>
     </div>

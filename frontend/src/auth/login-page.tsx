@@ -1,17 +1,18 @@
 import { useState } from "react"
 import type { FormEvent } from "react"
-import { LockKeyhole } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { useAuth } from "@/auth/auth-context"
+import { getDevicePageTitle } from "@/auth/device-name"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/shared/field"
 import { Input } from "@/components/ui/input"
+import logoUrl from "@/assets/logo.svg"
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { deviceName, login } = useAuth()
   const { t } = useTranslation()
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -30,8 +31,8 @@ export function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-sm shadow-lg">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 rounded-full bg-primary/10 p-3 text-primary"><LockKeyhole className="size-6" /></div>
-          <CardTitle>{t("auth.title")}</CardTitle>
+          <div className="mb-2 flex size-14 items-center justify-center overflow-hidden rounded-xl border bg-[#1A2D35] p-2"><img alt={t("brand.logoAlt")} className="size-full object-contain" src={logoUrl} /></div>
+          <CardTitle>{deviceName ? getDevicePageTitle(deviceName) : t("auth.title")}</CardTitle>
           <CardDescription>{t("auth.description")}</CardDescription>
         </CardHeader>
         <CardContent>

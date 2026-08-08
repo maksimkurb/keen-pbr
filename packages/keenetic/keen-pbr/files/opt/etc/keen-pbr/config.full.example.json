@@ -1,4 +1,5 @@
 {
+  "device_name": "",
   "daemon": {
     "pid_file": "/tmp/keen-pbr.pid",
     "cache_dir": "/opt/var/cache/keen-pbr",

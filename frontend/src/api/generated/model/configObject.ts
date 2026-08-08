@@ -19,6 +19,11 @@ import type { RouteConfig } from './routeConfig';
  * keen-pbr configuration file.
  */
 export interface ConfigObject {
+  /**
+     * Optional human-readable device name shown in the WebUI and page title.
+     * @maxLength 128
+     */
+  device_name?: string;
   daemon?: DaemonConfig;
   api?: ApiConfig;
   outbounds?: Outbound[];

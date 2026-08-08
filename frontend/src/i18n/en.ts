@@ -29,7 +29,7 @@ export const enTranslation = {
       originsDescription:
         "One exact HTTP or HTTPS origin per line. Chrome and Firefox extension origins are allowed automatically when authentication is enabled.",
       restartNotice:
-        "Authentication and CORS changes take effect after saving the staged configuration and restarting the keen-pbr service.",
+        "Authentication and CORS changes take effect as soon as the staged configuration is applied.",
       update: "Update authentication settings",
       updating: "Updating…",
       passwordMismatch: "Passwords do not match.",
@@ -38,7 +38,7 @@ export const enTranslation = {
       invalidOrigin:
         "Each CORS entry must be an exact HTTP or HTTPS origin without a path, credentials, query, fragment, or wildcard.",
       staged:
-        "Authentication settings staged. Save the configuration, then restart keen-pbr.",
+        "Authentication settings staged. Apply the configuration to activate them.",
     },
   },
   common: {
@@ -389,6 +389,10 @@ export const enTranslation = {
       general: {
         title: "General",
         description: "Default behavior for all outbounds.",
+        deviceNameLabel: "Device name",
+        deviceNamePlaceholder: "For example, Home router",
+        deviceNameHint:
+          "Shown in the browser page title and under the keen-pbr logo. Leave empty to use the default branding.",
         strictEnforcementLabel:
           "Block traffic when outbound drops (kill-switch)",
         strictEnforcementHint:

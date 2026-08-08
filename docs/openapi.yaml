@@ -631,12 +631,15 @@ components:
 
     AuthStatusResponse:
       type: object
-      required: [enabled, authenticated]
+      required: [enabled, authenticated, device_name]
       properties:
         enabled:
           type: boolean
         authenticated:
           type: boolean
+        device_name:
+          type: string
+          description: Optional human-readable device name used by the WebUI.
 
     AuthLoginRequest:
       type: object
@@ -1158,6 +1161,11 @@ components:
       type: object
       description: keen-pbr configuration file.
       properties:
+        device_name:
+          type: string
+          default: ""
+          maxLength: 128
+          description: Optional human-readable device name shown in the WebUI and page title.
         daemon:
           $ref: "#/components/schemas/DaemonConfig"
         api:

@@ -9,4 +9,6 @@
 export interface AuthStatusResponse {
   enabled: boolean;
   authenticated: boolean;
+  /** Optional human-readable device name used by the WebUI. */
+  device_name: string;
 }

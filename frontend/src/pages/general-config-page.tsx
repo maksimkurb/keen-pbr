@@ -50,6 +50,7 @@ import {
 import { toast } from "sonner"
 
 type SettingsDraft = {
+  deviceName: string
   strictEnforcement: boolean
   skipMarkedPackets: boolean
   clearDynamicSetsOnApply: boolean
@@ -63,6 +64,7 @@ type SettingsDraft = {
 }
 
 const fallbackDraft: SettingsDraft = {
+  deviceName: "",
   strictEnforcement: true,
   skipMarkedPackets: true,
   clearDynamicSetsOnApply: true,
@@ -76,6 +78,7 @@ const fallbackDraft: SettingsDraft = {
 }
 
 const SETTINGS_FIELD_NAMES = {
+  deviceName: "deviceName",
   strictEnforcement: "strictEnforcement",
   skipMarkedPackets: "skipMarkedPackets",
   clearDynamicSetsOnApply: "clearDynamicSetsOnApply",
@@ -282,6 +285,29 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
+            <form.Field name={SETTINGS_FIELD_NAMES.deviceName}>
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor="device-name">
+                    {t("pages.settings.general.deviceNameLabel")}
+                  </FieldLabel>
+                  <Input
+                    id="device-name"
+                    maxLength={128}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder={t("pages.settings.general.deviceNamePlaceholder")}
+                    value={field.state.value}
+                  />
+                  <FieldDescription>
+                    {t("pages.settings.general.deviceNameHint")}
+                  </FieldDescription>
+                </Field>
+              )}
+            </form.Field>
+
+            <FieldSeparator />
+
             <form.Field name={SETTINGS_FIELD_NAMES.strictEnforcement}>
               {(field) => (
                 <Field>
@@ -774,6 +800,7 @@ function getFirstFieldError(errors: unknown[]) {
 
 function getDraftFromConfig(config: ConfigObject): SettingsDraft {
   return {
+    deviceName: config.device_name ?? fallbackDraft.deviceName,
     strictEnforcement:
       config.daemon?.strict_enforcement ?? fallbackDraft.strictEnforcement,
     skipMarkedPackets:
@@ -804,6 +831,7 @@ function buildUpdatedConfig(
 
   return {
     ...config,
+    device_name: draft.deviceName.trim(),
     daemon: {
       ...config.daemon,
       strict_enforcement: draft.strictEnforcement,
@@ -905,6 +933,8 @@ function resolveSettingsFieldPath(path: string): SettingsFieldName | undefined {
   }
 
   switch (path) {
+    case "device_name":
+      return SETTINGS_FIELD_NAMES.deviceName
     case "daemon.strict_enforcement":
       return SETTINGS_FIELD_NAMES.strictEnforcement
     case "daemon.skip_marked_packets":

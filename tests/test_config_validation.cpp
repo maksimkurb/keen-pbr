@@ -1434,3 +1434,17 @@ TEST_CASE("iproute rule priority start must be positive") {
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "iproute.rule_priority_start");
 }
+
+TEST_CASE("device name may be empty and is limited to 128 characters") {
+    CHECK(validate_issues(R"({"device_name":""})").empty());
+    CHECK(validate_issues(R"({"device_name":"Home router"})").empty());
+
+    std::string unicode_name;
+    for (int i = 0; i < 128; ++i) unicode_name += "я";
+    CHECK(validate_issues(nlohmann::json{{"device_name", unicode_name}}.dump()).empty());
+
+    const std::string long_name(129, 'x');
+    const auto issues = validate_issues(nlohmann::json{{"device_name", long_name}}.dump());
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "device_name");
+}

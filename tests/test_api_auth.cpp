@@ -60,6 +60,24 @@ TEST_CASE("API accepts Basic auth and keeps only the newest Bearer session") {
 
     CHECK(client.Get("/api/protected", httplib::Headers{{"Authorization", "Bearer " + token1}})->status == 401);
     CHECK(client.Get("/api/protected", httplib::Headers{{"Authorization", "Bearer " + token2}})->status == 200);
+
+    ApiConfig disabled_config;
+    disabled_config.authentication = AuthenticationConfig{};
+    disabled_config.authentication->enabled = false;
+    server.update_runtime_config(disabled_config, "Home router");
+    CHECK(client.Get("/api/protected")->status == 200);
+    const auto status = client.Get("/api/auth/status");
+    REQUIRE(status != nullptr);
+    CHECK(nlohmann::json::parse(status->body).at("device_name") == "Home router");
+
+    ApiConfig changed_config;
+    changed_config.authentication = AuthenticationConfig{};
+    changed_config.authentication->enabled = true;
+    changed_config.authentication->password_hash = auth::generate_password_hash("newsecret");
+    server.update_runtime_config(changed_config, "Home router");
+    CHECK(client.Get("/api/protected", httplib::Headers{{"Authorization", "Bearer " + token2}})->status == 401);
+    CHECK(client.Get("/api/protected", httplib::Headers{{"Authorization", "Basic YWRtaW46c2VjcmV0"}})->status == 401);
+    CHECK(client.Get("/api/protected", httplib::Headers{{"Authorization", "Basic YWRtaW46bmV3c2VjcmV0"}})->status == 200);
     server.stop();
 }
 
