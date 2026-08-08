@@ -10,6 +10,10 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
 ```json {filename="config.json"}
 {
+  // Optional device label shown in the browser title and beneath the keen-pbr logo.
+  // Default: empty (the standard keen-pbr branding is used).
+  "device_name": "Home router",
+
   // Global daemon settings.
   // All fields in this section are optional.
   "daemon": {

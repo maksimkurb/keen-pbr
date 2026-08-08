@@ -11,7 +11,7 @@
 <title>REST API – keen-pbr</title>
   <meta name="description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/rest-api/" itemprop="url" />
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;device_name&#34;: &#34;Home router&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/rest-api/" itemprop="url" />
 
 <meta property="og:title" content="REST API">
 <meta
@@ -29,6 +29,7 @@ Configuration
     
 
 config.json{
+  &#34;device_name&#34;: &#34;Home router&#34;,
   &#34;api&#34;: {
     &#34;enabled&#34;: true,
     &#34;listen&#34;: &#34;0.0.0.0:12121&#34;,
@@ -63,13 +64,13 @@ Generate a verifier interactively:
 	<meta itemprop="name" content="REST API">
 	<meta itemprop="description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
-	<meta itemprop="wordCount" content="1123">
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;device_name&#34;: &#34;Home router&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
+	<meta itemprop="wordCount" content="1164">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
-Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
+Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;device_name&#34;: &#34;Home router&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Generate a verifier interactively:">
 
     <link rel="preload" href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" as="style" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
     <link href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" rel="stylesheet" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
@@ -1118,6 +1119,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
     <a href="#configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;device_name&#34;</span><span class="p">:</span> <span class="s2">&#34;Home router&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;api&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span><span class="p">,</span>
@@ -1158,9 +1160,12 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 </div>
 <p>To enable authentication and write the generated verifier directly to the
 configured <code>config.json</code>, use <code>keen-pbr --config /path/to/config.json hash-password --update</code>.
-The command updates the file atomically and reminds
-you to restart the keen-pbr service. A restart is required for authentication
-and CORS changes to affect the running HTTP server.</p>
+The command updates the file atomically and reminds you to restart the keen-pbr
+service because it edits the file outside the running daemon. Authentication
+and CORS changes made through the WebUI take effect immediately after the
+staged configuration is successfully applied.</p>
+<p><code>device_name</code> is optional and may be empty. When set, the WebUI uses it in the
+browser page title and beneath the keen-pbr logo to distinguish devices.</p>
 <p>Password verifiers use Monocypher&rsquo;s Argon2id implementation. Verifiers from
 older PBKDF2-based releases are not accepted and must be regenerated.
 The config API never returns or accepts the stored verifier. The WebUI reads
