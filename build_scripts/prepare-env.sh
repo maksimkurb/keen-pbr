@@ -47,6 +47,7 @@ DEV_PACKAGES=(
     libnl-route-3-dev
     libunwind-dev
     nlohmann-json3-dev
+    zlib1g-dev
 )
 
 COMPILER_PACKAGES=(gcc g++)

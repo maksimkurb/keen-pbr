@@ -26,6 +26,7 @@ RUN apt-get update && \
       rsync \
       unzip \
       xz-utils \
+      zlib1g-dev \
       zstd \
       apt-utils && \
     rm -rf /var/lib/apt/lists/*
