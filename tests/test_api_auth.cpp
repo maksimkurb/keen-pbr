@@ -42,13 +42,22 @@ TEST_CASE("API accepts Basic auth and keeps only the newest Bearer session") {
     config.authentication->password_hash = auth::generate_password_hash("secret");
     ApiServer server(config);
     server.get("/api/protected", [] { return std::string("{\"ok\":true}"); });
+    server.get_stream("/api/protected-stream",
+                      [](const httplib::Request&, httplib::Response& response) {
+                          response.set_content("protected stream", "text/plain");
+                      });
     server.start();
     httplib::Client client("127.0.0.1", 18193);
 
     CHECK(client.Get("/api/protected")->status == 401);
+    CHECK(client.Get("/api/protected-stream")->status == 401);
     const auto basic = client.Get("/api/protected", httplib::Headers{{"Authorization", "Basic YWRtaW46c2VjcmV0"}});
     REQUIRE(basic != nullptr);
     CHECK(basic->status == 200);
+    const auto basic_stream = client.Get(
+        "/api/protected-stream", httplib::Headers{{"Authorization", "Basic YWRtaW46c2VjcmV0"}});
+    REQUIRE(basic_stream != nullptr);
+    CHECK(basic_stream->status == 200);
 
     const auto login1 = client.Post("/api/auth/login", "{\"password\":\"secret\"}", "application/json");
     REQUIRE(login1 != nullptr);

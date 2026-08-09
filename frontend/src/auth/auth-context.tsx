@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react"
 
 import { getDevicePageTitle } from "@/auth/device-name"
+import { authenticatedFetch } from "@/api/client"
 
 type AuthState = {
   enabled: boolean
@@ -59,9 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState((current) => ({ ...current, enabled: true, authenticated: true, loading: false }))
     },
     logout: async () => {
-      const token = sessionStorage.getItem(tokenKey)
       try {
-        await fetch("/api/auth/logout", { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+        await authenticatedFetch("/api/auth/logout", { method: "POST" })
       } finally {
         sessionStorage.removeItem(tokenKey)
         setState((current) => ({ ...current, enabled: true, authenticated: false, loading: false }))

@@ -1,3 +1,5 @@
+import { authenticatedFetch } from "@/api/client"
+
 export type SseMessage = { event: string; data: string }
 
 export async function consumeAuthenticatedSse(
@@ -5,16 +7,11 @@ export async function consumeAuthenticatedSse(
   signal: AbortSignal,
   onMessage: (message: SseMessage) => void
 ) {
-  const token = sessionStorage.getItem("keen-pbr-auth-token")
-  const response = await fetch(url, {
+  const response = await authenticatedFetch(url, {
     signal,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   })
-  if (response.status === 401) {
-    sessionStorage.removeItem("keen-pbr-auth-token")
-    window.dispatchEvent(new Event("keen-pbr-auth-required"))
-  }
-  if (!response.ok || !response.body) throw new Error(`SSE request failed (${response.status})`)
+  if (!response.ok || !response.body)
+    throw new Error(`SSE request failed (${response.status})`)
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()

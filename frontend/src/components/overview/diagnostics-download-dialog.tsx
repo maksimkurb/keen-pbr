@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { authenticatedFetch } from "@/api/client"
 
 export function DiagnosticsDownloadDialog({
   open,
@@ -153,7 +154,9 @@ function redactConfigLists(config: ConfigObject): ConfigObject {
 async function downloadDiagnosticsFile(payload: Record<string, unknown>) {
   let commandFailureLog: string | undefined
   try {
-    const response = await fetch("/api/diagnostics/command-failure")
+    const response = await authenticatedFetch(
+      "/api/diagnostics/command-failure"
+    )
     if (response.status === 200) {
       commandFailureLog = await response.text()
     }

@@ -37,21 +37,30 @@ const normalizeError = (status: number, payload: unknown): ApiError => {
   }
 }
 
+export const authenticatedFetch = async (
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> => {
+  const token = sessionStorage.getItem("keen-pbr-auth-token")
+  const headers = new Headers(options.headers)
+  if (token) headers.set("Authorization", `Bearer ${token}`)
+
+  const response = await fetch(url, { ...options, headers })
+  if (response.status === 401) {
+    sessionStorage.removeItem("keen-pbr-auth-token")
+    window.dispatchEvent(new Event("keen-pbr-auth-required"))
+  }
+  return response
+}
+
 export const apiFetch = async <T>(
   url: string,
   options: RequestInit
 ): Promise<T> => {
-  const token = sessionStorage.getItem("keen-pbr-auth-token")
-  const headers = new Headers(options.headers)
-  if (token) headers.set("Authorization", `Bearer ${token}`)
-  const response = await fetch(url, { ...options, headers })
+  const response = await authenticatedFetch(url, options)
   const payload = await parseResponsePayload(response)
 
   if (!response.ok) {
-    if (response.status === 401) {
-      sessionStorage.removeItem("keen-pbr-auth-token")
-      window.dispatchEvent(new Event("keen-pbr-auth-required"))
-    }
     throw normalizeError(response.status, payload)
   }
 
