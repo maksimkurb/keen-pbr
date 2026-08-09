@@ -30,7 +30,7 @@ export function AppBrandHeader({
           <MenuIcon className="h-4 w-4" />
         </IconButtonWithTooltip>
       ) : null}
-      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-[#1A2D35] p-1.5">
+      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#1A2D35] p-1.5">
         <img
           alt={t("brand.logoAlt")}
           className="size-full object-contain"

@@ -76,7 +76,7 @@ export function DnsCheckModal({
       }}
       open={open}
     >
-      <DialogContent>
+      <DialogContent className="sm:max-w-100">
         <DialogHeader>
           <DialogTitle>{t("overview.dnsCheck.modal.title")}</DialogTitle>
           <DialogDescription>

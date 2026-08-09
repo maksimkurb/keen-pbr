@@ -17,6 +17,7 @@ export function DocumentationLink({ className }: { className?: string }) {
           target="_blank"
         />
       }
+      nativeButton={false}
       variant="outline"
     >
       {t("common.documentation")}
