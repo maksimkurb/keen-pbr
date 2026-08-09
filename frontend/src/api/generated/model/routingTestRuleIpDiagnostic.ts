@@ -5,10 +5,16 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { RoutingTestListMatch } from './routingTestListMatch';
 
 export interface RoutingTestRuleIpDiagnostic {
   /** Resolved IP represented by this matrix row. */
   ip: string;
+  /** Whether this IP or its source domain matches one of this rule's
+  configured lists.
+   */
+  in_lists: boolean;
+  list_match?: RoutingTestListMatch;
   /** Whether the IP exists in this rule's firewall set.
   null when firewall check is unavailable.
    */

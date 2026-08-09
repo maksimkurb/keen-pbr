@@ -1340,11 +1340,18 @@ components:
 
     RoutingTestRuleIpDiagnostic:
       type: object
-      required: [ip]
+      required: [ip, in_lists]
       properties:
         ip:
           type: string
           description: Resolved IP represented by this matrix row.
+        in_lists:
+          type: boolean
+          description: |
+            Whether this IP or its source domain matches one of this rule's
+            configured lists.
+        list_match:
+          $ref: "#/components/schemas/RoutingTestListMatch"
         in_ipset:
           type: boolean
           nullable: true

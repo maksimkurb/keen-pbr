@@ -33,6 +33,13 @@ describe("routing diagnostics helpers", () => {
     expect(getVisibleRuleDiagnostics([rule], false)).toEqual([rule])
   })
 
+  test("keeps rule when a resolved IP matches its lists", () => {
+    const rule = buildRuleDiagnostic(0, { inLists: true, inIpset: false })
+
+    expect(isGrayRuleDiagnostic(rule)).toBe(false)
+    expect(getVisibleRuleDiagnostics([rule], false)).toEqual([rule])
+  })
+
   test("showAllRules keeps every rule", () => {
     const rules = [
       buildRuleDiagnostic(0, { inIpset: false }),
@@ -62,6 +69,7 @@ function buildRuleDiagnostic(
   ruleIndex: number,
   options: {
     inIpset?: boolean | null
+    inLists?: boolean
     targetMatch?: RoutingTestRuleDiagnostic["target_match"]
   } = {}
 ): RoutingTestRuleDiagnostic {
@@ -78,6 +86,7 @@ function buildRuleDiagnostic(
     ip_rows: [
       {
         ip: "8.8.8.8",
+        in_lists: options.inLists ?? false,
         in_ipset: options.inIpset,
       },
     ],

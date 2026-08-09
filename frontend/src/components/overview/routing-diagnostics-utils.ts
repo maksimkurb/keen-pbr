@@ -30,7 +30,9 @@ export function isGrayRuleDiagnostic(rule: RoutingTestRuleDiagnostic) {
     return false
   }
 
-  return rule.ip_rows.every((ipRow) => ipRow.in_ipset !== true)
+  return rule.ip_rows.every(
+    (ipRow) => !ipRow.in_lists && ipRow.in_ipset !== true
+  )
 }
 
 export function getRuleConditions(rule: RouteRule): RuleCondition[] {

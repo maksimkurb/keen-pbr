@@ -365,6 +365,14 @@ export const ruTranslation = {
     routingDiagnostics: {
       noMatchingRule:
         "Для целевых списков не найдено подходящего правила маршрутизации.",
+      resultTitle: "Результат маршрутизации",
+      ruleDetailsTitle: "Диагностика правил",
+      ip: "IP",
+      resultListMatch: "Совпадение со списком",
+      resultListMatchVia: "{{list}} (через {{via}})",
+      expectedOutbound: "Ожидаемый outbound",
+      actualOutbound: "Фактический outbound",
+      status: "Статус",
       hostLabel: 'Хост "{{target}}"',
       inRuleLists: "Есть в доменных/IP-списках правила?",
       showAllRules: "Показывать все правила",

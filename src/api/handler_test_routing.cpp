@@ -72,6 +72,13 @@ void register_test_routing_handler(ApiServer& server, ApiContext& ctx) {
             for (const auto& ip_diag : rule_diag.ip_rows) {
                 api::RoutingTestRuleIpDiagnosticElement ipd;
                 ipd.ip = ip_diag.ip;
+                ipd.in_lists = ip_diag.in_lists;
+                if (ip_diag.list_match) {
+                    api::ListMatch lm;
+                    lm.list = ip_diag.list_match->list_name;
+                    lm.via = ip_diag.list_match->via;
+                    ipd.list_match = std::move(lm);
+                }
                 ipd.in_ipset = ip_diag.in_ipset;
                 rd.ip_rows.push_back(std::move(ipd));
             }

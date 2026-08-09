@@ -25,6 +25,9 @@ struct TestRoutingEntry {
 
 struct RuleIpDiagnostic {
     std::string ip;
+    // Whether this resolved IP (or its source domain) matches one of the rule's lists.
+    bool in_lists{false};
+    std::optional<ListMatchInfo> list_match;
     // true/false when checked against live firewall set, null when unavailable.
     std::optional<bool> in_ipset;
 };

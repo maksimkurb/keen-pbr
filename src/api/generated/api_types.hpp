@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesQcxx57 data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesH1KPfO data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -493,7 +493,9 @@ namespace api {
 
     struct RoutingTestRuleIpDiagnosticElement {
         std::optional<bool> in_ipset;
+        bool in_lists;
         std::string ip;
+        std::optional<ListMatch> list_match;
     };
 
     struct RoutingTestRuleDiagnosticElement {
@@ -595,7 +597,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesQcxx57 {
+    struct KeenPbrTypesH1KPfO {
         std::optional<ApiConfig> api_config;
         std::optional<Authentication> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -852,8 +854,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesQcxx57 & x);
-    void to_json(json & j, const KeenPbrTypesQcxx57 & x);
+    void from_json(const json & j, KeenPbrTypesH1KPfO & x);
+    void to_json(json & j, const KeenPbrTypesH1KPfO & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1705,13 +1707,17 @@ namespace api {
 
     inline void from_json(const json & j, RoutingTestRuleIpDiagnosticElement& x) {
         x.in_ipset = get_stack_optional<bool>(j, "in_ipset");
+        x.in_lists = j.at("in_lists").get<bool>();
         x.ip = j.at("ip").get<std::string>();
+        x.list_match = get_stack_optional<ListMatch>(j, "list_match");
     }
 
     inline void to_json(json & j, const RoutingTestRuleIpDiagnosticElement & x) {
         j = json::object();
         j["in_ipset"] = x.in_ipset;
+        j["in_lists"] = x.in_lists;
         j["ip"] = x.ip;
+        j["list_match"] = x.list_match;
     }
 
     inline void from_json(const json & j, RoutingTestRuleDiagnosticElement& x) {
@@ -1900,7 +1906,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesQcxx57& x) {
+    inline void from_json(const json & j, KeenPbrTypesH1KPfO& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<Authentication>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -1970,7 +1976,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesQcxx57 & x) {
+    inline void to_json(json & j, const KeenPbrTypesH1KPfO & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

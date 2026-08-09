@@ -561,6 +561,9 @@ TestRoutingResult compute_test_routing(const Config& config,
         for (size_t idx = 0; idx < result.rule_diagnostics.size(); ++idx) {
             RuleIpDiagnostic ip_diag;
             ip_diag.ip = ip;
+            ip_diag.list_match = find_rule_match(
+                route_rules[idx], lookups, ip, domain_cands);
+            ip_diag.in_lists = ip_diag.list_match.has_value();
             if (set_tester.has_value() && idx < rule_states.size()) {
                 ip_diag.in_ipset = test_rule_ipset_membership(
                     *set_tester, rule_states[idx], ip, is_ipv4_address(ip));

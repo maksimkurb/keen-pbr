@@ -286,6 +286,32 @@ TEST_CASE("compute_test_routing resolves domain through configured system resolv
     system_resolver.address = server.address();
     config.dns->system_resolver = system_resolver;
 
+    const auto list_path = temp_dir / "resolved-ip-list.txt";
+    {
+        std::ofstream list(list_path);
+        list << "10.0.0.53/32\n";
+    }
+    const auto domain_list_path = temp_dir / "domain-list.txt";
+    {
+        std::ofstream list(domain_list_path);
+        list << "www.example.com\n";
+    }
+    ListConfig ip_list;
+    ip_list.file = list_path.string();
+    ListConfig domain_list;
+    domain_list.file = domain_list_path.string();
+    config.lists = std::map<std::string, ListConfig>{
+        {"resolved_ips", ip_list}, {"domains", domain_list}};
+    RouteRule ip_rule;
+    ip_rule.outbound = "vpn";
+    ip_rule.list = std::vector<std::string>{"resolved_ips"};
+    RouteRule domain_rule;
+    domain_rule.outbound = "vpn";
+    domain_rule.list = std::vector<std::string>{"domains"};
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{ip_rule, domain_rule};
+    config.route = route;
+
     const auto result = compute_test_routing(config, cache, "www.example.com");
 
     CHECK(result.is_domain);
@@ -294,6 +320,26 @@ TEST_CASE("compute_test_routing resolves domain through configured system resolv
     CHECK(result.entries[0].ip == "10.0.0.53");
     CHECK(result.entries[1].ip == "2001:db8::53");
     CHECK_FALSE(result.dns_error.has_value());
+    REQUIRE(result.rule_diagnostics.size() == 2);
+    const auto& ip_diagnostic = result.rule_diagnostics[0];
+    CHECK_FALSE(ip_diagnostic.target_in_lists);
+    REQUIRE(ip_diagnostic.ip_rows.size() == 2);
+    CHECK(ip_diagnostic.ip_rows[0].in_lists);
+    REQUIRE(ip_diagnostic.ip_rows[0].list_match.has_value());
+    CHECK(ip_diagnostic.ip_rows[0].list_match->list_name == "resolved_ips");
+    CHECK(ip_diagnostic.ip_rows[0].list_match->via == "10.0.0.53");
+    CHECK_FALSE(ip_diagnostic.ip_rows[1].in_lists);
+    CHECK_FALSE(ip_diagnostic.ip_rows[1].list_match.has_value());
+
+    const auto& domain_diagnostic = result.rule_diagnostics[1];
+    CHECK(domain_diagnostic.target_in_lists);
+    REQUIRE(domain_diagnostic.ip_rows.size() == 2);
+    for (const auto& ip_row : domain_diagnostic.ip_rows) {
+        CHECK(ip_row.in_lists);
+        REQUIRE(ip_row.list_match.has_value());
+        CHECK(ip_row.list_match->list_name == "domains");
+        CHECK(ip_row.list_match->via == "www.example.com");
+    }
 
     std::filesystem::remove_all(temp_dir);
 }
@@ -416,6 +462,9 @@ TEST_CASE("compute_test_routing uses realized iptables generation set names") {
     CHECK(result.entries.front().ok);
     REQUIRE(result.rule_diagnostics.size() == 1);
     REQUIRE(result.rule_diagnostics.front().ip_rows.size() == 1);
+    CHECK(result.rule_diagnostics.front().ip_rows.front().in_lists);
+    REQUIRE(result.rule_diagnostics.front().ip_rows.front().list_match.has_value());
+    CHECK(result.rule_diagnostics.front().ip_rows.front().list_match->list_name == "remote");
     REQUIRE(result.rule_diagnostics.front().ip_rows.front().in_ipset.has_value());
     CHECK(*result.rule_diagnostics.front().ip_rows.front().in_ipset);
 
