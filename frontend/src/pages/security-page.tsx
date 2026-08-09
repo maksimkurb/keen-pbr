@@ -73,6 +73,13 @@ function LoadedSecurityPage({ loadedConfig }: { loadedConfig: ConfigObject }) {
     passwordStatusQuery.data?.status === 200 &&
     passwordStatusQuery.data.data.password_set
 
+  const updateAuthPassword = (value: string) => {
+    setAuthPassword(value)
+    if (!value) {
+      setAuthConfirmation("")
+    }
+  }
+
   const save = async () => {
     setError(null)
 
@@ -130,109 +137,129 @@ function LoadedSecurityPage({ loadedConfig }: { loadedConfig: ConfigObject }) {
     }
   }
 
+  const cancel = () => {
+    setAuthEnabled(loadedConfig.api?.authentication?.enabled ?? false)
+    setAuthPassword("")
+    setAuthConfirmation("")
+    setAllowedOrigins(
+      (loadedConfig.api?.cors?.allowed_origins ?? []).join("\n")
+    )
+    setError(null)
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("auth.settings.title")}</CardTitle>
-        <CardDescription>{t("auth.settings.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="flex items-center gap-3">
-          <Checkbox
-            checked={authEnabled}
-            id="authentication-enabled"
-            onCheckedChange={(value) => setAuthEnabled(value === true)}
-          />
-          <FieldLabel htmlFor="authentication-enabled">
-            {t("auth.settings.enable")}
-          </FieldLabel>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="new-auth-password">
-              {t("auth.settings.newPassword")}
-            </FieldLabel>
-            <Input
-              autoComplete="new-password"
-              id="new-auth-password"
-              onChange={(event) => setAuthPassword(event.target.value)}
-              placeholder={t(
-                passwordSet
-                  ? "auth.settings.passwordSetPlaceholder"
-                  : "auth.settings.newPasswordPlaceholder"
-              )}
-              type="password"
-              value={authPassword}
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("auth.settings.title")}</CardTitle>
+          <CardDescription>{t("auth.settings.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              checked={authEnabled}
+              id="authentication-enabled"
+              onCheckedChange={(value) => setAuthEnabled(value === true)}
             />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="confirm-auth-password">
-              {t("auth.settings.confirmPassword")}
+            <FieldLabel htmlFor="authentication-enabled">
+              {t("auth.settings.enable")}
             </FieldLabel>
-            <Input
-              autoComplete="new-password"
-              id="confirm-auth-password"
-              onChange={(event) => setAuthConfirmation(event.target.value)}
-              type="password"
-              value={authConfirmation}
+          </div>
+
+          <div className="space-y-4">
+            <Field>
+              <FieldLabel htmlFor="new-auth-password">
+                {t("auth.settings.newPassword")}
+              </FieldLabel>
+              <Input
+                autoComplete="new-password"
+                id="new-auth-password"
+                onChange={(event) => updateAuthPassword(event.target.value)}
+                placeholder={t(
+                  passwordSet
+                    ? "auth.settings.passwordSetPlaceholder"
+                    : "auth.settings.newPasswordPlaceholder"
+                )}
+                type="password"
+                value={authPassword}
+              />
+            </Field>
+            {authPassword ? (
+              <Field className="animate-in duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
+                <FieldLabel htmlFor="confirm-auth-password">
+                  {t("auth.settings.confirmPassword")}
+                </FieldLabel>
+                <Input
+                  autoComplete="new-password"
+                  id="confirm-auth-password"
+                  onChange={(event) => setAuthConfirmation(event.target.value)}
+                  type="password"
+                  value={authConfirmation}
+                />
+              </Field>
+            ) : null}
+          </div>
+
+          <Field>
+            <FieldLabel htmlFor="cors-origins">
+              {t("auth.settings.allowedOrigins")}
+            </FieldLabel>
+            <Textarea
+              id="cors-origins"
+              onChange={(event) => setAllowedOrigins(event.target.value)}
+              placeholder={t("auth.settings.originsPlaceholder")}
+              value={allowedOrigins}
             />
+            <FieldDescription>
+              {t("auth.settings.originsDescription")}
+            </FieldDescription>
           </Field>
-        </div>
 
-        <Field>
-          <FieldLabel htmlFor="cors-origins">
-            {t("auth.settings.allowedOrigins")}
-          </FieldLabel>
-          <Textarea
-            id="cors-origins"
-            onChange={(event) => setAllowedOrigins(event.target.value)}
-            placeholder={t("auth.settings.originsPlaceholder")}
-            value={allowedOrigins}
-          />
-          <FieldDescription>
-            {t("auth.settings.originsDescription")}
-          </FieldDescription>
-        </Field>
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+        </CardContent>
+      </Card>
 
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-        <Alert>
-          <AlertDescription>
-            {t("auth.settings.restartNotice")}
-          </AlertDescription>
-        </Alert>
+      <div className="flex justify-end gap-2">
+        <Button disabled={pending} onClick={cancel} size="xl" variant="outline">
+          {t("common.cancel")}
+        </Button>
         <Button
           disabled={pending || passwordStatusQuery.isLoading}
           onClick={() => void save()}
+          size="xl"
         >
-          {pending ? t("auth.settings.updating") : t("auth.settings.update")}
+          {pending
+            ? t("pages.settings.actions.saving")
+            : t("pages.settings.actions.save")}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </>
   )
 }
 
 function SecurityPageSkeleton() {
   return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-4 w-full max-w-xl" />
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <Skeleton className="h-5 w-48" />
-        <div className="grid gap-4 md:grid-cols-2">
+    <>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-full max-w-xl" />
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <Skeleton className="h-5 w-48" />
           <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-8 w-56" />
-      </CardContent>
-    </Card>
+          <Skeleton className="h-24 w-full" />
+        </CardContent>
+      </Card>
+      <div className="flex justify-end gap-2">
+        <Skeleton className="h-11 w-24 rounded-xl" />
+        <Skeleton className="h-11 w-24 rounded-xl" />
+      </div>
+    </>
   )
 }
 

@@ -27,11 +27,7 @@ export const enTranslation = {
       originsPlaceholder:
         "https://panel.example.com\nhttps://admin.example.net",
       originsDescription:
-        "One exact HTTP or HTTPS origin per line. Chrome and Firefox extension origins are allowed automatically when authentication is enabled.",
-      restartNotice:
-        "Authentication and CORS changes take effect as soon as the staged configuration is applied.",
-      update: "Update authentication settings",
-      updating: "Updating…",
+        "One exact HTTP or HTTPS origin per line. Only configure if you use external UIs to manage the keen-pbr API.",
       passwordMismatch: "Passwords do not match.",
       passwordRequired: "Set a password before enabling authentication.",
       updateFailed: "Unable to update authentication settings.",
