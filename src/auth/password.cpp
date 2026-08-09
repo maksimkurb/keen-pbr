@@ -5,6 +5,7 @@
 #include <array>
 #include <cerrno>
 #include <cstdint>
+#include <fstream>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -69,6 +70,17 @@ std::array<std::uint8_t, N> random_bytes() {
         const auto count = ::getrandom(bytes.data() + offset, bytes.size() - offset, 0);
         if (count < 0) {
             if (errno == EINTR) continue;
+            if (errno == ENOSYS) {
+                const auto remaining = bytes.size() - offset;
+                if (remaining > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max())) {
+                    throw std::length_error("random byte request is too large");
+                }
+                std::ifstream source("/dev/urandom", std::ios::binary);
+                source.read(reinterpret_cast<char*>(bytes.data() + offset),
+                            static_cast<std::streamsize>(remaining));
+                if (!source) throw std::runtime_error("failed to read secure random bytes");
+                return bytes;
+            }
             throw std::runtime_error("failed to read secure random bytes");
         }
         if (count == 0) throw std::runtime_error("secure random source returned no data");

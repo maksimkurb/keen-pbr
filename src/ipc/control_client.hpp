@@ -7,6 +7,11 @@
 
 namespace keen_pbr3::ipc {
 
+class ControlTimeoutError final : public ControlProtocolError {
+public:
+    using ControlProtocolError::ControlProtocolError;
+};
+
 // Perform one bounded request/response exchange with the running daemon. The
 // first timeout covers connecting, sending the request, and receiving the
 // daemon's HELO acknowledgement. The second is the total deadline for the

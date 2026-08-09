@@ -137,6 +137,92 @@ TEST_CASE("control client uses a separate total response timeout after HELO") {
     (void)unlink(path.c_str());
 }
 
+TEST_CASE("control client identifies a socket acknowledgement timeout") {
+    const auto path = "/tmp/keen-pbr-control-ack-timeout-" +
+        std::to_string(getpid()) + ".sock";
+    (void)unlink(path.c_str());
+    const int listener = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    REQUIRE(listener >= 0);
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    std::strncpy(address.sun_path, path.c_str(), sizeof(address.sun_path) - 1U);
+    REQUIRE(bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0);
+    REQUIRE(listen(listener, 1) == 0);
+
+    std::thread server([&] {
+        const int client = accept4(listener, nullptr, nullptr, SOCK_CLOEXEC);
+        if (client < 0) return;
+        std::uint32_t request_size = 0;
+        if (recv(client, &request_size, sizeof(request_size), MSG_WAITALL) ==
+            sizeof(request_size)) {
+            std::string discard(ntohl(request_size), '\0');
+            (void)recv(client, discard.data(), discard.size(), MSG_WAITALL);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        close(client);
+    });
+
+    try {
+        (void)request_control(
+            path,
+            {{"protocol_version", kControlProtocolVersion},
+             {"request_id", "ack-timeout-1"},
+             {"operation", "test-routing"}},
+            25, 1000);
+        FAIL("expected socket acknowledgement timeout");
+    } catch (const ControlTimeoutError& error) {
+        CHECK(std::string(error.what()) ==
+              "control socket timeout waiting for socket ack");
+    }
+    server.join();
+    close(listener);
+    (void)unlink(path.c_str());
+}
+
+TEST_CASE("control client identifies a response timeout after acknowledgement") {
+    const auto path = "/tmp/keen-pbr-control-response-timeout-" +
+        std::to_string(getpid()) + ".sock";
+    (void)unlink(path.c_str());
+    const int listener = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    REQUIRE(listener >= 0);
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    std::strncpy(address.sun_path, path.c_str(), sizeof(address.sun_path) - 1U);
+    REQUIRE(bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0);
+    REQUIRE(listen(listener, 1) == 0);
+
+    std::thread server([&] {
+        const int client = accept4(listener, nullptr, nullptr, SOCK_CLOEXEC);
+        if (client < 0) return;
+        std::uint32_t request_size = 0;
+        if (recv(client, &request_size, sizeof(request_size), MSG_WAITALL) ==
+            sizeof(request_size)) {
+            std::string discard(ntohl(request_size), '\0');
+            (void)recv(client, discard.data(), discard.size(), MSG_WAITALL);
+            (void)send(client, kControlHelloMarker.data(),
+                       kControlHelloMarker.size(), MSG_NOSIGNAL);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        close(client);
+    });
+
+    try {
+        (void)request_control(
+            path,
+            {{"protocol_version", kControlProtocolVersion},
+             {"request_id", "response-timeout-1"},
+             {"operation", "test-routing"}},
+            1000, 25);
+        FAIL("expected response timeout");
+    } catch (const ControlTimeoutError& error) {
+        CHECK(std::string(error.what()) ==
+              "control socket timeout waiting for response");
+    }
+    server.join();
+    close(listener);
+    (void)unlink(path.c_str());
+}
+
 TEST_CASE("control client streams bounded resolver chunks without buffering the response") {
     const auto path = "/tmp/keen-pbr-control-stream-" + std::to_string(getpid()) + ".sock";
     (void)unlink(path.c_str());

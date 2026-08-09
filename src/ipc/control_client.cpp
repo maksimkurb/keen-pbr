@@ -34,10 +34,10 @@ void wait_for(int fd, short events, Deadline deadline) {
     int result = 0;
     do {
         const int timeout_ms = remaining_ms(deadline);
-        if (timeout_ms == 0) throw ControlProtocolError("control socket timeout");
+        if (timeout_ms == 0) throw ControlTimeoutError("control socket timeout");
         result = poll(&descriptor, 1, timeout_ms);
     } while (result < 0 && errno == EINTR);
-    if (result == 0) throw ControlProtocolError("control socket timeout");
+    if (result == 0) throw ControlTimeoutError("control socket timeout");
     if (result < 0) throw ControlProtocolError("control socket poll failed: " + std::string(strerror(errno)));
     if ((descriptor.revents & events) == 0 &&
         (descriptor.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
@@ -91,7 +91,13 @@ int connect_control_socket(const std::string& socket_path, Deadline deadline) {
         throw ControlProtocolError("control socket unavailable: " + error);
     }
     if (connecting) {
-        wait_for(fd, POLLOUT, deadline);
+        try {
+            wait_for(fd, POLLOUT, deadline);
+        } catch (const ControlTimeoutError&) {
+            close(fd);
+            throw ControlTimeoutError(
+                "control socket timeout waiting for socket ack");
+        }
         int socket_error = 0;
         socklen_t error_size = sizeof(socket_error);
         if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &socket_error, &error_size) != 0 ||
@@ -111,12 +117,16 @@ int connect_control_socket(const std::string& socket_path, Deadline deadline) {
 }
 
 nlohmann::json read_response_envelope(int fd, Deadline deadline) {
-    const std::string header = read_exact(fd, sizeof(std::uint32_t), deadline);
-    std::uint32_t length = 0;
-    std::memcpy(&length, header.data(), sizeof(length));
-    const std::size_t payload_size = ntohl(length);
-    if (payload_size > kMaxControlMessageBytes) throw ControlProtocolError("control response exceeds maximum size");
-    return decode_message(header + read_exact(fd, payload_size, deadline));
+    try {
+        const std::string header = read_exact(fd, sizeof(std::uint32_t), deadline);
+        std::uint32_t length = 0;
+        std::memcpy(&length, header.data(), sizeof(length));
+        const std::size_t payload_size = ntohl(length);
+        if (payload_size > kMaxControlMessageBytes) throw ControlProtocolError("control response exceeds maximum size");
+        return decode_message(header + read_exact(fd, payload_size, deadline));
+    } catch (const ControlTimeoutError&) {
+        throw ControlTimeoutError("control socket timeout waiting for response");
+    }
 }
 
 void read_start_marker(int fd, Deadline deadline) {
@@ -137,8 +147,13 @@ nlohmann::json request_control(const std::string& socket_path,
     const int fd = connect_control_socket(socket_path, connect_deadline);
     const auto close_fd = [&]() { close(fd); };
     try {
-        write_all(fd, encode_message(request), connect_deadline);
-        read_start_marker(fd, connect_deadline);
+        try {
+            write_all(fd, encode_message(request), connect_deadline);
+            read_start_marker(fd, connect_deadline);
+        } catch (const ControlTimeoutError&) {
+            throw ControlTimeoutError(
+                "control socket timeout waiting for socket ack");
+        }
         return read_response_envelope(fd, deadline_after(total_read_timeout_ms));
     } catch (...) {
         close_fd();
@@ -157,8 +172,13 @@ void stream_control(const std::string& socket_path,
     try {
         const auto connect_deadline = deadline_after(connect_timeout_ms);
         fd = connect_control_socket(socket_path, connect_deadline);
-        write_all(fd, encode_message(request), connect_deadline);
-        read_start_marker(fd, connect_deadline);
+        try {
+            write_all(fd, encode_message(request), connect_deadline);
+            read_start_marker(fd, connect_deadline);
+        } catch (const ControlTimeoutError&) {
+            throw ControlTimeoutError(
+                "control socket timeout waiting for socket ack");
+        }
         const auto response = read_response_envelope(fd, deadline_after(idle_timeout_ms));
         if (!response.value("ok", false)) {
             const auto code = response.value("error", nlohmann::json::object()).value("code", "daemon_error");
