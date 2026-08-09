@@ -736,8 +736,13 @@ void Daemon::setup_api() {
             return build_list_refresh_state_map(config, list_service_.cache_manager());
         },
         [this](const std::string& target) {
-            const Config visible_config = config_store_.visible_config();
-            return compute_test_routing(visible_config, list_service_.cache_manager(), target);
+            const Config active_config = config_store_.active_config();
+            const auto runtime_snapshot = runtime_state_store_.snapshot();
+            return compute_test_routing(
+                active_config,
+                list_service_.cache_manager(),
+                target,
+                &runtime_snapshot.firewall_state.get_rules());
         },
         [this]() {
             begin_config_operation_or_throw(ConfigOperationState::Saving,

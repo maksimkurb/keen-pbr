@@ -11,7 +11,9 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -231,6 +233,40 @@ Config build_test_config() {
     return config;
 }
 
+class ScopedPathOverride {
+public:
+    explicit ScopedPathOverride(const std::string& value) {
+        if (const char* current = std::getenv("PATH")) {
+            previous_ = current;
+        }
+        (void)setenv("PATH", value.c_str(), 1);
+    }
+
+    ~ScopedPathOverride() {
+        if (previous_.has_value()) {
+            (void)setenv("PATH", previous_->c_str(), 1);
+        } else {
+            (void)unsetenv("PATH");
+        }
+    }
+
+private:
+    std::optional<std::string> previous_;
+};
+
+void write_executable(const std::filesystem::path& path, const std::string& contents) {
+    {
+        std::ofstream output(path);
+        output << contents;
+    }
+    std::filesystem::permissions(
+        path,
+        std::filesystem::perms::owner_exec |
+            std::filesystem::perms::group_exec |
+            std::filesystem::perms::others_exec,
+        std::filesystem::perm_options::add);
+}
+
 } // namespace
 
 TEST_CASE("compute_test_routing resolves domain through configured system resolver") {
@@ -310,6 +346,76 @@ TEST_CASE("compute_test_routing includes route rule conditions in diagnostics") 
     CHECK(diagnostic_rule.dest_addr == "10.0.0.0/8");
     CHECK(diagnostic_rule.src_port == "1024-65535");
     CHECK(diagnostic_rule.dest_port == "443");
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("compute_test_routing uses realized iptables generation set names") {
+    const auto temp_dir = make_temp_dir();
+    const auto bin_dir = temp_dir / "bin";
+    std::filesystem::create_directories(bin_dir);
+
+    write_executable(bin_dir / "iptables", "#!/bin/sh\nexit 0\n");
+    write_executable(
+        bin_dir / "ipset",
+        "#!/bin/sh\n"
+        "if [ \"$1\" = test ] && [ \"$2\" = kpbr4S_remote ] && "
+        "[ \"$3\" = 203.0.113.10 ]; then\n"
+        "  exit 0\n"
+        "fi\n"
+        "exit 1\n");
+    ScopedPathOverride path_override(bin_dir.string() + ":/usr/bin:/bin");
+
+    const auto list_path = temp_dir / "remote.txt";
+    {
+        std::ofstream list(list_path);
+        list << "203.0.113.10/32\n";
+    }
+
+    CacheManager cache(temp_dir / "cache");
+    cache.ensure_dir();
+
+    Config config = build_test_config();
+    ListConfig list;
+    list.file = list_path.string();
+    config.lists = std::map<std::string, ListConfig>{{"remote", list}};
+
+    DaemonConfig daemon;
+    daemon.firewall_backend = api::DaemonConfigFirewallBackend::IPTABLES;
+    config.daemon = daemon;
+
+    Outbound outbound;
+    outbound.tag = "vpn";
+    outbound.type = OutboundType::TABLE;
+    outbound.table = 100;
+    config.outbounds = std::vector<Outbound>{outbound};
+
+    RouteRule rule;
+    rule.outbound = "vpn";
+    rule.list = std::vector<std::string>{"remote"};
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{rule};
+    config.route = route;
+
+    RuleState realized;
+    realized.rule_index = 0;
+    realized.list_names = {"remote"};
+    realized.set_names = {"kpbr4S_remote"};
+    realized.outbound_tag = "vpn";
+    realized.action_type = RuleActionType::Mark;
+    const std::vector<RuleState> realized_rules{realized};
+
+    const auto result =
+        compute_test_routing(config, cache, "203.0.113.10", &realized_rules);
+
+    REQUIRE(result.entries.size() == 1);
+    CHECK(result.entries.front().expected_outbound == "vpn");
+    CHECK(result.entries.front().actual_outbound == "vpn");
+    CHECK(result.entries.front().ok);
+    REQUIRE(result.rule_diagnostics.size() == 1);
+    REQUIRE(result.rule_diagnostics.front().ip_rows.size() == 1);
+    REQUIRE(result.rule_diagnostics.front().ip_rows.front().in_ipset.has_value());
+    CHECK(*result.rule_diagnostics.front().ip_rows.front().in_ipset);
 
     std::filesystem::remove_all(temp_dir);
 }

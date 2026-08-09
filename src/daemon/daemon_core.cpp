@@ -400,9 +400,11 @@ void Daemon::handle_ipc_control_socket() {
           const std::string target = request.value("target", "");
           if (target.empty())
             throw ipc::ControlProtocolError("test-routing requires a target");
+          const auto runtime_snapshot = runtime_state_store_.snapshot();
           const auto result =
               compute_test_routing(config_store_.active_config(),
-                                   list_service_.cache_manager(), target);
+                                   list_service_.cache_manager(), target,
+                                   &runtime_snapshot.firewall_state.get_rules());
           nlohmann::json entries = nlohmann::json::array();
           for (const auto &entry : result.entries) {
             nlohmann::json entry_json = {

@@ -2,6 +2,7 @@
 
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
+#include "../routing/firewall_state.hpp"
 
 #include <optional>
 #include <string>
@@ -50,9 +51,13 @@ struct TestRoutingResult {
 };
 
 // Compute expected (config+cache) and actual (kernel ipset/nftset) routing for target.
+// When available, realized_rule_states must be the states returned by the live
+// firewall apply. They contain backend-specific physical set names (notably the
+// iptables A/B generation names) that cannot be reconstructed from config alone.
 TestRoutingResult compute_test_routing(const Config& config,
                                         const CacheManager& cache,
-                                        const std::string& target);
+                                        const std::string& target,
+                                        const std::vector<RuleState>* realized_rule_states = nullptr);
 
 // Print table and return 0 if all entries match, 1 otherwise.
 int run_test_routing_command(const Config& config,
