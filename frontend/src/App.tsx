@@ -14,6 +14,7 @@ import { OutboundsPage } from "@/pages/outbounds-page"
 import { OverviewPage } from "@/pages/overview-page"
 import { RoutingRuleUpsertPage } from "@/pages/routing-rule-upsert-page"
 import { RoutingRulesPage } from "@/pages/routing-rules-page"
+import { SecurityPage } from "@/pages/security-page"
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
       <Switch>
         <Route component={OverviewPage} path="/" />
         <Route component={GeneralConfigPage} path="/general" />
+        <Route component={SecurityPage} path="/security" />
         <Route path="/lists/create">
           <ListUpsertPage mode="create" />
         </Route>

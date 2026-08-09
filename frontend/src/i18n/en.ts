@@ -43,6 +43,7 @@ export const enTranslation = {
   },
   common: {
     documentation: "Documentation",
+    documentationUrl: "https://keen-pbr.fyi/docs/",
     language: "Language",
     theme: "Theme",
     enabled: "Enabled",
@@ -129,6 +130,7 @@ export const enTranslation = {
     items: {
       systemMonitor: "Dashboard",
       settings: "Settings",
+      security: "Security",
       outbounds: "Outbounds",
       dnsServers: "DNS Servers",
       lists: "Lists",
@@ -390,11 +392,19 @@ export const enTranslation = {
     },
   },
   pages: {
+    security: {
+      title: "Security",
+      description: "Manage access to the Web UI and API.",
+    },
     settings: {
       title: "Settings",
       description:
         "Global defaults that apply to all your outbounds and rules.",
       saved: "Settings staged. Apply new config to persist them.",
+      webUi: {
+        title: "Web UI",
+        description: "Customize how this keen-pbr installation is identified.",
+      },
       general: {
         title: "General",
         description: "Default behavior for all outbounds.",

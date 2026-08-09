@@ -43,6 +43,7 @@ export const ruTranslation = {
   },
   common: {
     documentation: "Документация",
+    documentationUrl: "https://keen-pbr.fyi/ru/docs/",
     language: "Язык",
     theme: "Тема",
     enabled: "Включено",
@@ -130,6 +131,7 @@ export const ruTranslation = {
     items: {
       systemMonitor: "Обзор системы",
       settings: "Настройки",
+      security: "Безопасность",
       outbounds: "Outbounds (выходы)",
       dnsServers: "DNS-серверы",
       lists: "Списки",
@@ -398,12 +400,20 @@ export const ruTranslation = {
     },
   },
   pages: {
+    security: {
+      title: "Безопасность",
+      description: "Управляйте доступом к веб-интерфейсу и API.",
+    },
     settings: {
       title: "Настройки",
       description:
         "Глобальные настройки, действующие на все outbounds и правила.",
       saved:
         "Настройки сохранены в черновик. Примените новый конфиг, чтобы записать их.",
+      webUi: {
+        title: "Веб-интерфейс",
+        description: "Настройте отображаемое имя этой установки keen-pbr.",
+      },
       general: {
         title: "Общие",
         description: "Поведение по умолчанию для всех outbounds.",

@@ -150,7 +150,11 @@ export function OverviewPage() {
       {!auth.enabled ? (
         <Alert className="border-amber-500/40 bg-amber-500/10">
           <AlertDescription>
-            {t("auth.warning.prefix")}<Link className="font-medium underline" href="/general#authentication">{t("auth.warning.action")}</Link>{t("auth.warning.suffix")}
+            {t("auth.warning.prefix")}
+            <Link className="font-medium underline" href="/security">
+              {t("auth.warning.action")}
+            </Link>
+            {t("auth.warning.suffix")}
           </AlertDescription>
         </Alert>
       ) : null}

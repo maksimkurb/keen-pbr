@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useForm } from "@tanstack/react-form"
@@ -6,15 +5,10 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
-import { postAuthPassword } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
-import {
-  useGetAuthPasswordStatus,
-  useGetConfig,
-  useGetRuntimeInterfaces,
-} from "@/api/queries"
+import { useGetConfig, useGetRuntimeInterfaces } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import {
   Field,
@@ -40,8 +34,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   clearFormServerErrors,
   setFormServerErrors,
@@ -131,53 +123,8 @@ function LoadedGeneralConfigPage({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const runtimeInterfacesQuery = useGetRuntimeInterfaces()
-  const passwordStatusQuery = useGetAuthPasswordStatus()
 
   const postConfigMutation = usePostConfigMutation()
-  const [authEnabled, setAuthEnabled] = useState(loadedConfig.api?.authentication?.enabled ?? false)
-  const [authPassword, setAuthPassword] = useState("")
-  const [authConfirmation, setAuthConfirmation] = useState("")
-  const [allowedOrigins, setAllowedOrigins] = useState((loadedConfig.api?.cors?.allowed_origins ?? []).join("\n"))
-  const [authPending, setAuthPending] = useState(false)
-  const [authError, setAuthError] = useState<string | null>(null)
-  const passwordSet = passwordStatusQuery.data?.status === 200 &&
-    passwordStatusQuery.data.data.password_set
-
-  const saveAuthentication = async () => {
-    setAuthError(null)
-    if (authPassword !== authConfirmation) { setAuthError(t("auth.settings.passwordMismatch")); return }
-    if (authEnabled && !authPassword && !passwordSet) {
-      setAuthError(t("auth.settings.passwordRequired")); return
-    }
-    const origins = allowedOrigins.split("\n").map((value) => value.trim()).filter(Boolean)
-    if (origins.some((origin) => !isExactHttpOrigin(origin))) {
-      setAuthError(t("auth.settings.invalidOrigin")); return
-    }
-    setAuthPending(true)
-    try {
-      if (authPassword) {
-        const passwordResponse = await postAuthPassword({ password: authPassword })
-        if (passwordResponse.status !== 200) throw new Error("password update failed")
-      }
-      await postConfigMutation.mutateAsync({ data: {
-        ...loadedConfig,
-        api: {
-          ...loadedConfig.api,
-          enabled: true,
-          authentication: { enabled: authEnabled },
-          cors: { allowed_origins: origins },
-        },
-      } })
-      setAuthPassword(""); setAuthConfirmation("")
-      toast.success(t("auth.settings.staged"))
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-        passwordStatusQuery.refetch(),
-      ])
-    } catch {
-      setAuthError(t("auth.settings.updateFailed"))
-    } finally { setAuthPending(false) }
-  }
 
   const form = useForm({
     defaultValues: getDraftFromConfig(loadedConfig),
@@ -252,30 +199,39 @@ function LoadedGeneralConfigPage({
 
   return (
     <>
-      <Card id="authentication">
+      <Card>
         <CardHeader>
-          <CardTitle>{t("auth.settings.title")}</CardTitle>
-          <CardDescription>{t("auth.settings.description")}</CardDescription>
+          <CardTitle>{t("pages.settings.webUi.title")}</CardTitle>
+          <CardDescription>
+            {t("pages.settings.webUi.description")}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="flex items-center gap-3">
-            <Checkbox checked={authEnabled} id="authentication-enabled" onCheckedChange={(value) => setAuthEnabled(value === true)} />
-            <FieldLabel htmlFor="authentication-enabled">{t("auth.settings.enable")}</FieldLabel>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field><FieldLabel htmlFor="new-auth-password">{t("auth.settings.newPassword")}</FieldLabel><Input autoComplete="new-password" id="new-auth-password" onChange={(event) => setAuthPassword(event.target.value)} placeholder={t(passwordSet ? "auth.settings.passwordSetPlaceholder" : "auth.settings.newPasswordPlaceholder")} type="password" value={authPassword} /></Field>
-            <Field><FieldLabel htmlFor="confirm-auth-password">{t("auth.settings.confirmPassword")}</FieldLabel><Input autoComplete="new-password" id="confirm-auth-password" onChange={(event) => setAuthConfirmation(event.target.value)} type="password" value={authConfirmation} /></Field>
-          </div>
-          <Field>
-            <FieldLabel htmlFor="cors-origins">{t("auth.settings.allowedOrigins")}</FieldLabel>
-            <Textarea id="cors-origins" onChange={(event) => setAllowedOrigins(event.target.value)} placeholder={t("auth.settings.originsPlaceholder")} value={allowedOrigins} />
-            <FieldDescription>{t("auth.settings.originsDescription")}</FieldDescription>
-          </Field>
-          {authError ? <Alert variant="destructive"><AlertDescription>{authError}</AlertDescription></Alert> : null}
-          <Alert><AlertDescription>{t("auth.settings.restartNotice")}</AlertDescription></Alert>
-          <Button disabled={authPending || passwordStatusQuery.isLoading} onClick={() => void saveAuthentication()}>{authPending ? t("auth.settings.updating") : t("auth.settings.update")}</Button>
+        <CardContent>
+          <form.Field name={SETTINGS_FIELD_NAMES.deviceName}>
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor="device-name">
+                  {t("pages.settings.general.deviceNameLabel")}
+                </FieldLabel>
+                <Input
+                  id="device-name"
+                  maxLength={128}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  placeholder={t(
+                    "pages.settings.general.deviceNamePlaceholder"
+                  )}
+                  value={field.state.value}
+                />
+                <FieldDescription>
+                  {t("pages.settings.general.deviceNameHint")}
+                </FieldDescription>
+              </Field>
+            )}
+          </form.Field>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>{t("pages.settings.general.title")}</CardTitle>
@@ -285,29 +241,6 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <form.Field name={SETTINGS_FIELD_NAMES.deviceName}>
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor="device-name">
-                    {t("pages.settings.general.deviceNameLabel")}
-                  </FieldLabel>
-                  <Input
-                    id="device-name"
-                    maxLength={128}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    placeholder={t("pages.settings.general.deviceNamePlaceholder")}
-                    value={field.state.value}
-                  />
-                  <FieldDescription>
-                    {t("pages.settings.general.deviceNameHint")}
-                  </FieldDescription>
-                </Field>
-              )}
-            </form.Field>
-
-            <FieldSeparator />
-
             <form.Field name={SETTINGS_FIELD_NAMES.strictEnforcement}>
               {(field) => (
                 <Field>
@@ -386,7 +319,9 @@ function LoadedGeneralConfigPage({
                         className="cursor-pointer flex-col items-start gap-0"
                         htmlFor="clear-dynamic-sets-on-apply"
                       >
-                        {t("pages.settings.general.clearDynamicSetsOnApplyLabel")}
+                        {t(
+                          "pages.settings.general.clearDynamicSetsOnApplyLabel"
+                        )}
                       </FieldLabel>
                     </div>
                     <FieldHint
@@ -728,14 +663,9 @@ function GeneralConfigPageSkeleton() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <Skeleton className="mt-0.5 h-4 w-4 rounded-sm" />
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-48" />
-                <Skeleton className="h-4 w-full max-w-3xl" />
-                <Skeleton className="h-4 w-5/6 max-w-2xl" />
-              </div>
-            </div>
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-4 w-full max-w-2xl" />
           </div>
         </CardContent>
       </Card>
@@ -897,23 +827,6 @@ function toBackendIntegerValue(parsed: number | null, raw: string): number {
   }
 
   return raw as unknown as number
-}
-
-function isExactHttpOrigin(value: string) {
-  try {
-    const url = new URL(value)
-    return (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      url.origin === value &&
-      url.username === "" &&
-      url.password === "" &&
-      url.pathname === "/" &&
-      url.search === "" &&
-      url.hash === ""
-    )
-  } catch {
-    return false
-  }
 }
 
 function getCrontabGuruUrl(value: string) {
