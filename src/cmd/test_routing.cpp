@@ -450,39 +450,29 @@ std::optional<bool> test_rule_ipset_membership(const KernelSetTester& set_tester
     return false;
 }
 
-std::string find_actual_outbound(const KernelSetTester& set_tester,
-                                   const std::vector<RuleState>& rule_states,
-                                   const std::string& ip,
-                                   bool is_v4) {
+std::string find_actual_outbound(
+    const std::vector<RuleState>& rule_states,
+    const std::vector<RuleIpDiagnostic>& rule_ip_diagnostics) {
     bool any_answer = false;
 
-    for (const auto& rs : rule_states) {
+    const size_t count = std::min(rule_states.size(), rule_ip_diagnostics.size());
+    for (size_t idx = 0; idx < count; ++idx) {
+        const auto& rs = rule_states[idx];
         if (rs.action_type == RuleActionType::Skip) continue;
 
-        for (const auto& set_name : rs.set_names) {
-            bool v4_set = has_prefix(set_name, "kpbr4_") || has_prefix(set_name, "kpbr4s_") ||
-                          has_prefix(set_name, "kpbr4S_") || has_prefix(set_name, "kpbr4d_");
-            bool v6_set = has_prefix(set_name, "kpbr6_") || has_prefix(set_name, "kpbr6s_") ||
-                          has_prefix(set_name, "kpbr6S_") || has_prefix(set_name, "kpbr6d_");
-
-            if (is_v4 && !v4_set) continue;
-            if (!is_v4 && !v6_set) continue;
-
-            auto result = set_tester.contains(set_name, ip);
-            if (result.has_value()) {
-                any_answer = true;
-                if (*result) return rs.outbound_tag;
-            }
+        const auto& membership = rule_ip_diagnostics[idx].in_ipset;
+        if (membership.has_value()) {
+            any_answer = true;
+            if (*membership) return rs.outbound_tag;
         }
     }
 
     return any_answer ? "(default)" : "(unknown)";
 }
 
-// Kernel membership checks invoke nft/ipset subprocesses.  Keep a modest bound
-// so a domain with a very large DNS response cannot overwhelm the router, while
-// still checking different IPs concurrently.
-constexpr std::size_t kTestRoutingMaxConcurrentIps = 8;
+// Kernel membership checks invoke nft/ipset subprocesses. Keep the per-request
+// bound low because the daemon may run multiple routing tests concurrently.
+constexpr std::size_t kTestRoutingMaxConcurrentIps = 2;
 
 struct PerIpRoutingResult {
     TestRoutingEntry entry;
@@ -566,10 +556,6 @@ TestRoutingResult compute_test_routing(const Config& config,
         auto [expected, match] = find_expected_outbound(config, lookups, ip, domain_cands);
         per_ip.entry.expected_outbound = expected;
         per_ip.entry.list_match = std::move(match);
-        per_ip.entry.actual_outbound = set_tester.has_value()
-            ? find_actual_outbound(*set_tester, rule_states, ip, is_ipv4_address(ip))
-            : "(unknown)";
-        per_ip.entry.ok = (per_ip.entry.expected_outbound == per_ip.entry.actual_outbound);
 
         per_ip.rule_ip_diagnostics.reserve(result.rule_diagnostics.size());
         for (size_t idx = 0; idx < result.rule_diagnostics.size(); ++idx) {
@@ -581,6 +567,11 @@ TestRoutingResult compute_test_routing(const Config& config,
             }
             per_ip.rule_ip_diagnostics.push_back(std::move(ip_diag));
         }
+
+        per_ip.entry.actual_outbound = set_tester.has_value()
+            ? find_actual_outbound(rule_states, per_ip.rule_ip_diagnostics)
+            : "(unknown)";
+        per_ip.entry.ok = (per_ip.entry.expected_outbound == per_ip.entry.actual_outbound);
     };
 
     const size_t worker_count = std::min(kTestRoutingMaxConcurrentIps, ips.size());

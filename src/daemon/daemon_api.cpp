@@ -738,11 +738,31 @@ void Daemon::setup_api() {
         [this](const std::string& target) {
             const Config active_config = config_store_.active_config();
             const auto runtime_snapshot = runtime_state_store_.snapshot();
-            return compute_test_routing(
-                active_config,
-                list_service_.cache_manager(),
-                target,
-                &runtime_snapshot.firewall_state.get_rules());
+            const auto realized_rules = runtime_snapshot.firewall_state.get_rules();
+            if (!try_begin_routing_test()) {
+                throw ApiError("Too many routing tests are already running", 503);
+            }
+            auto pending = routing_test_executor_.try_submit(
+                "api-test-routing",
+                [this, active_config, realized_rules, target] {
+                    try {
+                        auto result = compute_test_routing(
+                            active_config,
+                            list_service_.cache_manager(),
+                            target,
+                            &realized_rules);
+                        finish_routing_test();
+                        return result;
+                    } catch (...) {
+                        finish_routing_test();
+                        throw;
+                    }
+                });
+            if (!pending.has_value()) {
+                finish_routing_test();
+                throw ApiError("Routing test executor queue is full", 503);
+            }
+            return pending->get();
         },
         [this]() {
             begin_config_operation_or_throw(ConfigOperationState::Saving,

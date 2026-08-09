@@ -56,6 +56,7 @@ constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY =
     std::chrono::seconds{5};
 constexpr std::size_t kResolverStreamChunkBytes =
     static_cast<std::size_t>(16) * 1024U;
+constexpr std::size_t kMaxConcurrentRoutingTests = 2;
 
 void send_all(int fd, const char *data, std::size_t size) {
   std::size_t written = 0;
@@ -220,6 +221,7 @@ Daemon::~Daemon() {
     resolver_hook_executor_.shutdown();
     resolver_stream_executor_.shutdown();
     resolver_io_executor_.shutdown();
+    routing_test_executor_.shutdown();
     blocking_executor_.shutdown();
 
     if (control_fd_ >= 0) {
@@ -324,6 +326,22 @@ void Daemon::remove_ipc_control_socket() noexcept {
   }
 }
 
+bool Daemon::try_begin_routing_test() {
+  std::size_t current = routing_tests_inflight_.load(std::memory_order_acquire);
+  while (current < kMaxConcurrentRoutingTests) {
+    if (routing_tests_inflight_.compare_exchange_weak(
+            current, current + 1, std::memory_order_acq_rel,
+            std::memory_order_acquire)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void Daemon::finish_routing_test() {
+  routing_tests_inflight_.fetch_sub(1, std::memory_order_acq_rel);
+}
+
 void Daemon::handle_ipc_control_socket() {
   while (true) {
     const int client = accept4(ipc_control_fd_, nullptr, nullptr, SOCK_CLOEXEC);
@@ -340,7 +358,7 @@ void Daemon::handle_ipc_control_socket() {
                      sizeof(timeout));
     nlohmann::json request = nlohmann::json::object();
     nlohmann::json response;
-    bool resolver_stream_dispatched = false;
+    bool client_dispatched = false;
     try {
       ucred peer{};
       socklen_t peer_length = sizeof(peer);
@@ -400,27 +418,44 @@ void Daemon::handle_ipc_control_socket() {
           const std::string target = request.value("target", "");
           if (target.empty())
             throw ipc::ControlProtocolError("test-routing requires a target");
+          const Config active_config = config_store_.active_config();
           const auto runtime_snapshot = runtime_state_store_.snapshot();
-          const auto result =
-              compute_test_routing(config_store_.active_config(),
-                                   list_service_.cache_manager(), target,
-                                   &runtime_snapshot.firewall_state.get_rules());
-          nlohmann::json entries = nlohmann::json::array();
-          for (const auto &entry : result.entries) {
-            nlohmann::json entry_json = {
-                {"ip", entry.ip},
-                {"expected_outbound", entry.expected_outbound},
-                {"actual_outbound", entry.actual_outbound},
-                {"ok", entry.ok}};
-            if (entry.list_match.has_value()) {
-              entry_json["list_match"] = {
-                  {"list_name", entry.list_match->list_name},
-                  {"via", entry.list_match->via}};
-            }
-            entries.push_back(std::move(entry_json));
+          const auto realized_rules = runtime_snapshot.firewall_state.get_rules();
+          const auto request_snapshot = request;
+          if (!try_begin_routing_test()) {
+            response = ipc::make_error_response(
+                request, "busy", "too many routing tests are already running");
+            const std::string frame = ipc::encode_message(response);
+            (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
+            close(client);
+            continue;
           }
-          response = {{"protocol_version", ipc::kControlProtocolVersion},
-                      {"request_id", request.at("request_id")},
+          const bool queued = routing_test_executor_.try_post(
+              "ipc-test-routing",
+              [this, client, active_config, realized_rules, request_snapshot,
+               target] {
+                nlohmann::json worker_response;
+                try {
+                  const auto result = compute_test_routing(
+                      active_config, list_service_.cache_manager(), target,
+                      &realized_rules);
+                  nlohmann::json entries = nlohmann::json::array();
+                  for (const auto &entry : result.entries) {
+                    nlohmann::json entry_json = {
+                        {"ip", entry.ip},
+                        {"expected_outbound", entry.expected_outbound},
+                        {"actual_outbound", entry.actual_outbound},
+                        {"ok", entry.ok}};
+                    if (entry.list_match.has_value()) {
+                      entry_json["list_match"] = {
+                          {"list_name", entry.list_match->list_name},
+                          {"via", entry.list_match->via}};
+                    }
+                    entries.push_back(std::move(entry_json));
+                  }
+                  worker_response = {
+                      {"protocol_version", ipc::kControlProtocolVersion},
+                      {"request_id", request_snapshot.at("request_id")},
                       {"ok", !result.dns_error.has_value()},
                       {"result",
                        {{"target", result.target},
@@ -428,6 +463,33 @@ void Daemon::handle_ipc_control_socket() {
                         {"entries", std::move(entries)},
                         {"warnings", result.warnings},
                         {"dns_error", result.dns_error}}}};
+                } catch (const std::exception &error) {
+                  worker_response = ipc::make_error_response(
+                      request_snapshot, "daemon_error", error.what());
+                } catch (...) {
+                  worker_response = ipc::make_error_response(
+                      request_snapshot, "daemon_error",
+                      "routing test failed with an unknown error");
+                }
+
+                finish_routing_test();
+
+                try {
+                  const std::string frame = ipc::encode_message(worker_response);
+                  send_all(client, frame.data(), frame.size());
+                } catch (const std::exception &error) {
+                  Logger::instance().warn(
+                      "test-routing control response failed: {}", error.what());
+                }
+                close(client);
+              });
+          if (queued) {
+            client_dispatched = true;
+            continue;
+          }
+          finish_routing_test();
+          response = ipc::make_error_response(
+              request, "busy", "routing test executor queue is full");
         } else if (operation == "generate-resolver-config") {
           const RuntimeState runtime_state = runtime_state_machine_.state();
           // The DNS configuration is a daemon-owned desired-state
@@ -527,7 +589,7 @@ void Daemon::handle_ipc_control_socket() {
                 }
               });
           if (queued) {
-            resolver_stream_dispatched = true;
+            client_dispatched = true;
             continue;
           }
           response = ipc::make_error_response(
@@ -629,7 +691,7 @@ void Daemon::handle_ipc_control_socket() {
       response =
           ipc::make_error_response(request, "protocol_error", error.what());
     }
-    if (!resolver_stream_dispatched) {
+    if (!client_dispatched) {
       const std::string frame = ipc::encode_message(response);
       (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
       close(client);
@@ -1376,6 +1438,7 @@ void Daemon::run() {
   resolver_hook_executor_.shutdown();
   resolver_stream_executor_.shutdown();
   resolver_io_executor_.shutdown();
+  routing_test_executor_.shutdown();
   blocking_executor_.shutdown();
 
 #ifdef WITH_API

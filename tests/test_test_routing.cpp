@@ -353,12 +353,14 @@ TEST_CASE("compute_test_routing includes route rule conditions in diagnostics") 
 TEST_CASE("compute_test_routing uses realized iptables generation set names") {
     const auto temp_dir = make_temp_dir();
     const auto bin_dir = temp_dir / "bin";
+    const auto invocation_log = temp_dir / "ipset-invocations.txt";
     std::filesystem::create_directories(bin_dir);
 
     write_executable(bin_dir / "iptables", "#!/bin/sh\nexit 0\n");
     write_executable(
         bin_dir / "ipset",
         "#!/bin/sh\n"
+        "echo test >> " + invocation_log.string() + "\n"
         "if [ \"$1\" = test ] && [ \"$2\" = kpbr4S_remote ] && "
         "[ \"$3\" = 203.0.113.10 ]; then\n"
         "  exit 0\n"
@@ -416,6 +418,12 @@ TEST_CASE("compute_test_routing uses realized iptables generation set names") {
     REQUIRE(result.rule_diagnostics.front().ip_rows.size() == 1);
     REQUIRE(result.rule_diagnostics.front().ip_rows.front().in_ipset.has_value());
     CHECK(*result.rule_diagnostics.front().ip_rows.front().in_ipset);
+
+    std::ifstream invocations(invocation_log);
+    const std::string invocation_contents{
+        std::istreambuf_iterator<char>(invocations),
+        std::istreambuf_iterator<char>()};
+    CHECK(invocation_contents == "test\n");
 
     std::filesystem::remove_all(temp_dir);
 }

@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <pthread.h>
 #include <queue>
 #include <stdexcept>
@@ -30,6 +31,37 @@ public:
     bool try_post(std::string label,
                   std::function<void()> task,
                   TraceId trace_id = current_trace_id());
+
+    template<typename Fn>
+    auto try_submit(std::string label,
+                    Fn&& fn,
+                    TraceId trace_id = current_trace_id())
+        -> std::optional<std::future<typename std::invoke_result_t<Fn>>> {
+        using Result = typename std::invoke_result_t<Fn>;
+
+        auto promise = std::make_shared<std::promise<Result>>();
+        auto future = promise->get_future();
+        const bool enqueued = enqueue(
+            std::move(label),
+            [promise, fn = std::forward<Fn>(fn)]() mutable {
+                try {
+                    if constexpr (std::is_void_v<Result>) {
+                        fn();
+                        promise->set_value();
+                    } else {
+                        promise->set_value(fn());
+                    }
+                } catch (...) {
+                    promise->set_exception(std::current_exception());
+                }
+            },
+            trace_id,
+            /*block_until_room=*/false);
+        if (!enqueued) {
+            return std::nullopt;
+        }
+        return std::optional<std::future<Result>>(std::move(future));
+    }
 
     template<typename Fn>
     auto submit(std::string label,

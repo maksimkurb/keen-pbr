@@ -104,6 +104,64 @@ TEST_CASE("blocking executor rejects new tasks after shutdown") {
 
     auto future = executor.submit("late-submit", []() { return 7; });
     CHECK_THROWS(future.get());
+
+    auto nonblocking = executor.try_submit("late-try-submit", []() { return 9; });
+    CHECK_FALSE(nonblocking.has_value());
+}
+
+TEST_CASE("blocking executor nonblocking submissions keep the queue bounded") {
+    BlockingExecutor executor(1, 1);
+    std::mutex mutex;
+    std::condition_variable cv;
+    bool first_started = false;
+    bool release_first = false;
+
+    auto first = executor.try_submit("first", [&]() {
+        std::unique_lock<std::mutex> lock(mutex);
+        first_started = true;
+        cv.notify_all();
+        cv.wait(lock, [&]() { return release_first; });
+        return 1;
+    });
+    REQUIRE(first.has_value());
+
+    bool observed_start = false;
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        observed_start = cv.wait_for(lock, std::chrono::seconds(1),
+                                     [&]() { return first_started; });
+    }
+    CHECK(observed_start);
+    if (!observed_start) {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            release_first = true;
+        }
+        cv.notify_all();
+        return;
+    }
+
+    auto second = executor.try_submit("second", []() { return 2; });
+    CHECK(second.has_value());
+    if (!second.has_value()) {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            release_first = true;
+        }
+        cv.notify_all();
+        return;
+    }
+    auto rejected = executor.try_submit("rejected", []() { return 3; });
+    CHECK_FALSE(rejected.has_value());
+
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        release_first = true;
+    }
+    cv.notify_all();
+
+    CHECK(first->get() == 1);
+    CHECK(second->get() == 2);
 }
 
 TEST_CASE("blocking executor workers inherit daemon-managed signal mask") {

@@ -160,6 +160,8 @@ private:
   void handle_control_commands();
   void setup_ipc_control_socket();
   void handle_ipc_control_socket();
+  bool try_begin_routing_test();
+  void finish_routing_test();
   void remove_ipc_control_socket() noexcept;
   void wake_control_loop();
   bool is_event_loop_thread() const;
@@ -380,12 +382,16 @@ IcmpTester icmp_tester_;
   BlockingExecutor resolver_stream_executor_{1, 16};
   BlockingExecutor resolver_io_executor_{1, 32};
   BlockingExecutor lifecycle_executor_{1, 16};
+  // Routing diagnostics are CPU/process-heavy. Two workers allow API and CLI
+  // tests to overlap while the small queue keeps resource use bounded.
+  BlockingExecutor routing_test_executor_{2, 2};
   std::atomic<std::uint64_t> runtime_generation_{1};
   std::atomic<bool> remote_list_refresh_inflight_{false};
   std::atomic<bool> ipc_mutation_inflight_{false};
   std::atomic<bool> ipc_resolver_hook_inflight_{false};
   std::atomic<bool> resolver_hash_refresh_inflight_{false};
   std::atomic<std::uint64_t> resolver_stream_completed_{0};
+  std::atomic<std::size_t> routing_tests_inflight_{0};
   TracedMutex system_resolver_hook_mutex_;
 
 #ifdef WITH_API
