@@ -343,6 +343,7 @@ if(WITH_API)
     src/api/server.cpp
     src/api/handlers.cpp
     src/api/sse_broadcaster.cpp
+    src/api/sse_response.cpp
     src/api/status_stream.cpp
     src/api/handler_health_service.cpp
     src/api/handler_reload.cpp

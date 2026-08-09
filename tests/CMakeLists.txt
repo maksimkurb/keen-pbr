@@ -33,6 +33,7 @@ add_executable(keen-pbr-tests
   test_routing_verifier.cpp
   test_runtime_interface_inventory.cpp
   test_keenetic_interface_descriptions.cpp
+  test_api_dns_test.cpp
   test_api_runtime_interfaces.cpp
   test_api_status_events.cpp
   test_api_test_routing.cpp
@@ -191,7 +192,9 @@ if(WITH_API)
   target_sources(keen-pbr-tests PRIVATE
     ../src/api/server.cpp
     ../src/api/handler_config.cpp
+    ../src/api/handler_dns_test.cpp
     ../src/api/sse_broadcaster.cpp
+    ../src/api/sse_response.cpp
     ../src/api/status_stream.cpp
     ../src/api/handler_runtime_interfaces.cpp
     ../src/api/handler_health_service.cpp
