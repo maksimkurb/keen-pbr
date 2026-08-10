@@ -45,7 +45,7 @@ Install required components
 	<meta itemprop="description" content="keen-pbr can be installed on Keenetic / NetCraze routers via Entware’s opkg package manager.
 Install Entware on the router First, ensure that Entware is installed on your router. Please consult the official router manual for Keenetic or NetCraze:
 Find your router’s manual. In the search field, search for “Installing the Entware repository on a USB drive”. Read and follow the instructions carefully. Install required components Open your router’s configuration page, navigate to Management -&gt; System settings, and install the following additional components:">
-	<meta itemprop="wordCount" content="566">
+	<meta itemprop="wordCount" content="903">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Keenetic / NetCraze">
 	<meta name="twitter:description" content="keen-pbr can be installed on Keenetic / NetCraze routers via Entware’s opkg package manager.
@@ -883,6 +883,10 @@ Find your router’s manual. In the search field, search for “Installing the E
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#choose-raw-or-mangle-prerouting">Choose RAW or mangle PREROUTING
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#next-steps">Next steps
         </a>
       </li></ul>
@@ -1056,6 +1060,79 @@ Find your router’s manual. In the search field, search for “Installing the E
 <h3>Configure the service<span class="hx:absolute hx:-mt-20" id="configure-the-service"></span>
     <a href="#configure-the-service" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>After you reboot the router, you can open <a href="http://my.keenetic.net:12121"target="_blank" rel="noopener">http://my.keenetic.net:12121</a> to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).</p>
 <p>You can also configure keen-pbr manually by modifying the configuration file: <code>/opt/etc/keen-pbr/config.json</code>.</p>
+<h3>Choose RAW or mangle PREROUTING<span class="hx:absolute hx:-mt-20" id="choose-raw-or-mangle-prerouting"></span>
+    <a href="#choose-raw-or-mangle-prerouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This choice is specific to Keenetic / NetCraze. Keenetic can periodically rebuild
+its <code>mangle</code> table, for example after a DHCP lease renewal. The normal mangle
+integration is then briefly absent until keen-pbr reapplies it. RAW is independent
+of that rebuild, but runs before Keenetic&rsquo;s <strong>Connection Policies</strong> &gt; <strong>Policy
+Bindings</strong> rules. The platform&rsquo;s iptables replacement behaviour is also discussed in the
+<a href="https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/"target="_blank" rel="noopener">Keenetic Community forum</a>.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Mode</th>
+					<th>Benefit</th>
+					<th>Trade-off</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>RAW</strong> (default when available)</td>
+					<td>PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and a kill switch has fewer opportunities for packets to leak through the ordinary route.</td>
+					<td>After keen-pbr sets its <code>fwmark</code> in RAW, Keenetic&rsquo;s <strong>Connection Policies</strong> &gt; <strong>Policy Bindings</strong> rules overwrite it. RAW mode therefore works only for devices assigned the <strong>Default policy</strong>.</td>
+			</tr>
+			<tr>
+					<td><strong>mangle</strong></td>
+					<td>keen-pbr runs after Keenetic&rsquo;s Connection Policy marks, so it can override routing for devices with a non-default policy.</td>
+					<td>When Keenetic rebuilds its routing table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow.</td>
+			</tr>
+	</tbody>
+</table>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">For the most predictable Keenetic setup, do not assign <strong>Connection Policies</strong> to devices in Keenetic. Instead, create the equivalent per-device <a href="/docs/configuration/route-rules/">keen-pbr route rules</a> using the <code>src_addr</code> (<strong>Source address</strong>) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.</div>
+  </div>
+</div>
+<p>The package default is <code>auto</code>: it uses RAW for IPv4 forwarded traffic when the
+device supports it, otherwise mangle. Locally generated traffic and IPv6
+continue to use mangle in either mode.</p>
+<p>To see which mode was selected, restart the service and look for these messages
+in the device system log:</p>
+<p><code>raw PREROUTING available; enabling --use-raw-prerouting</code> means RAW is active.
+A message ending in <code>using mangle PREROUTING</code> means mangle is active.</p>
+<p>To always use mangle, edit <code>/opt/etc/keen-pbr/defaults</code>:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl"><span class="nv">KEEN_PBR_RAW_PREROUTING</span><span class="o">=</span><span class="s2">&#34;disable&#34;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Then restart the service:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">/opt/etc/init.d/S80keen-pbr restart</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Set <code>KEEN_PBR_RAW_PREROUTING=&quot;enable&quot;</code> to require RAW; the service will fail to
+start instead of falling back to mangle if the RAW capability is unavailable.</p>
 <p>Basic commands:</p>
 <table>
 	<thead>

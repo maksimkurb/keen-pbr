@@ -11,6 +11,7 @@ Options:
   --config <path>    Путь к JSON файлу конфигурации
   --log-level <lvl>  Уровень логов: error, warn, info, verbose, debug
   --no-api           Отключить REST API во время выполнения
+  --use-raw-prerouting  Использовать raw PREROUTING для пересылаемого IPv4 (только iptables)
   --version         Показать версию и выйти
   --help            Показать эту справку и выйти
 
@@ -32,8 +33,28 @@ Commands:
 | `--config <path>` | Путь к JSON файлу конфигурации. |
 | `--log-level <lvl>` | Детализация логов: `error`, `warn`, `info`, `verbose` или `debug`. |
 | `--no-api` | Отключить REST API, даже если он включён в конфиге. |
+| `--use-raw-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv4-трафика; доступно только с iptables. |
 | `--version` | Вывести версию и выйти. |
 | `--help` | Вывести справку и выйти. |
+
+### `--use-raw-prerouting`
+
+Этот флаг переносит классификацию только пересылаемого IPv4-трафика из `mangle
+PREROUTING` в `raw PREROUTING`. Локально сгенерированный трафик остаётся в
+`mangle OUTPUT`, а IPv6 продолжает использовать mangle.
+
+На Keenetic / NetCraze init-скрипт проверяет и при необходимости загружает
+`iptable_raw.ko`. По умолчанию `KEEN_PBR_RAW_PREROUTING="auto"`: RAW используется
+только после успешной проверки, иначе сервис использует mangle. Чтобы всегда
+использовать mangle, добавьте в `/opt/etc/keen-pbr/defaults`:
+
+```sh
+KEEN_PBR_RAW_PREROUTING="disable"
+```
+
+Затем перезапустите сервис. Значение `enable` требует RAW и не допускает переход
+на mangle при ошибке проверки. Сравнение последствий для Keenetic приведено в
+[инструкции по установке Keenetic / NetCraze]({{< relref "/docs/getting-started/installation/keenetic" >}}).
 
 ## Команды
 
@@ -158,3 +179,4 @@ IP                        | List Match               | Expected Outbound  | Actu
 2001:4860:4860::8888      | google (via google.com)  | corp_vpn           | corp_vpn           | OK
 142.250.74.14             | google (via google.com)  | corp_vpn           | corp_vpn           | OK
 ```
+

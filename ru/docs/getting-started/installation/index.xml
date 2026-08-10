@@ -107,6 +107,81 @@
 &lt;h3&gt;Настройте сервис&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;настройте-сервис&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d1%82%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;После перезагрузки роутера можно открыть &lt;a href=&#34;http://my.keenetic.net:12121&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net:12121&lt;/a&gt; и настроить keen-pbr через веб-интерфейс (если установлена полная версия; у headless-версии Web UI отсутствует).&lt;/p&gt;
 &lt;p&gt;Также keen-pbr можно настроить вручную, изменив файл конфигурации: &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;.&lt;/p&gt;
+&lt;h3&gt;Выберите RAW или mangle PREROUTING&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;выберите-raw-или-mangle-prerouting&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%b2%d1%8b%d0%b1%d0%b5%d1%80%d0%b8%d1%82%d0%b5-raw-%d0%b8%d0%bb%d0%b8-mangle-prerouting&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Этот выбор актуален только для Keenetic / NetCraze. Keenetic может периодически
+пересобирать таблицу &lt;code&gt;mangle&lt;/code&gt;, например при продлении DHCP lease. В это время
+обычная интеграция через mangle ненадолго исчезает, пока keen-pbr не применит её
+заново. RAW не зависит от такой пересборки, но выполняется до правил Keenetic в
+разделе &lt;strong&gt;Приоритеты подключений&lt;/strong&gt; &amp;gt; &lt;strong&gt;Применение политик&lt;/strong&gt;. Поведение
+платформы при замене iptables также обсуждается на
+&lt;a href=&#34;https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;форуме Keenetic Community&lt;/a&gt;.&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Режим&lt;/th&gt;
+					&lt;th&gt;Преимущество&lt;/th&gt;
+					&lt;th&gt;Компромисс&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;RAW&lt;/strong&gt; (по умолчанию, если доступна)&lt;/td&gt;
+					&lt;td&gt;PBR остаётся активным при пересборке mangle Keenetic. Долгие чувствительные соединения, например игровые сессии, не будут разрываться из-за пересборки; у kill switch меньше возможностей пропустить пакеты по обычному маршруту.&lt;/td&gt;
+					&lt;td&gt;После установки &lt;code&gt;fwmark&lt;/code&gt; в RAW правила Keenetic в разделе &lt;strong&gt;Приоритеты подключений&lt;/strong&gt; &amp;gt; &lt;strong&gt;Применение политик&lt;/strong&gt; перезаписывают его. Поэтому RAW работает только для устройств, которым назначена &lt;strong&gt;Политика по умолчанию&lt;/strong&gt;.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;mangle&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;keen-pbr выполняется после меток, установленных Keenetic в разделе &lt;strong&gt;Приоритеты подключений&lt;/strong&gt; &amp;gt; &lt;strong&gt;Применение политик&lt;/strong&gt;, и может переопределять маршрутизацию устройств с нестандартной политикой.&lt;/td&gt;
+					&lt;td&gt;Когда Keenetic перестраивает таблицу маршрутизации (обычно примерно раз в пять минут), правила keen-pbr ненадолго исчезают. Несколько пакетов могут уйти по обычному маршруту до их восстановления, разорвав игровую сессию или другое чувствительное соединение.&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
+  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
+  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Для наиболее предсказуемой работы keen-pbr на Keenetic не назначайте устройствам политики в разделе &lt;strong&gt;Приоритеты подключений&lt;/strong&gt;. Вместо этого создайте эквивалентные &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/route-rules/&#34;&gt;правила маршрутизации keen-pbr&lt;/a&gt;, указав для устройства &lt;code&gt;src_addr&lt;/code&gt; (&lt;strong&gt;Исходный адрес&lt;/strong&gt;). Так правила маршрутизации останутся в keen-pbr и не будут конфликтовать с политиками Keenetic.&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;По умолчанию установлен режим &lt;code&gt;auto&lt;/code&gt;: keen-pbr использует RAW для пересылаемого
+IPv4-трафика, если устройство его поддерживает; иначе используется mangle.
+Локально созданный трафик и IPv6 в обоих режимах продолжают использовать mangle.&lt;/p&gt;
+&lt;p&gt;Чтобы узнать выбранный режим, перезапустите сервис и найдите следующие сообщения
+в системном журнале устройства:&lt;/p&gt;
+&lt;p&gt;Строка &lt;code&gt;raw PREROUTING available; enabling --use-raw-prerouting&lt;/code&gt; означает, что
+активен RAW. Сообщение, оканчивающееся на &lt;code&gt;using mangle PREROUTING&lt;/code&gt;, означает,
+что активен mangle.&lt;/p&gt;
+&lt;p&gt;Чтобы всегда использовать mangle, отредактируйте &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nv&#34;&gt;KEEN_PBR_RAW_PREROUTING&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;disable&amp;#34;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Затем перезапустите сервис:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Значение &lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;enable&amp;quot;&lt;/code&gt; требует RAW: если возможность RAW
+недоступна, сервис завершится с ошибкой вместо перехода на mangle.&lt;/p&gt;
 &lt;p&gt;Основные команды:&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;

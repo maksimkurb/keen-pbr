@@ -60,7 +60,7 @@ The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and 
 	<meta itemprop="name" content="keen-pbr CLI usage">
 	<meta itemprop="description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
 Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
-	<meta itemprop="wordCount" content="585">
+	<meta itemprop="wordCount" content="647">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr CLI usage">
 	<meta name="twitter:description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
@@ -1073,6 +1073,26 @@ continues using its existing mangle path.</p>
 It enables the flag automatically only after the raw table probe succeeds; otherwise
 it logs a warning and keeps the normal mangle path. Raw PREROUTING deliberately
 does not use connmark acceleration: each forwarded packet is classified directly.</p>
+<p>To force the Keenetic package to keep using mangle PREROUTING, set the following
+in <code>/opt/etc/keen-pbr/defaults</code>, then restart the service:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl"><span class="nv">KEEN_PBR_RAW_PREROUTING</span><span class="o">=</span><span class="s2">&#34;disable&#34;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>The default value is <code>auto</code>. Set it to <code>enable</code> to require raw PREROUTING; the
+service will fail to start rather than fall back to mangle if the capability probe
+fails. For the Keenetic-specific RAW versus mangle trade-off, see
+<a href="/docs/getting-started/installation/keenetic/">Keenetic / NetCraze installation</a>.</p>
 <p>Troubleshoot the required capability with:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 

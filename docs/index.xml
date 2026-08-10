@@ -516,6 +516,79 @@
 &lt;h3&gt;Configure the service&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;configure-the-service&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#configure-the-service&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;After you reboot the router, you can open &lt;a href=&#34;http://my.keenetic.net:12121&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net:12121&lt;/a&gt; to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).&lt;/p&gt;
 &lt;p&gt;You can also configure keen-pbr manually by modifying the configuration file: &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;.&lt;/p&gt;
+&lt;h3&gt;Choose RAW or mangle PREROUTING&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;choose-raw-or-mangle-prerouting&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#choose-raw-or-mangle-prerouting&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;This choice is specific to Keenetic / NetCraze. Keenetic can periodically rebuild
+its &lt;code&gt;mangle&lt;/code&gt; table, for example after a DHCP lease renewal. The normal mangle
+integration is then briefly absent until keen-pbr reapplies it. RAW is independent
+of that rebuild, but runs before Keenetic&amp;rsquo;s &lt;strong&gt;Connection Policies&lt;/strong&gt; &amp;gt; &lt;strong&gt;Policy
+Bindings&lt;/strong&gt; rules. The platform&amp;rsquo;s iptables replacement behaviour is also discussed in the
+&lt;a href=&#34;https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Keenetic Community forum&lt;/a&gt;.&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Mode&lt;/th&gt;
+					&lt;th&gt;Benefit&lt;/th&gt;
+					&lt;th&gt;Trade-off&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;RAW&lt;/strong&gt; (default when available)&lt;/td&gt;
+					&lt;td&gt;PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and a kill switch has fewer opportunities for packets to leak through the ordinary route.&lt;/td&gt;
+					&lt;td&gt;After keen-pbr sets its &lt;code&gt;fwmark&lt;/code&gt; in RAW, Keenetic&amp;rsquo;s &lt;strong&gt;Connection Policies&lt;/strong&gt; &amp;gt; &lt;strong&gt;Policy Bindings&lt;/strong&gt; rules overwrite it. RAW mode therefore works only for devices assigned the &lt;strong&gt;Default policy&lt;/strong&gt;.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;mangle&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;keen-pbr runs after Keenetic&amp;rsquo;s Connection Policy marks, so it can override routing for devices with a non-default policy.&lt;/td&gt;
+					&lt;td&gt;When Keenetic rebuilds its routing table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow.&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
+  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
+  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;For the most predictable Keenetic setup, do not assign &lt;strong&gt;Connection Policies&lt;/strong&gt; to devices in Keenetic. Instead, create the equivalent per-device &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/route-rules/&#34;&gt;keen-pbr route rules&lt;/a&gt; using the &lt;code&gt;src_addr&lt;/code&gt; (&lt;strong&gt;Source address&lt;/strong&gt;) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;The package default is &lt;code&gt;auto&lt;/code&gt;: it uses RAW for IPv4 forwarded traffic when the
+device supports it, otherwise mangle. Locally generated traffic and IPv6
+continue to use mangle in either mode.&lt;/p&gt;
+&lt;p&gt;To see which mode was selected, restart the service and look for these messages
+in the device system log:&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;raw PREROUTING available; enabling --use-raw-prerouting&lt;/code&gt; means RAW is active.
+A message ending in &lt;code&gt;using mangle PREROUTING&lt;/code&gt; means mangle is active.&lt;/p&gt;
+&lt;p&gt;To always use mangle, edit &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nv&#34;&gt;KEEN_PBR_RAW_PREROUTING&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;disable&amp;#34;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Then restart the service:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Set &lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;enable&amp;quot;&lt;/code&gt; to require RAW; the service will fail to
+start instead of falling back to mangle if the RAW capability is unavailable.&lt;/p&gt;
 &lt;p&gt;Basic commands:&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
@@ -3076,6 +3149,26 @@ continues using its existing mangle path.&lt;/p&gt;
 It enables the flag automatically only after the raw table probe succeeds; otherwise
 it logs a warning and keeps the normal mangle path. Raw PREROUTING deliberately
 does not use connmark acceleration: each forwarded packet is classified directly.&lt;/p&gt;
+&lt;p&gt;To force the Keenetic package to keep using mangle PREROUTING, set the following
+in &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;, then restart the service:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nv&#34;&gt;KEEN_PBR_RAW_PREROUTING&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;&amp;#34;disable&amp;#34;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;The default value is &lt;code&gt;auto&lt;/code&gt;. Set it to &lt;code&gt;enable&lt;/code&gt; to require raw PREROUTING; the
+service will fail to start rather than fall back to mangle if the capability probe
+fails. For the Keenetic-specific RAW versus mangle trade-off, see
+&lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/&#34;&gt;Keenetic / NetCraze installation&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;Troubleshoot the required capability with:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 

@@ -50,6 +50,18 @@ It enables the flag automatically only after the raw table probe succeeds; other
 it logs a warning and keeps the normal mangle path. Raw PREROUTING deliberately
 does not use connmark acceleration: each forwarded packet is classified directly.
 
+To force the Keenetic package to keep using mangle PREROUTING, set the following
+in `/opt/etc/keen-pbr/defaults`, then restart the service:
+
+```sh
+KEEN_PBR_RAW_PREROUTING="disable"
+```
+
+The default value is `auto`. Set it to `enable` to require raw PREROUTING; the
+service will fail to start rather than fall back to mangle if the capability probe
+fails. For the Keenetic-specific RAW versus mangle trade-off, see
+[Keenetic / NetCraze installation]({{< relref "/docs/getting-started/installation/keenetic" >}}).
+
 Troubleshoot the required capability with:
 
 ```sh
