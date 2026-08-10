@@ -107,6 +107,7 @@ endef
 
 define Package/keen-pbr/conffiles
 /opt/etc/keen-pbr/config.json
+/opt/etc/keen-pbr/defaults
 /opt/etc/keen-pbr/local.lst
 /opt/etc/keen-pbr/dnsmasq-fallback.conf
 endef
@@ -120,7 +121,7 @@ define Package/keen-pbr/install
 	$(INSTALL_DIR) $(1)/opt/usr/share/keen-pbr/frontend
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/$(KEEN_PBR_STAGED_BINDIR)/keen-pbr $(1)/opt/usr/bin/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d/S80keen-pbr
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/defaults
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/defaults
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/dnsmasq-fallback.conf $(1)/opt/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq.sh
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.conf.template $(1)/opt/usr/lib/keen-pbr/dnsmasq.conf.template
@@ -163,6 +164,7 @@ endef
 
 define Package/keen-pbr-headless/conffiles
 /opt/etc/keen-pbr/config.json
+/opt/etc/keen-pbr/defaults
 /opt/etc/keen-pbr/local.lst
 /opt/etc/keen-pbr/dnsmasq-fallback.conf
 endef
@@ -175,7 +177,7 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_DIR) $(1)/opt/usr/lib/keen-pbr
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/$(KEEN_PBR_STAGED_BINDIR)/keen-pbr $(1)/opt/usr/bin/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d/S80keen-pbr
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/defaults
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/defaults
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/dnsmasq-fallback.conf $(1)/opt/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq.sh
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.conf.template $(1)/opt/usr/lib/keen-pbr/dnsmasq.conf.template

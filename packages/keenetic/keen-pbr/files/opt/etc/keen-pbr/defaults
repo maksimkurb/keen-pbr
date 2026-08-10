@@ -1,6 +1,22 @@
+# Path to the keen-pbr executable launched by the init script.
 KEEN_PBR="/opt/usr/bin/keen-pbr"
+
+# Path to the main keen-pbr JSON configuration file.
 CONFIG="/opt/etc/keen-pbr/config.json"
+
+# Path to the helper that generates and reloads dnsmasq configuration.
 DNSMASQ_HELPER="/opt/usr/lib/keen-pbr/dnsmasq.sh"
-# Extra daemon arguments. Raw PREROUTING is selected automatically by the
-# Keenetic init script when the matching kernel module is usable.
+
+# Extra arguments passed to the keen-pbr daemon. Do not add
+# --use-raw-prerouting here; KEEN_PBR_RAW_PREROUTING controls it.
 KEEN_PBR_ARGS=""
+
+# Keenetic trade-off: RAW survives mangle rebuilds, but Connection Policy can
+# overwrite its MARK; mangle preserves that override but has a brief rebuild gap.
+# IPv4 RAW PREROUTING mode for forwarded traffic:
+#   auto      (default) use RAW when the matching kernel module and table probe
+#             succeed; otherwise use mangle PREROUTING.
+#   enable    require RAW. The service starts with --use-raw-prerouting and fails
+#             instead of falling back to mangle if RAW is unavailable.
+#   disable   always use mangle PREROUTING, even when RAW is available.
+KEEN_PBR_RAW_PREROUTING="auto"

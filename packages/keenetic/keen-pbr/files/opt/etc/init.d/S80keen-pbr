@@ -186,11 +186,25 @@ remove_daemon_arg() {
 }
 
 enable_raw_prerouting_if_available() {
-    local raw_module
+    local raw_module raw_mode
 
     # The service owns this capability decision.  Remove a persisted legacy
-    # token first so an unavailable module reliably selects mangle mode.
+    # token first so the configured mode is always applied.
     remove_daemon_arg --use-raw-prerouting
+
+    raw_mode="${KEEN_PBR_RAW_PREROUTING:-auto}"
+    case "$raw_mode" in
+        disable)
+            log "raw PREROUTING disabled by KEEN_PBR_RAW_PREROUTING; using mangle PREROUTING"
+            return 0
+            ;;
+        auto|enable)
+            ;;
+        *)
+            log "WARNING: invalid KEEN_PBR_RAW_PREROUTING=${KEEN_PBR_RAW_PREROUTING}; using auto"
+            raw_mode="auto"
+            ;;
+    esac
 
     if grep -qx raw /proc/net/ip_tables_names 2>/dev/null && iptables -t raw -S >/dev/null 2>&1; then
         log "raw PREROUTING available; enabling --use-raw-prerouting"
@@ -199,14 +213,29 @@ enable_raw_prerouting_if_available() {
     fi
     raw_module="/lib/modules/$(uname -r)/iptable_raw.ko"
     if [ ! -f "$raw_module" ]; then
+        if [ "$raw_mode" = "enable" ]; then
+            log_error "raw PREROUTING was explicitly enabled, but $raw_module is missing; startup will fail"
+            ARGS="$ARGS --use-raw-prerouting"
+            return 0
+        fi
         log "WARNING: raw PREROUTING unavailable: $raw_module is missing; using mangle PREROUTING"
         return 0
     fi
     if ! insmod "$raw_module" 2>/dev/null && ! grep -qx raw /proc/net/ip_tables_names 2>/dev/null; then
+        if [ "$raw_mode" = "enable" ]; then
+            log_error "raw PREROUTING was explicitly enabled, but $raw_module could not be loaded; startup will fail"
+            ARGS="$ARGS --use-raw-prerouting"
+            return 0
+        fi
         log "WARNING: could not load $raw_module; using mangle PREROUTING"
         return 0
     fi
     if ! grep -qx raw /proc/net/ip_tables_names 2>/dev/null || ! iptables -t raw -S >/dev/null 2>&1; then
+        if [ "$raw_mode" = "enable" ]; then
+            log_error "raw PREROUTING was explicitly enabled, but the raw table probe failed; startup will fail"
+            ARGS="$ARGS --use-raw-prerouting"
+            return 0
+        fi
         log "WARNING: raw table probe failed after loading $raw_module; using mangle PREROUTING"
         return 0
     fi
