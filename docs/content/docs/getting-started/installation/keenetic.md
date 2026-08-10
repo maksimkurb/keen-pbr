@@ -74,6 +74,49 @@ After you reboot the router, you can open http://my.keenetic.net:12121 to config
 
 You can also configure keen-pbr manually by modifying the configuration file: `/opt/etc/keen-pbr/config.json`.
 
+### Choose RAW or mangle PREROUTING
+
+This choice is specific to Keenetic / NetCraze. Keenetic can periodically rebuild
+its `mangle` table, for example after a DHCP lease renewal. The normal mangle
+integration is then briefly absent until keen-pbr reapplies it. RAW is independent
+of that rebuild, but runs before Keenetic's **Connection Policies** > **Policy
+Bindings** rules. The platform's iptables replacement behaviour is also discussed in the
+[Keenetic Community forum](https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/).
+
+| Mode | Benefit | Trade-off |
+|---|---|---|
+| **RAW** (default when available) | PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and a kill switch has fewer opportunities for packets to leak through the ordinary route. | After keen-pbr sets its `fwmark` in RAW, Keenetic's **Connection Policies** > **Policy Bindings** rules overwrite it. RAW mode therefore works only for devices assigned the **Default policy**. |
+| **mangle** | keen-pbr runs after Keenetic's Connection Policy marks, so it can override routing for devices with a non-default policy. | When Keenetic rebuilds its routing table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow. |
+
+{{< callout type="info" >}}
+For the most predictable Keenetic setup, do not assign **Connection Policies** to devices in Keenetic. Instead, create the equivalent per-device [keen-pbr route rules]({{< relref "/docs/configuration/route-rules" >}}) using the `src_addr` (**Source address**) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.
+{{< /callout >}}
+
+The package default is `auto`: it uses RAW for IPv4 forwarded traffic when the
+device supports it, otherwise mangle. Locally generated traffic and IPv6
+continue to use mangle in either mode.
+
+To see which mode was selected, restart the service and look for these messages
+in the device system log:
+
+`raw PREROUTING available; enabling --use-raw-prerouting` means RAW is active.
+A message ending in `using mangle PREROUTING` means mangle is active.
+
+To always use mangle, edit `/opt/etc/keen-pbr/defaults`:
+
+```sh
+KEEN_PBR_RAW_PREROUTING="disable"
+```
+
+Then restart the service:
+
+```sh
+/opt/etc/init.d/S80keen-pbr restart
+```
+
+Set `KEEN_PBR_RAW_PREROUTING="enable"` to require RAW; the service will fail to
+start instead of falling back to mangle if the RAW capability is unavailable.
+
 Basic commands:
 
 | Action | Command |
