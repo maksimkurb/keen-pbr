@@ -17,7 +17,7 @@ The REST API is available when:
     "listen": "0.0.0.0:12121",
     "authentication": {
       "enabled": true,
-      "password_hash": "argon2id$v=19$m=19456,t=2,p=1$..."
+      "password_hash": "argon2id$v=19$m=2048,t=2,p=1$..."
     },
     "cors": {
       "allowed_origins": ["https://panel.example.com"]

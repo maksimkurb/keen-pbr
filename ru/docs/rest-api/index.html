@@ -11,7 +11,7 @@
 <title>REST API – keen-pbr</title>
   <meta name="description" content="Эта страница описывает встроенный HTTP REST API.
 REST API доступен, если:
-Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;device_name&#34;: &#34;Домашний роутер&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/rest-api/" itemprop="url" />
+Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;device_name&#34;: &#34;Домашний роутер&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/rest-api/" itemprop="url" />
 
 <meta property="og:title" content="REST API">
 <meta
@@ -35,7 +35,7 @@ config.json{
     &#34;listen&#34;: &#34;0.0.0.0:12121&#34;,
     &#34;authentication&#34;: {
       &#34;enabled&#34;: true,
-      &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34;
+      &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34;
     },
     &#34;cors&#34;: {
       &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;]
@@ -64,13 +64,13 @@ config.json{
 	<meta itemprop="name" content="REST API">
 	<meta itemprop="description" content="Эта страница описывает встроенный HTTP REST API.
 REST API доступен, если:
-Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;device_name&#34;: &#34;Домашний роутер&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:">
+Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;device_name&#34;: &#34;Домашний роутер&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:">
 	<meta itemprop="wordCount" content="1083">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="REST API">
 	<meta name="twitter:description" content="Эта страница описывает встроенный HTTP REST API.
 REST API доступен, если:
-Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;device_name&#34;: &#34;Домашний роутер&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=19456,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:">
+Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;device_name&#34;: &#34;Домашний роутер&#34;, &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34;, &#34;authentication&#34;: { &#34;enabled&#34;: true, &#34;password_hash&#34;: &#34;argon2id$v=19$m=2048,t=2,p=1$...&#34; }, &#34;cors&#34;: { &#34;allowed_origins&#34;: [&#34;https://panel.example.com&#34;] } } } Интерактивно сгенерировать хеш пароля:">
 
     <link rel="preload" href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" as="style" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
     <link href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" rel="stylesheet" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
@@ -1125,7 +1125,7 @@ REST API доступен, если:
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;0.0.0.0:12121&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;authentication&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;password_hash&#34;</span><span class="p">:</span> <span class="s2">&#34;argon2id$v=19$m=19456,t=2,p=1$...&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;password_hash&#34;</span><span class="p">:</span> <span class="s2">&#34;argon2id$v=19$m=2048,t=2,p=1$...&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;cors&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;allowed_origins&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;https://panel.example.com&#34;</span><span class="p">]</span>
