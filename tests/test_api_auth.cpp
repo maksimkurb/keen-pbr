@@ -11,14 +11,15 @@ namespace keen_pbr3 {
 
 TEST_CASE("Argon2id password verifiers validate and reject other passwords") {
     const auto verifier = auth::generate_password_hash("correct horse");
-    CHECK(verifier.rfind("argon2id$v=19$m=19456,t=2,p=1$", 0) == 0);
+    CHECK(verifier.rfind("argon2id$v=19$m=2048,t=2,p=1$", 0) == 0);
     CHECK(auth::valid_password_hash(verifier));
     CHECK(auth::verify_password("correct horse", verifier));
     CHECK_FALSE(auth::verify_password("wrong", verifier));
+    CHECK_FALSE(auth::valid_password_hash("argon2id$v=19$m=19456,t=2,p=1$"));
     CHECK_FALSE(auth::valid_password_hash("sha256$invalid"));
     CHECK_FALSE(auth::valid_password_hash("pbkdf2-sha256$200000$legacy$verifier"));
     auto modified = verifier;
-    modified.replace(modified.find("m=19456"), 7, "m=32768");
+    modified.replace(modified.find("m=2048"), 6, "m=32768");
     CHECK_FALSE(auth::valid_password_hash(modified));
 }
 

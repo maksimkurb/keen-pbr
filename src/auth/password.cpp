@@ -18,15 +18,17 @@ namespace {
 using Salt = std::array<std::uint8_t, 16>;
 using Digest = std::array<std::uint8_t, 32>;
 
-constexpr std::uint32_t kArgon2MemoryBlocks = 19'456; // 19 MiB
+constexpr std::uint32_t kArgon2MemoryBlocks = 2'048; // 2 MiB
 constexpr std::uint32_t kArgon2Passes = 2;
 constexpr std::uint32_t kArgon2Lanes = 1;
-constexpr std::string_view kVerifierPrefix = "argon2id$v=19$m=19456,t=2,p=1$";
+constexpr std::string_view kVerifierPrefix = "argon2id$v=19$m=2048,t=2,p=1$";
 constexpr char kHex[] = "0123456789abcdef";
 
 struct Argon2WorkArea {
-    std::vector<std::uint64_t> words = std::vector<std::uint64_t>(
-        static_cast<std::size_t>(kArgon2MemoryBlocks) * 1024 / sizeof(std::uint64_t));
+    Argon2WorkArea()
+        : words(static_cast<std::size_t>(kArgon2MemoryBlocks) * 1024 / sizeof(std::uint64_t)) {}
+
+    std::vector<std::uint64_t> words;
 
     ~Argon2WorkArea() {
         crypto_wipe(words.data(), words.size() * sizeof(std::uint64_t));
