@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -26,6 +27,22 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+
+type SecurityDraft = {
+  authEnabled: boolean
+  authPassword: string
+  authConfirmation: string
+  allowedOrigins: string
+}
+
+function getDraftFromConfig(config: ConfigObject): SecurityDraft {
+  return {
+    authEnabled: config.api?.authentication?.enabled ?? false,
+    authPassword: "",
+    authConfirmation: "",
+    allowedOrigins: (config.api?.cors?.allowed_origins ?? []).join("\n"),
+  }
+}
 
 export function SecurityPage() {
   const { t } = useTranslation()
@@ -59,96 +76,82 @@ function LoadedSecurityPage({ loadedConfig }: { loadedConfig: ConfigObject }) {
   const queryClient = useQueryClient()
   const passwordStatusQuery = useGetAuthPasswordStatus()
   const postConfigMutation = usePostConfigMutation()
-  const [authEnabled, setAuthEnabled] = useState(
-    loadedConfig.api?.authentication?.enabled ?? false
-  )
-  const [authPassword, setAuthPassword] = useState("")
-  const [authConfirmation, setAuthConfirmation] = useState("")
-  const [allowedOrigins, setAllowedOrigins] = useState(
-    (loadedConfig.api?.cors?.allowed_origins ?? []).join("\n")
-  )
-  const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const passwordSet =
     passwordStatusQuery.data?.status === 200 &&
     passwordStatusQuery.data.data.password_set
+  const form = useForm({
+    defaultValues: getDraftFromConfig(loadedConfig),
+    validators: {
+      onSubmitAsync: async ({ value }) => {
+        setError(null)
 
-  const updateAuthPassword = (value: string) => {
-    setAuthPassword(value)
-    if (!value) {
-      setAuthConfirmation("")
-    }
-  }
-
-  const save = async () => {
-    setError(null)
-
-    if (authPassword !== authConfirmation) {
-      setError(t("auth.settings.passwordMismatch"))
-      return
-    }
-
-    if (authEnabled && !authPassword && !passwordSet) {
-      setError(t("auth.settings.passwordRequired"))
-      return
-    }
-
-    const origins = allowedOrigins
-      .split("\n")
-      .map((value) => value.trim())
-      .filter(Boolean)
-
-    if (origins.some((origin) => !isExactHttpOrigin(origin))) {
-      setError(t("auth.settings.invalidOrigin"))
-      return
-    }
-
-    setPending(true)
-    try {
-      if (authPassword) {
-        const response = await postAuthPassword({ password: authPassword })
-        if (response.status !== 200) {
-          throw new Error("password update failed")
+        if (value.authPassword !== value.authConfirmation) {
+          setError(t("auth.settings.passwordMismatch"))
+          return
         }
-      }
 
-      await postConfigMutation.mutateAsync({
-        data: {
+        if (value.authEnabled && !value.authPassword && !passwordSet) {
+          setError(t("auth.settings.passwordRequired"))
+          return
+        }
+
+        const origins = value.allowedOrigins
+          .split("\n")
+          .map((origin) => origin.trim())
+          .filter(Boolean)
+
+        if (origins.some((origin) => !isExactHttpOrigin(origin))) {
+          setError(t("auth.settings.invalidOrigin"))
+          return
+        }
+
+        const updatedConfig = {
           ...loadedConfig,
           api: {
             ...loadedConfig.api,
             enabled: true,
-            authentication: { enabled: authEnabled },
+            authentication: { enabled: value.authEnabled },
             cors: { allowed_origins: origins },
           },
-        },
-      })
-      setAuthPassword("")
-      setAuthConfirmation("")
-      toast.success(t("auth.settings.staged"))
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-        passwordStatusQuery.refetch(),
-      ])
-    } catch {
-      setError(t("auth.settings.updateFailed"))
-    } finally {
-      setPending(false)
-    }
-  }
+        }
+
+        try {
+          if (value.authPassword) {
+            const response = await postAuthPassword({
+              password: value.authPassword,
+            })
+            if (response.status !== 200) {
+              throw new Error("password update failed")
+            }
+          }
+
+          await postConfigMutation.mutateAsync({ data: updatedConfig })
+          toast.success(t("auth.settings.staged"))
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
+            passwordStatusQuery.refetch(),
+          ])
+          form.reset(getDraftFromConfig(updatedConfig))
+        } catch {
+          setError(t("auth.settings.updateFailed"))
+        }
+      },
+    },
+  })
 
   const cancel = () => {
-    setAuthEnabled(loadedConfig.api?.authentication?.enabled ?? false)
-    setAuthPassword("")
-    setAuthConfirmation("")
-    setAllowedOrigins(
-      (loadedConfig.api?.cors?.allowed_origins ?? []).join("\n")
-    )
+    form.reset(getDraftFromConfig(loadedConfig))
     setError(null)
   }
 
   return (
-    <>
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        void form.handleSubmit()
+      }}
+    >
       <Card>
         <CardHeader>
           <CardTitle>{t("auth.settings.title")}</CardTitle>
@@ -156,64 +159,91 @@ function LoadedSecurityPage({ loadedConfig }: { loadedConfig: ConfigObject }) {
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex items-center gap-3">
-            <Checkbox
-              checked={authEnabled}
-              id="authentication-enabled"
-              onCheckedChange={(value) => setAuthEnabled(value === true)}
-            />
+            <form.Field name="authEnabled">
+              {(field) => (
+                <Checkbox
+                  checked={field.state.value}
+                  id="authentication-enabled"
+                  onCheckedChange={(value) =>
+                    field.handleChange(value === true)
+                  }
+                />
+              )}
+            </form.Field>
             <FieldLabel htmlFor="authentication-enabled">
               {t("auth.settings.enable")}
             </FieldLabel>
           </div>
 
           <div className="space-y-4">
-            <Field>
-              <FieldLabel htmlFor="new-auth-password">
-                {t("auth.settings.newPassword")}
-              </FieldLabel>
-              <Input
-                autoComplete="new-password"
-                id="new-auth-password"
-                onChange={(event) => updateAuthPassword(event.target.value)}
-                placeholder={t(
-                  passwordSet
-                    ? "auth.settings.passwordSetPlaceholder"
-                    : "auth.settings.newPasswordPlaceholder"
-                )}
-                type="password"
-                value={authPassword}
-              />
-            </Field>
-            {authPassword ? (
-              <Field className="animate-in duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
-                <FieldLabel htmlFor="confirm-auth-password">
-                  {t("auth.settings.confirmPassword")}
-                </FieldLabel>
-                <Input
-                  autoComplete="new-password"
-                  id="confirm-auth-password"
-                  onChange={(event) => setAuthConfirmation(event.target.value)}
-                  type="password"
-                  value={authConfirmation}
-                />
-              </Field>
-            ) : null}
+            <form.Field name="authPassword">
+              {(field) => (
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="new-auth-password">
+                      {t("auth.settings.newPassword")}
+                    </FieldLabel>
+                    <Input
+                      autoComplete="new-password"
+                      id="new-auth-password"
+                      onChange={(event) => {
+                        field.handleChange(event.target.value)
+                        if (!event.target.value) {
+                          form.setFieldValue("authConfirmation", "")
+                        }
+                      }}
+                      placeholder={t(
+                        passwordSet
+                          ? "auth.settings.passwordSetPlaceholder"
+                          : "auth.settings.newPasswordPlaceholder"
+                      )}
+                      type="password"
+                      value={field.state.value}
+                    />
+                  </Field>
+                  {field.state.value ? (
+                    <form.Field name="authConfirmation">
+                      {(confirmationField) => (
+                        <Field className="animate-in duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
+                          <FieldLabel htmlFor="confirm-auth-password">
+                            {t("auth.settings.confirmPassword")}
+                          </FieldLabel>
+                          <Input
+                            autoComplete="new-password"
+                            id="confirm-auth-password"
+                            onChange={(event) =>
+                              confirmationField.handleChange(event.target.value)
+                            }
+                            type="password"
+                            value={confirmationField.state.value}
+                          />
+                        </Field>
+                      )}
+                    </form.Field>
+                  ) : null}
+                </>
+              )}
+            </form.Field>
           </div>
 
-          <Field>
-            <FieldLabel htmlFor="cors-origins">
-              {t("auth.settings.allowedOrigins")}
-            </FieldLabel>
-            <Textarea
-              id="cors-origins"
-              onChange={(event) => setAllowedOrigins(event.target.value)}
-              placeholder={t("auth.settings.originsPlaceholder")}
-              value={allowedOrigins}
-            />
-            <FieldDescription>
-              {t("auth.settings.originsDescription")}
-            </FieldDescription>
-          </Field>
+          <form.Field name="allowedOrigins">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor="cors-origins">
+                  {t("auth.settings.allowedOrigins")}
+                </FieldLabel>
+                <Textarea
+                  id="cors-origins"
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  placeholder={t("auth.settings.originsPlaceholder")}
+                  value={field.state.value}
+                />
+                <FieldDescription>
+                  {t("auth.settings.originsDescription")}
+                </FieldDescription>
+              </Field>
+            )}
+          </form.Field>
 
           {error ? (
             <Alert variant="destructive">
@@ -224,20 +254,31 @@ function LoadedSecurityPage({ loadedConfig }: { loadedConfig: ConfigObject }) {
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Button disabled={pending} onClick={cancel} size="xl" variant="outline">
+        <Button onClick={cancel} size="xl" type="button" variant="outline">
           {t("common.cancel")}
         </Button>
-        <Button
-          disabled={pending || passwordStatusQuery.isLoading}
-          onClick={() => void save()}
-          size="xl"
+        <form.Subscribe
+          selector={(state) => ({
+            isPristine: state.isPristine,
+            isSubmitting: state.isSubmitting,
+          })}
         >
-          {pending
-            ? t("pages.settings.actions.saving")
-            : t("pages.settings.actions.save")}
-        </Button>
+          {({ isPristine, isSubmitting }) => (
+            <Button
+              disabled={
+                isSubmitting || passwordStatusQuery.isLoading || isPristine
+              }
+              size="xl"
+              type="submit"
+            >
+              {isSubmitting
+                ? t("pages.settings.actions.saving")
+                : t("pages.settings.actions.save")}
+            </Button>
+          )}
+        </form.Subscribe>
       </div>
-    </>
+    </form>
   )
 }
 
