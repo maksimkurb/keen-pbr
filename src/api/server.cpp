@@ -533,7 +533,6 @@ ApiServer::ApiServer(const ApiConfig& config, std::string device_name)
             }
             if (api && auth_enabled && !public_auth && !request_authenticated(req)) {
                 res.status = 401;
-                res.set_header("WWW-Authenticate", "Basic realm=\"keen-pbr\"");
                 res.set_content(make_error_json("authentication required"), "application/json");
                 return httplib::Server::HandlerResponse::Handled;
             }

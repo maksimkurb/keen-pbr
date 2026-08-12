@@ -50,7 +50,12 @@ TEST_CASE("API accepts Basic auth and keeps only the newest Bearer session") {
     server.start();
     httplib::Client client("127.0.0.1", 18193);
 
-    CHECK(client.Get("/api/protected")->status == 401);
+    const auto unauthorized = client.Get("/api/protected");
+    REQUIRE(unauthorized != nullptr);
+    CHECK(unauthorized->status == 401);
+    CHECK(unauthorized->get_header_value("Content-Type") == "application/json");
+    CHECK_FALSE(unauthorized->has_header("WWW-Authenticate"));
+    CHECK(nlohmann::json::parse(unauthorized->body).at("error") == "authentication required");
     CHECK(client.Get("/api/protected-stream")->status == 401);
     const auto basic = client.Get("/api/protected", httplib::Headers{{"Authorization", "Basic YWRtaW46c2VjcmV0"}});
     REQUIRE(basic != nullptr);
