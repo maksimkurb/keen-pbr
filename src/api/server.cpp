@@ -30,6 +30,19 @@ namespace keen_pbr3 {
 
 namespace {
 
+constexpr char kFrontendContentSecurityPolicy[] =
+    "default-src 'none'; "
+    "base-uri 'none'; "
+    "object-src 'none'; "
+    "script-src 'self'; "
+    "style-src 'self'; "
+    "img-src 'self' data:; "
+    "font-src 'self'; "
+    "connect-src 'self' https://*.check.keen.pbr; "
+    "manifest-src 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'";
+
 class CrashAwareTaskQueue final : public httplib::TaskQueue {
 public:
     CrashAwareTaskQueue()
@@ -146,6 +159,7 @@ bool serve_file_response(const httplib::Request& req,
                          const std::filesystem::path& mime_from_path,
                          bool gzip_encoded,
                          bool immutable) {
+    res.set_header("Content-Security-Policy", kFrontendContentSecurityPolicy);
     res.set_header("Cache-Control", immutable
         ? "public, max-age=31536000, immutable"
         : "no-cache");

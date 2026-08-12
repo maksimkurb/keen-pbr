@@ -74,6 +74,18 @@ TEST_CASE("static frontend gzip response does not duplicate compression headers"
     CHECK(response->get_header_value_count("Vary") == 1);
     CHECK(response->get_header_value("Vary") == "Accept-Encoding");
     CHECK(response->get_header_value("Cache-Control") == "no-cache");
+    CHECK(response->get_header_value("Content-Security-Policy") ==
+          "default-src 'none'; "
+          "base-uri 'none'; "
+          "object-src 'none'; "
+          "script-src 'self'; "
+          "style-src 'self'; "
+          "img-src 'self' data:; "
+          "font-src 'self'; "
+          "connect-src 'self' https://*.check.keen.pbr; "
+          "manifest-src 'self'; "
+          "form-action 'self'; "
+          "frame-ancestors 'none'");
     CHECK_FALSE(response->get_header_value("ETag").empty());
     CHECK(response->get_header_value("Content-Length") == "18");
     CHECK(response->body == "pretend-gzip-bytes");
