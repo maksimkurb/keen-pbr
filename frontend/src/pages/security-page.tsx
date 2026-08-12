@@ -5,13 +5,19 @@ import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-import { postAuthPassword } from "@/api/generated/keen-api"
-import type { ConfigObject } from "@/api/generated/model/configObject"
-import { usePostConfigMutation } from "@/api/mutations"
-import { queryKeys } from "@/api/query-keys"
-import { useGetAuthPasswordStatus, useGetConfig } from "@/api/queries"
-import { selectConfig } from "@/api/selectors"
-import { Field, FieldDescription, FieldLabel } from "@/components/shared/field"
+import {
+  getGetAuthSettingsQueryKey,
+  useGetAuthSettings,
+  usePostAuthSettings,
+} from "@/api/generated/keen-api"
+import type { AuthSettingsResponse } from "@/api/generated/model/authSettingsResponse"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldHint,
+  FieldLabel,
+} from "@/components/shared/field"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -35,19 +41,18 @@ type SecurityDraft = {
   allowedOrigins: string
 }
 
-function getDraftFromConfig(config: ConfigObject): SecurityDraft {
+function getDraftFromSettings(settings: AuthSettingsResponse): SecurityDraft {
   return {
-    authEnabled: config.api?.authentication?.enabled ?? false,
+    authEnabled: settings.authentication.enabled ?? false,
     authPassword: "",
     authConfirmation: "",
-    allowedOrigins: (config.api?.cors?.allowed_origins ?? []).join("\n"),
+    allowedOrigins: (settings.cors.allowed_origins ?? []).join("\n"),
   }
 }
 
 export function SecurityPage() {
   const { t } = useTranslation()
-  const configQuery = useGetConfig()
-  const loadedConfig = selectConfig(configQuery.data)
+  const settingsQuery = useGetAuthSettings()
 
   return (
     <div className="space-y-6">
@@ -56,40 +61,36 @@ export function SecurityPage() {
         title={t("pages.security.title")}
       />
 
-      {configQuery.isLoading ? (
+      {settingsQuery.isLoading ? (
         <SecurityPageSkeleton />
-      ) : configQuery.isError || !loadedConfig ? (
+      ) : settingsQuery.isError || settingsQuery.data?.status !== 200 ? (
         <ListPlaceholder
           description={t("common.loadErrorDescription")}
           title={t("common.unableToLoadData")}
           variant="error"
         />
       ) : (
-        <LoadedSecurityPage loadedConfig={loadedConfig} />
+        <LoadedSecurityPage settings={settingsQuery.data.data} />
       )}
     </div>
   )
 }
 
-function LoadedSecurityPage({ loadedConfig }: { loadedConfig: ConfigObject }) {
+function LoadedSecurityPage({
+  settings,
+}: {
+  settings: AuthSettingsResponse
+}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const passwordStatusQuery = useGetAuthPasswordStatus()
-  const postConfigMutation = usePostConfigMutation()
+  const postAuthSettingsMutation = usePostAuthSettings()
   const [error, setError] = useState<string | null>(null)
-  const passwordSet =
-    passwordStatusQuery.data?.status === 200 &&
-    passwordStatusQuery.data.data.password_set
+  const passwordSet = settings.password_set
   const form = useForm({
-    defaultValues: getDraftFromConfig(loadedConfig),
+    defaultValues: getDraftFromSettings(settings),
     validators: {
       onSubmitAsync: async ({ value }) => {
         setError(null)
-
-        if (value.authPassword !== value.authConfirmation) {
-          setError(t("auth.settings.passwordMismatch"))
-          return
-        }
 
         if (value.authEnabled && !value.authPassword && !passwordSet) {
           setError(t("auth.settings.passwordRequired"))
@@ -106,33 +107,23 @@ function LoadedSecurityPage({ loadedConfig }: { loadedConfig: ConfigObject }) {
           return
         }
 
-        const updatedConfig = {
-          ...loadedConfig,
-          api: {
-            ...loadedConfig.api,
-            enabled: true,
+        try {
+          await postAuthSettingsMutation.mutateAsync({
+            data: {
+              authentication: { enabled: value.authEnabled },
+              cors: { allowed_origins: origins },
+              ...(value.authPassword ? { password: value.authPassword } : {}),
+            },
+          })
+          toast.success(t("auth.settings.saved"))
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: getGetAuthSettingsQueryKey() }),
+          ])
+          form.reset(getDraftFromSettings({
             authentication: { enabled: value.authEnabled },
             cors: { allowed_origins: origins },
-          },
-        }
-
-        try {
-          if (value.authPassword) {
-            const response = await postAuthPassword({
-              password: value.authPassword,
-            })
-            if (response.status !== 200) {
-              throw new Error("password update failed")
-            }
-          }
-
-          await postConfigMutation.mutateAsync({ data: updatedConfig })
-          toast.success(t("auth.settings.staged"))
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-            passwordStatusQuery.refetch(),
-          ])
-          form.reset(getDraftFromConfig(updatedConfig))
+            password_set: Boolean(value.authPassword) || passwordSet,
+          }))
         } catch {
           setError(t("auth.settings.updateFailed"))
         }
@@ -141,12 +132,13 @@ function LoadedSecurityPage({ loadedConfig }: { loadedConfig: ConfigObject }) {
   })
 
   const cancel = () => {
-    form.reset(getDraftFromConfig(loadedConfig))
+    form.reset(getDraftFromSettings(settings))
     setError(null)
   }
 
   return (
     <form
+      className="space-y-6"
       onSubmit={(event) => {
         event.preventDefault()
         void form.handleSubmit()
@@ -202,23 +194,47 @@ function LoadedSecurityPage({ loadedConfig }: { loadedConfig: ConfigObject }) {
                     />
                   </Field>
                   {field.state.value ? (
-                    <form.Field name="authConfirmation">
-                      {(confirmationField) => (
-                        <Field className="animate-in duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
-                          <FieldLabel htmlFor="confirm-auth-password">
-                            {t("auth.settings.confirmPassword")}
-                          </FieldLabel>
-                          <Input
-                            autoComplete="new-password"
-                            id="confirm-auth-password"
-                            onChange={(event) =>
-                              confirmationField.handleChange(event.target.value)
-                            }
-                            type="password"
-                            value={confirmationField.state.value}
-                          />
-                        </Field>
-                      )}
+                    <form.Field
+                      name="authConfirmation"
+                      validators={{
+                        onSubmit: ({ value }) =>
+                          value === form.getFieldValue("authPassword")
+                            ? undefined
+                            : t("auth.settings.passwordMismatch"),
+                      }}
+                    >
+                      {(confirmationField) => {
+                        const confirmationError = getFirstFieldError(
+                          confirmationField.state.meta.errors
+                        )
+
+                        return (
+                          <Field
+                            className="animate-in duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none"
+                            invalid={Boolean(confirmationError)}
+                          >
+                            <FieldLabel htmlFor="confirm-auth-password">
+                              {t("auth.settings.confirmPassword")}
+                            </FieldLabel>
+                            <FieldContent>
+                              <Input
+                                aria-invalid={Boolean(confirmationError)}
+                                autoComplete="new-password"
+                                id="confirm-auth-password"
+                                onBlur={confirmationField.handleBlur}
+                                onChange={(event) =>
+                                  confirmationField.handleChange(
+                                    event.target.value
+                                  )
+                                }
+                                type="password"
+                                value={confirmationField.state.value}
+                              />
+                              <FieldHint error={confirmationError} />
+                            </FieldContent>
+                          </Field>
+                        )
+                      }}
                     </form.Field>
                   ) : null}
                 </>
@@ -266,7 +282,7 @@ function LoadedSecurityPage({ loadedConfig }: { loadedConfig: ConfigObject }) {
           {({ isPristine, isSubmitting }) => (
             <Button
               disabled={
-                isSubmitting || passwordStatusQuery.isLoading || isPristine
+                isSubmitting || postAuthSettingsMutation.isPending || isPristine
               }
               size="xl"
               type="submit"
@@ -302,6 +318,11 @@ function SecurityPageSkeleton() {
       </div>
     </>
   )
+}
+
+function getFirstFieldError(errors: unknown[]) {
+  const error = errors.find((item) => typeof item === "string")
+  return typeof error === "string" ? error : null
 }
 
 function isExactHttpOrigin(value: string) {

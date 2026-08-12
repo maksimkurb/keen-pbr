@@ -66,8 +66,6 @@ void protect_config_password_hash(Config& candidate, const Config& visible) {
     }
 }
 
-namespace {
-
 std::string serialize_config_pretty(const Config& config) {
     nlohmann::json json = config;
     std::function<bool(nlohmann::json&)> prune_json = [&](nlohmann::json& value) -> bool {
@@ -96,8 +94,6 @@ std::string serialize_config_pretty(const Config& config) {
     return json.dump(1, '\t') + "\n";
 }
 
-} // namespace
-
 void register_config_handler(ApiServer& server, ApiContext& ctx) {
     // GET /api/config - return current config and whether it is staged in memory
     server.get("/api/config", [&ctx]() -> std::string {
@@ -105,8 +101,10 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             normalize_config_for_api_response(ctx.get_visible_config());
         const bool is_draft = ctx.config_is_draft();
         const auto list_refresh_state = ctx.get_list_refresh_state_map(visible_config);
+        nlohmann::json draft_config = visible_config;
+        draft_config.erase("api");
         nlohmann::json response = {
-            {"config", nlohmann::json(visible_config)},
+            {"config", std::move(draft_config)},
             {"is_draft", is_draft},
             {"list_refresh_state", nlohmann::json(list_refresh_state)},
         };
@@ -118,7 +116,8 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         Config staged;
         try {
             staged = parse_config(body);
-            protect_config_password_hash(staged, ctx.get_visible_config());
+            const Config visible = ctx.get_visible_config();
+            staged.api = visible.api;
             validate_config(staged);
         } catch (const ConfigValidationError& e) {
             throw ApiError(e.what(), 400, make_validation_error_json(e).dump());
@@ -150,7 +149,23 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         return nlohmann::json{{"password_set", password_set}}.dump();
     });
 
-    // Accept clear text only on this write-only operation and stage the verifier.
+    server.get("/api/auth/settings", [&ctx]() -> std::string {
+        const Config visible = ctx.get_visible_config();
+        auto authentication = visible.api
+            ? visible.api->authentication.value_or(AuthenticationConfig{})
+            : AuthenticationConfig{};
+        const auto cors = visible.api
+            ? visible.api->cors.value_or(CorsConfig{})
+            : CorsConfig{};
+        const bool password_set = authentication.password_hash.has_value();
+        authentication.password_hash.reset();
+        return nlohmann::json{{"authentication", authentication},
+                              {"cors", cors},
+                              {"password_set", password_set}}
+            .dump();
+    });
+
+    // Accept clear text only on this write-only operation and persist the verifier.
     server.post("/api/auth/password", [&ctx](const std::string& body) -> std::string {
         try {
             const auto request = nlohmann::json::parse(body);
@@ -159,20 +174,61 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
                 throw ApiError("password must not be empty", 400);
             }
 
-            auto staged = ctx.get_visible_config();
-            if (!staged.api) staged.api = ApiConfig{};
-            if (!staged.api->authentication) {
-                staged.api->authentication = AuthenticationConfig{};
-            }
-            staged.api->authentication->password_hash =
+            const Config visible = ctx.get_visible_config();
+            AuthenticationConfig authentication = visible.api
+                ? visible.api->authentication.value_or(AuthenticationConfig{})
+                : AuthenticationConfig{};
+            authentication.password_hash =
                 auth::generate_password_hash(request["password"].get<std::string>());
-            validate_config(staged);
-            ctx.stage_config(staged, serialize_config_pretty(staged));
+            const CorsConfig cors = visible.api
+                ? visible.api->cors.value_or(CorsConfig{})
+                : CorsConfig{};
+            ctx.commit_api_security(std::move(authentication), cors);
             return nlohmann::json{{"password_set", true}}.dump();
         } catch (const ApiError&) {
             throw;
         } catch (const nlohmann::json::exception&) {
             throw ApiError("invalid request", 400);
+        }
+    });
+
+    // Persist API authentication and CORS settings without applying a routing draft.
+    server.post("/api/auth/settings", [&ctx](const std::string& body) -> std::string {
+        try {
+            const auto request = nlohmann::json::parse(body);
+            const auto authentication = request.find("authentication");
+            const auto cors = request.find("cors");
+            if (authentication == request.end() || !authentication->is_object() ||
+                !authentication->contains("enabled") || !(*authentication)["enabled"].is_boolean() ||
+                cors == request.end() || !cors->is_object() ||
+                !cors->contains("allowed_origins") || !(*cors)["allowed_origins"].is_array()) {
+                throw ApiError("invalid security settings", 400);
+            }
+
+            AuthenticationConfig next_authentication;
+            next_authentication.enabled = (*authentication)["enabled"].get<bool>();
+            const Config visible = ctx.get_visible_config();
+            if (visible.api && visible.api->authentication) {
+                next_authentication.password_hash = visible.api->authentication->password_hash;
+            }
+            if (const auto password = request.find("password"); password != request.end()) {
+                if (!password->is_string() || password->get_ref<const std::string&>().empty()) {
+                    throw ApiError("password must not be empty", 400);
+                }
+                next_authentication.password_hash =
+                    auth::generate_password_hash(password->get<std::string>());
+            }
+
+            CorsConfig next_cors;
+            next_cors.allowed_origins = cors->at("allowed_origins").get<std::vector<std::string>>();
+            const bool password_set = next_authentication.password_hash.has_value();
+            ctx.commit_api_security(std::move(next_authentication), std::move(next_cors));
+
+            return nlohmann::json{{"password_set", password_set}}.dump();
+        } catch (const ApiError&) {
+            throw;
+        } catch (const nlohmann::json::exception&) {
+            throw ApiError("invalid security settings", 400);
         }
     });
 

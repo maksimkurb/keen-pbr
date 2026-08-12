@@ -33,8 +33,7 @@ export const enTranslation = {
       updateFailed: "Unable to update authentication settings.",
       invalidOrigin:
         "Each CORS entry must be an exact HTTP or HTTPS origin without a path, credentials, query, fragment, or wildcard.",
-      staged:
-        "Authentication settings staged. Apply the configuration to activate them.",
+      saved: "Authentication settings updated.",
     },
   },
   common: {

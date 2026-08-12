@@ -8,6 +8,7 @@
 #include <future>
 
 #include "../api/handlers.hpp"
+#include "../api/handler_config.hpp"
 #include "../api/handler_health_service.hpp"
 #include "../api/server.hpp"
 #include "../api/status_stream.hpp"
@@ -814,6 +815,31 @@ void Daemon::setup_api() {
         },
         [this](LifecycleRequest request) {
             return submit_lifecycle_operation(std::move(request));
+        },
+        [this](AuthenticationConfig authentication, CorsConfig cors) {
+            enqueue_control_task([this,
+                                  authentication = std::move(authentication),
+                                  cors = std::move(cors)]() mutable {
+                if (!config_.api) config_.api = ApiConfig{};
+                config_.api->authentication = std::move(authentication);
+                config_.api->cors = std::move(cors);
+                validate_config(config_);
+                write_config_atomically(config_path_, serialize_config_pretty(config_));
+
+                if (api_server_) {
+                    api_server_->update_runtime_config(
+                        *config_.api, config_.device_name.value_or(""));
+                }
+                config_store_.replace_active(config_, outbound_marks_);
+
+                if (const auto staged = config_store_.staged_snapshot()) {
+                    Config updated_staged = staged->first;
+                    updated_staged.api = config_.api;
+                    config_store_.stage_config(
+                        updated_staged, serialize_config_pretty(updated_staged));
+                }
+                if (status_stream_) status_stream_->reconcile();
+            }, true, "api-security-update");
         },
     });
     status_stream_ = std::make_unique<StatusStream>([this]() {

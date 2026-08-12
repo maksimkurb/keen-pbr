@@ -100,6 +100,7 @@ struct ApiContext {
     LifecycleOperationCoordinator* lifecycle_operations{nullptr};
     std::function<bool(std::string, std::function<void()>)> enqueue_lifecycle_task_fn;
     std::function<std::string(LifecycleRequest)> submit_lifecycle_operation_fn;
+    std::function<void(AuthenticationConfig, CorsConfig)> commit_api_security_fn;
 
     bool enqueue_lifecycle_task(std::string label, std::function<void()> task) const {
         return enqueue_lifecycle_task_fn(std::move(label), std::move(task));
@@ -123,6 +124,10 @@ struct ApiContext {
 
     void stage_config(Config config, std::string staged_config_json) const {
         stage_config_fn(std::move(config), std::move(staged_config_json));
+    }
+
+    void commit_api_security(AuthenticationConfig authentication, CorsConfig cors) const {
+        commit_api_security_fn(std::move(authentication), std::move(cors));
     }
 
     void validate_candidate_config(const Config& config) const {

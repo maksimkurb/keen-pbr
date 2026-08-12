@@ -5,11 +5,11 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
-import type { ConfigObject } from './configObject';
 import type { ConfigStateResponseListRefreshState } from './configStateResponseListRefreshState';
+import type { DraftConfig } from './draftConfig';
 
 export interface ConfigStateResponse {
-  config: ConfigObject;
+  config: DraftConfig;
   /** Whether the returned config is a staged in-memory draft rather than the currently persisted config.
    */
   is_draft: boolean;

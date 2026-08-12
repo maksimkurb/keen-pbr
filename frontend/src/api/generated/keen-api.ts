@@ -29,10 +29,12 @@ import type {
   AuthLoginResponse,
   AuthPasswordRequest,
   AuthPasswordStatus,
+  AuthSettingsRequest,
+  AuthSettingsResponse,
   AuthStatusResponse,
-  ConfigObject,
   ConfigStateResponse,
   ConfigUpdateResponse,
+  DraftConfig,
   ErrorResponse,
   HealthResponse,
   LifecycleOperationAcceptedResponse,
@@ -536,6 +538,208 @@ export const usePostAuthPassword = <TError = void,
         TContext
       > => {
       return useMutation(getPostAuthPasswordMutationOptions(options), queryClient);
+    }
+
+/**
+ * @summary Get authentication and CORS settings
+ */
+export type getAuthSettingsResponse200 = {
+  data: AuthSettingsResponse
+  status: 200
+}
+
+export type getAuthSettingsResponseSuccess = (getAuthSettingsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getAuthSettingsResponse = (getAuthSettingsResponseSuccess)
+
+export const getGetAuthSettingsUrl = () => {
+
+
+
+
+  return `/api/auth/settings`
+}
+
+export const getAuthSettings = async ( options?: RequestInit): Promise<getAuthSettingsResponse> => {
+
+  return apiFetch<getAuthSettingsResponse>(getGetAuthSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAuthSettingsQueryKey = () => {
+    return [
+    `/api/auth/settings`
+    ] as const;
+    }
+
+
+export const getGetAuthSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getAuthSettings>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthSettings>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAuthSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAuthSettings>>> = ({ signal }) => getAuthSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAuthSettings>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAuthSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getAuthSettings>>>
+export type GetAuthSettingsQueryError = unknown
+
+
+export function useGetAuthSettings<TData = Awaited<ReturnType<typeof getAuthSettings>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthSettings>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAuthSettings>>,
+          TError,
+          Awaited<ReturnType<typeof getAuthSettings>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAuthSettings<TData = Awaited<ReturnType<typeof getAuthSettings>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthSettings>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAuthSettings>>,
+          TError,
+          Awaited<ReturnType<typeof getAuthSettings>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAuthSettings<TData = Awaited<ReturnType<typeof getAuthSettings>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthSettings>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get authentication and CORS settings
+ */
+
+export function useGetAuthSettings<TData = Awaited<ReturnType<typeof getAuthSettings>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAuthSettings>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAuthSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+/**
+ * Persists API security settings and updates the running API server without applying a pending routing configuration draft.
+ * @summary Update authentication and CORS settings immediately
+ */
+export type postAuthSettingsResponse200 = {
+  data: AuthPasswordStatus
+  status: 200
+}
+
+export type postAuthSettingsResponse400 = {
+  data: void
+  status: 400
+}
+
+export type postAuthSettingsResponseSuccess = (postAuthSettingsResponse200) & {
+  headers: Headers;
+};
+export type postAuthSettingsResponseError = (postAuthSettingsResponse400) & {
+  headers: Headers;
+};
+
+export type postAuthSettingsResponse = (postAuthSettingsResponseSuccess | postAuthSettingsResponseError)
+
+export const getPostAuthSettingsUrl = () => {
+
+
+
+
+  return `/api/auth/settings`
+}
+
+export const postAuthSettings = async (authSettingsRequest: AuthSettingsRequest, options?: RequestInit): Promise<postAuthSettingsResponse> => {
+
+  return apiFetch<postAuthSettingsResponse>(getPostAuthSettingsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      authSettingsRequest,)
+  }
+);}
+
+
+
+
+export const getPostAuthSettingsMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthSettings>>, TError,{data: AuthSettingsRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postAuthSettings>>, TError,{data: AuthSettingsRequest}, TContext> => {
+
+const mutationKey = ['postAuthSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAuthSettings>>, {data: AuthSettingsRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postAuthSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAuthSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof postAuthSettings>>>
+    export type PostAuthSettingsMutationBody = AuthSettingsRequest
+    export type PostAuthSettingsMutationError = void
+
+    /**
+ * @summary Update authentication and CORS settings immediately
+ */
+export const usePostAuthSettings = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAuthSettings>>, TError,{data: AuthSettingsRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAuthSettings>>,
+        TError,
+        {data: AuthSettingsRequest},
+        TContext
+      > => {
+      return useMutation(getPostAuthSettingsMutationOptions(options), queryClient);
     }
 
 /**
@@ -1183,7 +1387,7 @@ export const getPostConfigUrl = () => {
   return `/api/config`
 }
 
-export const postConfig = async (configObject: ConfigObject, options?: RequestInit): Promise<postConfigResponse> => {
+export const postConfig = async (draftConfig: DraftConfig, options?: RequestInit): Promise<postConfigResponse> => {
 
   return apiFetch<postConfigResponse>(getPostConfigUrl(),
   {
@@ -1191,7 +1395,7 @@ export const postConfig = async (configObject: ConfigObject, options?: RequestIn
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(
-      configObject,)
+      draftConfig,)
   }
 );}
 
@@ -1199,8 +1403,8 @@ export const postConfig = async (configObject: ConfigObject, options?: RequestIn
 
 
 export const getPostConfigMutationOptions = <TError = ErrorResponse,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfig>>, TError,{data: ConfigObject}, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postConfig>>, TError,{data: ConfigObject}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfig>>, TError,{data: DraftConfig}, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postConfig>>, TError,{data: DraftConfig}, TContext> => {
 
 const mutationKey = ['postConfig'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1212,7 +1416,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postConfig>>, {data: ConfigObject}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postConfig>>, {data: DraftConfig}> = (props) => {
           const {data} = props ?? {};
 
           return  postConfig(data,requestOptions)
@@ -1226,18 +1430,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PostConfigMutationResult = NonNullable<Awaited<ReturnType<typeof postConfig>>>
-    export type PostConfigMutationBody = ConfigObject
+    export type PostConfigMutationBody = DraftConfig
     export type PostConfigMutationError = ErrorResponse
 
     /**
  * @summary Stage config in memory
  */
 export const usePostConfig = <TError = ErrorResponse,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfig>>, TError,{data: ConfigObject}, TContext>, request?: SecondParameter<typeof apiFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfig>>, TError,{data: DraftConfig}, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postConfig>>,
         TError,
-        {data: ConfigObject},
+        {data: DraftConfig},
         TContext
       > => {
       return useMutation(getPostConfigMutationOptions(options), queryClient);
