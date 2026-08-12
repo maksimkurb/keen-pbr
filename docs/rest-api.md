@@ -36,8 +36,8 @@ To enable authentication and write the generated verifier directly to the
 configured `config.json`, use `keen-pbr --config /path/to/config.json hash-password --update`.
 The command updates the file atomically and reminds you to restart the keen-pbr
 service because it edits the file outside the running daemon. Authentication
-and CORS changes made through the WebUI take effect immediately after the
-staged configuration is successfully applied.
+and CORS changes made through the WebUI are persisted and take effect
+immediately, without applying a pending routing configuration draft.
 
 `device_name` is optional and may be empty. When set, the WebUI uses it in the
 browser page title and beneath the keen-pbr logo to distinguish devices.
@@ -46,7 +46,7 @@ Password verifiers use Monocypher's Argon2id implementation. Verifiers from
 older PBKDF2-based releases are not accepted and must be regenerated.
 The config API never returns or accepts the stored verifier. The WebUI reads
 only `GET /api/auth/password` state and sends a new clear-text password only to
-the write-only `POST /api/auth/password` operation; hashing happens in the daemon.
+the write-only `POST /api/auth/settings` operation; hashing happens in the daemon.
 
 Authenticated API clients may use Basic authentication with username `admin`
 or a Bearer token returned by `POST /api/auth/login`. Only one Bearer session is

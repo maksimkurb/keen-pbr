@@ -3846,15 +3846,15 @@ and routing state.&lt;/p&gt;
 configured &lt;code&gt;config.json&lt;/code&gt;, use &lt;code&gt;keen-pbr --config /path/to/config.json hash-password --update&lt;/code&gt;.
 The command updates the file atomically and reminds you to restart the keen-pbr
 service because it edits the file outside the running daemon. Authentication
-and CORS changes made through the WebUI take effect immediately after the
-staged configuration is successfully applied.&lt;/p&gt;
+and CORS changes made through the WebUI are persisted and take effect
+immediately, without applying a pending routing configuration draft.&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;device_name&lt;/code&gt; is optional and may be empty. When set, the WebUI uses it in the
 browser page title and beneath the keen-pbr logo to distinguish devices.&lt;/p&gt;
 &lt;p&gt;Password verifiers use Monocypher&amp;rsquo;s Argon2id implementation. Verifiers from
 older PBKDF2-based releases are not accepted and must be regenerated.
 The config API never returns or accepts the stored verifier. The WebUI reads
 only &lt;code&gt;GET /api/auth/password&lt;/code&gt; state and sends a new clear-text password only to
-the write-only &lt;code&gt;POST /api/auth/password&lt;/code&gt; operation; hashing happens in the daemon.&lt;/p&gt;
+the write-only &lt;code&gt;POST /api/auth/settings&lt;/code&gt; operation; hashing happens in the daemon.&lt;/p&gt;
 &lt;p&gt;Authenticated API clients may use Basic authentication with username &lt;code&gt;admin&lt;/code&gt;
 or a Bearer token returned by &lt;code&gt;POST /api/auth/login&lt;/code&gt;. Only one Bearer session is
 valid at a time; a successful login immediately invalidates the previous UI
