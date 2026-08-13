@@ -1,0 +1,176 @@
+name: Reusable rsync publisher
+
+on:
+  workflow_call:
+    inputs:
+      source_ref_type:
+        required: true
+        type: string
+      source_ref_name:
+        required: true
+        type: string
+      source_run_id:
+        required: false
+        default: ""
+        type: string
+    secrets:
+      RSYNC_HOST:
+        required: true
+      RSYNC_USERNAME:
+        required: true
+      RSYNC_SSH_PRIVATE_KEY:
+        required: true
+      RSYNC_TARGET_ROOT:
+        required: true
+
+  workflow_dispatch:
+    inputs:
+      source_ref_type:
+        description: Source reference type (branch or tag)
+        required: true
+        type: choice
+        options: [branch, tag]
+      source_ref_name:
+        description: Branch or tag name to publish
+        required: true
+        type: string
+      source_run_id:
+        description: Workflow run ID that produced the artifacts (empty uses this run)
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+        with:
+          path: src
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ inputs.source_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: packages-*
+          path: downloaded-artifacts
+
+      - name: Download debug symbol artifacts
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ inputs.source_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: debug-symbols-*
+          path: downloaded-artifacts
+
+      - name: Normalize downloaded package artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          packages="$GITHUB_WORKSPACE/src/build/packages"
+          rm -rf "$packages"
+          mkdir -p "$packages"/{openwrt,openwrt-debug,keenetic,keenetic-debug,debian}
+
+          shopt -s nullglob
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-openwrt-*; do
+            cp -a "$artifact_dir"/. "$packages/openwrt/"
+          done
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/debug-symbols-openwrt-*; do
+            cp -a "$artifact_dir"/. "$packages/openwrt-debug/"
+          done
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-keenetic-*; do
+            cp -a "$artifact_dir"/. "$packages/keenetic/"
+          done
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/debug-symbols-keenetic-*; do
+            cp -a "$artifact_dir"/. "$packages/keenetic-debug/"
+          done
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-debian-*; do
+            cp -a "$artifact_dir"/. "$packages/debian/"
+          done
+
+      - name: Build repository tree
+        id: publish-context
+        shell: bash
+        env:
+          SOURCE_REF_NAME: ${{ inputs.source_ref_name }}
+          SOURCE_REF_TYPE: ${{ inputs.source_ref_type }}
+        run: |
+          set -euo pipefail
+
+          branch="$(printf '%s' "$SOURCE_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9._-]+#-#g; s#-+#-#g; s#(^-+|-+$)##g')"
+          if [ -z "$branch" ]; then
+            echo "source_ref_name resolved to an empty branch name" >&2
+            exit 1
+          fi
+
+          REPO_SOURCE_REF_TYPE="$SOURCE_REF_TYPE" \
+          REPO_SOURCE_REF_NAME="$SOURCE_REF_NAME" \
+          make -C "$GITHUB_WORKSPACE/src" build-repository \
+            REPO_DIR="$GITHUB_WORKSPACE/staged-repository" \
+            REPO_TARGET_ROOT="$branch"
+
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Configure SSH for rsync
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.RSYNC_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsync"
+          chmod 600 "$HOME/.ssh/id_rsync"
+
+      - name: Upload release and update branch symlink
+        shell: bash
+        env:
+          RSYNC_HOST: ${{ secrets.RSYNC_HOST }}
+          RSYNC_USERNAME: ${{ secrets.RSYNC_USERNAME }}
+          RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT }}
+          RSYNC_PORT: ${{ vars.RSYNC_PORT || '22' }}
+          BRANCH: ${{ steps.publish-context.outputs.branch }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+
+          : "${RSYNC_HOST:?RSYNC_HOST secret is required}"
+          : "${RSYNC_USERNAME:?RSYNC_USERNAME secret is required}"
+          : "${RSYNC_TARGET_ROOT:?RSYNC_TARGET_ROOT secret is required}"
+          RSYNC_PORT="${RSYNC_PORT:-22}"
+          [[ "$RSYNC_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ || "$RSYNC_HOST" =~ ^[0-9A-Fa-f:]+$ ]] || { echo "RSYNC_HOST must be a hostname or IP address" >&2; exit 1; }
+          [[ "$RSYNC_USERNAME" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { echo "RSYNC_USERNAME contains unsupported characters" >&2; exit 1; }
+          [[ "$RSYNC_TARGET_ROOT" =~ ^/?[A-Za-z0-9._/-]+$ && "$RSYNC_TARGET_ROOT" != *".."* ]] || { echo "RSYNC_TARGET_ROOT must be a safe path without '..'" >&2; exit 1; }
+          [[ "$RSYNC_PORT" =~ ^[0-9]+$ && "$RSYNC_PORT" -ge 1 && "$RSYNC_PORT" -le 65535 ]] || { echo "RSYNC_PORT must be an integer from 1 to 65535" >&2; exit 1; }
+
+          ssh_options=(-i "$HOME/.ssh/id_rsync" -p "$RSYNC_PORT" -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
+          ssh_target="${RSYNC_USERNAME}@${RSYNC_HOST}"
+          if [[ "$RSYNC_HOST" == *:* ]]; then
+            rsync_target="${RSYNC_USERNAME}@[${RSYNC_HOST}]"
+          else
+            rsync_target="$ssh_target"
+          fi
+          public_root="${RSYNC_TARGET_ROOT%/}/public"
+          release_dir="$public_root/${BRANCH}_${BUILD_NUMBER}"
+          source_dir="$GITHUB_WORKSPACE/staged-repository/$BRANCH/"
+          static_source="$GITHUB_WORKSPACE/staged-repository"
+
+          ssh "${ssh_options[@]}" "$ssh_target" \
+            "mkdir -p -- '$release_dir' '$public_root/assets' '$public_root/keys'"
+          # The generated repository page references these shared paths from the
+          # public root, so publish them before exposing this build.
+          rsync -a --delete --delay-updates \
+            -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
+            "$static_source/assets/" "$rsync_target:$public_root/assets/"
+          rsync -a --delete --delay-updates \
+            -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
+            "$static_source/keys/" "$rsync_target:$public_root/keys/"
+          rsync -a --delete --delay-updates \
+            -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
+            "$source_dir" "$rsync_target:$release_dir/"
+
+          # This runs only after every rsync exits successfully. Renaming the
+          # prepared temporary symlink atomically replaces the live link.
+          ssh "${ssh_options[@]}" "$ssh_target" \
+            "rm -f -- '$public_root/.${BRANCH}.new' && ln -s -- '$release_dir' '$public_root/.${BRANCH}.new' && mv -Tf -- '$public_root/.${BRANCH}.new' '$public_root/$BRANCH'"

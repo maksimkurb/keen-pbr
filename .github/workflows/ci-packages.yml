@@ -128,13 +128,24 @@ jobs:
       use_signing_secrets: ${{ needs.prepare-frontend.outputs.use_signing_secrets == 'true' }}
     secrets: inherit
 
-  publish-repository:
+  # Previous GitHub-repository publisher retained for easy rollback:
+  # publish-repository:
+  #   needs: [prepare-frontend, openwrt, keenetic, debian]
+  #   if: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
+  #   uses: ./.github/workflows/reusable-publish-repository.yml
+  #   with:
+  #     target_root: ${{ needs.prepare-frontend.outputs.target_root }}
+  #     source_ref_type: ${{ needs.prepare-frontend.outputs.source_ref_type }}
+  #     source_ref_name: ${{ needs.prepare-frontend.outputs.source_ref_name }}
+  #     source_pr_number: ${{ needs.prepare-frontend.outputs.source_pr_number }}
+  #   secrets: inherit
+
+  publish-rsync:
     needs: [prepare-frontend, openwrt, keenetic, debian]
-    if: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
-    uses: ./.github/workflows/reusable-publish-repository.yml
+    # Every branch push is published; pull requests still build without deploying.
+    if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') }}
+    uses: ./.github/workflows/reusable-publish-rsync.yml
     with:
-      target_root: ${{ needs.prepare-frontend.outputs.target_root }}
-      source_ref_type: ${{ needs.prepare-frontend.outputs.source_ref_type }}
+      source_ref_type: branch
       source_ref_name: ${{ needs.prepare-frontend.outputs.source_ref_name }}
-      source_pr_number: ${{ needs.prepare-frontend.outputs.source_pr_number }}
     secrets: inherit

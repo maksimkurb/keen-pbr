@@ -195,14 +195,23 @@ jobs:
       frontend_artifact_name: frontend-dist
     secrets: inherit
 
-  publish-repository:
+  # Previous GitHub-repository publisher retained for easy rollback:
+  # publish-repository:
+  #   needs: [openwrt, keenetic, debian]
+  #   uses: ./.github/workflows/reusable-publish-repository.yml
+  #   with:
+  #     target_root: stable
+  #     source_ref_type: tag
+  #     source_ref_name: ${{ github.ref_name }}
+  #     source_pr_number: ""
+  #   secrets: inherit
+
+  publish-rsync:
     needs: [openwrt, keenetic, debian]
-    uses: ./.github/workflows/reusable-publish-repository.yml
+    uses: ./.github/workflows/reusable-publish-rsync.yml
     with:
-      target_root: stable
       source_ref_type: tag
       source_ref_name: ${{ github.ref_name }}
-      source_pr_number: ""
     secrets: inherit
 
   draft-release:
