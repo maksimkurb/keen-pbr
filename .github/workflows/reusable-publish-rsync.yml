@@ -15,13 +15,15 @@ on:
         type: string
     secrets:
       RSYNC_HOST:
-        required: true
+        required: false
       RSYNC_USERNAME:
-        required: true
+        required: false
       RSYNC_SSH_PRIVATE_KEY:
-        required: true
+        required: false
       RSYNC_TARGET_ROOT:
-        required: true
+        required: false
+      RSYNC_PORT:
+        required: false
 
   workflow_dispatch:
     inputs:
@@ -116,9 +118,10 @@ jobs:
       - name: Configure SSH for rsync
         shell: bash
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.RSYNC_SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.RSYNC_SSH_PRIVATE_KEY || vars.RSYNC_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
+          : "${SSH_PRIVATE_KEY:?RSYNC_SSH_PRIVATE_KEY secret or variable is required}"
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsync"
           chmod 600 "$HOME/.ssh/id_rsync"
@@ -126,18 +129,18 @@ jobs:
       - name: Upload release and update branch symlink
         shell: bash
         env:
-          RSYNC_HOST: ${{ secrets.RSYNC_HOST }}
-          RSYNC_USERNAME: ${{ secrets.RSYNC_USERNAME }}
-          RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT }}
-          RSYNC_PORT: ${{ vars.RSYNC_PORT || '22' }}
+          RSYNC_HOST: ${{ secrets.RSYNC_HOST || vars.RSYNC_HOST }}
+          RSYNC_USERNAME: ${{ secrets.RSYNC_USERNAME || vars.RSYNC_USERNAME }}
+          RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT || vars.RSYNC_TARGET_ROOT }}
+          RSYNC_PORT: ${{ secrets.RSYNC_PORT || vars.RSYNC_PORT || '22' }}
           BRANCH: ${{ steps.publish-context.outputs.branch }}
           BUILD_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
 
-          : "${RSYNC_HOST:?RSYNC_HOST secret is required}"
-          : "${RSYNC_USERNAME:?RSYNC_USERNAME secret is required}"
-          : "${RSYNC_TARGET_ROOT:?RSYNC_TARGET_ROOT secret is required}"
+          : "${RSYNC_HOST:?RSYNC_HOST secret or variable is required}"
+          : "${RSYNC_USERNAME:?RSYNC_USERNAME secret or variable is required}"
+          : "${RSYNC_TARGET_ROOT:?RSYNC_TARGET_ROOT secret or variable is required}"
           RSYNC_PORT="${RSYNC_PORT:-22}"
           [[ "$RSYNC_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ || "$RSYNC_HOST" =~ ^[0-9A-Fa-f:]+$ ]] || { echo "RSYNC_HOST must be a hostname or IP address" >&2; exit 1; }
           [[ "$RSYNC_USERNAME" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { echo "RSYNC_USERNAME contains unsupported characters" >&2; exit 1; }

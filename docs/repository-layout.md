@@ -37,26 +37,27 @@ Package format folders (`opkg`, `ipk`, `apk`, `deb`) are intentionally omitted.
 - `.github/workflows/reusable-publish-rsync.yml`: normalizes artifacts, stages the repository tree, uploads it with rsync, and updates the live branch symlink.
 - `.github/workflows/reusable-publish-repository.yml`: the previous GitHub repository publisher, retained but no longer called.
 
-The rsync publisher reads the optional `RSYNC_PORT` GitHub Actions repository
-variable into its environment; it defaults to SSH port 22.
+Every `RSYNC_*` setting can be supplied as either a GitHub Actions secret or a
+repository variable. When both exist, the secret takes precedence. `RSYNC_PORT`
+defaults to SSH port 22 when neither is set.
 
 ## Rsync deployment configuration
 
-Configure these repository-level GitHub Actions secrets before enabling a
-publish. The names are consumed by `.github/workflows/reusable-publish-rsync.yml`.
+Configure the following repository-level GitHub Actions secrets or variables
+before enabling a publish. The names are consumed by
+`.github/workflows/reusable-publish-rsync.yml`.
 
-| Secret | Purpose | Example (fake) |
+| Setting | Purpose | Example (fake) |
 | --- | --- | --- |
 | `RSYNC_HOST` | SSH hostname or IP address | `packages.example.net` |
 | `RSYNC_USERNAME` | SSH account permitted to write the target folder | `keen_pbr_deploy` |
 | `RSYNC_SSH_PRIVATE_KEY` | Private key for the SSH account | `-----BEGIN OPENSSH PRIVATE KEY-----` … |
 | `RSYNC_TARGET_ROOT` | Absolute target folder on the rsync host | `/srv/www/keen-pbr` |
-
-Optionally set this repository-level GitHub Actions variable (not a secret):
-
-| Variable | Purpose | Example (fake) |
-| --- | --- | --- |
 | `RSYNC_PORT` | SSH/rsync port; defaults to `22` | `2222` |
+
+Use a secret for `RSYNC_SSH_PRIVATE_KEY`; repository variables are visible to
+people who can manage repository settings and are not appropriate for private
+key material.
 
 For the sample configuration, a build of branch `feature/new-ui` with GitHub
 Actions run number `1842` is uploaded to
