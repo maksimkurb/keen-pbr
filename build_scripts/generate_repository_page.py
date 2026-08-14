@@ -235,20 +235,21 @@ def main() -> None:
     keys_manifest_source = Path(args.keys_manifest_source).resolve()
     keys_source_dir = Path(args.keys_source_dir).resolve()
     public_base_url = args.public_base_url.rstrip("/")
-    instructions_url = f"{public_base_url}/{args.target_root}/"
+    repository_base_url = f"{public_base_url}/repository"
+    instructions_url = f"{repository_base_url}/{args.target_root}/"
 
     replace_tree(shared_assets_source, repo_dir / "assets")
     copy_shared_keys(keys_manifest_source, keys_source_dir, repo_dir / "keys", public_base_url)
 
     payload = {
-        "baseUrl": f"{public_base_url}/{args.target_root}",
+        "baseUrl": f"{repository_base_url}/{args.target_root}",
         "targetRoot": args.target_root,
         "source": build_source_payload(
             args.source_ref_type,
             args.source_ref_name,
             args.source_pr_number or None,
         ),
-        "catalog": collect_catalog(root_dir, f"{public_base_url}/{args.target_root}"),
+        "catalog": collect_catalog(root_dir, f"{repository_base_url}/{args.target_root}"),
     }
 
     write_index_html(root_dir, payload)

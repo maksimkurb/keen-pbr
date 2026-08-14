@@ -15,14 +15,19 @@ build but are not deployed.
 ## Directory structure
 
 ```text
-<target-root>/<branch>_<build-number>.release/keenetic/<keenetic_version>/<arch>
-<target-root>/<branch>_<build-number>.release/openwrt/<openwrt_version>/<arch>
-<target-root>/<branch>_<build-number>.release/debian/<debian_version>/<arch>
+<target-root>/assets/
+<target-root>/keys/
+<target-root>/index.html -> redirects to /repository/stable/
+<target-root>/.htaccess -> redirects / to /repository/stable/
 
-<target-root>/<branch> -> <branch>_<build-number>.release
+<target-root>/repository/<branch>_<build-number>.release/keenetic/<keenetic_version>/<arch>
+<target-root>/repository/<branch>_<build-number>.release/openwrt/<openwrt_version>/<arch>
+<target-root>/repository/<branch>_<build-number>.release/debian/<debian_version>/<arch>
 
-<target-root>/stable_<tag>_<build-number>.release/...
-<target-root>/stable -> stable_<tag>_<build-number>.release
+<target-root>/repository/<branch> -> <branch>_<build-number>.release
+
+<target-root>/repository/stable_<tag>_<build-number>.release/...
+<target-root>/repository/stable -> stable_<tag>_<build-number>.release
 ```
 
 Package format folders (`opkg`, `ipk`, `apk`, `deb`) are intentionally omitted.
@@ -65,13 +70,13 @@ key material.
 
 For the sample configuration, a build of branch `feature/new-ui` at commit UTC
 timestamp `1786718400` is uploaded to
-`/srv/www/keen-pbr/feature-new-ui_1786718400.release/`, then the symlink
-`/srv/www/keen-pbr/feature-new-ui` is atomically repointed to it. A tag
-`v3.2.0` is published as `stable_v3.2.0_1786718400.release` and updates the
-`stable` symlink to that release directory.
+`/srv/www/keen-pbr/repository/feature-new-ui_1786718400.release/`, then the symlink
+`/srv/www/keen-pbr/repository/feature-new-ui` is atomically repointed to it. A tag
+`v3.2.0` is published as `repository/stable_v3.2.0_1786718400.release` and
+updates the `repository/stable` symlink to that release directory.
 
 The SSH account needs permission to create directories, write files, and replace
-symlinks below `<RSYNC_TARGET_ROOT>`.
+symlinks below `<RSYNC_TARGET_ROOT>/repository`.
 
 ## Generated repository metadata
 

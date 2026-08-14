@@ -131,9 +131,28 @@ jobs:
 
           REPO_SOURCE_REF_TYPE="$SOURCE_REF_TYPE" \
           REPO_SOURCE_REF_NAME="$SOURCE_REF_NAME" \
+          REPO_PUBLIC_BASE_URL="https://repo.keen-pbr.fyi" \
           make -C "$GITHUB_WORKSPACE/src" build-repository \
             REPO_DIR="$GITHUB_WORKSPACE/staged-repository" \
             REPO_TARGET_ROOT="$branch"
+
+          printf '%s\n' \
+            '<!doctype html>' \
+            '<html lang="en">' \
+            '<head>' \
+            '  <meta charset="utf-8">' \
+            '  <meta http-equiv="refresh" content="0; url=https://repo.keen-pbr.fyi/repository/stable/">' \
+            '  <link rel="canonical" href="https://repo.keen-pbr.fyi/repository/stable/">' \
+            '  <title>keen-pbr repository</title>' \
+            '</head>' \
+            '<body>' \
+            '  <p><a href="https://repo.keen-pbr.fyi/repository/stable/">Open the stable keen-pbr repository</a></p>' \
+            '</body>' \
+            '</html>' \
+            > "$GITHUB_WORKSPACE/staged-repository/index.html"
+          printf '%s\n' \
+            'RedirectMatch 302 ^/$ https://repo.keen-pbr.fyi/repository/stable/' \
+            > "$GITHUB_WORKSPACE/staged-repository/.htaccess"
 
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
           echo "release-prefix=$release_prefix" >> "$GITHUB_OUTPUT"
@@ -185,12 +204,13 @@ jobs:
             rsync_target="$ssh_target"
           fi
           target_root="${RSYNC_TARGET_ROOT%/}"
-          release_dir="$target_root/${RELEASE_PREFIX}_${BUILD_NUMBER}.release"
+          repository_root="$target_root/repository"
+          release_dir="$repository_root/${RELEASE_PREFIX}_${BUILD_NUMBER}.release"
           source_dir="$GITHUB_WORKSPACE/staged-repository/$BRANCH/"
           static_source="$GITHUB_WORKSPACE/staged-repository"
 
           ssh "${ssh_options[@]}" "$ssh_target" \
-            "mkdir -p -- '$release_dir' '$target_root/assets' '$target_root/keys'"
+            "mkdir -p -- '$release_dir' '$target_root/assets' '$target_root/keys' '$repository_root'"
           # The generated repository page references these shared paths from the
           # target root, so publish them before exposing this build.
           rsync -a --delete --delay-updates \
@@ -199,6 +219,12 @@ jobs:
           rsync -a --delete --delay-updates \
             -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
             "$static_source/keys/" "$rsync_target:$target_root/keys/"
+          rsync -a --delay-updates \
+            -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
+            "$static_source/index.html" "$rsync_target:$target_root/index.html"
+          rsync -a --delay-updates \
+            -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
+            "$static_source/.htaccess" "$rsync_target:$target_root/.htaccess"
           rsync -a --delete --delay-updates \
             -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
             "$source_dir" "$rsync_target:$release_dir/"
@@ -206,4 +232,4 @@ jobs:
           # This runs only after every rsync exits successfully. Renaming the
           # prepared temporary symlink atomically replaces the live link.
           ssh "${ssh_options[@]}" "$ssh_target" \
-            "rm -f -- '$target_root/.${LINK_NAME}.new' && ln -s -- '$release_dir' '$target_root/.${LINK_NAME}.new' && mv -Tf -- '$target_root/.${LINK_NAME}.new' '$target_root/$LINK_NAME'"
+            "rm -f -- '$repository_root/.${LINK_NAME}.new' && ln -s -- '$release_dir' '$repository_root/.${LINK_NAME}.new' && mv -Tf -- '$repository_root/.${LINK_NAME}.new' '$repository_root/$LINK_NAME'"
