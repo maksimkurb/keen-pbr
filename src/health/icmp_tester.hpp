@@ -2,11 +2,15 @@
 
 #include "url_tester.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <sys/socket.h>
 #include <string>
 
 namespace keen_pbr3 {
+
+// Matches iputils ping(8): 56 data bytes plus the 8-byte ICMP echo header.
+inline constexpr std::size_t kDefaultIcmpPayloadSize = 56;
 
 // Linux ICMP echo probe bound to an outbound by SO_MARK.  A run succeeds when
 // no more than max_failed packets time out, fail, or exceed max_rtt_ms.
@@ -19,6 +23,10 @@ public:
 };
 
 namespace icmp_detail {
+
+// Returns the checksum value in host byte order. Store it in an IPv4 ICMP
+// header with htons().
+uint16_t ipv4_checksum(const unsigned char* data, size_t size);
 
 bool reply_matches(int family, const unsigned char* data, size_t size,
                    const sockaddr_storage& source,

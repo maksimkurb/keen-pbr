@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <stdexcept>
 
@@ -87,22 +88,6 @@ uint16_t raw_socket_identifier() {
     return identifier == 0 ? 1 : identifier;
 }
 
-uint16_t internet_checksum(const unsigned char* data, size_t size) {
-    uint32_t sum = 0;
-    while (size >= 2) {
-        sum += static_cast<uint16_t>(data[0] << 8U | data[1]);
-        data += 2;
-        size -= 2;
-    }
-    if (size == 1) {
-        sum += static_cast<uint16_t>(data[0] << 8U);
-    }
-    while (sum >> 16U) {
-        sum = (sum & 0xffffU) + (sum >> 16U);
-    }
-    return static_cast<uint16_t>(~sum);
-}
-
 URLTestResult test_with_socket(const std::string& target, uint32_t fwmark,
                                uint32_t count, uint32_t max_failed,
                                uint32_t packet_interval_ms, uint32_t timeout_ms,
@@ -158,21 +143,23 @@ URLTestResult test_with_socket(const std::string& target, uint32_t fwmark,
     uint64_t total_ms = 0;
     for (uint32_t sequence = 0; sequence < count; ++sequence) {
         if (sequence) std::this_thread::sleep_for(std::chrono::milliseconds(packet_interval_ms));
-        unsigned char packet[sizeof(icmphdr)]{};
+        std::array<unsigned char, sizeof(icmphdr) + kDefaultIcmpPayloadSize> packet{};
         if (family == AF_INET) {
-            auto* h = reinterpret_cast<icmphdr*>(packet);
+            auto* h = reinterpret_cast<icmphdr*>(packet.data());
             h->type = ICMP_ECHO;
             h->un.echo.id = htons(identifier);
             h->un.echo.sequence = htons(sequence);
-            if (socket_kind == SocketKind::raw) h->checksum = internet_checksum(packet, sizeof(packet));
+            if (socket_kind == SocketKind::raw) {
+                h->checksum = htons(icmp_detail::ipv4_checksum(packet.data(), packet.size()));
+            }
         } else {
-            auto* h = reinterpret_cast<icmp6_hdr*>(packet);
+            auto* h = reinterpret_cast<icmp6_hdr*>(packet.data());
             h->icmp6_type = ICMP6_ECHO_REQUEST;
             h->icmp6_id = htons(identifier);
             h->icmp6_seq = htons(sequence);
         }
         const auto started = std::chrono::steady_clock::now();
-        if (send(socket_fd.get(), packet, sizeof(packet), 0) < 0) {
+        if (send(socket_fd.get(), packet.data(), packet.size(), 0) < 0) {
             ++failed;
             *result.packets_failed = failed;
             continue;
@@ -229,6 +216,22 @@ URLTestResult test_with_socket(const std::string& target, uint32_t fwmark,
 } // namespace
 
 namespace icmp_detail {
+
+uint16_t ipv4_checksum(const unsigned char* data, size_t size) {
+    uint32_t sum = 0;
+    while (size >= 2) {
+        sum += static_cast<uint16_t>(data[0] << 8U | data[1]);
+        data += 2;
+        size -= 2;
+    }
+    if (size == 1) {
+        sum += static_cast<uint16_t>(data[0] << 8U);
+    }
+    while (sum >> 16U) {
+        sum = (sum & 0xffffU) + (sum >> 16U);
+    }
+    return static_cast<uint16_t>(~sum);
+}
 
 bool reply_matches(int family, const unsigned char* data, size_t size,
                    const sockaddr_storage& source,

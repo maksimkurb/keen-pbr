@@ -3,6 +3,7 @@
 #include "../src/health/icmp_tester.hpp"
 
 #include <arpa/inet.h>
+#include <array>
 #include <netinet/ip.h>
 #include <netinet/icmp6.h>
 #include <netinet/ip_icmp.h>
@@ -94,4 +95,16 @@ TEST_CASE("raw IPv4 ICMP reply matching skips the IPv4 header") {
     CHECK_FALSE(icmp_detail::raw_reply_matches(AF_INET,
         reinterpret_cast<const unsigned char*>(&reply), sizeof(reply),
         expected, expected, 123, 7));
+}
+
+TEST_CASE("raw IPv4 ICMP checksum is stored in network byte order") {
+    std::array<unsigned char, sizeof(icmphdr) + kDefaultIcmpPayloadSize> request{};
+    auto* header = reinterpret_cast<icmphdr*>(request.data());
+    header->type = ICMP_ECHO;
+    header->un.echo.id = htons(123);
+    header->un.echo.sequence = htons(7);
+    header->checksum = htons(icmp_detail::ipv4_checksum(request.data(), request.size()));
+
+    CHECK(request.size() == 64);
+    CHECK(icmp_detail::ipv4_checksum(request.data(), request.size()) == 0);
 }
