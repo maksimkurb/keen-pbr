@@ -393,6 +393,11 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
                                          result.latency_ms,
                                          duration_ms,
                                          result.error.empty() ? std::string("-") : result.error);
+                if (!result.error.empty()) {
+                    Logger::instance().warn(
+                        "urltest probe failed: tag={} child={} error={}",
+                        tag, candidate.child_tag, result.error);
+                }
 
                 results.emplace(candidate.child_tag, std::move(result));
             }

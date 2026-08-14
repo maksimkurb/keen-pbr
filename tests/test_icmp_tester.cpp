@@ -3,6 +3,7 @@
 #include "../src/health/icmp_tester.hpp"
 
 #include <arpa/inet.h>
+#include <netinet/ip.h>
 #include <netinet/icmp6.h>
 #include <netinet/ip_icmp.h>
 
@@ -71,4 +72,26 @@ TEST_CASE("ICMP reply matching validates IPv6 identifier and packet size") {
     CHECK_FALSE(icmp_detail::reply_matches(AF_INET6,
         reinterpret_cast<const unsigned char*>(&reply), sizeof(reply),
         expected, expected, 320, 9));
+}
+
+TEST_CASE("raw IPv4 ICMP reply matching skips the IPv4 header") {
+    struct RawReply {
+        iphdr ip;
+        icmphdr icmp;
+    } reply{};
+    reply.ip.version = 4;
+    reply.ip.ihl = 5;
+    reply.icmp.type = ICMP_ECHOREPLY;
+    reply.icmp.un.echo.id = htons(123);
+    reply.icmp.un.echo.sequence = htons(7);
+    const auto expected = ipv4_address("1.1.1.1");
+
+    CHECK(icmp_detail::raw_reply_matches(AF_INET,
+        reinterpret_cast<const unsigned char*>(&reply), sizeof(reply),
+        expected, expected, 123, 7));
+
+    reply.ip.ihl = 4;
+    CHECK_FALSE(icmp_detail::raw_reply_matches(AF_INET,
+        reinterpret_cast<const unsigned char*>(&reply), sizeof(reply),
+        expected, expected, 123, 7));
 }

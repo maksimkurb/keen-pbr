@@ -25,6 +25,13 @@ bool reply_matches(int family, const unsigned char* data, size_t size,
                    const sockaddr_storage& expected_source,
                    uint16_t identifier, uint16_t sequence);
 
+// Raw IPv4 ICMP sockets prepend the IPv4 header to received packets. IPv6 raw
+// ICMP sockets deliver the ICMPv6 header directly.
+bool raw_reply_matches(int family, const unsigned char* data, size_t size,
+                       const sockaddr_storage& source,
+                       const sockaddr_storage& expected_source,
+                       uint16_t identifier, uint16_t sequence);
+
 } // namespace icmp_detail
 
 } // namespace keen_pbr3
