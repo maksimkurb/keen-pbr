@@ -184,21 +184,21 @@ jobs:
           else
             rsync_target="$ssh_target"
           fi
-          public_root="${RSYNC_TARGET_ROOT%/}/public"
-          release_dir="$public_root/${RELEASE_PREFIX}_${BUILD_NUMBER}.release"
+          target_root="${RSYNC_TARGET_ROOT%/}"
+          release_dir="$target_root/${RELEASE_PREFIX}_${BUILD_NUMBER}.release"
           source_dir="$GITHUB_WORKSPACE/staged-repository/$BRANCH/"
           static_source="$GITHUB_WORKSPACE/staged-repository"
 
           ssh "${ssh_options[@]}" "$ssh_target" \
-            "mkdir -p -- '$release_dir' '$public_root/assets' '$public_root/keys'"
+            "mkdir -p -- '$release_dir' '$target_root/assets' '$target_root/keys'"
           # The generated repository page references these shared paths from the
-          # public root, so publish them before exposing this build.
+          # target root, so publish them before exposing this build.
           rsync -a --delete --delay-updates \
             -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
-            "$static_source/assets/" "$rsync_target:$public_root/assets/"
+            "$static_source/assets/" "$rsync_target:$target_root/assets/"
           rsync -a --delete --delay-updates \
             -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
-            "$static_source/keys/" "$rsync_target:$public_root/keys/"
+            "$static_source/keys/" "$rsync_target:$target_root/keys/"
           rsync -a --delete --delay-updates \
             -e "ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
             "$source_dir" "$rsync_target:$release_dir/"
@@ -206,4 +206,4 @@ jobs:
           # This runs only after every rsync exits successfully. Renaming the
           # prepared temporary symlink atomically replaces the live link.
           ssh "${ssh_options[@]}" "$ssh_target" \
-            "rm -f -- '$public_root/.${LINK_NAME}.new' && ln -s -- '$release_dir' '$public_root/.${LINK_NAME}.new' && mv -Tf -- '$public_root/.${LINK_NAME}.new' '$public_root/$LINK_NAME'"
+            "rm -f -- '$target_root/.${LINK_NAME}.new' && ln -s -- '$release_dir' '$target_root/.${LINK_NAME}.new' && mv -Tf -- '$target_root/.${LINK_NAME}.new' '$target_root/$LINK_NAME'"
