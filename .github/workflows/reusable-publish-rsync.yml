@@ -123,8 +123,10 @@ jobs:
 
           if [ "$SOURCE_REF_TYPE" = "tag" ]; then
             release_prefix="stable_$branch"
+            link_name="stable"
           else
             release_prefix="$branch"
+            link_name="$branch"
           fi
 
           REPO_SOURCE_REF_TYPE="$SOURCE_REF_TYPE" \
@@ -135,6 +137,7 @@ jobs:
 
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
           echo "release-prefix=$release_prefix" >> "$GITHUB_OUTPUT"
+          echo "link-name=$link_name" >> "$GITHUB_OUTPUT"
           echo "build-number=$(git -C "$GITHUB_WORKSPACE/src" show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Configure SSH for rsync
@@ -156,6 +159,7 @@ jobs:
           RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT || vars.RSYNC_TARGET_ROOT }}
           RSYNC_PORT: ${{ secrets.RSYNC_PORT || vars.RSYNC_PORT || '22' }}
           BRANCH: ${{ steps.publish-context.outputs.branch }}
+          LINK_NAME: ${{ steps.publish-context.outputs.link-name }}
           RELEASE_PREFIX: ${{ steps.publish-context.outputs.release-prefix }}
           BUILD_NUMBER: ${{ steps.publish-context.outputs.build-number }}
         run: |
@@ -165,6 +169,7 @@ jobs:
           : "${RSYNC_USERNAME:?RSYNC_USERNAME secret or variable is required}"
           : "${RSYNC_TARGET_ROOT:?RSYNC_TARGET_ROOT secret or variable is required}"
           : "${RELEASE_PREFIX:?Release directory prefix could not be resolved}"
+          : "${LINK_NAME:?Live symlink name could not be resolved}"
           : "${BUILD_NUMBER:?Source commit timestamp could not be resolved}"
           RSYNC_PORT="${RSYNC_PORT:-22}"
           [[ "$RSYNC_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ || "$RSYNC_HOST" =~ ^[0-9A-Fa-f:]+$ ]] || { echo "RSYNC_HOST must be a hostname or IP address" >&2; exit 1; }
@@ -201,4 +206,4 @@ jobs:
           # This runs only after every rsync exits successfully. Renaming the
           # prepared temporary symlink atomically replaces the live link.
           ssh "${ssh_options[@]}" "$ssh_target" \
-            "rm -f -- '$public_root/.${BRANCH}.new' && ln -s -- '$release_dir' '$public_root/.${BRANCH}.new' && mv -Tf -- '$public_root/.${BRANCH}.new' '$public_root/$BRANCH'"
+            "rm -f -- '$public_root/.${LINK_NAME}.new' && ln -s -- '$release_dir' '$public_root/.${LINK_NAME}.new' && mv -Tf -- '$public_root/.${LINK_NAME}.new' '$public_root/$LINK_NAME'"

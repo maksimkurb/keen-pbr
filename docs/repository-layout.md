@@ -22,7 +22,7 @@ build but are not deployed.
 <target-root>/public/<branch> -> <branch>_<build-number>.release
 
 <target-root>/public/stable_<tag>_<build-number>.release/...
-<target-root>/public/<tag> -> stable_<tag>_<build-number>.release
+<target-root>/public/stable -> stable_<tag>_<build-number>.release
 ```
 
 Package format folders (`opkg`, `ipk`, `apk`, `deb`) are intentionally omitted.
@@ -67,8 +67,8 @@ For the sample configuration, a build of branch `feature/new-ui` at commit UTC
 timestamp `1786718400` is uploaded to
 `/srv/www/keen-pbr/public/feature-new-ui_1786718400.release/`, then the symlink
 `/srv/www/keen-pbr/public/feature-new-ui` is atomically repointed to it. A tag
-`v3.2.0` is published as `stable_v3.2.0_1786718400.release`, with its tag
-symlink pointing at that release directory.
+`v3.2.0` is published as `stable_v3.2.0_1786718400.release` and updates the
+`stable` symlink to that release directory.
 
 The SSH account needs permission to create directories, write files, and replace
 symlinks below `<RSYNC_TARGET_ROOT>/public`.
