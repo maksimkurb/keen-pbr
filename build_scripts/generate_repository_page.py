@@ -84,6 +84,16 @@ def copy_shared_keys(
         shutil.copy2(key_source_dir / source_name, publish_keys_dir / published_name)
 
 
+def copy_brand_assets(logo_source: Path, favicon_source: Path, publish_assets_dir: Path) -> None:
+    for source, destination_name in (
+        (logo_source, "logo.svg"),
+        (favicon_source, "favicon.ico"),
+    ):
+        if not source.is_file():
+            fail(f"missing brand asset: {source}")
+        shutil.copy2(source, publish_assets_dir / destination_name)
+
+
 def iter_arch_dirs(platform_dir: Path):
     if not platform_dir.is_dir():
         return
@@ -182,6 +192,8 @@ def write_index_html(root_dir: Path, payload: dict) -> None:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>keen-pbr repository instructions</title>
+  <link rel="icon" href="/assets/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
   <link rel="stylesheet" href="/assets/repository-page.css">
 </head>
 <body>
@@ -221,6 +233,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-ref-name", required=True)
     parser.add_argument("--source-pr-number", default="")
     parser.add_argument("--shared-assets-source", required=True)
+    parser.add_argument("--logo-source", required=True)
+    parser.add_argument("--favicon-source", required=True)
     parser.add_argument("--keys-manifest-source", required=True)
     parser.add_argument("--keys-source-dir", required=True)
     return parser.parse_args()
@@ -232,6 +246,8 @@ def main() -> None:
     root_dir = Path(args.root_dir).resolve()
     repo_dir = Path(args.repo_dir).resolve()
     shared_assets_source = Path(args.shared_assets_source).resolve()
+    logo_source = Path(args.logo_source).resolve()
+    favicon_source = Path(args.favicon_source).resolve()
     keys_manifest_source = Path(args.keys_manifest_source).resolve()
     keys_source_dir = Path(args.keys_source_dir).resolve()
     public_base_url = args.public_base_url.rstrip("/")
@@ -239,6 +255,7 @@ def main() -> None:
     instructions_url = f"{repository_base_url}/{args.target_root}/"
 
     replace_tree(shared_assets_source, repo_dir / "assets")
+    copy_brand_assets(logo_source, favicon_source, repo_dir / "assets")
     copy_shared_keys(keys_manifest_source, keys_source_dir, repo_dir / "keys", public_base_url)
 
     payload = {

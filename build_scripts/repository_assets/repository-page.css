@@ -1,25 +1,54 @@
 :root {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-subtle: #f8fafc;
-  --surface-muted: #f3f4f6;
-  --border: #e5e7eb;
-  --border-strong: #d1d5db;
-  --text: #1e293b;
-  --text-strong: #0f172a;
-  --muted: #475569;
-  --brand: #2563eb;
-  --brand-soft: #eff6ff;
-  --success-soft: #ecfdf5;
-  --warning-soft: #fffbeb;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --radius-lg: 14px;
-  --radius-md: 10px;
-  --radius-sm: 8px;
-  --mono: "IBM Plex Mono", "SFMono-Regular", "Consolas", monospace;
+  --bg: oklch(1 0 0);
+  --surface: oklch(1 0 0);
+  --surface-subtle: oklch(0.97 0 0);
+  --surface-muted: oklch(0.94 0 0);
+  --border: oklch(0.922 0 0);
+  --border-strong: oklch(0.85 0 0);
+  --input: oklch(0.922 0 0);
+  --text: oklch(0.145 0 0);
+  --text-strong: oklch(0.145 0 0);
+  --muted: oklch(0.556 0 0);
+  --brand: oklch(0.42 0.05 225.55);
+  --brand-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.42 0.05 225.55);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --brand-soft: oklch(0.97 0 0);
+  --ring: oklch(0.708 0 0);
+  --success-soft: oklch(0.94 0.05 162.48);
+  --warning-soft: oklch(0.96 0.06 90);
+  --shadow: 0 1px 4.5px hsl(213.75 37.5% 25.098% / 0.07);
+  --shadow-md:
+    0 1px 4.5px hsl(213.75 37.5% 25.098% / 0.14),
+    0 2px 4px -1px hsl(213.75 37.5% 25.098% / 0.14);
+  --radius-lg: 0.45rem;
+  --radius-md: 0.325rem;
+  --radius-sm: 0.2rem;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   --sans:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: oklch(0.145 0 0);
+    --surface: oklch(0.205 0 0);
+    --surface-subtle: oklch(0.269 0 0);
+    --surface-muted: oklch(0.3 0 0);
+    --border: oklch(1 0 0 / 10%);
+    --border-strong: oklch(1 0 0 / 18%);
+    --text: oklch(0.985 0 0);
+    --text-strong: oklch(0.985 0 0);
+    --muted: oklch(0.708 0 0);
+    --brand: oklch(0.922 0 0);
+    --brand-soft: oklch(0.3 0.03 225.55);
+    --success-soft: oklch(0.28 0.05 162.48);
+    --warning-soft: oklch(0.28 0.05 90);
+    --shadow: 0 1px 4.5px hsl(0 0% 0% / 0.2);
+  }
 }
 
 * {
@@ -54,23 +83,40 @@ code {
 .page-shell {
   width: min(80rem, calc(100vw - 32px));
   margin: 0 auto;
-  padding: 40px 0 56px;
+  padding: 24px 0 36px;
 }
 
 .hero {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  padding: 32px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.brand-logo {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
 }
 
 .hero h1 {
-  margin: 0 0 12px;
+  margin: 0;
   color: var(--text-strong);
-  font-size: clamp(2.5rem, 4.2vw, 3.8rem);
-  font-weight: 800;
-  line-height: 0.96;
-  letter-spacing: -0.04em;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  padding-right: 4rem;
 }
 
 .hero p {
@@ -92,25 +138,59 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-height: 42px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  box-shadow: none;
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: opacity 150ms ease;
+}
+
+.meta-chip:hover {
+  opacity: 0.8;
+}
+
+.lang-btn {
+  border: 1px solid transparent;
+  height: 32px;
+  border-radius: var(--radius-lg);
+  background: var(--brand);
+  color: var(--brand-foreground);
+  box-shadow: none;
+  padding: 0 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+
+.lang-btn:hover,
+.lang-btn:focus-visible {
+  opacity: 0.9;
+}
+
+.hero-lang {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  z-index: 1;
 }
 
 .meta-chip strong {
-  color: var(--text-strong);
-  font-weight: 700;
+  color: inherit;
+  font-weight: 500;
 }
 
 .layout-grid {
   display: grid;
   grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
-  gap: 24px;
-  margin-top: 24px;
+  gap: 18px;
+  margin-top: 18px;
 }
 
 .panel {
@@ -121,7 +201,7 @@ code {
 }
 
 .panel-content {
-  padding: 22px;
+  padding: 18px;
 }
 
 .panel h2,
@@ -176,6 +256,144 @@ code {
   transform: translateY(-50%);
   color: var(--muted);
   pointer-events: none;
+}
+
+.field-group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The selector component adds a wrapper around its trigger. Grid items use
+ * an automatic minimum width by default, which otherwise lets that wrapper
+ * widen the column when the searchable menu is open. */
+.field-group > * {
+  min-width: 0;
+}
+
+.sel-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.sel-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text-strong);
+  box-shadow: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.sel-trigger:hover:not(.sel-trigger--disabled),
+.sel-trigger--open {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.sel-trigger--disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sel-value {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sel-trigger--filled .sel-value {
+  color: var(--text-strong);
+}
+
+.sel-search-inline {
+  flex: 1;
+  height: 20px;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  padding: 0;
+}
+
+.sel-chevron,
+.sel-check {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.sel-chevron--up {
+  transform: rotate(180deg);
+}
+
+.sel-dropdown {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.sel-list {
+  max-height: 240px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.sel-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.sel-option:hover,
+.sel-option--focused,
+.sel-option--selected {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.sel-option--disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.sel-option--empty {
+  justify-content: center;
+  color: var(--muted);
+  cursor: default;
 }
 
 .selector-note {
@@ -274,20 +492,23 @@ code {
   font-weight: 700;
 }
 
-.copy-button {
+.copy-button,
+.copy-btn {
   border: 1px solid #52525b;
-  border-radius: 999px;
-  background: #3f3f46;
-  color: #fafafa;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
   padding: 8px 12px;
   cursor: pointer;
   transition: background 140ms ease, border-color 140ms ease;
 }
 
 .copy-button:hover,
-.copy-button:focus-visible {
-  background: #52525b;
-  border-color: #71717a;
+.copy-button:focus-visible,
+.copy-btn:hover,
+.copy-btn:focus-visible {
+  background: color-mix(in oklab, white 12%, transparent);
+  border-color: #a1a1aa;
 }
 
 .command-card pre {
@@ -310,6 +531,12 @@ code {
   border-radius: var(--radius-md);
   background: var(--surface-subtle);
   color: var(--muted);
+}
+
+.empty-state strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-strong);
 }
 
 @media (max-width: 920px) {
@@ -337,9 +564,19 @@ code {
     font-size: 2.8rem;
   }
 
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+  }
+
   .instruction-header,
   .command-card header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .hero-lang {
+    top: 16px;
+    right: 16px;
   }
 }

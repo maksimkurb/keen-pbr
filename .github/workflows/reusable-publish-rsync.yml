@@ -134,7 +134,7 @@ jobs:
           REPO_PUBLIC_BASE_URL="https://repo.keen-pbr.fyi" \
           make -C "$GITHUB_WORKSPACE/src" build-repository \
             REPO_DIR="$GITHUB_WORKSPACE/staged-repository" \
-            REPO_TARGET_ROOT="$branch"
+            REPO_TARGET_ROOT="$link_name"
 
           printf '%s\n' \
             '<!doctype html>' \
@@ -154,7 +154,6 @@ jobs:
             'RedirectMatch 302 ^/$ https://repo.keen-pbr.fyi/repository/stable/' \
             > "$GITHUB_WORKSPACE/staged-repository/.htaccess"
 
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
           echo "release-prefix=$release_prefix" >> "$GITHUB_OUTPUT"
           echo "link-name=$link_name" >> "$GITHUB_OUTPUT"
           echo "build-number=$(git -C "$GITHUB_WORKSPACE/src" show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
@@ -177,7 +176,6 @@ jobs:
           RSYNC_USERNAME: ${{ secrets.RSYNC_USERNAME || vars.RSYNC_USERNAME }}
           RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT || vars.RSYNC_TARGET_ROOT }}
           RSYNC_PORT: ${{ secrets.RSYNC_PORT || vars.RSYNC_PORT || '22' }}
-          BRANCH: ${{ steps.publish-context.outputs.branch }}
           LINK_NAME: ${{ steps.publish-context.outputs.link-name }}
           RELEASE_PREFIX: ${{ steps.publish-context.outputs.release-prefix }}
           BUILD_NUMBER: ${{ steps.publish-context.outputs.build-number }}
@@ -206,7 +204,7 @@ jobs:
           target_root="${RSYNC_TARGET_ROOT%/}"
           repository_root="$target_root/repository"
           release_dir="$repository_root/${RELEASE_PREFIX}_${BUILD_NUMBER}.release"
-          source_dir="$GITHUB_WORKSPACE/staged-repository/$BRANCH/"
+          source_dir="$GITHUB_WORKSPACE/staged-repository/$LINK_NAME/"
           static_source="$GITHUB_WORKSPACE/staged-repository"
 
           ssh "${ssh_options[@]}" "$ssh_target" \

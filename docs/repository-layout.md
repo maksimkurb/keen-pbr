@@ -30,6 +30,11 @@ build but are not deployed.
 <target-root>/repository/stable -> stable_<tag>_<build-number>.release
 ```
 
+Each generated repository uses its live symlink name for package URLs: branch
+builds use `/repository/<branch>/...`, while tag builds use
+`/repository/stable/...`. Updating a tag only replaces the `stable` symlink;
+clients never need to change their repository URL.
+
 Package format folders (`opkg`, `ipk`, `apk`, `deb`) are intentionally omitted.
 
 ## Version semantics

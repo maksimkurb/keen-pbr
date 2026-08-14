@@ -67,6 +67,8 @@ generator_args=(
     --source-ref-type "$REPO_SOURCE_REF_TYPE"
     --source-ref-name "$REPO_SOURCE_REF_NAME"
     --shared-assets-source "$SCRIPT_DIR/repository_assets"
+    --logo-source "$SCRIPT_DIR/../frontend/src/assets/logo.svg"
+    --favicon-source "$SCRIPT_DIR/../docs/static/favicon.ico"
     --keys-manifest-source "$SCRIPT_DIR/repository-keys.json"
     --keys-source-dir "$SCRIPT_DIR/../packages/keys"
 )
