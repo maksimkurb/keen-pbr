@@ -310,6 +310,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/config/discard:
+    post:
+      summary: Discard staged config
+      description: >
+        Discards the currently staged in-memory configuration and restores the
+        last saved configuration as the visible configuration. The saved file
+        and routing runtime are not changed.
+      operationId: postConfigDiscard
+      responses:
+        "200":
+          description: Staged config discarded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigUpdateResponse"
+        "400":
+          description: No staged config to discard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/routing/test:
     post:
       summary: Test routing for an IP or domain

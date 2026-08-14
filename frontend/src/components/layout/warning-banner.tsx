@@ -5,15 +5,20 @@ import {
   CircleOffIcon,
   CircleXIcon,
   LoaderCircleIcon,
+  RotateCcwIcon,
   SaveIcon,
   XIcon,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import {
   useApplyConfigMutation,
+  useDiscardConfigMutation,
   usePostServiceActionMutation,
 } from "@/api/mutations"
+import type { ApiError } from "@/api/client"
+import { getApiErrorMessage } from "@/lib/api-errors"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar-context"
@@ -34,6 +39,13 @@ export function WarningBanner({
   const { t } = useTranslation()
   const { isMobile, open } = useSidebar()
   const applyConfigMutation = useApplyConfigMutation()
+  const discardConfigMutation = useDiscardConfigMutation({
+    mutation: {
+      onError: (error) => {
+        toast.error(getApiErrorMessage(error as ApiError), { richColors: true })
+      },
+    },
+  })
   const restartServiceMutation = usePostServiceActionMutation("restart")
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -76,7 +88,8 @@ export function WarningBanner({
   const isLifecycleRunning = state.mode === "lifecycle-running"
   const isLifecycleSuccess = state.mode === "lifecycle-success"
   const isProgressing = isLifecycleRunning || isLifecycleSuccess
-  const isError = state.mode === "dnsmasq-error" || state.mode === "lifecycle-error"
+  const isError =
+    state.mode === "dnsmasq-error" || state.mode === "lifecycle-error"
   const handleApplyAndReload = () => {
     if (state.hasDraftConfig) {
       applyConfigMutation.mutate()
@@ -98,7 +111,9 @@ export function WarningBanner({
       )}
     >
       <Alert
-        variant={isError ? "destructive" : isProgressing ? "default" : "warning"}
+        variant={
+          isError ? "destructive" : isProgressing ? "default" : "warning"
+        }
         className="pointer-events-auto mx-auto w-full max-w-7xl gap-4 rounded-2xl border border-white/10 px-4 py-4 shadow-[0_10px_30px_hsl(0_0%_0%/0.18),0_24px_80px_hsl(0_0%_0%/0.4)] ring-1 ring-black/5 dark:border-white/12 dark:ring-white/6"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -115,28 +130,42 @@ export function WarningBanner({
 
           {!isProgressing ? (
             <div className="flex shrink-0 gap-2">
-            <Button
-              disabled={state.isActionDisabled}
-              onClick={handleApplyAndReload}
-              size="lg"
-              variant="outline"
-              className="shrink-0 bg-background hover:bg-background dark:bg-card dark:hover:bg-card"
-            >
-              <SaveIcon className="mr-1 h-4 w-4" />
-              {state.actionPending
-                ? t("warning.actions.applyingAndRestarting")
-                : t("warning.actions.applyAndRestart")}
-            </Button>
-            {state.mode === "lifecycle-error" ? (
+              {state.hasDraftConfig ? (
+                <Button
+                  disabled={state.isActionDisabled}
+                  onClick={() => discardConfigMutation.mutate()}
+                  size="lg"
+                  variant="ghost"
+                  className="shrink-0"
+                >
+                  <RotateCcwIcon className="mr-1 h-4 w-4" />
+                  {discardConfigMutation.isPending
+                    ? t("warning.actions.discarding")
+                    : t("warning.actions.discard")}
+                </Button>
+              ) : null}
               <Button
-                aria-label={t("common.close")}
-                onClick={state.dismissFailure}
-                size="icon-lg"
-                variant="ghost"
+                disabled={state.isActionDisabled}
+                onClick={handleApplyAndReload}
+                size="lg"
+                variant="outline"
+                className="shrink-0 bg-background hover:bg-background dark:bg-card dark:hover:bg-card"
               >
-                <XIcon className="h-4 w-4" />
+                <SaveIcon className="mr-1 h-4 w-4" />
+                {state.actionPending
+                  ? t("warning.actions.applyingAndRestarting")
+                  : t("warning.actions.applyAndRestart")}
               </Button>
-            ) : null}
+              {state.mode === "lifecycle-error" ? (
+                <Button
+                  aria-label={t("common.close")}
+                  onClick={state.dismissFailure}
+                  size="icon-lg"
+                  variant="ghost"
+                >
+                  <XIcon className="h-4 w-4" />
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -163,21 +192,33 @@ export function WarningBanner({
   )
 }
 
-function StepIcon({ status }: { status: WarningBannerState["operationSteps"][number]["status"] }) {
+function StepIcon({
+  status,
+}: {
+  status: WarningBannerState["operationSteps"][number]["status"]
+}) {
   const markerClassName =
     "relative z-10 flex size-5 shrink-0 items-center justify-center rounded-full"
 
   if (status === "succeeded") {
-    return <CircleCheckBigIcon className="relative z-10 size-5 shrink-0 text-emerald-600" />
+    return (
+      <CircleCheckBigIcon className="relative z-10 size-5 shrink-0 text-emerald-600" />
+    )
   }
   if (status === "running") {
-    return <LoaderCircleIcon className="relative z-10 size-5 shrink-0 animate-spin text-primary" />
+    return (
+      <LoaderCircleIcon className="relative z-10 size-5 shrink-0 animate-spin text-primary" />
+    )
   }
   if (status === "failed") {
-    return <CircleXIcon className="relative z-10 size-5 shrink-0 text-destructive" />
+    return (
+      <CircleXIcon className="relative z-10 size-5 shrink-0 text-destructive" />
+    )
   }
   if (status === "skipped") {
-    return <CircleOffIcon className="relative z-10 size-5 shrink-0 text-muted-foreground" />
+    return (
+      <CircleOffIcon className="relative z-10 size-5 shrink-0 text-muted-foreground" />
+    )
   }
   return (
     <span className={cn(markerClassName, "bg-card text-muted-foreground")}>

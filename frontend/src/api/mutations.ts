@@ -7,10 +7,12 @@ import {
 import {
   postListsRefresh,
   postConfig,
+  postConfigDiscard,
   postConfigSave,
   postRoutingTest,
   usePostListsRefresh,
   usePostConfig,
+  usePostConfigDiscard,
   usePostConfigSave,
   usePostRoutingTest,
 } from "@/api/generated/keen-api"
@@ -24,10 +26,17 @@ import { apiFetch } from "@/api/client"
 
 type UsePostListsRefreshOptions = Parameters<typeof usePostListsRefresh>[0]
 type UsePostConfigOptions = Parameters<typeof usePostConfig>[0]
+type UsePostConfigDiscardOptions = Parameters<typeof usePostConfigDiscard>[0]
 type UsePostConfigSaveOptions = Parameters<typeof usePostConfigSave>[0]
 type UsePostRoutingTestOptions = Parameters<typeof usePostRoutingTest>[0]
 
-export { postConfig, postConfigSave, postListsRefresh, postRoutingTest }
+export {
+  postConfig,
+  postConfigDiscard,
+  postConfigSave,
+  postListsRefresh,
+  postRoutingTest,
+}
 
 export const usePostListsRefreshMutation = (
   options?: UsePostListsRefreshOptions
@@ -100,6 +109,31 @@ export const useApplyConfigMutation = (options?: UsePostConfigSaveOptions) => {
   })
 }
 
+export const useDiscardConfigMutation = (
+  options?: UsePostConfigDiscardOptions
+) => {
+  const queryClient = useQueryClient()
+
+  return usePostConfigDiscard({
+    ...options,
+    mutation: {
+      ...options?.mutation,
+      onSuccess: async (data, variables, onMutateResult, context) => {
+        for (const queryKey of invalidationKeysAfterConfigMutation) {
+          await queryClient.invalidateQueries({ queryKey })
+        }
+
+        await options?.mutation?.onSuccess?.(
+          data,
+          variables,
+          onMutateResult,
+          context
+        )
+      },
+    },
+  })
+}
+
 export const usePostRoutingTestMutation = (
   options?: UsePostRoutingTestOptions
 ) => usePostRoutingTest(options)
@@ -129,22 +163,35 @@ export const usePostServiceActionMutation = (action: ServiceAction) => {
 
 export function isConfigMutationPending(
   postConfigCount: number,
-  postConfigSaveCount: number
+  postConfigSaveCount: number,
+  postConfigDiscardCount = 0
 ) {
-  return postConfigCount > 0 || postConfigSaveCount > 0
+  return (
+    postConfigCount > 0 || postConfigSaveCount > 0 || postConfigDiscardCount > 0
+  )
 }
 
 export const useConfigMutationPending = () => {
   const postConfigCount = useIsMutating({ mutationKey: ["postConfig"] })
   const postConfigSaveCount = useIsMutating({ mutationKey: ["postConfigSave"] })
+  const postConfigDiscardCount = useIsMutating({
+    mutationKey: ["postConfigDiscard"],
+  })
 
-  return isConfigMutationPending(postConfigCount, postConfigSaveCount)
+  return isConfigMutationPending(
+    postConfigCount,
+    postConfigSaveCount,
+    postConfigDiscardCount
+  )
 }
 
 export const useRoutingControlPendingState = () => {
   const draftPostPending = useIsMutating({ mutationKey: ["postConfig"] }) > 0
   const applyPending = useIsMutating({ mutationKey: ["postConfigSave"] }) > 0
-  const configMutationPending = draftPostPending || applyPending
+  const discardPending =
+    useIsMutating({ mutationKey: ["postConfigDiscard"] }) > 0
+  const configMutationPending =
+    draftPostPending || applyPending || discardPending
   const startPending =
     useIsMutating({ mutationKey: serviceActionMutationKey("start") }) > 0
   const stopPending =
@@ -154,6 +201,7 @@ export const useRoutingControlPendingState = () => {
 
   return {
     applyPending,
+    discardPending,
     draftPostPending,
     configMutationPending,
     startPending,

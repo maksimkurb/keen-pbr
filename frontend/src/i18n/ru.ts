@@ -151,6 +151,8 @@ export const ruTranslation = {
     actions: {
       applying: "Применение...",
       apply: "Применить",
+      discarding: "Отмена изменений...",
+      discard: "Отменить изменения",
       applyingAndRestarting: "Применение и перезапуск...",
       applyAndRestart: "Применить и перезапустить",
       restarting: "Перезапуск...",

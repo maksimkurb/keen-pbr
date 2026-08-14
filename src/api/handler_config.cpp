@@ -140,6 +140,20 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         return nlohmann::json(resp).dump();
     });
 
+    // POST /api/config/discard - restore the last saved config as the visible config.
+    server.post("/api/config/discard", [&ctx]() -> std::string {
+        if (!ctx.config_is_draft()) {
+            throw ApiError("No staged config to discard", 400);
+        }
+
+        ctx.clear_staged_config();
+
+        api::ConfigUpdateResponse resp;
+        resp.status = api::ConfigUpdateResponseStatus::OK;
+        resp.message = "Staged config discarded";
+        return nlohmann::json(resp).dump();
+    });
+
     // Password state is deliberately separate from the config representation.
     // Neither this endpoint nor GET /api/config exposes the verifier.
     server.get("/api/auth/password", [&ctx]() -> std::string {

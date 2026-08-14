@@ -450,7 +450,7 @@ export function useGetAuthPasswordStatus<TData = Awaited<ReturnType<typeof getAu
 
 
 /**
- * Accepts the clear-text password and stores only its verifier in the staged server configuration.
+ * Accepts the clear-text password and immediately persists only its verifier in the server configuration.
  * @summary Set the administrator password
  */
 export type postAuthPasswordResponse200 = {
@@ -1231,7 +1231,7 @@ export const usePostListsRefresh = <TError = ErrorResponse,
     }
 
 /**
- * Returns the latest editable configuration object together with a flag indicating whether it is a staged in-memory draft.
+ * Returns the latest editable routing configuration object together with a flag indicating whether it is a staged in-memory draft.
 
  * @summary Get current config state
  */
@@ -1351,7 +1351,7 @@ export function useGetConfig<TData = Awaited<ReturnType<typeof getConfig>>, TErr
 
 
 /**
- * Validates the provided JSON body as a config file and stages it in daemon memory without writing it to disk or applying it to the routing runtime.
+ * Validates the provided routing configuration and stages it in daemon memory without writing it to disk or applying it to the routing runtime. API authentication and CORS are managed separately through `/api/auth/settings`.
 
  * @summary Stage config in memory
  */
@@ -1546,6 +1546,102 @@ export const usePostConfigSave = <TError = ErrorResponse | void,
         TContext
       > => {
       return useMutation(getPostConfigSaveMutationOptions(options), queryClient);
+    }
+
+/**
+ * Discards the currently staged in-memory configuration and restores the last saved configuration as the visible configuration. The saved file and routing runtime are not changed.
+
+ * @summary Discard staged config
+ */
+export type postConfigDiscardResponse200 = {
+  data: ConfigUpdateResponse
+  status: 200
+}
+
+export type postConfigDiscardResponse400 = {
+  data: ErrorResponse
+  status: 400
+}
+
+export type postConfigDiscardResponse500 = {
+  data: ErrorResponse
+  status: 500
+}
+
+export type postConfigDiscardResponseSuccess = (postConfigDiscardResponse200) & {
+  headers: Headers;
+};
+export type postConfigDiscardResponseError = (postConfigDiscardResponse400 | postConfigDiscardResponse500) & {
+  headers: Headers;
+};
+
+export type postConfigDiscardResponse = (postConfigDiscardResponseSuccess | postConfigDiscardResponseError)
+
+export const getPostConfigDiscardUrl = () => {
+
+
+
+
+  return `/api/config/discard`
+}
+
+export const postConfigDiscard = async ( options?: RequestInit): Promise<postConfigDiscardResponse> => {
+
+  return apiFetch<postConfigDiscardResponse>(getPostConfigDiscardUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getPostConfigDiscardMutationOptions = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfigDiscard>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postConfigDiscard>>, TError,void, TContext> => {
+
+const mutationKey = ['postConfigDiscard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postConfigDiscard>>, void> = () => {
+
+
+          return  postConfigDiscard(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostConfigDiscardMutationResult = NonNullable<Awaited<ReturnType<typeof postConfigDiscard>>>
+
+    export type PostConfigDiscardMutationError = ErrorResponse
+
+    /**
+ * @summary Discard staged config
+ */
+export const usePostConfigDiscard = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfigDiscard>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postConfigDiscard>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPostConfigDiscardMutationOptions(options), queryClient);
     }
 
 /**

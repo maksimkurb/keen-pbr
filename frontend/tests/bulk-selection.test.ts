@@ -43,9 +43,10 @@ describe("config mutation pending helper", () => {
     expect(isConfigMutationPending(0, 0)).toBe(false)
   })
 
-  test("is true with draft or apply mutations in flight", () => {
+  test("is true with draft, apply, or discard mutations in flight", () => {
     expect(isConfigMutationPending(1, 0)).toBe(true)
     expect(isConfigMutationPending(0, 1)).toBe(true)
+    expect(isConfigMutationPending(0, 0, 1)).toBe(true)
   })
 })
 
