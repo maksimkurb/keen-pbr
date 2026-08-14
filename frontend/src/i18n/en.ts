@@ -100,6 +100,11 @@ export const enTranslation = {
       unavailable: "Unavailable",
       unknown: "Unknown",
     },
+    statusTone: {
+      healthy: "Healthy",
+      degraded: "Degraded",
+      unknown: "Unknown",
+    },
     fallback: {
       table: "Routing table {{value}}",
       blackhole: "Block all incoming traffic",
@@ -718,7 +723,9 @@ export const enTranslation = {
         gateway4: "gateway4={{value}}",
         gateway6: "gateway6={{value}}",
         table: "table={{value}}",
-        urltest: "outbounds={{value}}",
+        urltestDefault: "outbounds={{outbounds}}",
+        urltest: "url={{url}}, outbounds={{outbounds}}",
+        icmptest: "outbounds={{candidates}}",
       },
       messages: {
         missingReference:

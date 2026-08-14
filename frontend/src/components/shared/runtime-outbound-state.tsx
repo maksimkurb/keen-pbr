@@ -135,7 +135,11 @@ function mapRuntimeInterfaceToItem(
       ? `${interfaceState.packets_received ?? 0}/${interfaceState.packets_attempted} replies, ${interfaceState.packets_failed ?? 0} failed`
       : undefined
   const probeLabel =
-    [interfaceState.probe_target, latencyLabel, packetLabel]
+    [
+      parentType === "icmptest" ? undefined : interfaceState.probe_target,
+      latencyLabel,
+      packetLabel,
+    ]
       .filter(Boolean)
       .join(" · ") || undefined
   const content =
@@ -164,6 +168,7 @@ function mapRuntimeInterfaceToItem(
             ? `${interfaceState.outbound_tag} (${interfaceState.interface_name})`
             : name
         }
+        showStatus={false}
       />
     ) : undefined
 

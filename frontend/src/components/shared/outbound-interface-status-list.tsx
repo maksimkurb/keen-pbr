@@ -1,6 +1,12 @@
 import type { ReactNode } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export type OutboundInterfaceStatusItem = {
   name: string
@@ -73,6 +79,7 @@ export function RuntimeInterfaceStatusRow({
   variant: "tree" | "list"
   children?: ReactNode
 }) {
+  const { t } = useTranslation()
   const latency = item.latency ? (
     <span className="text-xs text-muted-foreground">{item.latency}</span>
   ) : null
@@ -95,9 +102,29 @@ export function RuntimeInterfaceStatusRow({
       {variant === "tree" ? (
         <TreeConnector isLast={item.isLast ?? false} />
       ) : null}
-      <span
-        className={`relative mt-1.5 inline-flex size-2 shrink-0 rounded-full ${getToneDotClass(item.tone)}`}
-      />
+      {item.tone === "info" ? (
+        <span
+          className={`relative mt-1.5 inline-flex size-2 shrink-0 rounded-full ${getToneDotClass(
+            item.tone
+          )}`}
+        />
+      ) : (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                aria-label={t(`runtime.statusTone.${item.tone}`)}
+                className={`relative mt-1.5 inline-flex size-2 shrink-0 rounded-full ${getToneDotClass(
+                  item.tone
+                )}`}
+              />
+            }
+          />
+          <TooltipContent>
+            {t(`runtime.statusTone.${item.tone}`)}
+          </TooltipContent>
+        </Tooltip>
+      )}
       {children ? (
         <span className="flex min-w-0 flex-wrap items-center gap-2">
           {children}

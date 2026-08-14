@@ -101,6 +101,11 @@ export const ruTranslation = {
       unavailable: "Недоступен",
       unknown: "Неизвестно",
     },
+    statusTone: {
+      healthy: "Исправен",
+      degraded: "Деградирован",
+      unknown: "Неизвестно",
+    },
     fallback: {
       table: "Таблица маршрутизации {{value}}",
       blackhole: "Блокировать весь входящий трафик",
@@ -735,7 +740,9 @@ export const ruTranslation = {
         gateway4: "gateway4={{value}}",
         gateway6: "gateway6={{value}}",
         table: "table={{value}}",
-        urltest: "outbounds={{value}}",
+        urltestDefault: "outbounds={{outbounds}}",
+        urltest: "url={{url}}, outbounds={{outbounds}}",
+        icmptest: "outbounds={{candidates}}",
       },
       messages: {
         missingReference:

@@ -55,6 +55,8 @@ import {
   type OutboundDeleteImpact,
 } from "@/pages/outbounds-utils"
 
+const DEFAULT_URLTEST_PROBE_URL = "https://www.gstatic.com/generate_204"
+
 type OutboundItem = {
   id: string
   tag: string
@@ -583,8 +585,27 @@ function getOutboundSummary(
   if (outbound.type === "urltest") {
     const allOutbounds =
       outbound.outbound_groups?.flatMap(getOutboundGroupTags) ?? []
-    return t("pages.outbounds.summary.urltest", {
-      value: allOutbounds.join(","),
+    const outbounds = {
+      outbounds: allOutbounds.join(", ") || "-",
+    }
+    return outbound.url === DEFAULT_URLTEST_PROBE_URL
+      ? t("pages.outbounds.summary.urltestDefault", outbounds)
+      : t("pages.outbounds.summary.urltest", {
+          url: outbound.url ?? "-",
+          ...outbounds,
+        })
+  }
+
+  if (outbound.type === "icmptest") {
+    const candidates =
+      outbound.outbound_groups?.flatMap(
+        (group) =>
+          group.candidates?.map(
+            (candidate) => `${candidate.outbound}(→${candidate.target})`
+          ) ?? []
+      ) ?? []
+    return t("pages.outbounds.summary.icmptest", {
+      candidates: candidates.join(", ") || "-",
     })
   }
 
@@ -631,6 +652,7 @@ function OutboundRuntimeCell({
           interfaceEntry={runtimeInterface}
           isVirtual={!runtimeInterface}
           name={outbound.interface ?? "-"}
+          showStatus={false}
         />
       </RuntimeInterfaceStatusRow>
     )

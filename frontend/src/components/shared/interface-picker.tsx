@@ -358,6 +358,7 @@ export function InterfaceRowContent({
   isVirtual = false,
   grow = true,
   afterStatus,
+  showStatus = true,
   showAddressesInline = false,
 }: {
   name: string
@@ -365,6 +366,7 @@ export function InterfaceRowContent({
   isVirtual?: boolean
   grow?: boolean
   afterStatus?: ReactNode
+  showStatus?: boolean
   showAddressesInline?: boolean
 }) {
   const { t } = useTranslation()
@@ -386,7 +388,9 @@ export function InterfaceRowContent({
       </span>
       {interfaceEntry ? (
         <>
-          <InterfaceStatusBadge status={interfaceEntry.status} />
+          {showStatus ? (
+            <InterfaceStatusBadge status={interfaceEntry.status} />
+          ) : null}
           {afterStatus}
           {showAddressesInline ? (
             <AddressPreview interfaceEntry={interfaceEntry} />
