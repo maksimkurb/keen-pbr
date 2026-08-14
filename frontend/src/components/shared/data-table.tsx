@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -26,12 +26,16 @@ export function DataTable({
   compact = false,
   narrowColumns = [],
   selection,
+  getRowProps,
 }: {
   headers?: string[]
   rows: ReactNode[][]
   compact?: boolean
   narrowColumns?: number[]
   selection?: DataTableSelection
+  getRowProps?: (
+    rowIndex: number
+  ) => Omit<ComponentProps<"tr">, "children" | "key">
 }) {
   const hasSelection = Boolean(
     selection && selection.rowIds.length === rows.length
@@ -130,9 +134,11 @@ export function DataTable({
         <TableBody>
           {rows.map((row, index) => {
             const rowId = hasSelection ? (selection!.rowIds[index] ?? "") : ""
+            const rowProps = getRowProps?.(index)
 
             return (
               <TableRow
+                {...rowProps}
                 key={hasSelection ? rowId || index : `${row[0]}-${index}`}
               >
                 {hasSelection ? (

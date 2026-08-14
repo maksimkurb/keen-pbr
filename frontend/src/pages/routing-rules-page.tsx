@@ -1,5 +1,12 @@
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react"
-import { useMemo } from "react"
+import {
+  ArrowDown,
+  ArrowUp,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react"
+import { type DragEvent, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
@@ -26,6 +33,8 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import {
   getApiErrorMessage,
+  getDragInsertionIndex,
+  getReorderTargetIndex,
   reorderRules,
   setRouteRuleEnabled,
 } from "@/pages/routing-rules-utils"
@@ -33,6 +42,12 @@ import {
 export function RoutingRulesPage() {
   const { t } = useTranslation()
   const [, navigate] = useLocation()
+  const draggedRuleIndexRef = useRef<number | null>(null)
+  const dragPreviewRef = useRef<HTMLTableElement | null>(null)
+  const dropInsertionIndexRef = useRef<number | null>(null)
+  const [dropInsertionIndex, setDropInsertionIndex] = useState<number | null>(
+    null
+  )
 
   const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
@@ -124,6 +139,117 @@ export function RoutingRulesPage() {
 
     const nextRules = reorderRules(routeRules, index, targetIndex)
     persistRules(loadedConfig, nextRules)
+  }
+
+  const clearDragState = () => {
+    dragPreviewRef.current?.remove()
+    dragPreviewRef.current = null
+    draggedRuleIndexRef.current = null
+    dropInsertionIndexRef.current = null
+    setDropInsertionIndex(null)
+  }
+
+  const handleDragStart = (
+    event: DragEvent<HTMLButtonElement>,
+    index: number
+  ) => {
+    if (configMutationPending) {
+      event.preventDefault()
+      return
+    }
+
+    event.dataTransfer.effectAllowed = "move"
+    event.dataTransfer.setData("text/plain", String(index))
+    const draggedRow = event.currentTarget.closest("tr")
+    if (draggedRow) {
+      const rowRect = draggedRow.getBoundingClientRect()
+      const dragPreview = document.createElement("table")
+      const previewBody = document.createElement("tbody")
+      const previewRow = draggedRow.cloneNode(true) as HTMLTableRowElement
+
+      dragPreview.className = draggedRow.closest("table")?.className ?? ""
+      dragPreview.style.position = "fixed"
+      dragPreview.style.left = "0"
+      dragPreview.style.top = "0"
+      dragPreview.style.width = `${rowRect.width}px`
+      dragPreview.style.tableLayout = "fixed"
+      dragPreview.style.backgroundColor = getComputedStyle(
+        document.body
+      ).backgroundColor
+      dragPreview.style.pointerEvents = "none"
+      dragPreview.style.zIndex = "1000"
+
+      Array.from(draggedRow.cells).forEach((cell, cellIndex) => {
+        const previewCell = previewRow.cells[cellIndex]
+        if (previewCell) {
+          previewCell.style.width = `${cell.getBoundingClientRect().width}px`
+        }
+      })
+
+      previewBody.append(previewRow)
+      dragPreview.append(previewBody)
+      document.body.append(dragPreview)
+      dragPreviewRef.current?.remove()
+      dragPreviewRef.current = dragPreview
+      event.dataTransfer.setDragImage(
+        dragPreview,
+        event.clientX - rowRect.left,
+        event.clientY - rowRect.top
+      )
+      requestAnimationFrame(() => {
+        dragPreview.remove()
+        if (dragPreviewRef.current === dragPreview) {
+          dragPreviewRef.current = null
+        }
+      })
+    }
+    draggedRuleIndexRef.current = index
+  }
+
+  const handleRowDragOver = (
+    event: DragEvent<HTMLTableRowElement>,
+    rowIndex: number
+  ) => {
+    const draggedRuleIndex = draggedRuleIndexRef.current
+    if (draggedRuleIndex === null) {
+      return
+    }
+
+    event.preventDefault()
+    event.dataTransfer.dropEffect = "move"
+    const insertionIndex = getDragInsertionIndex(draggedRuleIndex, rowIndex)
+    dropInsertionIndexRef.current = insertionIndex
+    setDropInsertionIndex(insertionIndex)
+  }
+
+  const handleRowDrop = (
+    event: DragEvent<HTMLTableRowElement>,
+    rowIndex: number
+  ) => {
+    event.preventDefault()
+
+    const draggedRuleIndex = draggedRuleIndexRef.current
+    if (!loadedConfig || draggedRuleIndex === null) {
+      clearDragState()
+      return
+    }
+
+    const insertionIndex =
+      dropInsertionIndexRef.current ??
+      getDragInsertionIndex(draggedRuleIndex, rowIndex)
+    if (insertionIndex === null) {
+      clearDragState()
+      return
+    }
+    const targetIndex = getReorderTargetIndex(draggedRuleIndex, insertionIndex)
+
+    if (targetIndex !== draggedRuleIndex) {
+      persistRules(
+        loadedConfig,
+        reorderRules(routeRules, draggedRuleIndex, targetIndex)
+      )
+    }
+    clearDragState()
   }
 
   const handleEnabledChange = (index: number, enabled: boolean) => {
@@ -291,12 +417,24 @@ export function RoutingRulesPage() {
                 actions={[
                   {
                     disabled: configMutationPending,
+                    group: "reorder",
                     icon: <ArrowUp className="h-4 w-4" />,
                     label: t("common.moveUp"),
                     onClick: () => handleMove(row.index, -1),
                   },
                   {
+                    className: "cursor-grab active:cursor-grabbing",
+                    disabled: configMutationPending || routeRules.length < 2,
+                    draggable: !configMutationPending && routeRules.length > 1,
+                    group: "reorder",
+                    icon: <GripVertical className="h-4 w-4" />,
+                    label: t("common.dragToReorder"),
+                    onDragEnd: clearDragState,
+                    onDragStart: (event) => handleDragStart(event, row.index),
+                  },
+                  {
                     disabled: configMutationPending,
+                    group: "reorder",
                     icon: <ArrowDown className="h-4 w-4" />,
                     label: t("common.moveDown"),
                     onClick: () => handleMove(row.index, 1),
@@ -317,6 +455,17 @@ export function RoutingRulesPage() {
                 key={`${row.id}-actions`}
               />,
             ])}
+            getRowProps={(rowIndex) => ({
+              className:
+                dropInsertionIndex === rowIndex
+                  ? "shadow-[inset_0_4px_0_0_var(--primary)]"
+                  : dropInsertionIndex === routeRules.length &&
+                      rowIndex === routeRules.length - 1
+                    ? "shadow-[inset_0_-4px_0_0_var(--primary)]"
+                    : undefined,
+              onDragOver: (event) => handleRowDragOver(event, rowIndex),
+              onDrop: (event) => handleRowDrop(event, rowIndex),
+            })}
             selection={{
               rowIds: ruleRowIds,
               selectedIds: ruleSelection.selectedIds,

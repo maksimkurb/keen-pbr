@@ -79,6 +79,24 @@ export function reorderRules(
   return nextRules
 }
 
+export function getReorderTargetIndex(
+  fromIndex: number,
+  insertionIndex: number
+) {
+  return insertionIndex > fromIndex ? insertionIndex - 1 : insertionIndex
+}
+
+export function getDragInsertionIndex(
+  fromIndex: number,
+  hoveredRowIndex: number
+) {
+  if (hoveredRowIndex === fromIndex) {
+    return null
+  }
+
+  return hoveredRowIndex < fromIndex ? hoveredRowIndex : hoveredRowIndex + 1
+}
+
 export function setRouteRuleEnabled(
   rules: RouteRule[],
   index: number,

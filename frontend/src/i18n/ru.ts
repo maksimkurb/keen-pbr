@@ -52,6 +52,7 @@ export const ruTranslation = {
     delete: "Удалить",
     moveUp: "Переместить вверх",
     moveDown: "Переместить вниз",
+    dragToReorder: "Перетащить для изменения порядка",
     unableToLoadData: "Не удалось загрузить данные",
     loadErrorDescription:
       "Сейчас не получается загрузить данные. Попробуйте обновить страницу.",

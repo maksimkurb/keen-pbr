@@ -52,6 +52,7 @@ export const enTranslation = {
     delete: "Delete",
     moveUp: "Move up",
     moveDown: "Move down",
+    dragToReorder: "Drag to reorder",
     unableToLoadData: "Unable to load data",
     loadErrorDescription:
       "We can't load data right now. Try refreshing the page.",
