@@ -843,6 +843,7 @@ export const ruTranslation = {
           "Настройте строгие ICMP echo-проверки. Для каждого кандидата нужен отдельный IPv4- или IPv6-адрес.",
         targetHint:
           "IPv4- или IPv6-адрес, который пингуется через этот outbound.",
+        targetLabel: "Цель ping для {{outbound}}",
         targetsEmpty:
           "Добавьте кандидатов в группу outbound, чтобы настроить их цели.",
         count: "Пакетов за проверку",

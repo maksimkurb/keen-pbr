@@ -823,6 +823,7 @@ export const enTranslation = {
           "Configure strict ICMP echo checks. Each candidate must have its own literal IPv4 or IPv6 target.",
         targetHint:
           "Literal IPv4 or IPv6 address pinged through this outbound.",
+        targetLabel: "Ping target for {{outbound}}",
         targetsEmpty:
           "Add candidates to an outbound group to configure their targets.",
         count: "Packets per run",
