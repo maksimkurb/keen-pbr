@@ -15,17 +15,21 @@ build but are not deployed.
 ## Directory structure
 
 ```text
-<target-root>/public/<branch>_<build-number>/keenetic/<keenetic_version>/<arch>
-<target-root>/public/<branch>_<build-number>/openwrt/<openwrt_version>/<arch>
-<target-root>/public/<branch>_<build-number>/debian/<debian_version>/<arch>
+<target-root>/public/<branch>_<build-number>.release/keenetic/<keenetic_version>/<arch>
+<target-root>/public/<branch>_<build-number>.release/openwrt/<openwrt_version>/<arch>
+<target-root>/public/<branch>_<build-number>.release/debian/<debian_version>/<arch>
 
-<target-root>/public/<branch> -> <branch>_<build-number>
+<target-root>/public/<branch> -> <branch>_<build-number>.release
+
+<target-root>/public/stable_<tag>_<build-number>.release/...
+<target-root>/public/<tag> -> stable_<tag>_<build-number>.release
 ```
 
 Package format folders (`opkg`, `ipk`, `apk`, `deb`) are intentionally omitted.
 
 ## Version semantics
 
+- `build-number`: the source commit's UTC Unix timestamp.
 - `keenetic_version`: currently `current` (reserved for future compatibility).
 - `openwrt_version`: explicit OpenWrt release line (for example `24.10.4`, `25.12.2`).
 - `debian_version`: explicit Debian release line (`bullseye`, `bookworm`, or `trixie`).
@@ -59,11 +63,12 @@ Use a secret for `RSYNC_SSH_PRIVATE_KEY`; repository variables are visible to
 people who can manage repository settings and are not appropriate for private
 key material.
 
-For the sample configuration, a build of branch `feature/new-ui` with GitHub
-Actions run number `1842` is uploaded to
-`/srv/www/keen-pbr/public/feature-new-ui_1842/`, then the symlink
+For the sample configuration, a build of branch `feature/new-ui` at commit UTC
+timestamp `1786718400` is uploaded to
+`/srv/www/keen-pbr/public/feature-new-ui_1786718400.release/`, then the symlink
 `/srv/www/keen-pbr/public/feature-new-ui` is atomically repointed to it. A tag
-`v1.4.0` is published in the same way under `v1.4.0_1842` and `v1.4.0`.
+`v3.2.0` is published as `stable_v3.2.0_1786718400.release`, with its tag
+symlink pointing at that release directory.
 
 The SSH account needs permission to create directories, write files, and replace
 symlinks below `<RSYNC_TARGET_ROOT>/public`.

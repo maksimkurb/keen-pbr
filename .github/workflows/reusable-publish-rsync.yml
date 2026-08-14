@@ -46,15 +46,29 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve source run and commit
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id || github.run_id }}
+        run: |
+          set -euo pipefail
+          commit_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" --jq '.head_sha')"
+          [[ "$commit_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Workflow run ${SOURCE_RUN_ID} has no valid head SHA" >&2; exit 1; }
+          echo "run-id=$SOURCE_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "commit-sha=$commit_sha" >> "$GITHUB_OUTPUT"
+
       - name: Checkout source
         uses: actions/checkout@v6
         with:
           path: src
+          ref: ${{ steps.source.outputs.commit-sha }}
 
       - name: Download package artifacts
         uses: actions/download-artifact@v8
         with:
-          run-id: ${{ inputs.source_run_id || github.run_id }}
+          run-id: ${{ steps.source.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: packages-*
           path: downloaded-artifacts
@@ -62,7 +76,7 @@ jobs:
       - name: Download debug symbol artifacts
         uses: actions/download-artifact@v8
         with:
-          run-id: ${{ inputs.source_run_id || github.run_id }}
+          run-id: ${{ steps.source.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: debug-symbols-*
           path: downloaded-artifacts
@@ -107,6 +121,12 @@ jobs:
             exit 1
           fi
 
+          if [ "$SOURCE_REF_TYPE" = "tag" ]; then
+            release_prefix="stable_$branch"
+          else
+            release_prefix="$branch"
+          fi
+
           REPO_SOURCE_REF_TYPE="$SOURCE_REF_TYPE" \
           REPO_SOURCE_REF_NAME="$SOURCE_REF_NAME" \
           make -C "$GITHUB_WORKSPACE/src" build-repository \
@@ -114,6 +134,8 @@ jobs:
             REPO_TARGET_ROOT="$branch"
 
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "release-prefix=$release_prefix" >> "$GITHUB_OUTPUT"
+          echo "build-number=$(git -C "$GITHUB_WORKSPACE/src" show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Configure SSH for rsync
         shell: bash
@@ -134,13 +156,16 @@ jobs:
           RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT || vars.RSYNC_TARGET_ROOT }}
           RSYNC_PORT: ${{ secrets.RSYNC_PORT || vars.RSYNC_PORT || '22' }}
           BRANCH: ${{ steps.publish-context.outputs.branch }}
-          BUILD_NUMBER: ${{ github.run_number }}
+          RELEASE_PREFIX: ${{ steps.publish-context.outputs.release-prefix }}
+          BUILD_NUMBER: ${{ steps.publish-context.outputs.build-number }}
         run: |
           set -euo pipefail
 
           : "${RSYNC_HOST:?RSYNC_HOST secret or variable is required}"
           : "${RSYNC_USERNAME:?RSYNC_USERNAME secret or variable is required}"
           : "${RSYNC_TARGET_ROOT:?RSYNC_TARGET_ROOT secret or variable is required}"
+          : "${RELEASE_PREFIX:?Release directory prefix could not be resolved}"
+          : "${BUILD_NUMBER:?Source commit timestamp could not be resolved}"
           RSYNC_PORT="${RSYNC_PORT:-22}"
           [[ "$RSYNC_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ || "$RSYNC_HOST" =~ ^[0-9A-Fa-f:]+$ ]] || { echo "RSYNC_HOST must be a hostname or IP address" >&2; exit 1; }
           [[ "$RSYNC_USERNAME" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { echo "RSYNC_USERNAME contains unsupported characters" >&2; exit 1; }
@@ -155,7 +180,7 @@ jobs:
             rsync_target="$ssh_target"
           fi
           public_root="${RSYNC_TARGET_ROOT%/}/public"
-          release_dir="$public_root/${BRANCH}_${BUILD_NUMBER}"
+          release_dir="$public_root/${RELEASE_PREFIX}_${BUILD_NUMBER}.release"
           source_dir="$GITHUB_WORKSPACE/staged-repository/$BRANCH/"
           static_source="$GITHUB_WORKSPACE/staged-repository"
 
