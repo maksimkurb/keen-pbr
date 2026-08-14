@@ -8,8 +8,6 @@ on:
       - 'dev-*'
     paths:
       - '.clang-tidy'
-      - '.github/workflows/**'
-      - 'build_scripts/**'
       - 'cmake/**'
       - 'include/**'
       - 'src/**'
@@ -17,8 +15,16 @@ on:
       - 'third_party/**'
       - 'CMakeLists.txt'
       - 'Makefile'
-      - 'version.mk'
   pull_request:
+    paths:
+      - '.clang-tidy'
+      - 'cmake/**'
+      - 'include/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'third_party/**'
+      - 'CMakeLists.txt'
+      - 'Makefile'
   workflow_dispatch:
 
 jobs:

@@ -46,29 +46,27 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve source run and commit
-        id: source
+      - name: Resolve artifact run
+        id: artifact
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id || github.run_id }}
         run: |
           set -euo pipefail
-          commit_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" --jq '.head_sha')"
-          [[ "$commit_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Workflow run ${SOURCE_RUN_ID} has no valid head SHA" >&2; exit 1; }
           echo "run-id=$SOURCE_RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "commit-sha=$commit_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout source
+      # Repository UI and publisher scripts always come from current main.
+      # source_run_id identifies only the package artifacts to republish.
+      - name: Checkout current main
         uses: actions/checkout@v6
         with:
           path: src
-          ref: ${{ steps.source.outputs.commit-sha }}
+          ref: main
 
       - name: Download package artifacts
         uses: actions/download-artifact@v8
         with:
-          run-id: ${{ steps.source.outputs.run-id }}
+          run-id: ${{ steps.artifact.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: packages-*
           path: downloaded-artifacts
@@ -76,7 +74,7 @@ jobs:
       - name: Download debug symbol artifacts
         uses: actions/download-artifact@v8
         with:
-          run-id: ${{ steps.source.outputs.run-id }}
+          run-id: ${{ steps.artifact.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: debug-symbols-*
           path: downloaded-artifacts
