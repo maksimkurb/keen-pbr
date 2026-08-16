@@ -46,7 +46,7 @@ void write_all(int fd, const std::string& body) {
 }
 
 void copy_all(int destination_fd, int source_fd) {
-    std::array<char, 16U * 1024U> buffer{};
+    std::array<char, std::size_t{16} * 1024U> buffer;
     off_t offset = 0;
     for (;;) {
         const ssize_t count = ::pread(source_fd, buffer.data(), buffer.size(), offset);

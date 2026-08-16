@@ -333,8 +333,14 @@ private:
   std::string ipc_control_socket_path_;
   std::atomic<bool> ipc_accept_running_{false};
   std::thread ipc_accept_thread_;
+  struct IpcControlRequest {
+    int fd{-1};
+    std::uint32_t peer_uid{0};
+    nlohmann::json request;
+  };
   TracedMutex ipc_accepted_clients_mutex_;
-  std::deque<int> ipc_accepted_clients_ GUARDED_BY(ipc_accepted_clients_mutex_);
+  std::deque<IpcControlRequest> ipc_accepted_clients_
+      GUARDED_BY(ipc_accepted_clients_mutex_);
   struct ControlTask {
     std::function<void()> callback;
     std::string label;

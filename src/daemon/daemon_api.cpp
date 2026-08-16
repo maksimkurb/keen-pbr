@@ -210,10 +210,11 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
                 const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
                 const std::int64_t apply_started =
                     apply_started_ts_.load(std::memory_order_acquire);
-                const Config candidate = config_store_.active_config();
+                Config candidate = config_store_.active_config();
                 auto verification = resolver_io_executor_.submit(
                     "lifecycle-resolver-verification",
-                    [this, candidate, expected_hash = resolver_snapshot.expected_hash,
+                    [this, candidate = std::move(candidate),
+                     expected_hash = resolver_snapshot.expected_hash,
                      apply_started] {
                         std::string error;
                         const bool ok = wait_for_resolver_config_hash_confirmation(
@@ -277,11 +278,12 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
 
                 start_stage("verify_dnsmasq");
                 const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-                const Config active = config_store_.active_config();
+                Config active = config_store_.active_config();
                 const auto started = apply_started_ts_.load(std::memory_order_acquire);
                 auto verification = resolver_io_executor_.submit(
                     "lifecycle-rollback-resolver-verification",
-                    [this, active, expected = resolver_snapshot.expected_hash, started] {
+                    [this, active = std::move(active),
+                     expected = resolver_snapshot.expected_hash, started] {
                         std::string error;
                         const bool ok = wait_for_resolver_config_hash_confirmation(
                             active, expected, started, error);

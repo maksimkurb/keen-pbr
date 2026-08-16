@@ -49,6 +49,55 @@ constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY =
     std::chrono::seconds{5};
 constexpr std::size_t kMaxConcurrentRoutingTests = 2;
 constexpr std::size_t kMaxPendingControlClients = 64;
+constexpr std::size_t kMaxControlRequestBytes = std::size_t{4} * 1024U;
+constexpr auto kControlIngressTimeout = std::chrono::seconds{1};
+constexpr auto kControlHelloWriteTimeout = std::chrono::milliseconds{100};
+constexpr auto kControlWriteTimeout = std::chrono::seconds{1};
+
+bool send_control_bytes(int fd, std::string_view bytes,
+                        std::chrono::steady_clock::duration timeout) noexcept {
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  std::size_t offset = 0;
+  while (offset < bytes.size()) {
+    const ssize_t count =
+        send(fd, bytes.data() + offset, bytes.size() - offset, MSG_NOSIGNAL);
+    if (count > 0) {
+      offset += static_cast<std::size_t>(count);
+      continue;
+    }
+    if (count == 0)
+      return false;
+    if (errno == EINTR)
+      continue;
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+      return false;
+
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= deadline)
+      return false;
+    const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+        deadline - now);
+    pollfd writable{fd, POLLOUT, 0};
+    const int wait_ms = static_cast<int>(std::max<std::int64_t>(
+        1, remaining.count()));
+    const int ready = poll(&writable, 1, wait_ms);
+    if (ready < 0 && errno == EINTR)
+      continue;
+    if (ready <= 0 || (writable.revents & POLLOUT) == 0)
+      return false;
+  }
+  return true;
+}
+
+void send_control_response_and_close(int fd,
+                                     const nlohmann::json &response) noexcept {
+  try {
+    const std::string frame = ipc::encode_message(response);
+    (void)send_control_bytes(fd, frame, kControlWriteTimeout);
+  } catch (...) {
+  }
+  close(fd);
+}
 
 nlohmann::json control_rule_state_json(const ControlRuntimeSnapshot::Rule &rule) {
   return {{"rule_index", rule.rule_index},
@@ -269,9 +318,32 @@ void Daemon::setup_ipc_control_socket() {
 }
 
 void Daemon::run_ipc_control_acceptor() noexcept {
+  struct PendingClient {
+    int fd{-1};
+    std::string frame;
+    std::optional<std::size_t> expected_size;
+    std::chrono::steady_clock::time_point deadline;
+  };
+  std::vector<PendingClient> pending;
+  pending.reserve(kMaxPendingControlClients);
+
+  const auto reject = [](int fd, std::string_view code,
+                         std::string_view message) {
+    send_control_response_and_close(
+        fd, {{"protocol_version", ipc::kControlProtocolVersion},
+             {"request_id", nullptr},
+             {"ok", false},
+             {"error", {{"code", code}, {"message", message}}}});
+  };
+
   while (ipc_accept_running_.load(std::memory_order_acquire)) {
-    pollfd listener{ipc_control_fd_, POLLIN, 0};
-    const int ready = poll(&listener, 1, 250);
+    std::vector<pollfd> poll_fds;
+    poll_fds.reserve(pending.size() + 1U);
+    poll_fds.push_back({ipc_control_fd_, POLLIN, 0});
+    for (const auto &client : pending)
+      poll_fds.push_back({client.fd, POLLIN, 0});
+
+    const int ready = poll(poll_fds.data(), poll_fds.size(), 100);
     if (ready < 0) {
       if (errno == EINTR)
         continue;
@@ -279,61 +351,144 @@ void Daemon::run_ipc_control_acceptor() noexcept {
         Logger::instance().error("control socket acceptor poll failed: {}",
                                  strerror(errno));
       }
-      return;
+      break;
     }
-    if (ready == 0 || (listener.revents & POLLIN) == 0)
-      continue;
 
-    while (ipc_accept_running_.load(std::memory_order_acquire)) {
-      const int client =
-          accept4(ipc_control_fd_, nullptr, nullptr, SOCK_CLOEXEC);
-      if (client < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
+    if ((poll_fds.front().revents & POLLIN) != 0) {
+      while (ipc_accept_running_.load(std::memory_order_acquire)) {
+        const int client = accept4(ipc_control_fd_, nullptr, nullptr,
+                                   SOCK_NONBLOCK | SOCK_CLOEXEC);
+        if (client < 0) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK)
+            break;
+          if (errno == EINTR)
+            continue;
+          if (ipc_accept_running_.load(std::memory_order_acquire)) {
+            Logger::instance().error("control socket accept failed: {}",
+                                     strerror(errno));
+          }
           break;
-        if (errno == EINTR)
+        }
+
+        // HELO is a transport-level greeting. It deliberately precedes request
+        // reads, peer authorization, JSON parsing, and all executor queues.
+        if (!send_control_bytes(client, ipc::kControlHelloMarker,
+                                kControlHelloWriteTimeout)) {
+          close(client);
           continue;
-        if (ipc_accept_running_.load(std::memory_order_acquire)) {
-          Logger::instance().error("control socket accept failed: {}",
-                                   strerror(errno));
         }
-        break;
-      }
 
-      // HELO is a transport-level greeting. It deliberately precedes request
-      // reads, peer authorization, JSON parsing, and all executor queues.
-      const ssize_t greeting =
-          send(client, ipc::kControlHelloMarker.data(),
-               ipc::kControlHelloMarker.size(), MSG_NOSIGNAL);
-      if (greeting != static_cast<ssize_t>(ipc::kControlHelloMarker.size())) {
-        close(client);
-        continue;
-      }
-
-      bool queued = false;
-      {
-        KPBR_LOCK_GUARD(ipc_accepted_clients_mutex_);
-        if (ipc_accepted_clients_.size() < kMaxPendingControlClients) {
-          ipc_accepted_clients_.push_back(client);
-          queued = true;
+        std::size_t completed_count = 0;
+        {
+          KPBR_LOCK_GUARD(ipc_accepted_clients_mutex_);
+          completed_count = ipc_accepted_clients_.size();
         }
-      }
-      if (!queued) {
-        const auto response = ipc::encode_message(
-            {{"protocol_version", ipc::kControlProtocolVersion},
-             {"request_id", nullptr},
-             {"ok", false},
-             {"error", {{"code", "busy"},
-                        {"message", "control ingress queue is full"}}}});
-        (void)send(client, response.data(), response.size(), MSG_NOSIGNAL);
-        close(client);
-        continue;
-      }
-      try {
-        wake_control_loop();
-      } catch (const std::exception &error) {
-        Logger::instance().error("control socket wake failed: {}", error.what());
+        if (pending.size() + completed_count >= kMaxPendingControlClients) {
+          reject(client, "busy", "control ingress queue is full");
+          continue;
+        }
+        pending.push_back(
+            {client, {}, std::nullopt,
+             std::chrono::steady_clock::now() + kControlIngressTimeout});
       }
     }
+
+    const auto now = std::chrono::steady_clock::now();
+    for (std::size_t index = pending.size(); index-- > 0;) {
+      auto &client = pending[index];
+      const short revents = poll_fds.size() > index + 1U
+                                ? poll_fds[index + 1U].revents
+                                : 0;
+      bool failed = false;
+      bool complete = false;
+
+      if ((revents & POLLIN) != 0) {
+        char buffer[4096];
+        for (;;) {
+          const ssize_t count = recv(client.fd, buffer, sizeof(buffer), 0);
+          if (count > 0) {
+            client.frame.append(buffer, static_cast<std::size_t>(count));
+            if (!client.expected_size.has_value() &&
+                client.frame.size() >= sizeof(std::uint32_t)) {
+              std::uint32_t network_size = 0;
+              std::memcpy(&network_size, client.frame.data(), sizeof(network_size));
+              const std::size_t payload_size = ntohl(network_size);
+              if (payload_size > kMaxControlRequestBytes) {
+                failed = true;
+                break;
+              }
+              client.expected_size = sizeof(network_size) + payload_size;
+            }
+            if (client.expected_size.has_value() &&
+                client.frame.size() >= *client.expected_size) {
+              complete = client.frame.size() == *client.expected_size;
+              failed = !complete;
+              break;
+            }
+            continue;
+          }
+          if (count == 0) {
+            failed = true;
+            break;
+          }
+          if (errno == EINTR)
+            continue;
+          if (errno != EAGAIN && errno != EWOULDBLOCK)
+            failed = true;
+          break;
+        }
+      }
+      if (!complete &&
+          ((revents & (POLLERR | POLLHUP | POLLNVAL)) != 0 ||
+           now >= client.deadline)) {
+        failed = true;
+      }
+      if (!complete && !failed)
+        continue;
+
+      const int fd = client.fd;
+      std::string frame = std::move(client.frame);
+      pending.erase(pending.begin() + static_cast<std::ptrdiff_t>(index));
+      if (failed) {
+        reject(fd, "protocol_error", "incomplete control request");
+        continue;
+      }
+
+      nlohmann::json request = nlohmann::json::object();
+      try {
+        ucred peer{};
+        socklen_t peer_length = sizeof(peer);
+        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &peer, &peer_length) != 0)
+          throw ipc::ControlProtocolError("unable to verify control peer");
+        request = ipc::decode_message(frame);
+        ipc::validate_request_envelope(request);
+        bool queued = false;
+        {
+          KPBR_LOCK_GUARD(ipc_accepted_clients_mutex_);
+          if (ipc_accepted_clients_.size() < kMaxPendingControlClients) {
+            ipc_accepted_clients_.push_back(
+                {fd, static_cast<std::uint32_t>(peer.uid), std::move(request)});
+            queued = true;
+          }
+        }
+        if (!queued) {
+          reject(fd, "busy", "control dispatch queue is full");
+          continue;
+        }
+        try {
+          wake_control_loop();
+        } catch (const std::exception &error) {
+          Logger::instance().error("control socket wake failed: {}", error.what());
+        }
+      } catch (const std::exception &error) {
+        send_control_response_and_close(
+            fd, ipc::make_error_response(request, "protocol_error", error.what()));
+      }
+    }
+  }
+
+  for (const auto &client : pending) {
+    close(client.fd);
   }
 }
 
@@ -351,8 +506,8 @@ void Daemon::remove_ipc_control_socket() noexcept {
   }
   {
     KPBR_LOCK_GUARD(ipc_accepted_clients_mutex_);
-    for (const int client : ipc_accepted_clients_)
-      close(client);
+    for (const auto &client : ipc_accepted_clients_)
+      close(client.fd);
     ipc_accepted_clients_.clear();
   }
   if (!ipc_control_socket_path_.empty()) {
@@ -379,46 +534,18 @@ void Daemon::finish_routing_test() {
 
 void Daemon::handle_ipc_control_socket() {
   while (true) {
-    int client = -1;
+    IpcControlRequest accepted;
     {
       KPBR_LOCK_GUARD(ipc_accepted_clients_mutex_);
       if (ipc_accepted_clients_.empty())
         return;
-      client = ipc_accepted_clients_.front();
+      accepted = std::move(ipc_accepted_clients_.front());
       ipc_accepted_clients_.pop_front();
     }
-    timeval timeout{5, 0};
-    (void)setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout,
-                     sizeof(timeout));
-    (void)setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &timeout,
-                     sizeof(timeout));
-    nlohmann::json request = nlohmann::json::object();
+    const int client = accepted.fd;
+    nlohmann::json request = std::move(accepted.request);
     nlohmann::json response;
-    bool client_dispatched = false;
     try {
-      ucred peer{};
-      socklen_t peer_length = sizeof(peer);
-      if (getsockopt(client, SOL_SOCKET, SO_PEERCRED, &peer, &peer_length) !=
-          0) {
-        throw ipc::ControlProtocolError("unable to verify control peer");
-      }
-      std::uint32_t length = 0;
-      if (recv(client, &length, sizeof(length), MSG_WAITALL) !=
-          sizeof(length)) {
-        throw ipc::ControlProtocolError("truncated control request");
-      }
-      const std::size_t payload_size = ntohl(length);
-      if (payload_size > ipc::kMaxControlMessageBytes) {
-        throw ipc::ControlProtocolError("control message exceeds maximum size");
-      }
-      std::string frame(sizeof(length) + payload_size, '\0');
-      std::memcpy(frame.data(), &length, sizeof(length));
-      if (recv(client, frame.data() + sizeof(length), payload_size,
-               MSG_WAITALL) != static_cast<ssize_t>(payload_size)) {
-        throw ipc::ControlProtocolError("truncated control request body");
-      }
-      request = ipc::decode_message(frame);
-      ipc::validate_request_envelope(request);
       const std::string operation = request.at("operation").get<std::string>();
       const bool resolver_hook_inflight =
           ipc_resolver_hook_inflight_.load(std::memory_order_acquire);
@@ -440,7 +567,7 @@ void Daemon::handle_ipc_control_socket() {
             request, "busy",
             "routing runtime initialization is still in progress");
       } else {
-        const bool root_peer = peer.uid == 0;
+        const bool root_peer = accepted.peer_uid == 0;
         if (!root_peer) {
           throw ipc::ControlProtocolError(
               "control peer is not authorized for this operation");
@@ -495,9 +622,7 @@ void Daemon::handle_ipc_control_socket() {
                   expected, true, std::memory_order_acq_rel)) {
             response = ipc::make_error_response(
                 request, "busy", "another control mutation is in progress");
-            const std::string frame = ipc::encode_message(response);
-            (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
-            close(client);
+            send_control_response_and_close(client, response);
             continue;
           }
           struct MutationGate {
@@ -531,11 +656,7 @@ void Daemon::handle_ipc_control_socket() {
       response =
           ipc::make_error_response(request, "protocol_error", error.what());
     }
-    if (!client_dispatched) {
-      const std::string frame = ipc::encode_message(response);
-      (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
-      close(client);
-    }
+    send_control_response_and_close(client, response);
   }
 }
 

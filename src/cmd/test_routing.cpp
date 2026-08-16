@@ -505,13 +505,15 @@ TestRoutingResult compute_test_routing(const Config& config,
         ips.push_back(target);
     }
 
-    const auto marks = allocate_outbound_marks(
-        config.fwmark.value_or(FwmarkConfig{}),
-        config.outbounds.value_or(std::vector<Outbound>{}));
-    const auto configured_rule_states = build_fw_rule_states(config, marks);
-    const auto& rule_states = realized_rule_states != nullptr
-        ? *realized_rule_states
-        : configured_rule_states;
+    std::vector<RuleState> configured_rule_states;
+    if (realized_rule_states == nullptr) {
+        const auto marks = allocate_outbound_marks(
+            config.fwmark.value_or(FwmarkConfig{}),
+            config.outbounds.value_or(std::vector<Outbound>{}));
+        configured_rule_states = build_fw_rule_states(config, marks);
+        realized_rule_states = &configured_rule_states;
+    }
+    const auto& rule_states = *realized_rule_states;
     const auto& route_rules =
         config.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
 

@@ -556,9 +556,15 @@ int main(int argc, char *argv[]) {
       return 0;
     }
 
-    // Load and parse configuration
-    std::string json_str = read_file(opts.config_path);
-    keen_pbr3::Config config = keen_pbr3::parse_config(json_str);
+    // Parse directly from the file and destroy the stream before the daemon is
+    // constructed, keeping neither raw JSON nor the stream buffer alive.
+    keen_pbr3::Config config = [&opts] {
+      std::ifstream config_stream(opts.config_path);
+      if (!config_stream.is_open()) {
+        throw std::runtime_error("Cannot open config file: " + opts.config_path);
+      }
+      return keen_pbr3::parse_config(config_stream);
+    }();
     keen_pbr3::validate_config(config);
     if (opts.run_service && opts.has_pid_file_override) {
       if (!config.daemon.has_value()) {
