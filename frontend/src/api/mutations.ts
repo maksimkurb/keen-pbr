@@ -8,11 +8,13 @@ import {
   postListsRefresh,
   postConfig,
   postConfigDiscard,
+  postConfigRollback,
   postConfigSave,
   postRoutingTest,
   usePostListsRefresh,
   usePostConfig,
   usePostConfigDiscard,
+  usePostConfigRollback,
   usePostConfigSave,
   usePostRoutingTest,
 } from "@/api/generated/keen-api"
@@ -27,12 +29,14 @@ import { apiFetch } from "@/api/client"
 type UsePostListsRefreshOptions = Parameters<typeof usePostListsRefresh>[0]
 type UsePostConfigOptions = Parameters<typeof usePostConfig>[0]
 type UsePostConfigDiscardOptions = Parameters<typeof usePostConfigDiscard>[0]
+type UsePostConfigRollbackOptions = Parameters<typeof usePostConfigRollback>[0]
 type UsePostConfigSaveOptions = Parameters<typeof usePostConfigSave>[0]
 type UsePostRoutingTestOptions = Parameters<typeof usePostRoutingTest>[0]
 
 export {
   postConfig,
   postConfigDiscard,
+  postConfigRollback,
   postConfigSave,
   postListsRefresh,
   postRoutingTest,
@@ -134,6 +138,29 @@ export const useDiscardConfigMutation = (
   })
 }
 
+export const useRollbackConfigMutation = (
+  options?: UsePostConfigRollbackOptions
+) => {
+  const queryClient = useQueryClient()
+  return usePostConfigRollback({
+    ...options,
+    mutation: {
+      ...options?.mutation,
+      onSuccess: async (data, variables, onMutateResult, context) => {
+        for (const queryKey of invalidationKeysAfterApplyConfigMutation) {
+          await queryClient.invalidateQueries({ queryKey })
+        }
+        await options?.mutation?.onSuccess?.(
+          data,
+          variables,
+          onMutateResult,
+          context
+        )
+      },
+    },
+  })
+}
+
 export const usePostRoutingTestMutation = (
   options?: UsePostRoutingTestOptions
 ) => usePostRoutingTest(options)
@@ -190,8 +217,10 @@ export const useRoutingControlPendingState = () => {
   const applyPending = useIsMutating({ mutationKey: ["postConfigSave"] }) > 0
   const discardPending =
     useIsMutating({ mutationKey: ["postConfigDiscard"] }) > 0
+  const rollbackPending =
+    useIsMutating({ mutationKey: ["postConfigRollback"] }) > 0
   const configMutationPending =
-    draftPostPending || applyPending || discardPending
+    draftPostPending || applyPending || discardPending || rollbackPending
   const startPending =
     useIsMutating({ mutationKey: serviceActionMutationKey("start") }) > 0
   const stopPending =
@@ -202,6 +231,7 @@ export const useRoutingControlPendingState = () => {
   return {
     applyPending,
     discardPending,
+    rollbackPending,
     draftPostPending,
     configMutationPending,
     startPending,

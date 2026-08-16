@@ -3,6 +3,7 @@
 #include "../src/config/config_writer.hpp"
 
 #include <filesystem>
+#include <fcntl.h>
 #include <fstream>
 #include <string>
 #include <sys/stat.h>
@@ -96,6 +97,23 @@ TEST_CASE("atomic config writer has committed rename before parent fsync") {
     CHECK_THROWS(write_config_atomically(config.string(), "new"));
     set_config_write_phase_hook_for_testing({});
     CHECK(read_file(config) == "new");
+}
+
+TEST_CASE("atomic config writer restores a retained old inode without a string copy") {
+    TempDir dir;
+    const auto config = dir.path / "config.json";
+    { std::ofstream output(config); output << "old configuration"; }
+    REQUIRE(::chmod(config.c_str(), 0640) == 0);
+
+    const int old_fd = ::open(config.c_str(), O_RDONLY | O_CLOEXEC);
+    REQUIRE(old_fd >= 0);
+    write_config_atomically(config.string(), "new configuration");
+    REQUIRE(read_file(config) == "new configuration");
+
+    write_config_atomically_from_fd(config.string(), old_fd);
+    CHECK(read_file(config) == "old configuration");
+    CHECK(file_mode(config) == 0640);
+    CHECK(::close(old_fd) == 0);
 }
 
 } // namespace keen_pbr3

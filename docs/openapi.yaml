@@ -338,6 +338,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/config/rollback:
+    post:
+      summary: Roll back a failed configuration apply
+      description: >
+        Atomically restores the previous config inode retained in memory by the
+        daemon and reconciles routing and dnsmasq against it. Available only
+        after a committed apply fails before the transaction is verified.
+      operationId: postConfigRollback
+      responses:
+        "202":
+          description: Rollback lifecycle operation accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifecycleOperationAcceptedResponse"
+        "409":
+          description: No rollback snapshot is available or another operation is active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/routing/test:
     post:
       summary: Test routing for an IP or domain
@@ -1572,7 +1594,7 @@ components:
     HealthResponse:
       type: object
       required:
-        [version, build, status, os_type, os_version, build_variant, resolver_live_status, config_is_draft]
+        [version, build, status, os_type, os_version, build_variant, resolver_live_status, config_is_draft, rollback_available]
       properties:
         version:
           type: string
@@ -1658,6 +1680,12 @@ components:
             Whether a newer configuration has been staged in memory but not yet
             persisted and applied.
           example: false
+        rollback_available:
+          type: boolean
+          description: >
+            Whether the daemon retains an open descriptor for the configuration
+            that preceded a failed apply and can perform a runtime rollback.
+          example: false
         lifecycle_operation:
           $ref: "#/components/schemas/LifecycleOperation"
 
@@ -1680,7 +1708,7 @@ components:
           type: string
         type:
           type: string
-          enum: [apply_config, start, stop, restart]
+          enum: [apply_config, rollback_config, start, stop, restart]
         status:
           type: string
           enum: [running, succeeded, failed]

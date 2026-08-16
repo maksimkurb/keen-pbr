@@ -50,5 +50,8 @@ export interface HealthResponse {
   /** Whether a newer configuration has been staged in memory but not yet persisted and applied.
    */
   config_is_draft: boolean;
+  /** Whether the daemon retains an open descriptor for the configuration that preceded a failed apply and can perform a runtime rollback.
+   */
+  rollback_available: boolean;
   lifecycle_operation?: LifecycleOperation;
 }

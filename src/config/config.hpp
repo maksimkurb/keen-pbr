@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <istream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -41,8 +42,8 @@ private:
 using Config               = api::ConfigObject;
 using DaemonConfig         = api::Daemon;
 using ApiConfig            = api::ApiConfig;
-using AuthenticationConfig = api::Authentication;
-using CorsConfig           = api::Cors;
+using AuthenticationConfig = api::AuthenticationConfigClass;
+using CorsConfig           = api::CorsConfigClass;
 using Outbound             = api::OutboundElement;
 using OutboundType         = api::OutboundType;  // enum: INTERFACE, TABLE, BLACKHOLE, IGNORE, URLTEST
 using OutboundGroup        = api::OutboundGroupElement;
@@ -97,6 +98,7 @@ inline std::string outbound_group_target(const OutboundGroup& group,
 // --- JSON deserialization and validation ---
 
 Config parse_config(const std::string& json_str);
+Config parse_config(std::istream& json_stream);
 void validate_config(const Config& config);
 Config parse_and_validate_config(const std::string& json_str);
 size_t max_file_size_bytes(const Config& config);

@@ -68,6 +68,7 @@ add_executable(keen-pbr-tests
   ../src/runtime/resolver_coordinator.cpp
   ../src/runtime/runtime_state_machine.cpp
   ../src/daemon/runtime_state_store.cpp
+  ../src/routing/firewall_state.cpp
   ../src/runtime/operation_coordinator.cpp
   ../src/runtime/lifecycle_operation.cpp
   ../src/firewall/iptables_verifier.cpp

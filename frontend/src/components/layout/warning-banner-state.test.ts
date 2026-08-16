@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import type { LifecycleOperation } from "@/api/generated/model"
+import type { HealthResponse, LifecycleOperation } from "@/api/generated/model"
 import {
   getWarningBannerMode,
   retainLifecycleOperation,
@@ -52,5 +52,20 @@ describe("lifecycle operation retention", () => {
     expect(
       getWarningBannerMode(null, operation("one", "succeeded", "succeeded"))
     ).toBe("lifecycle-success")
+  })
+
+  test("keeps rollback visible after a failed operation was dismissed", () => {
+    const health = {
+      version: "test",
+      build: "test",
+      status: "stopped",
+      os_type: "linux",
+      os_version: "test",
+      build_variant: "test",
+      resolver_live_status: "unknown",
+      config_is_draft: false,
+      rollback_available: true,
+    } satisfies HealthResponse
+    expect(getWarningBannerMode(health, null)).toBe("lifecycle-error")
   })
 })

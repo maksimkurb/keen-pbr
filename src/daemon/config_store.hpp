@@ -14,6 +14,11 @@ struct ActiveConfigSnapshot {
     OutboundMarkMap outbound_marks;
 };
 
+struct StagedConfigSnapshot {
+    Config config;
+    std::uint64_t revision{0};
+};
+
 class ConfigStore {
 public:
     explicit ConfigStore(Config active_config = {});
@@ -25,17 +30,17 @@ public:
     bool config_is_draft() const;
 
     void replace_active(Config active_config, OutboundMarkMap outbound_marks);
-    void stage_config(Config staged_config, std::string staged_config_json);
-    std::optional<std::pair<Config, std::string>> staged_snapshot() const;
+    void stage_config(Config staged_config);
+    std::optional<StagedConfigSnapshot> staged_snapshot() const;
     void clear_staged();
-    void clear_staged_if_matches(const std::string& staged_config_json);
+    void clear_staged_if_revision(std::uint64_t revision);
 
 private:
     mutable TracedSharedMutex mutex_;
     Config active_config_ GUARDED_BY(mutex_);
     OutboundMarkMap active_outbound_marks_ GUARDED_BY(mutex_);
     std::optional<Config> staged_config_ GUARDED_BY(mutex_);
-    std::optional<std::string> staged_config_json_ GUARDED_BY(mutex_);
+    std::uint64_t staged_revision_ GUARDED_BY(mutex_){0};
 };
 
 } // namespace keen_pbr3

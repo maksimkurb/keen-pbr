@@ -782,18 +782,11 @@ uint32_t parse_fwmark_mask_or_throw(const FwmarkConfig& fwmark_cfg) {
     return parse_fwmark_hex_or_throw(fwmark_cfg.mask, 0x00FF0000, "fwmark.mask");
 }
 
-Config parse_config(const std::string& json_str) {
-    Config cfg;
-    json parsed_json;
-    std::vector<ConfigValidationIssue> issues;
+namespace {
 
-    try {
-        parsed_json = json::parse(json_str, nullptr, true, true);
-    } catch (const json::parse_error& e) {
-        throw ConfigValidationError(std::vector<ConfigValidationIssue>{
-            {"$", std::string("Invalid JSON: ") + e.what()}
-        });
-    }
+Config parse_config_json(json parsed_json) {
+    Config cfg;
+    std::vector<ConfigValidationIssue> issues;
 
     migrate_legacy_icmptest(parsed_json, issues);
 
@@ -854,6 +847,29 @@ Config parse_config(const std::string& json_str) {
     }
 
     return cfg;
+}
+
+template <typename Input>
+Config parse_config_input(Input&& input) {
+    try {
+        return parse_config_json(json::parse(std::forward<Input>(input), nullptr, true, true));
+    } catch (const ConfigValidationError&) {
+        throw;
+    } catch (const json::parse_error& e) {
+        throw ConfigValidationError(std::vector<ConfigValidationIssue>{
+            {"$", std::string("Invalid JSON: ") + e.what()}
+        });
+    }
+}
+
+} // namespace
+
+Config parse_config(const std::string& json_str) {
+    return parse_config_input(json_str);
+}
+
+Config parse_config(std::istream& json_stream) {
+    return parse_config_input(json_stream);
 }
 
 void validate_config(const Config& cfg) {

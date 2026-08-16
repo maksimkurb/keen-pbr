@@ -1,6 +1,7 @@
 #include "config_writer.hpp"
 
 #include <cerrno>
+#include <array>
 #include <cstring>
 #include <filesystem>
 #include <functional>
@@ -44,6 +45,32 @@ void write_all(int fd, const std::string& body) {
     }
 }
 
+void copy_all(int destination_fd, int source_fd) {
+    std::array<char, 16U * 1024U> buffer{};
+    off_t offset = 0;
+    for (;;) {
+        const ssize_t count = ::pread(source_fd, buffer.data(), buffer.size(), offset);
+        if (count < 0) {
+            if (errno == EINTR) continue;
+            throw errno_error("Cannot read rollback config");
+        }
+        if (count == 0) return;
+
+        ssize_t written_total = 0;
+        while (written_total < count) {
+            const ssize_t written = ::write(
+                destination_fd, buffer.data() + written_total,
+                static_cast<std::size_t>(count - written_total));
+            if (written < 0) {
+                if (errno == EINTR) continue;
+                throw errno_error("Cannot write config file");
+            }
+            written_total += written;
+        }
+        offset += count;
+    }
+}
+
 void fsync_fd(int fd, const std::string& what) {
     if (::fsync(fd) != 0) throw errno_error("Cannot fsync " + what);
 }
@@ -55,8 +82,8 @@ void set_config_write_phase_hook_for_testing(std::function<void(ConfigWritePhase
     g_phase_hook = std::move(hook);
 }
 
-void write_config_atomically(const std::string& config_path,
-                             const std::string& body) {
+void write_config_atomically_impl(const std::string& config_path,
+                                  const std::function<void(int)>& write_body) {
     const std::filesystem::path path(config_path);
     const auto directory = path.has_parent_path() ? path.parent_path()
                                                    : std::filesystem::path(".");
@@ -89,7 +116,7 @@ void write_config_atomically(const std::string& config_path,
             throw errno_error("Cannot set config file mode");
         }
         invoke_phase_hook(ConfigWritePhase::BeforeTemporaryWrite);
-        write_all(tmp_fd, body);
+        write_body(tmp_fd);
         invoke_phase_hook(ConfigWritePhase::BeforeTemporaryFsync);
         fsync_fd(tmp_fd, "temporary config file");
         if (::close(tmp_fd) != 0) {
@@ -120,6 +147,18 @@ void write_config_atomically(const std::string& config_path,
         ::unlink(tmp_path.c_str());
         throw;
     }
+}
+
+
+void write_config_atomically(const std::string& config_path,
+                             const std::string& body) {
+    write_config_atomically_impl(config_path, [&body](int fd) { write_all(fd, body); });
+}
+
+void write_config_atomically_from_fd(const std::string& config_path,
+                                     int source_fd) {
+    if (source_fd < 0) throw std::invalid_argument("Invalid rollback config descriptor");
+    write_config_atomically_impl(config_path, [source_fd](int fd) { copy_all(fd, source_fd); });
 }
 
 } // namespace keen_pbr3

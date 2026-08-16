@@ -10,6 +10,12 @@ namespace keen_pbr3 {
 void write_config_atomically(const std::string& config_path,
                              const std::string& body);
 
+// Restore a previously opened config inode without materializing its contents
+// in memory. The source descriptor is not closed and its file offset is not
+// changed.
+void write_config_atomically_from_fd(const std::string& config_path,
+                                     int source_fd);
+
 enum class ConfigWritePhase {
     BeforeTemporaryWrite,
     BeforeTemporaryFsync,

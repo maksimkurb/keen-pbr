@@ -41,31 +41,27 @@ void ConfigStore::replace_active(Config active_config, OutboundMarkMap outbound_
     active_outbound_marks_ = std::move(outbound_marks);
 }
 
-void ConfigStore::stage_config(Config staged_config, std::string staged_config_json) {
+void ConfigStore::stage_config(Config staged_config) {
     KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
     staged_config_ = std::move(staged_config);
-    staged_config_json_ = std::move(staged_config_json);
+    ++staged_revision_;
 }
 
-std::optional<std::pair<Config, std::string>> ConfigStore::staged_snapshot() const {
+std::optional<StagedConfigSnapshot> ConfigStore::staged_snapshot() const {
     KPBR_SHARED_LOCK(lock, mutex_);
-    if (!staged_config_.has_value() || !staged_config_json_.has_value()) {
-        return std::nullopt;
-    }
-    return std::make_optional(std::make_pair(*staged_config_, *staged_config_json_));
+    if (!staged_config_.has_value()) return std::nullopt;
+    return StagedConfigSnapshot{*staged_config_, staged_revision_};
 }
 
 void ConfigStore::clear_staged() {
     KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
     staged_config_.reset();
-    staged_config_json_.reset();
 }
 
-void ConfigStore::clear_staged_if_matches(const std::string& staged_config_json) {
+void ConfigStore::clear_staged_if_revision(std::uint64_t revision) {
     KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
-    if (staged_config_json_.has_value() && *staged_config_json_ == staged_config_json) {
+    if (staged_config_.has_value() && staged_revision_ == revision) {
         staged_config_.reset();
-        staged_config_json_.reset();
     }
 }
 

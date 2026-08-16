@@ -26,6 +26,7 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <deque>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -87,10 +88,8 @@ struct PreparedRuntimeInputs {
 };
 
 struct ResolverGenerationSnapshot {
-  Config config;
   ResolverType resolver_type;
   bool ipv6_enabled{true};
-  std::string expected_hash;
   std::uint64_t generation{0};
 };
 
@@ -159,6 +158,7 @@ private:
   void setup_control_channel();
   void handle_control_commands();
   void setup_ipc_control_socket();
+  void run_ipc_control_acceptor() noexcept;
   void handle_ipc_control_socket();
   bool try_begin_routing_test();
   void finish_routing_test();
@@ -290,6 +290,8 @@ private:
 
   // Recompute resolver_config_hash_ from current config/cache state
   void update_resolver_config_hash();
+  bool accept_resolver_generated_hash(std::uint64_t generation,
+                                      const std::string &hash);
   ResolverGenerationSnapshot make_resolver_generation_snapshot();
   // Schedule (or reschedule) the periodic refresh of
   // resolver_config_hash_actual_.
@@ -329,6 +331,10 @@ private:
   int control_fd_{-1};
   int ipc_control_fd_{-1};
   std::string ipc_control_socket_path_;
+  std::atomic<bool> ipc_accept_running_{false};
+  std::thread ipc_accept_thread_;
+  TracedMutex ipc_accepted_clients_mutex_;
+  std::deque<int> ipc_accepted_clients_ GUARDED_BY(ipc_accepted_clients_mutex_);
   struct ControlTask {
     std::function<void()> callback;
     std::string label;
@@ -379,9 +385,12 @@ IcmpTester icmp_tester_;
   // Resolver hooks can synchronously call back into resolver config streaming,
   // so hook execution and resolver I/O must never share a worker.
   BlockingExecutor resolver_hook_executor_{1, 16};
-  BlockingExecutor resolver_stream_executor_{1, 16};
   BlockingExecutor resolver_io_executor_{1, 32};
   BlockingExecutor lifecycle_executor_{1, 16};
+  // An open descriptor pins the pre-apply inode without retaining another
+  // parsed or serialized configuration in RAM.
+  int rollback_config_fd_{-1};
+  std::atomic<bool> rollback_available_{false};
   // Routing diagnostics are CPU/process-heavy. Two workers allow API and CLI
   // tests to overlap while the small queue keeps resource use bounded.
   BlockingExecutor routing_test_executor_{2, 2};

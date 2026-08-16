@@ -33,9 +33,26 @@ struct RuntimeStateSnapshot {
     std::string runtime_state_reason;
 };
 
+// Minimal immutable view used by the control socket. It deliberately omits
+// route specs, policy rules, urltest state and the rest of FirewallState.
+struct ControlRuntimeSnapshot {
+    struct Rule {
+        std::size_t rule_index{0};
+        std::vector<std::string> set_names;
+        std::string outbound_tag;
+        RuleActionType action_type{RuleActionType::Skip};
+        std::uint32_t fwmark{0};
+    };
+    std::vector<Rule> realized_rules;
+    bool routing_runtime_active{true};
+    RuntimeState runtime_state{RuntimeState::starting};
+    std::string runtime_state_reason;
+};
+
 class RuntimeStateStore {
 public:
     RuntimeStateSnapshot snapshot() const;
+    ControlRuntimeSnapshot control_snapshot(bool include_realized_rules) const;
     void publish(RuntimeStateSnapshot snapshot);
 
 private:

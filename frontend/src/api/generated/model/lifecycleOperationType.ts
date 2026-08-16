@@ -11,6 +11,7 @@ export type LifecycleOperationType = typeof LifecycleOperationType[keyof typeof 
 
 export const LifecycleOperationType = {
   apply_config: 'apply_config',
+  rollback_config: 'rollback_config',
   start: 'start',
   stop: 'stop',
   restart: 'restart',

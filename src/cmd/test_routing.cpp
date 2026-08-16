@@ -680,6 +680,14 @@ int run_test_routing_command(const Config& config,
     return render_test_routing_result(compute_test_routing(config, cache, target));
 }
 
+int run_test_routing_command(const Config& config,
+                              const CacheManager& cache,
+                              const std::string& target,
+                              const std::vector<RuleState>& realized_rule_states) {
+    return render_test_routing_result(
+        compute_test_routing(config, cache, target, &realized_rule_states));
+}
+
 int run_test_routing_command(const nlohmann::json& response) {
     const auto& payload = response.at("result");
     TestRoutingResult result;

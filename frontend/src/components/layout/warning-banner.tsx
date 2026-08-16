@@ -16,6 +16,7 @@ import {
   useApplyConfigMutation,
   useDiscardConfigMutation,
   usePostServiceActionMutation,
+  useRollbackConfigMutation,
 } from "@/api/mutations"
 import type { ApiError } from "@/api/client"
 import { getApiErrorMessage } from "@/lib/api-errors"
@@ -47,6 +48,13 @@ export function WarningBanner({
     },
   })
   const restartServiceMutation = usePostServiceActionMutation("restart")
+  const rollbackConfigMutation = useRollbackConfigMutation({
+    mutation: {
+      onError: (error) => {
+        toast.error(getApiErrorMessage(error as ApiError), { richColors: true })
+      },
+    },
+  })
   const containerRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
@@ -144,19 +152,34 @@ export function WarningBanner({
                     : t("warning.actions.discard")}
                 </Button>
               ) : null}
-              <Button
-                disabled={state.isActionDisabled}
-                onClick={handleApplyAndReload}
-                size="lg"
-                variant="outline"
-                className="shrink-0 bg-background hover:bg-background dark:bg-card dark:hover:bg-card"
-              >
-                <SaveIcon className="mr-1 h-4 w-4" />
-                {state.actionPending
-                  ? t("warning.actions.applyingAndRestarting")
-                  : t("warning.actions.applyAndRestart")}
-              </Button>
-              {state.mode === "lifecycle-error" ? (
+              {state.rollbackAvailable ? (
+                <Button
+                  disabled={state.isActionDisabled}
+                  onClick={() => rollbackConfigMutation.mutate()}
+                  size="lg"
+                  variant="outline"
+                  className="shrink-0 bg-background hover:bg-background dark:bg-card dark:hover:bg-card"
+                >
+                  <RotateCcwIcon className="mr-1 h-4 w-4" />
+                  {rollbackConfigMutation.isPending
+                    ? t("warning.actions.rollingBack")
+                    : t("warning.actions.rollback")}
+                </Button>
+              ) : (
+                <Button
+                  disabled={state.isActionDisabled}
+                  onClick={handleApplyAndReload}
+                  size="lg"
+                  variant="outline"
+                  className="shrink-0 bg-background hover:bg-background dark:bg-card dark:hover:bg-card"
+                >
+                  <SaveIcon className="mr-1 h-4 w-4" />
+                  {state.actionPending
+                    ? t("warning.actions.applyingAndRestarting")
+                    : t("warning.actions.applyAndRestart")}
+                </Button>
+              )}
+              {state.mode === "lifecycle-error" && !state.rollbackAvailable ? (
                 <Button
                   aria-label={t("common.close")}
                   onClick={state.dismissFailure}
@@ -259,6 +282,8 @@ function getLifecycleOperationTitleKey(
     switch (operationType) {
       case "apply_config":
         return "warning.compact.runtimeApplying"
+      case "rollback_config":
+        return "warning.compact.runtimeRollingBack"
       case "start":
         return "warning.compact.runtimeStarting"
       case "stop":
@@ -272,6 +297,8 @@ function getLifecycleOperationTitleKey(
   switch (operationType) {
     case "apply_config":
       return `warning.compact.runtimeApply${suffix}`
+    case "rollback_config":
+      return `warning.compact.runtimeRollback${suffix}`
     case "start":
       return `warning.compact.runtimeStart${suffix}`
     case "stop":

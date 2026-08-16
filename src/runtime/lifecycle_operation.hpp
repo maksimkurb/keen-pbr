@@ -10,7 +10,7 @@
 
 namespace keen_pbr3 {
 
-enum class LifecycleOperationType : uint8_t { ApplyConfig, Start, Stop, Restart };
+enum class LifecycleOperationType : uint8_t { ApplyConfig, RollbackConfig, Start, Stop, Restart };
 enum class LifecycleOperationStatus : uint8_t { Pending, Running, Succeeded, Failed, Skipped };
 enum class LifecycleOperationResult : uint8_t { Running, Succeeded, Failed };
 

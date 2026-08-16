@@ -66,6 +66,10 @@ TestRoutingResult compute_test_routing(const Config& config,
 int run_test_routing_command(const Config& config,
                               const CacheManager& cache,
                               const std::string& target);
+int run_test_routing_command(const Config& config,
+                             const CacheManager& cache,
+                             const std::string& target,
+                             const std::vector<RuleState>& realized_rule_states);
 
 // Render a test-routing response obtained from the daemon control socket.
 int run_test_routing_command(const nlohmann::json& response);

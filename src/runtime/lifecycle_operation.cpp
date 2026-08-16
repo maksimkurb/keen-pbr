@@ -9,6 +9,7 @@ namespace keen_pbr3 {
 const char* lifecycle_operation_type_name(LifecycleOperationType value) {
     switch (value) {
     case LifecycleOperationType::ApplyConfig: return "apply_config";
+    case LifecycleOperationType::RollbackConfig: return "rollback_config";
     case LifecycleOperationType::Start: return "start";
     case LifecycleOperationType::Stop: return "stop";
     case LifecycleOperationType::Restart: return "restart";

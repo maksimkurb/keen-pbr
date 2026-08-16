@@ -6,6 +6,7 @@
 
 #include "../cmd/test_routing.hpp"
 #include "../config/config.hpp"
+#include "../daemon/config_store.hpp"
 #include "../health/routing_health.hpp"
 #include "sse_broadcaster.hpp"
 #include "status_stream.hpp"
@@ -37,7 +38,7 @@ struct ConfigApplyResult {
 struct LifecycleRequest {
     LifecycleOperationType type{LifecycleOperationType::Restart};
     std::optional<Config> config;
-    std::string serialized_config;
+    std::uint64_t staged_revision{0};
 };
 
 struct ServiceHealthState {
@@ -56,6 +57,7 @@ struct ServiceHealthState {
     std::optional<std::int64_t> apply_started_ts;
     std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
     bool config_is_draft{false};
+    bool rollback_available{false};
     std::optional<LifecycleOperationSnapshot> lifecycle_operation;
 };
 
@@ -74,8 +76,8 @@ struct ApiContext {
 
     std::function<Config()> get_visible_config_fn;
     std::function<bool()> config_is_draft_fn;
-    std::function<void(Config, std::string)> stage_config_fn;
-    std::function<std::optional<std::pair<Config, std::string>>()> get_staged_config_snapshot_fn;
+    std::function<void(Config)> stage_config_fn;
+    std::function<std::optional<StagedConfigSnapshot>()> get_staged_config_snapshot_fn;
     std::function<void()> clear_staged_config_fn;
     std::function<void(const Config&)> validate_candidate_config_fn;
     std::function<ServiceHealthState()> get_service_health_fn;
@@ -114,7 +116,7 @@ struct ApiContext {
         return config_is_draft_fn();
     }
 
-    std::optional<std::pair<Config, std::string>> get_staged_config_snapshot() const {
+    std::optional<StagedConfigSnapshot> get_staged_config_snapshot() const {
         return get_staged_config_snapshot_fn();
     }
 
@@ -122,8 +124,8 @@ struct ApiContext {
         clear_staged_config_fn();
     }
 
-    void stage_config(Config config, std::string staged_config_json) const {
-        stage_config_fn(std::move(config), std::move(staged_config_json));
+    void stage_config(Config config) const {
+        stage_config_fn(std::move(config));
     }
 
     void commit_api_security(AuthenticationConfig authentication, CorsConfig cors) const {
@@ -209,6 +211,7 @@ struct ApiContext {
 //   GET  /api/config          - return current config and draft status
 //   POST /api/config          - validate + stage config in memory
 //   POST /api/config/discard  - discard staged config and restore saved config
+//   POST /api/config/rollback - restore the config retained before a failed apply
 //   POST /api/config/save     - persist staged config and apply it
 //   GET  /api/health/routing  - routing and firewall health verification
 //   GET  /api/runtime/outbounds - live outbound/interface runtime state

@@ -1645,6 +1645,97 @@ export const usePostConfigDiscard = <TError = ErrorResponse,
     }
 
 /**
+ * Atomically restores the previous config inode retained in memory by the daemon and reconciles routing and dnsmasq against it. Available only after a committed apply fails before the transaction is verified.
+
+ * @summary Roll back a failed configuration apply
+ */
+export type postConfigRollbackResponse202 = {
+  data: LifecycleOperationAcceptedResponse
+  status: 202
+}
+
+export type postConfigRollbackResponse409 = {
+  data: ErrorResponse
+  status: 409
+}
+
+export type postConfigRollbackResponseSuccess = (postConfigRollbackResponse202) & {
+  headers: Headers;
+};
+export type postConfigRollbackResponseError = (postConfigRollbackResponse409) & {
+  headers: Headers;
+};
+
+export type postConfigRollbackResponse = (postConfigRollbackResponseSuccess | postConfigRollbackResponseError)
+
+export const getPostConfigRollbackUrl = () => {
+
+
+
+
+  return `/api/config/rollback`
+}
+
+export const postConfigRollback = async ( options?: RequestInit): Promise<postConfigRollbackResponse> => {
+
+  return apiFetch<postConfigRollbackResponse>(getPostConfigRollbackUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getPostConfigRollbackMutationOptions = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfigRollback>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postConfigRollback>>, TError,void, TContext> => {
+
+const mutationKey = ['postConfigRollback'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postConfigRollback>>, void> = () => {
+
+
+          return  postConfigRollback(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostConfigRollbackMutationResult = NonNullable<Awaited<ReturnType<typeof postConfigRollback>>>
+
+    export type PostConfigRollbackMutationError = ErrorResponse
+
+    /**
+ * @summary Roll back a failed configuration apply
+ */
+export const usePostConfigRollback = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfigRollback>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postConfigRollback>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPostConfigRollbackMutationOptions(options), queryClient);
+    }
+
+/**
  * Resolves the target (if a domain name), scans configured route rules against cached list data to determine the expected outbound, and queries the live kernel firewall sets to determine the actual outbound. Useful for diagnosing routing mismatches without restarting the daemon.
 
  * @summary Test routing for an IP or domain

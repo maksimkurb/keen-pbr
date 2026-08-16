@@ -409,6 +409,10 @@ void DnsmasqGenerator::generate_directives(
 }
 
 void DnsmasqGenerator::generate(std::ostream& out) {
+    (void)generate_with_hash(out);
+}
+
+std::string DnsmasqGenerator::generate_with_hash(std::ostream& out) {
     crypto::detail::MD5State md5;
     generate_directives(
         &out,
@@ -421,6 +425,7 @@ void DnsmasqGenerator::generate(std::ostream& out) {
     const auto now_ts = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     out << "txt-record=config-hash.keen.pbr," << now_ts << "|" << hash << "\n";
+    return hash;
 }
 
 ResolverType DnsmasqGenerator::parse_resolver_type(const std::string& s) {

@@ -5,7 +5,11 @@
 #ifdef WITH_API
 
 #include <filesystem>
+#include <fcntl.h>
+#include <fstream>
 #include <future>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "../api/handlers.hpp"
 #include "../api/handler_config.hpp"
@@ -38,10 +42,17 @@ std::vector<LifecycleOperationStage> lifecycle_stages(LifecycleOperationType typ
     case LifecycleOperationType::ApplyConfig:
         return {{"validate_config", "Validate configuration"},
                 {"prepare_remote_lists", "Prepare remote lists"},
+                {"commit_config", "Commit configuration"},
                 {"reconcile_runtime", "Reconcile routing and firewall"},
                 {"reload_dnsmasq", "Reload dnsmasq"},
-                {"verify_dnsmasq", "Verify dnsmasq configuration"},
-                {"commit_config", "Commit configuration"}};
+                {"verify_dnsmasq", "Verify dnsmasq configuration"}};
+    case LifecycleOperationType::RollbackConfig:
+        return {{"restore_config", "Restore previous configuration"},
+                {"validate_config", "Validate restored configuration"},
+                {"prepare_remote_lists", "Prepare remote lists"},
+                {"reconcile_runtime", "Reconcile routing and firewall"},
+                {"reload_dnsmasq", "Reload dnsmasq"},
+                {"verify_dnsmasq", "Verify dnsmasq configuration"}};
     case LifecycleOperationType::Restart:
         return {{"stop_routing", "Stop routing and firewall"},
                 {"start_routing", "Start routing and firewall"},
@@ -73,6 +84,14 @@ const char* config_operation_state_name(ConfigOperationState state) {
 } // namespace
 
 std::string Daemon::submit_lifecycle_operation(LifecycleRequest request) {
+    if (request.type == LifecycleOperationType::RollbackConfig &&
+        !rollback_available_.load(std::memory_order_acquire)) {
+        throw ApiError("No failed apply configuration to roll back", 409);
+    }
+    if (request.type != LifecycleOperationType::RollbackConfig &&
+        rollback_available_.load(std::memory_order_acquire)) {
+        throw ApiError("Roll back the failed apply before another lifecycle operation", 409);
+    }
     LifecycleOperationSnapshot operation;
     if (const auto active = lifecycle_operations_.begin(
             request.type, lifecycle_stages(request.type), operation)) {
@@ -133,49 +152,77 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             start_stage("prepare_remote_lists");
             PreparedRuntimeInputs prepared = prepare_runtime_inputs(*request.config, true);
             succeed_stage();
+            request.config.reset();
+
+            start_stage("commit_config");
+            std::string serialized_config = serialize_config_pretty(prepared.config);
+            int previous_fd = ::open(config_path_.c_str(), O_RDONLY | O_CLOEXEC);
+            if (previous_fd < 0) {
+                throw DaemonError("Cannot retain previous config for rollback");
+            }
+            try {
+                write_config_atomically(config_path_, serialized_config);
+            } catch (...) {
+                struct stat previous_stat {};
+                struct stat current_stat {};
+                const bool replaced = ::fstat(previous_fd, &previous_stat) == 0 &&
+                    ::stat(config_path_.c_str(), &current_stat) == 0 &&
+                    (previous_stat.st_dev != current_stat.st_dev ||
+                     previous_stat.st_ino != current_stat.st_ino);
+                if (replaced) {
+                    rollback_config_fd_ = previous_fd;
+                    rollback_available_.store(true, std::memory_order_release);
+                } else {
+                    ::close(previous_fd);
+                }
+                throw;
+            }
+            std::string{}.swap(serialized_config);
+            rollback_config_fd_ = previous_fd;
+            rollback_available_.store(true, std::memory_order_release);
+            enqueue_control_task(
+                [this, staged_revision = request.staged_revision] {
+                    config_store_.clear_staged_if_revision(staged_revision);
+                    publish_runtime_state();
+                }, true, "lifecycle:" + id + ":commit-config");
+            succeed_stage();
 
             runtime_mutated = true;
             run_control("reconcile_runtime", [this, prepared = std::move(prepared)]() mutable {
                 reconcile_prepared_runtime(std::move(prepared));
+                config_store_.replace_active(config_, outbound_marks_);
+                if (api_server_) {
+                    api_server_->update_runtime_config(
+                        config_.api.value_or(ApiConfig{}),
+                        config_.device_name.value_or(""));
+                }
             });
 
-            const bool resolver_configured = has_system_resolver(*request.config);
+            const bool resolver_configured = has_system_resolver(config_store_.active_config());
             if (resolver_configured) {
-                const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-                const std::string expected_hash = resolver_snapshot.expected_hash;
-                const bool resolver_is_current =
-                    !expected_hash.empty() &&
-                    resolver_snapshot.actual_hash == expected_hash &&
-                    resolver_snapshot.live_status == api::ResolverLiveStatus::HEALTHY;
-                if (resolver_is_current) {
-                    Logger::instance().info(
-                        "Skipping dnsmasq reload: resolver configuration is already confirmed");
-                    lifecycle_operations_.skip_stage(
-                        id, "reload_dnsmasq", "Resolver configuration is unchanged and healthy");
-                    lifecycle_operations_.skip_stage(
-                        id, "verify_dnsmasq", "Resolver configuration is already confirmed");
-                } else {
-                    start_stage("reload_dnsmasq");
-                    auto reload = resolver_hook_executor_.submit(
-                        "lifecycle-resolver-reload", [this] { return run_system_resolver_hook_reload(); });
-                    if (!reload.get()) throw DaemonError("system resolver reload hook failed");
-                    succeed_stage();
+                start_stage("reload_dnsmasq");
+                auto reload = resolver_hook_executor_.submit(
+                    "lifecycle-resolver-reload", [this] { return run_system_resolver_hook_reload(); });
+                if (!reload.get()) throw DaemonError("system resolver reload hook failed");
+                succeed_stage();
 
-                    start_stage("verify_dnsmasq");
-                    const std::int64_t apply_started =
-                        apply_started_ts_.load(std::memory_order_acquire);
-                    auto verification = resolver_io_executor_.submit(
-                        "lifecycle-resolver-verification",
-                        [this, candidate = *request.config, expected_hash, apply_started] {
-                            std::string error;
-                            const bool ok = wait_for_resolver_config_hash_confirmation(
-                                candidate, expected_hash, apply_started, error);
-                            return std::make_pair(ok, error);
-                        });
-                    const auto [verified, verification_error] = verification.get();
-                    if (!verified) throw DaemonError(verification_error);
-                    succeed_stage();
-                }
+                start_stage("verify_dnsmasq");
+                const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
+                const std::int64_t apply_started =
+                    apply_started_ts_.load(std::memory_order_acquire);
+                const Config candidate = config_store_.active_config();
+                auto verification = resolver_io_executor_.submit(
+                    "lifecycle-resolver-verification",
+                    [this, candidate, expected_hash = resolver_snapshot.expected_hash,
+                     apply_started] {
+                        std::string error;
+                        const bool ok = wait_for_resolver_config_hash_confirmation(
+                            candidate, expected_hash, apply_started, error);
+                        return std::make_pair(ok, error);
+                    });
+                const auto [verified, verification_error] = verification.get();
+                if (!verified) throw DaemonError(verification_error);
+                succeed_stage();
             } else {
                 lifecycle_operations_.skip_stage(id, "reload_dnsmasq", "No system resolver configured");
                 lifecycle_operations_.skip_stage(id, "verify_dnsmasq", "No system resolver configured");
@@ -183,20 +230,78 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
 
             enqueue_control_task([this] { complete_running_runtime("config apply verified"); },
                                  true, "lifecycle:" + id + ":finalize-runtime");
+            ::close(rollback_config_fd_);
+            rollback_config_fd_ = -1;
+            rollback_available_.store(false, std::memory_order_release);
+        } else if (request.type == LifecycleOperationType::RollbackConfig) {
+            if (rollback_config_fd_ < 0 ||
+                !rollback_available_.load(std::memory_order_acquire)) {
+                throw DaemonError("No failed apply configuration to roll back");
+            }
 
-            start_stage("commit_config");
-            write_config_atomically(config_path_, request.serialized_config);
-            enqueue_control_task([this, serialized = request.serialized_config] {
+            runtime_mutated = true;
+            start_stage("restore_config");
+            write_config_atomically_from_fd(config_path_, rollback_config_fd_);
+            succeed_stage();
+
+            start_stage("validate_config");
+            std::ifstream restored_stream(config_path_);
+            if (!restored_stream.is_open()) {
+                throw DaemonError("Cannot open restored configuration");
+            }
+            Config restored = parse_config(restored_stream);
+            validate_config(restored);
+            succeed_stage();
+
+            start_stage("prepare_remote_lists");
+            PreparedRuntimeInputs prepared = prepare_runtime_inputs(restored, true);
+            succeed_stage();
+
+            run_control("reconcile_runtime", [this, prepared = std::move(prepared)]() mutable {
+                reconcile_prepared_runtime(std::move(prepared));
+                config_store_.replace_active(config_, outbound_marks_);
                 if (api_server_) {
                     api_server_->update_runtime_config(
                         config_.api.value_or(ApiConfig{}),
                         config_.device_name.value_or(""));
                 }
-                config_store_.replace_active(config_, outbound_marks_);
-                config_store_.clear_staged_if_matches(serialized);
+            });
+
+            if (has_system_resolver(config_store_.active_config())) {
+                start_stage("reload_dnsmasq");
+                auto reload = resolver_hook_executor_.submit(
+                    "lifecycle-rollback-resolver-reload",
+                    [this] { return run_system_resolver_hook_reload(); });
+                if (!reload.get()) throw DaemonError("system resolver reload hook failed");
+                succeed_stage();
+
+                start_stage("verify_dnsmasq");
+                const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
+                const Config active = config_store_.active_config();
+                const auto started = apply_started_ts_.load(std::memory_order_acquire);
+                auto verification = resolver_io_executor_.submit(
+                    "lifecycle-rollback-resolver-verification",
+                    [this, active, expected = resolver_snapshot.expected_hash, started] {
+                        std::string error;
+                        const bool ok = wait_for_resolver_config_hash_confirmation(
+                            active, expected, started, error);
+                        return std::make_pair(ok, error);
+                    });
+                const auto [verified, verification_error] = verification.get();
+                if (!verified) throw DaemonError(verification_error);
+                succeed_stage();
+            } else {
+                lifecycle_operations_.skip_stage(id, "reload_dnsmasq", "No system resolver configured");
+                lifecycle_operations_.skip_stage(id, "verify_dnsmasq", "No system resolver configured");
+            }
+
+            enqueue_control_task([this] {
+                complete_running_runtime("configuration rollback verified");
                 publish_runtime_state();
-            }, true, "lifecycle:" + id + ":commit-config");
-            succeed_stage();
+            }, true, "lifecycle:" + id + ":finalize-rollback");
+            ::close(rollback_config_fd_);
+            rollback_config_fd_ = -1;
+            rollback_available_.store(false, std::memory_order_release);
         } else if (request.type == LifecycleOperationType::Stop) {
             runtime_mutated = true;
             run_control("stop_routing", [this] { teardown_routing_and_firewall(true); });
@@ -250,14 +355,16 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
         lifecycle_operations_.finish(id);
     } catch (const std::exception& error) {
         if (!current_stage.empty()) lifecycle_operations_.fail_stage(id, current_stage, error.what());
-        if (runtime_mutated && current_stage != "commit_config") {
+        if (runtime_mutated || rollback_available_.load(std::memory_order_acquire)) {
             mark_broken("lifecycle operation failed: " + std::string(error.what()));
         }
         lifecycle_operations_.finish(id, error.what());
     } catch (...) {
         const std::string error = "Unknown lifecycle operation failure";
         if (!current_stage.empty()) lifecycle_operations_.fail_stage(id, current_stage, error);
-        if (runtime_mutated && current_stage != "commit_config") mark_broken(error);
+        if (runtime_mutated || rollback_available_.load(std::memory_order_acquire)) {
+            mark_broken(error);
+        }
         lifecycle_operations_.finish(id, error);
     }
 }
@@ -443,7 +550,7 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
                                     }
                                     config_store_.replace_active(config_, outbound_marks_);
                                     if (persist_config) {
-                                        config_store_.clear_staged_if_matches(saved_config_json);
+                                        config_store_.clear_staged();
                                     }
                                     transition_runtime_or_throw(RuntimeState::running,
                                                                 "config apply complete");
@@ -606,11 +713,11 @@ void Daemon::setup_api() {
         [this]() {
             return config_store_.config_is_draft();
         },
-        [this](Config staged_config, std::string staged_config_json) {
-            config_store_.stage_config(std::move(staged_config), std::move(staged_config_json));
+        [this](Config staged_config) {
+            config_store_.stage_config(std::move(staged_config));
             if (status_stream_) status_stream_->reconcile();
         },
-        [this]() -> std::optional<std::pair<Config, std::string>> {
+        [this]() -> std::optional<StagedConfigSnapshot> {
             return config_store_.staged_snapshot();
         },
         [this]() {
@@ -676,6 +783,8 @@ void Daemon::setup_api() {
             service_health.resolver_config_sync_state =
                 runtime_snapshot.resolver_config_sync_state;
             service_health.config_is_draft = config_store_.config_is_draft();
+            service_health.rollback_available =
+                rollback_available_.load(std::memory_order_acquire);
             service_health.lifecycle_operation = lifecycle_operation_store_.snapshot();
             return service_health;
         },
@@ -833,10 +942,9 @@ void Daemon::setup_api() {
                 config_store_.replace_active(config_, outbound_marks_);
 
                 if (const auto staged = config_store_.staged_snapshot()) {
-                    Config updated_staged = staged->first;
+                    Config updated_staged = staged->config;
                     updated_staged.api = config_.api;
-                    config_store_.stage_config(
-                        updated_staged, serialize_config_pretty(updated_staged));
+                    config_store_.stage_config(std::move(updated_staged));
                 }
                 if (status_stream_) status_stream_->reconcile();
             }, true, "api-security-update");

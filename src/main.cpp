@@ -6,6 +6,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <thread>
+#include <vector>
 
 #include <cerrno>
 #include <csignal>
@@ -16,16 +18,21 @@
 
 #include "config/config.hpp"
 #include "config/config_writer.hpp"
+#include "cache/cache_manager.hpp"
 #include "auth/password.hpp"
 #include "cmd/status.hpp"
 #include "cmd/test_routing.hpp"
 #include "crash/crash_diagnostics.hpp"
 #include "daemon/daemon.hpp"
+#include "dns/dns_router.hpp"
+#include "dns/dnsmasq_gen.hpp"
 #include "http/curl_runtime.hpp"
 #include "ipc/control_client.hpp"
 #include "ipc/resolver_fallback.hpp"
 #include "log/logger.hpp"
+#include "lists/list_streamer.hpp"
 #include "util/daemon_signals.hpp"
+#include "util/ipv6_support.hpp"
 
 #ifndef KEEN_PBR_DEFAULT_CONFIG_PATH
 #define KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json"
@@ -247,6 +254,70 @@ std::optional<std::string> resolver_fallback_reason(const std::string &error) {
   return std::nullopt;
 }
 
+nlohmann::json request_control_state(const std::string &operation,
+                                     const std::string &target = "",
+                                     nlohmann::json fields = nlohmann::json::object()) {
+  constexpr std::chrono::milliseconds backoff[] = {
+      std::chrono::milliseconds{0}, std::chrono::milliseconds{100},
+      std::chrono::milliseconds{300}, std::chrono::milliseconds{700}};
+  std::exception_ptr last_error;
+  for (const auto delay : backoff) {
+    if (delay.count() != 0)
+      std::this_thread::sleep_for(delay);
+    try {
+      fields["protocol_version"] = keen_pbr3::ipc::kControlProtocolVersion;
+      fields["request_id"] =
+          "cli-" + operation + "-" + std::to_string(getpid());
+      fields["operation"] = operation;
+      if (!target.empty()) fields["target"] = target;
+      auto response = keen_pbr3::ipc::request_control(
+          KEEN_PBR_CONTROL_SOCKET,
+          fields,
+          1000, 5000);
+      const auto code = response.value("error", nlohmann::json::object())
+                            .value("code", "");
+      if (code != "busy")
+        return response;
+    } catch (const keen_pbr3::ipc::ControlProtocolError &) {
+      last_error = std::current_exception();
+    }
+  }
+  if (last_error)
+    std::rethrow_exception(last_error);
+  throw keen_pbr3::ipc::ControlTimeoutError(
+      "control socket remained busy after retries");
+}
+
+std::vector<keen_pbr3::RuleState>
+parse_realized_rules(const nlohmann::json &result) {
+  std::vector<keen_pbr3::RuleState> rules;
+  for (const auto &item :
+       result.value("realized_rules", nlohmann::json::array())) {
+    const int action = item.value("action_type", 3);
+    if (action < static_cast<int>(keen_pbr3::RuleActionType::Mark) ||
+        action > static_cast<int>(keen_pbr3::RuleActionType::Skip)) {
+      throw std::runtime_error("Invalid realized control rule action");
+    }
+    keen_pbr3::RuleState rule{};
+    rule.rule_index = item.value("rule_index", std::size_t{0});
+    rule.set_names = item.value("set_names", std::vector<std::string>{});
+    rule.outbound_tag = item.value("outbound_tag", "");
+    rule.action_type = static_cast<keen_pbr3::RuleActionType>(action);
+    rule.fwmark = item.value("fwmark", std::uint32_t{0});
+    rules.push_back(std::move(rule));
+  }
+  return rules;
+}
+
+keen_pbr3::Config load_committed_config(const std::string &path) {
+  std::ifstream input(path);
+  if (!input.is_open())
+    throw std::runtime_error("Cannot open config file: " + path);
+  auto config = keen_pbr3::parse_config(input);
+  keen_pbr3::validate_config(config);
+  return config;
+}
+
 } // anonymous namespace
 
 int main(int argc, char *argv[]) {
@@ -344,13 +415,60 @@ int main(int argc, char *argv[]) {
                      "backend\n";
       }
       try {
-        keen_pbr3::ipc::stream_control(
-            KEEN_PBR_CONTROL_SOCKET,
-            {{"protocol_version", keen_pbr3::ipc::kControlProtocolVersion},
-             {"request_id", "cli-generate-resolver-config"},
-             {"operation", "generate-resolver-config"},
-             {"resolver", opts.resolver_type}},
-            std::cout);
+        const auto state = request_control_state("generate-resolver-config");
+        if (!state.value("ok", false)) {
+          const auto code = state.value("error", nlohmann::json::object())
+                                .value("code", "daemon_error");
+          throw keen_pbr3::ipc::ControlStreamError(code, false);
+        }
+        const auto &result = state.at("result");
+        if (result.value("resolver_mode", "fallback") == "fallback") {
+          if (keen_pbr3::ipc::emit_resolver_fallback(
+                  std::cout, KEEN_PBR_RESOLVER_FALLBACK_CONFIG,
+                  result.value("resolver_fallback_reason", "runtime_stopped"),
+                  static_cast<std::int64_t>(std::time(nullptr)))) {
+            return 0;
+          }
+          throw std::runtime_error("Unable to emit resolver fallback");
+        }
+
+        const auto config_path = result.value(
+            "config_path", std::string(KEEN_PBR_DEFAULT_CONFIG_PATH));
+        const auto config = load_committed_config(config_path);
+        const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
+                                   .cache_dir.value_or("/var/cache/keen-pbr");
+        keen_pbr3::CacheManager cache(cache_dir,
+                                      keen_pbr3::max_file_size_bytes(config));
+        const auto lists = config.lists.value_or(
+            std::map<std::string, keen_pbr3::ListConfig>{});
+        const auto route = config.route.value_or(keen_pbr3::RouteConfig{});
+        const auto dns = config.dns.value_or(keen_pbr3::DnsConfig{});
+        keen_pbr3::ListStreamer streamer(cache);
+        keen_pbr3::DnsServerRegistry registry(dns);
+        const std::string selected_resolver =
+            opts.resolver_type == "dnsmasq"
+                ? (result.value("firewall_backend", "iptables") == "nftables"
+                       ? "dnsmasq-nftset"
+                       : "dnsmasq-ipset")
+                : opts.resolver_type;
+        const auto type =
+            keen_pbr3::DnsmasqGenerator::parse_resolver_type(selected_resolver);
+        keen_pbr3::DnsmasqGenerator generator(
+            registry, streamer, route, dns, lists, type,
+            KEEN_PBR3_VERSION_FULL_STRING,
+            result.value("ipv6_enabled", true));
+        const std::string generated_hash = generator.generate_with_hash(std::cout);
+        std::cout << "txt-record=resolver-state.keen.pbr,"
+                  << std::time(nullptr) << "|active|runtime_active\n";
+        const auto completion = request_control_state(
+            "resolver-config-generated", "",
+            {{"generation", result.value("generation", std::uint64_t{0})},
+             {"hash", generated_hash}});
+        if (!completion.value("ok", false)) {
+          throw std::runtime_error(
+              completion.value("error", nlohmann::json::object())
+                  .value("code", "resolver completion rejected"));
+        }
         return 0;
       } catch (const keen_pbr3::ipc::ControlStreamError &error) {
         const auto fallback_reason = resolver_fallback_reason(error.what());
@@ -361,6 +479,16 @@ int main(int argc, char *argv[]) {
                   static_cast<std::int64_t>(std::time(nullptr)))) {
             return 0;
           }
+        }
+        throw;
+      } catch (const keen_pbr3::ipc::ControlProtocolError &error) {
+        const auto fallback_reason = resolver_fallback_reason(error.what());
+        if (fallback_reason.has_value() &&
+            keen_pbr3::ipc::emit_resolver_fallback(
+                std::cout, KEEN_PBR_RESOLVER_FALLBACK_CONFIG,
+                *fallback_reason,
+                static_cast<std::int64_t>(std::time(nullptr)))) {
+          return 0;
         }
         throw;
       }
@@ -378,31 +506,54 @@ int main(int argc, char *argv[]) {
               : (opts.resolver_config_hash
                      ? "resolver-config-hash"
                      : (opts.download_lists ? "download" : "test-routing"));
-      const auto response = keen_pbr3::ipc::request_control(
-          KEEN_PBR_CONTROL_SOCKET,
-          {{"protocol_version", keen_pbr3::ipc::kControlProtocolVersion},
-           {"request_id", "cli-" + operation},
-           {"operation", operation},
-           {"reload", opts.download_reload},
-           {"target", opts.test_routing_target}});
-      if (opts.run_status) {
-        if (response.value("ok", false)) {
-          return keen_pbr3::run_status_command(response);
-        }
+      const auto response = opts.download_lists
+          ? keen_pbr3::ipc::request_control(
+                KEEN_PBR_CONTROL_SOCKET,
+                {{"protocol_version", keen_pbr3::ipc::kControlProtocolVersion},
+                 {"request_id", "cli-" + operation},
+                 {"operation", operation},
+                 {"reload", opts.download_reload}})
+          : request_control_state(operation, opts.test_routing_target);
+      if (!response.value("ok", false)) {
         const auto& error = response.value("error", nlohmann::json::object());
-        std::cerr << "keen-pbr status: "
+        std::cerr << "keen-pbr " << operation << ": "
                   << error.value("code", "daemon_error") << ": "
-                  << error.value("message", "status request failed") << '\n';
+                  << error.value("message", "control request failed") << '\n';
         return 1;
-      } else if (opts.run_test_routing && response.contains("result")) {
-        return keen_pbr3::run_test_routing_command(response);
-      } else if (opts.resolver_config_hash && response.value("ok", false)) {
-        std::cout << response.at("result").value("resolver_config_hash", "")
-                  << '\n';
-      } else {
-        std::cout << response.dump() << '\n';
       }
-      return response.value("ok", false) ? 0 : 1;
+      if (opts.download_lists) {
+        std::cout << response.dump() << '\n';
+        return 0;
+      }
+      const auto &state = response.at("result");
+      const auto config_path = state.value(
+          "config_path", std::string(KEEN_PBR_DEFAULT_CONFIG_PATH));
+      const auto config = load_committed_config(config_path);
+      const auto rules = parse_realized_rules(state);
+      if (opts.run_status)
+        return keen_pbr3::run_status_command(config, config_path, rules);
+      const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
+                                 .cache_dir.value_or("/var/cache/keen-pbr");
+      keen_pbr3::CacheManager cache(cache_dir,
+                                    keen_pbr3::max_file_size_bytes(config));
+      if (opts.run_test_routing) {
+        return keen_pbr3::run_test_routing_command(
+            config, cache, opts.test_routing_target, rules);
+      }
+      keen_pbr3::ListStreamer streamer(cache);
+      const auto dns = config.dns.value_or(keen_pbr3::DnsConfig{});
+      const auto route = config.route.value_or(keen_pbr3::RouteConfig{});
+      const auto lists = config.lists.value_or(
+          std::map<std::string, keen_pbr3::ListConfig>{});
+      keen_pbr3::DnsServerRegistry registry(dns);
+      keen_pbr3::DnsmasqGenerator generator(
+          registry, streamer, route, dns, lists,
+          state.value("firewall_backend", "iptables") == "nftables"
+              ? keen_pbr3::ResolverType::DNSMASQ_NFTSET
+              : keen_pbr3::ResolverType::DNSMASQ_IPSET,
+          KEEN_PBR3_VERSION_FULL_STRING, state.value("ipv6_enabled", true));
+      std::cout << generator.compute_config_hash() << '\n';
+      return 0;
     }
 
     // Load and parse configuration

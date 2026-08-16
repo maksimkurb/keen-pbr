@@ -19,8 +19,8 @@ ApiContext make_dns_test_context(SseBroadcaster& broadcaster) {
         broadcaster,
         [] { return Config{}; },
         [] { return false; },
-        [](Config, std::string) {},
-        []() -> std::optional<std::pair<Config, std::string>> {
+        [](Config) {},
+        []() -> std::optional<StagedConfigSnapshot> {
             return std::nullopt;
         },
         [] {},

@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesH1KPfO data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes21Xrg0 data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -90,18 +90,18 @@ namespace api {
     }
     #endif
 
-    struct Authentication {
+    struct AuthenticationConfigClass {
         std::optional<bool> enabled;
         std::optional<std::string> password_hash;
     };
 
-    struct Cors {
+    struct CorsConfigClass {
         std::optional<std::vector<std::string>> allowed_origins;
     };
 
     struct ApiConfig {
-        std::optional<Authentication> authentication;
-        std::optional<Cors> cors;
+        std::optional<AuthenticationConfigClass> authentication;
+        std::optional<CorsConfigClass> cors;
         std::optional<bool> enabled;
         std::optional<int64_t> keep_alive_timeout_seconds;
         std::optional<std::string> listen;
@@ -124,6 +124,26 @@ namespace api {
     };
 
     struct AuthPasswordStatus {
+        bool password_set;
+    };
+
+    struct AuthSettingsRequestAuthentication {
+        bool enabled;
+    };
+
+    struct AuthSettingsRequestCors {
+        std::vector<std::string> allowed_origins;
+    };
+
+    struct AuthSettingsRequest {
+        AuthSettingsRequestAuthentication authentication;
+        AuthSettingsRequestCors cors;
+        std::optional<std::string> password;
+    };
+
+    struct AuthSettingsResponse {
+        AuthenticationConfigClass authentication;
+        CorsConfigClass cors;
         bool password_set;
     };
 
@@ -302,12 +322,24 @@ namespace api {
         std::optional<Route> route;
     };
 
+    struct Config {
+        std::optional<Daemon> daemon;
+        std::optional<std::string> device_name;
+        std::optional<Dns> dns;
+        std::optional<Fwmark> fwmark;
+        std::optional<Iproute> iproute;
+        std::optional<std::map<std::string, ListConfigValue>> lists;
+        std::optional<ListsAutoupdate> lists_autoupdate;
+        std::optional<std::vector<OutboundElement>> outbounds;
+        std::optional<Route> route;
+    };
+
     struct ListRefreshStateValue {
         std::optional<std::string> last_updated;
     };
 
     struct ConfigStateResponse {
-        ConfigObject config;
+        Config config;
         bool is_draft;
         std::optional<std::map<std::string, ListRefreshStateValue>> list_refresh_state;
     };
@@ -356,7 +388,7 @@ namespace api {
 
     enum class LifecycleOperationStatus : int { FAILED, RUNNING, SUCCEEDED };
 
-    enum class LifecycleOperationType : int { APPLY_CONFIG, RESTART, START, STOP };
+    enum class LifecycleOperationType : int { APPLY_CONFIG, RESTART, ROLLBACK_CONFIG, START, STOP };
 
     struct LifecycleOperation {
         std::optional<std::string> error;
@@ -393,6 +425,7 @@ namespace api {
         std::optional<ResolverConfigSyncState> resolver_config_sync_state;
         std::optional<int64_t> resolver_last_probe_ts;
         ResolverLiveStatus resolver_live_status;
+        bool rollback_available;
         std::optional<RuntimeState> runtime_state;
         std::optional<std::string> runtime_state_reason;
         HealthResponseStatus status;
@@ -597,13 +630,15 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesH1KPfO {
+    struct KeenPbrTypes21Xrg0 {
         std::optional<ApiConfig> api_config;
-        std::optional<Authentication> authentication_config;
+        std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
         std::optional<AuthLoginResponse> auth_login_response;
         std::optional<AuthPasswordRequest> auth_password_request;
         std::optional<AuthPasswordStatus> auth_password_status;
+        std::optional<AuthSettingsRequest> auth_settings_request;
+        std::optional<AuthSettingsResponse> auth_settings_response;
         std::optional<AuthStatusResponse> auth_status_response;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -612,13 +647,14 @@ namespace api {
         std::optional<ConfigStateResponse> config_state_response;
         std::optional<ConfigUpdateResponse> config_update_response;
         std::optional<ConntrackOnSwitch> conntrack_on_switch;
-        std::optional<Cors> cors_config;
+        std::optional<CorsConfigClass> cors_config;
         std::optional<Daemon> daemon_config;
         std::optional<Dns> dns_config;
         std::optional<DnsRuleElement> dns_rule;
         std::optional<DnsServerElement> dns_server;
         std::optional<SystemResolver> dns_system_resolver;
         std::optional<DnsTestServer> dns_test_server;
+        std::optional<Config> draft_config;
         std::optional<ErrorResponse> error_response;
         std::optional<FirewallChain> firewall_chain;
         std::optional<FirewallRuleCheck> firewall_rule_check;
@@ -671,11 +707,11 @@ namespace api {
 
 namespace keen_pbr3 {
 namespace api {
-    void from_json(const json & j, Authentication & x);
-    void to_json(json & j, const Authentication & x);
+    void from_json(const json & j, AuthenticationConfigClass & x);
+    void to_json(json & j, const AuthenticationConfigClass & x);
 
-    void from_json(const json & j, Cors & x);
-    void to_json(json & j, const Cors & x);
+    void from_json(const json & j, CorsConfigClass & x);
+    void to_json(json & j, const CorsConfigClass & x);
 
     void from_json(const json & j, ApiConfig & x);
     void to_json(json & j, const ApiConfig & x);
@@ -691,6 +727,18 @@ namespace api {
 
     void from_json(const json & j, AuthPasswordStatus & x);
     void to_json(json & j, const AuthPasswordStatus & x);
+
+    void from_json(const json & j, AuthSettingsRequestAuthentication & x);
+    void to_json(json & j, const AuthSettingsRequestAuthentication & x);
+
+    void from_json(const json & j, AuthSettingsRequestCors & x);
+    void to_json(json & j, const AuthSettingsRequestCors & x);
+
+    void from_json(const json & j, AuthSettingsRequest & x);
+    void to_json(json & j, const AuthSettingsRequest & x);
+
+    void from_json(const json & j, AuthSettingsResponse & x);
+    void to_json(json & j, const AuthSettingsResponse & x);
 
     void from_json(const json & j, AuthStatusResponse & x);
     void to_json(json & j, const AuthStatusResponse & x);
@@ -751,6 +799,9 @@ namespace api {
 
     void from_json(const json & j, ConfigObject & x);
     void to_json(json & j, const ConfigObject & x);
+
+    void from_json(const json & j, Config & x);
+    void to_json(json & j, const Config & x);
 
     void from_json(const json & j, ListRefreshStateValue & x);
     void to_json(json & j, const ListRefreshStateValue & x);
@@ -854,8 +905,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesH1KPfO & x);
-    void to_json(json & j, const KeenPbrTypesH1KPfO & x);
+    void from_json(const json & j, KeenPbrTypes21Xrg0 & x);
+    void to_json(json & j, const KeenPbrTypes21Xrg0 & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -935,29 +986,29 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshotType & x);
     void to_json(json & j, const StatusEventSnapshotType & x);
 
-    inline void from_json(const json & j, Authentication& x) {
+    inline void from_json(const json & j, AuthenticationConfigClass& x) {
         x.enabled = get_stack_optional<bool>(j, "enabled");
         x.password_hash = get_stack_optional<std::string>(j, "password_hash");
     }
 
-    inline void to_json(json & j, const Authentication & x) {
+    inline void to_json(json & j, const AuthenticationConfigClass & x) {
         j = json::object();
         j["enabled"] = x.enabled;
         j["password_hash"] = x.password_hash;
     }
 
-    inline void from_json(const json & j, Cors& x) {
+    inline void from_json(const json & j, CorsConfigClass& x) {
         x.allowed_origins = get_stack_optional<std::vector<std::string>>(j, "allowed_origins");
     }
 
-    inline void to_json(json & j, const Cors & x) {
+    inline void to_json(json & j, const CorsConfigClass & x) {
         j = json::object();
         j["allowed_origins"] = x.allowed_origins;
     }
 
     inline void from_json(const json & j, ApiConfig& x) {
-        x.authentication = get_stack_optional<Authentication>(j, "authentication");
-        x.cors = get_stack_optional<Cors>(j, "cors");
+        x.authentication = get_stack_optional<AuthenticationConfigClass>(j, "authentication");
+        x.cors = get_stack_optional<CorsConfigClass>(j, "cors");
         x.enabled = get_stack_optional<bool>(j, "enabled");
         x.keep_alive_timeout_seconds = get_stack_optional<int64_t>(j, "keep_alive_timeout_seconds");
         x.listen = get_stack_optional<std::string>(j, "listen");
@@ -1013,6 +1064,50 @@ namespace api {
 
     inline void to_json(json & j, const AuthPasswordStatus & x) {
         j = json::object();
+        j["password_set"] = x.password_set;
+    }
+
+    inline void from_json(const json & j, AuthSettingsRequestAuthentication& x) {
+        x.enabled = j.at("enabled").get<bool>();
+    }
+
+    inline void to_json(json & j, const AuthSettingsRequestAuthentication & x) {
+        j = json::object();
+        j["enabled"] = x.enabled;
+    }
+
+    inline void from_json(const json & j, AuthSettingsRequestCors& x) {
+        x.allowed_origins = j.at("allowed_origins").get<std::vector<std::string>>();
+    }
+
+    inline void to_json(json & j, const AuthSettingsRequestCors & x) {
+        j = json::object();
+        j["allowed_origins"] = x.allowed_origins;
+    }
+
+    inline void from_json(const json & j, AuthSettingsRequest& x) {
+        x.authentication = j.at("authentication").get<AuthSettingsRequestAuthentication>();
+        x.cors = j.at("cors").get<AuthSettingsRequestCors>();
+        x.password = get_stack_optional<std::string>(j, "password");
+    }
+
+    inline void to_json(json & j, const AuthSettingsRequest & x) {
+        j = json::object();
+        j["authentication"] = x.authentication;
+        j["cors"] = x.cors;
+        j["password"] = x.password;
+    }
+
+    inline void from_json(const json & j, AuthSettingsResponse& x) {
+        x.authentication = j.at("authentication").get<AuthenticationConfigClass>();
+        x.cors = j.at("cors").get<CorsConfigClass>();
+        x.password_set = j.at("password_set").get<bool>();
+    }
+
+    inline void to_json(json & j, const AuthSettingsResponse & x) {
+        j = json::object();
+        j["authentication"] = x.authentication;
+        j["cors"] = x.cors;
         j["password_set"] = x.password_set;
     }
 
@@ -1362,6 +1457,31 @@ namespace api {
         j["route"] = x.route;
     }
 
+    inline void from_json(const json & j, Config& x) {
+        x.daemon = get_stack_optional<Daemon>(j, "daemon");
+        x.device_name = get_stack_optional<std::string>(j, "device_name");
+        x.dns = get_stack_optional<Dns>(j, "dns");
+        x.fwmark = get_stack_optional<Fwmark>(j, "fwmark");
+        x.iproute = get_stack_optional<Iproute>(j, "iproute");
+        x.lists = get_stack_optional<std::map<std::string, ListConfigValue>>(j, "lists");
+        x.lists_autoupdate = get_stack_optional<ListsAutoupdate>(j, "lists_autoupdate");
+        x.outbounds = get_stack_optional<std::vector<OutboundElement>>(j, "outbounds");
+        x.route = get_stack_optional<Route>(j, "route");
+    }
+
+    inline void to_json(json & j, const Config & x) {
+        j = json::object();
+        j["daemon"] = x.daemon;
+        j["device_name"] = x.device_name;
+        j["dns"] = x.dns;
+        j["fwmark"] = x.fwmark;
+        j["iproute"] = x.iproute;
+        j["lists"] = x.lists;
+        j["lists_autoupdate"] = x.lists_autoupdate;
+        j["outbounds"] = x.outbounds;
+        j["route"] = x.route;
+    }
+
     inline void from_json(const json & j, ListRefreshStateValue& x) {
         x.last_updated = get_stack_optional<std::string>(j, "last_updated");
     }
@@ -1372,7 +1492,7 @@ namespace api {
     }
 
     inline void from_json(const json & j, ConfigStateResponse& x) {
-        x.config = j.at("config").get<ConfigObject>();
+        x.config = j.at("config").get<Config>();
         x.is_draft = j.at("is_draft").get<bool>();
         x.list_refresh_state = get_stack_optional<std::map<std::string, ListRefreshStateValue>>(j, "list_refresh_state");
     }
@@ -1502,6 +1622,7 @@ namespace api {
         x.resolver_config_sync_state = get_stack_optional<ResolverConfigSyncState>(j, "resolver_config_sync_state");
         x.resolver_last_probe_ts = get_stack_optional<int64_t>(j, "resolver_last_probe_ts");
         x.resolver_live_status = j.at("resolver_live_status").get<ResolverLiveStatus>();
+        x.rollback_available = j.at("rollback_available").get<bool>();
         x.runtime_state = get_stack_optional<RuntimeState>(j, "runtime_state");
         x.runtime_state_reason = get_stack_optional<std::string>(j, "runtime_state_reason");
         x.status = j.at("status").get<HealthResponseStatus>();
@@ -1524,6 +1645,7 @@ namespace api {
         j["resolver_config_sync_state"] = x.resolver_config_sync_state;
         j["resolver_last_probe_ts"] = x.resolver_last_probe_ts;
         j["resolver_live_status"] = x.resolver_live_status;
+        j["rollback_available"] = x.rollback_available;
         j["runtime_state"] = x.runtime_state;
         j["runtime_state_reason"] = x.runtime_state_reason;
         j["status"] = x.status;
@@ -1906,13 +2028,15 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesH1KPfO& x) {
+    inline void from_json(const json & j, KeenPbrTypes21Xrg0& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
-        x.authentication_config = get_stack_optional<Authentication>(j, "AuthenticationConfig");
+        x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
         x.auth_login_response = get_stack_optional<AuthLoginResponse>(j, "AuthLoginResponse");
         x.auth_password_request = get_stack_optional<AuthPasswordRequest>(j, "AuthPasswordRequest");
         x.auth_password_status = get_stack_optional<AuthPasswordStatus>(j, "AuthPasswordStatus");
+        x.auth_settings_request = get_stack_optional<AuthSettingsRequest>(j, "AuthSettingsRequest");
+        x.auth_settings_response = get_stack_optional<AuthSettingsResponse>(j, "AuthSettingsResponse");
         x.auth_status_response = get_stack_optional<AuthStatusResponse>(j, "AuthStatusResponse");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1921,13 +2045,14 @@ namespace api {
         x.config_state_response = get_stack_optional<ConfigStateResponse>(j, "ConfigStateResponse");
         x.config_update_response = get_stack_optional<ConfigUpdateResponse>(j, "ConfigUpdateResponse");
         x.conntrack_on_switch = get_stack_optional<ConntrackOnSwitch>(j, "ConntrackOnSwitch");
-        x.cors_config = get_stack_optional<Cors>(j, "CorsConfig");
+        x.cors_config = get_stack_optional<CorsConfigClass>(j, "CorsConfig");
         x.daemon_config = get_stack_optional<Daemon>(j, "DaemonConfig");
         x.dns_config = get_stack_optional<Dns>(j, "DnsConfig");
         x.dns_rule = get_stack_optional<DnsRuleElement>(j, "DnsRule");
         x.dns_server = get_stack_optional<DnsServerElement>(j, "DnsServer");
         x.dns_system_resolver = get_stack_optional<SystemResolver>(j, "DnsSystemResolver");
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "DnsTestServer");
+        x.draft_config = get_stack_optional<Config>(j, "DraftConfig");
         x.error_response = get_stack_optional<ErrorResponse>(j, "ErrorResponse");
         x.firewall_chain = get_stack_optional<FirewallChain>(j, "FirewallChain");
         x.firewall_rule_check = get_stack_optional<FirewallRuleCheck>(j, "FirewallRuleCheck");
@@ -1976,7 +2101,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesH1KPfO & x) {
+    inline void to_json(json & j, const KeenPbrTypes21Xrg0 & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -1984,6 +2109,8 @@ namespace api {
         j["AuthLoginResponse"] = x.auth_login_response;
         j["AuthPasswordRequest"] = x.auth_password_request;
         j["AuthPasswordStatus"] = x.auth_password_status;
+        j["AuthSettingsRequest"] = x.auth_settings_request;
+        j["AuthSettingsResponse"] = x.auth_settings_response;
         j["AuthStatusResponse"] = x.auth_status_response;
         j["CacheMetadata"] = x.cache_metadata;
         j["CheckStatus"] = x.check_status;
@@ -1999,6 +2126,7 @@ namespace api {
         j["DnsServer"] = x.dns_server;
         j["DnsSystemResolver"] = x.dns_system_resolver;
         j["DnsTestServer"] = x.dns_test_server;
+        j["DraftConfig"] = x.draft_config;
         j["ErrorResponse"] = x.error_response;
         j["FirewallChain"] = x.firewall_chain;
         j["FirewallRuleCheck"] = x.firewall_rule_check;
@@ -2194,6 +2322,7 @@ namespace api {
     inline void from_json(const json & j, LifecycleOperationType & x) {
         if (j == "apply_config") x = LifecycleOperationType::APPLY_CONFIG;
         else if (j == "restart") x = LifecycleOperationType::RESTART;
+        else if (j == "rollback_config") x = LifecycleOperationType::ROLLBACK_CONFIG;
         else if (j == "start") x = LifecycleOperationType::START;
         else if (j == "stop") x = LifecycleOperationType::STOP;
         else { throw std::runtime_error("Cannot deserialize to enumeration \"LifecycleOperationType\""); }
@@ -2203,6 +2332,7 @@ namespace api {
         switch (x) {
             case LifecycleOperationType::APPLY_CONFIG: j = "apply_config"; break;
             case LifecycleOperationType::RESTART: j = "restart"; break;
+            case LifecycleOperationType::ROLLBACK_CONFIG: j = "rollback_config"; break;
             case LifecycleOperationType::START: j = "start"; break;
             case LifecycleOperationType::STOP: j = "stop"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"LifecycleOperationType\": " + std::to_string(static_cast<int>(x)));

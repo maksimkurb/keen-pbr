@@ -560,7 +560,9 @@ RoutingHealthReport routing_health_report_from_json(const nlohmann::json& value)
 
 } // namespace
 
-int run_status_command(const Config& config, const std::string& config_path) {
+namespace {
+int run_status_command_impl(const Config& config, const std::string& config_path,
+                            const std::vector<RuleState>* realized_rules) {
     const int64_t verify_max_bytes = config.daemon.value_or(DaemonConfig{})
         .firewall_verify_max_bytes.value_or(static_cast<int64_t>(DEFAULT_FIREWALL_VERIFY_CAPTURE_MAX_BYTES));
     set_firewall_verifier_capture_max_bytes(static_cast<size_t>(verify_max_bytes));
@@ -588,14 +590,18 @@ int run_status_command(const Config& config, const std::string& config_path) {
 
     CacheManager cache(cache_dir, max_file_size_bytes(config));
     ListStreamer list_streamer(cache);
-    auto fw_rules = build_fw_rule_states(config, marks, &urltest_selections);
-    prune_fw_rule_states_to_realized_sets(
-        config,
-        fw_rules,
-        [&list_streamer](const std::string& list_name, const ListConfig& list_cfg) {
-            return analyze_list_set_usage(list_name, list_cfg, list_streamer);
-        },
-        ipv6_decision.enabled);
+    auto fw_rules = realized_rules != nullptr
+        ? *realized_rules
+        : build_fw_rule_states(config, marks, &urltest_selections);
+    if (realized_rules == nullptr) {
+        prune_fw_rule_states_to_realized_sets(
+            config,
+            fw_rules,
+            [&list_streamer](const std::string& list_name, const ListConfig& list_cfg) {
+                return analyze_list_set_usage(list_name, list_cfg, list_streamer);
+            },
+            ipv6_decision.enabled);
+    }
 
     FirewallState fw_state;
     fw_state.set_outbound_marks(marks);
@@ -610,6 +616,16 @@ int run_status_command(const Config& config, const std::string& config_path) {
         rules.get_rules(),
         netlink);
     return render_status_report(config, config_path, report);
+}
+} // namespace
+
+int run_status_command(const Config& config, const std::string& config_path) {
+    return run_status_command_impl(config, config_path, nullptr);
+}
+
+int run_status_command(const Config& config, const std::string& config_path,
+                       const std::vector<RuleState>& realized_rules) {
+    return run_status_command_impl(config, config_path, &realized_rules);
 }
 
 int run_status_command(const nlohmann::json& response) {

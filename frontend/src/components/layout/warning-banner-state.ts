@@ -36,6 +36,7 @@ export type WarningBannerState = {
   mode: WarningBannerMode
   operationType?: LifecycleOperationType
   operationSteps: WarningBannerStep[]
+  rollbackAvailable: boolean
 }
 
 export function useWarningBannerState(): WarningBannerState {
@@ -109,6 +110,7 @@ export function useWarningBannerState(): WarningBannerState {
     mode,
     operationType: visibleOperation?.type,
     operationSteps,
+    rollbackAvailable: serviceHealth?.rollback_available ?? false,
   }
 }
 
@@ -121,6 +123,7 @@ export function getWarningBannerMode(
   if (retainedOperation?.status === "succeeded") return "lifecycle-success"
   if (retainedOperation?.status === "failed") return "lifecycle-error"
   if (!serviceHealth) return "hidden"
+  if (serviceHealth.rollback_available) return "lifecycle-error"
 
   if (serviceHealth.config_is_draft) {
     return serviceHealth.resolver_config_sync_state === "stale"

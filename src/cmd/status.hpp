@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../config/config.hpp"
+#include "../routing/firewall_state.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -10,6 +11,8 @@ namespace keen_pbr3 {
 
 // Returns 0 if all checks pass, 1 if any check is degraded/missing/error.
 int run_status_command(const Config& config, const std::string& config_path);
+int run_status_command(const Config& config, const std::string& config_path,
+                       const std::vector<RuleState>& realized_rules);
 
 // Render a status response obtained from the daemon control socket.  The
 // response carries the daemon's active config and its live health checks, so

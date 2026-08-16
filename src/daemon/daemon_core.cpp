@@ -1,19 +1,16 @@
 #include "daemon.hpp"
-#include "disk_config_state.hpp"
 
 #include <algorithm>
 #include <arpa/inet.h>
-#include <array>
 #include <cerrno>
 #include <cstring>
 #include <ctime>
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
-#include <ostream>
+#include <poll.h>
 #include <set>
 #include <signal.h>
-#include <streambuf>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/file.h>
@@ -24,18 +21,14 @@
 #include <thread>
 #include <unistd.h>
 
-#include "../cache/cache_manager.hpp"
-#include "../cmd/test_routing.hpp"
 #include "../dns/dns_probe_server.hpp" // IWYU pragma: keep
 #include "../dns/dns_router.hpp"
-#include "../dns/dnsmasq_gen.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
-#include "../health/routing_health_checker.hpp"
 #include "../ipc/control_protocol.hpp"
-#include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
+#include "../util/ipv6_support.hpp"
 #include "../util/safe_exec.hpp"
 #include "../util/time_utils.hpp"
 #include "scheduler.hpp"
@@ -54,77 +47,42 @@ namespace {
 constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{150};
 constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY =
     std::chrono::seconds{5};
-constexpr std::size_t kResolverStreamChunkBytes =
-    static_cast<std::size_t>(16) * 1024U;
 constexpr std::size_t kMaxConcurrentRoutingTests = 2;
+constexpr std::size_t kMaxPendingControlClients = 64;
 
-void send_all(int fd, const char *data, std::size_t size) {
-  std::size_t written = 0;
-  while (written < size) {
-    const ssize_t count =
-        send(fd, data + written, size - written, MSG_NOSIGNAL);
-    if (count <= 0) {
-      throw ipc::ControlProtocolError("control socket write failed: " +
-                                      std::string(strerror(errno)));
-    }
-    written += static_cast<std::size_t>(count);
-  }
+nlohmann::json control_rule_state_json(const ControlRuntimeSnapshot::Rule &rule) {
+  return {{"rule_index", rule.rule_index},
+          {"set_names", rule.set_names},
+          {"outbound_tag", rule.outbound_tag},
+          {"action_type", static_cast<int>(rule.action_type)},
+          {"fwmark", rule.fwmark}};
 }
 
-class SocketStreamBuffer final : public std::streambuf {
-public:
-  explicit SocketStreamBuffer(int fd) : fd_(fd) {
-    setp(buffer_.data(), buffer_.data() + buffer_.size());
-  }
-
-  ~SocketStreamBuffer() override { (void)sync(); }
-
-protected:
-  int overflow(int ch) override {
-    if (flush_buffer() != 0)
-      return traits_type::eof();
-    if (ch != traits_type::eof()) {
-      *pptr() = static_cast<char>(ch);
-      pbump(1);
-    }
-    return ch;
-  }
-
-  std::streamsize xsputn(const char *data, std::streamsize size) override {
-    std::streamsize written = 0;
-    while (written < size) {
-      if (pptr() == epptr() && flush_buffer() != 0)
-        break;
-      const auto capacity = static_cast<std::streamsize>(epptr() - pptr());
-      const auto chunk = std::min(capacity, size - written);
-      std::memcpy(pptr(), data + written, static_cast<std::size_t>(chunk));
-      pbump(static_cast<int>(chunk));
-      written += chunk;
-    }
-    return written;
-  }
-
-  int sync() override { return flush_buffer(); }
-
-private:
-  int flush_buffer() {
-    const auto size = static_cast<std::size_t>(pptr() - pbase());
-    if (size == 0)
-      return 0;
-    try {
-      const std::uint32_t length = htonl(static_cast<std::uint32_t>(size));
-      send_all(fd_, reinterpret_cast<const char *>(&length), sizeof(length));
-      send_all(fd_, pbase(), size);
-    } catch (...) {
-      return -1;
-    }
-    setp(buffer_.data(), buffer_.data() + buffer_.size());
-    return 0;
-  }
-
-  int fd_;
-  std::array<char, kResolverStreamChunkBytes> buffer_{};
-};
+nlohmann::json control_runtime_state_json(
+    const ControlRuntimeSnapshot &snapshot, FirewallBackend backend,
+    bool ipv6_enabled, std::uint64_t generation,
+    const std::string &config_path) {
+  nlohmann::json rules = nlohmann::json::array();
+  for (const auto &rule : snapshot.realized_rules)
+    rules.push_back(control_rule_state_json(rule));
+  const bool fallback = snapshot.runtime_state == RuntimeState::stopped ||
+                        snapshot.runtime_state == RuntimeState::shutting_down;
+  return {{"runtime_state", runtime_state_name(snapshot.runtime_state)},
+          {"runtime_state_reason", snapshot.runtime_state_reason},
+          {"routing_runtime_active", snapshot.routing_runtime_active},
+          {"generation", generation},
+          {"firewall_backend", firewall_backend_name(backend)},
+          {"ipv6_enabled", ipv6_enabled},
+          {"config_path", config_path},
+          {"resolver_mode", fallback ? "fallback" : "active"},
+          {"resolver_fallback_reason",
+           fallback
+               ? (snapshot.runtime_state == RuntimeState::shutting_down
+                      ? "runtime_shutting_down"
+                      : "runtime_stopped")
+               : ""},
+          {"realized_rules", std::move(rules)}};
+}
 
 std::int64_t
 steady_duration_ms(std::chrono::steady_clock::time_point started_at) {
@@ -219,17 +177,21 @@ Daemon::~Daemon() {
     accept_posted_control_tasks_.store(false, std::memory_order_release);
     lifecycle_executor_.shutdown();
     resolver_hook_executor_.shutdown();
-    resolver_stream_executor_.shutdown();
     resolver_io_executor_.shutdown();
     routing_test_executor_.shutdown();
     blocking_executor_.shutdown();
+    if (rollback_config_fd_ >= 0) {
+      close(rollback_config_fd_);
+      rollback_config_fd_ = -1;
+    }
 
+    // Stop the acceptor while its eventfd wake target is still valid.
+    remove_ipc_control_socket();
     if (control_fd_ >= 0) {
       epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, control_fd_, nullptr);
       close(control_fd_);
       control_fd_ = -1;
     }
-    remove_ipc_control_socket();
     if (signal_fd_ >= 0) {
       epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, signal_fd_, nullptr);
       close(signal_fd_);
@@ -302,23 +264,96 @@ void Daemon::setup_ipc_control_socket() {
     remove_ipc_control_socket();
     throw DaemonError("control socket setup failed: " + error);
   }
+  ipc_accept_running_.store(true, std::memory_order_release);
+  ipc_accept_thread_ = std::thread([this] { run_ipc_control_acceptor(); });
+}
 
-  epoll_event event{};
-  event.events = EPOLLIN;
-  event.data.fd = ipc_control_fd_;
-  if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, ipc_control_fd_, &event) != 0) {
-    const std::string error = strerror(errno);
-    remove_ipc_control_socket();
-    throw DaemonError("failed to register control socket: " + error);
+void Daemon::run_ipc_control_acceptor() noexcept {
+  while (ipc_accept_running_.load(std::memory_order_acquire)) {
+    pollfd listener{ipc_control_fd_, POLLIN, 0};
+    const int ready = poll(&listener, 1, 250);
+    if (ready < 0) {
+      if (errno == EINTR)
+        continue;
+      if (ipc_accept_running_.load(std::memory_order_acquire)) {
+        Logger::instance().error("control socket acceptor poll failed: {}",
+                                 strerror(errno));
+      }
+      return;
+    }
+    if (ready == 0 || (listener.revents & POLLIN) == 0)
+      continue;
+
+    while (ipc_accept_running_.load(std::memory_order_acquire)) {
+      const int client =
+          accept4(ipc_control_fd_, nullptr, nullptr, SOCK_CLOEXEC);
+      if (client < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+          break;
+        if (errno == EINTR)
+          continue;
+        if (ipc_accept_running_.load(std::memory_order_acquire)) {
+          Logger::instance().error("control socket accept failed: {}",
+                                   strerror(errno));
+        }
+        break;
+      }
+
+      // HELO is a transport-level greeting. It deliberately precedes request
+      // reads, peer authorization, JSON parsing, and all executor queues.
+      const ssize_t greeting =
+          send(client, ipc::kControlHelloMarker.data(),
+               ipc::kControlHelloMarker.size(), MSG_NOSIGNAL);
+      if (greeting != static_cast<ssize_t>(ipc::kControlHelloMarker.size())) {
+        close(client);
+        continue;
+      }
+
+      bool queued = false;
+      {
+        KPBR_LOCK_GUARD(ipc_accepted_clients_mutex_);
+        if (ipc_accepted_clients_.size() < kMaxPendingControlClients) {
+          ipc_accepted_clients_.push_back(client);
+          queued = true;
+        }
+      }
+      if (!queued) {
+        const auto response = ipc::encode_message(
+            {{"protocol_version", ipc::kControlProtocolVersion},
+             {"request_id", nullptr},
+             {"ok", false},
+             {"error", {{"code", "busy"},
+                        {"message", "control ingress queue is full"}}}});
+        (void)send(client, response.data(), response.size(), MSG_NOSIGNAL);
+        close(client);
+        continue;
+      }
+      try {
+        wake_control_loop();
+      } catch (const std::exception &error) {
+        Logger::instance().error("control socket wake failed: {}", error.what());
+      }
+    }
   }
 }
 
 void Daemon::remove_ipc_control_socket() noexcept {
+  ipc_accept_running_.store(false, std::memory_order_release);
   if (ipc_control_fd_ >= 0) {
-    if (epoll_fd_ >= 0)
-      (void)epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, ipc_control_fd_, nullptr);
+    (void)shutdown(ipc_control_fd_, SHUT_RDWR);
+  }
+  if (ipc_accept_thread_.joinable()) {
+    ipc_accept_thread_.join();
+  }
+  if (ipc_control_fd_ >= 0) {
     close(ipc_control_fd_);
     ipc_control_fd_ = -1;
+  }
+  {
+    KPBR_LOCK_GUARD(ipc_accepted_clients_mutex_);
+    for (const int client : ipc_accepted_clients_)
+      close(client);
+    ipc_accepted_clients_.clear();
   }
   if (!ipc_control_socket_path_.empty()) {
     (void)unlink(ipc_control_socket_path_.c_str());
@@ -344,12 +379,13 @@ void Daemon::finish_routing_test() {
 
 void Daemon::handle_ipc_control_socket() {
   while (true) {
-    const int client = accept4(ipc_control_fd_, nullptr, nullptr, SOCK_CLOEXEC);
-    if (client < 0) {
-      if (errno == EAGAIN || errno == EWOULDBLOCK)
+    int client = -1;
+    {
+      KPBR_LOCK_GUARD(ipc_accepted_clients_mutex_);
+      if (ipc_accepted_clients_.empty())
         return;
-      throw DaemonError("control socket accept failed: " +
-                        std::string(strerror(errno)));
+      client = ipc_accepted_clients_.front();
+      ipc_accepted_clients_.pop_front();
     }
     timeval timeout{5, 0};
     (void)setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout,
@@ -382,18 +418,18 @@ void Daemon::handle_ipc_control_socket() {
         throw ipc::ControlProtocolError("truncated control request body");
       }
       request = ipc::decode_message(frame);
-      send_all(client, ipc::kControlHelloMarker.data(),
-               ipc::kControlHelloMarker.size());
       ipc::validate_request_envelope(request);
       const std::string operation = request.at("operation").get<std::string>();
       const bool resolver_hook_inflight =
           ipc_resolver_hook_inflight_.load(std::memory_order_acquire);
       const bool read_only_operation =
-          operation == "status" || operation == "resolver-config-hash";
+          operation == "status" || operation == "resolver-config-hash" ||
+          operation == "test-routing";
       const bool startup_mutation =
           runtime_state_machine_.state() == RuntimeState::starting &&
           (operation == "download" || operation == "test-routing");
       if (resolver_hook_inflight && operation != "generate-resolver-config" &&
+          operation != "resolver-config-generated" &&
           !read_only_operation) {
         response =
             ipc::make_error_response(request, "busy",
@@ -411,190 +447,48 @@ void Daemon::handle_ipc_control_socket() {
         }
         if (operation != "status" && operation != "resolver-config-hash" &&
             operation != "download" && operation != "test-routing" &&
-            operation != "generate-resolver-config") {
+            operation != "generate-resolver-config" &&
+            operation != "resolver-config-generated") {
           response = ipc::make_error_response(request, "unsupported_operation",
                                               "unsupported control operation");
-        } else if (operation == "test-routing") {
-          const std::string target = request.value("target", "");
-          if (target.empty())
-            throw ipc::ControlProtocolError("test-routing requires a target");
-          const Config active_config = config_store_.active_config();
-          const auto runtime_snapshot = runtime_state_store_.snapshot();
-          const auto realized_rules = runtime_snapshot.firewall_state.get_rules();
-          const auto request_snapshot = request;
-          if (!try_begin_routing_test()) {
+        } else if (operation == "resolver-config-generated") {
+          const auto generation = request.value("generation", std::uint64_t{0});
+          const auto hash = request.value("hash", "");
+          if (!accept_resolver_generated_hash(generation, hash)) {
             response = ipc::make_error_response(
-                request, "busy", "too many routing tests are already running");
-            const std::string frame = ipc::encode_message(response);
-            (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
-            close(client);
-            continue;
+                request, "stale_generation",
+                "resolver output belongs to a stale runtime generation");
+          } else {
+            response = {{"protocol_version", ipc::kControlProtocolVersion},
+                        {"request_id", request.at("request_id")},
+                        {"ok", true},
+                        {"result", {{"generation", generation}}}};
           }
-          const bool queued = routing_test_executor_.try_post(
-              "ipc-test-routing",
-              [this, client, active_config, realized_rules, request_snapshot,
-               target] {
-                nlohmann::json worker_response;
-                try {
-                  const auto result = compute_test_routing(
-                      active_config, list_service_.cache_manager(), target,
-                      &realized_rules);
-                  nlohmann::json entries = nlohmann::json::array();
-                  for (const auto &entry : result.entries) {
-                    nlohmann::json entry_json = {
-                        {"ip", entry.ip},
-                        {"expected_outbound", entry.expected_outbound},
-                        {"actual_outbound", entry.actual_outbound},
-                        {"ok", entry.ok}};
-                    if (entry.list_match.has_value()) {
-                      entry_json["list_match"] = {
-                          {"list_name", entry.list_match->list_name},
-                          {"via", entry.list_match->via}};
-                    }
-                    entries.push_back(std::move(entry_json));
-                  }
-                  worker_response = {
-                      {"protocol_version", ipc::kControlProtocolVersion},
-                      {"request_id", request_snapshot.at("request_id")},
-                      {"ok", !result.dns_error.has_value()},
-                      {"result",
-                       {{"target", result.target},
-                        {"resolved_ips", result.resolved_ips},
-                        {"entries", std::move(entries)},
-                        {"warnings", result.warnings},
-                        {"dns_error", result.dns_error}}}};
-                } catch (const std::exception &error) {
-                  worker_response = ipc::make_error_response(
-                      request_snapshot, "daemon_error", error.what());
-                } catch (...) {
-                  worker_response = ipc::make_error_response(
-                      request_snapshot, "daemon_error",
-                      "routing test failed with an unknown error");
-                }
-
-                finish_routing_test();
-
-                try {
-                  const std::string frame = ipc::encode_message(worker_response);
-                  send_all(client, frame.data(), frame.size());
-                } catch (const std::exception &error) {
-                  Logger::instance().warn(
-                      "test-routing control response failed: {}", error.what());
-                }
-                close(client);
-              });
-          if (queued) {
-            client_dispatched = true;
-            continue;
-          }
-          finish_routing_test();
-          response = ipc::make_error_response(
-              request, "busy", "routing test executor queue is full");
-        } else if (operation == "generate-resolver-config") {
-          const RuntimeState runtime_state = runtime_state_machine_.state();
-          // The DNS configuration is a daemon-owned desired-state
-          // artifact, not a reward for a successful routing health
-          // check.  In particular, serving fallback after a failed
-          // resolver confirmation makes the failure self-sustaining:
-          // dnsmasq can then never publish the managed TXT hash which
-          // would let the daemon recover.  Only an explicit runtime
-          // stop (or shutdown) requests fallback DNS behaviour.
-          if (runtime_state == RuntimeState::stopped ||
-              runtime_state == RuntimeState::shutting_down) {
-            const std::string reason =
-                runtime_state == RuntimeState::shutting_down
-                    ? "runtime_shutting_down"
-                    : "runtime_stopped";
+        } else if (operation == "status" ||
+                   operation == "resolver-config-hash" ||
+                   operation == "test-routing" ||
+                   operation == "generate-resolver-config") {
+          const bool include_realized_rules =
+              operation == "status" || operation == "test-routing";
+          const auto snapshot =
+              runtime_state_store_.control_snapshot(include_realized_rules);
+          if (snapshot.runtime_state == RuntimeState::applying &&
+              operation != "generate-resolver-config") {
             response = ipc::make_error_response(
-                request, reason, "resolver runtime is not active");
-            const std::string frame = ipc::encode_message(response);
-            (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
-            close(client);
-            continue;
+                request, "busy", "runtime configuration is being applied");
+          } else {
+            const bool ipv6_enabled = resolver_generation_snapshot_.has_value()
+                                          ? resolver_generation_snapshot_->ipv6_enabled
+                                          : resolve_ipv6_support(config_).enabled;
+            response = {
+                {"protocol_version", ipc::kControlProtocolVersion},
+                {"request_id", request.at("request_id")},
+                {"ok", true},
+                {"result", control_runtime_state_json(
+                               snapshot, firewall_->backend(), ipv6_enabled,
+                               runtime_generation_.load(std::memory_order_acquire),
+                               config_path_)}};
           }
-          if (!resolver_generation_snapshot_.has_value()) {
-            throw ipc::ControlProtocolError("resolver_generation_unavailable");
-          }
-          // The worker captures the active configuration by value. List
-          // cache files remain deliberately streamed from disk rather
-          // than copied into daemon memory; the post-hook hash refresh
-          // accounts for their current content before confirmation.
-          const ResolverGenerationSnapshot generation =
-              *resolver_generation_snapshot_;
-          const Config &active_config = generation.config;
-          const auto dns_config = active_config.dns.value_or(DnsConfig{});
-          const auto cache_dir = active_config.daemon.value_or(DaemonConfig{})
-                                     .cache_dir.value_or("/var/cache/keen-pbr");
-          const auto type =
-              request.value("resolver", "dnsmasq") == "dnsmasq-ipset"
-                  ? ResolverType::DNSMASQ_IPSET
-                  : (request.value("resolver", "dnsmasq") == "dnsmasq-nftset"
-                         ? ResolverType::DNSMASQ_NFTSET
-                         : generation.resolver_type);
-          const auto request_id = request.at("request_id").get<std::string>();
-          const bool queued = resolver_stream_executor_.try_post(
-              "generate-resolver-config", [this, client, generation, dns_config,
-                                           cache_dir, type, request_id] {
-                bool stream_started = false;
-                bool stream_completed = false;
-                try {
-                  const Config &active_config = generation.config;
-                  CacheManager cache(cache_dir,
-                                     max_file_size_bytes(active_config));
-                  const auto header = ipc::encode_message(
-                      {{"protocol_version", ipc::kControlProtocolVersion},
-                       {"request_id", request_id},
-                       {"ok", true},
-                       {"stream", true}});
-                  send_all(client, header.data(), header.size());
-                  stream_started = true;
-                  SocketStreamBuffer buffer(client);
-                  std::ostream output(&buffer);
-                  output << "# keen-pbr resolver state: active\n";
-                  ListStreamer streamer(cache);
-                  DnsServerRegistry registry(dns_config);
-                  const RouteConfig route_config =
-                      active_config.route.value_or(RouteConfig{});
-                  const auto lists = active_config.lists.value_or(
-                      std::map<std::string, ListConfig>{});
-                  DnsmasqGenerator generator(
-                      registry, streamer, route_config, dns_config, lists, type,
-                      KEEN_PBR3_VERSION_FULL_STRING, generation.ipv6_enabled);
-                  generator.generate(output);
-                  output << "txt-record=resolver-state.keen.pbr,"
-                         << std::time(nullptr) << "|active|runtime_active\n";
-                  output.flush();
-                  const std::uint32_t end_of_stream = 0;
-                  send_all(client,
-                           reinterpret_cast<const char *>(&end_of_stream),
-                           sizeof(end_of_stream));
-                  stream_completed = true;
-                } catch (const std::exception &error) {
-                  if (!stream_started) {
-                    const auto response =
-                        ipc::make_error_response({{"request_id", request_id}},
-                                                 error.what(), error.what());
-                    const auto frame = ipc::encode_message(response);
-                    (void)send(client, frame.data(), frame.size(),
-                               MSG_NOSIGNAL);
-                  } else {
-                    Logger::instance().warn("resolver config stream failed: {}",
-                                            error.what());
-                  }
-                }
-                close(client);
-                if (stream_completed) {
-                  resolver_stream_completed_.fetch_add(
-                      1, std::memory_order_release);
-                }
-              });
-          if (queued) {
-            client_dispatched = true;
-            continue;
-          }
-          response = ipc::make_error_response(
-              request, "daemon_error",
-              "resolver stream executor is unavailable");
         } else if (operation == "download") {
           bool expected = false;
           if (!ipc_mutation_inflight_.compare_exchange_strong(
@@ -631,60 +525,6 @@ void Daemon::handle_ipc_control_socket() {
                         {"changed_lists", refresh.changed_lists},
                         {"failed_lists", refresh.failed_lists},
                         {"reloaded", reloaded}}}};
-        } else {
-          const auto snapshot = runtime_state_store_.snapshot();
-          const Config active_config = config_store_.active_config();
-          const auto disk_config =
-              inspect_disk_config_state(config_path_, active_config);
-          nlohmann::json missing_cached_lists = nlohmann::json::array();
-          const auto relevant_lists =
-              collect_relevant_list_names(active_config);
-          const auto &lists =
-              active_config.lists.value_or(std::map<std::string, ListConfig>{});
-          const auto &cache = list_service_.cache_manager();
-          for (const auto &list_name : relevant_lists) {
-            const auto list = lists.find(list_name);
-            if (list != lists.end() && list->second.url.has_value() &&
-                !cache.has_cache(list_name)) {
-              missing_cached_lists.push_back(list_name);
-            }
-          }
-          RoutingHealthReport routing_health;
-          if (snapshot.runtime_state == RuntimeState::starting) {
-            routing_health.firewall_backend = firewall_->backend();
-            routing_health.firewall_chain.detail =
-                "routing runtime initialization is in progress";
-          } else {
-            routing_health = build_routing_health_report(
-                firewall_->backend(), firewall_->uses_raw_prerouting(),
-                snapshot.firewall_state, snapshot.route_specs,
-                snapshot.policy_rule_specs, netlink_);
-          }
-          response = {
-              {"protocol_version", ipc::kControlProtocolVersion},
-              {"request_id", request.at("request_id")},
-              {"ok", true},
-              {"result",
-               {{"runtime_state", runtime_state_name(snapshot.runtime_state)},
-                {"config_path", config_path_},
-                {"config", active_config},
-                {"routing_health", routing_health_report_to_json(routing_health)},
-                {"runtime_state_reason", snapshot.runtime_state_reason},
-                {"routing_runtime_active", snapshot.routing_runtime_active},
-                {"resolver_config_hash", snapshot.resolver_config_hash},
-                {"resolver_config_hash_actual",
-                 snapshot.resolver_config_hash_actual},
-                {"resolver_config_hash_actual_ts",
-                 snapshot.resolver_config_hash_actual_ts},
-                {"resolver_config_sync_state",
-                 snapshot.resolver_config_sync_state},
-                {"resolver_config_probe_status",
-                 snapshot.resolver_config_probe_status},
-                {"resolver_live_status", snapshot.resolver_live_status},
-                {"resolver_last_probe_ts", snapshot.resolver_last_probe_ts},
-                {"disk_config_mismatch", !disk_config.matches_active},
-                {"disk_config_error", disk_config.error},
-                {"missing_cached_lists", missing_cached_lists}}}};
         }
       }
     } catch (const std::exception &error) {
@@ -1436,7 +1276,6 @@ void Daemon::run() {
   accept_posted_control_tasks_.store(false, std::memory_order_release);
   lifecycle_executor_.shutdown();
   resolver_hook_executor_.shutdown();
-  resolver_stream_executor_.shutdown();
   resolver_io_executor_.shutdown();
   routing_test_executor_.shutdown();
   blocking_executor_.shutdown();

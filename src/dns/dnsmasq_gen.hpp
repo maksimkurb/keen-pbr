@@ -39,6 +39,8 @@ public:
     // Generate dnsmasq configuration and stream it to the output.
     // Produces ipset=/nftset= and server= directives for all matched domains.
     void generate(std::ostream& out);
+    // Generate once and return the same canonical hash embedded in the TXT row.
+    std::string generate_with_hash(std::ostream& out);
 
     // Compute MD5 hash over canonical user-controlled resolver records.
     // Returns 32-char lowercase hex string.

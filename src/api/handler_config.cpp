@@ -131,8 +131,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             throw ApiError(e.what(), 400, payload.dump());
         }
 
-        std::string formatted_config = serialize_config_pretty(staged);
-        ctx.stage_config(std::move(staged), std::move(formatted_config));
+        ctx.stage_config(std::move(staged));
 
         api::ConfigUpdateResponse resp;
         resp.status = api::ConfigUpdateResponseStatus::OK;
@@ -152,6 +151,15 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         resp.status = api::ConfigUpdateResponseStatus::OK;
         resp.message = "Staged config discarded";
         return nlohmann::json(resp).dump();
+    });
+
+    // POST /api/config/rollback - restore the inode retained before a failed apply.
+    server.post("/api/config/rollback", [&ctx]() -> std::string {
+        LifecycleRequest request;
+        request.type = LifecycleOperationType::RollbackConfig;
+        const std::string operation_id = ctx.submit_lifecycle_operation(std::move(request));
+        throw ApiAccepted(nlohmann::json{{"operation_id", operation_id},
+                                         {"status", "accepted"}}.dump());
     });
 
     // Password state is deliberately separate from the config representation.
@@ -248,7 +256,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
 
     // POST /api/config/save - register work immediately; the daemon owns progress.
     server.post("/api/config/save", [&ctx]() -> std::string {
-        std::optional<std::pair<Config, std::string>> staged_snapshot;
+        std::optional<StagedConfigSnapshot> staged_snapshot;
         staged_snapshot = ctx.get_staged_config_snapshot();
 
         if (!staged_snapshot.has_value()) {
@@ -256,8 +264,8 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         }
         LifecycleRequest request;
         request.type = LifecycleOperationType::ApplyConfig;
-        request.config = staged_snapshot->first;
-        request.serialized_config = staged_snapshot->second;
+        request.config = std::move(staged_snapshot->config);
+        request.staged_revision = staged_snapshot->revision;
         const std::string operation_id = ctx.submit_lifecycle_operation(std::move(request));
         throw ApiAccepted(nlohmann::json{{"operation_id", operation_id}, {"status", "accepted"}}.dump());
     });

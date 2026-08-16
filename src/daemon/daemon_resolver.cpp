@@ -1,11 +1,9 @@
 #include "daemon.hpp"
 #include "resolver_apply_confirmation.hpp"
 
-#include "../dns/dns_router.hpp"
 #include "../dns/keenetic_dns.hpp"
 #include "../dns/dns_txt_client.hpp"
 #include "../dns/dnsmasq_gen.hpp"
-#include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
 #ifdef WITH_API
 #include "../api/status_stream.hpp"
@@ -65,50 +63,39 @@ bool Daemon::wait_for_resolver_config_hash_confirmation(
 
 ResolverGenerationSnapshot Daemon::make_resolver_generation_snapshot() {
     ResolverGenerationSnapshot snapshot;
-    snapshot.config = config_;
     snapshot.resolver_type = firewall_->backend() == FirewallBackend::nftables
         ? ResolverType::DNSMASQ_NFTSET
         : ResolverType::DNSMASQ_IPSET;
-    const DnsConfig dns_cfg = snapshot.config.dns.value_or(DnsConfig{});
-    const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(snapshot.config);
+    const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
     log_ipv6_support_decision_once(ipv6_decision);
     snapshot.ipv6_enabled = ipv6_decision.enabled;
     snapshot.generation = runtime_generation_.load(std::memory_order_acquire);
-
-    ListStreamer streamer(list_service_.cache_manager());
-    // DnsmasqGenerator retains references to these inputs until
-    // compute_config_hash() returns.  value_or() returns a value, so passing
-    // its result directly would leave the generator holding a dangling
-    // reference when an optional section is absent.
-    const RouteConfig route_cfg = snapshot.config.route.value_or(RouteConfig{});
-    const std::map<std::string, ListConfig> lists =
-        snapshot.config.lists.value_or(std::map<std::string, ListConfig>{});
-    DnsServerRegistry dns_registry(dns_cfg);
-    DnsmasqGenerator generator(
-        dns_registry,
-        streamer,
-        route_cfg,
-        dns_cfg,
-        lists,
-        snapshot.resolver_type,
-        KEEN_PBR3_VERSION_FULL_STRING,
-        snapshot.ipv6_enabled);
-    snapshot.expected_hash = generator.compute_config_hash();
     return snapshot;
 }
 
 void Daemon::update_resolver_config_hash() {
     ResolverGenerationSnapshot snapshot = make_resolver_generation_snapshot();
-    const std::string resolver_config_hash = snapshot.expected_hash;
     resolver_generation_snapshot_ = std::move(snapshot);
-    resolver_sync_.expected_hash_updated(resolver_config_hash);
-    (void)resolver_coordinator_.reconcile(resolver_config_hash);
+}
+
+bool Daemon::accept_resolver_generated_hash(std::uint64_t generation,
+                                            const std::string& hash) {
+    if (!resolver_generation_snapshot_.has_value() || hash.empty() ||
+        resolver_generation_snapshot_->generation != generation ||
+        runtime_generation_.load(std::memory_order_acquire) != generation) {
+        return false;
+    }
+    resolver_sync_.expected_hash_updated(hash);
+    (void)resolver_coordinator_.reconcile(hash);
     const std::int64_t apply_started_ts =
         apply_started_ts_.load(std::memory_order_acquire);
     if (apply_started_ts > 0) {
-        resolver_sync_.apply_started(apply_started_ts, resolver_config_hash);
+        resolver_sync_.apply_started(apply_started_ts, hash);
     }
-    Logger::instance().info("Resolver config hash: {}", resolver_config_hash);
+    resolver_stream_completed_.fetch_add(1, std::memory_order_release);
+    Logger::instance().info("Resolver config hash: {}", hash);
+    publish_runtime_state();
+    return true;
 }
 
 RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
