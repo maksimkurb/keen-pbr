@@ -7,30 +7,52 @@
 
 #include "../util/traced_mutex.hpp"
 
+#include <cstdint>
 #include <functional>
 #include <string>
 
 namespace keen_pbr3 {
 
-struct StatusSnapshot {
-  api::HealthResponse service;
-  api::RuntimeOutboundsResponse outbounds;
-  api::RuntimeInterfaceInventoryResponse interfaces;
+enum class StatusUpdate : std::uint8_t {
+  None = 0,
+  Service = 1U << 0U,
+  Outbounds = 1U << 1U,
+  Interfaces = 1U << 2U,
+  All = (1U << 0U) | (1U << 1U) | (1U << 2U),
 };
+
+constexpr StatusUpdate operator|(StatusUpdate lhs, StatusUpdate rhs) {
+  return static_cast<StatusUpdate>(static_cast<std::uint8_t>(lhs) |
+                                   static_cast<std::uint8_t>(rhs));
+}
+
+constexpr bool has_status_update(StatusUpdate value, StatusUpdate flag) {
+  return (static_cast<std::uint8_t>(value) & static_cast<std::uint8_t>(flag)) != 0;
+}
 
 class StatusStream {
 public:
-  using SnapshotBuilder = std::function<StatusSnapshot()>;
+  using ServiceBuilder = std::function<api::HealthResponse()>;
+  using OutboundsBuilder = std::function<api::RuntimeOutboundsResponse()>;
+  using InterfacesBuilder =
+      std::function<api::RuntimeInterfaceInventoryResponse()>;
 
-  explicit StatusStream(SnapshotBuilder builder, size_t max_queue_size = 128);
+  StatusStream(ServiceBuilder service_builder,
+               OutboundsBuilder outbounds_builder,
+               InterfacesBuilder interfaces_builder,
+               size_t max_queue_size = 128);
 
   SseBroadcaster::SubscriptionPtr subscribe();
   void unsubscribe(const SseBroadcaster::SubscriptionPtr &subscription);
-  void reconcile();
+  void reconcile(StatusUpdate updates);
   void close_all();
 
 private:
-  SnapshotBuilder builder_;
+  void rebuild(StatusUpdate updates) REQUIRES(mutex_);
+
+  ServiceBuilder service_builder_;
+  OutboundsBuilder outbounds_builder_;
+  InterfacesBuilder interfaces_builder_;
   SseBroadcaster broadcaster_;
   TracedMutex mutex_;
   std::string service_ GUARDED_BY(mutex_);

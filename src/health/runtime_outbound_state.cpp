@@ -74,11 +74,16 @@ std::vector<const Outbound*> ordered_urltest_children(const std::vector<Outbound
     return ordered;
 }
 
-const DumpedRoute* find_primary_default_route(const std::vector<DumpedRoute>& routes) {
+const DumpedRoute* find_primary_default_route(
+    const std::vector<DumpedRoute>& routes,
+    const std::optional<uint32_t>& table_id) {
     const DumpedRoute* primary = nullptr;
     uint32_t best_metric = std::numeric_limits<uint32_t>::max();
 
     for (const auto& route : routes) {
+        if (!table_id.has_value() || route.table != *table_id) {
+            continue;
+        }
         if (route.destination != "default" || route.blackhole || route.unreachable) {
             continue;
         }
@@ -216,22 +221,19 @@ std::optional<uint32_t> outbound_table_id(const OutboundMarkMap& outbound_marks,
 api::RuntimeOutboundStateElement build_interface_outbound_state(const Outbound& outbound,
                                                                 const OutboundMarkMap& outbound_marks,
                                                                 const std::vector<RuleSpec>& policy_rules,
-                                                                NetlinkManager& netlink) {
+                                                                const std::vector<DumpedRoute>& routes,
+                                                                const std::vector<DumpedRoute>& main_routes) {
     api::RuntimeOutboundStateElement state;
     state.tag = outbound.tag;
     state.type = outbound.type;
 
     const auto table_id = outbound_table_id(outbound_marks, policy_rules, outbound.tag);
-    std::vector<DumpedRoute> routes;
-    if (table_id.has_value()) {
-        routes = netlink.dump_routes_in_table(*table_id);
-    }
-    const DumpedRoute* primary_route = find_primary_default_route(routes);
+    const DumpedRoute* primary_route = find_primary_default_route(routes, table_id);
 
     api::RuntimeInterfaceState interface_state;
     interface_state.outbound_tag = outbound.tag;
     interface_state.interface_name = outbound.interface;
-    const bool reachable = is_interface_outbound_reachable(outbound, netlink);
+    const bool reachable = is_interface_outbound_reachable(outbound, main_routes);
     const bool active = primary_route != nullptr && route_matches_outbound(*primary_route, outbound);
     interface_state.status = active
         ? api::RuntimeInterfaceStatusEnum::ACTIVE
@@ -251,17 +253,13 @@ api::RuntimeOutboundStateElement build_interface_outbound_state(const Outbound& 
 api::RuntimeOutboundStateElement build_table_outbound_state(const Outbound& outbound,
                                                             const OutboundMarkMap& outbound_marks,
                                                             const std::vector<RuleSpec>& policy_rules,
-                                                            NetlinkManager& netlink) {
+                                                            const std::vector<DumpedRoute>& routes) {
     api::RuntimeOutboundStateElement state;
     state.tag = outbound.tag;
     state.type = outbound.type;
 
     const auto table_id = outbound_table_id(outbound_marks, policy_rules, outbound.tag);
-    std::vector<DumpedRoute> routes;
-    if (table_id.has_value()) {
-        routes = netlink.dump_routes_in_table(*table_id);
-    }
-    const DumpedRoute* primary_route = find_primary_default_route(routes);
+    const DumpedRoute* primary_route = find_primary_default_route(routes, table_id);
 
     state.status = primary_route != nullptr
         ? api::ResolverLiveStatus::HEALTHY
@@ -273,21 +271,21 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
                                                               const Outbound& outbound,
                                                               const OutboundMarkMap& outbound_marks,
                                                               const std::vector<RuleSpec>& policy_rules,
-                                                              NetlinkManager& netlink,
+                                                              const std::vector<DumpedRoute>& routes,
+                                                              const std::vector<DumpedRoute>& main_routes,
                                                               const UrltestStateLookupFn& urltest_state_lookup) {
     api::RuntimeOutboundStateElement state;
     state.tag = outbound.tag;
     state.type = outbound.type;
 
-    const auto all_outbounds = config.outbounds.value_or(std::vector<Outbound>{});
+    static const std::vector<Outbound> empty_outbounds;
+    const auto& all_outbounds = config.outbounds.has_value()
+        ? *config.outbounds
+        : empty_outbounds;
     const auto children = ordered_urltest_children(all_outbounds, outbound);
     const auto table_id = outbound_table_id(outbound_marks, policy_rules, outbound.tag);
 
-    std::vector<DumpedRoute> routes;
-    if (table_id.has_value()) {
-        routes = netlink.dump_routes_in_table(*table_id);
-    }
-    const DumpedRoute* primary_route = find_primary_default_route(routes);
+    const DumpedRoute* primary_route = find_primary_default_route(routes, table_id);
 
     const auto urltest_state = urltest_state_lookup(outbound.tag);
     std::string live_active_child_tag;
@@ -314,7 +312,7 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
         interface_state.interface_name = child->interface;
         const bool reachable =
             child->type == OutboundType::INTERFACE
-                ? is_interface_outbound_reachable(*child, netlink)
+                ? is_interface_outbound_reachable(*child, main_routes)
                 : false;
         const bool is_active = !live_active_child_tag.empty() && live_active_child_tag == child->tag;
         interface_state.status = map_urltest_child_status(*child, reachable, is_active, urltest_state);
@@ -371,25 +369,45 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response(
     const std::vector<RuleSpec>& policy_rules,
     NetlinkManager& netlink,
     const UrltestStateLookupFn& urltest_state_lookup) {
+    return build_runtime_outbounds_response_from_routes(
+        config, outbound_marks, policy_rules, netlink.dump_routes(),
+        urltest_state_lookup);
+}
+
+api::RuntimeOutboundsResponse build_runtime_outbounds_response_from_routes(
+    const Config& config,
+    const OutboundMarkMap& outbound_marks,
+    const std::vector<RuleSpec>& policy_rules,
+    const std::vector<DumpedRoute>& routes,
+    const UrltestStateLookupFn& urltest_state_lookup) {
     api::RuntimeOutboundsResponse response;
-    const auto outbounds = config.outbounds.value_or(std::vector<Outbound>{});
+    static const std::vector<Outbound> empty_outbounds;
+    const auto& outbounds = config.outbounds.has_value()
+        ? *config.outbounds
+        : empty_outbounds;
     response.outbounds.reserve(outbounds.size());
+    std::vector<DumpedRoute> main_routes;
+    std::copy_if(routes.begin(), routes.end(), std::back_inserter(main_routes),
+                 [](const DumpedRoute& route) { return route.table == 254U; });
 
     for (const auto& outbound : outbounds) {
         switch (outbound.type) {
             case OutboundType::INTERFACE:
                 response.outbounds.push_back(
-                    build_interface_outbound_state(outbound, outbound_marks, policy_rules, netlink));
+                    build_interface_outbound_state(outbound, outbound_marks,
+                                                   policy_rules, routes, main_routes));
                 break;
             case OutboundType::TABLE:
                 response.outbounds.push_back(
-                    build_table_outbound_state(outbound, outbound_marks, policy_rules, netlink));
+                    build_table_outbound_state(outbound, outbound_marks,
+                                               policy_rules, routes));
                 break;
             case OutboundType::URLTEST:
             case OutboundType::ICMPTEST:
                 response.outbounds.push_back(
                     build_urltest_outbound_state(config, outbound, outbound_marks,
-                                                 policy_rules, netlink, urltest_state_lookup));
+                                                 policy_rules, routes, main_routes,
+                                                 urltest_state_lookup));
                 break;
             case OutboundType::BLACKHOLE:
             case OutboundType::IGNORE: {

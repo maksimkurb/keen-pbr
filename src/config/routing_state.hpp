@@ -41,6 +41,8 @@ void populate_routing_state(const Config& cfg,
                             OutboundFamilyAvailabilityFn family_available = {});
 
 bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& netlink);
+bool is_interface_outbound_reachable(const Outbound& outbound,
+                                     const std::vector<DumpedRoute>& routes);
 
 // A link-local address only proves that IPv6 is enabled on the link; it does
 // not make a gatewayless tunnel capable of carrying arbitrary IPv6 traffic.

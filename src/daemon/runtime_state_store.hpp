@@ -33,6 +33,40 @@ struct RuntimeStateSnapshot {
     std::string runtime_state_reason;
 };
 
+struct ServiceRuntimeSnapshot {
+    std::string resolver_config_hash;
+    std::string resolver_config_hash_actual;
+    std::optional<std::int64_t> resolver_config_hash_actual_ts;
+    std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
+    api::ResolverConfigProbeStatus resolver_config_probe_status{
+        api::ResolverConfigProbeStatus::UNKNOWN};
+    api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
+    std::optional<std::int64_t> resolver_last_probe_ts;
+    std::optional<std::int64_t> apply_started_ts;
+    bool routing_runtime_active{true};
+    RuntimeState runtime_state{RuntimeState::starting};
+    std::string runtime_state_reason;
+};
+
+struct OutboundRuntimeSnapshot {
+    OutboundMarkMap outbound_marks;
+    std::vector<RuleSpec> policy_rule_specs;
+    std::map<std::string, UrltestState> urltest_states;
+    RuntimeState runtime_state{RuntimeState::starting};
+};
+
+struct ResolverRuntimeStateUpdate {
+    std::string resolver_config_hash;
+    std::string resolver_config_hash_actual;
+    std::optional<std::int64_t> resolver_config_hash_actual_ts;
+    std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
+    api::ResolverConfigProbeStatus resolver_config_probe_status{
+        api::ResolverConfigProbeStatus::UNKNOWN};
+    api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
+    std::optional<std::int64_t> resolver_last_probe_ts;
+    std::optional<std::int64_t> apply_started_ts;
+};
+
 // Minimal immutable view used by the control socket. It deliberately omits
 // route specs, policy rules, urltest state and the rest of FirewallState.
 struct ControlRuntimeSnapshot {
@@ -52,8 +86,12 @@ struct ControlRuntimeSnapshot {
 class RuntimeStateStore {
 public:
     RuntimeStateSnapshot snapshot() const;
+    ServiceRuntimeSnapshot service_snapshot() const;
+    OutboundRuntimeSnapshot outbound_snapshot() const;
     ControlRuntimeSnapshot control_snapshot(bool include_realized_rules) const;
     void publish(RuntimeStateSnapshot snapshot);
+    void update_resolver(ResolverRuntimeStateUpdate update);
+    void update_urltest(std::string tag, std::optional<UrltestState> state);
 
 private:
     mutable TracedSharedMutex mutex_;

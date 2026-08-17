@@ -151,6 +151,9 @@ public:
     std::vector<DumpedRoute> dump_routes_in_table(uint32_t table_id,
                                                    int family = 0) override;
 
+    // Dump all routing tables with one kernel cache allocation.
+    std::vector<DumpedRoute> dump_routes(int family = 0);
+
     // Dump all policy rules from the kernel.
     // family: 0 (AF_UNSPEC) to get both IPv4 and IPv6 rules.
     std::vector<DumpedRule> dump_policy_rules(int family = 0) override;

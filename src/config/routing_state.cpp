@@ -516,6 +516,12 @@ void populate_routing_state(const Config& cfg,
 }
 
 bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& netlink) {
+    return is_interface_outbound_reachable(outbound,
+                                           netlink.dump_routes_in_table(254));
+}
+
+bool is_interface_outbound_reachable(
+    const Outbound& outbound, const std::vector<DumpedRoute>& routes) {
     if (outbound.type != OutboundType::INTERFACE) {
         return true;
     }
@@ -527,8 +533,6 @@ bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& n
     if (!is_interface_up(iface)) {
         return false;
     }
-
-    auto routes = netlink.dump_routes_in_table(254);
 
     if (outbound.gateway.has_value() &&
         !interface_has_gateway_route(routes, iface, *outbound.gateway)) {

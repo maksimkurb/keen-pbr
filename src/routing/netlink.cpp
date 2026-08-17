@@ -396,6 +396,16 @@ void NetlinkManager::delete_rule_for_family(const RuleSpec& spec, int family) {
 
 std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
                                                               int family) {
+    auto routes = dump_routes(family);
+    routes.erase(
+        std::remove_if(routes.begin(), routes.end(), [table_id](const DumpedRoute& route) {
+            return route.table != table_id;
+        }),
+        routes.end());
+    return routes;
+}
+
+std::vector<DumpedRoute> NetlinkManager::dump_routes(int family) {
     KPBR_LOCK_GUARD(mutex_);
 
     struct nl_cache* raw_cache = nullptr;
@@ -409,20 +419,14 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
     std::vector<DumpedRoute> result;
     struct DumpRoutesCtx {
         std::vector<DumpedRoute>* result;
-        uint32_t table_id;
-    } ctx{&result, table_id};
+    } ctx{&result};
 
     nl_cache_foreach(cache.get(), [](struct nl_object* obj, void* arg) {
         auto* ctx = static_cast<DumpRoutesCtx*>(arg);
         auto* route = reinterpret_cast<struct rtnl_route*>(obj);
 
-        // Filter by table
-        if (rtnl_route_get_table(route) != ctx->table_id) {
-            return;
-        }
-
         DumpedRoute dr;
-        dr.table = ctx->table_id;
+        dr.table = rtnl_route_get_table(route);
         dr.family = rtnl_route_get_family(route);
         dr.metric = static_cast<uint32_t>(rtnl_route_get_priority(route));
         dr.protocol = rtnl_route_get_protocol(route);

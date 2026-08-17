@@ -94,7 +94,7 @@ bool Daemon::accept_resolver_generated_hash(std::uint64_t generation,
     }
     resolver_stream_completed_.fetch_add(1, std::memory_order_release);
     Logger::instance().info("Resolver config hash: {}", hash);
-    publish_runtime_state();
+    publish_resolver_runtime_state();
     return true;
 }
 
@@ -131,13 +131,49 @@ RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
     return snapshot;
 }
 
-void Daemon::publish_runtime_state() {
+void Daemon::publish_runtime_state(StatusPublishScope scope) {
     Logger::instance().trace("runtime_state_publish", "routing_runtime_active={}",
                              routing_runtime_active_ ? "true" : "false");
     runtime_state_store_.publish(build_runtime_state_snapshot());
 #ifdef WITH_API
     if (status_stream_) {
-        status_stream_->reconcile();
+        StatusUpdate updates = StatusUpdate::Outbounds;
+        if (scope == StatusPublishScope::ServiceAndOutbounds) {
+            updates = updates | StatusUpdate::Service;
+        } else if (scope == StatusPublishScope::OutboundsAndInterfaces) {
+            updates = updates | StatusUpdate::Interfaces;
+        }
+        status_stream_->reconcile(updates);
+    }
+#endif
+}
+
+void Daemon::publish_resolver_runtime_state() {
+    const auto resolver_snapshot =
+        resolver_sync_.snapshot(unix_timestamp_now_seconds());
+    runtime_state_store_.update_resolver(ResolverRuntimeStateUpdate{
+        resolver_snapshot.expected_hash,
+        resolver_snapshot.actual_hash,
+        resolver_snapshot.actual_ts,
+        resolver_snapshot.sync_state,
+        resolver_snapshot.probe_status,
+        resolver_snapshot.live_status,
+        resolver_snapshot.last_probe_ts,
+        resolver_snapshot.apply_started_ts,
+    });
+#ifdef WITH_API
+    if (status_stream_) {
+        status_stream_->reconcile(StatusUpdate::Service);
+    }
+#endif
+}
+
+void Daemon::publish_urltest_runtime_state(const std::string& tag) {
+    runtime_state_store_.update_urltest(
+        tag, urltest_manager_ ? urltest_manager_->get_state(tag) : std::nullopt);
+#ifdef WITH_API
+    if (status_stream_) {
+        status_stream_->reconcile(StatusUpdate::Outbounds);
     }
 #endif
 }
@@ -177,7 +213,7 @@ void Daemon::schedule_keenetic_dns_refresh() {
                     update_resolver_config_hash();
                     run_system_resolver_hook_reload();
                     refresh_resolver_config_hash_actual_async();
-                    publish_runtime_state();
+                    publish_resolver_runtime_state();
                 }
             }, "keenetic-dns-refresh");
         },
@@ -314,7 +350,7 @@ void Daemon::commit_resolver_hash_probe_result(
                 api::ResolverConfigSyncState::CONVERGING) {
                 schedule_resolver_config_hash_actual_retry();
             }
-            publish_runtime_state();
+            publish_resolver_runtime_state();
         },
         "resolver-hash-refresh-commit");
 }
@@ -329,14 +365,14 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
         } else {
             reset_resolver_actual_state();
         }
-        publish_runtime_state();
+        publish_resolver_runtime_state();
         return;
     }
 
     const std::string resolver_addr = dns_cfg_opt->system_resolver->address;
     if (resolver_addr.empty()) {
         reset_resolver_actual_state();
-        publish_runtime_state();
+        publish_resolver_runtime_state();
         return;
     }
 

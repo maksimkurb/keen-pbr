@@ -28,6 +28,7 @@ public:
     SubscriptionPtr subscribe();
     SubscriptionPtr subscribe(std::vector<std::string> initial_messages);
     void unsubscribe(const SubscriptionPtr& subscription);
+    bool has_subscribers();
     void publish(const std::string& message);
     void close_all();
 

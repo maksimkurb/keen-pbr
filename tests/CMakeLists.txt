@@ -54,6 +54,7 @@ add_executable(keen-pbr-tests
   test_resolver_coordinator.cpp
   test_runtime_state_machine.cpp
   test_runtime_state_store.cpp
+  test_runtime_outbound_state.cpp
   test_operation_coordinator.cpp
   test_lifecycle_operation.cpp
   test_crash_diagnostics.cpp
@@ -68,6 +69,8 @@ add_executable(keen-pbr-tests
   ../src/runtime/resolver_coordinator.cpp
   ../src/runtime/runtime_state_machine.cpp
   ../src/daemon/runtime_state_store.cpp
+  ../src/health/circuit_breaker.cpp
+  ../src/health/runtime_outbound_state.cpp
   ../src/routing/firewall_state.cpp
   ../src/runtime/operation_coordinator.cpp
   ../src/runtime/lifecycle_operation.cpp

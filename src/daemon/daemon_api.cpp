@@ -717,14 +717,14 @@ void Daemon::setup_api() {
         },
         [this](Config staged_config) {
             config_store_.stage_config(std::move(staged_config));
-            if (status_stream_) status_stream_->reconcile();
+            if (status_stream_) status_stream_->reconcile(StatusUpdate::Service);
         },
         [this]() -> std::optional<StagedConfigSnapshot> {
             return config_store_.staged_snapshot();
         },
         [this]() {
             config_store_.clear_staged();
-            if (status_stream_) status_stream_->reconcile();
+            if (status_stream_) status_stream_->reconcile(StatusUpdate::Service);
         },
         [this](const Config& config) {
             validate_config(config);
@@ -763,7 +763,7 @@ void Daemon::setup_api() {
                 ipv6_decision.enabled);
         },
         [this]() {
-            const auto runtime_snapshot = runtime_state_store_.snapshot();
+            const auto runtime_snapshot = runtime_state_store_.service_snapshot();
             const auto& system_info = cached_system_info();
             ServiceHealthState service_health;
             service_health.status = runtime_snapshot.routing_runtime_active
@@ -811,7 +811,7 @@ void Daemon::setup_api() {
         },
         [this]() {
             const Config config_snapshot = config_store_.active_config();
-            const auto runtime_snapshot = runtime_state_store_.snapshot();
+            const auto runtime_snapshot = runtime_state_store_.outbound_snapshot();
 
             if (runtime_snapshot.runtime_state == RuntimeState::starting) {
                 api::RuntimeOutboundsResponse response;
@@ -828,7 +828,7 @@ void Daemon::setup_api() {
 
             return build_runtime_outbounds_response(
                 config_snapshot,
-                runtime_snapshot.firewall_state.get_outbound_marks(),
+                runtime_snapshot.outbound_marks,
                 runtime_snapshot.policy_rule_specs,
                 netlink_,
                 [&runtime_snapshot](const std::string& tag) -> std::optional<UrltestState> {
@@ -948,20 +948,23 @@ void Daemon::setup_api() {
                     updated_staged.api = config_.api;
                     config_store_.stage_config(std::move(updated_staged));
                 }
-                if (status_stream_) status_stream_->reconcile();
+                if (status_stream_) status_stream_->reconcile(StatusUpdate::Service);
             }, true, "api-security-update");
         },
     });
-    status_stream_ = std::make_unique<StatusStream>([this]() {
-        return StatusSnapshot{
-            build_health_response(api_ctx_->get_service_health()),
-            api_ctx_->get_runtime_outbounds(),
-            api_ctx_->get_runtime_interfaces(),
-        };
-    });
+    status_stream_ = std::make_unique<StatusStream>(
+        [this]() {
+            return build_health_response(api_ctx_->get_service_health());
+        },
+        [this]() {
+            return api_ctx_->get_runtime_outbounds();
+        },
+        [this]() {
+            return api_ctx_->get_runtime_interfaces();
+        });
     api_ctx_->status_stream = status_stream_.get();
     lifecycle_operation_store_.set_publish_callback([this]() {
-        if (status_stream_) status_stream_->reconcile();
+        if (status_stream_) status_stream_->reconcile(StatusUpdate::Service);
     });
     register_api_handlers(*api_server_, *api_ctx_);
 

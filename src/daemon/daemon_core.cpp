@@ -966,12 +966,12 @@ void Daemon::handle_sighup() {
 #endif
 }
 
-void Daemon::refresh_iproute_and_firewall_runtime() {
+void Daemon::refresh_iproute_and_firewall_runtime(StatusPublishScope scope) {
   auto &log = Logger::instance();
   try {
     reconcile_static_routing();
     apply_firewall(FirewallApplyMode::PreserveSets);
-    publish_runtime_state();
+    publish_runtime_state(scope);
     log.info("Runtime iproute and firewall refresh complete.");
   } catch (const std::exception &e) {
     log.error("Runtime iproute and firewall refresh failed: {}", e.what());
@@ -991,18 +991,21 @@ bool Daemon::is_interface_outbound_in_use(
 
 void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
   auto &log = Logger::instance();
-#ifdef WITH_API
-  if (status_stream_)
-    status_stream_->reconcile();
-#endif
   if (!event.administrative_state_changed ||
-      !is_interface_outbound_in_use(event.interface_name))
+      !is_interface_outbound_in_use(event.interface_name)) {
+#ifdef WITH_API
+    if (status_stream_)
+      status_stream_->reconcile(StatusUpdate::Interfaces |
+                                StatusUpdate::Outbounds);
+#endif
     return;
+  }
 
   log.info("Interface {} state changed to {}, iproute and firewall refresh "
            "triggered",
            event.interface_name, event.is_up ? "UP" : "DOWN");
-  refresh_iproute_and_firewall_runtime();
+  refresh_iproute_and_firewall_runtime(
+      StatusPublishScope::OutboundsAndInterfaces);
 }
 
 void Daemon::handle_interface_monitor_events(uint32_t events) {

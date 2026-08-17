@@ -93,6 +93,12 @@ struct ResolverGenerationSnapshot {
   std::uint64_t generation{0};
 };
 
+enum class StatusPublishScope {
+  ServiceAndOutbounds,
+  Outbounds,
+  OutboundsAndInterfaces,
+};
+
 // Helper to get tag from any outbound variant
 std::string get_outbound_tag(const Outbound &ob);
 
@@ -177,7 +183,8 @@ private:
   void schedule_interface_monitor_reconnect_retry();
   void handle_interface_event(const InterfaceMonitor::Event &event);
   bool is_interface_outbound_in_use(const std::string &interface_name) const;
-  void refresh_iproute_and_firewall_runtime();
+  void refresh_iproute_and_firewall_runtime(
+      StatusPublishScope scope = StatusPublishScope::ServiceAndOutbounds);
   void dispatch_event_fd(int fd, uint32_t events);
   void run_event_loop();
   void begin_startup_runtime();
@@ -297,7 +304,10 @@ private:
   // resolver_config_hash_actual_.
   void schedule_resolver_config_hash_actual_refresh();
   RuntimeStateSnapshot build_runtime_state_snapshot() const;
-  void publish_runtime_state();
+  void publish_runtime_state(
+      StatusPublishScope scope = StatusPublishScope::ServiceAndOutbounds);
+  void publish_resolver_runtime_state();
+  void publish_urltest_runtime_state(const std::string &tag);
 
   // Lists autoupdate state
   int lists_autoupdate_task_id_{-1};

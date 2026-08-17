@@ -44,6 +44,12 @@ void SseBroadcaster::unsubscribe(const SubscriptionPtr& subscription) {
     Logger::instance().trace("sse_unsubscribe", "subscriptions={}", subscriptions_.size());
 }
 
+bool SseBroadcaster::has_subscribers() {
+    KPBR_LOCK_GUARD(mutex_);
+    compact_locked();
+    return !subscriptions_.empty();
+}
+
 void SseBroadcaster::publish(const std::string& message) {
     KPBR_LOCK_GUARD(mutex_);
     Logger::instance().trace("sse_publish", "subscriptions={} bytes={}", subscriptions_.size(), message.size());

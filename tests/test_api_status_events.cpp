@@ -46,16 +46,16 @@ ApiContext make_status_context(SseBroadcaster &broadcaster,
   };
 }
 
-StatusSnapshot api_snapshot() {
-  StatusSnapshot snapshot;
-  snapshot.service.version = "test";
-  snapshot.service.build = "test";
-  snapshot.service.status = api::HealthResponseStatus::RUNNING;
-  snapshot.service.os_type = "linux";
-  snapshot.service.os_version = "test";
-  snapshot.service.build_variant = "test";
-  snapshot.service.resolver_live_status = api::ResolverLiveStatus::HEALTHY;
-  snapshot.service.config_is_draft = false;
+api::HealthResponse api_service_snapshot() {
+  api::HealthResponse snapshot;
+  snapshot.version = "test";
+  snapshot.build = "test";
+  snapshot.status = api::HealthResponseStatus::RUNNING;
+  snapshot.os_type = "linux";
+  snapshot.os_version = "test";
+  snapshot.build_variant = "test";
+  snapshot.resolver_live_status = api::ResolverLiveStatus::HEALTHY;
+  snapshot.config_is_draft = false;
   return snapshot;
 }
 
@@ -63,7 +63,10 @@ StatusSnapshot api_snapshot() {
 
 TEST_CASE("status events endpoint returns SSE headers and snapshot first") {
   SseBroadcaster dns_broadcaster;
-  StatusStream status_stream([] { return api_snapshot(); });
+  StatusStream status_stream(
+      [] { return api_service_snapshot(); },
+      [] { return api::RuntimeOutboundsResponse{}; },
+      [] { return api::RuntimeInterfaceInventoryResponse{}; });
   auto context = make_status_context(dns_broadcaster, status_stream);
   ApiConfig config;
   config.listen = std::string("127.0.0.1:18193");

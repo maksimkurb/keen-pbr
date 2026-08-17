@@ -361,7 +361,7 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
                     log.warn("Best-effort conntrack cleanup failed after URLTEST '{}' switch", urltest_tag);
                 }
             }
-            publish_runtime_state();
+            publish_runtime_state(StatusPublishScope::Outbounds);
             log.info("Routing and firewall rebuilt after urltest change.");
         } catch (const std::exception& e) {
             log.error("Error rebuilding routing/firewall after urltest change: {}", e.what());
@@ -390,7 +390,7 @@ bool Daemon::commit_urltest_probe_results(const std::string& urltest_tag,
             urltest_manager_->commit_probe_results(urltest_tag,
                                                    probe_generation,
                                                    std::move(results));
-            publish_runtime_state();
+            publish_urltest_runtime_state(urltest_tag);
         },
         "urltest-commit:" + urltest_tag);
 }

@@ -10,9 +10,15 @@ using namespace keen_pbr3;
 
 namespace {
 
-StatusSnapshot make_snapshot(std::string version = "1",
-                             size_t outbound_count = 0) {
-  StatusSnapshot snapshot;
+struct TestStatusSnapshot {
+  api::HealthResponse service;
+  api::RuntimeOutboundsResponse outbounds;
+  api::RuntimeInterfaceInventoryResponse interfaces;
+};
+
+TestStatusSnapshot make_snapshot(std::string version = "1",
+                                 size_t outbound_count = 0) {
+  TestStatusSnapshot snapshot;
   snapshot.service.version = std::move(version);
   snapshot.service.build = "test";
   snapshot.service.status = api::HealthResponseStatus::RUNNING;
@@ -48,7 +54,9 @@ size_t queued(const SseBroadcaster::SubscriptionPtr &subscription) {
 
 TEST_CASE("status stream queues one snapshot before changes") {
   auto current = make_snapshot();
-  StatusStream stream([&] { return current; });
+  StatusStream stream([&] { return current.service; },
+                      [&] { return current.outbounds; },
+                      [&] { return current.interfaces; });
   auto subscription = stream.subscribe();
 
   const auto first = pop(subscription);
@@ -56,23 +64,25 @@ TEST_CASE("status stream queues one snapshot before changes") {
   CHECK(queued(subscription) == 0);
 
   current.service.version = "2";
-  stream.reconcile();
+  stream.reconcile(StatusUpdate::Service);
   CHECK(pop(subscription).rfind("event: service\n", 0) == 0);
 }
 
 TEST_CASE(
     "status stream suppresses identical data and names each changed dataset") {
   auto current = make_snapshot();
-  StatusStream stream([&] { return current; });
+  StatusStream stream([&] { return current.service; },
+                      [&] { return current.outbounds; },
+                      [&] { return current.interfaces; });
   auto subscription = stream.subscribe();
   (void)pop(subscription);
 
-  stream.reconcile();
+  stream.reconcile(StatusUpdate::All);
   CHECK(queued(subscription) == 0);
 
   current.service.version = "2";
   current.outbounds = make_snapshot("2", 1).outbounds;
-  stream.reconcile();
+  stream.reconcile(StatusUpdate::Service | StatusUpdate::Outbounds);
   CHECK(pop(subscription).rfind("event: service\n", 0) == 0);
   CHECK(pop(subscription).rfind("event: outbounds\n", 0) == 0);
   CHECK(queued(subscription) == 0);
@@ -80,10 +90,12 @@ TEST_CASE(
 
 TEST_CASE("status stream closes slow and shutdown subscribers") {
   auto current = make_snapshot();
-  StatusStream stream([&] { return current; }, 1);
+  StatusStream stream([&] { return current.service; },
+                      [&] { return current.outbounds; },
+                      [&] { return current.interfaces; }, 1);
   auto slow = stream.subscribe();
   current.service.version = "2";
-  stream.reconcile();
+  stream.reconcile(StatusUpdate::Service);
   {
     KPBR_LOCK_GUARD(slow->mutex);
     CHECK(slow->closed);
@@ -95,6 +107,63 @@ TEST_CASE("status stream closes slow and shutdown subscribers") {
     KPBR_LOCK_GUARD(active->mutex);
     CHECK(active->closed);
   }
+}
+
+TEST_CASE("status stream does no work without subscribers") {
+  auto current = make_snapshot();
+  int service_builds = 0;
+  int outbound_builds = 0;
+  int interface_builds = 0;
+  StatusStream stream(
+      [&] {
+        ++service_builds;
+        return current.service;
+      },
+      [&] {
+        ++outbound_builds;
+        return current.outbounds;
+      },
+      [&] {
+        ++interface_builds;
+        return current.interfaces;
+      });
+
+  stream.reconcile(StatusUpdate::All);
+  CHECK(service_builds == 0);
+  CHECK(outbound_builds == 0);
+  CHECK(interface_builds == 0);
+
+  auto first = stream.subscribe();
+  CHECK(service_builds == 1);
+  CHECK(outbound_builds == 1);
+  CHECK(interface_builds == 1);
+  (void)pop(first);
+
+  auto second = stream.subscribe();
+  CHECK(service_builds == 1);
+  CHECK(outbound_builds == 1);
+  CHECK(interface_builds == 1);
+  (void)pop(second);
+
+  current.service.version = "2";
+  stream.reconcile(StatusUpdate::Service);
+  CHECK(service_builds == 2);
+  CHECK(outbound_builds == 1);
+  CHECK(interface_builds == 1);
+
+  stream.unsubscribe(first);
+  stream.unsubscribe(second);
+  current.service.version = "3";
+  stream.reconcile(StatusUpdate::All);
+  CHECK(service_builds == 2);
+  CHECK(outbound_builds == 1);
+  CHECK(interface_builds == 1);
+
+  auto replacement = stream.subscribe();
+  CHECK(service_builds == 3);
+  CHECK(outbound_builds == 2);
+  CHECK(interface_builds == 2);
+  CHECK(pop(replacement).find("\"version\":\"3\"") != std::string::npos);
 }
 
 #endif
