@@ -32,7 +32,6 @@
 #include "log/logger.hpp"
 #include "lists/list_streamer.hpp"
 #include "util/daemon_signals.hpp"
-#include "util/ipv6_support.hpp"
 
 #ifndef KEEN_PBR_DEFAULT_CONFIG_PATH
 #define KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json"

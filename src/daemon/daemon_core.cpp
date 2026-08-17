@@ -22,7 +22,6 @@
 #include <unistd.h>
 
 #include "../dns/dns_probe_server.hpp" // IWYU pragma: keep
-#include "../dns/dns_router.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
 #include "../ipc/control_protocol.hpp"
@@ -94,7 +93,11 @@ void send_control_response_and_close(int fd,
   try {
     const std::string frame = ipc::encode_message(response);
     (void)send_control_bytes(fd, frame, kControlWriteTimeout);
+  } catch (const std::exception &error) {
+    Logger::instance().error("control response encoding failed: {}",
+                             error.what());
   } catch (...) {
+    Logger::instance().error("control response encoding failed: unknown error");
   }
   close(fd);
 }
@@ -396,9 +399,9 @@ void Daemon::run_ipc_control_acceptor() noexcept {
     const auto now = std::chrono::steady_clock::now();
     for (std::size_t index = pending.size(); index-- > 0;) {
       auto &client = pending[index];
-      const short revents = poll_fds.size() > index + 1U
-                                ? poll_fds[index + 1U].revents
-                                : 0;
+      short revents = 0;
+      if (poll_fds.size() > index + 1U)
+        revents = poll_fds[index + 1U].revents;
       bool failed = false;
       bool complete = false;
 
@@ -827,6 +830,11 @@ void Daemon::handle_control_commands() {
     throw DaemonError("eventfd read failed: " + std::string(strerror(errno)));
   }
 
+  // The IPC acceptor uses this eventfd after it has completed nonblocking
+  // request framing. Drain those ready requests before potentially expensive
+  // internal control tasks so CLI responses are not left waiting in the queue.
+  handle_ipc_control_socket();
+
   std::vector<ControlTask> commands;
   {
     KPBR_LOCK_GUARD(control_tasks_mutex_);
@@ -1116,11 +1124,6 @@ void Daemon::remove_fd(int fd, bool wait_for_completion,
 }
 
 void Daemon::dispatch_event_fd(int fd, uint32_t events) {
-  if (fd == ipc_control_fd_) {
-    if ((events & EPOLLIN) != 0U)
-      handle_ipc_control_socket();
-    return;
-  }
   if (fd == signal_fd_) {
     handle_signal();
     return;

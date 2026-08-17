@@ -4,8 +4,6 @@
 #include "../util/traced_mutex.hpp"
 
 #include <optional>
-#include <string>
-#include <utility>
 
 namespace keen_pbr3 {
 
