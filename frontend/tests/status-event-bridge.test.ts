@@ -6,7 +6,10 @@ import {
   getGetRuntimeInterfacesQueryKey,
   getGetRuntimeOutboundsQueryKey,
 } from "../src/api/generated/keen-api"
-import { applyStatusEvent } from "../src/api/status-event-cache"
+import {
+  applyStatusEvent,
+  getTerminalConfigLifecycleOperationKey,
+} from "../src/api/status-event-cache"
 
 const service = (version: string) => ({ version })
 const outbounds = (tag: string) => ({ outbounds: [{ tag }] })
@@ -81,4 +84,71 @@ describe("status event cache bridge", () => {
       data: { version: "1" },
     })
   })
+
+  test("only terminal config lifecycle events request a config resync", () => {
+    expect(
+      getTerminalConfigLifecycleOperationKey(
+        JSON.stringify({
+          type: "service",
+          data: {
+            lifecycle_operation: {
+              id: "apply-1",
+              type: "apply_config",
+              status: "running",
+            },
+          },
+        })
+      )
+    ).toBeNull()
+
+    expect(
+      getTerminalConfigLifecycleOperationKey(
+        JSON.stringify({
+          type: "service",
+          data: {
+            lifecycle_operation: {
+              id: "start-1",
+              type: "start",
+              status: "succeeded",
+            },
+          },
+        })
+      )
+    ).toBeNull()
+
+    expect(
+      getTerminalConfigLifecycleOperationKey(
+        JSON.stringify({
+          type: "service",
+          data: {
+            lifecycle_operation: {
+              id: "apply-1",
+              type: "apply_config",
+              status: "succeeded",
+            },
+          },
+        })
+      )
+    ).toBe("apply-1:succeeded")
+
+    expect(
+      getTerminalConfigLifecycleOperationKey(
+        JSON.stringify({
+          type: "snapshot",
+          data: {
+            service: {
+              lifecycle_operation: {
+                id: "rollback-1",
+                type: "rollback_config",
+                status: "failed",
+              },
+            },
+            outbounds: {},
+            interfaces: {},
+          },
+        })
+      )
+    ).toBe("rollback-1:failed")
+  })
+
 })

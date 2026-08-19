@@ -1,13 +1,18 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
-import { applyStatusEvent } from "@/api/status-event-cache"
+import { getGetConfigQueryKey } from "@/api/generated/keen-api"
+import {
+  applyStatusEvent,
+  getTerminalConfigLifecycleOperationKey,
+} from "@/api/status-event-cache"
 import { consumeAuthenticatedSse } from "@/api/authenticated-sse"
 
 const HIDDEN_DISCONNECT_DELAY_MS = 60_000
 
 export function StatusEventBridge() {
   const queryClient = useQueryClient()
+  const lastConfigResyncOperationRef = useRef<string | null>(null)
 
   useEffect(() => {
     let source: AbortController | null = null
@@ -18,9 +23,30 @@ export function StatusEventBridge() {
       if (source !== null) return
       source = new AbortController()
       const controller = source
-      void consumeAuthenticatedSse("/api/status/events", controller.signal, ({ event, data }) => {
-        if (["snapshot", "service", "outbounds", "interfaces"].includes(event)) applyStatusEvent(queryClient, data)
-      }).catch(() => {
+      void consumeAuthenticatedSse(
+        "/api/status/events",
+        controller.signal,
+        ({ event, data }) => {
+          if (
+            !["snapshot", "service", "outbounds", "interfaces"].includes(event)
+          ) {
+            return
+          }
+
+          applyStatusEvent(queryClient, data)
+          const terminalOperationKey =
+            getTerminalConfigLifecycleOperationKey(data)
+          if (
+            terminalOperationKey &&
+            terminalOperationKey !== lastConfigResyncOperationRef.current
+          ) {
+            lastConfigResyncOperationRef.current = terminalOperationKey
+            void queryClient.invalidateQueries({
+              queryKey: getGetConfigQueryKey(),
+            })
+          }
+        }
+      ).catch(() => {
         if (!controller.signal.aborted) {
           source = null
           reconnectTimer = setTimeout(connect, 3_000)

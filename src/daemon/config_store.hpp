@@ -28,6 +28,10 @@ public:
     bool config_is_draft() const;
 
     void replace_active(Config active_config, OutboundMarkMap outbound_marks);
+    void replace_active_and_clear_staged_if_revision(
+        Config active_config,
+        OutboundMarkMap outbound_marks,
+        std::uint64_t staged_revision);
     void stage_config(Config staged_config);
     std::optional<StagedConfigSnapshot> staged_snapshot() const;
     void clear_staged();

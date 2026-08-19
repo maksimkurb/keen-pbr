@@ -41,6 +41,18 @@ void ConfigStore::replace_active(Config active_config, OutboundMarkMap outbound_
     active_outbound_marks_ = std::move(outbound_marks);
 }
 
+void ConfigStore::replace_active_and_clear_staged_if_revision(
+    Config active_config,
+    OutboundMarkMap outbound_marks,
+    std::uint64_t staged_revision) {
+    KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
+    active_config_ = std::move(active_config);
+    active_outbound_marks_ = std::move(outbound_marks);
+    if (staged_config_.has_value() && staged_revision_ == staged_revision) {
+        staged_config_.reset();
+    }
+}
+
 void ConfigStore::stage_config(Config staged_config) {
     KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
     staged_config_ = std::move(staged_config);

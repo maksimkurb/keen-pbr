@@ -25,6 +25,7 @@ add_executable(keen-pbr-tests
   test_config_validation.cpp
   test_config_writer.cpp
   test_config_apply_transaction.cpp
+  test_config_store.cpp
   test_disk_config_state.cpp
   test_routing_state.cpp
   test_route_table.cpp
@@ -61,6 +62,7 @@ add_executable(keen-pbr-tests
   ../src/config/config.cpp
   ../src/config/config_writer.cpp
   ../src/daemon/config_apply_transaction.cpp
+  ../src/daemon/config_store.cpp
   ../src/daemon/disk_config_state.cpp
   ../src/crash/crash_diagnostics.cpp
   ../src/config/routing_state.cpp

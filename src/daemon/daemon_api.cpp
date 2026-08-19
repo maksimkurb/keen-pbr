@@ -117,6 +117,14 @@ std::string Daemon::submit_lifecycle_operation(LifecycleRequest request) {
 void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest request) {
     std::string current_stage;
     bool runtime_mutated = false;
+    auto clear_committed_apply_draft = [&] {
+        // Once durable commit replaced the file, preserve rollback semantics by
+        // clearing only the exact draft revision that was submitted for apply.
+        if (request.type == LifecycleOperationType::ApplyConfig &&
+            rollback_available_.load(std::memory_order_acquire)) {
+            config_store_.clear_staged_if_revision(request.staged_revision);
+        }
+    };
     auto start_stage = [&](const char* stage) {
         current_stage = stage;
         lifecycle_operations_.start_stage(id, current_stage);
@@ -180,17 +188,19 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             std::string{}.swap(serialized_config);
             rollback_config_fd_ = previous_fd;
             rollback_available_.store(true, std::memory_order_release);
-            enqueue_control_task(
-                [this, staged_revision = request.staged_revision] {
-                    config_store_.clear_staged_if_revision(staged_revision);
-                    publish_runtime_state();
-                }, true, "lifecycle:" + id + ":commit-config");
+            // Keep the staged config visible until the active snapshot can be
+            // promoted under the same ConfigStore lock during reconciliation.
+            enqueue_control_task([this] { publish_runtime_state(); },
+                                 true, "lifecycle:" + id + ":commit-config");
             succeed_stage();
 
             runtime_mutated = true;
-            run_control("reconcile_runtime", [this, prepared = std::move(prepared)]() mutable {
+            run_control("reconcile_runtime",
+                        [this, prepared = std::move(prepared),
+                         staged_revision = request.staged_revision]() mutable {
                 reconcile_prepared_runtime(std::move(prepared));
-                config_store_.replace_active(config_, outbound_marks_);
+                config_store_.replace_active_and_clear_staged_if_revision(
+                    config_, outbound_marks_, staged_revision);
                 if (api_server_) {
                     api_server_->update_runtime_config(
                         config_.api.value_or(ApiConfig{}),
@@ -356,12 +366,14 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
         }
         lifecycle_operations_.finish(id);
     } catch (const std::exception& error) {
+        clear_committed_apply_draft();
         if (!current_stage.empty()) lifecycle_operations_.fail_stage(id, current_stage, error.what());
         if (runtime_mutated || rollback_available_.load(std::memory_order_acquire)) {
             mark_broken("lifecycle operation failed: " + std::string(error.what()));
         }
         lifecycle_operations_.finish(id, error.what());
     } catch (...) {
+        clear_committed_apply_draft();
         const std::string error = "Unknown lifecycle operation failure";
         if (!current_stage.empty()) lifecycle_operations_.fail_stage(id, current_stage, error);
         if (runtime_mutated || rollback_available_.load(std::memory_order_acquire)) {
