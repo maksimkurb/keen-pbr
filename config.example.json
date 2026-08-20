@@ -6,6 +6,8 @@
     "firewall_backend": "auto",
     "skip_marked_packets": true,
     "ipv6_enabled": true,
+    "ipset_hashsize": null,
+    "ipset_maxelem": null,
     "reuse_static_sets_on_runtime_refresh": true,
     "strict_enforcement": false
   },

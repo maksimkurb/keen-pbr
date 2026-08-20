@@ -126,54 +126,114 @@ void IptablesFirewall::prepare_apply(FirewallApplyMode mode) {
   pending_elements_.clear();
   pending_rules_.clear();
   prepared_mode_ = mode;
+  static_generations_prepared_ = false;
 
   if (mode == FirewallApplyMode::RulesOnly) {
     // RulesOnly preparation is deliberately inspection-only. In particular,
     // do not repair an interrupted OUTPUT publication until apply() has
     // preflighted every reused set successfully.
-    const auto v4 = inspect_generation(false);
-    target_v4_generation_ =
-        generation_plan_for_states(v4.primary, v4.secondary).target;
-    if (v4.primary == LiveGenerationState::A) {
-      target_static_v4_generation_ = FirewallSetGeneration::A;
-    } else if (v4.primary == LiveGenerationState::B) {
-      target_static_v4_generation_ = FirewallSetGeneration::B;
-    } else {
+    const auto inspect_rules_only_generation = [this](bool ipv6) {
+      struct InspectionAndPlan {
+        GenerationInspection inspection;
+        GenerationPlan plan;
+      } result;
+      try {
+        result.inspection = inspect_generation(ipv6);
+        if (result.inspection.primary != LiveGenerationState::A &&
+            result.inspection.primary != LiveGenerationState::B) {
+          throw FirewallRulesOnlyError(
+              std::string("cannot reuse ") + (ipv6 ? "IPv6" : "IPv4") +
+              " firewall rules: live PREROUTING generation is missing or "
+              "invalid");
+        }
+        result.plan = generation_plan_for_states(result.inspection.primary,
+                                                 result.inspection.secondary);
+      } catch (const FirewallRulesOnlyError &) {
+        throw;
+      } catch (const FirewallError &error) {
+        throw FirewallRulesOnlyError(
+            std::string("cannot inspect live ") +
+            (ipv6 ? "IPv6" : "IPv4") + " firewall generations: " +
+            error.what());
+      }
+      return result;
+    };
+
+    const auto v4 = inspect_rules_only_generation(false);
+    target_v4_generation_ = v4.plan.target;
+    StaticSetInspection static_v4;
+    try {
+      static_v4 = inspect_static_sets(false, v4.inspection);
+    } catch (const FirewallError &error) {
       throw FirewallRulesOnlyError(
-          "cannot reuse static IPv4 ipsets: live PREROUTING generation is "
-          "missing or invalid");
+          "cannot inspect live IPv4 static-set references: " +
+          std::string(error.what()));
     }
+    if (static_v4.generation == LiveGenerationState::Invalid) {
+      throw FirewallRulesOnlyError(
+          "live IPv4 rules reference static ipsets from multiple generations");
+    }
+    // RulesOnly may still be used for rules that do not require a static list.
+    // If a static list is later required, the runtime/backend preflight
+    // rejects missing live references and triggers fallback.
+    target_static_v4_generation_ = static_target_for_mode(
+        mode, static_v4.generation, target_v4_generation_);
 
     if (!ipv6_enabled() || !ipv6_backend_available()) {
       target_v6_generation_ = FirewallSetGeneration::A;
       target_static_v6_generation_ = FirewallSetGeneration::A;
     } else {
-      const auto v6 = inspect_generation(true);
-      target_v6_generation_ =
-          generation_plan_for_states(v6.primary, v6.secondary).target;
-      if (v6.primary == LiveGenerationState::A) {
-        target_static_v6_generation_ = FirewallSetGeneration::A;
-      } else if (v6.primary == LiveGenerationState::B) {
-        target_static_v6_generation_ = FirewallSetGeneration::B;
-      } else {
+      const auto v6 = inspect_rules_only_generation(true);
+      target_v6_generation_ = v6.plan.target;
+      StaticSetInspection static_v6;
+      try {
+        static_v6 = inspect_static_sets(true, v6.inspection);
+      } catch (const FirewallError &error) {
         throw FirewallRulesOnlyError(
-            "cannot reuse static IPv6 ipsets: live PREROUTING generation is "
-            "missing or invalid");
+            "cannot inspect live IPv6 static-set references: " +
+            std::string(error.what()));
       }
+      if (static_v6.generation == LiveGenerationState::Invalid) {
+        throw FirewallRulesOnlyError(
+            "live IPv6 rules reference static ipsets from multiple generations");
+      }
+      target_static_v6_generation_ = static_target_for_mode(
+          mode, static_v6.generation, target_v6_generation_);
     }
   } else {
     target_v4_generation_ =
         mode == FirewallApplyMode::Destructive
             ? FirewallSetGeneration::A
-            : select_target_generation(false);
+            : select_target_generation(false, /*repair_output=*/true);
     target_v6_generation_ =
         mode == FirewallApplyMode::Destructive
             ? FirewallSetGeneration::A
             : (!ipv6_enabled() || !ipv6_backend_available()
                    ? FirewallSetGeneration::A
-                   : select_target_generation(true));
+                   : select_target_generation(true, /*repair_output=*/true));
     target_static_v4_generation_ = target_v4_generation_;
     target_static_v6_generation_ = target_v6_generation_;
+    if (mode != FirewallApplyMode::Destructive) {
+      const auto v4 = inspect_generation(false);
+      const auto static_v4 = inspect_static_sets(false, v4);
+      if (static_v4.generation == LiveGenerationState::Invalid) {
+        throw FirewallError(
+            "live IPv4 rules reference static ipsets from multiple generations");
+      }
+      target_static_v4_generation_ = static_target_for_mode(
+          mode, static_v4.generation, target_v4_generation_);
+
+      if (ipv6_enabled() && ipv6_backend_available()) {
+        const auto v6 = inspect_generation(true);
+        const auto static_v6 = inspect_static_sets(true, v6);
+        if (static_v6.generation == LiveGenerationState::Invalid) {
+          throw FirewallError(
+              "live IPv6 rules reference static ipsets from multiple generations");
+        }
+        target_static_v6_generation_ = static_target_for_mode(
+            mode, static_v6.generation, target_v6_generation_);
+      }
+    }
   }
   static_generations_prepared_ = true;
   apply_prepared_ = true;
@@ -186,9 +246,24 @@ std::string IptablesFirewall::static_set_name(const std::string &list_name,
           ? (family == AF_INET6 ? target_v6_generation_ : target_v4_generation_)
           : (family == AF_INET6 ? target_static_v6_generation_
                                 : target_static_v4_generation_);
+  return static_set_name_for_generation(list_name, family, generation);
+}
+
+std::string IptablesFirewall::static_set_name_for_generation(
+    const std::string &list_name, int family,
+    FirewallSetGeneration generation) {
   const char slot = generation == FirewallSetGeneration::A ? 's' : 'S';
   return keen_pbr3::format("kpbr{}{}_{}", family == AF_INET6 ? 6 : 4, slot,
                            list_name);
+}
+
+std::vector<std::string>
+IptablesFirewall::static_set_names(const std::string &list_name,
+                                   int family) const {
+  return {static_set_name_for_generation(list_name, family,
+                                         FirewallSetGeneration::A),
+          static_set_name_for_generation(list_name, family,
+                                         FirewallSetGeneration::B)};
 }
 
 void IptablesFirewall::create_ipset(const std::string &set_name, int family,
@@ -197,6 +272,8 @@ void IptablesFirewall::create_ipset(const std::string &set_name, int family,
   ps.name = set_name;
   ps.family_str = (family == AF_INET6) ? "inet6" : "inet";
   ps.timeout = timeout;
+  ps.hashsize = ipset_hashsize();
+  ps.maxelem = ipset_maxelem();
   const auto existing = std::find_if(pending_sets_.begin(), pending_sets_.end(),
                                      [&set_name](const PendingSet &pending) {
                                        return pending.name == set_name;
@@ -204,7 +281,9 @@ void IptablesFirewall::create_ipset(const std::string &set_name, int family,
   if (existing == pending_sets_.end()) {
     pending_sets_.push_back(std::move(ps));
   } else if (existing->family_str != ps.family_str ||
-             existing->timeout != ps.timeout) {
+             existing->timeout != ps.timeout ||
+             existing->hashsize != ps.hashsize ||
+             existing->maxelem != ps.maxelem) {
     throw FirewallError("conflicting ipset declaration for " + set_name);
   }
   created_sets_[set_name] = family;
@@ -304,13 +383,18 @@ static void pipe_to_cmd(const std::vector<std::string> &args,
 }
 
 std::string IptablesFirewall::build_ipset_create_line(const PendingSet &ps) {
-  if (ps.timeout > 0) {
-    return keen_pbr3::format("create {} hash:net family {} timeout {} -exist\n",
-                             ps.name, ps.family_str, ps.timeout);
-  } else {
-    return keen_pbr3::format("create {} hash:net family {} -exist\n", ps.name,
-                             ps.family_str);
+  std::string line = keen_pbr3::format("create {} hash:net family {}", ps.name,
+                                       ps.family_str);
+  if (ps.hashsize.has_value()) {
+    line += keen_pbr3::format(" hashsize {}", *ps.hashsize);
   }
+  if (ps.maxelem.has_value()) {
+    line += keen_pbr3::format(" maxelem {}", *ps.maxelem);
+  }
+  if (ps.timeout > 0) {
+    line += keen_pbr3::format(" timeout {}", ps.timeout);
+  }
+  return line + " -exist\n";
 }
 
 bool IptablesFirewall::is_dynamic_set_name(const std::string &set_name) {
@@ -358,7 +442,13 @@ bool IptablesFirewall::dynamic_set_schema_compatible(
   }
   auto *family = header->first_node("family");
   auto *timeout_node = header->first_node("timeout");
+  auto *hashsize_node = header->first_node("hashsize");
+  auto *maxelem_node = header->first_node("maxelem");
   if (family == nullptr || header->last_node("family") != family ||
+      hashsize_node == nullptr ||
+      hashsize_node->next_sibling("hashsize") != nullptr ||
+      maxelem_node == nullptr ||
+      maxelem_node->next_sibling("maxelem") != nullptr ||
       (timeout_node != nullptr &&
        header->last_node("timeout") != timeout_node)) {
     return false;
@@ -376,12 +466,38 @@ bool IptablesFirewall::dynamic_set_schema_compatible(
       return false;
     }
   }
+  uint32_t live_hashsize = 0;
+  {
+    const char *begin = hashsize_node->value();
+    const char *end = begin + hashsize_node->value_size();
+    const auto parsed = std::from_chars(begin, end, live_hashsize);
+    if (parsed.ec != std::errc{} || parsed.ptr != end) {
+      return false;
+    }
+  }
+  uint32_t live_maxelem = 0;
+  {
+    const char *begin = maxelem_node->value();
+    const char *end = begin + maxelem_node->value_size();
+    const auto parsed = std::from_chars(begin, end, live_maxelem);
+    if (parsed.ec != std::errc{} || parsed.ptr != end) {
+      return false;
+    }
+  }
+  const auto requested_hashsize =
+      normalize_ipset_hashsize(expected.hashsize.value_or(1024));
+  if (!requested_hashsize.has_value() ||
+      live_hashsize < *requested_hashsize ||
+      live_maxelem != expected.maxelem.value_or(65536)) {
+    return false;
+  }
   return live_name == expected.name && live_type == "hash:net" &&
          live_family == expected.family_str &&
          live_timeout == expected.timeout;
 }
 
-void IptablesFirewall::preflight_dynamic_set_schemas(
+std::optional<std::string>
+IptablesFirewall::find_incompatible_dynamic_set_schema(
     bool effective_ipv6) const {
   const bool has_dynamic = std::any_of(
       pending_sets_.begin(), pending_sets_.end(), [&](const PendingSet &set) {
@@ -389,7 +505,7 @@ void IptablesFirewall::preflight_dynamic_set_schemas(
                (set.family_str != "inet6" || effective_ipv6);
       });
   if (!has_dynamic) {
-    return;
+    return std::nullopt;
   }
 
   const auto names =
@@ -421,14 +537,84 @@ void IptablesFirewall::preflight_dynamic_set_schemas(
                           set.name);
     }
     if (!dynamic_set_schema_compatible(schema.stdout_output, set)) {
-      throw FirewallError("incompatible existing dynamic ipset schema for " +
-                          set.name);
+      return set.name;
     }
+  }
+  return std::nullopt;
+}
+
+void IptablesFirewall::preflight_dynamic_set_schemas(
+    bool effective_ipv6) const {
+  const auto incompatible =
+      find_incompatible_dynamic_set_schema(effective_ipv6);
+  if (incompatible.has_value()) {
+    throw FirewallError(
+        "incompatible existing dynamic ipset family, type, timeout, or "
+        "capacity schema for " +
+        *incompatible);
   }
 }
 
 void IptablesFirewall::preflight_reused_set_schemas(
     bool effective_ipv6) const {
+  const auto requires_static = [&](const std::string &family) {
+    return std::any_of(
+        pending_sets_.begin(), pending_sets_.end(), [&](const PendingSet &set) {
+          return !is_dynamic_set_name(set.name) && set.family_str == family;
+        });
+  };
+
+  const auto check_static_references = [&](bool ipv6,
+                                           const std::string &family_str,
+                                           const std::string &family_label,
+                                           FirewallSetGeneration expected) {
+    if (!requires_static(family_str)) {
+      return;
+    }
+
+    GenerationInspection inspection;
+    try {
+      inspection = inspect_generation(ipv6);
+    } catch (const FirewallError &error) {
+      throw FirewallRulesOnlyError(
+          "cannot inspect live " + family_label + " firewall generations: " +
+          std::string(error.what()));
+    }
+
+    StaticSetInspection live;
+    try {
+      live = inspect_static_sets(ipv6, inspection);
+    } catch (const FirewallError &error) {
+      throw FirewallRulesOnlyError(
+          "cannot inspect live " + family_label + " static-set references: " +
+          std::string(error.what()));
+    }
+
+    const auto expected_state = expected == FirewallSetGeneration::A
+                                    ? LiveGenerationState::A
+                                    : LiveGenerationState::B;
+    if (live.generation != expected_state) {
+      throw FirewallRulesOnlyError(
+          "live " + family_label +
+          " rules do not consistently reference the expected static-set "
+          "generation");
+    }
+    for (const auto &set : pending_sets_) {
+      if (!is_dynamic_set_name(set.name) && set.family_str == family_str &&
+          live.names.find(set.name) == live.names.end()) {
+        throw FirewallRulesOnlyError(
+            "live " + family_label +
+            " rules do not reference required static ipset " +
+            set.name);
+      }
+    }
+  };
+
+  check_static_references(false, "inet", "IPv4", target_static_v4_generation_);
+  if (effective_ipv6) {
+    check_static_references(true, "inet6", "IPv6", target_static_v6_generation_);
+  }
+
   const auto names =
       safe_exec_capture({"ipset", "list", "-n"}, /*suppress_stderr=*/true);
   if (names.exit_code != 0 || names.truncated || names.timed_out) {
@@ -480,7 +666,7 @@ void IptablesFirewall::preflight_reused_set_schemas(
     if (!dynamic_set_schema_compatible(schema.stdout_output, set)) {
       throw FirewallRulesOnlyError(
           "required reused ipset " + set.name +
-          " has incompatible family, type, or timeout schema");
+          " has incompatible family, type, timeout, or capacity schema");
     }
   }
 }
@@ -524,6 +710,98 @@ IptablesFirewall::inspect_generation(bool ipv6) const {
   return {primary, secondary};
 }
 
+IptablesFirewall::StaticSetInspection
+IptablesFirewall::parse_static_set_references(const std::string &rules,
+                                               bool ipv6) {
+  const std::string prefix_a =
+      keen_pbr3::format("kpbr{}s_", ipv6 ? 6 : 4);
+  const std::string prefix_b =
+      keen_pbr3::format("kpbr{}S_", ipv6 ? 6 : 4);
+
+  StaticSetInspection result;
+  std::istringstream input(rules);
+  std::string token;
+  while (input >> token) {
+    if (token != "--match-set") {
+      continue;
+    }
+    std::string set_name;
+    if (!(input >> set_name)) {
+      result.generation = LiveGenerationState::Invalid;
+      return result;
+    }
+    if (set_name.rfind(prefix_a, 0) == 0) {
+      result.names.insert(set_name);
+      if (result.generation == LiveGenerationState::B) {
+        result.generation = LiveGenerationState::Invalid;
+      } else {
+        result.generation = LiveGenerationState::A;
+      }
+    } else if (set_name.rfind(prefix_b, 0) == 0) {
+      result.names.insert(set_name);
+      if (result.generation == LiveGenerationState::A) {
+        result.generation = LiveGenerationState::Invalid;
+      } else {
+        result.generation = LiveGenerationState::B;
+      }
+    }
+  }
+  return result;
+}
+
+IptablesFirewall::StaticSetInspection IptablesFirewall::inspect_static_sets(
+    bool ipv6, const GenerationInspection &inspection) const {
+  const char *command = ipv6 ? "ip6tables" : "iptables";
+
+  auto inspect_chain = [&](LiveGenerationState state, bool output) {
+    StaticSetInspection result;
+    if (state == LiveGenerationState::Missing) {
+      return result;
+    }
+
+    const std::string chain =
+        output ? (use_raw_prerouting_ && !ipv6
+                      ? output_generation_chain(state == LiveGenerationState::A
+                                                    ? FirewallSetGeneration::A
+                                                    : FirewallSetGeneration::B)
+                      : generation_chain(state == LiveGenerationState::A
+                                             ? FirewallSetGeneration::A
+                                             : FirewallSetGeneration::B))
+               : prerouting_generation_chain(
+                     state == LiveGenerationState::A ? FirewallSetGeneration::A
+                                                      : FirewallSetGeneration::B,
+                     ipv6);
+    const char *table = output ? "mangle" : prerouting_table_name(ipv6);
+    const auto captured = safe_exec_capture(
+        {command, "-t", table, "-S", chain}, /*suppress_stderr=*/true);
+    if (captured.exit_code != 0 || captured.truncated || captured.timed_out) {
+      throw FirewallError("failed to inspect live iptables rule chain " +
+                          chain);
+    }
+    return parse_static_set_references(captured.stdout_output, ipv6);
+  };
+
+  auto merge = [](StaticSetInspection lhs, const StaticSetInspection &rhs) {
+    lhs.names.insert(rhs.names.begin(), rhs.names.end());
+    if (lhs.generation == LiveGenerationState::Invalid ||
+        rhs.generation == LiveGenerationState::Invalid ||
+        (lhs.generation == LiveGenerationState::A &&
+         rhs.generation == LiveGenerationState::B) ||
+        (lhs.generation == LiveGenerationState::B &&
+         rhs.generation == LiveGenerationState::A)) {
+      lhs.generation = LiveGenerationState::Invalid;
+    } else if (lhs.generation == LiveGenerationState::Missing) {
+      lhs.generation = rhs.generation;
+    }
+    return lhs;
+  };
+
+  auto result = inspect_chain(inspection.primary, /*output=*/false);
+  result = merge(std::move(result), inspect_chain(inspection.secondary,
+                                                   /*output=*/true));
+  return result;
+}
+
 IptablesFirewall::GenerationPlan IptablesFirewall::generation_plan_for_states(
     LiveGenerationState primary, LiveGenerationState secondary) {
   if (primary == LiveGenerationState::Invalid ||
@@ -533,8 +811,34 @@ IptablesFirewall::GenerationPlan IptablesFirewall::generation_plan_for_states(
   return {target_generation_for_states(primary, secondary),
           (primary == LiveGenerationState::A &&
            secondary == LiveGenerationState::B) ||
-              (primary == LiveGenerationState::B &&
+          (primary == LiveGenerationState::B &&
                secondary == LiveGenerationState::A)};
+}
+
+FirewallSetGeneration IptablesFirewall::static_target_for_mode(
+    FirewallApplyMode mode, LiveGenerationState live_static,
+    FirewallSetGeneration rule_target) {
+  if (mode == FirewallApplyMode::RulesOnly) {
+    if (live_static == LiveGenerationState::B) {
+      return FirewallSetGeneration::B;
+    }
+    return FirewallSetGeneration::A;
+  }
+  if (live_static == LiveGenerationState::A) {
+    return FirewallSetGeneration::B;
+  }
+  if (live_static == LiveGenerationState::B) {
+    return FirewallSetGeneration::A;
+  }
+  return rule_target;
+}
+
+void IptablesFirewall::validate_target_generation(
+    const GenerationPlan &plan, FirewallSetGeneration expected) {
+  if (plan.target != expected) {
+    throw FirewallError(
+        "live iptables generation changed while preparing apply");
+  }
 }
 
 IptablesFirewall::LiveGenerationState IptablesFirewall::inspect_dispatcher(
@@ -552,13 +856,13 @@ IptablesFirewall::LiveGenerationState IptablesFirewall::inspect_dispatcher(
 }
 
 FirewallSetGeneration
-IptablesFirewall::select_target_generation(bool ipv6) const {
+IptablesFirewall::select_target_generation(bool ipv6, bool repair_output) const {
   const auto inspection = inspect_generation(ipv6);
   const auto primary = inspection.primary;
   const auto secondary = inspection.secondary;
   const auto plan = generation_plan_for_states(primary, secondary);
 
-  if (plan.repair_output) {
+  if (repair_output && plan.repair_output) {
     // OUTPUT is published before PREROUTING. A failed apply can therefore
     // leave OUTPUT one generation ahead. Restore it to the authoritative
     // PREROUTING generation before selecting the now-inactive slot.
@@ -572,11 +876,19 @@ IptablesFirewall::select_target_generation(bool ipv6) const {
 }
 
 void IptablesFirewall::ensure_target_generation_inactive(
-    bool ipv6, FirewallSetGeneration target) const {
-  const auto selected = select_target_generation(ipv6);
-  if (selected != target) {
-    throw FirewallError(
-        "live iptables generation changed while preparing apply");
+    bool ipv6, FirewallSetGeneration target, bool repair_output) const {
+  const auto inspection = inspect_generation(ipv6);
+  const auto plan = generation_plan_for_states(inspection.primary,
+                                               inspection.secondary);
+  // Validate the target before any optional OUTPUT repair. RulesOnly passes
+  // repair_output=false and must remain entirely inspection-only on a stale
+  // generation race.
+  validate_target_generation(plan, target);
+  if (repair_output && plan.repair_output) {
+    publish_dispatcher(ipv6, /*output=*/true,
+                       inspection.primary == LiveGenerationState::A
+                           ? FirewallSetGeneration::A
+                           : FirewallSetGeneration::B);
   }
 }
 
@@ -1092,20 +1404,45 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
       throw FirewallRulesOnlyError(
           "RulesOnly received buffered set elements; refusing to modify sets");
     }
-  } else if (mode != FirewallApplyMode::Destructive ||
-             !clear_dynamic_sets_on_apply()) {
+  } else if (mode != FirewallApplyMode::Destructive) {
     preflight_dynamic_set_schemas(effective_ipv6);
   }
 
   if (mode == FirewallApplyMode::Destructive) {
-    cleanup_live_impl(!clear_dynamic_sets_on_apply(),
+    bool preserve_dynamic_sets = !clear_dynamic_sets_on_apply();
+    if (preserve_dynamic_sets) {
+      const auto incompatible =
+          find_incompatible_dynamic_set_schema(effective_ipv6);
+      if (incompatible.has_value()) {
+        Logger::instance().warn(
+            "incompatible managed dynamic ipset schema for {}; recreating "
+            "dynamic ipsets and clearing learned entries",
+            *incompatible);
+        preserve_dynamic_sets = false;
+      }
+    }
+    cleanup_live_impl(preserve_dynamic_sets,
                       /*sweep_live_state=*/true);
   }
 
   if (mode != FirewallApplyMode::Destructive) {
-    ensure_target_generation_inactive(false, target_v4_generation_);
-    if (effective_ipv6) {
-      ensure_target_generation_inactive(true, target_v6_generation_);
+    try {
+      const bool repair_output = mode != FirewallApplyMode::RulesOnly;
+      ensure_target_generation_inactive(false, target_v4_generation_,
+                                        repair_output);
+      if (effective_ipv6) {
+        ensure_target_generation_inactive(true, target_v6_generation_,
+                                          repair_output);
+      }
+    } catch (const FirewallRulesOnlyError &) {
+      throw;
+    } catch (const FirewallError &error) {
+      if (mode == FirewallApplyMode::RulesOnly) {
+        throw FirewallRulesOnlyError(
+            "RulesOnly generation reinspection failed: " +
+            std::string(error.what()));
+      }
+      throw;
     }
   }
 

@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -22,6 +24,8 @@ public:
   void prepare_apply(FirewallApplyMode mode) override;
   std::string static_set_name(const std::string &list_name,
                               int family) const override;
+  std::vector<std::string>
+  static_set_names(const std::string &list_name, int family) const override;
 
   // Buffer an ipset create command (hash:net family, optional timeout).
   void create_ipset(const std::string &set_name, int family,
@@ -66,6 +70,8 @@ private:
     std::string name;
     std::string family_str; // "inet" or "inet6"
     uint32_t timeout;       // entry TTL in seconds (0 = no timeout)
+    std::optional<uint32_t> hashsize;
+    std::optional<uint32_t> maxelem;
   };
 
   // Describes an iptables/ip6tables rule to be added to KeenPbrTable.
@@ -90,11 +96,19 @@ private:
     bool repair_output{false};
   };
 
-  // Build the 'create <name> hash:net family <f> [timeout <t>]' line.
+  struct StaticSetInspection {
+    LiveGenerationState generation{LiveGenerationState::Missing};
+    std::set<std::string> names;
+  };
+
+  // Build the 'create <name> hash:net family <f> [capacity] [timeout <t>]'
+  // line. -exist remains the final token for ipset restore compatibility.
   static std::string build_ipset_create_line(const PendingSet &ps);
   static bool is_dynamic_set_name(const std::string &set_name);
   static bool dynamic_set_schema_compatible(const std::string &saved_sets,
                                             const PendingSet &expected);
+  std::optional<std::string>
+  find_incompatible_dynamic_set_schema(bool effective_ipv6) const;
   void preflight_dynamic_set_schemas(bool effective_ipv6) const;
   void preflight_reused_set_schemas(bool effective_ipv6) const;
   static std::string
@@ -129,15 +143,25 @@ private:
   void validate_raw_prerouting_capability() const;
   LiveGenerationState inspect_live_generation(bool ipv6) const;
   GenerationInspection inspect_generation(bool ipv6) const;
+  StaticSetInspection inspect_static_sets(
+      bool ipv6, const GenerationInspection &inspection) const;
+  static StaticSetInspection parse_static_set_references(
+      const std::string &rules, bool ipv6);
   static GenerationPlan generation_plan_for_states(
       LiveGenerationState primary, LiveGenerationState secondary);
+  static FirewallSetGeneration static_target_for_mode(
+      FirewallApplyMode mode, LiveGenerationState live_static,
+      FirewallSetGeneration rule_target);
+  static void validate_target_generation(const GenerationPlan &plan,
+                                         FirewallSetGeneration expected);
   LiveGenerationState inspect_dispatcher(
       const char *command, const char *table, const std::string &dispatcher,
       const std::string &generation_a,
       const std::string &generation_b) const;
-  FirewallSetGeneration select_target_generation(bool ipv6) const;
+  FirewallSetGeneration select_target_generation(bool ipv6,
+                                                 bool repair_output) const;
   void ensure_target_generation_inactive(
-      bool ipv6, FirewallSetGeneration target) const;
+      bool ipv6, FirewallSetGeneration target, bool repair_output) const;
   void publish_dispatcher(bool ipv6, bool output,
                           FirewallSetGeneration generation) const;
   static LiveGenerationState
@@ -185,6 +209,9 @@ private:
   bool chain_v4_created_ = false;
   bool chain_v6_created_ = false;
   static const char *generation_chain(FirewallSetGeneration generation);
+  static std::string static_set_name_for_generation(
+      const std::string &list_name, int family,
+      FirewallSetGeneration generation);
   FirewallSetGeneration target_v4_generation_{FirewallSetGeneration::A};
   FirewallSetGeneration target_v6_generation_{FirewallSetGeneration::A};
   FirewallSetGeneration target_static_v4_generation_{FirewallSetGeneration::A};

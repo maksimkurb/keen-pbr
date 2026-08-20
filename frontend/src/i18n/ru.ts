@@ -489,6 +489,12 @@ export const ruTranslation = {
         tableStartLabel: "Начальное значение таблицы маршрутизации IP",
         tableStartHint:
           "ID таблицы маршрутизации для первого outbound. Каждый следующий outbound получает следующий ID.",
+        ipsetHashsizeLabel: "Размер хеш-таблицы IPSet",
+        ipsetHashsizeHint:
+          "Необязательная настройка только для iptables для каждого набора hash:net. Оставьте пустым для значения ipset по умолчанию (1024); с nftables не действует. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные dnsmasq адреса.",
+        ipsetMaxelemLabel: "Максимум элементов IPSet",
+        ipsetMaxelemHint:
+          "Необязательная настройка только для iptables для каждого набора hash:net. Оставьте пустым для значения ipset по умолчанию (65536); с nftables не действует. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные dnsmasq адреса.",
       },
       actions: {
         saving: "Сохранение...",

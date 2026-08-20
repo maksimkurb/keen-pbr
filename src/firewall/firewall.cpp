@@ -1,7 +1,23 @@
 #include "firewall.hpp"
 #include "../util/firewall_backend_utils.hpp"
 
+#include <algorithm>
+#include <limits>
+
 namespace keen_pbr3 {
+
+std::optional<uint32_t> normalize_ipset_hashsize(uint32_t requested) {
+  constexpr uint64_t kMinimumHashsize = 64;
+  const uint64_t target = std::max<uint64_t>(requested, kMinimumHashsize);
+  uint64_t normalized = 1;
+  while (normalized < target) {
+    normalized <<= 1;
+  }
+  if (normalized > std::numeric_limits<uint32_t>::max()) {
+    return std::nullopt;
+  }
+  return static_cast<uint32_t>(normalized);
+}
 
 const char *firewall_backend_name(FirewallBackend backend) {
   switch (backend) {

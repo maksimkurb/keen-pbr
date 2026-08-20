@@ -7,10 +7,16 @@
 #include "../src/lists/list_entry_visitor.hpp"
 
 #include <array>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -27,6 +33,27 @@ L4Proto parse_test_proto(const std::string &proto) {
   if (proto == "tcp/udp")
     return L4Proto::TcpUdp;
   throw std::invalid_argument("unexpected proto in test: " + proto);
+}
+
+class PathGuard {
+public:
+  PathGuard() : previous_(std::getenv("PATH") ? std::getenv("PATH") : "") {}
+  ~PathGuard() { (void)setenv("PATH", previous_.c_str(), 1); }
+
+  PathGuard(const PathGuard &) = delete;
+  PathGuard &operator=(const PathGuard &) = delete;
+
+private:
+  std::string previous_;
+};
+
+void write_executable(const std::filesystem::path &path,
+                      const std::string &contents) {
+  std::ofstream output(path);
+  REQUIRE(output.good());
+  output << contents;
+  output.close();
+  REQUIRE(chmod(path.c_str(), 0755) == 0);
 }
 
 } // namespace
@@ -46,12 +73,34 @@ public:
 
   static std::string build_ipset_create_line(const std::string &name,
                                              const std::string &family_str,
-                                             uint32_t timeout) {
+                                             uint32_t timeout,
+                                             std::optional<uint32_t> hashsize =
+                                                 std::nullopt,
+                                             std::optional<uint32_t> maxelem =
+                                                 std::nullopt) {
     IptablesFirewall::PendingSet ps;
     ps.name = name;
     ps.family_str = family_str;
     ps.timeout = timeout;
+    ps.hashsize = hashsize;
+    ps.maxelem = maxelem;
     return IptablesFirewall::build_ipset_create_line(ps);
+  }
+
+  static std::optional<uint32_t> normalize_ipset_hashsize(uint32_t requested) {
+    return keen_pbr3::normalize_ipset_hashsize(requested);
+  }
+
+  static std::string create_ipset_line_from_config(
+      const std::string &name, int family, uint32_t timeout,
+      std::optional<uint32_t> hashsize, std::optional<uint32_t> maxelem) {
+    IptablesFirewall firewall;
+    firewall.set_ipset_hashsize(hashsize);
+    firewall.set_ipset_maxelem(maxelem);
+    firewall.create_ipset(name, family, timeout);
+    REQUIRE(firewall.pending_sets_.size() == 1);
+    return IptablesFirewall::build_ipset_create_line(
+        firewall.pending_sets_.front());
   }
 
   static bool is_dynamic_set_name(const std::string &name) {
@@ -61,8 +110,12 @@ public:
   static bool dynamic_set_schema_compatible(const std::string &saved,
                                             const std::string &name,
                                             const std::string &family,
-                                            uint32_t timeout) {
-    IptablesFirewall::PendingSet set{name, family, timeout};
+                                            uint32_t timeout,
+                                            std::optional<uint32_t> hashsize =
+                                                std::nullopt,
+                                            std::optional<uint32_t> maxelem =
+                                                std::nullopt) {
+    IptablesFirewall::PendingSet set{name, family, timeout, hashsize, maxelem};
     return IptablesFirewall::dynamic_set_schema_compatible(saved, set);
   }
 
@@ -178,6 +231,33 @@ public:
   }
   static int state_invalid() {
     return static_cast<int>(IptablesFirewall::LiveGenerationState::Invalid);
+  }
+
+  static int static_set_generation(const std::string &rules, bool ipv6 = false) {
+    return static_cast<int>(IptablesFirewall::parse_static_set_references(
+                                rules, ipv6)
+                                .generation);
+  }
+
+  static std::set<std::string> static_set_names(const std::string &rules,
+                                                bool ipv6 = false) {
+    return IptablesFirewall::parse_static_set_references(rules, ipv6).names;
+  }
+
+  static FirewallSetGeneration static_target_for_mode(
+      FirewallApplyMode mode, int live_static,
+      FirewallSetGeneration rule_target) {
+    return IptablesFirewall::static_target_for_mode(
+        mode,
+        static_cast<IptablesFirewall::LiveGenerationState>(live_static),
+        rule_target);
+  }
+
+  static std::string static_name_for_generation(FirewallSetGeneration generation,
+                                                const std::string &name,
+                                                int family) {
+    return IptablesFirewall::static_set_name_for_generation(name, family,
+                                                             generation);
   }
 
   static FirewallSetGeneration target_for_states(int primary, int secondary) {
@@ -461,6 +541,31 @@ TEST_CASE("build_ipset_create_line: IPv6 without timeout") {
   CHECK(line == "create myset hash:net family inet6 -exist\n");
 }
 
+TEST_CASE("build_ipset_create_line: capacity options precede timeout and -exist") {
+  auto line = T::build_ipset_create_line("myset", "inet", 60, 2048, 65536);
+  CHECK(line ==
+        "create myset hash:net family inet hashsize 2048 maxelem 65536 "
+        "timeout 60 -exist\n");
+}
+
+TEST_CASE("build_ipset_create_line: each capacity option is independently optional") {
+  CHECK(T::build_ipset_create_line("myset", "inet", 0, 4096) ==
+        "create myset hash:net family inet hashsize 4096 -exist\n");
+  CHECK(T::build_ipset_create_line("myset", "inet", 0, std::nullopt, 131072) ==
+        "create myset hash:net family inet maxelem 131072 -exist\n");
+}
+
+TEST_CASE("create_ipset: configured capacity options apply to static and dynamic sets") {
+  CHECK(T::create_ipset_line_from_config("kpbr4s_static", AF_INET, 0, 2048,
+                                         65536) ==
+        "create kpbr4s_static hash:net family inet hashsize 2048 maxelem "
+        "65536 -exist\n");
+  CHECK(T::create_ipset_line_from_config("kpbr4d_dynamic", AF_INET, 300,
+                                         2048, 65536) ==
+        "create kpbr4d_dynamic hash:net family inet hashsize 2048 maxelem "
+        "65536 timeout 300 -exist\n");
+}
+
 TEST_CASE("ipset reconcile: only dnsmasq names are dynamic") {
   CHECK(T::is_dynamic_set_name("kpbr4d_domains"));
   CHECK(T::is_dynamic_set_name("kpbr6d_domains"));
@@ -489,8 +594,48 @@ TEST_CASE("ipset reconcile: dynamic schema accepts terse ipset XML") {
 </ipsets>)",
       "kpbr4d_domains", "inet", 300));
   CHECK(T::dynamic_set_schema_compatible(
-      R"(<ipsets><ipset name="kpbr6d_domains"><type>hash:net</type><header><family>inet6</family></header></ipset></ipsets>)",
+      R"(<ipsets><ipset name="kpbr6d_domains"><type>hash:net</type><header><family>inet6</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)",
       "kpbr6d_domains", "inet6", 0));
+}
+
+TEST_CASE("ipset schema capacities: maxelem is exact and hashsize is grown") {
+  const auto xml = [](uint32_t hashsize, uint32_t maxelem) {
+    return "<ipsets><ipset name=\"kpbr4d_domains\"><type>hash:net</type>"
+           "<header><family>inet</family><hashsize>" +
+           std::to_string(hashsize) + "</hashsize><maxelem>" +
+           std::to_string(maxelem) + "</maxelem></header></ipset></ipsets>";
+  };
+
+  CHECK(T::dynamic_set_schema_compatible(xml(128, 65536), "kpbr4d_domains",
+                                         "inet", 0, 100, 65536));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(xml(128, 131072),
+                                               "kpbr4d_domains", "inet", 0,
+                                               100, 65536));
+  CHECK(T::dynamic_set_schema_compatible(xml(256, 65536), "kpbr4d_domains",
+                                         "inet", 0, 129, 65536));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(xml(128, 65536),
+                                               "kpbr4d_domains", "inet", 0,
+                                               129, 65536));
+}
+
+TEST_CASE("ipset schema capacities: missing and duplicate nodes are rejected") {
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><maxelem>65536</maxelem></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 0));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><hashsize>2048</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 0));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem><maxelem>131072</maxelem></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 0));
+}
+
+TEST_CASE("ipset hashsize normalization uses minimum and power-of-two growth") {
+  CHECK(*T::normalize_ipset_hashsize(1) == 64);
+  CHECK(*T::normalize_ipset_hashsize(1024) == 1024);
+  CHECK(*T::normalize_ipset_hashsize(1025) == 2048);
+  CHECK(*T::normalize_ipset_hashsize(2147483648U) == 2147483648U);
+  CHECK_FALSE(T::normalize_ipset_hashsize(4294967295U).has_value());
 }
 
 TEST_CASE("ipset reconcile: dynamic schema rejects incompatible live sets") {
@@ -522,7 +667,7 @@ TEST_CASE("ipset reconcile: dynamic schema rejects malformed or ambiguous XML") 
 
 TEST_CASE("RulesOnly schema helper accepts empty compatible static sets") {
   CHECK(T::dynamic_set_schema_compatible(
-      R"(<ipsets><ipset name="kpbr4s_empty"><type>hash:net</type><header><family>inet</family></header></ipset></ipsets>)",
+      R"(<ipsets><ipset name="kpbr4s_empty"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)",
       "kpbr4s_empty", "inet", 0));
 }
 
@@ -584,6 +729,380 @@ TEST_CASE("RulesOnly generation plan keeps static and rule slots distinct") {
   CHECK(T::plan_repairs_output(T::state_b(), T::state_a()));
 }
 
+TEST_CASE("RulesOnly derives static slot from live match-set references") {
+  CHECK(T::static_set_generation(
+            "-A KeenPbrTable_B -m set --match-set kpbr4s_remote dst -j MARK\n") ==
+        T::state_a());
+  CHECK(T::static_set_generation(
+            "-A KeenPbrTable_A -m set --match-set kpbr4S_remote dst -j MARK\n") ==
+        T::state_b());
+  CHECK(T::static_set_generation(
+            "-A KeenPbrTable_A -m set --match-set kpbr4s_remote dst -j MARK\n"
+            "-A KeenPbrTable_A -m set --match-set kpbr4s_other dst -j RETURN\n") ==
+        T::state_a());
+  CHECK(T::static_set_generation(
+            "-A KeenPbrTable_A -m set --match-set kpbr4s_remote dst -j MARK\n"
+            "-A KeenPbrTable_A -m set --match-set kpbr4S_other dst -j RETURN\n") ==
+        T::state_invalid());
+  CHECK(T::static_set_generation(
+            "-A KeenPbrTable_A -m set --match-set kpbr4d_remote dst -j MARK\n") ==
+        T::state_missing());
+  CHECK(T::static_set_generation(
+            "-A KeenPbrTable_B -m set --match-set kpbr6S_remote dst -j MARK\n",
+            true) == T::state_b());
+  CHECK(T::static_set_names(
+            "-A KeenPbrTable_B -m set --match-set kpbr4S_remote dst -j MARK\n") ==
+        std::set<std::string>{"kpbr4S_remote"});
+}
+
+TEST_CASE("static generation transition helper covers RulesOnly and refreshes") {
+  CHECK(T::static_target_for_mode(FirewallApplyMode::RulesOnly, T::state_a(),
+                                  FirewallSetGeneration::B) ==
+        FirewallSetGeneration::A);
+  CHECK(T::static_target_for_mode(FirewallApplyMode::RulesOnly, T::state_b(),
+                                  FirewallSetGeneration::A) ==
+        FirewallSetGeneration::B);
+  CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets, T::state_a(),
+                                  FirewallSetGeneration::B) ==
+        FirewallSetGeneration::B);
+  CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets, T::state_b(),
+                                  FirewallSetGeneration::A) ==
+        FirewallSetGeneration::A);
+  CHECK(T::static_target_for_mode(FirewallApplyMode::StaticSetsOnly,
+                                  T::state_a(), FirewallSetGeneration::A) ==
+        FirewallSetGeneration::B);
+  CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets,
+                                  T::state_missing(), FirewallSetGeneration::B) ==
+        FirewallSetGeneration::B);
+
+  CHECK(T::static_name_for_generation(FirewallSetGeneration::A, "remote",
+                                      AF_INET) == "kpbr4s_remote");
+  CHECK(T::static_name_for_generation(FirewallSetGeneration::B, "remote",
+                                      AF_INET) == "kpbr4S_remote");
+  CHECK(T::static_name_for_generation(FirewallSetGeneration::A, "remote",
+                                      AF_INET6) == "kpbr6s_remote");
+  CHECK(T::static_name_for_generation(FirewallSetGeneration::B, "remote",
+                                      AF_INET6) == "kpbr6S_remote");
+}
+
+TEST_CASE("Destructive apply preserves compatible dynamic schemas") {
+  struct ApplyResult {
+    bool threw = false;
+    std::string mutations;
+  };
+
+  const auto run_apply = [](const std::string &schema_xml,
+                            int names_status = 0,
+                            int schema_status = 0,
+                            std::optional<uint32_t> maxelem = std::nullopt) {
+    const auto sandbox = std::filesystem::temp_directory_path() /
+                         ("keen-pbr-iptables-destructive-" +
+                          std::to_string(static_cast<long long>(getpid())) +
+                          "-" + std::to_string(names_status) + "-" +
+                          std::to_string(schema_status) + "-" +
+                          std::to_string(maxelem.value_or(0)));
+    std::filesystem::remove_all(sandbox);
+    std::filesystem::create_directories(sandbox);
+    const auto mutation_log = sandbox / "ipset-mutations.log";
+
+    const auto write_iptables = [](const std::filesystem::path &path) {
+      write_executable(
+          path,
+          "#!/bin/sh\n"
+          "last=''\n"
+          "for arg in \"$@\"; do last=\"$arg\"; done\n"
+          "if [ \"$last\" = \"PREROUTING\" ]; then\n"
+          "  /bin/printf '%s\\n' '-A PREROUTING -j KeenPbrTable'\n"
+          "elif [ \"$last\" = \"OUTPUT\" ]; then\n"
+          "  /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrTable_OUTPUT'\n"
+          "elif [ \"$last\" = \"KeenPbrTable\" ]; then\n"
+          "  /bin/printf '%s\\n' '-N KeenPbrTable' '-A KeenPbrTable -j KeenPbrTable_A'\n"
+          "elif [ \"$last\" = \"KeenPbrTable_OUTPUT\" ]; then\n"
+          "  /bin/printf '%s\\n' '-N KeenPbrTable_OUTPUT' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_A'\n"
+          "fi\n"
+          "exit 0\n");
+    };
+    write_iptables(sandbox / "iptables");
+    write_iptables(sandbox / "ip6tables");
+    write_executable(
+        sandbox / "iptables-restore",
+        "#!/bin/sh\n"
+        "/bin/cat >/dev/null\n"
+        "exit 0\n");
+    write_executable(
+        sandbox / "ipset",
+        "#!/bin/sh\n"
+        "mutation_log='" + mutation_log.string() + "'\n"
+        "if [ \"$1\" = \"list\" ] && [ \"$2\" = \"-n\" ]; then\n"
+        "  /bin/printf '%s\\n' kpbr4d_domains\n"
+        "  exit " + std::to_string(names_status) + "\n"
+        "fi\n"
+        "if [ \"$1\" = \"list\" ] && [ \"$2\" = \"-t\" ]; then\n"
+        "  /bin/printf '%s\\n' '" + schema_xml + "'\n"
+        "  exit " + std::to_string(schema_status) + "\n"
+        "fi\n"
+        "if [ \"$1\" = \"save\" ]; then\n"
+        "  /bin/printf '%s\\n' 'create kpbr4d_domains hash:net family inet hashsize 1024 maxelem 65536'\n"
+        "  exit 0\n"
+        "fi\n"
+        "if [ \"$1\" = \"flush\" ] || [ \"$1\" = \"destroy\" ]; then\n"
+        "  /bin/printf '%s\\n' \"$*\" >> \"$mutation_log\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "if [ \"$1\" = \"restore\" ]; then\n"
+        "  /bin/cat >/dev/null\n"
+        "  exit 0\n"
+        "fi\n"
+        "exit 0\n");
+
+    PathGuard path_guard;
+    const char *old_path = std::getenv("PATH");
+    const std::string path = sandbox.string() + ":" +
+                             (old_path == nullptr ? std::string{} : old_path);
+    REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+
+    IptablesFirewall firewall;
+    firewall.set_ipv6_enabled(false);
+    firewall.set_clear_dynamic_sets_on_apply(false);
+    firewall.set_ipset_maxelem(maxelem);
+    firewall.prepare_apply(FirewallApplyMode::Destructive);
+    firewall.create_ipset("kpbr4d_domains", AF_INET);
+
+    ApplyResult result;
+    try {
+      firewall.apply(FirewallApplyMode::Destructive);
+    } catch (const FirewallError &) {
+      result.threw = true;
+    }
+    std::ifstream input(mutation_log);
+    if (input.good()) {
+      std::ostringstream contents;
+      contents << input.rdbuf();
+      result.mutations = contents.str();
+    }
+    std::filesystem::remove_all(sandbox);
+    return result;
+  };
+
+  const auto compatible_xml =
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)";
+  const auto compatible = run_apply(compatible_xml);
+  CHECK_FALSE(compatible.threw);
+  CHECK(compatible.mutations.empty());
+
+  const auto incompatible_xml =
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)";
+  const auto incompatible = run_apply(incompatible_xml, 0, 0, 131072);
+  CHECK_FALSE(incompatible.threw);
+  CHECK(incompatible.mutations.find("flush kpbr4d_domains") !=
+        std::string::npos);
+  CHECK(incompatible.mutations.find("destroy kpbr4d_domains") !=
+        std::string::npos);
+
+  const auto inspection_failed = run_apply(compatible_xml, 1);
+  CHECK(inspection_failed.threw);
+  CHECK(inspection_failed.mutations.empty());
+}
+
+TEST_CASE("RulesOnly stale generation is typed and does not repair OUTPUT") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-rules-only-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox);
+  const auto count_file = sandbox / "iptables-count";
+  const auto restore_log = sandbox / "restore.log";
+
+  write_executable(
+      sandbox / "iptables",
+      "#!/bin/sh\n"
+      "count_file='" + count_file.string() + "'\n"
+      "count=0\n"
+      "if [ -f \"$count_file\" ]; then count=$(/bin/cat \"$count_file\"); fi\n"
+      "count=$((count + 1))\n"
+      "/bin/printf '%s\\n' \"$count\" > \"$count_file\"\n"
+      "primary=A\n"
+      "secondary=A\n"
+      "if [ \"$count\" -gt 4 ]; then primary=B; secondary=A; fi\n"
+      "last=''\n"
+      "for arg in \"$@\"; do last=\"$arg\"; done\n"
+      "if [ \"$last\" = \"-S\" ]; then\n"
+      "  /bin/printf '%s\\n' \"-N KeenPbrTable\" \"-A KeenPbrTable -j KeenPbrTable_$primary\" \"-N KeenPbrTable_OUTPUT\" \"-A KeenPbrTable_OUTPUT -j KeenPbrTable_$secondary\"\n"
+      "else\n"
+      "  /bin/printf '%s\\n' \"-N $last\" \"-A $last -m set --match-set kpbr4s_remote dst -j MARK\"\n"
+      "fi\n");
+  write_executable(
+      sandbox / "ipset",
+      "#!/bin/sh\n"
+      "if [ \"$1\" = \"list\" ] && [ \"$2\" = \"-n\" ]; then\n"
+      "  /bin/printf '%s\\n' kpbr4s_remote\n"
+      "  exit 0\n"
+      "fi\n"
+      "if [ \"$1\" = \"list\" ] && [ \"$2\" = \"-t\" ]; then\n"
+      "  /bin/printf '%s\\n' '<ipsets><ipset name=\"kpbr4s_remote\"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>'\n"
+      "  exit 0\n"
+      "fi\n"
+      "exit 1\n");
+  write_executable(
+      sandbox / "iptables-restore",
+      "#!/bin/sh\n"
+      "/bin/printf '%s\\n' invoked >> '" + restore_log.string() + "'\n"
+      "exit 0\n");
+
+  PathGuard path_guard;
+  const char *old_path = std::getenv("PATH");
+  const std::string path = sandbox.string() + ":" +
+                           (old_path == nullptr ? std::string{} : old_path);
+  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+
+  IptablesFirewall firewall;
+  firewall.set_ipv6_enabled(false);
+  firewall.prepare_apply(FirewallApplyMode::RulesOnly);
+  firewall.create_ipset("kpbr4s_remote", AF_INET);
+  FirewallRuleCriteria criteria;
+  criteria.dst_set_name = "kpbr4s_remote";
+  firewall.create_mark_rule(1, criteria);
+
+  CHECK_THROWS_AS(firewall.apply(FirewallApplyMode::RulesOnly),
+                  FirewallRulesOnlyError);
+  CHECK_FALSE(std::filesystem::exists(restore_log));
+  std::filesystem::remove_all(sandbox);
+}
+
+TEST_CASE("consecutive RulesOnly applies flip rule slots while reusing static A") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-rules-only-consecutive-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox);
+  const auto state_file = sandbox / "generation";
+  const auto restore_count_file = sandbox / "restore-count";
+  const auto restore_log = sandbox / "restore-generations.log";
+  const auto mutation_log = sandbox / "ipset-mutations.log";
+  const auto restore_one = sandbox / "restore-1.rules";
+  const auto restore_two = sandbox / "restore-2.rules";
+  {
+    std::ofstream initial_state(state_file);
+    REQUIRE(initial_state.good());
+    initial_state << "A\n";
+  }
+
+  write_executable(
+      sandbox / "iptables",
+      "#!/bin/sh\n"
+      "state_file='" + state_file.string() + "'\n"
+      "state=A\n"
+      "if [ -f \"$state_file\" ]; then state=$(/bin/cat \"$state_file\"); fi\n"
+      "last=''\n"
+      "for arg in \"$@\"; do last=\"$arg\"; done\n"
+      "if [ \"$last\" = \"-S\" ]; then\n"
+      "  /bin/printf '%s\\n' \"-N KeenPbrTable\" \"-A KeenPbrTable -j KeenPbrTable_$state\" \"-N KeenPbrTable_OUTPUT\" \"-A KeenPbrTable_OUTPUT -j KeenPbrTable_$state\"\n"
+      "  exit 0\n"
+      "fi\n"
+      "case \"$last\" in\n"
+      "  KeenPbrTable|KeenPbrTable_OUTPUT)\n"
+      "    /bin/printf '%s\\n' \"-N $last\" \"-A $last -j KeenPbrTable_$state\"\n"
+      "    ;;\n"
+      "  KeenPbrTable_A|KeenPbrTable_B)\n"
+      "    /bin/printf '%s\\n' \"-N $last\" \"-A $last -m set --match-set kpbr4s_remote dst -j MARK\"\n"
+      "    ;;\n"
+      "  PREROUTING)\n"
+      "    /bin/printf '%s\\n' '-A PREROUTING -j KeenPbrTable'\n"
+      "    ;;\n"
+      "  OUTPUT)\n"
+      "    /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrTable_OUTPUT'\n"
+      "    ;;\n"
+      "esac\n"
+      "exit 0\n");
+  write_executable(
+      sandbox / "ipset",
+      "#!/bin/sh\n"
+      "mutation_log='" + mutation_log.string() + "'\n"
+      "if [ \"$1\" = \"restore\" ] || [ \"$1\" = \"flush\" ]; then\n"
+      "  /bin/printf '%s\\n' \"$*\" >> \"$mutation_log\"\n"
+      "  exit 42\n"
+      "fi\n"
+      "if [ \"$1\" = \"list\" ] && [ \"$2\" = \"-n\" ]; then\n"
+      "  /bin/printf '%s\\n' kpbr4s_remote\n"
+      "  exit 0\n"
+      "fi\n"
+      "if [ \"$1\" = \"list\" ] && [ \"$2\" = \"-t\" ]; then\n"
+      "  /bin/printf '%s\\n' '<ipsets><ipset name=\"kpbr4s_remote\"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>'\n"
+      "  exit 0\n"
+      "fi\n"
+      "exit 1\n");
+  write_executable(
+      sandbox / "iptables-restore",
+      "#!/bin/sh\n"
+      "state_file='" + state_file.string() + "'\n"
+      "count_file='" + restore_count_file.string() + "'\n"
+      "restore_log='" + restore_log.string() + "'\n"
+      "count=0\n"
+      "if [ -f \"$count_file\" ]; then count=$(/bin/cat \"$count_file\"); fi\n"
+      "count=$((count + 1))\n"
+      "/bin/printf '%s\\n' \"$count\" > \"$count_file\"\n"
+      "input_file='" + sandbox.string() + "/restore-'\"$count\"'.rules'\n"
+      "/bin/cat > \"$input_file\"\n"
+      "target=''\n"
+      "while IFS= read -r line; do\n"
+      "  case \"$line\" in\n"
+      "    '-A KeenPbrTable -j KeenPbrTable_A') target=A ;;\n"
+      "    '-A KeenPbrTable -j KeenPbrTable_B') target=B ;;\n"
+      "  esac\n"
+      "done < \"$input_file\"\n"
+      "/bin/printf '%s\\n' \"$target\" >> \"$restore_log\"\n"
+      "if [ -n \"$target\" ]; then /bin/printf '%s\\n' \"$target\" > \"$state_file\"; fi\n"
+      "exit 0\n");
+
+  PathGuard path_guard;
+  const char *old_path = std::getenv("PATH");
+  const std::string path = sandbox.string() + ":" +
+                           (old_path == nullptr ? std::string{} : old_path);
+  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+
+  IptablesFirewall firewall;
+  firewall.set_ipv6_enabled(false);
+  const auto apply_rules_only = [&] {
+    firewall.prepare_apply(FirewallApplyMode::RulesOnly);
+    CHECK(firewall.static_set_name("remote", AF_INET) == "kpbr4s_remote");
+    firewall.create_ipset("kpbr4s_remote", AF_INET);
+    FirewallRuleCriteria criteria;
+    criteria.dst_set_name = "kpbr4s_remote";
+    firewall.create_mark_rule(1, criteria);
+    firewall.apply(FirewallApplyMode::RulesOnly);
+  };
+
+  apply_rules_only();
+  apply_rules_only();
+
+  std::ifstream generations_input(restore_log);
+  REQUIRE(generations_input.good());
+  std::vector<std::string> generations;
+  std::string generation;
+  while (std::getline(generations_input, generation)) {
+    generations.push_back(generation);
+  }
+  CHECK(generations == std::vector<std::string>{"B", "A"});
+  CHECK_FALSE(std::filesystem::exists(mutation_log));
+
+  const auto read_rules = [](const std::filesystem::path &path) {
+    std::ifstream input(path);
+    std::ostringstream contents;
+    contents << input.rdbuf();
+    return contents.str();
+  };
+  const auto first_rules = read_rules(restore_one);
+  const auto second_rules = read_rules(restore_two);
+  CHECK(first_rules.find("-A KeenPbrTable_B") != std::string::npos);
+  CHECK(second_rules.find("-A KeenPbrTable_A") != std::string::npos);
+  CHECK(first_rules.find("--match-set kpbr4s_remote") != std::string::npos);
+  CHECK(second_rules.find("--match-set kpbr4s_remote") != std::string::npos);
+  CHECK(first_rules.find("kpbr4S_remote") == std::string::npos);
+  CHECK(second_rules.find("kpbr4S_remote") == std::string::npos);
+
+  std::filesystem::remove_all(sandbox);
+}
+
 TEST_CASE("RulesOnly rules can target inactive generation while using active sets") {
   const auto a_sets_b_rules = T::build_rules_for_slots(
       FirewallSetGeneration::B, FirewallSetGeneration::A, false);
@@ -594,6 +1113,17 @@ TEST_CASE("RulesOnly rules can target inactive generation while using active set
       FirewallSetGeneration::A, FirewallSetGeneration::B, true);
   CHECK(b_sets_a_rules.find("KeenPbrTable_A") != std::string::npos);
   CHECK(b_sets_a_rules.find("kpbr6S_sample") != std::string::npos);
+}
+
+TEST_CASE("set-refresh modes publish new rules with the inactive static slot") {
+  // A prior RulesOnly apply may leave live B rules referring to static A
+  // sets. PreserveSets and StaticSetsOnly must refresh B, then publish A
+  // rules that refer to B rather than flushing the still-live A sets.
+  const auto refreshed = T::build_rules_for_slots(
+      FirewallSetGeneration::A, FirewallSetGeneration::B, false);
+  CHECK(refreshed.find("-A KeenPbrTable_A -m set --match-set kpbr4S_sample") !=
+        std::string::npos);
+  CHECK(refreshed.find("--match-set kpbr4s_sample") == std::string::npos);
 }
 
 TEST_CASE("live generation parser rejects damaged dispatchers") {

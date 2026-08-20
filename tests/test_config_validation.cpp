@@ -1333,6 +1333,51 @@ TEST_CASE("daemon.clear_dynamic_sets_on_apply: rejects non-boolean value") {
     CHECK(issues[0].path == "daemon.clear_dynamic_sets_on_apply");
 }
 
+TEST_CASE("daemon ipset capacities: accept positive uint32 values") {
+    const auto cfg = parse_test_config(
+        R"({"daemon":{"ipset_hashsize":1024,"ipset_maxelem":65536}})");
+    REQUIRE(cfg.daemon.has_value());
+    REQUIRE(cfg.daemon->ipset_hashsize.has_value());
+    REQUIRE(cfg.daemon->ipset_maxelem.has_value());
+    CHECK(*cfg.daemon->ipset_hashsize == 1024);
+    CHECK(*cfg.daemon->ipset_maxelem == 65536);
+}
+
+TEST_CASE("daemon ipset capacities: omitted and null remain unset") {
+    const auto omitted = parse_test_config(R"({"daemon":{}})");
+    const auto null_values = parse_test_config(
+        R"({"daemon":{"ipset_hashsize":null,"ipset_maxelem":null}})");
+    REQUIRE(omitted.daemon.has_value());
+    REQUIRE(null_values.daemon.has_value());
+    CHECK_FALSE(omitted.daemon->ipset_hashsize.has_value());
+    CHECK_FALSE(omitted.daemon->ipset_maxelem.has_value());
+    CHECK_FALSE(null_values.daemon->ipset_hashsize.has_value());
+    CHECK_FALSE(null_values.daemon->ipset_maxelem.has_value());
+}
+
+TEST_CASE("daemon ipset capacities: reject non-positive and out-of-range values") {
+    for (const auto& field : {"ipset_hashsize", "ipset_maxelem"}) {
+        for (const auto& value : {"0", "-1", "4294967296"}) {
+            const auto issues = validate_issues(
+                std::string("{\"daemon\":{\"") + field + "\":" + value + "}}");
+            REQUIRE(issues.size() == 1);
+            CHECK(issues[0].path == std::string("daemon.") + field);
+        }
+    }
+    const auto hashsize_overflow = validate_issues(
+        R"({"daemon":{"ipset_hashsize":2147483649}})");
+    REQUIRE(hashsize_overflow.size() == 1);
+    CHECK(hashsize_overflow[0].path == "daemon.ipset_hashsize");
+}
+
+TEST_CASE("daemon ipset capacities: reject non-integer values") {
+    const auto issues = parse_issues(
+        R"({"daemon":{"ipset_hashsize":"1024","ipset_maxelem":1.5}})");
+    REQUIRE(issues.size() == 2);
+    CHECK(issues[0].path == "daemon.ipset_hashsize");
+    CHECK(issues[1].path == "daemon.ipset_maxelem");
+}
+
 TEST_CASE("daemon.reuse_static_sets_on_runtime_refresh: accepts explicit policy") {
     auto enabled = parse_test_config(
         R"({"daemon":{"reuse_static_sets_on_runtime_refresh":true}})");

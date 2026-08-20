@@ -47,6 +47,8 @@ type SettingsDraft = {
   skipMarkedPackets: boolean
   clearDynamicSetsOnApply: boolean
   ipv6Enabled: boolean
+  ipsetHashsize: string
+  ipsetMaxelem: string
   inboundInterfaces: string[]
   listsAutoupdateEnabled: boolean
   cron: string
@@ -61,6 +63,8 @@ const fallbackDraft: SettingsDraft = {
   skipMarkedPackets: true,
   clearDynamicSetsOnApply: true,
   ipv6Enabled: true,
+  ipsetHashsize: "",
+  ipsetMaxelem: "",
   inboundInterfaces: [],
   listsAutoupdateEnabled: false,
   cron: "0 4 * * 0",
@@ -75,6 +79,8 @@ const SETTINGS_FIELD_NAMES = {
   skipMarkedPackets: "skipMarkedPackets",
   clearDynamicSetsOnApply: "clearDynamicSetsOnApply",
   ipv6Enabled: "ipv6Enabled",
+  ipsetHashsize: "ipsetHashsize",
+  ipsetMaxelem: "ipsetMaxelem",
   inboundInterfaces: "inboundInterfaces",
   listsAutoupdateEnabled: "listsAutoupdateEnabled",
   cron: "cron",
@@ -615,6 +621,82 @@ function LoadedGeneralConfigPage({
                 )
               }}
             </form.Field>
+
+            <FieldSeparator />
+
+            <form.Field name={SETTINGS_FIELD_NAMES.ipsetHashsize}>
+              {(field) => {
+                const error = getFirstFieldError(field.state.meta.errors)
+
+                return (
+                  <Field invalid={Boolean(error)}>
+                    <FieldLabel htmlFor="ipset-hashsize">
+                      {t("pages.settings.advanced.ipsetHashsizeLabel")}
+                    </FieldLabel>
+                    <FieldContent>
+                      <Input
+                        aria-invalid={Boolean(error)}
+                        id="ipset-hashsize"
+                        inputMode="numeric"
+                        max={2147483648}
+                        min={1}
+                        onBlur={field.handleBlur}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
+                        placeholder="1024"
+                        type="number"
+                        value={field.state.value}
+                      />
+                      <FieldHint
+                        description={t(
+                          "pages.settings.advanced.ipsetHashsizeHint"
+                        )}
+                        error={error ?? null}
+                      />
+                    </FieldContent>
+                  </Field>
+                )
+              }}
+            </form.Field>
+
+            <FieldSeparator />
+
+            <form.Field name={SETTINGS_FIELD_NAMES.ipsetMaxelem}>
+              {(field) => {
+                const error = getFirstFieldError(field.state.meta.errors)
+
+                return (
+                  <Field invalid={Boolean(error)}>
+                    <FieldLabel htmlFor="ipset-maxelem">
+                      {t("pages.settings.advanced.ipsetMaxelemLabel")}
+                    </FieldLabel>
+                    <FieldContent>
+                      <Input
+                        aria-invalid={Boolean(error)}
+                        id="ipset-maxelem"
+                        inputMode="numeric"
+                        max={4294967295}
+                        min={1}
+                        onBlur={field.handleBlur}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
+                        placeholder="65536"
+                        type="number"
+                        value={field.state.value}
+                      />
+                      <FieldHint
+                        description={t(
+                          "pages.settings.advanced.ipsetMaxelemHint"
+                        )}
+                        error={error ?? null}
+                      />
+                    </FieldContent>
+                  </Field>
+                )
+              }}
+            </form.Field>
           </FieldGroup>
         </CardContent>
       </Card>
@@ -739,6 +821,8 @@ function getDraftFromConfig(config: ConfigObject): SettingsDraft {
       config.daemon?.clear_dynamic_sets_on_apply ??
       fallbackDraft.clearDynamicSetsOnApply,
     ipv6Enabled: config.daemon?.ipv6_enabled ?? fallbackDraft.ipv6Enabled,
+    ipsetHashsize: toStringInt(config.daemon?.ipset_hashsize, ""),
+    ipsetMaxelem: toStringInt(config.daemon?.ipset_maxelem, ""),
     inboundInterfaces:
       config.route?.inbound_interfaces ?? fallbackDraft.inboundInterfaces,
     listsAutoupdateEnabled:
@@ -768,6 +852,8 @@ function buildUpdatedConfig(
       skip_marked_packets: draft.skipMarkedPackets,
       clear_dynamic_sets_on_apply: draft.clearDynamicSetsOnApply,
       ipv6_enabled: draft.ipv6Enabled,
+      ipset_hashsize: toOptionalBackendInteger(draft.ipsetHashsize),
+      ipset_maxelem: toOptionalBackendInteger(draft.ipsetMaxelem),
     },
     route: {
       ...config.route,
@@ -804,7 +890,7 @@ function toHex32(value: string | undefined, fallback: string) {
   return `0x${normalized.padStart(8, "0")}`
 }
 
-function toStringInt(value: number | undefined, fallback: string) {
+function toStringInt(value: number | null | undefined, fallback: string) {
   if (!Number.isInteger(value)) {
     return fallback
   }
@@ -827,6 +913,15 @@ function toBackendIntegerValue(parsed: number | null, raw: string): number {
   }
 
   return raw as unknown as number
+}
+
+function toOptionalBackendInteger(raw: string): number | undefined {
+  if (!raw.trim()) {
+    return undefined
+  }
+
+  const parsed = parseStrictDecimalToNumber(raw)
+  return parsed ?? (raw as unknown as number)
 }
 
 function getCrontabGuruUrl(value: string) {
@@ -856,6 +951,10 @@ function resolveSettingsFieldPath(path: string): SettingsFieldName | undefined {
       return SETTINGS_FIELD_NAMES.clearDynamicSetsOnApply
     case "daemon.ipv6_enabled":
       return SETTINGS_FIELD_NAMES.ipv6Enabled
+    case "daemon.ipset_hashsize":
+      return SETTINGS_FIELD_NAMES.ipsetHashsize
+    case "daemon.ipset_maxelem":
+      return SETTINGS_FIELD_NAMES.ipsetMaxelem
     case "lists_autoupdate.enabled":
       return SETTINGS_FIELD_NAMES.listsAutoupdateEnabled
     case "lists_autoupdate.cron":

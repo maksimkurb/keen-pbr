@@ -298,7 +298,8 @@ void Daemon::reconcile_static_routing() {
     policy_rules_.adopt_desired(desired_rules.get_rules());
 }
 
-void Daemon::apply_firewall(FirewallApplyMode mode) {
+void Daemon::apply_firewall(FirewallApplyMode mode,
+                            bool force_clear_dynamic_sets) {
     const FirewallGlobalPrefilter prefilter = build_firewall_global_prefilter(config_);
     firewall_state_.set_rules(apply_runtime_firewall(
         config_,
@@ -307,7 +308,8 @@ void Daemon::apply_firewall(FirewallApplyMode mode) {
         list_service_.cache_manager(),
         *firewall_,
         mode,
-        &firewall_state_.get_rules()));
+        &firewall_state_.get_rules(),
+        force_clear_dynamic_sets));
     (void)conntrack_manager_.reconcile(
         ConntrackPolicy{prefilter.skip_established_or_dnat});
 }
@@ -707,6 +709,14 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         throw DaemonError("reconcile_prepared_runtime must run on the control/event-loop thread");
     }
 
+    const auto firewall_policy = firewall_config_apply_policy(
+        firewall_->backend(), config_, prepared.config);
+    if (firewall_policy.force_clear_dynamic_sets) {
+        Logger::instance().warn(
+            "iptables ipset capacity changed; recreating owned ipsets and "
+            "clearing dnsmasq-learned entries");
+    }
+
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
 
     if (lists_autoupdate_task_id_ >= 0) {
@@ -742,7 +752,8 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
     }
     reconcile_static_routing();
     (void)refresh_keenetic_dns_cache(true);
-    apply_firewall(FirewallApplyMode::PreserveSets);
+    apply_firewall(firewall_policy.mode,
+                   firewall_policy.force_clear_dynamic_sets);
     routing_runtime_active_ = true;
     transition_runtime_or_throw(RuntimeState::applying, "config apply");
     apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);

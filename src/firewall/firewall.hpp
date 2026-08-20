@@ -125,6 +125,11 @@ enum class FirewallApplyMode : uint8_t {
 
 enum class FirewallSetGeneration : uint8_t { A, B };
 
+// Return the kernel-normalized initial hashsize for an ipset declaration.
+// The result is absent when the normalized value cannot be represented by
+// ipset's uint32 command representation.
+std::optional<uint32_t> normalize_ipset_hashsize(uint32_t requested);
+
 // Abstract firewall interface for managing IP sets and packet marking rules.
 // Both iptables and nftables backends implement this interface.
 //
@@ -144,6 +149,15 @@ public:
   virtual std::string static_set_name(const std::string &list_name,
                                       int family) const {
     return std::string(family == AF_INET6 ? "kpbr6_" : "kpbr4_") + list_name;
+  }
+
+  // Return every physical static-set name that may represent this logical
+  // list for the backend. Most backends have one stable name; A/B backends
+  // expose both generations so RulesOnly can reject stale realized state
+  // instead of treating the list as empty.
+  virtual std::vector<std::string>
+  static_set_names(const std::string &list_name, int family) const {
+    return {static_set_name(list_name, family)};
   }
 
   virtual std::string dynamic_set_name(const std::string &list_name,
@@ -209,6 +223,24 @@ public:
     return clear_dynamic_sets_on_apply_;
   }
 
+  // Optional ipset capacity hints. The iptables backend includes these in
+  // hash:net declarations; nftables deliberately ignores them.
+  void set_ipset_hashsize(std::optional<uint32_t> hashsize) {
+    ipset_hashsize_ = std::move(hashsize);
+  }
+
+  const std::optional<uint32_t>& ipset_hashsize() const {
+    return ipset_hashsize_;
+  }
+
+  void set_ipset_maxelem(std::optional<uint32_t> maxelem) {
+    ipset_maxelem_ = std::move(maxelem);
+  }
+
+  const std::optional<uint32_t>& ipset_maxelem() const {
+    return ipset_maxelem_;
+  }
+
   // Remove all firewall rules and IP sets created by this instance.
   // Should be called on daemon shutdown.
   virtual void cleanup() = 0;
@@ -231,6 +263,8 @@ protected:
   uint32_t fwmark_mask_{0xFFFFFFFFu};
   bool ipv6_enabled_{true};
   bool clear_dynamic_sets_on_apply_{true};
+  std::optional<uint32_t> ipset_hashsize_;
+  std::optional<uint32_t> ipset_maxelem_;
 };
 
 // Return the stable config/CLI label for a concrete backend.

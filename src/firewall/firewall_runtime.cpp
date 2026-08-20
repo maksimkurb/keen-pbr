@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -20,6 +21,52 @@
 #include <vector>
 
 namespace keen_pbr3 {
+
+namespace {
+
+std::optional<uint32_t> canonical_ipset_hashsize(
+    const std::optional<int64_t> &value) {
+    const int64_t effective = value.value_or(1024);
+    if (effective < 1 || effective > std::numeric_limits<uint32_t>::max()) {
+        return std::nullopt;
+    }
+    return normalize_ipset_hashsize(static_cast<uint32_t>(effective));
+}
+
+bool ipset_hashsize_changed(const std::optional<int64_t> &current,
+                            const std::optional<int64_t> &candidate) {
+    const auto current_canonical = canonical_ipset_hashsize(current);
+    const auto candidate_canonical = canonical_ipset_hashsize(candidate);
+    if (current_canonical.has_value() && candidate_canonical.has_value()) {
+        return current_canonical != candidate_canonical;
+    }
+    return current != candidate;
+}
+
+bool ipset_maxelem_changed(const std::optional<int64_t> &current,
+                           const std::optional<int64_t> &candidate) {
+    return current.value_or(65536) != candidate.value_or(65536);
+}
+
+} // namespace
+
+FirewallConfigApplyPolicy firewall_config_apply_policy(
+    FirewallBackend backend, const Config &current, const Config &candidate) {
+  if (backend != FirewallBackend::iptables) {
+    return {};
+  }
+
+  const auto current_daemon = current.daemon.value_or(DaemonConfig{});
+  const auto candidate_daemon = candidate.daemon.value_or(DaemonConfig{});
+  if (!ipset_hashsize_changed(current_daemon.ipset_hashsize,
+                              candidate_daemon.ipset_hashsize) &&
+      !ipset_maxelem_changed(current_daemon.ipset_maxelem,
+                             candidate_daemon.ipset_maxelem)) {
+    return {};
+  }
+
+  return {FirewallApplyMode::Destructive, true};
+}
 
 namespace {
 
@@ -62,16 +109,29 @@ ListSetUsage reused_list_set_usage(
     }
 
     ListSetUsage usage;
-    const std::string set4 = firewall.static_set_name(list_name, AF_INET);
+    const auto static_usage_for_family = [&](int family) {
+        const std::string expected = firewall.static_set_name(list_name, family);
+        const auto candidates = firewall.static_set_names(list_name, family);
+        const bool has_expected = contains_set_name(previous, expected);
+        const bool has_alternate = std::any_of(
+            candidates.begin(), candidates.end(), [&](const std::string& name) {
+                return name != expected && contains_set_name(previous, name);
+            });
+        if (has_alternate) {
+            throw FirewallRulesOnlyError(
+                std::string("realized firewall state references a stale static ipset for ") +
+                "route rule " + std::to_string(rule_index) + " list " +
+                list_name);
+        }
+        return has_expected;
+    };
+
     const std::string set4d = firewall.dynamic_set_name(list_name, AF_INET);
-    usage.has_static_entries = contains_set_name(previous, set4);
+    usage.has_static_entries = static_usage_for_family(AF_INET);
     usage.has_domain_entries = contains_set_name(previous, set4d);
     if (ipv6_enabled) {
-        usage.has_static_entries = usage.has_static_entries ||
-                                   contains_set_name(
-                                       previous,
-                                       firewall.static_set_name(list_name,
-                                                                AF_INET6));
+        const bool has_static_v6 = static_usage_for_family(AF_INET6);
+        usage.has_static_entries = usage.has_static_entries || has_static_v6;
         usage.has_domain_entries = usage.has_domain_entries ||
                                    contains_set_name(
                                        previous,
@@ -95,7 +155,8 @@ std::vector<RuleState> apply_runtime_firewall(
     const CacheManager& cache_manager,
     Firewall& firewall,
     FirewallApplyMode mode,
-    const std::vector<RuleState>* previous_rule_states) {
+    const std::vector<RuleState>* previous_rule_states,
+    bool force_clear_dynamic_sets) {
   try {
     std::unique_ptr<ListStreamer> list_streamer;
     if (mode != FirewallApplyMode::RulesOnly) {
@@ -108,6 +169,20 @@ std::vector<RuleState> apply_runtime_firewall(
     firewall.set_ipv6_enabled(ipv6_decision.enabled);
     firewall.set_clear_dynamic_sets_on_apply(
         config.daemon.value_or(DaemonConfig{}).clear_dynamic_sets_on_apply.value_or(true));
+    if (force_clear_dynamic_sets) {
+      firewall.set_clear_dynamic_sets_on_apply(true);
+    }
+    const auto daemon_config = config.daemon.value_or(DaemonConfig{});
+    firewall.set_ipset_hashsize(
+        daemon_config.ipset_hashsize.has_value()
+            ? std::optional<uint32_t>{static_cast<uint32_t>(
+                  *daemon_config.ipset_hashsize)}
+            : std::nullopt);
+    firewall.set_ipset_maxelem(
+        daemon_config.ipset_maxelem.has_value()
+            ? std::optional<uint32_t>{static_cast<uint32_t>(
+                  *daemon_config.ipset_maxelem)}
+            : std::nullopt);
     firewall.prepare_apply(mode);
     auto prefilter = build_firewall_global_prefilter(config);
     prefilter.restore_conntrack_mark = true;
@@ -303,7 +378,8 @@ std::vector<RuleState> apply_runtime_firewall(
     return apply_runtime_firewall(config, outbound_marks, urltest_selections,
                                   cache_manager, firewall,
                                   FirewallApplyMode::PreserveSets,
-                                  previous_rule_states);
+                                  previous_rule_states,
+                                  /*force_clear_dynamic_sets=*/false);
   }
 }
 

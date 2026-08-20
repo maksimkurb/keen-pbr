@@ -26,6 +26,20 @@ export interface DaemonConfig {
   /** Whether a full firewall apply should clear dnsmasq-owned dynamic IP sets before recreating runtime rules. Defaults to `true` when omitted or set to `null`. List-only and preserve-set reconciles never clear dynamic entries.
    */
   clear_dynamic_sets_on_apply?: boolean | null;
+  /**
+     * Optional initial hash table size for ipsets created by the iptables backend. This has no effect when the nftables backend is selected. Omit or set to null to use the ipset default (1024). Changing this value on a running iptables backend recreates owned ipsets and clears dnsmasq-learned entries.
+
+     * @minimum 1
+     * @maximum 2147483648
+     */
+  ipset_hashsize?: number | null;
+  /**
+     * Optional maximum number of elements for ipsets created by the iptables backend. This has no effect when the nftables backend is selected. Omit or set to null to use the ipset default (65536). Changing this value on a running iptables backend recreates owned ipsets and clears dnsmasq-learned entries.
+
+     * @minimum 1
+     * @maximum 4294967295
+     */
+  ipset_maxelem?: number | null;
   /** Whether safe runtime refreshes (SIGUSR1, URLTEST/ICMPTEST selection, and interface state changes) should rebuild rules while reusing the currently live static list sets. Defaults to `true` when omitted or set to `null`; failed preflight falls back to PreserveSets.
    */
   reuse_static_sets_on_runtime_refresh?: boolean | null;

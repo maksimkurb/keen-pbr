@@ -802,6 +802,12 @@ Config parse_config_json(json parsed_json) {
         parsed_json, "daemon", "firewall_verify_max_bytes",
         "daemon.firewall_verify_max_bytes", issues);
     validate_optional_integer_field(
+        parsed_json, "daemon", "ipset_hashsize", "daemon.ipset_hashsize",
+        issues);
+    validate_optional_integer_field(
+        parsed_json, "daemon", "ipset_maxelem", "daemon.ipset_maxelem",
+        issues);
+    validate_optional_integer_field(
         parsed_json, "daemon", "max_file_size_bytes", "daemon.max_file_size_bytes", issues);
     validate_optional_integer_field(
         parsed_json, "daemon", "exec_timeout_seconds", "daemon.exec_timeout_seconds", issues);
@@ -892,6 +898,26 @@ void validate_config(const Config& cfg) {
         *cfg.daemon->max_file_size_bytes <= 0) {
         add_issue(issues, "daemon.max_file_size_bytes",
                   "daemon.max_file_size_bytes must be greater than 0");
+    }
+
+    constexpr int64_t kMaxIpsetMaxelem =
+        static_cast<int64_t>(std::numeric_limits<uint32_t>::max());
+    constexpr int64_t kMaxIpsetHashsize = int64_t{1} << 31;
+    const auto validate_ipset_capacity = [&](const std::optional<int64_t>& value,
+                                             const char* path,
+                                             int64_t maximum) {
+        if (value.has_value() &&
+            (*value < 1 || *value > maximum)) {
+            add_issue(issues, path,
+                      std::string(path) + " must be between 1 and " +
+                          std::to_string(maximum));
+        }
+    };
+    if (cfg.daemon) {
+        validate_ipset_capacity(cfg.daemon->ipset_hashsize,
+                                "daemon.ipset_hashsize", kMaxIpsetHashsize);
+        validate_ipset_capacity(cfg.daemon->ipset_maxelem,
+                                "daemon.ipset_maxelem", kMaxIpsetMaxelem);
     }
 
     if (cfg.daemon && cfg.daemon->exec_timeout_seconds.value_or(30) < 1) {

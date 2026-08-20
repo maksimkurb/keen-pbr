@@ -477,6 +477,12 @@ export const enTranslation = {
         tableStartLabel: "IP routing table starting value",
         tableStartHint:
           "The routing table ID assigned to your first outbound. Each additional outbound gets the next ID.",
+        ipsetHashsizeLabel: "IPSet hash table size",
+        ipsetHashsizeHint:
+          "Optional iptables-only setting for every hash:net set. Leave empty to use the ipset default (1024); this has no effect with nftables. Changing it while iptables is running recreates owned ipsets and clears learned dnsmasq addresses.",
+        ipsetMaxelemLabel: "IPSet maximum elements",
+        ipsetMaxelemHint:
+          "Optional iptables-only setting for every hash:net set. Leave empty to use the ipset default (65536); this has no effect with nftables. Changing it while iptables is running recreates owned ipsets and clears learned dnsmasq addresses.",
       },
       actions: {
         saving: "Saving...",

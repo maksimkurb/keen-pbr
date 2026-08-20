@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesGlSnvd data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesLZf2Xp data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -183,6 +183,8 @@ namespace api {
         std::optional<int64_t> exec_timeout_seconds;
         std::optional<DaemonConfigFirewallBackend> firewall_backend;
         std::optional<int64_t> firewall_verify_max_bytes;
+        std::optional<int64_t> ipset_hashsize;
+        std::optional<int64_t> ipset_maxelem;
         std::optional<bool> ipv6_enabled;
         std::optional<int64_t> max_file_size_bytes;
         std::optional<std::string> pid_file;
@@ -631,7 +633,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesGlSnvd {
+    struct KeenPbrTypesLZf2Xp {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -906,8 +908,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesGlSnvd & x);
-    void to_json(json & j, const KeenPbrTypesGlSnvd & x);
+    void from_json(const json & j, KeenPbrTypesLZf2Xp & x);
+    void to_json(json & j, const KeenPbrTypesLZf2Xp & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1168,6 +1170,8 @@ namespace api {
         x.exec_timeout_seconds = get_stack_optional<int64_t>(j, "exec_timeout_seconds");
         x.firewall_backend = get_stack_optional<DaemonConfigFirewallBackend>(j, "firewall_backend");
         x.firewall_verify_max_bytes = get_stack_optional<int64_t>(j, "firewall_verify_max_bytes");
+        x.ipset_hashsize = get_stack_optional<int64_t>(j, "ipset_hashsize");
+        x.ipset_maxelem = get_stack_optional<int64_t>(j, "ipset_maxelem");
         x.ipv6_enabled = get_stack_optional<bool>(j, "ipv6_enabled");
         x.max_file_size_bytes = get_stack_optional<int64_t>(j, "max_file_size_bytes");
         x.pid_file = get_stack_optional<std::string>(j, "pid_file");
@@ -1186,6 +1190,8 @@ namespace api {
         j["exec_timeout_seconds"] = x.exec_timeout_seconds;
         j["firewall_backend"] = x.firewall_backend;
         j["firewall_verify_max_bytes"] = x.firewall_verify_max_bytes;
+        j["ipset_hashsize"] = x.ipset_hashsize;
+        j["ipset_maxelem"] = x.ipset_maxelem;
         j["ipv6_enabled"] = x.ipv6_enabled;
         j["max_file_size_bytes"] = x.max_file_size_bytes;
         j["pid_file"] = x.pid_file;
@@ -2031,7 +2037,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesGlSnvd& x) {
+    inline void from_json(const json & j, KeenPbrTypesLZf2Xp& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2104,7 +2110,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesGlSnvd & x) {
+    inline void to_json(json & j, const KeenPbrTypesLZf2Xp & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

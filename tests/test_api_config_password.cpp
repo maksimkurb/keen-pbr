@@ -46,6 +46,31 @@ TEST_CASE("general config updates cannot replace or remove the password verifier
     CHECK_FALSE(insertion.api->authentication->password_hash.has_value());
 }
 
+TEST_CASE("ipset capacity defaults stay absent in API config responses") {
+    Config config;
+    config.daemon = DaemonConfig{};
+
+    const auto response = normalize_config_for_api_response(config);
+    REQUIRE(response.daemon.has_value());
+    CHECK_FALSE(response.daemon->ipset_hashsize.has_value());
+    CHECK_FALSE(response.daemon->ipset_maxelem.has_value());
+
+    const auto serialized = serialize_config_pretty(response);
+    CHECK(serialized.find("ipset_hashsize") == std::string::npos);
+    CHECK(serialized.find("ipset_maxelem") == std::string::npos);
+}
+
+TEST_CASE("configured ipset capacities are preserved in API serialization") {
+    Config config;
+    config.daemon = DaemonConfig{};
+    config.daemon->ipset_hashsize = 2048;
+    config.daemon->ipset_maxelem = 131072;
+
+    const auto serialized = serialize_config_pretty(config);
+    CHECK(serialized.find("\"ipset_hashsize\": 2048") != std::string::npos);
+    CHECK(serialized.find("\"ipset_maxelem\": 131072") != std::string::npos);
+}
+
 } // namespace keen_pbr3
 
 #endif // WITH_API

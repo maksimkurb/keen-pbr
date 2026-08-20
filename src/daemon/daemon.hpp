@@ -199,7 +199,8 @@ private:
   void setup_static_routing();
   void reconcile_static_routing();
   FirewallApplyMode runtime_refresh_firewall_mode() const;
-  void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive);
+  void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive,
+                      bool force_clear_dynamic_sets = false);
   void reconcile_lists_only(bool reload_resolver);
   void register_urltest_outbounds();
   void handle_urltest_selection_change(const std::string &urltest_tag,
