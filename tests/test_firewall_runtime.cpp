@@ -475,8 +475,14 @@ TEST_CASE("RulesOnly validates IPv6 stale static sets even when IPv4 is present"
                                      FirewallApplyMode::PreserveSets});
   CHECK(firewall.applied_modes ==
         std::vector<FirewallApplyMode>{FirewallApplyMode::PreserveSets});
-  CHECK(firewall.stream_count == 1);
+  // PreserveSets creates one loader per enabled address family.  The inline
+  // list contains only IPv4 data, so only the IPv4 loader receives an entry.
+  CHECK(firewall.stream_count == 2);
+  CHECK(firewall.streamed_entries == 1);
+  CHECK(firewall.finished_loaders == 2);
   CHECK(states.front().set_names ==
+        std::vector<std::string>{"kpbr4s_remote", "kpbr6s_remote"});
+  CHECK(firewall.set_names ==
         std::vector<std::string>{"kpbr4s_remote", "kpbr6s_remote"});
   std::filesystem::remove_all(sandbox);
 }
