@@ -5,6 +5,7 @@
 #include "../src/util/safe_exec.hpp"
 
 #include <netinet/in.h>
+#include <array>
 
 using namespace keen_pbr3;
 
@@ -794,6 +795,48 @@ TEST_CASE("IptablesFirewallVerifier::verify_chain: chain without prerouting jump
     CHECK(check.chain_present);
     CHECK_FALSE(check.prerouting_hook_present);
     CHECK(check.detail == "KeenPbrTable chain exists but PREROUTING jump not found");
+}
+
+TEST_CASE("IptablesFirewallVerifier queries each family in its configured table") {
+    const std::array<RawPreroutingMode, 4> modes = {
+        RawPreroutingMode{false, false}, RawPreroutingMode{true, false},
+        RawPreroutingMode{false, true}, RawPreroutingMode{true, true}};
+    for (const auto mode : modes) {
+        std::vector<std::vector<std::string>> calls;
+        auto runner = [&calls, mode](const std::vector<std::string>& args) {
+            calls.push_back(args);
+            const auto command = args.front();
+            const bool ipv6 = command == "ip6tables";
+            const bool raw = mode.uses(ipv6);
+            const std::string table = raw ? "raw" : "mangle";
+            const std::string chain = raw ? "KeenPbrRaw" : "KeenPbrTable";
+            if (matches_args(args, {command.c_str(), "-t", table.c_str(), "-S",
+                                    chain.c_str()})) {
+                return command_result("-N " + chain + "\n");
+            }
+            if (matches_args(args, {command.c_str(), "-t", table.c_str(), "-S",
+                                    "PREROUTING"})) {
+                return command_result("-A PREROUTING -j " + chain + "\n");
+            }
+            return command_result({}, 1);
+        };
+        IptablesFirewallVerifier verifier(runner, mode);
+        const auto check = verifier.verify_chain();
+        CHECK(check.chain_present);
+        CHECK(check.prerouting_hook_present);
+
+        bool queried_v4 = false;
+        bool queried_v6 = false;
+        for (const auto& call : calls) {
+            if (call.size() < 4 || call[1] != "-t") continue;
+            if (call.size() > 4 && call[0] == "iptables" &&
+                call[4] == "PREROUTING") queried_v4 = true;
+            if (call.size() > 4 && call[0] == "ip6tables" &&
+                call[4] == "PREROUTING") queried_v6 = true;
+        }
+        CHECK(queried_v4);
+        CHECK(queried_v6);
+    }
 }
 
 // =============================================================================

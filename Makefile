@@ -55,6 +55,7 @@ test: ## Build and run unit tests (doctest)
 	python3 -m unittest tests/integration/test_case_engine.py
 	python3 -m unittest tests/integration/test_qemu_harness.py
 	python3 -m unittest tests/integration/test_integration_modules.py
+	sh tests/test_keenetic_raw_policy.sh
 
 INTEGRATION_BACKEND ?= all
 INTEGRATION_DEB ?=

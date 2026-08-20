@@ -8,15 +8,17 @@ CONFIG="/opt/etc/keen-pbr/config.json"
 DNSMASQ_HELPER="/opt/usr/lib/keen-pbr/dnsmasq.sh"
 
 # Extra arguments passed to the keen-pbr daemon. Do not add
-# --use-raw-prerouting here; KEEN_PBR_RAW_PREROUTING controls it.
+# --use-raw-prerouting/--use-raw6-prerouting here; KEEN_PBR_RAW_PREROUTING controls them.
 KEEN_PBR_ARGS=""
 
 # Keenetic trade-off: RAW survives mangle rebuilds, but Connection Policy can
 # overwrite its MARK; mangle preserves that override but has a brief rebuild gap.
-# IPv4 RAW PREROUTING mode for forwarded traffic:
-#   auto      (default) use RAW when the matching kernel module and table probe
-#             succeed; otherwise use mangle PREROUTING.
-#   enable    require RAW. The service starts with --use-raw-prerouting and fails
-#             instead of falling back to mangle if RAW is unavailable.
-#   disable   always use mangle PREROUTING, even when RAW is available.
+# Independent RAW PREROUTING mode for forwarded traffic (OUTPUT stays mangle):
+#   auto       (default) probe IPv4 and IPv6 independently; each available
+#              family uses RAW and each unavailable family uses mangle.
+#   enable     require RAW for every enabled IP family; startup fails if a
+#              requested family cannot be validated.
+#   disable    use mangle for both families and load no RAW modules.
+#   ipv4-only  require IPv4 RAW and use mangle for IPv6.
+#   ipv6-only  require IPv6 RAW (when IPv6 is enabled) and use mangle for IPv4.
 KEEN_PBR_RAW_PREROUTING="auto"

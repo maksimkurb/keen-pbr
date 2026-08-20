@@ -16,11 +16,21 @@ namespace keen_pbr3 {
 // lock and perform the expensive live verification work after releasing it.
 RoutingHealthReport build_routing_health_report(
     FirewallBackend firewall_backend,
-    bool use_raw_prerouting,
+    RawPreroutingMode raw_prerouting,
     const FirewallState& firewall_state,
     const std::vector<RouteSpec>& tracked_routes,
     const std::vector<RuleSpec>& tracked_policy_rules,
     NetlinkManager& netlink);
+
+inline RoutingHealthReport build_routing_health_report(
+    FirewallBackend firewall_backend, bool use_raw_prerouting,
+    const FirewallState& firewall_state,
+    const std::vector<RouteSpec>& tracked_routes,
+    const std::vector<RuleSpec>& tracked_policy_rules, NetlinkManager& netlink) {
+    return build_routing_health_report(
+        firewall_backend, RawPreroutingMode{use_raw_prerouting, false},
+        firewall_state, tracked_routes, tracked_policy_rules, netlink);
+}
 
 // Orchestrates firewall and routing verification to produce a RoutingHealthReport.
 // Combines results from FirewallVerifier and RoutingVerifier.

@@ -67,6 +67,7 @@ struct CliOptions {
   std::string crash_report_path{"/tmp/keen-pbr-crash.log"};
   bool no_api{false};
   bool use_raw_prerouting{false};
+  bool use_raw6_prerouting{false};
   bool has_pid_file_override{false};
   bool run_service{false};
   bool generate_resolver_config{false};
@@ -97,6 +98,8 @@ void print_usage(const char *argv0) {
                "/tmp/keen-pbr-crash.log)\n"
             << "  --no-api           Disable REST API at runtime\n"
             << "  --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded "
+               "traffic (iptables only)\n"
+            << "  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded "
                "traffic (iptables only)\n"
             << "  --version          Show version and exit\n"
             << "  --help             Show this help and exit\n"
@@ -151,6 +154,8 @@ CliOptions parse_args(int argc, char *argv[]) {
       opts.no_api = true;
     } else if (std::strcmp(argv[i], "--use-raw-prerouting") == 0) {
       opts.use_raw_prerouting = true;
+    } else if (std::strcmp(argv[i], "--use-raw6-prerouting") == 0) {
+      opts.use_raw6_prerouting = true;
     } else if (std::strcmp(argv[i], "--help") == 0 ||
                std::strcmp(argv[i], "-h") == 0) {
       opts.show_help = true;
@@ -578,6 +583,7 @@ int main(int argc, char *argv[]) {
       keen_pbr3::DaemonOptions daemon_opts;
       daemon_opts.no_api = opts.no_api;
       daemon_opts.use_raw_prerouting = opts.use_raw_prerouting;
+      daemon_opts.use_raw6_prerouting = opts.use_raw6_prerouting;
 
       // Block daemon-managed signals before constructing Daemon so any
       // worker threads spawned during member initialization inherit the mask.

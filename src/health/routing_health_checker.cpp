@@ -50,7 +50,7 @@ RoutingHealthChecker::RoutingHealthChecker(const Firewall& firewall,
 
 RoutingHealthReport build_routing_health_report(
     FirewallBackend firewall_backend,
-    bool use_raw_prerouting,
+    RawPreroutingMode raw_prerouting,
     const FirewallState& firewall_state,
     const std::vector<RouteSpec>& tracked_routes,
     const std::vector<RuleSpec>& tracked_policy_rules,
@@ -60,7 +60,7 @@ RoutingHealthReport build_routing_health_report(
 
     try {
         // 1. Create firewall verifier
-        auto verifier = create_firewall_verifier(firewall_backend, use_raw_prerouting);
+        auto verifier = create_firewall_verifier(firewall_backend, raw_prerouting);
         verifier->set_expected_fwmark_mask(firewall_state.get_fwmark_mask());
 
         // 2. Verify firewall chain
@@ -198,7 +198,7 @@ RoutingHealthReport build_routing_health_report(
 RoutingHealthReport RoutingHealthChecker::check() const {
     return build_routing_health_report(
         firewall_.backend(),
-        firewall_.uses_raw_prerouting(),
+        firewall_.raw_prerouting_mode(),
         firewall_state_,
         route_table_.get_routes(),
         policy_rules_.get_rules(),

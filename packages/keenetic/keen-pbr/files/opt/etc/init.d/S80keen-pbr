@@ -185,62 +185,123 @@ remove_daemon_arg() {
     ARGS="$filtered"
 }
 
-enable_raw_prerouting_if_available() {
-    local raw_module raw_mode
+ipv6_runtime_enabled() {
+    [ ! -r /proc/sys/net/ipv6/conf/all/disable_ipv6 ] ||
+        [ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)" != "1" ]
+}
 
-    # The service owns this capability decision.  Remove a persisted legacy
-    # token first so the configured mode is always applied.
+keen_pbr_ipv6_enabled() {
+    # Config is JSON and the generated schema uses daemon.ipv6_enabled.  A
+    # missing key retains the enabled default; an explicit false disables the
+    # forced IPv6 RAW requirement just like the daemon's resolver decision.
+    grep -Eq '"ipv6_enabled"[[:space:]]*:[[:space:]]*false' "$CONFIG" 2>/dev/null &&
+        return 1
+    ipv6_runtime_enabled
+}
+
+# Probe one family independently.  The registry check prevents trusting an
+# on-disk module, while the command probe remains authoritative after insmod.
+raw_family_available() {
+    local family="$1"
+    local command registry module loaded=0
+    RAW_FAMILY_PROBE_REASON=""
+    if [ "$family" = "ipv6" ]; then
+        command="ip6tables"
+        registry="/proc/net/ip6_tables_names"
+        module="$(module_path_for ip6table_raw)"
+    else
+        command="iptables"
+        registry="/proc/net/ip_tables_names"
+        module="$(module_path_for iptable_raw)"
+    fi
+
+    if grep -qx raw "$registry" 2>/dev/null &&
+       "$command" -t raw -S >/dev/null 2>&1; then
+        return 0
+    fi
+    if [ -f "$module" ]; then
+        if insmod "$module" >/dev/null 2>&1; then
+            loaded=1
+        fi
+    fi
+    if ! grep -qx raw "$registry" 2>/dev/null; then
+        if [ ! -f "$module" ]; then
+            RAW_FAMILY_PROBE_REASON="module missing: $module"
+        elif [ "$loaded" = 1 ]; then
+            RAW_FAMILY_PROBE_REASON="module loaded but raw is absent from $registry"
+        else
+            RAW_FAMILY_PROBE_REASON="module load failed: $module"
+        fi
+        return 1
+    fi
+    if ! "$command" -t raw -S >/dev/null 2>&1; then
+        RAW_FAMILY_PROBE_REASON="raw registered in $registry but $command -t raw -S failed"
+        return 1
+    fi
+}
+
+enable_raw_prerouting_if_available() {
+    local raw_mode raw4=0 raw6=0 ipv6_enabled=0
+
+    # Remove both legacy/persisted daemon flags before resolving policy.
     remove_daemon_arg --use-raw-prerouting
+    remove_daemon_arg --use-raw6-prerouting
 
     raw_mode="${KEEN_PBR_RAW_PREROUTING:-auto}"
     case "$raw_mode" in
-        disable)
-            log "raw PREROUTING disabled by KEEN_PBR_RAW_PREROUTING; using mangle PREROUTING"
-            return 0
-            ;;
-        auto|enable)
-            ;;
+        auto|enable|disable|ipv4-only|ipv6-only) ;;
         *)
             log "WARNING: invalid KEEN_PBR_RAW_PREROUTING=${KEEN_PBR_RAW_PREROUTING}; using auto"
             raw_mode="auto"
             ;;
     esac
+    [ "$raw_mode" = "disable" ] && {
+        log "RAW PREROUTING disabled; using mangle for IPv4 and IPv6"
+        return 0
+    }
+    keen_pbr_ipv6_enabled && ipv6_enabled=1
 
-    if grep -qx raw /proc/net/ip_tables_names 2>/dev/null && iptables -t raw -S >/dev/null 2>&1; then
-        log "raw PREROUTING available; enabling --use-raw-prerouting"
-        ARGS="$ARGS --use-raw-prerouting"
-        return 0
-    fi
-    raw_module="/lib/modules/$(uname -r)/iptable_raw.ko"
-    if [ ! -f "$raw_module" ]; then
-        if [ "$raw_mode" = "enable" ]; then
-            log_error "raw PREROUTING was explicitly enabled, but $raw_module is missing; startup will fail"
+    case "$raw_mode" in
+        auto|enable|ipv4-only)
+            if raw_family_available ipv4; then
+                raw4=1
+                log "IPv4 raw PREROUTING available"
+            else
+                log "WARNING: IPv4 raw PREROUTING unavailable: $RAW_FAMILY_PROBE_REASON"
+            fi
+            ;;
+    esac
+    case "$raw_mode" in
+        auto|enable|ipv6-only)
+            if [ "$ipv6_enabled" = 1 ] && raw_family_available ipv6; then
+                raw6=1
+                log "IPv6 raw PREROUTING available"
+            elif [ "$ipv6_enabled" = 1 ]; then
+                log "WARNING: IPv6 raw PREROUTING unavailable: $RAW_FAMILY_PROBE_REASON"
+            else
+                log "IPv6 disabled; skipping IPv6 raw capability requirement"
+            fi
+            ;;
+    esac
+
+    case "$raw_mode" in
+        auto)
+            [ "$raw4" = 1 ] && ARGS="$ARGS --use-raw-prerouting"
+            [ "$raw6" = 1 ] && ARGS="$ARGS --use-raw6-prerouting"
+            ;;
+        enable)
+            # Forced modes deliberately pass unavailable flags through so the
+            # daemon's authoritative C++ validation fails startup clearly.
             ARGS="$ARGS --use-raw-prerouting"
-            return 0
-        fi
-        log "WARNING: raw PREROUTING unavailable: $raw_module is missing; using mangle PREROUTING"
-        return 0
-    fi
-    if ! insmod "$raw_module" 2>/dev/null && ! grep -qx raw /proc/net/ip_tables_names 2>/dev/null; then
-        if [ "$raw_mode" = "enable" ]; then
-            log_error "raw PREROUTING was explicitly enabled, but $raw_module could not be loaded; startup will fail"
+            [ "$ipv6_enabled" = 1 ] && ARGS="$ARGS --use-raw6-prerouting"
+            ;;
+        ipv4-only)
             ARGS="$ARGS --use-raw-prerouting"
-            return 0
-        fi
-        log "WARNING: could not load $raw_module; using mangle PREROUTING"
-        return 0
-    fi
-    if ! grep -qx raw /proc/net/ip_tables_names 2>/dev/null || ! iptables -t raw -S >/dev/null 2>&1; then
-        if [ "$raw_mode" = "enable" ]; then
-            log_error "raw PREROUTING was explicitly enabled, but the raw table probe failed; startup will fail"
-            ARGS="$ARGS --use-raw-prerouting"
-            return 0
-        fi
-        log "WARNING: raw table probe failed after loading $raw_module; using mangle PREROUTING"
-        return 0
-    fi
-    log "raw PREROUTING enabled with $raw_module"
-    ARGS="$ARGS --use-raw-prerouting"
+            ;;
+        ipv6-only)
+            [ "$ipv6_enabled" = 1 ] && ARGS="$ARGS --use-raw6-prerouting"
+            ;;
+    esac
 }
 
 enable_hwnat() {

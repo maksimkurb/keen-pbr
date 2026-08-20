@@ -71,9 +71,11 @@ using FdCallback = std::function<void(uint32_t events)>;
 // Options controlling daemon runtime behavior
 struct DaemonOptions {
   bool no_api{false};
-  // Opt-in Keenetic workaround: classify IPv4 forwarded packets in raw
-  // PREROUTING.  Local OUTPUT traffic remains in mangle.
+  // Opt-in Keenetic workaround: classify the selected family's forwarded
+  // packets in raw PREROUTING. Local OUTPUT traffic remains in mangle.
   bool use_raw_prerouting{false};
+  // Opt-in IPv6 equivalent; independent from use_raw_prerouting.
+  bool use_raw6_prerouting{false};
 };
 
 struct ListsRefreshExecutionResult {

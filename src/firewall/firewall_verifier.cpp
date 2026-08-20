@@ -33,12 +33,17 @@ CommandResult run_command_capture(const std::vector<std::string>& args) {
 
 std::unique_ptr<FirewallVerifier> create_firewall_verifier(
     FirewallBackend backend,
-    bool use_raw_prerouting,
+    RawPreroutingMode raw_prerouting,
     CommandRunner runner) {
     switch (backend) {
         case FirewallBackend::iptables:
-            return create_iptables_verifier(std::move(runner), use_raw_prerouting);
+            return create_iptables_verifier(std::move(runner), raw_prerouting);
         case FirewallBackend::nftables:
+            if (raw_prerouting.ipv4 || raw_prerouting.ipv6) {
+                throw FirewallError(
+                    "RAW PREROUTING is supported only with the iptables "
+                    "firewall backend");
+            }
             return create_nftables_verifier(std::move(runner));
     }
     throw FirewallError("unknown firewall backend");

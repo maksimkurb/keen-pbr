@@ -16,7 +16,10 @@ namespace keen_pbr3 {
 class IptablesFirewall : public Firewall {
 public:
   // Initialize the iptables backend; does not modify firewall state yet.
-  explicit IptablesFirewall(bool use_raw_prerouting = false);
+  explicit IptablesFirewall(RawPreroutingMode raw_prerouting = {});
+  // Compatibility constructor: the historical bool selects IPv4 RAW only.
+  explicit IptablesFirewall(bool use_raw_prerouting)
+      : IptablesFirewall(RawPreroutingMode{use_raw_prerouting, false}) {}
   // Kernel firewall state is persistent and is removed only by explicit
   // cleanup(), never as a side effect of C++ object destruction.
   ~IptablesFirewall() override = default;
@@ -52,7 +55,10 @@ public:
   void cleanup() override;
   // Returns FirewallBackend::iptables.
   FirewallBackend backend() const override;
-  bool uses_raw_prerouting() const override { return use_raw_prerouting_; }
+  RawPreroutingMode raw_prerouting_mode() const override {
+    return raw_prerouting_;
+  }
+  bool uses_raw_prerouting() const override { return raw_prerouting_.ipv4; }
 
 private:
   static constexpr const char *CHAIN_NAME = "KeenPbrTable";
@@ -112,13 +118,29 @@ private:
   void preflight_dynamic_set_schemas(bool effective_ipv6) const;
   void preflight_reused_set_schemas(bool effective_ipv6) const;
   static std::string
-  build_raw_prerouting_script(FirewallSetGeneration target_generation,
+  build_raw_prerouting_script(bool ipv6,
+                              FirewallSetGeneration target_generation,
                               const std::vector<PendingRule> &rules,
                               const FirewallGlobalPrefilter &prefilter);
+  // Compatibility helper: build IPv4 RAW PREROUTING.
+  static std::string
+  build_raw_prerouting_script(FirewallSetGeneration target_generation,
+                              const std::vector<PendingRule> &rules,
+                              const FirewallGlobalPrefilter &prefilter) {
+    return build_raw_prerouting_script(false, target_generation, rules,
+                                       prefilter);
+  }
+  static std::string
+  build_output_script(bool ipv6, FirewallSetGeneration target_generation,
+                      const std::vector<PendingRule> &rules,
+                      const FirewallGlobalPrefilter &prefilter);
+  // Compatibility helper: build IPv4 OUTPUT.
   static std::string
   build_output_script(FirewallSetGeneration target_generation,
                       const std::vector<PendingRule> &rules,
-                      const FirewallGlobalPrefilter &prefilter);
+                      const FirewallGlobalPrefilter &prefilter) {
+    return build_output_script(false, target_generation, rules, prefilter);
+  }
   static std::string
   build_ipt_script(bool ipv6, FirewallSetGeneration target_generation,
                    const std::vector<PendingRule> &rules,
@@ -140,7 +162,7 @@ private:
                    const FirewallGlobalPrefilter &prefilter,
                    const std::string &chain, bool allow_conntrack);
   bool ipv6_backend_available() const;
-  void validate_raw_prerouting_capability() const;
+  void validate_raw_prerouting_capability(bool ipv6) const;
   LiveGenerationState inspect_live_generation(bool ipv6) const;
   GenerationInspection inspect_generation(bool ipv6) const;
   StaticSetInspection inspect_static_sets(
@@ -183,6 +205,9 @@ private:
                                const char *builtin_chain,
                                const char *target_chain);
   const char *prerouting_table_name(bool ipv6) const;
+  bool uses_raw_prerouting(bool ipv6) const {
+    return raw_prerouting_.uses(ipv6);
+  }
   const char *prerouting_dispatcher_chain_name(bool ipv6) const;
   const char *prerouting_generation_chain(FirewallSetGeneration generation,
                                           bool ipv6) const;
@@ -219,7 +244,7 @@ private:
   bool static_generations_prepared_{false};
   FirewallApplyMode prepared_mode_{FirewallApplyMode::Destructive};
   bool apply_prepared_{false};
-  bool use_raw_prerouting_{false};
+  RawPreroutingMode raw_prerouting_{};
 
 #ifdef KEEN_PBR3_TESTING
   friend class IptablesBuilderTest;
@@ -227,6 +252,7 @@ private:
 };
 
 // Factory function called from firewall.cpp
-std::unique_ptr<Firewall> create_iptables_firewall();
+std::unique_ptr<Firewall>
+create_iptables_firewall(RawPreroutingMode raw_prerouting = {});
 
 } // namespace keen_pbr3

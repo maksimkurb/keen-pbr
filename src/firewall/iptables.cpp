@@ -57,10 +57,13 @@ expand_l4_protos_for_iptables(const FirewallRuleCriteria &criteria) {
 
 } // namespace
 
-IptablesFirewall::IptablesFirewall(bool use_raw_prerouting)
-    : use_raw_prerouting_(use_raw_prerouting) {
-  if (use_raw_prerouting_) {
-    validate_raw_prerouting_capability();
+IptablesFirewall::IptablesFirewall(RawPreroutingMode raw_prerouting)
+    : raw_prerouting_(raw_prerouting) {
+  if (raw_prerouting_.ipv4) {
+    validate_raw_prerouting_capability(false);
+  }
+  if (raw_prerouting_.ipv6) {
+    validate_raw_prerouting_capability(true);
   }
 }
 
@@ -77,25 +80,30 @@ IptablesFirewall::output_generation_chain(FirewallSetGeneration generation) {
 }
 
 const char *IptablesFirewall::prerouting_table_name(bool ipv6) const {
-  return use_raw_prerouting_ && !ipv6 ? "raw" : "mangle";
+  return uses_raw_prerouting(ipv6) ? "raw" : "mangle";
 }
 
 const char *
 IptablesFirewall::prerouting_dispatcher_chain_name(bool ipv6) const {
-  return use_raw_prerouting_ && !ipv6 ? RAW_CHAIN_NAME : CHAIN_NAME;
+  return uses_raw_prerouting(ipv6) ? RAW_CHAIN_NAME : CHAIN_NAME;
 }
 
 const char *
 IptablesFirewall::prerouting_generation_chain(FirewallSetGeneration generation,
                                               bool ipv6) const {
-  return use_raw_prerouting_ && !ipv6
+  return uses_raw_prerouting(ipv6)
              ? (generation == FirewallSetGeneration::A ? "KeenPbrRaw_A"
                                                        : "KeenPbrRaw_B")
              : generation_chain(generation);
 }
 
-void IptablesFirewall::validate_raw_prerouting_capability() const {
-  std::ifstream tables("/proc/net/ip_tables_names");
+void IptablesFirewall::validate_raw_prerouting_capability(bool ipv6) const {
+  const char *family_label = ipv6 ? "IPv6" : "IPv4";
+  const char *command = ipv6 ? "ip6tables" : "iptables";
+  const char *registry_path =
+      ipv6 ? "/proc/net/ip6_tables_names" : "/proc/net/ip_tables_names";
+  const char *module_name = ipv6 ? "ip6table_raw.ko" : "iptable_raw.ko";
+  std::ifstream tables(registry_path);
   std::string table;
   bool raw_present = false;
   while (std::getline(tables, table)) {
@@ -107,17 +115,23 @@ void IptablesFirewall::validate_raw_prerouting_capability() const {
   struct utsname uts{};
   const std::string module =
       uname(&uts) == 0
-          ? std::string("/lib/modules/") + uts.release + "/iptable_raw.ko"
-          : "/lib/modules/$(uname -r)/iptable_raw.ko";
-  const int probe =
-      safe_exec({"iptables", "-t", "raw", "-S"}, /*suppress_output=*/true);
-  if (!raw_present || probe != 0) {
+          ? std::string("/lib/modules/") + uts.release + "/" + module_name
+          : std::string("/lib/modules/$(uname -r)/") + module_name;
+  if (!raw_present) {
     throw FirewallError(
-        "--use-raw-prerouting requested, but raw table is unavailable "
-        "(expected module " +
-        module +
-        ", iptables -t raw -S failed); "
-        "no fallback to mangle PREROUTING was performed");
+        std::string("--use-raw") + (ipv6 ? "6" : "") +
+        "-prerouting requested for " + family_label +
+        ", but raw is absent from " + registry_path + " (expected module " +
+        module + "); no fallback to mangle PREROUTING was performed");
+  }
+  const int probe = safe_exec({command, "-t", "raw", "-S"},
+                              /*suppress_output=*/true);
+  if (probe != 0) {
+    throw FirewallError(
+        std::string("--use-raw") + (ipv6 ? "6" : "") +
+        "-prerouting requested for " + family_label +
+        ", but " + command + " -t raw -S failed after raw was registered in " +
+        registry_path + "; no fallback to mangle PREROUTING was performed");
   }
 }
 
@@ -694,14 +708,14 @@ IptablesFirewall::inspect_generation(bool ipv6) const {
 
   const char *command = ipv6 ? "ip6tables" : "iptables";
   const std::string output_dispatcher =
-      use_raw_prerouting_ && !ipv6 ? OUTPUT_CHAIN_NAME
+      uses_raw_prerouting(ipv6) ? OUTPUT_CHAIN_NAME
                                   : std::string(CHAIN_NAME) + "_OUTPUT";
   const auto secondary = inspect_dispatcher(
       command, "mangle", output_dispatcher,
-      use_raw_prerouting_ && !ipv6
+      uses_raw_prerouting(ipv6)
           ? output_generation_chain(FirewallSetGeneration::A)
           : generation_chain(FirewallSetGeneration::A),
-      use_raw_prerouting_ && !ipv6
+      uses_raw_prerouting(ipv6)
           ? output_generation_chain(FirewallSetGeneration::B)
           : generation_chain(FirewallSetGeneration::B));
   if (secondary == LiveGenerationState::Invalid) {
@@ -760,7 +774,7 @@ IptablesFirewall::StaticSetInspection IptablesFirewall::inspect_static_sets(
     }
 
     const std::string chain =
-        output ? (use_raw_prerouting_ && !ipv6
+        output ? (uses_raw_prerouting(ipv6)
                       ? output_generation_chain(state == LiveGenerationState::A
                                                     ? FirewallSetGeneration::A
                                                     : FirewallSetGeneration::B)
@@ -895,7 +909,7 @@ void IptablesFirewall::ensure_target_generation_inactive(
 void IptablesFirewall::publish_dispatcher(
     bool ipv6, bool output, FirewallSetGeneration generation) const {
   const char *command = ipv6 ? "ip6tables-restore" : "iptables-restore";
-  const bool raw_output = output && use_raw_prerouting_ && !ipv6;
+  const bool raw_output = output && uses_raw_prerouting(ipv6);
   const char *table = output ? "mangle" : prerouting_table_name(ipv6);
   const std::string dispatcher =
       output ? (raw_output ? OUTPUT_CHAIN_NAME
@@ -1033,7 +1047,7 @@ void IptablesFirewall::reconcile_hooks(bool ipv6) const {
   reconcile_hook(command, prerouting_table_name(ipv6), "PREROUTING",
                  prerouting_dispatcher_chain_name(ipv6));
   const char *output_dispatcher =
-      use_raw_prerouting_ && !ipv6 ? OUTPUT_CHAIN_NAME : "KeenPbrTable_OUTPUT";
+      uses_raw_prerouting(ipv6) ? OUTPUT_CHAIN_NAME : "KeenPbrTable_OUTPUT";
   reconcile_hook(command, "mangle", "OUTPUT", output_dispatcher);
 }
 
@@ -1059,14 +1073,14 @@ void IptablesFirewall::verify_applied_generation(
   }
 
   const std::string output_dispatcher =
-      use_raw_prerouting_ && !ipv6 ? OUTPUT_CHAIN_NAME
+      uses_raw_prerouting(ipv6) ? OUTPUT_CHAIN_NAME
                                    : std::string(CHAIN_NAME) + "_OUTPUT";
   const std::string output_a =
-      use_raw_prerouting_ && !ipv6
+      uses_raw_prerouting(ipv6)
           ? output_generation_chain(FirewallSetGeneration::A)
           : generation_chain(FirewallSetGeneration::A);
   const std::string output_b =
-      use_raw_prerouting_ && !ipv6
+      uses_raw_prerouting(ipv6)
           ? output_generation_chain(FirewallSetGeneration::B)
           : generation_chain(FirewallSetGeneration::B);
   const auto output =
@@ -1337,7 +1351,7 @@ IptablesFirewall::build_ipt_script(bool ipv6,
 }
 
 std::string IptablesFirewall::build_raw_prerouting_script(
-    FirewallSetGeneration target_generation,
+    bool ipv6, FirewallSetGeneration target_generation,
     const std::vector<PendingRule> &rules,
     const FirewallGlobalPrefilter &prefilter) {
   const std::string target = target_generation == FirewallSetGeneration::A
@@ -1349,7 +1363,7 @@ std::string IptablesFirewall::build_raw_prerouting_script(
       target, RAW_CHAIN_NAME);
   s += build_prefilter_lines(prefilter, target, /*allow_conntrack=*/false);
   for (const auto &pr : rules) {
-    if (pr.ipv6)
+    if (pr.ipv6 != ipv6)
       continue;
     for (const auto &line : build_rule_lines(pr, prefilter, target,
                                              /*allow_conntrack=*/false))
@@ -1360,7 +1374,7 @@ std::string IptablesFirewall::build_raw_prerouting_script(
 }
 
 std::string IptablesFirewall::build_output_script(
-    FirewallSetGeneration target_generation,
+    bool ipv6, FirewallSetGeneration target_generation,
     const std::vector<PendingRule> &rules,
     const FirewallGlobalPrefilter &prefilter) {
   const std::string target = output_generation_chain(target_generation);
@@ -1371,7 +1385,7 @@ std::string IptablesFirewall::build_output_script(
   // OUTPUT remains mangle-based and retains the existing connmark optimization.
   s += build_prefilter_lines(prefilter, target, /*allow_conntrack=*/true);
   for (const auto &pr : rules) {
-    if (pr.ipv6)
+    if (pr.ipv6 != ipv6)
       continue;
     for (const auto &line : build_rule_lines(pr, prefilter, target,
                                              /*allow_conntrack=*/true))
@@ -1498,14 +1512,14 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
   }
 
   if (has_v4) {
-    if (use_raw_prerouting_) {
+    if (uses_raw_prerouting(false)) {
       // Publish local OUTPUT first and the primary forwarded-traffic
       // PREROUTING path last. Both slots use the same stable fwmarks.
       pipe_to_cmd({"iptables-restore", "--noflush", "--counters"},
-                  build_output_script(target_v4_generation_, pending_rules_,
+                  build_output_script(false, target_v4_generation_, pending_rules_,
                                       global_prefilter_));
       pipe_to_cmd({"iptables-restore", "--noflush", "--counters"},
-                  build_raw_prerouting_script(target_v4_generation_,
+                  build_raw_prerouting_script(false, target_v4_generation_,
                                               pending_rules_,
                                               global_prefilter_));
     } else {
@@ -1516,9 +1530,19 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
     chain_v4_created_ = true;
   }
   if (has_v6) {
-    pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
-                build_ipt_script(true, target_v6_generation_, pending_rules_,
-                                 global_prefilter_));
+    if (uses_raw_prerouting(true)) {
+      pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
+                  build_output_script(true, target_v6_generation_, pending_rules_,
+                                      global_prefilter_));
+      pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
+                  build_raw_prerouting_script(true, target_v6_generation_,
+                                              pending_rules_,
+                                              global_prefilter_));
+    } else {
+      pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
+                  build_ipt_script(true, target_v6_generation_, pending_rules_,
+                                   global_prefilter_));
+    }
     chain_v6_created_ = true;
   }
 
@@ -1542,130 +1566,53 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
 }
 
 void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
-  auto &log = Logger::instance();
-  const bool owned_v4 = chain_v4_created_;
-  const bool owned_v6 = chain_v6_created_;
+  const auto flush_delete = [](const char *command, const char *table,
+                               const std::string &chain) {
+    safe_exec({command, "-t", table, "-F", chain}, /*suppress_output=*/true);
+    safe_exec({command, "-t", table, "-X", chain}, /*suppress_output=*/true);
+  };
+  const auto cleanup_family = [&](bool ipv6, bool owned) {
+    if (!owned && !sweep_live_state) {
+      return;
+    }
+    const char *command = ipv6 ? "ip6tables" : "iptables";
+    const bool raw = uses_raw_prerouting(ipv6);
 
-  // Remove jump rules, flush and delete custom chain for IPv4
-  if (owned_v4 || sweep_live_state) {
-    if (use_raw_prerouting_) {
-      log.verbose("iptables cleanup: removing raw PREROUTING chain {}",
-                  RAW_CHAIN_NAME);
-      remove_all_hooks("iptables", "raw", "PREROUTING", RAW_CHAIN_NAME);
-      safe_exec({"iptables", "-t", "raw", "-F", RAW_CHAIN_NAME},
-                /*suppress_output=*/true);
-      safe_exec({"iptables", "-t", "raw", "-X", RAW_CHAIN_NAME},
-                /*suppress_output=*/true);
-      remove_all_hooks("iptables", "mangle", "OUTPUT", OUTPUT_CHAIN_NAME);
-      safe_exec({"iptables", "-t", "mangle", "-F", OUTPUT_CHAIN_NAME},
-                /*suppress_output=*/true);
-      safe_exec({"iptables", "-t", "mangle", "-X", OUTPUT_CHAIN_NAME},
-                /*suppress_output=*/true);
+    // A live-state sweep deliberately handles both historical layouts.  This
+    // is limited to named keen-pbr chains and hooks; no table is flushed.
+    if (sweep_live_state || raw) {
+      remove_all_hooks(command, "raw", "PREROUTING", RAW_CHAIN_NAME);
+      flush_delete(command, "raw", RAW_CHAIN_NAME);
       for (const char *chain : {"KeenPbrRaw_A", "KeenPbrRaw_B"}) {
-        safe_exec({"iptables", "-t", "raw", "-F", chain},
-                  /*suppress_output=*/true);
-        safe_exec({"iptables", "-t", "raw", "-X", chain},
-                  /*suppress_output=*/true);
+        flush_delete(command, "raw", chain);
       }
+    }
+    if (sweep_live_state || !raw) {
+      remove_all_hooks(command, "mangle", "PREROUTING", CHAIN_NAME);
+      flush_delete(command, "mangle", CHAIN_NAME);
+      remove_all_hooks(command, "mangle", "OUTPUT", "KeenPbrTable_OUTPUT");
+      flush_delete(command, "mangle", "KeenPbrTable_OUTPUT");
+      for (const char *chain : {generation_chain(FirewallSetGeneration::A),
+                                generation_chain(FirewallSetGeneration::B)}) {
+        flush_delete(command, "mangle", chain);
+      }
+    }
+    if (sweep_live_state || raw) {
+      remove_all_hooks(command, "mangle", "OUTPUT", OUTPUT_CHAIN_NAME);
+      flush_delete(command, "mangle", OUTPUT_CHAIN_NAME);
       for (const char *chain :
            {output_generation_chain(FirewallSetGeneration::A),
             output_generation_chain(FirewallSetGeneration::B)}) {
-        safe_exec({"iptables", "-t", "mangle", "-F", chain},
-                  /*suppress_output=*/true);
-        safe_exec({"iptables", "-t", "mangle", "-X", chain},
-                  /*suppress_output=*/true);
-      }
-      if (sweep_live_state) {
-        remove_all_hooks("iptables", "mangle", "PREROUTING", CHAIN_NAME);
-        remove_all_hooks("iptables", "mangle", "OUTPUT",
-                         "KeenPbrTable_OUTPUT");
-        safe_exec({"iptables", "-t", "mangle", "-F", "KeenPbrTable_OUTPUT"},
-                  /*suppress_output=*/true);
-        safe_exec({"iptables", "-t", "mangle", "-X", "KeenPbrTable_OUTPUT"},
-                  /*suppress_output=*/true);
-        safe_exec({"iptables", "-t", "mangle", "-F", CHAIN_NAME},
-                  /*suppress_output=*/true);
-        safe_exec({"iptables", "-t", "mangle", "-X", CHAIN_NAME},
-                  /*suppress_output=*/true);
-      }
-    } else {
-      log.verbose("iptables cleanup: removing IPv4 chain {}", CHAIN_NAME);
-      remove_all_hooks("iptables", "mangle", "PREROUTING", CHAIN_NAME);
-      remove_all_hooks("iptables", "mangle", "OUTPUT", "KeenPbrTable_OUTPUT");
-      safe_exec({"iptables", "-t", "mangle", "-F",
-                 std::string(CHAIN_NAME) + "_OUTPUT"},
-                /*suppress_output=*/true);
-      safe_exec({"iptables", "-t", "mangle", "-X",
-                 std::string(CHAIN_NAME) + "_OUTPUT"},
-                /*suppress_output=*/true);
-      safe_exec({"iptables", "-t", "mangle", "-F", CHAIN_NAME},
-                /*suppress_output=*/true);
-      safe_exec({"iptables", "-t", "mangle", "-X", CHAIN_NAME},
-                /*suppress_output=*/true);
-      // A restart may switch from raw mode back to the default. Sweep
-      // only our explicitly named raw chains; never flush the raw table.
-      if (sweep_live_state) {
-        remove_all_hooks("iptables", "raw", "PREROUTING", RAW_CHAIN_NAME);
-        safe_exec({"iptables", "-t", "raw", "-F", RAW_CHAIN_NAME},
-                  /*suppress_output=*/true);
-        safe_exec({"iptables", "-t", "raw", "-X", RAW_CHAIN_NAME},
-                  /*suppress_output=*/true);
-        for (const char *chain : {"KeenPbrRaw_A", "KeenPbrRaw_B"}) {
-          safe_exec({"iptables", "-t", "raw", "-F", chain},
-                    /*suppress_output=*/true);
-          safe_exec({"iptables", "-t", "raw", "-X", chain},
-                    /*suppress_output=*/true);
-        }
-        remove_all_hooks("iptables", "mangle", "OUTPUT", OUTPUT_CHAIN_NAME);
-        safe_exec({"iptables", "-t", "mangle", "-F", OUTPUT_CHAIN_NAME},
-                  /*suppress_output=*/true);
-        safe_exec({"iptables", "-t", "mangle", "-X", OUTPUT_CHAIN_NAME},
-                  /*suppress_output=*/true);
-        for (const char *chain :
-             {output_generation_chain(FirewallSetGeneration::A),
-              output_generation_chain(FirewallSetGeneration::B)}) {
-          safe_exec({"iptables", "-t", "mangle", "-F", chain},
-                    /*suppress_output=*/true);
-          safe_exec({"iptables", "-t", "mangle", "-X", chain},
-                    /*suppress_output=*/true);
-        }
+        flush_delete(command, "mangle", chain);
       }
     }
-    chain_v4_created_ = false;
-  }
+  };
 
-  // Same for IPv6
-  if (owned_v6 || sweep_live_state) {
-    log.verbose("iptables cleanup: removing IPv6 chain {}", CHAIN_NAME);
-    remove_all_hooks("ip6tables", "mangle", "PREROUTING", CHAIN_NAME);
-    remove_all_hooks("ip6tables", "mangle", "OUTPUT", "KeenPbrTable_OUTPUT");
-    safe_exec({"ip6tables", "-t", "mangle", "-F",
-               std::string(CHAIN_NAME) + "_OUTPUT"},
-              /*suppress_output=*/true);
-    safe_exec({"ip6tables", "-t", "mangle", "-X",
-               std::string(CHAIN_NAME) + "_OUTPUT"},
-              /*suppress_output=*/true);
-    safe_exec({"ip6tables", "-t", "mangle", "-F", CHAIN_NAME},
-              /*suppress_output=*/true);
-    safe_exec({"ip6tables", "-t", "mangle", "-X", CHAIN_NAME},
-              /*suppress_output=*/true);
-    chain_v6_created_ = false;
-  }
+  cleanup_family(false, chain_v4_created_);
+  cleanup_family(true, chain_v6_created_);
+  chain_v4_created_ = false;
+  chain_v6_created_ = false;
 
-  if (sweep_live_state ||
-      (!use_raw_prerouting_ && (owned_v4 || owned_v6))) {
-    for (const char *chain : {generation_chain(FirewallSetGeneration::A),
-                              generation_chain(FirewallSetGeneration::B)}) {
-      safe_exec({"iptables", "-t", "mangle", "-F", chain},
-                /*suppress_output=*/true);
-      safe_exec({"iptables", "-t", "mangle", "-X", chain},
-                /*suppress_output=*/true);
-      safe_exec({"ip6tables", "-t", "mangle", "-F", chain},
-                /*suppress_output=*/true);
-      safe_exec({"ip6tables", "-t", "mangle", "-X", chain},
-                /*suppress_output=*/true);
-    }
-  }
   if (sweep_live_state) {
     cleanup_legacy_generation_chains("iptables");
     cleanup_legacy_generation_chains("ip6tables");
@@ -1768,8 +1715,9 @@ FirewallBackend IptablesFirewall::backend() const {
   return FirewallBackend::iptables;
 }
 
-std::unique_ptr<Firewall> create_iptables_firewall(bool use_raw_prerouting) {
-  return std::make_unique<IptablesFirewall>(use_raw_prerouting);
+std::unique_ptr<Firewall>
+create_iptables_firewall(RawPreroutingMode raw_prerouting) {
+  return std::make_unique<IptablesFirewall>(raw_prerouting);
 }
 
 } // namespace keen_pbr3

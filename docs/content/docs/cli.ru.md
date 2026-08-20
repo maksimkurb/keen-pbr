@@ -18,6 +18,7 @@ Options:
   --log-level <lvl>  Уровень логов: error, warn, info, verbose, debug
   --no-api           Отключить REST API во время выполнения
   --use-raw-prerouting  Использовать raw PREROUTING для пересылаемого IPv4 (только iptables)
+  --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables)
   --version         Показать версию и выйти
   --help            Показать эту справку и выйти
 
@@ -40,6 +41,7 @@ Commands:
 | `--log-level <lvl>` | Детализация логов: `error`, `warn`, `info`, `verbose` или `debug`. |
 | `--no-api` | Отключить REST API, даже если он включён в конфиге. |
 | `--use-raw-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv4-трафика; доступно только с iptables. |
+| `--use-raw6-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика; доступно только с iptables. |
 | `--version` | Вывести версию и выйти. |
 | `--help` | Вывести справку и выйти. |
 
@@ -47,20 +49,36 @@ Commands:
 
 Этот флаг переносит классификацию только пересылаемого IPv4-трафика из `mangle
 PREROUTING` в `raw PREROUTING`. Локально сгенерированный трафик остаётся в
-`mangle OUTPUT`, а IPv6 продолжает использовать mangle.
+`mangle OUTPUT`, а IPv6 настраивается независимо флагом
+`--use-raw6-prerouting`.
 
-На Keenetic / NetCraze init-скрипт проверяет и при необходимости загружает
-`iptable_raw.ko`. По умолчанию `KEEN_PBR_RAW_PREROUTING="auto"`: RAW используется
-только после успешной проверки, иначе сервис использует mangle. Чтобы всегда
+На Keenetic / NetCraze init-скрипт независимо проверяет и при
+необходимости загружает `iptable_raw.ko` и `ip6table_raw.ko`. По умолчанию
+`KEEN_PBR_RAW_PREROUTING="auto"`: каждая семья использует RAW только после
+успешной проверки, иначе для неё используется mangle. Чтобы всегда
 использовать mangle, добавьте в `/opt/etc/keen-pbr/defaults`:
 
 ```sh
 KEEN_PBR_RAW_PREROUTING="disable"
 ```
 
-Затем перезапустите сервис. Значение `enable` требует RAW и не допускает переход
-на mangle при ошибке проверки. Сравнение последствий для Keenetic приведено в
+Затем перезапустите сервис. Значение `auto` проверяет IPv4 и IPv6 независимо:
+доступное семейство использует RAW, недоступное — mangle. Значения `enable`,
+`ipv4-only` и `ipv6-only` требуют RAW для соответствующего семейства и не
+допускают переход на mangle при ошибке проверки. RAW работает до conntrack и
+намеренно не использует CONNMARK. Сравнение последствий для Keenetic приведено в
 [инструкции по установке Keenetic / NetCraze]({{< relref "/docs/getting-started/installation/keenetic" >}}).
+
+Проверить обе возможности RAW можно так:
+
+```sh
+ls -l "/lib/modules/$(uname -r)/iptable_raw.ko"
+ls -l "/lib/modules/$(uname -r)/ip6table_raw.ko"
+grep -x raw /proc/net/ip_tables_names
+grep -x raw /proc/net/ip6_tables_names
+iptables -t raw -S
+ip6tables -t raw -S
+```
 
 ## Команды
 

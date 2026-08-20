@@ -143,6 +143,14 @@ steady_duration_ms(std::chrono::steady_clock::time_point started_at) {
       .count();
 }
 
+RawPreroutingMode resolved_raw_prerouting_mode(const Config &config,
+                                               const DaemonOptions &options) {
+  const bool ipv6_enabled =
+      config.daemon.value_or(DaemonConfig{}).ipv6_enabled.value_or(true);
+  return {options.use_raw_prerouting,
+          options.use_raw6_prerouting && ipv6_enabled};
+}
+
 } // namespace
 
 std::string get_outbound_tag(const Outbound &ob) { return ob.tag; }
@@ -166,7 +174,7 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts,
       config_(std::move(config)), config_path_(std::move(config_path)),
       opts_(std::move(opts)),
       firewall_(create_firewall(firewall_backend_preference(config_),
-                                opts.use_raw_prerouting)),
+                                resolved_raw_prerouting_mode(config_, opts_))),
       interface_monitor_(std::make_unique<InterfaceMonitor>(
           [this](const InterfaceMonitor::Event &event) {
             handle_interface_event(event);
@@ -177,10 +185,12 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts,
           config_.fwmark.value_or(FwmarkConfig{}),
           config_.outbounds.value_or(std::vector<Outbound>{}))),
       hook_command_executor_(std::move(hook_command_executor)) {
-  if (opts_.use_raw_prerouting) {
+  if (opts_.use_raw_prerouting || opts_.use_raw6_prerouting) {
+    const auto raw_mode = firewall_->raw_prerouting_mode();
     Logger::instance().info(
-        "iptables PREROUTING table: raw (IPv4); iptables OUTPUT table: mangle; "
-        "IPv6 PREROUTING remains mangle");
+        "iptables PREROUTING placement: IPv4={}, IPv6={}; OUTPUT=mangle",
+        raw_mode.ipv4 ? "raw" : "mangle",
+        raw_mode.ipv6 ? "raw" : "mangle");
   }
 
   if (!hook_command_executor_) {

@@ -137,6 +137,43 @@ public:
     return firewall.static_set_name("sample", AF_INET);
   }
 
+  static std::string prerouting_table(RawPreroutingMode mode, bool ipv6) {
+    IptablesFirewall firewall;
+    firewall.raw_prerouting_ = mode;
+    return firewall.prerouting_table_name(ipv6);
+  }
+
+  static std::string prerouting_chain(RawPreroutingMode mode, bool ipv6) {
+    IptablesFirewall firewall;
+    firewall.raw_prerouting_ = mode;
+    return firewall.prerouting_dispatcher_chain_name(ipv6);
+  }
+
+  static std::string cleanup_sweep_log(RawPreroutingMode mode) {
+    const auto directory = std::filesystem::temp_directory_path() /
+                           ("keen-pbr-raw-cleanup-" +
+                            std::to_string(static_cast<long long>(getpid())));
+    std::filesystem::create_directories(directory);
+    const auto log_path = directory / "commands.log";
+    const std::string script =
+        "#!/bin/sh\nprintf '%s %s\\n' \"$0\" \"$*\" >> \"$KEEN_TEST_LOG\"\n";
+    write_executable(directory / "iptables", script);
+    write_executable(directory / "ip6tables", script);
+    PathGuard path_guard;
+    const auto path = directory.string() + ":/usr/bin:/bin";
+    REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+    REQUIRE(setenv("KEEN_TEST_LOG", log_path.c_str(), 1) == 0);
+    IptablesFirewall firewall;
+    firewall.raw_prerouting_ = mode;
+    firewall.cleanup_rules_impl(true);
+    unsetenv("KEEN_TEST_LOG");
+    std::ifstream input(log_path);
+    std::ostringstream contents;
+    contents << input.rdbuf();
+    std::filesystem::remove_all(directory);
+    return contents.str();
+  }
+
   static std::string build_ipt_script(bool ipv6,
                                       const std::vector<RuleDesc> &descs,
                                       FirewallGlobalPrefilter prefilter = {}) {
@@ -170,6 +207,12 @@ public:
 
   static std::string build_raw_script(const std::vector<RuleDesc> &descs,
                                       FirewallGlobalPrefilter prefilter = {}) {
+    return build_raw_script_for_family(false, descs, prefilter);
+  }
+
+  static std::string
+  build_raw_script_for_family(bool ipv6, const std::vector<RuleDesc> &descs,
+                              FirewallGlobalPrefilter prefilter = {}) {
     std::vector<IptablesFirewall::PendingRule> rules;
     for (const auto &d : descs) {
       IptablesFirewall::PendingRule pr;
@@ -185,7 +228,7 @@ public:
       rules.push_back(std::move(pr));
     }
     return IptablesFirewall::build_raw_prerouting_script(
-        FirewallSetGeneration::A, rules, prefilter);
+        ipv6, FirewallSetGeneration::A, rules, prefilter);
   }
 
   static std::string
@@ -213,11 +256,39 @@ public:
     return IptablesFirewall::build_output_script(generation, {}, {});
   }
 
+  static std::string build_output_script_for_family(
+      bool ipv6, const std::vector<RuleDesc> &descs,
+      FirewallGlobalPrefilter prefilter = {}) {
+    std::vector<IptablesFirewall::PendingRule> rules;
+    for (const auto &d : descs) {
+      IptablesFirewall::PendingRule pr;
+      pr.ipv6 = d.ipv6;
+      pr.action = d.action == RuleDesc::Mark
+                      ? IptablesFirewall::PendingRule::Mark
+                      : d.action == RuleDesc::Drop
+                            ? IptablesFirewall::PendingRule::Drop
+                            : IptablesFirewall::PendingRule::Pass;
+      pr.fwmark = d.fwmark;
+      pr.criteria = d.filter;
+      if (!d.set_name.empty()) pr.criteria.dst_set_name = d.set_name;
+      rules.push_back(std::move(pr));
+    }
+    return IptablesFirewall::build_output_script(
+        ipv6, FirewallSetGeneration::A, rules, prefilter);
+  }
+
   static int
   live_generation_state(const std::string &rules,
                         const std::string &dispatcher = "KeenPbrTable") {
     return static_cast<int>(IptablesFirewall::parse_live_generation(
         rules, dispatcher, "KeenPbrTable_A", "KeenPbrTable_B"));
+  }
+
+  static int live_generation_state_for_dispatcher(
+      const std::string &rules, const std::string &dispatcher,
+      const std::string &generation_a, const std::string &generation_b) {
+    return static_cast<int>(IptablesFirewall::parse_live_generation(
+        rules, dispatcher, generation_a, generation_b));
   }
 
   static int state_a() {
@@ -376,6 +447,55 @@ TEST_CASE("IptablesFirewall deduplicates repeated static ipset declarations") {
   CHECK(T::conflicting_duplicate_create_throws());
 }
 
+TEST_CASE("family layout helpers cover all four RAW/mangle combinations") {
+  const std::array<RawPreroutingMode, 4> modes = {
+      RawPreroutingMode{false, false}, RawPreroutingMode{true, false},
+      RawPreroutingMode{false, true}, RawPreroutingMode{true, true}};
+  for (const auto mode : modes) {
+    CHECK(T::prerouting_table(mode, false) ==
+          (mode.ipv4 ? "raw" : "mangle"));
+    CHECK(T::prerouting_table(mode, true) ==
+          (mode.ipv6 ? "raw" : "mangle"));
+    CHECK(T::prerouting_chain(mode, false) ==
+          (mode.ipv4 ? "KeenPbrRaw" : "KeenPbrTable"));
+    CHECK(T::prerouting_chain(mode, true) ==
+          (mode.ipv6 ? "KeenPbrRaw" : "KeenPbrTable"));
+  }
+}
+
+TEST_CASE("live-state cleanup sweeps RAW and mangle layouts per family") {
+  const auto log = T::cleanup_sweep_log(RawPreroutingMode{true, false});
+  CHECK(log.find("-t raw -S PREROUTING") != std::string::npos);
+  CHECK(log.find("-t raw -F KeenPbrRaw") != std::string::npos);
+  CHECK(log.find("-t mangle -F KeenPbrTable") != std::string::npos);
+  CHECK(log.find("-t mangle -F KeenPbrOutput") != std::string::npos);
+  CHECK(log.find("ip6tables -t raw -S PREROUTING") != std::string::npos);
+  CHECK(log.find("-t mangle -S PREROUTING") != std::string::npos);
+  CHECK(log.find("ip6tables -t mangle -F KeenPbrTable") != std::string::npos);
+}
+
+TEST_CASE("IPv6 RAW RulesOnly references select one static-set generation") {
+  const auto rules =
+      "-A KeenPbrRaw -j KeenPbrRaw_A\n"
+      "-A KeenPbrRaw_A -m set --match-set kpbr6s_remote dst -j RETURN\n";
+  CHECK(T::static_set_generation(rules, true) == T::state_a());
+  CHECK(T::static_set_names(rules, true) ==
+        std::set<std::string>{"kpbr6s_remote"});
+}
+
+TEST_CASE("RAW6 A/B recovery treats PREROUTING as authoritative") {
+  CHECK(T::live_generation_state_for_dispatcher(
+            "-A KeenPbrRaw -j KeenPbrRaw_A\n", "KeenPbrRaw",
+            "KeenPbrRaw_A", "KeenPbrRaw_B") == T::state_a());
+  CHECK(T::live_generation_state_for_dispatcher(
+            "-A KeenPbrRaw -j KeenPbrRaw_B\n", "KeenPbrRaw",
+            "KeenPbrRaw_A", "KeenPbrRaw_B") == T::state_b());
+  CHECK(T::target_for_states(T::state_a(), T::state_b()) ==
+        FirewallSetGeneration::B);
+  CHECK(T::target_for_states(T::state_b(), T::state_a()) ==
+        FirewallSetGeneration::A);
+}
+
 TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
   Rule rule{"kpbr4s_minecraft", false, false, Rule::Mark, 0x100, {}};
   FirewallGlobalPrefilter prefilter;
@@ -395,6 +515,36 @@ TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
   CHECK(script.find("-m connmark") == std::string::npos);
   CHECK(script.find("--ctstate") == std::string::npos);
   CHECK(script.find("--ctdir") == std::string::npos);
+}
+
+TEST_CASE("IPv6 raw prerouting filters families and keeps no-conntrack semantics") {
+  Rule v4{"kpbr4s_v4", false, false, Rule::Mark, 0x100, {}};
+  Rule v6{"kpbr6s_v6", true, false, Rule::Mark, 0x200, {}};
+  FirewallGlobalPrefilter prefilter;
+  prefilter.restore_conntrack_mark = true;
+  prefilter.conntrack_mark_mask = 0xff00;
+  const auto script = T::build_raw_script_for_family(true, {v4, v6}, prefilter);
+  CHECK(script.find("*raw\n") != std::string::npos);
+  CHECK(script.find("kpbr6s_v6") != std::string::npos);
+  CHECK(script.find("kpbr4s_v4") == std::string::npos);
+  CHECK(script.find("--set-xmark 0x200/0xffffffff") != std::string::npos);
+  CHECK(script.find("CONNMARK") == std::string::npos);
+  CHECK(script.find("-m conntrack") == std::string::npos);
+}
+
+TEST_CASE("IPv6 raw mode keeps OUTPUT in mangle with connmark optimization") {
+  Rule v4{"kpbr4s_v4", false, false, Rule::Mark, 0x100, {}};
+  Rule v6{"kpbr6s_v6", true, false, Rule::Mark, 0x200, {}};
+  FirewallGlobalPrefilter prefilter;
+  prefilter.restore_conntrack_mark = true;
+  prefilter.conntrack_mark_mask = 0xff00;
+  const auto script = T::build_output_script_for_family(true, {v4, v6}, prefilter);
+  CHECK(script.find("*mangle\n") != std::string::npos);
+  CHECK(script.find(":KeenPbrOutput - [0:0]") != std::string::npos);
+  CHECK(script.find("kpbr6s_v6") != std::string::npos);
+  CHECK(script.find("kpbr4s_v4") == std::string::npos);
+  CHECK(script.find("CONNMARK") != std::string::npos);
+  CHECK(script.find("--set-xmark 0x200/0xffffffff") != std::string::npos);
 }
 
 namespace {

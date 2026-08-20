@@ -92,15 +92,16 @@ Bindings** rules. The platform's iptables replacement behaviour is also discusse
 For the most predictable Keenetic setup, do not assign **Connection Policies** to devices in Keenetic. Instead, create the equivalent per-device [keen-pbr route rules]({{< relref "/docs/configuration/route-rules" >}}) using the `src_addr` (**Source address**) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.
 {{< /callout >}}
 
-The package default is `auto`: it uses RAW for IPv4 forwarded traffic when the
-device supports it, otherwise mangle. Locally generated traffic and IPv6
-continue to use mangle in either mode.
+The package default is `auto`: it probes IPv4 and IPv6 independently, using RAW
+for each supported family and mangle for the other. Locally generated traffic
+always remains in mangle OUTPUT. `enable`, `ipv4-only`, and `ipv6-only` are
+available when a family must be forced; forced capability failures stop startup.
 
 To see which mode was selected, restart the service and look for these messages
 in the device system log:
 
-`raw PREROUTING available; enabling --use-raw-prerouting` means RAW is active.
-A message ending in `using mangle PREROUTING` means mangle is active.
+Messages identify IPv4 and IPv6 capability resolution and the resulting daemon
+flags (`--use-raw-prerouting` and `--use-raw6-prerouting`).
 
 To always use mangle, edit `/opt/etc/keen-pbr/defaults`:
 
@@ -114,8 +115,9 @@ Then restart the service:
 /opt/etc/init.d/S80keen-pbr restart
 ```
 
-Set `KEEN_PBR_RAW_PREROUTING="enable"` to require RAW; the service will fail to
-start instead of falling back to mangle if the RAW capability is unavailable.
+Set `KEEN_PBR_RAW_PREROUTING="enable"` to require RAW for every enabled family;
+use `ipv4-only` or `ipv6-only` to force one family. The service fails to start
+instead of falling back to mangle if a forced capability is unavailable.
 
 Basic commands:
 

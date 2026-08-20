@@ -108,6 +108,15 @@ enum class FirewallBackendPreference : uint8_t {
   nftables
 };
 
+// Independent placement of forwarded traffic classification.  OUTPUT always
+// remains in mangle; these flags select only the PREROUTING table per family.
+struct RawPreroutingMode {
+  bool ipv4{false};
+  bool ipv6{false};
+
+  bool uses(bool is_ipv6) const { return is_ipv6 ? ipv6 : ipv4; }
+};
+
 // How pending firewall changes should be applied.
 enum class FirewallApplyMode : uint8_t {
   // Recreate backend-owned firewall state from scratch, including sets.
@@ -248,9 +257,13 @@ public:
   // Return the backend type for this firewall instance.
     virtual FirewallBackend backend() const = 0;
 
-    // True when IPv4 forwarded traffic is deliberately installed in raw
-    // PREROUTING instead of mangle PREROUTING.
-    virtual bool uses_raw_prerouting() const { return false; }
+    // Resolved per-family placement of forwarded traffic.  OUTPUT remains
+    // mangle for both families.
+    virtual RawPreroutingMode raw_prerouting_mode() const { return {}; }
+    // Compatibility accessor: the historical flag means IPv4 RAW.
+    virtual bool uses_raw_prerouting() const {
+      return raw_prerouting_mode().ipv4;
+    }
 
   // Non-copyable
   Firewall(const Firewall &) = delete;
@@ -272,10 +285,18 @@ const char *firewall_backend_name(FirewallBackend backend);
 
 // Factory function to create the appropriate firewall backend.
 // backend_pref: auto-detect, iptables, or nftables.
+// raw_prerouting: independent IPv4/IPv6 RAW PREROUTING placement.
 // Throws FirewallError if requested backend is not available.
 std::unique_ptr<Firewall>
 create_firewall(FirewallBackendPreference backend_pref =
                     FirewallBackendPreference::auto_detect,
-                bool use_raw_prerouting = false);
+                RawPreroutingMode raw_prerouting = {});
+
+// Compatibility overload for callers using the historical IPv4-only flag.
+inline std::unique_ptr<Firewall>
+create_firewall(FirewallBackendPreference backend_pref, bool use_raw_prerouting) {
+  return create_firewall(backend_pref,
+                         RawPreroutingMode{use_raw_prerouting, false});
+}
 
 } // namespace keen_pbr3

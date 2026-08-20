@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -61,7 +62,15 @@ protected:
 // runner defaults to run_command_capture; override for testing.
 std::unique_ptr<FirewallVerifier> create_firewall_verifier(
     FirewallBackend backend,
-    bool use_raw_prerouting = false,
+    RawPreroutingMode raw_prerouting = {},
     CommandRunner runner = run_command_capture);
+
+inline std::unique_ptr<FirewallVerifier> create_firewall_verifier(
+    FirewallBackend backend, bool use_raw_prerouting,
+    CommandRunner runner = run_command_capture) {
+    return create_firewall_verifier(
+        backend, RawPreroutingMode{use_raw_prerouting, false},
+        std::move(runner));
+}
 
 } // namespace keen_pbr3
