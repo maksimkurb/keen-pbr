@@ -90,6 +90,14 @@ public:
   using std::runtime_error::runtime_error;
 };
 
+// Raised when an inspection-only RulesOnly apply cannot safely reuse the
+// currently live firewall sets. Callers may retry exactly once with the
+// conservative PreserveSets mode.
+class FirewallRulesOnlyError : public FirewallError {
+public:
+  using FirewallError::FirewallError;
+};
+
 // Concrete firewall backend selected for runtime use.
 enum class FirewallBackend : uint8_t { iptables, nftables };
 
@@ -108,7 +116,11 @@ enum class FirewallApplyMode : uint8_t {
   PreserveSets,
   // Refresh static list-backed elements while preserving dynamic DNS sets.
   // Backends may rebuild equivalent chains to publish the refreshed sets.
-  StaticSetsOnly
+  StaticSetsOnly,
+  // Rebuild packet-classification rules while reusing the currently live
+  // static and dynamic sets. This mode must not mutate any set or stream list
+  // contents; callers fall back to PreserveSets when preflight fails.
+  RulesOnly
 };
 
 enum class FirewallSetGeneration : uint8_t { A, B };

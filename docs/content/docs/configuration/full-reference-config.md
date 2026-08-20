@@ -41,6 +41,10 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Default: (shown below)
     "clear_dynamic_sets_on_apply": true,
 
+    // Reuse the currently live list sets during safe runtime refreshes.
+    // Default: true; failed preflight falls back to PreserveSets.
+    "reuse_static_sets_on_runtime_refresh": true,
+
     // Default strict routing behavior for interface outbounds.
     // Default: (shown below)
     "strict_enforcement": false,

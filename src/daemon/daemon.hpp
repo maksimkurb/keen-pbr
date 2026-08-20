@@ -198,6 +198,7 @@ private:
   // lifecycle and runtime apply
   void setup_static_routing();
   void reconcile_static_routing();
+  FirewallApplyMode runtime_refresh_firewall_mode() const;
   void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive);
   void reconcile_lists_only(bool reload_resolver);
   void register_urltest_outbounds();

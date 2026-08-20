@@ -970,12 +970,19 @@ void Daemon::refresh_iproute_and_firewall_runtime(StatusPublishScope scope) {
   auto &log = Logger::instance();
   try {
     reconcile_static_routing();
-    apply_firewall(FirewallApplyMode::PreserveSets);
+    apply_firewall(runtime_refresh_firewall_mode());
     publish_runtime_state(scope);
     log.info("Runtime iproute and firewall refresh complete.");
   } catch (const std::exception &e) {
     log.error("Runtime iproute and firewall refresh failed: {}", e.what());
   }
+}
+
+FirewallApplyMode Daemon::runtime_refresh_firewall_mode() const {
+  return config_.daemon.value_or(DaemonConfig{})
+                 .reuse_static_sets_on_runtime_refresh.value_or(true)
+             ? FirewallApplyMode::RulesOnly
+             : FirewallApplyMode::PreserveSets;
 }
 
 bool Daemon::is_interface_outbound_in_use(

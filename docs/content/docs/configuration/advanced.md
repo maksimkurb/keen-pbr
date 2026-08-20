@@ -17,6 +17,7 @@ Controls the PID file path, cache directory, and global routing behaviour.
 | `cache_dir` | string | `/var/cache/keen-pbr` | Directory for cached list data |
 | `firewall_backend` | string | `"auto"` | Firewall backend selection: `auto`, `iptables`, or `nftables` |
 | `clear_dynamic_sets_on_apply` | boolean | `true` | Clear dnsmasq-managed dynamic sets during a full config apply or runtime restart. Preserve-set and list-only reconciles never clear them. |
+| `reuse_static_sets_on_runtime_refresh` | boolean | `true` | Rebuild rules without streaming or modifying static/dynamic sets for SIGUSR1, URLTEST/ICMPTEST selection, and interface state refreshes. Makes rules applying faster. If `false`, will always re-apply ipset lists. |
 | `strict_enforcement` | boolean | `false` | Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. |
 | `strict_enforcement_action` | string | `"unreachable"` | Terminal action for strict enforcement: `unreachable` returns an immediate network error; `blackhole` silently drops packets until the application times out. |
 | `max_file_size_bytes` | integer | `8388608` (8 MiB) | Maximum allowed size in bytes for downloaded remote list content |
@@ -29,6 +30,7 @@ Controls the PID file path, cache directory, and global routing behaviour.
     "cache_dir": "/var/cache/keen-pbr",
     "firewall_backend": "auto",
     "clear_dynamic_sets_on_apply": true,
+    "reuse_static_sets_on_runtime_refresh": true,
     "strict_enforcement": false,
     "strict_enforcement_action": "unreachable",
     "max_file_size_bytes": 8388608,

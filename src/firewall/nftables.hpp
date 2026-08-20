@@ -19,6 +19,8 @@ public:
     // Destructor performs best-effort cleanup without virtual dispatch.
     ~NftablesFirewall() override;
 
+    void prepare_apply(FirewallApplyMode mode) override;
+
     // Buffer an nftables named set (ipv4_addr/ipv6_addr, optional timeout).
     void create_ipset(const std::string& set_name, int family,
                       uint32_t timeout = 0) override;
@@ -64,7 +66,8 @@ private:
     nlohmann::json build_apply_document(const LiveTableState& live_state,
                                         bool emit_full_table,
                                         bool static_sets_only = false,
-                                        bool clear_dynamic_sets = false);
+                                        bool clear_dynamic_sets = false,
+                                        bool rules_only = false);
 
     // Describes an nftables named set to be created.
     struct PendingSet {
@@ -97,6 +100,7 @@ private:
     static nlohmann::json build_delete_set_json(const std::string& set_name);
     static bool is_dynamic_set_name(const std::string& set_name);
     static std::string set_schema_key(const PendingSet& set);
+    void preflight_reused_set_schemas(const LiveTableState& live_state) const;
     // Build all prerouting rule add-commands, including global prefilter rules.
     static nlohmann::json build_rule_add_commands(
         const FirewallGlobalPrefilter& prefilter,
@@ -144,6 +148,7 @@ private:
 
     // True once the inet KeenPbrTable table has been created via apply().
     bool table_created_ = false;
+    FirewallApplyMode prepared_mode_{FirewallApplyMode::Destructive};
 
 #ifdef KEEN_PBR3_TESTING
     friend class NftablesBuilderTest;

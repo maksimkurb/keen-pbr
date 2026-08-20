@@ -26,6 +26,9 @@ export interface DaemonConfig {
   /** Whether a full firewall apply should clear dnsmasq-owned dynamic IP sets before recreating runtime rules. Defaults to `true` when omitted or set to `null`. List-only and preserve-set reconciles never clear dynamic entries.
    */
   clear_dynamic_sets_on_apply?: boolean | null;
+  /** Whether safe runtime refreshes (SIGUSR1, URLTEST/ICMPTEST selection, and interface state changes) should rebuild rules while reusing the currently live static list sets. Defaults to `true` when omitted or set to `null`; failed preflight falls back to PreserveSets.
+   */
+  reuse_static_sets_on_runtime_refresh?: boolean | null;
   /** Whether keen-pbr should install IPv6 firewall sets/rules and emit IPv6 resolver set targets. Defaults to `true` when omitted or set to `null`. If enabled but the system lacks IPv6 support, keen-pbr logs an error and continues in IPv4-only mode.
    */
   ipv6_enabled?: boolean | null;

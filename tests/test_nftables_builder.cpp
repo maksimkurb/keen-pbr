@@ -92,6 +92,47 @@ public:
     return firewall.build_apply_document(live, false, false, clear);
   }
 
+  static nlohmann::json build_rules_only_document() {
+    NftablesFirewall firewall;
+    NftablesFirewall::LiveTableState live;
+    live.table_exists = true;
+    live.chain_exists = true;
+    live.output_chain_exists = true;
+    live.set_names.insert("kpbr4s_domains");
+    live.set_schemas.emplace("kpbr4s_domains", "ipv4_addr:0");
+    firewall.pending_sets_.push_back(
+        {"kpbr4s_domains", "ipv4_addr", 0});
+    firewall.pending_elements_.emplace(
+        "kpbr4s_domains", nlohmann::json::array({"192.0.2.1"}));
+    NftablesFirewall::PendingRule rule;
+    rule.family = AF_INET;
+    rule.action = NftablesFirewall::PendingRule::Mark;
+    rule.fwmark = 42;
+    rule.criteria.dst_set_name = "kpbr4s_domains";
+    firewall.pending_rules_.push_back(std::move(rule));
+    return firewall.build_apply_document(live, false, false, false, true);
+  }
+
+  static bool preflight_reused_set_schema(const std::string& schema) {
+    NftablesFirewall firewall;
+    NftablesFirewall::LiveTableState live;
+    live.table_exists = true;
+    live.chain_exists = true;
+    live.output_chain_exists = true;
+    live.set_names.insert("kpbr4s_empty");
+    if (!schema.empty()) {
+      live.set_schemas.emplace("kpbr4s_empty", schema);
+    }
+    firewall.pending_sets_.push_back(
+        {"kpbr4s_empty", "ipv4_addr", 0});
+    try {
+      firewall.preflight_reused_set_schemas(live);
+      return true;
+    } catch (const FirewallRulesOnlyError&) {
+      return false;
+    }
+  }
+
   static bool is_dynamic_set_name(const std::string& name) {
     return NftablesFirewall::is_dynamic_set_name(name);
   }
@@ -481,6 +522,25 @@ TEST_CASE("nft static sets-only reconcile leaves chains and rules untouched") {
     CHECK_FALSE(command.contains("chain"));
     CHECK_FALSE(command.contains("rule"));
   }
+}
+
+TEST_CASE("nft RulesOnly document leaves all sets and elements untouched") {
+  const auto doc = T::build_rules_only_document();
+  REQUIRE(doc["nftables"].is_array());
+  for (const auto& command : doc["nftables"]) {
+    CHECK_FALSE(command.contains("set"));
+    CHECK_FALSE(command.contains("element"));
+  }
+}
+
+TEST_CASE("nft RulesOnly preflight accepts empty compatible set schema") {
+  CHECK(T::preflight_reused_set_schema("ipv4_addr:0"));
+}
+
+TEST_CASE("nft RulesOnly preflight rejects missing or incompatible schema") {
+  CHECK_FALSE(T::preflight_reused_set_schema(""));
+  CHECK_FALSE(T::preflight_reused_set_schema("ipv6_addr:0"));
+  CHECK_FALSE(T::preflight_reused_set_schema("ipv4_addr:300"));
 }
 
 TEST_CASE("nft destructive policy optionally flushes existing dynamic sets") {

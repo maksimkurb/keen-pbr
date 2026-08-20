@@ -306,7 +306,8 @@ void Daemon::apply_firewall(FirewallApplyMode mode) {
         firewall_state_.get_urltest_selections(),
         list_service_.cache_manager(),
         *firewall_,
-        mode));
+        mode,
+        &firewall_state_.get_rules()));
     (void)conntrack_manager_.reconcile(
         ConntrackPolicy{prefilter.skip_established_or_dnat});
 }
@@ -352,7 +353,7 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
         firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
         try {
             reconcile_static_routing();
-            apply_firewall(FirewallApplyMode::PreserveSets);
+            apply_firewall(runtime_refresh_firewall_mode());
             if (delete_conntrack) {
                 const auto mark_it = outbound_marks_.find(urltest_tag);
                 const uint32_t mark_mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));

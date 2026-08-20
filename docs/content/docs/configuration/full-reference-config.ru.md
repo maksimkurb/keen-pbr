@@ -41,6 +41,10 @@ weight: 6
     // По умолчанию: (показано ниже)
     "clear_dynamic_sets_on_apply": true,
 
+    // Использовать текущие наборы списков при безопасном обновлении runtime.
+    // По умолчанию: true; при ошибке preflight используется PreserveSets.
+    "reuse_static_sets_on_runtime_refresh": true,
+
     // Глобальное поведение strict routing для outbounds типа interface.
     // По умолчанию: (показано ниже)
     "strict_enforcement": false,

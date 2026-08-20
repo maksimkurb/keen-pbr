@@ -80,12 +80,23 @@ private:
 
   enum class LiveGenerationState { A, B, Missing, Invalid };
 
+  struct GenerationInspection {
+    LiveGenerationState primary{LiveGenerationState::Missing};
+    LiveGenerationState secondary{LiveGenerationState::Missing};
+  };
+
+  struct GenerationPlan {
+    FirewallSetGeneration target{FirewallSetGeneration::A};
+    bool repair_output{false};
+  };
+
   // Build the 'create <name> hash:net family <f> [timeout <t>]' line.
   static std::string build_ipset_create_line(const PendingSet &ps);
   static bool is_dynamic_set_name(const std::string &set_name);
   static bool dynamic_set_schema_compatible(const std::string &saved_sets,
                                             const PendingSet &expected);
   void preflight_dynamic_set_schemas(bool effective_ipv6) const;
+  void preflight_reused_set_schemas(bool effective_ipv6) const;
   static std::string
   build_raw_prerouting_script(FirewallSetGeneration target_generation,
                               const std::vector<PendingRule> &rules,
@@ -117,6 +128,9 @@ private:
   bool ipv6_backend_available() const;
   void validate_raw_prerouting_capability() const;
   LiveGenerationState inspect_live_generation(bool ipv6) const;
+  GenerationInspection inspect_generation(bool ipv6) const;
+  static GenerationPlan generation_plan_for_states(
+      LiveGenerationState primary, LiveGenerationState secondary);
   LiveGenerationState inspect_dispatcher(
       const char *command, const char *table, const std::string &dispatcher,
       const std::string &generation_a,
@@ -173,6 +187,10 @@ private:
   static const char *generation_chain(FirewallSetGeneration generation);
   FirewallSetGeneration target_v4_generation_{FirewallSetGeneration::A};
   FirewallSetGeneration target_v6_generation_{FirewallSetGeneration::A};
+  FirewallSetGeneration target_static_v4_generation_{FirewallSetGeneration::A};
+  FirewallSetGeneration target_static_v6_generation_{FirewallSetGeneration::A};
+  bool static_generations_prepared_{false};
+  FirewallApplyMode prepared_mode_{FirewallApplyMode::Destructive};
   bool apply_prepared_{false};
   bool use_raw_prerouting_{false};
 

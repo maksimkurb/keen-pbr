@@ -826,6 +826,9 @@ Config parse_config_json(json parsed_json) {
         parsed_json, "daemon", "clear_dynamic_sets_on_apply",
         "daemon.clear_dynamic_sets_on_apply", issues);
     validate_optional_boolean_field(
+        parsed_json, "daemon", "reuse_static_sets_on_runtime_refresh",
+        "daemon.reuse_static_sets_on_runtime_refresh", issues);
+    validate_optional_boolean_field(
         parsed_json, "daemon", "ipv6_enabled", "daemon.ipv6_enabled", issues);
     validate_route_rule_specs(parsed_json, issues);
     validate_route_inbound_interfaces(parsed_json, issues);

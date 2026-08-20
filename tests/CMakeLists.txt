@@ -2,6 +2,7 @@ add_executable(keen-pbr-tests
   ../src/auth/password.cpp
   test_main.cpp
   test_firewall_verifier.cpp
+  test_firewall_runtime.cpp
   test_firewall_reconciler.cpp
   test_nftables_builder.cpp
   test_iptables_builder.cpp

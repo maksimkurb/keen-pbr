@@ -612,6 +612,16 @@ components:
             never clear dynamic entries.
           default: true
           example: true
+        reuse_static_sets_on_runtime_refresh:
+          type: boolean
+          nullable: true
+          description: >
+            Whether safe runtime refreshes (SIGUSR1, URLTEST/ICMPTEST selection,
+            and interface state changes) should rebuild rules while reusing the
+            currently live static list sets. Defaults to `true` when omitted or
+            set to `null`; failed preflight falls back to PreserveSets.
+          default: true
+          example: true
         ipv6_enabled:
           type: boolean
           nullable: true
@@ -1342,6 +1352,7 @@ components:
           firewall_verify_max_bytes: 262144
           skip_marked_packets: true
           clear_dynamic_sets_on_apply: true
+          reuse_static_sets_on_runtime_refresh: true
           ipv6_enabled: true
           strict_enforcement: true
           max_file_size_bytes: 8388608

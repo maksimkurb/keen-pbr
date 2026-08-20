@@ -186,6 +186,40 @@ public:
         static_cast<IptablesFirewall::LiveGenerationState>(secondary));
   }
 
+  static FirewallSetGeneration plan_target_for_states(int primary,
+                                                      int secondary) {
+    return IptablesFirewall::generation_plan_for_states(
+               static_cast<IptablesFirewall::LiveGenerationState>(primary),
+               static_cast<IptablesFirewall::LiveGenerationState>(secondary))
+        .target;
+  }
+
+  static bool plan_repairs_output(int primary, int secondary) {
+    return IptablesFirewall::generation_plan_for_states(
+               static_cast<IptablesFirewall::LiveGenerationState>(primary),
+               static_cast<IptablesFirewall::LiveGenerationState>(secondary))
+        .repair_output;
+  }
+
+  static std::string build_rules_for_slots(FirewallSetGeneration rule_generation,
+                                            FirewallSetGeneration set_generation,
+                                            bool ipv6) {
+    IptablesFirewall firewall;
+    firewall.target_v4_generation_ = rule_generation;
+    firewall.target_v6_generation_ = rule_generation;
+    firewall.target_static_v4_generation_ = set_generation;
+    firewall.target_static_v6_generation_ = set_generation;
+    firewall.static_generations_prepared_ = true;
+    IptablesFirewall::PendingRule rule;
+    rule.ipv6 = ipv6;
+    rule.action = IptablesFirewall::PendingRule::Mark;
+    rule.fwmark = 42;
+    rule.criteria.dst_set_name =
+        firewall.static_set_name("sample", ipv6 ? AF_INET6 : AF_INET);
+    return IptablesFirewall::build_ipt_script(
+        ipv6, rule_generation, {rule}, {});
+  }
+
   static size_t count_exact_jump(const std::string &rules,
                                  const std::string &source,
                                  const std::string &target) {
@@ -486,6 +520,24 @@ TEST_CASE("ipset reconcile: dynamic schema rejects malformed or ambiguous XML") 
       "kpbr4d_domains", "inet", 0));
 }
 
+TEST_CASE("RulesOnly schema helper accepts empty compatible static sets") {
+  CHECK(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4s_empty"><type>hash:net</type><header><family>inet</family></header></ipset></ipsets>)",
+      "kpbr4s_empty", "inet", 0));
+}
+
+TEST_CASE("RulesOnly schema helper rejects incompatible static set schemas") {
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4s_empty"><type>hash:ip</type><header><family>inet</family></header></ipset></ipsets>)",
+      "kpbr4s_empty", "inet", 0));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4s_empty"><type>hash:net</type><header><family>inet6</family></header></ipset></ipsets>)",
+      "kpbr4s_empty", "inet", 0));
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4s_empty"><type>hash:net</type><header><family>inet</family><timeout>300</timeout></header></ipset></ipsets>)",
+      "kpbr4s_empty", "inet", 0));
+}
+
 TEST_CASE("ipset reconcile: static A/B names fit the ipset limit") {
   const std::string longest_name(24, 'a');
   const auto v4a =
@@ -518,6 +570,30 @@ TEST_CASE("ipset reconcile: live dispatcher selects the inactive static slot") {
         "kpbr4s_sample");
   CHECK_THROWS(T::static_set_name_for_live_rules(
       "-A KeenPbrTable -j UnknownGeneration\n"));
+}
+
+TEST_CASE("RulesOnly generation plan keeps static and rule slots distinct") {
+  CHECK(T::plan_target_for_states(T::state_a(), T::state_a()) ==
+        FirewallSetGeneration::B);
+  CHECK_FALSE(T::plan_repairs_output(T::state_a(), T::state_a()));
+  CHECK(T::plan_target_for_states(T::state_a(), T::state_b()) ==
+        FirewallSetGeneration::B);
+  CHECK(T::plan_repairs_output(T::state_a(), T::state_b()));
+  CHECK(T::plan_target_for_states(T::state_b(), T::state_a()) ==
+        FirewallSetGeneration::A);
+  CHECK(T::plan_repairs_output(T::state_b(), T::state_a()));
+}
+
+TEST_CASE("RulesOnly rules can target inactive generation while using active sets") {
+  const auto a_sets_b_rules = T::build_rules_for_slots(
+      FirewallSetGeneration::B, FirewallSetGeneration::A, false);
+  CHECK(a_sets_b_rules.find("KeenPbrTable_B") != std::string::npos);
+  CHECK(a_sets_b_rules.find("kpbr4s_sample") != std::string::npos);
+
+  const auto b_sets_a_rules = T::build_rules_for_slots(
+      FirewallSetGeneration::A, FirewallSetGeneration::B, true);
+  CHECK(b_sets_a_rules.find("KeenPbrTable_A") != std::string::npos);
+  CHECK(b_sets_a_rules.find("kpbr6S_sample") != std::string::npos);
 }
 
 TEST_CASE("live generation parser rejects damaged dispatchers") {

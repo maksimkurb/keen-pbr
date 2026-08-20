@@ -1333,6 +1333,31 @@ TEST_CASE("daemon.clear_dynamic_sets_on_apply: rejects non-boolean value") {
     CHECK(issues[0].path == "daemon.clear_dynamic_sets_on_apply");
 }
 
+TEST_CASE("daemon.reuse_static_sets_on_runtime_refresh: accepts explicit policy") {
+    auto enabled = parse_test_config(
+        R"({"daemon":{"reuse_static_sets_on_runtime_refresh":true}})");
+    auto disabled = parse_test_config(
+        R"({"daemon":{"reuse_static_sets_on_runtime_refresh":false}})");
+    REQUIRE(enabled.daemon->reuse_static_sets_on_runtime_refresh.has_value());
+    REQUIRE(disabled.daemon->reuse_static_sets_on_runtime_refresh.has_value());
+    CHECK(*enabled.daemon->reuse_static_sets_on_runtime_refresh);
+    CHECK_FALSE(*disabled.daemon->reuse_static_sets_on_runtime_refresh);
+}
+
+TEST_CASE("daemon.reuse_static_sets_on_runtime_refresh: null uses default behavior") {
+    auto cfg = parse_test_config(
+        R"({"daemon":{"reuse_static_sets_on_runtime_refresh":null}})");
+    REQUIRE(cfg.daemon.has_value());
+    CHECK_FALSE(cfg.daemon->reuse_static_sets_on_runtime_refresh.has_value());
+}
+
+TEST_CASE("daemon.reuse_static_sets_on_runtime_refresh: rejects non-boolean value") {
+    const auto issues = parse_issues(
+        R"({"daemon":{"reuse_static_sets_on_runtime_refresh":"yes"}})");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "daemon.reuse_static_sets_on_runtime_refresh");
+}
+
 TEST_CASE("daemon.ipv6_enabled: defaults to true behavior when absent") {
     auto cfg = parse_test_config(R"({"daemon":{}})");
     REQUIRE(cfg.daemon.has_value());

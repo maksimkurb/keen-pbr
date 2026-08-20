@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes21Xrg0 data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesGlSnvd data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -187,6 +187,7 @@ namespace api {
         std::optional<int64_t> max_file_size_bytes;
         std::optional<std::string> pid_file;
         std::optional<int64_t> resolver_ready_timeout_seconds;
+        std::optional<bool> reuse_static_sets_on_runtime_refresh;
         std::optional<bool> skip_marked_packets;
         std::optional<bool> strict_enforcement;
         std::optional<StrictEnforcementAction> strict_enforcement_action;
@@ -630,7 +631,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypes21Xrg0 {
+    struct KeenPbrTypesGlSnvd {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -905,8 +906,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypes21Xrg0 & x);
-    void to_json(json & j, const KeenPbrTypes21Xrg0 & x);
+    void from_json(const json & j, KeenPbrTypesGlSnvd & x);
+    void to_json(json & j, const KeenPbrTypesGlSnvd & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1171,6 +1172,7 @@ namespace api {
         x.max_file_size_bytes = get_stack_optional<int64_t>(j, "max_file_size_bytes");
         x.pid_file = get_stack_optional<std::string>(j, "pid_file");
         x.resolver_ready_timeout_seconds = get_stack_optional<int64_t>(j, "resolver_ready_timeout_seconds");
+        x.reuse_static_sets_on_runtime_refresh = get_stack_optional<bool>(j, "reuse_static_sets_on_runtime_refresh");
         x.skip_marked_packets = get_stack_optional<bool>(j, "skip_marked_packets");
         x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
         x.strict_enforcement_action = get_stack_optional<StrictEnforcementAction>(j, "strict_enforcement_action");
@@ -1188,6 +1190,7 @@ namespace api {
         j["max_file_size_bytes"] = x.max_file_size_bytes;
         j["pid_file"] = x.pid_file;
         j["resolver_ready_timeout_seconds"] = x.resolver_ready_timeout_seconds;
+        j["reuse_static_sets_on_runtime_refresh"] = x.reuse_static_sets_on_runtime_refresh;
         j["skip_marked_packets"] = x.skip_marked_packets;
         j["strict_enforcement"] = x.strict_enforcement;
         j["strict_enforcement_action"] = x.strict_enforcement_action;
@@ -2028,7 +2031,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes21Xrg0& x) {
+    inline void from_json(const json & j, KeenPbrTypesGlSnvd& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2101,7 +2104,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes21Xrg0 & x) {
+    inline void to_json(json & j, const KeenPbrTypesGlSnvd & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
