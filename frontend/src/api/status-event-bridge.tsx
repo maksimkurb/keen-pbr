@@ -19,8 +19,23 @@ export function StatusEventBridge() {
     let hiddenTimer: ReturnType<typeof setTimeout> | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
+    const settle = (controller: AbortController) => {
+      if (source !== controller || controller.signal.aborted) return
+
+      source = null
+      if (reconnectTimer !== null) clearTimeout(reconnectTimer)
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null
+        connect()
+      }, 3_000)
+    }
+
     const connect = () => {
       if (source !== null) return
+      if (reconnectTimer !== null) {
+        clearTimeout(reconnectTimer)
+        reconnectTimer = null
+      }
       source = new AbortController()
       const controller = source
       void consumeAuthenticatedSse(
@@ -46,12 +61,10 @@ export function StatusEventBridge() {
             })
           }
         }
-      ).catch(() => {
-        if (!controller.signal.aborted) {
-          source = null
-          reconnectTimer = setTimeout(connect, 3_000)
-        }
-      })
+      ).then(
+        () => settle(controller),
+        () => settle(controller)
+      )
     }
 
     const disconnect = () => {
