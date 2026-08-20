@@ -12,6 +12,7 @@ Options:
   --log-level <lvl>  Log level: error, warn, info, verbose, debug
   --no-api           Disable REST API at runtime
   --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
+  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
   --version          Show version and exit
   --help             Show this help and exit
 
@@ -34,6 +35,7 @@ The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, an
 | `--log-level <lvl>` | Log verbosity: `error`, `warn`, `info`, `verbose`, or `debug`. |
 | `--no-api` | Disable the REST API even if enabled in config. |
 | `--use-raw-prerouting` | Opt in to raw-table IPv4 forwarded-traffic classification; available only with iptables. |
+| `--use-raw6-prerouting` | Opt in to raw-table IPv6 forwarded-traffic classification; available only with iptables. |
 | `--version` | Print version and exit. |
 | `--help` | Print help and exit. |
 
@@ -43,12 +45,13 @@ This disabled-by-default option is intended for systems such as KeeneticOS where
 an external firewall manager periodically replaces the `mangle` table. It moves
 only IPv4 forwarded-traffic classification from `mangle PREROUTING` to `raw
 PREROUTING`; locally generated traffic remains in `mangle OUTPUT`, and IPv6
-continues using its existing mangle path.
+can be selected independently with `--use-raw6-prerouting`.
 
-On Keenetic, the service probes and loads the matching `iptable_raw.ko` at startup.
-It enables the flag automatically only after the raw table probe succeeds; otherwise
-it logs a warning and keeps the normal mangle path. Raw PREROUTING deliberately
-does not use connmark acceleration: each forwarded packet is classified directly.
+On Keenetic, the service independently probes and loads `iptable_raw.ko` and
+`ip6table_raw.ko` at startup. It enables each flag automatically only after that
+family's raw table probe succeeds; otherwise it logs a warning and keeps that
+family on the normal mangle path. Raw PREROUTING deliberately does not use
+connmark acceleration: each forwarded packet is classified directly.
 
 To force the Keenetic package to keep using mangle PREROUTING, set the following
 in `/opt/etc/keen-pbr/defaults`, then restart the service:
@@ -57,17 +60,23 @@ in `/opt/etc/keen-pbr/defaults`, then restart the service:
 KEEN_PBR_RAW_PREROUTING="disable"
 ```
 
-The default value is `auto`. Set it to `enable` to require raw PREROUTING; the
-service will fail to start rather than fall back to mangle if the capability probe
-fails. For the Keenetic-specific RAW versus mangle trade-off, see
+The default value is `auto`: IPv4 and IPv6 capabilities are probed independently,
+so one family can use RAW while the other remains in mangle. Set it to `enable`
+to require RAW for every enabled family; `ipv4-only` and `ipv6-only` force one
+family. The service fails to start rather than falling back for a forced family.
+RAW PREROUTING intentionally runs before conntrack and does not use CONNMARK
+acceleration. For the Keenetic-specific RAW versus mangle trade-off, see
 [Keenetic / NetCraze installation]({{< relref "/docs/getting-started/installation/keenetic" >}}).
 
 Troubleshoot the required capability with:
 
 ```sh
 ls -l "/lib/modules/$(uname -r)/iptable_raw.ko"
+ls -l "/lib/modules/$(uname -r)/ip6table_raw.ko"
 grep -x raw /proc/net/ip_tables_names
+grep -x raw /proc/net/ip6_tables_names
 iptables -t raw -S
+ip6tables -t raw -S
 ```
 
 ## Commands

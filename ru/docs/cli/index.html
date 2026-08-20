@@ -10,7 +10,7 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Использование CLI keen-pbr – keen-pbr</title>
   <meta name="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
-Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --use-raw-prerouting Использовать raw PREROUTING для пересылаемого IPv4 (только iptables) --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/cli/" itemprop="url" />
+Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --use-raw-prerouting Использовать raw PREROUTING для пересылаемого IPv4 (только iptables) --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables) --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/cli/" itemprop="url" />
 
 <meta property="og:title" content="Использование CLI keen-pbr">
 <meta
@@ -28,6 +28,7 @@ Options:
   --log-level &lt;lvl&gt;  Уровень логов: error, warn, info, verbose, debug
   --no-api           Отключить REST API во время выполнения
   --use-raw-prerouting  Использовать raw PREROUTING для пересылаемого IPv4 (только iptables)
+  --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables)
   --version         Показать версию и выйти
   --help            Показать эту справку и выйти
 
@@ -59,12 +60,12 @@ Commands:
 
 	<meta itemprop="name" content="Использование CLI keen-pbr">
 	<meta itemprop="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
-Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --use-raw-prerouting Использовать raw PREROUTING для пересылаемого IPv4 (только iptables) --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
-	<meta itemprop="wordCount" content="551">
+Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --use-raw-prerouting Использовать raw PREROUTING для пересылаемого IPv4 (только iptables) --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables) --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
+	<meta itemprop="wordCount" content="638">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Использование CLI keen-pbr">
 	<meta name="twitter:description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
-Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --use-raw-prerouting Использовать raw PREROUTING для пересылаемого IPv4 (только iptables) --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
+Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --use-raw-prerouting Использовать raw PREROUTING для пересылаемого IPv4 (только iptables) --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables) --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -1007,6 +1008,7 @@ Commands:
 </span></span><span class="line"><span class="cl">  --log-level &lt;lvl&gt;  Уровень логов: error, warn, info, verbose, debug
 </span></span><span class="line"><span class="cl">  --no-api           Отключить REST API во время выполнения
 </span></span><span class="line"><span class="cl">  --use-raw-prerouting  Использовать raw PREROUTING для пересылаемого IPv4 (только iptables)
+</span></span><span class="line"><span class="cl">  --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables)
 </span></span><span class="line"><span class="cl">  --version         Показать версию и выйти
 </span></span><span class="line"><span class="cl">  --help            Показать эту справку и выйти
 </span></span><span class="line"><span class="cl">
@@ -1055,6 +1057,10 @@ Commands:
 					<td>Использовать raw PREROUTING для классификации пересылаемого IPv4-трафика; доступно только с iptables.</td>
 			</tr>
 			<tr>
+					<td><code>--use-raw6-prerouting</code></td>
+					<td>Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика; доступно только с iptables.</td>
+			</tr>
+			<tr>
 					<td><code>--version</code></td>
 					<td>Вывести версию и выйти.</td>
 			</tr>
@@ -1066,10 +1072,12 @@ Commands:
 </table>
 <h3><code>--use-raw-prerouting</code><span class="hx:absolute hx:-mt-20" id="--use-raw-prerouting"></span>
     <a href="#--use-raw-prerouting" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Этот флаг переносит классификацию только пересылаемого IPv4-трафика из <code>mangle PREROUTING</code> в <code>raw PREROUTING</code>. Локально сгенерированный трафик остаётся в
-<code>mangle OUTPUT</code>, а IPv6 продолжает использовать mangle.</p>
-<p>На Keenetic / NetCraze init-скрипт проверяет и при необходимости загружает
-<code>iptable_raw.ko</code>. По умолчанию <code>KEEN_PBR_RAW_PREROUTING=&quot;auto&quot;</code>: RAW используется
-только после успешной проверки, иначе сервис использует mangle. Чтобы всегда
+<code>mangle OUTPUT</code>, а IPv6 настраивается независимо флагом
+<code>--use-raw6-prerouting</code>.</p>
+<p>На Keenetic / NetCraze init-скрипт независимо проверяет и при
+необходимости загружает <code>iptable_raw.ko</code> и <code>ip6table_raw.ko</code>. По умолчанию
+<code>KEEN_PBR_RAW_PREROUTING=&quot;auto&quot;</code>: каждая семья использует RAW только после
+успешной проверки, иначе для неё используется mangle. Чтобы всегда
 использовать mangle, добавьте в <code>/opt/etc/keen-pbr/defaults</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1085,9 +1093,32 @@ Commands:
   </button>
 </div>
 </div>
-<p>Затем перезапустите сервис. Значение <code>enable</code> требует RAW и не допускает переход
-на mangle при ошибке проверки. Сравнение последствий для Keenetic приведено в
+<p>Затем перезапустите сервис. Значение <code>auto</code> проверяет IPv4 и IPv6 независимо:
+доступное семейство использует RAW, недоступное — mangle. Значения <code>enable</code>,
+<code>ipv4-only</code> и <code>ipv6-only</code> требуют RAW для соответствующего семейства и не
+допускают переход на mangle при ошибке проверки. RAW работает до conntrack и
+намеренно не использует CONNMARK. Сравнение последствий для Keenetic приведено в
 <a href="/ru/docs/getting-started/installation/keenetic/">инструкции по установке Keenetic / NetCraze</a>.</p>
+<p>Проверить обе возможности RAW можно так:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">ls -l <span class="s2">&#34;/lib/modules/</span><span class="k">$(</span>uname -r<span class="k">)</span><span class="s2">/iptable_raw.ko&#34;</span>
+</span></span><span class="line"><span class="cl">ls -l <span class="s2">&#34;/lib/modules/</span><span class="k">$(</span>uname -r<span class="k">)</span><span class="s2">/ip6table_raw.ko&#34;</span>
+</span></span><span class="line"><span class="cl">grep -x raw /proc/net/ip_tables_names
+</span></span><span class="line"><span class="cl">grep -x raw /proc/net/ip6_tables_names
+</span></span><span class="line"><span class="cl">iptables -t raw -S
+</span></span><span class="line"><span class="cl">ip6tables -t raw -S</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <h2>Команды<span class="hx:absolute hx:-mt-20" id="команды"></span>
     <a href="#%d0%ba%d0%be%d0%bc%d0%b0%d0%bd%d0%b4%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><table>
 	<thead>

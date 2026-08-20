@@ -45,7 +45,7 @@
 	<meta itemprop="description" content="keen-pbr можно установить на роутерах Keenetic / NetCraze через менеджер пакетов Entware opkg.
 Установите Entware на роутере Сначала убедитесь, что Entware установлена на вашем роутере. Пожалуйста, обратитесь к официальному руководству для Keenetic или NetCraze:
 Найдите руководство для вашей модели роутера. В строке поиска найдите “Установка репозитория Entware на USB-накопитель”. Внимательно прочитайте инструкции и выполните их. Установите необходимые компоненты Откройте страницу конфигурации роутера, перейдите в Управление -&gt; Настройки системы и установите следующие дополнительные компоненты:">
-	<meta itemprop="wordCount" content="788">
+	<meta itemprop="wordCount" content="807">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Keenetic / NetCraze">
 	<meta name="twitter:description" content="keen-pbr можно установить на роутерах Keenetic / NetCraze через менеджер пакетов Entware opkg.
@@ -1095,14 +1095,15 @@
     <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Для наиболее предсказуемой работы keen-pbr на Keenetic не назначайте устройствам политики в разделе <strong>Приоритеты подключений</strong>. Вместо этого создайте эквивалентные <a href="/ru/docs/configuration/route-rules/">правила маршрутизации keen-pbr</a>, указав для устройства <code>src_addr</code> (<strong>Исходный адрес</strong>). Так правила маршрутизации останутся в keen-pbr и не будут конфликтовать с политиками Keenetic.</div>
   </div>
 </div>
-<p>По умолчанию установлен режим <code>auto</code>: keen-pbr использует RAW для пересылаемого
-IPv4-трафика, если устройство его поддерживает; иначе используется mangle.
-Локально созданный трафик и IPv6 в обоих режимах продолжают использовать mangle.</p>
+<p>По умолчанию установлен режим <code>auto</code>: keen-pbr независимо проверяет IPv4 и IPv6,
+используя RAW для доступного семейства и mangle для другого. Локально созданный
+трафик всегда остаётся в mangle OUTPUT. Значения <code>enable</code>, <code>ipv4-only</code> и
+<code>ipv6-only</code> принудительно включают RAW для выбранных семейств; ошибка проверки
+останавливает запуск.</p>
 <p>Чтобы узнать выбранный режим, перезапустите сервис и найдите следующие сообщения
 в системном журнале устройства:</p>
-<p>Строка <code>raw PREROUTING available; enabling --use-raw-prerouting</code> означает, что
-активен RAW. Сообщение, оканчивающееся на <code>using mangle PREROUTING</code>, означает,
-что активен mangle.</p>
+<p>Сообщения журнала отдельно показывают проверку IPv4 и IPv6 и выбранные флаги
+<code>--use-raw-prerouting</code> и <code>--use-raw6-prerouting</code>.</p>
 <p>Чтобы всегда использовать mangle, отредактируйте <code>/opt/etc/keen-pbr/defaults</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1133,8 +1134,9 @@ IPv4-трафика, если устройство его поддерживае
   </button>
 </div>
 </div>
-<p>Значение <code>KEEN_PBR_RAW_PREROUTING=&quot;enable&quot;</code> требует RAW: если возможность RAW
-недоступна, сервис завершится с ошибкой вместо перехода на mangle.</p>
+<p>Значение <code>KEEN_PBR_RAW_PREROUTING=&quot;enable&quot;</code> требует RAW для каждого включённого
+семейства; <code>ipv4-only</code> и <code>ipv6-only</code> принудительно выбирают одно семейство. Если
+возможность RAW недоступна, сервис завершится с ошибкой вместо перехода на mangle.</p>
 <p>Основные команды:</p>
 <table>
 	<thead>

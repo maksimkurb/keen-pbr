@@ -45,7 +45,7 @@ Install required components
 	<meta itemprop="description" content="keen-pbr can be installed on Keenetic / NetCraze routers via Entware’s opkg package manager.
 Install Entware on the router First, ensure that Entware is installed on your router. Please consult the official router manual for Keenetic or NetCraze:
 Find your router’s manual. In the search field, search for “Installing the Entware repository on a USB drive”. Read and follow the instructions carefully. Install required components Open your router’s configuration page, navigate to Management -&gt; System settings, and install the following additional components:">
-	<meta itemprop="wordCount" content="903">
+	<meta itemprop="wordCount" content="925">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Keenetic / NetCraze">
 	<meta name="twitter:description" content="keen-pbr can be installed on Keenetic / NetCraze routers via Entware’s opkg package manager.
@@ -1094,13 +1094,14 @@ Bindings</strong> rules. The platform&rsquo;s iptables replacement behaviour is 
     <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">For the most predictable Keenetic setup, do not assign <strong>Connection Policies</strong> to devices in Keenetic. Instead, create the equivalent per-device <a href="/docs/configuration/route-rules/">keen-pbr route rules</a> using the <code>src_addr</code> (<strong>Source address</strong>) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.</div>
   </div>
 </div>
-<p>The package default is <code>auto</code>: it uses RAW for IPv4 forwarded traffic when the
-device supports it, otherwise mangle. Locally generated traffic and IPv6
-continue to use mangle in either mode.</p>
+<p>The package default is <code>auto</code>: it probes IPv4 and IPv6 independently, using RAW
+for each supported family and mangle for the other. Locally generated traffic
+always remains in mangle OUTPUT. <code>enable</code>, <code>ipv4-only</code>, and <code>ipv6-only</code> are
+available when a family must be forced; forced capability failures stop startup.</p>
 <p>To see which mode was selected, restart the service and look for these messages
 in the device system log:</p>
-<p><code>raw PREROUTING available; enabling --use-raw-prerouting</code> means RAW is active.
-A message ending in <code>using mangle PREROUTING</code> means mangle is active.</p>
+<p>Messages identify IPv4 and IPv6 capability resolution and the resulting daemon
+flags (<code>--use-raw-prerouting</code> and <code>--use-raw6-prerouting</code>).</p>
 <p>To always use mangle, edit <code>/opt/etc/keen-pbr/defaults</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1131,8 +1132,9 @@ A message ending in <code>using mangle PREROUTING</code> means mangle is active.
   </button>
 </div>
 </div>
-<p>Set <code>KEEN_PBR_RAW_PREROUTING=&quot;enable&quot;</code> to require RAW; the service will fail to
-start instead of falling back to mangle if the RAW capability is unavailable.</p>
+<p>Set <code>KEEN_PBR_RAW_PREROUTING=&quot;enable&quot;</code> to require RAW for every enabled family;
+use <code>ipv4-only</code> or <code>ipv6-only</code> to force one family. The service fails to start
+instead of falling back to mangle if a forced capability is unavailable.</p>
 <p>Basic commands:</p>
 <table>
 	<thead>

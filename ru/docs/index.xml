@@ -142,14 +142,15 @@
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Для наиболее предсказуемой работы keen-pbr на Keenetic не назначайте устройствам политики в разделе &lt;strong&gt;Приоритеты подключений&lt;/strong&gt;. Вместо этого создайте эквивалентные &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/route-rules/&#34;&gt;правила маршрутизации keen-pbr&lt;/a&gt;, указав для устройства &lt;code&gt;src_addr&lt;/code&gt; (&lt;strong&gt;Исходный адрес&lt;/strong&gt;). Так правила маршрутизации останутся в keen-pbr и не будут конфликтовать с политиками Keenetic.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;По умолчанию установлен режим &lt;code&gt;auto&lt;/code&gt;: keen-pbr использует RAW для пересылаемого
-IPv4-трафика, если устройство его поддерживает; иначе используется mangle.
-Локально созданный трафик и IPv6 в обоих режимах продолжают использовать mangle.&lt;/p&gt;
+&lt;p&gt;По умолчанию установлен режим &lt;code&gt;auto&lt;/code&gt;: keen-pbr независимо проверяет IPv4 и IPv6,
+используя RAW для доступного семейства и mangle для другого. Локально созданный
+трафик всегда остаётся в mangle OUTPUT. Значения &lt;code&gt;enable&lt;/code&gt;, &lt;code&gt;ipv4-only&lt;/code&gt; и
+&lt;code&gt;ipv6-only&lt;/code&gt; принудительно включают RAW для выбранных семейств; ошибка проверки
+останавливает запуск.&lt;/p&gt;
 &lt;p&gt;Чтобы узнать выбранный режим, перезапустите сервис и найдите следующие сообщения
 в системном журнале устройства:&lt;/p&gt;
-&lt;p&gt;Строка &lt;code&gt;raw PREROUTING available; enabling --use-raw-prerouting&lt;/code&gt; означает, что
-активен RAW. Сообщение, оканчивающееся на &lt;code&gt;using mangle PREROUTING&lt;/code&gt;, означает,
-что активен mangle.&lt;/p&gt;
+&lt;p&gt;Сообщения журнала отдельно показывают проверку IPv4 и IPv6 и выбранные флаги
+&lt;code&gt;--use-raw-prerouting&lt;/code&gt; и &lt;code&gt;--use-raw6-prerouting&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;Чтобы всегда использовать mangle, отредактируйте &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -180,8 +181,9 @@ IPv4-трафика, если устройство его поддерживае
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Значение &lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;enable&amp;quot;&lt;/code&gt; требует RAW: если возможность RAW
-недоступна, сервис завершится с ошибкой вместо перехода на mangle.&lt;/p&gt;
+&lt;p&gt;Значение &lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;enable&amp;quot;&lt;/code&gt; требует RAW для каждого включённого
+семейства; &lt;code&gt;ipv4-only&lt;/code&gt; и &lt;code&gt;ipv6-only&lt;/code&gt; принудительно выбирают одно семейство. Если
+возможность RAW недоступна, сервис завершится с ошибкой вместо перехода на mangle.&lt;/p&gt;
 &lt;p&gt;Основные команды:&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
@@ -3073,6 +3075,7 @@ runtime-счётчиках полученных пакетов.&lt;/p&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --log-level &amp;lt;lvl&amp;gt;  Уровень логов: error, warn, info, verbose, debug
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --no-api           Отключить REST API во время выполнения
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --use-raw-prerouting  Использовать raw PREROUTING для пересылаемого IPv4 (только iptables)
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables)
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --version         Показать версию и выйти
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --help            Показать эту справку и выйти
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
@@ -3121,6 +3124,10 @@ runtime-счётчиках полученных пакетов.&lt;/p&gt;
 					&lt;td&gt;Использовать raw PREROUTING для классификации пересылаемого IPv4-трафика; доступно только с iptables.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;--use-raw6-prerouting&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика; доступно только с iptables.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;--version&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;Вывести версию и выйти.&lt;/td&gt;
 			&lt;/tr&gt;
@@ -3132,10 +3139,12 @@ runtime-счётчиках полученных пакетов.&lt;/p&gt;
 &lt;/table&gt;
 &lt;h3&gt;&lt;code&gt;--use-raw-prerouting&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;--use-raw-prerouting&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#--use-raw-prerouting&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Этот флаг переносит классификацию только пересылаемого IPv4-трафика из &lt;code&gt;mangle PREROUTING&lt;/code&gt; в &lt;code&gt;raw PREROUTING&lt;/code&gt;. Локально сгенерированный трафик остаётся в
-&lt;code&gt;mangle OUTPUT&lt;/code&gt;, а IPv6 продолжает использовать mangle.&lt;/p&gt;
-&lt;p&gt;На Keenetic / NetCraze init-скрипт проверяет и при необходимости загружает
-&lt;code&gt;iptable_raw.ko&lt;/code&gt;. По умолчанию &lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;auto&amp;quot;&lt;/code&gt;: RAW используется
-только после успешной проверки, иначе сервис использует mangle. Чтобы всегда
+&lt;code&gt;mangle OUTPUT&lt;/code&gt;, а IPv6 настраивается независимо флагом
+&lt;code&gt;--use-raw6-prerouting&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;На Keenetic / NetCraze init-скрипт независимо проверяет и при
+необходимости загружает &lt;code&gt;iptable_raw.ko&lt;/code&gt; и &lt;code&gt;ip6table_raw.ko&lt;/code&gt;. По умолчанию
+&lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;auto&amp;quot;&lt;/code&gt;: каждая семья использует RAW только после
+успешной проверки, иначе для неё используется mangle. Чтобы всегда
 использовать mangle, добавьте в &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -3151,9 +3160,32 @@ runtime-счётчиках полученных пакетов.&lt;/p&gt;
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Затем перезапустите сервис. Значение &lt;code&gt;enable&lt;/code&gt; требует RAW и не допускает переход
-на mangle при ошибке проверки. Сравнение последствий для Keenetic приведено в
+&lt;p&gt;Затем перезапустите сервис. Значение &lt;code&gt;auto&lt;/code&gt; проверяет IPv4 и IPv6 независимо:
+доступное семейство использует RAW, недоступное — mangle. Значения &lt;code&gt;enable&lt;/code&gt;,
+&lt;code&gt;ipv4-only&lt;/code&gt; и &lt;code&gt;ipv6-only&lt;/code&gt; требуют RAW для соответствующего семейства и не
+допускают переход на mangle при ошибке проверки. RAW работает до conntrack и
+намеренно не использует CONNMARK. Сравнение последствий для Keenetic приведено в
 &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/installation/keenetic/&#34;&gt;инструкции по установке Keenetic / NetCraze&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Проверить обе возможности RAW можно так:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ls -l &lt;span class=&#34;s2&#34;&gt;&amp;#34;/lib/modules/&lt;/span&gt;&lt;span class=&#34;k&#34;&gt;$(&lt;/span&gt;uname -r&lt;span class=&#34;k&#34;&gt;)&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;/iptable_raw.ko&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ls -l &lt;span class=&#34;s2&#34;&gt;&amp;#34;/lib/modules/&lt;/span&gt;&lt;span class=&#34;k&#34;&gt;$(&lt;/span&gt;uname -r&lt;span class=&#34;k&#34;&gt;)&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;/ip6table_raw.ko&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;grep -x raw /proc/net/ip_tables_names
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;grep -x raw /proc/net/ip6_tables_names
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;iptables -t raw -S
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ip6tables -t raw -S&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
 &lt;h2&gt;Команды&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;команды&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%ba%d0%be%d0%bc%d0%b0%d0%bd%d0%b4%d1%8b&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;table&gt;
 	&lt;thead&gt;

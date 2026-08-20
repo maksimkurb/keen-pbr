@@ -550,13 +550,14 @@ Bindings&lt;/strong&gt; rules. The platform&amp;rsquo;s iptables replacement beh
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;For the most predictable Keenetic setup, do not assign &lt;strong&gt;Connection Policies&lt;/strong&gt; to devices in Keenetic. Instead, create the equivalent per-device &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/route-rules/&#34;&gt;keen-pbr route rules&lt;/a&gt; using the &lt;code&gt;src_addr&lt;/code&gt; (&lt;strong&gt;Source address&lt;/strong&gt;) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;The package default is &lt;code&gt;auto&lt;/code&gt;: it uses RAW for IPv4 forwarded traffic when the
-device supports it, otherwise mangle. Locally generated traffic and IPv6
-continue to use mangle in either mode.&lt;/p&gt;
+&lt;p&gt;The package default is &lt;code&gt;auto&lt;/code&gt;: it probes IPv4 and IPv6 independently, using RAW
+for each supported family and mangle for the other. Locally generated traffic
+always remains in mangle OUTPUT. &lt;code&gt;enable&lt;/code&gt;, &lt;code&gt;ipv4-only&lt;/code&gt;, and &lt;code&gt;ipv6-only&lt;/code&gt; are
+available when a family must be forced; forced capability failures stop startup.&lt;/p&gt;
 &lt;p&gt;To see which mode was selected, restart the service and look for these messages
 in the device system log:&lt;/p&gt;
-&lt;p&gt;&lt;code&gt;raw PREROUTING available; enabling --use-raw-prerouting&lt;/code&gt; means RAW is active.
-A message ending in &lt;code&gt;using mangle PREROUTING&lt;/code&gt; means mangle is active.&lt;/p&gt;
+&lt;p&gt;Messages identify IPv4 and IPv6 capability resolution and the resulting daemon
+flags (&lt;code&gt;--use-raw-prerouting&lt;/code&gt; and &lt;code&gt;--use-raw6-prerouting&lt;/code&gt;).&lt;/p&gt;
 &lt;p&gt;To always use mangle, edit &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -587,8 +588,9 @@ A message ending in &lt;code&gt;using mangle PREROUTING&lt;/code&gt; means mangl
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Set &lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;enable&amp;quot;&lt;/code&gt; to require RAW; the service will fail to
-start instead of falling back to mangle if the RAW capability is unavailable.&lt;/p&gt;
+&lt;p&gt;Set &lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;enable&amp;quot;&lt;/code&gt; to require RAW for every enabled family;
+use &lt;code&gt;ipv4-only&lt;/code&gt; or &lt;code&gt;ipv6-only&lt;/code&gt; to force one family. The service fails to start
+instead of falling back to mangle if a forced capability is unavailable.&lt;/p&gt;
 &lt;p&gt;Basic commands:&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
@@ -3083,6 +3085,7 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --log-level &amp;lt;lvl&amp;gt;  Log level: error, warn, info, verbose, debug
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --no-api           Disable REST API at runtime
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --version          Show version and exit
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  --help             Show this help and exit
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
@@ -3131,6 +3134,10 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 					&lt;td&gt;Opt in to raw-table IPv4 forwarded-traffic classification; available only with iptables.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;--use-raw6-prerouting&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Opt in to raw-table IPv6 forwarded-traffic classification; available only with iptables.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;--version&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;Print version and exit.&lt;/td&gt;
 			&lt;/tr&gt;
@@ -3144,11 +3151,12 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
     &lt;a href=&#34;#--use-raw-prerouting&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;This disabled-by-default option is intended for systems such as KeeneticOS where
 an external firewall manager periodically replaces the &lt;code&gt;mangle&lt;/code&gt; table. It moves
 only IPv4 forwarded-traffic classification from &lt;code&gt;mangle PREROUTING&lt;/code&gt; to &lt;code&gt;raw PREROUTING&lt;/code&gt;; locally generated traffic remains in &lt;code&gt;mangle OUTPUT&lt;/code&gt;, and IPv6
-continues using its existing mangle path.&lt;/p&gt;
-&lt;p&gt;On Keenetic, the service probes and loads the matching &lt;code&gt;iptable_raw.ko&lt;/code&gt; at startup.
-It enables the flag automatically only after the raw table probe succeeds; otherwise
-it logs a warning and keeps the normal mangle path. Raw PREROUTING deliberately
-does not use connmark acceleration: each forwarded packet is classified directly.&lt;/p&gt;
+can be selected independently with &lt;code&gt;--use-raw6-prerouting&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;On Keenetic, the service independently probes and loads &lt;code&gt;iptable_raw.ko&lt;/code&gt; and
+&lt;code&gt;ip6table_raw.ko&lt;/code&gt; at startup. It enables each flag automatically only after that
+family&amp;rsquo;s raw table probe succeeds; otherwise it logs a warning and keeps that
+family on the normal mangle path. Raw PREROUTING deliberately does not use
+connmark acceleration: each forwarded packet is classified directly.&lt;/p&gt;
 &lt;p&gt;To force the Keenetic package to keep using mangle PREROUTING, set the following
 in &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;, then restart the service:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
@@ -3165,16 +3173,22 @@ in &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;, then restart the service
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;The default value is &lt;code&gt;auto&lt;/code&gt;. Set it to &lt;code&gt;enable&lt;/code&gt; to require raw PREROUTING; the
-service will fail to start rather than fall back to mangle if the capability probe
-fails. For the Keenetic-specific RAW versus mangle trade-off, see
+&lt;p&gt;The default value is &lt;code&gt;auto&lt;/code&gt;: IPv4 and IPv6 capabilities are probed independently,
+so one family can use RAW while the other remains in mangle. Set it to &lt;code&gt;enable&lt;/code&gt;
+to require RAW for every enabled family; &lt;code&gt;ipv4-only&lt;/code&gt; and &lt;code&gt;ipv6-only&lt;/code&gt; force one
+family. The service fails to start rather than falling back for a forced family.
+RAW PREROUTING intentionally runs before conntrack and does not use CONNMARK
+acceleration. For the Keenetic-specific RAW versus mangle trade-off, see
 &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/installation/keenetic/&#34;&gt;Keenetic / NetCraze installation&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;Troubleshoot the required capability with:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ls -l &lt;span class=&#34;s2&#34;&gt;&amp;#34;/lib/modules/&lt;/span&gt;&lt;span class=&#34;k&#34;&gt;$(&lt;/span&gt;uname -r&lt;span class=&#34;k&#34;&gt;)&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;/iptable_raw.ko&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ls -l &lt;span class=&#34;s2&#34;&gt;&amp;#34;/lib/modules/&lt;/span&gt;&lt;span class=&#34;k&#34;&gt;$(&lt;/span&gt;uname -r&lt;span class=&#34;k&#34;&gt;)&lt;/span&gt;&lt;span class=&#34;s2&#34;&gt;/ip6table_raw.ko&amp;#34;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;grep -x raw /proc/net/ip_tables_names
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;iptables -t raw -S&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;grep -x raw /proc/net/ip6_tables_names
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;iptables -t raw -S
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ip6tables -t raw -S&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;

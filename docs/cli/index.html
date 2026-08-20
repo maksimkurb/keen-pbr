@@ -10,7 +10,7 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>keen-pbr CLI usage – keen-pbr</title>
   <meta name="description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
-Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/docs/cli/" itemprop="url" />
+Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/docs/cli/" itemprop="url" />
 
 <meta property="og:title" content="keen-pbr CLI usage">
 <meta
@@ -28,6 +28,7 @@ Options:
   --log-level &lt;lvl&gt;  Log level: error, warn, info, verbose, debug
   --no-api           Disable REST API at runtime
   --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
+  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
   --version          Show version and exit
   --help             Show this help and exit
 
@@ -59,12 +60,12 @@ The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and 
 
 	<meta itemprop="name" content="keen-pbr CLI usage">
 	<meta itemprop="description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
-Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
-	<meta itemprop="wordCount" content="647">
+Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
+	<meta itemprop="wordCount" content="722">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr CLI usage">
 	<meta name="twitter:description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
-Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
+Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -1007,6 +1008,7 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 </span></span><span class="line"><span class="cl">  --log-level &lt;lvl&gt;  Log level: error, warn, info, verbose, debug
 </span></span><span class="line"><span class="cl">  --no-api           Disable REST API at runtime
 </span></span><span class="line"><span class="cl">  --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
+</span></span><span class="line"><span class="cl">  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
 </span></span><span class="line"><span class="cl">  --version          Show version and exit
 </span></span><span class="line"><span class="cl">  --help             Show this help and exit
 </span></span><span class="line"><span class="cl">
@@ -1055,6 +1057,10 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 					<td>Opt in to raw-table IPv4 forwarded-traffic classification; available only with iptables.</td>
 			</tr>
 			<tr>
+					<td><code>--use-raw6-prerouting</code></td>
+					<td>Opt in to raw-table IPv6 forwarded-traffic classification; available only with iptables.</td>
+			</tr>
+			<tr>
 					<td><code>--version</code></td>
 					<td>Print version and exit.</td>
 			</tr>
@@ -1068,11 +1074,12 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
     <a href="#--use-raw-prerouting" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>This disabled-by-default option is intended for systems such as KeeneticOS where
 an external firewall manager periodically replaces the <code>mangle</code> table. It moves
 only IPv4 forwarded-traffic classification from <code>mangle PREROUTING</code> to <code>raw PREROUTING</code>; locally generated traffic remains in <code>mangle OUTPUT</code>, and IPv6
-continues using its existing mangle path.</p>
-<p>On Keenetic, the service probes and loads the matching <code>iptable_raw.ko</code> at startup.
-It enables the flag automatically only after the raw table probe succeeds; otherwise
-it logs a warning and keeps the normal mangle path. Raw PREROUTING deliberately
-does not use connmark acceleration: each forwarded packet is classified directly.</p>
+can be selected independently with <code>--use-raw6-prerouting</code>.</p>
+<p>On Keenetic, the service independently probes and loads <code>iptable_raw.ko</code> and
+<code>ip6table_raw.ko</code> at startup. It enables each flag automatically only after that
+family&rsquo;s raw table probe succeeds; otherwise it logs a warning and keeps that
+family on the normal mangle path. Raw PREROUTING deliberately does not use
+connmark acceleration: each forwarded packet is classified directly.</p>
 <p>To force the Keenetic package to keep using mangle PREROUTING, set the following
 in <code>/opt/etc/keen-pbr/defaults</code>, then restart the service:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1089,16 +1096,22 @@ in <code>/opt/etc/keen-pbr/defaults</code>, then restart the service:</p>
   </button>
 </div>
 </div>
-<p>The default value is <code>auto</code>. Set it to <code>enable</code> to require raw PREROUTING; the
-service will fail to start rather than fall back to mangle if the capability probe
-fails. For the Keenetic-specific RAW versus mangle trade-off, see
+<p>The default value is <code>auto</code>: IPv4 and IPv6 capabilities are probed independently,
+so one family can use RAW while the other remains in mangle. Set it to <code>enable</code>
+to require RAW for every enabled family; <code>ipv4-only</code> and <code>ipv6-only</code> force one
+family. The service fails to start rather than falling back for a forced family.
+RAW PREROUTING intentionally runs before conntrack and does not use CONNMARK
+acceleration. For the Keenetic-specific RAW versus mangle trade-off, see
 <a href="/docs/getting-started/installation/keenetic/">Keenetic / NetCraze installation</a>.</p>
 <p>Troubleshoot the required capability with:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">ls -l <span class="s2">&#34;/lib/modules/</span><span class="k">$(</span>uname -r<span class="k">)</span><span class="s2">/iptable_raw.ko&#34;</span>
+</span></span><span class="line"><span class="cl">ls -l <span class="s2">&#34;/lib/modules/</span><span class="k">$(</span>uname -r<span class="k">)</span><span class="s2">/ip6table_raw.ko&#34;</span>
 </span></span><span class="line"><span class="cl">grep -x raw /proc/net/ip_tables_names
-</span></span><span class="line"><span class="cl">iptables -t raw -S</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+</span></span><span class="line"><span class="cl">grep -x raw /proc/net/ip6_tables_names
+</span></span><span class="line"><span class="cl">iptables -t raw -S
+</span></span><span class="line"><span class="cl">ip6tables -t raw -S</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"

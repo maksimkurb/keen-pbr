@@ -141,13 +141,14 @@ Bindings&lt;/strong&gt; rules. The platform&amp;rsquo;s iptables replacement beh
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;For the most predictable Keenetic setup, do not assign &lt;strong&gt;Connection Policies&lt;/strong&gt; to devices in Keenetic. Instead, create the equivalent per-device &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/route-rules/&#34;&gt;keen-pbr route rules&lt;/a&gt; using the &lt;code&gt;src_addr&lt;/code&gt; (&lt;strong&gt;Source address&lt;/strong&gt;) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;The package default is &lt;code&gt;auto&lt;/code&gt;: it uses RAW for IPv4 forwarded traffic when the
-device supports it, otherwise mangle. Locally generated traffic and IPv6
-continue to use mangle in either mode.&lt;/p&gt;
+&lt;p&gt;The package default is &lt;code&gt;auto&lt;/code&gt;: it probes IPv4 and IPv6 independently, using RAW
+for each supported family and mangle for the other. Locally generated traffic
+always remains in mangle OUTPUT. &lt;code&gt;enable&lt;/code&gt;, &lt;code&gt;ipv4-only&lt;/code&gt;, and &lt;code&gt;ipv6-only&lt;/code&gt; are
+available when a family must be forced; forced capability failures stop startup.&lt;/p&gt;
 &lt;p&gt;To see which mode was selected, restart the service and look for these messages
 in the device system log:&lt;/p&gt;
-&lt;p&gt;&lt;code&gt;raw PREROUTING available; enabling --use-raw-prerouting&lt;/code&gt; means RAW is active.
-A message ending in &lt;code&gt;using mangle PREROUTING&lt;/code&gt; means mangle is active.&lt;/p&gt;
+&lt;p&gt;Messages identify IPv4 and IPv6 capability resolution and the resulting daemon
+flags (&lt;code&gt;--use-raw-prerouting&lt;/code&gt; and &lt;code&gt;--use-raw6-prerouting&lt;/code&gt;).&lt;/p&gt;
 &lt;p&gt;To always use mangle, edit &lt;code&gt;/opt/etc/keen-pbr/defaults&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -178,8 +179,9 @@ A message ending in &lt;code&gt;using mangle PREROUTING&lt;/code&gt; means mangl
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Set &lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;enable&amp;quot;&lt;/code&gt; to require RAW; the service will fail to
-start instead of falling back to mangle if the RAW capability is unavailable.&lt;/p&gt;
+&lt;p&gt;Set &lt;code&gt;KEEN_PBR_RAW_PREROUTING=&amp;quot;enable&amp;quot;&lt;/code&gt; to require RAW for every enabled family;
+use &lt;code&gt;ipv4-only&lt;/code&gt; or &lt;code&gt;ipv6-only&lt;/code&gt; to force one family. The service fails to start
+instead of falling back to mangle if a forced capability is unavailable.&lt;/p&gt;
 &lt;p&gt;Basic commands:&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
