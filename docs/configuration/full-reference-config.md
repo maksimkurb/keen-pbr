@@ -38,6 +38,22 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Default: (shown below)
     "clear_dynamic_sets_on_apply": true,
 
+    // Optional initial hash table size for ipsets created by the iptables backend.
+    // Has no effect with nftables. Omit or set to null to use the ipset default (1024).
+    // Changing it while iptables is running recreates owned ipsets and clears
+    // dnsmasq-learned entries.
+    "ipset_hashsize": null,
+
+    // Optional maximum element count for ipsets created by the iptables backend.
+    // Has no effect with nftables. Omit or set to null to use the ipset default (65536).
+    // Changing it while iptables is running recreates owned ipsets and clears
+    // dnsmasq-learned entries.
+    "ipset_maxelem": null,
+
+    // Reuse the currently live list sets during safe runtime refreshes.
+    // Default: true; failed preflight falls back to PreserveSets.
+    "reuse_static_sets_on_runtime_refresh": true,
+
     // Default strict routing behavior for interface outbounds.
     // Default: (shown below)
     "strict_enforcement": false,

@@ -14,6 +14,9 @@
 | `cache_dir` | string | `/var/cache/keen-pbr` | Каталог для кэшированных данных списков |
 | `firewall_backend` | string | `"auto"` | Бэкенд firewall: `auto`, `iptables` или `nftables` |
 | `clear_dynamic_sets_on_apply` | boolean | `true` | Очищать динамические наборы dnsmasq при полном применении конфигурации или перезапуске runtime. Reconcile в режимах preserve/list-only их не очищает. |
+| `ipset_hashsize` | integer | отсутствует | Необязательный начальный размер хеш-таблицы ipset, создаваемых бэкендом iptables (по умолчанию `1024`). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные dnsmasq адреса. |
+| `ipset_maxelem` | integer | отсутствует | Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию `65536`). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные dnsmasq адреса. |
+| `reuse_static_sets_on_runtime_refresh` | boolean | `true` | Пересобирать правила без чтения или изменения статических/динамических наборов при SIGUSR1, смене URLTEST/ICMPTEST и состояния интерфейса. Делает применение правил быстрее. При `false` будет всегда перезаполнять списки ipset. |
 | `strict_enforcement` | boolean | `false` | Строгое применение маршрутизации для outbound типа `interface`: если включено, при недоступности шлюза или интерфейса устанавливается недостижимый маршрут по умолчанию. Можно переопределить для каждого outbound отдельно. |
 | `strict_enforcement_action` | string | `"unreachable"` | Terminal-действие strict enforcement: `unreachable` сразу возвращает приложению сетевую ошибку, а `blackhole` молча отбрасывает пакеты до тайм-аута приложения. |
 | `max_file_size_bytes` | integer | `8388608` (8 MiB) | Максимальный размер загруженного удалённого списка в байтах |
@@ -26,6 +29,9 @@
     "cache_dir": "/var/cache/keen-pbr",
     "firewall_backend": "auto",
     "clear_dynamic_sets_on_apply": true,
+    "ipset_hashsize": null,
+    "ipset_maxelem": null,
+    "reuse_static_sets_on_runtime_refresh": true,
     "strict_enforcement": false,
     "strict_enforcement_action": "unreachable",
     "max_file_size_bytes": 8388608,
