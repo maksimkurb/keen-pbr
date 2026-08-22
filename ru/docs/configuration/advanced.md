@@ -121,9 +121,10 @@ gateway. При включённом strict enforcement настроенное t
 блокирует такой lookup.
 
 Для настоящего failover используйте один outbound типа `urltest` с обоими
-интерфейсами как candidates. `conntrack_on_switch: preserve` (по умолчанию)
-оставляет established flows на текущем пути; `delete` удаляет только owned
-conntrack entries этого URLTEST outbound после активации replacement route.
+интерфейсами как candidates. При переключении между здоровыми путями
+`conntrack_on_switch: preserve` (по умолчанию) сохраняет established flows, а
+`delete` удаляет только conntrack entries этой тестовой группы после активации
+нового маршрута. При отказе выбранного пути эти entries удаляются всегда.
 
 `ipv6_enabled: false` означает, что IPv6 не управляется keen-pbr, а не блокируется.
 Keen-pbr также не перехватывает произвольный клиентский DNS, DoT или DoH: клиенты

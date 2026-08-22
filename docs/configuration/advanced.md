@@ -120,9 +120,10 @@ main table; traffic may use the ordinary default gateway. With strict enforcemen
 the configured terminal action blocks that lookup instead.
 
 Use one `urltest` outbound with both interfaces as candidates for real failover.
-Set `conntrack_on_switch` to `preserve` (the default) to keep established flows
-on their existing path, or `delete` to remove only that URLTEST outbound's owned
-conntrack entries after its replacement route is active.
+For a healthy latency or priority switch, set `conntrack_on_switch` to
+`preserve` (the default) to keep established flows, or `delete` to remove only
+that test group's owned conntrack entries after its replacement route is active.
+Failed selected paths are always cleaned up after failover.
 
 `ipv6_enabled: false` means IPv6 is unmanaged by keen-pbr; it is not an IPv6
 block. Keen-pbr also does not intercept arbitrary client DNS, DoT, or DoH. Clients

@@ -302,7 +302,13 @@
 &lt;/div&gt;
 &lt;h2&gt;&lt;code&gt;urltest&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;urltest&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#urltest&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Use this when you have several candidate outbounds and want keen-pbr to automatically pick the best available one.&lt;/p&gt;
-&lt;p&gt;keen-pbr always appends terminal IPv4 and IPv6 &lt;code&gt;unreachable&lt;/code&gt; default routes to the generated &lt;code&gt;urltest&lt;/code&gt; table. This acts as a kill-switch: if no selected or fallback child route is usable, marked traffic is blocked instead of leaking via normal routing.&lt;/p&gt;
+&lt;p&gt;Firewall rules keep the &lt;code&gt;urltest&lt;/code&gt; outbound&amp;rsquo;s stable mark. Its policy rule points
+at the selected child&amp;rsquo;s routing table, including an existing table used by a
+&lt;code&gt;table&lt;/code&gt; outbound; firewall rules are not rebuilt on selection changes.&lt;/p&gt;
+&lt;p&gt;keen-pbr always appends terminal IPv4 and IPv6 &lt;code&gt;unreachable&lt;/code&gt; default routes to
+the generated &lt;code&gt;urltest&lt;/code&gt; fallback table. This table is selected when no child is
+usable, while a terminal policy rule prevents a selected child table from
+falling through to normal routing.&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -2040,9 +2046,10 @@ enforcement is disabled, its table has no usable route and RPDB continues to the
 main table; traffic may use the ordinary default gateway. With strict enforcement,
 the configured terminal action blocks that lookup instead.&lt;/p&gt;
 &lt;p&gt;Use one &lt;code&gt;urltest&lt;/code&gt; outbound with both interfaces as candidates for real failover.
-Set &lt;code&gt;conntrack_on_switch&lt;/code&gt; to &lt;code&gt;preserve&lt;/code&gt; (the default) to keep established flows
-on their existing path, or &lt;code&gt;delete&lt;/code&gt; to remove only that URLTEST outbound&amp;rsquo;s owned
-conntrack entries after its replacement route is active.&lt;/p&gt;
+For a healthy latency or priority switch, set &lt;code&gt;conntrack_on_switch&lt;/code&gt; to
+&lt;code&gt;preserve&lt;/code&gt; (the default) to keep established flows, or &lt;code&gt;delete&lt;/code&gt; to remove only
+that test group&amp;rsquo;s owned conntrack entries after its replacement route is active.
+Failed selected paths are always cleaned up after failover.&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;ipv6_enabled: false&lt;/code&gt; means IPv6 is unmanaged by keen-pbr; it is not an IPv6
 block. Keen-pbr also does not intercept arbitrary client DNS, DoT, or DoH. Clients
 must use the router resolver, or DNS enforcement must be provided separately.&lt;/p&gt;

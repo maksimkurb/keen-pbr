@@ -61,7 +61,7 @@ Commands:
 	<meta itemprop="name" content="Использование CLI keen-pbr">
 	<meta itemprop="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
 Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --use-raw-prerouting Использовать raw PREROUTING для пересылаемого IPv4 (только iptables) --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables) --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
-	<meta itemprop="wordCount" content="638">
+	<meta itemprop="wordCount" content="657">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Использование CLI keen-pbr">
 	<meta name="twitter:description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
@@ -1047,6 +1047,10 @@ Commands:
 			<tr>
 					<td><code>--log-level &lt;lvl&gt;</code></td>
 					<td>Детализация логов: <code>error</code>, <code>warn</code>, <code>info</code>, <code>verbose</code> или <code>debug</code>.</td>
+			</tr>
+			<tr>
+					<td><code>--log-target &lt;target&gt;</code></td>
+					<td>Назначение логов: <code>stderr</code>, <code>syslog</code> или <code>both</code>. По умолчанию используется <code>syslog</code> для <code>service</code> и <code>stderr</code> для интерактивных команд.</td>
 			</tr>
 			<tr>
 					<td><code>--no-api</code></td>

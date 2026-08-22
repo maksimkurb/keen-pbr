@@ -354,7 +354,14 @@ runtime-счётчиках полученных пакетов.&lt;/p&gt;
 &lt;/div&gt;
 &lt;h2&gt;&lt;code&gt;urltest&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;urltest&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#urltest&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Используйте это, когда у вас есть несколько кандидатов outbound и вы хотите, чтобы keen-pbr автоматически выбирал лучший доступный.&lt;/p&gt;
-&lt;p&gt;keen-pbr всегда добавляет в конец сгенерированной таблицы &lt;code&gt;urltest&lt;/code&gt; терминальные маршруты &lt;code&gt;unreachable&lt;/code&gt; по умолчанию для IPv4 и IPv6. Это работает как kill-switch: если выбранный маршрут или fallback-маршруты недоступны, помеченный трафик блокируется, а не уходит через обычную системную маршрутизацию.&lt;/p&gt;
+&lt;p&gt;Правила firewall сохраняют стабильную mark самого outbound &lt;code&gt;urltest&lt;/code&gt;. Его
+policy rule указывает на таблицу выбранного дочернего outbound, включая уже
+существующую таблицу outbound типа &lt;code&gt;table&lt;/code&gt;; при переключении правила firewall
+не перестраиваются.&lt;/p&gt;
+&lt;p&gt;keen-pbr всегда добавляет в сгенерированную fallback-таблицу &lt;code&gt;urltest&lt;/code&gt;
+терминальные маршруты &lt;code&gt;unreachable&lt;/code&gt; для IPv4 и IPv6. Эта таблица выбирается,
+когда нет пригодного кандидата, а терминальное policy rule не позволяет таблице
+выбранного кандидата провалиться в обычную системную маршрутизацию.&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -2045,9 +2052,10 @@ RPDB продолжает поиск в main table и трафик может у
 gateway. При включённом strict enforcement настроенное terminal-действие
 блокирует такой lookup.&lt;/p&gt;
 &lt;p&gt;Для настоящего failover используйте один outbound типа &lt;code&gt;urltest&lt;/code&gt; с обоими
-интерфейсами как candidates. &lt;code&gt;conntrack_on_switch: preserve&lt;/code&gt; (по умолчанию)
-оставляет established flows на текущем пути; &lt;code&gt;delete&lt;/code&gt; удаляет только owned
-conntrack entries этого URLTEST outbound после активации replacement route.&lt;/p&gt;
+интерфейсами как candidates. При переключении между здоровыми путями
+&lt;code&gt;conntrack_on_switch: preserve&lt;/code&gt; (по умолчанию) сохраняет established flows, а
+&lt;code&gt;delete&lt;/code&gt; удаляет только conntrack entries этой тестовой группы после активации
+нового маршрута. При отказе выбранного пути эти entries удаляются всегда.&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;ipv6_enabled: false&lt;/code&gt; означает, что IPv6 не управляется keen-pbr, а не блокируется.
 Keen-pbr также не перехватывает произвольный клиентский DNS, DoT или DoH: клиенты
 должны использовать resolver роутера либо отдельные firewall controls.&lt;/p&gt;

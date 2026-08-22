@@ -61,7 +61,7 @@ The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and 
 	<meta itemprop="name" content="keen-pbr CLI usage">
 	<meta itemprop="description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
 Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
-	<meta itemprop="wordCount" content="722">
+	<meta itemprop="wordCount" content="741">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="keen-pbr CLI usage">
 	<meta name="twitter:description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
@@ -1047,6 +1047,10 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 			<tr>
 					<td><code>--log-level &lt;lvl&gt;</code></td>
 					<td>Log verbosity: <code>error</code>, <code>warn</code>, <code>info</code>, <code>verbose</code>, or <code>debug</code>.</td>
+			</tr>
+			<tr>
+					<td><code>--log-target &lt;target&gt;</code></td>
+					<td>External log destination: <code>stderr</code>, <code>syslog</code>, or <code>both</code>. Defaults to <code>syslog</code> for <code>service</code> and <code>stderr</code> for interactive commands.</td>
 			</tr>
 			<tr>
 					<td><code>--no-api</code></td>

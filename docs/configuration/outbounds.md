@@ -143,7 +143,14 @@ When a route rule resolves to an `ignore` outbound, keen-pbr installs a matching
 
 Use this when you have several candidate outbounds and want keen-pbr to automatically pick the best available one.
 
-keen-pbr always appends terminal IPv4 and IPv6 `unreachable` default routes to the generated `urltest` table. This acts as a kill-switch: if no selected or fallback child route is usable, marked traffic is blocked instead of leaking via normal routing.
+Firewall rules keep the `urltest` outbound's stable mark. Its policy rule points
+at the selected child's routing table, including an existing table used by a
+`table` outbound; firewall rules are not rebuilt on selection changes.
+
+keen-pbr always appends terminal IPv4 and IPv6 `unreachable` default routes to
+the generated `urltest` fallback table. This table is selected when no child is
+usable, while a terminal policy rule prevents a selected child table from
+falling through to normal routing.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
