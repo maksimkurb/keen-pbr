@@ -89,6 +89,16 @@ struct PreparedRuntimeInputs {
   bool remote_lists_refreshed{false};
 };
 
+// A URLTEST switch can commit its routing change while the targeted conntrack
+// cleanup fails transiently.  Keep the cleanup tied to the selection that was
+// actually applied so a later unchanged probe can retry it without repeating
+// the routing reconcile.
+struct PendingUrltestConntrackCleanup {
+  std::string selected_child;
+  uint32_t mark{0};
+  uint32_t mark_mask{0};
+};
+
 struct ResolverGenerationSnapshot {
   ResolverType resolver_type;
   bool ipv6_enabled{true};
@@ -402,6 +412,10 @@ IcmpTester icmp_tester_;
   OutboundMarkMap outbound_marks_;
   std::unique_ptr<Scheduler> scheduler_;
   std::unique_ptr<UrltestManager> urltest_manager_;
+  // Event-loop-owned state. Entries are valid only for the current runtime
+  // generation and are cleared whenever the configured groups are rebuilt.
+  std::map<std::string, PendingUrltestConntrackCleanup>
+      pending_urltest_conntrack_cleanup_;
   BlockingExecutor blocking_executor_{2, 64};
   // Resolver hooks can synchronously call back into resolver config streaming,
   // so hook execution and resolver I/O must never share a worker.

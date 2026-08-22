@@ -170,6 +170,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
+    pending_urltest_conntrack_cleanup_.clear();
     const uint32_t mark_mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
     std::set<uint32_t> owned_marks;
     for (const auto& [tag, mark] : outbound_marks_) {
@@ -350,15 +351,61 @@ void Daemon::reconcile_lists_only(bool reload_resolver) {
 
 void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
                                              const std::string& new_child_tag) {
-    post_control_task([this, urltest_tag, new_child_tag]() {
+    const auto runtime_generation = runtime_generation_.load(std::memory_order_acquire);
+    post_control_task([this, urltest_tag, new_child_tag, runtime_generation]() {
         auto& log = Logger::instance();
-        const auto& applied_selections = firewall_state_.get_urltest_selections();
+        if (runtime_generation != runtime_generation_.load(std::memory_order_acquire)) {
+            log.trace("urltest_selection_skip",
+                      "tag={} reason=stale_runtime_generation",
+                      urltest_tag);
+            return;
+        }
+
+        const auto applied_selections = firewall_state_.get_urltest_selections();
         const auto applied_it = applied_selections.find(urltest_tag);
         const std::string old_child_tag = applied_it == applied_selections.end()
             ? std::string{}
             : applied_it->second;
+
+        // The route is already applied when cleanup is pending.  A later
+        // unchanged probe must retry only the targeted conntrack deletion;
+        // reconciling the same selection again would needlessly touch routes
+        // and could turn a transient cleanup failure into a routing failure.
+        const auto pending_it = pending_urltest_conntrack_cleanup_.find(urltest_tag);
         if (old_child_tag == new_child_tag) {
+            if (pending_it == pending_urltest_conntrack_cleanup_.end()) {
+                return;
+            }
+            if (pending_it->second.selected_child != new_child_tag) {
+                pending_urltest_conntrack_cleanup_.erase(pending_it);
+                return;
+            }
+
+            const auto pending = pending_it->second;
+            try {
+                if (conntrack_manager_.delete_mark(pending.mark, pending.mark_mask)) {
+                    pending_urltest_conntrack_cleanup_.erase(urltest_tag);
+                    log.info("Conntrack cleanup retry completed after test-group '{}' switch",
+                             urltest_tag);
+                } else {
+                    log.warn("Conntrack cleanup retry failed after test-group '{}' switch",
+                             urltest_tag);
+                }
+            } catch (const std::exception& e) {
+                log.warn("Conntrack cleanup retry failed after test-group '{}' switch: {}",
+                         urltest_tag, e.what());
+            } catch (...) {
+                log.warn("Conntrack cleanup retry failed after test-group '{}' switch: unknown error",
+                         urltest_tag);
+            }
             return;
+        }
+
+        // A newer selection supersedes a failed cleanup for the old child.
+        // Cleanup is mark-wide, so the new switch will either complete it or
+        // install a fresh pending entry for the currently applied child.
+        if (pending_it != pending_urltest_conntrack_cleanup_.end()) {
+            pending_urltest_conntrack_cleanup_.erase(pending_it);
         }
 
         bool delete_on_healthy_switch = false;
@@ -403,11 +450,27 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
             if (delete_conntrack) {
                 const auto mark_it = outbound_marks_.find(urltest_tag);
                 const uint32_t mark_mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
-                if (mark_it == outbound_marks_.end() ||
-                    !conntrack_manager_.delete_mark(mark_it->second, mark_mask)) {
+                bool cleanup_succeeded = false;
+                if (mark_it != outbound_marks_.end()) {
+                    try {
+                        cleanup_succeeded = conntrack_manager_.delete_mark(
+                            mark_it->second, mark_mask);
+                    } catch (const std::exception& e) {
+                        log.warn("Best-effort conntrack cleanup failed after test-group '{}' switch: {}",
+                                 urltest_tag, e.what());
+                    } catch (...) {
+                        log.warn("Best-effort conntrack cleanup failed after test-group '{}' switch: unknown error",
+                                 urltest_tag);
+                    }
+                }
+                if (!cleanup_succeeded && mark_it != outbound_marks_.end()) {
+                    pending_urltest_conntrack_cleanup_[urltest_tag] =
+                        PendingUrltestConntrackCleanup{
+                            new_child_tag, mark_it->second, mark_mask};
                     log.warn("Best-effort conntrack cleanup failed after test-group '{}' switch",
                              urltest_tag);
-                } else {
+                } else if (cleanup_succeeded) {
+                    pending_urltest_conntrack_cleanup_.erase(urltest_tag);
                     log.info("Conntrack cleanup completed after test-group '{}' switch",
                              urltest_tag);
                 }
@@ -415,10 +478,50 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
             publish_runtime_state(StatusPublishScope::Outbounds);
             log.info("Routing policy updated after test-group '{}' switch", urltest_tag);
         } catch (const std::exception& e) {
-            log.error("Test-group '{}' routing switch failed; applied selection remains '{}': {}",
-                      urltest_tag,
-                      old_child_tag.empty() ? "(none)" : old_child_tag,
-                      e.what());
+            try {
+                // Routing reconciliation is not atomic at the kernel level:
+                // it may have added or removed some objects before reporting
+                // an error. Restore the old desired state before exposing any
+                // failure to the next probe sweep.
+                reconcile_static_routing(&applied_selections);
+                log.error("Test-group '{}' routing switch failed; restored applied selection '{}': {}",
+                          urltest_tag,
+                          old_child_tag.empty() ? "(none)" : old_child_tag,
+                          e.what());
+            } catch (const std::exception& rollback_error) {
+                log.error("Test-group '{}' routing switch failed and rollback to applied selection '{}' failed: {}; rollback error: {}",
+                          urltest_tag,
+                          old_child_tag.empty() ? "(none)" : old_child_tag,
+                          e.what(), rollback_error.what());
+                std::string ignored_error;
+                (void)runtime_state_machine_.transition(
+                    RuntimeState::broken, "urltest routing rollback failed", ignored_error);
+                publish_runtime_state();
+            } catch (...) {
+                log.error("Test-group '{}' routing switch failed and rollback to applied selection '{}' failed: {}; rollback error: unknown",
+                          urltest_tag,
+                          old_child_tag.empty() ? "(none)" : old_child_tag,
+                          e.what());
+                std::string ignored_error;
+                (void)runtime_state_machine_.transition(
+                    RuntimeState::broken, "urltest routing rollback failed", ignored_error);
+                publish_runtime_state();
+            }
+        } catch (...) {
+            try {
+                reconcile_static_routing(&applied_selections);
+                log.error("Test-group '{}' routing switch failed; restored applied selection '{}'",
+                          urltest_tag,
+                          old_child_tag.empty() ? "(none)" : old_child_tag);
+            } catch (...) {
+                log.error("Test-group '{}' routing switch failed and rollback to applied selection '{}' failed: unknown",
+                          urltest_tag,
+                          old_child_tag.empty() ? "(none)" : old_child_tag);
+                std::string ignored_error;
+                (void)runtime_state_machine_.transition(
+                    RuntimeState::broken, "urltest routing rollback failed", ignored_error);
+                publish_runtime_state();
+            }
         }
     }, "urltest-selection-change:" + urltest_tag);
 }
@@ -801,6 +904,7 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
+    pending_urltest_conntrack_cleanup_.clear();
     reconcile_static_routing();
     (void)refresh_keenetic_dns_cache(true);
     apply_firewall(firewall_policy.mode,

@@ -1441,6 +1441,7 @@ void Daemon::run() {
   if (urltest_manager_) {
     urltest_manager_->clear();
   }
+  pending_urltest_conntrack_cleanup_.clear();
   scheduler_->cancel_all();
   const uint32_t mark_mask =
       fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
