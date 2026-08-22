@@ -924,7 +924,9 @@ void validate_config(const Config& cfg) {
         add_issue(issues, "daemon.exec_timeout_seconds",
                   "daemon.exec_timeout_seconds must be >= 1");
     }
-    if (cfg.daemon && cfg.daemon->resolver_ready_timeout_seconds.value_or(120) < 1) {
+    if (cfg.daemon &&
+        cfg.daemon->resolver_ready_timeout_seconds.value_or(
+            kDefaultResolverReadyTimeoutSeconds) < 1) {
         add_issue(issues, "daemon.resolver_ready_timeout_seconds",
                   "daemon.resolver_ready_timeout_seconds must be >= 1");
     }

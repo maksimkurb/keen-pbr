@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <chrono>
 #include <map>
 #include <istream>
 #include <stdexcept>
@@ -62,6 +63,14 @@ using ListsAutoupdateConfig = api::ListsAutoupdate;
 // Note: DnsRule.list (not .lists) and RouteRule.list (not .lists) match JSON keys.
 
 constexpr std::size_t kDefaultMaxFileSizeBytes = std::size_t{8} * 1024U * 1024U; // 8 MiB
+constexpr std::int64_t kDefaultResolverReadyTimeoutSeconds = 120;
+
+inline std::chrono::seconds resolver_ready_timeout(const Config& config) {
+    return std::chrono::seconds{
+        config.daemon.value_or(DaemonConfig{})
+            .resolver_ready_timeout_seconds.value_or(
+                kDefaultResolverReadyTimeoutSeconds)};
+}
 
 inline const std::vector<std::string>& route_rule_lists(const RouteRule& rule) {
     static const std::vector<std::string> empty;

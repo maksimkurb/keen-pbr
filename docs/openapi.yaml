@@ -685,7 +685,7 @@ components:
           type: integer
           minimum: 1
           default: 120
-          description: Deadline for dnsmasq process stabilization and DNS readiness after a helper completes.
+          description: Maximum time to wait for dnsmasq resolver configuration generation to complete after the resolver reload hook completes.
         exec_kill_grace_seconds:
           type: integer
           minimum: 0

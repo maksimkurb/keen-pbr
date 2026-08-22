@@ -233,7 +233,7 @@ private:
   bool run_system_resolver_hook(std::string_view action);
   bool run_system_resolver_hook_reload();
   bool wait_for_resolver_stream_after(std::uint64_t baseline,
-                                      std::chrono::milliseconds timeout);
+                                      std::chrono::seconds timeout);
   void drain_shutdown_resolver_callbacks(std::chrono::milliseconds duration);
   void schedule_lists_autoupdate();
   ListsRefreshExecutionResult execute_remote_list_refresh(

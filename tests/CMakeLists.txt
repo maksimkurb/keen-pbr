@@ -103,6 +103,7 @@ add_executable(keen-pbr-tests
   ../src/ipc/control_client.cpp
   ../src/ipc/resolver_fallback.cpp
   ../src/daemon/resolver_apply_confirmation.cpp
+  ../src/daemon/resolver_stream_wait.cpp
   ../src/lists/ipset.cpp
   ../src/lists/kernel_set_tester.cpp
   ../src/lists/list_streamer.cpp

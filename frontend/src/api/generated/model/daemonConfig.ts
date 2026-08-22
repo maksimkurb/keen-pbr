@@ -60,7 +60,7 @@ export interface DaemonConfig {
      */
   exec_timeout_seconds?: number;
   /**
-     * Deadline for dnsmasq process stabilization and DNS readiness after a helper completes.
+     * Maximum time to wait for dnsmasq resolver configuration generation to complete after the resolver reload hook completes.
      * @minimum 1
      */
   resolver_ready_timeout_seconds?: number;

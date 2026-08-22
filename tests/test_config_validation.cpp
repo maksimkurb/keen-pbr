@@ -1492,6 +1492,13 @@ TEST_CASE("daemon execution timeout must be positive") {
     CHECK(issues[0].path == "daemon.exec_timeout_seconds");
 }
 
+TEST_CASE("daemon resolver ready timeout must be positive") {
+    const auto issues = validate_issues(
+        R"({"daemon":{"resolver_ready_timeout_seconds":0}})");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "daemon.resolver_ready_timeout_seconds");
+}
+
 TEST_CASE("daemon execution kill grace may be zero but not negative") {
     CHECK(validate_issues(R"({"daemon":{"exec_kill_grace_seconds":0}})").empty());
     const auto issues = validate_issues(R"({"daemon":{"exec_kill_grace_seconds":-1}})");

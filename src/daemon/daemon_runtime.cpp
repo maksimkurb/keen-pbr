@@ -21,6 +21,7 @@
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
 #include "system_resolver_hook.hpp"
+#include "resolver_stream_wait.hpp"
 
 namespace keen_pbr3 {
 
@@ -90,9 +91,15 @@ bool Daemon::run_system_resolver_hook_reload() {
     if (!run_system_resolver_hook("reload")) {
         return false;
     }
-    if (!wait_for_resolver_stream_after(stream_baseline, std::chrono::seconds{5})) {
+    const auto timeout = resolver_ready_timeout(config_);
+    if (!wait_for_resolver_stream_after(stream_baseline, timeout)) {
+        const auto stream_current =
+            resolver_stream_completed_.load(std::memory_order_acquire);
         Logger::instance().warn(
-            "System resolver hook completed without a dnsmasq configuration request");
+            "Timed out after {} seconds waiting for dnsmasq resolver "
+            "configuration generation to complete after reload (resolver stream "
+            "completions baseline={}, current={})",
+            timeout.count(), stream_baseline, stream_current);
         return false;
     }
     // The init script may return before dnsmasq invokes its conf-script. The
@@ -104,18 +111,19 @@ bool Daemon::run_system_resolver_hook_reload() {
 }
 
 bool Daemon::wait_for_resolver_stream_after(std::uint64_t baseline,
-                                            std::chrono::milliseconds timeout) {
-    const auto deadline = std::chrono::steady_clock::now() + timeout;
-    while (std::chrono::steady_clock::now() < deadline) {
-        if (resolver_stream_completed_.load(std::memory_order_acquire) > baseline) {
-            return true;
-        }
-        if (is_event_loop_thread()) {
-            handle_ipc_control_socket();
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds{10});
-    }
-    return resolver_stream_completed_.load(std::memory_order_acquire) > baseline;
+                                            std::chrono::seconds timeout) {
+    return keen_pbr3::wait_for_resolver_stream_after(
+        baseline, timeout,
+        [this] {
+            return resolver_stream_completed_.load(std::memory_order_acquire);
+        },
+        [this] {
+            if (is_event_loop_thread()) {
+                handle_ipc_control_socket();
+            }
+        },
+        wait_for_resolver_stream_poll,
+        resolver_stream_now);
 }
 
 void Daemon::drain_shutdown_resolver_callbacks(std::chrono::milliseconds duration) {
