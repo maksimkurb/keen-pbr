@@ -23,6 +23,7 @@ add_executable(keen-pbr-tests
   test_resolver_apply_confirmation.cpp
   test_http_client.cpp
   test_icmp_tester.cpp
+  test_urltest_selection.cpp
   test_config_validation.cpp
   test_config_writer.cpp
   test_config_apply_transaction.cpp
@@ -119,6 +120,7 @@ add_executable(keen-pbr-tests
   ../src/health/icmp_tester.cpp
   ../src/routing/netlink.cpp
   ../src/routing/interface_monitor.cpp
+  ../src/routing/urltest_selection.cpp
   ../src/util/blocking_executor.cpp
   ../src/util/firewall_backend_utils.cpp
   ../src/util/ipv6_support.cpp

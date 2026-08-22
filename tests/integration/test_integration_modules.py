@@ -27,7 +27,8 @@ class IntegrationModulesTest(unittest.TestCase):
         expected = (
             "service_lifecycle", "dns_routing_save", "urltest_rebuild",
             "iptables_ab_convergence", "rule_shapes",
-            "table_interface", "multiport_validation", "route_list", "route_proto",
+            "table_interface", "test_group_table", "multiport_validation",
+            "route_list", "route_proto",
             "route_dscp", "route_src_port", "route_dest_port", "route_src_addr",
             "route_dest_addr", "route_all_criteria", "dns_upstream_ipv4",
             "dns_upstream_ipv6", "sigusr1_no_packet_leak", "dns_no_leak",

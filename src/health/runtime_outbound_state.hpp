@@ -19,6 +19,7 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
     const std::vector<RuleSpec>& policy_rules,
+    const std::map<std::string, std::string>& applied_urltest_selections,
     NetlinkManager& netlink,
     const UrltestStateLookupFn& urltest_state_lookup);
 
@@ -26,6 +27,7 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response_from_routes(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
     const std::vector<RuleSpec>& policy_rules,
+    const std::map<std::string, std::string>& applied_urltest_selections,
     const std::vector<DumpedRoute>& routes,
     const UrltestStateLookupFn& urltest_state_lookup);
 

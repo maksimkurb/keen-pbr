@@ -262,7 +262,8 @@ void Daemon::setup_static_routing() {
     reconcile_static_routing();
 }
 
-void Daemon::reconcile_static_routing() {
+void Daemon::reconcile_static_routing(
+    const std::map<std::string, std::string>* urltest_selections) {
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
     log_ipv6_support_decision_once(ipv6_decision);
     const auto interfaces = netlink_.dump_interfaces();
@@ -276,7 +277,9 @@ void Daemon::reconcile_static_routing() {
         [this](const Outbound& outbound) {
             return is_interface_outbound_reachable(outbound, netlink_);
         },
-        &firewall_state_.get_urltest_selections(),
+        urltest_selections != nullptr
+            ? urltest_selections
+            : &firewall_state_.get_urltest_selections(),
         ipv6_decision.enabled,
         [&interfaces](const Outbound& outbound, int family) {
             if (family == AF_INET) return true;
@@ -304,7 +307,6 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
     firewall_state_.set_rules(apply_runtime_firewall(
         config_,
         outbound_marks_,
-        firewall_state_.get_urltest_selections(),
         list_service_.cache_manager(),
         *firewall_,
         mode,
@@ -342,32 +344,73 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
                                              const std::string& new_child_tag) {
     post_control_task([this, urltest_tag, new_child_tag]() {
         auto& log = Logger::instance();
-        log.info("Urltest '{}' selected outbound: '{}'", urltest_tag, new_child_tag);
-        bool delete_conntrack = false;
+        const auto& applied_selections = firewall_state_.get_urltest_selections();
+        const auto applied_it = applied_selections.find(urltest_tag);
+        const std::string old_child_tag = applied_it == applied_selections.end()
+            ? std::string{}
+            : applied_it->second;
+        if (old_child_tag == new_child_tag) {
+            return;
+        }
+
+        bool delete_on_healthy_switch = false;
         for (const auto& outbound : config_.outbounds.value_or(std::vector<Outbound>{})) {
             if (outbound.tag == urltest_tag &&
                 outbound.conntrack_on_switch.value_or(api::ConntrackOnSwitch::PRESERVE) ==
                     api::ConntrackOnSwitch::DELETE) {
-                delete_conntrack = true;
+                delete_on_healthy_switch = true;
                 break;
             }
         }
-        firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
+
+        bool old_child_healthy = false;
+        if (!old_child_tag.empty() && urltest_manager_) {
+            const auto state = urltest_manager_->get_state(urltest_tag);
+            if (state.has_value()) {
+                const auto result = state->last_results.find(old_child_tag);
+                const auto breaker = state->circuit_breakers.find(old_child_tag);
+                const bool breaker_open = breaker != state->circuit_breakers.end() &&
+                    breaker->second.state(old_child_tag) == CircuitState::open;
+                old_child_healthy = !breaker_open &&
+                    result != state->last_results.end() && result->second.success;
+            }
+        }
+
+        const auto switch_reason = classify_test_group_switch(
+            !old_child_tag.empty(), old_child_healthy);
+        const bool delete_conntrack = should_delete_test_group_conntrack(
+            switch_reason, delete_on_healthy_switch);
+
+        auto proposed_selections = applied_selections;
+        proposed_selections[urltest_tag] = new_child_tag;
+        log.info("Test group '{}' switch old='{}' new='{}' reason={} conntrack={}",
+                 urltest_tag,
+                 old_child_tag.empty() ? "(none)" : old_child_tag,
+                 new_child_tag.empty() ? "(none)" : new_child_tag,
+                 test_group_switch_reason_name(switch_reason),
+                 delete_conntrack ? "delete" : "preserve");
         try {
-            reconcile_static_routing();
-            apply_firewall(runtime_refresh_firewall_mode());
+            reconcile_static_routing(&proposed_selections);
+            firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
             if (delete_conntrack) {
                 const auto mark_it = outbound_marks_.find(urltest_tag);
                 const uint32_t mark_mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
                 if (mark_it == outbound_marks_.end() ||
                     !conntrack_manager_.delete_mark(mark_it->second, mark_mask)) {
-                    log.warn("Best-effort conntrack cleanup failed after URLTEST '{}' switch", urltest_tag);
+                    log.warn("Best-effort conntrack cleanup failed after test-group '{}' switch",
+                             urltest_tag);
+                } else {
+                    log.info("Conntrack cleanup completed after test-group '{}' switch",
+                             urltest_tag);
                 }
             }
             publish_runtime_state(StatusPublishScope::Outbounds);
-            log.info("Routing and firewall rebuilt after urltest change.");
+            log.info("Routing policy updated after test-group '{}' switch", urltest_tag);
         } catch (const std::exception& e) {
-            log.error("Error rebuilding routing/firewall after urltest change: {}", e.what());
+            log.error("Test-group '{}' routing switch failed; applied selection remains '{}': {}",
+                      urltest_tag,
+                      old_child_tag.empty() ? "(none)" : old_child_tag,
+                      e.what());
         }
     }, "urltest-selection-change:" + urltest_tag);
 }

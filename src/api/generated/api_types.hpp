@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesLZf2Xp data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes3AxMyl data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -633,7 +633,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesLZf2Xp {
+    struct KeenPbrTypes3AxMyl {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -908,8 +908,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesLZf2Xp & x);
-    void to_json(json & j, const KeenPbrTypesLZf2Xp & x);
+    void from_json(const json & j, KeenPbrTypes3AxMyl & x);
+    void to_json(json & j, const KeenPbrTypes3AxMyl & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1943,7 +1943,7 @@ namespace api {
     inline void to_json(json & j, const RuntimeInterfaceState & x) {
         j = json::object();
         j["detail"] = x.detail;
-        j["interface_name"] = x.interface_name;
+        if (x.interface_name.has_value()) j["interface_name"] = *x.interface_name;
         j["latency_ms"] = x.latency_ms;
         j["outbound_tag"] = x.outbound_tag;
         j["packets_attempted"] = x.packets_attempted;
@@ -2037,7 +2037,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesLZf2Xp& x) {
+    inline void from_json(const json & j, KeenPbrTypes3AxMyl& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2110,7 +2110,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesLZf2Xp & x) {
+    inline void to_json(json & j, const KeenPbrTypes3AxMyl & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

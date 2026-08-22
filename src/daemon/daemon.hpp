@@ -199,7 +199,8 @@ private:
 
   // lifecycle and runtime apply
   void setup_static_routing();
-  void reconcile_static_routing();
+  void reconcile_static_routing(
+      const std::map<std::string, std::string> *urltest_selections = nullptr);
   FirewallApplyMode runtime_refresh_firewall_mode() const;
   void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive,
                       bool force_clear_dynamic_sets = false);

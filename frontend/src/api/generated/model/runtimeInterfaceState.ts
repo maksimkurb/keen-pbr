@@ -8,7 +8,7 @@
 import type { RuntimeInterfaceStatus } from './runtimeInterfaceStatus';
 
 export interface RuntimeInterfaceState {
-  /** Configured child outbound tag for this interface candidate. */
+  /** Configured child outbound tag for this candidate path. */
   outbound_tag: string;
   /** Interface name when the candidate resolves to an interface outbound. */
   interface_name?: string;

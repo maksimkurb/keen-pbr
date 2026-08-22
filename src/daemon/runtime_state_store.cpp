@@ -29,6 +29,7 @@ OutboundRuntimeSnapshot RuntimeStateStore::outbound_snapshot() const {
     return OutboundRuntimeSnapshot{
         snapshot_.firewall_state.get_outbound_marks(),
         snapshot_.policy_rule_specs,
+        snapshot_.firewall_state.get_urltest_selections(),
         snapshot_.urltest_states,
         snapshot_.runtime_state,
     };

@@ -5,7 +5,6 @@
 #include "../routing/firewall_state.hpp"
 #include "firewall.hpp"
 
-#include <map>
 #include <string>
 #include <vector>
 
@@ -28,7 +27,6 @@ FirewallConfigApplyPolicy firewall_config_apply_policy(
 std::vector<RuleState> apply_runtime_firewall(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
-    const std::map<std::string, std::string>& urltest_selections,
     const CacheManager& cache_manager,
     Firewall& firewall,
     FirewallApplyMode mode = FirewallApplyMode::Destructive,

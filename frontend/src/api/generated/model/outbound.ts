@@ -72,7 +72,7 @@ export interface Outbound {
      * @minimum 0
      */
   tolerance_ms?: number;
-  /** URLTEST conntrack handling when the selected child changes. `preserve` keeps established flows on their existing path; `delete` removes only conntrack entries bearing this URLTEST outbound's reserved mark after the replacement route is active.
+  /** URLTEST/ICMPTEST conntrack handling when a healthy selected child is replaced for latency or priority reasons. `preserve` keeps established flows and `delete` removes entries bearing the test-group mark after the replacement route is active. Entries are always removed when the previously selected child is unhealthy.
    */
   conntrack_on_switch?: ConntrackOnSwitch;
   /** Ordered list of outbound groups. Required for `urltest` and `icmptest`. Groups are tried in order; within a group the outbound is selected by weight.

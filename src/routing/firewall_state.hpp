@@ -29,8 +29,8 @@ struct RuleState {
 };
 
 // In-memory state of the firewall configuration.
-// Source of truth for API queries and for determining what to rebuild
-// when urltest selection changes.
+// Source of truth for API queries. URLTEST selections affect routing state,
+// while the firewall rules retain the URLTEST outbound's stable mark.
 class FirewallState {
 public:
     FirewallState() = default;

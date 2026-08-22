@@ -11,8 +11,10 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstddef>
+#include <iostream>
 #include <mutex>
 #include <pthread.h>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -23,8 +25,11 @@ namespace {
 
 class LoggerCapture {
 public:
-    LoggerCapture() : previous_level_(Logger::instance().level()) {
+    LoggerCapture()
+        : previous_level_(Logger::instance().level()),
+          previous_target_(Logger::instance().target()) {
         Logger::instance().set_level(LogLevel::debug);
+        Logger::instance().set_target(LogTarget::stderr_only);
         Logger::instance().set_sink([this](const std::string& line) {
             {
                 std::lock_guard<std::mutex> lock(mutex_);
@@ -37,6 +42,7 @@ public:
     ~LoggerCapture() {
         Logger::instance().clear_sink();
         Logger::instance().set_level(previous_level_);
+        Logger::instance().set_target(previous_target_);
     }
 
     bool contains(const std::string& needle) const {
@@ -58,12 +64,44 @@ public:
 
 private:
     LogLevel previous_level_;
+    LogTarget previous_target_;
     mutable std::condition_variable cv_;
     mutable std::mutex mutex_;
     std::vector<std::string> lines_;
 };
 
 } // namespace
+
+TEST_CASE("logger external target does not duplicate the internal sink") {
+    auto& logger = Logger::instance();
+    const auto previous_target = logger.target();
+    const auto previous_level = logger.level();
+    std::vector<std::string> internal_lines;
+    std::ostringstream stderr_capture;
+    auto* previous_stderr = std::cerr.rdbuf(stderr_capture.rdbuf());
+    logger.set_level(LogLevel::info);
+    logger.set_sink([&internal_lines](const std::string& line) {
+        internal_lines.push_back(line);
+    });
+
+    logger.set_target(LogTarget::stderr_only);
+    logger.info("stderr-only-line");
+    logger.set_target(LogTarget::syslog_only);
+    logger.info("syslog-only-line");
+
+    logger.clear_sink();
+    logger.set_level(previous_level);
+    logger.set_target(previous_target);
+    std::cerr.rdbuf(previous_stderr);
+
+    CHECK(stderr_capture.str().find("stderr-only-line") != std::string::npos);
+    CHECK(stderr_capture.str().find("syslog-only-line") == std::string::npos);
+    REQUIRE(internal_lines.size() == 2);
+    CHECK(internal_lines[0] == "stderr-only-line");
+    CHECK(internal_lines[1] == "syslog-only-line");
+    CHECK(parse_log_target("both") == LogTarget::both);
+    CHECK_THROWS(parse_log_target("invalid"));
+}
 
 TEST_CASE("trace logger includes trace id and event metadata") {
     LoggerCapture capture;

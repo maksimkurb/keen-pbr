@@ -4,6 +4,32 @@
 
 namespace keen_pbr3 {
 
+TestGroupSwitchReason classify_test_group_switch(bool has_applied_child,
+                                                  bool applied_child_healthy) {
+    if (!has_applied_child) return TestGroupSwitchReason::initial;
+    return applied_child_healthy
+        ? TestGroupSwitchReason::healthy_policy_change
+        : TestGroupSwitchReason::selected_path_unhealthy;
+}
+
+bool should_delete_test_group_conntrack(TestGroupSwitchReason reason,
+                                        bool delete_on_healthy_switch) {
+    if (reason == TestGroupSwitchReason::initial) return false;
+    return reason == TestGroupSwitchReason::selected_path_unhealthy ||
+           delete_on_healthy_switch;
+}
+
+const char* test_group_switch_reason_name(TestGroupSwitchReason reason) {
+    switch (reason) {
+    case TestGroupSwitchReason::initial: return "initial";
+    case TestGroupSwitchReason::selected_path_unhealthy:
+        return "selected-path-unhealthy";
+    case TestGroupSwitchReason::healthy_policy_change:
+        return "healthy-policy-change";
+    }
+    return "unknown";
+}
+
 ConntrackManager::ConntrackManager(CommandRunner runner)
     : runner_(std::move(runner)) {
     if (!runner_) {

@@ -311,7 +311,7 @@ TEST_CASE("RulesOnly reuses aligned empty file list without streaming") {
   CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
 
   const auto states = apply_runtime_firewall(
-      config, marks, {}, cache, firewall, FirewallApplyMode::RulesOnly,
+      config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
       &previous);
 
   REQUIRE(states.size() == 1);
@@ -327,7 +327,7 @@ TEST_CASE("RulesOnly falls back when realized rule state is missing") {
   CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
 
   CHECK_THROWS_AS(apply_runtime_firewall(
-                      config, marks, {}, cache, firewall,
+                      config, marks, cache, firewall,
                   FirewallApplyMode::RulesOnly, nullptr),
                   std::exception);
   REQUIRE(firewall.prepared_modes.size() == 2);
@@ -345,7 +345,7 @@ TEST_CASE("RulesOnly falls back when realized rule state is misaligned") {
   CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
 
   CHECK_THROWS_AS(apply_runtime_firewall(
-                      config, marks, {}, cache, firewall,
+                      config, marks, cache, firewall,
                       FirewallApplyMode::RulesOnly, &previous),
                   std::exception);
   REQUIRE(firewall.prepared_modes.size() == 2);
@@ -360,7 +360,7 @@ TEST_CASE("RulesOnly reuses aligned empty URL list without streaming") {
   const std::vector<RuleState> previous{aligned_empty_rule_state()};
   CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
 
-  (void)apply_runtime_firewall(config, marks, {}, cache, firewall,
+  (void)apply_runtime_firewall(config, marks, cache, firewall,
                                FirewallApplyMode::RulesOnly, &previous);
 
   CHECK(firewall.applied_mode == FirewallApplyMode::RulesOnly);
@@ -375,7 +375,7 @@ TEST_CASE("RulesOnly trusts realized empty state after inline entries parse away
   const std::vector<RuleState> previous{aligned_empty_rule_state()};
   CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
 
-  (void)apply_runtime_firewall(config, marks, {}, cache, firewall,
+  (void)apply_runtime_firewall(config, marks, cache, firewall,
                                FirewallApplyMode::RulesOnly, &previous);
 
   CHECK(firewall.applied_mode == FirewallApplyMode::RulesOnly);
@@ -392,7 +392,7 @@ TEST_CASE("RulesOnly fallback preserves and materializes a valid list") {
   CacheManager cache("/tmp/keen-pbr-rules-only-valid-list-test-cache");
 
   const auto states = apply_runtime_firewall(
-      config, marks, {}, cache, firewall, FirewallApplyMode::RulesOnly,
+      config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
       &previous);
 
   REQUIRE(states.size() == 1);
@@ -422,7 +422,7 @@ TEST_CASE("RulesOnly rejects a realized static set from the other generation") {
   CacheManager cache("/tmp/keen-pbr-rules-only-stale-set-test-cache");
 
   const auto states = apply_runtime_firewall(
-      config, marks, {}, cache, firewall, FirewallApplyMode::RulesOnly,
+      config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
       &previous_states);
 
   REQUIRE(states.size() == 1);
@@ -466,7 +466,7 @@ TEST_CASE("RulesOnly validates IPv6 stale static sets even when IPv4 is present"
   CacheManager cache("/tmp/keen-pbr-rules-only-stale-ipv6-test-cache");
 
   const auto states = apply_runtime_firewall(
-      config, marks, {}, cache, firewall, FirewallApplyMode::RulesOnly,
+      config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
       &previous_states);
 
   REQUIRE(states.size() == 1);

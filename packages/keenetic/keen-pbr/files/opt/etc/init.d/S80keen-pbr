@@ -5,7 +5,7 @@
 ENABLED=yes
 PROCS=$(basename "$KEEN_PBR")
 PIDFILE="/opt/var/run/keen-pbr.pid"
-ARGS="--config $CONFIG --pid-file $PIDFILE ${KEEN_PBR_ARGS:-} service"
+ARGS="--config $CONFIG --pid-file $PIDFILE --log-target syslog ${KEEN_PBR_ARGS:-} service"
 PREARGS=""
 POSTCMD=""
 DESC="keen-pbr"

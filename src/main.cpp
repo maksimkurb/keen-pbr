@@ -63,6 +63,7 @@ namespace {
 struct CliOptions {
   std::string config_path{KEEN_PBR_DEFAULT_CONFIG_PATH};
   std::string log_level{"info"};
+  std::string log_target;
   std::string pid_file_override;
   std::string crash_report_path{"/tmp/keen-pbr-crash.log"};
   bool no_api{false};
@@ -92,6 +93,8 @@ void print_usage(const char *argv0) {
             << KEEN_PBR_DEFAULT_CONFIG_PATH << ")\n"
             << "  --log-level <lvl>  Log level: error, warn, info, verbose, "
                "debug (default: info)\n"
+            << "  --log-target <target>  Log destination: stderr, syslog, or "
+               "both (default: syslog for service, stderr otherwise)\n"
             << "  --pid-file <path>  Override daemon.pid_file when running the "
                "service command\n"
             << "  --crash-report <path>  Last-crash report path (default: "
@@ -137,6 +140,12 @@ CliOptions parse_args(int argc, char *argv[]) {
         std::exit(1);
       }
       opts.log_level = argv[++i];
+    } else if (std::strcmp(argv[i], "--log-target") == 0) {
+      if (i + 1 >= argc) {
+        std::cerr << "Error: --log-target requires an argument\n";
+        std::exit(1);
+      }
+      opts.log_target = argv[++i];
     } else if (std::strcmp(argv[i], "--pid-file") == 0) {
       if (i + 1 >= argc) {
         std::cerr << "Error: --pid-file requires an argument\n";
@@ -378,6 +387,11 @@ int main(int argc, char *argv[]) {
     // Initialize logger
     auto &logger = keen_pbr3::Logger::instance();
     logger.set_level(keen_pbr3::parse_log_level(opts.log_level));
+    logger.set_target(opts.log_target.empty()
+                          ? (opts.run_service
+                                 ? keen_pbr3::LogTarget::syslog_only
+                                 : keen_pbr3::LogTarget::stderr_only)
+                          : keen_pbr3::parse_log_target(opts.log_target));
 
     if (opts.hash_password) {
       const auto password = read_secret("Password: ");

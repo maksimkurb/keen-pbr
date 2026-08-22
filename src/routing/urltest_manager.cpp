@@ -188,7 +188,7 @@ bool UrltestManager::commit_probe_results(const std::string& urltest_tag,
                              selection_changed ? "true" : "false",
                              new_selected);
 
-    if (selection_changed && on_change_) {
+    if (on_change_) {
         on_change_(urltest_tag, new_selected);
     }
 
@@ -442,104 +442,8 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
 
 std::string UrltestManager::select_outbound(const std::string& tag) {
     const auto it = states_.find(tag);
-    if (it == states_.end()) {
-        return "";
-    }
-
-    const auto& state = it->second;
-    const auto& ut = state.config;
-    if (!ut.outbound_groups.has_value()) {
-        return "";
-    }
-
-    struct GroupRef {
-        size_t index;
-        uint32_t weight;
-    };
-
-    const auto& groups = *ut.outbound_groups;
-    std::vector<GroupRef> sorted_groups;
-    sorted_groups.reserve(groups.size());
-    for (size_t i = 0; i < groups.size(); ++i) {
-        sorted_groups.push_back(GroupRef{
-            .index = i,
-            .weight = static_cast<uint32_t>(groups[i].weight.value_or(1)),
-        });
-    }
-    std::sort(sorted_groups.begin(),
-              sorted_groups.end(),
-              [](const GroupRef& lhs, const GroupRef& rhs) {
-                  return lhs.weight < rhs.weight;
-              });
-
-    for (const auto& group_ref : sorted_groups) {
-        const auto& group = groups[group_ref.index];
-        const auto group_tags = outbound_group_tags(group);
-        uint32_t min_latency = std::numeric_limits<uint32_t>::max();
-
-        for (const auto& child_tag : group_tags) {
-            const auto cb_it = state.circuit_breakers.find(child_tag);
-            if (cb_it == state.circuit_breakers.end()) {
-                continue;
-            }
-            if (cb_it->second.state(child_tag) == CircuitState::open) {
-                continue;
-            }
-
-            const auto result_it = state.last_results.find(child_tag);
-            if (result_it == state.last_results.end() || !result_it->second.success) {
-                continue;
-            }
-            min_latency = std::min(min_latency, result_it->second.latency_ms);
-        }
-
-        if (min_latency == std::numeric_limits<uint32_t>::max()) {
-            continue;
-        }
-
-        const uint32_t tolerance = static_cast<uint32_t>(ut.tolerance_ms.value_or(
-            ut.type == OutboundType::ICMPTEST
-                ? icmptest_limits::default_tolerance_ms
-                : 100));
-
-        if (!state.selected_outbound.empty()) {
-            const auto existing_it = std::find(group_tags.begin(),
-                                               group_tags.end(),
-                                               state.selected_outbound);
-            if (existing_it != group_tags.end()) {
-                const auto cb_it = state.circuit_breakers.find(state.selected_outbound);
-                if (cb_it != state.circuit_breakers.end() &&
-                    cb_it->second.state(state.selected_outbound) != CircuitState::open) {
-                    const auto result_it = state.last_results.find(state.selected_outbound);
-                    if (result_it != state.last_results.end() &&
-                        result_it->second.success &&
-                        result_it->second.latency_ms <= min_latency + tolerance) {
-                        return state.selected_outbound;
-                    }
-                }
-            }
-        }
-
-        for (const auto& child_tag : group_tags) {
-            const auto cb_it = state.circuit_breakers.find(child_tag);
-            if (cb_it == state.circuit_breakers.end()) {
-                continue;
-            }
-            if (cb_it->second.state(child_tag) == CircuitState::open) {
-                continue;
-            }
-
-            const auto result_it = state.last_results.find(child_tag);
-            if (result_it == state.last_results.end() || !result_it->second.success) {
-                continue;
-            }
-            if (result_it->second.latency_ms <= min_latency + tolerance) {
-                return child_tag;
-            }
-        }
-    }
-
-    return "";
+    return it == states_.end() ? std::string{}
+                               : select_test_group_outbound(it->second);
 }
 
 } // namespace keen_pbr3

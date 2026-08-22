@@ -151,7 +151,6 @@ ListSetUsage reused_list_set_usage(
 std::vector<RuleState> apply_runtime_firewall(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
-    const std::map<std::string, std::string>& urltest_selections,
     const CacheManager& cache_manager,
     Firewall& firewall,
     FirewallApplyMode mode,
@@ -162,7 +161,7 @@ std::vector<RuleState> apply_runtime_firewall(
     if (mode != FirewallApplyMode::RulesOnly) {
         list_streamer = std::make_unique<ListStreamer>(cache_manager);
     }
-    auto rule_states = build_fw_rule_states(config, outbound_marks, &urltest_selections);
+    auto rule_states = build_fw_rule_states(config, outbound_marks);
     const RouteConfig route_config = config.route.value_or(RouteConfig{});
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
     log_ipv6_support_decision_once(ipv6_decision);
@@ -375,8 +374,7 @@ std::vector<RuleState> apply_runtime_firewall(
     Logger::instance().warn(
         "RulesOnly firewall preflight failed; falling back to PreserveSets: {}",
         error.what());
-    return apply_runtime_firewall(config, outbound_marks, urltest_selections,
-                                  cache_manager, firewall,
+    return apply_runtime_firewall(config, outbound_marks, cache_manager, firewall,
                                   FirewallApplyMode::PreserveSets,
                                   previous_rule_states,
                                   /*force_clear_dynamic_sets=*/false);

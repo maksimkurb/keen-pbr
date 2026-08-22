@@ -281,40 +281,6 @@ std::vector<RouteSpec> make_unreachable_routes(uint32_t table_id,
     return routes;
 }
 
-std::vector<const Outbound*> ordered_urltest_children(const std::vector<Outbound>& outbounds,
-                                                      const Outbound& urltest) {
-    std::vector<const Outbound*> ordered;
-    if (!urltest.outbound_groups.has_value()) {
-        return ordered;
-    }
-
-    struct GroupRef {
-        size_t index;
-        int64_t weight;
-    };
-    std::vector<GroupRef> groups;
-    groups.reserve(urltest.outbound_groups->size());
-    for (size_t i = 0; i < urltest.outbound_groups->size(); ++i) {
-        groups.push_back({i, urltest.outbound_groups->at(i).weight.value_or(1)});
-    }
-
-    std::stable_sort(groups.begin(), groups.end(),
-                     [](const GroupRef& a, const GroupRef& b) {
-                         return a.weight < b.weight;
-                     });
-
-    for (const auto& group_ref : groups) {
-        const auto& group = urltest.outbound_groups->at(group_ref.index);
-        for (const auto& child_tag : outbound_group_tags(group)) {
-            const Outbound* child = find_outbound(outbounds, child_tag);
-            if (child) {
-                ordered.push_back(child);
-            }
-        }
-    }
-    return ordered;
-}
-
 // Returns the (offset)th non-reserved table ID starting from table_start.
 static uint32_t safe_table_id(uint32_t table_start, uint32_t offset) {
     uint32_t id = table_start;
@@ -329,6 +295,40 @@ static uint32_t safe_table_id(uint32_t table_start, uint32_t offset) {
 }
 
 } // anonymous namespace
+
+std::map<std::string, uint32_t> build_outbound_table_map(const Config& cfg) {
+    auto outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
+    std::stable_sort(outbounds.begin(), outbounds.end(), [](const Outbound& left,
+                                                            const Outbound& right) {
+        const auto rank = [](OutboundType type) {
+            switch (type) {
+            case OutboundType::INTERFACE: return 0;
+            case OutboundType::TABLE: return 1;
+            case OutboundType::URLTEST:
+            case OutboundType::ICMPTEST: return 2;
+            default: return 3;
+            }
+        };
+        return rank(left.type) == rank(right.type) ? left.tag < right.tag
+                                                   : rank(left.type) < rank(right.type);
+    });
+
+    const uint32_t table_start = static_cast<uint32_t>(
+        cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
+    uint32_t table_offset = 0;
+    std::map<std::string, uint32_t> tables;
+    for (const auto& outbound : outbounds) {
+        if (outbound.type == OutboundType::TABLE) {
+            tables[outbound.tag] = static_cast<uint32_t>(outbound.table.value_or(0));
+            ++table_offset;
+        } else if (outbound.type == OutboundType::INTERFACE ||
+                   outbound.type == OutboundType::URLTEST ||
+                   outbound.type == OutboundType::ICMPTEST) {
+            tables[outbound.tag] = safe_table_id(table_start, table_offset++);
+        }
+    }
+    return tables;
+}
 
 void populate_routing_state(const Config& cfg,
                             const OutboundMarkMap& marks,
@@ -352,6 +352,7 @@ void populate_routing_state(const Config& cfg,
         return rank(left.type) == rank(right.type) ? left.tag < right.tag
                                                    : rank(left.type) < rank(right.type);
     });
+    const auto outbound_tables = build_outbound_table_map(cfg);
     const uint32_t table_start = static_cast<uint32_t>(
         cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
     const uint32_t fwmark_mask = fwmark_mask_value(cfg.fwmark.value_or(FwmarkConfig{}));
@@ -367,7 +368,6 @@ void populate_routing_state(const Config& cfg,
 
     const uint32_t rule_priority_start = static_cast<uint32_t>(
         cfg.iproute.value_or(IprouteConfig{}).rule_priority_start.value_or(table_start));
-    uint32_t table_offset = 0;
     uint32_t rule_offset = 0;
     std::set<std::string> internal_detours;
     for (const auto& [name, list] : cfg.lists.value_or(std::map<std::string, ListConfig>{})) {
@@ -406,8 +406,7 @@ void populate_routing_state(const Config& cfg,
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
 
-            uint32_t table_id = safe_table_id(table_start, table_offset);
-            ++table_offset;
+            const uint32_t table_id = outbound_tables.at(ob.tag);
 
             const bool strict = strict_enforcement_enabled(cfg, ob);
             const bool reachable = !reachability_check || reachability_check(ob);
@@ -432,71 +431,39 @@ void populate_routing_state(const Config& cfg,
             if (mark_it == marks.end()) continue;
 
             const bool strict = strict_enforcement_enabled(cfg, ob);
-            add_lookup_and_guard(mark_it->second,
-                                 static_cast<uint32_t>(ob.table.value_or(0)), ob, strict);
-            add_internal_detour_guard(static_cast<uint32_t>(ob.table.value_or(0)), ob);
-            ++table_offset;
+            const uint32_t table_id = outbound_tables.at(ob.tag);
+            add_lookup_and_guard(mark_it->second, table_id, ob, strict);
+            add_internal_detour_guard(table_id, ob);
         } else if (ob.type == OutboundType::URLTEST || ob.type == OutboundType::ICMPTEST) {
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
 
-            uint32_t table_id = safe_table_id(table_start, table_offset);
-            ++table_offset;
-
-            const auto ordered_children = ordered_urltest_children(outbounds, ob);
-            const size_t routes_before_candidates = planned_routes.size();
+            const uint32_t fallback_table_id = outbound_tables.at(ob.tag);
+            uint32_t active_table_id = fallback_table_id;
 
             const std::string selected_tag = resolve_urltest_selection(urltest_selections, ob.tag);
-            const bool selection_ready = !selected_tag.empty();
-            if (selection_ready) {
+            if (!selected_tag.empty()) {
                 const Outbound* selected = find_outbound(outbounds, selected_tag);
-                if (selected &&
-                    selected->type == OutboundType::INTERFACE &&
-                    (!reachability_check || reachability_check(*selected))) {
-                    for (const auto& route : make_default_routes(
-                             table_id, *selected, family_available)) {
-                        add_route_if_enabled(route);
-                    }
-                    for (const auto& route : make_family_closure_routes(
-                             table_id, *selected, family_available)) {
-                        add_route_if_enabled(route);
-                    }
-                }
-
-                uint32_t metric = 1;
-                for (const Outbound* child : ordered_children) {
-                    if (child->type != OutboundType::INTERFACE) {
-                        continue;
-                    }
-                    if (reachability_check && !reachability_check(*child)) {
-                        continue;
-                    }
-                    for (auto route : make_default_routes(
-                             table_id, *child, family_available)) {
-                        route.metric = metric;
-                        add_route_if_enabled(route);
-                    }
-                    for (auto route : make_family_closure_routes(
-                             table_id, *child, family_available)) {
-                        route.metric = metric;
-                        add_route_if_enabled(route);
-                    }
-                    ++metric;
+                const auto selected_table = outbound_tables.find(selected_tag);
+                const bool selected_usable = selected && selected_table != outbound_tables.end() &&
+                    (selected->type == OutboundType::TABLE ||
+                     (selected->type == OutboundType::INTERFACE &&
+                      (!reachability_check || reachability_check(*selected))));
+                if (selected_usable) {
+                    active_table_id = selected_table->second;
                 }
             }
 
-            // The following terminal RPDB rule is the permanent kill-switch.
-            // Keep table-level unreachable defaults only while the table has no
-            // usable candidate; otherwise they can conflict with a recovering
-            // interface's unicast default on kernels with strict IPv6 identity.
-            if (planned_routes.size() == routes_before_candidates) {
-                for (const auto& route : make_unreachable_routes(table_id)) {
-                    add_route_if_enabled(route);
-                }
+            // Keep only the URLTEST-selected child active. The kernel cannot
+            // determine probe health for administratively-up tunnels, so stale
+            // candidates must not remain as implicit fallbacks. Terminal routes
+            // prevent marked traffic from falling through to the main table.
+            for (const auto& route : make_unreachable_routes(fallback_table_id)) {
+                add_route_if_enabled(route);
             }
 
-            add_lookup_and_guard(mark_it->second, table_id, ob, true);
-            add_internal_detour_guard(table_id, ob);
+            add_lookup_and_guard(mark_it->second, active_table_id, ob, true);
+            add_internal_detour_guard(active_table_id, ob);
         }
         // BLACKHOLE: no routing table, no ip rule
         // IGNORE: no routing needed
@@ -654,8 +621,7 @@ std::optional<std::string> infer_urltest_selection_from_routes(
 
 std::vector<RuleState> build_fw_rule_states(
     const Config& cfg,
-    const OutboundMarkMap& marks,
-    const std::map<std::string, std::string>* urltest_selections) {
+    const OutboundMarkMap& marks) {
     std::vector<RuleState> rule_states;
 
     const auto& all_outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
@@ -727,21 +693,7 @@ std::vector<RuleState> build_fw_rule_states(
             continue;
         }
 
-        std::string effective_tag = ob->tag;
-        const Outbound* effective_ob = ob;
-
-        if (ob->type == OutboundType::URLTEST || ob->type == OutboundType::ICMPTEST) {
-            auto selected = resolve_urltest_selection(urltest_selections, effective_tag);
-            if (!selected.empty()) {
-                const Outbound* child = find_outbound(all_outbounds, selected);
-                if (child) {
-                    effective_ob = child;
-                    effective_tag = selected;
-                }
-            }
-        }
-
-        const bool is_blackhole = (effective_ob->type == OutboundType::BLACKHOLE);
+        const bool is_blackhole = (ob->type == OutboundType::BLACKHOLE);
 
         RuleState rs;
         rs.rule_index = rule_idx;
@@ -752,7 +704,7 @@ std::vector<RuleState> build_fw_rule_states(
             rs.action_type = RuleActionType::Drop;
         } else {
             rs.action_type = RuleActionType::Mark;
-            auto mark_it = marks.find(effective_tag);
+            auto mark_it = marks.find(ob->tag);
             if (mark_it != marks.end()) {
                 rs.fwmark = mark_it->second;
             }

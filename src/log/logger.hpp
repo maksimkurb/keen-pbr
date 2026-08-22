@@ -11,8 +11,10 @@
 namespace keen_pbr3 {
 
 enum class LogLevel { error, warn, info, verbose, debug };
+enum class LogTarget { stderr_only, syslog_only, both };
 
 LogLevel parse_log_level(std::string_view s);
+LogTarget parse_log_target(std::string_view s);
 
 class Logger {
 public:
@@ -23,6 +25,8 @@ public:
     void set_level(LogLevel level) { level_ = level; }
     LogLevel level() const { return level_; }
     bool is_enabled(LogLevel level) const { return level <= level_; }
+    void set_target(LogTarget target);
+    LogTarget target() const;
 
     void set_sink(Sink sink);
     void clear_sink();
@@ -76,7 +80,8 @@ private:
     void emit_line(const std::string& line, int syslog_priority);
 
     LogLevel level_{LogLevel::info};
-    std::mutex sink_mutex_;
+    mutable std::mutex sink_mutex_;
+    LogTarget target_{LogTarget::stderr_only};
     Sink sink_;
     std::chrono::steady_clock::time_point started_at_{std::chrono::steady_clock::now()};
 };

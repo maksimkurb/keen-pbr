@@ -28,8 +28,12 @@ struct UrltestState {
     std::uint64_t generation{0};
 };
 
-// Callback invoked when the selected outbound changes for a urltest.
-// Parameters: (urltest_tag, new_child_outbound_tag)
+// Pure selection policy shared by URLTEST and ICMPTEST.
+std::string select_test_group_outbound(const UrltestState& state);
+
+// Callback invoked after every accepted probe sweep. Emitting unchanged
+// selections lets the daemon retry a previously failed routing transaction.
+// Parameters: (urltest_tag, desired_child_outbound_tag)
 // Guaranteed to be called without any UrltestManager lock held.
 using UrltestChangeCallback = std::function<void(const std::string&, const std::string&)>;
 using UrltestCommitCallback = std::function<bool(const std::string&,
@@ -54,13 +58,11 @@ public:
     UrltestManager(const UrltestManager&) = delete;
     UrltestManager& operator=(const UrltestManager&) = delete;
 
-    // Register a urltest outbound, run the initial URL test, and schedule
-    // periodic retests. on_change_ is NOT called for the initial selection —
-    // call get_selected() after this returns to read the initial value.
+    // Register a test-group outbound, queue the initial probe, and schedule
+    // periodic retests. Every accepted sweep publishes its desired selection.
     void register_urltest(const Outbound& ut);
 
-    // Run tests immediately for a specific urltest outbound (e.g. on SIGUSR1).
-    // Invokes on_change_ if the selection changes.
+    // Run tests immediately for a specific test-group outbound (e.g. on SIGUSR1).
     void trigger_immediate_test(const std::string& urltest_tag);
     bool commit_probe_results(const std::string& urltest_tag,
                               std::uint64_t generation,
@@ -90,7 +92,6 @@ private:
     bool queue_probe_unlocked(const std::string& tag, const std::string& reason);
 
     // Periodic test entry point (called by the scheduler).
-    // Runs tests and invokes on_change_ if the selection changes.
     void run_tests(const std::string& tag);
 
     // Select the best outbound using the weighted group / tolerance algorithm.

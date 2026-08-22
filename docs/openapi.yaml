@@ -1034,10 +1034,11 @@ components:
           $ref: "#/components/schemas/ConntrackOnSwitch"
           default: preserve
           description: >
-            URLTEST conntrack handling when the selected child changes. `preserve`
-            keeps established flows on their existing path; `delete` removes only
-            conntrack entries bearing this URLTEST outbound's reserved mark after
-            the replacement route is active.
+            URLTEST/ICMPTEST conntrack handling when a healthy selected child is
+            replaced for latency or priority reasons. `preserve` keeps established
+            flows and `delete` removes entries bearing the test-group mark after the
+            replacement route is active. Entries are always removed when the
+            previously selected child is unhealthy.
         outbound_groups:
           type: array
           description: >
@@ -1805,10 +1806,10 @@ components:
       type: string
       enum: [active, backup, degraded, unavailable, unknown]
       description: >
-        - active: interface is currently selected by the live service state
-        - backup: interface is reachable and ready to take over if needed
-        - degraded: interface exists but recent checks failed
-        - unavailable: interface cannot currently be used
+        - active: candidate path is currently selected by the live service state
+        - backup: candidate path passed its latest probe and is ready to take over
+        - degraded: the latest accepted candidate probe failed
+        - unavailable: the candidate circuit breaker is open
         - unknown: runtime state could not be determined
 
     RuntimeOutboundStatus:
@@ -1826,7 +1827,7 @@ components:
       properties:
         outbound_tag:
           type: string
-          description: Configured child outbound tag for this interface candidate.
+          description: Configured child outbound tag for this candidate path.
           example: "vpn0"
         interface_name:
           type: string
@@ -1879,7 +1880,7 @@ components:
           example: "live route selection differs from urltest manager selection"
         interfaces:
           type: array
-          description: Candidate interfaces or live interface paths for this outbound.
+          description: Candidate paths for this outbound. Table candidates omit interface_name.
           items:
             $ref: "#/components/schemas/RuntimeInterfaceState"
 

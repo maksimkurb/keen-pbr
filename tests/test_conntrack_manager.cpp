@@ -63,4 +63,21 @@ TEST_CASE("ConntrackManager preserves foreign mark bits while restoring original
           0x5ABC00AAU);
 }
 
+TEST_CASE("Test-group conntrack cleanup distinguishes failure from healthy switching") {
+    const auto initial = classify_test_group_switch(false, false);
+    CHECK(initial == TestGroupSwitchReason::initial);
+    CHECK_FALSE(should_delete_test_group_conntrack(initial, false));
+    CHECK_FALSE(should_delete_test_group_conntrack(initial, true));
+
+    const auto failed = classify_test_group_switch(true, false);
+    CHECK(failed == TestGroupSwitchReason::selected_path_unhealthy);
+    CHECK(should_delete_test_group_conntrack(failed, false));
+    CHECK(should_delete_test_group_conntrack(failed, true));
+
+    const auto healthy = classify_test_group_switch(true, true);
+    CHECK(healthy == TestGroupSwitchReason::healthy_policy_change);
+    CHECK_FALSE(should_delete_test_group_conntrack(healthy, false));
+    CHECK(should_delete_test_group_conntrack(healthy, true));
+}
+
 } // namespace keen_pbr3

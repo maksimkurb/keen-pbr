@@ -30,6 +30,11 @@ inline bool is_reserved_table(uint32_t id) {
 using OutboundReachabilityFn = std::function<bool(const Outbound&)>;
 using OutboundFamilyAvailabilityFn = std::function<bool(const Outbound&, int)>;
 
+// Resolve every routable outbound to the table used by its own fwmark. Test
+// groups map to their generated kill-switch table; their live lookup may point
+// at a selected child's table instead.
+std::map<std::string, uint32_t> build_outbound_table_map(const Config& cfg);
+
 // Populate route tables and policy rules from config. Works for real or dry-run instances.
 void populate_routing_state(const Config& cfg,
                             const OutboundMarkMap& marks,
@@ -62,12 +67,12 @@ std::optional<std::string> infer_urltest_selection_from_routes(
     const Outbound& urltest,
     const std::vector<DumpedRoute>& routes);
 
-// Build firewall rule state (set names, actions, selectors) from config without touching firewall.
-// urltest_selections optionally overrides URLTEST outbounds to a selected child tag.
+// Build firewall rule state (set names, actions, selectors) from config without
+// touching firewall. Test-group outbounds keep their own stable mark; selection
+// changes are realized exclusively in their routing tables.
 std::vector<RuleState> build_fw_rule_states(
     const Config& cfg,
-    const OutboundMarkMap& marks,
-    const std::map<std::string, std::string>* urltest_selections = nullptr);
+    const OutboundMarkMap& marks);
 
 using ListSetUsageFn = std::function<ListSetUsage(const std::string&,
                                                   const ListConfig&)>;

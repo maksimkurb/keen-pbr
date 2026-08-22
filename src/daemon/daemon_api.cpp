@@ -755,10 +755,7 @@ void Daemon::setup_api() {
             const auto marks = allocate_outbound_marks(
                 config.fwmark.value_or(FwmarkConfig{}),
                 config.outbounds.value_or(std::vector<Outbound>{}));
-            const auto runtime_snapshot = runtime_state_store_.snapshot();
-            const auto& urltest_selections = runtime_snapshot.firewall_state.get_urltest_selections();
-
-            (void)build_fw_rule_states(config, marks, &urltest_selections);
+            (void)build_fw_rule_states(config, marks);
 
             ListStreamer streamer(list_service_.cache_manager());
             const DnsConfig dns_cfg = config.dns.value_or(DnsConfig{});
@@ -842,6 +839,7 @@ void Daemon::setup_api() {
                 config_snapshot,
                 runtime_snapshot.outbound_marks,
                 runtime_snapshot.policy_rule_specs,
+                runtime_snapshot.applied_urltest_selections,
                 netlink_,
                 [&runtime_snapshot](const std::string& tag) -> std::optional<UrltestState> {
                     auto it = runtime_snapshot.urltest_states.find(tag);

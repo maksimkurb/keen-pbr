@@ -7,7 +7,7 @@
  */
 
 /**
- * - active: interface is currently selected by the live service state - backup: interface is reachable and ready to take over if needed - degraded: interface exists but recent checks failed - unavailable: interface cannot currently be used - unknown: runtime state could not be determined
+ * - active: candidate path is currently selected by the live service state - backup: candidate path passed its latest probe and is ready to take over - degraded: the latest accepted candidate probe failed - unavailable: the candidate circuit breaker is open - unknown: runtime state could not be determined
 
  */
 export type RuntimeInterfaceStatus = typeof RuntimeInterfaceStatus[keyof typeof RuntimeInterfaceStatus];

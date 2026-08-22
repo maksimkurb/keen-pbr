@@ -68,6 +68,14 @@ LogLevel parse_log_level(std::string_view s) {
         keen_pbr3::format("Unknown log level '{}'. Valid: error, warn, info, verbose, debug", s));
 }
 
+LogTarget parse_log_target(std::string_view s) {
+    if (s == "stderr") return LogTarget::stderr_only;
+    if (s == "syslog") return LogTarget::syslog_only;
+    if (s == "both") return LogTarget::both;
+    throw std::runtime_error(
+        keen_pbr3::format("Unknown log target '{}'. Valid: stderr, syslog, both", s));
+}
+
 Logger& Logger::instance() {
     static Logger logger;
     return logger;
@@ -83,10 +91,24 @@ void Logger::clear_sink() {
     sink_ = nullptr;
 }
 
+void Logger::set_target(LogTarget target) {
+    std::lock_guard<std::mutex> lock(sink_mutex_);
+    target_ = target;
+}
+
+LogTarget Logger::target() const {
+    std::lock_guard<std::mutex> lock(sink_mutex_);
+    return target_;
+}
+
 void Logger::emit_line(const std::string& line, int syslog_priority) {
     std::lock_guard<std::mutex> lock(sink_mutex_);
-    std::cerr << line << "\n";
-    emit_syslog_line(line, syslog_priority);
+    if (target_ == LogTarget::stderr_only || target_ == LogTarget::both) {
+        std::cerr << line << "\n";
+    }
+    if (target_ == LogTarget::syslog_only || target_ == LogTarget::both) {
+        emit_syslog_line(line, syslog_priority);
+    }
     if (sink_) {
         sink_(line);
     }

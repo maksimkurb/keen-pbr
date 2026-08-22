@@ -126,37 +126,50 @@ const Outbound* find_outbound(const std::vector<Outbound>& outbounds, const std:
 }
 
 std::map<std::string, std::string> infer_urltest_selections(const Config& config,
+                                                            const OutboundMarkMap& marks,
                                                             NetlinkManager& netlink) {
     std::map<std::string, std::string> selections;
     const auto& outbounds = config.outbounds.value_or(std::vector<Outbound>{});
-    const uint32_t table_start = static_cast<uint32_t>(
-        config.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
-
-    uint32_t table_offset = 0;
+    const auto outbound_tables = build_outbound_table_map(config);
+    const auto actual_rules = netlink.dump_policy_rules();
+    const uint32_t mask = fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
     for (const auto& ob : outbounds) {
-        const bool routable =
-            (ob.type == OutboundType::INTERFACE ||
-             ob.type == OutboundType::TABLE ||
-ob.type == OutboundType::URLTEST || ob.type == OutboundType::ICMPTEST);
-        if (!routable) {
-            continue;
-        }
-
-        uint32_t table_id = 0;
-        if (ob.type == OutboundType::TABLE) {
-            table_id = static_cast<uint32_t>(ob.table.value_or(0));
-        } else {
-            table_id = table_start + table_offset;
-        }
-        ++table_offset;
-
         if (ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) {
             continue;
         }
+        const auto mark = marks.find(ob.tag);
+        if (mark == marks.end()) {
+            continue;
+        }
+        const auto live_rule = std::find_if(
+            actual_rules.begin(), actual_rules.end(), [&](const DumpedRule& rule) {
+                return rule.action == RuleAction::lookup &&
+                    rule.fwmark == mark->second && rule.fwmask == mask;
+            });
+        if (live_rule == actual_rules.end()) {
+            continue;
+        }
 
-        const auto selected = infer_urltest_selection_from_routes(
-            outbounds, ob, netlink.dump_routes_in_table(table_id));
-        if (selected.has_value()) {
+        std::optional<std::string> selected;
+        bool ambiguous = false;
+        for (const auto& group : ob.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
+            for (const auto& child_tag : outbound_group_tags(group)) {
+                const auto child_table = outbound_tables.find(child_tag);
+                if (child_table == outbound_tables.end() ||
+                    child_table->second != live_rule->table) {
+                    continue;
+                }
+                if (selected.has_value() && *selected != child_tag) {
+                    ambiguous = true;
+                    break;
+                }
+                selected = child_tag;
+            }
+            if (ambiguous) {
+                break;
+            }
+        }
+        if (selected && !ambiguous) {
             selections[ob.tag] = *selected;
         }
     }
@@ -572,7 +585,7 @@ int run_status_command_impl(const Config& config, const std::string& config_path
                                          config.outbounds.value_or(std::vector<Outbound>{}));
 
     NetlinkManager netlink;
-    const auto urltest_selections = infer_urltest_selections(config, netlink);
+    const auto urltest_selections = infer_urltest_selections(config, marks, netlink);
     RouteTable routes(netlink, true);
     PolicyRuleManager rules(netlink, true);
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
@@ -592,7 +605,7 @@ int run_status_command_impl(const Config& config, const std::string& config_path
     ListStreamer list_streamer(cache);
     auto fw_rules = realized_rules != nullptr
         ? *realized_rules
-        : build_fw_rule_states(config, marks, &urltest_selections);
+        : build_fw_rule_states(config, marks);
     if (realized_rules == nullptr) {
         prune_fw_rule_states_to_realized_sets(
             config,

@@ -294,6 +294,7 @@ set(SOURCES
   src/health/runtime_interface_inventory.cpp
   src/keenetic/interface_descriptions.cpp
   src/routing/urltest_manager.cpp
+  src/routing/urltest_selection.cpp
   src/routing/firewall_state.cpp
   src/firewall/firewall.cpp
   src/firewall/firewall_runtime.cpp

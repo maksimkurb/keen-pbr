@@ -16,6 +16,6 @@ export interface RuntimeOutboundState {
   status: RuntimeOutboundStatus;
   /** Optional runtime detail for mismatches or degraded state. */
   detail?: string;
-  /** Candidate interfaces or live interface paths for this outbound. */
+  /** Candidate paths for this outbound. Table candidates omit interface_name. */
   interfaces: RuntimeInterfaceState[];
 }

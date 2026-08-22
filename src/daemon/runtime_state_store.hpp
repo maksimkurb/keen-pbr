@@ -51,6 +51,7 @@ struct ServiceRuntimeSnapshot {
 struct OutboundRuntimeSnapshot {
     OutboundMarkMap outbound_marks;
     std::vector<RuleSpec> policy_rule_specs;
+    std::map<std::string, std::string> applied_urltest_selections;
     std::map<std::string, UrltestState> urltest_states;
     RuntimeState runtime_state{RuntimeState::starting};
 };

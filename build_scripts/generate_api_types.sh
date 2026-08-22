@@ -96,6 +96,17 @@ content = content.replace(
   '#include <cstdint>\n#include <map>\n#include <optional>'
 );
 
+// RuntimeInterfaceState.interface_name is optional because table candidates do
+// not have an interface. QuickType writes empty optionals as JSON null; preserve
+// the OpenAPI omission semantics for this field in REST and status-stream data.
+const quote = String.fromCharCode(34);
+content = content.replace(
+  'j[' + quote + 'detail' + quote + '] = x.detail;\n' +
+    '        j[' + quote + 'interface_name' + quote + '] = x.interface_name;',
+  'j[' + quote + 'detail' + quote + '] = x.detail;\n' +
+    '        if (x.interface_name.has_value()) j[' + quote + 'interface_name' + quote + '] = *x.interface_name;'
+);
+
 // Add generation comment at the top
 const header = '// Generated from docs/openapi.yaml via build_scripts/generate_api_types.sh\n' +
                '// Run \"make generate\" to regenerate (requires Node.js).\n\n';

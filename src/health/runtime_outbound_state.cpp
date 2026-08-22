@@ -123,23 +123,10 @@ bool route_matches_outbound(const DumpedRoute& route, const Outbound& outbound) 
 
 api::RuntimeInterfaceStatusEnum map_urltest_child_status(
     const Outbound& child,
-    bool reachable,
     bool is_active,
     const std::optional<UrltestState>& urltest_state) {
-    if (!child.interface.has_value()) {
-        return api::RuntimeInterfaceStatusEnum::UNKNOWN;
-    }
-
-    if (is_active) {
-        return api::RuntimeInterfaceStatusEnum::ACTIVE;
-    }
-
-    if (!reachable) {
-        return api::RuntimeInterfaceStatusEnum::UNAVAILABLE;
-    }
-
     if (!urltest_state.has_value()) {
-        return api::RuntimeInterfaceStatusEnum::BACKUP;
+        return api::RuntimeInterfaceStatusEnum::UNKNOWN;
     }
 
     const auto result_it = urltest_state->last_results.find(child.tag);
@@ -157,7 +144,9 @@ api::RuntimeInterfaceStatusEnum map_urltest_child_status(
     }
 
     if (result_it->second.success) {
-        return api::RuntimeInterfaceStatusEnum::BACKUP;
+        return is_active
+            ? api::RuntimeInterfaceStatusEnum::ACTIVE
+            : api::RuntimeInterfaceStatusEnum::BACKUP;
     }
 
     return api::RuntimeInterfaceStatusEnum::DEGRADED;
@@ -271,8 +260,8 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
                                                               const Outbound& outbound,
                                                               const OutboundMarkMap& outbound_marks,
                                                               const std::vector<RuleSpec>& policy_rules,
+                                                              const std::map<std::string, std::string>& applied_selections,
                                                               const std::vector<DumpedRoute>& routes,
-                                                              const std::vector<DumpedRoute>& main_routes,
                                                               const UrltestStateLookupFn& urltest_state_lookup) {
     api::RuntimeOutboundStateElement state;
     state.tag = outbound.tag;
@@ -285,19 +274,20 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
     const auto children = ordered_urltest_children(all_outbounds, outbound);
     const auto table_id = outbound_table_id(outbound_marks, policy_rules, outbound.tag);
 
-    const DumpedRoute* primary_route = find_primary_default_route(routes, table_id);
-
     const auto urltest_state = urltest_state_lookup(outbound.tag);
-    std::string live_active_child_tag;
-
-    if (primary_route != nullptr) {
-        for (const Outbound* child : children) {
-            if (child != nullptr && route_matches_outbound(*primary_route, *child)) {
-                live_active_child_tag = child->tag;
-                break;
-            }
-        }
+    const auto applied_it = applied_selections.find(outbound.tag);
+    const std::string applied_child_tag = applied_it == applied_selections.end()
+        ? std::string{}
+        : applied_it->second;
+    std::optional<uint32_t> applied_child_table;
+    if (!applied_child_tag.empty()) {
+        applied_child_table = outbound_table_id(
+            outbound_marks, policy_rules, applied_child_tag);
     }
+    const bool live_rule_matches_applied = table_id.has_value() &&
+        applied_child_table.has_value() && *table_id == *applied_child_table;
+    const DumpedRoute* primary_route = find_primary_default_route(routes, table_id);
+    const bool applied_path_live = live_rule_matches_applied && primary_route != nullptr;
 
     std::vector<api::RuntimeInterfaceState> interfaces;
     interfaces.reserve(children.size());
@@ -310,12 +300,8 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
         api::RuntimeInterfaceState interface_state;
         interface_state.outbound_tag = child->tag;
         interface_state.interface_name = child->interface;
-        const bool reachable =
-            child->type == OutboundType::INTERFACE
-                ? is_interface_outbound_reachable(*child, main_routes)
-                : false;
-        const bool is_active = !live_active_child_tag.empty() && live_active_child_tag == child->tag;
-        interface_state.status = map_urltest_child_status(*child, reachable, is_active, urltest_state);
+        const bool is_active = applied_path_live && applied_child_tag == child->tag;
+        interface_state.status = map_urltest_child_status(*child, is_active, urltest_state);
 
         if (urltest_state.has_value()) {
             const auto result_it = urltest_state->last_results.find(child->tag);
@@ -335,28 +321,26 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
             }
         }
 
-        if (interface_state.detail == std::nullopt &&
-            interface_state.status == api::RuntimeInterfaceStatusEnum::UNAVAILABLE &&
-            child->type == OutboundType::INTERFACE) {
-            interface_state.detail = std::string("interface is not reachable from the main routing table");
-        }
-
         interfaces.push_back(std::move(interface_state));
     }
 
     state.interfaces = std::move(interfaces);
+    const bool has_active_candidate = std::any_of(
+        state.interfaces.begin(), state.interfaces.end(),
+        [](const api::RuntimeInterfaceState& candidate) {
+            return candidate.status == api::RuntimeInterfaceStatusEnum::ACTIVE;
+        });
 
-    if (primary_route != nullptr &&
-        urltest_state.has_value() &&
-        !urltest_state->selected_outbound.empty() &&
-        !live_active_child_tag.empty() &&
-        urltest_state->selected_outbound != live_active_child_tag) {
-        state.detail = "live route selection differs from urltest manager selection";
+    if (urltest_state.has_value() &&
+        urltest_state->selected_outbound != applied_child_tag) {
+        state.detail = "applied route selection differs from test manager selection";
+    } else if (!applied_child_tag.empty() && !live_rule_matches_applied) {
+        state.detail = "live policy rule does not target the applied child table";
     }
 
     state.status = derive_overall_status(
         state.interfaces,
-        !live_active_child_tag.empty(),
+        has_active_candidate,
         primary_route != nullptr);
     return state;
 }
@@ -367,10 +351,12 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
     const std::vector<RuleSpec>& policy_rules,
+    const std::map<std::string, std::string>& applied_urltest_selections,
     NetlinkManager& netlink,
     const UrltestStateLookupFn& urltest_state_lookup) {
     return build_runtime_outbounds_response_from_routes(
-        config, outbound_marks, policy_rules, netlink.dump_routes(),
+        config, outbound_marks, policy_rules, applied_urltest_selections,
+        netlink.dump_routes(),
         urltest_state_lookup);
 }
 
@@ -378,6 +364,7 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response_from_routes(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
     const std::vector<RuleSpec>& policy_rules,
+    const std::map<std::string, std::string>& applied_urltest_selections,
     const std::vector<DumpedRoute>& routes,
     const UrltestStateLookupFn& urltest_state_lookup) {
     api::RuntimeOutboundsResponse response;
@@ -406,7 +393,8 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response_from_routes(
             case OutboundType::ICMPTEST:
                 response.outbounds.push_back(
                     build_urltest_outbound_state(config, outbound, outbound_marks,
-                                                 policy_rules, routes, main_routes,
+                                                 policy_rules, applied_urltest_selections,
+                                                 routes,
                                                  urltest_state_lookup));
                 break;
             case OutboundType::BLACKHOLE:

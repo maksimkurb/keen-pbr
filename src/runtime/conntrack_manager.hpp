@@ -18,6 +18,18 @@ struct ConntrackPolicy {
     bool operator!=(const ConntrackPolicy& other) const { return !(*this == other); }
 };
 
+enum class TestGroupSwitchReason {
+    initial,
+    selected_path_unhealthy,
+    healthy_policy_change,
+};
+
+TestGroupSwitchReason classify_test_group_switch(bool has_applied_child,
+                                                  bool applied_child_healthy);
+bool should_delete_test_group_conntrack(TestGroupSwitchReason reason,
+                                        bool delete_on_healthy_switch);
+const char* test_group_switch_reason_name(TestGroupSwitchReason reason);
+
 class ConntrackManager {
 public:
     struct CommandResult {

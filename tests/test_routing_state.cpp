@@ -241,7 +241,7 @@ TEST_CASE("build_firewall_global_prefilter: daemon.skip_marked_packets null keep
     CHECK(prefilter.skip_marked_packets);
 }
 
-TEST_CASE("build_fw_rule_states: urltest selection to blackhole becomes drop rule") {
+TEST_CASE("build_fw_rule_states: urltest keeps its stable mark across selections") {
     auto cfg = parse_minimal_config(R"({
         "outbounds":[
             {"tag":"bh","type":"blackhole"},
@@ -261,11 +261,12 @@ TEST_CASE("build_fw_rule_states: urltest selection to blackhole becomes drop rul
 
     auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
                                          cfg.outbounds.value_or(std::vector<Outbound>{}));
-    std::map<std::string, std::string> selections{{"auto", "bh"}};
-    auto states = build_fw_rule_states(cfg, marks, &selections);
+    auto states = build_fw_rule_states(cfg, marks);
 
     REQUIRE(states.size() == 1);
-    CHECK(states[0].action_type == RuleActionType::Drop);
+    CHECK(states[0].action_type == RuleActionType::Mark);
+    CHECK(states[0].fwmark == marks.at("auto"));
+    CHECK(states[0].fwmark != marks.at("wan"));
 }
 
 TEST_CASE("build_fw_rule_states: selector-only route rule without list still becomes mark rule") {
@@ -570,7 +571,7 @@ TEST_CASE("populate_routing_state: outbound true overrides daemon false") {
     CHECK(find_route(routes.get_routes(), 100, false, true, kUnreachableRouteMetric) != nullptr);
 }
 
-TEST_CASE("populate_routing_state: strict urltest installs selected primary and weighted fallbacks") {
+TEST_CASE("populate_routing_state: urltest installs only selected primary and terminal routes") {
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":false},
@@ -604,12 +605,16 @@ TEST_CASE("populate_routing_state: strict urltest installs selected primary and 
         [](const Outbound&) { return true; },
         &selections);
 
-    REQUIRE(routes.get_routes().size() == 18);
-    CHECK(find_route(routes.get_routes(), 104, false, false, 0, std::optional<std::string>{"wg2"}) != nullptr);
-    CHECK(find_route(routes.get_routes(), 104, false, false, 1, std::optional<std::string>{"wg1"}) != nullptr);
-    CHECK(find_route(routes.get_routes(), 104, false, false, 2, std::optional<std::string>{"wg2"}) != nullptr);
-    CHECK(find_route(routes.get_routes(), 104, false, false, 3, std::optional<std::string>{"eth0"}) != nullptr);
-    CHECK(find_route(routes.get_routes(), 104, false, false, 4, std::optional<std::string>{"eth1"}) != nullptr);
+    REQUIRE(routes.get_routes().size() == 10);
+    CHECK(find_route(routes.get_routes(), 104, false, false, 0, std::optional<std::string>{"wg2"}) == nullptr);
+    CHECK(std::any_of(rules.get_rules().begin(), rules.get_rules().end(), [&](const RuleSpec& rule) {
+        return rule.fwmark == marks.at("auto") && rule.action == RuleAction::lookup &&
+               rule.table == 101;
+    }));
+    CHECK(find_route(routes.get_routes(), 104, false, false, 1, std::optional<std::string>{"wg2"}) == nullptr);
+    CHECK(find_route(routes.get_routes(), 104, false, false, 1, std::optional<std::string>{"wg1"}) == nullptr);
+    CHECK(find_route(routes.get_routes(), 104, false, false, 1, std::optional<std::string>{"eth0"}) == nullptr);
+    CHECK(find_route(routes.get_routes(), 104, false, false, 1, std::optional<std::string>{"eth1"}) == nullptr);
     CHECK(std::count_if(routes.get_routes().begin(),
                         routes.get_routes().end(),
                         [](const RouteSpec& route) {
@@ -617,7 +622,7 @@ TEST_CASE("populate_routing_state: strict urltest installs selected primary and 
                                    route.unreachable &&
                                    route.metric == kUnreachableRouteMetric &&
                                    (route.family == AF_INET || route.family == AF_INET6);
-                        }) == 1);
+                        }) == 2);
 }
 
 TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
@@ -649,9 +654,13 @@ TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
         [](const Outbound& ob) { return ob.tag != "vpn1"; },
         &selections);
 
-    REQUIRE(routes.get_routes().size() == 6);
-    CHECK(find_route(routes.get_routes(), 102, false, false, 0, std::optional<std::string>{"wg2"}) != nullptr);
-    CHECK(find_route(routes.get_routes(), 102, false, false, 1, std::optional<std::string>{"wg2"}) != nullptr);
+    REQUIRE(routes.get_routes().size() == 4);
+    CHECK(find_route(routes.get_routes(), 102, false, false, 0, std::optional<std::string>{"wg2"}) == nullptr);
+    CHECK(std::any_of(rules.get_rules().begin(), rules.get_rules().end(), [&](const RuleSpec& rule) {
+        return rule.fwmark == marks.at("auto") && rule.action == RuleAction::lookup &&
+               rule.table == 101;
+    }));
+    CHECK(find_route(routes.get_routes(), 102, false, false, 1, std::optional<std::string>{"wg2"}) == nullptr);
     CHECK(find_route(routes.get_routes(), 102, false, false, 1, std::optional<std::string>{"wg1"}) == nullptr);
     CHECK(std::count_if(routes.get_routes().begin(),
                         routes.get_routes().end(),
@@ -660,7 +669,7 @@ TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
                                    route.unreachable &&
                                    route.metric == kUnreachableRouteMetric &&
                                    (route.family == AF_INET || route.family == AF_INET6);
-                        }) == 1);
+                        }) == 2);
 }
 
 TEST_CASE("populate_routing_state: urltest without completed probe installs only terminal kill-switch routes") {
@@ -1065,17 +1074,52 @@ TEST_CASE("populate_routing_state: non-strict urltest relies on terminal RPDB gu
         [](const Outbound&) { return true; },
         &selections);
 
-    CHECK(count_routes_in_table(routes.get_routes(), 102) == 6);
+    CHECK(count_routes_in_table(routes.get_routes(), 102) == 2);
     CHECK(std::count_if(routes.get_routes().begin(),
                         routes.get_routes().end(),
                         [](const RouteSpec& route) {
                             return route.table == 102 &&
                                    route.unreachable &&
                                    route.metric == kUnreachableRouteMetric;
-                        }) == 1);
+                        }) == 2);
     CHECK(std::count_if(rules.get_rules().begin(),
                         rules.get_rules().end(),
                         [](const RuleSpec& rule) {
                             return rule.action == RuleAction::unreachable;
                         }) == 1);
+}
+
+TEST_CASE("populate_routing_state: test group points its stable mark at a selected table outbound") {
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
+        "outbounds":[
+            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"},
+            {"tag":"external","type":"table","table":200},
+            {"tag":"auto","type":"icmptest",
+             "outbound_groups":[{"candidates":[
+                 {"outbound":"wan","target":"1.1.1.1"},
+                 {"outbound":"external","target":"8.8.8.8"}
+             ]}]}
+        ]
+    })");
+    const auto marks = allocate_outbound_marks(
+        cfg.fwmark.value_or(FwmarkConfig{}),
+        cfg.outbounds.value_or(std::vector<Outbound>{}));
+    const std::map<std::string, std::string> selections{{"auto", "external"}};
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+
+    populate_routing_state(cfg, marks, routes, rules, [](const Outbound&) {
+        return true;
+    }, &selections);
+
+    CHECK(std::any_of(rules.get_rules().begin(), rules.get_rules().end(), [&](const RuleSpec& rule) {
+        return rule.fwmark == marks.at("auto") && rule.action == RuleAction::lookup &&
+               rule.table == 200;
+    }));
+    CHECK(count_routes_in_table(routes.get_routes(), 102) == 2);
+    CHECK(std::all_of(routes.get_routes().begin(), routes.get_routes().end(), [](const RouteSpec& route) {
+        return route.table != 200;
+    }));
 }
