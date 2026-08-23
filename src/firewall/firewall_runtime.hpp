@@ -5,7 +5,6 @@
 #include "../routing/firewall_state.hpp"
 #include "firewall.hpp"
 
-#include <string>
 #include <vector>
 
 namespace keen_pbr3 {
