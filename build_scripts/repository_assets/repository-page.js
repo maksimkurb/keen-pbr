@@ -40,6 +40,7 @@
       desc_openwrtOpkg: "Classic opkg/ipk feed for older OpenWrt releases.",
       desc_openwrtApk: "APK repository for newer OpenWrt releases.",
       desc_debian: "APT repository for Debian systems.",
+      desc_ubuntu: "APT repository for Ubuntu using compatible Debian packages.",
       sidebarDefault:
         "Pick an operating system to unlock the matching version and architecture options.",
 
@@ -103,6 +104,7 @@
       desc_openwrtOpkg: "Классический канал opkg/ipk для старых релизов OpenWrt.",
       desc_openwrtApk: "Репозиторий APK для новых релизов OpenWrt.",
       desc_debian: "APT-репозиторий для Debian.",
+      desc_ubuntu: "APT-репозиторий для Ubuntu с совместимыми пакетами Debian.",
       sidebarDefault:
         "Выберите операционную систему, чтобы разблокировать версии и архитектуры.",
 
@@ -150,6 +152,7 @@
     { id: "openwrtOpkg", label: "OpenWrt 24.x and lower", name: "OpenWrt", catalogKey: "openwrtOpkg" },
     { id: "openwrtApk",  label: "OpenWrt 25.x+",       name: "OpenWrt",  catalogKey: "openwrtApk"  },
     { id: "debian",      label: "Debian",               name: "Debian",   catalogKey: "debian"      },
+    { id: "ubuntu",      label: "Ubuntu",               name: "Ubuntu",   catalogKey: "ubuntu"      },
   ];
 
   /* ──────────────────────────────────────────────────────────
@@ -190,7 +193,7 @@
     if (!keysManifest) return "";
     if (systemId === "openwrtOpkg") return (keysManifest.openwrt_opkg || {}).key || "";
     if (systemId === "openwrtApk")  return (keysManifest.openwrt_apk  || {}).key || "";
-    if (systemId === "debian")      return (keysManifest.debian        || {}).key || "";
+    if (systemId === "debian" || systemId === "ubuntu") return (keysManifest.debian || {}).key || "";
     return "";
   }
 
@@ -238,7 +241,7 @@
   }
 
   function installBlock(systemId) {
-    if (systemId === "debian")     return "apt update\napt install keen-pbr";
+    if (systemId === "debian" || systemId === "ubuntu") return "apt update\napt install keen-pbr";
     if (systemId === "openwrtApk") return "apk update\napk add keen-pbr";
     return "opkg update\nopkg install keen-pbr";
   }

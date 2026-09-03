@@ -14,6 +14,7 @@ PUBLISHED_KEY_SOURCE_FILES = {
     "openwrt_apk_public.pem": "apk_public.pem",
     "openwrt_opkg_public.key": "usign_public.key",
 }
+UBUNTU_DEBIAN_COMPATIBILITY = (("noble", "bookworm"), ("resolute", "trixie"))
 
 
 def fail(message: str) -> None:
@@ -112,6 +113,7 @@ def collect_catalog(root_dir: Path, base_url: str) -> dict:
         "openwrtOpkg": [],
         "openwrtApk": [],
         "debian": [],
+        "ubuntu": [],
     }
 
     for version, arch_dir in iter_arch_dirs(root_dir / "openwrt"):
@@ -157,6 +159,17 @@ def collect_catalog(root_dir: Path, base_url: str) -> dict:
                     f"{base_url}/{rel_path} ./"
                 ),
             }
+        )
+
+    for ubuntu_version, debian_version in UBUNTU_DEBIAN_COMPATIBILITY:
+        catalog["ubuntu"].extend(
+            {
+                "version": ubuntu_version,
+                "arch": entry["arch"],
+                "sourceLine": entry["sourceLine"],
+            }
+            for entry in catalog["debian"]
+            if entry["version"] == debian_version
         )
 
     return catalog

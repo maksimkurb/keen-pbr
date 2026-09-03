@@ -437,6 +437,21 @@ If the firewall marks packets but the site loads forever or opens through the IS
 
 If the table is empty, the interface is not found, or the rule points to the wrong place, check the outbound name, interface name, and `fwmark` / `iproute.table_start` conflicts.
 
+## Routing Breaks When Tailscale Is Enabled
+
+Tailscale reserves `0x00FF0000`, which overlaps the default keen-pbr mask, and
+restores the connection mark by replacing the entire packet mark. Moving
+keen-pbr to another mark range does not prevent Tailscale from erasing it.
+
+Disable Tailscale's netfilter integration:
+
+```bash {filename="bash"}
+tailscale set --netfilter-mode=off
+```
+
+Firewall and NAT rules must then be managed separately, especially when
+Tailscale operates as a subnet router or exit node.
+
 ## Interfaces and VPN Tunnels
 
 If DNS, firewall, and policy routing look correct, check that the interface itself exists, is up, and can send traffic.

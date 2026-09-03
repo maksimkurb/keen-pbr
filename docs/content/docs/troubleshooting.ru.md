@@ -437,6 +437,21 @@ nft -t list ruleset
 
 Если таблица пустая, интерфейс не найден или правило ведёт не туда, проверьте имя outbound, имя интерфейса и конфликты `fwmark` / `iproute.table_start`.
 
+## Маршрутизация ломается при включённом Tailscale
+
+Tailscale резервирует `0x00FF0000`, что пересекается с маской keen-pbr по
+умолчанию, и восстанавливает mark соединения с полной заменой packet mark.
+Перенос keen-pbr в другой диапазон не мешает Tailscale стереть его mark.
+
+Отключите netfilter-интеграцию Tailscale:
+
+```bash {filename="bash"}
+tailscale set --netfilter-mode=off
+```
+
+После этого правила firewall и NAT нужно настраивать отдельно, особенно если
+Tailscale работает как subnet router или exit node.
+
 ## Интерфейсы и VPN-туннели
 
 Если DNS, firewall и policy routing выглядят правильно, проверьте, что сам интерфейс существует, поднят и может отправлять трафик.

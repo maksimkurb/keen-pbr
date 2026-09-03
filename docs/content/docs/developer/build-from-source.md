@@ -86,10 +86,14 @@ Build Debian packages from the repository root:
 make deb-packages
 ```
 
-Use an explicit Debian release label inside `build/packages/`:
+Use an explicit Debian release and architecture inside `build/packages/`:
 
 ```bash {filename="bash"}
-make deb-packages DEBIAN_VERSION=bookworm
+# AMD64
+make deb-packages DEBIAN_VERSION=bookworm DEBIAN_ARCH=amd64
+
+# ARM64 (Docker uses linux/arm64 automatically)
+make deb-packages DEBIAN_VERSION=bookworm DEBIAN_ARCH=arm64
 ```
 
 Rebuild the reusable Debian builder image explicitly:
@@ -100,8 +104,12 @@ make debian-builder-image
 
 Artifacts are written to `build/packages/`:
 
-- `build/packages/keen-pbr_<version>_debian_amd64.deb`
-- `build/packages/keen-pbr-headless_<version>_debian_amd64.deb`
+- `build/packages/debian/<debian-version>/<architecture>/keen-pbr_<version>_debian_<architecture>.deb`
+- `build/packages/debian/<debian-version>/<architecture>/keen-pbr-headless_<version>_debian_<architecture>.deb`
+
+The published repository also provides Ubuntu aliases: Ubuntu noble (24.04)
+uses the Debian bookworm packages, and Ubuntu resolute (26.04) uses Debian
+trixie packages. The aliases reuse the Debian package and index paths.
 
 The Debian packaging flow:
 
