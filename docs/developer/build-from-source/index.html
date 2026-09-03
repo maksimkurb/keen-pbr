@@ -108,7 +108,7 @@ Build
 	<meta itemprop="description" content="This page is for developers and package maintainers who want to build keen-pbr from source.
 Prerequisites Requirement Version C&#43;&#43; compiler C&#43;&#43;17 support (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make any pkg-config any Docker (for cross-compilation) any Dependencies Dependencies are bundled as git submodules or resolved from system packages during the CMake build.
 Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libnl Netlink socket communication (routing/rules) libunwind Required build-time stack unwinding backend for crash diagnostics; linked statically by default when libunwind.a is available fmt C&#43;&#43;17 formatting polyfill cpptrace Vendored crash diagnostics library cpp-httplib Embedded HTTP API server Build A Makefile wraps all build steps:">
-	<meta itemprop="wordCount" content="571">
+	<meta itemprop="wordCount" content="617">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Build from Source">
 	<meta name="twitter:description" content="This page is for developers and package maintainers who want to build keen-pbr from source.
@@ -1248,10 +1248,14 @@ Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libn
   </button>
 </div>
 </div>
-<p>Use an explicit Debian release label inside <code>build/packages/</code>:</p>
+<p>Use an explicit Debian release and architecture inside <code>build/packages/</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make deb-packages <span class="nv">DEBIAN_VERSION</span><span class="o">=</span>bookworm</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># AMD64</span>
+</span></span><span class="line"><span class="cl">make deb-packages <span class="nv">DEBIAN_VERSION</span><span class="o">=</span>bookworm <span class="nv">DEBIAN_ARCH</span><span class="o">=</span>amd64
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># ARM64 (Docker uses linux/arm64 automatically)</span>
+</span></span><span class="line"><span class="cl">make deb-packages <span class="nv">DEBIAN_VERSION</span><span class="o">=</span>bookworm <span class="nv">DEBIAN_ARCH</span><span class="o">=</span>arm64</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1280,9 +1284,12 @@ Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libn
 </div>
 <p>Artifacts are written to <code>build/packages/</code>:</p>
 <ul>
-<li><code>build/packages/keen-pbr_&lt;version&gt;_debian_amd64.deb</code></li>
-<li><code>build/packages/keen-pbr-headless_&lt;version&gt;_debian_amd64.deb</code></li>
+<li><code>build/packages/debian/&lt;debian-version&gt;/&lt;architecture&gt;/keen-pbr_&lt;version&gt;_debian_&lt;architecture&gt;.deb</code></li>
+<li><code>build/packages/debian/&lt;debian-version&gt;/&lt;architecture&gt;/keen-pbr-headless_&lt;version&gt;_debian_&lt;architecture&gt;.deb</code></li>
 </ul>
+<p>The published repository also provides Ubuntu aliases: Ubuntu noble (24.04)
+uses the Debian bookworm packages, and Ubuntu resolute (26.04) uses Debian
+trixie packages. The aliases reuse the Debian package and index paths.</p>
 <p>The Debian packaging flow:</p>
 <ul>
 <li>builds the frontend with <code>bun</code> for the full package</li>

@@ -195,10 +195,14 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Use an explicit Debian release label inside &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
+&lt;p&gt;Use an explicit Debian release and architecture inside &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make deb-packages &lt;span class=&#34;nv&#34;&gt;DEBIAN_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;bookworm&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# AMD64&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make deb-packages &lt;span class=&#34;nv&#34;&gt;DEBIAN_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;bookworm &lt;span class=&#34;nv&#34;&gt;DEBIAN_ARCH&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;amd64
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# ARM64 (Docker uses linux/arm64 automatically)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make deb-packages &lt;span class=&#34;nv&#34;&gt;DEBIAN_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;bookworm &lt;span class=&#34;nv&#34;&gt;DEBIAN_ARCH&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;arm64&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -227,9 +231,12 @@
 &lt;/div&gt;
 &lt;p&gt;Artifacts are written to &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;code&gt;build/packages/keen-pbr_&amp;lt;version&amp;gt;_debian_amd64.deb&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;build/packages/keen-pbr-headless_&amp;lt;version&amp;gt;_debian_amd64.deb&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;build/packages/debian/&amp;lt;debian-version&amp;gt;/&amp;lt;architecture&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_debian_&amp;lt;architecture&amp;gt;.deb&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;build/packages/debian/&amp;lt;debian-version&amp;gt;/&amp;lt;architecture&amp;gt;/keen-pbr-headless_&amp;lt;version&amp;gt;_debian_&amp;lt;architecture&amp;gt;.deb&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
+&lt;p&gt;The published repository also provides Ubuntu aliases: Ubuntu noble (24.04)
+uses the Debian bookworm packages, and Ubuntu resolute (26.04) uses Debian
+trixie packages. The aliases reuse the Debian package and index paths.&lt;/p&gt;
 &lt;p&gt;The Debian packaging flow:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;builds the frontend with &lt;code&gt;bun&lt;/code&gt; for the full package&lt;/li&gt;

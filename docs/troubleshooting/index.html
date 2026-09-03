@@ -46,7 +46,7 @@ System Log
 	<meta itemprop="name" content="Troubleshooting">
 	<meta itemprop="description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
 Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Check that the keen-pbr and dnsmasq services are running. If keen-pbr crashes during startup, run it manually in foreground mode to see more logs: keen-pbr --log-level verbose service. Check DNS: the user device must use the router DNS, and dnsmasq must answer locally. Check the firewall: keen-pbr rules must be present in KeenPbrTable. Check policy routing: the fwmark must point to the expected routing table. Check interfaces and VPN tunnels. If the problem remains, check remote lists, urltest, rule filters, and low-level routing conflicts. System Log This is the first place to look. Search for keen-pbr, dnsmasq, and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.">
-	<meta itemprop="wordCount" content="2115">
+	<meta itemprop="wordCount" content="2181">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Troubleshooting">
 	<meta name="twitter:description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
@@ -466,6 +466,12 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
                 href="#routing-tables-and-fwmark"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Routing Tables and fwmark</a>
+            </li>
+          <li>
+              <a
+                href="#routing-breaks-when-tailscale-is-enabled"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Routing Breaks When Tailscale Is Enabled</a>
             </li>
           <li>
               <a
@@ -982,6 +988,10 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#routing-tables-and-fwmark">Routing Tables and fwmark
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#routing-breaks-when-tailscale-is-enabled">Routing Breaks When Tailscale Is Enabled
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -2065,6 +2075,27 @@ Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Che
 </li>
 </ol>
 <p>If the table is empty, the interface is not found, or the rule points to the wrong place, check the outbound name, interface name, and <code>fwmark</code> / <code>iproute.table_start</code> conflicts.</p>
+<h2>Routing Breaks When Tailscale Is Enabled<span class="hx:absolute hx:-mt-20" id="routing-breaks-when-tailscale-is-enabled"></span>
+    <a href="#routing-breaks-when-tailscale-is-enabled" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Tailscale reserves <code>0x00FF0000</code>, which overlaps the default keen-pbr mask, and
+restores the connection mark by replacing the entire packet mark. Moving
+keen-pbr to another mark range does not prevent Tailscale from erasing it.</p>
+<p>Disable Tailscale&rsquo;s netfilter integration:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">tailscale <span class="nb">set</span> --netfilter-mode<span class="o">=</span>off</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Firewall and NAT rules must then be managed separately, especially when
+Tailscale operates as a subnet router or exit node.</p>
 <h2>Interfaces and VPN Tunnels<span class="hx:absolute hx:-mt-20" id="interfaces-and-vpn-tunnels"></span>
     <a href="#interfaces-and-vpn-tunnels" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>If DNS, firewall, and policy routing look correct, check that the interface itself exists, is up, and can send traffic.</p>
 <ol>

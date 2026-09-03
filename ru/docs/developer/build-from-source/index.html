@@ -108,7 +108,7 @@
 	<meta itemprop="description" content="Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
 Предварительные требования Требование Версия C&#43;&#43; компилятор Поддержка C&#43;&#43;17 (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make любой pkg-config любой Docker (для кросс-компиляции) любой Зависимости Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.
 Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libunwind Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен libunwind.a fmt C&#43;&#43;17 formatting polyfill cpptrace Вендорная библиотека crash diagnostics cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:">
-	<meta itemprop="wordCount" content="542">
+	<meta itemprop="wordCount" content="586">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Сборка из исходного кода">
 	<meta name="twitter:description" content="Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
@@ -1248,10 +1248,14 @@
   </button>
 </div>
 </div>
-<p>Используйте явную метку выпуска Debian внутри <code>build/packages/</code>:</p>
+<p>Явно указывайте релиз Debian и архитектуру внутри <code>build/packages/</code>:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make deb-packages <span class="nv">DEBIAN_VERSION</span><span class="o">=</span>bookworm</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># AMD64</span>
+</span></span><span class="line"><span class="cl">make deb-packages <span class="nv">DEBIAN_VERSION</span><span class="o">=</span>bookworm <span class="nv">DEBIAN_ARCH</span><span class="o">=</span>amd64
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># ARM64 (Docker автоматически использует linux/arm64)</span>
+</span></span><span class="line"><span class="cl">make deb-packages <span class="nv">DEBIAN_VERSION</span><span class="o">=</span>bookworm <span class="nv">DEBIAN_ARCH</span><span class="o">=</span>arm64</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1280,9 +1284,12 @@
 </div>
 <p>Артефакты записываются в <code>build/packages/</code>:</p>
 <ul>
-<li><code>build/packages/keen-pbr_&lt;version&gt;_debian_amd64.deb</code></li>
-<li><code>build/packages/keen-pbr-headless_&lt;version&gt;_debian_amd64.deb</code></li>
+<li><code>build/packages/debian/&lt;debian-version&gt;/&lt;architecture&gt;/keen-pbr_&lt;version&gt;_debian_&lt;architecture&gt;.deb</code></li>
+<li><code>build/packages/debian/&lt;debian-version&gt;/&lt;architecture&gt;/keen-pbr-headless_&lt;version&gt;_debian_&lt;architecture&gt;.deb</code></li>
 </ul>
+<p>Опубликованный репозиторий также предоставляет псевдонимы Ubuntu: Ubuntu
+noble (24.04) использует пакеты Debian bookworm, а Ubuntu resolute (26.04) —
+пакеты Debian trixie. Псевдонимы используют те же пути пакетов и индексов Debian.</p>
 <p>Поток упаковки Debian:</p>
 <ul>
 <li>собирает фронтенд с <code>bun</code> для полного пакета</li>

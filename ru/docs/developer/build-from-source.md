@@ -81,10 +81,14 @@ cmake -S . -B cmake-build -DWITH_API=OFF
 make deb-packages
 ```
 
-Используйте явную метку выпуска Debian внутри `build/packages/`:
+Явно указывайте релиз Debian и архитектуру внутри `build/packages/`:
 
 ```bash {filename="bash"}
-make deb-packages DEBIAN_VERSION=bookworm
+# AMD64
+make deb-packages DEBIAN_VERSION=bookworm DEBIAN_ARCH=amd64
+
+# ARM64 (Docker автоматически использует linux/arm64)
+make deb-packages DEBIAN_VERSION=bookworm DEBIAN_ARCH=arm64
 ```
 
 Пересобирайте образ Debian builder явным образом:
@@ -95,8 +99,12 @@ make debian-builder-image
 
 Артефакты записываются в `build/packages/`:
 
-- `build/packages/keen-pbr_<version>_debian_amd64.deb`
-- `build/packages/keen-pbr-headless_<version>_debian_amd64.deb`
+- `build/packages/debian/<debian-version>/<architecture>/keen-pbr_<version>_debian_<architecture>.deb`
+- `build/packages/debian/<debian-version>/<architecture>/keen-pbr-headless_<version>_debian_<architecture>.deb`
+
+Опубликованный репозиторий также предоставляет псевдонимы Ubuntu: Ubuntu
+noble (24.04) использует пакеты Debian bookworm, а Ubuntu resolute (26.04) —
+пакеты Debian trixie. Псевдонимы используют те же пути пакетов и индексов Debian.
 
 Поток упаковки Debian:
 

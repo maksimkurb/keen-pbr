@@ -195,10 +195,14 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Use an explicit Debian release label inside &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
+&lt;p&gt;Use an explicit Debian release and architecture inside &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make deb-packages &lt;span class=&#34;nv&#34;&gt;DEBIAN_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;bookworm&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# AMD64&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make deb-packages &lt;span class=&#34;nv&#34;&gt;DEBIAN_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;bookworm &lt;span class=&#34;nv&#34;&gt;DEBIAN_ARCH&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;amd64
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# ARM64 (Docker uses linux/arm64 automatically)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make deb-packages &lt;span class=&#34;nv&#34;&gt;DEBIAN_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;bookworm &lt;span class=&#34;nv&#34;&gt;DEBIAN_ARCH&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;arm64&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -227,9 +231,12 @@
 &lt;/div&gt;
 &lt;p&gt;Artifacts are written to &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;code&gt;build/packages/keen-pbr_&amp;lt;version&amp;gt;_debian_amd64.deb&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;build/packages/keen-pbr-headless_&amp;lt;version&amp;gt;_debian_amd64.deb&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;build/packages/debian/&amp;lt;debian-version&amp;gt;/&amp;lt;architecture&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_debian_&amp;lt;architecture&amp;gt;.deb&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;build/packages/debian/&amp;lt;debian-version&amp;gt;/&amp;lt;architecture&amp;gt;/keen-pbr-headless_&amp;lt;version&amp;gt;_debian_&amp;lt;architecture&amp;gt;.deb&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
+&lt;p&gt;The published repository also provides Ubuntu aliases: Ubuntu noble (24.04)
+uses the Debian bookworm packages, and Ubuntu resolute (26.04) uses Debian
+trixie packages. The aliases reuse the Debian package and index paths.&lt;/p&gt;
 &lt;p&gt;The Debian packaging flow:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;builds the frontend with &lt;code&gt;bun&lt;/code&gt; for the full package&lt;/li&gt;
@@ -6289,6 +6296,27 @@ trusted network or an HTTPS reverse proxy.&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;If the table is empty, the interface is not found, or the rule points to the wrong place, check the outbound name, interface name, and &lt;code&gt;fwmark&lt;/code&gt; / &lt;code&gt;iproute.table_start&lt;/code&gt; conflicts.&lt;/p&gt;
+&lt;h2&gt;Routing Breaks When Tailscale Is Enabled&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;routing-breaks-when-tailscale-is-enabled&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#routing-breaks-when-tailscale-is-enabled&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Tailscale reserves &lt;code&gt;0x00FF0000&lt;/code&gt;, which overlaps the default keen-pbr mask, and
+restores the connection mark by replacing the entire packet mark. Moving
+keen-pbr to another mark range does not prevent Tailscale from erasing it.&lt;/p&gt;
+&lt;p&gt;Disable Tailscale&amp;rsquo;s netfilter integration:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;tailscale &lt;span class=&#34;nb&#34;&gt;set&lt;/span&gt; --netfilter-mode&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;off&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Firewall and NAT rules must then be managed separately, especially when
+Tailscale operates as a subnet router or exit node.&lt;/p&gt;
 &lt;h2&gt;Interfaces and VPN Tunnels&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;interfaces-and-vpn-tunnels&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#interfaces-and-vpn-tunnels&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;If DNS, firewall, and policy routing look correct, check that the interface itself exists, is up, and can send traffic.&lt;/p&gt;
 &lt;ol&gt;
