@@ -18,7 +18,7 @@ on:
 jobs:
   build:
     name: "build: ${{ matrix.debian_version }}-${{ matrix.debian_arch }}"
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.debian_arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -28,10 +28,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
-      - uses: docker/setup-qemu-action@v4
-        if: matrix.debian_arch == 'arm64'
-        with:
-          platforms: arm64
       - uses: docker/setup-buildx-action@v4
       - name: Download frontend bundle
         uses: actions/download-artifact@v8
