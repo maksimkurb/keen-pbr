@@ -83,6 +83,31 @@ TEST_CASE("runtime outbound projection reuses one route snapshot") {
     CHECK(response.outbounds[3].interfaces[0].latency_ms == 12);
 }
 
+TEST_CASE("runtime outbound projection accepts the resolved auto gateway") {
+    Config config;
+    auto interface = make_outbound("wan", OutboundType::INTERFACE, "lo");
+    interface.gateway = "auto";
+    config.outbounds = std::vector<Outbound>{interface};
+
+    const OutboundMarkMap marks{{"wan", 1U}};
+    const std::vector<RuleSpec> rules{lookup_rule(1U, 100U)};
+    DumpedRoute main_route = default_route(254U, AF_INET, "lo");
+    main_route.gateway = "192.0.2.1";
+    DumpedRoute owned_route = default_route(100U, AF_INET, "lo");
+    owned_route.gateway = "192.0.2.1";
+
+    const auto response = build_runtime_outbounds_response_from_routes(
+        config, marks, rules, {}, {main_route, owned_route},
+        [](const std::string&) -> std::optional<UrltestState> {
+            return std::nullopt;
+        });
+
+    REQUIRE(response.outbounds.size() == 1);
+    REQUIRE(response.outbounds[0].interfaces.size() == 1);
+    CHECK(response.outbounds[0].interfaces[0].status ==
+          api::RuntimeInterfaceStatusEnum::ACTIVE);
+}
+
 TEST_CASE("runtime test-group projection reports table candidate probe state") {
     Config config;
     auto table = make_outbound("external", OutboundType::TABLE);

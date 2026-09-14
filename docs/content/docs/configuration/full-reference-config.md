@@ -151,11 +151,15 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Default: no default, required for type="interface".
       "interface": "wg0",
 
-      // Optional IPv4 gateway for the interface outbound.
+      // Optional IPv4 gateway for the interface outbound. Set to "auto" to
+      // discover the unique lowest-metric matching default route in the main
+      // table; omit it for a gatewayless route.
       // Default: null
       "gateway": "10.8.0.1",
 
-      // Optional IPv6 gateway for the interface outbound.
+      // Optional IPv6 gateway for the interface outbound. Set to "auto" to
+      // discover the unique lowest-metric matching default route in the main
+      // table; omit it for a gatewayless route.
       // Default: null
       "gateway6": "2001:db8::1",
 
@@ -175,9 +179,9 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       "type": "interface",
       "tag": "wan",
       "interface": "eth0",
-      // Set a gateway only when it is stable. For a dynamic WAN gateway, use a
-      // table outbound with table=254 (the main routing table) instead.
-      "gateway": "172.12.33.1"
+      // Set a stable gateway explicitly, or use "auto" for a dynamic WAN
+      // gateway discovered from the matching main-table default route.
+      "gateway": "auto"
     },
     
     {

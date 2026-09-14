@@ -433,6 +433,7 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes(int family) {
 
         // Determine route type
         int rt_type = rtnl_route_get_type(route);
+        dr.unicast = (rt_type == RTN_UNICAST);
         dr.blackhole = (rt_type == RTN_BLACKHOLE);
         dr.unreachable = (rt_type == RTN_UNREACHABLE);
 
@@ -452,6 +453,9 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes(int family) {
         // Nexthop info (interface and gateway)
         if (!dr.blackhole && !dr.unreachable) {
             int nh_count = rtnl_route_get_nnexthops(route);
+            dr.nexthop_count = nh_count > 0
+                ? static_cast<uint32_t>(nh_count)
+                : 0U;
             if (nh_count > 0) {
                 struct rtnl_nexthop* nh = rtnl_route_nexthop_n(route, 0);
                 if (nh) {

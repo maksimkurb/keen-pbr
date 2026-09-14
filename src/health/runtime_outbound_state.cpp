@@ -112,14 +112,16 @@ bool route_matches_outbound(const DumpedRoute& route, const Outbound& outbound) 
     }
 
     if (route.family == AF_INET && outbound.gateway.has_value()) {
+        if (*outbound.gateway == "auto") return true;
         return route.gateway == outbound.gateway;
     }
 
     if (route.family == AF_INET6 && outbound.gateway6.has_value()) {
+        if (*outbound.gateway6 == "auto") return true;
         return route.gateway == outbound.gateway6;
     }
 
-    return true;
+    return !route.gateway.has_value();
 }
 
 api::RuntimeInterfaceStatusEnum map_urltest_child_status(

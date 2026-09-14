@@ -788,9 +788,11 @@ export const enTranslation = {
         interfacePlaceholder: "Select or type an interface",
         interfaceHint: "Egress interface name, e.g. `tun0`, `eth0`, `wg0`.",
         gateway: "Gateway (IPv4)",
-        gatewayHint: "Optional IPv4 gateway for this outbound.",
+        gatewayHint:
+          "Optional IPv4 gateway; use `auto` to discover it from the main default route.",
         gateway6: "Gateway (IPv6)",
-        gateway6Hint: "Optional IPv6 gateway for this outbound.",
+        gateway6Hint:
+          "Optional IPv6 gateway; use `auto` to discover it from the main default route.",
       },
       table: {
         title: "Routing table settings",

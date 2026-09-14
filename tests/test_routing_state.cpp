@@ -418,6 +418,165 @@ TEST_CASE("infer_urltest_selection_from_routes: rejects conflicting metric-zero 
     CHECK_FALSE(infer_urltest_selection_from_routes(outbounds, urltest, routes).has_value());
 }
 
+TEST_CASE("infer_urltest_selection_from_routes: auto gateway matches resolved next-hop") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"vpn","type":"interface","interface":"wg0","gateway":"auto"},
+            {"tag":"auto","type":"urltest","url":"http://example.com",
+             "outbound_groups":[{"outbounds":["vpn"]}]}
+        ]
+    })");
+
+    const auto& outbounds = *cfg.outbounds;
+    const auto& urltest = outbounds[1];
+    DumpedRoute route;
+    route.destination = "default";
+    route.interface = "wg0";
+    route.gateway = "192.0.2.1";
+    route.family = AF_INET;
+
+    CHECK(infer_urltest_selection_from_routes(outbounds, urltest, {route}) ==
+          std::optional<std::string>{"vpn"});
+}
+
+TEST_CASE("discover_interface_gateway: selects the unique lowest-metric main default") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[{"tag":"wan","type":"interface","interface":"eth-test",
+                      "gateway":"auto","gateway6":"auto"}]
+    })");
+    const auto& outbound = cfg.outbounds->front();
+    DumpedRoute high;
+    high.destination = "default";
+    high.table = 254;
+    high.family = AF_INET;
+    high.interface = "eth-test";
+    high.gateway = "192.0.2.1";
+    high.metric = 100;
+    high.nexthop_count = 1;
+    DumpedRoute low = high;
+    low.gateway = "192.0.2.254";
+    low.metric = 10;
+
+    const auto discovery = discover_interface_gateway(
+        outbound, AF_INET, {high, low});
+    CHECK(discovery.available);
+    CHECK(discovery.gateway == std::optional<std::string>{"192.0.2.254"});
+
+    DumpedRoute ipv6 = high;
+    ipv6.family = AF_INET6;
+    ipv6.gateway = "2001:db8::1";
+    const auto ipv6_discovery = discover_interface_gateway(
+        outbound, AF_INET6, {ipv6});
+    CHECK(ipv6_discovery.available);
+    CHECK(ipv6_discovery.gateway == std::optional<std::string>{"2001:db8::1"});
+}
+
+TEST_CASE("discover_interface_gateway: rejects ambiguity, multipath, and missing routes") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[{"tag":"wan","type":"interface","interface":"eth-test",
+                      "gateway":"auto","gateway6":"auto"}]
+    })");
+    const auto& outbound = cfg.outbounds->front();
+    DumpedRoute first;
+    first.destination = "default";
+    first.table = 254;
+    first.family = AF_INET;
+    first.interface = "eth-test";
+    first.gateway = "192.0.2.1";
+    first.metric = 10;
+    first.nexthop_count = 1;
+
+    DumpedRoute distinct = first;
+    distinct.gateway = "192.0.2.2";
+    CHECK_FALSE(discover_interface_gateway(outbound, AF_INET, {first, distinct}).available);
+
+    DumpedRoute lower = first;
+    lower.metric = 1;
+    lower.gateway = "192.0.2.3";
+    DumpedRoute higher_ambiguous = first;
+    higher_ambiguous.metric = 100;
+    DumpedRoute higher_ambiguous_distinct = higher_ambiguous;
+    higher_ambiguous_distinct.gateway = "192.0.2.4";
+    for (const auto routes : {std::vector<DumpedRoute>{higher_ambiguous,
+                                                        higher_ambiguous_distinct,
+                                                        lower},
+                              std::vector<DumpedRoute>{lower, higher_ambiguous,
+                                                       higher_ambiguous_distinct}}) {
+        const auto result = discover_interface_gateway(outbound, AF_INET, routes);
+        CHECK(result.available);
+        CHECK(result.gateway == std::optional<std::string>{"192.0.2.3"});
+    }
+
+    DumpedRoute multipath = first;
+    multipath.nexthop_count = 2;
+    CHECK_FALSE(discover_interface_gateway(outbound, AF_INET, {multipath}).available);
+
+    DumpedRoute non_unicast = first;
+    non_unicast.unicast = false;
+    CHECK_FALSE(discover_interface_gateway(outbound, AF_INET, {non_unicast}).available);
+
+    DumpedRoute higher_multipath = multipath;
+    higher_multipath.metric = 100;
+    for (const auto routes : {std::vector<DumpedRoute>{higher_multipath, lower},
+                              std::vector<DumpedRoute>{lower, higher_multipath}}) {
+        CHECK(discover_interface_gateway(outbound, AF_INET, routes).available);
+    }
+
+    DumpedRoute gatewayless = first;
+    gatewayless.gateway.reset();
+    const auto gatewayless_result = discover_interface_gateway(
+        outbound, AF_INET, {gatewayless});
+    CHECK(gatewayless_result.available);
+    CHECK_FALSE(gatewayless_result.gateway.has_value());
+
+    DumpedRoute wrong_table = first;
+    wrong_table.table = 200;
+    CHECK_FALSE(discover_interface_gateway(outbound, AF_INET, {wrong_table}).available);
+}
+
+TEST_CASE("populate_routing_state: auto gateway resolves per family and keeps strict fallback") {
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
+        "daemon":{"strict_enforcement":true},
+        "outbounds":[{"tag":"wan","type":"interface","interface":"lo",
+                      "gateway":"auto"}]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    DumpedRoute main_route;
+    main_route.destination = "default";
+    main_route.table = 254;
+    main_route.family = AF_INET;
+    main_route.interface = "lo";
+    main_route.gateway = "192.0.2.1";
+    main_route.metric = 10;
+    main_route.nexthop_count = 1;
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+    const std::vector<DumpedRoute> main_routes{main_route};
+    populate_routing_state(
+        cfg, marks, routes, rules, [](const Outbound&) { return true; }, nullptr,
+        true, {}, &main_routes);
+
+    const auto* resolved = find_route(routes.get_routes(), 100, false, false, 0,
+                                      std::optional<std::string>{"lo"});
+    REQUIRE(resolved != nullptr);
+    CHECK(resolved->gateway == std::optional<std::string>{"192.0.2.1"});
+    CHECK(find_route(routes.get_routes(), 100, false, true, kUnreachableRouteMetric) != nullptr);
+
+    RouteTable unavailable_routes(netlink, true);
+    PolicyRuleManager unavailable_rules(netlink, true);
+    const std::vector<DumpedRoute> no_main_routes;
+    populate_routing_state(
+        cfg, marks, unavailable_routes, unavailable_rules,
+        [](const Outbound&) { return true; }, nullptr, true, {}, &no_main_routes);
+    CHECK(find_route(unavailable_routes.get_routes(), 100, false, false) == nullptr);
+    CHECK(find_route(unavailable_routes.get_routes(), 100, false, true,
+                     kUnreachableRouteMetric) != nullptr);
+}
+
 TEST_CASE("populate_routing_state: strict enforcement installs unreachable default when down") {
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},

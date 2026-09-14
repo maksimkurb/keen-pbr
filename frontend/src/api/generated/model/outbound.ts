@@ -22,10 +22,10 @@ export interface Outbound {
   /** Egress network interface name. Required for `interface` outbound type.
    */
   interface?: string;
-  /** Optional IPv4 gateway address. Used with `interface` outbound type.
+  /** Optional IPv4 gateway address. Used with `interface` outbound type. Set to `auto` to discover the lowest-metric matching default route in the kernel main table; omit it for a gatewayless route.
    */
   gateway?: string;
-  /** Optional IPv6 gateway address. Used with `interface` outbound type.
+  /** Optional IPv6 gateway address. Used with `interface` outbound type. Set to `auto` to discover the lowest-metric matching default route in the kernel main table; omit it for a gatewayless route.
    */
   gateway6?: string;
   /** Per-outbound override for strict routing enforcement. When enabled for an `interface` outbound, install an unreachable default route if the configured gateway/interface cannot be confirmed reachable. Overrides `daemon.strict_enforcement` when present.

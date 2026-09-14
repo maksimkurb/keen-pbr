@@ -585,6 +585,7 @@ int run_status_command_impl(const Config& config, const std::string& config_path
                                          config.outbounds.value_or(std::vector<Outbound>{}));
 
     NetlinkManager netlink;
+    const auto main_routes = netlink.dump_routes_in_table(254);
     const auto urltest_selections = infer_urltest_selections(config, marks, netlink);
     RouteTable routes(netlink, true);
     PolicyRuleManager rules(netlink, true);
@@ -595,11 +596,13 @@ int run_status_command_impl(const Config& config, const std::string& config_path
         marks,
         routes,
         rules,
-        [&netlink](const Outbound& outbound) {
-            return is_interface_outbound_reachable(outbound, netlink);
+        [&main_routes](const Outbound& outbound) {
+            return is_interface_outbound_reachable(outbound, main_routes);
         },
         &urltest_selections,
-        ipv6_decision.enabled);
+        ipv6_decision.enabled,
+        {},
+        &main_routes);
 
     CacheManager cache(cache_dir, max_file_size_bytes(config));
     ListStreamer list_streamer(cache);

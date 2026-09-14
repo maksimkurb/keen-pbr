@@ -1043,13 +1043,15 @@ void validate_config(const Config& cfg) {
                           "Interface outbound '" + ob.tag +
                               "' requires a non-empty interface name");
             }
-            if (ob.gateway.has_value() && !is_valid_ipv4_address(*ob.gateway)) {
+            if (ob.gateway.has_value() && *ob.gateway != "auto" &&
+                !is_valid_ipv4_address(*ob.gateway)) {
                 add_issue(issues,
                           "outbounds." + ob.tag + ".gateway",
                           "Interface outbound '" + ob.tag +
                               "' gateway must be a valid IPv4 address");
             }
-            if (ob.gateway6.has_value() && !is_valid_ipv6_address(*ob.gateway6)) {
+            if (ob.gateway6.has_value() && *ob.gateway6 != "auto" &&
+                !is_valid_ipv6_address(*ob.gateway6)) {
                 add_issue(issues,
                           "outbounds." + ob.tag + ".gateway6",
                           "Interface outbound '" + ob.tag +

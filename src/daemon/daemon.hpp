@@ -195,6 +195,7 @@ private:
   void schedule_interface_monitor_reconnect_retry();
   void handle_interface_event(const InterfaceMonitor::Event &event);
   bool is_interface_outbound_in_use(const std::string &interface_name) const;
+  bool is_auto_gateway_outbound_in_use(const std::string &interface_name = "") const;
   void refresh_iproute_and_firewall_runtime(
       StatusPublishScope scope = StatusPublishScope::ServiceAndOutbounds);
   void dispatch_event_fd(int fd, uint32_t events);
@@ -208,15 +209,17 @@ private:
   void fail_startup_runtime(std::string error);
 
   // lifecycle and runtime apply
-  void setup_static_routing();
+  void setup_static_routing(const std::vector<DumpedRoute>* main_routes = nullptr);
   void reconcile_static_routing(
-      const std::map<std::string, std::string> *urltest_selections = nullptr);
+      const std::map<std::string, std::string> *urltest_selections = nullptr,
+      const std::vector<DumpedRoute>* main_routes = nullptr);
   FirewallApplyMode runtime_refresh_firewall_mode() const;
   FirewallBalanceCandidates build_balance_candidates(
       const std::vector<DumpedRoute>& main_routes,
       const std::vector<DumpedInterface>& interfaces);
   void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive,
-                      bool force_clear_dynamic_sets = false);
+                      bool force_clear_dynamic_sets = false,
+                      const std::vector<DumpedRoute>* main_routes = nullptr);
   void reconcile_lists_only(bool reload_resolver);
   void register_urltest_outbounds();
   void handle_urltest_selection_change(const std::string &urltest_tag,

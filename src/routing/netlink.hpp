@@ -93,6 +93,8 @@ struct DumpedRoute {
     int family{0};                      // AF_INET or AF_INET6
     uint32_t metric{0};                 // Route metric/priority
     uint8_t protocol{0};                // rtm_protocol ownership marker
+    uint32_t nexthop_count{0};          // Number of kernel nexthops (0 when unavailable)
+    bool unicast{true};                 // True only for RTN_UNICAST routes
 };
 
 // A policy rule dumped from the kernel (read-only snapshot)

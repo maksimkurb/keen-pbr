@@ -222,9 +222,10 @@ void Daemon::setup_routing_and_firewall() {
 
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
 
-    setup_static_routing();
+    const auto main_routes = netlink_.dump_routes_in_table(254);
+    setup_static_routing(&main_routes);
     (void)refresh_keenetic_dns_cache(true);
-    apply_firewall(FirewallApplyMode::Destructive);
+    apply_firewall(FirewallApplyMode::Destructive, false, &main_routes);
     routing_runtime_active_ = true;
     if (runtime_state_machine_.state() != RuntimeState::applying) {
         transition_runtime_or_throw(RuntimeState::applying, "runtime starting");
@@ -266,15 +267,19 @@ void Daemon::restart_routing_runtime() {
     complete_running_runtime("runtime restarted");
 }
 
-void Daemon::setup_static_routing() {
-    reconcile_static_routing();
+void Daemon::setup_static_routing(const std::vector<DumpedRoute>* main_routes) {
+    reconcile_static_routing(nullptr, main_routes);
 }
 
 void Daemon::reconcile_static_routing(
-    const std::map<std::string, std::string>* urltest_selections) {
+    const std::map<std::string, std::string>* urltest_selections,
+    const std::vector<DumpedRoute>* main_routes) {
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
     log_ipv6_support_decision_once(ipv6_decision);
     const auto interfaces = netlink_.dump_interfaces();
+    const auto owned_main_routes = main_routes != nullptr
+        ? *main_routes
+        : netlink_.dump_routes_in_table(254);
     RouteTable desired_routes(netlink_, true);
     PolicyRuleManager desired_rules(netlink_, true);
     populate_routing_state(
@@ -282,8 +287,8 @@ void Daemon::reconcile_static_routing(
         outbound_marks_,
         desired_routes,
         desired_rules,
-        [this](const Outbound& outbound) {
-            return is_interface_outbound_reachable(outbound, netlink_);
+        [&owned_main_routes](const Outbound& outbound) {
+            return is_interface_outbound_reachable(outbound, owned_main_routes);
         },
         urltest_selections != nullptr
             ? urltest_selections
@@ -299,7 +304,8 @@ void Daemon::reconcile_static_routing(
                     return interface.name == interface_name;
                 });
             return it != interfaces.end() && interface_has_routed_ipv6(*it);
-        });
+        },
+        &owned_main_routes);
 
     // Inspect the kernel on every apply so a restarted daemon adopts intact
     // state and only removes objects with a verifiable ownership marker.
@@ -310,11 +316,14 @@ void Daemon::reconcile_static_routing(
 }
 
 void Daemon::apply_firewall(FirewallApplyMode mode,
-                            bool force_clear_dynamic_sets) {
+                            bool force_clear_dynamic_sets,
+                            const std::vector<DumpedRoute>* main_routes) {
     const FirewallGlobalPrefilter prefilter = build_firewall_global_prefilter(config_);
-    const auto main_routes = netlink_.dump_routes_in_table(254);
+    const auto owned_main_routes = main_routes != nullptr
+        ? *main_routes
+        : netlink_.dump_routes_in_table(254);
     const auto interfaces = netlink_.dump_interfaces();
-    const auto balance_candidates = build_balance_candidates(main_routes, interfaces);
+    const auto balance_candidates = build_balance_candidates(owned_main_routes, interfaces);
     firewall_state_.set_rules(apply_runtime_firewall(
         config_,
         outbound_marks_,
@@ -323,7 +332,7 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         mode,
         &firewall_state_.get_rules(),
         force_clear_dynamic_sets,
-        main_routes,
+        owned_main_routes,
         interfaces,
         &balance_candidates));
     (void)conntrack_manager_.reconcile(
@@ -365,12 +374,14 @@ FirewallBalanceCandidates Daemon::build_balance_candidates(
 
             FirewallBalanceCandidate candidate{mark->second};
             if (child->type == OutboundType::INTERFACE) {
-                if (!is_interface_outbound_reachable(*child, main_routes)) {
-                    continue;
-                }
-                candidate.ipv4 = child->gateway.has_value() ||
-                    (!child->gateway.has_value() && !child->gateway6.has_value());
-                candidate.ipv6 = child->gateway6.has_value();
+                const bool family4 = is_interface_outbound_family_reachable(
+                    *child, AF_INET, main_routes);
+                const bool family6 = is_interface_outbound_family_reachable(
+                    *child, AF_INET6, main_routes);
+                candidate.ipv4 = family4 &&
+                    (child->gateway.has_value() ||
+                     (!child->gateway.has_value() && !child->gateway6.has_value()));
+                candidate.ipv6 = family6 && child->gateway6.has_value();
                 if (!candidate.ipv6 && !child->gateway.has_value()) {
                     const auto interface_name = child->interface.value_or("");
                     const auto interface = std::find_if(
@@ -378,7 +389,7 @@ FirewallBalanceCandidates Daemon::build_balance_candidates(
                         [&interface_name](const DumpedInterface& value) {
                             return value.name == interface_name;
                         });
-                    candidate.ipv6 = interface != interfaces.end() &&
+                    candidate.ipv6 = family6 && interface != interfaces.end() &&
                         interface_has_routed_ipv6(*interface);
                 }
             }
@@ -1056,10 +1067,12 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         urltest_manager_->clear();
     }
     pending_urltest_conntrack_cleanup_.clear();
-    reconcile_static_routing();
+    const auto main_routes = netlink_.dump_routes_in_table(254);
+    reconcile_static_routing(nullptr, &main_routes);
     (void)refresh_keenetic_dns_cache(true);
     apply_firewall(firewall_policy.mode,
-                   firewall_policy.force_clear_dynamic_sets);
+                   firewall_policy.force_clear_dynamic_sets,
+                   &main_routes);
     routing_runtime_active_ = true;
     transition_runtime_or_throw(RuntimeState::applying, "config apply");
     apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);

@@ -1,5 +1,7 @@
 #include "daemon.hpp"
 
+#include "../config/routing_state.hpp"
+
 #include <algorithm>
 #include <arpa/inet.h>
 #include <cerrno>
@@ -979,8 +981,9 @@ void Daemon::handle_sighup() {
 void Daemon::refresh_iproute_and_firewall_runtime(StatusPublishScope scope) {
   auto &log = Logger::instance();
   try {
-    reconcile_static_routing();
-    apply_firewall(runtime_refresh_firewall_mode());
+    const auto main_routes = netlink_.dump_routes_in_table(254);
+    reconcile_static_routing(nullptr, &main_routes);
+    apply_firewall(runtime_refresh_firewall_mode(), false, &main_routes);
     publish_runtime_state(scope);
     log.info("Runtime iproute and firewall refresh complete.");
   } catch (const std::exception &e) {
@@ -1006,6 +1009,18 @@ bool Daemon::is_interface_outbound_in_use(
                      });
 }
 
+bool Daemon::is_auto_gateway_outbound_in_use(
+    const std::string &interface_name) const {
+  const auto outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
+  return std::any_of(outbounds.begin(), outbounds.end(),
+                     [&interface_name](const Outbound &outbound) {
+                       return interface_outbound_uses_auto_gateway(outbound) &&
+                              (interface_name.empty() ||
+                               (outbound.interface.has_value() &&
+                                outbound.interface.value() == interface_name));
+                     });
+}
+
 void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
   auto &log = Logger::instance();
   const auto route_rules = config_.route.value_or(RouteConfig{})
@@ -1013,9 +1028,16 @@ void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
   const bool default_gateway_rules = std::any_of(
       route_rules.begin(), route_rules.end(),
       [](const RouteRule &rule) { return rule.default_gateway.has_value(); });
-  if ((!event.administrative_state_changed ||
-       !is_interface_outbound_in_use(event.interface_name)) &&
-      !default_gateway_rules) {
+  const bool auto_gateway_outbound = is_auto_gateway_outbound_in_use();
+  const bool auto_gateway_interface =
+      event.address_changed && !event.interface_name.empty() &&
+      is_auto_gateway_outbound_in_use(event.interface_name);
+  if (!InterfaceMonitor::requires_runtime_refresh(
+          event,
+          is_interface_outbound_in_use(event.interface_name),
+          auto_gateway_outbound,
+          auto_gateway_interface,
+          default_gateway_rules)) {
 #ifdef WITH_API
     if (status_stream_)
       status_stream_->reconcile(StatusUpdate::Interfaces |
@@ -1024,9 +1046,16 @@ void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
     return;
   }
 
-  log.info("Interface {} state changed to {}, iproute and firewall refresh "
-           "triggered",
-           event.interface_name, event.is_up ? "UP" : "DOWN");
+  if (event.route_changed) {
+    log.info("Main routing table changed, iproute and firewall refresh triggered");
+  } else if (event.address_changed) {
+    log.info("Interface {} addresses changed, iproute and firewall refresh triggered",
+             event.interface_name);
+  } else {
+    log.info("Interface {} state changed to {}, iproute and firewall refresh "
+             "triggered",
+             event.interface_name, event.is_up ? "UP" : "DOWN");
+  }
   refresh_iproute_and_firewall_runtime(
       StatusPublishScope::OutboundsAndInterfaces);
 }

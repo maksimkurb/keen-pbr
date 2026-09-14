@@ -30,6 +30,20 @@ inline bool is_reserved_table(uint32_t id) {
 using OutboundReachabilityFn = std::function<bool(const Outbound&)>;
 using OutboundFamilyAvailabilityFn = std::function<bool(const Outbound&, int)>;
 
+// Resolve an interface outbound's literal "auto" gateway from the main table.
+// A missing, ambiguous, or multipath default route is unavailable.
+struct InterfaceGatewayDiscovery {
+    bool available{false};           // true also for a selected gatewayless route
+    std::optional<std::string> gateway;
+};
+
+InterfaceGatewayDiscovery discover_interface_gateway(
+    const Outbound& outbound,
+    int family,
+    const std::vector<DumpedRoute>& main_routes);
+
+bool interface_outbound_uses_auto_gateway(const Outbound& outbound);
+
 // Resolve every routable outbound to the table used by its own fwmark. Test
 // groups map to their generated kill-switch table; their live lookup may point
 // at a selected child's table instead.
@@ -43,11 +57,15 @@ void populate_routing_state(const Config& cfg,
                             OutboundReachabilityFn reachability_check = {},
                             const std::map<std::string, std::string>* urltest_selections = nullptr,
                             bool ipv6_enabled = true,
-                            OutboundFamilyAvailabilityFn family_available = {});
+                            OutboundFamilyAvailabilityFn family_available = {},
+                            const std::vector<DumpedRoute>* main_routes = nullptr);
 
 bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& netlink);
 bool is_interface_outbound_reachable(const Outbound& outbound,
                                      const std::vector<DumpedRoute>& routes);
+bool is_interface_outbound_family_reachable(const Outbound& outbound,
+                                            int family,
+                                            const std::vector<DumpedRoute>& routes);
 
 // A link-local address only proves that IPv6 is enabled on the link; it does
 // not make a gatewayless tunnel capable of carrying arbitrary IPv6 traffic.

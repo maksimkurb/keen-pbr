@@ -958,11 +958,15 @@ components:
           type: string
           description: >
             Optional IPv4 gateway address. Used with `interface` outbound type.
+            Set to `auto` to discover the lowest-metric matching default route
+            in the kernel main table; omit it for a gatewayless route.
           example: "10.8.0.1"
         gateway6:
           type: string
           description: >
             Optional IPv6 gateway address. Used with `interface` outbound type.
+            Set to `auto` to discover the lowest-metric matching default route
+            in the kernel main table; omit it for a gatewayless route.
           example: "2001:db8::1"
         strict_enforcement:
           type: boolean
