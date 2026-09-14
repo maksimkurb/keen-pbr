@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes3AxMyl data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes1KKpXv data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -270,6 +270,8 @@ namespace api {
         std::optional<int64_t> interval_ms;
     };
 
+    enum class Strategy : int { BALANCE, PRIORITY };
+
     enum class OutboundType : int { BLACKHOLE, ICMPTEST, IGNORE, INTERFACE, TABLE, URLTEST };
 
     struct OutboundElement {
@@ -286,6 +288,7 @@ namespace api {
         std::optional<int64_t> packet_interval_ms;
         std::optional<int64_t> probe_timeout_ms;
         std::optional<Retry> retry;
+        std::optional<Strategy> strategy;
         std::optional<bool> strict_enforcement;
         std::optional<StrictEnforcementAction> strict_enforcement_action;
         std::optional<int64_t> table;
@@ -295,7 +298,10 @@ namespace api {
         std::optional<std::string> url;
     };
 
+    enum class DefaultGateway : int { IPV4, IPV6 };
+
     struct RouteRuleElement {
+        std::optional<DefaultGateway> default_gateway;
         std::optional<std::string> dest_addr;
         std::optional<std::string> dest_port;
         std::optional<int64_t> dscp;
@@ -633,7 +639,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypes3AxMyl {
+    struct KeenPbrTypes1KKpXv {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -652,6 +658,7 @@ namespace api {
         std::optional<ConntrackOnSwitch> conntrack_on_switch;
         std::optional<CorsConfigClass> cors_config;
         std::optional<Daemon> daemon_config;
+        std::optional<DefaultGateway> default_gateway;
         std::optional<Dns> dns_config;
         std::optional<DnsRuleElement> dns_rule;
         std::optional<DnsServerElement> dns_server;
@@ -703,6 +710,7 @@ namespace api {
         std::optional<StatusEventOutbounds> status_event_outbounds;
         std::optional<StatusEventService> status_event_service;
         std::optional<StatusEventSnapshot> status_event_snapshot;
+        std::optional<Strategy> test_group_strategy;
         std::optional<ValidationErrorElement> validation_error;
     };
 }
@@ -908,8 +916,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypes3AxMyl & x);
-    void to_json(json & j, const KeenPbrTypes3AxMyl & x);
+    void from_json(const json & j, KeenPbrTypes1KKpXv & x);
+    void to_json(json & j, const KeenPbrTypes1KKpXv & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -926,8 +934,14 @@ namespace api {
     void from_json(const json & j, ConntrackOnSwitch & x);
     void to_json(json & j, const ConntrackOnSwitch & x);
 
+    void from_json(const json & j, Strategy & x);
+    void to_json(json & j, const Strategy & x);
+
     void from_json(const json & j, OutboundType & x);
     void to_json(json & j, const OutboundType & x);
+
+    void from_json(const json & j, DefaultGateway & x);
+    void to_json(json & j, const DefaultGateway & x);
 
     void from_json(const json & j, ConfigUpdateResponseStatus & x);
     void to_json(json & j, const ConfigUpdateResponseStatus & x);
@@ -1370,6 +1384,7 @@ namespace api {
         x.packet_interval_ms = get_stack_optional<int64_t>(j, "packet_interval_ms");
         x.probe_timeout_ms = get_stack_optional<int64_t>(j, "probe_timeout_ms");
         x.retry = get_stack_optional<Retry>(j, "retry");
+        x.strategy = get_stack_optional<Strategy>(j, "strategy");
         x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
         x.strict_enforcement_action = get_stack_optional<StrictEnforcementAction>(j, "strict_enforcement_action");
         x.table = get_stack_optional<int64_t>(j, "table");
@@ -1394,6 +1409,7 @@ namespace api {
         j["packet_interval_ms"] = x.packet_interval_ms;
         j["probe_timeout_ms"] = x.probe_timeout_ms;
         j["retry"] = x.retry;
+        j["strategy"] = x.strategy;
         j["strict_enforcement"] = x.strict_enforcement;
         j["strict_enforcement_action"] = x.strict_enforcement_action;
         j["table"] = x.table;
@@ -1404,6 +1420,7 @@ namespace api {
     }
 
     inline void from_json(const json & j, RouteRuleElement& x) {
+        x.default_gateway = get_stack_optional<DefaultGateway>(j, "default_gateway");
         x.dest_addr = get_stack_optional<std::string>(j, "dest_addr");
         x.dest_port = get_stack_optional<std::string>(j, "dest_port");
         x.dscp = get_stack_optional<int64_t>(j, "dscp");
@@ -1417,6 +1434,7 @@ namespace api {
 
     inline void to_json(json & j, const RouteRuleElement & x) {
         j = json::object();
+        j["default_gateway"] = x.default_gateway;
         j["dest_addr"] = x.dest_addr;
         j["dest_port"] = x.dest_port;
         j["dscp"] = x.dscp;
@@ -2037,7 +2055,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes3AxMyl& x) {
+    inline void from_json(const json & j, KeenPbrTypes1KKpXv& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2056,6 +2074,7 @@ namespace api {
         x.conntrack_on_switch = get_stack_optional<ConntrackOnSwitch>(j, "ConntrackOnSwitch");
         x.cors_config = get_stack_optional<CorsConfigClass>(j, "CorsConfig");
         x.daemon_config = get_stack_optional<Daemon>(j, "DaemonConfig");
+        x.default_gateway = get_stack_optional<DefaultGateway>(j, "DefaultGateway");
         x.dns_config = get_stack_optional<Dns>(j, "DnsConfig");
         x.dns_rule = get_stack_optional<DnsRuleElement>(j, "DnsRule");
         x.dns_server = get_stack_optional<DnsServerElement>(j, "DnsServer");
@@ -2107,10 +2126,11 @@ namespace api {
         x.status_event_outbounds = get_stack_optional<StatusEventOutbounds>(j, "StatusEventOutbounds");
         x.status_event_service = get_stack_optional<StatusEventService>(j, "StatusEventService");
         x.status_event_snapshot = get_stack_optional<StatusEventSnapshot>(j, "StatusEventSnapshot");
+        x.test_group_strategy = get_stack_optional<Strategy>(j, "TestGroupStrategy");
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes3AxMyl & x) {
+    inline void to_json(json & j, const KeenPbrTypes1KKpXv & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2130,6 +2150,7 @@ namespace api {
         j["ConntrackOnSwitch"] = x.conntrack_on_switch;
         j["CorsConfig"] = x.cors_config;
         j["DaemonConfig"] = x.daemon_config;
+        j["DefaultGateway"] = x.default_gateway;
         j["DnsConfig"] = x.dns_config;
         j["DnsRule"] = x.dns_rule;
         j["DnsServer"] = x.dns_server;
@@ -2181,6 +2202,7 @@ namespace api {
         j["StatusEventOutbounds"] = x.status_event_outbounds;
         j["StatusEventService"] = x.status_event_service;
         j["StatusEventSnapshot"] = x.status_event_snapshot;
+        j["TestGroupStrategy"] = x.test_group_strategy;
         j["ValidationError"] = x.validation_error;
     }
 
@@ -2258,6 +2280,20 @@ namespace api {
         }
     }
 
+    inline void from_json(const json & j, Strategy & x) {
+        if (j == "balance") x = Strategy::BALANCE;
+        else if (j == "priority") x = Strategy::PRIORITY;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"Strategy\""); }
+    }
+
+    inline void to_json(json & j, const Strategy & x) {
+        switch (x) {
+            case Strategy::BALANCE: j = "balance"; break;
+            case Strategy::PRIORITY: j = "priority"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"Strategy\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
     inline void from_json(const json & j, OutboundType & x) {
         if (j == "blackhole") x = OutboundType::BLACKHOLE;
         else if (j == "icmptest") x = OutboundType::ICMPTEST;
@@ -2277,6 +2313,20 @@ namespace api {
             case OutboundType::TABLE: j = "table"; break;
             case OutboundType::URLTEST: j = "urltest"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"OutboundType\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, DefaultGateway & x) {
+        if (j == "ipv4") x = DefaultGateway::IPV4;
+        else if (j == "ipv6") x = DefaultGateway::IPV6;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"DefaultGateway\""); }
+    }
+
+    inline void to_json(json & j, const DefaultGateway & x) {
+        switch (x) {
+            case DefaultGateway::IPV4: j = "ipv4"; break;
+            case DefaultGateway::IPV6: j = "ipv6"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"DefaultGateway\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

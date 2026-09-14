@@ -155,7 +155,10 @@ std::vector<RuleState> apply_runtime_firewall(
     Firewall& firewall,
     FirewallApplyMode mode,
     const std::vector<RuleState>* previous_rule_states,
-    bool force_clear_dynamic_sets) {
+    bool force_clear_dynamic_sets,
+    const std::vector<DumpedRoute>& main_routes,
+    const std::vector<DumpedInterface>& interfaces,
+    const FirewallBalanceCandidates* balance_candidates) {
   try {
     std::unique_ptr<ListStreamer> list_streamer;
     if (mode != FirewallApplyMode::RulesOnly) {
@@ -188,11 +191,31 @@ std::vector<RuleState> apply_runtime_firewall(
     prefilter.conntrack_mark_mask = fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
     firewall.set_global_prefilter(std::move(prefilter));
     firewall.set_fwmark_mask(fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{})));
+    std::vector<uint32_t> owned_marks;
+    owned_marks.reserve(outbound_marks.size());
+    for (const auto& [tag, mark] : outbound_marks) {
+        (void)tag;
+        owned_marks.push_back(mark);
+    }
+    firewall.set_owned_marks(owned_marks);
 
     const auto& all_outbounds = config.outbounds.value_or(std::vector<Outbound>{});
     static const std::map<std::string, ListConfig> empty_lists;
     const auto& lists_map = config.lists ? *config.lists : empty_lists;
     const auto& route_rules = route_config.rules.value_or(std::vector<RouteRule>{});
+    const bool needs_nftables = std::any_of(
+        route_rules.begin(), route_rules.end(), [](const RouteRule& rule) {
+            return rule.default_gateway.has_value();
+        }) || std::any_of(all_outbounds.begin(), all_outbounds.end(),
+                          [](const Outbound& outbound) {
+                              return (outbound.type == OutboundType::URLTEST ||
+                                      outbound.type == OutboundType::ICMPTEST) &&
+                                     outbound_uses_balance(outbound);
+                          });
+    if (needs_nftables && firewall.backend() != FirewallBackend::nftables) {
+        throw FirewallError(
+            "default_gateway and test-group balance require the nftables firewall backend");
+    }
     std::map<std::string, ListSetUsage> list_usage_cache;
 
     for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
@@ -207,7 +230,8 @@ std::vector<RuleState> apply_runtime_firewall(
 
         const bool is_blackhole = rule_state.action_type == RuleActionType::Drop;
         const bool is_pass = rule_state.action_type == RuleActionType::Pass;
-        FirewallRuleCriteria criteria = build_firewall_rule_criteria(rule);
+        FirewallRuleCriteria criteria = build_firewall_rule_criteria(
+            rule, main_routes, interfaces);
         rule_state.criteria = criteria;
 
         auto apply_rule = [&](const std::optional<std::string>& dst_set_name) {
@@ -219,7 +243,20 @@ std::vector<RuleState> apply_runtime_firewall(
             } else if (is_pass) {
                 firewall.create_pass_rule(rule_criteria);
             } else if (rule_state.fwmark != 0) {
-                firewall.create_mark_rule(rule_state.fwmark, rule_criteria);
+                const Outbound* outbound = find_outbound_by_tag(all_outbounds, rule.outbound);
+                if (outbound && outbound_uses_balance(*outbound)) {
+                    static const std::vector<FirewallBalanceCandidate> empty_candidates;
+                    const auto* candidates = &empty_candidates;
+                    if (balance_candidates != nullptr) {
+                        const auto it = balance_candidates->find(outbound->tag);
+                        if (it != balance_candidates->end()) {
+                            candidates = &it->second;
+                        }
+                    }
+                    firewall.create_balance_rule(rule_state.fwmark, *candidates, rule_criteria);
+                } else {
+                    firewall.create_mark_rule(rule_state.fwmark, rule_criteria);
+                }
             }
         };
 
@@ -377,7 +414,10 @@ std::vector<RuleState> apply_runtime_firewall(
     return apply_runtime_firewall(config, outbound_marks, cache_manager, firewall,
                                   FirewallApplyMode::PreserveSets,
                                   previous_rule_states,
-                                  /*force_clear_dynamic_sets=*/false);
+                                  /*force_clear_dynamic_sets=*/false,
+                                  main_routes,
+                                  interfaces,
+                                  balance_candidates);
   }
 }
 

@@ -18,6 +18,7 @@ public:
         std::string interface_name;
         bool administrative_state_changed{false};
         bool is_up{false};
+        bool route_changed{false};
     };
     using InterfaceStateCallback = std::function<void(const Event&)>;
 

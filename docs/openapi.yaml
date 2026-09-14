@@ -902,7 +902,9 @@ components:
       properties:
         weight:
           type: integer
-          description: Relative weight for selecting this group when multiple groups are healthy.
+          description: >
+            Group priority. Lower values are tried first; equal values retain
+            configuration order. This is not a per-candidate balancing weight.
           default: 1
           example: 1
         outbounds:
@@ -1030,20 +1032,29 @@ components:
             Latency tolerance in milliseconds; outbounds within this range of the
             best are considered equivalent. Used with `urltest` or `icmptest`.
           example: 10
+        strategy:
+          $ref: "#/components/schemas/TestGroupStrategy"
+          default: priority
+          description: >
+            `priority` keeps the stable test-group mark and routes it through one
+            selected child. `balance` distributes new connections equally across
+            usable children in the lowest-weight healthy group (nftables only).
         conntrack_on_switch:
           $ref: "#/components/schemas/ConntrackOnSwitch"
           default: preserve
           description: >
             URLTEST/ICMPTEST conntrack handling when a healthy selected child is
             replaced for latency or priority reasons. `preserve` keeps established
-            flows and `delete` removes entries bearing the test-group mark after the
-            replacement route is active. Entries are always removed when the
-            previously selected child is unhealthy.
+            flows and `delete` removes affected entries after the replacement is
+            active. In balance mode this applies to candidate marks. Entries using
+            an unhealthy child are always removed.
         outbound_groups:
           type: array
           description: >
             Ordered list of outbound groups. Required for `urltest` and `icmptest`.
-            Groups are tried in order; within a group the outbound is selected by weight.
+            Groups are tried by ascending group weight. In `priority` mode one usable
+            child is selected by latency; in `balance` mode usable children in the
+            active group receive an equal share of new connections.
           items:
             $ref: "#/components/schemas/OutboundGroup"
         retry:
@@ -1054,6 +1065,14 @@ components:
     ConntrackOnSwitch:
       type: string
       enum: [preserve, delete]
+
+    TestGroupStrategy:
+      type: string
+      enum: [priority, balance]
+
+    DefaultGateway:
+      type: string
+      enum: [ipv4, ipv6]
 
     ListConfig:
       type: object
@@ -1275,6 +1294,11 @@ components:
             Prefix with "!" to negate the entire spec
             (e.g. "!10.0.0.0/8" matches traffic NOT destined for 10.0.0.0/8).
           example: "10.0.0.0/8"
+        default_gateway:
+          $ref: "#/components/schemas/DefaultGateway"
+          description: >
+            Match non-local, non-directly-connected default-route traffic for this
+            IP family. Put these catch-all rules last.
 
     RouteConfig:
       type: object

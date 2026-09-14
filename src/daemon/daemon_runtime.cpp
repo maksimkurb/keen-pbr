@@ -14,7 +14,6 @@
 #include "../log/logger.hpp"
 #include "../routing/urltest_manager.hpp"
 
-#include <set>
 #include "../routing/routing_reconciler.hpp"
 #include "../util/ipv6_support.hpp"
 #include "../util/time_utils.hpp"
@@ -313,6 +312,9 @@ void Daemon::reconcile_static_routing(
 void Daemon::apply_firewall(FirewallApplyMode mode,
                             bool force_clear_dynamic_sets) {
     const FirewallGlobalPrefilter prefilter = build_firewall_global_prefilter(config_);
+    const auto main_routes = netlink_.dump_routes_in_table(254);
+    const auto interfaces = netlink_.dump_interfaces();
+    const auto balance_candidates = build_balance_candidates(main_routes, interfaces);
     firewall_state_.set_rules(apply_runtime_firewall(
         config_,
         outbound_marks_,
@@ -320,9 +322,72 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         *firewall_,
         mode,
         &firewall_state_.get_rules(),
-        force_clear_dynamic_sets));
+        force_clear_dynamic_sets,
+        main_routes,
+        interfaces,
+        &balance_candidates));
     (void)conntrack_manager_.reconcile(
         ConntrackPolicy{prefilter.skip_established_or_dnat});
+}
+
+FirewallBalanceCandidates Daemon::build_balance_candidates(
+    const std::vector<DumpedRoute>& main_routes,
+    const std::vector<DumpedInterface>& interfaces) {
+    FirewallBalanceCandidates candidates;
+    if (!urltest_manager_) {
+        return candidates;
+    }
+
+    const auto& outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
+    const auto find_outbound = [&outbounds](const std::string& tag) -> const Outbound* {
+        const auto it = std::find_if(outbounds.begin(), outbounds.end(),
+                                     [&tag](const Outbound& outbound) {
+                                         return outbound.tag == tag;
+                                     });
+        return it == outbounds.end() ? nullptr : &*it;
+    };
+
+    for (const auto& group : outbounds) {
+        if (!outbound_uses_balance(group) ||
+            (group.type != OutboundType::URLTEST && group.type != OutboundType::ICMPTEST)) {
+            continue;
+        }
+        const auto state = urltest_manager_->get_state(group.tag);
+        if (!state.has_value()) {
+            continue;
+        }
+        for (const auto& tag : select_test_group_usable_outbounds(*state)) {
+            const Outbound* child = find_outbound(tag);
+            const auto mark = outbound_marks_.find(tag);
+            if (!child || mark == outbound_marks_.end()) {
+                continue;
+            }
+
+            FirewallBalanceCandidate candidate{mark->second};
+            if (child->type == OutboundType::INTERFACE) {
+                if (!is_interface_outbound_reachable(*child, main_routes)) {
+                    continue;
+                }
+                candidate.ipv4 = child->gateway.has_value() ||
+                    (!child->gateway.has_value() && !child->gateway6.has_value());
+                candidate.ipv6 = child->gateway6.has_value();
+                if (!candidate.ipv6 && !child->gateway.has_value()) {
+                    const auto interface_name = child->interface.value_or("");
+                    const auto interface = std::find_if(
+                        interfaces.begin(), interfaces.end(),
+                        [&interface_name](const DumpedInterface& value) {
+                            return value.name == interface_name;
+                        });
+                    candidate.ipv6 = interface != interfaces.end() &&
+                        interface_has_routed_ipv6(*interface);
+                }
+            }
+            if (candidate.ipv4 || candidate.ipv6) {
+                candidates[group.tag].push_back(candidate);
+            }
+        }
+    }
+    return candidates;
 }
 
 void Daemon::reconcile_lists_only(bool reload_resolver) {
@@ -366,6 +431,92 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
         const std::string old_child_tag = applied_it == applied_selections.end()
             ? std::string{}
             : applied_it->second;
+
+        const auto configured_outbounds =
+            config_.outbounds.value_or(std::vector<Outbound>{});
+        const auto configured = std::find_if(
+            configured_outbounds.begin(), configured_outbounds.end(),
+            [&urltest_tag](const Outbound& outbound) { return outbound.tag == urltest_tag; });
+        const bool balance = configured != configured_outbounds.end() &&
+            outbound_uses_balance(*configured);
+        if (balance) {
+            std::set<uint32_t> cleanup_marks;
+            const auto state = urltest_manager_
+                ? urltest_manager_->get_state(urltest_tag)
+                : std::optional<UrltestState>{};
+            const auto child_failed = [&state](const std::string& child_tag) {
+                if (!state.has_value()) return false;
+                const auto breaker = state->circuit_breakers.find(child_tag);
+                if (breaker != state->circuit_breakers.end() &&
+                    breaker->second.state(child_tag) == CircuitState::open) {
+                    return true;
+                }
+                const auto result = state->last_results.find(child_tag);
+                return result != state->last_results.end() && !result->second.success;
+            };
+            const bool delete_on_healthy_switch =
+                configured->conntrack_on_switch.value_or(api::ConntrackOnSwitch::PRESERVE) ==
+                api::ConntrackOnSwitch::DELETE;
+            for (const auto& group : configured->outbound_groups.value_or(
+                     std::vector<OutboundGroup>{})) {
+                for (const auto& child_tag : outbound_group_tags(group)) {
+                    const auto mark = outbound_marks_.find(child_tag);
+                    if (mark == outbound_marks_.end()) continue;
+                    if (child_failed(child_tag) ||
+                        (delete_on_healthy_switch && !old_child_tag.empty() &&
+                         old_child_tag != new_child_tag)) {
+                        cleanup_marks.insert(mark->second);
+                    }
+                }
+            }
+
+            auto proposed_selections = applied_selections;
+            proposed_selections[urltest_tag] = new_child_tag;
+            try {
+                // The group mark remains a scalar priority-selected path for
+                // internal DNS/list detours. User route rules are rebuilt as
+                // child-mark balancing classifiers below.
+                reconcile_static_routing(&proposed_selections);
+                apply_firewall(runtime_refresh_firewall_mode());
+                firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
+                const uint32_t mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
+                for (const uint32_t mark : cleanup_marks) {
+                    try {
+                        if (!conntrack_manager_.delete_mark(mark, mask)) {
+                            log.warn("Conntrack cleanup failed for failed balance child mark {}",
+                                     mark);
+                        }
+                    } catch (const std::exception& e) {
+                        log.warn("Conntrack cleanup failed for balance child mark {}: {}", mark,
+                                 e.what());
+                    } catch (...) {
+                        log.warn("Conntrack cleanup failed for balance child mark {}: unknown error",
+                                 mark);
+                    }
+                }
+                publish_runtime_state(StatusPublishScope::Outbounds);
+                log.info("Updated nft balance classifier for test-group '{}' ({} child marks cleaned)",
+                         urltest_tag, cleanup_marks.size());
+            } catch (const std::exception& e) {
+                try {
+                    reconcile_static_routing(&applied_selections);
+                } catch (const std::exception& rollback_error) {
+                    log.error("Test-group '{}' balance update rollback failed: {}", urltest_tag,
+                              rollback_error.what());
+                }
+                log.error("Test-group '{}' balance classifier update failed: {}", urltest_tag,
+                          e.what());
+            } catch (...) {
+                try {
+                    reconcile_static_routing(&applied_selections);
+                } catch (...) {
+                    log.error("Test-group '{}' balance update rollback failed", urltest_tag);
+                }
+                log.error("Test-group '{}' balance classifier update failed: unknown error",
+                          urltest_tag);
+            }
+            return;
+        }
 
         // The route is already applied when cleanup is pending.  A later
         // unchanged probe must retry only the targeted conntrack deletion;

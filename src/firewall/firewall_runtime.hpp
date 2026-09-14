@@ -3,6 +3,7 @@
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
 #include "../routing/firewall_state.hpp"
+#include "../routing/netlink.hpp"
 #include "firewall.hpp"
 
 #include <vector>
@@ -30,6 +31,9 @@ std::vector<RuleState> apply_runtime_firewall(
     Firewall& firewall,
     FirewallApplyMode mode = FirewallApplyMode::Destructive,
     const std::vector<RuleState>* previous_rule_states = nullptr,
-    bool force_clear_dynamic_sets = false);
+    bool force_clear_dynamic_sets = false,
+    const std::vector<DumpedRoute>& main_routes = {},
+    const std::vector<DumpedInterface>& interfaces = {},
+    const FirewallBalanceCandidates* balance_candidates = nullptr);
 
 } // namespace keen_pbr3

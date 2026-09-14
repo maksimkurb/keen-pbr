@@ -4,6 +4,7 @@
 
 #include "../config/routing_state.hpp"
 #include "../health/circuit_breaker.hpp"
+#include "../routing/urltest_manager.hpp"
 
 #include <algorithm>
 #include <netinet/in.h>
@@ -275,6 +276,10 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
     const auto table_id = outbound_table_id(outbound_marks, policy_rules, outbound.tag);
 
     const auto urltest_state = urltest_state_lookup(outbound.tag);
+    const bool balance = outbound_uses_balance(outbound);
+    const auto balanced_children = balance && urltest_state.has_value()
+        ? select_test_group_usable_outbounds(*urltest_state)
+        : std::vector<std::string>{};
     const auto applied_it = applied_selections.find(outbound.tag);
     const std::string applied_child_tag = applied_it == applied_selections.end()
         ? std::string{}
@@ -300,7 +305,10 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
         api::RuntimeInterfaceState interface_state;
         interface_state.outbound_tag = child->tag;
         interface_state.interface_name = child->interface;
-        const bool is_active = applied_path_live && applied_child_tag == child->tag;
+        const bool is_active = balance
+            ? std::find(balanced_children.begin(), balanced_children.end(), child->tag) !=
+                  balanced_children.end()
+            : applied_path_live && applied_child_tag == child->tag;
         interface_state.status = map_urltest_child_status(*child, is_active, urltest_state);
 
         if (urltest_state.has_value()) {
@@ -331,7 +339,9 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
             return candidate.status == api::RuntimeInterfaceStatusEnum::ACTIVE;
         });
 
-    if (urltest_state.has_value() &&
+    if (balance) {
+        state.detail = "balancing new connections across active candidates";
+    } else if (urltest_state.has_value() &&
         urltest_state->selected_outbound != applied_child_tag) {
         state.detail = "applied route selection differs from test manager selection";
     } else if (!applied_child_tag.empty() && !live_rule_matches_applied) {

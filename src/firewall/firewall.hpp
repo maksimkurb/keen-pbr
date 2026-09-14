@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <map>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -13,6 +14,16 @@
 namespace keen_pbr3 {
 
 class ListEntryVisitor;
+enum class DefaultGatewayFamily : uint8_t { None, Ipv4, Ipv6 };
+
+struct FirewallBalanceCandidate {
+  uint32_t fwmark;
+  bool ipv4{true};
+  bool ipv6{true};
+};
+
+using FirewallBalanceCandidates =
+    std::map<std::string, std::vector<FirewallBalanceCandidate>>;
 enum class L4Proto : uint8_t {
   Any,
   Tcp,
@@ -50,16 +61,20 @@ struct FirewallRuleCriteria {
   bool negate_dst_port = false; // if true, match packets NOT to dst_port
   bool negate_src_addr = false; // if true, match packets NOT from src_addr
   bool negate_dst_addr = false; // if true, match packets NOT to dst_addr
-  bool apply_output = false;    // also classify locally generated packets
+  bool apply_output = false;    // classify locally generated packets instead of prerouting
+  DefaultGatewayFamily default_gateway = DefaultGatewayFamily::None;
+  std::vector<std::string> default_gateway_bypass;
   bool empty() const {
     return !dst_set_name.has_value() && !dscp.has_value() &&
            proto == L4Proto::Any && src_port.empty() && dst_port.empty() &&
-           src_addr.empty() && dst_addr.empty() && !apply_output;
+           src_addr.empty() && dst_addr.empty() && !apply_output &&
+           default_gateway == DefaultGatewayFamily::None;
   }
 
   bool has_rule_selector() const {
     return dst_set_name.has_value() || dscp.has_value() || !src_port.empty() ||
-           !dst_port.empty() || !src_addr.empty() || !dst_addr.empty();
+           !dst_port.empty() || !src_addr.empty() || !dst_addr.empty() ||
+           default_gateway != DefaultGatewayFamily::None;
   }
 };
 
@@ -187,6 +202,15 @@ public:
   // criteria: optional match criteria (default = any packet)
   virtual void create_mark_rule(uint32_t fwmark,
                                 const FirewallRuleCriteria &criteria = {}) = 0;
+  virtual void create_balance_rule(
+      uint32_t fallback_fwmark,
+      const std::vector<FirewallBalanceCandidate>& candidates,
+      const FirewallRuleCriteria& criteria = {}) {
+    (void)fallback_fwmark;
+    (void)candidates;
+    (void)criteria;
+    throw FirewallError("connection balancing requires the nftables firewall backend");
+  }
 
   // Create a firewall rule that drops packets matching the given criteria.
   // Used for blackhole outbounds that don't need routing tables or fwmarks.
@@ -223,6 +247,13 @@ public:
   void set_fwmark_mask(uint32_t fwmark_mask) { fwmark_mask_ = fwmark_mask; }
 
   uint32_t fwmark_mask() const { return fwmark_mask_; }
+
+  // Marks allocated to this daemon instance. Backends that restore conntrack
+  // marks can retain healthy established flows even when a classifier no
+  // longer selects that child for new connections.
+  virtual void set_owned_marks(const std::vector<uint32_t>& marks) {
+    (void)marks;
+  }
 
   void set_clear_dynamic_sets_on_apply(bool clear) {
     clear_dynamic_sets_on_apply_ = clear;

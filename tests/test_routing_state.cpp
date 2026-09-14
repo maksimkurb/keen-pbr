@@ -1089,13 +1089,13 @@ TEST_CASE("populate_routing_state: non-strict urltest relies on terminal RPDB gu
                         }) == 1);
 }
 
-TEST_CASE("populate_routing_state: test group points its stable mark at a selected table outbound") {
+TEST_CASE("populate_routing_state: balance test group keeps its stable mark for detours") {
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},
         "outbounds":[
             {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"},
             {"tag":"external","type":"table","table":200},
-            {"tag":"auto","type":"icmptest",
+            {"tag":"auto","type":"icmptest","strategy":"balance",
              "outbound_groups":[{"candidates":[
                  {"outbound":"wan","target":"1.1.1.1"},
                  {"outbound":"external","target":"8.8.8.8"}

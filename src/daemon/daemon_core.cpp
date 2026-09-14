@@ -1008,8 +1008,14 @@ bool Daemon::is_interface_outbound_in_use(
 
 void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
   auto &log = Logger::instance();
-  if (!event.administrative_state_changed ||
-      !is_interface_outbound_in_use(event.interface_name)) {
+  const auto route_rules = config_.route.value_or(RouteConfig{})
+                               .rules.value_or(std::vector<RouteRule>{});
+  const bool default_gateway_rules = std::any_of(
+      route_rules.begin(), route_rules.end(),
+      [](const RouteRule &rule) { return rule.default_gateway.has_value(); });
+  if ((!event.administrative_state_changed ||
+       !is_interface_outbound_in_use(event.interface_name)) &&
+      !default_gateway_rules) {
 #ifdef WITH_API
     if (status_stream_)
       status_stream_->reconcile(StatusUpdate::Interfaces |

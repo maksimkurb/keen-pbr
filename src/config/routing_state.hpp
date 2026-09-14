@@ -58,7 +58,10 @@ bool interface_has_routed_ipv6(const DumpedInterface& interface);
 FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg);
 
 // Build the realized firewall selector criteria for a route rule.
-FirewallRuleCriteria build_firewall_rule_criteria(const RouteRule& rule);
+FirewallRuleCriteria build_firewall_rule_criteria(
+    const RouteRule& rule,
+    const std::vector<DumpedRoute>& main_routes = {},
+    const std::vector<DumpedInterface>& interfaces = {});
 
 // Infer the selected child of a URLTEST outbound from its live metric-zero
 // default routes. Equivalent IPv4 and IPv6 routes for one child are accepted.

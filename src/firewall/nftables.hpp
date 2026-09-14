@@ -28,6 +28,11 @@ public:
     // Buffer a meta mark set rule that matches the given criteria.
     void create_mark_rule(uint32_t fwmark,
                           const FirewallRuleCriteria& criteria = {}) override;
+    void create_balance_rule(
+        uint32_t fallback_fwmark,
+        const std::vector<FirewallBalanceCandidate>& candidates,
+        const FirewallRuleCriteria& criteria = {}) override;
+    void set_owned_marks(const std::vector<uint32_t>& marks) override;
     // Buffer a drop verdict rule that matches the given criteria.
     void create_drop_rule(const FirewallRuleCriteria& criteria = {}) override;
     // Buffer a pass-through verdict rule that matches the given criteria.
@@ -58,6 +63,7 @@ private:
         bool table_exists{false};
         bool chain_exists{false};
         bool output_chain_exists{false};
+        std::set<uint32_t> setter_chain_marks;
         std::set<std::string> set_names;
         std::map<std::string, std::string> set_schemas;
     };
@@ -79,10 +85,11 @@ private:
     // Describes a rule to be added to the prerouting chain.
     struct PendingRule {
         int family;  // AF_INET or AF_INET6
-        enum Action { Mark, Drop, Pass } action; // meta mark, drop, or accept verdict
+        enum Action { Mark, Balance, Drop, Pass } action;
         uint32_t fwmark; // only for Mark
         uint32_t fwmark_mask{0xFFFFFFFFu}; // only for Mark
         bool save_conntrack_mark{false};
+        std::vector<uint32_t> balance_marks; // only for Balance
         FirewallRuleCriteria criteria; // optional packet match criteria
     };
 
@@ -96,6 +103,10 @@ private:
     // Build the JSON object for deleting the prerouting chain.
     static nlohmann::json build_delete_chain_json();
     static nlohmann::json build_delete_output_chain_json();
+    static nlohmann::json build_setter_chain_json(uint32_t fwmark);
+    static nlohmann::json build_delete_setter_chain_json(uint32_t fwmark);
+    static nlohmann::json build_setter_rule_json(uint32_t fwmark,
+                                                  uint32_t fwmark_mask);
     static nlohmann::json build_flush_set_json(const std::string& set_name);
     static nlohmann::json build_delete_set_json(const std::string& set_name);
     static bool is_dynamic_set_name(const std::string& set_name);
@@ -104,9 +115,11 @@ private:
     // Build all prerouting rule add-commands, including global prefilter rules.
     static nlohmann::json build_rule_add_commands(
         const FirewallGlobalPrefilter& prefilter,
-        const std::vector<PendingRule>& rules);
+        const std::vector<PendingRule>& rules,
+        const std::set<uint32_t>& owned_marks = {});
     // Build the JSON rule object for a meta mark set action matching a named set.
     static nlohmann::json build_mark_rule_json(const PendingRule& pr);
+    static nlohmann::json build_balance_rule_json(const PendingRule& pr);
     // Build the JSON rule object for a drop verdict matching a named set.
     static nlohmann::json build_drop_rule_json(const PendingRule& pr);
     // Build the JSON rule object for a pass-through verdict matching a named set.
@@ -135,6 +148,12 @@ private:
                                  PendingRule::Action action,
                                  uint32_t fwmark,
                                  const FirewallRuleCriteria& criteria);
+    void append_balance_rules_for_family(
+        int family,
+        uint32_t fallback_fwmark,
+        const std::vector<FirewallBalanceCandidate>& candidates,
+        const FirewallRuleCriteria& criteria);
+    static std::string setter_chain_name(uint32_t fwmark);
 
     // Sets queued for creation, flushed by apply().
     std::vector<PendingSet> pending_sets_;
@@ -142,6 +161,7 @@ private:
     std::map<std::string, nlohmann::json> pending_elements_;
     // Rules queued for insertion into the prerouting chain, flushed by apply().
     std::vector<PendingRule> pending_rules_;
+    std::set<uint32_t> owned_marks_;
 
     // Track created sets for family lookup: set_name -> family (AF_INET/AF_INET6)
     std::map<std::string, int> created_sets_;

@@ -560,12 +560,13 @@ void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIss
             rule_has_string_condition(rule, "src_port") ||
             rule_has_string_condition(rule, "dest_port") ||
             rule_has_string_condition(rule, "src_addr") ||
-            rule_has_string_condition(rule, "dest_addr");
+            rule_has_string_condition(rule, "dest_addr") ||
+            rule_has_present_condition(rule, "default_gateway");
 
         if (!has_any_condition) {
             add_issue(issues,
                       rule_path,
-                      "Route rule must include at least one condition: list, dscp, src_port, dest_port, src_addr, or dest_addr.");
+                      "Route rule must include at least one condition: list, dscp, src_port, dest_port, src_addr, dest_addr, or default_gateway.");
         }
 
         validate_dscp_field(rule, rule_path, issues);
@@ -1056,7 +1057,13 @@ void validate_config(const Config& cfg) {
             }
         }
 
-        if (ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) continue;
+        if (ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) {
+            if (ob.strategy.has_value()) {
+                add_issue(issues, "outbounds." + ob.tag + ".strategy",
+                          "strategy is supported only by urltest and icmptest outbounds");
+            }
+            continue;
+        }
         const bool is_icmp = ob.type == OutboundType::ICMPTEST;
 
         if (!is_icmp && (!ob.url.has_value() || ob.url->empty())) {
@@ -1274,8 +1281,20 @@ void validate_config(const Config& cfg) {
     }
 
     if (firewall_backend_preference(cfg) == FirewallBackendPreference::iptables) {
+        for (const auto& outbound : outbounds) {
+            if ((outbound.type == OutboundType::URLTEST ||
+                 outbound.type == OutboundType::ICMPTEST) &&
+                outbound_uses_balance(outbound)) {
+                add_issue(issues, "outbounds." + outbound.tag + ".strategy",
+                          "balance strategy requires daemon.firewall_backend=nftables");
+            }
+        }
         for (size_t i = 0; i < route_rules.size(); ++i) {
             const auto& rule = route_rules[i];
+            if (rule.default_gateway.has_value()) {
+                add_issue(issues, "route.rules[" + std::to_string(i) + "].default_gateway",
+                          "default_gateway requires daemon.firewall_backend=nftables");
+            }
             if (!route_rule_uses_unsupported_iptables_multiport_combo(rule)) {
                 continue;
             }

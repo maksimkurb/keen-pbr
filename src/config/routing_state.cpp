@@ -377,6 +377,16 @@ void populate_routing_state(const Config& cfg,
     for (const auto& server : cfg.dns.value_or(DnsConfig{}).servers.value_or(std::vector<DnsServer>{})) {
         if (server.detour) internal_detours.insert(*server.detour);
     }
+    std::set<std::string> balance_candidate_tags;
+    for (const auto& outbound : outbounds) {
+        if (!outbound_uses_balance(outbound)) continue;
+        for (const auto& group : outbound.outbound_groups.value_or(
+                 std::vector<OutboundGroup>{})) {
+            for (const auto& tag : outbound_group_tags(group)) {
+                balance_candidate_tags.insert(tag);
+            }
+        }
+    }
     auto add_lookup_and_guard = [&](uint32_t mark, uint32_t table, const Outbound& ob,
                                     bool guard_required) {
         RuleSpec lookup;
@@ -408,7 +418,8 @@ void populate_routing_state(const Config& cfg,
 
             const uint32_t table_id = outbound_tables.at(ob.tag);
 
-            const bool strict = strict_enforcement_enabled(cfg, ob);
+            const bool strict = strict_enforcement_enabled(cfg, ob) ||
+                balance_candidate_tags.count(ob.tag) != 0;
             const bool reachable = !reachability_check || reachability_check(ob);
             if (reachable) {
                 for (const auto& route : make_default_routes(table_id, ob, family_available)) {
@@ -430,7 +441,8 @@ void populate_routing_state(const Config& cfg,
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
 
-            const bool strict = strict_enforcement_enabled(cfg, ob);
+            const bool strict = strict_enforcement_enabled(cfg, ob) ||
+                balance_candidate_tags.count(ob.tag) != 0;
             const uint32_t table_id = outbound_tables.at(ob.tag);
             add_lookup_and_guard(mark_it->second, table_id, ob, strict);
             add_internal_detour_guard(table_id, ob);
@@ -541,7 +553,10 @@ FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg) {
     return prefilter;
 }
 
-FirewallRuleCriteria build_firewall_rule_criteria(const RouteRule& rule) {
+FirewallRuleCriteria build_firewall_rule_criteria(
+    const RouteRule& rule,
+    const std::vector<DumpedRoute>& main_routes,
+    const std::vector<DumpedInterface>& interfaces) {
     auto strip_neg = [](const std::string& value) -> std::pair<std::string, bool> {
         if (!value.empty() && value.front() == '!') {
             return {value.substr(1), true};
@@ -574,6 +589,42 @@ FirewallRuleCriteria build_firewall_rule_criteria(const RouteRule& rule) {
         AddrSpec spec = parse_addr_spec(rule.dest_addr.value_or(""));
         criteria.negate_dst_addr = spec.negate;
         criteria.dst_addr = std::move(spec.addrs);
+    }
+
+    if (rule.default_gateway.has_value()) {
+        const bool ipv6 = *rule.default_gateway == api::DefaultGateway::IPV6;
+        criteria.default_gateway = ipv6 ? DefaultGatewayFamily::Ipv6
+                                        : DefaultGatewayFamily::Ipv4;
+        criteria.apply_output = true;
+        std::set<std::string> bypass;
+        const auto add = [&bypass](const std::string& destination) {
+            if (!destination.empty() && destination != "default" &&
+                destination != "0.0.0.0/0" && destination != "::/0") {
+                bypass.insert(destination);
+            }
+        };
+        if (ipv6) {
+            for (const auto* destination : {"::/128", "::1/128", "fe80::/10", "ff00::/8"}) {
+                add(destination);
+            }
+        } else {
+            for (const auto* destination : {"0.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/3"}) {
+                add(destination);
+            }
+        }
+        for (const auto& route : main_routes) {
+            if (route.family == (ipv6 ? AF_INET6 : AF_INET)) {
+                add(route.destination);
+            }
+        }
+        for (const auto& interface : interfaces) {
+            const auto& addresses = ipv6 ? interface.ipv6_addresses
+                                         : interface.ipv4_addresses;
+            for (const auto& address : addresses) {
+                add(address);
+            }
+        }
+        criteria.default_gateway_bypass.assign(bypass.begin(), bypass.end());
     }
 
     return criteria;

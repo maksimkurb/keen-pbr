@@ -212,6 +212,9 @@ private:
   void reconcile_static_routing(
       const std::map<std::string, std::string> *urltest_selections = nullptr);
   FirewallApplyMode runtime_refresh_firewall_mode() const;
+  FirewallBalanceCandidates build_balance_candidates(
+      const std::vector<DumpedRoute>& main_routes,
+      const std::vector<DumpedInterface>& interfaces);
   void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive,
                       bool force_clear_dynamic_sets = false);
   void reconcile_lists_only(bool reload_resolver);

@@ -58,6 +58,37 @@ TEST_CASE("icmptest validation accepts a timing-safe complete probe set") {
     CHECK_NOTHROW(parse_test_config(nlohmann::json(cfg).dump()));
 }
 
+TEST_CASE("test-group balance and default gateway rules are parsed") {
+    const auto cfg = parse_test_config(R"({
+      "daemon":{"firewall_backend":"nftables"},
+      "outbounds":[
+        {"type":"interface","tag":"wan_a","interface":"wan_a"},
+        {"type":"interface","tag":"wan_b","interface":"wan_b"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
+      ],
+      "route":{"rules":[
+        {"default_gateway":"ipv4","outbound":"auto"},
+        {"default_gateway":"ipv6","outbound":"auto"}
+      ]}
+    })");
+    CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
+    CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
+}
+
+TEST_CASE("balance and default gateway reject the iptables backend") {
+    const auto issues = validate_issues(R"({
+      "daemon":{"firewall_backend":"iptables"},
+      "outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan"]}]}
+      ],
+      "route":{"rules":[{"default_gateway":"ipv4","outbound":"auto"}]}
+    })");
+    CHECK(issues.size() >= 2);
+}
+
 TEST_CASE("icmptest migrates the legacy split probe form in memory") {
     const auto cfg = parse_test_config(R"({"outbounds":[
       {"type":"interface","tag":"wan","interface":"wan"},

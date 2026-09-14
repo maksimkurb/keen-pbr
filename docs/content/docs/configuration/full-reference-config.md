@@ -233,6 +233,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Minimum: 0 ms. Default: 100 for urltest.
       "tolerance_ms": 100,
 
+      // Selection strategy: "priority" (default) keeps one selected child.
+      // nftables-only "balance" spreads new connections equally over usable
+      // children in the first healthy lowest-weight group.
+      "strategy": "priority",
+
       // Compatibility field for older configs.
       // Urltest always appends terminal IPv4/IPv6 unreachable routes as a kill-switch.
       // This setting currently has no additional effect for urltest outbounds.
@@ -598,6 +603,10 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         // Match traffic only if dest IP matches
         // Supported: single IP, CIDR
         "dest_addr": "203.0.113.0/24",
+
+        // nftables-only catch-all for non-local, non-connected IPv4 traffic.
+        // Keep default_gateway rules last and add a separate IPv6 rule.
+        "default_gateway": "ipv4",
 
         // Match traffic only if source port matches
         // Supported: single port, multiple port comma-separated, range

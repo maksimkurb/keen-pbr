@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 
 #include <array>
+#include <algorithm>
 #include <set>
 #include <sstream>
 
@@ -56,6 +57,26 @@ public:
 
   static nlohmann::json build_output_chain_json() {
     return NftablesFirewall::build_output_chain_json();
+  }
+
+  static nlohmann::json build_balance_document() {
+    NftablesFirewall firewall;
+    firewall.set_fwmark_mask(0x00ff0000U);
+    FirewallGlobalPrefilter prefilter;
+    prefilter.restore_conntrack_mark = true;
+    prefilter.conntrack_mark_mask = 0x00ff0000U;
+    firewall.set_global_prefilter(prefilter);
+    firewall.set_owned_marks(
+        {0x00010000U, 0x00020000U, 0x00030000U, 0x00040000U});
+    FirewallRuleCriteria criteria;
+    criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+    criteria.default_gateway_bypass = {"127.0.0.0/8", "192.168.1.0/24"};
+    criteria.apply_output = true;
+    firewall.create_balance_rule(
+        0x00010000U,
+        {{0x00020000U, true, false}, {0x00030000U, true, false}}, criteria);
+    NftablesFirewall::LiveTableState live;
+    return firewall.build_apply_document(live, true);
   }
 
   static nlohmann::json build_delete_chain_json() {
@@ -419,23 +440,26 @@ TEST_CASE("build_rule_add_commands: conntrack restore is masked, ordered, and fa
 
   const auto commands = T::build_rule_add_commands(prefilter,
                                                      {mark_rule("myset", AF_INET, 256)});
-  REQUIRE(commands.size() == 2);
+  REQUIRE(commands.size() == 3);
   const auto& restore = commands[0]["add"]["rule"]["expr"];
-  REQUIRE(restore.size() == 4);
+  REQUIRE(restore.size() == 5);
   CHECK(restore[0]["match"]["left"]["ct"]["key"] == "direction");
   CHECK(restore[0]["match"]["right"] == 0);
   CHECK(restore[1]["match"]["op"] == "!=");
   CHECK(restore[1]["match"]["left"]["&"][0]["ct"]["key"] == "mark");
   CHECK(restore[1]["match"]["left"]["&"][1] == 0x00FF0000u);
   CHECK(restore[1]["match"]["right"] == 0);
-  CHECK(restore[2]["mangle"]["key"]["meta"]["key"] == "mark");
-  CHECK(restore[2]["mangle"]["value"]["&"][0]["ct"]["key"] == "mark");
-  CHECK(restore[2]["mangle"]["value"]["&"][1] == 0x00FF0000u);
-  CHECK(restore[3].contains("accept"));
+  CHECK(restore[2]["vmap"]["key"]["&"][0]["ct"]["key"] == "mark");
+  CHECK(restore[2]["vmap"]["key"]["&"][1] == 0x00FF0000u);
+  CHECK(restore[2]["vmap"]["data"]["set"][0][0] == 256);
+  CHECK(restore[3]["match"]["op"] == "in");
+  CHECK(restore[3]["match"]["right"]["set"][0] == 256);
+  CHECK(restore[4].contains("accept"));
+  CHECK(commands[1]["add"]["rule"]["chain"] == "output");
 
   // The policy rule follows the conditional restore rule. An unmarked new
   // connection fails restore[1] and therefore reaches normal classification.
-  CHECK(commands[1]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  CHECK(commands[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface guard when inbound list is empty") {
@@ -514,6 +538,101 @@ TEST_CASE("nft output chain: DNS detour chain uses output hook") {
   const auto chain = T::build_output_chain_json();
   CHECK(chain["add"]["chain"]["name"] == "output");
   CHECK(chain["add"]["chain"]["hook"] == "output");
+  CHECK(chain["add"]["chain"]["type"] == "route");
+}
+
+TEST_CASE("nft output-only detour does not also classify prerouting") {
+  FirewallRuleCriteria criteria;
+  criteria.apply_output = true;
+  criteria.dst_addr = {"192.0.2.53"};
+
+  const auto commands = T::build_rule_add_commands_for_rule(
+      AF_INET, T::RuleDesc::Mark, 0x00010000U, criteria, false);
+
+  REQUIRE(commands.size() == 1);
+  CHECK(commands[0]["add"]["rule"]["chain"] == "output");
+}
+
+TEST_CASE("nft balance classifier uses numgen vmap and mask-preserving setters") {
+  const auto doc = T::build_balance_document();
+  const auto rendered = doc.dump();
+  CHECK(rendered.find("\"numgen\"") != std::string::npos);
+  CHECK(rendered.find("\"vmap\"") != std::string::npos);
+  CHECK(rendered.find("setmark_00020000") != std::string::npos);
+  CHECK(rendered.find("192.168.1.0") != std::string::npos);
+
+  bool prerouting_rule = false;
+  bool output_rule = false;
+  for (const auto& command : doc["nftables"]) {
+    const auto rule = command.find("add");
+    if (rule == command.end() || !rule->contains("rule")) continue;
+    const auto& chain = (*rule)["rule"]["chain"];
+    prerouting_rule = prerouting_rule || chain == "prerouting";
+    output_rule = output_rule || chain == "output";
+  }
+  CHECK(prerouting_rule);
+  CHECK(output_rule);
+}
+
+TEST_CASE("nft balance restores an inactive owned child without selecting it anew") {
+  const auto doc = T::build_balance_document();
+  const nlohmann::json* restore_vmap = nullptr;
+  const nlohmann::json* balance_vmap = nullptr;
+  for (const auto& command : doc["nftables"]) {
+    const auto add = command.find("add");
+    if (add == command.end() || !add->contains("rule")) continue;
+    const auto& rule = (*add)["rule"];
+    if (rule["chain"] != "prerouting") continue;
+    for (const auto& expr : rule["expr"]) {
+      if (!expr.contains("vmap")) continue;
+      const auto& vmap = expr["vmap"];
+      if (vmap["key"].contains("numgen")) {
+        balance_vmap = &vmap;
+      } else {
+        restore_vmap = &vmap;
+      }
+    }
+  }
+  REQUIRE(restore_vmap != nullptr);
+  REQUIRE(balance_vmap != nullptr);
+  const auto has_mark = [](const nlohmann::json& entries, uint32_t mark) {
+    return std::any_of(entries.begin(), entries.end(), [mark](const auto& entry) {
+      return entry[0] == mark;
+    });
+  };
+  CHECK(has_mark((*restore_vmap)["data"]["set"], 0x00040000U));
+  CHECK_FALSE(has_mark((*balance_vmap)["data"]["set"], 0x00040000U));
+}
+
+TEST_CASE("default gateway bypass excludes default routes from the main table") {
+  RouteRule rule;
+  rule.default_gateway = api::DefaultGateway::IPV4;
+  DumpedRoute blocked_route;
+  blocked_route.destination = "203.0.113.0/24";
+  blocked_route.table = 254;
+  blocked_route.family = AF_INET;
+  blocked_route.blackhole = true;
+  DumpedInterface interface;
+  interface.ipv4_addresses = {"198.51.100.7/32"};
+  const auto criteria = build_firewall_rule_criteria(rule, {
+      DumpedRoute{"default", 254U, {}, {}, false, false, AF_INET},
+      DumpedRoute{"0.0.0.0/0", 254U, {}, {}, false, false, AF_INET},
+      DumpedRoute{"192.0.2.0/24", 254U, {}, {}, false, false, AF_INET},
+      DumpedRoute{"::/0", 254U, {}, {}, false, false, AF_INET6},
+      blocked_route,
+  }, {interface});
+  CHECK(std::find(criteria.default_gateway_bypass.begin(),
+                  criteria.default_gateway_bypass.end(), "0.0.0.0/0") ==
+        criteria.default_gateway_bypass.end());
+  CHECK(std::find(criteria.default_gateway_bypass.begin(),
+                  criteria.default_gateway_bypass.end(), "192.0.2.0/24") !=
+        criteria.default_gateway_bypass.end());
+  CHECK(std::find(criteria.default_gateway_bypass.begin(),
+                  criteria.default_gateway_bypass.end(), "203.0.113.0/24") !=
+        criteria.default_gateway_bypass.end());
+  CHECK(std::find(criteria.default_gateway_bypass.begin(),
+                  criteria.default_gateway_bypass.end(), "198.51.100.7/32") !=
+        criteria.default_gateway_bypass.end());
 }
 
 TEST_CASE("nft static sets-only reconcile leaves chains and rules untouched") {

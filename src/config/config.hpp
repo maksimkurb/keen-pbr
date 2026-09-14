@@ -104,6 +104,11 @@ inline std::string outbound_group_target(const OutboundGroup& group,
     return {};
 }
 
+inline bool outbound_uses_balance(const Outbound& outbound) {
+    return outbound.strategy.value_or(api::Strategy::PRIORITY) ==
+           api::Strategy::BALANCE;
+}
+
 // --- JSON deserialization and validation ---
 
 Config parse_config(const std::string& json_str);

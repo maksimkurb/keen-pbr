@@ -8,7 +8,8 @@
 import type { IcmpCandidate } from './icmpCandidate';
 
 export interface OutboundGroup {
-  /** Relative weight for selecting this group when multiple groups are healthy. */
+  /** Group priority. Lower values are tried first; equal values retain configuration order. This is not a per-candidate balancing weight.
+   */
   weight?: number;
   /** Ordered outbound tags. Required for `urltest` groups. */
   outbounds?: string[];

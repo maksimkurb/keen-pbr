@@ -51,6 +51,16 @@ struct InterfaceMonitor::Impl {
             return;
         }
 
+        if (hdr->nlmsg_type == RTM_NEWROUTE || hdr->nlmsg_type == RTM_DELROUTE) {
+            auto* route = static_cast<rtmsg*>(nlmsg_data(hdr));
+            if (route != nullptr &&
+                (route->rtm_family == AF_INET || route->rtm_family == AF_INET6) &&
+                route->rtm_table == RT_TABLE_MAIN) {
+                callback(Event{"", false, false, true});
+            }
+            return;
+        }
+
         if (hdr->nlmsg_type == RTM_NEWADDR || hdr->nlmsg_type == RTM_DELADDR) {
             auto* addr = static_cast<ifaddrmsg*>(nlmsg_data(hdr));
             if (!addr || (addr->ifa_family != AF_INET && addr->ifa_family != AF_INET6)) {
@@ -130,6 +140,8 @@ struct InterfaceMonitor::Impl {
                                         RTNLGRP_LINK,
                                         RTNLGRP_IPV4_IFADDR,
                                         RTNLGRP_IPV6_IFADDR,
+                                        RTNLGRP_IPV4_ROUTE,
+                                        RTNLGRP_IPV6_ROUTE,
                                         0);
         if (err < 0) {
             close_socket();

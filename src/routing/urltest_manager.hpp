@@ -31,6 +31,10 @@ struct UrltestState {
 // Pure selection policy shared by URLTEST and ICMPTEST.
 std::string select_test_group_outbound(const UrltestState& state);
 
+// Usable children in the first (lowest weight) healthy group, in configured
+// order. Balance mode distributes new connections across exactly this set.
+std::vector<std::string> select_test_group_usable_outbounds(const UrltestState& state);
+
 // Callback invoked after every accepted probe sweep. Emitting unchanged
 // selections lets the daemon retry a previously failed routing transaction.
 // Parameters: (urltest_tag, desired_child_outbound_tag)

@@ -137,6 +137,51 @@ TEST_CASE("runtime test-group projection reports table candidate probe state") {
     CHECK(response.outbounds[1].status == api::ResolverLiveStatus::DEGRADED);
 }
 
+TEST_CASE("runtime balance projection reports each usable first-tier child active") {
+    Config config;
+    auto first = make_outbound("first", OutboundType::TABLE);
+    auto second = make_outbound("second", OutboundType::TABLE);
+    auto backup = make_outbound("backup", OutboundType::TABLE);
+    auto automatic = make_outbound("auto", OutboundType::URLTEST);
+    automatic.strategy = api::Strategy::BALANCE;
+    OutboundGroup active_group;
+    active_group.outbounds = std::vector<std::string>{"first", "second"};
+    OutboundGroup backup_group;
+    backup_group.weight = 2;
+    backup_group.outbounds = std::vector<std::string>{"backup"};
+    automatic.outbound_groups = std::vector<OutboundGroup>{active_group, backup_group};
+    config.outbounds = std::vector<Outbound>{first, second, backup, automatic};
+
+    const OutboundMarkMap marks{{"first", 1U}, {"second", 2U},
+                                {"backup", 3U}, {"auto", 4U}};
+    const std::vector<RuleSpec> rules{
+        lookup_rule(1U, 100U), lookup_rule(2U, 101U),
+        lookup_rule(3U, 102U), lookup_rule(4U, 103U)};
+    UrltestState state;
+    state.config = automatic;
+    for (const auto* tag : {"first", "second", "backup"}) {
+        state.circuit_breakers.emplace(tag, CircuitBreaker(CircuitBreakerConfig{}));
+    }
+    state.last_results["first"] = URLTestResult{.success = true, .latency_ms = 10};
+    state.last_results["second"] = URLTestResult{.success = true, .latency_ms = 20};
+    state.last_results["backup"] = URLTestResult{.success = true, .latency_ms = 5};
+
+    const auto response = build_runtime_outbounds_response_from_routes(
+        config, marks, rules, {}, {},
+        [&state](const std::string& tag) -> std::optional<UrltestState> {
+            return tag == "auto" ? std::optional<UrltestState>{state} : std::nullopt;
+        });
+
+    REQUIRE(response.outbounds.size() == 4);
+    const auto& balanced = response.outbounds[3];
+    CHECK(balanced.status == api::ResolverLiveStatus::HEALTHY);
+    REQUIRE(balanced.interfaces.size() == 3);
+    CHECK(balanced.interfaces[0].status == api::RuntimeInterfaceStatusEnum::ACTIVE);
+    CHECK(balanced.interfaces[1].status == api::RuntimeInterfaceStatusEnum::ACTIVE);
+    CHECK(balanced.interfaces[2].status == api::RuntimeInterfaceStatusEnum::BACKUP);
+    CHECK(balanced.detail == "balancing new connections across active candidates");
+}
+
 } // namespace keen_pbr3
 
 #endif
