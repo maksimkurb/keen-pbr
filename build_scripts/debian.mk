@@ -7,7 +7,7 @@
 #   DEBIAN_VERSION         — Debian distribution name for build/packages layout
 #   DEBIAN_DOCKER_CACHE_FROM / DEBIAN_DOCKER_CACHE_TO — Optional buildx cache dirs
 
-DEBIAN_VERSION ?= bullseye
+DEBIAN_VERSION ?= bookworm
 DEBIAN_ARCH ?= amd64
 DEBIAN_DOCKER_PLATFORM ?= linux/$(DEBIAN_ARCH)
 DEBIAN_DOCKER_IMAGE ?= keen-pbr-debian-builder:$(DEBIAN_VERSION)-$(DEBIAN_ARCH)
@@ -15,6 +15,10 @@ DEBIAN_DOCKER_CACHE_FROM ?=
 DEBIAN_DOCKER_CACHE_TO   ?=
 DEBIAN_VARIANTS ?= full headless
 DEBIAN_CCACHE_DIR ?= $(abspath build/ccache/$(DEBIAN_VERSION)-$(DEBIAN_ARCH))
+
+ifneq ($(filter bookworm trixie,$(DEBIAN_VERSION)),$(DEBIAN_VERSION))
+$(error Unsupported DEBIAN_VERSION=$(DEBIAN_VERSION); expected bookworm or trixie)
+endif
 
 ifneq ($(filter $(DEBIAN_ARCH),amd64 arm64),$(DEBIAN_ARCH))
 $(error Unsupported DEBIAN_ARCH=$(DEBIAN_ARCH); expected amd64 or arm64)

@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        debian_version: [bullseye, bookworm, trixie]
+        debian_version: [bookworm, trixie]
         debian_arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v6
@@ -73,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        debian_version: [bullseye, bookworm, trixie]
+        debian_version: [bookworm, trixie]
         debian_arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v6
