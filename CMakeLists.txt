@@ -272,6 +272,7 @@ set(SOURCES
   src/runtime/operation_coordinator.cpp
   src/runtime/lifecycle_operation.cpp
   src/firewall/firewall_reconciler.cpp
+  src/firewall/firewall_rule.cpp
   src/lists/ipset.cpp
   src/lists/kernel_set_tester.cpp
   src/lists/list_streamer.cpp
