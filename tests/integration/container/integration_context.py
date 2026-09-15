@@ -22,7 +22,7 @@ TEST_IP6 = "2001:db8:100::10"
 CONTAINER_DIR = pathlib.Path(__file__).resolve().parent
 BASE_CONFIG = CONTAINER_DIR / "config.json"
 TOPOLOGY = CONTAINER_DIR / "topology.sh"
-CONFIG_PATH = pathlib.Path("/etc/keen-pbr/config.json")
+CONFIG_PATH = pathlib.Path(os.environ.get("KPBR_CONFIG_PATH", "/etc/keen-pbr/config.json"))
 REMOTE_CONTAINER_DIR = "/mnt/payload/tests/integration/container"
 
 

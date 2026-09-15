@@ -14,6 +14,7 @@
 namespace keen_pbr3 {
 
 class ListEntryVisitor;
+struct FirewallRuleKey;
 enum class DefaultGatewayFamily : uint8_t { None, Ipv4, Ipv6 };
 
 struct FirewallBalanceCandidate {
@@ -210,6 +211,13 @@ public:
   // criteria: optional match criteria (default = any packet)
   virtual void create_mark_rule(uint32_t fwmark,
                                 const FirewallRuleCriteria &criteria = {}) = 0;
+  // Keyed compatibility entry point used by the canonical plan adapter.
+  // Legacy callers may continue using the unkeyed API.
+  virtual void create_mark_rule(const FirewallRuleKey &key, uint32_t fwmark,
+                                const FirewallRuleCriteria &criteria = {}) {
+    (void)key;
+    create_mark_rule(fwmark, criteria);
+  }
   virtual void create_balance_rule(
       uint32_t fallback_fwmark,
       const std::vector<FirewallBalanceCandidate>& candidates,
@@ -219,14 +227,31 @@ public:
     (void)criteria;
     throw FirewallError("connection balancing requires the nftables firewall backend");
   }
+  virtual void create_balance_rule(
+      const FirewallRuleKey &key, uint32_t fallback_fwmark,
+      const std::vector<FirewallBalanceCandidate> &candidates,
+      const FirewallRuleCriteria &criteria = {}) {
+    (void)key;
+    create_balance_rule(fallback_fwmark, candidates, criteria);
+  }
 
   // Create a firewall rule that drops packets matching the given criteria.
   // Used for blackhole outbounds that don't need routing tables or fwmarks.
   virtual void create_drop_rule(const FirewallRuleCriteria &criteria = {}) = 0;
+  virtual void create_drop_rule(const FirewallRuleKey &key,
+                                const FirewallRuleCriteria &criteria = {}) {
+    (void)key;
+    create_drop_rule(criteria);
+  }
 
   // Create a firewall rule that stops keen-pbr processing for matching packets
   // and leaves them unmodified for normal system routing.
   virtual void create_pass_rule(const FirewallRuleCriteria &criteria = {}) = 0;
+  virtual void create_pass_rule(const FirewallRuleKey &key,
+                                const FirewallRuleCriteria &criteria = {}) {
+    (void)key;
+    create_pass_rule(criteria);
+  }
 
   // Create a batch loader visitor for streaming IP/CIDR entries into a set.
   // Returns a ListEntryVisitor that buffers entries for atomic application.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "firewall.hpp"
+#include "firewall_rule.hpp"
 
 #include <cstdint>
 #include <map>
@@ -37,10 +38,16 @@ public:
   // Buffer an iptables/ip6tables -j MARK --set-mark rule for the given ipset.
   void create_mark_rule(uint32_t fwmark,
                         const FirewallRuleCriteria &criteria = {}) override;
+  void create_mark_rule(const FirewallRuleKey &key, uint32_t fwmark,
+                        const FirewallRuleCriteria &criteria = {}) override;
   // Buffer an iptables/ip6tables -j DROP rule for the given criteria.
   void create_drop_rule(const FirewallRuleCriteria &criteria = {}) override;
+  void create_drop_rule(const FirewallRuleKey &key,
+                        const FirewallRuleCriteria &criteria = {}) override;
   // Buffer an iptables/ip6tables -j RETURN rule for the given criteria.
   void create_pass_rule(const FirewallRuleCriteria &criteria = {}) override;
+  void create_pass_rule(const FirewallRuleKey &key,
+                        const FirewallRuleCriteria &criteria = {}) override;
 
   // Return an IpsetRestoreVisitor that appends 'add' lines to the pending
   // element buffer for set_name; entries are flushed during apply().
@@ -88,13 +95,29 @@ private:
     uint32_t fwmark;                         // only for Mark
     uint32_t fwmark_mask{0xFFFFFFFFu};       // only for Mark
     FirewallRuleCriteria criteria;           // optional packet match criteria
+    // Logical ownership key: every physical role and family/protocol expansion
+    // of one canonical rule intentionally carries the same key.
+    FirewallRuleKey key;
+    // Set during prepare_apply() after the read-only xt_comment probe.  The
+    // default keeps direct builder tests and legacy callers comment-capable.
+    bool comment_supported{true};
   };
 
   enum class LiveGenerationState { A, B, Missing, Invalid };
 
+  struct DispatcherInspection {
+    LiveGenerationState state{LiveGenerationState::Missing};
+    bool references_a{false};
+    bool references_b{false};
+  };
+
   struct GenerationInspection {
     LiveGenerationState primary{LiveGenerationState::Missing};
     LiveGenerationState secondary{LiveGenerationState::Missing};
+    bool primary_references_a{false};
+    bool primary_references_b{false};
+    bool secondary_references_a{false};
+    bool secondary_references_b{false};
   };
 
   struct GenerationPlan {
@@ -161,10 +184,21 @@ private:
   build_rule_lines(const PendingRule &pr,
                    const FirewallGlobalPrefilter &prefilter,
                    const std::string &chain, bool allow_conntrack);
+  bool probe_xt_comment(bool ipv6) const;
+  // Probe a caller-supplied registration file before running the restore
+  // grammar check.  The path parameter is an injectable seam for tests;
+  // production always supplies the corresponding /proc/net file.
+  bool probe_xt_comment_from_registration(
+      bool ipv6, const std::string &registration_path) const;
+  static bool has_xt_comment_registration(const std::string &contents);
+  bool comments_supported_for_family(bool ipv6) const {
+    return ipv6 ? comment_v6_supported_ : comment_v4_supported_;
+  }
   bool ipv6_backend_available() const;
   void validate_raw_prerouting_capability(bool ipv6) const;
-  LiveGenerationState inspect_live_generation(bool ipv6) const;
-  GenerationInspection inspect_generation(bool ipv6) const;
+  DispatcherInspection inspect_live_generation(bool ipv6) const;
+  GenerationInspection inspect_generation(bool ipv6,
+                                          bool allow_invalid = false) const;
   StaticSetInspection inspect_static_sets(
       bool ipv6, const GenerationInspection &inspection) const;
   static StaticSetInspection parse_static_set_references(
@@ -176,7 +210,7 @@ private:
       FirewallSetGeneration rule_target);
   static void validate_target_generation(const GenerationPlan &plan,
                                          FirewallSetGeneration expected);
-  LiveGenerationState inspect_dispatcher(
+  DispatcherInspection inspect_dispatcher(
       const char *command, const char *table, const std::string &dispatcher,
       const std::string &generation_a,
       const std::string &generation_b) const;
@@ -190,6 +224,9 @@ private:
   parse_live_generation(const std::string &rules, const std::string &dispatcher,
                         const std::string &generation_a,
                         const std::string &generation_b);
+  static DispatcherInspection parse_live_generation_details(
+      const std::string &rules, const std::string &dispatcher,
+      const std::string &generation_a, const std::string &generation_b);
   static FirewallSetGeneration
   target_generation_for_states(LiveGenerationState primary,
                                LiveGenerationState secondary);
@@ -218,7 +255,8 @@ private:
   // semantics when combined).
   void append_rules_for_family(bool ipv6, PendingRule::Action action,
                                uint32_t fwmark,
-                               const FirewallRuleCriteria &criteria);
+                               const FirewallRuleCriteria &criteria,
+                               const FirewallRuleKey &key = {});
 
   // Sets queued for creation, flushed by apply().
   std::vector<PendingSet> pending_sets_;
@@ -244,6 +282,8 @@ private:
   bool static_generations_prepared_{false};
   FirewallApplyMode prepared_mode_{FirewallApplyMode::Destructive};
   bool apply_prepared_{false};
+  bool comment_v4_supported_{true};
+  bool comment_v6_supported_{true};
   RawPreroutingMode raw_prerouting_{};
 
 #ifdef KEEN_PBR3_TESTING

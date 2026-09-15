@@ -30,6 +30,12 @@ public:
     replayed.push_back(criteria.apply_output ? "dns" : "route");
   }
 
+  void create_mark_rule(const FirewallRuleKey& key, uint32_t mark,
+                        const FirewallRuleCriteria& criteria) override {
+    seen_key = key;
+    create_mark_rule(mark, criteria);
+  }
+
   void create_balance_rule(
       uint32_t mark, const std::vector<FirewallBalanceCandidate>& candidates,
       const FirewallRuleCriteria& criteria) override {
@@ -56,6 +62,7 @@ public:
   FirewallBackend backend() const override { return FirewallBackend::nftables; }
 
   uint32_t seen_mark{0};
+  FirewallRuleKey seen_key;
   FirewallRuleCriteria seen_criteria;
   std::vector<FirewallBalanceCandidate> seen_candidates;
   std::vector<std::string> replayed;
@@ -135,6 +142,7 @@ TEST_CASE("Firewall plan adapter resolves logical sets and preserves actions") {
   PlanFirewall firewall;
   replay_firewall_plan(plan, firewall);
   CHECK(firewall.seen_mark == 0x100U);
+  CHECK(firewall.seen_key == marked.key);
   CHECK(firewall.seen_criteria.dst_set_name == "kpbr4S_remote");
   CHECK(firewall.fwmark_mask() == 0xFF00U);
 }

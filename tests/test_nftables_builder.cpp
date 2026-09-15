@@ -234,13 +234,15 @@ public:
                                              ProtoPortFilter filter = {},
                                              uint32_t fwmark_mask = 0xFFFFFFFFu,
                                              bool direct = false,
-                                             bool save_conntrack_mark = false) {
+                                             bool save_conntrack_mark = false,
+                                             FirewallRuleKey key = {}) {
     NftablesFirewall::PendingRule pr;
     pr.family = family;
     pr.action = NftablesFirewall::PendingRule::Mark;
     pr.fwmark = fwmark;
     pr.fwmark_mask = fwmark_mask;
     pr.save_conntrack_mark = save_conntrack_mark;
+    pr.key = std::move(key);
     pr.criteria = filter;
     if (!direct && !set_name.empty()) {
       pr.criteria.dst_set_name = set_name;
@@ -711,6 +713,31 @@ TEST_CASE("build_mark_rule_json: IPv4 mark rule") {
   CHECK(expr[2]["mangle"]["key"]["meta"]["key"] == "mark");
   CHECK(expr[2]["mangle"]["value"] == 256);
   CHECK(expr[3].contains("accept"));
+}
+
+TEST_CASE("build_rule_json: keyed IPv4/IPv6 policy rules carry comments") {
+  const FirewallRuleKey key{"route.mark", "outbound"};
+  const auto v4 = T::build_mark_rule_json("myset", AF_INET, 256, {},
+                                          0xFFFFFFFFu, false, false, key);
+  const auto v6 = T::build_mark_rule_json("v6set", AF_INET6, 512, {},
+                                          0xFFFFFFFFu, false, false, key);
+  CHECK(v4["add"]["rule"]["comment"] == key.comment());
+  CHECK(v6["add"]["rule"]["comment"] == key.comment());
+
+  ProtoPortFilter output_filter;
+  output_filter.apply_output = true;
+  const auto output = T::build_mark_rule_json(
+      "myset", AF_INET, 256, output_filter, 0xFFFFFFFFu, false, false, key);
+  CHECK(output["add"]["rule"]["chain"] == "output");
+  CHECK(output["add"]["rule"]["comment"] == key.comment());
+
+  const FirewallRuleKey max_key{std::string(128, 'm'), std::string(118, 'i')};
+  const auto max_rule = T::build_mark_rule_json(
+      "myset", AF_INET, 256, {}, 0xFFFFFFFFu, false, false, max_key);
+  CHECK(max_rule["add"]["rule"]["comment"] == max_key.comment());
+  CHECK_THROWS(T::build_mark_rule_json(
+      "myset", AF_INET, 256, {}, 0xFFFFFFFFu, false, false,
+      FirewallRuleKey{"route\\mark", "outbound"}));
 }
 
 TEST_CASE("build_mark_rule_json: IPv6 mark rule") {

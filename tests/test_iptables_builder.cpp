@@ -17,6 +17,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -69,6 +70,7 @@ public:
     enum Action { Mark, Drop, Pass } action;
     uint32_t fwmark;
     ProtoPortFilter filter;
+    FirewallRuleKey key;
   };
 
   static std::string build_ipset_create_line(const std::string &name,
@@ -190,6 +192,7 @@ public:
         pr.action = IptablesFirewall::PendingRule::Pass;
       }
       pr.fwmark = d.fwmark;
+      pr.key = d.key;
       pr.criteria = d.filter;
       if (!d.set_name.empty()) {
         pr.criteria.dst_set_name = d.set_name;
@@ -222,6 +225,7 @@ public:
           : d.action == RuleDesc::Drop ? IptablesFirewall::PendingRule::Drop
                                        : IptablesFirewall::PendingRule::Pass;
       pr.fwmark = d.fwmark;
+      pr.key = d.key;
       pr.criteria = d.filter;
       if (!d.set_name.empty())
         pr.criteria.dst_set_name = d.set_name;
@@ -243,6 +247,7 @@ public:
           : d.action == RuleDesc::Drop ? IptablesFirewall::PendingRule::Drop
                                        : IptablesFirewall::PendingRule::Pass;
       pr.fwmark = d.fwmark;
+      pr.key = d.key;
       pr.criteria = d.filter;
       if (!d.set_name.empty())
         pr.criteria.dst_set_name = d.set_name;
@@ -269,6 +274,7 @@ public:
                             ? IptablesFirewall::PendingRule::Drop
                             : IptablesFirewall::PendingRule::Pass;
       pr.fwmark = d.fwmark;
+      pr.key = d.key;
       pr.criteria = d.filter;
       if (!d.set_name.empty()) pr.criteria.dst_set_name = d.set_name;
       rules.push_back(std::move(pr));
@@ -289,6 +295,15 @@ public:
       const std::string &generation_a, const std::string &generation_b) {
     return static_cast<int>(IptablesFirewall::parse_live_generation(
         rules, dispatcher, generation_a, generation_b));
+  }
+
+  static std::pair<bool, bool> live_generation_references(
+      const std::string &rules, const std::string &dispatcher = "KeenPbrTable",
+      const std::string &generation_a = "KeenPbrTable_A",
+      const std::string &generation_b = "KeenPbrTable_B") {
+    const auto details = IptablesFirewall::parse_live_generation_details(
+        rules, dispatcher, generation_a, generation_b);
+    return {details.references_a, details.references_b};
   }
 
   static int state_a() {
@@ -337,6 +352,11 @@ public:
         static_cast<IptablesFirewall::LiveGenerationState>(secondary));
   }
 
+  static FirewallSetGeneration prepared_v4_target(
+      const IptablesFirewall &firewall) {
+    return firewall.target_v4_generation_;
+  }
+
   static FirewallSetGeneration plan_target_for_states(int primary,
                                                       int secondary) {
     return IptablesFirewall::generation_plan_for_states(
@@ -377,11 +397,23 @@ public:
     return IptablesFirewall::count_exact_jump(rules, source, target);
   }
 
+  static bool has_xt_comment_registration(const std::string &contents) {
+    return IptablesFirewall::has_xt_comment_registration(contents);
+  }
+
+  static bool probe_xt_comment_from_registration(
+      const IptablesFirewall &firewall, bool ipv6,
+      const std::string &registration_path) {
+    return firewall.probe_xt_comment_from_registration(ipv6,
+                                                        registration_path);
+  }
+
   static std::string
   build_ipt_script_for_rule(bool ipv6, RuleDesc::Action action, uint32_t fwmark,
                             FirewallRuleCriteria criteria, bool list_backed,
                             uint32_t fwmark_mask = 0xFFFFFFFFu,
-                            FirewallGlobalPrefilter prefilter = {}) {
+                            FirewallGlobalPrefilter prefilter = {},
+                            FirewallRuleKey key = {}) {
     IptablesFirewall fw;
     fw.set_fwmark_mask(fwmark_mask);
     if (list_backed) {
@@ -397,7 +429,7 @@ public:
       mapped_action = IptablesFirewall::PendingRule::Pass;
     }
 
-    fw.append_rules_for_family(ipv6, mapped_action, fwmark, criteria);
+    fw.append_rules_for_family(ipv6, mapped_action, fwmark, criteria, key);
     return IptablesFirewall::build_ipt_script(
         ipv6, FirewallSetGeneration::A, fw.pending_rules_, prefilter);
   }
@@ -977,6 +1009,7 @@ TEST_CASE("Destructive apply preserves compatible dynamic schemas") {
     write_executable(
         sandbox / "iptables-restore",
         "#!/bin/sh\n"
+        "if [ \"$1\" = \"--test\" ]; then /bin/cat >/dev/null; exit 0; fi\n"
         "/bin/cat >/dev/null\n"
         "exit 0\n");
     write_executable(
@@ -1096,6 +1129,7 @@ TEST_CASE("RulesOnly stale generation is typed and does not repair OUTPUT") {
   write_executable(
       sandbox / "iptables-restore",
       "#!/bin/sh\n"
+      "if [ \"$1\" = \"--test\" ]; then /bin/cat >/dev/null; exit 0; fi\n"
       "/bin/printf '%s\\n' invoked >> '" + restore_log.string() + "'\n"
       "exit 0\n");
 
@@ -1188,6 +1222,7 @@ TEST_CASE("consecutive RulesOnly applies flip rule slots while reusing static A"
       "count_file='" + restore_count_file.string() + "'\n"
       "restore_log='" + restore_log.string() + "'\n"
       "count=0\n"
+      "if [ \"$1\" = \"--test\" ]; then /bin/cat >/dev/null; exit 0; fi\n"
       "if [ -f \"$count_file\" ]; then count=$(/bin/cat \"$count_file\"); fi\n"
       "count=$((count + 1))\n"
       "/bin/printf '%s\\n' \"$count\" > \"$count_file\"\n"
@@ -1294,6 +1329,311 @@ TEST_CASE("live generation parser rejects damaged dispatchers") {
         T::state_invalid());
 }
 
+TEST_CASE("damaged dispatcher retains conservative generation references") {
+  const auto only_a = T::live_generation_references(
+      "-A KeenPbrTable -j KeenPbrTable_A\n"
+      "-A KeenPbrTable -j RETURN\n");
+  CHECK(only_a == std::pair<bool, bool>{true, false});
+
+  const auto both = T::live_generation_references(
+      "-A KeenPbrTable -j KeenPbrTable_A\n"
+      "-A KeenPbrTable -j KeenPbrTable_B\n");
+  CHECK(both == std::pair<bool, bool>{true, true});
+
+  const auto conditional = T::live_generation_references(
+      "-A KeenPbrTable -m comment --comment foreign -j KeenPbrTable_A\n");
+  CHECK(conditional == std::pair<bool, bool>{true, false});
+
+  const auto goto_a = T::live_generation_references(
+      "-A KeenPbrTable -g KeenPbrTable_A\n");
+  CHECK(goto_a == std::pair<bool, bool>{true, false});
+
+  const auto long_goto_b = T::live_generation_references(
+      "-A KeenPbrTable --goto KeenPbrTable_B\n");
+  CHECK(long_goto_b == std::pair<bool, bool>{false, true});
+
+  const auto compact_goto_a = T::live_generation_references(
+      "-A KeenPbrTable -gKeenPbrTable_A\n");
+  CHECK(compact_goto_a == std::pair<bool, bool>{true, false});
+
+  const auto equals_jump_b = T::live_generation_references(
+      "-A KeenPbrTable --jump=KeenPbrTable_B\n");
+  CHECK(equals_jump_b == std::pair<bool, bool>{false, true});
+}
+
+TEST_CASE("damaged dispatcher goto preserves reachable generation") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-goto-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox);
+  write_executable(
+      sandbox / "iptables",
+      "#!/bin/sh\n"
+      "last=''\n"
+      "for arg in \"$@\"; do last=\"$arg\"; done\n"
+      "if [ \"$last\" = \"-S\" ]; then\n"
+      "  /bin/printf '%s\\n' '-N KeenPbrTable' '-A KeenPbrTable --goto KeenPbrTable_A' '-A KeenPbrTable -j RETURN' '-N KeenPbrTable_OUTPUT' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_A'\n"
+      "fi\n"
+      "exit 0\n");
+  write_executable(sandbox / "iptables-restore",
+                   "#!/bin/sh\n/bin/cat >/dev/null\nexit 0\n");
+  write_executable(sandbox / "ipset", "#!/bin/sh\nexit 0\n");
+
+  PathGuard path_guard;
+  const char *old_path = std::getenv("PATH");
+  const std::string path = sandbox.string() + ":" +
+                           (old_path == nullptr ? std::string{} : old_path);
+  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+
+  IptablesFirewall firewall;
+  firewall.set_ipv6_enabled(false);
+  firewall.prepare_apply(FirewallApplyMode::PreserveSets);
+  CHECK(T::prepared_v4_target(firewall) == FirewallSetGeneration::B);
+  const auto script = T::build_replacement_script();
+  CHECK(script.find("-F KeenPbrTable_A\n") == std::string::npos);
+  CHECK(script.find("-F KeenPbrTable_B\n") != std::string::npos);
+  std::filesystem::remove_all(sandbox);
+}
+
+TEST_CASE("xt_comment registration parser requires an exact token") {
+  CHECK(T::has_xt_comment_registration("comment\n"));
+  CHECK(T::has_xt_comment_registration("state\tcomment\t\n"));
+  CHECK_FALSE(T::has_xt_comment_registration("xt_comment\n"));
+  CHECK_FALSE(T::has_xt_comment_registration("comment_extra\n"));
+  CHECK_FALSE(T::has_xt_comment_registration("mycomment\n"));
+  CHECK_FALSE(T::has_xt_comment_registration("commentary\n"));
+}
+
+TEST_CASE("xt_comment preflight fails closed for missing or unreadable registration") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-comment-proc-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox / "directory");
+
+  IptablesFirewall firewall;
+  CHECK_FALSE(T::probe_xt_comment_from_registration(
+      firewall, false, (sandbox / "missing").string()));
+  CHECK_FALSE(T::probe_xt_comment_from_registration(
+      firewall, false, (sandbox / "directory").string()));
+
+  std::filesystem::remove_all(sandbox);
+}
+
+TEST_CASE("xt_comment preflight keeps family registration independent") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-comment-family-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox);
+  const auto command_log = sandbox / "commands.log";
+  {
+    std::ofstream v4(sandbox / "ip_tables_matches");
+    REQUIRE(v4.good());
+    v4 << "comment\n";
+  }
+  {
+    std::ofstream v6(sandbox / "ip6_tables_matches");
+    REQUIRE(v6.good());
+    v6 << "comment_extra\n";
+  }
+  write_executable(
+      sandbox / "iptables-restore",
+      "#!/bin/sh\n"
+      "if [ \"$1\" = \"--test\" ]; then\n"
+      "  /bin/printf '%s\\n' \"$0\" >> '" + command_log.string() + "'\n"
+      "  /bin/cat >/dev/null\n"
+      "  exit 1\n"
+      "fi\n"
+      "exit 0\n");
+  write_executable(sandbox / "ip6tables-restore",
+                   "#!/bin/sh\n"
+                   "/bin/printf '%s\\n' \"$0\" >> '" +
+                       command_log.string() +
+                       "'\n"
+                       "exit 0\n");
+
+  PathGuard path_guard;
+  const char *old_path = std::getenv("PATH");
+  const std::string path = sandbox.string() + ":" +
+                           (old_path == nullptr ? std::string{} : old_path);
+  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+
+  IptablesFirewall firewall;
+  CHECK_FALSE(T::probe_xt_comment_from_registration(
+      firewall, false, (sandbox / "ip_tables_matches").string()));
+  CHECK_FALSE(T::probe_xt_comment_from_registration(
+      firewall, true, (sandbox / "ip6_tables_matches").string()));
+
+  std::ifstream log_input(command_log);
+  std::ostringstream log;
+  log << log_input.rdbuf();
+  CHECK(log.str().find("iptables-restore") != std::string::npos);
+  CHECK(log.str().find("ip6tables-restore") == std::string::npos);
+  std::filesystem::remove_all(sandbox);
+}
+
+TEST_CASE("xt_comment restore grammar failure is a safe fallback") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-comment-restore-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox);
+  const auto command_log = sandbox / "commands.log";
+  {
+    std::ofstream registration(sandbox / "ip_tables_matches");
+    REQUIRE(registration.good());
+    registration << "comment\n";
+  }
+  write_executable(
+      sandbox / "iptables-restore",
+      "#!/bin/sh\n"
+      "if [ \"$1\" = \"--test\" ]; then\n"
+      "  /bin/printf '%s\\n' probe-restore >> '" + command_log.string() + "'\n"
+      "  /bin/cat >/dev/null\n"
+      "  exit 1\n"
+      "fi\n"
+      "exit 0\n");
+
+  PathGuard path_guard;
+  const char *old_path = std::getenv("PATH");
+  const std::string path = sandbox.string() + ":" +
+                           (old_path == nullptr ? std::string{} : old_path);
+  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+
+  IptablesFirewall firewall;
+  CHECK_FALSE(T::probe_xt_comment_from_registration(
+      firewall, false, (sandbox / "ip_tables_matches").string()));
+  std::ifstream log_input(command_log);
+  std::ostringstream log;
+  log << log_input.rdbuf();
+  CHECK(log.str().find("probe-restore") != std::string::npos);
+  std::filesystem::remove_all(sandbox);
+}
+
+TEST_CASE("unsupported xt_comment omits comments without changing apply") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-no-comment-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox);
+  const auto command_log = sandbox / "commands.log";
+  const auto restore_log = sandbox / "restore.rules";
+
+  const auto write_iptables = [&](const std::filesystem::path &path) {
+    write_executable(
+        path,
+        "#!/bin/sh\n"
+        "log='" + command_log.string() + "'\n"
+        "last=''\n"
+        "for arg in \"$@\"; do last=\"$arg\"; done\n"
+        "case \"$last\" in\n"
+        "  -S) /bin/printf '%s\\n' '-N KeenPbrTable' '-A KeenPbrTable -j KeenPbrTable_A' '-N KeenPbrTable_OUTPUT' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_A' ;;\n"
+        "  PREROUTING) /bin/printf '%s\\n' '-A PREROUTING -j KeenPbrTable' ;;\n"
+        "  OUTPUT) /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrTable_OUTPUT' ;;\n"
+        "  KeenPbrTable) /bin/printf '%s\\n' '-N KeenPbrTable' '-A KeenPbrTable -j KeenPbrTable_A' ;;\n"
+        "  KeenPbrTable_OUTPUT) /bin/printf '%s\\n' '-N KeenPbrTable_OUTPUT' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_A' ;;\n"
+        "esac\n"
+        "exit 0\n");
+  };
+  write_iptables(sandbox / "iptables");
+  write_iptables(sandbox / "ip6tables");
+  write_executable(
+      sandbox / "ipset",
+      "#!/bin/sh\n"
+      "log='" + command_log.string() + "'\n"
+      "if [ \"$1\" = \"save\" ]; then exit 0; fi\n"
+      "if [ \"$1\" = \"restore\" ]; then\n"
+      "  /bin/printf '%s\\n' ipset-restore >> \"$log\"\n"
+      "  /bin/cat >/dev/null\n"
+      "  exit 0\n"
+      "fi\n"
+      "if [ \"$1\" = \"flush\" ] || [ \"$1\" = \"destroy\" ]; then\n"
+      "  /bin/printf '%s\\n' ipset-mutation >> \"$log\"\n"
+      "fi\n"
+      "exit 0\n");
+  write_executable(
+      sandbox / "iptables-restore",
+      "#!/bin/sh\n"
+      "if [ \"$1\" = \"--test\" ]; then\n"
+      "  /bin/printf '%s\\n' probe-restore >> '" + command_log.string() + "'\n"
+      "  /bin/cat >/dev/null\n"
+      "  exit 1\n"
+      "fi\n"
+      "/bin/printf '%s\\n' restore >> '" + command_log.string() + "'\n"
+      "/bin/cat > '" + restore_log.string() + "'\n"
+      "exit 0\n");
+
+  PathGuard path_guard;
+  const char *old_path = std::getenv("PATH");
+  const std::string path = sandbox.string() + ":" +
+                           (old_path == nullptr ? std::string{} : old_path);
+  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+
+  IptablesFirewall firewall;
+  firewall.set_ipv6_enabled(false);
+  firewall.set_clear_dynamic_sets_on_apply(false);
+  firewall.prepare_apply(FirewallApplyMode::Destructive);
+  firewall.create_ipset("kpbr4s_comment_test", AF_INET);
+  FirewallRuleCriteria criteria;
+  criteria.dst_set_name = "kpbr4s_comment_test";
+  firewall.create_mark_rule(FirewallRuleKey{"route.mark", "outbound"}, 7,
+                            criteria);
+  CHECK_NOTHROW(firewall.apply(FirewallApplyMode::Destructive));
+
+  std::ifstream commands_input(command_log);
+  std::ostringstream commands;
+  commands << commands_input.rdbuf();
+  std::ifstream restore_input(restore_log);
+  std::ostringstream restore;
+  restore << restore_input.rdbuf();
+  const auto command_text = commands.str();
+  CHECK(command_text.find("restore") != std::string::npos);
+  if (command_text.find("probe") != std::string::npos) {
+    CHECK(command_text.find("probe") < command_text.find("restore"));
+  }
+  if (command_text.find("probe-restore") != std::string::npos) {
+    CHECK(command_text.find("probe-restore") <
+          command_text.find("ipset-restore"));
+  }
+  CHECK(restore.str().find("-m comment") == std::string::npos);
+  std::filesystem::remove_all(sandbox);
+}
+
+TEST_CASE("ambiguous damaged dispatcher fails before PreserveSets mutation") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-ambiguous-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox);
+  const auto mutation_log = sandbox / "mutation.log";
+  write_executable(
+      sandbox / "iptables",
+      "#!/bin/sh\n"
+      "if [ \"$1\" = \"-m\" ] && [ \"$2\" = \"comment\" ]; then exit 0; fi\n"
+      "/bin/printf '%s\\n' '-A KeenPbrTable --goto KeenPbrTable_A' '-A KeenPbrTable -j KeenPbrTable_B' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_A' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_B'\n"
+      "exit 0\n");
+  write_executable(
+      sandbox / "ipset",
+      "#!/bin/sh\n"
+      "/bin/printf '%s\\n' mutation >> '" + mutation_log.string() + "'\n"
+      "exit 0\n");
+
+  PathGuard path_guard;
+  const char *old_path = std::getenv("PATH");
+  const std::string path = sandbox.string() + ":" +
+                           (old_path == nullptr ? std::string{} : old_path);
+  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+
+  IptablesFirewall firewall;
+  firewall.set_ipv6_enabled(false);
+  CHECK_THROWS_AS(firewall.prepare_apply(FirewallApplyMode::PreserveSets),
+                  FirewallError);
+  CHECK_FALSE(std::filesystem::exists(mutation_log));
+  std::filesystem::remove_all(sandbox);
+}
+
 TEST_CASE("target generation accounts for both dispatchers") {
   CHECK(T::target_for_states(T::state_missing(), T::state_missing()) ==
         FirewallSetGeneration::A);
@@ -1345,6 +1685,55 @@ TEST_CASE("build_ipt_script: IPv4 mark rule") {
         std::string::npos);
   CHECK(s.size() >= 7);
   CHECK(s.substr(s.size() - 7) == "COMMIT\n");
+}
+
+TEST_CASE("build_ipt_script: keyed policy rules carry validated ownership comments") {
+  const FirewallRuleKey key{"route.mark", "outbound"};
+  const auto script = T::build_ipt_script_for_rule(
+      false, Rule::Mark, 0x100, {}, false, 0xFFFFFFFFu, {}, key);
+  CHECK(script.find(
+            "-m comment --comment kpbr:v1:route.mark:outbound -j MARK") !=
+        std::string::npos);
+  CHECK(script.find(
+            "-m comment --comment kpbr:v1:route.mark:outbound -j RETURN") !=
+        std::string::npos);
+
+  const FirewallRuleKey max_key{std::string(128, 'm'), std::string(118, 'i')};
+  const auto max_script = T::build_ipt_script_for_rule(
+      true, Rule::Drop, 0, {}, false, 0xFFFFFFFFu, {}, max_key);
+  CHECK(max_script.find(max_key.comment()) != std::string::npos);
+
+  const Rule keyed_rule{"kpbr4_policy", false, false, Rule::Mark, 0x100, {}, key};
+  const auto raw_script = T::build_raw_script({keyed_rule});
+  CHECK(raw_script.find(
+            "-m comment --comment kpbr:v1:route.mark:outbound -j MARK") !=
+        std::string::npos);
+  const auto output_script = T::build_output_script_for_family(
+      false, {keyed_rule});
+  CHECK(output_script.find(
+            "-m comment --comment kpbr:v1:route.mark:outbound -j MARK") !=
+        std::string::npos);
+
+  FirewallRuleCriteria bundle_filter;
+  bundle_filter.proto = L4Proto::TcpUdp;
+  FirewallGlobalPrefilter bundle_prefilter;
+  bundle_prefilter.restore_conntrack_mark = true;
+  bundle_prefilter.conntrack_mark_mask = 0xFF00U;
+  const auto bundle_script = T::build_ipt_script_for_rule(
+      false, Rule::Mark, 0x100, bundle_filter, false, 0xFFFFFFFFu,
+      bundle_prefilter, key);
+  const std::string comment = "-m comment --comment " + key.comment();
+  std::size_t comment_count = 0;
+  for (std::size_t position = bundle_script.find(comment);
+       position != std::string::npos;
+       position = bundle_script.find(comment, position + comment.size())) {
+    ++comment_count;
+  }
+  CHECK(comment_count == 6);
+
+  CHECK_THROWS(T::build_ipt_script_for_rule(
+      false, Rule::Pass, 0, {}, false, 0xFFFFFFFFu, {},
+      FirewallRuleKey{"route\"mark", "outbound"}));
 }
 
 TEST_CASE("build_ipt_script: IPv4 drop rule") {

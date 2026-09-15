@@ -173,14 +173,14 @@ void replay_firewall_rule(const FirewallRuleInstance& rule, Firewall& firewall) 
   const FirewallRuleCriteria criteria =
       materialize_criteria(rule.criteria, firewall);
   if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
-    firewall.create_mark_rule(mark->value, criteria);
+    firewall.create_mark_rule(rule.key, mark->value, criteria);
   } else if (const auto* balance = std::get_if<BalanceAction>(&rule.action)) {
-    firewall.create_balance_rule(balance->fallback_mark, balance->candidates,
-                                 criteria);
+    firewall.create_balance_rule(rule.key, balance->fallback_mark,
+                                 balance->candidates, criteria);
   } else if (std::get<VerdictAction>(rule.action) == VerdictAction::drop) {
-    firewall.create_drop_rule(criteria);
+    firewall.create_drop_rule(rule.key, criteria);
   } else {
-    firewall.create_pass_rule(criteria);
+    firewall.create_pass_rule(rule.key, criteria);
   }
 }
 

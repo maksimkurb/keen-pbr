@@ -115,6 +115,31 @@ TEST_CASE("parse_iptables_s: mark rule with hex fwmark") {
     CHECK(state.rules[0].fwmark == 0x10000u);
 }
 
+TEST_CASE("parsers retain ownership comments without changing semantics") {
+    const auto iptables = parse_iptables_s(
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m set --match-set kpbr4_set dst "
+        "-m comment --comment kpbr:v1:route.mark:wan "
+        "-j MARK --set-xmark 0x100/0xffffffff\n");
+    REQUIRE(iptables.rules.size() == 1);
+    CHECK(iptables.rules[0].comment ==
+          std::optional<std::string>{"kpbr:v1:route.mark:wan"});
+
+    const auto nft = parse_nft_json(R"({"nftables":[
+      {"table":{"family":"inet","name":"KeenPbrTable"}},
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"prerouting",
+                  "type":"filter","hook":"prerouting"}},
+      {"rule":{"family":"inet","table":"KeenPbrTable","chain":"prerouting",
+                "comment":"kpbr:v1:route.mark:wan",
+                "expr":[{"match":{"op":"==","left":{"payload":{"protocol":"ip","field":"daddr"}},"right":"@kpbr4_set"}},
+                        {"mangle":{"key":{"meta":{"key":"mark"}},"value":256}},
+                        {"accept":null}]}}
+    ]})");
+    REQUIRE(nft.rules.size() == 1);
+    CHECK(nft.rules[0].comment ==
+          std::optional<std::string>{"kpbr:v1:route.mark:wan"});
+}
+
 TEST_CASE("parse_iptables_s: mark rule with full-width xmark") {
     const std::string input =
         "-N KeenPbrTable\n"
@@ -431,7 +456,8 @@ TEST_CASE("parse_nft_json: wrong table name returns empty state") {
 TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule ok") {
     const std::string chain_rules =
         "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-mark 65536\n";
+        "-A KeenPbrTable -m set --match-set set1 dst -m comment "
+        "--comment kpbr:v1:route.mark:set1 -j MARK --set-mark 65536\n";
     const std::string prerouting =
         "-P PREROUTING ACCEPT\n"
         "-A PREROUTING -j KeenPbrTable\n";
@@ -525,7 +551,8 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule missing") {
 TEST_CASE("IptablesFirewallVerifier::verify_rules: fwmark mismatch") {
     const std::string chain_rules =
         "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-mark 65536\n";
+        "-A KeenPbrTable -m set --match-set set1 dst -m comment "
+        "--comment kpbr:v1:route.mark:set1 -j MARK --set-mark 65536\n";
 
     auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
         if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
@@ -850,6 +877,7 @@ TEST_CASE("NftablesFirewallVerifier::verify_rules: mark rule ok") {
                        "type": "filter", "hook": "prerouting"}},
             {"rule": {
                 "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
+                "comment": "kpbr:v1:route.mark:myset",
                 "expr": [
                     {"match": {"op": "==",
                                "left": {"payload": {"protocol": "ip", "field": "daddr"}},
@@ -880,6 +908,46 @@ TEST_CASE("NftablesFirewallVerifier::verify_rules: mark rule ok") {
     CHECK(checks[0].status == CheckStatus::ok);
     CHECK(checks[0].actual_fwmark.has_value());
     CHECK(*checks[0].actual_fwmark == 131072u);
+}
+
+TEST_CASE("NftablesFirewallVerifier: setter jump with comment remains a mark rule") {
+    const std::string canned = R"({
+        "nftables": [
+            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
+                       "type": "filter", "hook": "prerouting"}},
+            {"rule": {
+                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
+                "comment": "kpbr:v1:route.mark:myset",
+                "expr": [
+                    {"match": {"op": "==",
+                               "left": {"payload": {"protocol": "ip", "field": "daddr"}},
+                               "right": "@set1"}},
+                    {"jump": {"target": "setmark_00020000"}}
+                ]
+            }}
+        ]
+    })";
+
+    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
+                                "prerouting"})) {
+            return command_result(canned);
+        }
+        return command_result({}, 1);
+    };
+    NftablesFirewallVerifier verifier(runner);
+
+    RuleState rs;
+    rs.rule_index = 0;
+    rs.set_names = {"set1"};
+    rs.action_type = RuleActionType::Mark;
+    rs.fwmark = 0x20000U;
+
+    const auto checks = verifier.verify_rules({rs});
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::ok);
+    REQUIRE(checks[0].actual_fwmark.has_value());
+    CHECK(*checks[0].actual_fwmark == 0x20000U);
 }
 
 TEST_CASE("NftablesFirewallVerifier::verify_rules: direct dscp mark rule ok") {
@@ -1038,6 +1106,7 @@ TEST_CASE("NftablesFirewallVerifier::verify_rules: fwmark mismatch") {
                        "type": "filter", "hook": "prerouting"}},
             {"rule": {
                 "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
+                "comment": "kpbr:v1:route.mark:myset",
                 "expr": [
                     {"match": {"op": "==",
                                "left": {"payload": {"protocol": "ip", "field": "daddr"}},

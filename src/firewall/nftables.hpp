@@ -1,6 +1,7 @@
 #pragma once
 
 #include "firewall.hpp"
+#include "firewall_rule.hpp"
 
 #include <cstdint>
 #include <map>
@@ -28,15 +29,25 @@ public:
     // Buffer a meta mark set rule that matches the given criteria.
     void create_mark_rule(uint32_t fwmark,
                           const FirewallRuleCriteria& criteria = {}) override;
+    void create_mark_rule(const FirewallRuleKey& key, uint32_t fwmark,
+                          const FirewallRuleCriteria& criteria = {}) override;
     void create_balance_rule(
         uint32_t fallback_fwmark,
+        const std::vector<FirewallBalanceCandidate>& candidates,
+        const FirewallRuleCriteria& criteria = {}) override;
+    void create_balance_rule(
+        const FirewallRuleKey& key, uint32_t fallback_fwmark,
         const std::vector<FirewallBalanceCandidate>& candidates,
         const FirewallRuleCriteria& criteria = {}) override;
     void set_owned_marks(const std::vector<uint32_t>& marks) override;
     // Buffer a drop verdict rule that matches the given criteria.
     void create_drop_rule(const FirewallRuleCriteria& criteria = {}) override;
+    void create_drop_rule(const FirewallRuleKey& key,
+                          const FirewallRuleCriteria& criteria = {}) override;
     // Buffer a pass-through verdict rule that matches the given criteria.
     void create_pass_rule(const FirewallRuleCriteria& criteria = {}) override;
+    void create_pass_rule(const FirewallRuleKey& key,
+                          const FirewallRuleCriteria& criteria = {}) override;
 
     // Return an NftBatchVisitor that appends element values to the pending
     // element buffer for set_name; elements are flushed during apply().
@@ -91,6 +102,9 @@ private:
         bool save_conntrack_mark{false};
         std::vector<uint32_t> balance_marks; // only for Balance
         FirewallRuleCriteria criteria; // optional packet match criteria
+        // Logical ownership key: every physical family/protocol expansion of one
+        // canonical rule intentionally carries the same key.
+        FirewallRuleKey key;
     };
 
     // Build the nftables JSON object for creating the inet KeenPbrTable table.
@@ -147,12 +161,14 @@ private:
     void append_rules_for_family(int family,
                                  PendingRule::Action action,
                                  uint32_t fwmark,
-                                 const FirewallRuleCriteria& criteria);
+                                 const FirewallRuleCriteria& criteria,
+                                 const FirewallRuleKey& key = {});
     void append_balance_rules_for_family(
         int family,
         uint32_t fallback_fwmark,
         const std::vector<FirewallBalanceCandidate>& candidates,
-        const FirewallRuleCriteria& criteria);
+        const FirewallRuleCriteria& criteria,
+        const FirewallRuleKey& key = {});
     static std::string setter_chain_name(uint32_t fwmark);
 
     // Sets queued for creation, flushed by apply().

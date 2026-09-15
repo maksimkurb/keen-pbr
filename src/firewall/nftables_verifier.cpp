@@ -140,6 +140,27 @@ std::optional<uint32_t> parse_nft_mark_value(const nlohmann::json& value) {
     return std::nullopt;
 }
 
+std::optional<uint32_t> parse_setter_chain_mark(const nlohmann::json& value) {
+    if (!value.is_object() || !value.contains("target") ||
+        !value["target"].is_string()) {
+        return std::nullopt;
+    }
+    const std::string target = value["target"].get<std::string>();
+    if (target.rfind("setmark_", 0) != 0) {
+        return std::nullopt;
+    }
+    constexpr std::size_t prefix_length = sizeof("setmark_") - 1U;
+    if (target.size() != prefix_length + 8U) {
+        return std::nullopt;
+    }
+    char* end = nullptr;
+    const auto parsed = std::strtoul(target.c_str() + prefix_length, &end, 16);
+    if (end != target.c_str() + target.size() || parsed > 0xFFFFFFFFUL) {
+        return std::nullopt;
+    }
+    return static_cast<uint32_t>(parsed);
+}
+
 PortSpec parse_nft_port_spec(const nlohmann::json& rhs) {
     if (rhs.is_number_integer() || rhs.is_number_unsigned()) {
         return PortSpec(std::to_string(rhs.get<int64_t>()));
@@ -491,6 +512,9 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
         }
 
         ParsedNftRule nr;
+        if (rule.contains("comment") && rule["comment"].is_string()) {
+            nr.comment = rule["comment"].get<std::string>();
+        }
 
         for (const auto& expr : rule["expr"]) {
             if (!expr.is_object()) continue;
@@ -590,6 +614,15 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                         nr.is_mark = true;
                         nr.fwmark = *parsed_mark;
                     }
+                }
+                continue;
+            }
+
+            if (expr.contains("jump")) {
+                if (const auto parsed_mark = parse_setter_chain_mark(expr["jump"]);
+                    parsed_mark.has_value()) {
+                    nr.is_mark = true;
+                    nr.fwmark = *parsed_mark;
                 }
                 continue;
             }

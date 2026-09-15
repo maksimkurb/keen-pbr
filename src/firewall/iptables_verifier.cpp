@@ -38,6 +38,15 @@ std::vector<std::string> split_ws(const std::string& line) {
     return tokens;
 }
 
+std::string unquote_comment(std::string value) {
+    if (value.size() >= 2 &&
+        ((value.front() == '"' && value.back() == '"') ||
+         (value.front() == '\'' && value.back() == '\''))) {
+        value = value.substr(1, value.size() - 2);
+    }
+    return value;
+}
+
 bool is_ipv6_addr(const std::string& addr) {
     return addr.find(':') != std::string::npos;
 }
@@ -297,6 +306,11 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
             }
             if (tok == "-m" && i + 1 < tokens.size()) {
                 ++i;
+                continue;
+            }
+            if (tok == "--comment" && i + 1 < tokens.size()) {
+                rule.comment = unquote_comment(tokens[++i]);
+                negate_next = false;
                 continue;
             }
             if (tok == "--match-set" && i + 2 < tokens.size()) {

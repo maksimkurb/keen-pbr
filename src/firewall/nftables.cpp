@@ -1,5 +1,6 @@
 #include "nftables.hpp"
 #include "nft_batch_pipe.hpp"
+#include "firewall_rule.hpp"
 #include "port_spec_util.hpp"
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
@@ -49,6 +50,13 @@ bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
         || criteria.default_gateway != DefaultGatewayFamily::None;
 }
 
+void add_rule_comment(nlohmann::json& command, const FirewallRuleKey& key) {
+    if (key.module_id.empty() && key.instance_id.empty()) {
+        return;
+    }
+    command["add"]["rule"]["comment"] = key.comment();
+}
+
 } // namespace
 
 NftablesFirewall::NftablesFirewall() = default;
@@ -89,7 +97,8 @@ void NftablesFirewall::create_ipset(const std::string& set_name, int family,
 void NftablesFirewall::append_rules_for_family(int family,
                                                PendingRule::Action action,
                                                uint32_t fwmark,
-                                               const FirewallRuleCriteria& criteria) {
+                                               const FirewallRuleCriteria& criteria,
+                                               const FirewallRuleKey& key) {
     if (family == AF_INET6 && !ipv6_enabled()) {
         return;
     }
@@ -116,6 +125,7 @@ void NftablesFirewall::append_rules_for_family(int family,
         pr.action = action;
         pr.fwmark = fwmark;
         pr.fwmark_mask = fwmark_mask();
+        pr.key = key;
         pr.criteria = criteria;
         pr.criteria.proto = proto;
         if (!criteria.src_addr.empty()) {
@@ -138,7 +148,8 @@ void NftablesFirewall::append_balance_rules_for_family(
     int family,
     uint32_t fallback_fwmark,
     const std::vector<FirewallBalanceCandidate>& candidates,
-    const FirewallRuleCriteria& criteria) {
+    const FirewallRuleCriteria& criteria,
+    const FirewallRuleKey& key) {
     if (family == AF_INET6 && !ipv6_enabled()) {
         return;
     }
@@ -155,11 +166,13 @@ void NftablesFirewall::append_balance_rules_for_family(
         }
     }
     if (marks.empty()) {
-        append_rules_for_family(family, PendingRule::Mark, fallback_fwmark, criteria);
+        append_rules_for_family(family, PendingRule::Mark, fallback_fwmark,
+                                criteria, key);
         return;
     }
     if (marks.size() == 1) {
-        append_rules_for_family(family, PendingRule::Mark, marks.front(), criteria);
+        append_rules_for_family(family, PendingRule::Mark, marks.front(), criteria,
+                                key);
         return;
     }
 
@@ -169,6 +182,7 @@ void NftablesFirewall::append_balance_rules_for_family(
     pr.fwmark = fallback_fwmark;
     pr.fwmark_mask = fwmark_mask();
     pr.balance_marks = std::move(marks);
+    pr.key = key;
     pr.criteria = criteria;
     pending_rules_.push_back(std::move(pr));
     if (criteria.apply_output &&
@@ -181,37 +195,53 @@ void NftablesFirewall::append_balance_rules_for_family(
 
 void NftablesFirewall::create_mark_rule(uint32_t fwmark,
                                         const FirewallRuleCriteria& criteria) {
+    create_mark_rule(FirewallRuleKey{}, fwmark, criteria);
+}
+
+void NftablesFirewall::create_mark_rule(const FirewallRuleKey& key,
+                                        uint32_t fwmark,
+                                        const FirewallRuleCriteria& criteria) {
     if (criteria.dst_set_name.has_value()) {
         auto it = created_sets_.find(*criteria.dst_set_name);
         int family = (it != created_sets_.end()) ? it->second : AF_INET;
-        append_rules_for_family(family, PendingRule::Mark, fwmark, criteria);
+        append_rules_for_family(family, PendingRule::Mark, fwmark, criteria, key);
         return;
     }
     if (!needs_family_specific_rule(criteria)) {
-        append_rules_for_family(AF_INET, PendingRule::Mark, fwmark, criteria);
+        append_rules_for_family(AF_INET, PendingRule::Mark, fwmark, criteria, key);
         return;
     }
-    append_rules_for_family(AF_INET, PendingRule::Mark, fwmark, criteria);
-    append_rules_for_family(AF_INET6, PendingRule::Mark, fwmark, criteria);
+    append_rules_for_family(AF_INET, PendingRule::Mark, fwmark, criteria, key);
+    append_rules_for_family(AF_INET6, PendingRule::Mark, fwmark, criteria, key);
 }
 
 void NftablesFirewall::create_balance_rule(
     uint32_t fallback_fwmark,
     const std::vector<FirewallBalanceCandidate>& candidates,
     const FirewallRuleCriteria& criteria) {
+    create_balance_rule(FirewallRuleKey{}, fallback_fwmark, candidates, criteria);
+}
+
+void NftablesFirewall::create_balance_rule(
+    const FirewallRuleKey& key, uint32_t fallback_fwmark,
+    const std::vector<FirewallBalanceCandidate>& candidates,
+    const FirewallRuleCriteria& criteria) {
     if (criteria.dst_set_name.has_value()) {
         const auto it = created_sets_.find(*criteria.dst_set_name);
         const int family = it != created_sets_.end() ? it->second : AF_INET;
-        append_balance_rules_for_family(family, fallback_fwmark, candidates, criteria);
+        append_balance_rules_for_family(family, fallback_fwmark, candidates, criteria,
+                                        key);
         return;
     }
     if (!needs_family_specific_rule(criteria)) {
-        append_balance_rules_for_family(AF_INET, fallback_fwmark, candidates, criteria);
-        append_balance_rules_for_family(AF_INET6, fallback_fwmark, candidates, criteria);
+        append_balance_rules_for_family(AF_INET, fallback_fwmark, candidates, criteria,
+                                        key);
+        append_balance_rules_for_family(AF_INET6, fallback_fwmark, candidates, criteria,
+                                        key);
         return;
     }
-    append_balance_rules_for_family(AF_INET, fallback_fwmark, candidates, criteria);
-    append_balance_rules_for_family(AF_INET6, fallback_fwmark, candidates, criteria);
+    append_balance_rules_for_family(AF_INET, fallback_fwmark, candidates, criteria, key);
+    append_balance_rules_for_family(AF_INET6, fallback_fwmark, candidates, criteria, key);
 }
 
 void NftablesFirewall::set_owned_marks(const std::vector<uint32_t>& marks) {
@@ -222,33 +252,43 @@ void NftablesFirewall::set_owned_marks(const std::vector<uint32_t>& marks) {
 }
 
 void NftablesFirewall::create_drop_rule(const FirewallRuleCriteria& criteria) {
+    create_drop_rule(FirewallRuleKey{}, criteria);
+}
+
+void NftablesFirewall::create_drop_rule(const FirewallRuleKey& key,
+                                        const FirewallRuleCriteria& criteria) {
     if (criteria.dst_set_name.has_value()) {
         auto it = created_sets_.find(*criteria.dst_set_name);
         int family = (it != created_sets_.end()) ? it->second : AF_INET;
-        append_rules_for_family(family, PendingRule::Drop, 0, criteria);
+        append_rules_for_family(family, PendingRule::Drop, 0, criteria, key);
         return;
     }
     if (!needs_family_specific_rule(criteria)) {
-        append_rules_for_family(AF_INET, PendingRule::Drop, 0, criteria);
+        append_rules_for_family(AF_INET, PendingRule::Drop, 0, criteria, key);
         return;
     }
-    append_rules_for_family(AF_INET, PendingRule::Drop, 0, criteria);
-    append_rules_for_family(AF_INET6, PendingRule::Drop, 0, criteria);
+    append_rules_for_family(AF_INET, PendingRule::Drop, 0, criteria, key);
+    append_rules_for_family(AF_INET6, PendingRule::Drop, 0, criteria, key);
 }
 
 void NftablesFirewall::create_pass_rule(const FirewallRuleCriteria& criteria) {
+    create_pass_rule(FirewallRuleKey{}, criteria);
+}
+
+void NftablesFirewall::create_pass_rule(const FirewallRuleKey& key,
+                                        const FirewallRuleCriteria& criteria) {
     if (criteria.dst_set_name.has_value()) {
         auto it = created_sets_.find(*criteria.dst_set_name);
         int family = (it != created_sets_.end()) ? it->second : AF_INET;
-        append_rules_for_family(family, PendingRule::Pass, 0, criteria);
+        append_rules_for_family(family, PendingRule::Pass, 0, criteria, key);
         return;
     }
     if (!needs_family_specific_rule(criteria)) {
-        append_rules_for_family(AF_INET, PendingRule::Pass, 0, criteria);
+        append_rules_for_family(AF_INET, PendingRule::Pass, 0, criteria, key);
         return;
     }
-    append_rules_for_family(AF_INET, PendingRule::Pass, 0, criteria);
-    append_rules_for_family(AF_INET6, PendingRule::Pass, 0, criteria);
+    append_rules_for_family(AF_INET, PendingRule::Pass, 0, criteria, key);
+    append_rules_for_family(AF_INET6, PendingRule::Pass, 0, criteria, key);
 }
 
 std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
@@ -687,12 +727,14 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
     if (!pr.save_conntrack_mark) {
         expr.push_back({{"accept", nullptr}});
     }
-    return {{"add", {{"rule", {
+    nlohmann::json command = {{"add", {{"rule", {
         {"family", "inet"},
         {"table", TABLE_NAME},
         {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME},
         {"expr", expr}
     }}}}};
+    add_rule_comment(command, pr.key);
+    return command;
 }
 
 nlohmann::json NftablesFirewall::build_balance_rule_json(const PendingRule& pr) {
@@ -724,10 +766,12 @@ nlohmann::json NftablesFirewall::build_balance_rule_json(const PendingRule& pr) 
     balance_vmap["data"] = {{"set", targets}};
     expr.push_back({{"vmap", balance_vmap}});
     expr.push_back({{"accept", nullptr}});
-    return {{"add", {{"rule", {
+    nlohmann::json command = {{"add", {{"rule", {
         {"family", "inet"}, {"table", TABLE_NAME},
         {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME}, {"expr", expr}
     }}}}};
+    add_rule_comment(command, pr.key);
+    return command;
 }
 
 nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
@@ -754,12 +798,14 @@ nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
     }
     expr.push_back({{"counter", nullptr}});
     expr.push_back({{"drop", nullptr}});
-    return {{"add", {{"rule", {
+    nlohmann::json command = {{"add", {{"rule", {
         {"family", "inet"},
         {"table", TABLE_NAME},
         {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME},
         {"expr", expr}
     }}}}};
+    add_rule_comment(command, pr.key);
+    return command;
 }
 
 nlohmann::json NftablesFirewall::build_pass_rule_json(const PendingRule& pr) {
@@ -784,12 +830,14 @@ nlohmann::json NftablesFirewall::build_pass_rule_json(const PendingRule& pr) {
     }
     expr.push_back({{"counter", nullptr}});
     expr.push_back({{"accept", nullptr}});
-    return {{"add", {{"rule", {
+    nlohmann::json command = {{"add", {{"rule", {
         {"family", "inet"},
         {"table", TABLE_NAME},
         {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME},
         {"expr", expr}
     }}}}};
+    add_rule_comment(command, pr.key);
+    return command;
 }
 
 nlohmann::json NftablesFirewall::build_elements_json(const std::string& set_name,

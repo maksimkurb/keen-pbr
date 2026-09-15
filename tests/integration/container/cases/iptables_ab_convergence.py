@@ -10,6 +10,11 @@ def _mangle(context) -> str:
     return context.run("iptables-save", "-t", "mangle").stdout
 
 
+def _chain_declarations(state: str) -> list[str]:
+    return [line[1:].split(" ", 1)[0]
+            for line in state.splitlines() if line.startswith(":")]
+
+
 def _dispatcher_target(context) -> str:
     rules = context.run(
         "iptables", "-t", "mangle", "-S", "KeenPbrTable").stdout.splitlines()
@@ -21,12 +26,16 @@ def _dispatcher_target(context) -> str:
 
 def _assert_converged(context) -> None:
     state = _mangle(context)
-    for chain in (*DISPATCHERS, *GENERATIONS):
-        assert state.count(f":{chain} ") == 1, state
+    declarations = _chain_declarations(state)
+    for chain in DISPATCHERS:
+        assert declarations.count(chain) == 1, state
+    for chain in GENERATIONS:
+        assert declarations.count(chain) <= 1, state
     assert state.count("-A PREROUTING -j KeenPbrTable\n") == 1, state
     assert state.count("-A OUTPUT -j KeenPbrTable_OUTPUT\n") == 1, state
 
     target = _dispatcher_target(context)
+    assert declarations.count(target) == 1, state
     assert state.count(f"-A KeenPbrTable -j {target}\n") == 1, state
     assert state.count(f"-A KeenPbrTable_OUTPUT -j {target}\n") == 1, state
     assert "kpbr-integration-garbage" not in state, state
@@ -53,6 +62,21 @@ def _logical_state(context) -> tuple[str, ...]:
 def _apply(context, config) -> None:
     context.apply_config(config)
     _assert_converged(context)
+
+
+def _expect_apply_failure(context, config) -> None:
+    staged = context.api("/api/config", "POST", config)
+    assert staged["status"] == "ok", staged
+    saved = context.api("/api/config/save", "POST")
+    assert saved["status"] == "accepted" and saved["operation_id"], saved
+
+    def failed_operation():
+        health = context.api("/api/health/service")
+        operation = health.get("lifecycle_operation", {})
+        return (health if operation.get("id") == saved["operation_id"] and
+                operation.get("status") == "failed" else False)
+
+    context.wait_for("failed config lifecycle completion", failed_operation)
 
 
 def _delete_dispatchers(context) -> None:
@@ -118,7 +142,10 @@ def register(registry):
 
         context.run("iptables", "-t", "mangle", "-A", "KeenPbrTable", "-j",
                     "RETURN")
+        reachable_before = context.run(
+            "iptables", "-t", "mangle", "-S", target).stdout
         _apply(context, config)
+        assert context.run("iptables", "-t", "mangle", "-S", target).stdout == reachable_before
 
         target = _dispatcher_target(context)
         wrong = GENERATIONS[1] if target == GENERATIONS[0] else GENERATIONS[0]
@@ -127,7 +154,22 @@ def register(registry):
                     target)
         context.run("iptables", "-t", "mangle", "-A", "KeenPbrTable", "-j",
                     wrong)
-        _apply(context, config)
+        # Counter values can change while the failed lifecycle operation is
+        # observed; compare normalized owned state to prove no phase-1 change.
+        before_ambiguous = _logical_state(context)
+        _expect_apply_failure(context, config)
+        assert _logical_state(context) == before_ambiguous
+        context.run("iptables", "-t", "mangle", "-D", "KeenPbrTable", "-j",
+                    wrong)
+        rollback = context.api("/api/config/rollback", "POST")
+        assert rollback["status"] == "accepted" and rollback["operation_id"], rollback
+        context.wait_for(
+            "failed config rollback",
+            lambda: ((health := context.api("/api/health/service"))
+                     .get("lifecycle_operation", {}).get("id") ==
+                     rollback["operation_id"] and
+                     health["lifecycle_operation"].get("status") == "succeeded"))
+        _assert_converged(context)
 
         context.run("iptables", "-t", "mangle", "-N", "KeenPbrTable_Unknown")
         context.run("iptables", "-t", "mangle", "-F", "KeenPbrTable")

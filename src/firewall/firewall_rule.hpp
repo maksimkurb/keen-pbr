@@ -12,11 +12,11 @@
 
 namespace keen_pbr3 {
 
-// Keep IDs compatible with iptables/nftables comment arguments.  The
-// resulting comment is bounded independently because backend limits apply to
-// the serialized value, not to either component in isolation.
+// Keep IDs compatible with iptables/nftables comment arguments.  The shared
+// limit uses the safe payload size common to the supported backends; the
+// iptables xt_comment array reserves one byte for its terminator.
 inline constexpr std::size_t kFirewallRuleIdMaxLength = 128;
-inline constexpr std::size_t kFirewallRuleCommentMaxLength = 256;
+inline constexpr std::size_t kFirewallRuleCommentMaxLength = 255;
 inline constexpr std::string_view kFirewallRuleCommentPrefix = "kpbr:v1:";
 
 struct FirewallRuleKey {

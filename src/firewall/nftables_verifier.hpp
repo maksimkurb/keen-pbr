@@ -19,6 +19,7 @@ struct ParsedNftRule {
     bool is_pass{false};   // true if rule has an accept/return verdict
     uint32_t fwmark{0};    // mark value (only valid when is_mark == true)
     bool ipv6{false};      // true if the payload protocol is ip6
+    std::optional<std::string> comment; // optional native nft rule comment
 };
 
 struct ParsedNftSet {

@@ -21,6 +21,7 @@ struct ParsedIptablesRule {
     uint32_t fwmark{0};    // mark value (only valid when is_mark == true)
     bool mark_is_exact{true};      // false for partial-mask --set-xmark rules
     uint32_t xmark_mask{0xFFFFFFFF}; // parsed mask for --set-xmark
+    std::optional<std::string> comment; // optional -m comment payload
 };
 
 // Parsed state of the KeenPbrTable chain from `iptables -t mangle -S` output.
