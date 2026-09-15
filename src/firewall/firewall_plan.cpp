@@ -146,6 +146,29 @@ void FirewallRuleRegistrar::finish() {
   finished_ = true;
 }
 
+void validate_firewall_plan_backend(const FirewallPlan& plan,
+                                    FirewallBackend backend) {
+  const auto reject = [backend](const FirewallRuleInstance& rule,
+                                const char* construct) {
+    throw FirewallError(
+        "unsupported firewall construct: module_id=" + rule.key.module_id +
+        ", instance_id=" + rule.key.instance_id +
+        ", backend=" + firewall_backend_name(backend) +
+        ", construct=" + construct + " (requires nftables)");
+  };
+
+  for (const auto& rule : plan.rules) {
+    if (std::holds_alternative<BalanceAction>(rule.action) &&
+        backend != FirewallBackend::nftables) {
+      reject(rule, "BalanceAction");
+    }
+    if (rule.criteria.default_gateway != DefaultGatewayFamily::None &&
+        backend != FirewallBackend::nftables) {
+      reject(rule, "default_gateway");
+    }
+  }
+}
+
 void replay_firewall_rule(const FirewallRuleInstance& rule, Firewall& firewall) {
   const FirewallRuleCriteria criteria =
       materialize_criteria(rule.criteria, firewall);

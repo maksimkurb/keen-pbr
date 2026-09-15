@@ -48,6 +48,11 @@ private:
 
 class Firewall;
 
+// Reject canonical constructs that the selected backend cannot compile before
+// any compatibility adapter or backend lifecycle operation is invoked.
+void validate_firewall_plan_backend(const FirewallPlan& plan,
+                                    FirewallBackend backend);
+
 // Replay one canonical rule through the legacy create_* API. The plan's
 // logical set references are resolved using the backend's current generation.
 void replay_firewall_rule(const FirewallRuleInstance& rule, Firewall& firewall);

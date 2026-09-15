@@ -242,4 +242,48 @@ TEST_CASE("balance action keeps complete candidate availability") {
   CHECK(firewall.seen_candidates[1] == FirewallBalanceCandidate{0x300U, false, true});
 }
 
+TEST_CASE("backend validation accepts nftables-only constructs on nftables") {
+  FirewallPlan plan;
+  auto balanced = rule("route.balance", "balance", FirewallRuleStage::route_classification,
+                       0);
+  balanced.action = BalanceAction{0x100U, {{0x200U, true, true}}};
+  plan.rules.push_back(balanced);
+
+  auto gateway = rule("route.mark", "gateway", FirewallRuleStage::route_classification,
+                      1);
+  gateway.hook = FirewallHook::output;
+  gateway.family = FirewallFamily::ipv4;
+  gateway.criteria.apply_output = true;
+  gateway.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+  gateway.action = MarkAction{0x100U, 0xFFFFFFFFU};
+  plan.rules.push_back(gateway);
+
+  CHECK_NOTHROW(
+      validate_firewall_plan_backend(plan, FirewallBackend::nftables));
+}
+
+TEST_CASE("backend validation rejects unsupported construct with stable detail") {
+  FirewallPlan plan;
+  auto balanced = rule("route.balance", "balance", FirewallRuleStage::route_classification,
+                       0);
+  balanced.action = BalanceAction{0x100U, {{0x200U, true, true}}};
+  plan.rules.push_back(std::move(balanced));
+
+  CHECK_THROWS_WITH(
+      validate_firewall_plan_backend(plan, FirewallBackend::iptables),
+      "unsupported firewall construct: module_id=route.balance, instance_id=balance, backend=iptables, construct=BalanceAction (requires nftables)");
+
+  FirewallPlan gateway_plan;
+  auto gateway = rule("route.mark", "gateway", FirewallRuleStage::route_classification,
+                      0);
+  gateway.hook = FirewallHook::output;
+  gateway.family = FirewallFamily::ipv4;
+  gateway.criteria.apply_output = true;
+  gateway.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+  gateway_plan.rules.push_back(std::move(gateway));
+  CHECK_THROWS_WITH(
+      validate_firewall_plan_backend(gateway_plan, FirewallBackend::iptables),
+      "unsupported firewall construct: module_id=route.mark, instance_id=gateway, backend=iptables, construct=default_gateway (requires nftables)");
+}
+
 } // namespace keen_pbr3

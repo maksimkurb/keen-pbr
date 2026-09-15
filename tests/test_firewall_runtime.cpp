@@ -182,7 +182,7 @@ public:
 
   void cleanup() override {}
 
-  FirewallBackend backend() const override { return FirewallBackend::nftables; }
+  FirewallBackend backend() const override { return backend_type; }
 
 private:
   void record_rule(RuleAction action, uint32_t fwmark,
@@ -198,6 +198,7 @@ private:
 
 public:
 
+  FirewallBackend backend_type{FirewallBackend::nftables};
   bool fail_rules_only{false};
   bool generation_names{false};
   int stream_count{0};
@@ -500,6 +501,61 @@ TEST_CASE("runtime passes balance fallback and candidates to the firewall") {
     CHECK(rule.candidates[index].ipv6 == candidates.at("auto")[index].ipv6);
   }
   CHECK(rule.criteria.dscp == 46);
+}
+
+TEST_CASE("mixed nftables-only plan fails before backend mutation") {
+  const Config config = parse_config(R"({
+    "daemon": {"ipv6_enabled": false},
+    "outbounds": [
+      {"type":"table","tag":"wan_a","table":100},
+      {"type":"table","tag":"wan_b","table":101},
+      {"type":"urltest","tag":"auto","url":"https://example.test",
+       "strategy":"balance","outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
+    ],
+    "route": {"rules": [
+      {"outbound":"auto","dscp":46},
+      {"outbound":"wan_a","default_gateway":"ipv4"}
+    ]}
+  })");
+  RecordingFirewall firewall;
+  firewall.backend_type = FirewallBackend::iptables;
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-backend-validation-test-cache");
+  const FirewallBalanceCandidates candidates = {
+      {"auto", {{0x200U, true, true}, {0x300U, true, true}}}};
+
+  CHECK_THROWS(apply_runtime_firewall(
+      config, {{"auto", 0x100U}, {"wan_a", 0x200U}, {"wan_b", 0x300U}},
+      cache, firewall, FirewallApplyMode::PreserveSets, nullptr, false, {}, {},
+      &candidates));
+  CHECK(firewall.calls.empty());
+  CHECK(firewall.recorded_rules.empty());
+  CHECK(firewall.ipv6_enabled());
+  CHECK(firewall.fwmark_mask() == 0xFFFFFFFFU);
+  CHECK(firewall.clear_dynamic_sets_on_apply());
+}
+
+TEST_CASE("RulesOnly validates deferred list-backed actions before preparation") {
+  const Config config = parse_config(R"({
+    "outbounds": [
+      {"type":"table","tag":"wan_a","table":100},
+      {"type":"table","tag":"wan_b","table":101},
+      {"type":"urltest","tag":"auto","url":"https://example.test",
+       "strategy":"balance","outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
+    ],
+    "lists": {"remote": {"file":"/path/that-must-never-be-opened"}},
+    "route": {"rules": [{"list":["remote"],"outbound":"auto"}]}
+  })");
+  RecordingFirewall firewall;
+  firewall.backend_type = FirewallBackend::iptables;
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-deferred-validation-test-cache");
+  const FirewallBalanceCandidates candidates = {
+      {"auto", {{0x200U, true, true}, {0x300U, true, true}}}};
+
+  CHECK_THROWS(apply_runtime_firewall(
+      config, {{"auto", 0x100U}, {"wan_a", 0x200U}, {"wan_b", 0x300U}},
+      cache, firewall, FirewallApplyMode::RulesOnly, nullptr, false, {}, {},
+      &candidates));
+  CHECK(firewall.calls.empty());
 }
 
 TEST_CASE("runtime emits DNS detours as OUTPUT TCP/UDP rules") {

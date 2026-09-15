@@ -433,25 +433,11 @@ std::vector<RuleState> apply_runtime_firewall(
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
     log_ipv6_support_decision_once(ipv6_decision);
     const auto daemon_config = config.daemon.value_or(DaemonConfig{});
-    const auto& all_outbounds = config.outbounds.value_or(std::vector<Outbound>{});
     static const std::map<std::string, ListConfig> empty_lists;
     const auto& lists_map = config.lists ? *config.lists : empty_lists;
     const auto& route_rules = route_config.rules.value_or(std::vector<RouteRule>{});
     const uint32_t fwmark_mask =
         fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
-    const bool needs_nftables = std::any_of(
-        route_rules.begin(), route_rules.end(), [](const RouteRule& rule) {
-          return rule.default_gateway.has_value();
-        }) || std::any_of(all_outbounds.begin(), all_outbounds.end(),
-                          [](const Outbound& outbound) {
-                            return (outbound.type == OutboundType::URLTEST ||
-                                    outbound.type == OutboundType::ICMPTEST) &&
-                                   outbound_uses_balance(outbound);
-                          });
-    if (needs_nftables && firewall.backend() != FirewallBackend::nftables) {
-      throw FirewallError(
-          "default_gateway and test-group balance require the nftables firewall backend");
-    }
 
     std::map<std::string, ListSetUsage> list_usage_cache;
     const bool has_route_lists = std::any_of(
@@ -475,10 +461,24 @@ std::vector<RuleState> apply_runtime_firewall(
         }
       }
     }
+    if (defer_rules_only_lists) {
+      // RulesOnly defers list inspection until after backend preflight. Mark
+      // referenced lists as potentially populated so validation sees every
+      // possible canonical action; the plan is rebuilt from realized sets
+      // below before replay.
+      for (const auto& route_rule : route_rules) {
+        for (const auto& list_name : route_rule_lists(route_rule)) {
+          if (lists_map.find(list_name) != lists_map.end()) {
+            list_usage_cache.emplace(list_name, ListSetUsage{true, false, 0});
+          }
+        }
+      }
+    }
     FirewallPlanBuildInputs plan_inputs{
         config, outbound_marks, list_usage_cache, main_routes, interfaces,
         balance_candidates, ipv6_decision.enabled, fwmark_mask};
     FirewallPlan plan = build_firewall_plan(plan_inputs);
+    validate_firewall_plan_backend(plan, firewall.backend());
 
     firewall.set_ipv6_enabled(ipv6_decision.enabled);
     firewall.set_clear_dynamic_sets_on_apply(
