@@ -492,6 +492,14 @@ function getRouteRuleRow(
   runtimeState?: RuntimeOutboundState
 ) {
   const conditions = [
+    rule.default_gateway
+      ? {
+          label: t("pages.routingRuleUpsert.fields.mode"),
+          value: t(
+            `pages.routingRuleUpsert.fields.modeOptions.${rule.default_gateway}`
+          ),
+        }
+      : undefined,
     {
       label: t("pages.routingRules.criteriaLabels.lists"),
       value: (rule.list ?? []).join(", "),
@@ -527,7 +535,9 @@ function getRouteRuleRow(
       label: string
       value: string
     } =>
-      typeof condition.value === "string" && condition.value.trim().length > 0
+      condition !== undefined &&
+      typeof condition.value === "string" &&
+      condition.value.trim().length > 0
   )
 
   return {

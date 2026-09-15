@@ -388,7 +388,7 @@ nlohmann::json NftablesFirewall::build_setter_rule_json(uint32_t fwmark,
         {"key", {{"ct", {{"key", "mark"}}}}},
         {"value", set_ctmark}
     }}});
-    expr.push_back({{"return", nullptr}});
+    expr.push_back({{"accept", nullptr}});
     return {{"add", {{"rule", {
         {"family", "inet"}, {"table", TABLE_NAME}, {"chain", setter_chain_name(fwmark)},
         {"expr", expr}
@@ -496,12 +496,14 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
         }}});
         marked_expr.push_back({{"counter", nullptr}});
         marked_expr.push_back({{"accept", nullptr}});
-        commands.push_back({{"add", {{"rule", {
-            {"family", "inet"},
-            {"table", TABLE_NAME},
-            {"chain", CHAIN_NAME},
-            {"expr", marked_expr}
-        }}}}});
+        for (const auto* chain : {CHAIN_NAME, OUTPUT_CHAIN_NAME}) {
+            commands.push_back({{"add", {{"rule", {
+                {"family", "inet"},
+                {"table", TABLE_NAME},
+                {"chain", chain},
+                {"expr", marked_expr}
+            }}}}});
+        }
     }
 
     if (prefilter.has_inbound_interfaces()
@@ -682,7 +684,9 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
             })}}}
         }}});
     }
-    expr.push_back({{"accept", nullptr}});
+    if (!pr.save_conntrack_mark) {
+        expr.push_back({{"accept", nullptr}});
+    }
     return {{"add", {{"rule", {
         {"family", "inet"},
         {"table", TABLE_NAME},

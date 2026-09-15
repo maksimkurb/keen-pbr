@@ -1237,7 +1237,8 @@ void Daemon::fail_startup_runtime(std::string error) {
 void Daemon::begin_startup_runtime() {
   auto &log = Logger::instance();
   try {
-    setup_static_routing();
+    const auto main_routes = netlink_.dump_routes_in_table(254);
+    setup_static_routing(&main_routes);
     log.info("Static routing tables and ip rules installed.");
 
     log.info("Startup lists: checking local cache; only missing remote lists "

@@ -534,6 +534,48 @@ TEST_CASE("discover_interface_gateway: rejects ambiguity, multipath, and missing
     CHECK_FALSE(discover_interface_gateway(outbound, AF_INET, {wrong_table}).available);
 }
 
+TEST_CASE("discover_interface_gateway: matches router WAN defaults and point-to-point routes") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"ethernet","type":"interface","interface":"eth1","gateway":"auto"},
+            {"tag":"l2tp","type":"interface","interface":"l2tp-wan2","gateway":"auto"}
+        ]
+    })");
+    const auto& ethernet = cfg.outbounds->at(0);
+    const auto& l2tp = cfg.outbounds->at(1);
+
+    DumpedRoute ethernet_default;
+    ethernet_default.destination = "default";
+    ethernet_default.table = 254;
+    ethernet_default.family = AF_INET;
+    ethernet_default.interface = "eth1";
+    ethernet_default.gateway = "212.13.160.1";
+    ethernet_default.unicast = true;
+    ethernet_default.nexthop_count = 1;
+
+    DumpedRoute l2tp_default = ethernet_default;
+    l2tp_default.interface = "l2tp-wan2";
+    l2tp_default.gateway = "77.74.65.226";
+    l2tp_default.metric = 5;
+
+    const auto ethernet_result = discover_interface_gateway(
+        ethernet, AF_INET, {ethernet_default, l2tp_default});
+    REQUIRE(ethernet_result.available);
+    CHECK(ethernet_result.gateway == std::optional<std::string>{"212.13.160.1"});
+
+    const auto l2tp_result = discover_interface_gateway(
+        l2tp, AF_INET, {ethernet_default, l2tp_default});
+    REQUIRE(l2tp_result.available);
+    CHECK(l2tp_result.gateway == std::optional<std::string>{"77.74.65.226"});
+
+    DumpedRoute point_to_point = l2tp_default;
+    point_to_point.gateway.reset();
+    const auto point_to_point_result = discover_interface_gateway(
+        l2tp, AF_INET, {point_to_point});
+    CHECK(point_to_point_result.available);
+    CHECK_FALSE(point_to_point_result.gateway.has_value());
+}
+
 TEST_CASE("populate_routing_state: auto gateway resolves per family and keeps strict fallback") {
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},

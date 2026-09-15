@@ -669,6 +669,15 @@ export const ruTranslation = {
       },
       actions: { create: "Создать правило", save: "Сохранить правило" },
       fields: {
+        mode: "Тип правила",
+        ruleType: "Типы правил",
+        modeOptions: {
+          normal: "Обычное правило",
+          ipv4: "Шлюз по умолчанию IPv4",
+          ipv6: "Шлюз по умолчанию IPv6",
+        },
+        modeHint:
+          "Правила шлюза по умолчанию сопоставляют нелокальный трафик одного семейства IP и не используют другие условия.",
         lists: "Списки",
         listsPlaceholderDescription:
           "Добавьте один или несколько настроенных списков для этого правила.",
@@ -782,6 +791,14 @@ export const ruTranslation = {
       common: {
         noExtraFields:
           "Для этого типа не нужны дополнительные поля, кроме тега outbound.",
+      },
+      strategy: {
+        label: "Стратегия выбора",
+        hint: "Priority оставляет один выбранный outbound; balance распределяет новые соединения между исправными outbound (только nftables).",
+        options: {
+          priority: "По приоритету",
+          balance: "Балансировка",
+        },
       },
       fields: {
         tag: "Название",

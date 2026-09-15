@@ -655,6 +655,15 @@ export const enTranslation = {
       },
       actions: { create: "Create rule", save: "Save rule" },
       fields: {
+        mode: "Rule type",
+        ruleType: "Rule types",
+        modeOptions: {
+          normal: "Normal rule",
+          ipv4: "IPv4 default gateway",
+          ipv6: "IPv6 default gateway",
+        },
+        modeHint:
+          "Default-gateway rules match non-local traffic for one IP family and do not use other conditions.",
         lists: "Lists",
         listsPlaceholderDescription:
           "Add one or more configured list names to match for this rule.",
@@ -764,6 +773,14 @@ export const enTranslation = {
       common: {
         noExtraFields:
           "No additional fields are required for this type beyond the outbound tag.",
+      },
+      strategy: {
+        label: "Selection strategy",
+        hint: "Priority keeps one selected outbound; balance distributes new connections across healthy outbounds (nftables only).",
+        options: {
+          priority: "Priority",
+          balance: "Balance",
+        },
       },
       fields: {
         tag: "Name",

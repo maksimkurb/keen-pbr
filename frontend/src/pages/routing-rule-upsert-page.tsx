@@ -46,10 +46,12 @@ import {
   getFirstFieldError,
   normalizeRouteRuleDraft,
   protoOptions,
+  type RouteRuleMode,
   toRouteRuleDraft,
 } from "@/pages/routing-rules-utils"
 
 const ROUTING_RULE_FIELD_NAMES = {
+  mode: "mode",
   enabled: "enabled",
   list: "list",
   proto: "proto",
@@ -60,6 +62,8 @@ const ROUTING_RULE_FIELD_NAMES = {
   destAddr: "dest_addr",
   outbound: "outbound",
 } as const
+
+const routeRuleModeOptions = ["normal", "ipv4", "ipv6"] as const
 
 type RoutingRuleFieldName =
   (typeof ROUTING_RULE_FIELD_NAMES)[keyof typeof ROUTING_RULE_FIELD_NAMES]
@@ -187,6 +191,7 @@ function RoutingRuleForm({
       onSubmitAsync: async ({ value }) => {
         const nextRule = normalizeRouteRuleDraft(value)
         const hasRuleCondition =
+          nextRule.default_gateway !== undefined ||
           (nextRule.list ?? []).length > 0 ||
           nextRule.dscp !== undefined ||
           Boolean(nextRule.src_port) ||
@@ -245,6 +250,10 @@ function RoutingRuleForm({
       },
     },
   })
+  const isNormalRule = useStore(
+    form.store,
+    (state) => state.values.mode === "normal"
+  )
   const submitErrorMessage = useStore(form.store, (state) => {
     const onSubmitError = state.errorMap.onSubmit
     if (typeof onSubmitError === "string") {
@@ -289,6 +298,59 @@ function RoutingRuleForm({
         }}
       >
         <FieldGroup>
+          <form.Field name={ROUTING_RULE_FIELD_NAMES.mode}>
+            {(field) => (
+              <Field>
+                <FieldLabel>
+                  {t("pages.routingRuleUpsert.fields.mode")}
+                </FieldLabel>
+                <FieldContent>
+                  <Select
+                    onValueChange={(value) => {
+                      const nextMode = (value as RouteRuleMode) ?? "normal"
+                      field.handleChange(nextMode)
+                      if (nextMode !== "normal") {
+                        for (const fieldName of [
+                          ROUTING_RULE_FIELD_NAMES.list,
+                          ROUTING_RULE_FIELD_NAMES.proto,
+                          ROUTING_RULE_FIELD_NAMES.dscp,
+                          ROUTING_RULE_FIELD_NAMES.srcPort,
+                          ROUTING_RULE_FIELD_NAMES.destPort,
+                          ROUTING_RULE_FIELD_NAMES.srcAddr,
+                          ROUTING_RULE_FIELD_NAMES.destAddr,
+                        ] as const) {
+                          form.resetField(fieldName)
+                        }
+                      }
+                    }}
+                    value={field.state.value}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>
+                          {t("pages.routingRuleUpsert.fields.ruleType")}
+                        </SelectLabel>
+                        {routeRuleModeOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {t(
+                              `pages.routingRuleUpsert.fields.modeOptions.${option}`
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldHint
+                    description={t("pages.routingRuleUpsert.fields.modeHint")}
+                  />
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
+
           <form.Field name={ROUTING_RULE_FIELD_NAMES.enabled}>
             {(field) => (
               <Field>
@@ -318,7 +380,7 @@ function RoutingRuleForm({
               const error = getFirstFieldError(field.state.meta.errors)
 
               return (
-                <Field invalid={Boolean(error)}>
+                <Field hidden={!isNormalRule} invalid={Boolean(error)}>
                   <FieldLabel>
                     {t("pages.routingRuleUpsert.fields.lists")}
                   </FieldLabel>
@@ -350,7 +412,7 @@ function RoutingRuleForm({
 
           <form.Field name={ROUTING_RULE_FIELD_NAMES.proto}>
             {(field) => (
-              <Field>
+              <Field hidden={!isNormalRule}>
                 <FieldLabel>
                   {t("pages.routingRuleUpsert.fields.proto")}
                 </FieldLabel>
@@ -397,7 +459,7 @@ function RoutingRuleForm({
               const error = getFirstFieldError(field.state.meta.errors)
 
               return (
-                <Field invalid={Boolean(error)}>
+                <Field hidden={!isNormalRule} invalid={Boolean(error)}>
                   <FieldLabel htmlFor="routing-dscp">
                     {t("pages.routingRuleUpsert.fields.dscp")}
                   </FieldLabel>
@@ -412,7 +474,9 @@ function RoutingRuleForm({
                       onChange={(event) =>
                         field.handleChange(event.target.value)
                       }
-                      placeholder={t("pages.routingRuleUpsert.placeholders.dscp")}
+                      placeholder={t(
+                        "pages.routingRuleUpsert.placeholders.dscp"
+                      )}
                       type="number"
                       value={field.state.value}
                     />
@@ -431,7 +495,7 @@ function RoutingRuleForm({
               const error = getFirstFieldError(field.state.meta.errors)
 
               return (
-                <Field invalid={Boolean(error)}>
+                <Field hidden={!isNormalRule} invalid={Boolean(error)}>
                   <FieldLabel htmlFor="routing-src-port">
                     {t("pages.routingRuleUpsert.fields.sourcePort")}
                   </FieldLabel>
@@ -465,7 +529,7 @@ function RoutingRuleForm({
               const error = getFirstFieldError(field.state.meta.errors)
 
               return (
-                <Field invalid={Boolean(error)}>
+                <Field hidden={!isNormalRule} invalid={Boolean(error)}>
                   <FieldLabel htmlFor="routing-dest-port">
                     {t("pages.routingRuleUpsert.fields.destinationPort")}
                   </FieldLabel>
@@ -499,7 +563,7 @@ function RoutingRuleForm({
               const error = getFirstFieldError(field.state.meta.errors)
 
               return (
-                <Field invalid={Boolean(error)}>
+                <Field hidden={!isNormalRule} invalid={Boolean(error)}>
                   <FieldLabel htmlFor="routing-src-addr">
                     {t("pages.routingRuleUpsert.fields.sourceAddresses")}
                   </FieldLabel>
@@ -533,7 +597,7 @@ function RoutingRuleForm({
               const error = getFirstFieldError(field.state.meta.errors)
 
               return (
-                <Field invalid={Boolean(error)}>
+                <Field hidden={!isNormalRule} invalid={Boolean(error)}>
                   <FieldLabel htmlFor="routing-dest-addr">
                     {t("pages.routingRuleUpsert.fields.destinationAddresses")}
                   </FieldLabel>
@@ -647,6 +711,10 @@ function resolveRoutingRuleFieldPath(
 
   if (/^route\.rules(?:\[\d+\]|\.\d+)?$/.test(path)) {
     return ROUTING_RULE_FIELD_NAMES.outbound
+  }
+
+  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.default_gateway$/.test(path)) {
+    return ROUTING_RULE_FIELD_NAMES.mode
   }
 
   if (/^route\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
