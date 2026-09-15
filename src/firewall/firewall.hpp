@@ -20,6 +20,14 @@ struct FirewallBalanceCandidate {
   uint32_t fwmark;
   bool ipv4{true};
   bool ipv6{true};
+
+  bool operator==(const FirewallBalanceCandidate& other) const {
+    return fwmark == other.fwmark && ipv4 == other.ipv4 && ipv6 == other.ipv6;
+  }
+
+  bool operator!=(const FirewallBalanceCandidate& other) const {
+    return !(*this == other);
+  }
 };
 
 using FirewallBalanceCandidates =

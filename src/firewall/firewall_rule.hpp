@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -52,11 +53,11 @@ struct MarkAction {
 
 struct BalanceAction {
   uint32_t fallback_mark{0};
-  std::vector<uint32_t> candidate_marks;
+  std::vector<FirewallBalanceCandidate> candidates;
 
   bool operator==(const BalanceAction &other) const {
     return fallback_mark == other.fallback_mark &&
-           candidate_marks == other.candidate_marks;
+           candidates == other.candidates;
   }
   bool operator!=(const BalanceAction &other) const { return !(*this == other); }
 };
@@ -74,7 +75,9 @@ enum class FirewallRuleStage : uint16_t {
 };
 
 enum class FirewallHook : uint8_t { prerouting, output };
-enum class FirewallFamily : uint8_t { ipv4, ipv6 };
+// `any` means the legacy rule call applies to both families; it is not an
+// inferred IPv4 family and will be expanded physically by a later migration.
+enum class FirewallFamily : uint8_t { ipv4, ipv6, any };
 
 struct FirewallRuleInstance {
   FirewallRuleKey key;
@@ -82,9 +85,12 @@ struct FirewallRuleInstance {
   int priority{0};
   std::size_t insertion_order{0};
   FirewallHook hook{FirewallHook::prerouting};
-  FirewallFamily family{FirewallFamily::ipv4};
+  FirewallFamily family{FirewallFamily::any};
   FirewallRuleCriteria criteria;
   FirewallRuleAction action;
+  // Compatibility metadata keeps set preparation and rule replay in the
+  // historical per-route order until that preparation also becomes planned.
+  std::size_t source_rule_index{std::numeric_limits<std::size_t>::max()};
 };
 
 } // namespace keen_pbr3

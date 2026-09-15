@@ -148,6 +148,270 @@ ListSetUsage reused_list_set_usage(
 
 } // namespace
 
+namespace {
+
+constexpr std::size_t kNoFirewallRuleSource =
+    std::numeric_limits<std::size_t>::max();
+
+std::string logical_set_name(const std::string& list_name, FirewallFamily family,
+                             bool dynamic) {
+    const std::string prefix = family == FirewallFamily::ipv6 ? "kpbr6" : "kpbr4";
+    return prefix + (dynamic ? "d_" : "_") + list_name;
+}
+
+FirewallFamily family_for_criteria(const FirewallRuleCriteria& criteria) {
+    if (criteria.default_gateway == DefaultGatewayFamily::Ipv6) {
+        return FirewallFamily::ipv6;
+    }
+    if (criteria.default_gateway == DefaultGatewayFamily::Ipv4) {
+        return FirewallFamily::ipv4;
+    }
+    bool has_ipv4 = false;
+    bool has_ipv6 = false;
+    const auto inspect_addresses = [&](const std::vector<std::string>& addresses) {
+        for (const auto& address : addresses) {
+            if (address.find(':') == std::string::npos) {
+                has_ipv4 = true;
+            } else {
+                has_ipv6 = true;
+            }
+        }
+    };
+    inspect_addresses(criteria.src_addr);
+    inspect_addresses(criteria.dst_addr);
+    if (has_ipv6 && !has_ipv4) {
+        return FirewallFamily::ipv6;
+    }
+    if (has_ipv4 && !has_ipv6) {
+        return FirewallFamily::ipv4;
+    }
+    return FirewallFamily::any;
+}
+
+FirewallFamily family_for_set(const std::string& set_name,
+                              const FirewallRuleCriteria& criteria) {
+    if (set_name.rfind("kpbr6", 0) == 0) {
+        return FirewallFamily::ipv6;
+    }
+    if (set_name.rfind("kpbr4", 0) == 0) {
+        return FirewallFamily::ipv4;
+    }
+    return family_for_criteria(criteria);
+}
+
+} // namespace
+
+FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
+  FirewallPlan plan;
+  plan.fwmark_mask = inputs.fwmark_mask;
+  plan.global_prefilter = build_firewall_global_prefilter(inputs.config);
+  plan.global_prefilter.restore_conntrack_mark = true;
+  plan.global_prefilter.conntrack_mark_mask = inputs.fwmark_mask;
+
+  const auto& all_outbounds =
+      inputs.config.outbounds.value_or(std::vector<Outbound>{});
+  static const std::map<std::string, ListConfig> empty_lists;
+  const auto& lists_map = inputs.config.lists ? *inputs.config.lists : empty_lists;
+  const auto route_config = inputs.config.route.value_or(RouteConfig{});
+  const auto& route_rules =
+      route_config.rules.value_or(std::vector<RouteRule>{});
+  const auto rule_states =
+      build_fw_rule_states(inputs.config, inputs.outbound_marks);
+  FirewallRuleRegistrar registrar(plan);
+
+  const auto add_rule = [&](std::size_t rule_index, FirewallRuleStage stage,
+                            int priority,
+                            const std::string& module,
+                            const std::string& instance,
+                            FirewallRuleCriteria criteria,
+                            FirewallRuleAction action,
+                            const std::optional<std::string>& set_name) {
+    criteria.dst_set_name = set_name;
+    FirewallRuleInstance rule;
+    rule.key = FirewallRuleKey::compact(module, instance);
+    rule.stage = stage;
+    rule.priority = priority;
+    rule.hook = criteria.apply_output ? FirewallHook::output
+                                      : FirewallHook::prerouting;
+    rule.family = set_name.has_value()
+                      ? family_for_set(*set_name, criteria)
+                      : family_for_criteria(criteria);
+    rule.criteria = std::move(criteria);
+    rule.action = std::move(action);
+    rule.source_rule_index = rule_index;
+    registrar.register_rule(std::move(rule));
+  };
+
+  for (std::size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
+    const auto& route_rule = route_rules[rule_idx];
+    const auto& rule_state = rule_states[rule_idx];
+    if (rule_state.action_type == RuleActionType::Skip) {
+      continue;
+    }
+
+    FirewallRuleCriteria criteria = build_firewall_rule_criteria(
+        route_rule, inputs.main_routes, inputs.interfaces);
+    const auto outbound = find_outbound_by_tag(all_outbounds, route_rule.outbound);
+    const auto module_for_action = [&]() -> std::string {
+      if (rule_state.action_type == RuleActionType::Drop) return "route.drop";
+      if (rule_state.action_type == RuleActionType::Pass) return "route.pass";
+      if (outbound != nullptr && outbound_uses_balance(*outbound)) {
+        return "route.balance";
+      }
+      return "route.mark";
+    };
+    const std::string module = module_for_action();
+    const auto balance_candidates_for_rule = [&]()
+        -> const std::vector<FirewallBalanceCandidate>& {
+      static const std::vector<FirewallBalanceCandidate> empty_candidates;
+      if (outbound == nullptr || !outbound_uses_balance(*outbound) ||
+          inputs.balance_candidates == nullptr) {
+        return empty_candidates;
+      }
+      const auto it = inputs.balance_candidates->find(outbound->tag);
+      return it == inputs.balance_candidates->end() ? empty_candidates
+                                                     : it->second;
+    };
+    const auto action_for_rule = [&]() -> FirewallRuleAction {
+      if (rule_state.action_type == RuleActionType::Drop) {
+        return VerdictAction::drop;
+      }
+      if (rule_state.action_type == RuleActionType::Pass) {
+        return VerdictAction::pass;
+      }
+      if (outbound != nullptr && outbound_uses_balance(*outbound)) {
+        const auto& candidates = balance_candidates_for_rule();
+        BalanceAction action;
+        action.fallback_mark = rule_state.fwmark;
+        action.candidates = candidates;
+        return action;
+      }
+      return MarkAction{rule_state.fwmark, inputs.fwmark_mask};
+    };
+
+    const auto add_for_set = [&](const std::optional<std::string>& set_name,
+                                 std::size_t occurrence) {
+      if (rule_state.action_type == RuleActionType::Mark &&
+          rule_state.fwmark == 0) {
+        return;
+      }
+      std::string instance = "rule=" + std::to_string(rule_idx) +
+                             ";occurrence=" + std::to_string(occurrence) +
+                             ";set=" + (set_name.has_value() ? *set_name : "none");
+      const auto action = action_for_rule();
+      add_rule(rule_idx, FirewallRuleStage::route_classification,
+               static_cast<int>(rule_idx), module, instance,
+               criteria, action, set_name);
+    };
+
+    const auto& list_names = route_rule_lists(route_rule);
+    if (!list_names.empty()) {
+      bool emitted_rule = false;
+      std::size_t list_occurrence = 0;
+      for (const auto& list_name : list_names) {
+        const auto list_config = lists_map.find(list_name);
+        const auto usage = inputs.list_usage.find(list_name);
+        if (list_config == lists_map.end() || usage == inputs.list_usage.end()) {
+          ++list_occurrence;
+          continue;
+        }
+        const auto append_set = [&](FirewallFamily family, bool dynamic) {
+          const std::string name = logical_set_name(list_name, family, dynamic);
+          registrar.register_set({name, family,
+                                  dynamic ? usage->second.dynamic_timeout : 0});
+          return name;
+        };
+        if (usage->second.has_static_entries) {
+          const auto set4 = append_set(FirewallFamily::ipv4, false);
+          const auto set6 = inputs.ipv6_enabled
+                                ? std::optional<std::string>{
+                                      append_set(FirewallFamily::ipv6, false)}
+                                : std::nullopt;
+          add_for_set(set4, list_occurrence * 4U);
+          if (set6.has_value()) {
+            add_for_set(set6, list_occurrence * 4U + 1U);
+          }
+          emitted_rule = true;
+        }
+        if (usage->second.has_domain_entries) {
+          const auto set4 = append_set(FirewallFamily::ipv4, true);
+          const auto set6 = inputs.ipv6_enabled
+                                ? std::optional<std::string>{
+                                      append_set(FirewallFamily::ipv6, true)}
+                                : std::nullopt;
+          add_for_set(set4, list_occurrence * 4U + 2U);
+          if (set6.has_value()) {
+            add_for_set(set6, list_occurrence * 4U + 3U);
+          }
+          emitted_rule = true;
+        }
+        ++list_occurrence;
+      }
+      if (!emitted_rule && criteria.has_rule_selector()) {
+        add_for_set(std::nullopt, list_names.size() * 4U);
+      }
+    } else if (criteria.has_rule_selector()) {
+      add_for_set(std::nullopt, 0);
+    }
+  }
+
+  if (inputs.config.dns.has_value()) {
+    const auto& dns_servers =
+        inputs.config.dns->servers.value_or(std::vector<DnsServer>{});
+    const DnsServerRegistry dns_registry(inputs.config.dns.value_or(DnsConfig{}));
+    const int dns_priority_start = static_cast<int>(route_rules.size());
+    for (std::size_t server_idx = 0; server_idx < dns_servers.size(); ++server_idx) {
+      const auto& server = dns_servers[server_idx];
+      if (!server.detour.has_value()) {
+        continue;
+      }
+      const Outbound* detour_outbound =
+          find_outbound_by_tag(all_outbounds, server.detour.value());
+      if (!detour_outbound) {
+        continue;
+      }
+      std::string effective_tag = detour_outbound->tag;
+      if (detour_outbound->type != OutboundType::URLTEST &&
+          detour_outbound->type != OutboundType::ICMPTEST) {
+        effective_tag = internal_detour_mark_key(detour_outbound->tag);
+      }
+      const auto mark_it = inputs.outbound_marks.find(effective_tag);
+      if (mark_it == inputs.outbound_marks.end()) {
+        continue;
+      }
+      const auto resolved_servers = dns_registry.get_servers(server.tag);
+      if (resolved_servers.empty()) {
+        throw FirewallError("DNS server tag not found during detour setup: " +
+                            server.tag);
+      }
+      for (std::size_t endpoint_idx = 0; endpoint_idx < resolved_servers.size();
+           ++endpoint_idx) {
+        const DnsServerConfig* resolved_server = resolved_servers[endpoint_idx];
+        FirewallRuleCriteria criteria;
+        criteria.proto = L4Proto::TcpUdp;
+        criteria.dst_port = std::to_string(resolved_server->port);
+        criteria.dst_addr = {resolved_server->resolved_ip};
+        criteria.apply_output = true;
+        const std::string instance =
+            "server=" + std::to_string(server_idx) +
+            ";endpoint=" + std::to_string(endpoint_idx) +
+            ";address=" + resolved_server->resolved_ip +
+            ";port=" + std::to_string(resolved_server->port);
+        // DNS detours are replayed after every route rule, so they share the
+        // route stage and use priorities after the route config range.
+        add_rule(kNoFirewallRuleSource, FirewallRuleStage::route_classification,
+                 dns_priority_start +
+                                             static_cast<int>(server_idx),
+                 "dns.detour", instance, std::move(criteria),
+                 MarkAction{mark_it->second, inputs.fwmark_mask}, std::nullopt);
+      }
+    }
+  }
+
+  registrar.finish();
+  return plan;
+}
+
 std::vector<RuleState> apply_runtime_firewall(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
@@ -162,19 +426,66 @@ std::vector<RuleState> apply_runtime_firewall(
   try {
     std::unique_ptr<ListStreamer> list_streamer;
     if (mode != FirewallApplyMode::RulesOnly) {
-        list_streamer = std::make_unique<ListStreamer>(cache_manager);
+      list_streamer = std::make_unique<ListStreamer>(cache_manager);
     }
     auto rule_states = build_fw_rule_states(config, outbound_marks);
     const RouteConfig route_config = config.route.value_or(RouteConfig{});
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
     log_ipv6_support_decision_once(ipv6_decision);
+    const auto daemon_config = config.daemon.value_or(DaemonConfig{});
+    const auto& all_outbounds = config.outbounds.value_or(std::vector<Outbound>{});
+    static const std::map<std::string, ListConfig> empty_lists;
+    const auto& lists_map = config.lists ? *config.lists : empty_lists;
+    const auto& route_rules = route_config.rules.value_or(std::vector<RouteRule>{});
+    const uint32_t fwmark_mask =
+        fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
+    const bool needs_nftables = std::any_of(
+        route_rules.begin(), route_rules.end(), [](const RouteRule& rule) {
+          return rule.default_gateway.has_value();
+        }) || std::any_of(all_outbounds.begin(), all_outbounds.end(),
+                          [](const Outbound& outbound) {
+                            return (outbound.type == OutboundType::URLTEST ||
+                                    outbound.type == OutboundType::ICMPTEST) &&
+                                   outbound_uses_balance(outbound);
+                          });
+    if (needs_nftables && firewall.backend() != FirewallBackend::nftables) {
+      throw FirewallError(
+          "default_gateway and test-group balance require the nftables firewall backend");
+    }
+
+    std::map<std::string, ListSetUsage> list_usage_cache;
+    const bool has_route_lists = std::any_of(
+        route_rules.begin(), route_rules.end(), [](const RouteRule& rule) {
+          return !route_rule_lists(rule).empty();
+        });
+    const bool defer_rules_only_lists =
+        mode == FirewallApplyMode::RulesOnly && has_route_lists;
+    if (!defer_rules_only_lists) {
+      for (std::size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
+        for (const auto& list_name : route_rule_lists(route_rules[rule_idx])) {
+          const auto list_cfg_it = lists_map.find(list_name);
+          if (list_cfg_it == lists_map.end() ||
+              list_usage_cache.find(list_name) != list_usage_cache.end()) {
+            continue;
+          }
+          list_usage_cache.emplace(
+              list_name,
+              analyze_list_set_usage(list_name, list_cfg_it->second,
+                                     *list_streamer));
+        }
+      }
+    }
+    FirewallPlanBuildInputs plan_inputs{
+        config, outbound_marks, list_usage_cache, main_routes, interfaces,
+        balance_candidates, ipv6_decision.enabled, fwmark_mask};
+    FirewallPlan plan = build_firewall_plan(plan_inputs);
+
     firewall.set_ipv6_enabled(ipv6_decision.enabled);
     firewall.set_clear_dynamic_sets_on_apply(
         config.daemon.value_or(DaemonConfig{}).clear_dynamic_sets_on_apply.value_or(true));
     if (force_clear_dynamic_sets) {
       firewall.set_clear_dynamic_sets_on_apply(true);
     }
-    const auto daemon_config = config.daemon.value_or(DaemonConfig{});
     firewall.set_ipset_hashsize(
         daemon_config.ipset_hashsize.has_value()
             ? std::optional<uint32_t>{static_cast<uint32_t>(
@@ -186,11 +497,25 @@ std::vector<RuleState> apply_runtime_firewall(
                   *daemon_config.ipset_maxelem)}
             : std::nullopt);
     firewall.prepare_apply(mode);
-    auto prefilter = build_firewall_global_prefilter(config);
-    prefilter.restore_conntrack_mark = true;
-    prefilter.conntrack_mark_mask = fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
-    firewall.set_global_prefilter(std::move(prefilter));
-    firewall.set_fwmark_mask(fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{})));
+    if (defer_rules_only_lists) {
+      list_usage_cache.clear();
+      for (std::size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
+        for (const auto& list_name : route_rule_lists(route_rules[rule_idx])) {
+          const auto list_cfg_it = lists_map.find(list_name);
+          if (list_cfg_it == lists_map.end() ||
+              list_usage_cache.find(list_name) != list_usage_cache.end()) {
+            continue;
+          }
+          list_usage_cache.emplace(
+              list_name,
+              reused_list_set_usage(previous_rule_states, rule_idx,
+                                    list_name, list_cfg_it->second, firewall,
+                                    ipv6_decision.enabled));
+        }
+      }
+      plan = build_firewall_plan(plan_inputs);
+    }
+    configure_firewall_plan(plan, firewall);
     std::vector<uint32_t> owned_marks;
     owned_marks.reserve(outbound_marks.size());
     for (const auto& [tag, mark] : outbound_marks) {
@@ -198,25 +523,6 @@ std::vector<RuleState> apply_runtime_firewall(
         owned_marks.push_back(mark);
     }
     firewall.set_owned_marks(owned_marks);
-
-    const auto& all_outbounds = config.outbounds.value_or(std::vector<Outbound>{});
-    static const std::map<std::string, ListConfig> empty_lists;
-    const auto& lists_map = config.lists ? *config.lists : empty_lists;
-    const auto& route_rules = route_config.rules.value_or(std::vector<RouteRule>{});
-    const bool needs_nftables = std::any_of(
-        route_rules.begin(), route_rules.end(), [](const RouteRule& rule) {
-            return rule.default_gateway.has_value();
-        }) || std::any_of(all_outbounds.begin(), all_outbounds.end(),
-                          [](const Outbound& outbound) {
-                              return (outbound.type == OutboundType::URLTEST ||
-                                      outbound.type == OutboundType::ICMPTEST) &&
-                                     outbound_uses_balance(outbound);
-                          });
-    if (needs_nftables && firewall.backend() != FirewallBackend::nftables) {
-        throw FirewallError(
-            "default_gateway and test-group balance require the nftables firewall backend");
-    }
-    std::map<std::string, ListSetUsage> list_usage_cache;
 
     for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
         const auto& rule = route_rules[rule_idx];
@@ -228,42 +534,12 @@ std::vector<RuleState> apply_runtime_firewall(
 
         rule_state.set_names.clear();
 
-        const bool is_blackhole = rule_state.action_type == RuleActionType::Drop;
-        const bool is_pass = rule_state.action_type == RuleActionType::Pass;
         FirewallRuleCriteria criteria = build_firewall_rule_criteria(
             rule, main_routes, interfaces);
         rule_state.criteria = criteria;
 
-        auto apply_rule = [&](const std::optional<std::string>& dst_set_name) {
-            FirewallRuleCriteria rule_criteria = criteria;
-            rule_criteria.dst_set_name = dst_set_name;
-
-            if (is_blackhole) {
-                firewall.create_drop_rule(rule_criteria);
-            } else if (is_pass) {
-                firewall.create_pass_rule(rule_criteria);
-            } else if (rule_state.fwmark != 0) {
-                const Outbound* outbound = find_outbound_by_tag(all_outbounds, rule.outbound);
-                if (outbound && outbound_uses_balance(*outbound)) {
-                    static const std::vector<FirewallBalanceCandidate> empty_candidates;
-                    const auto* candidates = &empty_candidates;
-                    if (balance_candidates != nullptr) {
-                        const auto it = balance_candidates->find(outbound->tag);
-                        if (it != balance_candidates->end()) {
-                            candidates = &it->second;
-                        }
-                    }
-                    firewall.create_balance_rule(rule_state.fwmark, *candidates, rule_criteria);
-                } else {
-                    firewall.create_mark_rule(rule_state.fwmark, rule_criteria);
-                }
-            }
-        };
-
         const auto& list_names = route_rule_lists(rule);
         if (!list_names.empty()) {
-            bool emitted_rule = false;
-
             for (const auto& list_name : list_names) {
                 auto list_cfg_it = lists_map.find(list_name);
                 if (list_cfg_it == lists_map.end()) {
@@ -271,16 +547,9 @@ std::vector<RuleState> apply_runtime_firewall(
                 }
 
                 const auto& list_cfg = list_cfg_it->second;
-                auto usage_it = list_usage_cache.find(list_name);
+                const auto usage_it = list_usage_cache.find(list_name);
                 if (usage_it == list_usage_cache.end()) {
-                    usage_it = list_usage_cache.emplace(
-                        list_name,
-                        mode == FirewallApplyMode::RulesOnly
-                            ? reused_list_set_usage(previous_rule_states, rule_idx,
-                                                    list_name, list_cfg, firewall,
-                                                    ipv6_decision.enabled)
-                            : analyze_list_set_usage(list_name, list_cfg,
-                                                     *list_streamer)).first;
+                    continue;
                 }
                 const auto& usage = usage_it->second;
 
@@ -332,73 +601,21 @@ std::vector<RuleState> apply_runtime_firewall(
                     }
                 }
 
-                if (usage.has_static_entries) {
-                    apply_rule(set4);
-                    if (ipv6_decision.enabled) {
-                        apply_rule(set6);
-                    }
-                    emitted_rule = true;
-                }
-                if (usage.has_domain_entries) {
-                    apply_rule(set4d);
-                    if (ipv6_decision.enabled) {
-                        apply_rule(set6d);
-                    }
-                    emitted_rule = true;
-                }
             }
+        }
 
-            if (!emitted_rule && criteria.has_rule_selector()) {
-                apply_rule(std::nullopt);
+        // ponytail: O(routes * rules) preserves set/rule interleaving; index
+        // by source when route/rule counts make this measurable.
+        for (const auto& planned_rule : plan.rules) {
+            if (planned_rule.source_rule_index == rule_idx) {
+                replay_firewall_rule(planned_rule, firewall);
             }
-        } else if (criteria.has_rule_selector()) {
-            apply_rule(std::nullopt);
         }
     }
 
-    if (config.dns.has_value()) {
-        const auto& dns_servers = config.dns->servers.value_or(std::vector<DnsServer>{});
-        const DnsServerRegistry dns_registry(config.dns.value_or(DnsConfig{}));
-        for (const auto& server : dns_servers) {
-            if (!server.detour.has_value()) {
-                continue;
-            }
-
-            const Outbound* detour_outbound =
-                find_outbound_by_tag(all_outbounds, server.detour.value());
-            if (!detour_outbound) {
-                continue;
-            }
-
-            std::string effective_tag = detour_outbound->tag;
-    if (detour_outbound->type == OutboundType::URLTEST || detour_outbound->type == OutboundType::ICMPTEST) {
-                // A URLTEST route is switched behind its stable table/mark.
-                // DNS detours must not pin existing flows to the transient
-                // selected child mark.
-            } else {
-                // The internal detour mark has an unconditional terminal guard
-                // even when the user-facing outbound is configured non-strict.
-                effective_tag = internal_detour_mark_key(detour_outbound->tag);
-            }
-
-            auto mark_it = outbound_marks.find(effective_tag);
-            if (mark_it == outbound_marks.end()) {
-                continue;
-            }
-
-            const auto resolved_servers = dns_registry.get_servers(server.tag);
-            if (resolved_servers.empty()) {
-                throw FirewallError("DNS server tag not found during detour setup: " + server.tag);
-            }
-
-            for (const DnsServerConfig* resolved_server : resolved_servers) {
-                FirewallRuleCriteria criteria;
-                criteria.proto = L4Proto::TcpUdp;
-                criteria.dst_port = std::to_string(resolved_server->port);
-                criteria.dst_addr = {resolved_server->resolved_ip};
-                criteria.apply_output = true;
-                firewall.create_mark_rule(mark_it->second, criteria);
-            }
+    for (const auto& planned_rule : plan.rules) {
+        if (planned_rule.source_rule_index == kNoFirewallRuleSource) {
+            replay_firewall_rule(planned_rule, firewall);
         }
     }
 

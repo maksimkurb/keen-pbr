@@ -588,6 +588,17 @@ TEST_CASE("RulesOnly reuses aligned empty file list without streaming") {
   CHECK(firewall.stream_count == 0);
 }
 
+TEST_CASE("non-RulesOnly list analysis fails before firewall preparation") {
+  const Config config = empty_source_list_config();
+  RecordingFirewall firewall;
+  CacheManager cache("/tmp/keen-pbr-non-rules-only-analysis-test-cache");
+
+  CHECK_THROWS(apply_runtime_firewall(
+      config, {{"wan", 1}}, cache, firewall, FirewallApplyMode::PreserveSets));
+  CHECK(firewall.prepared_modes.empty());
+  CHECK(firewall.calls.empty());
+}
+
 TEST_CASE("RulesOnly falls back when realized rule state is missing") {
   const Config config = empty_source_list_config();
   RulesOnlyFirewall firewall;
@@ -598,9 +609,8 @@ TEST_CASE("RulesOnly falls back when realized rule state is missing") {
                       config, marks, cache, firewall,
                   FirewallApplyMode::RulesOnly, nullptr),
                   std::exception);
-  REQUIRE(firewall.prepared_modes.size() == 2);
+  REQUIRE(firewall.prepared_modes.size() == 1);
   CHECK(firewall.prepared_modes[0] == FirewallApplyMode::RulesOnly);
-  CHECK(firewall.prepared_modes[1] == FirewallApplyMode::PreserveSets);
 }
 
 TEST_CASE("RulesOnly falls back when realized rule state is misaligned") {
@@ -616,9 +626,8 @@ TEST_CASE("RulesOnly falls back when realized rule state is misaligned") {
                       config, marks, cache, firewall,
                       FirewallApplyMode::RulesOnly, &previous),
                   std::exception);
-  REQUIRE(firewall.prepared_modes.size() == 2);
+  REQUIRE(firewall.prepared_modes.size() == 1);
   CHECK(firewall.prepared_modes[0] == FirewallApplyMode::RulesOnly);
-  CHECK(firewall.prepared_modes[1] == FirewallApplyMode::PreserveSets);
 }
 
 TEST_CASE("RulesOnly reuses aligned empty URL list without streaming") {
