@@ -1182,3 +1182,112 @@ TEST_CASE("safe_exec_capture: nonzero exit code is preserved") {
     CHECK_FALSE(result.truncated);
     CHECK(result.exit_code == 1);
 }
+
+TEST_CASE("Iptables verifier accepts generated rule and rejects semantic drift") {
+    const std::string rule =
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m set --match-set kpbr4_web dst -p tcp --dport 443 "
+        "-j MARK --set-xmark 0x20000/0xff0000\n";
+    const auto make_runner = [rule](bool report_as_ipv6) {
+        return [rule, report_as_ipv6](const std::vector<std::string>& args) {
+            const bool chain = args.size() == 5 && args[1] == "-t" &&
+                               args[3] == "-S" && args[4] == "KeenPbrTable";
+            const bool prerouting = args.size() == 5 && args[1] == "-t" &&
+                                    args[3] == "-S" && args[4] == "PREROUTING";
+            if (chain && ((args[0] == "ip6tables") == report_as_ipv6)) {
+                return command_result(rule);
+            }
+            if (prerouting && ((args[0] == "ip6tables") == report_as_ipv6)) {
+                return command_result("-A PREROUTING -j KeenPbrTable\n");
+            }
+            return command_result({}, 1);
+        };
+    };
+    const auto expected_rule = [] {
+        RuleState expected;
+        expected.set_names = {"kpbr4_web"};
+        expected.action_type = RuleActionType::Mark;
+        expected.fwmark = 0x20000U;
+        expected.criteria.proto = L4Proto::Tcp;
+        expected.criteria.dst_port = "443";
+        return expected;
+    };
+    const auto verify = [&](RuleState expected, uint32_t mask = 0xff0000U,
+                            bool report_as_ipv6 = false) {
+        IptablesFirewallVerifier verifier(make_runner(report_as_ipv6));
+        verifier.set_expected_fwmark_mask(mask);
+        return verifier.verify_rules({expected}).front();
+    };
+
+    CHECK(verify(expected_rule()).status == CheckStatus::ok);
+
+    auto action_changed = expected_rule();
+    action_changed.action_type = RuleActionType::Drop;
+    CHECK(verify(action_changed).status == CheckStatus::mismatch);
+
+    CHECK(verify(expected_rule(), 0xffffffffU).status == CheckStatus::mismatch);
+
+    auto port_changed = expected_rule();
+    port_changed.criteria.dst_port = "8443";
+    CHECK(verify(port_changed).status == CheckStatus::missing);
+
+    CHECK(verify(expected_rule(), 0xff0000U, true).status == CheckStatus::missing);
+}
+
+TEST_CASE("Nftables verifier accepts generated rule and rejects action family and port drift") {
+    const auto make_runner = [](const std::string& protocol,
+                                uint32_t fwmark) {
+        return [protocol, fwmark](const std::vector<std::string>& args) {
+            if (matches_args(args, {"nft", "-j", "list", "chain", "inet",
+                                    "KeenPbrTable", "prerouting"})) {
+                return command_result(
+                    "{\"nftables\":[{\"chain\":{\"family\":\"inet\","
+                    "\"table\":\"KeenPbrTable\",\"name\":\"prerouting\","
+                    "\"type\":\"filter\",\"hook\":\"prerouting\"}},"
+                    "{\"rule\":{\"family\":\"inet\",\"table\":\"KeenPbrTable\","
+                    "\"chain\":\"prerouting\",\"expr\":["
+                    "{\"match\":{\"op\":\"==\",\"left\":{\"payload\":{"
+                    "\"protocol\":\"" + protocol + "\",\"field\":\"daddr\"}},"
+                    "\"right\":\"@kpbr4_web\"}},"
+                    "{\"match\":{\"op\":\"==\",\"left\":{\"meta\":{"
+                    "\"key\":\"l4proto\"}},\"right\":\"tcp\"}},"
+                    "{\"match\":{\"op\":\"==\",\"left\":{\"payload\":{"
+                    "\"protocol\":\"tcp\",\"field\":\"dport\"}},\"right\":443}},"
+                    "{\"mangle\":{\"key\":{\"meta\":{\"key\":\"mark\"}},"
+                    "\"value\":" + std::to_string(fwmark) +
+                    "}},{\"accept\":null}]}}]}");
+            }
+            return command_result({}, 1);
+        };
+    };
+    const auto expected_rule = [] {
+        RuleState expected;
+        expected.set_names = {"kpbr4_web"};
+        expected.action_type = RuleActionType::Mark;
+        expected.fwmark = 0x20000U;
+        expected.criteria.proto = L4Proto::Tcp;
+        expected.criteria.dst_port = "443";
+        return expected;
+    };
+    const auto verify = [&](RuleState expected, const std::string& protocol = "ip",
+                            uint32_t fwmark = 0x20000U) {
+        NftablesFirewallVerifier verifier(make_runner(protocol, fwmark));
+        return verifier.verify_rules({expected}).front();
+    };
+
+    CHECK(verify(expected_rule()).status == CheckStatus::ok);
+
+    auto action_changed = expected_rule();
+    action_changed.action_type = RuleActionType::Drop;
+    CHECK(verify(action_changed).status == CheckStatus::mismatch);
+
+    auto mark_changed = expected_rule();
+    mark_changed.fwmark = 0x30000U;
+    CHECK(verify(mark_changed).status == CheckStatus::mismatch);
+
+    auto port_changed = expected_rule();
+    port_changed.criteria.dst_port = "8443";
+    CHECK(verify(port_changed).status == CheckStatus::missing);
+
+    CHECK(verify(expected_rule(), "ip6").status == CheckStatus::missing);
+}

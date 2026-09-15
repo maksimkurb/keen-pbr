@@ -88,12 +88,16 @@ TEST_CASE("Firewall state diff distinguishes ordered rules and set schemas") {
 
     FirewallActualState actual = desired;
     actual.chains.push_back("KeenPbrTable_stale");
+    actual.jumps.push_back("PREROUTING->KeenPbrTable_stale");
+    actual.jumps.push_back("PREROUTING->ForeignTable");
     std::swap(actual.ordered_rules[0], actual.ordered_rules[1]);
     actual.sets[1].timeout_seconds = 60;
     actual.sets.push_back({"kpbr4_extra", AF_INET, 0, false});
 
     const auto diff = diff_firewall_state(desired, actual);
     CHECK(diff.extra_chains == std::vector<std::string>{"KeenPbrTable_stale"});
+    CHECK(diff.extra_jumps ==
+          std::vector<std::string>{"PREROUTING->KeenPbrTable_stale"});
     CHECK(diff.rules_reordered);
     CHECK(diff.schema_mismatches == std::vector<std::string>{"kpbr4d_dns"});
     CHECK(diff.extra_sets == std::vector<std::string>{"kpbr4_extra"});
@@ -111,7 +115,9 @@ TEST_CASE("Firewall state diff only treats reserved namespace objects as extras"
     CHECK(diff.extra_chains == std::vector<std::string>{"KeenPbrTable_stale"});
     CHECK(diff.extra_sets == std::vector<std::string>{"kpbr4_stale"});
     CHECK(is_keen_pbr_namespace_name("ip4:KeenPbrTable_7"));
+    CHECK(is_keen_pbr_namespace_name("ip4:OUTPUT->KeenPbrTable_7"));
     CHECK_FALSE(is_keen_pbr_namespace_name("KeenPbrTableLikeForeign"));
+    CHECK_FALSE(is_keen_pbr_namespace_name("PREROUTING->ForeignTable"));
 }
 
 TEST_CASE("Firewall inspections retain backend rule order and ownership hooks") {
