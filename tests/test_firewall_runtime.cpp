@@ -505,6 +505,45 @@ TEST_CASE("runtime captures OUTPUT default-gateway bypass criteria") {
         criteria.default_gateway_bypass.end());
 }
 
+TEST_CASE("runtime replays only the gateway family for populated route lists") {
+  const Config config = parse_config(R"({
+    "daemon": {"firewall_backend":"nftables","ipv6_enabled":true},
+    "outbounds": [{"type":"table","tag":"wan","table":100}],
+    "lists": {"remote": {"ip_cidrs":["192.0.2.0/24"],
+                             "domains":["example.test"]}},
+    "route": {"rules": [{"list":["remote"],
+                            "default_gateway":"ipv4",
+                            "proto":"tcp/udp","dest_port":"443",
+                            "outbound":"wan"}]}
+  })");
+  RecordingFirewall firewall;
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-gateway-list-test-cache");
+
+  const auto states = apply_runtime_firewall(
+      config, {{"wan", 0x100U}}, cache, firewall,
+      FirewallApplyMode::PreserveSets);
+  const bool ipv6_enabled = resolve_ipv6_support(config).enabled;
+
+  REQUIRE(states.size() == 1);
+  const std::vector<std::string> expected_sets =
+      ipv6_enabled
+          ? std::vector<std::string>{"kpbr4_remote", "kpbr6_remote",
+                                     "kpbr4d_remote", "kpbr6d_remote"}
+          : std::vector<std::string>{"kpbr4_remote", "kpbr4d_remote"};
+  CHECK(states.front().set_names == expected_sets);
+  REQUIRE(firewall.recorded_rules.size() == 2);
+  CHECK(firewall.referenced_sets ==
+        std::vector<std::string>{"kpbr4_remote", "kpbr4d_remote"});
+  for (const auto &recorded : firewall.recorded_rules) {
+    CHECK(recorded.action == RecordingFirewall::RuleAction::Mark);
+    CHECK(recorded.fwmark == 0x100U);
+    CHECK(recorded.criteria.apply_output);
+    CHECK(recorded.criteria.default_gateway == DefaultGatewayFamily::Ipv4);
+    CHECK(recorded.criteria.proto == L4Proto::TcpUdp);
+    CHECK(recorded.criteria.dst_port == PortSpec("443"));
+  }
+}
+
 TEST_CASE("runtime passes balance fallback and candidates to the firewall") {
   const Config config = parse_config(R"({
     "daemon": {"firewall_backend":"nftables","ipv6_enabled":false},

@@ -6,6 +6,7 @@ add_executable(keen-pbr-tests
   test_firewall_reconciler.cpp
   test_firewall_snapshot.cpp
   test_firewall_plan.cpp
+  test_firewall_rule_modules.cpp
   test_firewall_rule.cpp
   test_nftables_builder.cpp
   test_iptables_builder.cpp
@@ -92,6 +93,7 @@ add_executable(keen-pbr-tests
   ../src/firewall/firewall_rule.cpp
   ../src/firewall/firewall.cpp
   ../src/firewall/firewall_runtime.cpp
+  ../src/firewall/firewall_rule_modules.cpp
   ../src/firewall/port_spec_util.cpp
   ../src/firewall/nftables.cpp
   ../src/firewall/nft_batch_pipe.cpp

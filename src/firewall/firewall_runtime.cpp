@@ -1,4 +1,5 @@
 #include "firewall_runtime.hpp"
+#include "firewall_rule_modules.hpp"
 
 #include "../config/routing_state.hpp"
 #include "../dns/dns_router.hpp"
@@ -153,50 +154,33 @@ namespace {
 constexpr std::size_t kNoFirewallRuleSource =
     std::numeric_limits<std::size_t>::max();
 
-std::string logical_set_name(const std::string& list_name, FirewallFamily family,
-                             bool dynamic) {
-    const std::string prefix = family == FirewallFamily::ipv6 ? "kpbr6" : "kpbr4";
-    return prefix + (dynamic ? "d_" : "_") + list_name;
-}
-
 FirewallFamily family_for_criteria(const FirewallRuleCriteria& criteria) {
-    if (criteria.default_gateway == DefaultGatewayFamily::Ipv6) {
-        return FirewallFamily::ipv6;
+  if (criteria.default_gateway == DefaultGatewayFamily::Ipv6) {
+    return FirewallFamily::ipv6;
+  }
+  if (criteria.default_gateway == DefaultGatewayFamily::Ipv4) {
+    return FirewallFamily::ipv4;
+  }
+  bool has_ipv4 = false;
+  bool has_ipv6 = false;
+  const auto inspect_addresses = [&](const std::vector<std::string>& addresses) {
+    for (const auto& address : addresses) {
+      if (address.find(':') == std::string::npos) {
+        has_ipv4 = true;
+      } else {
+        has_ipv6 = true;
+      }
     }
-    if (criteria.default_gateway == DefaultGatewayFamily::Ipv4) {
-        return FirewallFamily::ipv4;
-    }
-    bool has_ipv4 = false;
-    bool has_ipv6 = false;
-    const auto inspect_addresses = [&](const std::vector<std::string>& addresses) {
-        for (const auto& address : addresses) {
-            if (address.find(':') == std::string::npos) {
-                has_ipv4 = true;
-            } else {
-                has_ipv6 = true;
-            }
-        }
-    };
-    inspect_addresses(criteria.src_addr);
-    inspect_addresses(criteria.dst_addr);
-    if (has_ipv6 && !has_ipv4) {
-        return FirewallFamily::ipv6;
-    }
-    if (has_ipv4 && !has_ipv6) {
-        return FirewallFamily::ipv4;
-    }
-    return FirewallFamily::any;
-}
-
-FirewallFamily family_for_set(const std::string& set_name,
-                              const FirewallRuleCriteria& criteria) {
-    if (set_name.rfind("kpbr6", 0) == 0) {
-        return FirewallFamily::ipv6;
-    }
-    if (set_name.rfind("kpbr4", 0) == 0) {
-        return FirewallFamily::ipv4;
-    }
-    return family_for_criteria(criteria);
+  };
+  inspect_addresses(criteria.src_addr);
+  inspect_addresses(criteria.dst_addr);
+  if (has_ipv6 && !has_ipv4) {
+    return FirewallFamily::ipv6;
+  }
+  if (has_ipv4 && !has_ipv6) {
+    return FirewallFamily::ipv4;
+  }
+  return FirewallFamily::any;
 }
 
 } // namespace
@@ -215,8 +199,13 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   const auto route_config = inputs.config.route.value_or(RouteConfig{});
   const auto& route_rules =
       route_config.rules.value_or(std::vector<RouteRule>{});
-  const auto rule_states =
-      build_fw_rule_states(inputs.config, inputs.outbound_marks);
+  const auto local_rule_states =
+      inputs.rule_states == nullptr
+          ? build_fw_rule_states(inputs.config, inputs.outbound_marks)
+          : std::vector<RuleState>{};
+  const auto& rule_states = inputs.rule_states != nullptr
+                                 ? *inputs.rule_states
+                                 : local_rule_states;
   FirewallRuleRegistrar registrar(plan);
 
   const auto add_rule = [&](std::size_t rule_index, FirewallRuleStage stage,
@@ -234,7 +223,9 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
     rule.hook = criteria.apply_output ? FirewallHook::output
                                       : FirewallHook::prerouting;
     rule.family = set_name.has_value()
-                      ? family_for_set(*set_name, criteria)
+                      ? (set_name->rfind("kpbr6", 0) == 0
+                             ? FirewallFamily::ipv6
+                             : FirewallFamily::ipv4)
                       : family_for_criteria(criteria);
     rule.criteria = std::move(criteria);
     rule.action = std::move(action);
@@ -242,116 +233,59 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
     registrar.register_rule(std::move(rule));
   };
 
+  const FirewallBuildContext context{
+      route_rules, rule_states, all_outbounds, lists_map, inputs.list_usage,
+      inputs.main_routes, inputs.interfaces, inputs.backend,
+      inputs.ipv6_enabled, inputs.fwmark_mask};
+  for (const auto register_module : route_rule_module_manifest()) {
+    register_module(context, registrar);
+  }
+
+  // Route balance is intentionally left in the compatibility path until PR8.
   for (std::size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
-    const auto& route_rule = route_rules[rule_idx];
+    if (rule_idx >= rule_states.size()) {
+      break;
+    }
     const auto& rule_state = rule_states[rule_idx];
-    if (rule_state.action_type == RuleActionType::Skip) {
+    if (rule_state.action_type != RuleActionType::Mark) {
       continue;
     }
 
-    FirewallRuleCriteria criteria = build_firewall_rule_criteria(
-        route_rule, inputs.main_routes, inputs.interfaces);
-    const auto outbound = find_outbound_by_tag(all_outbounds, route_rule.outbound);
-    const auto module_for_action = [&]() -> std::string {
-      if (rule_state.action_type == RuleActionType::Drop) return "route.drop";
-      if (rule_state.action_type == RuleActionType::Pass) return "route.pass";
-      if (outbound != nullptr && outbound_uses_balance(*outbound)) {
-        return "route.balance";
-      }
-      return "route.mark";
-    };
-    const std::string module = module_for_action();
+    const auto outbound = find_outbound_by_tag(all_outbounds,
+                                               route_rules[rule_idx].outbound);
+    if (outbound == nullptr || !outbound_uses_balance(*outbound)) {
+      continue;
+    }
     const auto balance_candidates_for_rule = [&]()
         -> const std::vector<FirewallBalanceCandidate>& {
       static const std::vector<FirewallBalanceCandidate> empty_candidates;
-      if (outbound == nullptr || !outbound_uses_balance(*outbound) ||
-          inputs.balance_candidates == nullptr) {
+      if (inputs.balance_candidates == nullptr) {
         return empty_candidates;
       }
       const auto it = inputs.balance_candidates->find(outbound->tag);
       return it == inputs.balance_candidates->end() ? empty_candidates
                                                      : it->second;
     };
-    const auto action_for_rule = [&]() -> FirewallRuleAction {
-      if (rule_state.action_type == RuleActionType::Drop) {
-        return VerdictAction::drop;
+    const auto targets = expand_route_rule_targets(context, rule_idx);
+    for (const auto& target : targets) {
+      if (target.set_name.has_value()) {
+        registrar.register_set({*target.set_name, target.family,
+                                target.set_timeout});
       }
-      if (rule_state.action_type == RuleActionType::Pass) {
-        return VerdictAction::pass;
+      if (!target.rule_enabled || rule_state.fwmark == 0) {
+        continue;
       }
-      if (outbound != nullptr && outbound_uses_balance(*outbound)) {
-        const auto& candidates = balance_candidates_for_rule();
-        BalanceAction action;
-        action.fallback_mark = rule_state.fwmark;
-        action.candidates = candidates;
-        return action;
-      }
-      return MarkAction{rule_state.fwmark, inputs.fwmark_mask};
-    };
-
-    const auto add_for_set = [&](const std::optional<std::string>& set_name,
-                                 std::size_t occurrence) {
-      if (rule_state.action_type == RuleActionType::Mark &&
-          rule_state.fwmark == 0) {
-        return;
-      }
-      std::string instance = "rule=" + std::to_string(rule_idx) +
-                             ";occurrence=" + std::to_string(occurrence) +
-                             ";set=" + (set_name.has_value() ? *set_name : "none");
-      const auto action = action_for_rule();
+      auto target_criteria = target.criteria;
+      target_criteria.dst_set_name = target.set_name;
       add_rule(rule_idx, FirewallRuleStage::route_classification,
-               static_cast<int>(rule_idx), module, instance,
-               criteria, action, set_name);
-    };
-
-    const auto& list_names = route_rule_lists(route_rule);
-    if (!list_names.empty()) {
-      bool emitted_rule = false;
-      std::size_t list_occurrence = 0;
-      for (const auto& list_name : list_names) {
-        const auto list_config = lists_map.find(list_name);
-        const auto usage = inputs.list_usage.find(list_name);
-        if (list_config == lists_map.end() || usage == inputs.list_usage.end()) {
-          ++list_occurrence;
-          continue;
-        }
-        const auto append_set = [&](FirewallFamily family, bool dynamic) {
-          const std::string name = logical_set_name(list_name, family, dynamic);
-          registrar.register_set({name, family,
-                                  dynamic ? usage->second.dynamic_timeout : 0});
-          return name;
-        };
-        if (usage->second.has_static_entries) {
-          const auto set4 = append_set(FirewallFamily::ipv4, false);
-          const auto set6 = inputs.ipv6_enabled
-                                ? std::optional<std::string>{
-                                      append_set(FirewallFamily::ipv6, false)}
-                                : std::nullopt;
-          add_for_set(set4, list_occurrence * 4U);
-          if (set6.has_value()) {
-            add_for_set(set6, list_occurrence * 4U + 1U);
-          }
-          emitted_rule = true;
-        }
-        if (usage->second.has_domain_entries) {
-          const auto set4 = append_set(FirewallFamily::ipv4, true);
-          const auto set6 = inputs.ipv6_enabled
-                                ? std::optional<std::string>{
-                                      append_set(FirewallFamily::ipv6, true)}
-                                : std::nullopt;
-          add_for_set(set4, list_occurrence * 4U + 2U);
-          if (set6.has_value()) {
-            add_for_set(set6, list_occurrence * 4U + 3U);
-          }
-          emitted_rule = true;
-        }
-        ++list_occurrence;
-      }
-      if (!emitted_rule && criteria.has_rule_selector()) {
-        add_for_set(std::nullopt, list_names.size() * 4U);
-      }
-    } else if (criteria.has_rule_selector()) {
-      add_for_set(std::nullopt, 0);
+               static_cast<int>(rule_idx), "route.balance",
+               "rule=" + std::to_string(rule_idx) +
+                   ";occurrence=" + std::to_string(target.occurrence) +
+                   ";target=" +
+                   (target.set_name.has_value() ? *target.set_name : "none"),
+               std::move(target_criteria),
+               BalanceAction{rule_state.fwmark, balance_candidates_for_rule()},
+               target.set_name);
     }
   }
 
@@ -477,7 +411,8 @@ std::vector<RuleState> apply_runtime_firewall(
     }
     FirewallPlanBuildInputs plan_inputs{
         config, outbound_marks, list_usage_cache, main_routes, interfaces,
-        balance_candidates, ipv6_decision.enabled, fwmark_mask};
+        balance_candidates, ipv6_decision.enabled, fwmark_mask, &rule_states,
+        firewall.backend()};
     FirewallPlan plan = build_firewall_plan(plan_inputs);
     validate_firewall_plan_backend(plan, firewall.backend());
 
