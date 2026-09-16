@@ -26,35 +26,7 @@ public:
     void create_ipset(const std::string& set_name, int family,
                       uint32_t timeout = 0) override;
 
-    // Buffer a meta mark set rule that matches the given criteria.
-    void create_mark_rule(uint32_t fwmark,
-                          const FirewallRuleCriteria& criteria = {}) override;
-    void create_mark_rule(const FirewallRuleKey& key, uint32_t fwmark,
-                          const FirewallRuleCriteria& criteria = {}) override;
-    void create_balance_rule(
-        uint32_t fallback_fwmark,
-        const std::vector<FirewallBalanceCandidate>& candidates,
-        const FirewallRuleCriteria& criteria = {}) override;
-    void create_balance_rule(
-        const FirewallRuleKey& key, uint32_t fallback_fwmark,
-        const std::vector<FirewallBalanceCandidate>& candidates,
-        const FirewallRuleCriteria& criteria = {}) override;
     void set_owned_marks(const std::vector<uint32_t>& marks) override;
-    // Buffer a drop verdict rule that matches the given criteria.
-    void create_drop_rule(const FirewallRuleCriteria& criteria = {}) override;
-    void create_drop_rule(const FirewallRuleKey& key,
-                          const FirewallRuleCriteria& criteria = {}) override;
-    // Buffer a pass-through verdict rule that matches the given criteria.
-    void create_pass_rule(const FirewallRuleCriteria& criteria = {}) override;
-    void create_pass_rule(const FirewallRuleKey& key,
-                          const FirewallRuleCriteria& criteria = {}) override;
-    void create_restore_conntrack_mark_rule(const FirewallRuleKey& key,
-                                             uint32_t mask) override;
-    void create_skip_established_or_dnat_rule(const FirewallRuleKey& key) override;
-    void create_skip_marked_packets_rule(const FirewallRuleKey& key) override;
-    void create_inbound_interface_filter_rule(
-        const FirewallRuleKey& key,
-        const std::vector<std::string>& interfaces) override;
 
     // Return an NftBatchVisitor that appends element values to the pending
     // element buffer for set_name; elements are flushed during apply().
@@ -63,7 +35,8 @@ public:
 
     // Atomically apply all pending table/set/rule/element operations via
     // a single 'nft -j -f -' invocation with a JSON batch.
-    void apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
+    void apply(const FirewallPlan& plan,
+               FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
     // Delete the inet KeenPbrTable table, removing all sets and rules within it.
     void cleanup() override;
     // Returns FirewallBackend::nftables.
@@ -114,6 +87,26 @@ private:
         // canonical rule intentionally carries the same key.
         FirewallRuleKey key;
     };
+
+    void append_mark_rule(const FirewallRuleKey& key, uint32_t fwmark,
+                          const FirewallRuleCriteria& criteria);
+    void append_balance_rule(
+        const FirewallRuleKey& key, uint32_t fallback_fwmark,
+        const std::vector<FirewallBalanceCandidate>& candidates,
+        const FirewallRuleCriteria& criteria);
+    void append_drop_rule(const FirewallRuleKey& key,
+                          const FirewallRuleCriteria& criteria);
+    void append_pass_rule(const FirewallRuleKey& key,
+                          const FirewallRuleCriteria& criteria);
+    void append_restore_conntrack_mark_rule(const FirewallRuleKey& key,
+                                            uint32_t mask);
+    void append_skip_established_or_dnat_rule(const FirewallRuleKey& key);
+    void append_skip_marked_packets_rule(const FirewallRuleKey& key);
+    void append_inbound_interface_filter_rule(
+        const FirewallRuleKey& key, const std::vector<std::string>& interfaces);
+    void compile_plan(const FirewallPlan& plan, FirewallApplyMode mode);
+    void apply_prepared(FirewallApplyMode mode);
+    void clear_pending();
 
     // Build the nftables JSON object for creating the inet KeenPbrTable table.
     static nlohmann::json build_table_json();
@@ -193,6 +186,7 @@ private:
     // True once the inet KeenPbrTable table has been created via apply().
     bool table_created_ = false;
     FirewallApplyMode prepared_mode_{FirewallApplyMode::Destructive};
+    bool apply_prepared_{false};
     FirewallPrefilter prefilter_{};
 
 #ifdef KEEN_PBR3_TESTING

@@ -1,4 +1,5 @@
 #include "nftables.hpp"
+#include "firewall_plan.hpp"
 #include "nft_batch_pipe.hpp"
 #include "firewall_rule.hpp"
 #include "port_spec_util.hpp"
@@ -97,6 +98,32 @@ void add_rule_comment(nlohmann::json& command, const std::string& comment) {
     }
 }
 
+std::string resolve_set_name(const std::string& logical_name,
+                             const NftablesFirewall& firewall) {
+    if (logical_name.rfind("kpbr4d_", 0) == 0) {
+        return firewall.dynamic_set_name(logical_name.substr(7), AF_INET);
+    }
+    if (logical_name.rfind("kpbr6d_", 0) == 0) {
+        return firewall.dynamic_set_name(logical_name.substr(7), AF_INET6);
+    }
+    if (logical_name.rfind("kpbr4_", 0) == 0) {
+        return firewall.static_set_name(logical_name.substr(6), AF_INET);
+    }
+    if (logical_name.rfind("kpbr6_", 0) == 0) {
+        return firewall.static_set_name(logical_name.substr(6), AF_INET6);
+    }
+    return logical_name;
+}
+
+FirewallRuleCriteria materialize_criteria(const FirewallRuleCriteria& criteria,
+                                          const NftablesFirewall& firewall) {
+    FirewallRuleCriteria result = criteria;
+    if (result.dst_set_name.has_value()) {
+        result.dst_set_name = resolve_set_name(*result.dst_set_name, firewall);
+    }
+    return result;
+}
+
 } // namespace
 
 NftablesFirewall::NftablesFirewall() = default;
@@ -119,6 +146,7 @@ void NftablesFirewall::prepare_apply(FirewallApplyMode mode) {
     pending_rules_.clear();
     prefilter_ = {};
     prepared_mode_ = mode;
+    apply_prepared_ = true;
 }
 
 void NftablesFirewall::create_ipset(const std::string& set_name, int family,
@@ -131,7 +159,14 @@ void NftablesFirewall::create_ipset(const std::string& set_name, int family,
     ps.name = set_name;
     ps.type = (family == AF_INET6) ? "ipv6_addr" : "ipv4_addr";
     ps.timeout = timeout;
-    pending_sets_.push_back(std::move(ps));
+    const auto existing = std::find_if(
+        pending_sets_.begin(), pending_sets_.end(),
+        [&set_name](const PendingSet& pending) { return pending.name == set_name; });
+    if (existing == pending_sets_.end()) {
+        pending_sets_.push_back(std::move(ps));
+    } else if (existing->type != ps.type || existing->timeout != ps.timeout) {
+        throw FirewallError("conflicting nft set declaration for " + set_name);
+    }
     created_sets_[set_name] = family;
 }
 
@@ -243,12 +278,7 @@ void NftablesFirewall::append_balance_rules_for_family(
     }
 }
 
-void NftablesFirewall::create_mark_rule(uint32_t fwmark,
-                                        const FirewallRuleCriteria& criteria) {
-    create_mark_rule(FirewallRuleKey{}, fwmark, criteria);
-}
-
-void NftablesFirewall::create_mark_rule(const FirewallRuleKey& key,
+void NftablesFirewall::append_mark_rule(const FirewallRuleKey& key,
                                         uint32_t fwmark,
                                         const FirewallRuleCriteria& criteria) {
     if (criteria.dst_set_name.has_value()) {
@@ -265,14 +295,7 @@ void NftablesFirewall::create_mark_rule(const FirewallRuleKey& key,
     append_rules_for_family(AF_INET6, PendingRule::Mark, fwmark, criteria, key);
 }
 
-void NftablesFirewall::create_balance_rule(
-    uint32_t fallback_fwmark,
-    const std::vector<FirewallBalanceCandidate>& candidates,
-    const FirewallRuleCriteria& criteria) {
-    create_balance_rule(FirewallRuleKey{}, fallback_fwmark, candidates, criteria);
-}
-
-void NftablesFirewall::create_balance_rule(
+void NftablesFirewall::append_balance_rule(
     const FirewallRuleKey& key, uint32_t fallback_fwmark,
     const std::vector<FirewallBalanceCandidate>& candidates,
     const FirewallRuleCriteria& criteria) {
@@ -301,11 +324,7 @@ void NftablesFirewall::set_owned_marks(const std::vector<uint32_t>& marks) {
     }
 }
 
-void NftablesFirewall::create_drop_rule(const FirewallRuleCriteria& criteria) {
-    create_drop_rule(FirewallRuleKey{}, criteria);
-}
-
-void NftablesFirewall::create_drop_rule(const FirewallRuleKey& key,
+void NftablesFirewall::append_drop_rule(const FirewallRuleKey& key,
                                         const FirewallRuleCriteria& criteria) {
     if (criteria.dst_set_name.has_value()) {
         auto it = created_sets_.find(*criteria.dst_set_name);
@@ -321,11 +340,7 @@ void NftablesFirewall::create_drop_rule(const FirewallRuleKey& key,
     append_rules_for_family(AF_INET6, PendingRule::Drop, 0, criteria, key);
 }
 
-void NftablesFirewall::create_pass_rule(const FirewallRuleCriteria& criteria) {
-    create_pass_rule(FirewallRuleKey{}, criteria);
-}
-
-void NftablesFirewall::create_pass_rule(const FirewallRuleKey& key,
+void NftablesFirewall::append_pass_rule(const FirewallRuleKey& key,
                                         const FirewallRuleCriteria& criteria) {
     if (criteria.dst_set_name.has_value()) {
         auto it = created_sets_.find(*criteria.dst_set_name);
@@ -341,7 +356,7 @@ void NftablesFirewall::create_pass_rule(const FirewallRuleKey& key,
     append_rules_for_family(AF_INET6, PendingRule::Pass, 0, criteria, key);
 }
 
-void NftablesFirewall::create_restore_conntrack_mark_rule(
+void NftablesFirewall::append_restore_conntrack_mark_rule(
     const FirewallRuleKey& key, uint32_t mask) {
     prefilter_.restore_conntrack_mark = true;
     prefilter_.conntrack_mark_mask = mask;
@@ -350,7 +365,7 @@ void NftablesFirewall::create_restore_conntrack_mark_rule(
     }
 }
 
-void NftablesFirewall::create_skip_established_or_dnat_rule(
+void NftablesFirewall::append_skip_established_or_dnat_rule(
     const FirewallRuleKey& key) {
     prefilter_.skip_established_or_dnat = true;
     if (!key.module_id.empty() || !key.instance_id.empty()) {
@@ -358,14 +373,14 @@ void NftablesFirewall::create_skip_established_or_dnat_rule(
     }
 }
 
-void NftablesFirewall::create_skip_marked_packets_rule(const FirewallRuleKey& key) {
+void NftablesFirewall::append_skip_marked_packets_rule(const FirewallRuleKey& key) {
     prefilter_.skip_marked_packets = true;
     if (!key.module_id.empty() || !key.instance_id.empty()) {
         prefilter_.skip_marked_packets_comment = key.comment();
     }
 }
 
-void NftablesFirewall::create_inbound_interface_filter_rule(
+void NftablesFirewall::append_inbound_interface_filter_rule(
     const FirewallRuleKey& key, const std::vector<std::string>& interfaces) {
     prefilter_.inbound_interfaces = interfaces;
     if (!key.module_id.empty() || !key.instance_id.empty()) {
@@ -1179,7 +1194,106 @@ void NftablesFirewall::preflight_reused_set_schemas(
     }
 }
 
-void NftablesFirewall::apply(FirewallApplyMode mode) {
+void NftablesFirewall::clear_pending() {
+    pending_sets_.clear();
+    pending_elements_.clear();
+    pending_rules_.clear();
+    prefilter_ = {};
+    apply_prepared_ = false;
+}
+
+void NftablesFirewall::compile_plan(const FirewallPlan& plan,
+                                    FirewallApplyMode mode) {
+    (void)mode;
+    set_fwmark_mask(plan.fwmark_mask);
+    for (const auto& declaration : plan.sets) {
+        const int family = declaration.family == FirewallFamily::ipv6 ? AF_INET6
+                                                                       : AF_INET;
+        create_ipset(resolve_set_name(declaration.name, *this), family,
+                     declaration.timeout);
+    }
+
+    for (const auto& rule : plan.rules) {
+        const FirewallRuleCriteria criteria = materialize_criteria(rule.criteria, *this);
+        const auto append = [&](PendingRule::Action action, uint32_t fwmark) {
+            if (rule.family == FirewallFamily::ipv4) {
+                append_rules_for_family(AF_INET, action, fwmark, criteria, rule.key);
+            } else if (rule.family == FirewallFamily::ipv6) {
+                append_rules_for_family(AF_INET6, action, fwmark, criteria, rule.key);
+            } else {
+                switch (action) {
+                case PendingRule::Mark:
+                    append_mark_rule(rule.key, fwmark, criteria);
+                    break;
+                case PendingRule::Drop:
+                    append_drop_rule(rule.key, criteria);
+                    break;
+                case PendingRule::Pass:
+                    append_pass_rule(rule.key, criteria);
+                    break;
+                case PendingRule::Balance:
+                    throw FirewallError("invalid balance compiler dispatch");
+                }
+            }
+        };
+
+        if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
+            append(PendingRule::Mark, mark->value);
+        } else if (const auto* balance =
+                       std::get_if<BalanceAction>(&rule.action)) {
+            if (rule.family == FirewallFamily::ipv4) {
+                append_balance_rules_for_family(AF_INET, balance->fallback_mark,
+                                                balance->candidates, criteria,
+                                                rule.key);
+            } else if (rule.family == FirewallFamily::ipv6) {
+                append_balance_rules_for_family(AF_INET6,
+                                                balance->fallback_mark,
+                                                balance->candidates, criteria,
+                                                rule.key);
+            } else {
+                append_balance_rule(rule.key, balance->fallback_mark,
+                                    balance->candidates, criteria);
+            }
+        } else if (const auto* restore =
+                       std::get_if<RestoreConntrackMarkAction>(&rule.action)) {
+            append_restore_conntrack_mark_rule(rule.key, restore->mask);
+        } else if (std::holds_alternative<SkipEstablishedOrDnatAction>(rule.action)) {
+            append_skip_established_or_dnat_rule(rule.key);
+        } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
+            append_skip_marked_packets_rule(rule.key);
+        } else if (const auto* inbound =
+                       std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
+            append_inbound_interface_filter_rule(rule.key, inbound->interfaces);
+        } else if (std::get<VerdictAction>(rule.action) == VerdictAction::drop) {
+            append(PendingRule::Drop, 0);
+        } else {
+            append(PendingRule::Pass, 0);
+        }
+    }
+}
+
+void NftablesFirewall::apply(const FirewallPlan& plan, FirewallApplyMode mode) {
+    try {
+        validate_firewall_plan_backend(plan, backend());
+        if (!apply_prepared_) {
+            throw FirewallError("nftables apply was not prepared");
+        }
+        if (prepared_mode_ != mode) {
+            throw FirewallError("nftables apply mode differs from prepare_apply");
+        }
+        compile_plan(plan, mode);
+        apply_prepared(mode);
+    } catch (...) {
+        clear_pending();
+        throw;
+    }
+}
+
+void NftablesFirewall::apply_prepared(FirewallApplyMode mode) {
+    if (!apply_prepared_) {
+        throw FirewallError("nftables apply was not prepared");
+    }
+    apply_prepared_ = false;
     // Never delete the live table before publishing a replacement. nft applies
     // this JSON batch atomically, including chain replacement and set refresh.
     const LiveTableState live_state = read_live_table_state();
@@ -1238,6 +1352,7 @@ void NftablesFirewall::cleanup_impl() {
     pending_sets_.clear();
     pending_elements_.clear();
     pending_rules_.clear();
+    apply_prepared_ = false;
 }
 
 void NftablesFirewall::cleanup() {

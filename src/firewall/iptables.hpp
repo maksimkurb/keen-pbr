@@ -35,27 +35,6 @@ public:
   void create_ipset(const std::string &set_name, int family,
                     uint32_t timeout = 0) override;
 
-  // Buffer an iptables/ip6tables -j MARK --set-mark rule for the given ipset.
-  void create_mark_rule(uint32_t fwmark,
-                        const FirewallRuleCriteria &criteria = {}) override;
-  void create_mark_rule(const FirewallRuleKey &key, uint32_t fwmark,
-                        const FirewallRuleCriteria &criteria = {}) override;
-  // Buffer an iptables/ip6tables -j DROP rule for the given criteria.
-  void create_drop_rule(const FirewallRuleCriteria &criteria = {}) override;
-  void create_drop_rule(const FirewallRuleKey &key,
-                        const FirewallRuleCriteria &criteria = {}) override;
-  // Buffer an iptables/ip6tables -j RETURN rule for the given criteria.
-  void create_pass_rule(const FirewallRuleCriteria &criteria = {}) override;
-  void create_pass_rule(const FirewallRuleKey &key,
-                        const FirewallRuleCriteria &criteria = {}) override;
-  void create_restore_conntrack_mark_rule(const FirewallRuleKey& key,
-                                           uint32_t mask) override;
-  void create_skip_established_or_dnat_rule(const FirewallRuleKey& key) override;
-  void create_skip_marked_packets_rule(const FirewallRuleKey& key) override;
-  void create_inbound_interface_filter_rule(
-      const FirewallRuleKey& key,
-      const std::vector<std::string>& interfaces) override;
-
   // Return an IpsetRestoreVisitor that appends 'add' lines to the pending
   // element buffer for set_name; entries are flushed during apply().
   std::unique_ptr<ListEntryVisitor>
@@ -63,7 +42,8 @@ public:
 
   // Populate the inactive A/B static-set generation, then atomically rebuild
   // and retarget the stable PREROUTING and OUTPUT dispatchers.
-  void apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
+  void apply(const FirewallPlan &plan,
+             FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
   // Destroy all buffered ipsets (ipset destroy) and flush/delete the
   // KeenPbrTable chain from both iptables and ip6tables mangle tables.
   void cleanup() override;
@@ -137,6 +117,26 @@ private:
     std::set<std::string> names;
   };
 
+  void append_mark_rule(const FirewallRuleKey &key, uint32_t fwmark,
+                        const FirewallRuleCriteria &criteria);
+  void append_balance_rule(
+      const FirewallRuleKey &key, uint32_t fallback_fwmark,
+      const std::vector<FirewallBalanceCandidate> &candidates,
+      const FirewallRuleCriteria &criteria);
+  void append_drop_rule(const FirewallRuleKey &key,
+                        const FirewallRuleCriteria &criteria);
+  void append_pass_rule(const FirewallRuleKey &key,
+                        const FirewallRuleCriteria &criteria);
+  void append_restore_conntrack_mark_rule(const FirewallRuleKey &key,
+                                          uint32_t mask);
+  void append_skip_established_or_dnat_rule(const FirewallRuleKey &key);
+  void append_skip_marked_packets_rule(const FirewallRuleKey &key);
+  void append_inbound_interface_filter_rule(
+      const FirewallRuleKey &key, const std::vector<std::string> &interfaces);
+  void compile_plan(const FirewallPlan &plan, FirewallApplyMode mode);
+  void apply_prepared(FirewallApplyMode mode);
+  void clear_pending();
+
   // Build the 'create <name> hash:net family <f> [capacity] [timeout <t>]'
   // line. -exist remains the final token for ipset restore compatibility.
   static std::string build_ipset_create_line(const PendingSet &ps);
@@ -152,7 +152,7 @@ private:
                               FirewallSetGeneration target_generation,
                               const std::vector<PendingRule> &rules,
                               const FirewallPrefilter &prefilter);
-  // Compatibility helper: build IPv4 RAW PREROUTING.
+  // IPv4 convenience helper for RAW PREROUTING.
   static std::string
   build_raw_prerouting_script(FirewallSetGeneration target_generation,
                               const std::vector<PendingRule> &rules,
@@ -164,7 +164,7 @@ private:
   build_output_script(bool ipv6, FirewallSetGeneration target_generation,
                       const std::vector<PendingRule> &rules,
                       const FirewallPrefilter &prefilter);
-  // Compatibility helper: build IPv4 OUTPUT.
+  // IPv4 convenience helper for OUTPUT.
   static std::string
   build_output_script(FirewallSetGeneration target_generation,
                       const std::vector<PendingRule> &rules,

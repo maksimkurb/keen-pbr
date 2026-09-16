@@ -27,8 +27,8 @@ struct DnsDetourTarget {
   uint32_t fwmark{0};
 };
 
-// Immutable inputs shared by route rule modules.  It deliberately contains
-// data views only; backend mutation remains in the compatibility adapter.
+// Immutable inputs shared by route rule modules. It deliberately contains
+// data views only; backend mutation happens when the complete plan is applied.
 struct FirewallBuildContext {
   const std::vector<RouteRule>& route_rules;
   const std::vector<RuleState>& rule_states;

@@ -56,23 +56,21 @@ public:
     ++set_declarations;
   }
 
-  void create_mark_rule(uint32_t,
-                        const FirewallRuleCriteria&) override {
-    ++rule_count;
-  }
-
-  void create_drop_rule(const FirewallRuleCriteria&) override { ++rule_count; }
-
-  void create_pass_rule(const FirewallRuleCriteria&) override { ++rule_count; }
-
   std::unique_ptr<ListEntryVisitor>
   create_batch_loader(const std::string&) override {
     ++stream_count;
     throw std::runtime_error("RulesOnly unexpectedly requested list streaming");
   }
 
-  void apply(FirewallApplyMode mode) override {
+  void apply(const FirewallPlan& plan, FirewallApplyMode mode) override {
     applied_mode = mode;
+    for (const auto& rule : plan.rules) {
+      if (std::holds_alternative<MarkAction>(rule.action) ||
+          std::holds_alternative<BalanceAction>(rule.action) ||
+          std::holds_alternative<VerdictAction>(rule.action)) {
+        ++rule_count;
+      }
+    }
   }
 
   void cleanup() override {}
@@ -144,26 +142,6 @@ public:
     calls.push_back("set:" + name);
   }
 
-  void create_mark_rule(uint32_t fwmark,
-                        const FirewallRuleCriteria &criteria) override {
-    record_rule(RuleAction::Mark, fwmark, criteria, {});
-  }
-
-  void create_drop_rule(const FirewallRuleCriteria &criteria) override {
-    record_rule(RuleAction::Drop, 0, criteria, {});
-  }
-
-  void create_pass_rule(const FirewallRuleCriteria &criteria) override {
-    record_rule(RuleAction::Pass, 0, criteria, {});
-  }
-
-  void create_balance_rule(
-      uint32_t fallback_fwmark,
-      const std::vector<FirewallBalanceCandidate> &candidates,
-      const FirewallRuleCriteria &criteria) override {
-    record_rule(RuleAction::Balance, fallback_fwmark, criteria, candidates);
-  }
-
   std::unique_ptr<ListEntryVisitor>
   create_batch_loader(const std::string &name) override {
     ++stream_count;
@@ -171,8 +149,21 @@ public:
     return std::make_unique<Visitor>(*this);
   }
 
-  void apply(FirewallApplyMode mode) override {
+  void apply(const FirewallPlan& plan, FirewallApplyMode mode) override {
     applied_modes.push_back(mode);
+    for (const auto& rule : plan.rules) {
+      if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
+        record_rule(RuleAction::Mark, mark->value, rule.criteria, {});
+      } else if (const auto* balance = std::get_if<BalanceAction>(&rule.action)) {
+        record_rule(RuleAction::Balance, balance->fallback_mark, rule.criteria,
+                    balance->candidates);
+      } else if (const auto verdict = std::get_if<VerdictAction>(&rule.action);
+                 verdict != nullptr) {
+        record_rule(*verdict == VerdictAction::drop ? RuleAction::Drop
+                                                    : RuleAction::Pass,
+                    0, rule.criteria, {});
+      }
+    }
     calls.push_back("apply");
     if (fail_apply) {
       throw FirewallError("controlled apply failure");

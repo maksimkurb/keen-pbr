@@ -200,13 +200,6 @@ ListSetUsage reused_list_set_usage(
 
 } // namespace
 
-namespace {
-
-constexpr std::size_t kNoFirewallRuleSource =
-    std::numeric_limits<std::size_t>::max();
-
-} // namespace
-
 FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   FirewallPlan plan;
   plan.fwmark_mask = inputs.fwmark_mask;
@@ -305,7 +298,7 @@ std::vector<RuleState> apply_runtime_firewall(
       // RulesOnly defers list inspection until after backend preflight. Mark
       // referenced lists as potentially populated so validation sees every
       // possible canonical action; the plan is rebuilt from realized sets
-      // below before replay.
+      // below before applying the completed plan.
       for (const auto& route_rule : route_rules) {
         for (const auto& list_name : route_rule_lists(route_rule)) {
           if (lists_map.find(list_name) != lists_map.end()) {
@@ -356,7 +349,6 @@ std::vector<RuleState> apply_runtime_firewall(
       }
       plan = build_firewall_plan(plan_inputs);
     }
-    configure_firewall_plan(plan, firewall);
     std::vector<uint32_t> owned_marks;
     owned_marks.reserve(outbound_marks.size());
     for (const auto& [tag, mark] : outbound_marks) {
@@ -445,34 +437,9 @@ std::vector<RuleState> apply_runtime_firewall(
             }
         }
 
-        // ponytail: O(routes * rules) preserves set/rule interleaving; index
-        // by source when route/rule counts make this measurable.
-        for (const auto& planned_rule : plan.rules) {
-            if (planned_rule.source_rule_index == rule_idx) {
-                replay_firewall_rule(planned_rule, firewall);
-            }
-        }
     }
 
-    const auto is_prefilter = [](const FirewallRuleInstance& rule) {
-        return !std::holds_alternative<MarkAction>(rule.action) &&
-               !std::holds_alternative<BalanceAction>(rule.action) &&
-               !std::holds_alternative<VerdictAction>(rule.action);
-    };
-    for (const auto& planned_rule : plan.rules) {
-        if (planned_rule.source_rule_index == kNoFirewallRuleSource &&
-            is_prefilter(planned_rule)) {
-            replay_firewall_rule(planned_rule, firewall);
-        }
-    }
-    for (const auto& planned_rule : plan.rules) {
-        if (planned_rule.source_rule_index == kNoFirewallRuleSource &&
-            !is_prefilter(planned_rule)) {
-            replay_firewall_rule(planned_rule, firewall);
-        }
-    }
-
-    firewall.apply(mode);
+    firewall.apply(plan, mode);
     if (applied_plan != nullptr) {
       *applied_plan = std::move(plan);
     }

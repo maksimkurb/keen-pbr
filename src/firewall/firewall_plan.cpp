@@ -1,47 +1,14 @@
 #include "firewall_plan.hpp"
 
-#include "firewall.hpp"
-
 #include <algorithm>
 #include <stdexcept>
 
 namespace keen_pbr3 {
+
 namespace {
 
-bool has_prefix(const std::string& value, const char* prefix) {
-  return value.rfind(prefix, 0) == 0;
-}
-
-std::string resolve_set_name(const std::string& logical_name,
-                             Firewall& firewall) {
-  if (has_prefix(logical_name, "kpbr4d_")) {
-    return firewall.dynamic_set_name(logical_name.substr(7), AF_INET);
-  }
-  if (has_prefix(logical_name, "kpbr6d_")) {
-    return firewall.dynamic_set_name(logical_name.substr(7), AF_INET6);
-  }
-  if (has_prefix(logical_name, "kpbr4_")) {
-    return firewall.static_set_name(logical_name.substr(6), AF_INET);
-  }
-  if (has_prefix(logical_name, "kpbr6_")) {
-    return firewall.static_set_name(logical_name.substr(6), AF_INET6);
-  }
-  return logical_name;
-}
-
-FirewallRuleCriteria materialize_criteria(const FirewallRuleCriteria& criteria,
-                                          Firewall& firewall) {
-  FirewallRuleCriteria result = criteria;
-  if (result.dst_set_name.has_value()) {
-    result.dst_set_name = resolve_set_name(*result.dst_set_name, firewall);
-  }
-  return result;
-}
-
-} // namespace
-
-void FirewallRuleRegistrar::validate_rule(const FirewallRuleInstance& rule,
-                                          uint32_t fwmark_mask) {
+void validate_firewall_rule(const FirewallRuleInstance& rule,
+                            uint32_t fwmark_mask) {
   if (rule.key.module_id.empty() || rule.key.instance_id.empty()) {
     throw std::invalid_argument(
         "firewall rule module_id and instance_id must not be empty");
@@ -103,6 +70,13 @@ void FirewallRuleRegistrar::validate_rule(const FirewallRuleInstance& rule,
   }
 }
 
+} // namespace
+
+void FirewallRuleRegistrar::validate_rule(const FirewallRuleInstance& rule,
+                                          uint32_t fwmark_mask) {
+  validate_firewall_rule(rule, fwmark_mask);
+}
+
 void FirewallRuleRegistrar::register_rule(FirewallRuleInstance rule) {
   if (finished_) {
     throw std::logic_error("cannot register a firewall rule after finish");
@@ -162,6 +136,32 @@ void FirewallRuleRegistrar::finish() {
 
 void validate_firewall_plan_backend(const FirewallPlan& plan,
                                     FirewallBackend backend) {
+  std::set<std::pair<std::string, std::string>> keys;
+  std::map<std::string, FirewallSetDeclaration> sets;
+  for (const auto& rule : plan.rules) {
+    validate_firewall_rule(rule, plan.fwmark_mask);
+    if (!keys.emplace(rule.key.module_id, rule.key.instance_id).second) {
+      throw std::invalid_argument("duplicate firewall rule key: " +
+                                  rule.key.module_id + ":" +
+                                  rule.key.instance_id);
+    }
+  }
+  for (const auto& declaration : plan.sets) {
+    if (declaration.name.empty()) {
+      throw std::invalid_argument("firewall set name must not be empty");
+    }
+    if (declaration.family != FirewallFamily::ipv4 &&
+        declaration.family != FirewallFamily::ipv6) {
+      throw std::invalid_argument("firewall set has an invalid family");
+    }
+    const auto [it, inserted] = sets.emplace(declaration.name, declaration);
+    if (!inserted && (it->second.family != declaration.family ||
+                      it->second.timeout != declaration.timeout)) {
+      throw std::invalid_argument("conflicting firewall set declaration: " +
+                                  declaration.name);
+    }
+  }
+
   const auto reject = [backend](const FirewallRuleInstance& rule,
                                 const char* construct) {
     throw FirewallError(
@@ -180,43 +180,6 @@ void validate_firewall_plan_backend(const FirewallPlan& plan,
         backend != FirewallBackend::nftables) {
       reject(rule, "default_gateway");
     }
-  }
-}
-
-void replay_firewall_rule(const FirewallRuleInstance& rule, Firewall& firewall) {
-  const FirewallRuleCriteria criteria =
-      materialize_criteria(rule.criteria, firewall);
-  if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
-    firewall.create_mark_rule(rule.key, mark->value, criteria);
-  } else if (const auto* balance = std::get_if<BalanceAction>(&rule.action)) {
-    firewall.create_balance_rule(rule.key, balance->fallback_mark,
-                                 balance->candidates, criteria);
-  } else if (std::holds_alternative<RestoreConntrackMarkAction>(rule.action)) {
-    firewall.create_restore_conntrack_mark_rule(
-        rule.key, std::get<RestoreConntrackMarkAction>(rule.action).mask);
-  } else if (std::holds_alternative<SkipEstablishedOrDnatAction>(rule.action)) {
-    firewall.create_skip_established_or_dnat_rule(rule.key);
-  } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
-    firewall.create_skip_marked_packets_rule(rule.key);
-  } else if (const auto* inbound =
-                 std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
-    firewall.create_inbound_interface_filter_rule(rule.key,
-                                                  inbound->interfaces);
-  } else if (std::get<VerdictAction>(rule.action) == VerdictAction::drop) {
-    firewall.create_drop_rule(rule.key, criteria);
-  } else {
-    firewall.create_pass_rule(rule.key, criteria);
-  }
-}
-
-void configure_firewall_plan(const FirewallPlan& plan, Firewall& firewall) {
-  firewall.set_fwmark_mask(plan.fwmark_mask);
-}
-
-void replay_firewall_plan(const FirewallPlan& plan, Firewall& firewall) {
-  configure_firewall_plan(plan, firewall);
-  for (const auto& rule : plan.rules) {
-    replay_firewall_rule(rule, firewall);
   }
 }
 

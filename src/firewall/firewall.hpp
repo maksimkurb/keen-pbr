@@ -14,7 +14,7 @@
 namespace keen_pbr3 {
 
 class ListEntryVisitor;
-struct FirewallRuleKey;
+struct FirewallPlan;
 enum class DefaultGatewayFamily : uint8_t { None, Ipv4, Ipv6 };
 
 struct FirewallBalanceCandidate {
@@ -100,8 +100,8 @@ struct FirewallPrefilter {
   // callers; runtime enables it with the configured fwmark mask.
   bool restore_conntrack_mark{false};
   uint32_t conntrack_mark_mask{0};
-  // The compatibility adapters preserve canonical ownership while the
-  // backend still expands these operations into physical rules.
+  // Backends preserve canonical ownership while expanding these operations
+  // into physical rules.
   std::string restore_conntrack_mark_comment;
   std::string skip_established_or_dnat_comment;
   std::string skip_marked_packets_comment;
@@ -181,9 +181,8 @@ std::optional<uint32_t> normalize_ipset_hashsize(uint32_t requested);
 // Both iptables and nftables backends implement this interface.
 //
 // Usage pattern (transactional rebuild):
-//   create_ipset() / create_mark_rule() / create_drop_rule() /
-//   create_pass_rule() — buffer operations create_batch_loader() → stream
-//   entries → finish() apply()    — atomically commit everything using the
+//   create_ipset() and create_batch_loader() buffer set operations and stream
+//   entries → finish() apply(plan) — atomically commit everything using the
 //   requested apply mode
 class Firewall {
 public:
@@ -219,65 +218,6 @@ public:
   virtual void create_ipset(const std::string &set_name, int family,
                             uint32_t timeout = 0) = 0;
 
-  // Create a firewall rule that marks packets matching the given criteria
-  // with the specified firewall mark (fwmark).
-  // fwmark: mark value to apply to matching packets
-  // criteria: optional match criteria (default = any packet)
-  virtual void create_mark_rule(uint32_t fwmark,
-                                const FirewallRuleCriteria &criteria = {}) = 0;
-  // Keyed compatibility entry point used by the canonical plan adapter.
-  // Legacy callers may continue using the unkeyed API.
-  virtual void create_mark_rule(const FirewallRuleKey &key, uint32_t fwmark,
-                                const FirewallRuleCriteria &criteria = {}) {
-    (void)key;
-    create_mark_rule(fwmark, criteria);
-  }
-  virtual void create_balance_rule(
-      uint32_t fallback_fwmark,
-      const std::vector<FirewallBalanceCandidate>& candidates,
-      const FirewallRuleCriteria& criteria = {}) {
-    (void)fallback_fwmark;
-    (void)candidates;
-    (void)criteria;
-    throw FirewallError("connection balancing requires the nftables firewall backend");
-  }
-  virtual void create_balance_rule(
-      const FirewallRuleKey &key, uint32_t fallback_fwmark,
-      const std::vector<FirewallBalanceCandidate> &candidates,
-      const FirewallRuleCriteria &criteria = {}) {
-    (void)key;
-    create_balance_rule(fallback_fwmark, candidates, criteria);
-  }
-
-  // Create a firewall rule that drops packets matching the given criteria.
-  // Used for blackhole outbounds that don't need routing tables or fwmarks.
-  virtual void create_drop_rule(const FirewallRuleCriteria &criteria = {}) = 0;
-  virtual void create_drop_rule(const FirewallRuleKey &key,
-                                const FirewallRuleCriteria &criteria = {}) {
-    (void)key;
-    create_drop_rule(criteria);
-  }
-
-  // Create a firewall rule that stops keen-pbr processing for matching packets
-  // and leaves them unmodified for normal system routing.
-  virtual void create_pass_rule(const FirewallRuleCriteria &criteria = {}) = 0;
-  virtual void create_pass_rule(const FirewallRuleKey &key,
-                                const FirewallRuleCriteria &criteria = {}) {
-    (void)key;
-    create_pass_rule(criteria);
-  }
-
-  virtual void create_restore_conntrack_mark_rule(const FirewallRuleKey&,
-                                                   uint32_t) {
-  }
-  virtual void create_skip_established_or_dnat_rule(const FirewallRuleKey&) {
-  }
-  virtual void create_skip_marked_packets_rule(const FirewallRuleKey&) {
-  }
-  virtual void create_inbound_interface_filter_rule(
-      const FirewallRuleKey&, const std::vector<std::string>&) {
-  }
-
   // Create a batch loader visitor for streaming IP/CIDR entries into a set.
   // Returns a ListEntryVisitor that buffers entries for atomic application.
   // Caller must call finish() on the returned visitor after streaming is
@@ -285,9 +225,11 @@ public:
   virtual std::unique_ptr<ListEntryVisitor>
   create_batch_loader(const std::string &set_name) = 0;
 
-  // Apply all pending changes atomically (where supported by the backend).
-  virtual void
-  apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) = 0;
+  // Compile and apply the complete canonical desired state atomically (where
+  // supported by the backend).  prepare_apply() remains separate because the
+  // runtime needs attempt-specific set names before loading list contents.
+  virtual void apply(const FirewallPlan &plan,
+                     FirewallApplyMode mode = FirewallApplyMode::Destructive) = 0;
 
   void set_ipv6_enabled(bool enabled) { ipv6_enabled_ = enabled; }
 

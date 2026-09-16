@@ -97,15 +97,15 @@ public:
     FirewallPrefilter prefilter;
     prefilter.restore_conntrack_mark = true;
     prefilter.conntrack_mark_mask = 0x00ff0000U;
-    firewall.create_restore_conntrack_mark_rule({}, prefilter.conntrack_mark_mask);
+    firewall.append_restore_conntrack_mark_rule({}, prefilter.conntrack_mark_mask);
     firewall.set_owned_marks(
         {0x00010000U, 0x00020000U, 0x00030000U, 0x00040000U});
     FirewallRuleCriteria criteria;
     criteria.default_gateway = DefaultGatewayFamily::Ipv4;
     criteria.default_gateway_bypass = {"127.0.0.0/8", "192.168.1.0/24"};
     criteria.apply_output = true;
-    firewall.create_balance_rule(
-        0x00010000U,
+    firewall.append_balance_rule(
+        {}, 0x00010000U,
         {{0x00020000U, true, false}, {0x00030000U, true, false}}, criteria);
     NftablesFirewall::LiveTableState live;
     return firewall.build_apply_document(live, true);
@@ -120,7 +120,7 @@ public:
     const std::vector<FirewallBalanceCandidate> candidates = {
         {0x00010000U, true, false}, {0x00020000U, true, false},
         {0x00030000U, false, true}, {0x00040000U, false, true}};
-    firewall.create_balance_rule(
+    firewall.append_balance_rule(
         FirewallRuleKey{"route.balance", "split"}, 0x00050000U,
         candidates, criteria);
     NftablesFirewall::LiveTableState live;
@@ -283,7 +283,7 @@ public:
     FirewallRuleCriteria route_criteria;
     route_criteria.dst_set_name = "pairwise_set";
     firewall.created_sets_["pairwise_set"] = AF_INET;
-    firewall.create_mark_rule(route_key, 0x10000u, route_criteria);
+    firewall.append_mark_rule(route_key, 0x10000u, route_criteria);
 
     const auto commands = NftablesFirewall::build_rule_add_commands(
         prefilter, firewall.pending_rules_, {0x10000u});
@@ -307,13 +307,13 @@ public:
     return listing;
   }
 
-  static nlohmann::json build_rule_add_commands_via_create_mark_rule(
+  static nlohmann::json build_rule_add_commands_via_mark_plan(
       uint32_t fwmark, const FirewallRuleCriteria &criteria,
       uint32_t fwmark_mask = 0xFFFFFFFFu,
       FirewallPrefilter prefilter = {}) {
     NftablesFirewall fw;
     fw.set_fwmark_mask(fwmark_mask);
-    fw.create_mark_rule(fwmark, criteria);
+    fw.append_mark_rule({}, fwmark, criteria);
     return NftablesFirewall::build_rule_add_commands(prefilter, fw.pending_rules_);
   }
 
@@ -882,13 +882,13 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface g
   CHECK(cmds[4]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
-TEST_CASE("create_mark_rule: port-only tcp/udp rule emits one tcp and one udp entry") {
+TEST_CASE("mark plan: port-only tcp/udp rule emits one tcp and one udp entry") {
   FirewallRuleCriteria criteria;
   criteria.proto = L4Proto::TcpUdp;
   criteria.src_port = "1111";
 
   const auto cmds =
-      T::build_rule_add_commands_via_create_mark_rule(0x10000, criteria);
+      T::build_rule_add_commands_via_mark_plan(0x10000, criteria);
 
   REQUIRE(cmds.is_array());
   REQUIRE(cmds.size() == 4);
@@ -1411,10 +1411,10 @@ TEST_CASE("build_mark_rule_json: dscp match expr present") {
   CHECK(has_dscp);
 }
 
-TEST_CASE("create_mark_rule: dscp-only rule emits IPv4 and IPv6 entries") {
+TEST_CASE("mark plan: dscp-only rule emits IPv4 and IPv6 entries") {
   FirewallRuleCriteria criteria;
   criteria.dscp = 46;
-  auto commands = T::build_rule_add_commands_via_create_mark_rule(0x100, criteria);
+  auto commands = T::build_rule_add_commands_via_mark_plan(0x100, criteria);
   REQUIRE(commands.size() == 2);
   CHECK(commands[0]["add"]["rule"]["expr"][0]["match"]["left"]["payload"]["protocol"] == "ip");
   CHECK(commands[1]["add"]["rule"]["expr"][0]["match"]["left"]["payload"]["protocol"] == "ip6");

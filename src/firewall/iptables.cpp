@@ -1,4 +1,5 @@
 #include "iptables.hpp"
+#include "firewall_plan.hpp"
 #include "firewall_rule.hpp"
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
@@ -77,6 +78,32 @@ bool cleanup_command_reports_absence(const ExecCaptureResult &result) {
          output.find("no such") != std::string::npos ||
          output.find("does not exist") != std::string::npos ||
          output.find("cannot be found") != std::string::npos;
+}
+
+std::string resolve_set_name(const std::string& logical_name,
+                             const IptablesFirewall& firewall) {
+  if (logical_name.rfind("kpbr4d_", 0) == 0) {
+    return firewall.dynamic_set_name(logical_name.substr(7), AF_INET);
+  }
+  if (logical_name.rfind("kpbr6d_", 0) == 0) {
+    return firewall.dynamic_set_name(logical_name.substr(7), AF_INET6);
+  }
+  if (logical_name.rfind("kpbr4_", 0) == 0) {
+    return firewall.static_set_name(logical_name.substr(6), AF_INET);
+  }
+  if (logical_name.rfind("kpbr6_", 0) == 0) {
+    return firewall.static_set_name(logical_name.substr(6), AF_INET6);
+  }
+  return logical_name;
+}
+
+FirewallRuleCriteria materialize_criteria(const FirewallRuleCriteria& criteria,
+                                          const IptablesFirewall& firewall) {
+  FirewallRuleCriteria result = criteria;
+  if (result.dst_set_name.has_value()) {
+    result.dst_set_name = resolve_set_name(*result.dst_set_name, firewall);
+  }
+  return result;
 }
 
 ExecCaptureResult run_cleanup_command(const std::vector<std::string> &args) {
@@ -177,6 +204,7 @@ void IptablesFirewall::prepare_apply(FirewallApplyMode mode) {
   pending_rules_.clear();
   prefilter_ = {};
   prepared_mode_ = mode;
+  apply_prepared_ = false;
   static_generations_prepared_ = false;
 
   // Probe the optional ownership-match extension before any mode can clean
@@ -262,16 +290,18 @@ void IptablesFirewall::prepare_apply(FirewallApplyMode mode) {
           mode, static_v6.generation, target_v6_generation_);
     }
   } else {
+    // Preparation only selects a safe inactive slot.  Dispatcher repair is
+    // deferred until apply() has validated and compiled the complete plan.
     target_v4_generation_ =
         mode == FirewallApplyMode::Destructive
             ? FirewallSetGeneration::A
-            : select_target_generation(false, /*repair_output=*/true);
+            : select_target_generation(false, /*repair_output=*/false);
     target_v6_generation_ =
         mode == FirewallApplyMode::Destructive
             ? FirewallSetGeneration::A
             : (!ipv6_enabled() || !ipv6_backend_available()
                    ? FirewallSetGeneration::A
-                   : select_target_generation(true, /*repair_output=*/true));
+                   : select_target_generation(true, /*repair_output=*/false));
     target_static_v4_generation_ = target_v4_generation_;
     target_static_v6_generation_ = target_v6_generation_;
     if (mode != FirewallApplyMode::Destructive) {
@@ -367,6 +397,9 @@ void IptablesFirewall::create_ipset(const std::string &set_name, int family,
 void IptablesFirewall::append_rules_for_family(
     bool ipv6, PendingRule::Action action, uint32_t fwmark,
     const FirewallRuleCriteria &criteria, const FirewallRuleKey &key) {
+  if (ipv6 && !ipv6_enabled()) {
+    return;
+  }
   const std::vector<std::string> any_addr{""};
   const auto filtered_src_addrs =
       criteria.src_addr.empty()
@@ -405,12 +438,7 @@ void IptablesFirewall::append_rules_for_family(
   }
 }
 
-void IptablesFirewall::create_mark_rule(uint32_t fwmark,
-                                        const FirewallRuleCriteria &criteria) {
-  create_mark_rule(FirewallRuleKey{}, fwmark, criteria);
-}
-
-void IptablesFirewall::create_mark_rule(
+void IptablesFirewall::append_mark_rule(
     const FirewallRuleKey &key, uint32_t fwmark,
     const FirewallRuleCriteria &criteria) {
   if (criteria.dst_set_name.has_value()) {
@@ -423,11 +451,7 @@ void IptablesFirewall::create_mark_rule(
   append_rules_for_family(true, PendingRule::Mark, fwmark, criteria, key);
 }
 
-void IptablesFirewall::create_drop_rule(const FirewallRuleCriteria &criteria) {
-  create_drop_rule(FirewallRuleKey{}, criteria);
-}
-
-void IptablesFirewall::create_drop_rule(
+void IptablesFirewall::append_drop_rule(
     const FirewallRuleKey &key, const FirewallRuleCriteria &criteria) {
   if (criteria.dst_set_name.has_value()) {
     auto it = created_sets_.find(*criteria.dst_set_name);
@@ -439,11 +463,7 @@ void IptablesFirewall::create_drop_rule(
   append_rules_for_family(true, PendingRule::Drop, 0, criteria, key);
 }
 
-void IptablesFirewall::create_pass_rule(const FirewallRuleCriteria &criteria) {
-  create_pass_rule(FirewallRuleKey{}, criteria);
-}
-
-void IptablesFirewall::create_pass_rule(
+void IptablesFirewall::append_pass_rule(
     const FirewallRuleKey &key, const FirewallRuleCriteria &criteria) {
   if (criteria.dst_set_name.has_value()) {
     auto it = created_sets_.find(*criteria.dst_set_name);
@@ -455,7 +475,7 @@ void IptablesFirewall::create_pass_rule(
   append_rules_for_family(true, PendingRule::Pass, 0, criteria, key);
 }
 
-void IptablesFirewall::create_restore_conntrack_mark_rule(
+void IptablesFirewall::append_restore_conntrack_mark_rule(
     const FirewallRuleKey& key, uint32_t mask) {
   prefilter_.restore_conntrack_mark = true;
   prefilter_.conntrack_mark_mask = mask;
@@ -464,7 +484,7 @@ void IptablesFirewall::create_restore_conntrack_mark_rule(
   }
 }
 
-void IptablesFirewall::create_skip_established_or_dnat_rule(
+void IptablesFirewall::append_skip_established_or_dnat_rule(
     const FirewallRuleKey& key) {
   prefilter_.skip_established_or_dnat = true;
   if (!key.module_id.empty() || !key.instance_id.empty()) {
@@ -472,14 +492,14 @@ void IptablesFirewall::create_skip_established_or_dnat_rule(
   }
 }
 
-void IptablesFirewall::create_skip_marked_packets_rule(const FirewallRuleKey& key) {
+void IptablesFirewall::append_skip_marked_packets_rule(const FirewallRuleKey& key) {
   prefilter_.skip_marked_packets = true;
   if (!key.module_id.empty() || !key.instance_id.empty()) {
     prefilter_.skip_marked_packets_comment = key.comment();
   }
 }
 
-void IptablesFirewall::create_inbound_interface_filter_rule(
+void IptablesFirewall::append_inbound_interface_filter_rule(
     const FirewallRuleKey& key, const std::vector<std::string>& interfaces) {
   prefilter_.inbound_interfaces = interfaces;
   if (!key.module_id.empty() || !key.instance_id.empty()) {
@@ -1701,7 +1721,97 @@ std::string IptablesFirewall::build_output_script(
   return s + "COMMIT\n";
 }
 
-void IptablesFirewall::apply(FirewallApplyMode mode) {
+void IptablesFirewall::append_balance_rule(
+    const FirewallRuleKey&, uint32_t,
+    const std::vector<FirewallBalanceCandidate>&,
+    const FirewallRuleCriteria&) {
+  throw FirewallError(
+      "connection balancing requires the nftables firewall backend");
+}
+
+void IptablesFirewall::clear_pending() {
+  pending_sets_.clear();
+  pending_elements_.clear();
+  pending_rules_.clear();
+  prefilter_ = {};
+  apply_prepared_ = false;
+}
+
+void IptablesFirewall::compile_plan(const FirewallPlan& plan,
+                                    FirewallApplyMode mode) {
+  (void)mode;
+  set_fwmark_mask(plan.fwmark_mask);
+  for (const auto& declaration : plan.sets) {
+    const int family = declaration.family == FirewallFamily::ipv6 ? AF_INET6
+                                                                   : AF_INET;
+    create_ipset(resolve_set_name(declaration.name, *this), family,
+                 declaration.timeout);
+  }
+
+  for (const auto& rule : plan.rules) {
+    const FirewallRuleCriteria criteria = materialize_criteria(rule.criteria, *this);
+    const auto append = [&](PendingRule::Action action, uint32_t fwmark) {
+      if (rule.family == FirewallFamily::ipv4) {
+        append_rules_for_family(false, action, fwmark, criteria, rule.key);
+      } else if (rule.family == FirewallFamily::ipv6) {
+        append_rules_for_family(true, action, fwmark, criteria, rule.key);
+      } else {
+        switch (action) {
+        case PendingRule::Mark:
+          append_mark_rule(rule.key, fwmark, criteria);
+          break;
+        case PendingRule::Drop:
+          append_drop_rule(rule.key, criteria);
+          break;
+        case PendingRule::Pass:
+          append_pass_rule(rule.key, criteria);
+          break;
+        }
+      }
+    };
+
+    if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
+      append(PendingRule::Mark, mark->value);
+    } else if (const auto* balance =
+                   std::get_if<BalanceAction>(&rule.action)) {
+      append_balance_rule(rule.key, balance->fallback_mark,
+                          balance->candidates, criteria);
+    } else if (const auto* restore =
+                   std::get_if<RestoreConntrackMarkAction>(&rule.action)) {
+      append_restore_conntrack_mark_rule(rule.key, restore->mask);
+    } else if (std::holds_alternative<SkipEstablishedOrDnatAction>(rule.action)) {
+      append_skip_established_or_dnat_rule(rule.key);
+    } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
+      append_skip_marked_packets_rule(rule.key);
+    } else if (const auto* inbound =
+                   std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
+      append_inbound_interface_filter_rule(rule.key, inbound->interfaces);
+    } else if (std::get<VerdictAction>(rule.action) == VerdictAction::drop) {
+      append(PendingRule::Drop, 0);
+    } else {
+      append(PendingRule::Pass, 0);
+    }
+  }
+}
+
+void IptablesFirewall::apply(const FirewallPlan& plan, FirewallApplyMode mode) {
+  try {
+    validate_firewall_plan_backend(plan, backend());
+    if (!apply_prepared_) {
+      throw FirewallError("iptables apply was not prepared");
+    }
+    if (prepared_mode_ != mode) {
+      throw FirewallError("iptables apply mode differs from prepare_apply");
+    }
+    compile_plan(plan, mode);
+    apply_prepared(mode);
+  } catch (...) {
+    clear_pending();
+    throw;
+  }
+}
+
+void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
   if (!apply_prepared_) {
     throw FirewallError("iptables apply was not prepared");
   }
@@ -1811,9 +1921,9 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
   bool has_v4 = true;
   bool has_v6 = effective_ipv6;
   for (const auto &pr : pending_rules_) {
-    if (pr.ipv6)
+    if (pr.ipv6 && effective_ipv6)
       has_v6 = true;
-    else
+    else if (!pr.ipv6)
       has_v4 = true;
   }
 

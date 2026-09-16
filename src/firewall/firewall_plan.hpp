@@ -12,8 +12,8 @@
 namespace keen_pbr3 {
 
 // Set names in a plan are stable logical references (kpbr4_*/kpbr6_* and
-// their dynamic counterparts). The compatibility adapter resolves them to
-// attempt-specific backend names after prepare_apply().
+// their dynamic counterparts). Backends resolve them to attempt-specific
+// physical names while compiling the plan.
 struct FirewallSetDeclaration {
   std::string name;
   FirewallFamily family{FirewallFamily::ipv4};
@@ -45,21 +45,9 @@ private:
   bool finished_{false};
 };
 
-class Firewall;
-
-// Reject canonical constructs that the selected backend cannot compile before
-// any compatibility adapter or backend lifecycle operation is invoked.
+// Validate the complete desired plan before a backend mutates pending or live
+// firewall state, including backend-specific capability checks.
 void validate_firewall_plan_backend(const FirewallPlan& plan,
                                     FirewallBackend backend);
-
-// Replay one canonical rule through the legacy create_* API. The plan's
-// logical set references are resolved using the backend's current generation.
-void replay_firewall_rule(const FirewallRuleInstance& rule, Firewall& firewall);
-
-// Apply plan-wide compatibility settings without replaying any rules.
-void configure_firewall_plan(const FirewallPlan& plan, Firewall& firewall);
-
-// Configure and replay a complete plan through the legacy Firewall API.
-void replay_firewall_plan(const FirewallPlan& plan, Firewall& firewall);
 
 } // namespace keen_pbr3

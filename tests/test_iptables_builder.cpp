@@ -4,6 +4,7 @@
 #include "../src/config/routing_state.hpp"
 #include "../src/firewall/ipset_restore_pipe.hpp"
 #include "../src/firewall/iptables.hpp"
+#include "../src/firewall/firewall_plan.hpp"
 #include "../src/firewall/firewall_snapshot.hpp"
 #include "../src/lists/list_entry_visitor.hpp"
 
@@ -63,6 +64,17 @@ void write_executable(const std::filesystem::path &path,
 // Friend class with test access to IptablesFirewall private methods.
 class IptablesBuilderTest {
 public:
+  static FirewallPlan mark_plan(uint32_t fwmark, FirewallRuleCriteria criteria,
+                                FirewallRuleKey key = {"test", "rule"}) {
+    FirewallPlan plan;
+    FirewallRuleInstance rule;
+    rule.key = std::move(key);
+    rule.criteria = std::move(criteria);
+    rule.action = MarkAction{fwmark, 0xFFFFFFFFu};
+    plan.rules.push_back(std::move(rule));
+    return plan;
+  }
+
   // Public mirror of PendingRule for use in test functions.
   struct RuleDesc {
     std::string set_name;
@@ -1077,7 +1089,7 @@ TEST_CASE("Destructive apply preserves compatible dynamic schemas") {
 
     ApplyResult result;
     try {
-      firewall.apply(FirewallApplyMode::Destructive);
+      firewall.apply(FirewallPlan{}, FirewallApplyMode::Destructive);
     } catch (const FirewallError &) {
       result.threw = true;
     }
@@ -1109,6 +1121,121 @@ TEST_CASE("Destructive apply preserves compatible dynamic schemas") {
   const auto inspection_failed = run_apply(compatible_xml, 1);
   CHECK(inspection_failed.threw);
   CHECK(inspection_failed.mutations.empty());
+}
+
+TEST_CASE("plan validation defers mismatched OUTPUT repair") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-plan-validation-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox);
+  const auto state_file = sandbox / "dispatchers";
+  const auto restore_log = sandbox / "restore.log";
+  const auto mutation_log = sandbox / "mutations.log";
+  {
+    std::ofstream state(state_file);
+    REQUIRE(state.good());
+    state << "A B\n";
+  }
+
+  write_executable(
+      sandbox / "iptables",
+      "#!/bin/sh\n"
+      "state_file='" + state_file.string() + "'\n"
+      "mutation_log='" + mutation_log.string() + "'\n"
+      "primary=A; output=B\n"
+      "if [ -f \"$state_file\" ]; then read primary output < \"$state_file\"; fi\n"
+      "for arg in \"$@\"; do\n"
+      "  case \"$arg\" in\n"
+      "    -A|-D|-I|-F|-X) /bin/printf '%s\\n' \"$*\" >> \"$mutation_log\" ;;\n"
+      "  esac\n"
+      "done\n"
+      "last=''\n"
+      "for arg in \"$@\"; do last=\"$arg\"; done\n"
+      "case \"$last\" in\n"
+      "  -S) /bin/printf '%s\\n' \"-A KeenPbrTable -j KeenPbrTable_$primary\" \"-A KeenPbrTable_OUTPUT -j KeenPbrTable_$output\" ;;\n"
+      "  KeenPbrTable) /bin/printf '%s\\n' '-N KeenPbrTable' \"-A KeenPbrTable -j KeenPbrTable_$primary\" ;;\n"
+      "  KeenPbrTable_OUTPUT) /bin/printf '%s\\n' '-N KeenPbrTable_OUTPUT' \"-A KeenPbrTable_OUTPUT -j KeenPbrTable_$output\" ;;\n"
+      "  KeenPbrTable_A|KeenPbrTable_B) /bin/printf '%s\\n' \"-N $last\" ;;\n"
+      "  PREROUTING) /bin/printf '%s\\n' '-A PREROUTING -j KeenPbrTable' ;;\n"
+      "  OUTPUT) /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrTable_OUTPUT' ;;\n"
+      "esac\n"
+      "exit 0\n");
+  write_executable(
+      sandbox / "iptables-restore",
+      "#!/bin/sh\n"
+      "state_file='" + state_file.string() + "'\n"
+      "restore_log='" + restore_log.string() + "'\n"
+      "if [ \"$1\" = \"--test\" ]; then /bin/cat >/dev/null; exit 0; fi\n"
+      "input=$(/bin/cat)\n"
+      "if /bin/printf '%s' \"$input\" | /bin/grep -q -- '-F KeenPbrTable'; then\n"
+      "  marker=rules\n"
+      "else\n"
+      "  marker=output\n"
+      "fi\n"
+      "primary=A; output=B\n"
+      "if [ -f \"$state_file\" ]; then read primary output < \"$state_file\"; fi\n"
+      "case \"$input\" in\n"
+      "  *'-A KeenPbrTable_OUTPUT -j KeenPbrTable_A'*) output=A ;;\n"
+      "  *'-A KeenPbrTable_OUTPUT -j KeenPbrTable_B'*) output=B ;;\n"
+      "esac\n"
+      "case \"$input\" in\n"
+      "  *'-A KeenPbrTable -j KeenPbrTable_A'*) primary=A ;;\n"
+      "  *'-A KeenPbrTable -j KeenPbrTable_B'*) primary=B ;;\n"
+      "esac\n"
+      "/bin/printf '%s %s target=%s/%s\\n' \"$*\" \"$marker\" \"$primary\" \"$output\" >> \"$restore_log\"\n"
+      "/bin/printf '%s %s\\n' \"$primary\" \"$output\" > \"$state_file\"\n"
+      "exit 0\n");
+  write_executable(sandbox / "ipset", "#!/bin/sh\nexit 0\n");
+
+  PathGuard path_guard;
+  const char *old_path = std::getenv("PATH");
+  const std::string path = sandbox.string() + ":" +
+                           (old_path == nullptr ? std::string{} : old_path);
+  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+
+  IptablesFirewall firewall;
+  firewall.set_ipv6_enabled(false);
+  firewall.prepare_apply(FirewallApplyMode::PreserveSets);
+
+  FirewallPlan invalid;
+  FirewallRuleInstance balance;
+  balance.key = {"route.balance", "invalid"};
+  balance.action = BalanceAction{1U, {{2U, true, true}}};
+  invalid.rules.push_back(std::move(balance));
+  CHECK_THROWS_AS(firewall.apply(invalid, FirewallApplyMode::PreserveSets),
+                  FirewallError);
+
+  CHECK_FALSE(std::filesystem::exists(restore_log));
+  CHECK_FALSE(std::filesystem::exists(mutation_log));
+
+  firewall.prepare_apply(FirewallApplyMode::PreserveSets);
+  FirewallPlan valid;
+  FirewallRuleInstance mark;
+  mark.key = {"route.mark", "valid"};
+  mark.action = MarkAction{42U};
+  valid.rules.push_back(std::move(mark));
+  CHECK_NOTHROW(firewall.apply(valid, FirewallApplyMode::PreserveSets));
+
+  std::ifstream restores(restore_log);
+  REQUIRE(restores.good());
+  std::vector<std::string> restore_commands;
+  std::string command;
+  while (std::getline(restores, command)) {
+    restore_commands.push_back(command);
+  }
+  REQUIRE(restore_commands.size() == 2);
+  CHECK(restore_commands[0].find("output") != std::string::npos);
+  CHECK(restore_commands[1].find("rules") != std::string::npos);
+
+  std::ifstream state(state_file);
+  std::string primary;
+  std::string output;
+  state >> primary >> output;
+  CHECK(primary == "B");
+  CHECK(output == "B");
+  CHECK_FALSE(std::filesystem::exists(mutation_log));
+  std::filesystem::remove_all(sandbox);
 }
 
 TEST_CASE("RulesOnly stale generation is typed and does not repair OUTPUT") {
@@ -1169,9 +1296,9 @@ TEST_CASE("RulesOnly stale generation is typed and does not repair OUTPUT") {
   firewall.create_ipset("kpbr4s_remote", AF_INET);
   FirewallRuleCriteria criteria;
   criteria.dst_set_name = "kpbr4s_remote";
-  firewall.create_mark_rule(1, criteria);
+  const auto plan = IptablesBuilderTest::mark_plan(1, criteria);
 
-  CHECK_THROWS_AS(firewall.apply(FirewallApplyMode::RulesOnly),
+  CHECK_THROWS_AS(firewall.apply(plan, FirewallApplyMode::RulesOnly),
                   FirewallRulesOnlyError);
   CHECK_FALSE(std::filesystem::exists(restore_log));
   std::filesystem::remove_all(sandbox);
@@ -1277,8 +1404,8 @@ TEST_CASE("consecutive RulesOnly applies flip rule slots while reusing static A"
     firewall.create_ipset("kpbr4s_remote", AF_INET);
     FirewallRuleCriteria criteria;
     criteria.dst_set_name = "kpbr4s_remote";
-    firewall.create_mark_rule(1, criteria);
-    firewall.apply(FirewallApplyMode::RulesOnly);
+    const auto plan = IptablesBuilderTest::mark_plan(1, criteria);
+    firewall.apply(plan, FirewallApplyMode::RulesOnly);
   };
 
   apply_rules_only();
@@ -1602,9 +1729,9 @@ TEST_CASE("unsupported xt_comment omits comments without changing apply") {
   firewall.create_ipset("kpbr4s_comment_test", AF_INET);
   FirewallRuleCriteria criteria;
   criteria.dst_set_name = "kpbr4s_comment_test";
-  firewall.create_mark_rule(FirewallRuleKey{"route.mark", "outbound"}, 7,
-                            criteria);
-  CHECK_NOTHROW(firewall.apply(FirewallApplyMode::Destructive));
+  const auto plan = IptablesBuilderTest::mark_plan(
+      7, criteria, FirewallRuleKey{"route.mark", "outbound"});
+  CHECK_NOTHROW(firewall.apply(plan, FirewallApplyMode::Destructive));
 
   std::ifstream commands_input(command_log);
   std::ostringstream commands;
@@ -2375,7 +2502,7 @@ TEST_CASE("build_ipt_script: tcp/udp + port list → two rules") {
   ProtoPortFilter f;
   f.proto = L4Proto::TcpUdp;
   f.dst_port = "80,443";
-  // create_mark_rule expands tcp/udp, so we simulate by passing two rules
+  // The backend expands tcp/udp, so simulate it by passing two pending rules.
   // already expanded
   ProtoPortFilter ftcp;
   ftcp.proto = L4Proto::Tcp;

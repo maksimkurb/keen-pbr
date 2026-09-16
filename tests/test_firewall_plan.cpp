@@ -24,41 +24,35 @@ public:
 
   void create_ipset(const std::string&, int, uint32_t) override {}
 
-  void create_mark_rule(uint32_t mark,
-                        const FirewallRuleCriteria& criteria) override {
-    seen_mark = mark;
-    seen_criteria = criteria;
-    replayed.push_back(criteria.apply_output ? "dns" : "route");
-  }
-
-  void create_mark_rule(const FirewallRuleKey& key, uint32_t mark,
-                        const FirewallRuleCriteria& criteria) override {
-    seen_key = key;
-    create_mark_rule(mark, criteria);
-  }
-
-  void create_balance_rule(
-      uint32_t mark, const std::vector<FirewallBalanceCandidate>& candidates,
-      const FirewallRuleCriteria& criteria) override {
-    seen_mark = mark;
-    seen_candidates = candidates;
-    seen_criteria = criteria;
-    replayed.push_back(criteria.apply_output ? "dns" : "route");
-  }
-
-  void create_drop_rule(const FirewallRuleCriteria& criteria) override {
-    replayed.push_back(criteria.apply_output ? "dns" : "route");
-  }
-  void create_pass_rule(const FirewallRuleCriteria& criteria) override {
-    replayed.push_back(criteria.apply_output ? "dns" : "route");
-  }
-
   std::unique_ptr<ListEntryVisitor>
   create_batch_loader(const std::string&) override {
     throw std::runtime_error("unexpected set streaming");
   }
 
-  void apply(FirewallApplyMode) override {}
+  void apply(const FirewallPlan& plan,
+             FirewallApplyMode = FirewallApplyMode::Destructive) override {
+    set_fwmark_mask(plan.fwmark_mask);
+    for (const auto& current : plan.rules) {
+      if (const auto* mark = std::get_if<MarkAction>(&current.action)) {
+        seen_mark = mark->value;
+        seen_key = current.key;
+        seen_criteria = materialize(current.criteria);
+        replayed.push_back(seen_criteria.apply_output ? "dns" : "route");
+      } else if (const auto* balance =
+                     std::get_if<BalanceAction>(&current.action)) {
+        seen_mark = balance->fallback_mark;
+        seen_candidates = balance->candidates;
+        seen_key = current.key;
+        seen_criteria = materialize(current.criteria);
+        replayed.push_back(seen_criteria.apply_output ? "dns" : "route");
+      } else if (const auto* verdict = std::get_if<VerdictAction>(&current.action)) {
+        if (*verdict == VerdictAction::drop || *verdict == VerdictAction::pass) {
+          const auto criteria = materialize(current.criteria);
+          replayed.push_back(criteria.apply_output ? "dns" : "route");
+        }
+      }
+    }
+  }
   void cleanup() override {}
   FirewallBackend backend() const override { return FirewallBackend::nftables; }
 
@@ -67,6 +61,19 @@ public:
   FirewallRuleCriteria seen_criteria;
   std::vector<FirewallBalanceCandidate> seen_candidates;
   std::vector<std::string> replayed;
+
+private:
+  FirewallRuleCriteria materialize(FirewallRuleCriteria criteria) const {
+    if (!criteria.dst_set_name.has_value()) {
+      return criteria;
+    }
+    if (criteria.dst_set_name->rfind("kpbr4_", 0) == 0) {
+      criteria.dst_set_name = "kpbr4S_" + criteria.dst_set_name->substr(6);
+    } else if (criteria.dst_set_name->rfind("kpbr6_", 0) == 0) {
+      criteria.dst_set_name = "kpbr6S_" + criteria.dst_set_name->substr(6);
+    }
+    return criteria;
+  }
 };
 
 FirewallRuleInstance rule(const char* module, const char* instance,
@@ -130,7 +137,7 @@ TEST_CASE("FirewallRuleRegistrar deduplicates identical sets and rejects conflic
   CHECK(plan.sets[1].name == "kpbr6_remote");
 }
 
-TEST_CASE("Firewall plan adapter resolves logical sets and preserves actions") {
+TEST_CASE("Firewall backend plan entry point preserves actions") {
   FirewallPlan plan;
   plan.fwmark_mask = 0xFF00U;
   FirewallRuleRegistrar registrar(plan);
@@ -141,7 +148,7 @@ TEST_CASE("Firewall plan adapter resolves logical sets and preserves actions") {
   registrar.finish();
 
   PlanFirewall firewall;
-  replay_firewall_plan(plan, firewall);
+  firewall.apply(plan);
   CHECK(firewall.seen_mark == 0x100U);
   CHECK(firewall.seen_key == marked.key);
   CHECK(firewall.seen_criteria.dst_set_name == "kpbr4S_remote");
@@ -205,7 +212,7 @@ TEST_CASE("empty nft mark ownership omits restore while iptables preserves it") 
       iptables_plan.rules.front().action));
 }
 
-TEST_CASE("build and replay order keeps routes before DNS detours") {
+TEST_CASE("backend plan order keeps routes before DNS detours") {
   const Config config = parse_config(R"({
     "daemon": {"ipv6_enabled": false},
     "outbounds": [{"type":"table","tag":"wan","table":100}],
@@ -246,7 +253,7 @@ TEST_CASE("build and replay order keeps routes before DNS detours") {
   CHECK(plan.rules[5].criteria.proto == L4Proto::Udp);
 
   PlanFirewall firewall;
-  replay_firewall_plan(plan, firewall);
+  firewall.apply(plan);
   CHECK(firewall.replayed == std::vector<std::string>{"route", "dns", "dns"});
 }
 
@@ -336,7 +343,7 @@ TEST_CASE("balance action keeps complete candidate availability") {
   registrar.finish();
 
   PlanFirewall firewall;
-  replay_firewall_plan(plan, firewall);
+  firewall.apply(plan);
   CHECK(firewall.seen_mark == 0x100U);
   REQUIRE(firewall.seen_candidates.size() == 2);
   CHECK(firewall.seen_candidates[0] == FirewallBalanceCandidate{0x200U, true, false});

@@ -115,8 +115,8 @@ enum class FirewallRuleStage : uint16_t {
 };
 
 enum class FirewallHook : uint8_t { prerouting, output };
-// `any` means the legacy rule call applies to both families; it is not an
-// inferred IPv4 family and will be expanded physically by a later migration.
+// `any` means the canonical rule applies to both families; it is not an
+// inferred IPv4 family and is expanded physically by the selected backend.
 enum class FirewallFamily : uint8_t { ipv4, ipv6, any };
 
 struct FirewallRuleInstance {
@@ -128,8 +128,8 @@ struct FirewallRuleInstance {
   FirewallFamily family{FirewallFamily::any};
   FirewallRuleCriteria criteria;
   FirewallRuleAction action;
-  // Compatibility metadata keeps set preparation and rule replay in the
-  // historical per-route order until that preparation also becomes planned.
+  // Set preparation still uses the historical per-route order until it becomes
+  // part of the planned resource lifecycle.
   std::size_t source_rule_index{std::numeric_limits<std::size_t>::max()};
 };
 
