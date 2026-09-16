@@ -621,8 +621,8 @@ bool interface_has_routed_ipv6(const DumpedInterface& interface) {
         });
 }
 
-FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg) {
-    FirewallGlobalPrefilter prefilter;
+FirewallPrefilter build_firewall_prefilter(const Config& cfg) {
+    FirewallPrefilter prefilter;
     prefilter.skip_established_or_dnat = true;
     prefilter.skip_marked_packets = cfg.daemon.value_or(DaemonConfig{}).skip_marked_packets.value_or(true);
 

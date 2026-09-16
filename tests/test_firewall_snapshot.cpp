@@ -53,6 +53,39 @@ FirewallPlan port_plan(const FirewallRuleKey& key) {
     return plan;
 }
 
+FirewallPlan prefilter_plan(const FirewallRuleKey& key,
+                            FirewallRuleAction action) {
+    FirewallPlan plan;
+    plan.fwmark_mask = 0x00FF0000u;
+    FirewallRuleInstance rule;
+    rule.key = key;
+    rule.stage = FirewallRuleStage::restore_conntrack;
+    rule.family = FirewallFamily::any;
+    rule.action = std::move(action);
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(std::move(rule));
+    registrar.finish();
+    return plan;
+}
+
+std::vector<FirewallHook> nft_prefilter_hooks(const FirewallRuleAction& action) {
+    if (std::holds_alternative<SkipEstablishedOrDnatAction>(action) ||
+        std::holds_alternative<InboundInterfaceFilterAction>(action)) {
+        return {FirewallHook::prerouting};
+    }
+    return {FirewallHook::prerouting, FirewallHook::output};
+}
+
+ObservedFirewallRule observed_prefilter(const FirewallRuleInstance& expected,
+                                         FirewallHook hook) {
+    ObservedFirewallRule observed;
+    observed.key = expected.key;
+    observed.hook = hook;
+    observed.family = FirewallFamily::any;
+    observed.action = expected.action;
+    return observed;
+}
+
 nlohmann::json balance_document() {
     nlohmann::json document;
     auto& entries = document["nftables"];
@@ -416,6 +449,112 @@ TEST_CASE("nft balance snapshot rejects family-ambiguous classifiers") {
     const auto checks = verify_firewall_plan(plan, snapshot);
     REQUIRE(checks.size() == 1);
     CHECK(checks.front().status == CheckStatus::mismatch);
+}
+
+TEST_CASE("prefilter health canonicalization detects missing mismatch and extra") {
+    const std::vector<std::pair<const char*, FirewallRuleAction>> cases = {
+        {"prefilter.restore_conntrack_mark", RestoreConntrackMarkAction{0x00FF0000u}},
+        {"prefilter.skip_established_or_dnat", SkipEstablishedOrDnatAction{}},
+        {"prefilter.skip_marked_packets", SkipMarkedPacketsAction{}},
+        {"prefilter.inbound_interface", InboundInterfaceFilterAction{{"br-lan"}}},
+    };
+
+    for (const auto& [module_id, action] : cases) {
+        const FirewallRuleKey key{module_id, "one"};
+        const auto plan = prefilter_plan(key, action);
+        REQUIRE(plan.rules.size() == 1);
+        const auto& expected = plan.rules.front();
+        const auto hooks = nft_prefilter_hooks(expected.action);
+
+        FirewallSnapshot active;
+        active.backend = FirewallBackend::nftables;
+        active.available = true;
+        for (const auto hook : hooks) {
+            active.rules.push_back(observed_prefilter(expected, hook));
+        }
+        auto checks = verify_firewall_plan(plan, active);
+        REQUIRE(checks.size() == 1);
+        CHECK(checks.front().status == CheckStatus::ok);
+
+        auto missing = active;
+        missing.rules.pop_back();
+        checks = verify_firewall_plan(plan, missing);
+        REQUIRE(checks.size() == 1);
+        CHECK(checks.front().status ==
+              (hooks.size() == 1U ? CheckStatus::missing : CheckStatus::mismatch));
+
+        auto mismatch = active;
+        if (auto* restore =
+                std::get_if<RestoreConntrackMarkAction>(&mismatch.rules.front().action)) {
+            restore->mask = 0xFFFFFFFFu;
+        } else if (auto* inbound =
+                       std::get_if<InboundInterfaceFilterAction>(
+                           &mismatch.rules.front().action)) {
+            inbound->interfaces = {"wan0"};
+        } else {
+            mismatch.rules.front().action =
+                std::holds_alternative<SkipMarkedPacketsAction>(expected.action)
+                    ? FirewallRuleAction{SkipEstablishedOrDnatAction{}}
+                    : FirewallRuleAction{SkipMarkedPacketsAction{}};
+        }
+        checks = verify_firewall_plan(plan, mismatch);
+        REQUIRE(checks.size() == 1);
+        CHECK(checks.front().status == CheckStatus::mismatch);
+
+        auto extra = active;
+        auto extra_rule = extra.rules.front();
+        extra_rule.key = FirewallRuleKey{module_id, "extra"};
+        extra.rules.push_back(std::move(extra_rule));
+        checks = verify_firewall_plan(plan, extra);
+        REQUIRE(checks.size() == 2);
+        CHECK(checks.front().status == CheckStatus::ok);
+        CHECK(checks.back().status == CheckStatus::mismatch);
+        CHECK(checks.back().detail.find("extra owned") != std::string::npos);
+    }
+}
+
+TEST_CASE("multi-interface inbound is empty when no iptables route rule materializes") {
+    const FirewallRuleKey inbound_key{"prefilter.inbound_interface", "one"};
+    auto plan = prefilter_plan(
+        inbound_key, InboundInterfaceFilterAction{{"br-lan", "wg0"}});
+    FirewallSnapshot empty;
+    empty.backend = FirewallBackend::iptables;
+    empty.available = true;
+    auto checks = verify_firewall_plan(plan, empty);
+    REQUIRE(checks.size() == 1);
+    CHECK(checks.front().status == CheckStatus::ok);
+
+    FirewallSnapshot with_route = empty;
+    const FirewallRuleKey route_key{"route.mark", "one"};
+    FirewallRuleInstance route;
+    route.key = route_key;
+    route.family = FirewallFamily::ipv4;
+    route.criteria.dst_addr = {"192.0.2.0/24"};
+    route.action = MarkAction{0x10000u, 0x00FF0000u};
+    route.source_rule_index = 0;
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(std::move(route));
+    registrar.finish();
+    for (const auto& interface : {"br-lan", "wg0"}) {
+        ObservedFirewallRule observed_route;
+        observed_route.key = route_key;
+        observed_route.family = FirewallFamily::ipv4;
+        observed_route.criteria.dst_addr = {"192.0.2.0/24"};
+        observed_route.action = MarkAction{0x10000u, 0x00FF0000u};
+        observed_route.raw = "-A KeenPbrTable_A -i " + std::string(interface) +
+                             " -d 192.0.2.0/24";
+        with_route.rules.push_back(std::move(observed_route));
+    }
+    checks = verify_firewall_plan(plan, with_route);
+    REQUIRE(checks.size() == 2);
+    CHECK(checks[0].status == CheckStatus::ok);
+    CHECK(checks[1].status == CheckStatus::ok);
+
+    with_route.rules.pop_back();
+    checks = verify_firewall_plan(plan, with_route);
+    REQUIRE(checks.size() == 2);
+    CHECK(checks[0].status == CheckStatus::missing);
+    CHECK(checks[1].status == CheckStatus::mismatch);
 }
 
 TEST_CASE("firewall plan verification distinguishes missing mismatch duplicate and extra") {

@@ -8,6 +8,7 @@
 #include <array>
 #include <cctype>
 #include <cstdlib>
+#include <cstddef>
 #include <map>
 #include <optional>
 #include <string>
@@ -600,7 +601,9 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
         }
     }
 
+    std::size_t element_order = 0;
     for (const auto& elem : j["nftables"]) {
+        const std::size_t current_element_order = element_order++;
         if (!elem.is_object()) continue;
 
         if (elem.contains("table")) {
@@ -658,6 +661,7 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
         }
 
         ParsedNftRule nr;
+        nr.order = current_element_order;
         nr.hook = rule.value("chain", "") == OUTPUT_CHAIN_NAME
             ? FirewallHook::output
             : FirewallHook::prerouting;
@@ -665,8 +669,20 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
         if (rule.contains("comment") && rule["comment"].is_string()) {
             nr.comment = rule["comment"].get<std::string>();
         }
+        const bool keyed_prefilter = nr.comment.has_value() &&
+            nr.comment->rfind("kpbr:v1:prefilter.", 0) == 0;
+
+        std::size_t expression_index = 0;
+        std::optional<std::size_t> restore_direction_index;
+        std::optional<std::size_t> restore_guard_index;
+        std::optional<std::size_t> restore_vmap_index;
+        std::optional<std::size_t> restore_known_marks_index;
+        std::optional<std::size_t> restore_accept_index;
+        std::vector<uint32_t> restore_vmap_marks;
+        std::vector<uint32_t> restore_known_marks;
 
         for (const auto& expr : rule["expr"]) {
+            const std::size_t current_expression_index = expression_index++;
             if (!expr.is_object()) continue;
 
             if (expr.contains("match")) {
@@ -676,6 +692,52 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                 const std::string op = match.value("op", "==");
                 if (match.contains("left") && match["left"].is_object()) {
                     const auto& left = match["left"];
+                    if (left.contains("ct") && left["ct"].is_object()) {
+                        const auto key = left["ct"].value("key", "");
+                        if (key == "direction" && op == "==" &&
+                            match.contains("right")) {
+                            const auto& right = match["right"];
+                            nr.restore_original_direction =
+                                (parse_nft_u32(right).has_value() &&
+                                 *parse_nft_u32(right) == 0) ||
+                                (right.is_string() &&
+                                 right.get<std::string>() == "original");
+                            if (nr.restore_original_direction) {
+                                restore_direction_index = current_expression_index;
+                            }
+                        }
+                        if (key == "status" && match.contains("right") &&
+                            match["right"].is_string() &&
+                            match["right"].get<std::string>() == "dnat") {
+                            nr.is_skip_dnat = true;
+                        }
+                    }
+                    if (left.contains("meta") && left["meta"].is_object()) {
+                        const auto key = left["meta"].value("key", "");
+                        if (key == "mark" && op == "!=" &&
+                            match.contains("right") &&
+                            parse_nft_u32(match["right"]).value_or(1) == 0) {
+                            nr.is_skip_marked = true;
+                        } else if (key == "iifname" && op == "!=" &&
+                                   match.contains("right")) {
+                            const auto& right = match["right"];
+                            if (right.is_string()) {
+                                nr.inbound_interfaces.push_back(
+                                    right.get<std::string>());
+                            } else if (right.is_object() &&
+                                       right.contains("set") &&
+                                       right["set"].is_array()) {
+                                for (const auto& value : right["set"]) {
+                                    if (value.is_string()) {
+                                        nr.inbound_interfaces.push_back(
+                                            value.get<std::string>());
+                                    }
+                                }
+                            }
+                            nr.is_inbound_filter =
+                                !nr.inbound_interfaces.empty();
+                        }
+                    }
                     const nlohmann::json* payload = nullptr;
                     std::optional<int> address_prefix;
                     if (left.contains("payload") && left["payload"].is_object()) {
@@ -780,6 +842,52 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                     // Balance classifiers must only run when the owned mark
                     // bits are empty.  Keep this small canonical guard rather
                     // than attempting to model arbitrary nft expressions.
+                    if (op == "!=" && left.contains("&") &&
+                        left["&"].is_array() && left["&"].size() == 2 &&
+                        left["&"][0].is_object() &&
+                        left["&"][0].contains("ct") &&
+                        left["&"][0]["ct"].is_object() &&
+                        left["&"][0]["ct"].value("key", "") == "mark" &&
+                        parse_nft_u32(left["&"][1]).has_value() &&
+                        *parse_nft_u32(left["&"][1]) != 0 &&
+                        match.contains("right") &&
+                        parse_nft_u32(match["right"]).has_value() &&
+                        *parse_nft_u32(match["right"]) == 0) {
+                        nr.restore_guard_exact = true;
+                        nr.conntrack_mark_mask = *parse_nft_u32(left["&"][1]);
+                        restore_guard_index = current_expression_index;
+                    }
+                    // nft -j list canonicalizes a constant set comparison
+                    // emitted as `in` to `==`; both spellings have the same
+                    // exact set-membership semantics here.
+                    if ((op == "in" || op == "==") && left.contains("&") &&
+                        left["&"].is_array() && left["&"].size() == 2 &&
+                        left["&"][0].is_object() &&
+                        left["&"][0].contains("ct") &&
+                        left["&"][0]["ct"].is_object() &&
+                        left["&"][0]["ct"].value("key", "") == "mark" &&
+                        parse_nft_u32(left["&"][1]).has_value() &&
+                        *parse_nft_u32(left["&"][1]) == nr.conntrack_mark_mask &&
+                        match.contains("right") &&
+                        match["right"].is_object() &&
+                        match["right"].contains("set") &&
+                        match["right"]["set"].is_array() &&
+                        !match["right"]["set"].empty()) {
+                        bool valid = true;
+                        restore_known_marks.clear();
+                        for (const auto& mark : match["right"]["set"]) {
+                            const auto parsed = parse_nft_u32(mark);
+                            if (!parsed.has_value()) {
+                                valid = false;
+                                break;
+                            }
+                            restore_known_marks.push_back(*parsed);
+                        }
+                        if (valid) {
+                            nr.restore_known_marks_exact = true;
+                            restore_known_marks_index = current_expression_index;
+                        }
+                    }
                     if (left.contains("&") && left["&"].is_array() &&
                         left["&"].size() == 2 && left["&"][0].is_object() &&
                         left["&"][0].contains("meta") &&
@@ -792,6 +900,21 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                         nr.balance_guard_op = op;
                         nr.balance_guard_mask = *parse_nft_u32(left["&"][1]);
                         nr.balance_guard_value = *parse_nft_u32(match["right"]);
+                        if (left["&"][0].contains("ct") &&
+                            left["&"][0]["ct"].is_object() &&
+                            left["&"][0]["ct"].value("key", "") == "mark") {
+                            nr.conntrack_mark_mask =
+                                *parse_nft_u32(left["&"][1]);
+                        }
+                    }
+                    if (left.contains("&") && left["&"].is_array() &&
+                        left["&"].size() == 2 && left["&"][0].is_object() &&
+                        left["&"][0].contains("ct") &&
+                        left["&"][0]["ct"].is_object() &&
+                        left["&"][0]["ct"].value("key", "") == "mark" &&
+                        parse_nft_u32(left["&"][1]).has_value()) {
+                        nr.conntrack_mark_mask =
+                            *parse_nft_u32(left["&"][1]);
                     }
                 }
                 continue;
@@ -828,6 +951,50 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
             if (expr.contains("vmap")) {
                 const auto& vmap = expr["vmap"];
                 if (vmap.is_object() && vmap.contains("key") &&
+                    vmap["key"].is_object() && vmap["key"].contains("&") &&
+                    vmap["key"]["&"].is_array() &&
+                    vmap["key"]["&"].size() == 2 &&
+                    vmap["key"]["&"][0].is_object() &&
+                    vmap["key"]["&"][0].contains("ct") &&
+                    vmap["key"]["&"][0]["ct"].is_object() &&
+                    vmap["key"]["&"][0]["ct"].value("key", "") == "mark" &&
+                    parse_nft_u32(vmap["key"]["&"][1]).has_value() &&
+                    *parse_nft_u32(vmap["key"]["&"][1]) == nr.conntrack_mark_mask &&
+                    vmap.contains("data") && vmap["data"].is_object() &&
+                    vmap["data"].contains("set") &&
+                    vmap["data"]["set"].is_array() &&
+                    !vmap["data"]["set"].empty()) {
+                    bool valid = true;
+                    restore_vmap_marks.clear();
+                    for (const auto& entry : vmap["data"]["set"]) {
+                        if (!entry.is_array() || entry.size() != 2 ||
+                            !parse_nft_u32(entry[0]).has_value() ||
+                            !entry[1].is_object() || entry[1].size() != 1 ||
+                            !entry[1].contains("jump") ||
+                            !entry[1]["jump"].is_object() ||
+                            entry[1]["jump"].size() != 1) {
+                            valid = false;
+                            break;
+                        }
+                        const auto target_mark =
+                            parse_setter_chain_mark(entry[1]["jump"]);
+                        if (!target_mark.has_value() ||
+                            *target_mark != *parse_nft_u32(entry[0])) {
+                            valid = false;
+                            break;
+                        }
+                        restore_vmap_marks.push_back(*parse_nft_u32(entry[0]));
+                    }
+                    if (valid && std::is_sorted(restore_vmap_marks.begin(),
+                                                restore_vmap_marks.end()) &&
+                        std::adjacent_find(restore_vmap_marks.begin(),
+                                           restore_vmap_marks.end()) ==
+                            restore_vmap_marks.end()) {
+                        nr.restore_vmap_exact = true;
+                        restore_vmap_index = current_expression_index;
+                    }
+                }
+                if (vmap.is_object() && vmap.contains("key") &&
                     vmap["key"].is_object() &&
                     vmap["key"].contains("numgen")) {
                     const auto& numgen = vmap["key"]["numgen"];
@@ -853,14 +1020,49 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                 continue;
             }
             if (expr.contains("accept") || expr.contains("return")) {
-                nr.is_pass = true;
+                if (expr.contains("accept")) {
+                    nr.is_accept = expr["accept"].is_null();
+                    nr.is_pass = nr.is_accept;
+                    if (nr.is_accept) {
+                        restore_accept_index = current_expression_index;
+                    }
+                } else {
+                    nr.is_return = expr["return"].is_null();
+                    nr.is_pass = nr.is_return;
+                }
                 continue;
             }
         }
 
-        if ((!nr.is_mark && !nr.is_drop && !nr.is_pass && !nr.is_balance) ||
-            (nr.set_name.empty() && nr.criteria.empty() && !nr.is_balance)) {
+        const bool restore_order = restore_direction_index.has_value() &&
+            restore_guard_index.has_value() && restore_vmap_index.has_value() &&
+            restore_known_marks_index.has_value() && restore_accept_index.has_value() &&
+            *restore_direction_index < *restore_guard_index &&
+            *restore_guard_index < *restore_vmap_index &&
+            *restore_vmap_index < *restore_known_marks_index &&
+            *restore_known_marks_index < *restore_accept_index;
+        nr.is_restore_conntrack = nr.is_accept && nr.conntrack_mark_mask != 0 &&
+            nr.restore_original_direction && nr.restore_guard_exact &&
+            nr.restore_vmap_exact && nr.restore_known_marks_exact && restore_order &&
+            restore_vmap_marks == restore_known_marks;
+        nr.is_skip_dnat = nr.is_accept && nr.is_skip_dnat;
+        nr.is_skip_marked = nr.is_accept && nr.is_skip_marked;
+        nr.is_inbound_filter = nr.is_accept && nr.is_inbound_filter;
+
+        if ((!nr.is_mark && !nr.is_drop && !nr.is_pass && !nr.is_balance &&
+             !keyed_prefilter) ||
+            (nr.set_name.empty() && nr.criteria.empty() && !nr.is_balance &&
+             !nr.is_restore_conntrack && !nr.is_skip_dnat &&
+             !nr.is_skip_marked && !nr.is_inbound_filter &&
+             !nr.comment.has_value())) {
             continue;
+        }
+        if (!nr.is_mark && !nr.is_drop && !nr.is_pass && !nr.is_balance &&
+            keyed_prefilter) {
+            // Keep a keyed malformed rule visible to the canonical verifier;
+            // otherwise it would be reported as missing instead of a shape
+            // mismatch.  Unknown comments remain non-owned observations.
+            nr.is_pass = true;
         }
 
         state.rules.push_back(std::move(nr));

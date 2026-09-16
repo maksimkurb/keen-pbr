@@ -48,6 +48,13 @@ public:
     void create_pass_rule(const FirewallRuleCriteria& criteria = {}) override;
     void create_pass_rule(const FirewallRuleKey& key,
                           const FirewallRuleCriteria& criteria = {}) override;
+    void create_restore_conntrack_mark_rule(const FirewallRuleKey& key,
+                                             uint32_t mask) override;
+    void create_skip_established_or_dnat_rule(const FirewallRuleKey& key) override;
+    void create_skip_marked_packets_rule(const FirewallRuleKey& key) override;
+    void create_inbound_interface_filter_rule(
+        const FirewallRuleKey& key,
+        const std::vector<std::string>& interfaces) override;
 
     // Return an NftBatchVisitor that appends element values to the pending
     // element buffer for set_name; elements are flushed during apply().
@@ -129,7 +136,7 @@ private:
     void preflight_reused_set_schemas(const LiveTableState& live_state) const;
     // Build all prerouting rule add-commands, including global prefilter rules.
     static nlohmann::json build_rule_add_commands(
-        const FirewallGlobalPrefilter& prefilter,
+        const FirewallPrefilter& prefilter,
         const std::vector<PendingRule>& rules,
         const std::set<uint32_t>& owned_marks = {});
     // Build the JSON rule object for a meta mark set action matching a named set.
@@ -186,6 +193,7 @@ private:
     // True once the inet KeenPbrTable table has been created via apply().
     bool table_created_ = false;
     FirewallApplyMode prepared_mode_{FirewallApplyMode::Destructive};
+    FirewallPrefilter prefilter_{};
 
 #ifdef KEEN_PBR3_TESTING
     friend class NftablesBuilderTest;

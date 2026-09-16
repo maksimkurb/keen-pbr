@@ -130,7 +130,7 @@ TEST_CASE("build_fw_rule_states: disabled route rule is skipped while enabled ru
     }));
 }
 
-TEST_CASE("build_firewall_global_prefilter: missing inbound_interfaces keeps interface restriction disabled") {
+TEST_CASE("build_firewall_prefilter: missing inbound_interfaces keeps interface restriction disabled") {
     auto cfg = parse_minimal_config(R"({
         "outbounds":[
             {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
@@ -145,14 +145,14 @@ TEST_CASE("build_firewall_global_prefilter: missing inbound_interfaces keeps int
         }
     })");
 
-    const auto prefilter = build_firewall_global_prefilter(cfg);
+    const auto prefilter = build_firewall_prefilter(cfg);
     CHECK(prefilter.skip_established_or_dnat);
     CHECK(prefilter.skip_marked_packets);
     CHECK_FALSE(prefilter.has_inbound_interfaces());
     CHECK_FALSE(prefilter.inbound_interfaces.has_value());
 }
 
-TEST_CASE("build_firewall_global_prefilter: empty inbound_interfaces keeps interface restriction disabled") {
+TEST_CASE("build_firewall_prefilter: empty inbound_interfaces keeps interface restriction disabled") {
     auto cfg = parse_minimal_config(R"({
         "outbounds":[
             {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
@@ -168,14 +168,14 @@ TEST_CASE("build_firewall_global_prefilter: empty inbound_interfaces keeps inter
         }
     })");
 
-    const auto prefilter = build_firewall_global_prefilter(cfg);
+    const auto prefilter = build_firewall_prefilter(cfg);
     CHECK(prefilter.skip_established_or_dnat);
     CHECK(prefilter.skip_marked_packets);
     CHECK_FALSE(prefilter.has_inbound_interfaces());
     CHECK_FALSE(prefilter.inbound_interfaces.has_value());
 }
 
-TEST_CASE("build_firewall_global_prefilter: inbound_interfaces enables interface restriction") {
+TEST_CASE("build_firewall_prefilter: inbound_interfaces enables interface restriction") {
     auto cfg = parse_minimal_config(R"({
         "outbounds":[
             {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
@@ -191,7 +191,7 @@ TEST_CASE("build_firewall_global_prefilter: inbound_interfaces enables interface
         }
     })");
 
-    const auto prefilter = build_firewall_global_prefilter(cfg);
+    const auto prefilter = build_firewall_prefilter(cfg);
     CHECK(prefilter.skip_established_or_dnat);
     CHECK(prefilter.skip_marked_packets);
     REQUIRE(prefilter.inbound_interfaces.has_value());
@@ -199,7 +199,7 @@ TEST_CASE("build_firewall_global_prefilter: inbound_interfaces enables interface
     CHECK(*prefilter.inbound_interfaces == std::vector<std::string>({"br0", "wg0"}));
 }
 
-TEST_CASE("build_firewall_global_prefilter: daemon.skip_marked_packets false disables marked-packet bypass") {
+TEST_CASE("build_firewall_prefilter: daemon.skip_marked_packets false disables marked-packet bypass") {
     auto cfg = parse_minimal_config(R"({
         "daemon":{"skip_marked_packets":false},
         "outbounds":[
@@ -215,12 +215,12 @@ TEST_CASE("build_firewall_global_prefilter: daemon.skip_marked_packets false dis
         }
     })");
 
-    const auto prefilter = build_firewall_global_prefilter(cfg);
+    const auto prefilter = build_firewall_prefilter(cfg);
     CHECK(prefilter.skip_established_or_dnat);
     CHECK_FALSE(prefilter.skip_marked_packets);
 }
 
-TEST_CASE("build_firewall_global_prefilter: daemon.skip_marked_packets null keeps marked-packet bypass enabled") {
+TEST_CASE("build_firewall_prefilter: daemon.skip_marked_packets null keeps marked-packet bypass enabled") {
     auto cfg = parse_minimal_config(R"({
         "daemon":{"skip_marked_packets":null},
         "outbounds":[
@@ -236,7 +236,7 @@ TEST_CASE("build_firewall_global_prefilter: daemon.skip_marked_packets null keep
         }
     })");
 
-    const auto prefilter = build_firewall_global_prefilter(cfg);
+    const auto prefilter = build_firewall_prefilter(cfg);
     CHECK(prefilter.skip_established_or_dnat);
     CHECK(prefilter.skip_marked_packets);
 }

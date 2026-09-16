@@ -89,7 +89,9 @@ struct FirewallRuleCriteria {
 
 using ProtoPortFilter = FirewallRuleCriteria;
 
-struct FirewallGlobalPrefilter {
+// Backend compatibility state populated by canonical prefilter actions.
+// This is not part of FirewallPlan or the public Firewall API.
+struct FirewallPrefilter {
   std::optional<std::vector<std::string>> inbound_interfaces;
   bool skip_established_or_dnat{false};
   bool skip_marked_packets{false};
@@ -98,14 +100,26 @@ struct FirewallGlobalPrefilter {
   // callers; runtime enables it with the configured fwmark mask.
   bool restore_conntrack_mark{false};
   uint32_t conntrack_mark_mask{0};
+  // The compatibility adapters preserve canonical ownership while the
+  // backend still expands these operations into physical rules.
+  std::string restore_conntrack_mark_comment;
+  std::string skip_established_or_dnat_comment;
+  std::string skip_marked_packets_comment;
+  std::string inbound_interface_filter_comment;
+  bool comments_ipv4_supported{true};
+  bool comments_ipv6_supported{true};
 
   bool has_inbound_interfaces() const {
     return inbound_interfaces.has_value() && !inbound_interfaces->empty();
   }
 
   bool empty() const {
-    return !skip_established_or_dnat && !skip_marked_packets &&
-           !has_inbound_interfaces();
+    return !restore_conntrack_mark && !skip_established_or_dnat &&
+           !skip_marked_packets && !has_inbound_interfaces();
+  }
+
+  bool comments_supported(bool ipv6) const {
+    return ipv6 ? comments_ipv6_supported : comments_ipv4_supported;
   }
 };
 
@@ -253,6 +267,17 @@ public:
     create_pass_rule(criteria);
   }
 
+  virtual void create_restore_conntrack_mark_rule(const FirewallRuleKey&,
+                                                   uint32_t) {
+  }
+  virtual void create_skip_established_or_dnat_rule(const FirewallRuleKey&) {
+  }
+  virtual void create_skip_marked_packets_rule(const FirewallRuleKey&) {
+  }
+  virtual void create_inbound_interface_filter_rule(
+      const FirewallRuleKey&, const std::vector<std::string>&) {
+  }
+
   // Create a batch loader visitor for streaming IP/CIDR entries into a set.
   // Returns a ListEntryVisitor that buffers entries for atomic application.
   // Caller must call finish() on the returned visitor after streaming is
@@ -263,15 +288,6 @@ public:
   // Apply all pending changes atomically (where supported by the backend).
   virtual void
   apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) = 0;
-
-  // Configure a backend-wide prefilter emitted ahead of mark/drop/pass rules.
-  void set_global_prefilter(FirewallGlobalPrefilter prefilter) {
-    global_prefilter_ = std::move(prefilter);
-  }
-
-  const FirewallGlobalPrefilter &global_prefilter() const {
-    return global_prefilter_;
-  }
 
   void set_ipv6_enabled(bool enabled) { ipv6_enabled_ = enabled; }
 
@@ -336,7 +352,6 @@ public:
 protected:
   Firewall() = default;
 
-  FirewallGlobalPrefilter global_prefilter_;
   uint32_t fwmark_mask_{0xFFFFFFFFu};
   bool ipv6_enabled_{true};
   bool clear_dynamic_sets_on_apply_{true};

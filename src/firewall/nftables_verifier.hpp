@@ -42,6 +42,19 @@ struct ParsedNftRule {
     uint32_t balance_guard_mask{0};
     uint32_t balance_guard_value{0};
     std::vector<ParsedNftBalanceTarget> balance_targets;
+    bool is_restore_conntrack{false};
+    bool is_skip_dnat{false};
+    bool is_skip_marked{false};
+    bool is_inbound_filter{false};
+    bool is_accept{false};
+    bool is_return{false};
+    bool restore_original_direction{false};
+    bool restore_guard_exact{false};
+    bool restore_vmap_exact{false};
+    bool restore_known_marks_exact{false};
+    std::vector<std::string> inbound_interfaces;
+    uint32_t conntrack_mark_mask{0};
+    std::size_t order{0};
 };
 
 struct ParsedNftSet {

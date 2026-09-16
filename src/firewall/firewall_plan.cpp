@@ -86,6 +86,20 @@ void FirewallRuleRegistrar::validate_rule(const FirewallRuleInstance& rule,
                     })) {
       throw std::invalid_argument("firewall rule has an invalid balance mark");
     }
+  } else if (const auto* restore =
+                 std::get_if<RestoreConntrackMarkAction>(&rule.action)) {
+    if (restore->mask == 0 || restore->mask != fwmark_mask) {
+      throw std::invalid_argument(
+          "firewall rule has an invalid conntrack mark mask");
+    }
+  } else if (const auto* inbound =
+                 std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
+    if (inbound->interfaces.empty() ||
+        std::any_of(inbound->interfaces.begin(), inbound->interfaces.end(),
+                    [](const std::string& interface) { return interface.empty(); })) {
+      throw std::invalid_argument(
+          "firewall rule has an invalid inbound interface filter");
+    }
   }
 }
 
@@ -177,6 +191,17 @@ void replay_firewall_rule(const FirewallRuleInstance& rule, Firewall& firewall) 
   } else if (const auto* balance = std::get_if<BalanceAction>(&rule.action)) {
     firewall.create_balance_rule(rule.key, balance->fallback_mark,
                                  balance->candidates, criteria);
+  } else if (std::holds_alternative<RestoreConntrackMarkAction>(rule.action)) {
+    firewall.create_restore_conntrack_mark_rule(
+        rule.key, std::get<RestoreConntrackMarkAction>(rule.action).mask);
+  } else if (std::holds_alternative<SkipEstablishedOrDnatAction>(rule.action)) {
+    firewall.create_skip_established_or_dnat_rule(rule.key);
+  } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
+    firewall.create_skip_marked_packets_rule(rule.key);
+  } else if (const auto* inbound =
+                 std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
+    firewall.create_inbound_interface_filter_rule(rule.key,
+                                                  inbound->interfaces);
   } else if (std::get<VerdictAction>(rule.action) == VerdictAction::drop) {
     firewall.create_drop_rule(rule.key, criteria);
   } else {
@@ -185,7 +210,6 @@ void replay_firewall_rule(const FirewallRuleInstance& rule, Firewall& firewall) 
 }
 
 void configure_firewall_plan(const FirewallPlan& plan, Firewall& firewall) {
-  firewall.set_global_prefilter(plan.global_prefilter);
   firewall.set_fwmark_mask(plan.fwmark_mask);
 }
 

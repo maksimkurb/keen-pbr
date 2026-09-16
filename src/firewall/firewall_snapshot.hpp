@@ -24,6 +24,8 @@ struct ObservedFirewallRule {
     std::string raw;
     std::string chain;
     bool legacy{false};
+    bool restore_conntrack_companion{false};
+    std::size_t order{0};
     struct BalanceDetails {
         std::string selector_mode;
         uint32_t selector_modulus{0};
@@ -58,6 +60,7 @@ struct ObservedFirewallChain {
 // rule verification does not couple to chain/set transaction state.
 struct FirewallSnapshot {
     FirewallBackend backend{FirewallBackend::iptables};
+    RawPreroutingMode raw_prerouting{};
     bool available{false};
     std::string error;
     std::vector<ObservedFirewallRule> rules;

@@ -6,8 +6,11 @@
 #include "../util/format_compat.hpp"
 
 #include <algorithm>
+#include <limits>
+#include <map>
 #include <netinet/in.h>
 #include <set>
+#include <sstream>
 #include <utility>
 
 namespace keen_pbr3 {
@@ -15,6 +18,18 @@ namespace {
 
 bool starts_with(const std::string& value, const char* prefix) {
     return value.rfind(prefix, 0) == 0;
+}
+
+bool has_iptables_interface(const std::string& raw,
+                            const std::string& expected) {
+    std::istringstream stream(raw);
+    std::string previous;
+    std::string token;
+    while (stream >> token) {
+        if (previous == "-i" && token == expected) return true;
+        previous = std::move(token);
+    }
+    return false;
 }
 
 std::string normalize_set_name(const std::string& name) {
@@ -33,7 +48,8 @@ bool is_ipv6_set_name(const std::string& name) {
 }
 
 bool is_owned_module(const std::string& module) {
-    return starts_with(module, "route.") || starts_with(module, "dns.");
+    return starts_with(module, "route.") || starts_with(module, "dns.") ||
+           starts_with(module, "prefilter.");
 }
 
 std::string family_name(FirewallFamily family) {
@@ -52,7 +68,19 @@ std::string hook_name(FirewallHook hook) {
 std::string action_name(const FirewallRuleAction& action) {
     if (std::holds_alternative<MarkAction>(action)) return "mark";
     if (std::holds_alternative<BalanceAction>(action)) return "balance";
-    return std::get<VerdictAction>(action) == VerdictAction::drop ? "drop" : "pass";
+    if (const auto* verdict = std::get_if<VerdictAction>(&action)) {
+        return *verdict == VerdictAction::drop ? "drop" : "pass";
+    }
+    if (std::holds_alternative<RestoreConntrackMarkAction>(action)) {
+        return "restore_conntrack_mark";
+    }
+    if (std::holds_alternative<SkipEstablishedOrDnatAction>(action)) {
+        return "skip_established_or_dnat";
+    }
+    if (std::holds_alternative<SkipMarkedPacketsAction>(action)) {
+        return "skip_marked_packets";
+    }
+    return "inbound_interface";
 }
 
 std::string criteria_summary(const FirewallRuleCriteria& criteria) {
@@ -210,9 +238,31 @@ bool action_equal(const FirewallRuleAction& left, const FirewallRuleAction& righ
                 return lhs.fwmark == rhs.fwmark;
             });
     }
-    const auto* right_verdict = std::get_if<VerdictAction>(&right);
-    return right_verdict != nullptr &&
-           std::get<VerdictAction>(left) == *right_verdict;
+    if (const auto* left_verdict = std::get_if<VerdictAction>(&left)) {
+        const auto* right_verdict = std::get_if<VerdictAction>(&right);
+        return right_verdict != nullptr && *left_verdict == *right_verdict;
+    }
+    if (const auto* left_restore =
+            std::get_if<RestoreConntrackMarkAction>(&left)) {
+        const auto* right_restore =
+            std::get_if<RestoreConntrackMarkAction>(&right);
+        return right_restore != nullptr && *left_restore == *right_restore;
+    }
+    if (const auto* left_skip =
+            std::get_if<SkipEstablishedOrDnatAction>(&left)) {
+        return std::holds_alternative<SkipEstablishedOrDnatAction>(right) &&
+               *left_skip == std::get<SkipEstablishedOrDnatAction>(right);
+    }
+    if (const auto* left_skip = std::get_if<SkipMarkedPacketsAction>(&left)) {
+        return std::holds_alternative<SkipMarkedPacketsAction>(right) &&
+               *left_skip == std::get<SkipMarkedPacketsAction>(right);
+    }
+    const auto* left_inbound =
+        std::get_if<InboundInterfaceFilterAction>(&left);
+    const auto* right_inbound =
+        std::get_if<InboundInterfaceFilterAction>(&right);
+    return left_inbound != nullptr && right_inbound != nullptr &&
+           *left_inbound == *right_inbound;
 }
 
 bool action_equal(const ObservedFirewallRule& observed,
@@ -226,14 +276,26 @@ bool action_equal(const ObservedFirewallRule& observed,
 
 bool rule_equal(const ObservedFirewallRule& observed,
                 const FirewallRuleInstance& expected,
+                FirewallHook hook,
                 FirewallFamily family,
                 const FirewallRuleCriteria& criteria,
                 const FirewallRuleAction& action,
+                bool restore_conntrack_companion,
+                const std::string& inbound_interface,
                 uint32_t fwmark_mask) {
     const bool family_matches = observed.family == family ||
         (observed.family == FirewallFamily::any &&
          !std::holds_alternative<BalanceAction>(expected.action));
-    if (observed.hook != expected.hook || !family_matches) {
+    if (observed.hook != hook || !family_matches) {
+        return false;
+    }
+    if (std::holds_alternative<RestoreConntrackMarkAction>(expected.action) &&
+        observed.restore_conntrack_companion != restore_conntrack_companion) {
+        return false;
+    }
+    if (!inbound_interface.empty() &&
+        (observed.raw.empty() ||
+         !has_iptables_interface(observed.raw, inbound_interface))) {
         return false;
     }
     return criteria_equal(observed.criteria, criteria) &&
@@ -242,19 +304,29 @@ bool rule_equal(const ObservedFirewallRule& observed,
 
 bool same_shape(const ObservedFirewallRule& observed,
                 const FirewallRuleInstance& expected,
+                FirewallHook hook,
                 FirewallFamily family,
-                const FirewallRuleCriteria& criteria) {
+                const FirewallRuleCriteria& criteria,
+                bool restore_conntrack_companion,
+                const std::string& inbound_interface) {
     const bool family_matches = observed.family == family ||
         (observed.family == FirewallFamily::any &&
          !std::holds_alternative<BalanceAction>(expected.action));
-    return observed.hook == expected.hook &&
+    return observed.hook == hook &&
            family_matches &&
+           (!std::holds_alternative<RestoreConntrackMarkAction>(expected.action) ||
+            observed.restore_conntrack_companion == restore_conntrack_companion) &&
+           (inbound_interface.empty() ||
+            (!observed.raw.empty() &&
+             has_iptables_interface(observed.raw, inbound_interface))) &&
            criteria_equal(observed.criteria, criteria);
 }
 
 struct ExpectedPhysicalRule {
     FirewallFamily family{FirewallFamily::ipv4};
     FirewallHook hook{FirewallHook::prerouting};
+    bool restore_conntrack_companion{false};
+    std::string inbound_interface;
     FirewallRuleCriteria criteria;
     FirewallRuleAction action{MarkAction{}};
 };
@@ -346,8 +418,84 @@ std::vector<FirewallFamily> expand_families(const FirewallRuleInstance& rule,
 
 std::vector<ExpectedPhysicalRule> expand_expected_rule(
     const FirewallRuleInstance& rule, FirewallBackend backend,
-    uint32_t fwmark_mask) {
+    uint32_t fwmark_mask, RawPreroutingMode raw_prerouting = {},
+    const std::vector<std::string>* inbound_interfaces = nullptr) {
     std::vector<ExpectedPhysicalRule> result;
+
+    const auto add_prefilter = [&](FirewallHook hook, FirewallFamily family,
+                                   bool restore_companion = false) {
+        ExpectedPhysicalRule physical;
+        physical.family = family;
+        physical.hook = hook;
+        physical.restore_conntrack_companion = restore_companion;
+        physical.action = rule.action;
+        result.push_back(std::move(physical));
+    };
+    if (std::holds_alternative<RestoreConntrackMarkAction>(rule.action)) {
+        if (backend == FirewallBackend::nftables) {
+            add_prefilter(FirewallHook::prerouting, FirewallFamily::any);
+            add_prefilter(FirewallHook::output, FirewallFamily::any);
+        } else {
+            for (const auto family : {FirewallFamily::ipv4,
+                                      FirewallFamily::ipv6}) {
+                if (!raw_prerouting.uses(family == FirewallFamily::ipv6)) {
+                    add_prefilter(FirewallHook::prerouting, family);
+                    add_prefilter(FirewallHook::prerouting, family, true);
+                }
+                add_prefilter(FirewallHook::output, family);
+                add_prefilter(FirewallHook::output, family, true);
+            }
+        }
+        return result;
+    }
+    if (std::holds_alternative<SkipEstablishedOrDnatAction>(rule.action)) {
+        if (backend == FirewallBackend::iptables) {
+            for (const auto family : {FirewallFamily::ipv4,
+                                      FirewallFamily::ipv6}) {
+                add_prefilter(FirewallHook::output, family);
+                if (!raw_prerouting.uses(family == FirewallFamily::ipv6)) {
+                    add_prefilter(FirewallHook::prerouting, family);
+                }
+            }
+        } else if (backend == FirewallBackend::nftables) {
+            add_prefilter(FirewallHook::prerouting, FirewallFamily::any);
+        } else {
+            add_prefilter(FirewallHook::prerouting, FirewallFamily::ipv4);
+            add_prefilter(FirewallHook::output, FirewallFamily::ipv4);
+            add_prefilter(FirewallHook::prerouting, FirewallFamily::ipv6);
+            add_prefilter(FirewallHook::output, FirewallFamily::ipv6);
+        }
+        return result;
+    }
+    if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
+        if (backend == FirewallBackend::nftables) {
+            add_prefilter(FirewallHook::prerouting, FirewallFamily::any);
+            add_prefilter(FirewallHook::output, FirewallFamily::any);
+        } else {
+            for (const auto family : {FirewallFamily::ipv4,
+                                      FirewallFamily::ipv6}) {
+                add_prefilter(FirewallHook::prerouting, family);
+                add_prefilter(FirewallHook::output, family);
+            }
+        }
+        return result;
+    }
+    if (const auto* inbound =
+            std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
+        if (inbound->interfaces.size() > 1U) {
+            return result;
+        }
+        if (backend == FirewallBackend::nftables) {
+            add_prefilter(FirewallHook::prerouting, FirewallFamily::any);
+        } else {
+            for (const auto family : {FirewallFamily::ipv4,
+                                      FirewallFamily::ipv6}) {
+                add_prefilter(FirewallHook::prerouting, family);
+                add_prefilter(FirewallHook::output, family);
+            }
+        }
+        return result;
+    }
     for (const auto family : expand_families(rule, backend)) {
         if ((rule.criteria.default_gateway == DefaultGatewayFamily::Ipv4 &&
              family != FirewallFamily::ipv4) ||
@@ -393,7 +541,17 @@ std::vector<ExpectedPhysicalRule> expand_expected_rule(
                     }
                     physical.action = action_for_family(rule.action, family,
                                                         fwmark_mask);
-                    result.push_back(std::move(physical));
+                    if (backend == FirewallBackend::iptables &&
+                        inbound_interfaces != nullptr &&
+                        inbound_interfaces->size() > 1U) {
+                        for (const auto& interface : *inbound_interfaces) {
+                            auto fragment = physical;
+                            fragment.inbound_interface = interface;
+                            result.push_back(std::move(fragment));
+                        }
+                    } else {
+                        result.push_back(std::move(physical));
+                    }
                 }
             }
         }
@@ -438,6 +596,170 @@ std::string observed_action_detail(const FirewallRuleAction& action) {
         return keen_pbr3::format("mark {:#x}/{:#x}", mark->value, mark->mask);
     }
     return action_name(action);
+}
+
+bool is_prefilter_action(const FirewallRuleAction& action) {
+    return std::holds_alternative<RestoreConntrackMarkAction>(action) ||
+           std::holds_alternative<SkipEstablishedOrDnatAction>(action) ||
+           std::holds_alternative<SkipMarkedPacketsAction>(action) ||
+           std::holds_alternative<InboundInterfaceFilterAction>(action);
+}
+
+bool inbound_filter_present(const FirewallSnapshot& snapshot,
+                            const InboundInterfaceFilterAction& expected,
+                            bool require_route_fragments) {
+    for (const auto& observed : snapshot.rules) {
+        if (const auto* actual =
+                std::get_if<InboundInterfaceFilterAction>(&observed.action)) {
+            if (*actual == expected) return true;
+        }
+    }
+    if (expected.interfaces.size() <= 1U) return false;
+    if (!require_route_fragments) return false;
+    bool route_rule_seen = false;
+    std::set<std::string> materialized_interfaces;
+    for (const auto& observed : snapshot.rules) {
+        if (is_prefilter_action(observed.action) || observed.raw.empty()) {
+            continue;
+        }
+        route_rule_seen = true;
+        bool has_allowed_interface = false;
+        for (const auto& interface : expected.interfaces) {
+            if (has_iptables_interface(observed.raw, interface)) {
+                materialized_interfaces.insert(interface);
+                has_allowed_interface = true;
+            }
+        }
+        if (!has_allowed_interface) return false;
+    }
+    return route_rule_seen &&
+           materialized_interfaces.size() == expected.interfaces.size();
+}
+
+bool legacy_rule_usable(const ObservedFirewallRule& rule);
+
+bool legacy_prefilter_rule_usable(const ObservedFirewallRule& rule,
+                                  FirewallBackend backend);
+
+struct PrefilterLocation {
+    std::size_t plan_index{0};
+    std::size_t physical_index{0};
+    std::size_t observed_index{0};
+};
+
+std::set<std::size_t> prefilter_order_errors(
+    const FirewallPlan& plan, const FirewallSnapshot& snapshot) {
+    std::set<std::size_t> errors;
+    std::vector<bool> used(snapshot.rules.size(), false);
+    std::map<std::string, std::vector<PrefilterLocation>> groups;
+
+    const auto group_name = [](const ObservedFirewallRule& rule) {
+        return std::to_string(static_cast<int>(rule.hook)) + ":" +
+               std::to_string(static_cast<int>(rule.family)) + ":" +
+               rule.chain;
+    };
+    for (std::size_t plan_index = 0; plan_index < plan.rules.size();
+         ++plan_index) {
+        const auto& expected = plan.rules[plan_index];
+        if (!is_prefilter_action(expected.action)) continue;
+        const auto physical = expand_expected_rule(
+            expected, snapshot.backend, plan.fwmark_mask,
+            snapshot.raw_prerouting);
+        std::vector<std::size_t> candidates;
+        for (std::size_t index = 0; index < snapshot.rules.size(); ++index) {
+            if (snapshot.rules[index].key.has_value() &&
+                *snapshot.rules[index].key == expected.key) {
+                candidates.push_back(index);
+            }
+        }
+        for (std::size_t index = 0; index < snapshot.rules.size(); ++index) {
+            if (legacy_prefilter_rule_usable(snapshot.rules[index],
+                                             snapshot.backend)) {
+                candidates.push_back(index);
+            }
+        }
+        for (std::size_t physical_index = 0;
+             physical_index < physical.size(); ++physical_index) {
+            const auto& physical_rule = physical[physical_index];
+            const auto match = std::find_if(
+                candidates.begin(), candidates.end(), [&](std::size_t index) {
+                    return !used[index] &&
+                        rule_equal(snapshot.rules[index], expected,
+                                   physical_rule.hook, physical_rule.family,
+                                   physical_rule.criteria, physical_rule.action,
+                                   physical_rule.restore_conntrack_companion,
+                                   physical_rule.inbound_interface,
+                                   plan.fwmark_mask);
+                });
+            if (match == candidates.end()) continue;
+            used[*match] = true;
+            groups[group_name(snapshot.rules[*match])].push_back(
+                {plan_index, physical_index, *match});
+        }
+    }
+
+    for (auto& [group, locations] : groups) {
+        (void)group;
+        const bool has_order = std::all_of(
+            locations.begin(), locations.end(), [&](const PrefilterLocation& location) {
+                return !snapshot.rules[location.observed_index].raw.empty();
+            });
+        if (has_order) {
+            for (std::size_t index = 1; index < locations.size(); ++index) {
+                const auto& previous = snapshot.rules[locations[index - 1].observed_index];
+                const auto& current = snapshot.rules[locations[index].observed_index];
+                if (current.order <= previous.order) {
+                    errors.insert(locations[index].plan_index);
+                }
+            }
+            for (const auto& location : locations) {
+                const auto& prefilter = snapshot.rules[location.observed_index];
+                for (const auto& observed : snapshot.rules) {
+                    if (observed.chain != prefilter.chain ||
+                        observed.hook != prefilter.hook ||
+                        observed.family != prefilter.family ||
+                        is_prefilter_action(observed.action) ||
+                        observed.raw.empty()) {
+                        continue;
+                    }
+                    if (observed.order < prefilter.order) {
+                        errors.insert(location.plan_index);
+                        break;
+                    }
+                }
+            }
+        }
+
+        for (const auto& location : locations) {
+            const auto& expected = plan.rules[location.plan_index];
+            if (snapshot.backend != FirewallBackend::iptables ||
+                !std::holds_alternative<RestoreConntrackMarkAction>(expected.action) ||
+                location.physical_index + 1U >=
+                    expand_expected_rule(expected, snapshot.backend,
+                                         plan.fwmark_mask,
+                                         snapshot.raw_prerouting).size() ||
+                location.physical_index % 2U != 0U) {
+                continue;
+            }
+            const auto next = std::find_if(
+                locations.begin(), locations.end(), [&](const PrefilterLocation& candidate) {
+                    return candidate.plan_index == location.plan_index &&
+                           candidate.physical_index == location.physical_index + 1U;
+                });
+            if (next == locations.end() ||
+                snapshot.rules[next->observed_index].chain !=
+                    snapshot.rules[location.observed_index].chain ||
+                snapshot.rules[next->observed_index].hook !=
+                    snapshot.rules[location.observed_index].hook ||
+                snapshot.rules[next->observed_index].family !=
+                    snapshot.rules[location.observed_index].family ||
+                snapshot.rules[next->observed_index].order !=
+                    snapshot.rules[location.observed_index].order + 1U) {
+                errors.insert(location.plan_index);
+            }
+        }
+    }
+    return errors;
 }
 
 std::string balance_mismatch_detail(const ObservedFirewallRule& observed,
@@ -562,6 +884,22 @@ bool legacy_rule_usable(const ObservedFirewallRule& rule) {
     return rule.legacy && !rule.key.has_value();
 }
 
+bool legacy_prefilter_rule_usable(const ObservedFirewallRule& rule,
+                                  FirewallBackend backend) {
+    if (!legacy_rule_usable(rule) || !is_prefilter_action(rule.action)) {
+        return false;
+    }
+    if (rule.chain.empty()) return true;
+    if (backend == FirewallBackend::nftables) {
+        return rule.chain == "prerouting" || rule.chain == "output";
+    }
+    return rule.chain == "KeenPbrTable" || rule.chain == "KeenPbrTable_A" ||
+           rule.chain == "KeenPbrTable_B" || rule.chain == "KeenPbrTable_OUTPUT" ||
+           rule.chain == "KeenPbrRaw" || rule.chain == "KeenPbrRaw_A" ||
+           rule.chain == "KeenPbrRaw_B" || rule.chain == "KeenPbrOutput" ||
+           rule.chain == "KeenPbrOutput_A" || rule.chain == "KeenPbrOutput_B";
+}
+
 void append_iptables_rules(FirewallSnapshot& snapshot,
                            const ParsedIptablesState& state,
                            const std::string& prerouting_chain,
@@ -593,6 +931,8 @@ void append_iptables_rules(FirewallSnapshot& snapshot,
         if (!parsed.set_name.empty()) observed.criteria.dst_set_name = parsed.set_name;
         observed.raw = parsed.raw;
         observed.chain = parsed.chain_name;
+        observed.order = parsed.order;
+        observed.restore_conntrack_companion = parsed.is_restore_companion;
         observed.comment = parsed.comment;
         observed.legacy = !parsed.comment.has_value();
         if (parsed.comment.has_value()) {
@@ -603,7 +943,17 @@ void append_iptables_rules(FirewallSnapshot& snapshot,
                 // eligible for legacy semantic matching or owned cleanup.
             }
         }
-        if (parsed.is_mark) {
+        if (parsed.is_restore_conntrack || parsed.is_restore_companion) {
+            observed.action = RestoreConntrackMarkAction{
+                parsed.conntrack_mark_mask};
+        } else if (parsed.is_skip_dnat) {
+            observed.action = SkipEstablishedOrDnatAction{};
+        } else if (parsed.is_skip_marked) {
+            observed.action = SkipMarkedPacketsAction{};
+        } else if (parsed.is_inbound_filter) {
+            observed.action = InboundInterfaceFilterAction{
+                parsed.inbound_interfaces};
+        } else if (parsed.is_mark) {
             observed.action = MarkAction{parsed.fwmark, parsed.xmark_mask};
         } else if (parsed.is_drop) {
             observed.action = VerdictAction::drop;
@@ -654,6 +1004,7 @@ void append_nft_rules(FirewallSnapshot& snapshot,
         if (!rule.set_name.empty()) observed.criteria.dst_set_name = rule.set_name;
         observed.comment = rule.comment;
         observed.raw = rule.raw;
+        observed.order = rule.order;
         observed.chain = rule.hook == FirewallHook::output ? "output" : "prerouting";
         observed.legacy = !rule.comment.has_value();
         if (rule.comment.has_value()) {
@@ -662,7 +1013,17 @@ void append_nft_rules(FirewallSnapshot& snapshot,
             } catch (...) {
             }
         }
-        if (rule.is_balance) {
+        if (rule.is_restore_conntrack) {
+            observed.action = RestoreConntrackMarkAction{
+                rule.conntrack_mark_mask};
+        } else if (rule.is_skip_dnat) {
+            observed.action = SkipEstablishedOrDnatAction{};
+        } else if (rule.is_skip_marked) {
+            observed.action = SkipMarkedPacketsAction{};
+        } else if (rule.is_inbound_filter) {
+            observed.action = InboundInterfaceFilterAction{
+                rule.inbound_interfaces};
+        } else if (rule.is_balance) {
             BalanceAction balance;
             for (const auto mark : rule.balance_marks) {
                 balance.candidates.push_back({mark, !rule.ipv6, rule.ipv6});
@@ -708,6 +1069,7 @@ FirewallSnapshot inspect_iptables_snapshot_impl(const CommandRunner& runner,
                                                 RawPreroutingMode raw_prerouting) {
     FirewallSnapshot snapshot;
     snapshot.backend = FirewallBackend::iptables;
+    snapshot.raw_prerouting = raw_prerouting;
 
     const auto read = [&](const std::vector<std::string>& args) {
         return runner(args);
@@ -888,19 +1250,50 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
     }
 
     std::vector<bool> used(snapshot.rules.size(), false);
+    const bool has_materialized_route = std::any_of(
+        plan.rules.begin(), plan.rules.end(), [&](const FirewallRuleInstance& rule) {
+            return rule.source_rule_index != std::numeric_limits<std::size_t>::max() &&
+                   !is_prefilter_action(rule.action) &&
+                   !expand_expected_rule(rule, snapshot.backend, plan.fwmark_mask,
+                                         snapshot.raw_prerouting).empty();
+        });
+    const auto prefilter_errors = prefilter_order_errors(plan, snapshot);
     std::set<std::string> desired_keys;
     for (const auto& rule : plan.rules) {
         const auto physical =
-            expand_expected_rule(rule, snapshot.backend, plan.fwmark_mask);
-        if (!physical.empty()) {
+            expand_expected_rule(rule, snapshot.backend, plan.fwmark_mask,
+                                 snapshot.raw_prerouting);
+        bool materialized = !physical.empty();
+        if (const auto* inbound =
+                std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
+            materialized = inbound->interfaces.size() <= 1U ||
+                           snapshot.backend == FirewallBackend::nftables ||
+                           has_materialized_route;
+        }
+        if (materialized) {
             desired_keys.insert(rule.key.module_id + ":" + rule.key.instance_id);
         }
     }
 
-    for (const auto& expected : plan.rules) {
+    const std::vector<std::string>* inbound_interfaces = nullptr;
+    for (const auto& rule : plan.rules) {
+        if (const auto* inbound =
+                std::get_if<InboundInterfaceFilterAction>(&rule.action);
+            inbound != nullptr && inbound->interfaces.size() > 1U) {
+            inbound_interfaces = &inbound->interfaces;
+            break;
+        }
+    }
+
+    for (std::size_t plan_index = 0; plan_index < plan.rules.size(); ++plan_index) {
+        const auto& expected = plan.rules[plan_index];
         auto check = make_check(expected);
         const auto physical = expand_expected_rule(expected, snapshot.backend,
-                                                   plan.fwmark_mask);
+                                                   plan.fwmark_mask,
+                                                   snapshot.raw_prerouting,
+                                                   is_prefilter_action(expected.action)
+                                                       ? nullptr
+                                                       : inbound_interfaces);
         std::vector<std::size_t> keyed;
         for (std::size_t index = 0; index < snapshot.rules.size(); ++index) {
             if (snapshot.rules[index].key.has_value() &&
@@ -910,7 +1303,14 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
         }
 
         std::vector<std::size_t> candidates = keyed;
-        if (candidates.empty()) {
+        if (is_prefilter_action(expected.action)) {
+            for (std::size_t index = 0; index < snapshot.rules.size(); ++index) {
+                if (legacy_prefilter_rule_usable(snapshot.rules[index],
+                                                 snapshot.backend)) {
+                    candidates.push_back(index);
+                }
+            }
+        } else if (candidates.empty()) {
             for (std::size_t index = 0; index < snapshot.rules.size(); ++index) {
                 if (!used[index] && legacy_rule_usable(snapshot.rules[index])) {
                     candidates.push_back(index);
@@ -925,8 +1325,12 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
                                       [&](std::size_t index) {
                 return !used[index] &&
                        rule_equal(snapshot.rules[index], expected,
+                                  physical_rule.hook,
                                   physical_rule.family, physical_rule.criteria,
-                                  physical_rule.action, plan.fwmark_mask);
+                                  physical_rule.action,
+                                  physical_rule.restore_conntrack_companion,
+                                  physical_rule.inbound_interface,
+                                  plan.fwmark_mask);
             });
             if (match != candidates.end()) {
                 used[*match] = true;
@@ -937,7 +1341,10 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
                                       [&](std::size_t index) {
                 return !used[index] &&
                        same_shape(snapshot.rules[index], expected,
-                                  physical_rule.family, physical_rule.criteria);
+                                  physical_rule.hook,
+                                  physical_rule.family, physical_rule.criteria,
+                                  physical_rule.restore_conntrack_companion,
+                                  physical_rule.inbound_interface);
             });
             if (shape != candidates.end()) {
                 shape_matches.push_back(*shape);
@@ -945,6 +1352,24 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
         }
 
         if (physical.empty()) {
+            if (const auto* inbound =
+                    std::get_if<InboundInterfaceFilterAction>(&expected.action)) {
+                const bool can_materialize = inbound->interfaces.size() <= 1U ||
+                    snapshot.backend == FirewallBackend::nftables ||
+                    has_materialized_route;
+                if (can_materialize) {
+                    check.status = inbound_filter_present(
+                        snapshot, *inbound, has_materialized_route)
+                        ? CheckStatus::ok : CheckStatus::missing;
+                    check.detail = check.status == CheckStatus::ok
+                        ? "ok" : "inbound interface filter not found";
+                    checks.push_back(std::move(check));
+                } else {
+                    check.status = CheckStatus::ok;
+                    check.detail = "inbound interface filter has no materialized route rules";
+                    checks.push_back(std::move(check));
+                }
+            }
             // A family-specific set can be paired with criteria that only
             // contain the other address family.  The compatibility backends
             // omit that impossible physical rule; preserve the legacy
@@ -971,6 +1396,12 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
                     ? "rule not found in firewall snapshot"
                     : "owned rule key present but expected physical expansion is missing";
             }
+            checks.push_back(std::move(check));
+            continue;
+        }
+        if (prefilter_errors.find(plan_index) != prefilter_errors.end()) {
+            check.status = CheckStatus::mismatch;
+            check.detail = "prefilter physical order mismatch";
             checks.push_back(std::move(check));
             continue;
         }
@@ -1035,8 +1466,32 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
     }
 
     std::set<std::string> reported_extras;
+    std::set<std::string> reported_legacy_prefilters;
     for (std::size_t index = 0; index < snapshot.rules.size(); ++index) {
         const auto& observed = snapshot.rules[index];
+        if (legacy_prefilter_rule_usable(observed, snapshot.backend) &&
+            !used[index]) {
+            // iptables snapshots expose one physical shared-chain rule through
+            // both hook views.  Collapse that compatibility projection while
+            // retaining separate rules when their raw backend records differ.
+            const std::string identity = observed.raw.empty()
+                ? std::to_string(static_cast<int>(observed.family)) + ":" +
+                      std::to_string(static_cast<int>(observed.hook)) + ":" +
+                      observed.chain
+                : std::to_string(static_cast<int>(observed.family)) + ":" +
+                      observed.raw;
+            if (!reported_legacy_prefilters.insert(identity).second) {
+                continue;
+            }
+            auto check = FirewallRuleCheck{};
+            check.set_name = observed.criteria.dst_set_name.has_value()
+                ? normalize_set_name(*observed.criteria.dst_set_name) : "<direct>";
+            check.action = action_name(observed.action);
+            check.status = CheckStatus::mismatch;
+            check.detail = "extra legacy prefilter rule";
+            checks.push_back(std::move(check));
+            continue;
+        }
         if (!observed.key.has_value() || !is_owned_module(observed.key->module_id)) {
             continue;
         }

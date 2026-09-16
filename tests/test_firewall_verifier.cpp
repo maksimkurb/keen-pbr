@@ -201,6 +201,31 @@ TEST_CASE("parse_iptables_s: return rule") {
     CHECK_FALSE(state.rules[0].is_drop);
 }
 
+TEST_CASE("parse_iptables_s: prefilter masks and inbound negation are preserved") {
+    const std::string input =
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m conntrack --ctdir ORIGINAL -m connmark ! "
+        "--mark 0/0xff0000 -j CONNMARK --restore-mark --nfmask 0xff0000 "
+        "--ctmask 0xff0000\n"
+        "-A KeenPbrTable -m conntrack --ctdir ORIGINAL -m mark ! "
+        "--mark 0/0xff0000 -j RETURN\n"
+        "-A KeenPbrTable ! -s 192.0.2.0/24 -i br-lan -j RETURN\n"
+        "-A KeenPbrTable ! -i br-wan -j RETURN\n"
+        // iptables -S elides the all-bits mask for this exact guard.
+        "-A KeenPbrTable -m mark ! --mark 0x0 -j ACCEPT\n";
+    const auto state = parse_iptables_s(input);
+    REQUIRE(state.rules.size() == 5);
+
+    CHECK(state.rules[0].is_restore_conntrack);
+    CHECK(state.rules[0].conntrack_mark_mask == 0x00FF0000u);
+    CHECK(state.rules[1].is_restore_companion);
+    CHECK_FALSE(state.rules[2].is_inbound_filter);
+    CHECK(state.rules[2].criteria.negate_src_addr);
+    CHECK(state.rules[3].is_inbound_filter);
+    CHECK(state.rules[3].inbound_interfaces == std::vector<std::string>{"br-wan"});
+    CHECK(state.rules[4].is_skip_marked);
+}
+
 TEST_CASE("parse_iptables_s: multiple rules parsed in order") {
     const std::string input =
         "-N KeenPbrTable\n"

@@ -314,6 +314,68 @@ void DnsDetourRuleModule::register_rules(
   }
 }
 
+void RestoreConntrackMarkRuleModule::register_rules(
+    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
+  if (!context.restore_conntrack_mark || context.fwmark_mask == 0) {
+    return;
+  }
+  FirewallRuleInstance rule;
+  rule.key = FirewallRuleKey::compact(id(), "mask=" +
+                                               std::to_string(context.fwmark_mask));
+  rule.stage = FirewallRuleStage::restore_conntrack;
+  rule.priority = 0;
+  rule.family = FirewallFamily::any;
+  rule.action = RestoreConntrackMarkAction{context.fwmark_mask};
+  registrar.register_rule(std::move(rule));
+}
+
+void SkipEstablishedOrDnatRuleModule::register_rules(
+    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
+  if (!context.skip_established_or_dnat) {
+    return;
+  }
+  FirewallRuleInstance rule;
+  rule.key = FirewallRuleKey::compact(id(), "dnat");
+  rule.stage = FirewallRuleStage::global_bypass;
+  rule.priority = 0;
+  rule.family = FirewallFamily::any;
+  rule.action = SkipEstablishedOrDnatAction{};
+  registrar.register_rule(std::move(rule));
+}
+
+void SkipMarkedPacketsRuleModule::register_rules(
+    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
+  if (!context.skip_marked_packets) {
+    return;
+  }
+  FirewallRuleInstance rule;
+  rule.key = FirewallRuleKey::compact(id(), "all");
+  rule.stage = FirewallRuleStage::global_bypass;
+  rule.priority = 1;
+  rule.family = FirewallFamily::any;
+  rule.action = SkipMarkedPacketsAction{};
+  registrar.register_rule(std::move(rule));
+}
+
+void InboundInterfaceFilterRuleModule::register_rules(
+    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
+  if (context.inbound_interfaces.empty()) {
+    return;
+  }
+  FirewallRuleInstance rule;
+  std::string semantic_instance;
+  for (const auto& interface : context.inbound_interfaces) {
+    semantic_instance += interface;
+    semantic_instance.push_back(';');
+  }
+  rule.key = FirewallRuleKey::compact(id(), semantic_instance);
+  rule.stage = FirewallRuleStage::global_bypass;
+  rule.priority = 2;
+  rule.family = FirewallFamily::any;
+  rule.action = InboundInterfaceFilterAction{context.inbound_interfaces};
+  registrar.register_rule(std::move(rule));
+}
+
 namespace {
 
 void register_mark_rules(const FirewallBuildContext& context,
@@ -345,11 +407,38 @@ void register_dns_detour_rules(const FirewallBuildContext& context,
   DnsDetourRuleModule{}.register_rules(context, registrar);
 }
 
+void register_restore_conntrack_mark_rules(const FirewallBuildContext& context,
+                                           FirewallRuleRegistrar& registrar) {
+  RestoreConntrackMarkRuleModule{}.register_rules(context, registrar);
+}
+
+void register_skip_established_or_dnat_rules(
+    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) {
+  SkipEstablishedOrDnatRuleModule{}.register_rules(context, registrar);
+}
+
+void register_skip_marked_packets_rules(const FirewallBuildContext& context,
+                                        FirewallRuleRegistrar& registrar) {
+  SkipMarkedPacketsRuleModule{}.register_rules(context, registrar);
+}
+
+void register_inbound_interface_filter_rules(
+    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) {
+  InboundInterfaceFilterRuleModule{}.register_rules(context, registrar);
+}
+
 } // namespace
 
-std::array<RouteRuleModuleRegistration, 5> route_rule_module_manifest() {
-  return {register_mark_rules, register_drop_rules, register_pass_rules,
-          register_balance_rules, register_dns_detour_rules};
+std::array<RouteRuleModuleRegistration, 9> route_rule_module_manifest() {
+  return {register_restore_conntrack_mark_rules,
+          register_skip_established_or_dnat_rules,
+          register_skip_marked_packets_rules,
+          register_inbound_interface_filter_rules,
+          register_mark_rules,
+          register_drop_rules,
+          register_pass_rules,
+          register_balance_rules,
+          register_dns_detour_rules};
 }
 
 } // namespace keen_pbr3

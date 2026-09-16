@@ -48,6 +48,13 @@ public:
   void create_pass_rule(const FirewallRuleCriteria &criteria = {}) override;
   void create_pass_rule(const FirewallRuleKey &key,
                         const FirewallRuleCriteria &criteria = {}) override;
+  void create_restore_conntrack_mark_rule(const FirewallRuleKey& key,
+                                           uint32_t mask) override;
+  void create_skip_established_or_dnat_rule(const FirewallRuleKey& key) override;
+  void create_skip_marked_packets_rule(const FirewallRuleKey& key) override;
+  void create_inbound_interface_filter_rule(
+      const FirewallRuleKey& key,
+      const std::vector<std::string>& interfaces) override;
 
   // Return an IpsetRestoreVisitor that appends 'add' lines to the pending
   // element buffer for set_name; entries are flushed during apply().
@@ -144,34 +151,35 @@ private:
   build_raw_prerouting_script(bool ipv6,
                               FirewallSetGeneration target_generation,
                               const std::vector<PendingRule> &rules,
-                              const FirewallGlobalPrefilter &prefilter);
+                              const FirewallPrefilter &prefilter);
   // Compatibility helper: build IPv4 RAW PREROUTING.
   static std::string
   build_raw_prerouting_script(FirewallSetGeneration target_generation,
                               const std::vector<PendingRule> &rules,
-                              const FirewallGlobalPrefilter &prefilter) {
+                              const FirewallPrefilter &prefilter) {
     return build_raw_prerouting_script(false, target_generation, rules,
                                        prefilter);
   }
   static std::string
   build_output_script(bool ipv6, FirewallSetGeneration target_generation,
                       const std::vector<PendingRule> &rules,
-                      const FirewallGlobalPrefilter &prefilter);
+                      const FirewallPrefilter &prefilter);
   // Compatibility helper: build IPv4 OUTPUT.
   static std::string
   build_output_script(FirewallSetGeneration target_generation,
                       const std::vector<PendingRule> &rules,
-                      const FirewallGlobalPrefilter &prefilter) {
+                      const FirewallPrefilter &prefilter) {
     return build_output_script(false, target_generation, rules, prefilter);
   }
   static std::string
   build_ipt_script(bool ipv6, FirewallSetGeneration target_generation,
                    const std::vector<PendingRule> &rules,
-                   const FirewallGlobalPrefilter &prefilter = {});
+                   const FirewallPrefilter &prefilter = {});
   // Build early RETURN lines for the global prefilter.
   static std::string
-  build_prefilter_lines(const FirewallGlobalPrefilter &prefilter,
-                        const std::string &chain, bool allow_conntrack);
+  build_prefilter_lines(const FirewallPrefilter &prefilter,
+                        const std::string &chain, bool allow_conntrack,
+                        bool comments_supported = true);
   // Build the proto/port fragment for a single rule (single proto, not
   // tcp/udp).
   static std::vector<std::string>
@@ -182,7 +190,7 @@ private:
   // Build one or more iptables-restore lines for a queued rule.
   static std::vector<std::string>
   build_rule_lines(const PendingRule &pr,
-                   const FirewallGlobalPrefilter &prefilter,
+                   const FirewallPrefilter &prefilter,
                    const std::string &chain, bool allow_conntrack);
   bool probe_xt_comment(bool ipv6) const;
   // Probe a caller-supplied registration file before running the restore
@@ -285,6 +293,7 @@ private:
   bool comment_v4_supported_{true};
   bool comment_v6_supported_{true};
   RawPreroutingMode raw_prerouting_{};
+  FirewallPrefilter prefilter_{};
 
 #ifdef KEEN_PBR3_TESTING
   friend class IptablesBuilderTest;

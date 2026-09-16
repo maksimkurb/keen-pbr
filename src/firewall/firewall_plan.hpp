@@ -23,7 +23,6 @@ struct FirewallSetDeclaration {
 struct FirewallPlan {
   std::vector<FirewallRuleInstance> rules;
   std::vector<FirewallSetDeclaration> sets;
-  FirewallGlobalPrefilter global_prefilter;
   uint32_t fwmark_mask{0xFFFFFFFFu};
 };
 

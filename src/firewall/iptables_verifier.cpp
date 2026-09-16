@@ -283,7 +283,9 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
     std::istringstream stream(output);
     std::string line;
 
+    std::size_t line_order = 0;
     while (std::getline(stream, line)) {
+        const std::size_t current_order = line_order++;
         if (line == chain_decl) {
             state.has_keen_pbr_chain = true;
             continue;
@@ -406,8 +408,10 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
         rule.hook = output_chain ? FirewallHook::output : FirewallHook::prerouting;
         rule.chain_name = source_chain;
         rule.raw = line;
+        rule.order = current_order;
 
         bool negate_next = false;
+        bool inbound_filter_negated = false;
 
         for (size_t i = 0; i < tokens.size(); ++i) {
             const auto& tok = tokens[i];
@@ -431,6 +435,13 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
                 negate_next = false;
                 continue;
             }
+            if (tok == "-i" && i + 1 < tokens.size()) {
+                inbound_filter_negated = negate_next;
+                rule.inbound_interfaces.push_back(tokens[i + 1]);
+                ++i;
+                negate_next = false;
+                continue;
+            }
             if (tok == "-s" && i + 1 < tokens.size()) {
                 rule.criteria.src_addr = {tokens[i + 1]};
                 rule.criteria.negate_src_addr = negate_next;
@@ -441,6 +452,24 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
             if (tok == "-d" && i + 1 < tokens.size()) {
                 rule.criteria.dst_addr = {tokens[i + 1]};
                 rule.criteria.negate_dst_addr = negate_next;
+                ++i;
+                negate_next = false;
+                continue;
+            }
+            if (tok == "--mark" && i + 1 < tokens.size()) {
+                const auto value = tokens[i + 1];
+                const auto slash = value.find('/');
+                if (negate_next) {
+                    const auto mark = parse_u32(
+                        slash == std::string::npos ? value
+                                                   : value.substr(0, slash));
+                    const auto mask = slash == std::string::npos
+                        ? std::optional<uint32_t>{0xFFFFFFFFu}
+                        : parse_u32(value.substr(slash + 1));
+                    rule.has_nonzero_mark_match =
+                        mark.has_value() && mask.has_value() && *mark == 0 &&
+                        *mask == 0xFFFFFFFFu;
+                }
                 ++i;
                 negate_next = false;
                 continue;
@@ -480,6 +509,10 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
                     rule.is_drop = true;
                 } else if (action == "RETURN") {
                     rule.is_pass = true;
+                    rule.is_return = true;
+                } else if (action == "ACCEPT") {
+                    rule.is_pass = true;
+                    rule.is_accept = true;
                 } else if (action == "MARK" && i + 3 < tokens.size()) {
                     if (tokens[i + 2] == "--set-mark") {
                         const auto mark = parse_u32(tokens[i + 3]);
@@ -505,11 +538,145 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
             negate_next = false;
         }
 
-        if (!rule.is_mark && !rule.is_drop && !rule.is_pass) {
+        const auto has_token = [&tokens](const char* value) {
+            return std::find(tokens.begin(), tokens.end(), value) != tokens.end();
+        };
+        const auto has_jump_target = [&tokens](const char* target) {
+            for (std::size_t index = 0; index + 1 < tokens.size(); ++index) {
+                if ((tokens[index] == "-j" || tokens[index] == "--jump" ||
+                     tokens[index] == "-g" || tokens[index] == "--goto") &&
+                    tokens[index + 1] == target) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        const bool keyed_prefilter = rule.comment.has_value() &&
+            rule.comment->rfind("kpbr:v1:prefilter.", 0) == 0;
+        const auto parse_mark_guard = [&tokens](const char* module)
+            -> std::optional<uint32_t> {
+            for (std::size_t index = 0; index + 1 < tokens.size(); ++index) {
+                if (tokens[index] != "-m" || tokens[index + 1] != module) {
+                    continue;
+                }
+                bool negated = false;
+                for (std::size_t match_index = index + 2;
+                     match_index + 1 < tokens.size(); ++match_index) {
+                    if (tokens[match_index] == "-m" ||
+                        tokens[match_index] == "-j") {
+                        break;
+                    }
+                    if (tokens[match_index] == "!") {
+                        negated = true;
+                        continue;
+                    }
+                    if (tokens[match_index] != "--mark") continue;
+                    const auto value = tokens[match_index + 1];
+                    const auto slash = value.find('/');
+                    if (!negated) continue;
+                    const auto mark = parse_u32(
+                        slash == std::string::npos ? value
+                                                   : value.substr(0, slash));
+                    // iptables -S omits the all-bits mask when it is the
+                    // default.  Treat the compact form as the exact
+                    // full-mask guard; partial owned masks remain explicit.
+                    const auto mask = slash == std::string::npos
+                        ? std::optional<uint32_t>{0xFFFFFFFFu}
+                        : parse_u32(value.substr(slash + 1));
+                    if (mark.has_value() && mask.has_value() && *mark == 0) {
+                        return *mask;
+                    }
+                }
+            }
+            return std::nullopt;
+        };
+        const auto restore_guard_mask = parse_mark_guard("connmark");
+        const auto companion_guard_mask = parse_mark_guard("mark");
+        rule.mark_guard_present = companion_guard_mask.has_value();
+        if (companion_guard_mask.has_value()) {
+            rule.mark_guard_mask = *companion_guard_mask;
+        }
+        rule.restore_guard_present = restore_guard_mask.has_value();
+        if (restore_guard_mask.has_value()) {
+            rule.restore_guard_mask = *restore_guard_mask;
+        }
+        const bool original_direction = [&tokens] {
+            for (std::size_t index = 0; index + 1 < tokens.size(); ++index) {
+                if (tokens[index] == "--ctdir" &&
+                    tokens[index + 1] == "ORIGINAL") {
+                    return true;
+                }
+            }
+            return false;
+        }();
+        rule.restore_target_exact = has_jump_target("CONNMARK");
+        rule.is_restore_conntrack =
+            rule.restore_target_exact && has_token("--restore-mark") &&
+            original_direction && restore_guard_mask.has_value();
+        rule.is_skip_dnat = rule.is_return && has_token("--ctstate") &&
+                            std::find(tokens.begin(), tokens.end(), "DNAT") !=
+                                tokens.end();
+        rule.is_skip_marked = rule.is_accept && rule.mark_guard_present &&
+                              rule.mark_guard_mask == 0xFFFFFFFFu;
+        rule.is_inbound_filter = rule.is_return && !rule.inbound_interfaces.empty() &&
+                                 inbound_filter_negated;
+        rule.is_restore_companion = rule.is_return && original_direction &&
+                                    companion_guard_mask.has_value();
+        if (rule.is_restore_companion) {
+            rule.conntrack_mark_mask = *companion_guard_mask;
+        }
+        if (rule.is_restore_conntrack) {
+            std::optional<uint32_t> nfmask;
+            std::optional<uint32_t> ctmask;
+            for (std::size_t index = 0; index + 1 < tokens.size(); ++index) {
+                if (tokens[index] == "--mask") {
+                    const auto mask = parse_u32(tokens[index + 1]);
+                    nfmask = mask;
+                    ctmask = mask;
+                } else if (tokens[index] == "--nfmask") {
+                    nfmask = parse_u32(tokens[index + 1]);
+                } else if (tokens[index] == "--ctmask") {
+                    ctmask = parse_u32(tokens[index + 1]);
+                }
+            }
+            if (nfmask.has_value() && ctmask.has_value() &&
+                *nfmask != *ctmask) {
+                // The canonical action has one owned mask. Preserve a
+                // deliberate mismatch instead of silently accepting a rule
+                // that restores different packet and conntrack bit ranges.
+                rule.conntrack_mark_mask = 0;
+            } else if (ctmask.has_value()) {
+                rule.conntrack_mark_mask = *ctmask;
+            } else if (nfmask.has_value()) {
+                rule.conntrack_mark_mask = *nfmask;
+            }
+            rule.is_restore_conntrack =
+                rule.conntrack_mark_mask != 0 &&
+                rule.conntrack_mark_mask == rule.restore_guard_mask;
+        }
+
+        if (!rule.is_mark && !rule.is_drop && !rule.is_pass &&
+            !rule.is_restore_conntrack && !rule.is_restore_companion &&
+            !keyed_prefilter) {
             continue;
         }
-        if (rule.set_name.empty() && rule.criteria.empty()) {
-            continue;
+        if (!rule.is_mark && !rule.is_drop && !rule.is_pass &&
+            !rule.is_restore_conntrack && !rule.is_restore_companion) {
+            // Preserve a keyed malformed rule as an observed generic action
+            // so health reports a mismatch rather than silently downgrading
+            // it to a missing rule.  Unkeyed foreign comments are still
+            // excluded from ownership and legacy matching below.
+            if (keyed_prefilter) rule.is_pass = true;
+        }
+        if (rule.set_name.empty() && rule.criteria.empty() &&
+            !rule.is_restore_conntrack && !rule.is_skip_dnat &&
+            !rule.is_skip_marked && !rule.is_inbound_filter &&
+            !rule.is_restore_companion) {
+            // Keep a commented empty rule so the canonical verifier can
+            // report a malformed owned prefilter as a mismatch rather than
+            // silently reducing it to a missing rule.  Uncommented dispatch
+            // and foreign rules retain the legacy filtering behavior.
+            if (!rule.comment.has_value()) continue;
         }
 
         state.rules.push_back(std::move(rule));

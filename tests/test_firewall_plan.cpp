@@ -168,13 +168,41 @@ TEST_CASE("build_firewall_plan keeps route config order in canonical output") {
       0x00FF0000U};
   const auto plan = build_firewall_plan(inputs);
 
-  REQUIRE(plan.rules.size() == 3);
-  CHECK(plan.rules[0].source_rule_index == 0);
-  CHECK(plan.rules[1].source_rule_index == 1);
-  CHECK(plan.rules[2].source_rule_index == 2);
-  CHECK(std::holds_alternative<MarkAction>(plan.rules[0].action));
-  CHECK(std::get<VerdictAction>(plan.rules[1].action) == VerdictAction::drop);
-  CHECK(std::get<VerdictAction>(plan.rules[2].action) == VerdictAction::pass);
+  REQUIRE(plan.rules.size() == 6);
+  CHECK(std::holds_alternative<RestoreConntrackMarkAction>(plan.rules[0].action));
+  CHECK(std::holds_alternative<SkipEstablishedOrDnatAction>(plan.rules[1].action));
+  CHECK(std::holds_alternative<SkipMarkedPacketsAction>(plan.rules[2].action));
+  CHECK(plan.rules[3].source_rule_index == 0);
+  CHECK(plan.rules[4].source_rule_index == 1);
+  CHECK(plan.rules[5].source_rule_index == 2);
+  CHECK(std::holds_alternative<MarkAction>(plan.rules[3].action));
+  CHECK(std::get<VerdictAction>(plan.rules[4].action) == VerdictAction::drop);
+  CHECK(std::get<VerdictAction>(plan.rules[5].action) == VerdictAction::pass);
+}
+
+TEST_CASE("empty nft mark ownership omits restore while iptables preserves it") {
+  const Config config = parse_config(R"({
+    "daemon": {"firewall_backend":"nftables"}
+  })");
+  const OutboundMarkMap no_marks;
+  const std::map<std::string, ListSetUsage> list_usage;
+  const std::vector<DumpedRoute> routes;
+  const std::vector<DumpedInterface> interfaces;
+
+  const auto build = [&](FirewallBackend backend) {
+    return build_firewall_plan({config, no_marks, list_usage, routes, interfaces,
+                                 nullptr, true, 0xFFFFFFFFU, nullptr, backend});
+  };
+  const auto nft_plan = build(FirewallBackend::nftables);
+  CHECK(std::none_of(
+      nft_plan.rules.begin(), nft_plan.rules.end(), [](const auto& rule) {
+        return std::holds_alternative<RestoreConntrackMarkAction>(rule.action);
+      }));
+
+  const auto iptables_plan = build(FirewallBackend::iptables);
+  REQUIRE(!iptables_plan.rules.empty());
+  CHECK(std::holds_alternative<RestoreConntrackMarkAction>(
+      iptables_plan.rules.front().action));
 }
 
 TEST_CASE("build and replay order keeps routes before DNS detours") {
@@ -197,19 +225,25 @@ TEST_CASE("build and replay order keeps routes before DNS detours") {
       0x00FF0000U};
   const auto plan = build_firewall_plan(inputs);
 
-  REQUIRE(plan.rules.size() == 3);
-  CHECK(plan.rules[0].source_rule_index == 0);
+  REQUIRE(plan.rules.size() == 6);
+  CHECK(plan.rules[0].source_rule_index ==
+        std::numeric_limits<std::size_t>::max());
   CHECK(plan.rules[1].source_rule_index ==
         std::numeric_limits<std::size_t>::max());
   CHECK(plan.rules[2].source_rule_index ==
         std::numeric_limits<std::size_t>::max());
-  CHECK(plan.rules[0].stage == FirewallRuleStage::route_classification);
-  CHECK(plan.rules[1].stage == FirewallRuleStage::route_classification);
-  CHECK(plan.rules[2].stage == FirewallRuleStage::route_classification);
-  CHECK(plan.rules[0].priority < plan.rules[1].priority);
-  CHECK(plan.rules[1].priority < plan.rules[2].priority);
-  CHECK(plan.rules[1].criteria.proto == L4Proto::Tcp);
-  CHECK(plan.rules[2].criteria.proto == L4Proto::Udp);
+  CHECK(plan.rules[3].source_rule_index == 0);
+  CHECK(plan.rules[4].source_rule_index ==
+        std::numeric_limits<std::size_t>::max());
+  CHECK(plan.rules[5].source_rule_index ==
+        std::numeric_limits<std::size_t>::max());
+  CHECK(plan.rules[3].stage == FirewallRuleStage::route_classification);
+  CHECK(plan.rules[4].stage == FirewallRuleStage::route_classification);
+  CHECK(plan.rules[5].stage == FirewallRuleStage::route_classification);
+  CHECK(plan.rules[3].priority < plan.rules[4].priority);
+  CHECK(plan.rules[4].priority < plan.rules[5].priority);
+  CHECK(plan.rules[4].criteria.proto == L4Proto::Tcp);
+  CHECK(plan.rules[5].criteria.proto == L4Proto::Udp);
 
   PlanFirewall firewall;
   replay_firewall_plan(plan, firewall);
@@ -241,30 +275,31 @@ TEST_CASE("DNS detour plan preserves configured order for equivalent IPv6 endpoi
   };
 
   const auto first = build(config);
-  REQUIRE(first.rules.size() == 4);
-  CHECK(first.rules[0].criteria.dst_addr ==
+  REQUIRE(first.rules.size() == 7);
+  CHECK(first.rules[3].criteria.dst_addr ==
         std::vector<std::string>{"2001:db8::53"});
-  CHECK(first.rules[0].criteria.proto == L4Proto::Tcp);
-  CHECK(std::get<MarkAction>(first.rules[0].action).value == 0x300U);
-  CHECK(first.rules[1].criteria.proto == L4Proto::Udp);
-  CHECK(first.rules[2].criteria.dst_addr ==
+  CHECK(first.rules[3].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(first.rules[3].action).value == 0x300U);
+  CHECK(first.rules[4].criteria.proto == L4Proto::Udp);
+  CHECK(first.rules[5].criteria.dst_addr ==
         std::vector<std::string>{"2001:0db8::53"});
-  CHECK(first.rules[2].criteria.proto == L4Proto::Tcp);
-  CHECK(std::get<MarkAction>(first.rules[2].action).value == 0x200U);
-  CHECK(first.rules[3].criteria.proto == L4Proto::Udp);
+  CHECK(first.rules[5].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(first.rules[5].action).value == 0x200U);
+  CHECK(first.rules[6].criteria.proto == L4Proto::Udp);
 
   std::reverse(config.dns->servers->begin(), config.dns->servers->end());
   const auto reversed = build(config);
   REQUIRE(reversed.rules.size() == first.rules.size());
-  CHECK(reversed.rules[0].criteria.dst_addr ==
+  CHECK(reversed.rules[3].criteria.dst_addr ==
         std::vector<std::string>{"2001:0db8::53"});
-  CHECK(reversed.rules[0].criteria.proto == L4Proto::Tcp);
-  CHECK(std::get<MarkAction>(reversed.rules[0].action).value == 0x200U);
-  CHECK(reversed.rules[1].criteria.proto == L4Proto::Udp);
-  CHECK(reversed.rules[2].criteria.dst_addr ==
+  CHECK(reversed.rules[3].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(reversed.rules[3].action).value == 0x200U);
+  CHECK(reversed.rules[4].criteria.proto == L4Proto::Udp);
+  CHECK(reversed.rules[5].criteria.dst_addr ==
         std::vector<std::string>{"2001:db8::53"});
-  CHECK(std::get<MarkAction>(reversed.rules[2].action).value == 0x300U);
-  CHECK(reversed.rules[3].criteria.proto == L4Proto::Udp);
+  CHECK(reversed.rules[5].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(reversed.rules[5].action).value == 0x300U);
+  CHECK(reversed.rules[6].criteria.proto == L4Proto::Udp);
 }
 
 TEST_CASE("build_firewall_plan preserves truthful rule families") {
@@ -283,10 +318,10 @@ TEST_CASE("build_firewall_plan preserves truthful rule families") {
       0x00FF0000U};
   const auto plan = build_firewall_plan(inputs);
 
-  REQUIRE(plan.rules.size() == 3);
-  CHECK(plan.rules[0].family == FirewallFamily::any);
-  CHECK(plan.rules[1].family == FirewallFamily::ipv4);
-  CHECK(plan.rules[2].family == FirewallFamily::ipv6);
+  REQUIRE(plan.rules.size() == 6);
+  CHECK(plan.rules[3].family == FirewallFamily::any);
+  CHECK(plan.rules[4].family == FirewallFamily::ipv4);
+  CHECK(plan.rules[5].family == FirewallFamily::ipv6);
 }
 
 TEST_CASE("balance action keeps complete candidate availability") {

@@ -91,6 +91,12 @@ void add_rule_comment(nlohmann::json& command, const FirewallRuleKey& key) {
     command["add"]["rule"]["comment"] = key.comment();
 }
 
+void add_rule_comment(nlohmann::json& command, const std::string& comment) {
+    if (!comment.empty()) {
+        command["add"]["rule"]["comment"] = comment;
+    }
+}
+
 } // namespace
 
 NftablesFirewall::NftablesFirewall() = default;
@@ -111,6 +117,7 @@ void NftablesFirewall::prepare_apply(FirewallApplyMode mode) {
     pending_sets_.clear();
     pending_elements_.clear();
     pending_rules_.clear();
+    prefilter_ = {};
     prepared_mode_ = mode;
 }
 
@@ -334,6 +341,38 @@ void NftablesFirewall::create_pass_rule(const FirewallRuleKey& key,
     append_rules_for_family(AF_INET6, PendingRule::Pass, 0, criteria, key);
 }
 
+void NftablesFirewall::create_restore_conntrack_mark_rule(
+    const FirewallRuleKey& key, uint32_t mask) {
+    prefilter_.restore_conntrack_mark = true;
+    prefilter_.conntrack_mark_mask = mask;
+    if (!key.module_id.empty() || !key.instance_id.empty()) {
+        prefilter_.restore_conntrack_mark_comment = key.comment();
+    }
+}
+
+void NftablesFirewall::create_skip_established_or_dnat_rule(
+    const FirewallRuleKey& key) {
+    prefilter_.skip_established_or_dnat = true;
+    if (!key.module_id.empty() || !key.instance_id.empty()) {
+        prefilter_.skip_established_or_dnat_comment = key.comment();
+    }
+}
+
+void NftablesFirewall::create_skip_marked_packets_rule(const FirewallRuleKey& key) {
+    prefilter_.skip_marked_packets = true;
+    if (!key.module_id.empty() || !key.instance_id.empty()) {
+        prefilter_.skip_marked_packets_comment = key.comment();
+    }
+}
+
+void NftablesFirewall::create_inbound_interface_filter_rule(
+    const FirewallRuleKey& key, const std::vector<std::string>& interfaces) {
+    prefilter_.inbound_interfaces = interfaces;
+    if (!key.module_id.empty() || !key.instance_id.empty()) {
+        prefilter_.inbound_interface_filter_comment = key.comment();
+    }
+}
+
 std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
     const std::string& set_name) {
     if (prepared_mode_ == FirewallApplyMode::RulesOnly) {
@@ -497,7 +536,7 @@ std::string NftablesFirewall::set_schema_key(const PendingSet& set) {
 }
 
 nlohmann::json NftablesFirewall::build_rule_add_commands(
-    const FirewallGlobalPrefilter& prefilter,
+    const FirewallPrefilter& prefilter,
     const std::vector<PendingRule>& rules,
     const std::set<uint32_t>& owned_marks) {
     nlohmann::json commands = nlohmann::json::array();
@@ -547,10 +586,17 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
                                              {"table", TABLE_NAME},
                                              {"chain", CHAIN_NAME},
                                              {"expr", restore_expr}};
-        commands.push_back({{"add", {{"rule", restore_rule}}}});
+        auto restore_command =
+            nlohmann::json{{"add", {{"rule", restore_rule}}}};
+        add_rule_comment(restore_command, prefilter.restore_conntrack_mark_comment);
+        commands.push_back(std::move(restore_command));
         nlohmann::json output_restore_rule = restore_rule;
         output_restore_rule["chain"] = OUTPUT_CHAIN_NAME;
-        commands.push_back({{"add", {{"rule", output_restore_rule}}}});
+        auto output_restore_command =
+            nlohmann::json{{"add", {{"rule", output_restore_rule}}}};
+        add_rule_comment(output_restore_command,
+                         prefilter.restore_conntrack_mark_comment);
+        commands.push_back(std::move(output_restore_command));
     }
 
     if (prefilter.skip_established_or_dnat) {
@@ -562,12 +608,15 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
         }}});
         dnat_expr.push_back({{"counter", nullptr}});
         dnat_expr.push_back({{"accept", nullptr}});
-        commands.push_back({{"add", {{"rule", {
+        const nlohmann::json dnat_rule = {
             {"family", "inet"},
             {"table", TABLE_NAME},
             {"chain", CHAIN_NAME},
             {"expr", dnat_expr}
-        }}}}});
+        };
+        auto dnat_command = nlohmann::json{{"add", {{"rule", dnat_rule}}}};
+        add_rule_comment(dnat_command, prefilter.skip_established_or_dnat_comment);
+        commands.push_back(std::move(dnat_command));
     }
 
     if (prefilter.skip_marked_packets) {
@@ -580,12 +629,15 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
         marked_expr.push_back({{"counter", nullptr}});
         marked_expr.push_back({{"accept", nullptr}});
         for (const auto* chain : {CHAIN_NAME, OUTPUT_CHAIN_NAME}) {
-            commands.push_back({{"add", {{"rule", {
+            const nlohmann::json marked_rule = {
                 {"family", "inet"},
                 {"table", TABLE_NAME},
                 {"chain", chain},
                 {"expr", marked_expr}
-            }}}}});
+            };
+            auto marked_command = nlohmann::json{{"add", {{"rule", marked_rule}}}};
+            add_rule_comment(marked_command, prefilter.skip_marked_packets_comment);
+            commands.push_back(std::move(marked_command));
         }
     }
 
@@ -609,12 +661,16 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
         }}});
         iface_expr.push_back({{"counter", nullptr}});
         iface_expr.push_back({{"accept", nullptr}});
-        commands.push_back({{"add", {{"rule", {
+        const nlohmann::json inbound_rule = {
             {"family", "inet"},
             {"table", TABLE_NAME},
             {"chain", CHAIN_NAME},
             {"expr", iface_expr}
-        }}}}});
+        };
+        auto inbound_command = nlohmann::json{{"add", {{"rule", inbound_rule}}}};
+        add_rule_comment(inbound_command,
+                         prefilter.inbound_interface_filter_comment);
+        commands.push_back(std::move(inbound_command));
     }
 
     for (const auto& pr : rules) {
@@ -1060,7 +1116,7 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
 
         // Rules
         for (const auto& cmd : build_rule_add_commands(
-                 global_prefilter_, pending_rules_, owned_marks_)) {
+                 prefilter_, pending_rules_, owned_marks_)) {
             arr.push_back(cmd);
         }
     }
@@ -1141,8 +1197,8 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
     }
     const bool emit_full_table = !live_state.table_exists;
     for (auto& rule : pending_rules_) {
-        rule.save_conntrack_mark = global_prefilter_.restore_conntrack_mark &&
-                                   global_prefilter_.conntrack_mark_mask != 0;
+        rule.save_conntrack_mark = prefilter_.restore_conntrack_mark &&
+                                   prefilter_.conntrack_mark_mask != 0;
     }
     const bool clear_dynamic_sets = mode == FirewallApplyMode::Destructive
         && clear_dynamic_sets_on_apply();

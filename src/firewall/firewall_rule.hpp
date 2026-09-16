@@ -62,9 +62,49 @@ struct BalanceAction {
   bool operator!=(const BalanceAction &other) const { return !(*this == other); }
 };
 
+struct RestoreConntrackMarkAction {
+  uint32_t mask{0};
+
+  bool operator==(const RestoreConntrackMarkAction& other) const {
+    return mask == other.mask;
+  }
+  bool operator!=(const RestoreConntrackMarkAction& other) const {
+    return !(*this == other);
+  }
+};
+
+struct SkipEstablishedOrDnatAction {
+  bool operator==(const SkipEstablishedOrDnatAction&) const { return true; }
+  bool operator!=(const SkipEstablishedOrDnatAction& other) const {
+    return !(*this == other);
+  }
+};
+
+struct SkipMarkedPacketsAction {
+  bool operator==(const SkipMarkedPacketsAction&) const { return true; }
+  bool operator!=(const SkipMarkedPacketsAction& other) const {
+    return !(*this == other);
+  }
+};
+
+struct InboundInterfaceFilterAction {
+  std::vector<std::string> interfaces;
+
+  bool operator==(const InboundInterfaceFilterAction& other) const {
+    return interfaces == other.interfaces;
+  }
+  bool operator!=(const InboundInterfaceFilterAction& other) const {
+    return !(*this == other);
+  }
+};
+
 enum class VerdictAction : uint8_t { drop, pass };
 
-using FirewallRuleAction = std::variant<MarkAction, BalanceAction, VerdictAction>;
+using FirewallRuleAction = std::variant<MarkAction, BalanceAction, VerdictAction,
+                                        RestoreConntrackMarkAction,
+                                        SkipEstablishedOrDnatAction,
+                                        SkipMarkedPacketsAction,
+                                        InboundInterfaceFilterAction>;
 
 enum class FirewallRuleStage : uint16_t {
   restore_conntrack = 100,

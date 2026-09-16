@@ -94,10 +94,10 @@ public:
   static nlohmann::json build_balance_document() {
     NftablesFirewall firewall;
     firewall.set_fwmark_mask(0x00ff0000U);
-    FirewallGlobalPrefilter prefilter;
+    FirewallPrefilter prefilter;
     prefilter.restore_conntrack_mark = true;
     prefilter.conntrack_mark_mask = 0x00ff0000U;
-    firewall.set_global_prefilter(prefilter);
+    firewall.create_restore_conntrack_mark_rule({}, prefilter.conntrack_mark_mask);
     firewall.set_owned_marks(
         {0x00010000U, 0x00020000U, 0x00030000U, 0x00040000U});
     FirewallRuleCriteria criteria;
@@ -216,7 +216,7 @@ public:
   };
 
   static nlohmann::json build_rule_add_commands(
-      FirewallGlobalPrefilter prefilter,
+      FirewallPrefilter prefilter,
       const std::vector<RuleDesc> &descs) {
     std::vector<NftablesFirewall::PendingRule> rules;
     rules.reserve(descs.size());
@@ -243,7 +243,7 @@ public:
   static nlohmann::json build_rule_add_commands_for_rule(
       int family, RuleDesc::Action action, uint32_t fwmark,
       FirewallRuleCriteria criteria, bool list_backed,
-      FirewallGlobalPrefilter prefilter = {}) {
+      FirewallPrefilter prefilter = {}) {
     NftablesFirewall fw;
     if (list_backed) {
       criteria.dst_set_name = "pairwise_set";
@@ -262,10 +262,55 @@ public:
     return NftablesFirewall::build_rule_add_commands(prefilter, fw.pending_rules_);
   }
 
+  static nlohmann::json build_prefilter_listing() {
+    NftablesFirewall firewall;
+    firewall.set_fwmark_mask(0xFFFFFFFFu);
+    const FirewallRuleKey restore_key{"prefilter.restore_conntrack_mark", "one"};
+    const FirewallRuleKey dnat_key{"prefilter.skip_established_or_dnat", "one"};
+    const FirewallRuleKey marked_key{"prefilter.skip_marked_packets", "one"};
+    const FirewallRuleKey inbound_key{"prefilter.inbound_interface", "one"};
+    const FirewallRuleKey route_key{"route.mark", "one"};
+    FirewallPrefilter prefilter;
+    prefilter.restore_conntrack_mark = true;
+    prefilter.conntrack_mark_mask = 0xFFFFFFFFu;
+    prefilter.skip_established_or_dnat = true;
+    prefilter.skip_marked_packets = true;
+    prefilter.inbound_interfaces = std::vector<std::string>{"br-lan"};
+    prefilter.restore_conntrack_mark_comment = restore_key.comment();
+    prefilter.skip_established_or_dnat_comment = dnat_key.comment();
+    prefilter.skip_marked_packets_comment = marked_key.comment();
+    prefilter.inbound_interface_filter_comment = inbound_key.comment();
+    FirewallRuleCriteria route_criteria;
+    route_criteria.dst_set_name = "pairwise_set";
+    firewall.created_sets_["pairwise_set"] = AF_INET;
+    firewall.create_mark_rule(route_key, 0x10000u, route_criteria);
+
+    const auto commands = NftablesFirewall::build_rule_add_commands(
+        prefilter, firewall.pending_rules_, {0x10000u});
+    nlohmann::json listing;
+    listing["nftables"] = nlohmann::json::array({
+        nlohmann::json{{"table", {{"family", "inet"},
+                                   {"name", "KeenPbrTable"}}}},
+        nlohmann::json{{"chain", {{"family", "inet"},
+                                   {"table", "KeenPbrTable"},
+                                   {"name", "prerouting"},
+                                   {"type", "filter"},
+                                   {"hook", "prerouting"}}}},
+        nlohmann::json{{"chain", {{"family", "inet"},
+                                   {"table", "KeenPbrTable"},
+                                   {"name", "output"},
+                                   {"type", "filter"},
+                                   {"hook", "output"}}}}});
+    for (const auto& command : commands) {
+      listing["nftables"].push_back({{"rule", command["add"]["rule"]}});
+    }
+    return listing;
+  }
+
   static nlohmann::json build_rule_add_commands_via_create_mark_rule(
       uint32_t fwmark, const FirewallRuleCriteria &criteria,
       uint32_t fwmark_mask = 0xFFFFFFFFu,
-      FirewallGlobalPrefilter prefilter = {}) {
+      FirewallPrefilter prefilter = {}) {
     NftablesFirewall fw;
     fw.set_fwmark_mask(fwmark_mask);
     fw.create_mark_rule(fwmark, criteria);
@@ -392,10 +437,10 @@ static Rule mark_rule(const std::string &set_name, int family, uint32_t fwmark,
   return r;
 }
 
-static FirewallGlobalPrefilter prefilter_with_interfaces(
+static FirewallPrefilter prefilter_with_interfaces(
     std::vector<std::string> interfaces,
     bool skip_established_or_dnat = true) {
-  FirewallGlobalPrefilter prefilter;
+  FirewallPrefilter prefilter;
   prefilter.skip_established_or_dnat = skip_established_or_dnat;
   prefilter.skip_marked_packets = true;
   prefilter.inbound_interfaces = std::move(interfaces);
@@ -563,7 +608,7 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead both classification cha
 }
 
 TEST_CASE("build_rule_add_commands: conntrack restore is masked, ordered, and falls through") {
-  FirewallGlobalPrefilter prefilter;
+  FirewallPrefilter prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0x00FF0000u;
 
@@ -591,6 +636,193 @@ TEST_CASE("build_rule_add_commands: conntrack restore is masked, ordered, and fa
   CHECK(commands[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
+TEST_CASE("nft emitted prefilters are inspected with ownership and exact restore mapping") {
+  const auto listing = T::build_prefilter_listing();
+  const auto snapshot = inspect_nftables_snapshot(CommandRunner(
+      [&](const std::vector<std::string>&) {
+        return CommandResult{listing.dump(), 0, false};
+      }));
+  REQUIRE(snapshot.available);
+
+  FirewallPlan plan;
+  FirewallRuleRegistrar registrar(plan);
+  FirewallRuleInstance restore;
+  restore.key = {"prefilter.restore_conntrack_mark", "one"};
+  restore.family = FirewallFamily::any;
+  restore.action = RestoreConntrackMarkAction{0xFFFFFFFFu};
+  registrar.register_rule(std::move(restore));
+  FirewallRuleInstance dnat;
+  dnat.key = {"prefilter.skip_established_or_dnat", "one"};
+  dnat.family = FirewallFamily::any;
+  dnat.action = SkipEstablishedOrDnatAction{};
+  registrar.register_rule(std::move(dnat));
+  FirewallRuleInstance marked;
+  marked.key = {"prefilter.skip_marked_packets", "one"};
+  marked.family = FirewallFamily::any;
+  marked.action = SkipMarkedPacketsAction{};
+  registrar.register_rule(std::move(marked));
+  FirewallRuleInstance inbound;
+  inbound.key = {"prefilter.inbound_interface", "one"};
+  inbound.family = FirewallFamily::any;
+  inbound.action = InboundInterfaceFilterAction{{"br-lan"}};
+  registrar.register_rule(std::move(inbound));
+  FirewallRuleInstance route;
+  route.key = {"route.mark", "one"};
+  route.family = FirewallFamily::ipv4;
+  route.criteria.dst_set_name = "pairwise_set";
+  route.action = MarkAction{0x10000u, 0xFFFFFFFFu};
+  registrar.register_rule(std::move(route));
+  registrar.finish();
+
+  const auto checks = verify_firewall_plan(plan, snapshot);
+  REQUIRE(checks.size() == 5);
+  for (const auto& check : checks) {
+    CHECK_MESSAGE(check.status == CheckStatus::ok, check.detail);
+  }
+
+  auto malformed = listing;
+  for (auto& entry : malformed["nftables"]) {
+    if (!entry.contains("rule") ||
+        entry["rule"].value("comment", "") !=
+            "kpbr:v1:prefilter.restore_conntrack_mark:one") {
+      continue;
+    }
+    std::swap(entry["rule"]["expr"][2], entry["rule"]["expr"][3]);
+    break;
+  }
+  const auto malformed_snapshot = inspect_nftables_snapshot(CommandRunner(
+      [&](const std::vector<std::string>&) {
+        return CommandResult{malformed.dump(), 0, false};
+      }));
+  REQUIRE(malformed_snapshot.available);
+  const auto malformed_checks = verify_firewall_plan(plan, malformed_snapshot);
+  REQUIRE(malformed_checks.size() == 5);
+  CHECK(malformed_checks.front().status == CheckStatus::mismatch);
+
+  auto malformed_target = listing;
+  for (auto& entry : malformed_target["nftables"]) {
+    if (!entry.contains("rule") ||
+        entry["rule"].value("comment", "") !=
+            "kpbr:v1:prefilter.restore_conntrack_mark:one") {
+      continue;
+    }
+    auto& vmap = entry["rule"]["expr"][2]["vmap"]["data"]["set"];
+    vmap[0][1]["jump"]["target"] = "setmark_00020000";
+    break;
+  }
+  const auto malformed_target_snapshot = inspect_nftables_snapshot(CommandRunner(
+      [&](const std::vector<std::string>&) {
+        return CommandResult{malformed_target.dump(), 0, false};
+      }));
+  REQUIRE(malformed_target_snapshot.available);
+  const auto malformed_target_checks =
+      verify_firewall_plan(plan, malformed_target_snapshot);
+  REQUIRE(malformed_target_checks.size() == 5);
+  CHECK(malformed_target_checks.front().status == CheckStatus::mismatch);
+
+  // A partially migrated snapshot may still have one unkeyed canonical
+  // prefilter physical rule beside keyed rules.  It is a valid bounded legacy
+  // fallback, not a missing rule.
+  auto mixed = listing;
+  for (auto& entry : mixed["nftables"]) {
+    if (!entry.contains("rule") ||
+        entry["rule"].value("comment", "") !=
+            "kpbr:v1:prefilter.skip_marked_packets:one") {
+      continue;
+    }
+    entry["rule"].erase("comment");
+    break;
+  }
+  const auto mixed_snapshot = inspect_nftables_snapshot(CommandRunner(
+      [&](const std::vector<std::string>&) {
+        return CommandResult{mixed.dump(), 0, false};
+      }));
+  REQUIRE(mixed_snapshot.available);
+  const auto mixed_checks = verify_firewall_plan(plan, mixed_snapshot);
+  REQUIRE(mixed_checks.size() == 5);
+  for (const auto& check : mixed_checks) {
+    CHECK_MESSAGE(check.status == CheckStatus::ok, check.detail);
+  }
+
+  // With the prefilter policy disabled, a stale unkeyed canonical bypass is
+  // still owned state and must be reported as extra.
+  auto disabled = mixed;
+  FirewallPlan disabled_plan;
+  FirewallRuleRegistrar disabled_registrar(disabled_plan);
+  disabled_registrar.register_rule(plan.rules.back());
+  disabled_registrar.finish();
+  const auto disabled_snapshot = inspect_nftables_snapshot(CommandRunner(
+      [&](const std::vector<std::string>&) {
+        return CommandResult{disabled.dump(), 0, false};
+      }));
+  REQUIRE(disabled_snapshot.available);
+  const auto disabled_checks = verify_firewall_plan(disabled_plan,
+                                                    disabled_snapshot);
+  CHECK(std::any_of(disabled_checks.begin(), disabled_checks.end(),
+                    [](const auto& check) {
+                      return check.detail == "extra legacy prefilter rule";
+                    }));
+}
+
+TEST_CASE("nft empty owned marks emit no restore and verify without it") {
+  FirewallPrefilter prefilter;
+  prefilter.restore_conntrack_mark = true;
+  prefilter.conntrack_mark_mask = 0xFFFFFFFFu;
+  prefilter.skip_established_or_dnat = true;
+  prefilter.skip_marked_packets = true;
+  const FirewallRuleKey dnat_key{"prefilter.skip_established_or_dnat", "one"};
+  const FirewallRuleKey marked_key{"prefilter.skip_marked_packets", "one"};
+  prefilter.skip_established_or_dnat_comment = dnat_key.comment();
+  prefilter.skip_marked_packets_comment = marked_key.comment();
+
+  const auto commands = T::build_rule_add_commands(prefilter, {});
+  REQUIRE(commands.size() == 3);
+  CHECK(std::none_of(commands.begin(), commands.end(), [](const auto& command) {
+    return command["add"]["rule"].value("comment", "") ==
+           "kpbr:v1:prefilter.restore_conntrack_mark:one";
+  }));
+
+  nlohmann::json listing;
+  listing["nftables"] = nlohmann::json::array({
+      nlohmann::json{{"table", {{"family", "inet"},
+                                 {"name", "KeenPbrTable"}}}},
+      nlohmann::json{{"chain", {{"family", "inet"},
+                                 {"table", "KeenPbrTable"},
+                                 {"name", "prerouting"},
+                                 {"type", "filter"},
+                                 {"hook", "prerouting"}}}},
+      nlohmann::json{{"chain", {{"family", "inet"},
+                                 {"table", "KeenPbrTable"},
+                                 {"name", "output"},
+                                 {"type", "filter"},
+                                 {"hook", "output"}}}}});
+  for (const auto& command : commands) {
+    listing["nftables"].push_back({{"rule", command["add"]["rule"]}});
+  }
+  const auto snapshot = inspect_nftables_snapshot(CommandRunner(
+      [&](const std::vector<std::string>&) {
+        return CommandResult{listing.dump(), 0, false};
+      }));
+  REQUIRE(snapshot.available);
+
+  FirewallPlan plan;
+  FirewallRuleRegistrar registrar(plan);
+  FirewallRuleInstance dnat;
+  dnat.key = dnat_key;
+  dnat.action = SkipEstablishedOrDnatAction{};
+  registrar.register_rule(std::move(dnat));
+  FirewallRuleInstance marked;
+  marked.key = marked_key;
+  marked.action = SkipMarkedPacketsAction{};
+  registrar.register_rule(std::move(marked));
+  registrar.finish();
+  const auto checks = verify_firewall_plan(plan, snapshot);
+  REQUIRE(checks.size() == 2);
+  for (const auto& check : checks) {
+    CHECK_MESSAGE(check.status == CheckStatus::ok, check.detail);
+  }
+}
+
 TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface guard when inbound list is empty") {
   auto cfg = parse_valid_config(R"({
     "outbounds":[
@@ -608,7 +840,7 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface gua
   })");
 
   const auto cmds = T::build_rule_add_commands(
-      build_firewall_global_prefilter(cfg),
+      build_firewall_prefilter(cfg),
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
@@ -638,7 +870,7 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface g
   })");
 
   const auto cmds = T::build_rule_add_commands(
-      build_firewall_global_prefilter(cfg),
+      build_firewall_prefilter(cfg),
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
@@ -908,7 +1140,7 @@ TEST_CASE("build_mark_rule_json: conntrack setter jump is the final statement") 
 }
 
 TEST_CASE("build_rule_add_commands: skip_marked_packets prefilter can be disabled") {
-  FirewallGlobalPrefilter prefilter;
+  FirewallPrefilter prefilter;
   prefilter.skip_established_or_dnat = true;
   prefilter.skip_marked_packets = false;
 

@@ -210,9 +210,7 @@ constexpr std::size_t kNoFirewallRuleSource =
 FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   FirewallPlan plan;
   plan.fwmark_mask = inputs.fwmark_mask;
-  plan.global_prefilter = build_firewall_global_prefilter(inputs.config);
-  plan.global_prefilter.restore_conntrack_mark = true;
-  plan.global_prefilter.conntrack_mark_mask = inputs.fwmark_mask;
+  const auto prefilter = build_firewall_prefilter(inputs.config);
 
   const auto& all_outbounds =
       inputs.config.outbounds.value_or(std::vector<Outbound>{});
@@ -232,11 +230,19 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   const auto dns_detour_targets =
       build_dns_detour_targets(inputs.config, all_outbounds,
                                inputs.outbound_marks);
+  const bool owned_marks_present = std::any_of(
+      inputs.outbound_marks.begin(), inputs.outbound_marks.end(),
+      [](const auto& entry) { return entry.second != 0; });
+  const bool restore_conntrack_mark =
+      inputs.backend == FirewallBackend::iptables || owned_marks_present;
   const FirewallBuildContext context{
       route_rules, rule_states, all_outbounds, lists_map, inputs.list_usage,
       inputs.main_routes, inputs.interfaces, inputs.backend,
       inputs.ipv6_enabled, inputs.fwmark_mask, inputs.balance_candidates,
-      &dns_detour_targets};
+      &dns_detour_targets, restore_conntrack_mark,
+      prefilter.skip_established_or_dnat,
+      prefilter.skip_marked_packets,
+      prefilter.inbound_interfaces.value_or(std::vector<std::string>{})};
   for (const auto register_module : route_rule_module_manifest()) {
     register_module(context, registrar);
   }
@@ -448,8 +454,20 @@ std::vector<RuleState> apply_runtime_firewall(
         }
     }
 
+    const auto is_prefilter = [](const FirewallRuleInstance& rule) {
+        return !std::holds_alternative<MarkAction>(rule.action) &&
+               !std::holds_alternative<BalanceAction>(rule.action) &&
+               !std::holds_alternative<VerdictAction>(rule.action);
+    };
     for (const auto& planned_rule : plan.rules) {
-        if (planned_rule.source_rule_index == kNoFirewallRuleSource) {
+        if (planned_rule.source_rule_index == kNoFirewallRuleSource &&
+            is_prefilter(planned_rule)) {
+            replay_firewall_rule(planned_rule, firewall);
+        }
+    }
+    for (const auto& planned_rule : plan.rules) {
+        if (planned_rule.source_rule_index == kNoFirewallRuleSource &&
+            !is_prefilter(planned_rule)) {
             replay_firewall_rule(planned_rule, firewall);
         }
     }

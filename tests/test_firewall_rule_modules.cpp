@@ -38,7 +38,7 @@ struct ModuleFixture {
   FirewallBuildContext context() const {
     return {*config.route->rules, states, *config.outbounds, *config.lists,
             usage, main_routes, interfaces, FirewallBackend::nftables, true,
-            0xFFFFFFFFU};
+            0xFFFFFFFFU, nullptr, nullptr, true, true, true, {}};
   }
 };
 
@@ -63,7 +63,7 @@ struct BalanceModuleFixture {
   FirewallBuildContext context() const {
     return {*config.route->rules, states, *config.outbounds, lists, usage,
             main_routes, interfaces, FirewallBackend::nftables, true,
-            0xFFFFFFFFU, &candidates};
+            0xFFFFFFFFU, &candidates, nullptr, true, true, true, {}};
   }
 };
 
@@ -154,17 +154,98 @@ TEST_CASE("route module manifest has explicit deterministic order") {
   }
   registrar.finish();
 
-  REQUIRE(plan.rules.size() == 7);
-  CHECK(plan.rules[0].source_rule_index == 0);
-  CHECK(plan.rules[1].source_rule_index == 1);
-  CHECK(plan.rules[2].source_rule_index == 2);
-  CHECK(plan.rules[3].source_rule_index == 3);
-  CHECK(plan.rules[4].source_rule_index == 3);
-  CHECK(plan.rules[5].source_rule_index == 3);
+  REQUIRE(plan.rules.size() == 10);
+  CHECK(plan.rules[0].key.module_id == "prefilter.restore_conntrack_mark");
+  CHECK(plan.rules[1].key.module_id == "prefilter.skip_established_or_dnat");
+  CHECK(plan.rules[2].key.module_id == "prefilter.skip_marked_packets");
+  CHECK(plan.rules[3].source_rule_index == 0);
+  CHECK(plan.rules[4].source_rule_index == 1);
+  CHECK(plan.rules[5].source_rule_index == 2);
   CHECK(plan.rules[6].source_rule_index == 3);
-  CHECK(plan.rules[0].key.module_id == "route.mark");
-  CHECK(plan.rules[1].key.module_id == "route.drop");
-  CHECK(plan.rules[2].key.module_id == "route.pass");
+  CHECK(plan.rules[7].source_rule_index == 3);
+  CHECK(plan.rules[8].source_rule_index == 3);
+  CHECK(plan.rules[9].source_rule_index == 3);
+  CHECK(plan.rules[3].key.module_id == "route.mark");
+  CHECK(plan.rules[4].key.module_id == "route.drop");
+  CHECK(plan.rules[5].key.module_id == "route.pass");
+}
+
+TEST_CASE("prefilter modules emit canonical operations and honor inputs") {
+  const ModuleFixture fixture;
+  auto context = fixture.context();
+  context.fwmark_mask = 0x00FF0000U;
+  context.inbound_interfaces = {"br-lan", "wg0"};
+
+  const auto build = [&](auto module) {
+    FirewallPlan plan;
+    plan.fwmark_mask = context.fwmark_mask;
+    FirewallRuleRegistrar registrar(plan);
+    module.register_rules(context, registrar);
+    registrar.finish();
+    return plan;
+  };
+
+  const auto restore = build(RestoreConntrackMarkRuleModule{});
+  REQUIRE(restore.rules.size() == 1);
+  CHECK(restore.rules.front().stage == FirewallRuleStage::restore_conntrack);
+  CHECK(restore.rules.front().priority == 0);
+  CHECK(restore.rules.front().family == FirewallFamily::any);
+  CHECK(std::get<RestoreConntrackMarkAction>(restore.rules.front().action).mask ==
+        context.fwmark_mask);
+
+  const auto dnat = build(SkipEstablishedOrDnatRuleModule{});
+  REQUIRE(dnat.rules.size() == 1);
+  CHECK(dnat.rules.front().stage == FirewallRuleStage::global_bypass);
+  CHECK(dnat.rules.front().priority == 0);
+  CHECK(std::holds_alternative<SkipEstablishedOrDnatAction>(
+      dnat.rules.front().action));
+
+  const auto marked = build(SkipMarkedPacketsRuleModule{});
+  REQUIRE(marked.rules.size() == 1);
+  CHECK(marked.rules.front().priority == 1);
+  CHECK(std::holds_alternative<SkipMarkedPacketsAction>(
+      marked.rules.front().action));
+
+  const auto inbound = build(InboundInterfaceFilterRuleModule{});
+  REQUIRE(inbound.rules.size() == 1);
+  CHECK(inbound.rules.front().priority == 2);
+  CHECK(std::get<InboundInterfaceFilterAction>(inbound.rules.front().action)
+            .interfaces == context.inbound_interfaces);
+  CHECK(inbound.rules.front().key.module_id ==
+        "prefilter.inbound_interface");
+  CHECK(inbound.rules.front().key == FirewallRuleKey::compact(
+      "prefilter.inbound_interface", "br-lan;wg0;"));
+
+  context.restore_conntrack_mark = false;
+  context.skip_established_or_dnat = false;
+  context.skip_marked_packets = false;
+  context.inbound_interfaces.clear();
+  CHECK(build(RestoreConntrackMarkRuleModule{}).rules.empty());
+  CHECK(build(SkipEstablishedOrDnatRuleModule{}).rules.empty());
+  CHECK(build(SkipMarkedPacketsRuleModule{}).rules.empty());
+  CHECK(build(InboundInterfaceFilterRuleModule{}).rules.empty());
+}
+
+TEST_CASE("nft restore prefilter follows owned mark materialization") {
+  const ModuleFixture fixture;
+  auto context = fixture.context();
+  context.restore_conntrack_mark = false;
+
+  FirewallPlan nft_plan;
+  FirewallRuleRegistrar nft_registrar(nft_plan);
+  RestoreConntrackMarkRuleModule{}.register_rules(context, nft_registrar);
+  nft_registrar.finish();
+  CHECK(nft_plan.rules.empty());
+
+  context.backend = FirewallBackend::iptables;
+  context.restore_conntrack_mark = true;
+  FirewallPlan iptables_plan;
+  FirewallRuleRegistrar iptables_registrar(iptables_plan);
+  RestoreConntrackMarkRuleModule{}.register_rules(context, iptables_registrar);
+  iptables_registrar.finish();
+  REQUIRE(iptables_plan.rules.size() == 1);
+  CHECK(std::holds_alternative<RestoreConntrackMarkAction>(
+      iptables_plan.rules.front().action));
 }
 
 TEST_CASE("route balance module preserves fallback and candidate ordering") {
@@ -210,8 +291,9 @@ TEST_CASE("route balance module is included in the explicit manifest") {
   }
   registrar.finish();
 
-  REQUIRE(plan.rules.size() == 1);
-  CHECK(plan.rules.front().key.module_id == "route.balance");
+  REQUIRE(plan.rules.size() == 4);
+  CHECK(plan.rules[0].key.module_id == "prefilter.restore_conntrack_mark");
+  CHECK(plan.rules[3].key.module_id == "route.balance");
 }
 
 TEST_CASE("DNS detour module emits family-specific TCP then UDP marks") {
@@ -388,7 +470,8 @@ TEST_CASE("route module manifest keeps reordered config rules in priority order"
   const std::map<std::string, ListSetUsage> usage;
   const FirewallBuildContext context{
       *config.route->rules, states, *config.outbounds, lists, usage, main_routes,
-      interfaces, FirewallBackend::nftables, true, 0xFFFFFFFFU};
+      interfaces, FirewallBackend::nftables, true, 0xFFFFFFFFU, nullptr, nullptr,
+      true, true, true, {}};
   FirewallPlan plan;
   FirewallRuleRegistrar registrar(plan);
   for (const auto register_module : route_rule_module_manifest()) {
@@ -396,13 +479,13 @@ TEST_CASE("route module manifest keeps reordered config rules in priority order"
   }
   registrar.finish();
 
-  REQUIRE(plan.rules.size() == 3);
-  CHECK(plan.rules[0].source_rule_index == 0);
-  CHECK(plan.rules[1].source_rule_index == 1);
-  CHECK(plan.rules[2].source_rule_index == 2);
-  CHECK(std::holds_alternative<VerdictAction>(plan.rules[0].action));
-  CHECK(std::holds_alternative<MarkAction>(plan.rules[1].action));
-  CHECK(std::holds_alternative<VerdictAction>(plan.rules[2].action));
+  REQUIRE(plan.rules.size() == 6);
+  CHECK(plan.rules[3].source_rule_index == 0);
+  CHECK(plan.rules[4].source_rule_index == 1);
+  CHECK(plan.rules[5].source_rule_index == 2);
+  CHECK(std::holds_alternative<VerdictAction>(plan.rules[3].action));
+  CHECK(std::holds_alternative<MarkAction>(plan.rules[4].action));
+  CHECK(std::holds_alternative<VerdictAction>(plan.rules[5].action));
 }
 
 namespace {
@@ -443,10 +526,10 @@ TEST_CASE("IPv4 default gateway keeps both list families but emits IPv4 rules") 
   CHECK(plan.sets[1].name == "kpbr4d_remote");
   CHECK(plan.sets[2].name == "kpbr6_remote");
   CHECK(plan.sets[3].name == "kpbr6d_remote");
-  REQUIRE(plan.rules.size() == 2);
-  CHECK(plan.rules[0].criteria.dst_set_name == "kpbr4_remote");
-  CHECK(plan.rules[1].criteria.dst_set_name == "kpbr4d_remote");
-  for (const auto& rule : plan.rules) {
+  REQUIRE(plan.rules.size() == 5);
+  CHECK(plan.rules[3].criteria.dst_set_name == "kpbr4_remote");
+  CHECK(plan.rules[4].criteria.dst_set_name == "kpbr4d_remote");
+  for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[3], plan.rules[4]}) {
     CHECK(rule.family == FirewallFamily::ipv4);
     CHECK(rule.hook == FirewallHook::output);
     CHECK(rule.criteria.apply_output);
@@ -464,10 +547,10 @@ TEST_CASE("IPv6 default gateway keeps both list families but emits IPv6 rules") 
   CHECK(plan.sets[1].name == "kpbr4d_remote");
   CHECK(plan.sets[2].name == "kpbr6_remote");
   CHECK(plan.sets[3].name == "kpbr6d_remote");
-  REQUIRE(plan.rules.size() == 2);
-  CHECK(plan.rules[0].criteria.dst_set_name == "kpbr6_remote");
-  CHECK(plan.rules[1].criteria.dst_set_name == "kpbr6d_remote");
-  for (const auto& rule : plan.rules) {
+  REQUIRE(plan.rules.size() == 5);
+  CHECK(plan.rules[3].criteria.dst_set_name == "kpbr6_remote");
+  CHECK(plan.rules[4].criteria.dst_set_name == "kpbr6d_remote");
+  for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[3], plan.rules[4]}) {
     CHECK(rule.family == FirewallFamily::ipv6);
     CHECK(rule.hook == FirewallHook::output);
     CHECK(rule.criteria.apply_output);

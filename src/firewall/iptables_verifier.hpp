@@ -26,6 +26,22 @@ struct ParsedIptablesRule {
     FirewallHook hook{FirewallHook::prerouting};
     std::string chain_name;
     std::string raw;
+    bool is_restore_conntrack{false};
+    bool is_skip_dnat{false};
+    bool is_skip_marked{false};
+    bool is_inbound_filter{false};
+    bool is_return{false};
+    bool is_accept{false};
+    bool has_nonzero_mark_match{false};
+    bool is_restore_companion{false};
+    std::size_t order{0};
+    std::vector<std::string> inbound_interfaces;
+    uint32_t conntrack_mark_mask{0};
+    bool restore_guard_present{false};
+    uint32_t restore_guard_mask{0};
+    bool restore_target_exact{false};
+    bool mark_guard_present{false};
+    uint32_t mark_guard_mask{0};
 };
 
 // Parsed state of the owned dispatch/generation chains from an `iptables -S`

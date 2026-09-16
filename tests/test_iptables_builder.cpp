@@ -4,6 +4,7 @@
 #include "../src/config/routing_state.hpp"
 #include "../src/firewall/ipset_restore_pipe.hpp"
 #include "../src/firewall/iptables.hpp"
+#include "../src/firewall/firewall_snapshot.hpp"
 #include "../src/lists/list_entry_visitor.hpp"
 
 #include <array>
@@ -178,7 +179,7 @@ public:
 
   static std::string build_ipt_script(bool ipv6,
                                       const std::vector<RuleDesc> &descs,
-                                      FirewallGlobalPrefilter prefilter = {}) {
+                                      FirewallPrefilter prefilter = {}) {
     std::vector<IptablesFirewall::PendingRule> rules;
     rules.reserve(descs.size());
     for (const auto &d : descs) {
@@ -209,13 +210,13 @@ public:
   }
 
   static std::string build_raw_script(const std::vector<RuleDesc> &descs,
-                                      FirewallGlobalPrefilter prefilter = {}) {
+                                      FirewallPrefilter prefilter = {}) {
     return build_raw_script_for_family(false, descs, prefilter);
   }
 
   static std::string
   build_raw_script_for_family(bool ipv6, const std::vector<RuleDesc> &descs,
-                              FirewallGlobalPrefilter prefilter = {}) {
+                              FirewallPrefilter prefilter = {}) {
     std::vector<IptablesFirewall::PendingRule> rules;
     for (const auto &d : descs) {
       IptablesFirewall::PendingRule pr;
@@ -263,7 +264,7 @@ public:
 
   static std::string build_output_script_for_family(
       bool ipv6, const std::vector<RuleDesc> &descs,
-      FirewallGlobalPrefilter prefilter = {}) {
+      FirewallPrefilter prefilter = {}) {
     std::vector<IptablesFirewall::PendingRule> rules;
     for (const auto &d : descs) {
       IptablesFirewall::PendingRule pr;
@@ -412,7 +413,7 @@ public:
   build_ipt_script_for_rule(bool ipv6, RuleDesc::Action action, uint32_t fwmark,
                             FirewallRuleCriteria criteria, bool list_backed,
                             uint32_t fwmark_mask = 0xFFFFFFFFu,
-                            FirewallGlobalPrefilter prefilter = {},
+                            FirewallPrefilter prefilter = {},
                             FirewallRuleKey key = {}) {
     IptablesFirewall fw;
     fw.set_fwmark_mask(fwmark_mask);
@@ -553,7 +554,7 @@ TEST_CASE("RAW6 A/B recovery treats PREROUTING as authoritative") {
 
 TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
   Rule rule{"kpbr4s_minecraft", false, false, Rule::Mark, 0x100, {}};
-  FirewallGlobalPrefilter prefilter;
+  FirewallPrefilter prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xff00;
   prefilter.skip_established_or_dnat = true;
@@ -575,7 +576,7 @@ TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
 TEST_CASE("IPv6 raw prerouting filters families and keeps no-conntrack semantics") {
   Rule v4{"kpbr4s_v4", false, false, Rule::Mark, 0x100, {}};
   Rule v6{"kpbr6s_v6", true, false, Rule::Mark, 0x200, {}};
-  FirewallGlobalPrefilter prefilter;
+  FirewallPrefilter prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xff00;
   const auto script = T::build_raw_script_for_family(true, {v4, v6}, prefilter);
@@ -590,7 +591,7 @@ TEST_CASE("IPv6 raw prerouting filters families and keeps no-conntrack semantics
 TEST_CASE("IPv6 raw mode keeps OUTPUT in mangle with connmark optimization") {
   Rule v4{"kpbr4s_v4", false, false, Rule::Mark, 0x100, {}};
   Rule v6{"kpbr6s_v6", true, false, Rule::Mark, 0x200, {}};
-  FirewallGlobalPrefilter prefilter;
+  FirewallPrefilter prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xff00;
   const auto script = T::build_output_script_for_family(true, {v4, v6}, prefilter);
@@ -662,10 +663,10 @@ static Rule pass_rule(const std::string &set_name, bool ipv6,
   return r;
 }
 
-static FirewallGlobalPrefilter
+static FirewallPrefilter
 prefilter_with_interfaces(std::vector<std::string> interfaces,
                           bool skip_established_or_dnat = true) {
-  FirewallGlobalPrefilter prefilter;
+  FirewallPrefilter prefilter;
   prefilter.skip_established_or_dnat = skip_established_or_dnat;
   prefilter.skip_marked_packets = true;
   prefilter.inbound_interfaces = std::move(interfaces);
@@ -1739,7 +1740,7 @@ TEST_CASE("build_ipt_script: keyed policy rules carry validated ownership commen
 
   FirewallRuleCriteria bundle_filter;
   bundle_filter.proto = L4Proto::TcpUdp;
-  FirewallGlobalPrefilter bundle_prefilter;
+  FirewallPrefilter bundle_prefilter;
   bundle_prefilter.restore_conntrack_mark = true;
   bundle_prefilter.conntrack_mark_mask = 0xFF00U;
   const auto bundle_script = T::build_ipt_script_for_rule(
@@ -1757,6 +1758,206 @@ TEST_CASE("build_ipt_script: keyed policy rules carry validated ownership commen
   CHECK_THROWS(T::build_ipt_script_for_rule(
       false, Rule::Pass, 0, {}, false, 0xFFFFFFFFu, {},
       FirewallRuleKey{"route\"mark", "outbound"}));
+}
+
+TEST_CASE("iptables emitted prefilter bundle is inspected and ordered before classifiers") {
+  const FirewallRuleKey restore_key{"prefilter.restore_conntrack_mark", "one"};
+  const FirewallRuleKey route_key{"route.mark", "one"};
+  FirewallPlan plan;
+  FirewallRuleRegistrar registrar(plan);
+  FirewallRuleInstance restore;
+  restore.key = restore_key;
+  restore.family = FirewallFamily::any;
+  restore.action = RestoreConntrackMarkAction{0xFFFFFFFFu};
+  registrar.register_rule(std::move(restore));
+  FirewallRuleInstance route;
+  route.key = route_key;
+  route.family = FirewallFamily::any;
+  route.criteria.dst_set_name = "pairwise_set";
+  route.action = MarkAction{0x10000u, 0xFFFFFFFFu};
+  registrar.register_rule(std::move(route));
+  registrar.finish();
+
+  FirewallPrefilter prefilter;
+  prefilter.restore_conntrack_mark = true;
+  prefilter.conntrack_mark_mask = 0xFFFFFFFFu;
+  prefilter.restore_conntrack_mark_comment = restore_key.comment();
+  const auto v4 = IptablesBuilderTest::build_ipt_script_for_rule(
+      false, IptablesBuilderTest::RuleDesc::Mark, 0x10000u, {}, true,
+      0xFFFFFFFFu, prefilter, route_key);
+  const auto v6 = IptablesBuilderTest::build_ipt_script(
+      true, {}, prefilter);
+  const auto runner = [&](const std::vector<std::string>& args) {
+    if (args[0] == "iptables") return CommandResult{v4, 0, false};
+    if (args[0] == "ip6tables") return CommandResult{v6, 0, false};
+    return CommandResult{"", 0, false};
+  };
+  const auto snapshot = inspect_iptables_snapshot(runner);
+  REQUIRE(snapshot.available);
+  for (const auto& observed : snapshot.rules) INFO(observed.raw);
+  auto checks = verify_firewall_plan(plan, snapshot);
+  REQUIRE(checks.size() == 2);
+  CHECK(checks[0].status == CheckStatus::ok);
+  CHECK_MESSAGE(checks[1].status == CheckStatus::ok, checks[1].detail);
+
+  std::istringstream input(v4);
+  std::vector<std::string> lines;
+  for (std::string line; std::getline(input, line);) lines.push_back(line);
+  const auto restore_line = std::find_if(
+      lines.begin(), lines.end(), [](const std::string& line) {
+        return line.find("-m connmark !") != std::string::npos;
+      });
+  const auto classifier_line = std::find_if(
+      lines.begin(), lines.end(), [](const std::string& line) {
+        return line.find("-j MARK --set-xmark") != std::string::npos;
+      });
+  REQUIRE(restore_line != lines.end());
+  REQUIRE(classifier_line != lines.end());
+  std::swap(*restore_line, *classifier_line);
+  std::ostringstream reordered;
+  for (const auto& line : lines) reordered << line << '\n';
+  const auto reordered_v4 = reordered.str();
+  const auto reordered_runner = [&](const std::vector<std::string>& args) {
+    if (args[0] == "iptables") return CommandResult{reordered_v4, 0, false};
+    if (args[0] == "ip6tables") return CommandResult{v6, 0, false};
+    return CommandResult{"", 0, false};
+  };
+  const auto reordered_snapshot = inspect_iptables_snapshot(reordered_runner);
+  REQUIRE(reordered_snapshot.available);
+  checks = verify_firewall_plan(plan, reordered_snapshot);
+  REQUIRE(checks.size() == 2);
+  CHECK(checks[0].status == CheckStatus::mismatch);
+
+  auto without_companion = v4;
+  const auto companion_start = without_companion.find("-m mark ! --mark");
+  REQUIRE(companion_start != std::string::npos);
+  const auto companion_end = without_companion.find('\n', companion_start);
+  without_companion.erase(companion_start,
+                          companion_end - companion_start + 1U);
+  const auto missing_runner = [&](const std::vector<std::string>& args) {
+    if (args[0] == "iptables") return CommandResult{without_companion, 0, false};
+    if (args[0] == "ip6tables") return CommandResult{v6, 0, false};
+    return CommandResult{"", 0, false};
+  };
+  const auto missing_snapshot = inspect_iptables_snapshot(missing_runner);
+  REQUIRE(missing_snapshot.available);
+  checks = verify_firewall_plan(plan, missing_snapshot);
+  REQUIRE(checks.size() == 2);
+  CHECK(checks[0].status == CheckStatus::mismatch);
+
+  auto malformed_target = v4;
+  const auto restore_target = malformed_target.find(
+      "-j CONNMARK --restore-mark");
+  REQUIRE(restore_target != std::string::npos);
+  malformed_target.replace(restore_target, std::string("-j CONNMARK").size(),
+                           "-j MARK");
+  const auto malformed_target_runner = [&](const std::vector<std::string>& args) {
+    if (args[0] == "iptables") {
+      return CommandResult{malformed_target, 0, false};
+    }
+    if (args[0] == "ip6tables") return CommandResult{v6, 0, false};
+    return CommandResult{"", 0, false};
+  };
+  const auto malformed_target_snapshot =
+      inspect_iptables_snapshot(malformed_target_runner);
+  REQUIRE(malformed_target_snapshot.available);
+  checks = verify_firewall_plan(plan, malformed_target_snapshot);
+  REQUIRE(checks.size() == 2);
+  CHECK(checks[0].status == CheckStatus::mismatch);
+
+  // A partial upgrade can leave one canonical prefilter rule without its
+  // ownership comment beside keyed physical rules.  Consume that rule only
+  // through the bounded prefilter fallback.
+  auto mixed = v4;
+  const std::string restore_comment =
+      " -m comment --comment " + restore_key.comment();
+  const auto mixed_comment = mixed.find(restore_comment);
+  REQUIRE(mixed_comment != std::string::npos);
+  mixed.erase(mixed_comment, restore_comment.size());
+  const auto mixed_runner = [&](const std::vector<std::string>& args) {
+    if (args[0] == "iptables") return CommandResult{mixed, 0, false};
+    if (args[0] == "ip6tables") return CommandResult{v6, 0, false};
+    return CommandResult{"", 0, false};
+  };
+  const auto mixed_snapshot = inspect_iptables_snapshot(mixed_runner);
+  REQUIRE(mixed_snapshot.available);
+  checks = verify_firewall_plan(plan, mixed_snapshot);
+  REQUIRE(checks.size() == 2);
+  for (const auto& check : checks) {
+    CHECK_MESSAGE(check.status == CheckStatus::ok, check.detail);
+  }
+
+  // An unkeyed stale bypass remains extra even when the active plan no longer
+  // exposes any prefilter policy.
+  const auto stale_dispatcher = mixed.find("-A KeenPbrTable -j KeenPbrTable_A");
+  REQUIRE(stale_dispatcher != std::string::npos);
+  mixed.insert(stale_dispatcher,
+               "-A KeenPbrTable_A -m conntrack --ctstate DNAT -j RETURN\n");
+  const auto disabled_runner = [&](const std::vector<std::string>& args) {
+    if (args[0] == "iptables") return CommandResult{mixed, 0, false};
+    if (args[0] == "ip6tables") return CommandResult{v6, 0, false};
+    return CommandResult{"", 0, false};
+  };
+  const auto disabled_snapshot = inspect_iptables_snapshot(disabled_runner);
+  REQUIRE(disabled_snapshot.available);
+  FirewallPlan disabled_plan;
+  FirewallRuleRegistrar disabled_registrar(disabled_plan);
+  disabled_registrar.register_rule(plan.rules.back());
+  disabled_registrar.finish();
+  const auto disabled_checks = verify_firewall_plan(disabled_plan,
+                                                    disabled_snapshot);
+  CHECK(std::any_of(disabled_checks.begin(), disabled_checks.end(),
+                    [](const auto& check) {
+                      return check.detail == "extra legacy prefilter rule";
+                    }));
+
+  auto stale = v4;
+  const auto dispatcher = stale.find("-A KeenPbrTable -j KeenPbrTable_A");
+  REQUIRE(dispatcher != std::string::npos);
+  stale.insert(dispatcher,
+               "-A KeenPbrTable_A -m conntrack --ctstate DNAT -m comment "
+               "--comment kpbr:v1:prefilter.skip_established_or_dnat:stale "
+               "-j RETURN\n");
+  const auto stale_runner = [&](const std::vector<std::string>& args) {
+    if (args[0] == "iptables") return CommandResult{stale, 0, false};
+    if (args[0] == "ip6tables") return CommandResult{v6, 0, false};
+    return CommandResult{"", 0, false};
+  };
+  const auto stale_snapshot = inspect_iptables_snapshot(stale_runner);
+  REQUIRE(stale_snapshot.available);
+  checks = verify_firewall_plan(plan, stale_snapshot);
+  REQUIRE(checks.size() == 3);
+  CHECK(checks.back().status == CheckStatus::mismatch);
+}
+
+TEST_CASE("iptables empty owned marks retain unconditional restore output") {
+  FirewallPrefilter prefilter;
+  prefilter.restore_conntrack_mark = true;
+  prefilter.conntrack_mark_mask = 0xFFFFFFFFu;
+  const FirewallRuleKey restore_key{"prefilter.restore_conntrack_mark", "one"};
+  prefilter.restore_conntrack_mark_comment = restore_key.comment();
+  const auto script = T::build_ipt_script(false, {}, prefilter);
+  CHECK(script.find("-j CONNMARK --restore-mark") != std::string::npos);
+  CHECK(script.find("-m mark ! --mark 0/0xffffffff") != std::string::npos);
+
+  const auto v6 = T::build_ipt_script(true, {}, prefilter);
+  const auto runner = [&](const std::vector<std::string>& args) {
+    if (args[0] == "iptables") return CommandResult{script, 0, false};
+    if (args[0] == "ip6tables") return CommandResult{v6, 0, false};
+    return CommandResult{"", 0, false};
+  };
+  const auto snapshot = inspect_iptables_snapshot(runner);
+  REQUIRE(snapshot.available);
+  FirewallPlan plan;
+  FirewallRuleRegistrar registrar(plan);
+  FirewallRuleInstance restore;
+  restore.key = restore_key;
+  restore.action = RestoreConntrackMarkAction{0xFFFFFFFFu};
+  registrar.register_rule(std::move(restore));
+  registrar.finish();
+  const auto checks = verify_firewall_plan(plan, snapshot);
+  REQUIRE(checks.size() == 1);
+  CHECK_MESSAGE(checks.front().status == CheckStatus::ok, checks.front().detail);
 }
 
 TEST_CASE("build_ipt_script: IPv4 drop rule") {
@@ -1919,7 +2120,7 @@ TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before "
 
 TEST_CASE("build_ipt_script: conntrack restore is original-direction and mask "
           "scoped") {
-  FirewallGlobalPrefilter prefilter;
+  FirewallPrefilter prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0x00FF0000U;
   const auto script =
@@ -1948,7 +2149,7 @@ TEST_CASE("build_ipt_script: conntrack restore is original-direction and mask "
 }
 
 TEST_CASE("build_ipt_script: skip_marked_packets prefilter can be disabled") {
-  FirewallGlobalPrefilter prefilter;
+  FirewallPrefilter prefilter;
   prefilter.skip_established_or_dnat = true;
   prefilter.skip_marked_packets = false;
 
@@ -1970,6 +2171,69 @@ TEST_CASE("build_ipt_script: multi-interface prefilter expands route rules "
                "RETURN\n") != std::string::npos);
 }
 
+TEST_CASE("iptables emitted multi-interface snapshot matches exact "
+          "interface tokens") {
+  const FirewallRuleKey inbound_key{"prefilter.inbound_interface", "exact"};
+  const FirewallRuleKey route_key{"route.mark", "exact"};
+  FirewallPlan plan;
+  FirewallRuleRegistrar registrar(plan);
+  FirewallRuleInstance inbound;
+  inbound.key = inbound_key;
+  inbound.stage = FirewallRuleStage::global_bypass;
+  inbound.action = InboundInterfaceFilterAction{{"eth0", "eth0.100"}};
+  registrar.register_rule(std::move(inbound));
+  FirewallRuleInstance route;
+  route.key = route_key;
+  route.family = FirewallFamily::ipv4;
+  route.criteria.dst_set_name = "allowlist";
+  route.action = MarkAction{0x100u};
+  route.source_rule_index = 0;
+  registrar.register_rule(std::move(route));
+  registrar.finish();
+
+  FirewallPrefilter prefilter;
+  prefilter.inbound_interfaces = {"eth0", "eth0.100"};
+  prefilter.inbound_interface_filter_comment = inbound_key.comment();
+  const Rule emitted{"allowlist", false, false, Rule::Mark, 0x100u, {},
+                     route_key};
+  const auto v4 = T::build_ipt_script(false, {emitted}, prefilter);
+  const auto v6 = T::build_ipt_script(true, {}, prefilter);
+  const auto inspect = [&](const std::string& v4_output) {
+    return inspect_iptables_snapshot([&](const std::vector<std::string>& args) {
+      if (args[0] == "iptables") return CommandResult{v4_output, 0, false};
+      if (args[0] == "ip6tables") return CommandResult{v6, 0, false};
+      return CommandResult{"create allowlist hash:net family inet\n", 0,
+                           false};
+    });
+  };
+
+  const auto healthy_snapshot = inspect(v4);
+  REQUIRE(healthy_snapshot.available);
+  auto checks = verify_firewall_plan(plan, healthy_snapshot);
+  REQUIRE(checks.size() == 2);
+  CHECK_MESSAGE(checks[0].status == CheckStatus::ok, checks[0].detail);
+  CHECK_MESSAGE(checks[1].status == CheckStatus::ok, checks[1].detail);
+
+  std::istringstream input(v4);
+  std::ostringstream malformed;
+  for (std::string line; std::getline(input, line);) {
+    if (line.find(" -i eth0 ") != std::string::npos &&
+        line.find(" -i eth0.100 ") == std::string::npos) {
+      continue;
+    }
+    malformed << line << '\n';
+    if (line.find(" -i eth0.100 ") != std::string::npos) {
+      malformed << line << '\n';
+    }
+  }
+  const auto malformed_snapshot = inspect(malformed.str());
+  REQUIRE(malformed_snapshot.available);
+  checks = verify_firewall_plan(plan, malformed_snapshot);
+  REQUIRE(checks.size() == 2);
+  CHECK(checks[0].status == CheckStatus::missing);
+  CHECK(checks[1].status == CheckStatus::mismatch);
+}
+
 TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body "
           "unchanged") {
   auto cfg = parse_valid_config(R"({
@@ -1987,7 +2251,7 @@ TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body "
     }
   })");
 
-  const auto prefilter = build_firewall_global_prefilter(cfg);
+  const auto prefilter = build_firewall_prefilter(cfg);
   auto s = T::build_ipt_script(false, {mark_rule("kpbr4_local", false, 0x100)},
                                prefilter);
 
@@ -2034,7 +2298,7 @@ TEST_CASE("build_ipt_script: config-derived prefilter omits interface guard "
     }
   })");
 
-  const auto prefilter = build_firewall_global_prefilter(cfg);
+  const auto prefilter = build_firewall_prefilter(cfg);
   auto s = T::build_ipt_script(false, {mark_rule("kpbr4_local", false, 0x100)},
                                prefilter);
 

@@ -42,6 +42,10 @@ struct FirewallBuildContext {
   uint32_t fwmark_mask{0xFFFFFFFFu};
   const FirewallBalanceCandidates* balance_candidates{nullptr};
   const std::vector<DnsDetourTarget>* dns_detour_targets{nullptr};
+  bool restore_conntrack_mark{true};
+  bool skip_established_or_dnat{true};
+  bool skip_marked_packets{true};
+  std::vector<std::string> inbound_interfaces;
 };
 
 // One physical route selector target before an action is attached.
@@ -93,12 +97,40 @@ public:
                       FirewallRuleRegistrar& registrar) const;
 };
 
+class RestoreConntrackMarkRuleModule final {
+public:
+  std::string_view id() const noexcept { return "prefilter.restore_conntrack_mark"; }
+  void register_rules(const FirewallBuildContext& context,
+                      FirewallRuleRegistrar& registrar) const;
+};
+
+class SkipEstablishedOrDnatRuleModule final {
+public:
+  std::string_view id() const noexcept { return "prefilter.skip_established_or_dnat"; }
+  void register_rules(const FirewallBuildContext& context,
+                      FirewallRuleRegistrar& registrar) const;
+};
+
+class SkipMarkedPacketsRuleModule final {
+public:
+  std::string_view id() const noexcept { return "prefilter.skip_marked_packets"; }
+  void register_rules(const FirewallBuildContext& context,
+                      FirewallRuleRegistrar& registrar) const;
+};
+
+class InboundInterfaceFilterRuleModule final {
+public:
+  std::string_view id() const noexcept { return "prefilter.inbound_interface"; }
+  void register_rules(const FirewallBuildContext& context,
+                      FirewallRuleRegistrar& registrar) const;
+};
+
 // Explicit order is part of the plan contract. Adding another route action
 // means adding its registration function to this manifest, not a branch in
 // the runtime apply loop.
 using RouteRuleModuleRegistration =
     void (*)(const FirewallBuildContext&, FirewallRuleRegistrar&);
 
-std::array<RouteRuleModuleRegistration, 5> route_rule_module_manifest();
+std::array<RouteRuleModuleRegistration, 9> route_rule_module_manifest();
 
 } // namespace keen_pbr3

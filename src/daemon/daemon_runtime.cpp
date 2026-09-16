@@ -319,7 +319,7 @@ void Daemon::reconcile_static_routing(
 void Daemon::apply_firewall(FirewallApplyMode mode,
                             bool force_clear_dynamic_sets,
                             const std::vector<DumpedRoute>* main_routes) {
-    const FirewallGlobalPrefilter prefilter = build_firewall_global_prefilter(config_);
+    const FirewallPrefilter prefilter = build_firewall_prefilter(config_);
     const auto owned_main_routes = main_routes != nullptr
         ? *main_routes
         : netlink_.dump_routes_in_table(254);
