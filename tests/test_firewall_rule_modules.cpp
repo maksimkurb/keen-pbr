@@ -2,6 +2,7 @@
 
 #include "../src/firewall/firewall_rule_modules.hpp"
 #include "../src/firewall/firewall_runtime.hpp"
+#include "../src/firewall/firewall_snapshot.hpp"
 
 #include <algorithm>
 #include <map>
@@ -211,6 +212,160 @@ TEST_CASE("route balance module is included in the explicit manifest") {
 
   REQUIRE(plan.rules.size() == 1);
   CHECK(plan.rules.front().key.module_id == "route.balance");
+}
+
+TEST_CASE("DNS detour module emits family-specific TCP then UDP marks") {
+  const ModuleFixture fixture;
+  const std::vector<DnsDetourTarget> targets = {
+      {"upstream", "wan", "192.0.2.53", 5353, FirewallFamily::ipv4,
+       0x200U},
+      {"upstream", "wan", "2001:db8::53", 5353, FirewallFamily::ipv6,
+       0x200U}};
+  auto context = fixture.context();
+  context.dns_detour_targets = &targets;
+
+  FirewallPlan plan;
+  FirewallRuleRegistrar registrar(plan);
+  DnsDetourRuleModule{}.register_rules(context, registrar);
+  registrar.finish();
+
+  REQUIRE(plan.rules.size() == 4);
+  CHECK(plan.rules[0].family == FirewallFamily::ipv4);
+  CHECK(plan.rules[0].criteria.dst_addr ==
+        std::vector<std::string>{"192.0.2.53"});
+  CHECK(plan.rules[0].criteria.proto == L4Proto::Tcp);
+  CHECK(plan.rules[1].criteria.proto == L4Proto::Udp);
+  CHECK(plan.rules[2].family == FirewallFamily::ipv6);
+  CHECK(plan.rules[2].criteria.dst_addr ==
+        std::vector<std::string>{"2001:db8::53"});
+  CHECK(plan.rules[2].criteria.proto == L4Proto::Tcp);
+  CHECK(plan.rules[3].criteria.proto == L4Proto::Udp);
+  for (const auto& rule : plan.rules) {
+    CHECK(rule.hook == FirewallHook::output);
+    CHECK(rule.criteria.apply_output);
+    CHECK(rule.criteria.dst_port == PortSpec("5353"));
+    CHECK(std::holds_alternative<MarkAction>(rule.action));
+    CHECK(std::get<MarkAction>(rule.action) == MarkAction{0x200U, 0xFFFFFFFFU});
+  }
+}
+
+TEST_CASE("DNS detour module keeps duplicate endpoints and stable identities") {
+  const ModuleFixture fixture;
+  const auto build = [&](std::vector<DnsDetourTarget> targets) {
+    auto context = fixture.context();
+    context.dns_detour_targets = &targets;
+    FirewallPlan plan;
+    FirewallRuleRegistrar registrar(plan);
+    DnsDetourRuleModule{}.register_rules(context, registrar);
+    registrar.finish();
+    return plan;
+  };
+
+  const std::vector<DnsDetourTarget> ordered = {
+      {"upstream", "route_z", "2001:db8::53", 5353,
+       FirewallFamily::ipv6, 0x300U},
+      {"upstream", "route_a", "2001:0db8::53", 5353,
+       FirewallFamily::ipv6, 0x200U},
+      {"upstream", "route_a", "2001:0db8::53", 5353,
+       FirewallFamily::ipv6, 0x200U}};
+  auto reversed = ordered;
+  std::reverse(reversed.begin(), reversed.end());
+  const auto first = build(ordered);
+  const auto second = build(reversed);
+
+  REQUIRE(first.rules.size() == 6);
+  REQUIRE(second.rules.size() == first.rules.size());
+  CHECK(first.rules[0].criteria.dst_addr ==
+        std::vector<std::string>{"2001:db8::53"});
+  CHECK(first.rules[0].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(first.rules[0].action).value == 0x300U);
+  CHECK(first.rules[1].criteria.proto == L4Proto::Udp);
+  CHECK(first.rules[2].criteria.dst_addr ==
+        std::vector<std::string>{"2001:0db8::53"});
+  CHECK(first.rules[2].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(first.rules[2].action).value == 0x200U);
+  CHECK(first.rules[3].criteria.proto == L4Proto::Udp);
+  CHECK(first.rules[4].key != first.rules[2].key);
+
+  // The first configured endpoint owns precedence even when its tag/address
+  // sorts after the second one. Reversing config reverses that precedence.
+  CHECK(second.rules[0].criteria.dst_addr ==
+        std::vector<std::string>{"2001:0db8::53"});
+  CHECK(second.rules[0].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(second.rules[0].action).value == 0x200U);
+  CHECK(second.rules[1].criteria.proto == L4Proto::Udp);
+  CHECK(second.rules[4].criteria.dst_addr ==
+        std::vector<std::string>{"2001:db8::53"});
+  CHECK(std::get<MarkAction>(second.rules[4].action).value == 0x300U);
+  CHECK(first.rules[0].key == second.rules[4].key);
+  CHECK(first.rules[2].key == second.rules[0].key);
+
+  auto changed_target = ordered;
+  changed_target[1].fwmark = 0x300U;
+  const auto changed = build(changed_target);
+  REQUIRE(changed.rules.size() == first.rules.size());
+  CHECK(changed.rules[2].key == first.rules[2].key);
+  CHECK(changed.rules[2].action != first.rules[2].action);
+}
+
+TEST_CASE("DNS detour module emits no rules for absent or invalid endpoints") {
+  const ModuleFixture fixture;
+  const auto build = [&](const std::vector<DnsDetourTarget>* targets) {
+    auto context = fixture.context();
+    context.dns_detour_targets = targets;
+    FirewallPlan plan;
+    FirewallRuleRegistrar registrar(plan);
+    DnsDetourRuleModule{}.register_rules(context, registrar);
+    registrar.finish();
+    return plan;
+  };
+
+  const auto absent = build(nullptr);
+  CHECK(absent.rules.empty());
+  const std::vector<DnsDetourTarget> invalid = {
+      {"upstream", "wan", "", 0, FirewallFamily::any, 0}};
+  const auto invalid_plan = build(&invalid);
+  CHECK(invalid_plan.rules.empty());
+}
+
+TEST_CASE("health reports only the removed DNS physical instance as missing") {
+  const ModuleFixture fixture;
+  const std::vector<DnsDetourTarget> targets = {
+      {"upstream", "wan", "192.0.2.53", 5353, FirewallFamily::ipv4,
+       0x200U},
+      {"upstream", "wan", "192.0.2.54", 5353, FirewallFamily::ipv4,
+       0x200U}};
+  auto context = fixture.context();
+  context.dns_detour_targets = &targets;
+  FirewallPlan plan;
+  FirewallRuleRegistrar registrar(plan);
+  DnsDetourRuleModule{}.register_rules(context, registrar);
+  registrar.finish();
+
+  FirewallSnapshot snapshot;
+  snapshot.backend = FirewallBackend::nftables;
+  snapshot.available = true;
+  constexpr std::size_t removed = 1;
+  for (std::size_t index = 0; index < plan.rules.size(); ++index) {
+    if (index == removed) {
+      continue;
+    }
+    const auto& expected = plan.rules[index];
+    ObservedFirewallRule observed;
+    observed.key = expected.key;
+    observed.hook = expected.hook;
+    observed.family = expected.family;
+    observed.criteria = expected.criteria;
+    observed.action = expected.action;
+    snapshot.rules.push_back(std::move(observed));
+  }
+
+  const auto checks = verify_firewall_plan(plan, snapshot);
+  REQUIRE(checks.size() == plan.rules.size());
+  for (std::size_t index = 0; index < checks.size(); ++index) {
+    CHECK(checks[index].status ==
+          (index == removed ? CheckStatus::missing : CheckStatus::ok));
+  }
 }
 
 TEST_CASE("route module manifest keeps reordered config rules in priority order") {

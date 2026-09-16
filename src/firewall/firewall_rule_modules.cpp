@@ -272,6 +272,48 @@ void RouteBalanceRuleModule::register_rules(
       true);
 }
 
+void DnsDetourRuleModule::register_rules(
+    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
+  if (context.dns_detour_targets == nullptr) {
+    return;
+  }
+
+  std::map<std::string, std::size_t> occurrences;
+  int priority = static_cast<int>(context.route_rules.size());
+  for (const auto& target : *context.dns_detour_targets) {
+    if (target.address.empty() || target.port == 0 || target.fwmark == 0 ||
+        (target.family != FirewallFamily::ipv4 &&
+         target.family != FirewallFamily::ipv6) ||
+        (target.family == FirewallFamily::ipv6 && !context.ipv6_enabled)) {
+      continue;
+    }
+
+    const std::string endpoint_id =
+        "server=" + target.server_tag + ";route=" + target.route_tag +
+        ";address=" + target.address + ";port=" +
+        std::to_string(target.port) + ";family=" + family_name(target.family);
+    // DNS endpoint duplicates were historically emitted as duplicate physical
+    // rules. Keep that multiplicity while making each canonical key unique.
+    const std::size_t occurrence = occurrences[endpoint_id]++;
+    for (const auto proto : {L4Proto::Tcp, L4Proto::Udp}) {
+      FirewallRuleInstance rule;
+      rule.key = FirewallRuleKey::compact(
+          id(), endpoint_id + ";occurrence=" + std::to_string(occurrence) +
+                  ";proto=" + l4_proto_name(proto));
+      rule.stage = FirewallRuleStage::route_classification;
+      rule.priority = priority++;
+      rule.hook = FirewallHook::output;
+      rule.family = target.family;
+      rule.criteria.proto = proto;
+      rule.criteria.dst_port = std::to_string(target.port);
+      rule.criteria.dst_addr = {target.address};
+      rule.criteria.apply_output = true;
+      rule.action = MarkAction{target.fwmark, context.fwmark_mask};
+      registrar.register_rule(std::move(rule));
+    }
+  }
+}
+
 namespace {
 
 void register_mark_rules(const FirewallBuildContext& context,
@@ -296,9 +338,18 @@ void register_balance_rules(const FirewallBuildContext& context,
 
 } // namespace
 
-std::array<RouteRuleModuleRegistration, 4> route_rule_module_manifest() {
+namespace {
+
+void register_dns_detour_rules(const FirewallBuildContext& context,
+                               FirewallRuleRegistrar& registrar) {
+  DnsDetourRuleModule{}.register_rules(context, registrar);
+}
+
+} // namespace
+
+std::array<RouteRuleModuleRegistration, 5> route_rule_module_manifest() {
   return {register_mark_rules, register_drop_rules, register_pass_rules,
-          register_balance_rules};
+          register_balance_rules, register_dns_detour_rules};
 }
 
 } // namespace keen_pbr3

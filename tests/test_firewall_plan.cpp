@@ -4,6 +4,7 @@
 #include "../src/firewall/firewall_runtime.hpp"
 #include "../src/lists/list_entry_visitor.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <limits>
 #include <map>
@@ -196,17 +197,74 @@ TEST_CASE("build and replay order keeps routes before DNS detours") {
       0x00FF0000U};
   const auto plan = build_firewall_plan(inputs);
 
-  REQUIRE(plan.rules.size() == 2);
+  REQUIRE(plan.rules.size() == 3);
   CHECK(plan.rules[0].source_rule_index == 0);
   CHECK(plan.rules[1].source_rule_index ==
         std::numeric_limits<std::size_t>::max());
+  CHECK(plan.rules[2].source_rule_index ==
+        std::numeric_limits<std::size_t>::max());
   CHECK(plan.rules[0].stage == FirewallRuleStage::route_classification);
   CHECK(plan.rules[1].stage == FirewallRuleStage::route_classification);
+  CHECK(plan.rules[2].stage == FirewallRuleStage::route_classification);
   CHECK(plan.rules[0].priority < plan.rules[1].priority);
+  CHECK(plan.rules[1].priority < plan.rules[2].priority);
+  CHECK(plan.rules[1].criteria.proto == L4Proto::Tcp);
+  CHECK(plan.rules[2].criteria.proto == L4Proto::Udp);
 
   PlanFirewall firewall;
   replay_firewall_plan(plan, firewall);
-  CHECK(firewall.replayed == std::vector<std::string>{"route", "dns"});
+  CHECK(firewall.replayed == std::vector<std::string>{"route", "dns", "dns"});
+}
+
+TEST_CASE("DNS detour plan preserves configured order for equivalent IPv6 endpoints") {
+  Config config = parse_config(R"({
+    "daemon": {"ipv6_enabled": true},
+    "outbounds": [
+      {"type":"table","tag":"route_z","table":100},
+      {"type":"table","tag":"route_a","table":101}
+    ],
+    "dns": {"servers":[
+      {"tag":"upstream_z","address":"[2001:db8::53]:5353",
+       "detour":"route_z"},
+      {"tag":"upstream_a","address":"[2001:0db8::53]:5353",
+       "detour":"route_a"}
+    ]}
+  })");
+  const std::map<std::string, ListSetUsage> list_usage;
+  const OutboundMarkMap marks{
+      {internal_detour_mark_key("route_z"), 0x300U},
+      {internal_detour_mark_key("route_a"), 0x200U}};
+  const auto build = [&](const Config& candidate) {
+    const FirewallPlanBuildInputs inputs{
+        candidate, marks, list_usage, {}, {}, nullptr, true, 0xFFFFFFFFU};
+    return build_firewall_plan(inputs);
+  };
+
+  const auto first = build(config);
+  REQUIRE(first.rules.size() == 4);
+  CHECK(first.rules[0].criteria.dst_addr ==
+        std::vector<std::string>{"2001:db8::53"});
+  CHECK(first.rules[0].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(first.rules[0].action).value == 0x300U);
+  CHECK(first.rules[1].criteria.proto == L4Proto::Udp);
+  CHECK(first.rules[2].criteria.dst_addr ==
+        std::vector<std::string>{"2001:0db8::53"});
+  CHECK(first.rules[2].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(first.rules[2].action).value == 0x200U);
+  CHECK(first.rules[3].criteria.proto == L4Proto::Udp);
+
+  std::reverse(config.dns->servers->begin(), config.dns->servers->end());
+  const auto reversed = build(config);
+  REQUIRE(reversed.rules.size() == first.rules.size());
+  CHECK(reversed.rules[0].criteria.dst_addr ==
+        std::vector<std::string>{"2001:0db8::53"});
+  CHECK(reversed.rules[0].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(reversed.rules[0].action).value == 0x200U);
+  CHECK(reversed.rules[1].criteria.proto == L4Proto::Udp);
+  CHECK(reversed.rules[2].criteria.dst_addr ==
+        std::vector<std::string>{"2001:db8::53"});
+  CHECK(std::get<MarkAction>(reversed.rules[2].action).value == 0x300U);
+  CHECK(reversed.rules[3].criteria.proto == L4Proto::Udp);
 }
 
 TEST_CASE("build_firewall_plan preserves truthful rule families") {

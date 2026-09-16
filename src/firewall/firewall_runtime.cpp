@@ -81,6 +81,57 @@ const Outbound* find_outbound_by_tag(const std::vector<Outbound>& outbounds,
     return nullptr;
 }
 
+std::vector<DnsDetourTarget> build_dns_detour_targets(
+    const Config& config, const std::vector<Outbound>& outbounds,
+    const OutboundMarkMap& outbound_marks) {
+  std::vector<DnsDetourTarget> targets;
+  if (!config.dns.has_value()) {
+    return targets;
+  }
+
+  const auto& dns_servers =
+      config.dns->servers.value_or(std::vector<DnsServer>{});
+  const DnsServerRegistry dns_registry(config.dns.value_or(DnsConfig{}));
+  for (const auto& server : dns_servers) {
+    if (!server.detour.has_value()) {
+      continue;
+    }
+    const Outbound* detour_outbound =
+        find_outbound_by_tag(outbounds, server.detour.value());
+    if (detour_outbound == nullptr) {
+      continue;
+    }
+
+    std::string effective_tag = detour_outbound->tag;
+    if (detour_outbound->type != OutboundType::URLTEST &&
+        detour_outbound->type != OutboundType::ICMPTEST) {
+      effective_tag = internal_detour_mark_key(detour_outbound->tag);
+    }
+    const auto mark_it = outbound_marks.find(effective_tag);
+    if (mark_it == outbound_marks.end()) {
+      continue;
+    }
+
+    const auto resolved_servers = dns_registry.get_servers(server.tag);
+    if (resolved_servers.empty()) {
+      throw FirewallError("DNS server tag not found during detour setup: " +
+                          server.tag);
+    }
+    for (const DnsServerConfig* resolved_server : resolved_servers) {
+      targets.push_back({server.tag,
+                         detour_outbound->tag,
+                         resolved_server->resolved_ip,
+                         resolved_server->port,
+                         resolved_server->resolved_ip.find(':') ==
+                                 std::string::npos
+                             ? FirewallFamily::ipv4
+                             : FirewallFamily::ipv6,
+                         mark_it->second});
+    }
+  }
+  return targets;
+}
+
 bool contains_set_name(const RuleState& state, const std::string& name) {
     return std::find(state.set_names.begin(), state.set_names.end(), name) !=
            state.set_names.end();
@@ -154,35 +205,6 @@ namespace {
 constexpr std::size_t kNoFirewallRuleSource =
     std::numeric_limits<std::size_t>::max();
 
-FirewallFamily family_for_criteria(const FirewallRuleCriteria& criteria) {
-  if (criteria.default_gateway == DefaultGatewayFamily::Ipv6) {
-    return FirewallFamily::ipv6;
-  }
-  if (criteria.default_gateway == DefaultGatewayFamily::Ipv4) {
-    return FirewallFamily::ipv4;
-  }
-  bool has_ipv4 = false;
-  bool has_ipv6 = false;
-  const auto inspect_addresses = [&](const std::vector<std::string>& addresses) {
-    for (const auto& address : addresses) {
-      if (address.find(':') == std::string::npos) {
-        has_ipv4 = true;
-      } else {
-        has_ipv6 = true;
-      }
-    }
-  };
-  inspect_addresses(criteria.src_addr);
-  inspect_addresses(criteria.dst_addr);
-  if (has_ipv6 && !has_ipv4) {
-    return FirewallFamily::ipv6;
-  }
-  if (has_ipv4 && !has_ipv6) {
-    return FirewallFamily::ipv4;
-  }
-  return FirewallFamily::any;
-}
-
 } // namespace
 
 FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
@@ -207,91 +229,16 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
                                  ? *inputs.rule_states
                                  : local_rule_states;
   FirewallRuleRegistrar registrar(plan);
-
-  const auto add_rule = [&](std::size_t rule_index, FirewallRuleStage stage,
-                            int priority,
-                            const std::string& module,
-                            const std::string& instance,
-                            FirewallRuleCriteria criteria,
-                            FirewallRuleAction action,
-                            const std::optional<std::string>& set_name) {
-    criteria.dst_set_name = set_name;
-    FirewallRuleInstance rule;
-    rule.key = FirewallRuleKey::compact(module, instance);
-    rule.stage = stage;
-    rule.priority = priority;
-    rule.hook = criteria.apply_output ? FirewallHook::output
-                                      : FirewallHook::prerouting;
-    rule.family = set_name.has_value()
-                      ? (set_name->rfind("kpbr6", 0) == 0
-                             ? FirewallFamily::ipv6
-                             : FirewallFamily::ipv4)
-                      : family_for_criteria(criteria);
-    rule.criteria = std::move(criteria);
-    rule.action = std::move(action);
-    rule.source_rule_index = rule_index;
-    registrar.register_rule(std::move(rule));
-  };
-
+  const auto dns_detour_targets =
+      build_dns_detour_targets(inputs.config, all_outbounds,
+                               inputs.outbound_marks);
   const FirewallBuildContext context{
       route_rules, rule_states, all_outbounds, lists_map, inputs.list_usage,
       inputs.main_routes, inputs.interfaces, inputs.backend,
-      inputs.ipv6_enabled, inputs.fwmark_mask, inputs.balance_candidates};
+      inputs.ipv6_enabled, inputs.fwmark_mask, inputs.balance_candidates,
+      &dns_detour_targets};
   for (const auto register_module : route_rule_module_manifest()) {
     register_module(context, registrar);
-  }
-
-  if (inputs.config.dns.has_value()) {
-    const auto& dns_servers =
-        inputs.config.dns->servers.value_or(std::vector<DnsServer>{});
-    const DnsServerRegistry dns_registry(inputs.config.dns.value_or(DnsConfig{}));
-    const int dns_priority_start = static_cast<int>(route_rules.size());
-    for (std::size_t server_idx = 0; server_idx < dns_servers.size(); ++server_idx) {
-      const auto& server = dns_servers[server_idx];
-      if (!server.detour.has_value()) {
-        continue;
-      }
-      const Outbound* detour_outbound =
-          find_outbound_by_tag(all_outbounds, server.detour.value());
-      if (!detour_outbound) {
-        continue;
-      }
-      std::string effective_tag = detour_outbound->tag;
-      if (detour_outbound->type != OutboundType::URLTEST &&
-          detour_outbound->type != OutboundType::ICMPTEST) {
-        effective_tag = internal_detour_mark_key(detour_outbound->tag);
-      }
-      const auto mark_it = inputs.outbound_marks.find(effective_tag);
-      if (mark_it == inputs.outbound_marks.end()) {
-        continue;
-      }
-      const auto resolved_servers = dns_registry.get_servers(server.tag);
-      if (resolved_servers.empty()) {
-        throw FirewallError("DNS server tag not found during detour setup: " +
-                            server.tag);
-      }
-      for (std::size_t endpoint_idx = 0; endpoint_idx < resolved_servers.size();
-           ++endpoint_idx) {
-        const DnsServerConfig* resolved_server = resolved_servers[endpoint_idx];
-        FirewallRuleCriteria criteria;
-        criteria.proto = L4Proto::TcpUdp;
-        criteria.dst_port = std::to_string(resolved_server->port);
-        criteria.dst_addr = {resolved_server->resolved_ip};
-        criteria.apply_output = true;
-        const std::string instance =
-            "server=" + std::to_string(server_idx) +
-            ";endpoint=" + std::to_string(endpoint_idx) +
-            ";address=" + resolved_server->resolved_ip +
-            ";port=" + std::to_string(resolved_server->port);
-        // DNS detours are replayed after every route rule, so they share the
-        // route stage and use priorities after the route config range.
-        add_rule(kNoFirewallRuleSource, FirewallRuleStage::route_classification,
-                 dns_priority_start +
-                                             static_cast<int>(server_idx),
-                 "dns.detour", instance, std::move(criteria),
-                 MarkAction{mark_it->second, inputs.fwmark_mask}, std::nullopt);
-      }
-    }
   }
 
   registrar.finish();

@@ -648,14 +648,69 @@ TEST_CASE("runtime emits DNS detours as OUTPUT TCP/UDP rules") {
       config, {{internal_detour_mark_key("wan"), 0x200U}}, cache, firewall,
       FirewallApplyMode::PreserveSets);
 
-  REQUIRE(firewall.recorded_rules.size() == 1);
-  const auto &rule = firewall.recorded_rules.front();
-  CHECK(rule.action == RecordingFirewall::RuleAction::Mark);
-  CHECK(rule.fwmark == 0x200U);
-  CHECK(rule.criteria.proto == L4Proto::TcpUdp);
-  CHECK(rule.criteria.dst_port == PortSpec("5353"));
-  CHECK(rule.criteria.dst_addr == std::vector<std::string>{"192.0.2.53"});
-  CHECK(rule.criteria.apply_output);
+  CHECK(firewall.calls == std::vector<std::string>{"prepare", "rule", "rule",
+                                                    "apply"});
+  REQUIRE(firewall.recorded_rules.size() == 2);
+  for (const auto &rule : firewall.recorded_rules) {
+    CHECK(rule.action == RecordingFirewall::RuleAction::Mark);
+    CHECK(rule.fwmark == 0x200U);
+    CHECK(rule.criteria.dst_port == PortSpec("5353"));
+    CHECK(rule.criteria.dst_addr == std::vector<std::string>{"192.0.2.53"});
+    CHECK(rule.criteria.apply_output);
+  }
+  CHECK(firewall.recorded_rules[0].criteria.proto == L4Proto::Tcp);
+  CHECK(firewall.recorded_rules[1].criteria.proto == L4Proto::Udp);
+}
+
+TEST_CASE("runtime DNS detour precedence follows configured order") {
+  Config config = parse_config(R"({
+    "daemon": {"ipv6_enabled":false},
+    "outbounds": [
+      {"type":"table","tag":"route_z","table":100},
+      {"type":"table","tag":"route_a","table":101}
+    ],
+    "dns": {"servers":[
+      {"tag":"upstream_z","address":"192.0.2.54:5353",
+       "detour":"route_z"},
+      {"tag":"upstream_a","address":"192.0.2.53:5353",
+       "detour":"route_a"}
+    ]}
+  })");
+  const OutboundMarkMap marks{
+      {internal_detour_mark_key("route_z"), 0x300U},
+      {internal_detour_mark_key("route_a"), 0x200U}};
+  const auto apply = [&](const Config& candidate) {
+    RecordingFirewall firewall;
+    CacheManager cache("/tmp/keen-pbr-firewall-runtime-dns-order-test-cache");
+    (void)apply_runtime_firewall(candidate, marks, cache, firewall,
+                                 FirewallApplyMode::PreserveSets);
+    return firewall.recorded_rules;
+  };
+
+  const auto first = apply(config);
+  REQUIRE(first.size() == 4);
+  CHECK(first[0].criteria.dst_addr == std::vector<std::string>{"192.0.2.54"});
+  CHECK(first[0].criteria.proto == L4Proto::Tcp);
+  CHECK(first[0].fwmark == 0x300U);
+  CHECK(first[1].criteria.proto == L4Proto::Udp);
+  CHECK(first[2].criteria.dst_addr == std::vector<std::string>{"192.0.2.53"});
+  CHECK(first[2].criteria.proto == L4Proto::Tcp);
+  CHECK(first[2].fwmark == 0x200U);
+  CHECK(first[3].criteria.proto == L4Proto::Udp);
+
+  std::reverse(config.dns->servers->begin(), config.dns->servers->end());
+  const auto reversed = apply(config);
+  REQUIRE(reversed.size() == first.size());
+  CHECK(reversed[0].criteria.dst_addr ==
+        std::vector<std::string>{"192.0.2.53"});
+  CHECK(reversed[0].criteria.proto == L4Proto::Tcp);
+  CHECK(reversed[0].fwmark == 0x200U);
+  CHECK(reversed[1].criteria.proto == L4Proto::Udp);
+  CHECK(reversed[2].criteria.dst_addr ==
+        std::vector<std::string>{"192.0.2.54"});
+  CHECK(reversed[2].criteria.proto == L4Proto::Tcp);
+  CHECK(reversed[2].fwmark == 0x300U);
+  CHECK(reversed[3].criteria.proto == L4Proto::Udp);
 }
 
 TEST_CASE("runtime leaves inactive and empty route cases without rules") {

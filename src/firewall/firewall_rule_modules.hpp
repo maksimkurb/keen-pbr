@@ -16,6 +16,17 @@
 
 namespace keen_pbr3 {
 
+// DNS detour endpoints are resolved and paired with their target mark before
+// modules run.  The module only materializes ordinary mark rules.
+struct DnsDetourTarget {
+  std::string server_tag;
+  std::string route_tag;
+  std::string address;
+  uint16_t port{0};
+  FirewallFamily family{FirewallFamily::any};
+  uint32_t fwmark{0};
+};
+
 // Immutable inputs shared by route rule modules.  It deliberately contains
 // data views only; backend mutation remains in the compatibility adapter.
 struct FirewallBuildContext {
@@ -30,6 +41,7 @@ struct FirewallBuildContext {
   bool ipv6_enabled{true};
   uint32_t fwmark_mask{0xFFFFFFFFu};
   const FirewallBalanceCandidates* balance_candidates{nullptr};
+  const std::vector<DnsDetourTarget>* dns_detour_targets{nullptr};
 };
 
 // One physical route selector target before an action is attached.
@@ -74,12 +86,19 @@ public:
                       FirewallRuleRegistrar& registrar) const;
 };
 
+class DnsDetourRuleModule final {
+public:
+  std::string_view id() const noexcept { return "dns.detour"; }
+  void register_rules(const FirewallBuildContext& context,
+                      FirewallRuleRegistrar& registrar) const;
+};
+
 // Explicit order is part of the plan contract. Adding another route action
 // means adding its registration function to this manifest, not a branch in
 // the runtime apply loop.
 using RouteRuleModuleRegistration =
     void (*)(const FirewallBuildContext&, FirewallRuleRegistrar&);
 
-std::array<RouteRuleModuleRegistration, 4> route_rule_module_manifest();
+std::array<RouteRuleModuleRegistration, 5> route_rule_module_manifest();
 
 } // namespace keen_pbr3
