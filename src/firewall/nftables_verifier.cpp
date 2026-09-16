@@ -194,7 +194,12 @@ std::optional<MarkAction> parse_nft_mangle_action(
     if (!value.has_value()) return std::nullopt;
     const auto mask = parse_nft_mark_mask(mangle["value"], key);
     if (require_mask && !mask.has_value()) return std::nullopt;
-    return MarkAction{*value, mask.value_or(0xFFFFFFFFu)};
+    // nftables may normalize an expression such as
+    // `mark & ~mask | value` by clearing only the bits that differ in
+    // `value`. Recover the configured ownership mask from the normalized
+    // preservation mask and the value being assigned.
+    const auto effective_mask = mask.has_value() ? (*mask | *value) : 0xFFFFFFFFu;
+    return MarkAction{*value, effective_mask};
 }
 
 struct ParsedNftSetterActions {
@@ -689,7 +694,12 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                         const std::string protocol = payload->value("protocol", "");
                         const std::string field = payload->value("field", "");
 
-                        if (protocol == "ip6") nr.ipv6 = true;
+                        if (protocol == "ip6") {
+                            nr.ipv6 = true;
+                            nr.family_known = true;
+                        } else if (protocol == "ip") {
+                            nr.family_known = true;
+                        }
 
                         if (field == "dscp" && match.contains("right")) {
                             const auto value = parse_nft_dscp_value(match["right"]);
@@ -741,6 +751,30 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                                match.contains("right") && match["right"].is_string()) {
                         nr.criteria.proto =
                             parse_l4proto(match["right"].get<std::string>()).value_or(L4Proto::Any);
+                    } else if (left.contains("meta") && left["meta"].is_object() &&
+                               left["meta"].value("key", "") == "nfproto" &&
+                               match.contains("right")) {
+                        // nft emits NFPROTO_IPV4=2 and NFPROTO_IPV6=10 for
+                        // explicit meta nfproto classifiers.  Do not treat
+                        // those as family-neutral transport rules: otherwise
+                        // two retained IPv6 rules could satisfy both expected
+                        // IPv4 and IPv6 physical rules.
+                        const auto family = parse_nft_u32(match["right"]);
+                        const bool is_ipv4 =
+                            (family.has_value() && *family == 2U) ||
+                            (match["right"].is_string() &&
+                             match["right"].get<std::string>() == "ipv4");
+                        const bool is_ipv6 =
+                            (family.has_value() && *family == 10U) ||
+                            (match["right"].is_string() &&
+                             match["right"].get<std::string>() == "ipv6");
+                        if (is_ipv4) {
+                            nr.family_known = true;
+                            nr.ipv6 = false;
+                        } else if (is_ipv6) {
+                            nr.family_known = true;
+                            nr.ipv6 = true;
+                        }
                     }
 
                     // Balance classifiers must only run when the owned mark
@@ -825,7 +859,7 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
         }
 
         if ((!nr.is_mark && !nr.is_drop && !nr.is_pass && !nr.is_balance) ||
-            (nr.set_name.empty() && nr.criteria.empty())) {
+            (nr.set_name.empty() && nr.criteria.empty() && !nr.is_balance)) {
             continue;
         }
 

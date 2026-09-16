@@ -422,7 +422,8 @@ std::vector<RuleState> apply_runtime_firewall(
     bool force_clear_dynamic_sets,
     const std::vector<DumpedRoute>& main_routes,
     const std::vector<DumpedInterface>& interfaces,
-    const FirewallBalanceCandidates* balance_candidates) {
+    const FirewallBalanceCandidates* balance_candidates,
+    FirewallPlan* applied_plan) {
   try {
     std::unique_ptr<ListStreamer> list_streamer;
     if (mode != FirewallApplyMode::RulesOnly) {
@@ -620,6 +621,9 @@ std::vector<RuleState> apply_runtime_firewall(
     }
 
     firewall.apply(mode);
+    if (applied_plan != nullptr) {
+      *applied_plan = std::move(plan);
+    }
     return rule_states;
   } catch (const FirewallRulesOnlyError& error) {
     if (mode != FirewallApplyMode::RulesOnly) {
@@ -634,7 +638,8 @@ std::vector<RuleState> apply_runtime_firewall(
                                   /*force_clear_dynamic_sets=*/false,
                                   main_routes,
                                   interfaces,
-                                  balance_candidates);
+                                  balance_candidates,
+                                  applied_plan);
   }
 }
 

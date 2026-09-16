@@ -100,6 +100,7 @@ private:
         uint32_t fwmark; // only for Mark
         uint32_t fwmark_mask{0xFFFFFFFFu}; // only for Mark
         bool save_conntrack_mark{false};
+        bool family_guard{false}; // balance fallback/one-candidate expansion
         std::vector<uint32_t> balance_marks; // only for Balance
         FirewallRuleCriteria criteria; // optional packet match criteria
         // Logical ownership key: every physical family/protocol expansion of one

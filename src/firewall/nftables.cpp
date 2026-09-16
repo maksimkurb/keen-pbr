@@ -8,6 +8,7 @@
 
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <cctype>
 #include <iomanip>
 #include <optional>
 #include <sstream>
@@ -22,8 +23,35 @@ bool is_ipv6_addr(const std::string& addr) {
     return addr.find(':') != std::string::npos;
 }
 
+bool cleanup_command_reports_absence(const ExecCaptureResult& result) {
+    if (result.exit_code == 0 && !result.truncated && !result.timed_out) {
+        return true;
+    }
+    if (result.truncated || result.timed_out) {
+        return false;
+    }
+    std::string output = result.stdout_output;
+    std::transform(output.begin(), output.end(), output.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return output.find("no such") != std::string::npos ||
+           output.find("does not exist") != std::string::npos ||
+           output.find("cannot be found") != std::string::npos;
+}
+
+ExecCaptureResult run_cleanup_command(const std::vector<std::string>& args) {
+    const auto result = safe_exec_capture(args, /*suppress_stderr=*/false,
+                                          /*max_bytes=*/0,
+                                          /*merge_stderr=*/true);
+    if (!cleanup_command_reports_absence(result)) {
+        throw FirewallError(keen_pbr3::format(
+            "firewall cleanup command failed: {} (status {})",
+            safe_exec_command_string(args), result.exit_code));
+    }
+    return result;
+}
+
 std::vector<std::string> filter_addrs_by_family(const std::vector<std::string>& addrs,
-                                                bool ipv6) {
+                                                 bool ipv6) {
     std::vector<std::string> filtered;
     for (const auto& addr : addrs) {
         if (is_ipv6_addr(addr) == ipv6) {
@@ -48,6 +76,12 @@ bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
         || !criteria.src_port.empty()
         || !criteria.dst_port.empty()
         || criteria.default_gateway != DefaultGatewayFamily::None;
+}
+
+nlohmann::json family_match_expr(int family) {
+    return {{"match", {{"op", "=="},
+                        {"left", {{"meta", {{"key", "nfproto"}}}}},
+                        {"right", family == AF_INET6 ? "ipv6" : "ipv4"}}}};
 }
 
 void add_rule_comment(nlohmann::json& command, const FirewallRuleKey& key) {
@@ -166,13 +200,21 @@ void NftablesFirewall::append_balance_rules_for_family(
         }
     }
     if (marks.empty()) {
+        const auto before = pending_rules_.size();
         append_rules_for_family(family, PendingRule::Mark, fallback_fwmark,
                                 criteria, key);
+        for (std::size_t index = before; index < pending_rules_.size(); ++index) {
+            pending_rules_[index].family_guard = true;
+        }
         return;
     }
     if (marks.size() == 1) {
+        const auto before = pending_rules_.size();
         append_rules_for_family(family, PendingRule::Mark, marks.front(), criteria,
                                 key);
+        for (std::size_t index = before; index < pending_rules_.size(); ++index) {
+            pending_rules_[index].family_guard = true;
+        }
         return;
     }
 
@@ -181,6 +223,7 @@ void NftablesFirewall::append_balance_rules_for_family(
     pr.action = PendingRule::Balance;
     pr.fwmark = fallback_fwmark;
     pr.fwmark_mask = fwmark_mask();
+    pr.family_guard = true;
     pr.balance_marks = std::move(marks);
     pr.key = key;
     pr.criteria = criteria;
@@ -687,6 +730,9 @@ nlohmann::json NftablesFirewall::build_dscp_match_exprs(const std::string& ip_pr
 nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
     std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
     nlohmann::json expr = nlohmann::json::array();
+    if (pr.family_guard) {
+        expr.push_back(family_match_expr(pr.family));
+    }
     if (pr.criteria.dst_set_name.has_value()) {
         // set-membership match
         expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
@@ -740,6 +786,10 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
 nlohmann::json NftablesFirewall::build_balance_rule_json(const PendingRule& pr) {
     const std::string ip_proto = pr.family == AF_INET6 ? "ip6" : "ip";
     nlohmann::json expr = nlohmann::json::array();
+    // Balance candidates are filtered independently for each physical family.
+    // Keep the two classifiers disjoint even when their packet criteria are
+    // otherwise family-neutral (for example, a port-only rule).
+    expr.push_back(family_match_expr(pr.family));
     if (pr.criteria.dst_set_name.has_value()) {
         expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
     }
@@ -853,8 +903,9 @@ nlohmann::json NftablesFirewall::build_elements_json(const std::string& set_name
 // --- apply / cleanup ---
 
 bool NftablesFirewall::table_exists() const {
-    return safe_exec({"nft", "list", "table", "inet", std::string(TABLE_NAME)},
-                     /*suppress_output=*/true) == 0;
+    return run_cleanup_command({"nft", "list", "table", "inet",
+                                std::string(TABLE_NAME)})
+               .exit_code == 0;
 }
 
 NftablesFirewall::LiveTableState NftablesFirewall::read_live_table_state() const {
@@ -1118,7 +1169,8 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
 void NftablesFirewall::cleanup_live_impl() {
     if (table_created_ || table_exists()) {
         Logger::instance().verbose("nft delete table inet {}", TABLE_NAME);
-        safe_exec({"nft", "delete", "table", "inet", std::string(TABLE_NAME)}, /*suppress_output=*/true);
+        run_cleanup_command({"nft", "delete", "table", "inet",
+                             std::string(TABLE_NAME)});
         table_created_ = false;
     }
 }

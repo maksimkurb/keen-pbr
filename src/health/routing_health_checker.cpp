@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <utility>
 
 namespace keen_pbr3 {
 
@@ -35,6 +36,29 @@ bool route_matches(const RouteSpec& expected, const DumpedRoute& actual) {
            (expected.family == 0 || expected.family == actual.family);
 }
 
+FirewallChainCheck firewall_chain_from_snapshot(const FirewallSnapshot& snapshot) {
+    FirewallChainCheck result;
+    for (const auto& chain : snapshot.chains) {
+        result.chain_present = true;
+        if (chain.hook == FirewallHook::prerouting && chain.hook_present) {
+            result.prerouting_hook_present = true;
+        }
+    }
+
+    if (!snapshot.error.empty()) {
+        result.detail = snapshot.error;
+    } else if (!snapshot.available) {
+        result.detail = "firewall snapshot unavailable";
+    } else if (!result.chain_present) {
+        result.detail = "KeenPbrTable chain not found in firewall snapshot";
+    } else if (!result.prerouting_hook_present) {
+        result.detail = "KeenPbrTable chain exists but PREROUTING hook not found";
+    } else {
+        result.detail = "ok";
+    }
+    return result;
+}
+
 } // anonymous namespace
 
 RoutingHealthChecker::RoutingHealthChecker(const Firewall& firewall,
@@ -54,23 +78,43 @@ RoutingHealthReport build_routing_health_report(
     const FirewallState& firewall_state,
     const std::vector<RouteSpec>& tracked_routes,
     const std::vector<RuleSpec>& tracked_policy_rules,
-    NetlinkManager& netlink) {
+    NetlinkManager& netlink,
+    CommandRunner runner,
+    FirewallHealthSource firewall_source) {
     RoutingHealthReport report;
     report.firewall_backend = firewall_backend;
 
     try {
-        // 1. Create firewall verifier
-        auto verifier = create_firewall_verifier(firewall_backend, raw_prerouting);
-        verifier->set_expected_fwmark_mask(firewall_state.get_fwmark_mask());
+        if (firewall_source == FirewallHealthSource::ActivePlan) {
+            const auto& active_plan = firewall_state.get_active_plan();
+            if (!active_plan.has_value()) {
+                report.firewall_chain.detail =
+                    "active firewall plan unavailable; routing runtime is not ready";
+                return report;
+            }
 
-        // 2. Verify firewall chain
-        report.firewall_chain = verifier->verify_chain();
+            // Inspect once, then compare the neutral snapshot with the active
+            // plan.  RuleState is only a compatibility/API projection.
+            auto inspector = create_firewall_snapshot_inspector(
+                firewall_backend, raw_prerouting, std::move(runner));
+            const auto snapshot = inspector->inspect();
+            report.firewall_chain = firewall_chain_from_snapshot(snapshot);
+            report.firewall_rules = verify_firewall_plan(
+                *active_plan, snapshot, active_plan->fwmark_mask);
+        } else {
+            // A standalone status invocation receives only the historical
+            // RuleState projection from the control socket.  It has no live
+            // balance candidates with which to reconstruct an active plan,
+            // so preserve the old semantic verifier for this compatibility
+            // path only.
+            auto verifier = create_firewall_verifier(
+                firewall_backend, raw_prerouting, std::move(runner));
+            verifier->set_expected_fwmark_mask(firewall_state.get_fwmark_mask());
+            report.firewall_chain = verifier->verify_chain();
+            report.firewall_rules = verifier->verify_rules(firewall_state.get_rules());
+        }
 
-        // 3. Verify firewall rules
-        const auto& expected_rules = firewall_state.get_rules();
-        report.firewall_rules = verifier->verify_rules(expected_rules);
-
-        // 4. Create routing verifier
+        // 2. Create routing verifier
         RoutingVerifier rv(netlink);
 
         // Build a helper map: table_id -> outbound_tag
@@ -88,7 +132,7 @@ RoutingHealthReport build_routing_health_report(
             }
         }
 
-        // 5. Verify route tables and detect unexpected live routes.
+        // 3. Verify route tables and detect unexpected live routes.
         std::map<uint32_t, std::vector<RouteSpec>> expected_routes_by_table;
         for (const auto& spec : tracked_routes) {
             std::string outbound_tag;
@@ -135,7 +179,7 @@ RoutingHealthReport build_routing_health_report(
             }
         }
 
-        // 6. Verify policy rules
+        // 4. Verify policy rules
         for (const auto& spec : tracked_policy_rules) {
             std::string outbound_tag;
             for (const auto& [tag, mark] : marks) {
@@ -147,7 +191,7 @@ RoutingHealthReport build_routing_health_report(
             report.policy_rules.push_back(rv.verify_policy_rule(spec, outbound_tag));
         }
 
-        // 7. Determine overall_ok
+        // 5. Determine overall_ok
         bool all_ok = true;
 
         if (!report.firewall_chain.chain_present ||

@@ -2,11 +2,17 @@
 
 #include "../src/config/config.hpp"
 #include "../src/config/routing_state.hpp"
+#include "../src/firewall/firewall_snapshot.hpp"
 #include "../src/firewall/nft_batch_pipe.hpp"
 #include "../src/firewall/nftables.hpp"
 
 #include <nlohmann/json.hpp>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <array>
 #include <algorithm>
@@ -26,6 +32,27 @@ L4Proto parse_test_proto(const std::string& proto) {
   if (proto == "udp") return L4Proto::Udp;
   if (proto == "tcp/udp") return L4Proto::TcpUdp;
   throw std::invalid_argument("unexpected proto in test: " + proto);
+}
+
+class PathGuard {
+public:
+  PathGuard() : previous_(std::getenv("PATH") ? std::getenv("PATH") : "") {}
+  ~PathGuard() { (void)setenv("PATH", previous_.c_str(), 1); }
+
+  PathGuard(const PathGuard&) = delete;
+  PathGuard& operator=(const PathGuard&) = delete;
+
+private:
+  std::string previous_;
+};
+
+void write_executable(const std::filesystem::path& path,
+                      const std::string& contents) {
+  std::ofstream output(path);
+  REQUIRE(output.good());
+  output << contents;
+  output.close();
+  REQUIRE(chmod(path.c_str(), 0755) == 0);
 }
 
 } // namespace
@@ -80,6 +107,22 @@ public:
     firewall.create_balance_rule(
         0x00010000U,
         {{0x00020000U, true, false}, {0x00030000U, true, false}}, criteria);
+    NftablesFirewall::LiveTableState live;
+    return firewall.build_apply_document(live, true);
+  }
+
+  static nlohmann::json build_split_balance_document() {
+    NftablesFirewall firewall;
+    firewall.set_fwmark_mask(0x00ff0000U);
+    FirewallRuleCriteria criteria;
+    criteria.proto = L4Proto::Tcp;
+    criteria.dst_port = "443";
+    const std::vector<FirewallBalanceCandidate> candidates = {
+        {0x00010000U, true, false}, {0x00020000U, true, false},
+        {0x00030000U, false, true}, {0x00040000U, false, true}};
+    firewall.create_balance_rule(
+        FirewallRuleKey{"route.balance", "split"}, 0x00050000U,
+        candidates, criteria);
     NftablesFirewall::LiveTableState live;
     return firewall.build_apply_document(live, true);
   }
@@ -359,9 +402,70 @@ static FirewallGlobalPrefilter prefilter_with_interfaces(
   return prefilter;
 }
 
+static nlohmann::json list_document_from_add_document(
+    const nlohmann::json& add_document) {
+  nlohmann::json listed;
+  listed["nftables"] = nlohmann::json::array();
+  for (const auto& command : add_document.at("nftables")) {
+    if (!command.is_object() || !command.contains("add") ||
+        !command["add"].is_object()) {
+      continue;
+    }
+    for (const auto* kind : {"table", "chain", "set", "rule"}) {
+      if (command["add"].contains(kind)) {
+        listed["nftables"].push_back({{kind, command["add"][kind]}});
+      }
+    }
+  }
+  return listed;
+}
+
+static FirewallPlan split_balance_plan() {
+  FirewallPlan plan;
+  plan.fwmark_mask = 0x00ff0000U;
+  FirewallRuleInstance rule;
+  rule.key = FirewallRuleKey{"route.balance", "split"};
+  rule.family = FirewallFamily::any;
+  rule.criteria.proto = L4Proto::Tcp;
+  rule.criteria.dst_port = "443";
+  rule.action = BalanceAction{
+      0x00050000U,
+      {{0x00010000U, true, false}, {0x00020000U, true, false},
+       {0x00030000U, false, true}, {0x00040000U, false, true}}};
+  FirewallRuleRegistrar registrar(plan);
+  registrar.register_rule(std::move(rule));
+  registrar.finish();
+  return plan;
+}
+
 // =============================================================================
 // build_set_json tests
 // =============================================================================
+
+TEST_CASE("NftablesFirewall cleanup propagates delete failure") {
+  const auto directory = std::filesystem::temp_directory_path() /
+                         ("keen-pbr-nft-cleanup-" +
+                          std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(directory);
+  std::filesystem::create_directories(directory);
+  write_executable(directory / "nft",
+                   "#!/bin/sh\n"
+                   "case \"$*\" in\n"
+                   "  *'list table'*) exit 0 ;;\n"
+                   "  *) echo 'permission denied' >&2; exit 7 ;;\n"
+                   "esac\n");
+
+  {
+    PathGuard path_guard;
+    const auto old_path = std::getenv("PATH");
+    const std::string path = directory.string() + ":" +
+                             (old_path == nullptr ? std::string{} : old_path);
+    REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+    NftablesFirewall firewall;
+    CHECK_THROWS_AS(firewall.cleanup(), FirewallError);
+  }
+  std::filesystem::remove_all(directory);
+}
 
 TEST_CASE("build_set_json: IPv4 without timeout") {
   auto j = T::build_set_json("myset", "ipv4_addr", 0);
@@ -600,6 +704,39 @@ TEST_CASE("nft balance classifier uses numgen vmap and mask-preserving setters")
   }
   CHECK(prerouting_rule);
   CHECK(output_rule);
+}
+
+TEST_CASE("nft split balance classifiers are family guarded and verify independently") {
+  const auto document = T::build_split_balance_document();
+  std::vector<nlohmann::json> emitted;
+  for (const auto& command : document["nftables"]) {
+    if (!command.contains("add") || !command["add"].contains("rule")) {
+      continue;
+    }
+    const auto& rule = command["add"]["rule"];
+    if (rule.value("comment", "") == "kpbr:v1:route.balance:split") {
+      emitted.push_back(rule);
+    }
+  }
+
+  REQUIRE(emitted.size() == 2);
+  CHECK(emitted[0]["expr"][0]["match"]["left"]["meta"]["key"] ==
+        "nfproto");
+  CHECK(emitted[0]["expr"][0]["match"]["right"] == "ipv4");
+  CHECK(emitted[1]["expr"][0]["match"]["left"]["meta"]["key"] ==
+        "nfproto");
+  CHECK(emitted[1]["expr"][0]["match"]["right"] == "ipv6");
+
+  const auto listed = list_document_from_add_document(document);
+  const auto snapshot = inspect_nftables_snapshot(CommandRunner(
+      [&](const std::vector<std::string>&) {
+        return CommandResult{listed.dump(), 0, false};
+      }));
+  REQUIRE(snapshot.available);
+  REQUIRE(snapshot.rules.size() == 2);
+  const auto checks = verify_firewall_plan(split_balance_plan(), snapshot);
+  REQUIRE(checks.size() == 1);
+  CHECK(checks.front().status == CheckStatus::ok);
 }
 
 TEST_CASE("nft balance restores an inactive owned child without selecting it anew") {

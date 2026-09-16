@@ -506,6 +506,29 @@ TEST_CASE("live-state cleanup sweeps RAW and mangle layouts per family") {
   CHECK(log.find("ip6tables -t mangle -F KeenPbrTable") != std::string::npos);
 }
 
+TEST_CASE("IptablesFirewall cleanup propagates command failure") {
+  const auto directory = std::filesystem::temp_directory_path() /
+                         ("keen-pbr-iptables-cleanup-" +
+                          std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(directory);
+  std::filesystem::create_directories(directory);
+  write_executable(directory / "iptables",
+                   "#!/bin/sh\n"
+                   "echo 'permission denied' >&2\n"
+                   "exit 7\n");
+
+  {
+    PathGuard path_guard;
+    const auto old_path = std::getenv("PATH");
+    const std::string path = directory.string() + ":" +
+                             (old_path == nullptr ? std::string{} : old_path);
+    REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+    IptablesFirewall firewall;
+    CHECK_THROWS_AS(firewall.cleanup(), FirewallError);
+  }
+  std::filesystem::remove_all(directory);
+}
+
 TEST_CASE("IPv6 RAW RulesOnly references select one static-set generation") {
   const auto rules =
       "-A KeenPbrRaw -j KeenPbrRaw_A\n"

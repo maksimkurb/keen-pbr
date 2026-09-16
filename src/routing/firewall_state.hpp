@@ -1,9 +1,11 @@
 #pragma once
 
 #include "../config/config.hpp"
+#include "../firewall/firewall_plan.hpp"
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -28,15 +30,27 @@ struct RuleState {
     FirewallRuleCriteria criteria;      // Realized selector criteria for live rules
 };
 
-// In-memory state of the firewall configuration.
-// Source of truth for API queries. URLTEST selections affect routing state,
-// while the firewall rules retain the URLTEST outbound's stable mark.
+// In-memory firewall runtime state. The active plan is canonical; rules_ is
+// its compatibility/API projection. URLTEST selections affect routing state,
+// while firewall rules retain the URLTEST outbound's stable mark.
 class FirewallState {
 public:
     FirewallState() = default;
 
-    // Replace the current rule state
+    // Replace compatibility state without claiming a successfully applied
+    // canonical plan.
     void set_rules(std::vector<RuleState> rules);
+
+    // Publish the successfully applied canonical plan and its compatibility
+    // projection as one runtime-state update.
+    void set_active_plan(FirewallPlan plan, std::vector<RuleState> rules);
+
+    // The last plan whose backend apply completed successfully.
+    const std::optional<FirewallPlan>& get_active_plan() const;
+
+    // Remove the active plan and its compatibility projection after the
+    // corresponding kernel firewall cleanup has completed successfully.
+    void clear_active_plan();
 
     // Update the urltest selection for a given urltest tag
     void set_urltest_selection(const std::string& urltest_tag,
@@ -68,6 +82,7 @@ public:
 private:
     OutboundMarkMap outbound_marks_;
     uint32_t fwmark_mask_{0xFFFFFFFFu};
+    std::optional<FirewallPlan> active_plan_;
     std::vector<RuleState> rules_;
     std::map<std::string, std::string> urltest_selections_;
 };

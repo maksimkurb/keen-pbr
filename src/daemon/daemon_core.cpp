@@ -1495,6 +1495,7 @@ void Daemon::run() {
   policy_rules_.clear();
   route_table_.clear();
   firewall_->cleanup();
+  firewall_state_.clear_active_plan();
   remove_pid_file();
 }
 

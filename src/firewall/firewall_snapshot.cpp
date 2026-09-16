@@ -193,10 +193,22 @@ bool action_equal(const FirewallRuleAction& left, const FirewallRuleAction& righ
     }
     if (const auto* left_balance = std::get_if<BalanceAction>(&left)) {
         const auto* right_balance = std::get_if<BalanceAction>(&right);
-        return right_balance != nullptr &&
-               (right_balance->fallback_mark == 0 ||
-                left_balance->fallback_mark == right_balance->fallback_mark) &&
-               left_balance->candidates == right_balance->candidates;
+        if (right_balance == nullptr ||
+            (right_balance->fallback_mark != 0 &&
+             left_balance->fallback_mark != right_balance->fallback_mark) ||
+            left_balance->candidates.size() != right_balance->candidates.size()) {
+            return false;
+        }
+        // Family eligibility is applied while expanding a plan into a
+        // physical classifier.  nft JSON does not retain that metadata on
+        // the balance vmap, so compare the observable mark mapping only.
+        return std::equal(
+            left_balance->candidates.begin(), left_balance->candidates.end(),
+            right_balance->candidates.begin(),
+            [](const FirewallBalanceCandidate& lhs,
+               const FirewallBalanceCandidate& rhs) {
+                return lhs.fwmark == rhs.fwmark;
+            });
     }
     const auto* right_verdict = std::get_if<VerdictAction>(&right);
     return right_verdict != nullptr &&
@@ -218,7 +230,12 @@ bool rule_equal(const ObservedFirewallRule& observed,
                 const FirewallRuleCriteria& criteria,
                 const FirewallRuleAction& action,
                 uint32_t fwmark_mask) {
-    if (observed.hook != expected.hook || observed.family != family) return false;
+    const bool family_matches = observed.family == family ||
+        (observed.family == FirewallFamily::any &&
+         !std::holds_alternative<BalanceAction>(expected.action));
+    if (observed.hook != expected.hook || !family_matches) {
+        return false;
+    }
     return criteria_equal(observed.criteria, criteria) &&
            action_equal(observed, action, fwmark_mask);
 }
@@ -227,7 +244,11 @@ bool same_shape(const ObservedFirewallRule& observed,
                 const FirewallRuleInstance& expected,
                 FirewallFamily family,
                 const FirewallRuleCriteria& criteria) {
-    return observed.hook == expected.hook && observed.family == family &&
+    const bool family_matches = observed.family == family ||
+        (observed.family == FirewallFamily::any &&
+         !std::holds_alternative<BalanceAction>(expected.action));
+    return observed.hook == expected.hook &&
+           family_matches &&
            criteria_equal(observed.criteria, criteria);
 }
 
@@ -272,6 +293,7 @@ FirewallRuleAction action_for_family(const FirewallRuleAction& action,
 bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
     return criteria.dst_set_name.has_value() || criteria.dscp.has_value() ||
            !criteria.src_addr.empty() || !criteria.dst_addr.empty() ||
+           !criteria.src_port.empty() || !criteria.dst_port.empty() ||
            criteria.default_gateway != DefaultGatewayFamily::None;
 }
 
@@ -308,6 +330,12 @@ std::vector<FirewallFamily> expand_families(const FirewallRuleInstance& rule,
     }
     if (rule.criteria.default_gateway == DefaultGatewayFamily::Ipv4) {
         return {FirewallFamily::ipv4};
+    }
+    if (backend == FirewallBackend::nftables &&
+        std::holds_alternative<BalanceAction>(rule.action)) {
+        // Unlike ordinary family-neutral rules, nft balance classifiers are
+        // emitted for both families so each family can filter its candidates.
+        return {FirewallFamily::ipv4, FirewallFamily::ipv6};
     }
     if (backend == FirewallBackend::nftables &&
         !needs_family_specific_rule(rule.criteria)) {
@@ -422,7 +450,14 @@ std::string balance_mismatch_detail(const ObservedFirewallRule& observed,
     }
     if ((actual_action->fallback_mark != 0 &&
          actual_action->fallback_mark != expected.fallback_mark) ||
-        actual_action->candidates != expected.candidates) {
+        actual_action->candidates.size() != expected.candidates.size() ||
+        !std::equal(
+            actual_action->candidates.begin(), actual_action->candidates.end(),
+            expected.candidates.begin(),
+            [](const FirewallBalanceCandidate& lhs,
+               const FirewallBalanceCandidate& rhs) {
+                return lhs.fwmark == rhs.fwmark;
+            })) {
         return "balance candidate mapping mismatch";
     }
     if (!observed.balance.has_value()) {
@@ -504,7 +539,8 @@ std::string mismatch_detail(const FirewallRuleInstance& expected,
         return keen_pbr3::format("hook mismatch: expected {} got {}",
                                  hook_name(physical.hook), hook_name(observed.hook));
     }
-    if (observed.family != physical.family) {
+    if (observed.family != FirewallFamily::any &&
+        observed.family != physical.family) {
         return keen_pbr3::format("family mismatch: expected {} got {}",
                                  family_name(physical.family),
                                  family_name(observed.family));
@@ -611,7 +647,9 @@ void append_nft_rules(FirewallSnapshot& snapshot,
     for (const auto& rule : parsed.rules) {
         ObservedFirewallRule observed;
         observed.hook = rule.hook;
-        observed.family = rule.ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
+        observed.family = !rule.family_known
+            ? FirewallFamily::any
+            : (rule.ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4);
         observed.criteria = rule.criteria;
         if (!rule.set_name.empty()) observed.criteria.dst_set_name = rule.set_name;
         observed.comment = rule.comment;
@@ -852,7 +890,11 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
     std::vector<bool> used(snapshot.rules.size(), false);
     std::set<std::string> desired_keys;
     for (const auto& rule : plan.rules) {
-        desired_keys.insert(rule.key.module_id + ":" + rule.key.instance_id);
+        const auto physical =
+            expand_expected_rule(rule, snapshot.backend, plan.fwmark_mask);
+        if (!physical.empty()) {
+            desired_keys.insert(rule.key.module_id + ":" + rule.key.instance_id);
+        }
     }
 
     for (const auto& expected : plan.rules) {
@@ -902,13 +944,14 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
             }
         }
 
-        if (physical.empty() || matched.size() != physical.size()) {
-            if (physical.empty()) {
-                check.status = CheckStatus::missing;
-                check.detail = "rule has no supported physical expansion";
-                checks.push_back(std::move(check));
-                continue;
-            }
+        if (physical.empty()) {
+            // A family-specific set can be paired with criteria that only
+            // contain the other address family.  The compatibility backends
+            // omit that impossible physical rule; preserve the legacy
+            // projection by not treating it as a missing live rule.
+            continue;
+        }
+        if (matched.size() != physical.size()) {
             check.status = (!shape_matches.empty() || !keyed.empty())
                 ? CheckStatus::mismatch : CheckStatus::missing;
             if (!shape_matches.empty() || !keyed.empty()) {

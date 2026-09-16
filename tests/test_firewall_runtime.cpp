@@ -174,6 +174,9 @@ public:
   void apply(FirewallApplyMode mode) override {
     applied_modes.push_back(mode);
     calls.push_back("apply");
+    if (fail_apply) {
+      throw FirewallError("controlled apply failure");
+    }
     if (mode == FirewallApplyMode::RulesOnly && fail_rules_only) {
       fail_rules_only = false;
       throw FirewallRulesOnlyError("controlled RulesOnly preflight failure");
@@ -199,6 +202,7 @@ private:
 public:
 
   FirewallBackend backend_type{FirewallBackend::nftables};
+  bool fail_apply{false};
   bool fail_rules_only{false};
   bool generation_names{false};
   int stream_count{0};
@@ -384,6 +388,39 @@ TEST_CASE("runtime preserves ordered direct rule actions and selectors") {
   CHECK(firewall.recorded_rules[4].action == RecordingFirewall::RuleAction::Pass);
   CHECK(firewall.recorded_rules[4].criteria.negate_src_addr);
   CHECK(firewall.recorded_rules[4].criteria.negate_dst_port);
+}
+
+TEST_CASE("failed firewall apply does not publish a candidate plan") {
+  const Config config = parse_config(R"({
+    "outbounds": [{"type":"table","tag":"wan","table":100}],
+    "route": {"rules": [{"outbound":"wan","dscp":46}]}
+  })");
+  RecordingFirewall firewall;
+  firewall.fail_apply = true;
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-failed-plan-test-cache");
+
+  FirewallPlan previous;
+  previous.fwmark_mask = 0x00FF0000u;
+  FirewallState state;
+  state.set_active_plan(std::move(previous), {});
+
+  FirewallPlan candidate;
+  candidate.fwmark_mask = 0x12345678u;
+  bool failed = false;
+  try {
+    auto rules = apply_runtime_firewall(
+        config, {{"wan", 0x100U}}, cache, firewall,
+        FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+        &candidate);
+    state.set_active_plan(std::move(candidate), std::move(rules));
+  } catch (const FirewallError&) {
+    failed = true;
+  }
+  CHECK(failed);
+  CHECK(candidate.rules.empty());
+  CHECK(candidate.fwmark_mask == 0x12345678u);
+  REQUIRE(state.get_active_plan().has_value());
+  CHECK(state.get_active_plan()->fwmark_mask == 0x00FF0000u);
 }
 
 TEST_CASE("runtime emits static and dynamic list sets in family order") {

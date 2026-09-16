@@ -1,9 +1,27 @@
 #include "firewall_state.hpp"
 
+#include <utility>
+
 namespace keen_pbr3 {
 
 void FirewallState::set_rules(std::vector<RuleState> rules) {
     rules_ = std::move(rules);
+}
+
+void FirewallState::set_active_plan(FirewallPlan plan,
+                                    std::vector<RuleState> rules) {
+    fwmark_mask_ = plan.fwmark_mask;
+    active_plan_ = std::move(plan);
+    rules_ = std::move(rules);
+}
+
+const std::optional<FirewallPlan>& FirewallState::get_active_plan() const {
+    return active_plan_;
+}
+
+void FirewallState::clear_active_plan() {
+    active_plan_.reset();
+    rules_.clear();
 }
 
 void FirewallState::set_urltest_selection(const std::string& urltest_tag,
@@ -24,7 +42,7 @@ void FirewallState::set_outbound_marks(OutboundMarkMap marks) {
 }
 
 uint32_t FirewallState::get_fwmark_mask() const {
-    return fwmark_mask_;
+    return active_plan_.has_value() ? active_plan_->fwmark_mask : fwmark_mask_;
 }
 
 void FirewallState::set_fwmark_mask(uint32_t fwmark_mask) {

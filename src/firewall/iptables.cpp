@@ -63,6 +63,34 @@ std::string comment_fragment(const FirewallRuleKey &key) {
   return keen_pbr3::format(" -m comment --comment {}", key.comment());
 }
 
+bool cleanup_command_reports_absence(const ExecCaptureResult &result) {
+  if (result.exit_code == 0 && !result.truncated && !result.timed_out) {
+    return true;
+  }
+  if (result.truncated || result.timed_out) {
+    return false;
+  }
+  std::string output = result.stdout_output;
+  std::transform(output.begin(), output.end(), output.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return output.find("no chain") != std::string::npos ||
+         output.find("no such") != std::string::npos ||
+         output.find("does not exist") != std::string::npos ||
+         output.find("cannot be found") != std::string::npos;
+}
+
+ExecCaptureResult run_cleanup_command(const std::vector<std::string> &args) {
+  const auto result = safe_exec_capture(args, /*suppress_stderr=*/false,
+                                        /*max_bytes=*/0,
+                                        /*merge_stderr=*/true);
+  if (!cleanup_command_reports_absence(result)) {
+    throw FirewallError(keen_pbr3::format(
+        "firewall cleanup command failed: {} (status {})",
+        safe_exec_command_string(args), result.exit_code));
+  }
+  return result;
+}
+
 } // namespace
 
 IptablesFirewall::IptablesFirewall(RawPreroutingMode raw_prerouting)
@@ -1256,20 +1284,16 @@ void IptablesFirewall::reconcile_hook(const char *command, const char *table,
 void IptablesFirewall::remove_all_hooks(const char *command, const char *table,
                                         const char *builtin_chain,
                                         const char *target_chain) {
-  const auto result =
-      safe_exec_capture({command, "-t", table, "-S", builtin_chain},
-                        /*suppress_stderr=*/true);
-  if (result.exit_code != 0 || result.truncated || result.timed_out) {
+  const auto result = run_cleanup_command(
+      {command, "-t", table, "-S", builtin_chain});
+  if (result.truncated || result.timed_out) {
     return;
   }
   const size_t observed =
       count_exact_jump(result.stdout_output, builtin_chain, target_chain);
   for (size_t i = 0; i < observed; ++i) {
-    if (safe_exec(
-            {command, "-t", table, "-D", builtin_chain, "-j", target_chain},
-            /*suppress_output=*/true) != 0) {
-      break;
-    }
+    run_cleanup_command(
+        {command, "-t", table, "-D", builtin_chain, "-j", target_chain});
   }
 }
 
@@ -1801,8 +1825,8 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
 void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
   const auto flush_delete = [](const char *command, const char *table,
                                const std::string &chain) {
-    safe_exec({command, "-t", table, "-F", chain}, /*suppress_output=*/true);
-    safe_exec({command, "-t", table, "-X", chain}, /*suppress_output=*/true);
+    run_cleanup_command({command, "-t", table, "-F", chain});
+    run_cleanup_command({command, "-t", table, "-X", chain});
   };
   const auto cleanup_family = [&](bool ipv6, bool owned) {
     if (!owned && !sweep_live_state) {
@@ -1853,11 +1877,7 @@ void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
 }
 
 void IptablesFirewall::cleanup_legacy_generation_chains(const char *command) {
-  const auto result = safe_exec_capture({command, "-t", "mangle", "-S"},
-                                        /*suppress_stderr=*/true);
-  if (result.exit_code != 0) {
-    return;
-  }
+  const auto result = run_cleanup_command({command, "-t", "mangle", "-S"});
 
   std::istringstream input(result.stdout_output);
   std::string line;
@@ -1872,17 +1892,13 @@ void IptablesFirewall::cleanup_legacy_generation_chains(const char *command) {
                      [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
       continue;
     }
-    safe_exec({command, "-t", "mangle", "-F", chain}, /*suppress_output=*/true);
-    safe_exec({command, "-t", "mangle", "-X", chain}, /*suppress_output=*/true);
+    run_cleanup_command({command, "-t", "mangle", "-F", chain});
+    run_cleanup_command({command, "-t", "mangle", "-X", chain});
   }
 }
 
 void IptablesFirewall::cleanup_saved_sets(bool preserve_dynamic_sets) {
-  const auto result =
-      safe_exec_capture({"ipset", "save"}, /*suppress_stderr=*/true);
-  if (result.exit_code != 0) {
-    return;
-  }
+  const auto result = run_cleanup_command({"ipset", "save"});
 
   std::istringstream input(result.stdout_output);
   std::string verb;
@@ -1904,8 +1920,8 @@ void IptablesFirewall::cleanup_saved_sets(bool preserve_dynamic_sets) {
     if (dynamic && preserve_dynamic_sets) {
       continue;
     }
-    safe_exec({"ipset", "flush", name}, /*suppress_output=*/true);
-    safe_exec({"ipset", "destroy", name}, /*suppress_output=*/true);
+    run_cleanup_command({"ipset", "flush", name});
+    run_cleanup_command({"ipset", "destroy", name});
   }
 }
 
@@ -1921,8 +1937,8 @@ void IptablesFirewall::cleanup_live_impl(bool preserve_dynamic_sets,
       continue;
     }
     log.verbose("iptables cleanup: destroying ipset {}", name);
-    safe_exec({"ipset", "flush", name}, /*suppress_output=*/true);
-    safe_exec({"ipset", "destroy", name}, /*suppress_output=*/true);
+    run_cleanup_command({"ipset", "flush", name});
+    run_cleanup_command({"ipset", "destroy", name});
   }
   if (sweep_live_state) {
     cleanup_saved_sets(preserve_dynamic_sets);

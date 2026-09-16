@@ -13,6 +13,9 @@ def register(registry):
             lambda: ((health := context.api("/api/health/service"))["status"] == "stopped" and
                      health.get("lifecycle_operation", {}).get("id") == stopped["operation_id"] and
                      health["lifecycle_operation"].get("status") == "succeeded"))
+        stopped_routing = context.api("/api/health/routing")
+        assert stopped_routing["overall"] == "degraded", stopped_routing
+        assert "not ready" in stopped_routing["firewall"]["detail"], stopped_routing
         started = context.api("/api/service/start", "POST")
         assert started["status"] == "accepted" and started["operation_id"], started
         context.wait_for(
@@ -20,3 +23,5 @@ def register(registry):
             lambda: ((health := context.api("/api/health/service"))["status"] == "running" and
                      health.get("lifecycle_operation", {}).get("id") == started["operation_id"] and
                      health["lifecycle_operation"].get("status") == "succeeded"))
+        restarted_routing = context.api("/api/health/routing")
+        assert restarted_routing["overall"] == "ok", restarted_routing

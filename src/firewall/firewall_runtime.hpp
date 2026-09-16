@@ -55,6 +55,7 @@ std::vector<RuleState> apply_runtime_firewall(
     bool force_clear_dynamic_sets = false,
     const std::vector<DumpedRoute>& main_routes = {},
     const std::vector<DumpedInterface>& interfaces = {},
-    const FirewallBalanceCandidates* balance_candidates = nullptr);
+    const FirewallBalanceCandidates* balance_candidates = nullptr,
+    FirewallPlan* applied_plan = nullptr);
 
 } // namespace keen_pbr3

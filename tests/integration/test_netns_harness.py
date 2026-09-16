@@ -102,6 +102,13 @@ main all
         self.assertIn("command=topology.sh", result.stderr)
         self.assertIn("exit=1", result.stderr)
 
+    def test_service_start_waits_for_runtime_ready(self):
+        text = (NETNS / "service-control.sh").read_text(encoding="utf-8")
+        self.assertIn(
+            'grep -Eq \'"runtime_state"[[:space:]]*:[[:space:]]*"running"\'',
+            text,
+        )
+
     def test_sandbox_imports_repo_and_remounts_it_read_only(self):
         text = (NETNS / "sandbox.sh").read_text(encoding="utf-8")
         self.assertIn('mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs "$sandbox_repo"',

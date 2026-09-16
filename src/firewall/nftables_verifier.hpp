@@ -28,6 +28,7 @@ struct ParsedNftRule {
     bool is_pass{false};   // true if rule has an accept/return verdict
     uint32_t fwmark{0};    // mark value (only valid when is_mark == true)
     bool ipv6{false};      // true if the payload protocol is ip6
+    bool family_known{false}; // false for family-neutral transport expressions
     std::optional<std::string> comment; // optional native nft rule comment
     uint32_t xmark_mask{0xFFFFFFFFu};
     FirewallHook hook{FirewallHook::prerouting};

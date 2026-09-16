@@ -94,7 +94,10 @@ start_keen() {
       die "keen-pbr exited during startup"
     fi
     body=$(curl --silent --max-time 1 http://127.0.0.1:12121/api/health/service 2>/dev/null || true)
-    if printf '%s' "$body" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"running"'; then
+    if printf '%s' "$body" |
+      grep -Eq '"status"[[:space:]]*:[[:space:]]*"running"' &&
+       printf '%s' "$body" |
+      grep -Eq '"runtime_state"[[:space:]]*:[[:space:]]*"running"'; then
       ready=1
       break
     fi

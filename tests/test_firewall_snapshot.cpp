@@ -39,6 +39,20 @@ FirewallPlan balance_plan(const FirewallRuleKey& key,
     return plan;
 }
 
+FirewallPlan port_plan(const FirewallRuleKey& key) {
+    FirewallPlan plan;
+    FirewallRuleInstance rule;
+    rule.key = key;
+    rule.family = FirewallFamily::ipv4;
+    rule.criteria.proto = L4Proto::Tcp;
+    rule.criteria.dst_port = "443";
+    rule.action = MarkAction{0x10000u};
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(std::move(rule));
+    registrar.finish();
+    return plan;
+}
+
 nlohmann::json balance_document() {
     nlohmann::json document;
     auto& entries = document["nftables"];
@@ -238,6 +252,61 @@ TEST_CASE("nft snapshot recovers masks from conntrack setter chains") {
           CheckStatus::ok);
 }
 
+TEST_CASE("nft snapshot keeps explicit meta nfproto family constraints") {
+    const auto key = FirewallRuleKey{"route.port", "nfproto"};
+    const auto verify_family = [&](nlohmann::json nfproto,
+                                   FirewallFamily expected_family,
+                                   CheckStatus expected_status) {
+        nlohmann::json document;
+        auto& entries = document["nftables"];
+        entries = nlohmann::json::array({
+            {{"table", {{"family", "inet"}, {"name", "KeenPbrTable"}}}},
+            {{"chain", {{"family", "inet"}, {"table", "KeenPbrTable"},
+                         {"name", "prerouting"}, {"type", "filter"},
+                         {"hook", "prerouting"}}}},
+        });
+        nlohmann::json rule;
+        rule["family"] = "inet";
+        rule["table"] = "KeenPbrTable";
+        rule["chain"] = "prerouting";
+        rule["comment"] = "kpbr:v1:route.port:nfproto";
+        rule["expr"] = nlohmann::json::array({
+            {{"match", {{"op", "=="},
+                         {"left", {{"meta", {{"key", "nfproto"}}}}},
+                         {"right", std::move(nfproto)}}}},
+            {{"match", {{"op", "=="},
+                         {"left", {{"payload", {{"protocol", "tcp"},
+                                                   {"field", "dport"}}}}},
+                         {"right", 443}}}},
+        });
+        nlohmann::json mangle;
+        mangle["key"]["meta"]["key"] = "mark";
+        mangle["value"] = 0x10000;
+        rule["expr"].push_back({{"mangle", std::move(mangle)}});
+        rule["expr"].push_back({{"accept", nullptr}});
+        entries.push_back({{"rule", std::move(rule)}});
+
+        const auto snapshot = inspect_nftables_snapshot(CommandRunner(
+            [&](const std::vector<std::string>&) {
+                return command_result(document.dump());
+            }));
+        REQUIRE(snapshot.available);
+        REQUIRE(snapshot.rules.size() == 1);
+        CHECK(snapshot.rules[0].family == expected_family);
+        const auto checks = verify_firewall_plan(port_plan(key), snapshot);
+        REQUIRE(checks.size() == 1);
+        CHECK(checks[0].status == expected_status);
+        if (expected_status == CheckStatus::mismatch) {
+            CHECK(checks[0].detail.find("family mismatch") != std::string::npos);
+        }
+    };
+
+    verify_family(2, FirewallFamily::ipv4, CheckStatus::ok);
+    verify_family("ipv4", FirewallFamily::ipv4, CheckStatus::ok);
+    verify_family(10, FirewallFamily::ipv6, CheckStatus::mismatch);
+    verify_family("ipv6", FirewallFamily::ipv6, CheckStatus::mismatch);
+}
+
 TEST_CASE("nft balance snapshot rejects altered selector, guard, mapping, and setters") {
     const auto key = FirewallRuleKey{"route.balance", "one"};
     const auto plan = balance_plan(key);
@@ -315,6 +384,38 @@ TEST_CASE("nft balance snapshot rejects altered selector, guard, mapping, and se
     duplicate_ct_setter["nftables"][4]["rule"]["expr"].push_back(
         duplicate_ct_setter["nftables"][4]["rule"]["expr"][1]);
     CHECK(verify(std::move(duplicate_ct_setter)) == CheckStatus::mismatch);
+}
+
+TEST_CASE("nft balance snapshot rejects family-ambiguous classifiers") {
+    const auto key = FirewallRuleKey{"route.balance", "direct"};
+    FirewallPlan plan;
+    plan.fwmark_mask = 0x00FF0000u;
+    FirewallRuleInstance rule;
+    rule.key = key;
+    rule.family = FirewallFamily::any;
+    rule.action = BalanceAction{
+        0x30000u, {{0x10000u, true, true}, {0x20000u, true, true}}};
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(std::move(rule));
+    registrar.finish();
+
+    auto document = balance_document();
+    auto& policy = document["nftables"][6]["rule"];
+    policy["comment"] = key.comment();
+    policy["expr"].erase(policy["expr"].begin());
+
+    auto v6_policy = policy;
+    document["nftables"].push_back({{"rule", std::move(v6_policy)}});
+
+    const auto snapshot = inspect_nftables_snapshot(CommandRunner(
+        [&](const std::vector<std::string>&) {
+            return command_result(document.dump());
+        }));
+    REQUIRE(snapshot.available);
+    REQUIRE(snapshot.rules.size() == 2);
+    const auto checks = verify_firewall_plan(plan, snapshot);
+    REQUIRE(checks.size() == 1);
+    CHECK(checks.front().status == CheckStatus::mismatch);
 }
 
 TEST_CASE("firewall plan verification distinguishes missing mismatch duplicate and extra") {
