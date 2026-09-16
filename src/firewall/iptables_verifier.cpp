@@ -262,15 +262,23 @@ bool rule_matches(const ParsedIptablesRule& actual,
            criteria_equal(actual.criteria, expected.criteria);
 }
 
+bool is_chain_or_generation(const std::string& value,
+                            const std::string& base) {
+    return value == base ||
+           (value.rfind(base + "_", 0) == 0 && value.size() > base.size() + 1U);
+}
+
 ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
                                                 bool ipv6,
-                                                const std::string& chain_name = "KeenPbrTable") {
+                                                const std::string& chain_name,
+                                                bool include_output) {
     ParsedIptablesState state;
 
     const std::string chain_decl = std::string("-N ") + chain_name;
     const std::string prerouting_jump =
         std::string("-A PREROUTING -j ") + chain_name;
-    const std::string chain_rule_prefix = std::string("-A ") + chain_name;
+    const std::vector<std::string> output_chains = {
+        "KeenPbrOutput", "KeenPbrTable_OUTPUT"};
 
     std::istringstream stream(output);
     std::string line;
@@ -284,17 +292,121 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
             state.has_prerouting_jump = true;
             continue;
         }
-        if (line.rfind(chain_rule_prefix, 0) != 0 ||
-            (line.size() > chain_rule_prefix.size() &&
-             line[chain_rule_prefix.size()] != ' ' &&
-             line[chain_rule_prefix.size()] != '_')) {
+
+        const auto tokens = split_ws(line);
+        if (tokens.size() < 3 || tokens[0] != "-A") {
+            continue;
+        }
+
+        if (tokens[1] == "PREROUTING") {
+            for (size_t index = 2; index < tokens.size(); ++index) {
+                if (index + 1 < tokens.size() &&
+                    (tokens[index] == "-j" || tokens[index] == "-g" ||
+                     tokens[index] == "--goto" || tokens[index] == "--jump") &&
+                    tokens[index + 1] == chain_name) {
+                    state.has_prerouting_jump = true;
+                }
+                if ((tokens[index] == "--goto=" + chain_name) ||
+                    (tokens[index] == "--jump=" + chain_name) ||
+                    (tokens[index] == "-g" + chain_name) ||
+                    (tokens[index] == "-j" + chain_name)) {
+                    state.has_prerouting_jump = true;
+                }
+            }
+        }
+        if (tokens[1] == "OUTPUT") {
+            for (size_t index = 2; index < tokens.size(); ++index) {
+                if (index + 1 < tokens.size() &&
+                    (tokens[index] == "-j" || tokens[index] == "-g" ||
+                     tokens[index] == "--goto" || tokens[index] == "--jump") &&
+                    std::find(output_chains.begin(), output_chains.end(),
+                              tokens[index + 1]) != output_chains.end()) {
+                    state.has_output_jump = true;
+                }
+                if (std::any_of(output_chains.begin(), output_chains.end(),
+                                [&](const std::string& chain) {
+                                    return tokens[index] == "--goto=" + chain ||
+                                           tokens[index] == "--jump=" + chain ||
+                                           tokens[index] == "-g" + chain ||
+                                           tokens[index] == "-j" + chain;
+                                })) {
+                    state.has_output_jump = true;
+                }
+            }
+        }
+
+        const std::string& source_chain = tokens[1];
+        const bool prerouting_chain = is_chain_or_generation(source_chain, chain_name);
+        bool output_chain = false;
+        for (const auto& output_base : output_chains) {
+            if (is_chain_or_generation(source_chain, output_base)) {
+                output_chain = true;
+                break;
+            }
+        }
+        if (output_chain && !include_output) {
+            continue;
+        }
+        if (!prerouting_chain && !output_chain) {
+            // Dispatcher and foreign chains are only interesting when they
+            // identify the active private generation below.
+            continue;
+        }
+
+        std::string jump_target;
+        for (size_t index = 2; index < tokens.size(); ++index) {
+            if ((tokens[index] == "-j" || tokens[index] == "-g" ||
+                 tokens[index] == "--goto" || tokens[index] == "--jump") &&
+                index + 1 < tokens.size()) {
+                jump_target = tokens[index + 1];
+                break;
+            }
+            if (tokens[index].rfind("--goto=", 0) == 0 ||
+                tokens[index].rfind("--jump=", 0) == 0) {
+                jump_target = tokens[index].substr(tokens[index].find('=') + 1U);
+                break;
+            }
+            if (tokens[index].rfind("-g", 0) == 0 && tokens[index].size() > 2U) {
+                jump_target = tokens[index].substr(2U);
+                break;
+            }
+            if (tokens[index].rfind("-j", 0) == 0 && tokens[index].size() > 2U) {
+                jump_target = tokens[index].substr(2U);
+                break;
+            }
+        }
+
+        bool dispatcher_jump = false;
+        if (!jump_target.empty()) {
+            const std::string& target = jump_target;
+            if (source_chain == chain_name &&
+                is_chain_or_generation(target, chain_name) && target != chain_name) {
+                state.active_prerouting_chains.push_back(target);
+                dispatcher_jump = true;
+            }
+            for (const auto& output_base : output_chains) {
+                if (source_chain == output_base &&
+                    (is_chain_or_generation(target, output_base) ||
+                     is_chain_or_generation(target, chain_name)) &&
+                    target != output_base) {
+                    state.active_output_chains.push_back(target);
+                    dispatcher_jump = true;
+                }
+            }
+        }
+
+        if (dispatcher_jump) {
+            // A dispatcher jump is not a packet rule.  Continue here so a
+            // target chain is not accidentally represented as an action.
             continue;
         }
 
         ParsedIptablesRule rule;
         rule.ipv6 = ipv6;
+        rule.hook = output_chain ? FirewallHook::output : FirewallHook::prerouting;
+        rule.chain_name = source_chain;
+        rule.raw = line;
 
-        const auto tokens = split_ws(line);
         bool negate_next = false;
 
         for (size_t i = 0; i < tokens.size(); ++i) {
@@ -403,13 +515,34 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
         state.rules.push_back(std::move(rule));
     }
 
+    state.has_output_chain = false;
+    for (const auto& output_base : output_chains) {
+        const std::string declaration = "-N " + output_base;
+        const std::string jump = "-A OUTPUT -j " + output_base;
+        std::istringstream declarations(output);
+        std::string candidate;
+        while (std::getline(declarations, candidate)) {
+            if (candidate == declaration) {
+                state.has_output_chain = true;
+                state.output_chains.push_back(output_base);
+            }
+            if (candidate == jump) state.has_output_jump = true;
+        }
+    }
+
     return state;
 }
 
 } // namespace
 
 ParsedIptablesState parse_iptables_s(const std::string& output) {
-    return parse_iptables_s_for_family(output, false);
+    return parse_iptables_s_for_family(output, false, "KeenPbrTable", false);
+}
+
+ParsedIptablesState parse_iptables_s_family(const std::string& output,
+                                            bool ipv6,
+                                            const std::string& chain_name) {
+    return parse_iptables_s_for_family(output, ipv6, chain_name, true);
 }
 
 std::vector<ParsedIpset> parse_ipset_save(const std::string& output) {
@@ -493,7 +626,7 @@ const IptablesFirewallVerifier::CachedState& IptablesFirewallVerifier::get_state
                 combined += prerouting_result.stdout_output;
             }
 
-            return parse_iptables_s_for_family(combined, ipv6, chain_name);
+            return parse_iptables_s_for_family(combined, ipv6, chain_name, false);
         };
 
         const std::string v4_chain = raw_prerouting_.ipv4 ? "KeenPbrRaw" : CHAIN_NAME;

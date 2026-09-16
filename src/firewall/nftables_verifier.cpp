@@ -8,6 +8,7 @@
 #include <array>
 #include <cctype>
 #include <cstdlib>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -112,8 +113,10 @@ std::optional<uint32_t> parse_nft_mark_value(const nlohmann::json& value) {
         return std::nullopt;
     }
 
-    if (value.contains("meta") && value["meta"].is_object() &&
-        value["meta"].value("key", "") == "mark") {
+    if ((value.contains("meta") && value["meta"].is_object() &&
+         value["meta"].value("key", "") == "mark") ||
+        (value.contains("ct") && value["ct"].is_object() &&
+         value["ct"].value("key", "") == "mark")) {
         // Reading the existing mark preserves prior bits; it does not contribute
         // new fwmark bits on its own.
         return 0u;
@@ -138,6 +141,103 @@ std::optional<uint32_t> parse_nft_mark_value(const nlohmann::json& value) {
     }
 
     return std::nullopt;
+}
+
+std::optional<uint32_t> parse_nft_u32(const nlohmann::json& value) {
+    if (value.is_number_unsigned()) {
+        const auto parsed = value.get<uint64_t>();
+        if (parsed <= 0xFFFFFFFFULL) return static_cast<uint32_t>(parsed);
+    }
+    if (value.is_number_integer()) {
+        const auto parsed = value.get<int64_t>();
+        if (parsed >= 0 && parsed <= 0xFFFFFFFFLL) {
+            return static_cast<uint32_t>(parsed);
+        }
+    }
+    return std::nullopt;
+}
+
+bool nft_mangle_targets_mark(const nlohmann::json& mangle, const char* source) {
+    return mangle.is_object() && mangle.contains("key") &&
+           mangle["key"].is_object() && mangle["key"].contains(source) &&
+           mangle["key"][source].is_object() &&
+           mangle["key"][source].value("key", "") == "mark";
+}
+
+std::optional<uint32_t> parse_nft_mark_mask(const nlohmann::json& value,
+                                            const char* source) {
+    if (!value.is_object() || !value.contains("|") ||
+        !value["|"].is_array() || value["|"].size() != 2) {
+        return std::nullopt;
+    }
+    const auto& preserved = value["|"][0];
+    if (!preserved.is_object() || !preserved.contains("&") ||
+        !preserved["&"].is_array() || preserved["&"].size() != 2 ||
+        !preserved["&"][1].is_number_unsigned()) {
+        return std::nullopt;
+    }
+    const auto& mark = preserved["&"][0];
+    if (!mark.is_object() || !mark.contains(source) ||
+        !mark[source].is_object() ||
+        mark[source].value("key", "") != "mark") {
+        return std::nullopt;
+    }
+    return ~preserved["&"][1].get<uint32_t>();
+}
+
+std::optional<MarkAction> parse_nft_mangle_action(
+    const nlohmann::json& mangle, const char* key, bool require_mask) {
+    if (!nft_mangle_targets_mark(mangle, key) || !mangle.contains("value")) {
+        return std::nullopt;
+    }
+    const auto value = parse_nft_mark_value(mangle["value"]);
+    if (!value.has_value()) return std::nullopt;
+    const auto mask = parse_nft_mark_mask(mangle["value"], key);
+    if (require_mask && !mask.has_value()) return std::nullopt;
+    return MarkAction{*value, mask.value_or(0xFFFFFFFFu)};
+}
+
+struct ParsedNftSetterActions {
+    std::optional<MarkAction> meta_mark;
+    std::optional<MarkAction> ct_mark;
+    bool meta_mark_ambiguous{false};
+    bool ct_mark_ambiguous{false};
+};
+
+std::optional<uint32_t> parse_setter_chain_mark(const nlohmann::json& value);
+
+std::vector<ParsedNftBalanceTarget> parse_nft_balance_targets(
+    const nlohmann::json& value,
+    const std::map<std::string, ParsedNftSetterActions>& setter_actions) {
+    std::vector<ParsedNftBalanceTarget> targets;
+    if (!value.is_object() || !value.contains("data") ||
+        !value["data"].is_object() || !value["data"].contains("set") ||
+        !value["data"]["set"].is_array()) {
+        return targets;
+    }
+    for (const auto& entry : value["data"]["set"]) {
+        if (!entry.is_array() || entry.size() < 2 ||
+            !parse_nft_u32(entry[0]).has_value()) {
+            continue;
+        }
+        ParsedNftBalanceTarget target;
+        target.index = *parse_nft_u32(entry[0]);
+        if (entry[1].is_object() && entry[1].contains("jump") &&
+            entry[1]["jump"].is_object()) {
+            target.setter_chain = entry[1]["jump"].value("target", "");
+            if (const auto mark = parse_setter_chain_mark(entry[1]["jump"]);
+                mark.has_value()) {
+                target.mark = *mark;
+            }
+            const auto setter = setter_actions.find(target.setter_chain);
+            if (setter != setter_actions.end()) {
+                target.setter = setter->second.meta_mark;
+                target.setter_ct = setter->second.ct_mark;
+            }
+        }
+        targets.push_back(std::move(target));
+    }
+    return targets;
 }
 
 std::optional<uint32_t> parse_setter_chain_mark(const nlohmann::json& value) {
@@ -459,7 +559,41 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
 
     static constexpr const char* TABLE_NAME = "KeenPbrTable";
     static constexpr const char* CHAIN_NAME = "prerouting";
+    static constexpr const char* OUTPUT_CHAIN_NAME = "output";
     static constexpr const char* FAMILY = "inet";
+
+    // Policy rules can jump through setmark_* chains when conntrack mark
+    // persistence is enabled.  Those chains carry the actual xmark mask;
+    // collect it before translating the policy chains below.
+    std::map<std::string, ParsedNftSetterActions> setter_actions;
+    for (const auto& elem : j["nftables"]) {
+        if (!elem.is_object() || !elem.contains("rule")) continue;
+        const auto& rule = elem["rule"];
+        if (!rule.is_object() || rule.value("table", "") != TABLE_NAME ||
+            rule.value("chain", "").rfind("setmark_", 0) != 0 ||
+            !rule.contains("expr") || !rule["expr"].is_array()) {
+            continue;
+        }
+        auto& setter = setter_actions[rule.value("chain", "")];
+        for (const auto& expr : rule["expr"]) {
+            if (!expr.is_object() || !expr.contains("mangle")) continue;
+            const auto& mangle = expr["mangle"];
+            const auto collect = [&](const char* source,
+                                     std::optional<MarkAction>& action,
+                                     bool& ambiguous) {
+                if (!nft_mangle_targets_mark(mangle, source)) return;
+                const auto parsed = parse_nft_mangle_action(mangle, source, true);
+                if (action.has_value() || ambiguous || !parsed.has_value()) {
+                    action.reset();
+                    ambiguous = true;
+                } else {
+                    action = *parsed;
+                }
+            };
+            collect("meta", setter.meta_mark, setter.meta_mark_ambiguous);
+            collect("ct", setter.ct_mark, setter.ct_mark_ambiguous);
+        }
+    }
 
     for (const auto& elem : j["nftables"]) {
         if (!elem.is_object()) continue;
@@ -476,12 +610,18 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
 
         if (elem.contains("chain")) {
             const auto& ch = elem["chain"];
-            if (ch.is_object() &&
-                ch.value("table", "") == TABLE_NAME &&
-                ch.value("name", "") == CHAIN_NAME) {
-                state.has_prerouting_chain = true;
-                if (ch.value("hook", "") == "prerouting") {
-                    state.has_prerouting_hook = true;
+            if (ch.is_object() && ch.value("table", "") == TABLE_NAME) {
+                const auto name = ch.value("name", "");
+                if (name == CHAIN_NAME) {
+                    state.has_prerouting_chain = true;
+                    if (ch.value("hook", "") == "prerouting") {
+                        state.has_prerouting_hook = true;
+                    }
+                } else if (name == OUTPUT_CHAIN_NAME) {
+                    state.has_output_chain = true;
+                    if (ch.value("hook", "") == "output") {
+                        state.has_output_hook = true;
+                    }
                 }
             }
             continue;
@@ -506,12 +646,17 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
         const auto& rule = elem["rule"];
         if (!rule.is_object()) continue;
         if (rule.value("table", "") != TABLE_NAME ||
-            rule.value("chain", "") != CHAIN_NAME ||
+            (rule.value("chain", "") != CHAIN_NAME &&
+             rule.value("chain", "") != OUTPUT_CHAIN_NAME) ||
             !rule.contains("expr") || !rule["expr"].is_array()) {
             continue;
         }
 
         ParsedNftRule nr;
+        nr.hook = rule.value("chain", "") == OUTPUT_CHAIN_NAME
+            ? FirewallHook::output
+            : FirewallHook::prerouting;
+        nr.raw = rule.dump();
         if (rule.contains("comment") && rule["comment"].is_string()) {
             nr.comment = rule["comment"].get<std::string>();
         }
@@ -597,32 +742,74 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                         nr.criteria.proto =
                             parse_l4proto(match["right"].get<std::string>()).value_or(L4Proto::Any);
                     }
+
+                    // Balance classifiers must only run when the owned mark
+                    // bits are empty.  Keep this small canonical guard rather
+                    // than attempting to model arbitrary nft expressions.
+                    if (left.contains("&") && left["&"].is_array() &&
+                        left["&"].size() == 2 && left["&"][0].is_object() &&
+                        left["&"][0].contains("meta") &&
+                        left["&"][0]["meta"].is_object() &&
+                        left["&"][0]["meta"].value("key", "") == "mark" &&
+                        parse_nft_u32(left["&"][1]).has_value() &&
+                        match.contains("right") &&
+                        parse_nft_u32(match["right"]).has_value()) {
+                        nr.balance_guard_present = true;
+                        nr.balance_guard_op = op;
+                        nr.balance_guard_mask = *parse_nft_u32(left["&"][1]);
+                        nr.balance_guard_value = *parse_nft_u32(match["right"]);
+                    }
                 }
                 continue;
             }
 
             if (expr.contains("mangle")) {
                 const auto& mangle = expr["mangle"];
-                if (mangle.is_object() &&
-                    mangle.contains("key") && mangle["key"].is_object() &&
-                    mangle["key"].contains("meta") &&
-                    mangle["key"]["meta"].is_object() &&
-                    mangle["key"]["meta"].value("key", "") == "mark" &&
-                    mangle.contains("value")) {
-                    const auto parsed_mark = parse_nft_mark_value(mangle["value"]);
-                    if (parsed_mark.has_value()) {
-                        nr.is_mark = true;
-                        nr.fwmark = *parsed_mark;
-                    }
+                if (const auto mark = parse_nft_mangle_action(mangle, "meta", false);
+                    mark.has_value()) {
+                    nr.is_mark = true;
+                    nr.fwmark = mark->value;
+                    nr.xmark_mask = mark->mask;
                 }
                 continue;
             }
 
             if (expr.contains("jump")) {
-                if (const auto parsed_mark = parse_setter_chain_mark(expr["jump"]);
-                    parsed_mark.has_value()) {
+                const auto parsed_mark = parse_setter_chain_mark(expr["jump"]);
+                if (parsed_mark.has_value()) {
                     nr.is_mark = true;
                     nr.fwmark = *parsed_mark;
+                    if (expr["jump"].is_object()) {
+                        const auto target = expr["jump"].value("target", "");
+                        const auto setter = setter_actions.find(target);
+                        if (setter != setter_actions.end() &&
+                            setter->second.meta_mark.has_value()) {
+                            nr.xmark_mask = setter->second.meta_mark->mask;
+                        }
+                    }
+                }
+                continue;
+            }
+
+            if (expr.contains("vmap")) {
+                const auto& vmap = expr["vmap"];
+                if (vmap.is_object() && vmap.contains("key") &&
+                    vmap["key"].is_object() &&
+                    vmap["key"].contains("numgen")) {
+                    const auto& numgen = vmap["key"]["numgen"];
+                    if (numgen.is_object()) {
+                        nr.balance_selector_mode = numgen.value("mode", "");
+                        if (numgen.contains("mod")) {
+                            nr.balance_selector_modulus =
+                                parse_nft_u32(numgen["mod"]).value_or(0);
+                        }
+                    }
+                    nr.balance_targets = parse_nft_balance_targets(vmap,
+                                                                    setter_actions);
+                    for (const auto& target : nr.balance_targets) {
+                        nr.balance_marks.push_back(target.mark);
+                    }
+                    nr.is_balance = !nr.balance_targets.empty();
                 }
                 continue;
             }
@@ -637,7 +824,7 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
             }
         }
 
-        if ((!nr.is_mark && !nr.is_drop && !nr.is_pass) ||
+        if ((!nr.is_mark && !nr.is_drop && !nr.is_pass && !nr.is_balance) ||
             (nr.set_name.empty() && nr.criteria.empty())) {
             continue;
         }
@@ -772,7 +959,9 @@ std::vector<FirewallRuleCheck> NftablesFirewallVerifier::verify_rules(
                                [&](const ParsedNftRule& actual) {
                                    const size_t index =
                                        static_cast<size_t>(&actual - state.rules.data());
-                                   return !used[index] && rule_matches(actual, exp);
+                                   return !used[index] &&
+                                          actual.hook == FirewallHook::prerouting &&
+                                          rule_matches(actual, exp);
                                });
 
         if (it != state.rules.end()) {
@@ -792,6 +981,7 @@ std::vector<FirewallRuleCheck> NftablesFirewallVerifier::verify_rules(
                                            const size_t index =
                                                static_cast<size_t>(&actual - state.rules.data());
                                            return !used[index] &&
+                                                  actual.hook == FirewallHook::prerouting &&
                                                   actual.ipv6 == exp.ipv6 &&
                                                   actual.set_name == exp.set_name &&
                                                   criteria_equal(actual.criteria, exp.criteria);

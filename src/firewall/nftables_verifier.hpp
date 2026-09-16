@@ -1,6 +1,7 @@
 #pragma once
 
 #include "firewall_verifier.hpp"
+#include "firewall_rule.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -10,7 +11,15 @@
 
 namespace keen_pbr3 {
 
-// A single parsed rule from nft -j list table inet KeenPbrTable output (within KeenPbrTable/prerouting chain).
+struct ParsedNftBalanceTarget {
+    uint32_t index{0};
+    uint32_t mark{0};
+    std::string setter_chain;
+    std::optional<MarkAction> setter;
+    std::optional<MarkAction> setter_ct;
+};
+
+// A single parsed rule from `nft -j list table inet KeenPbrTable` output.
 struct ParsedNftRule {
     std::string set_name;  // Named set referenced in the match expression (without '@' prefix)
     FirewallRuleCriteria criteria;
@@ -20,6 +29,18 @@ struct ParsedNftRule {
     uint32_t fwmark{0};    // mark value (only valid when is_mark == true)
     bool ipv6{false};      // true if the payload protocol is ip6
     std::optional<std::string> comment; // optional native nft rule comment
+    uint32_t xmark_mask{0xFFFFFFFFu};
+    FirewallHook hook{FirewallHook::prerouting};
+    std::string raw;
+    bool is_balance{false};
+    std::vector<uint32_t> balance_marks;
+    std::string balance_selector_mode;
+    uint32_t balance_selector_modulus{0};
+    bool balance_guard_present{false};
+    std::string balance_guard_op;
+    uint32_t balance_guard_mask{0};
+    uint32_t balance_guard_value{0};
+    std::vector<ParsedNftBalanceTarget> balance_targets;
 };
 
 struct ParsedNftSet {
@@ -34,7 +55,9 @@ struct ParsedNftablesState {
     bool has_table{false};              // inet KeenPbrTable table was found
     bool has_prerouting_chain{false};   // prerouting chain in KeenPbrTable was found
     bool has_prerouting_hook{false};    // chain has type=filter hook=prerouting
-    std::vector<ParsedNftRule> rules;   // rules in the prerouting chain
+    bool has_output_chain{false};
+    bool has_output_hook{false};
+    std::vector<ParsedNftRule> rules;   // rules in the owned policy chains
     std::vector<ParsedNftSet> sets;     // named sets in KeenPbrTable
 };
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "firewall_verifier.hpp"
+#include "firewall_rule.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -22,13 +23,22 @@ struct ParsedIptablesRule {
     bool mark_is_exact{true};      // false for partial-mask --set-xmark rules
     uint32_t xmark_mask{0xFFFFFFFF}; // parsed mask for --set-xmark
     std::optional<std::string> comment; // optional -m comment payload
+    FirewallHook hook{FirewallHook::prerouting};
+    std::string chain_name;
+    std::string raw;
 };
 
-// Parsed state of the KeenPbrTable chain from `iptables -t mangle -S` output.
+// Parsed state of the owned dispatch/generation chains from an `iptables -S`
+// table dump.
 struct ParsedIptablesState {
     bool has_keen_pbr_chain{false};        // -N KeenPbrTable line was found
     bool has_prerouting_jump{false};       // -A PREROUTING -j KeenPbrTable was found
-    std::vector<ParsedIptablesRule> rules; // rules found in KeenPbrTable chain
+    bool has_output_chain{false};
+    bool has_output_jump{false};
+    std::vector<ParsedIptablesRule> rules; // rules found in active owned chains
+    std::vector<std::string> active_prerouting_chains;
+    std::vector<std::string> active_output_chains;
+    std::vector<std::string> output_chains;
 };
 
 struct ParsedIpset {
@@ -40,6 +50,14 @@ struct ParsedIpset {
 // Parse the stdout of `iptables -t mangle -S <chain>` / `ip6tables -t mangle -S <chain>`.
 // Returns the parsed state of the KeenPbrTable chain.
 ParsedIptablesState parse_iptables_s(const std::string& output);
+
+// Parse a complete iptables -S table dump.  Unlike parse_iptables_s(), this
+// also records OUTPUT chains and the active generation jumps used by the
+// snapshot inspector.  The parser and all backend-specific normalization stay
+// shared with the legacy verifier.
+ParsedIptablesState parse_iptables_s_family(
+    const std::string& output, bool ipv6,
+    const std::string& chain_name = "KeenPbrTable");
 
 // Parse `ipset save` output for the reserved kpbr namespaces. Unknown lines
 // are ignored so this remains compatible with older ipset implementations.
