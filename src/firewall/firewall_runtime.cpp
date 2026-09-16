@@ -236,57 +236,9 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   const FirewallBuildContext context{
       route_rules, rule_states, all_outbounds, lists_map, inputs.list_usage,
       inputs.main_routes, inputs.interfaces, inputs.backend,
-      inputs.ipv6_enabled, inputs.fwmark_mask};
+      inputs.ipv6_enabled, inputs.fwmark_mask, inputs.balance_candidates};
   for (const auto register_module : route_rule_module_manifest()) {
     register_module(context, registrar);
-  }
-
-  // Route balance is intentionally left in the compatibility path until PR8.
-  for (std::size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
-    if (rule_idx >= rule_states.size()) {
-      break;
-    }
-    const auto& rule_state = rule_states[rule_idx];
-    if (rule_state.action_type != RuleActionType::Mark) {
-      continue;
-    }
-
-    const auto outbound = find_outbound_by_tag(all_outbounds,
-                                               route_rules[rule_idx].outbound);
-    if (outbound == nullptr || !outbound_uses_balance(*outbound)) {
-      continue;
-    }
-    const auto balance_candidates_for_rule = [&]()
-        -> const std::vector<FirewallBalanceCandidate>& {
-      static const std::vector<FirewallBalanceCandidate> empty_candidates;
-      if (inputs.balance_candidates == nullptr) {
-        return empty_candidates;
-      }
-      const auto it = inputs.balance_candidates->find(outbound->tag);
-      return it == inputs.balance_candidates->end() ? empty_candidates
-                                                     : it->second;
-    };
-    const auto targets = expand_route_rule_targets(context, rule_idx);
-    for (const auto& target : targets) {
-      if (target.set_name.has_value()) {
-        registrar.register_set({*target.set_name, target.family,
-                                target.set_timeout});
-      }
-      if (!target.rule_enabled || rule_state.fwmark == 0) {
-        continue;
-      }
-      auto target_criteria = target.criteria;
-      target_criteria.dst_set_name = target.set_name;
-      add_rule(rule_idx, FirewallRuleStage::route_classification,
-               static_cast<int>(rule_idx), "route.balance",
-               "rule=" + std::to_string(rule_idx) +
-                   ";occurrence=" + std::to_string(target.occurrence) +
-                   ";target=" +
-                   (target.set_name.has_value() ? *target.set_name : "none"),
-               std::move(target_criteria),
-               BalanceAction{rule_state.fwmark, balance_candidates_for_rule()},
-               target.set_name);
-    }
   }
 
   if (inputs.config.dns.has_value()) {

@@ -29,6 +29,7 @@ struct FirewallBuildContext {
   FirewallBackend backend{FirewallBackend::iptables};
   bool ipv6_enabled{true};
   uint32_t fwmark_mask{0xFFFFFFFFu};
+  const FirewallBalanceCandidates* balance_candidates{nullptr};
 };
 
 // One physical route selector target before an action is attached.
@@ -66,12 +67,19 @@ public:
                       FirewallRuleRegistrar& registrar) const;
 };
 
+class RouteBalanceRuleModule final {
+public:
+  std::string_view id() const noexcept { return "route.balance"; }
+  void register_rules(const FirewallBuildContext& context,
+                      FirewallRuleRegistrar& registrar) const;
+};
+
 // Explicit order is part of the plan contract. Adding another route action
 // means adding its registration function to this manifest, not a branch in
 // the runtime apply loop.
 using RouteRuleModuleRegistration =
     void (*)(const FirewallBuildContext&, FirewallRuleRegistrar&);
 
-std::array<RouteRuleModuleRegistration, 3> route_rule_module_manifest();
+std::array<RouteRuleModuleRegistration, 4> route_rule_module_manifest();
 
 } // namespace keen_pbr3

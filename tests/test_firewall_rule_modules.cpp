@@ -41,8 +41,33 @@ struct ModuleFixture {
   }
 };
 
-template <typename Module>
-FirewallPlan build_module_plan(const Module& module, const ModuleFixture& fixture) {
+struct BalanceModuleFixture {
+  Config config = parse_config(R"({
+    "outbounds": [
+      {"type":"table","tag":"wan_a","table":100},
+      {"type":"table","tag":"wan_b","table":101},
+      {"type":"urltest","tag":"auto","strategy":"balance",
+       "outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
+    ],
+    "route": {"rules": [{"outbound":"auto","dscp":46}]}
+  })");
+  const std::vector<RuleState> states =
+      build_fw_rule_states(config, {{"auto", 0x100U}});
+  const std::map<std::string, ListConfig> lists;
+  const std::map<std::string, ListSetUsage> usage;
+  const std::vector<DumpedRoute> main_routes;
+  const std::vector<DumpedInterface> interfaces;
+  FirewallBalanceCandidates candidates;
+
+  FirewallBuildContext context() const {
+    return {*config.route->rules, states, *config.outbounds, lists, usage,
+            main_routes, interfaces, FirewallBackend::nftables, true,
+            0xFFFFFFFFU, &candidates};
+  }
+};
+
+template <typename Module, typename Fixture>
+FirewallPlan build_module_plan(const Module& module, const Fixture& fixture) {
   FirewallPlan plan;
   FirewallRuleRegistrar registrar(plan);
   const auto context = fixture.context();
@@ -139,6 +164,53 @@ TEST_CASE("route module manifest has explicit deterministic order") {
   CHECK(plan.rules[0].key.module_id == "route.mark");
   CHECK(plan.rules[1].key.module_id == "route.drop");
   CHECK(plan.rules[2].key.module_id == "route.pass");
+}
+
+TEST_CASE("route balance module preserves fallback and candidate ordering") {
+  BalanceModuleFixture fixture;
+  const std::vector<std::vector<FirewallBalanceCandidate>> candidate_cases = {
+      {},
+      {{0x200U, true, false}},
+      {{0x300U, true, true}, {0x200U, true, false}, {0x400U, false, true}}};
+
+  for (const auto& candidates : candidate_cases) {
+    fixture.candidates["auto"] = candidates;
+    const auto plan = build_module_plan(RouteBalanceRuleModule{}, fixture);
+    REQUIRE(plan.rules.size() == 1);
+    REQUIRE(std::holds_alternative<BalanceAction>(plan.rules.front().action));
+    const auto& action = std::get<BalanceAction>(plan.rules.front().action);
+    CHECK(action.fallback_mark == 0x100U);
+    CHECK(action.candidates == candidates);
+  }
+}
+
+TEST_CASE("route balance candidate changes retain identity and change semantics") {
+  BalanceModuleFixture fixture;
+  fixture.candidates["auto"] = {{0x200U, true, true}, {0x300U, false, true}};
+  const auto first = build_module_plan(RouteBalanceRuleModule{}, fixture);
+
+  fixture.candidates["auto"] = {{0x300U, false, true}, {0x400U, true, true}};
+  const auto changed = build_module_plan(RouteBalanceRuleModule{}, fixture);
+
+  REQUIRE(first.rules.size() == 1);
+  REQUIRE(changed.rules.size() == 1);
+  CHECK(changed.rules.front().key == first.rules.front().key);
+  CHECK(changed.rules.front().action != first.rules.front().action);
+}
+
+TEST_CASE("route balance module is included in the explicit manifest") {
+  BalanceModuleFixture fixture;
+  fixture.candidates["auto"] = {{0x200U, true, true}};
+  const auto context = fixture.context();
+  FirewallPlan plan;
+  FirewallRuleRegistrar registrar(plan);
+  for (const auto register_module : route_rule_module_manifest()) {
+    register_module(context, registrar);
+  }
+  registrar.finish();
+
+  REQUIRE(plan.rules.size() == 1);
+  CHECK(plan.rules.front().key.module_id == "route.balance");
 }
 
 TEST_CASE("route module manifest keeps reordered config rules in priority order") {

@@ -111,7 +111,8 @@ void register_route_action_module(const FirewallBuildContext& context,
                                   FirewallRuleRegistrar& registrar,
                                   RuleActionType action_type,
                                   std::string_view module_id,
-                                  ActionFactory action_factory) {
+                                  ActionFactory action_factory,
+                                  bool balanced = false) {
   for (std::size_t rule_index = 0;
        rule_index < context.route_rules.size() &&
        rule_index < context.rule_states.size();
@@ -119,7 +120,7 @@ void register_route_action_module(const FirewallBuildContext& context,
     const auto& state = context.rule_states[rule_index];
     if (state.action_type != action_type ||
         (action_type == RuleActionType::Mark &&
-         is_balanced_outbound(context, state.outbound_tag))) {
+         is_balanced_outbound(context, state.outbound_tag) != balanced)) {
       continue;
     }
 
@@ -250,6 +251,27 @@ void RoutePassRuleModule::register_rules(
       });
 }
 
+void RouteBalanceRuleModule::register_rules(
+    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
+  register_route_action_module(
+      context, registrar, RuleActionType::Mark, id(),
+      [](const RuleState& state, const FirewallBuildContext& build_context) {
+        // Preserve the prepared vector; nftables owns zero/one/many candidate
+        // expansion, filtering, and fallback compilation.
+        static const std::vector<FirewallBalanceCandidate> empty_candidates;
+        if (build_context.balance_candidates == nullptr) {
+          return FirewallRuleAction{
+              BalanceAction{state.fwmark, empty_candidates}};
+        }
+        const auto it = build_context.balance_candidates->find(state.outbound_tag);
+        return FirewallRuleAction{BalanceAction{
+            state.fwmark,
+            it == build_context.balance_candidates->end() ? empty_candidates
+                                                            : it->second}};
+      },
+      true);
+}
+
 namespace {
 
 void register_mark_rules(const FirewallBuildContext& context,
@@ -267,10 +289,16 @@ void register_pass_rules(const FirewallBuildContext& context,
   RoutePassRuleModule{}.register_rules(context, registrar);
 }
 
+void register_balance_rules(const FirewallBuildContext& context,
+                            FirewallRuleRegistrar& registrar) {
+  RouteBalanceRuleModule{}.register_rules(context, registrar);
+}
+
 } // namespace
 
-std::array<RouteRuleModuleRegistration, 3> route_rule_module_manifest() {
-  return {register_mark_rules, register_drop_rules, register_pass_rules};
+std::array<RouteRuleModuleRegistration, 4> route_rule_module_manifest() {
+  return {register_mark_rules, register_drop_rules, register_pass_rules,
+          register_balance_rules};
 }
 
 } // namespace keen_pbr3
