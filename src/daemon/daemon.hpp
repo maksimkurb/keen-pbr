@@ -3,6 +3,7 @@
 #include "../config/config.hpp"
 #include "../dns/dns_txt_client.hpp"
 #include "../firewall/firewall.hpp"
+#include "../health/routing_health.hpp"
 #include "../health/url_tester.hpp"
 #include "../health/icmp_tester.hpp"
 #include "../routing/firewall_state.hpp"
@@ -180,6 +181,8 @@ private:
   void handle_ipc_control_socket();
   bool try_begin_routing_test();
   void finish_routing_test();
+  RoutingHealthReport cached_routing_health();
+  void invalidate_routing_health_cache();
   void remove_ipc_control_socket() noexcept;
   void wake_control_loop();
   bool is_event_loop_thread() const;
@@ -435,6 +438,20 @@ IcmpTester icmp_tester_;
   // Routing diagnostics are CPU/process-heavy. Two workers allow API and CLI
   // tests to overlap while the small queue keeps resource use bounded.
   BlockingExecutor routing_test_executor_{2, 2};
+  // Control status must not inspect the firewall on the event-loop thread.
+  // A single coalesced job refreshes this short-lived, generation-tagged
+  // report; callers never treat a report from an older runtime as current.
+  mutable TracedMutex routing_health_mutex_;
+  std::optional<RoutingHealthReport> routing_health_cache_
+      GUARDED_BY(routing_health_mutex_);
+  std::uint64_t routing_health_cache_revision_
+      GUARDED_BY(routing_health_mutex_){0};
+  RuntimeState routing_health_cache_state_
+      GUARDED_BY(routing_health_mutex_){RuntimeState::starting};
+  std::chrono::steady_clock::time_point routing_health_cache_time_
+      GUARDED_BY(routing_health_mutex_){};
+  bool routing_health_check_inflight_ GUARDED_BY(routing_health_mutex_){false};
+  std::atomic<std::uint64_t> routing_health_revision_{1};
   std::atomic<std::uint64_t> runtime_generation_{1};
   std::atomic<bool> remote_list_refresh_inflight_{false};
   std::atomic<bool> ipc_mutation_inflight_{false};

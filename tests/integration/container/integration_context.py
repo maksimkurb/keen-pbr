@@ -107,6 +107,13 @@ class SystemContext:
         assert health["runtime_state"] == "running", health
         return health
 
+    def routing_health_running(self):
+        def healthy():
+            routing = self.api("/api/health/routing")
+            return routing if routing.get("overall") == "ok" else False
+
+        return self.wait_for("routing health refresh", healthy)
+
     def selected_outbound(self, tag="auto", selected="wan_pbr"):
         state = self.api("/api/runtime/outbounds")
         outbound = next((item for item in state["outbounds"] if item["tag"] == tag), None)
@@ -199,8 +206,7 @@ class SystemContext:
 
         health = self.wait_for("config lifecycle completion", applied_operation)
         self.health_running()
-        routing = self.api("/api/health/routing")
-        assert routing["overall"] == "ok", routing
+        routing = self.routing_health_running()
         assert routing["firewall_backend"] == self.backend, routing
         return health
 

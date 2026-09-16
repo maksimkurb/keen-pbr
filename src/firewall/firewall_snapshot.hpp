@@ -3,6 +3,7 @@
 #include "firewall_plan.hpp"
 #include "firewall_reconciler.hpp"
 #include "firewall_verifier.hpp"
+#include "../health/routing_health.hpp"
 
 #include <memory>
 #include <optional>

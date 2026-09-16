@@ -41,6 +41,12 @@ struct FirewallRuleKey {
   }
 };
 
+// Canonical selector comparison owned by snapshot verification.  Other
+// callers use it only when comparing already-canonical observed data.
+bool firewall_rule_criteria_equal(const FirewallRuleCriteria& left,
+                                  const FirewallRuleCriteria& right);
+std::string normalize_firewall_set_name(const std::string& name);
+
 struct MarkAction {
   uint32_t value{0};
   uint32_t mask{0xFFFFFFFFu};

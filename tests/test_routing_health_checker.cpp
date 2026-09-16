@@ -24,6 +24,19 @@ FirewallPlan active_mark_plan() {
     return plan;
 }
 
+FirewallPlan active_direct_plan() {
+    FirewallPlan plan;
+    FirewallRuleInstance rule;
+    rule.key = FirewallRuleKey{"route.mark", "direct"};
+    rule.family = FirewallFamily::ipv4;
+    rule.criteria.dst_addr = {"192.0.2.0/24"};
+    rule.action = MarkAction{0x10000u};
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(std::move(rule));
+    registrar.finish();
+    return plan;
+}
+
 const char* active_mark_snapshot() {
     return R"({"nftables":[
       {"table":{"family":"inet","name":"KeenPbrTable"}},
@@ -78,6 +91,28 @@ TEST_CASE("routing health is explicitly not ready without an active plan") {
     CHECK_FALSE(report.overall_ok);
     CHECK(report.firewall_rules.empty());
     CHECK(report.firewall_chain.detail.find("not ready") != std::string::npos);
+}
+
+TEST_CASE("routing health reports missing active direct criteria") {
+    FirewallState state;
+    state.set_active_plan(active_direct_plan(), {});
+
+    NetlinkManager netlink;
+    const auto report = build_routing_health_report(
+        FirewallBackend::nftables, RawPreroutingMode{}, state, {}, {}, netlink,
+        [](const std::vector<std::string>&) {
+            return command_result(active_mark_snapshot());
+        });
+
+    bool direct_rule_missing = false;
+    for (const auto& check : report.firewall_rules) {
+        if (check.detail.find("key=route.mark:direct") == std::string::npos) {
+            continue;
+        }
+        direct_rule_missing = true;
+        CHECK(check.status == CheckStatus::missing);
+    }
+    CHECK(direct_rule_missing);
 }
 
 } // namespace keen_pbr3

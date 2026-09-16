@@ -32,21 +32,6 @@ bool has_iptables_interface(const std::string& raw,
     return false;
 }
 
-std::string normalize_set_name(const std::string& name) {
-    if (starts_with(name, "kpbr4s_") || starts_with(name, "kpbr4S_")) {
-        return "kpbr4_" + name.substr(7);
-    }
-    if (starts_with(name, "kpbr6s_") || starts_with(name, "kpbr6S_")) {
-        return "kpbr6_" + name.substr(7);
-    }
-    return name;
-}
-
-bool is_ipv6_set_name(const std::string& name) {
-    return starts_with(name, "kpbr6_") || starts_with(name, "kpbr6s_") ||
-           starts_with(name, "kpbr6S_") || starts_with(name, "kpbr6d_");
-}
-
 bool is_owned_module(const std::string& module) {
     return starts_with(module, "route.") || starts_with(module, "dns.") ||
            starts_with(module, "prefilter.");
@@ -86,7 +71,7 @@ std::string action_name(const FirewallRuleAction& action) {
 std::string criteria_summary(const FirewallRuleCriteria& criteria) {
     std::string result;
     if (criteria.dst_set_name.has_value()) {
-        result += "set=" + normalize_set_name(*criteria.dst_set_name);
+        result += "set=" + normalize_firewall_set_name(*criteria.dst_set_name);
     }
     if (criteria.proto != L4Proto::Any) {
         if (!result.empty()) result += ' ';
@@ -115,73 +100,13 @@ std::string criteria_summary(const FirewallRuleCriteria& criteria) {
     return result.empty() ? "any" : result;
 }
 
-bool addr_equal(const std::string& left, const std::string& right) {
-    const auto left_slash = left.rfind('/');
-    const auto right_slash = right.rfind('/');
-    if (left_slash == std::string::npos || right_slash == std::string::npos) {
-        return left == right ||
-               (left_slash != std::string::npos &&
-                left.substr(left_slash + 1) ==
-                    (left.find(':') == std::string::npos ? "32" : "128") &&
-                left.substr(0, left_slash) == right) ||
-               (right_slash != std::string::npos &&
-                right.substr(right_slash + 1) ==
-                    (right.find(':') == std::string::npos ? "32" : "128") &&
-                right.substr(0, right_slash) == left);
-    }
-    return left == right;
+std::string rule_key_text(const FirewallRuleKey& key) {
+    return key.module_id + ":" + key.instance_id;
 }
 
-bool addresses_equal(const std::vector<std::string>& left,
-                     const std::vector<std::string>& right) {
-    if (left.size() != right.size()) return false;
-    return std::equal(left.begin(), left.end(), right.begin(), addr_equal);
-}
-
-bool criteria_equal(const FirewallRuleCriteria& left,
-                    const FirewallRuleCriteria& right) {
-    const bool sets_equal = (!left.dst_set_name.has_value() &&
-                             !right.dst_set_name.has_value()) ||
-        (left.dst_set_name.has_value() && right.dst_set_name.has_value() &&
-         normalize_set_name(*left.dst_set_name) ==
-             normalize_set_name(*right.dst_set_name));
-    const bool gateway_equal =
-        (left.default_gateway == right.default_gateway &&
-         left.default_gateway_bypass == right.default_gateway_bypass) ||
-        (left.default_gateway != DefaultGatewayFamily::None &&
-         right.default_gateway == DefaultGatewayFamily::None &&
-         right.negate_dst_addr &&
-         addresses_equal(left.default_gateway_bypass, right.dst_addr)) ||
-        (right.default_gateway != DefaultGatewayFamily::None &&
-         left.default_gateway == DefaultGatewayFamily::None &&
-         left.negate_dst_addr &&
-         addresses_equal(right.default_gateway_bypass, left.dst_addr));
-    const bool destination_equal =
-        addresses_equal(left.dst_addr, right.dst_addr) ||
-        (left.default_gateway != DefaultGatewayFamily::None &&
-         right.default_gateway == DefaultGatewayFamily::None &&
-         addresses_equal(left.default_gateway_bypass, right.dst_addr)) ||
-        (right.default_gateway != DefaultGatewayFamily::None &&
-         left.default_gateway == DefaultGatewayFamily::None &&
-         addresses_equal(right.default_gateway_bypass, left.dst_addr));
-    const bool destination_negation_equal =
-        left.negate_dst_addr == right.negate_dst_addr ||
-        (left.default_gateway != DefaultGatewayFamily::None &&
-         right.default_gateway == DefaultGatewayFamily::None &&
-         right.negate_dst_addr) ||
-        (right.default_gateway != DefaultGatewayFamily::None &&
-         left.default_gateway == DefaultGatewayFamily::None &&
-         left.negate_dst_addr);
-    return sets_equal && left.dscp == right.dscp && left.proto == right.proto &&
-           left.src_port.to_config_string() == right.src_port.to_config_string() &&
-           left.dst_port.to_config_string() == right.dst_port.to_config_string() &&
-           addresses_equal(left.src_addr, right.src_addr) &&
-           destination_equal &&
-           left.negate_src_port == right.negate_src_port &&
-           left.negate_dst_port == right.negate_dst_port &&
-           left.negate_src_addr == right.negate_src_addr &&
-           destination_negation_equal &&
-           gateway_equal;
+std::string keyed_detail(const FirewallRuleInstance& rule,
+                         std::string detail) {
+    return keen_pbr3::format("key={} {}", rule_key_text(rule.key), detail);
 }
 
 bool balance_details_equal(const ObservedFirewallRule& observed,
@@ -298,7 +223,7 @@ bool rule_equal(const ObservedFirewallRule& observed,
          !has_iptables_interface(observed.raw, inbound_interface))) {
         return false;
     }
-    return criteria_equal(observed.criteria, criteria) &&
+    return firewall_rule_criteria_equal(observed.criteria, criteria) &&
            action_equal(observed, action, fwmark_mask);
 }
 
@@ -319,7 +244,7 @@ bool same_shape(const ObservedFirewallRule& observed,
            (inbound_interface.empty() ||
             (!observed.raw.empty() &&
              has_iptables_interface(observed.raw, inbound_interface))) &&
-           criteria_equal(observed.criteria, criteria);
+           firewall_rule_criteria_equal(observed.criteria, criteria);
 }
 
 struct ExpectedPhysicalRule {
@@ -392,11 +317,6 @@ std::vector<std::string> family_addresses(const std::vector<std::string>& addres
 std::vector<FirewallFamily> expand_families(const FirewallRuleInstance& rule,
                                             FirewallBackend backend) {
     if (rule.family != FirewallFamily::any) return {rule.family};
-    if (rule.criteria.dst_set_name.has_value()) {
-        return {is_ipv6_set_name(*rule.criteria.dst_set_name)
-                    ? FirewallFamily::ipv6
-                    : FirewallFamily::ipv4};
-    }
     if (rule.criteria.default_gateway == DefaultGatewayFamily::Ipv6) {
         return {FirewallFamily::ipv6};
     }
@@ -574,7 +494,7 @@ std::vector<ExpectedPhysicalRule> expand_expected_rule(
 FirewallRuleCheck make_check(const FirewallRuleInstance& rule) {
     FirewallRuleCheck check;
     check.set_name = rule.criteria.dst_set_name.has_value()
-        ? normalize_set_name(*rule.criteria.dst_set_name) : "<direct>";
+        ? normalize_firewall_set_name(*rule.criteria.dst_set_name) : "<direct>";
     check.action = action_name(rule.action);
     if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
         check.expected_fwmark = mark->value;
@@ -858,29 +778,36 @@ std::string mismatch_detail(const FirewallRuleInstance& expected,
                             const ObservedFirewallRule& observed,
                             uint32_t fwmark_mask) {
     if (observed.hook != physical.hook) {
-        return keen_pbr3::format("hook mismatch: expected {} got {}",
-                                 hook_name(physical.hook), hook_name(observed.hook));
+        return keyed_detail(expected, keen_pbr3::format(
+            "hook mismatch: expected {} got {}", hook_name(physical.hook),
+            hook_name(observed.hook)));
     }
     if (observed.family != FirewallFamily::any &&
         observed.family != physical.family) {
-        return keen_pbr3::format("family mismatch: expected {} got {}",
-                                 family_name(physical.family),
-                                 family_name(observed.family));
+        return keyed_detail(expected, keen_pbr3::format(
+            "family mismatch: expected {} got {}", family_name(physical.family),
+            family_name(observed.family)));
     }
-    if (!criteria_equal(observed.criteria, physical.criteria)) {
-        return keen_pbr3::format("criteria mismatch: expected {} got {}",
-                                 criteria_summary(physical.criteria),
-                                 criteria_summary(observed.criteria));
+    if (!firewall_rule_criteria_equal(observed.criteria, physical.criteria)) {
+        return keyed_detail(expected, keen_pbr3::format(
+            "criteria mismatch: expected {} got {}",
+            criteria_summary(physical.criteria),
+            criteria_summary(observed.criteria)));
     }
     if (const auto* balance = std::get_if<BalanceAction>(&physical.action)) {
-        return balance_mismatch_detail(observed, *balance, fwmark_mask);
+        return keyed_detail(expected,
+                            balance_mismatch_detail(observed, *balance, fwmark_mask));
     }
-    return keen_pbr3::format("action mismatch: expected {} got {}",
-                             expected_action_detail(expected.action),
-                             observed_action_detail(observed.action));
+    return keyed_detail(expected, keen_pbr3::format(
+        "action mismatch: expected {} got {}",
+        expected_action_detail(expected.action),
+        observed_action_detail(observed.action)));
 }
 
 bool legacy_rule_usable(const ObservedFirewallRule& rule) {
+    // Keep the PR4-era no-comment upgrade window bounded to observations that
+    // inspectors already restricted to owned active chains. Unknown comments
+    // never enter this fallback and therefore cannot widen cleanup scope.
     return rule.legacy && !rule.key.has_value();
 }
 
@@ -1392,16 +1319,17 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
                     check.actual_fwmark = mark->value;
                 }
             } else {
-                check.detail = keyed.empty()
-                    ? "rule not found in firewall snapshot"
-                    : "owned rule key present but expected physical expansion is missing";
+                check.detail = keyed_detail(
+                    expected, keyed.empty()
+                        ? "rule not found in firewall snapshot"
+                        : "owned rule key present but expected physical expansion is missing");
             }
             checks.push_back(std::move(check));
             continue;
         }
         if (prefilter_errors.find(plan_index) != prefilter_errors.end()) {
             check.status = CheckStatus::mismatch;
-            check.detail = "prefilter physical order mismatch";
+            check.detail = keyed_detail(expected, "prefilter physical order mismatch");
             checks.push_back(std::move(check));
             continue;
         }
@@ -1445,13 +1373,14 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
                            matched_rule.hook == observed.hook &&
                            matched_rule.family == observed.family &&
                            matched_rule.chain == observed.chain &&
-                           criteria_equal(matched_rule.criteria, observed.criteria);
+                           firewall_rule_criteria_equal(matched_rule.criteria,
+                                                        observed.criteria);
                 });
             if (!paired_return && !shared_chain_view) duplicate = true;
         }
         if (duplicate) {
             check.status = CheckStatus::mismatch;
-            check.detail = "duplicate observed rules for owned key";
+            check.detail = keyed_detail(expected, "duplicate observed rules for owned key");
         } else {
             check.status = CheckStatus::ok;
             check.detail = "ok";
@@ -1485,7 +1414,7 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
             }
             auto check = FirewallRuleCheck{};
             check.set_name = observed.criteria.dst_set_name.has_value()
-                ? normalize_set_name(*observed.criteria.dst_set_name) : "<direct>";
+                ? normalize_firewall_set_name(*observed.criteria.dst_set_name) : "<direct>";
             check.action = action_name(observed.action);
             check.status = CheckStatus::mismatch;
             check.detail = "extra legacy prefilter rule";
@@ -1503,7 +1432,7 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
         }
         auto check = FirewallRuleCheck{};
         check.set_name = observed.criteria.dst_set_name.has_value()
-            ? normalize_set_name(*observed.criteria.dst_set_name) : "<direct>";
+            ? normalize_firewall_set_name(*observed.criteria.dst_set_name) : "<direct>";
         check.action = action_name(observed.action);
         if (const auto* mark = std::get_if<MarkAction>(&observed.action)) {
             check.actual_fwmark = mark->value;

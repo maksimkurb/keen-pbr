@@ -2,10 +2,34 @@
 
 #include "../crypto/md5.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace keen_pbr3 {
 namespace {
+
+bool addr_equal(const std::string& left, const std::string& right) {
+  const auto left_slash = left.rfind('/');
+  const auto right_slash = right.rfind('/');
+  if (left_slash == std::string::npos || right_slash == std::string::npos) {
+    return left == right ||
+           (left_slash != std::string::npos &&
+            left.substr(left_slash + 1) ==
+                (left.find(':') == std::string::npos ? "32" : "128") &&
+            left.substr(0, left_slash) == right) ||
+           (right_slash != std::string::npos &&
+            right.substr(right_slash + 1) ==
+                (right.find(':') == std::string::npos ? "32" : "128") &&
+            right.substr(0, right_slash) == left);
+  }
+  return left == right;
+}
+
+bool addresses_equal(const std::vector<std::string>& left,
+                     const std::vector<std::string>& right) {
+  if (left.size() != right.size()) return false;
+  return std::equal(left.begin(), left.end(), right.begin(), addr_equal);
+}
 
 bool valid_id_character(char value) {
   return (value >= 'a' && value <= 'z') ||
@@ -43,6 +67,60 @@ std::string readable_comment(const FirewallRuleKey &key) {
 }
 
 } // namespace
+
+std::string normalize_firewall_set_name(const std::string& name) {
+  if (name.rfind("kpbr4s_", 0) == 0 || name.rfind("kpbr4S_", 0) == 0) {
+    return "kpbr4_" + name.substr(7);
+  }
+  if (name.rfind("kpbr6s_", 0) == 0 || name.rfind("kpbr6S_", 0) == 0) {
+    return "kpbr6_" + name.substr(7);
+  }
+  return name;
+}
+
+bool firewall_rule_criteria_equal(const FirewallRuleCriteria& left,
+                                  const FirewallRuleCriteria& right) {
+  const bool sets_equal = (!left.dst_set_name.has_value() &&
+                           !right.dst_set_name.has_value()) ||
+      (left.dst_set_name.has_value() && right.dst_set_name.has_value() &&
+       normalize_firewall_set_name(*left.dst_set_name) ==
+           normalize_firewall_set_name(*right.dst_set_name));
+  const bool gateway_equal =
+      (left.default_gateway == right.default_gateway &&
+       left.default_gateway_bypass == right.default_gateway_bypass) ||
+      (left.default_gateway != DefaultGatewayFamily::None &&
+       right.default_gateway == DefaultGatewayFamily::None &&
+       right.negate_dst_addr &&
+       addresses_equal(left.default_gateway_bypass, right.dst_addr)) ||
+      (right.default_gateway != DefaultGatewayFamily::None &&
+       left.default_gateway == DefaultGatewayFamily::None &&
+       left.negate_dst_addr &&
+       addresses_equal(right.default_gateway_bypass, left.dst_addr));
+  const bool destination_equal =
+      addresses_equal(left.dst_addr, right.dst_addr) ||
+      (left.default_gateway != DefaultGatewayFamily::None &&
+       right.default_gateway == DefaultGatewayFamily::None &&
+       addresses_equal(left.default_gateway_bypass, right.dst_addr)) ||
+      (right.default_gateway != DefaultGatewayFamily::None &&
+       left.default_gateway == DefaultGatewayFamily::None &&
+       addresses_equal(right.default_gateway_bypass, left.dst_addr));
+  const bool destination_negation_equal =
+      left.negate_dst_addr == right.negate_dst_addr ||
+      (left.default_gateway != DefaultGatewayFamily::None &&
+       right.default_gateway == DefaultGatewayFamily::None &&
+       right.negate_dst_addr) ||
+      (right.default_gateway != DefaultGatewayFamily::None &&
+       left.default_gateway == DefaultGatewayFamily::None &&
+       left.negate_dst_addr);
+  return sets_equal && left.dscp == right.dscp && left.proto == right.proto &&
+         left.src_port.to_config_string() == right.src_port.to_config_string() &&
+         left.dst_port.to_config_string() == right.dst_port.to_config_string() &&
+         addresses_equal(left.src_addr, right.src_addr) && destination_equal &&
+         left.negate_src_port == right.negate_src_port &&
+         left.negate_dst_port == right.negate_dst_port &&
+         left.negate_src_addr == right.negate_src_addr &&
+         destination_negation_equal && gateway_equal;
+}
 
 std::string FirewallRuleKey::comment() const {
   validate_id(module_id, "module_id");

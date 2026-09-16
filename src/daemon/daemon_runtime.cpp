@@ -164,6 +164,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
         return;
     }
 
+    invalidate_routing_health_cache();
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
 
     if (urltest_manager_) {
@@ -319,6 +320,7 @@ void Daemon::reconcile_static_routing(
 void Daemon::apply_firewall(FirewallApplyMode mode,
                             bool force_clear_dynamic_sets,
                             const std::vector<DumpedRoute>* main_routes) {
+    invalidate_routing_health_cache();
     const FirewallPrefilter prefilter = build_firewall_prefilter(config_);
     const auto owned_main_routes = main_routes != nullptr
         ? *main_routes

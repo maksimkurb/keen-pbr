@@ -226,6 +226,7 @@ TEST_CASE("iptables keyed RETURN is only a matching MARK companion") {
     const auto checks = verify_firewall_plan(mark_plan(key), snapshot);
     REQUIRE(checks.size() == 1);
     CHECK(checks[0].status == CheckStatus::mismatch);
+    CHECK(checks[0].detail.find("key=route.mark:one") != std::string::npos);
     CHECK(checks[0].detail.find("duplicate") != std::string::npos);
 }
 
@@ -577,6 +578,7 @@ TEST_CASE("firewall plan verification distinguishes missing mismatch duplicate a
     mismatch.rules.push_back(wrong);
     checks = verify_firewall_plan(plan, mismatch);
     CHECK(checks[0].status == CheckStatus::mismatch);
+    CHECK(checks[0].detail.find("key=route.mark:one") != std::string::npos);
     CHECK(checks[0].detail.find("action mismatch") != std::string::npos);
 
     FirewallSnapshot duplicate = mismatch;

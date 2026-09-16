@@ -1899,7 +1899,7 @@ TEST_CASE("iptables emitted prefilter bundle is inspected and ordered before cla
   registrar.register_rule(std::move(restore));
   FirewallRuleInstance route;
   route.key = route_key;
-  route.family = FirewallFamily::any;
+  route.family = FirewallFamily::ipv4;
   route.criteria.dst_set_name = "pairwise_set";
   route.action = MarkAction{0x10000u, 0xFFFFFFFFu};
   registrar.register_rule(std::move(route));

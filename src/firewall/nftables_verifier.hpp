@@ -4,7 +4,6 @@
 #include "firewall_rule.hpp"
 
 #include <cstdint>
-#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -79,35 +78,5 @@ struct ParsedNftablesState {
 // Returns the parsed state of KeenPbrTable entries present in the document.
 // On any JSON parse error or invalid input, returns a default (empty) state.
 ParsedNftablesState parse_nft_json(const std::string& json_output);
-
-// FirewallVerifier implementation for the nftables backend.
-class NftablesFirewallVerifier : public FirewallVerifier {
-public:
-    explicit NftablesFirewallVerifier(CommandRunner runner);
-
-    // Verify KeenPbrTable table/chain existence and prerouting hook.
-    FirewallChainCheck verify_chain() override;
-
-    // Verify mark/drop/pass rules for all expected RuleState entries (action_type != Skip).
-    std::vector<FirewallRuleCheck> verify_rules(
-        const std::vector<RuleState>& expected) override;
-
-private:
-    static constexpr const char* TABLE_NAME = "KeenPbrTable";
-    static constexpr const char* CHAIN_NAME = "prerouting";
-
-    struct CachedState {
-        ParsedNftablesState state;
-        std::string error;
-    };
-
-    const CachedState& get_state() const;
-
-    CommandRunner runner_;
-    mutable std::optional<CachedState> cached_state_;
-};
-
-// Factory function called from firewall_verifier.cpp
-std::unique_ptr<FirewallVerifier> create_nftables_verifier(CommandRunner runner);
 
 } // namespace keen_pbr3

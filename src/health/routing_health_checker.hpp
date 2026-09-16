@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../firewall/firewall.hpp"
-#include "../firewall/firewall_snapshot.hpp"
+#include "../firewall/firewall_verifier.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
 #include "../routing/policy_rule.hpp"
@@ -11,14 +11,6 @@
 #include <nlohmann/json.hpp>
 
 namespace keen_pbr3 {
-
-// The daemon health path uses the canonical applied plan.  The standalone
-// status command can only receive the historical RuleState projection from
-// the control socket, so it retains that compatibility expectation there.
-enum class FirewallHealthSource {
-    ActivePlan,
-    CompatibilityRuleState,
-};
 
 // Build a routing health report from caller-provided snapshots of the tracked
 // route/policy state. This lets API readers copy daemon state quickly under
@@ -30,8 +22,7 @@ RoutingHealthReport build_routing_health_report(
     const std::vector<RouteSpec>& tracked_routes,
     const std::vector<RuleSpec>& tracked_policy_rules,
     NetlinkManager& netlink,
-    CommandRunner runner = run_command_capture,
-    FirewallHealthSource firewall_source = FirewallHealthSource::ActivePlan);
+    CommandRunner runner = run_command_capture);
 
 inline RoutingHealthReport build_routing_health_report(
     FirewallBackend firewall_backend, bool use_raw_prerouting,
@@ -42,32 +33,6 @@ inline RoutingHealthReport build_routing_health_report(
         firewall_backend, RawPreroutingMode{use_raw_prerouting, false},
         firewall_state, tracked_routes, tracked_policy_rules, netlink);
 }
-
-// Orchestrates active-plan firewall and routing verification to produce a
-// RoutingHealthReport.
-class RoutingHealthChecker {
-public:
-    RoutingHealthChecker(const Firewall& firewall,
-                         const FirewallState& firewall_state,
-                         const RouteTable& route_table,
-                         const PolicyRuleManager& policy_rules,
-                         NetlinkManager& netlink);
-
-    // Run all health checks and return a combined report.
-    // Never throws: exceptions are caught and stored in report.error.
-    RoutingHealthReport check() const;
-
-    // Non-copyable
-    RoutingHealthChecker(const RoutingHealthChecker&) = delete;
-    RoutingHealthChecker& operator=(const RoutingHealthChecker&) = delete;
-
-private:
-    const Firewall& firewall_;
-    const FirewallState& firewall_state_;
-    const RouteTable& route_table_;
-    const PolicyRuleManager& policy_rules_;
-    NetlinkManager& netlink_;
-};
 
 // Serialize a RoutingHealthReport to JSON.
 // - "overall": "ok" / "degraded" / "error"

@@ -547,9 +547,15 @@ int main(int argc, char *argv[]) {
       const auto config_path = state.value(
           "config_path", std::string(KEEN_PBR_DEFAULT_CONFIG_PATH));
       const auto config = load_committed_config(config_path);
+      if (opts.run_status) {
+        if (!state.contains("routing_health") || state.at("routing_health").is_null()) {
+          return keen_pbr3::run_status_command(config, config_path,
+                                               nullptr);
+        }
+        return keen_pbr3::run_status_command(
+            config, config_path, state.at("routing_health"));
+      }
       const auto rules = parse_realized_rules(state);
-      if (opts.run_status)
-        return keen_pbr3::run_status_command(config, config_path, rules);
       const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
                                  .cache_dir.value_or("/var/cache/keen-pbr");
       keen_pbr3::CacheManager cache(cache_dir,

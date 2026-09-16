@@ -4,7 +4,6 @@
 #include "firewall_rule.hpp"
 
 #include <cstdint>
-#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -69,8 +68,7 @@ ParsedIptablesState parse_iptables_s(const std::string& output);
 
 // Parse a complete iptables -S table dump.  Unlike parse_iptables_s(), this
 // also records OUTPUT chains and the active generation jumps used by the
-// snapshot inspector.  The parser and all backend-specific normalization stay
-// shared with the legacy verifier.
+// snapshot inspector.
 ParsedIptablesState parse_iptables_s_family(
     const std::string& output, bool ipv6,
     const std::string& chain_name = "KeenPbrTable");
@@ -78,49 +76,5 @@ ParsedIptablesState parse_iptables_s_family(
 // Parse `ipset save` output for the reserved kpbr namespaces. Unknown lines
 // are ignored so this remains compatible with older ipset implementations.
 std::vector<ParsedIpset> parse_ipset_save(const std::string& output);
-
-// FirewallVerifier implementation for the iptables/ip6tables backend.
-class IptablesFirewallVerifier : public FirewallVerifier {
-public:
-    explicit IptablesFirewallVerifier(CommandRunner runner,
-                                      RawPreroutingMode raw_prerouting = {});
-    explicit IptablesFirewallVerifier(CommandRunner runner,
-                                      bool use_raw_prerouting)
-        : IptablesFirewallVerifier(
-              std::move(runner),
-              RawPreroutingMode{use_raw_prerouting, false}) {}
-
-    // Verify the configured KeenPbrTable/KeenPbrRaw chains and PREROUTING
-    // hooks for both families.
-    FirewallChainCheck verify_chain() override;
-
-    // Verify mark/drop/pass rules for all expected RuleState entries (action_type != Skip).
-    std::vector<FirewallRuleCheck> verify_rules(
-        const std::vector<RuleState>& expected) override;
-
-private:
-    static constexpr const char* CHAIN_NAME = "KeenPbrTable";
-
-    struct CachedState {
-        ParsedIptablesState v4;
-        ParsedIptablesState v6;
-    };
-
-    const CachedState& get_state() const;
-
-    CommandRunner runner_;
-    RawPreroutingMode raw_prerouting_{};
-    mutable std::optional<CachedState> cached_state_;
-};
-
-// Factory function called from firewall_verifier.cpp
-std::unique_ptr<FirewallVerifier> create_iptables_verifier(CommandRunner runner,
-                                                            RawPreroutingMode raw_prerouting = {});
-
-inline std::unique_ptr<FirewallVerifier>
-create_iptables_verifier(CommandRunner runner, bool use_raw_prerouting) {
-    return create_iptables_verifier(std::move(runner),
-                                    RawPreroutingMode{use_raw_prerouting, false});
-}
 
 } // namespace keen_pbr3

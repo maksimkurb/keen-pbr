@@ -1,7 +1,7 @@
 #include "routing_health_checker.hpp"
 
 #include "../api/generated/api_types.hpp"
-#include "../firewall/firewall_verifier.hpp"
+#include "../firewall/firewall_snapshot.hpp"
 #include "../routing/routing_verifier.hpp"
 #include "../util/format_compat.hpp"
 #include "../util/string_compat.hpp"
@@ -61,17 +61,6 @@ FirewallChainCheck firewall_chain_from_snapshot(const FirewallSnapshot& snapshot
 
 } // anonymous namespace
 
-RoutingHealthChecker::RoutingHealthChecker(const Firewall& firewall,
-                                           const FirewallState& firewall_state,
-                                           const RouteTable& route_table,
-                                           const PolicyRuleManager& policy_rules,
-                                           NetlinkManager& netlink)
-    : firewall_(firewall),
-      firewall_state_(firewall_state),
-      route_table_(route_table),
-      policy_rules_(policy_rules),
-      netlink_(netlink) {}
-
 RoutingHealthReport build_routing_health_report(
     FirewallBackend firewall_backend,
     RawPreroutingMode raw_prerouting,
@@ -79,39 +68,24 @@ RoutingHealthReport build_routing_health_report(
     const std::vector<RouteSpec>& tracked_routes,
     const std::vector<RuleSpec>& tracked_policy_rules,
     NetlinkManager& netlink,
-    CommandRunner runner,
-    FirewallHealthSource firewall_source) {
+    CommandRunner runner) {
     RoutingHealthReport report;
     report.firewall_backend = firewall_backend;
 
     try {
-        if (firewall_source == FirewallHealthSource::ActivePlan) {
-            const auto& active_plan = firewall_state.get_active_plan();
-            if (!active_plan.has_value()) {
-                report.firewall_chain.detail =
-                    "active firewall plan unavailable; routing runtime is not ready";
-                return report;
-            }
-
+        const auto& active_plan = firewall_state.get_active_plan();
+        if (!active_plan.has_value()) {
+            report.firewall_chain.detail =
+                "active firewall plan unavailable; routing runtime is not ready";
+        } else {
             // Inspect once, then compare the neutral snapshot with the active
-            // plan.  RuleState is only a compatibility/API projection.
+            // plan. RuleState is only a control/API projection.
             auto inspector = create_firewall_snapshot_inspector(
                 firewall_backend, raw_prerouting, std::move(runner));
             const auto snapshot = inspector->inspect();
             report.firewall_chain = firewall_chain_from_snapshot(snapshot);
             report.firewall_rules = verify_firewall_plan(
                 *active_plan, snapshot, active_plan->fwmark_mask);
-        } else {
-            // A standalone status invocation receives only the historical
-            // RuleState projection from the control socket.  It has no live
-            // balance candidates with which to reconstruct an active plan,
-            // so preserve the old semantic verifier for this compatibility
-            // path only.
-            auto verifier = create_firewall_verifier(
-                firewall_backend, raw_prerouting, std::move(runner));
-            verifier->set_expected_fwmark_mask(firewall_state.get_fwmark_mask());
-            report.firewall_chain = verifier->verify_chain();
-            report.firewall_rules = verifier->verify_rules(firewall_state.get_rules());
         }
 
         // 2. Create routing verifier
@@ -237,16 +211,6 @@ RoutingHealthReport build_routing_health_report(
     }
 
     return report;
-}
-
-RoutingHealthReport RoutingHealthChecker::check() const {
-    return build_routing_health_report(
-        firewall_.backend(),
-        firewall_.raw_prerouting_mode(),
-        firewall_state_,
-        route_table_.get_routes(),
-        policy_rules_.get_rules(),
-        netlink_);
 }
 
 static std::string hex_str(uint32_t v) {

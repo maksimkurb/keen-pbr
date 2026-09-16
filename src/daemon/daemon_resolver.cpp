@@ -134,7 +134,15 @@ RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
 void Daemon::publish_runtime_state(StatusPublishScope scope) {
     Logger::instance().trace("runtime_state_publish", "routing_runtime_active={}",
                              routing_runtime_active_ ? "true" : "false");
-    runtime_state_store_.publish(build_runtime_state_snapshot());
+    invalidate_routing_health_cache();
+    const auto snapshot = build_runtime_state_snapshot();
+    runtime_state_store_.publish(snapshot);
+    if (snapshot.runtime_state == RuntimeState::running &&
+        snapshot.routing_runtime_active) {
+        // Warm the canonical report off-loop so the first API/status client
+        // still gets an immediate response without waiting for inspection.
+        (void)cached_routing_health();
+    }
 #ifdef WITH_API
     if (status_stream_) {
         StatusUpdate updates = StatusUpdate::Outbounds;

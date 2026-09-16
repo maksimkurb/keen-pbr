@@ -3,8 +3,7 @@ def register(registry):
     def service_lifecycle(context):
         health = context.health_running()
         assert health["os_type"] == "debian", health
-        routing = context.api("/api/health/routing")
-        assert routing["overall"] == "ok", routing
+        routing = context.routing_health_running()
         assert routing["firewall_backend"] == context.backend, routing
         stopped = context.api("/api/service/stop", "POST")
         assert stopped["status"] == "accepted" and stopped["operation_id"], stopped
@@ -23,5 +22,4 @@ def register(registry):
             lambda: ((health := context.api("/api/health/service"))["status"] == "running" and
                      health.get("lifecycle_operation", {}).get("id") == started["operation_id"] and
                      health["lifecycle_operation"].get("status") == "succeeded"))
-        restarted_routing = context.api("/api/health/routing")
-        assert restarted_routing["overall"] == "ok", restarted_routing
+        restarted_routing = context.routing_health_running()

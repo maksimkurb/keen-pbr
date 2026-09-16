@@ -20,7 +20,6 @@
 #include "../dns/dns_router.hpp"
 #include "../dns/dnsmasq_gen.hpp"
 #include "../util/ipv6_support.hpp"
-#include "../health/routing_health_checker.hpp"
 #include "../health/runtime_interface_inventory.hpp"
 #include "../health/runtime_outbound_state.hpp"
 #include "../keenetic/interface_descriptions.hpp"
@@ -800,23 +799,7 @@ void Daemon::setup_api() {
             return service_health;
         },
         [this]() {
-            const auto runtime_snapshot = runtime_state_store_.snapshot();
-
-            if (runtime_snapshot.runtime_state == RuntimeState::starting) {
-                RoutingHealthReport report;
-                report.firewall_backend = firewall_->backend();
-                report.firewall_chain.detail =
-                    "routing runtime initialization is in progress";
-                return report;
-            }
-
-            return build_routing_health_report(
-                firewall_->backend(),
-                firewall_->raw_prerouting_mode(),
-                runtime_snapshot.firewall_state,
-                runtime_snapshot.route_specs,
-                runtime_snapshot.policy_rule_specs,
-                netlink_);
+            return cached_routing_health();
         },
         [this]() {
             const Config config_snapshot = config_store_.active_config();

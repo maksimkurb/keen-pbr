@@ -26,6 +26,7 @@
 #include "../dns/dns_probe_server.hpp" // IWYU pragma: keep
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
+#include "../health/routing_health_checker.hpp"
 #include "../ipc/control_protocol.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
@@ -54,6 +55,7 @@ constexpr std::size_t kMaxControlRequestBytes = std::size_t{4} * 1024U;
 constexpr auto kControlIngressTimeout = std::chrono::seconds{1};
 constexpr auto kControlHelloWriteTimeout = std::chrono::milliseconds{100};
 constexpr auto kControlWriteTimeout = std::chrono::seconds{1};
+constexpr auto kRoutingHealthCacheLifetime = std::chrono::seconds{5};
 
 bool send_control_bytes(int fd, std::string_view bytes,
                         std::chrono::steady_clock::duration timeout) noexcept {
@@ -102,6 +104,14 @@ void send_control_response_and_close(int fd,
     Logger::instance().error("control response encoding failed: unknown error");
   }
   close(fd);
+}
+
+RoutingHealthReport unavailable_routing_health(FirewallBackend backend,
+                                               std::string detail) {
+  RoutingHealthReport report;
+  report.firewall_backend = backend;
+  report.firewall_chain.detail = std::move(detail);
+  return report;
 }
 
 nlohmann::json control_rule_state_json(const ControlRuntimeSnapshot::Rule &rule) {
@@ -547,6 +557,107 @@ void Daemon::finish_routing_test() {
   routing_tests_inflight_.fetch_sub(1, std::memory_order_acq_rel);
 }
 
+RoutingHealthReport Daemon::cached_routing_health() {
+  const auto runtime_snapshot = runtime_state_store_.snapshot();
+  const auto backend = firewall_->backend();
+  const bool runtime_ready =
+      runtime_snapshot.runtime_state != RuntimeState::starting &&
+      runtime_snapshot.runtime_state != RuntimeState::applying &&
+      runtime_snapshot.runtime_state != RuntimeState::stopped &&
+      runtime_snapshot.runtime_state != RuntimeState::shutting_down &&
+      runtime_snapshot.firewall_state.get_active_plan().has_value();
+  if (!runtime_ready) {
+    const auto detail = runtime_snapshot.runtime_state == RuntimeState::starting
+        ? "routing runtime initialization is in progress"
+        : (runtime_snapshot.runtime_state == RuntimeState::applying
+               ? "routing runtime configuration is being applied"
+               : "active firewall plan unavailable; routing runtime is not ready");
+    return unavailable_routing_health(backend, detail);
+  }
+
+  const auto health_revision =
+      routing_health_revision_.load(std::memory_order_acquire);
+  {
+    KPBR_LOCK_GUARD(routing_health_mutex_);
+    const auto now = std::chrono::steady_clock::now();
+    if (routing_health_cache_.has_value() &&
+        routing_health_cache_revision_ == health_revision &&
+        routing_health_cache_state_ == runtime_snapshot.runtime_state &&
+        now - routing_health_cache_time_ <= kRoutingHealthCacheLifetime) {
+      return *routing_health_cache_;
+    }
+    if (routing_health_check_inflight_) {
+      return unavailable_routing_health(
+          backend, "canonical routing health refresh is pending");
+    }
+    routing_health_check_inflight_ = true;
+  }
+
+  const auto raw_prerouting = firewall_->raw_prerouting_mode();
+  bool queued = false;
+  try {
+    queued = routing_test_executor_.try_post(
+        "routing-health",
+        [this, runtime_snapshot, backend, raw_prerouting, health_revision] {
+          try {
+            RoutingHealthReport health;
+            try {
+              health = build_routing_health_report(
+                  backend, raw_prerouting, runtime_snapshot.firewall_state,
+                  runtime_snapshot.route_specs,
+                  runtime_snapshot.policy_rule_specs, netlink_);
+            } catch (const std::exception& error) {
+              health = unavailable_routing_health(
+                  backend,
+                  "canonical routing health check failed: " +
+                      std::string(error.what()));
+            } catch (...) {
+              health = unavailable_routing_health(
+                  backend, "canonical routing health check failed: unknown error");
+            }
+
+            const bool revision_current =
+                health_revision ==
+                routing_health_revision_.load(std::memory_order_acquire);
+            KPBR_LOCK_GUARD(routing_health_mutex_);
+            if (revision_current &&
+                health_revision ==
+                    routing_health_revision_.load(std::memory_order_acquire)) {
+              routing_health_cache_ = std::move(health);
+              routing_health_cache_revision_ = health_revision;
+              routing_health_cache_state_ = runtime_snapshot.runtime_state;
+              routing_health_cache_time_ = std::chrono::steady_clock::now();
+            }
+            routing_health_check_inflight_ = false;
+          } catch (...) {
+            KPBR_LOCK_GUARD(routing_health_mutex_);
+            routing_health_check_inflight_ = false;
+          }
+        });
+  } catch (...) {
+    KPBR_LOCK_GUARD(routing_health_mutex_);
+    routing_health_check_inflight_ = false;
+    return unavailable_routing_health(
+        backend, "canonical routing health worker is unavailable");
+  }
+  if (queued) {
+    return unavailable_routing_health(
+        backend, "canonical routing health refresh is pending");
+  }
+
+  KPBR_LOCK_GUARD(routing_health_mutex_);
+  routing_health_check_inflight_ = false;
+  return unavailable_routing_health(
+      backend, "canonical routing health worker is unavailable");
+}
+
+void Daemon::invalidate_routing_health_cache() {
+  routing_health_revision_.fetch_add(1, std::memory_order_acq_rel);
+  KPBR_LOCK_GUARD(routing_health_mutex_);
+  routing_health_cache_.reset();
+  routing_health_cache_revision_ = 0;
+}
+
 void Daemon::handle_ipc_control_socket() {
   while (true) {
     IpcControlRequest accepted;
@@ -619,17 +730,28 @@ void Daemon::handle_ipc_control_socket() {
             response = ipc::make_error_response(
                 request, "busy", "runtime configuration is being applied");
           } else {
+            // Status must remain a nonblocking control operation.  The
+            // resolver generation normally supplies the cached decision; a
+            // pre-generation status response uses the conservative display
+            // default instead of probing the firewall on this event loop.
             const bool ipv6_enabled = resolver_generation_snapshot_.has_value()
                                           ? resolver_generation_snapshot_->ipv6_enabled
-                                          : resolve_ipv6_support(config_).enabled;
+                                          : (operation == "status"
+                                                 ? true
+                                                 : resolve_ipv6_support(config_).enabled);
+            auto result = control_runtime_state_json(
+                snapshot, firewall_->backend(), ipv6_enabled,
+                runtime_generation_.load(std::memory_order_acquire),
+                config_path_);
+            if (operation == "status") {
+              result["routing_health"] =
+                  routing_health_report_to_json(cached_routing_health());
+            }
             response = {
                 {"protocol_version", ipc::kControlProtocolVersion},
                 {"request_id", request.at("request_id")},
                 {"ok", true},
-                {"result", control_runtime_state_json(
-                               snapshot, firewall_->backend(), ipv6_enabled,
-                               runtime_generation_.load(std::memory_order_acquire),
-                               config_path_)}};
+                {"result", std::move(result)}};
           }
         } else if (operation == "download") {
           bool expected = false;
