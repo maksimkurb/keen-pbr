@@ -420,6 +420,41 @@ TEST_CASE("nft balance snapshot rejects altered selector, guard, mapping, and se
     CHECK(verify(std::move(duplicate_ct_setter)) == CheckStatus::mismatch);
 }
 
+TEST_CASE("nft balance mismatch reports the matching physical hook") {
+    const auto key = FirewallRuleKey{"route.balance", "output"};
+    FirewallPlan plan;
+    plan.fwmark_mask = 0x00FF0000u;
+    FirewallRuleInstance rule;
+    rule.key = key;
+    rule.hook = FirewallHook::output;
+    rule.family = FirewallFamily::ipv4;
+    rule.criteria.apply_output = true;
+    rule.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+    rule.action = BalanceAction{
+        0x30000u, {{0x10000u, true, false}, {0x20000u, true, false}}};
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(std::move(rule));
+    registrar.finish();
+
+    FirewallSnapshot snapshot;
+    snapshot.available = true;
+    snapshot.backend = FirewallBackend::nftables;
+    ObservedFirewallRule observed;
+    observed.key = key;
+    observed.hook = FirewallHook::prerouting;
+    observed.family = FirewallFamily::ipv4;
+    observed.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+    observed.action = MarkAction{0x10000u, plan.fwmark_mask};
+    snapshot.rules.push_back(std::move(observed));
+
+    const auto checks = verify_firewall_plan(plan, snapshot);
+    REQUIRE(checks.size() == 1);
+    CHECK(checks.front().status == CheckStatus::mismatch);
+    CHECK(checks.front().detail.find("hook mismatch") == std::string::npos);
+    CHECK(checks.front().detail.find(
+              "action mismatch: expected balance got mark") != std::string::npos);
+}
+
 TEST_CASE("nft balance snapshot rejects family-ambiguous classifiers") {
     const auto key = FirewallRuleKey{"route.balance", "direct"};
     FirewallPlan plan;

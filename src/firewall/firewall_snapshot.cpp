@@ -6,6 +6,7 @@
 #include "../util/format_compat.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <netinet/in.h>
@@ -563,6 +564,11 @@ bool legacy_prefilter_rule_usable(const ObservedFirewallRule& rule,
 
 struct PrefilterLocation {
     std::size_t plan_index{0};
+    std::size_t physical_index{0};
+    std::size_t observed_index{0};
+};
+
+struct ShapeMatch {
     std::size_t physical_index{0};
     std::size_t observed_index{0};
 };
@@ -1246,8 +1252,11 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
         }
 
         std::vector<std::size_t> matched;
-        std::vector<std::size_t> shape_matches;
-        for (const auto& physical_rule : physical) {
+        std::vector<ShapeMatch> shape_matches;
+        std::vector<bool> matched_physical(physical.size(), false);
+        for (std::size_t physical_index = 0;
+             physical_index < physical.size(); ++physical_index) {
+            const auto& physical_rule = physical[physical_index];
             auto match = std::find_if(candidates.begin(), candidates.end(),
                                       [&](std::size_t index) {
                 return !used[index] &&
@@ -1262,6 +1271,7 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
             if (match != candidates.end()) {
                 used[*match] = true;
                 matched.push_back(*match);
+                matched_physical[physical_index] = true;
                 continue;
             }
             auto shape = std::find_if(candidates.begin(), candidates.end(),
@@ -1274,7 +1284,7 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
                                   physical_rule.inbound_interface);
             });
             if (shape != candidates.end()) {
-                shape_matches.push_back(*shape);
+                shape_matches.push_back({physical_index, *shape});
             }
         }
 
@@ -1307,10 +1317,19 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
             check.status = (!shape_matches.empty() || !keyed.empty())
                 ? CheckStatus::mismatch : CheckStatus::missing;
             if (!shape_matches.empty() || !keyed.empty()) {
+                // A logical rule may expand to OUTPUT and PREROUTING physical
+                // companions, so the number of exact matches is not their
+                // physical index.
                 const auto mismatch_index = !shape_matches.empty()
-                    ? shape_matches.front() : keyed.front();
-                const auto physical_index = std::min(
-                    matched.size(), physical.size() - std::size_t{1});
+                    ? shape_matches.front().observed_index : keyed.front();
+                const auto physical_it = std::find(
+                    matched_physical.begin(), matched_physical.end(), false);
+                const auto physical_index = !shape_matches.empty()
+                    ? shape_matches.front().physical_index
+                    : (physical_it == matched_physical.end()
+                           ? physical.size() - std::size_t{1}
+                           : static_cast<std::size_t>(
+                                 std::distance(matched_physical.begin(), physical_it)));
                 check.detail = mismatch_detail(
                     expected, physical[physical_index],
                     snapshot.rules[mismatch_index], plan.fwmark_mask);
