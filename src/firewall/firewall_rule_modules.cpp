@@ -1,5 +1,7 @@
 #include "firewall_rule_modules.hpp"
 
+#include "../routing/target.hpp"
+
 #include "../dns/dns_router.hpp"
 
 #include <algorithm>
@@ -110,6 +112,38 @@ bool family_matches_default_gateway(const FirewallRuleCriteria& criteria,
 }
 
 template <typename ActionFactory>
+void register_route_rule_targets(const FirewallBuildContext& context,
+                                 FirewallRuleRegistrar& registrar,
+                                 std::string_view module_id,
+                                 std::size_t rule_index,
+                                 ActionFactory action_factory,
+                                 bool action_enabled = true) {
+  for (const auto& target : expand_route_rule_targets(context, rule_index)) {
+    if (target.set_name.has_value()) {
+      registrar.register_set(
+          {*target.set_name, target.family, target.set_timeout});
+    }
+    if (!target.rule_enabled || !action_enabled) {
+      continue;
+    }
+
+    FirewallRuleInstance rule;
+    rule.key = FirewallRuleKey::compact(
+        module_id, instance_id(context, rule_index, target));
+    rule.stage = FirewallRuleStage::route_classification;
+    rule.priority = static_cast<int>(rule_index);
+    rule.hook = target.criteria.apply_output ? FirewallHook::output
+                                             : FirewallHook::prerouting;
+    rule.family = target.family;
+    rule.criteria = target.criteria;
+    rule.criteria.dst_set_name = target.set_name;
+    rule.action = action_factory();
+    rule.source_rule_index = rule_index;
+    registrar.register_rule(std::move(rule));
+  }
+}
+
+template <typename ActionFactory>
 void register_route_action_module(const FirewallBuildContext& context,
                                   FirewallRuleRegistrar& registrar,
                                   RuleActionType action_type,
@@ -127,30 +161,10 @@ void register_route_action_module(const FirewallBuildContext& context,
       continue;
     }
 
-    for (const auto& target : expand_route_rule_targets(context, rule_index)) {
-      if (target.set_name.has_value()) {
-        registrar.register_set({*target.set_name, target.family,
-                                target.set_timeout});
-      }
-      if (!target.rule_enabled ||
-          (action_type == RuleActionType::Mark && state.fwmark == 0)) {
-        continue;
-      }
-
-      FirewallRuleInstance rule;
-      rule.key = FirewallRuleKey::compact(module_id,
-                                          instance_id(context, rule_index, target));
-      rule.stage = FirewallRuleStage::route_classification;
-      rule.priority = static_cast<int>(rule_index);
-      rule.hook = target.criteria.apply_output ? FirewallHook::output
-                                               : FirewallHook::prerouting;
-      rule.family = target.family;
-      rule.criteria = target.criteria;
-      rule.criteria.dst_set_name = target.set_name;
-      rule.action = action_factory(state, context);
-      rule.source_rule_index = rule_index;
-      registrar.register_rule(std::move(rule));
-    }
+    register_route_rule_targets(
+        context, registrar, module_id, rule_index,
+        [&] { return action_factory(state, context); },
+        action_type != RuleActionType::Mark || state.fwmark != 0);
   }
 }
 
@@ -228,12 +242,40 @@ std::vector<RouteRuleTarget> expand_route_rule_targets(
 
 void RouteMarkRuleModule::register_rules(
     const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
-  register_route_action_module(
-      context, registrar, RuleActionType::Mark, id(),
-      [](const RuleState& state, const FirewallBuildContext& build_context) {
-        return FirewallRuleAction{
-            MarkAction{state.fwmark, build_context.fwmark_mask}};
-      });
+  if (context.outbound_marks == nullptr) {
+    return;
+  }
+
+  for (std::size_t rule_index = 0; rule_index < context.route_rules.size();
+       ++rule_index) {
+    const auto& route_rule = context.route_rules[rule_index];
+    if (!route_rule_enabled(route_rule)) {
+      continue;
+    }
+
+    const auto decision =
+        resolve_route_action(route_rule.outbound, context.outbounds);
+    if (decision.is_skip || decision.is_passthrough ||
+        !decision.outbound.has_value() || !*decision.outbound) {
+      continue;
+    }
+
+    const auto& outbound = **decision.outbound;
+    if (outbound.type == OutboundType::BLACKHOLE ||
+        outbound_uses_balance(outbound)) {
+      continue;
+    }
+
+    const auto mark_it = context.outbound_marks->find(outbound.tag);
+    const uint32_t fwmark = mark_it == context.outbound_marks->end()
+                                ? 0
+                                : mark_it->second;
+    register_route_rule_targets(
+        context, registrar, id(), rule_index,
+        [&] { return FirewallRuleAction{
+                   MarkAction{fwmark, context.fwmark_mask}}; },
+        fwmark != 0);
+  }
 }
 
 void RouteDropRuleModule::register_rules(

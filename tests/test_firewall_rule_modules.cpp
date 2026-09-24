@@ -146,15 +146,9 @@ TEST_CASE("route module keys are stable and mark changes are semantic") {
     CHECK(first.rules[index].key == second.rules[index].key);
   }
 
-  const auto& routes = *fixture.config.route->rules;
-  const auto& outbounds = *fixture.config.outbounds;
-  const auto& lists = *fixture.config.lists;
-  const auto changed_states =
-      build_fw_rule_states(fixture.config, {{"wan", 0x200U}});
-  const auto context = FirewallBuildContext{
-      routes, changed_states, outbounds, lists, fixture.usage,
-      fixture.main_routes, fixture.interfaces, FirewallBackend::nftables, true,
-      0xFFFFFFFFU};
+  const OutboundMarkMap changed_marks{{"wan", 0x200U}};
+  auto context = fixture.context();
+  context.outbound_marks = &changed_marks;
   FirewallPlan changed;
   FirewallRuleRegistrar registrar(changed);
   RouteMarkRuleModule{}.register_rules(context, registrar);
@@ -163,6 +157,90 @@ TEST_CASE("route module keys are stable and mark changes are semantic") {
   REQUIRE(changed.rules.size() == first.rules.size());
   CHECK(changed.rules.front().key == first.rules.front().key);
   CHECK(changed.rules.front().action != first.rules.front().action);
+}
+
+TEST_CASE("route mark owns selection and reads runtime marks") {
+  const auto config = parse_config(R"({
+    "outbounds": [
+      {"type":"table","tag":"wan","table":100},
+      {"type":"table","tag":"missing","table":101},
+      {"type":"table","tag":"zero","table":102},
+      {"type":"blackhole","tag":"blocked"},
+      {"type":"ignore","tag":"direct"},
+      {"type":"urltest","tag":"balanced","strategy":"balance",
+       "outbound_groups":[{"outbounds":["wan"]}]}
+    ],
+    "lists": {"remote": {"ip_cidrs":["192.0.2.0/24"],
+                            "domains":["example.test"]}},
+    "route": {"rules": [
+      {"outbound":"wan","dscp":1,"dest_addr":"192.0.2.1"},
+      {"outbound":"wan","dscp":2,"dest_addr":"2001:db8::1"},
+      {"list":["remote"],"outbound":"wan","dscp":3},
+      {"outbound":"wan","dscp":4,"enabled":false},
+      {"outbound":"direct","dscp":5},
+      {"outbound":"blocked","dscp":6},
+      {"outbound":"balanced","dscp":7},
+      {"outbound":"missing","dscp":8},
+      {"outbound":"zero","dscp":9},
+      {"outbound":"unknown","dscp":10}
+    ]}
+  })");
+  const OutboundMarkMap marks{{"wan", 0x12340000U}, {"zero", 0}};
+  const std::vector<RuleState> stale_states;
+  const std::map<std::string, ListSetUsage> usage = {
+      {"remote", {true, true, 30}}};
+  const std::vector<DumpedRoute> main_routes;
+  const std::vector<DumpedInterface> interfaces;
+  const uint32_t mask = 0xFFFF0000U;
+  const FirewallBuildContext context{
+      *config.route->rules, stale_states, *config.outbounds, *config.lists,
+      usage, main_routes, interfaces, FirewallBackend::nftables, true, mask,
+      nullptr, true, true, true, {}, &config, &marks};
+  FirewallPlan plan;
+  plan.fwmark_mask = mask;
+  FirewallRuleRegistrar registrar(plan);
+  RouteMarkRuleModule{}.register_rules(context, registrar);
+  registrar.finish();
+
+  REQUIRE(plan.rules.size() == 6);
+  REQUIRE(plan.sets.size() == 4);
+  CHECK(plan.sets[0].name == "kpbr4_remote");
+  CHECK(plan.sets[1].name == "kpbr4d_remote");
+  CHECK(plan.sets[2].name == "kpbr6_remote");
+  CHECK(plan.sets[3].name == "kpbr6d_remote");
+
+  const auto& ipv4 = plan.rules[0];
+  CHECK(ipv4.source_rule_index == 0);
+  CHECK(ipv4.priority == 0);
+  CHECK(ipv4.family == FirewallFamily::ipv4);
+  CHECK(ipv4.key == FirewallRuleKey::compact(
+                         "route.mark",
+                         "rule=0;occurrence=0;target=none;family=ipv4;proto=any;hook=prerouting"));
+
+  const auto& ipv6 = plan.rules[1];
+  CHECK(ipv6.source_rule_index == 1);
+  CHECK(ipv6.priority == 1);
+  CHECK(ipv6.family == FirewallFamily::ipv6);
+  CHECK(ipv6.key == FirewallRuleKey::compact(
+                         "route.mark",
+                         "rule=1;occurrence=0;target=none;family=ipv6;proto=any;hook=prerouting"));
+
+  for (std::size_t index = 0; index < plan.rules.size(); ++index) {
+    const auto& rule = plan.rules[index];
+    CHECK(rule.insertion_order == index);
+    REQUIRE(std::holds_alternative<MarkAction>(rule.action));
+    CHECK(std::get<MarkAction>(rule.action).value == 0x12340000U);
+    CHECK(std::get<MarkAction>(rule.action).mask == mask);
+  }
+  CHECK(plan.rules[2].source_rule_index == 2);
+  CHECK(plan.rules[2].family == FirewallFamily::ipv4);
+  CHECK(plan.rules[2].criteria.dst_set_name == "kpbr4_remote");
+  CHECK(plan.rules[3].family == FirewallFamily::ipv6);
+  CHECK(plan.rules[3].criteria.dst_set_name == "kpbr6_remote");
+  CHECK(plan.rules[4].family == FirewallFamily::ipv4);
+  CHECK(plan.rules[4].criteria.dst_set_name == "kpbr4d_remote");
+  CHECK(plan.rules[5].family == FirewallFamily::ipv6);
+  CHECK(plan.rules[5].criteria.dst_set_name == "kpbr6d_remote");
 }
 
 TEST_CASE("route module manifest has explicit deterministic order") {
