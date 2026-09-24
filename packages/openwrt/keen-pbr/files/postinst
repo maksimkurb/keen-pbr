@@ -9,4 +9,8 @@
 
 /etc/init.d/keen-pbr sync_firewall_hook >/dev/null 2>&1 || true
 
+if [ "$PKG_UPGRADE" = "1" ] && /etc/init.d/keen-pbr running >/dev/null 2>&1; then
+    /etc/init.d/keen-pbr restart || exit 1
+fi
+
 exit 0

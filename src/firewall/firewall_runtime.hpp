@@ -36,7 +36,6 @@ struct FirewallPlanBuildInputs {
   const FirewallBalanceCandidates* balance_candidates{nullptr};
   bool ipv6_enabled{true};
   uint32_t fwmark_mask{0xFFFFFFFFu};
-  const std::vector<RuleState>* rule_states{nullptr};
   FirewallBackend backend{FirewallBackend::iptables};
 };
 

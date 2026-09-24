@@ -150,13 +150,6 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   const auto route_config = inputs.config.route.value_or(RouteConfig{});
   const auto& route_rules =
       route_config.rules.value_or(std::vector<RouteRule>{});
-  const auto local_rule_states =
-      inputs.rule_states == nullptr
-          ? build_fw_rule_states(inputs.config, inputs.outbound_marks)
-          : std::vector<RuleState>{};
-  const auto& rule_states = inputs.rule_states != nullptr
-                                 ? *inputs.rule_states
-                                 : local_rule_states;
   FirewallRuleRegistrar registrar(plan);
   const bool owned_marks_present = std::any_of(
       inputs.outbound_marks.begin(), inputs.outbound_marks.end(),
@@ -164,7 +157,7 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   const bool restore_conntrack_mark =
       inputs.backend == FirewallBackend::iptables || owned_marks_present;
   const FirewallBuildContext context{
-      route_rules, rule_states, all_outbounds, lists_map, inputs.list_usage,
+      route_rules, all_outbounds, lists_map, inputs.list_usage,
       inputs.main_routes, inputs.interfaces, inputs.backend,
       inputs.ipv6_enabled, inputs.fwmark_mask, inputs.balance_candidates,
       restore_conntrack_mark, prefilter.skip_established_or_dnat,
@@ -244,7 +237,7 @@ std::vector<RuleState> apply_runtime_firewall(
     }
     FirewallPlanBuildInputs plan_inputs{
         config, outbound_marks, list_usage_cache, main_routes, interfaces,
-        balance_candidates, ipv6_decision.enabled, fwmark_mask, &rule_states,
+        balance_candidates, ipv6_decision.enabled, fwmark_mask,
         firewall.backend()};
     FirewallPlan plan = build_firewall_plan(plan_inputs);
     validate_firewall_plan_backend(plan, firewall.backend());

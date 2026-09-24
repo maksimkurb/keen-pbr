@@ -1,5 +1,6 @@
 #include "firewall_rule_modules.hpp"
 
+#include "../config/routing_state.hpp"
 #include "../routing/target.hpp"
 
 #include "../dns/dns_router.hpp"
@@ -46,14 +47,6 @@ FirewallFamily family_for_criteria(const FirewallRuleCriteria& criteria) {
     return FirewallFamily::ipv4;
   }
   return FirewallFamily::any;
-}
-
-bool is_balanced_outbound(const FirewallBuildContext& context,
-                          const std::string& tag) {
-  const auto outbound = std::find_if(
-      context.outbounds.begin(), context.outbounds.end(),
-      [&tag](const Outbound& candidate) { return candidate.tag == tag; });
-  return outbound != context.outbounds.end() && outbound_uses_balance(*outbound);
 }
 
 std::string family_name(FirewallFamily family) {
@@ -140,31 +133,6 @@ void register_route_rule_targets(const FirewallBuildContext& context,
     rule.action = action_factory();
     rule.source_rule_index = rule_index;
     registrar.register_rule(std::move(rule));
-  }
-}
-
-template <typename ActionFactory>
-void register_route_action_module(const FirewallBuildContext& context,
-                                  FirewallRuleRegistrar& registrar,
-                                  RuleActionType action_type,
-                                  std::string_view module_id,
-                                  ActionFactory action_factory,
-                                  bool balanced = false) {
-  for (std::size_t rule_index = 0;
-       rule_index < context.route_rules.size() &&
-       rule_index < context.rule_states.size();
-       ++rule_index) {
-    const auto& state = context.rule_states[rule_index];
-    if (state.action_type != action_type ||
-        (action_type == RuleActionType::Mark &&
-         is_balanced_outbound(context, state.outbound_tag) != balanced)) {
-      continue;
-    }
-
-    register_route_rule_targets(
-        context, registrar, module_id, rule_index,
-        [&] { return action_factory(state, context); },
-        action_type != RuleActionType::Mark || state.fwmark != 0);
   }
 }
 
@@ -280,41 +248,82 @@ void RouteMarkRuleModule::register_rules(
 
 void RouteDropRuleModule::register_rules(
     const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
-  register_route_action_module(
-      context, registrar, RuleActionType::Drop, id(),
-      [](const RuleState&, const FirewallBuildContext&) {
-        return FirewallRuleAction{VerdictAction::drop};
-      });
+  for (std::size_t rule_index = 0; rule_index < context.route_rules.size();
+       ++rule_index) {
+    const auto& route_rule = context.route_rules[rule_index];
+    if (!route_rule_enabled(route_rule)) {
+      continue;
+    }
+    const auto decision =
+        resolve_route_action(route_rule.outbound, context.outbounds);
+    if (!decision.outbound.has_value() || !*decision.outbound ||
+        (*decision.outbound)->type != OutboundType::BLACKHOLE) {
+      continue;
+    }
+    register_route_rule_targets(
+        context, registrar, id(), rule_index,
+        [] { return FirewallRuleAction{VerdictAction::drop}; });
+  }
 }
 
 void RoutePassRuleModule::register_rules(
     const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
-  register_route_action_module(
-      context, registrar, RuleActionType::Pass, id(),
-      [](const RuleState&, const FirewallBuildContext&) {
-        return FirewallRuleAction{VerdictAction::pass};
-      });
+  for (std::size_t rule_index = 0; rule_index < context.route_rules.size();
+       ++rule_index) {
+    const auto& route_rule = context.route_rules[rule_index];
+    if (!route_rule_enabled(route_rule)) {
+      continue;
+    }
+    const auto decision =
+        resolve_route_action(route_rule.outbound, context.outbounds);
+    if (!decision.is_passthrough) {
+      continue;
+    }
+    register_route_rule_targets(
+        context, registrar, id(), rule_index,
+        [] { return FirewallRuleAction{VerdictAction::pass}; });
+  }
 }
 
 void RouteBalanceRuleModule::register_rules(
     const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
-  register_route_action_module(
-      context, registrar, RuleActionType::Mark, id(),
-      [](const RuleState& state, const FirewallBuildContext& build_context) {
-        // Preserve the prepared vector; nftables owns zero/one/many candidate
-        // expansion, filtering, and fallback compilation.
-        static const std::vector<FirewallBalanceCandidate> empty_candidates;
-        if (build_context.balance_candidates == nullptr) {
+  for (std::size_t rule_index = 0; rule_index < context.route_rules.size();
+       ++rule_index) {
+    const auto& route_rule = context.route_rules[rule_index];
+    if (!route_rule_enabled(route_rule)) {
+      continue;
+    }
+    const auto decision =
+        resolve_route_action(route_rule.outbound, context.outbounds);
+    if (!decision.outbound.has_value() || !*decision.outbound ||
+        !outbound_uses_balance(**decision.outbound) ||
+        context.outbound_marks == nullptr) {
+      continue;
+    }
+    const auto mark_it = context.outbound_marks->find((*decision.outbound)->tag);
+    if (mark_it == context.outbound_marks->end() || mark_it->second == 0) {
+      continue;
+    }
+
+    // Preserve the prepared vector; nftables owns zero/one/many candidate
+    // expansion, filtering, and fallback compilation.
+    static const std::vector<FirewallBalanceCandidate> empty_candidates;
+    const auto candidates = context.balance_candidates == nullptr
+                                ? empty_candidates
+                                : [&] {
+                                    const auto it = context.balance_candidates->find(
+                                        (*decision.outbound)->tag);
+                                    return it == context.balance_candidates->end()
+                                               ? empty_candidates
+                                               : it->second;
+                                  }();
+    register_route_rule_targets(
+        context, registrar, id(), rule_index,
+        [&] {
           return FirewallRuleAction{
-              BalanceAction{state.fwmark, empty_candidates}};
-        }
-        const auto it = build_context.balance_candidates->find(state.outbound_tag);
-        return FirewallRuleAction{BalanceAction{
-            state.fwmark,
-            it == build_context.balance_candidates->end() ? empty_candidates
-                                                            : it->second}};
-      },
-      true);
+              BalanceAction{mark_it->second, candidates}};
+        });
+  }
 }
 
 void DnsDetourRuleModule::register_rules(

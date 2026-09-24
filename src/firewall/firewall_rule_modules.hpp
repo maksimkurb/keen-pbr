@@ -3,8 +3,8 @@
 #include "firewall_plan.hpp"
 
 #include "../config/config.hpp"
-#include "../config/routing_state.hpp"
 #include "../lists/list_set_usage.hpp"
+#include "../routing/netlink.hpp"
 
 #include <array>
 #include <cstddef>
@@ -21,7 +21,6 @@ namespace keen_pbr3 {
 // data views only; backend mutation happens when the complete plan is applied.
 struct FirewallBuildContext {
   const std::vector<RouteRule>& route_rules;
-  const std::vector<RuleState>& rule_states;
   const std::vector<Outbound>& outbounds;
   const std::map<std::string, ListConfig>& lists;
   const std::map<std::string, ListSetUsage>& list_usage;

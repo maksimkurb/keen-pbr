@@ -198,7 +198,7 @@ TEST_CASE("empty nft mark ownership omits restore while iptables preserves it") 
 
   const auto build = [&](FirewallBackend backend) {
     return build_firewall_plan({config, no_marks, list_usage, routes, interfaces,
-                                 nullptr, true, 0xFFFFFFFFU, nullptr, backend});
+                                 nullptr, true, 0xFFFFFFFFU, backend});
   };
   const auto nft_plan = build(FirewallBackend::nftables);
   CHECK(std::none_of(

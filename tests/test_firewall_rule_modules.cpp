@@ -29,14 +29,13 @@ struct ModuleFixture {
     ]}
   })");
   const OutboundMarkMap marks{{"wan", 0x100U}};
-  const std::vector<RuleState> states = build_fw_rule_states(config, marks);
   const std::map<std::string, ListSetUsage> usage = {
       {"remote", {true, true, 30}}};
   const std::vector<DumpedRoute> main_routes;
   const std::vector<DumpedInterface> interfaces;
 
   FirewallBuildContext context() const {
-    return {*config.route->rules, states, *config.outbounds, *config.lists,
+    return {*config.route->rules, *config.outbounds, *config.lists,
             usage, main_routes, interfaces, FirewallBackend::nftables, true,
             0xFFFFFFFFU, nullptr, true, true, true, {}, &config, &marks};
   }
@@ -54,7 +53,6 @@ struct BalanceModuleFixture {
   })");
   const OutboundMarkMap marks{{"auto", 0x100U}, {"wan_a", 0x200U},
                               {"wan_b", 0x300U}};
-  const std::vector<RuleState> states = build_fw_rule_states(config, marks);
   const std::map<std::string, ListConfig> lists;
   const std::map<std::string, ListSetUsage> usage;
   const std::vector<DumpedRoute> main_routes;
@@ -62,7 +60,7 @@ struct BalanceModuleFixture {
   FirewallBalanceCandidates candidates;
 
   FirewallBuildContext context() const {
-    return {*config.route->rules, states, *config.outbounds, lists, usage,
+    return {*config.route->rules, *config.outbounds, lists, usage,
             main_routes, interfaces, FirewallBackend::nftables, true,
             0xFFFFFFFFU, &candidates, true, true, true, {}, &config, &marks};
   }
@@ -84,7 +82,7 @@ FirewallPlan build_plan(const Config& config, const OutboundMarkMap& marks,
   const std::vector<DumpedRoute> main_routes;
   const std::vector<DumpedInterface> interfaces;
   return build_firewall_plan({config, marks, usage, main_routes, interfaces,
-                              nullptr, ipv6_enabled, 0xFFFFFFFFU, nullptr,
+                              nullptr, ipv6_enabled, 0xFFFFFFFFU,
                               FirewallBackend::nftables});
 }
 
@@ -109,6 +107,18 @@ TEST_CASE("route modules emit zero, one, and many canonical instances") {
   REQUIRE(mark_plan.rules.size() == 5);
   CHECK(drop_plan.rules.size() == 1);
   CHECK(pass_plan.rules.size() == 1);
+  REQUIRE(drop_plan.rules.front().source_rule_index == 1);
+  CHECK(drop_plan.rules.front().key == FirewallRuleKey::compact(
+      "route.drop",
+      "rule=1;occurrence=0;target=none;family=any;proto=any;hook=prerouting"));
+  CHECK(std::get<VerdictAction>(drop_plan.rules.front().action) ==
+        VerdictAction::drop);
+  REQUIRE(pass_plan.rules.front().source_rule_index == 2);
+  CHECK(pass_plan.rules.front().key == FirewallRuleKey::compact(
+      "route.pass",
+      "rule=2;occurrence=0;target=none;family=any;proto=any;hook=prerouting"));
+  CHECK(std::get<VerdictAction>(pass_plan.rules.front().action) ==
+        VerdictAction::pass);
   const auto static_target = std::find_if(
       mark_plan.rules.begin(), mark_plan.rules.end(), [](const auto& rule) {
         return rule.criteria.dst_set_name == "kpbr4_remote";
@@ -120,7 +130,6 @@ TEST_CASE("route modules emit zero, one, and many canonical instances") {
   no_rules.route->rules = {RouteRule{}};
   no_rules.route->rules->front().outbound = "wan";
   no_rules.route->rules->front().enabled = false;
-  const auto no_states = build_fw_rule_states(no_rules, {{"wan", 0x100U}});
   const auto& no_routes = *no_rules.route->rules;
   const auto& no_outbounds = *no_rules.outbounds;
   const auto& no_lists = *no_rules.lists;
@@ -128,7 +137,7 @@ TEST_CASE("route modules emit zero, one, and many canonical instances") {
   const std::vector<DumpedRoute> no_main_routes;
   const std::vector<DumpedInterface> no_interfaces;
   const FirewallBuildContext no_context{
-      no_routes, no_states, no_outbounds, no_lists, no_usage, no_main_routes,
+      no_routes, no_outbounds, no_lists, no_usage, no_main_routes,
       no_interfaces, FirewallBackend::nftables, true, 0xFFFFFFFFU};
   FirewallPlan no_plan;
   FirewallRuleRegistrar no_registrar(no_plan);
@@ -186,14 +195,13 @@ TEST_CASE("route mark owns selection and reads runtime marks") {
     ]}
   })");
   const OutboundMarkMap marks{{"wan", 0x12340000U}, {"zero", 0}};
-  const std::vector<RuleState> stale_states;
   const std::map<std::string, ListSetUsage> usage = {
       {"remote", {true, true, 30}}};
   const std::vector<DumpedRoute> main_routes;
   const std::vector<DumpedInterface> interfaces;
   const uint32_t mask = 0xFFFF0000U;
   const FirewallBuildContext context{
-      *config.route->rules, stale_states, *config.outbounds, *config.lists,
+      *config.route->rules, *config.outbounds, *config.lists,
       usage, main_routes, interfaces, FirewallBackend::nftables, true, mask,
       nullptr, true, true, true, {}, &config, &marks};
   FirewallPlan plan;
@@ -379,6 +387,43 @@ TEST_CASE("route balance candidate changes retain identity and change semantics"
   CHECK(changed.rules.front().action != first.rules.front().action);
 }
 
+TEST_CASE("route balance skips rules without an owned fallback mark") {
+  BalanceModuleFixture fixture;
+  fixture.candidates["auto"] = {{0x200U, true, true}};
+  const auto build = [&](const OutboundMarkMap& marks) {
+    auto context = fixture.context();
+    context.outbound_marks = &marks;
+    FirewallPlan plan;
+    FirewallRuleRegistrar registrar(plan);
+    RouteBalanceRuleModule{}.register_rules(context, registrar);
+    registrar.finish();
+    return plan;
+  };
+
+  CHECK(build({}).rules.empty());
+  CHECK(build({{"auto", 0}}).rules.empty());
+}
+
+TEST_CASE("route balance keeps nftables-only backend validation") {
+  BalanceModuleFixture fixture;
+  fixture.candidates["auto"] = {{0x200U, true, true}};
+  auto context = fixture.context();
+  context.backend = FirewallBackend::iptables;
+
+  FirewallPlan plan;
+  plan.fwmark_mask = context.fwmark_mask;
+  FirewallRuleRegistrar registrar(plan);
+  RouteBalanceRuleModule{}.register_rules(context, registrar);
+  registrar.finish();
+
+  REQUIRE(plan.rules.size() == 1);
+  CHECK_THROWS_WITH(
+      validate_firewall_plan_backend(plan, FirewallBackend::iptables),
+      "unsupported firewall construct: module_id=route.balance, instance_id=" +
+          plan.rules.front().key.instance_id +
+          ", backend=iptables, construct=BalanceAction (requires nftables)");
+}
+
 TEST_CASE("route balance module is included in the explicit manifest") {
   BalanceModuleFixture fixture;
   fixture.candidates["auto"] = {{0x200U, true, true}};
@@ -545,13 +590,12 @@ TEST_CASE("route module manifest keeps reordered config rules in priority order"
     ]}
   })");
   const OutboundMarkMap marks{{"wan", 0x100U}};
-  const auto states = build_fw_rule_states(config, marks);
   const std::vector<DumpedRoute> main_routes;
   const std::vector<DumpedInterface> interfaces;
   const std::map<std::string, ListConfig> lists;
   const std::map<std::string, ListSetUsage> usage;
   const FirewallBuildContext context{
-      *config.route->rules, states, *config.outbounds, lists, usage, main_routes,
+      *config.route->rules, *config.outbounds, lists, usage, main_routes,
       interfaces, FirewallBackend::nftables, true, 0xFFFFFFFFU, nullptr, true,
       true, true, {}, &config, &marks};
   FirewallPlan plan;
@@ -594,8 +638,7 @@ FirewallPlan build_gateway_list_plan(const char* gateway) {
       {"remote", {true, true, 30}}};
   const OutboundMarkMap marks = {{"wan", 0x100U}};
   return build_firewall_plan({config, marks, usage, {}, {}, nullptr, true,
-                              0xFFFFFFFFU, nullptr,
-                              FirewallBackend::nftables});
+                              0xFFFFFFFFU, FirewallBackend::nftables});
 }
 
 } // namespace
