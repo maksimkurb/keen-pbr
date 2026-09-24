@@ -265,13 +265,11 @@ set(SOURCES
   src/config/config_writer.cpp
   src/config/routing_state.cpp
   src/config/list_parser.cpp
-  src/runtime/runtime_reconciler.cpp
   src/runtime/conntrack_manager.cpp
   src/runtime/resolver_coordinator.cpp
   src/runtime/runtime_state_machine.cpp
   src/runtime/operation_coordinator.cpp
   src/runtime/lifecycle_operation.cpp
-  src/firewall/firewall_reconciler.cpp
   src/firewall/firewall_snapshot.cpp
   src/firewall/firewall_plan.cpp
   src/firewall/firewall_rule.cpp

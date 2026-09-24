@@ -1136,23 +1136,6 @@ FirewallSnapshot inspect_nftables_snapshot(const CommandRunner& runner) {
     return NftablesSnapshotInspector(runner).inspect();
 }
 
-FirewallSnapshot inspect_iptables_snapshot(const FirewallCommandRunner& runner,
-                                            RawPreroutingMode raw_prerouting) {
-    return inspect_iptables_snapshot(
-        CommandRunner([runner](const std::vector<std::string>& args) {
-            const auto output = runner(args);
-            return CommandResult{output, 0, false};
-        }), raw_prerouting);
-}
-
-FirewallSnapshot inspect_nftables_snapshot(const FirewallCommandRunner& runner) {
-    return inspect_nftables_snapshot(CommandRunner([runner](
-        const std::vector<std::string>& args) {
-            const auto output = runner(args);
-            return CommandResult{output, 0, false};
-        }));
-}
-
 std::unique_ptr<FirewallSnapshotInspector> create_firewall_snapshot_inspector(
     FirewallBackend backend, RawPreroutingMode raw_prerouting, CommandRunner runner) {
     if (backend == FirewallBackend::iptables) {

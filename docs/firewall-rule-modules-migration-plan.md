@@ -240,9 +240,7 @@ code не менять.
 3. В `tests/test_firewall_verifier.cpp` добавить пары fixture'ов, показывающие,
    что оба verifier'а принимают output, сгенерированный текущими backend rules,
    и отклоняют изменения action/mask/family/port.
-4. В `tests/test_firewall_reconciler.cpp` зафиксировать ordered rule drift,
-   owned extras и namespace boundary.
-5. Добавить focused cases для всех четырёх apply modes, особенно запрет set
+4. Добавить focused cases для всех четырёх apply modes, особенно запрет set
    streaming в `RulesOnly` и fallback после `FirewallRulesOnlyError`.
 
 ### Проверка

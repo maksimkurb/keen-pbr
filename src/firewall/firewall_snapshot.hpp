@@ -1,7 +1,6 @@
 #pragma once
 
 #include "firewall_plan.hpp"
-#include "firewall_reconciler.hpp"
 #include "firewall_verifier.hpp"
 #include "../health/routing_health.hpp"
 
@@ -56,9 +55,8 @@ struct ObservedFirewallChain {
     bool hook_present{false};
 };
 
-// FirewallActualState remains the ordered lifecycle/reconciliation view.  This
-// snapshot intentionally owns only one read's semantic rule observations, so
-// rule verification does not couple to chain/set transaction state.
+// This snapshot intentionally owns only one read's semantic rule observations,
+// so rule verification does not couple to chain/set transaction state.
 struct FirewallSnapshot {
     FirewallBackend backend{FirewallBackend::iptables};
     RawPreroutingMode raw_prerouting{};
@@ -78,12 +76,6 @@ public:
 FirewallSnapshot inspect_iptables_snapshot(
     const CommandRunner& runner, RawPreroutingMode raw_prerouting = {});
 FirewallSnapshot inspect_nftables_snapshot(const CommandRunner& runner);
-
-// Convenience overloads for the string-only runner used by reconciler tests
-// and existing inspection seams.
-FirewallSnapshot inspect_iptables_snapshot(
-    const FirewallCommandRunner& runner, RawPreroutingMode raw_prerouting = {});
-FirewallSnapshot inspect_nftables_snapshot(const FirewallCommandRunner& runner);
 
 std::unique_ptr<FirewallSnapshotInspector> create_firewall_snapshot_inspector(
     FirewallBackend backend, RawPreroutingMode raw_prerouting = {},

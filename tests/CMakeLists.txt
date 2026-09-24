@@ -3,7 +3,6 @@ add_executable(keen-pbr-tests
   test_main.cpp
   test_firewall_verifier.cpp
   test_firewall_runtime.cpp
-  test_firewall_reconciler.cpp
   test_firewall_snapshot.cpp
   test_firewall_plan.cpp
   test_firewall_rule_modules.cpp
@@ -56,7 +55,6 @@ add_executable(keen-pbr-tests
   test_status_stream.cpp
   test_port_spec_util.cpp
   test_pid_file.cpp
-  test_runtime_reconciler.cpp
   test_conntrack_manager.cpp
   test_resolver_coordinator.cpp
   test_runtime_state_machine.cpp
@@ -74,7 +72,6 @@ add_executable(keen-pbr-tests
   ../src/daemon/disk_config_state.cpp
   ../src/crash/crash_diagnostics.cpp
   ../src/config/routing_state.cpp
-  ../src/runtime/runtime_reconciler.cpp
   ../src/runtime/conntrack_manager.cpp
   ../src/runtime/resolver_coordinator.cpp
   ../src/runtime/runtime_state_machine.cpp
@@ -89,7 +86,6 @@ add_executable(keen-pbr-tests
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
-  ../src/firewall/firewall_reconciler.cpp
   ../src/firewall/firewall_snapshot.cpp
   ../src/firewall/firewall_plan.cpp
   ../src/firewall/firewall_rule.cpp
