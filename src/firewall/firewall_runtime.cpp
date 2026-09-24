@@ -2,7 +2,6 @@
 #include "firewall_rule_modules.hpp"
 
 #include "../config/routing_state.hpp"
-#include "../dns/dns_router.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_set_usage.hpp"
 #include "../lists/list_streamer.hpp"
@@ -70,67 +69,6 @@ FirewallConfigApplyPolicy firewall_config_apply_policy(
 }
 
 namespace {
-
-const Outbound* find_outbound_by_tag(const std::vector<Outbound>& outbounds,
-                                     const std::string& tag) {
-    for (const auto& outbound : outbounds) {
-        if (outbound.tag == tag) {
-            return &outbound;
-        }
-    }
-    return nullptr;
-}
-
-std::vector<DnsDetourTarget> build_dns_detour_targets(
-    const Config& config, const std::vector<Outbound>& outbounds,
-    const OutboundMarkMap& outbound_marks) {
-  std::vector<DnsDetourTarget> targets;
-  if (!config.dns.has_value()) {
-    return targets;
-  }
-
-  const auto& dns_servers =
-      config.dns->servers.value_or(std::vector<DnsServer>{});
-  const DnsServerRegistry dns_registry(config.dns.value_or(DnsConfig{}));
-  for (const auto& server : dns_servers) {
-    if (!server.detour.has_value()) {
-      continue;
-    }
-    const Outbound* detour_outbound =
-        find_outbound_by_tag(outbounds, server.detour.value());
-    if (detour_outbound == nullptr) {
-      continue;
-    }
-
-    std::string effective_tag = detour_outbound->tag;
-    if (detour_outbound->type != OutboundType::URLTEST &&
-        detour_outbound->type != OutboundType::ICMPTEST) {
-      effective_tag = internal_detour_mark_key(detour_outbound->tag);
-    }
-    const auto mark_it = outbound_marks.find(effective_tag);
-    if (mark_it == outbound_marks.end()) {
-      continue;
-    }
-
-    const auto resolved_servers = dns_registry.get_servers(server.tag);
-    if (resolved_servers.empty()) {
-      throw FirewallError("DNS server tag not found during detour setup: " +
-                          server.tag);
-    }
-    for (const DnsServerConfig* resolved_server : resolved_servers) {
-      targets.push_back({server.tag,
-                         detour_outbound->tag,
-                         resolved_server->resolved_ip,
-                         resolved_server->port,
-                         resolved_server->resolved_ip.find(':') ==
-                                 std::string::npos
-                             ? FirewallFamily::ipv4
-                             : FirewallFamily::ipv6,
-                         mark_it->second});
-    }
-  }
-  return targets;
-}
 
 bool contains_set_name(const RuleState& state, const std::string& name) {
     return std::find(state.set_names.begin(), state.set_names.end(), name) !=
@@ -220,9 +158,6 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
                                  ? *inputs.rule_states
                                  : local_rule_states;
   FirewallRuleRegistrar registrar(plan);
-  const auto dns_detour_targets =
-      build_dns_detour_targets(inputs.config, all_outbounds,
-                               inputs.outbound_marks);
   const bool owned_marks_present = std::any_of(
       inputs.outbound_marks.begin(), inputs.outbound_marks.end(),
       [](const auto& entry) { return entry.second != 0; });
@@ -232,10 +167,10 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
       route_rules, rule_states, all_outbounds, lists_map, inputs.list_usage,
       inputs.main_routes, inputs.interfaces, inputs.backend,
       inputs.ipv6_enabled, inputs.fwmark_mask, inputs.balance_candidates,
-      &dns_detour_targets, restore_conntrack_mark,
-      prefilter.skip_established_or_dnat,
+      restore_conntrack_mark, prefilter.skip_established_or_dnat,
       prefilter.skip_marked_packets,
-      prefilter.inbound_interfaces.value_or(std::vector<std::string>{})};
+      prefilter.inbound_interfaces.value_or(std::vector<std::string>{}),
+      &inputs.config, &inputs.outbound_marks};
   for (const auto register_module : route_rule_module_manifest()) {
     register_module(context, registrar);
   }

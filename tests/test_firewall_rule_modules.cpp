@@ -28,8 +28,8 @@ struct ModuleFixture {
       {"list":["remote"],"outbound":"wan"}
     ]}
   })");
-  const std::vector<RuleState> states =
-      build_fw_rule_states(config, {{"wan", 0x100U}});
+  const OutboundMarkMap marks{{"wan", 0x100U}};
+  const std::vector<RuleState> states = build_fw_rule_states(config, marks);
   const std::map<std::string, ListSetUsage> usage = {
       {"remote", {true, true, 30}}};
   const std::vector<DumpedRoute> main_routes;
@@ -38,7 +38,7 @@ struct ModuleFixture {
   FirewallBuildContext context() const {
     return {*config.route->rules, states, *config.outbounds, *config.lists,
             usage, main_routes, interfaces, FirewallBackend::nftables, true,
-            0xFFFFFFFFU, nullptr, nullptr, true, true, true, {}};
+            0xFFFFFFFFU, nullptr, true, true, true, {}, &config, &marks};
   }
 };
 
@@ -52,8 +52,9 @@ struct BalanceModuleFixture {
     ],
     "route": {"rules": [{"outbound":"auto","dscp":46}]}
   })");
-  const std::vector<RuleState> states =
-      build_fw_rule_states(config, {{"auto", 0x100U}});
+  const OutboundMarkMap marks{{"auto", 0x100U}, {"wan_a", 0x200U},
+                              {"wan_b", 0x300U}};
+  const std::vector<RuleState> states = build_fw_rule_states(config, marks);
   const std::map<std::string, ListConfig> lists;
   const std::map<std::string, ListSetUsage> usage;
   const std::vector<DumpedRoute> main_routes;
@@ -63,7 +64,7 @@ struct BalanceModuleFixture {
   FirewallBuildContext context() const {
     return {*config.route->rules, states, *config.outbounds, lists, usage,
             main_routes, interfaces, FirewallBackend::nftables, true,
-            0xFFFFFFFFU, &candidates, nullptr, true, true, true, {}};
+            0xFFFFFFFFU, &candidates, true, true, true, {}, &config, &marks};
   }
 };
 
@@ -75,6 +76,26 @@ FirewallPlan build_module_plan(const Module& module, const Fixture& fixture) {
   module.register_rules(context, registrar);
   registrar.finish();
   return plan;
+}
+
+FirewallPlan build_plan(const Config& config, const OutboundMarkMap& marks,
+                        bool ipv6_enabled = true) {
+  const std::map<std::string, ListSetUsage> usage;
+  const std::vector<DumpedRoute> main_routes;
+  const std::vector<DumpedInterface> interfaces;
+  return build_firewall_plan({config, marks, usage, main_routes, interfaces,
+                              nullptr, ipv6_enabled, 0xFFFFFFFFU, nullptr,
+                              FirewallBackend::nftables});
+}
+
+std::vector<const FirewallRuleInstance*> dns_rules(const FirewallPlan& plan) {
+  std::vector<const FirewallRuleInstance*> rules;
+  for (const auto& rule : plan.rules) {
+    if (rule.key.module_id == "dns.detour") {
+      rules.push_back(&rule);
+    }
+  }
+  return rules;
 }
 
 } // namespace
@@ -296,143 +317,124 @@ TEST_CASE("route balance module is included in the explicit manifest") {
   CHECK(plan.rules[3].key.module_id == "route.balance");
 }
 
-TEST_CASE("DNS detour module emits family-specific TCP then UDP marks") {
-  const ModuleFixture fixture;
-  const std::vector<DnsDetourTarget> targets = {
-      {"upstream", "wan", "192.0.2.53", 5353, FirewallFamily::ipv4,
-       0x200U},
-      {"upstream", "wan", "2001:db8::53", 5353, FirewallFamily::ipv6,
-       0x200U}};
-  auto context = fixture.context();
-  context.dns_detour_targets = &targets;
+TEST_CASE("config builds ordered DNS detour rules in the firewall plan") {
+  Config config = parse_config(R"({
+    "outbounds": [
+      {"type":"table","tag":"route_z","table":100},
+      {"type":"table","tag":"route_a","table":101},
+      {"type":"table","tag":"unmarked","table":102},
+      {"type":"table","tag":"zero_mark","table":103}
+    ],
+    "dns": {"servers":[
+      {"tag":"upstream_z","address":"[2001:db8::53]:5353",
+       "detour":"route_z"},
+      {"tag":"upstream_a","address":"192.0.2.53:5353",
+       "detour":"route_a"},
+      {"tag":"no_detour","address":"192.0.2.54:5353"},
+      {"tag":"unknown_outbound","address":"192.0.2.55:5353",
+       "detour":"missing"},
+      {"tag":"missing_mark","address":"192.0.2.56:5353",
+       "detour":"unmarked"},
+      {"tag":"zero_mark","address":"192.0.2.57:5353",
+       "detour":"zero_mark"}
+    ]}
+  })");
+  const OutboundMarkMap marks{
+      {internal_detour_mark_key("route_z"), 0x300U},
+      {internal_detour_mark_key("route_a"), 0x200U},
+      {internal_detour_mark_key("zero_mark"), 0U}};
+  const Config ordered_config = config;
 
-  FirewallPlan plan;
-  FirewallRuleRegistrar registrar(plan);
-  DnsDetourRuleModule{}.register_rules(context, registrar);
-  registrar.finish();
+  const auto first_plan = build_plan(config, marks);
+  const auto first = dns_rules(first_plan);
+  REQUIRE(first.size() == 4);
+  CHECK(first[0]->family == FirewallFamily::ipv6);
+  CHECK(first[0]->criteria.dst_addr == std::vector<std::string>{"2001:db8::53"});
+  CHECK(first[0]->criteria.proto == L4Proto::Tcp);
+  CHECK(first[1]->criteria.proto == L4Proto::Udp);
+  CHECK(first[2]->family == FirewallFamily::ipv4);
+  CHECK(first[2]->criteria.dst_addr == std::vector<std::string>{"192.0.2.53"});
+  CHECK(first[2]->criteria.proto == L4Proto::Tcp);
+  CHECK(first[3]->criteria.proto == L4Proto::Udp);
+  for (const auto* rule : first) {
+    CHECK(rule->hook == FirewallHook::output);
+    CHECK(rule->criteria.apply_output);
+    CHECK(rule->criteria.dst_port == PortSpec("5353"));
+  }
+  CHECK(std::get<MarkAction>(first[0]->action).value == 0x300U);
+  CHECK(std::get<MarkAction>(first[2]->action).value == 0x200U);
 
-  REQUIRE(plan.rules.size() == 4);
-  CHECK(plan.rules[0].family == FirewallFamily::ipv4);
-  CHECK(plan.rules[0].criteria.dst_addr ==
-        std::vector<std::string>{"192.0.2.53"});
-  CHECK(plan.rules[0].criteria.proto == L4Proto::Tcp);
-  CHECK(plan.rules[1].criteria.proto == L4Proto::Udp);
-  CHECK(plan.rules[2].family == FirewallFamily::ipv6);
-  CHECK(plan.rules[2].criteria.dst_addr ==
-        std::vector<std::string>{"2001:db8::53"});
-  CHECK(plan.rules[2].criteria.proto == L4Proto::Tcp);
-  CHECK(plan.rules[3].criteria.proto == L4Proto::Udp);
-  for (const auto& rule : plan.rules) {
-    CHECK(rule.hook == FirewallHook::output);
-    CHECK(rule.criteria.apply_output);
-    CHECK(rule.criteria.dst_port == PortSpec("5353"));
-    CHECK(std::holds_alternative<MarkAction>(rule.action));
-    CHECK(std::get<MarkAction>(rule.action) == MarkAction{0x200U, 0xFFFFFFFFU});
+  std::reverse(config.dns->servers->begin(), config.dns->servers->end());
+  const auto reversed_plan = build_plan(config, marks);
+  const auto reversed = dns_rules(reversed_plan);
+  REQUIRE(reversed.size() == first.size());
+  CHECK(reversed[0]->criteria.dst_addr == std::vector<std::string>{"192.0.2.53"});
+  CHECK(reversed[2]->criteria.dst_addr == std::vector<std::string>{"2001:db8::53"});
+  CHECK(first[0]->key == reversed[2]->key);
+  CHECK(first[1]->key == reversed[3]->key);
+  CHECK(first[2]->key == reversed[0]->key);
+  CHECK(first[3]->key == reversed[1]->key);
+
+  OutboundMarkMap changed_marks = marks;
+  changed_marks[internal_detour_mark_key("route_a")] = 0x400U;
+  const auto changed_plan = build_plan(ordered_config, changed_marks);
+  const auto changed = dns_rules(changed_plan);
+  REQUIRE(changed.size() == first.size());
+  CHECK(changed[2]->key == first[2]->key);
+  CHECK(changed[2]->action != first[2]->action);
+
+  const auto ipv4_plan = build_plan(ordered_config, marks, false);
+  const auto ipv4_only = dns_rules(ipv4_plan);
+  REQUIRE(ipv4_only.size() == 2);
+  CHECK(ipv4_only[0]->family == FirewallFamily::ipv4);
+  CHECK(ipv4_only[1]->family == FirewallFamily::ipv4);
+
+  const Config without_dns = parse_config(R"({"outbounds":[]})");
+  const auto no_dns_plan = build_plan(without_dns, {});
+  CHECK(dns_rules(no_dns_plan).empty());
+
+  const Config duplicate_endpoints = parse_config(R"({
+    "outbounds": [{"type":"table","tag":"wan","table":100}],
+    "dns": {"servers":[
+      {"tag":"upstream","address":"192.0.2.53:5353","detour":"wan"},
+      {"tag":"upstream","address":"192.0.2.53:5353","detour":"wan"}
+    ]}
+  })");
+  const auto duplicate_plan = build_plan(
+      duplicate_endpoints, {{internal_detour_mark_key("wan"), 0x200U}});
+  const auto duplicates = dns_rules(duplicate_plan);
+  REQUIRE(duplicates.size() == 8);
+  for (std::size_t index = 2; index < duplicates.size(); index += 2) {
+    CHECK(duplicates[index]->key != duplicates[index - 2]->key);
   }
 }
 
-TEST_CASE("DNS detour module keeps duplicate endpoints and stable identities") {
-  const ModuleFixture fixture;
-  const auto build = [&](std::vector<DnsDetourTarget> targets) {
-    auto context = fixture.context();
-    context.dns_detour_targets = &targets;
-    FirewallPlan plan;
-    FirewallRuleRegistrar registrar(plan);
-    DnsDetourRuleModule{}.register_rules(context, registrar);
-    registrar.finish();
-    return plan;
-  };
-
-  const std::vector<DnsDetourTarget> ordered = {
-      {"upstream", "route_z", "2001:db8::53", 5353,
-       FirewallFamily::ipv6, 0x300U},
-      {"upstream", "route_a", "2001:0db8::53", 5353,
-       FirewallFamily::ipv6, 0x200U},
-      {"upstream", "route_a", "2001:0db8::53", 5353,
-       FirewallFamily::ipv6, 0x200U}};
-  auto reversed = ordered;
-  std::reverse(reversed.begin(), reversed.end());
-  const auto first = build(ordered);
-  const auto second = build(reversed);
-
-  REQUIRE(first.rules.size() == 6);
-  REQUIRE(second.rules.size() == first.rules.size());
-  CHECK(first.rules[0].criteria.dst_addr ==
-        std::vector<std::string>{"2001:db8::53"});
-  CHECK(first.rules[0].criteria.proto == L4Proto::Tcp);
-  CHECK(std::get<MarkAction>(first.rules[0].action).value == 0x300U);
-  CHECK(first.rules[1].criteria.proto == L4Proto::Udp);
-  CHECK(first.rules[2].criteria.dst_addr ==
-        std::vector<std::string>{"2001:0db8::53"});
-  CHECK(first.rules[2].criteria.proto == L4Proto::Tcp);
-  CHECK(std::get<MarkAction>(first.rules[2].action).value == 0x200U);
-  CHECK(first.rules[3].criteria.proto == L4Proto::Udp);
-  CHECK(first.rules[4].key != first.rules[2].key);
-
-  // The first configured endpoint owns precedence even when its tag/address
-  // sorts after the second one. Reversing config reverses that precedence.
-  CHECK(second.rules[0].criteria.dst_addr ==
-        std::vector<std::string>{"2001:0db8::53"});
-  CHECK(second.rules[0].criteria.proto == L4Proto::Tcp);
-  CHECK(std::get<MarkAction>(second.rules[0].action).value == 0x200U);
-  CHECK(second.rules[1].criteria.proto == L4Proto::Udp);
-  CHECK(second.rules[4].criteria.dst_addr ==
-        std::vector<std::string>{"2001:db8::53"});
-  CHECK(std::get<MarkAction>(second.rules[4].action).value == 0x300U);
-  CHECK(first.rules[0].key == second.rules[4].key);
-  CHECK(first.rules[2].key == second.rules[0].key);
-
-  auto changed_target = ordered;
-  changed_target[1].fwmark = 0x300U;
-  const auto changed = build(changed_target);
-  REQUIRE(changed.rules.size() == first.rules.size());
-  CHECK(changed.rules[2].key == first.rules[2].key);
-  CHECK(changed.rules[2].action != first.rules[2].action);
-}
-
-TEST_CASE("DNS detour module emits no rules for absent or invalid endpoints") {
-  const ModuleFixture fixture;
-  const auto build = [&](const std::vector<DnsDetourTarget>* targets) {
-    auto context = fixture.context();
-    context.dns_detour_targets = targets;
-    FirewallPlan plan;
-    FirewallRuleRegistrar registrar(plan);
-    DnsDetourRuleModule{}.register_rules(context, registrar);
-    registrar.finish();
-    return plan;
-  };
-
-  const auto absent = build(nullptr);
-  CHECK(absent.rules.empty());
-  const std::vector<DnsDetourTarget> invalid = {
-      {"upstream", "wan", "", 0, FirewallFamily::any, 0}};
-  const auto invalid_plan = build(&invalid);
-  CHECK(invalid_plan.rules.empty());
-}
-
 TEST_CASE("health reports only the removed DNS physical instance as missing") {
-  const ModuleFixture fixture;
-  const std::vector<DnsDetourTarget> targets = {
-      {"upstream", "wan", "192.0.2.53", 5353, FirewallFamily::ipv4,
-       0x200U},
-      {"upstream", "wan", "192.0.2.54", 5353, FirewallFamily::ipv4,
-       0x200U}};
-  auto context = fixture.context();
-  context.dns_detour_targets = &targets;
-  FirewallPlan plan;
-  FirewallRuleRegistrar registrar(plan);
-  DnsDetourRuleModule{}.register_rules(context, registrar);
-  registrar.finish();
+  const Config config = parse_config(R"({
+    "outbounds": [{"type":"table","tag":"wan","table":100}],
+    "dns": {"servers":[
+      {"tag":"upstream_a","address":"192.0.2.53:5353","detour":"wan"},
+      {"tag":"upstream_b","address":"192.0.2.54:5353","detour":"wan"}
+    ]}
+  })");
+  const auto plan = build_plan(
+      config, {{internal_detour_mark_key("wan"), 0x200U}});
+  const auto instances = dns_rules(plan);
+  REQUIRE(instances.size() == 4);
+  const auto removed_key = instances[1]->key;
+  FirewallPlan dns_plan;
+  dns_plan.fwmark_mask = plan.fwmark_mask;
+  for (const auto* instance : instances) {
+    dns_plan.rules.push_back(*instance);
+  }
 
   FirewallSnapshot snapshot;
   snapshot.backend = FirewallBackend::nftables;
   snapshot.available = true;
-  constexpr std::size_t removed = 1;
-  for (std::size_t index = 0; index < plan.rules.size(); ++index) {
-    if (index == removed) {
+  for (const auto& expected : dns_plan.rules) {
+    if (expected.key == removed_key) {
       continue;
     }
-    const auto& expected = plan.rules[index];
     ObservedFirewallRule observed;
     observed.key = expected.key;
     observed.hook = expected.hook;
@@ -442,11 +444,12 @@ TEST_CASE("health reports only the removed DNS physical instance as missing") {
     snapshot.rules.push_back(std::move(observed));
   }
 
-  const auto checks = verify_firewall_plan(plan, snapshot);
-  REQUIRE(checks.size() == plan.rules.size());
+  const auto checks = verify_firewall_plan(dns_plan, snapshot);
+  REQUIRE(checks.size() == dns_plan.rules.size());
   for (std::size_t index = 0; index < checks.size(); ++index) {
     CHECK(checks[index].status ==
-          (index == removed ? CheckStatus::missing : CheckStatus::ok));
+          (dns_plan.rules[index].key == removed_key ? CheckStatus::missing
+                                                    : CheckStatus::ok));
   }
 }
 
@@ -463,15 +466,16 @@ TEST_CASE("route module manifest keeps reordered config rules in priority order"
       {"outbound":"direct","dscp":48}
     ]}
   })");
-  const auto states = build_fw_rule_states(config, {{"wan", 0x100U}});
+  const OutboundMarkMap marks{{"wan", 0x100U}};
+  const auto states = build_fw_rule_states(config, marks);
   const std::vector<DumpedRoute> main_routes;
   const std::vector<DumpedInterface> interfaces;
   const std::map<std::string, ListConfig> lists;
   const std::map<std::string, ListSetUsage> usage;
   const FirewallBuildContext context{
       *config.route->rules, states, *config.outbounds, lists, usage, main_routes,
-      interfaces, FirewallBackend::nftables, true, 0xFFFFFFFFU, nullptr, nullptr,
-      true, true, true, {}};
+      interfaces, FirewallBackend::nftables, true, 0xFFFFFFFFU, nullptr, true,
+      true, true, {}, &config, &marks};
   FirewallPlan plan;
   FirewallRuleRegistrar registrar(plan);
   for (const auto register_module : route_rule_module_manifest()) {

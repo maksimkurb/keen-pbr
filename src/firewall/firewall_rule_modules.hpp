@@ -2,6 +2,7 @@
 
 #include "firewall_plan.hpp"
 
+#include "../config/config.hpp"
 #include "../config/routing_state.hpp"
 #include "../lists/list_set_usage.hpp"
 
@@ -15,17 +16,6 @@
 #include <vector>
 
 namespace keen_pbr3 {
-
-// DNS detour endpoints are resolved and paired with their target mark before
-// modules run.  The module only materializes ordinary mark rules.
-struct DnsDetourTarget {
-  std::string server_tag;
-  std::string route_tag;
-  std::string address;
-  uint16_t port{0};
-  FirewallFamily family{FirewallFamily::any};
-  uint32_t fwmark{0};
-};
 
 // Immutable inputs shared by route rule modules. It deliberately contains
 // data views only; backend mutation happens when the complete plan is applied.
@@ -41,11 +31,12 @@ struct FirewallBuildContext {
   bool ipv6_enabled{true};
   uint32_t fwmark_mask{0xFFFFFFFFu};
   const FirewallBalanceCandidates* balance_candidates{nullptr};
-  const std::vector<DnsDetourTarget>* dns_detour_targets{nullptr};
   bool restore_conntrack_mark{true};
   bool skip_established_or_dnat{true};
   bool skip_marked_packets{true};
   std::vector<std::string> inbound_interfaces;
+  const Config* config{nullptr};
+  const OutboundMarkMap* outbound_marks{nullptr};
 };
 
 // One physical route selector target before an action is attached.
