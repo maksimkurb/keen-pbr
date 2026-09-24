@@ -1,6 +1,7 @@
 #include "routing_health_checker.hpp"
 
 #include "../api/generated/api_types.hpp"
+#include "../firewall/firewall_plan_verifier.hpp"
 #include "../firewall/firewall_snapshot.hpp"
 #include "../routing/routing_verifier.hpp"
 #include "../util/format_compat.hpp"

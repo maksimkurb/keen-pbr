@@ -271,6 +271,7 @@ set(SOURCES
   src/runtime/operation_coordinator.cpp
   src/runtime/lifecycle_operation.cpp
   src/firewall/firewall_snapshot.cpp
+  src/firewall/firewall_plan_verifier.cpp
   src/firewall/firewall_plan.cpp
   src/firewall/firewall_rule.cpp
   src/lists/ipset.cpp

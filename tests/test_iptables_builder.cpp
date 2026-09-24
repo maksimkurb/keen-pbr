@@ -4,6 +4,7 @@
 #include "../src/config/routing_state.hpp"
 #include "../src/firewall/ipset_restore_pipe.hpp"
 #include "../src/firewall/iptables.hpp"
+#include "../src/firewall/firewall_plan_verifier.hpp"
 #include "../src/firewall/firewall_plan.hpp"
 #include "../src/firewall/firewall_snapshot.hpp"
 #include "../src/lists/list_entry_visitor.hpp"

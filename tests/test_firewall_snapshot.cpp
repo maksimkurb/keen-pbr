@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include "../src/firewall/firewall_plan_verifier.hpp"
 #include "../src/firewall/firewall_snapshot.hpp"
 
 #include <netinet/in.h>

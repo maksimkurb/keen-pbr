@@ -2,6 +2,7 @@
 
 #include "../src/config/config.hpp"
 #include "../src/config/routing_state.hpp"
+#include "../src/firewall/firewall_plan_verifier.hpp"
 #include "../src/firewall/firewall_snapshot.hpp"
 #include "../src/firewall/nft_batch_pipe.hpp"
 #include "../src/firewall/nftables.hpp"
