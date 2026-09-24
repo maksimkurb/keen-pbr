@@ -38,7 +38,7 @@ def _assert_converged(context) -> None:
     assert declarations.count(target) == 1, state
     assert state.count(f"-A KeenPbrTable -j {target}\n") == 1, state
     assert state.count(f"-A KeenPbrTable_OUTPUT -j {target}\n") == 1, state
-    assert "kpbr-integration-garbage" not in state, state
+    assert "203.0.113.254" not in state, state
 
     sets = {line.split()[1] for line in
             context.run("ipset", "save").stdout.splitlines()
@@ -136,8 +136,8 @@ def register(registry):
 
         target = _dispatcher_target(context)
         inactive = GENERATIONS[1] if target == GENERATIONS[0] else GENERATIONS[0]
-        context.run("iptables", "-t", "mangle", "-A", inactive, "-m", "comment",
-                    "--comment", "kpbr-integration-garbage", "-j", "RETURN")
+        context.run("iptables", "-t", "mangle", "-A", inactive,
+                    "-s", "203.0.113.254/32", "-j", "RETURN")
         _apply(context, config)
 
         context.run("iptables", "-t", "mangle", "-A", "KeenPbrTable", "-j",
