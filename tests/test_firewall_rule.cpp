@@ -73,4 +73,27 @@ TEST_CASE("FirewallRuleInstance carries canonical action and placement values") 
   CHECK(instance.criteria.proto == L4Proto::Any);
 }
 
+TEST_CASE("physical materialization rejects a mismatched default-gateway family") {
+  FirewallRuleInstance rule;
+  rule.family = FirewallFamily::ipv6;
+  rule.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+  rule.action = MarkAction{0x100U, 0xFF00U};
+
+  CHECK(materialize_firewall_classifiers(
+            rule, FirewallBackend::nftables, 0xFF00U).empty());
+
+  rule.family = FirewallFamily::ipv4;
+  CHECK(materialize_firewall_classifiers(
+            rule, FirewallBackend::nftables, 0xFF00U).size() == 1U);
+
+  rule.family = FirewallFamily::ipv4;
+  rule.criteria.default_gateway = DefaultGatewayFamily::Ipv6;
+  CHECK(materialize_firewall_classifiers(
+            rule, FirewallBackend::nftables, 0xFF00U).empty());
+
+  rule.family = FirewallFamily::ipv6;
+  CHECK(materialize_firewall_classifiers(
+            rule, FirewallBackend::nftables, 0xFF00U).size() == 1U);
+}
+
 } // namespace keen_pbr3

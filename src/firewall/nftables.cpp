@@ -20,10 +20,6 @@ namespace keen_pbr3 {
 
 namespace {
 
-bool is_ipv6_addr(const std::string& addr) {
-    return addr.find(':') != std::string::npos;
-}
-
 bool cleanup_command_reports_absence(const ExecCaptureResult& result) {
     if (result.exit_code == 0 && !result.truncated && !result.timed_out) {
         return true;
@@ -49,24 +45,6 @@ ExecCaptureResult run_cleanup_command(const std::vector<std::string>& args) {
             safe_exec_command_string(args), result.exit_code));
     }
     return result;
-}
-
-std::vector<std::string> filter_addrs_by_family(const std::vector<std::string>& addrs,
-                                                 bool ipv6) {
-    std::vector<std::string> filtered;
-    for (const auto& addr : addrs) {
-        if (is_ipv6_addr(addr) == ipv6) {
-            filtered.push_back(addr);
-        }
-    }
-    return filtered;
-}
-
-std::vector<L4Proto> expand_l4_protos(L4Proto proto) {
-    if (proto == L4Proto::TcpUdp) {
-        return {L4Proto::Tcp, L4Proto::Udp};
-    }
-    return {proto};
 }
 
 bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
@@ -183,40 +161,26 @@ void NftablesFirewall::append_rules_for_family(int family,
         return;
     }
 
-    const bool ipv6 = family == AF_INET6;
-    const auto filtered_src_addrs = criteria.src_addr.empty()
-        ? std::vector<std::string>{}
-        : filter_addrs_by_family(criteria.src_addr, ipv6);
-    const auto filtered_dst_addrs = criteria.dst_addr.empty()
-        ? std::vector<std::string>{}
-        : filter_addrs_by_family(criteria.dst_addr, ipv6);
-    if ((!criteria.src_addr.empty() && filtered_src_addrs.empty())
-        || (!criteria.dst_addr.empty() && filtered_dst_addrs.empty())) {
-        return;
-    }
-
-    for (const auto proto : expand_l4_protos(criteria.proto)) {
+    FirewallRuleInstance logical;
+    logical.hook = criteria.apply_output ? FirewallHook::output
+                                         : FirewallHook::prerouting;
+    logical.family = family == AF_INET6 ? FirewallFamily::ipv6
+                                        : FirewallFamily::ipv4;
+    logical.criteria = criteria;
+    logical.action = action == PendingRule::Mark
+        ? FirewallRuleAction{MarkAction{fwmark, fwmark_mask()}}
+        : FirewallRuleAction{action == PendingRule::Drop ? VerdictAction::drop
+                                                         : VerdictAction::pass};
+    for (const auto& physical : materialize_firewall_classifiers(
+             logical, FirewallBackend::nftables, fwmark_mask())) {
         PendingRule pr;
-        pr.family = family;
+        pr.family = physical.family == FirewallFamily::ipv6 ? AF_INET6 : AF_INET;
         pr.action = action;
         pr.fwmark = fwmark;
         pr.fwmark_mask = fwmark_mask();
         pr.key = key;
-        pr.criteria = criteria;
-        pr.criteria.proto = proto;
-        if (!criteria.src_addr.empty()) {
-            pr.criteria.src_addr = filtered_src_addrs;
-        }
-        if (!criteria.dst_addr.empty()) {
-            pr.criteria.dst_addr = filtered_dst_addrs;
-        }
+        pr.criteria = physical.criteria;
         pending_rules_.push_back(std::move(pr));
-        if (criteria.apply_output &&
-            criteria.default_gateway != DefaultGatewayFamily::None) {
-            PendingRule prerouting_rule = pending_rules_.back();
-            prerouting_rule.criteria.apply_output = false;
-            pending_rules_.push_back(std::move(prerouting_rule));
-        }
     }
 }
 

@@ -253,86 +253,6 @@ struct ExpectedPhysicalRule {
     FirewallRuleAction action{MarkAction{}};
 };
 
-FirewallRuleAction action_for_family(const FirewallRuleAction& action,
-                                     FirewallFamily family,
-                                     uint32_t fwmark_mask) {
-    const auto* balance = std::get_if<BalanceAction>(&action);
-    if (balance == nullptr) return action;
-
-    BalanceAction filtered;
-    filtered.fallback_mark = balance->fallback_mark;
-    for (const auto& candidate : balance->candidates) {
-        if ((family == FirewallFamily::ipv4 && candidate.ipv4) ||
-            (family == FirewallFamily::ipv6 && candidate.ipv6)) {
-            // A physical nft rule contains only marks for its selected
-            // address family.  Normalize the candidate flags to that family
-            // before comparing the observed vmap with the plan.
-            filtered.candidates.push_back(
-                {candidate.fwmark, family == FirewallFamily::ipv4,
-                 family == FirewallFamily::ipv6});
-        }
-    }
-    if (filtered.candidates.empty()) {
-        return MarkAction{filtered.fallback_mark, fwmark_mask};
-    }
-    if (filtered.candidates.size() == 1U) {
-        return MarkAction{filtered.candidates.front().fwmark, fwmark_mask};
-    }
-    // The nft inspector can recover the candidate set from the numgen/vmap
-    // expression, but the fallback mark is not encoded in that physical rule.
-    filtered.fallback_mark = 0;
-    return filtered;
-}
-
-bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
-    return criteria.dst_set_name.has_value() || criteria.dscp.has_value() ||
-           !criteria.src_addr.empty() || !criteria.dst_addr.empty() ||
-           !criteria.src_port.empty() || !criteria.dst_port.empty() ||
-           criteria.default_gateway != DefaultGatewayFamily::None;
-}
-
-std::vector<L4Proto> expand_protocols(const FirewallRuleCriteria& criteria,
-                                      FirewallBackend backend) {
-    if (criteria.proto == L4Proto::TcpUdp ||
-        (backend == FirewallBackend::iptables && criteria.proto == L4Proto::Any &&
-         (!criteria.src_port.empty() || !criteria.dst_port.empty()))) {
-        return {L4Proto::Tcp, L4Proto::Udp};
-    }
-    return {criteria.proto};
-}
-
-std::vector<std::string> family_addresses(const std::vector<std::string>& addresses,
-                                          FirewallFamily family) {
-    std::vector<std::string> result;
-    for (const auto& address : addresses) {
-        const bool ipv6 = address.find(':') != std::string::npos;
-        if ((family == FirewallFamily::ipv6) == ipv6) result.push_back(address);
-    }
-    return result;
-}
-
-std::vector<FirewallFamily> expand_families(const FirewallRuleInstance& rule,
-                                            FirewallBackend backend) {
-    if (rule.family != FirewallFamily::any) return {rule.family};
-    if (rule.criteria.default_gateway == DefaultGatewayFamily::Ipv6) {
-        return {FirewallFamily::ipv6};
-    }
-    if (rule.criteria.default_gateway == DefaultGatewayFamily::Ipv4) {
-        return {FirewallFamily::ipv4};
-    }
-    if (backend == FirewallBackend::nftables &&
-        std::holds_alternative<BalanceAction>(rule.action)) {
-        // Unlike ordinary family-neutral rules, nft balance classifiers are
-        // emitted for both families so each family can filter its candidates.
-        return {FirewallFamily::ipv4, FirewallFamily::ipv6};
-    }
-    if (backend == FirewallBackend::nftables &&
-        !needs_family_specific_rule(rule.criteria)) {
-        return {FirewallFamily::ipv4};
-    }
-    return {FirewallFamily::ipv4, FirewallFamily::ipv6};
-}
-
 std::vector<ExpectedPhysicalRule> expand_expected_rule(
     const FirewallRuleInstance& rule, FirewallBackend backend,
     uint32_t fwmark_mask, RawPreroutingMode raw_prerouting = {},
@@ -413,77 +333,15 @@ std::vector<ExpectedPhysicalRule> expand_expected_rule(
         }
         return result;
     }
-    for (const auto family : expand_families(rule, backend)) {
-        if ((rule.criteria.default_gateway == DefaultGatewayFamily::Ipv4 &&
-             family != FirewallFamily::ipv4) ||
-            (rule.criteria.default_gateway == DefaultGatewayFamily::Ipv6 &&
-             family != FirewallFamily::ipv6)) {
-            continue;
-        }
-
-        const auto src = family_addresses(rule.criteria.src_addr, family);
-        const auto dst = family_addresses(rule.criteria.dst_addr, family);
-        if ((!rule.criteria.src_addr.empty() && src.empty()) ||
-            (!rule.criteria.dst_addr.empty() && dst.empty())) {
-            continue;
-        }
-        const auto protocols = expand_protocols(rule.criteria, backend);
-        const std::vector<std::string> src_values =
-            src.empty() ? std::vector<std::string>{} : src;
-        const std::vector<std::string> dst_values =
-            dst.empty() ? std::vector<std::string>{} : dst;
-        const std::size_t src_count = backend == FirewallBackend::iptables
-            ? std::max<std::size_t>(1U, src_values.size()) : 1U;
-        const std::size_t dst_count = backend == FirewallBackend::iptables
-            ? std::max<std::size_t>(1U, dst_values.size()) : 1U;
-        for (const auto proto : protocols) {
-            for (std::size_t src_index = 0; src_index < src_count; ++src_index) {
-                for (std::size_t dst_index = 0; dst_index < dst_count; ++dst_index) {
-                    ExpectedPhysicalRule physical;
-                    physical.family = family;
-                    physical.hook = rule.hook;
-                    physical.criteria = rule.criteria;
-                    physical.criteria.proto = proto;
-                    if (!rule.criteria.src_addr.empty()) {
-                        physical.criteria.src_addr =
-                            backend == FirewallBackend::iptables
-                                ? std::vector<std::string>{src_values[src_index]}
-                                : src_values;
-                    }
-                    if (!rule.criteria.dst_addr.empty()) {
-                        physical.criteria.dst_addr =
-                            backend == FirewallBackend::iptables
-                                ? std::vector<std::string>{dst_values[dst_index]}
-                                : dst_values;
-                    }
-                    physical.action = action_for_family(rule.action, family,
-                                                        fwmark_mask);
-                    if (backend == FirewallBackend::iptables &&
-                        inbound_interfaces != nullptr &&
-                        inbound_interfaces->size() > 1U) {
-                        for (const auto& interface : *inbound_interfaces) {
-                            auto fragment = physical;
-                            fragment.inbound_interface = interface;
-                            result.push_back(std::move(fragment));
-                        }
-                    } else {
-                        result.push_back(std::move(physical));
-                    }
-                }
-            }
-        }
-    }
-
-    // The default-gateway compatibility path deliberately installs an OUTPUT
-    // classifier and a PREROUTING companion.  Both carry the same key.
-    if (rule.hook == FirewallHook::output &&
-        rule.criteria.default_gateway != DefaultGatewayFamily::None) {
-        const auto output_rules = result;
-        for (auto physical : output_rules) {
-            physical.hook = FirewallHook::prerouting;
-            physical.criteria.apply_output = false;
-            result.push_back(std::move(physical));
-        }
+    for (const auto& materialized : materialize_firewall_classifiers(
+             rule, backend, fwmark_mask, inbound_interfaces)) {
+        ExpectedPhysicalRule physical;
+        physical.family = materialized.family;
+        physical.hook = materialized.hook;
+        physical.criteria = materialized.criteria;
+        physical.action = materialized.action;
+        physical.inbound_interface = materialized.inbound_interface;
+        result.push_back(std::move(physical));
     }
     return result;
 }

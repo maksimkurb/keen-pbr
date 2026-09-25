@@ -318,6 +318,14 @@ public:
     return NftablesFirewall::build_rule_add_commands(prefilter, fw.pending_rules_);
   }
 
+  static nlohmann::json build_rule_add_commands_via_plan(
+      const FirewallPlan& plan) {
+    NftablesFirewall fw;
+    fw.compile_plan(plan, FirewallApplyMode::Destructive);
+    return NftablesFirewall::build_rule_add_commands(fw.prefilter_,
+                                                     fw.pending_rules_);
+  }
+
   static nlohmann::json build_mark_rule_json(const std::string &set_name,
                                              int family, uint32_t fwmark,
                                              ProtoPortFilter filter = {},
@@ -425,6 +433,126 @@ Config parse_valid_config(const std::string& json) {
 }
 
 } // namespace
+
+static nlohmann::json nft_listing_from_rule_commands(
+    const nlohmann::json& commands) {
+  nlohmann::json listing;
+  listing["nftables"] = nlohmann::json::array({
+      { {"table", {{"family", "inet"}, {"name", "KeenPbrTable"}}} },
+      { {"chain", {{"family", "inet"}, {"table", "KeenPbrTable"},
+                     {"name", "prerouting"}, {"type", "filter"},
+                     {"hook", "prerouting"}}} },
+      { {"chain", {{"family", "inet"}, {"table", "KeenPbrTable"},
+                     {"name", "output"}, {"type", "filter"},
+                     {"hook", "output"}}} } });
+  for (const auto& command : commands) {
+    listing["nftables"].push_back({{"rule", command.at("add").at("rule")}});
+  }
+  return listing;
+}
+
+static FirewallPlan route_mark_plan(const FirewallRuleKey& key,
+                                    FirewallRuleCriteria criteria,
+                                    uint32_t fwmark,
+                                    uint32_t fwmark_mask = 0xFFFFFFFFu) {
+  FirewallPlan plan;
+  plan.fwmark_mask = fwmark_mask;
+  FirewallRuleInstance rule;
+  rule.key = key;
+  rule.family = criteria.default_gateway == DefaultGatewayFamily::Ipv4
+                    ? FirewallFamily::ipv4
+                    : criteria.default_gateway == DefaultGatewayFamily::Ipv6
+                          ? FirewallFamily::ipv6
+                          : FirewallFamily::any;
+  rule.hook = criteria.apply_output ? FirewallHook::output
+                                    : FirewallHook::prerouting;
+  rule.criteria = std::move(criteria);
+  rule.action = MarkAction{fwmark, fwmark_mask};
+  FirewallRuleRegistrar registrar(plan);
+  registrar.register_rule(std::move(rule));
+  registrar.finish();
+  return plan;
+}
+
+static CheckStatus verify_nft_rule_commands(const nlohmann::json& commands,
+                                            const FirewallPlan& plan) {
+  const auto listing = nft_listing_from_rule_commands(commands);
+  const auto snapshot = inspect_nftables_snapshot(CommandRunner(
+      [&](const std::vector<std::string>&) {
+        return CommandResult{listing.dump(), 0, false};
+      }));
+  const auto checks = verify_firewall_plan(plan, snapshot);
+  REQUIRE(checks.size() == 1);
+  return checks.front().status;
+}
+
+TEST_CASE("nft route.mark emitted forms round-trip through parser and verifier") {
+  const FirewallRuleKey key{"route.mark", "materialized"};
+  FirewallRuleCriteria criteria;
+  criteria.proto = L4Proto::TcpUdp;
+  criteria.src_addr = {"192.0.2.10", "2001:db8::10"};
+  criteria.dst_addr = {"198.51.100.10", "2001:db8::20"};
+  const auto plan = route_mark_plan(key, criteria, 0x00100000u);
+  const auto commands = T::build_rule_add_commands_via_plan(plan);
+
+  CHECK(commands.size() == 4);
+  CHECK(verify_nft_rule_commands(commands, plan) == CheckStatus::ok);
+
+  auto wrong_mark = commands;
+  for (auto& command : wrong_mark) {
+    for (auto& expression : command["add"]["rule"]["expr"]) {
+      if (expression.contains("mangle") &&
+          expression["mangle"]["value"].is_number_unsigned()) {
+        expression["mangle"]["value"] = 0x00200000u;
+        break;
+      }
+    }
+    break;
+  }
+  CHECK(verify_nft_rule_commands(wrong_mark, plan) == CheckStatus::mismatch);
+
+  const auto partial_plan = route_mark_plan(key, criteria, 0x00100000u,
+                                            0x00FF0000u);
+  const auto partial_commands = T::build_rule_add_commands_via_plan(partial_plan);
+  CHECK(verify_nft_rule_commands(partial_commands, partial_plan) ==
+        CheckStatus::ok);
+  auto wrong_mask = partial_commands;
+  for (auto& command : wrong_mask) {
+    for (auto& expression : command["add"]["rule"]["expr"]) {
+      if (expression.contains("mangle") &&
+          expression["mangle"]["value"].is_object()) {
+        expression["mangle"]["value"]["|"][0]["&"][1] = 0x0000FFFFu;
+        break;
+      }
+    }
+    break;
+  }
+  CHECK(verify_nft_rule_commands(wrong_mask, partial_plan) ==
+        CheckStatus::mismatch);
+
+  auto missing = commands;
+  missing.erase(missing.begin());
+  CHECK(verify_nft_rule_commands(missing, plan) == CheckStatus::mismatch);
+
+  auto reordered = commands;
+  std::swap(reordered[0], reordered[3]);
+  CHECK(verify_nft_rule_commands(reordered, plan) == CheckStatus::ok);
+}
+
+TEST_CASE("nft route.mark default-gateway companion round-trips") {
+  const FirewallRuleKey key{"route.mark", "gateway"};
+  FirewallRuleCriteria criteria;
+  criteria.apply_output = true;
+  criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+  criteria.default_gateway_bypass = {"192.0.2.0/24"};
+  const auto plan = route_mark_plan(key, criteria, 0x00100000u);
+  const auto commands = T::build_rule_add_commands_via_plan(plan);
+
+  REQUIRE(commands.size() == 2);
+  CHECK(commands[0]["add"]["rule"]["chain"] == "output");
+  CHECK(commands[1]["add"]["rule"]["chain"] == "prerouting");
+  CHECK(verify_nft_rule_commands(commands, plan) == CheckStatus::ok);
+}
 
 static Rule mark_rule(const std::string &set_name, int family, uint32_t fwmark,
                       ProtoPortFilter filter = {}) {

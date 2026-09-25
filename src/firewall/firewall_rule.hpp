@@ -139,4 +139,23 @@ struct FirewallRuleInstance {
   std::size_t source_rule_index{std::numeric_limits<std::size_t>::max()};
 };
 
+// Backend-neutral physical classifier form.  Backend compilers add their
+// command-specific ownership, set, and batching state around this shape.
+struct FirewallPhysicalClassifier {
+  FirewallFamily family{FirewallFamily::ipv4};
+  FirewallHook hook{FirewallHook::prerouting};
+  FirewallRuleCriteria criteria;
+  FirewallRuleAction action{MarkAction{}};
+  // iptables expands a multi-interface inbound prefilter into route fragments;
+  // nftables keeps that operation in its prefilter chain.
+  std::string inbound_interface;
+};
+
+// Materialize the generic classifier forms emitted by either backend.  This
+// is pure: it does not resolve sets or inspect backend/system state.
+std::vector<FirewallPhysicalClassifier> materialize_firewall_classifiers(
+    const FirewallRuleInstance& rule, FirewallBackend backend,
+    uint32_t fwmark_mask,
+    const std::vector<std::string>* inbound_interfaces = nullptr);
+
 } // namespace keen_pbr3

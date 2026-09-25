@@ -448,6 +448,13 @@ public:
         ipv6, FirewallSetGeneration::A, fw.pending_rules_, prefilter);
   }
 
+  static std::string build_route_mark_script(const FirewallPlan& plan) {
+    IptablesFirewall fw;
+    fw.compile_plan(plan, FirewallApplyMode::Destructive);
+    return IptablesFirewall::build_ipt_script(
+        false, FirewallSetGeneration::A, fw.pending_rules_, fw.prefilter_);
+  }
+
   static std::string build_proto_port_fragment(const std::string &proto,
                                                const std::string &src_port,
                                                const std::string &dst_port,
@@ -487,6 +494,92 @@ public:
 using namespace keen_pbr3;
 using T = IptablesBuilderTest;
 using Rule = IptablesBuilderTest::RuleDesc;
+
+namespace {
+
+FirewallPlan route_mark_plan_with_inbound(const FirewallRuleKey& key,
+                                          const FirewallRuleCriteria& criteria,
+                                          uint32_t fwmark,
+                                          uint32_t fwmark_mask,
+                                          const std::vector<std::string>& interfaces) {
+  FirewallPlan plan;
+  plan.fwmark_mask = fwmark_mask;
+  FirewallRuleRegistrar registrar(plan);
+  FirewallRuleInstance inbound;
+  inbound.key = FirewallRuleKey::compact("prefilter.inbound_interface",
+                                         "br-lan;wg0;");
+  inbound.stage = FirewallRuleStage::global_bypass;
+  inbound.family = FirewallFamily::any;
+  inbound.action = InboundInterfaceFilterAction{interfaces};
+  registrar.register_rule(std::move(inbound));
+
+  FirewallRuleInstance route;
+  route.key = key;
+  route.family = FirewallFamily::ipv4;
+  route.criteria = criteria;
+  route.action = MarkAction{fwmark, fwmark_mask};
+  registrar.register_rule(std::move(route));
+  registrar.finish();
+  return plan;
+}
+
+std::string iptables_listing(const std::string& script) {
+  return "-N KeenPbrTable\n"
+         "-N KeenPbrTable_A\n"
+         "-A PREROUTING -j KeenPbrTable\n"
+         "-A KeenPbrTable -j KeenPbrTable_A\n" +
+         script;
+}
+
+FirewallSnapshot inspect_iptables_listing(const std::string& listing) {
+  return inspect_iptables_snapshot(CommandRunner(
+      [&](const std::vector<std::string>& args) {
+        if (!args.empty() && args.front() == "iptables") {
+          return CommandResult{listing, 0, false};
+        }
+        return CommandResult{"", 0, false};
+      }));
+}
+
+std::string replace_first(std::string value, const std::string& from,
+                          const std::string& to) {
+  const auto position = value.find(from);
+  REQUIRE(position != std::string::npos);
+  value.replace(position, from.size(), to);
+  return value;
+}
+
+} // namespace
+
+TEST_CASE("iptables route.mark emitted script round-trips with inbound fragments") {
+  const FirewallRuleKey key{"route.mark", "materialized"};
+  FirewallRuleCriteria criteria;
+  criteria.proto = L4Proto::TcpUdp;
+  criteria.src_addr = {"192.0.2.10"};
+  criteria.dst_addr = {"198.51.100.10"};
+  const std::vector<std::string> interfaces = {"br-lan", "wg0"};
+  const auto plan = route_mark_plan_with_inbound(
+      key, criteria, 0x00100000u, 0xFFFFFFFFu, interfaces);
+  const auto script = T::build_route_mark_script(plan);
+
+  const auto healthy = inspect_iptables_listing(script);
+  REQUIRE(healthy.available);
+  CHECK(verify_firewall_plan(plan, healthy)[1].status == CheckStatus::ok);
+
+  const auto wrong_mark = inspect_iptables_listing(replace_first(
+      script, "0x100000/0xffffffff", "0x200000/0xffffffff"));
+  CHECK(verify_firewall_plan(plan, wrong_mark)[1].status ==
+        CheckStatus::mismatch);
+
+  const auto missing = inspect_iptables_listing(replace_first(
+      script,
+      "-A KeenPbrTable_A -i br-lan -s 192.0.2.10 -d 198.51.100.10 -p tcp "
+      "-m comment --comment kpbr:v1:route.mark:materialized "
+      "-j MARK --set-xmark 0x100000/0xffffffff\n",
+      ""));
+  CHECK(verify_firewall_plan(plan, missing)[1].status ==
+        CheckStatus::mismatch);
+}
 
 TEST_CASE("IptablesFirewall deduplicates repeated static ipset declarations") {
   CHECK(T::pending_set_count_after_duplicate_create() == 1);
