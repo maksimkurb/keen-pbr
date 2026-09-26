@@ -16,7 +16,6 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -282,7 +281,6 @@ std::vector<RuleState> apply_runtime_firewall(
     // The finalized plan owns set existence and schemas. Stage its physical
     // declarations before list streaming; apply(plan) repeats these calls as
     // an idempotent direct-apply safeguard.
-    std::set<std::string> planned_set_names;
     for (const auto& declaration : plan.sets) {
       const int family = declaration.family == FirewallFamily::ipv6
                              ? AF_INET6
@@ -290,8 +288,19 @@ std::vector<RuleState> apply_runtime_firewall(
       const std::string physical_name =
           firewall.physical_set_name(declaration.name);
       firewall.create_ipset(physical_name, family, declaration.timeout);
-      planned_set_names.insert(physical_name);
     }
+
+    const auto planned_physical_set_name =
+        [&](const std::string& logical_name) -> std::optional<std::string> {
+      const auto declaration = std::find_if(
+          plan.sets.begin(), plan.sets.end(), [&](const auto& candidate) {
+            return candidate.name == logical_name;
+          });
+      if (declaration == plan.sets.end()) {
+        return std::nullopt;
+      }
+      return firewall.physical_set_name(declaration->name);
+    };
 
     std::vector<uint32_t> owned_marks;
     owned_marks.reserve(outbound_marks.size());
@@ -324,62 +333,48 @@ std::vector<RuleState> apply_runtime_firewall(
                 }
 
                 const auto& list_cfg = list_cfg_it->second;
-                const auto usage_it = list_usage_cache.find(list_name);
-                if (usage_it == list_usage_cache.end()) {
-                    continue;
+                const auto set4 =
+                    planned_physical_set_name("kpbr4_" + list_name);
+                const auto set6 =
+                    planned_physical_set_name("kpbr6_" + list_name);
+                const auto set4d =
+                    planned_physical_set_name("kpbr4d_" + list_name);
+                const auto set6d =
+                    planned_physical_set_name("kpbr6d_" + list_name);
+
+                for (const auto& set_name : {set4, set6, set4d, set6d}) {
+                    if (set_name.has_value()) {
+                        rule_state.set_names.push_back(*set_name);
+                    }
                 }
-                const auto& usage = usage_it->second;
 
-                const std::string set4 = firewall.static_set_name(list_name, AF_INET);
-                const std::string set6 = firewall.static_set_name(list_name, AF_INET6);
-                const std::string set4d = firewall.dynamic_set_name(list_name, AF_INET);
-                const std::string set6d = firewall.dynamic_set_name(list_name, AF_INET6);
-
-                const auto require_planned_set = [&](const std::string& set_name) {
-                    if (planned_set_names.find(set_name) == planned_set_names.end()) {
-                        throw FirewallError("firewall plan omitted set " + set_name);
-                    }
-                    rule_state.set_names.push_back(set_name);
-                };
-
-                if (usage.has_static_entries) {
-                    require_planned_set(set4);
-                    bool has_set6 = false;
-                    if (ipv6_decision.enabled) {
-                        require_planned_set(set6);
-                        has_set6 = true;
-                    }
-
-                    if (mode != FirewallApplyMode::RulesOnly) {
-                        auto loader4 = firewall.create_batch_loader(set4);
-                        auto loader6 = has_set6
-                            ? firewall.create_batch_loader(set6)
-                            : nullptr;
-                        FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
-                            if (type == EntryType::Domain) {
-                                return;
-                            }
-                            const bool is_ipv6 = entry.find(':') != std::string_view::npos;
-                            if (is_ipv6) {
-                                if (loader6) {
-                                    loader6->on_entry(type, entry);
-                                }
-                            } else {
-                                loader4->on_entry(type, entry);
-                            }
-                        });
-                        list_streamer->stream_list(list_name, list_cfg, splitter);
-                        loader4->finish();
-                        if (loader6) {
-                            loader6->finish();
+                if ((set4.has_value() || set6.has_value()) &&
+                    mode != FirewallApplyMode::RulesOnly) {
+                    auto loader4 = set4.has_value()
+                        ? firewall.create_batch_loader(*set4)
+                        : nullptr;
+                    auto loader6 = set6.has_value()
+                        ? firewall.create_batch_loader(*set6)
+                        : nullptr;
+                    FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
+                        if (type == EntryType::Domain) {
+                            return;
                         }
+                        const bool is_ipv6 = entry.find(':') != std::string_view::npos;
+                        if (is_ipv6) {
+                            if (loader6) {
+                                loader6->on_entry(type, entry);
+                            }
+                        } else if (loader4) {
+                            loader4->on_entry(type, entry);
+                        }
+                    });
+                    list_streamer->stream_list(list_name, list_cfg, splitter);
+                    if (loader4) {
+                        loader4->finish();
                     }
-                }
-
-                if (usage.has_domain_entries) {
-                    require_planned_set(set4d);
-                    if (ipv6_decision.enabled) {
-                        require_planned_set(set6d);
+                    if (loader6) {
+                        loader6->finish();
                     }
                 }
 

@@ -468,6 +468,36 @@ TEST_CASE("runtime emits static and dynamic list sets in family order") {
   }
 }
 
+TEST_CASE("runtime projects and streams only finalized list-set declarations") {
+  const Config config = parse_config(R"({
+    "outbounds": [
+      {"type":"table","tag":"wan","table":100},
+      {"type":"urltest","tag":"auto","url":"https://example.test",
+       "strategy":"balance","outbound_groups":[{"outbounds":["wan"]}]}
+    ],
+    "lists": {"shared": {"ip_cidrs":["192.0.2.0/24"]}},
+    "route": {"rules": [{"list":["shared"],"outbound":"auto"}]}
+  })");
+  RecordingFirewall firewall;
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-plan-projection-test-cache");
+  FirewallPlan applied_plan;
+
+  // The balance route has no runtime mark, so its canonical plan omits the
+  // list sets even though list analysis finds static entries.
+  const auto states = apply_runtime_firewall(
+      config, {{"wan", 0x100U}}, cache, firewall,
+      FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+      &applied_plan);
+
+  REQUIRE(states.size() == 1);
+  CHECK(states.front().action_type == RuleActionType::Mark);
+  CHECK(states.front().set_names.empty());
+  CHECK(applied_plan.sets.empty());
+  CHECK(firewall.set_names.empty());
+  CHECK(firewall.stream_count == 0);
+  CHECK(firewall.calls == std::vector<std::string>{"prepare", "apply"});
+}
+
 TEST_CASE("runtime captures OUTPUT default-gateway bypass criteria") {
   const Config config = parse_config(R"({
     "daemon": {"firewall_backend":"nftables","ipv6_enabled":false},
