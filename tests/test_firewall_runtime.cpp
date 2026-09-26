@@ -428,9 +428,11 @@ TEST_CASE("runtime emits static and dynamic list sets in family order") {
 
   RecordingFirewall firewall;
   CacheManager cache("/tmp/keen-pbr-firewall-runtime-list-test-cache");
+  FirewallPlan applied_plan;
   const auto states = apply_runtime_firewall(
       config, {{"wan", 0x100U}}, cache, firewall,
-      FirewallApplyMode::PreserveSets);
+      FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+      &applied_plan);
 
   REQUIRE(states.size() == 1);
   const std::vector<std::string> expected_sets = ipv6_enabled
@@ -438,16 +440,20 @@ TEST_CASE("runtime emits static and dynamic list sets in family order") {
                                  "kpbr4d_mixed", "kpbr6d_mixed"}
       : std::vector<std::string>{"kpbr4_mixed", "kpbr4d_mixed"};
   CHECK(states.front().set_names == expected_sets);
-  CHECK(firewall.set_names == states.front().set_names);
+  std::vector<std::string> expected_staged_sets;
+  for (const auto& declaration : applied_plan.sets) {
+    expected_staged_sets.push_back(firewall.physical_set_name(declaration.name));
+  }
+  CHECK(firewall.set_names == expected_staged_sets);
   const std::vector<std::string> expected_calls = ipv6_enabled
       ? std::vector<std::string>{
-            "prepare", "set:kpbr4_mixed", "set:kpbr6_mixed",
-            "loader:kpbr4_mixed", "loader:kpbr6_mixed", "finish", "finish",
-            "set:kpbr4d_mixed", "set:kpbr6d_mixed", "rule", "rule", "rule",
+            "prepare", "set:kpbr4_mixed", "set:kpbr4d_mixed",
+            "set:kpbr6_mixed", "set:kpbr6d_mixed", "loader:kpbr4_mixed",
+            "loader:kpbr6_mixed", "finish", "finish", "rule", "rule", "rule",
             "rule", "apply"}
-      : std::vector<std::string>{"prepare", "set:kpbr4_mixed",
-                                 "loader:kpbr4_mixed", "finish",
-                                 "set:kpbr4d_mixed", "rule", "rule", "apply"};
+      : std::vector<std::string>{"prepare", "set:kpbr4_mixed", "set:kpbr4d_mixed",
+                                 "loader:kpbr4_mixed", "finish", "rule", "rule",
+                                 "apply"};
   CHECK(firewall.calls == expected_calls);
   CHECK(firewall.streamed_entries == (ipv6_enabled ? 2 : 1));
   CHECK(firewall.finished_loaders == (ipv6_enabled ? 2 : 1));

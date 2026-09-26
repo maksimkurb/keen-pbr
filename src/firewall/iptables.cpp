@@ -65,28 +65,11 @@ bool cleanup_command_reports_absence(const ExecCaptureResult &result) {
          output.find("cannot be found") != std::string::npos;
 }
 
-std::string resolve_set_name(const std::string& logical_name,
-                             const IptablesFirewall& firewall) {
-  if (logical_name.rfind("kpbr4d_", 0) == 0) {
-    return firewall.dynamic_set_name(logical_name.substr(7), AF_INET);
-  }
-  if (logical_name.rfind("kpbr6d_", 0) == 0) {
-    return firewall.dynamic_set_name(logical_name.substr(7), AF_INET6);
-  }
-  if (logical_name.rfind("kpbr4_", 0) == 0) {
-    return firewall.static_set_name(logical_name.substr(6), AF_INET);
-  }
-  if (logical_name.rfind("kpbr6_", 0) == 0) {
-    return firewall.static_set_name(logical_name.substr(6), AF_INET6);
-  }
-  return logical_name;
-}
-
 FirewallRuleCriteria materialize_criteria(const FirewallRuleCriteria& criteria,
                                           const IptablesFirewall& firewall) {
   FirewallRuleCriteria result = criteria;
   if (result.dst_set_name.has_value()) {
-    result.dst_set_name = resolve_set_name(*result.dst_set_name, firewall);
+    result.dst_set_name = firewall.physical_set_name(*result.dst_set_name);
   }
   return result;
 }
@@ -1714,7 +1697,7 @@ void IptablesFirewall::compile_plan(const FirewallPlan& plan,
   for (const auto& declaration : plan.sets) {
     const int family = declaration.family == FirewallFamily::ipv6 ? AF_INET6
                                                                    : AF_INET;
-    create_ipset(resolve_set_name(declaration.name, *this), family,
+    create_ipset(physical_set_name(declaration.name), family,
                  declaration.timeout);
   }
 

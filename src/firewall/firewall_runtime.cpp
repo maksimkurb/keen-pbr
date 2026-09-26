@@ -16,6 +16,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -277,6 +278,21 @@ std::vector<RuleState> apply_runtime_firewall(
       }
       plan = build_firewall_plan(plan_inputs);
     }
+
+    // The finalized plan owns set existence and schemas. Stage its physical
+    // declarations before list streaming; apply(plan) repeats these calls as
+    // an idempotent direct-apply safeguard.
+    std::set<std::string> planned_set_names;
+    for (const auto& declaration : plan.sets) {
+      const int family = declaration.family == FirewallFamily::ipv6
+                             ? AF_INET6
+                             : AF_INET;
+      const std::string physical_name =
+          firewall.physical_set_name(declaration.name);
+      firewall.create_ipset(physical_name, family, declaration.timeout);
+      planned_set_names.insert(physical_name);
+    }
+
     std::vector<uint32_t> owned_marks;
     owned_marks.reserve(outbound_marks.size());
     for (const auto& [tag, mark] : outbound_marks) {
@@ -319,17 +335,24 @@ std::vector<RuleState> apply_runtime_firewall(
                 const std::string set4d = firewall.dynamic_set_name(list_name, AF_INET);
                 const std::string set6d = firewall.dynamic_set_name(list_name, AF_INET6);
 
+                const auto require_planned_set = [&](const std::string& set_name) {
+                    if (planned_set_names.find(set_name) == planned_set_names.end()) {
+                        throw FirewallError("firewall plan omitted set " + set_name);
+                    }
+                    rule_state.set_names.push_back(set_name);
+                };
+
                 if (usage.has_static_entries) {
-                    firewall.create_ipset(set4, AF_INET, 0);
-                    rule_state.set_names.push_back(set4);
+                    require_planned_set(set4);
+                    bool has_set6 = false;
                     if (ipv6_decision.enabled) {
-                        firewall.create_ipset(set6, AF_INET6, 0);
-                        rule_state.set_names.push_back(set6);
+                        require_planned_set(set6);
+                        has_set6 = true;
                     }
 
                     if (mode != FirewallApplyMode::RulesOnly) {
                         auto loader4 = firewall.create_batch_loader(set4);
-                        auto loader6 = ipv6_decision.enabled
+                        auto loader6 = has_set6
                             ? firewall.create_batch_loader(set6)
                             : nullptr;
                         FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
@@ -354,11 +377,9 @@ std::vector<RuleState> apply_runtime_firewall(
                 }
 
                 if (usage.has_domain_entries) {
-                    firewall.create_ipset(set4d, AF_INET, usage.dynamic_timeout);
-                    rule_state.set_names.push_back(set4d);
+                    require_planned_set(set4d);
                     if (ipv6_decision.enabled) {
-                        firewall.create_ipset(set6d, AF_INET6, usage.dynamic_timeout);
-                        rule_state.set_names.push_back(set6d);
+                        require_planned_set(set6d);
                     }
                 }
 

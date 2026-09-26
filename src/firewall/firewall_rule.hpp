@@ -134,8 +134,7 @@ struct FirewallRuleInstance {
   FirewallFamily family{FirewallFamily::any};
   FirewallRuleCriteria criteria;
   FirewallRuleAction action;
-  // Set preparation still uses the historical per-route order until it becomes
-  // part of the planned resource lifecycle.
+  // Identifies the route rule that caused this planned action, when applicable.
   std::size_t source_rule_index{std::numeric_limits<std::size_t>::max()};
 };
 

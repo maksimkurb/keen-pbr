@@ -181,9 +181,9 @@ std::optional<uint32_t> normalize_ipset_hashsize(uint32_t requested);
 // Both iptables and nftables backends implement this interface.
 //
 // Usage pattern (transactional rebuild):
-//   create_ipset() and create_batch_loader() buffer set operations and stream
-//   entries → finish() apply(plan) — atomically commit everything using the
-//   requested apply mode
+//   prepare_apply() selects physical names → stage plan.sets with
+//   create_ipset() → create_batch_loader() streams entries → apply(plan)
+//   atomically commits everything using the requested apply mode
 class Firewall {
 public:
   virtual ~Firewall() = default;
@@ -209,6 +209,24 @@ public:
   virtual std::string dynamic_set_name(const std::string &list_name,
                                        int family) const {
     return std::string(family == AF_INET6 ? "kpbr6d_" : "kpbr4d_") + list_name;
+  }
+
+  // Resolve a canonical logical set reference after prepare_apply() selected
+  // any attempt-scoped physical names.
+  std::string physical_set_name(const std::string &logical_name) const {
+    if (logical_name.rfind("kpbr4d_", 0) == 0) {
+      return dynamic_set_name(logical_name.substr(7), AF_INET);
+    }
+    if (logical_name.rfind("kpbr6d_", 0) == 0) {
+      return dynamic_set_name(logical_name.substr(7), AF_INET6);
+    }
+    if (logical_name.rfind("kpbr4_", 0) == 0) {
+      return static_set_name(logical_name.substr(6), AF_INET);
+    }
+    if (logical_name.rfind("kpbr6_", 0) == 0) {
+      return static_set_name(logical_name.substr(6), AF_INET6);
+    }
+    return logical_name;
   }
 
   // Create a named IP set for storing IP addresses and/or CIDR subnets.
