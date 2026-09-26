@@ -328,13 +328,14 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
     const auto interfaces = netlink_.dump_interfaces();
     const auto balance_candidates = build_balance_candidates(owned_main_routes, interfaces);
     FirewallPlan applied_plan;
+    const auto& previous_active_plan = firewall_state_.get_active_plan();
     auto rule_states = apply_runtime_firewall(
         config_,
         outbound_marks_,
         list_service_.cache_manager(),
         *firewall_,
         mode,
-        &firewall_state_.get_rules(),
+        previous_active_plan.has_value() ? &*previous_active_plan : nullptr,
         force_clear_dynamic_sets,
         owned_main_routes,
         interfaces,

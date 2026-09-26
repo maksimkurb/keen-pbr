@@ -52,7 +52,7 @@ std::vector<RuleState> apply_runtime_firewall(
     const CacheManager& cache_manager,
     Firewall& firewall,
     FirewallApplyMode mode = FirewallApplyMode::Destructive,
-    const std::vector<RuleState>* previous_rule_states = nullptr,
+    const FirewallPlan* previous_active_plan = nullptr,
     bool force_clear_dynamic_sets = false,
     const std::vector<DumpedRoute>& main_routes = {},
     const std::vector<DumpedInterface>& interfaces = {},

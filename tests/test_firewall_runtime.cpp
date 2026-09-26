@@ -52,8 +52,9 @@ public:
     prepared_modes.push_back(mode);
   }
 
-  void create_ipset(const std::string&, int, uint32_t) override {
+  void create_ipset(const std::string& name, int family, uint32_t timeout) override {
     ++set_declarations;
+    set_declarations_detail.push_back({name, family, timeout});
   }
 
   std::unique_ptr<ListEntryVisitor>
@@ -78,6 +79,12 @@ public:
   FirewallBackend backend() const override { return FirewallBackend::nftables; }
 
   int set_declarations{0};
+  struct SetDeclaration {
+    std::string name;
+    int family;
+    uint32_t timeout;
+  };
+  std::vector<SetDeclaration> set_declarations_detail;
   int stream_count{0};
   int rule_count{0};
   FirewallApplyMode applied_mode{FirewallApplyMode::Destructive};
@@ -116,7 +123,8 @@ private:
 public:
   std::string static_set_name(const std::string &list_name,
                               int family) const override {
-    if (!generation_names) {
+    if (!generation_names &&
+        !(generation_names_ipv6 && family == AF_INET6)) {
       return Firewall::static_set_name(list_name, family);
     }
     return std::string(family == AF_INET6 ? "kpbr6s_" : "kpbr4s_") +
@@ -125,7 +133,8 @@ public:
 
   std::vector<std::string>
   static_set_names(const std::string &list_name, int family) const override {
-    if (!generation_names) {
+    if (!generation_names &&
+        !(generation_names_ipv6 && family == AF_INET6)) {
       return Firewall::static_set_names(list_name, family);
     }
     const std::string prefix = family == AF_INET6 ? "kpbr6" : "kpbr4";
@@ -196,6 +205,7 @@ public:
   bool fail_apply{false};
   bool fail_rules_only{false};
   bool generation_names{false};
+  bool generation_names_ipv6{false};
   int stream_count{0};
   int streamed_entries{0};
   int finished_loaders{0};
@@ -216,6 +226,14 @@ Config empty_source_list_config() {
   })");
 }
 
+Config empty_inline_list_config() {
+  return parse_config(R"({
+    "outbounds": [{"type":"table","tag":"wan","table":254}],
+    "lists": {"remote": {"ip_cidrs":[]}},
+    "route": {"rules": [{"list":["remote"],"outbound":"wan"}]}
+  })");
+}
+
 Config empty_url_list_config() {
   return parse_config(R"({
     "outbounds": [{"type":"table","tag":"wan","table":254}],
@@ -230,15 +248,6 @@ Config invalid_inline_list_config() {
     "lists": {"remote": {"ip_cidrs":["not an address"]}},
     "route": {"rules": [{"list":["remote"],"outbound":"wan"}]}
   })");
-}
-
-RuleState aligned_empty_rule_state() {
-  RuleState state;
-  state.rule_index = 0;
-  state.list_names = {"remote"};
-  state.action_type = RuleActionType::Mark;
-  state.fwmark = 1;
-  return state;
 }
 
 Config valid_inline_list_config() {
@@ -256,12 +265,6 @@ Config valid_inline_ipv6_list_config() {
     "lists": {"remote": {"ip_cidrs":["192.0.2.0/24"]}},
     "route": {"rules": [{"list":["remote"],"outbound":"wan"}]}
   })");
-}
-
-RuleState aligned_static_rule_state() {
-  RuleState state = aligned_empty_rule_state();
-  state.set_names = {"kpbr4_remote"};
-  return state;
 }
 
 } // namespace
@@ -526,17 +529,19 @@ TEST_CASE("RulesOnly preserves shared list usage after a skipped first rule") {
   CacheManager cache("/tmp/keen-pbr-firewall-runtime-shared-rules-only-test-cache");
 
   RecordingFirewall initial_firewall;
-  const auto previous = apply_runtime_firewall(
-      config, marks, cache, initial_firewall, FirewallApplyMode::PreserveSets);
-  REQUIRE(previous.size() == 2);
-  CHECK(previous[0].action_type == RuleActionType::Skip);
-  CHECK(previous[1].action_type == RuleActionType::Mark);
-  CHECK(previous[1].set_names == std::vector<std::string>{"kpbr4_shared"});
+  FirewallPlan previous_plan;
+  const auto previous_states = apply_runtime_firewall(
+      config, marks, cache, initial_firewall, FirewallApplyMode::PreserveSets,
+      nullptr, false, {}, {}, nullptr, &previous_plan);
+  REQUIRE(previous_states.size() == 2);
+  CHECK(previous_states[0].action_type == RuleActionType::Skip);
+  CHECK(previous_states[1].action_type == RuleActionType::Mark);
+  CHECK(previous_states[1].set_names == std::vector<std::string>{"kpbr4_shared"});
 
   RulesOnlyFirewall rules_only_firewall;
   const auto states = apply_runtime_firewall(
       config, marks, cache, rules_only_firewall, FirewallApplyMode::RulesOnly,
-      &previous);
+      &previous_plan);
 
   REQUIRE(states.size() == 2);
   CHECK(states[0].action_type == RuleActionType::Skip);
@@ -887,15 +892,23 @@ TEST_CASE("runtime forwards every apply mode and preserves RulesOnly no-streamin
 }
 
 TEST_CASE("RulesOnly reuses aligned empty file list without streaming") {
+  const Config previous_config = empty_inline_list_config();
   const Config config = empty_source_list_config();
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
+  CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
+  REQUIRE(apply_runtime_firewall(
+              previous_config, {{"wan", 1}}, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
+
   RulesOnlyFirewall firewall;
   const OutboundMarkMap marks{{"wan", 1}};
-  const std::vector<RuleState> previous{aligned_empty_rule_state()};
-  CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
 
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
-      &previous);
+      &previous_plan);
 
   REQUIRE(states.size() == 1);
   CHECK(firewall.applied_mode == FirewallApplyMode::RulesOnly);
@@ -928,32 +941,50 @@ TEST_CASE("RulesOnly falls back when realized rule state is missing") {
   CHECK(firewall.prepared_modes[0] == FirewallApplyMode::RulesOnly);
 }
 
-TEST_CASE("RulesOnly falls back when realized rule state is misaligned") {
+TEST_CASE("RulesOnly falls back when active plan list identity is unknown") {
+  const Config previous_config = parse_config(R"({
+    "outbounds": [{"type":"table","tag":"wan","table":254}],
+    "lists": {"other": {"ip_cidrs":[]}},
+    "route": {"rules": [{"list":["other"],"outbound":"wan"}]}
+  })");
   const Config config = empty_source_list_config();
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
+  CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
+  REQUIRE(apply_runtime_firewall(
+              previous_config, {{"wan", 1}}, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
+
   RulesOnlyFirewall firewall;
   const OutboundMarkMap marks{{"wan", 1}};
-  RuleState misaligned = aligned_empty_rule_state();
-  misaligned.rule_index = 1;
-  const std::vector<RuleState> previous{misaligned};
-  CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
 
   CHECK_THROWS_AS(apply_runtime_firewall(
                       config, marks, cache, firewall,
-                      FirewallApplyMode::RulesOnly, &previous),
+                      FirewallApplyMode::RulesOnly, &previous_plan),
                   std::exception);
   REQUIRE(firewall.prepared_modes.size() == 1);
   CHECK(firewall.prepared_modes[0] == FirewallApplyMode::RulesOnly);
 }
 
 TEST_CASE("RulesOnly reuses aligned empty URL list without streaming") {
+  const Config previous_config = empty_inline_list_config();
   const Config config = empty_url_list_config();
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
+  CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
+  REQUIRE(apply_runtime_firewall(
+              previous_config, {{"wan", 1}}, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
+
   RulesOnlyFirewall firewall;
   const OutboundMarkMap marks{{"wan", 1}};
-  const std::vector<RuleState> previous{aligned_empty_rule_state()};
-  CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
 
   (void)apply_runtime_firewall(config, marks, cache, firewall,
-                               FirewallApplyMode::RulesOnly, &previous);
+                               FirewallApplyMode::RulesOnly, &previous_plan);
 
   CHECK(firewall.applied_mode == FirewallApplyMode::RulesOnly);
   CHECK(firewall.set_declarations == 0);
@@ -961,14 +992,22 @@ TEST_CASE("RulesOnly reuses aligned empty URL list without streaming") {
 }
 
 TEST_CASE("RulesOnly trusts realized empty state after inline entries parse away") {
+  const Config previous_config = empty_inline_list_config();
   const Config config = invalid_inline_list_config();
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
+  CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
+  REQUIRE(apply_runtime_firewall(
+              previous_config, {{"wan", 1}}, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
+
   RulesOnlyFirewall firewall;
   const OutboundMarkMap marks{{"wan", 1}};
-  const std::vector<RuleState> previous{aligned_empty_rule_state()};
-  CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
 
   (void)apply_runtime_firewall(config, marks, cache, firewall,
-                               FirewallApplyMode::RulesOnly, &previous);
+                               FirewallApplyMode::RulesOnly, &previous_plan);
 
   CHECK(firewall.applied_mode == FirewallApplyMode::RulesOnly);
   CHECK(firewall.set_declarations == 0);
@@ -977,15 +1016,21 @@ TEST_CASE("RulesOnly trusts realized empty state after inline entries parse away
 
 TEST_CASE("RulesOnly fallback preserves and materializes a valid list") {
   const Config config = valid_inline_list_config();
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
   RecordingFirewall firewall;
   firewall.fail_rules_only = true;
   const OutboundMarkMap marks{{"wan", 1}};
-  const std::vector<RuleState> previous{aligned_static_rule_state()};
   CacheManager cache("/tmp/keen-pbr-rules-only-valid-list-test-cache");
+  REQUIRE(apply_runtime_firewall(
+              config, marks, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
 
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
-      &previous);
+      &previous_plan);
 
   REQUIRE(states.size() == 1);
   CHECK(firewall.prepared_modes == std::vector<FirewallApplyMode>{
@@ -1003,19 +1048,24 @@ TEST_CASE("RulesOnly fallback preserves and materializes a valid list") {
                   "kpbr4_remote") != firewall.referenced_sets.end());
 }
 
-TEST_CASE("RulesOnly rejects a realized static set from the other generation") {
+TEST_CASE("RulesOnly rejects an active plan static set from another generation") {
   const Config config = valid_inline_list_config();
+  const OutboundMarkMap marks{{"wan", 1}};
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
+  CacheManager cache("/tmp/keen-pbr-rules-only-stale-set-test-cache");
+  REQUIRE(apply_runtime_firewall(
+              config, marks, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
+
   RecordingFirewall firewall;
   firewall.generation_names = true;
-  const OutboundMarkMap marks{{"wan", 1}};
-  RuleState previous = aligned_static_rule_state();
-  previous.set_names = {"kpbr4S_remote"};
-  const std::vector<RuleState> previous_states{previous};
-  CacheManager cache("/tmp/keen-pbr-rules-only-stale-set-test-cache");
 
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
-      &previous_states);
+      &previous_plan);
 
   REQUIRE(states.size() == 1);
   CHECK(firewall.prepared_modes == std::vector<FirewallApplyMode>{
@@ -1028,7 +1078,7 @@ TEST_CASE("RulesOnly rejects a realized static set from the other generation") {
   CHECK(states.front().set_names == std::vector<std::string>{"kpbr4s_remote"});
 }
 
-TEST_CASE("RulesOnly validates IPv6 stale static sets even when IPv4 is present") {
+TEST_CASE("RulesOnly validates active plan IPv6 static generation") {
   if (!system_ipv6_supported()) {
     MESSAGE("IPv6 is unavailable in the test environment; regression skipped");
     return;
@@ -1041,7 +1091,6 @@ TEST_CASE("RulesOnly validates IPv6 stale static sets even when IPv4 is present"
   std::filesystem::create_directories(sandbox);
   write_executable(sandbox / "ip6tables", "#!/bin/sh\nexit 0\n");
   write_executable(sandbox / "ip6tables-restore", "#!/bin/sh\nexit 0\n");
-
   PathGuard path_guard;
   const char *old_path = std::getenv("PATH");
   const std::string path = sandbox.string() + ":" +
@@ -1049,17 +1098,21 @@ TEST_CASE("RulesOnly validates IPv6 stale static sets even when IPv4 is present"
   REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
 
   const Config config = valid_inline_ipv6_list_config();
-  RecordingFirewall firewall;
-  firewall.generation_names = true;
   const OutboundMarkMap marks{{"wan", 1}};
-  RuleState previous = aligned_static_rule_state();
-  previous.set_names = {"kpbr4s_remote", "kpbr6S_remote"};
-  const std::vector<RuleState> previous_states{previous};
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
   CacheManager cache("/tmp/keen-pbr-rules-only-stale-ipv6-test-cache");
+  REQUIRE(apply_runtime_firewall(
+              config, marks, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
 
+  RecordingFirewall firewall;
+  firewall.generation_names_ipv6 = true;
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
-      &previous_states);
+      &previous_plan);
 
   REQUIRE(states.size() == 1);
   CHECK(firewall.prepared_modes == std::vector<FirewallApplyMode>{
@@ -1067,16 +1120,80 @@ TEST_CASE("RulesOnly validates IPv6 stale static sets even when IPv4 is present"
                                      FirewallApplyMode::PreserveSets});
   CHECK(firewall.applied_modes ==
         std::vector<FirewallApplyMode>{FirewallApplyMode::PreserveSets});
-  // PreserveSets creates one loader per enabled address family.  The inline
-  // list contains only IPv4 data, so only the IPv4 loader receives an entry.
   CHECK(firewall.stream_count == 2);
-  CHECK(firewall.streamed_entries == 1);
-  CHECK(firewall.finished_loaders == 2);
   CHECK(states.front().set_names ==
-        std::vector<std::string>{"kpbr4s_remote", "kpbr6s_remote"});
-  CHECK(firewall.set_names ==
-        std::vector<std::string>{"kpbr4s_remote", "kpbr6s_remote"});
+        std::vector<std::string>{"kpbr4_remote", "kpbr6s_remote"});
   std::filesystem::remove_all(sandbox);
+}
+
+TEST_CASE("RulesOnly reuses dynamic timeout from the active plan") {
+  const Config previous_config = parse_config(R"({
+    "daemon": {"ipv6_enabled":false},
+    "outbounds": [{"type":"table","tag":"wan","table":254}],
+    "lists": {"remote": {"domains":["example.test"],"ttl_ms":30000}},
+    "route": {"rules": [{"list":["remote"],"outbound":"wan"}]}
+  })");
+  const OutboundMarkMap marks{{"wan", 1}};
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
+  CacheManager cache("/tmp/keen-pbr-rules-only-dynamic-timeout-test-cache");
+  REQUIRE(apply_runtime_firewall(
+              previous_config, marks, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
+
+  RulesOnlyFirewall firewall;
+  const auto states = apply_runtime_firewall(
+      previous_config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
+      &previous_plan);
+  REQUIRE(states.size() == 1);
+  const auto dynamic_set = std::find_if(
+      firewall.set_declarations_detail.begin(),
+      firewall.set_declarations_detail.end(),
+      [](const RulesOnlyFirewall::SetDeclaration& declaration) {
+        return declaration.name == "kpbr4d_remote";
+      });
+  REQUIRE(dynamic_set != firewall.set_declarations_detail.end());
+  CHECK(dynamic_set->timeout == 30U);
+}
+
+TEST_CASE("RulesOnly falls back when dynamic timeout changes") {
+  const Config previous_config = parse_config(R"({
+    "daemon": {"ipv6_enabled":false},
+    "outbounds": [{"type":"table","tag":"wan","table":254}],
+    "lists": {"remote": {"domains":["example.test"],"ttl_ms":30000}},
+    "route": {"rules": [{"list":["remote"],"outbound":"wan"}]}
+  })");
+  Config config = previous_config;
+  config.lists->at("remote").ttl_ms = 60000;
+  const OutboundMarkMap marks{{"wan", 1}};
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
+  CacheManager cache("/tmp/keen-pbr-rules-only-dynamic-timeout-change-test-cache");
+  REQUIRE(apply_runtime_firewall(
+              previous_config, marks, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
+
+  RulesOnlyFirewall firewall;
+  const auto states = apply_runtime_firewall(
+      config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
+      &previous_plan);
+  REQUIRE(states.size() == 1);
+  CHECK(firewall.prepared_modes == std::vector<FirewallApplyMode>{
+                                     FirewallApplyMode::RulesOnly,
+                                     FirewallApplyMode::PreserveSets});
+  CHECK(firewall.applied_mode == FirewallApplyMode::PreserveSets);
+  const auto dynamic_set = std::find_if(
+      firewall.set_declarations_detail.begin(),
+      firewall.set_declarations_detail.end(),
+      [](const RulesOnlyFirewall::SetDeclaration& declaration) {
+        return declaration.name == "kpbr4d_remote";
+      });
+  REQUIRE(dynamic_set != firewall.set_declarations_detail.end());
+  CHECK(dynamic_set->timeout == 60U);
 }
 
 } // namespace keen_pbr3
