@@ -362,6 +362,12 @@ TEST_CASE("runtime preserves ordered direct rule actions and selectors") {
 
   REQUIRE(states.size() == 5);
   REQUIRE(firewall.recorded_rules.size() == 5);
+  CHECK(states[0].action_type == RuleActionType::Mark);
+  CHECK(states[0].fwmark == 0x100U);
+  CHECK(states[1].action_type == RuleActionType::Mark);
+  CHECK(states[2].action_type == RuleActionType::Mark);
+  CHECK(states[3].action_type == RuleActionType::Drop);
+  CHECK(states[4].action_type == RuleActionType::Pass);
   CHECK(firewall.calls == std::vector<std::string>{
                                "prepare", "rule", "rule", "rule", "rule",
                                "rule", "apply"});
@@ -490,12 +496,55 @@ TEST_CASE("runtime projects and streams only finalized list-set declarations") {
       &applied_plan);
 
   REQUIRE(states.size() == 1);
-  CHECK(states.front().action_type == RuleActionType::Mark);
+  CHECK(states.front().action_type == RuleActionType::Skip);
+  CHECK(states.front().rule_index == 0);
+  CHECK(states.front().list_names == std::vector<std::string>{"shared"});
+  CHECK(states.front().outbound_tag == "auto");
+  CHECK(states.front().fwmark == 0);
   CHECK(states.front().set_names.empty());
   CHECK(applied_plan.sets.empty());
   CHECK(firewall.set_names.empty());
   CHECK(firewall.stream_count == 0);
   CHECK(firewall.calls == std::vector<std::string>{"prepare", "apply"});
+}
+
+TEST_CASE("RulesOnly preserves shared list usage after a skipped first rule") {
+  const Config config = parse_config(R"({
+    "daemon": {"ipv6_enabled":false},
+    "outbounds": [
+      {"type":"table","tag":"wan","table":100},
+      {"type":"urltest","tag":"auto","url":"https://example.test",
+       "strategy":"balance","outbound_groups":[{"outbounds":["wan"]}]}
+    ],
+    "lists": {"shared": {"ip_cidrs":["192.0.2.0/24"]}},
+    "route": {"rules": [
+      {"list":["shared"],"outbound":"auto"},
+      {"list":["shared"],"outbound":"wan"}
+    ]}
+  })");
+  const OutboundMarkMap marks{{"wan", 0x100U}};
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-shared-rules-only-test-cache");
+
+  RecordingFirewall initial_firewall;
+  const auto previous = apply_runtime_firewall(
+      config, marks, cache, initial_firewall, FirewallApplyMode::PreserveSets);
+  REQUIRE(previous.size() == 2);
+  CHECK(previous[0].action_type == RuleActionType::Skip);
+  CHECK(previous[1].action_type == RuleActionType::Mark);
+  CHECK(previous[1].set_names == std::vector<std::string>{"kpbr4_shared"});
+
+  RulesOnlyFirewall rules_only_firewall;
+  const auto states = apply_runtime_firewall(
+      config, marks, cache, rules_only_firewall, FirewallApplyMode::RulesOnly,
+      &previous);
+
+  REQUIRE(states.size() == 2);
+  CHECK(states[0].action_type == RuleActionType::Skip);
+  CHECK(states[1].action_type == RuleActionType::Mark);
+  CHECK(states[1].set_names == std::vector<std::string>{"kpbr4_shared"});
+  CHECK(rules_only_firewall.applied_mode == FirewallApplyMode::RulesOnly);
+  CHECK(rules_only_firewall.set_declarations == 1);
+  CHECK(rules_only_firewall.rule_count == 1);
 }
 
 TEST_CASE("runtime streams a shared static list once per family") {
@@ -637,12 +686,14 @@ TEST_CASE("runtime passes balance fallback and candidates to the firewall") {
   const FirewallBalanceCandidates candidates = {
       {"auto", {{0x200U, true, false}, {0x300U, true, true}}}};
 
-  (void)apply_runtime_firewall(config,
-                               {{"auto", 0x100U}, {"wan_a", 0x200U},
-                                {"wan_b", 0x300U}},
-                               cache, firewall, FirewallApplyMode::PreserveSets,
-                               nullptr, false, {}, {}, &candidates);
+  const auto states = apply_runtime_firewall(
+      config, {{"auto", 0x100U}, {"wan_a", 0x200U}, {"wan_b", 0x300U}},
+      cache, firewall, FirewallApplyMode::PreserveSets, nullptr, false, {}, {},
+      &candidates);
 
+  REQUIRE(states.size() == 1);
+  CHECK(states.front().action_type == RuleActionType::Mark);
+  CHECK(states.front().fwmark == 0x100U);
   REQUIRE(firewall.recorded_rules.size() == 1);
   const auto &rule = firewall.recorded_rules.front();
   CHECK(rule.action == RecordingFirewall::RuleAction::Balance);

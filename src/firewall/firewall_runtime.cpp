@@ -89,44 +89,60 @@ ListSetUsage reused_list_set_usage(
             std::to_string(rule_index) + " list " + list_name);
     }
 
-    const RuleState& previous = previous_rule_states->at(rule_index);
-    if (previous.rule_index != rule_index ||
-        std::find(previous.list_names.begin(), previous.list_names.end(),
-                  list_name) == previous.list_names.end()) {
+    const RuleState& aligned = previous_rule_states->at(rule_index);
+    if (aligned.rule_index != rule_index ||
+        std::find(aligned.list_names.begin(), aligned.list_names.end(),
+                  list_name) == aligned.list_names.end()) {
         throw FirewallRulesOnlyError(
             "realized firewall state does not contain route rule " +
             std::to_string(rule_index) + " list " + list_name);
     }
 
     ListSetUsage usage;
-    const auto static_usage_for_family = [&](int family) {
-        const std::string expected = firewall.static_set_name(list_name, family);
-        const auto candidates = firewall.static_set_names(list_name, family);
-        const bool has_expected = contains_set_name(previous, expected);
-        const bool has_alternate = std::any_of(
-            candidates.begin(), candidates.end(), [&](const std::string& name) {
-                return name != expected && contains_set_name(previous, name);
-            });
-        if (has_alternate) {
-            throw FirewallRulesOnlyError(
-                std::string("realized firewall state references a stale static ipset for ") +
-                "route rule " + std::to_string(rule_index) + " list " +
-                list_name);
+    const auto accumulate_state = [&](const RuleState& previous,
+                                      std::size_t previous_index) {
+        const auto static_usage_for_family = [&](int family) {
+            const std::string expected = firewall.static_set_name(list_name, family);
+            const auto candidates = firewall.static_set_names(list_name, family);
+            const bool has_expected = contains_set_name(previous, expected);
+            const bool has_alternate = std::any_of(
+                candidates.begin(), candidates.end(), [&](const std::string& name) {
+                    return name != expected && contains_set_name(previous, name);
+                });
+            if (has_alternate) {
+                throw FirewallRulesOnlyError(
+                    "realized firewall state references a stale static ipset for "
+                    "route rule " + std::to_string(previous_index) + " list " +
+                    list_name);
+            }
+            return has_expected;
+        };
+
+        const bool has_static_v4 = static_usage_for_family(AF_INET);
+        usage.has_static_entries = usage.has_static_entries || has_static_v4;
+        usage.has_domain_entries =
+            usage.has_domain_entries ||
+            contains_set_name(previous,
+                              firewall.dynamic_set_name(list_name, AF_INET));
+        if (ipv6_enabled) {
+            const bool has_static_v6 = static_usage_for_family(AF_INET6);
+            usage.has_static_entries = usage.has_static_entries || has_static_v6;
+            usage.has_domain_entries =
+                usage.has_domain_entries ||
+                contains_set_name(
+                    previous, firewall.dynamic_set_name(list_name, AF_INET6));
         }
-        return has_expected;
     };
 
-    const std::string set4d = firewall.dynamic_set_name(list_name, AF_INET);
-    usage.has_static_entries = static_usage_for_family(AF_INET);
-    usage.has_domain_entries = contains_set_name(previous, set4d);
-    if (ipv6_enabled) {
-        const bool has_static_v6 = static_usage_for_family(AF_INET6);
-        usage.has_static_entries = usage.has_static_entries || has_static_v6;
-        usage.has_domain_entries = usage.has_domain_entries ||
-                                   contains_set_name(
-                                       previous,
-                                       firewall.dynamic_set_name(list_name,
-                                                                 AF_INET6));
+    for (std::size_t previous_index = 0;
+         previous_index < previous_rule_states->size(); ++previous_index) {
+        const RuleState& previous = previous_rule_states->at(previous_index);
+        if (previous.rule_index != previous_index ||
+            std::find(previous.list_names.begin(), previous.list_names.end(),
+                      list_name) == previous.list_names.end()) {
+            continue;
+        }
+        accumulate_state(previous, previous_index);
     }
 
     const int64_t ttl_ms = list_config.ttl_ms.value_or(0);
@@ -134,6 +150,68 @@ ListSetUsage reused_list_set_usage(
         usage.dynamic_timeout = static_cast<uint32_t>(ttl_ms / 1000);
     }
     return usage;
+}
+
+std::vector<RuleState> project_rule_states(
+    const Config& config, const FirewallPlan& plan, const Firewall& firewall) {
+    const auto route_rules =
+        config.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+    std::vector<RuleState> rule_states(route_rules.size());
+    std::vector<bool> projected(route_rules.size(), false);
+
+    for (std::size_t rule_index = 0; rule_index < route_rules.size(); ++rule_index) {
+        auto& state = rule_states[rule_index];
+        state.rule_index = rule_index;
+        state.list_names = route_rule_lists(route_rules[rule_index]);
+        state.outbound_tag = route_rules[rule_index].outbound;
+        state.action_type = RuleActionType::Skip;
+    }
+
+    for (const auto& rule : plan.rules) {
+        if (rule.source_rule_index >= rule_states.size()) {
+            continue;
+        }
+
+        auto& state = rule_states[rule.source_rule_index];
+        if (!projected[rule.source_rule_index]) {
+            if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
+                state.action_type = RuleActionType::Mark;
+                state.fwmark = mark->value;
+            } else if (const auto* balance =
+                           std::get_if<BalanceAction>(&rule.action)) {
+                state.action_type = RuleActionType::Mark;
+                state.fwmark = balance->fallback_mark;
+            } else if (const auto* verdict =
+                           std::get_if<VerdictAction>(&rule.action)) {
+                state.action_type = *verdict == VerdictAction::drop
+                                        ? RuleActionType::Drop
+                                        : RuleActionType::Pass;
+            } else {
+                continue;
+            }
+            state.criteria = rule.criteria;
+            state.criteria.dst_set_name.reset();
+            const auto append_plan_set = [&](const std::string& logical_name) {
+                const auto declaration = std::find_if(
+                    plan.sets.begin(), plan.sets.end(), [&](const auto& candidate) {
+                        return candidate.name == logical_name;
+                    });
+                if (declaration != plan.sets.end()) {
+                    state.set_names.push_back(
+                        firewall.physical_set_name(declaration->name));
+                }
+            };
+            for (const auto& list_name : state.list_names) {
+                append_plan_set("kpbr4_" + list_name);
+                append_plan_set("kpbr6_" + list_name);
+                append_plan_set("kpbr4d_" + list_name);
+                append_plan_set("kpbr6d_" + list_name);
+            }
+            projected[rule.source_rule_index] = true;
+        }
+    }
+
+    return rule_states;
 }
 
 } // namespace
@@ -189,7 +267,6 @@ std::vector<RuleState> apply_runtime_firewall(
     if (mode != FirewallApplyMode::RulesOnly) {
       list_streamer = std::make_unique<ListStreamer>(cache_manager);
     }
-    auto rule_states = build_fw_rule_states(config, outbound_marks);
     const RouteConfig route_config = config.route.value_or(RouteConfig{});
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
     log_ipv6_support_decision_once(ipv6_decision);
@@ -356,47 +433,7 @@ std::vector<RuleState> apply_runtime_firewall(
       }
     }
 
-    for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
-        const auto& rule = route_rules[rule_idx];
-        RuleState& rule_state = rule_states[rule_idx];
-
-        if (rule_state.action_type == RuleActionType::Skip) {
-            continue;
-        }
-
-        rule_state.set_names.clear();
-
-        FirewallRuleCriteria criteria = build_firewall_rule_criteria(
-            rule, main_routes, interfaces);
-        rule_state.criteria = criteria;
-
-        const auto& list_names = route_rule_lists(rule);
-        if (!list_names.empty()) {
-            for (const auto& list_name : list_names) {
-                auto list_cfg_it = lists_map.find(list_name);
-                if (list_cfg_it == lists_map.end()) {
-                    continue;
-                }
-
-                const auto set4 =
-                    planned_physical_set_name("kpbr4_" + list_name);
-                const auto set6 =
-                    planned_physical_set_name("kpbr6_" + list_name);
-                const auto set4d =
-                    planned_physical_set_name("kpbr4d_" + list_name);
-                const auto set6d =
-                    planned_physical_set_name("kpbr6d_" + list_name);
-
-                for (const auto& set_name : {set4, set6, set4d, set6d}) {
-                    if (set_name.has_value()) {
-                        rule_state.set_names.push_back(*set_name);
-                    }
-                }
-
-            }
-        }
-
-    }
+    auto rule_states = project_rule_states(config, plan, firewall);
 
     firewall.apply(plan, mode);
     if (applied_plan != nullptr) {
