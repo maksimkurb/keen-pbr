@@ -310,6 +310,52 @@ std::vector<RuleState> apply_runtime_firewall(
     }
     firewall.set_owned_marks(owned_marks);
 
+    // Stream each planned static list once. Route rules only project the
+    // finalized plan into RuleState below; they must not duplicate resource
+    // loading when several rules reference the same list.
+    if (mode != FirewallApplyMode::RulesOnly) {
+      for (const auto& list_usage : list_usage_cache) {
+        const auto& list_name = list_usage.first;
+        const auto list_cfg_it = lists_map.find(list_name);
+        if (list_cfg_it == lists_map.end()) {
+          continue;
+        }
+
+        const auto set4 = planned_physical_set_name("kpbr4_" + list_name);
+        const auto set6 = planned_physical_set_name("kpbr6_" + list_name);
+        if (!set4.has_value() && !set6.has_value()) {
+          continue;
+        }
+
+        auto loader4 = set4.has_value()
+            ? firewall.create_batch_loader(*set4)
+            : nullptr;
+        auto loader6 = set6.has_value()
+            ? firewall.create_batch_loader(*set6)
+            : nullptr;
+        FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
+          if (type == EntryType::Domain) {
+            return;
+          }
+          const bool is_ipv6 = entry.find(':') != std::string_view::npos;
+          if (is_ipv6) {
+            if (loader6) {
+              loader6->on_entry(type, entry);
+            }
+          } else if (loader4) {
+            loader4->on_entry(type, entry);
+          }
+        });
+        list_streamer->stream_list(list_name, list_cfg_it->second, splitter);
+        if (loader4) {
+          loader4->finish();
+        }
+        if (loader6) {
+          loader6->finish();
+        }
+      }
+    }
+
     for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
         const auto& rule = route_rules[rule_idx];
         RuleState& rule_state = rule_states[rule_idx];
@@ -332,7 +378,6 @@ std::vector<RuleState> apply_runtime_firewall(
                     continue;
                 }
 
-                const auto& list_cfg = list_cfg_it->second;
                 const auto set4 =
                     planned_physical_set_name("kpbr4_" + list_name);
                 const auto set6 =
@@ -345,36 +390,6 @@ std::vector<RuleState> apply_runtime_firewall(
                 for (const auto& set_name : {set4, set6, set4d, set6d}) {
                     if (set_name.has_value()) {
                         rule_state.set_names.push_back(*set_name);
-                    }
-                }
-
-                if ((set4.has_value() || set6.has_value()) &&
-                    mode != FirewallApplyMode::RulesOnly) {
-                    auto loader4 = set4.has_value()
-                        ? firewall.create_batch_loader(*set4)
-                        : nullptr;
-                    auto loader6 = set6.has_value()
-                        ? firewall.create_batch_loader(*set6)
-                        : nullptr;
-                    FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
-                        if (type == EntryType::Domain) {
-                            return;
-                        }
-                        const bool is_ipv6 = entry.find(':') != std::string_view::npos;
-                        if (is_ipv6) {
-                            if (loader6) {
-                                loader6->on_entry(type, entry);
-                            }
-                        } else if (loader4) {
-                            loader4->on_entry(type, entry);
-                        }
-                    });
-                    list_streamer->stream_list(list_name, list_cfg, splitter);
-                    if (loader4) {
-                        loader4->finish();
-                    }
-                    if (loader6) {
-                        loader6->finish();
                     }
                 }
 

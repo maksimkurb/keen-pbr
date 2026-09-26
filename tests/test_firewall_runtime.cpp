@@ -498,6 +498,56 @@ TEST_CASE("runtime projects and streams only finalized list-set declarations") {
   CHECK(firewall.calls == std::vector<std::string>{"prepare", "apply"});
 }
 
+TEST_CASE("runtime streams a shared static list once per family") {
+  const Config config = parse_config(R"({
+    "daemon": {"firewall_backend":"nftables","ipv6_enabled":true},
+    "outbounds": [{"type":"table","tag":"wan","table":100}],
+    "lists": {"shared": {
+      "ip_cidrs":["192.0.2.0/24","2001:db8::/32"]
+    }},
+    "route": {"rules": [
+      {"list":["shared"],"outbound":"wan","dscp":46},
+      {"list":["shared"],"outbound":"wan","dscp":47}
+    ]}
+  })");
+  const bool ipv6_enabled = resolve_ipv6_support(config).enabled;
+  RecordingFirewall firewall;
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-shared-list-test-cache");
+  FirewallPlan applied_plan;
+
+  const auto states = apply_runtime_firewall(
+      config, {{"wan", 0x100U}}, cache, firewall,
+      FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+      &applied_plan);
+
+  REQUIRE(states.size() == 2);
+  const std::vector<std::string> expected_state_sets =
+      ipv6_enabled ? std::vector<std::string>{"kpbr4_shared", "kpbr6_shared"}
+                   : std::vector<std::string>{"kpbr4_shared"};
+  for (const auto &state : states) {
+    CHECK(state.set_names == expected_state_sets);
+  }
+
+  std::vector<std::string> plan_set_references;
+  for (const auto &rule : applied_plan.rules) {
+    if (rule.criteria.dst_set_name.has_value()) {
+      plan_set_references.push_back(*rule.criteria.dst_set_name);
+    }
+  }
+  const auto expected_rule_references = ipv6_enabled ? 4U : 2U;
+  REQUIRE(plan_set_references.size() == expected_rule_references);
+  CHECK(std::count(plan_set_references.begin(), plan_set_references.end(),
+                   "kpbr4_shared") == 2);
+  if (ipv6_enabled) {
+    CHECK(std::count(plan_set_references.begin(), plan_set_references.end(),
+                     "kpbr6_shared") == 2);
+  }
+
+  CHECK(firewall.stream_count == (ipv6_enabled ? 2 : 1));
+  CHECK(firewall.streamed_entries == (ipv6_enabled ? 2 : 1));
+  CHECK(firewall.finished_loaders == (ipv6_enabled ? 2 : 1));
+}
+
 TEST_CASE("runtime captures OUTPUT default-gateway bypass criteria") {
   const Config config = parse_config(R"({
     "daemon": {"firewall_backend":"nftables","ipv6_enabled":false},
