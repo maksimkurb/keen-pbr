@@ -334,68 +334,6 @@ void RouteBalanceRuleModule::register_rules(
   }
 }
 
-void RestoreConntrackMarkRuleModule::register_rules(
-    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
-  if (!context.restore_conntrack_mark || context.fwmark_mask == 0) {
-    return;
-  }
-  FirewallRuleInstance rule;
-  rule.key = FirewallRuleKey::compact(id(), "mask=" +
-                                               std::to_string(context.fwmark_mask));
-  rule.stage = FirewallRuleStage::restore_conntrack;
-  rule.priority = 0;
-  rule.family = FirewallFamily::any;
-  rule.action = RestoreConntrackMarkAction{context.fwmark_mask};
-  registrar.register_rule(std::move(rule));
-}
-
-void SkipEstablishedOrDnatRuleModule::register_rules(
-    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
-  if (!context.skip_established_or_dnat) {
-    return;
-  }
-  FirewallRuleInstance rule;
-  rule.key = FirewallRuleKey::compact(id(), "dnat");
-  rule.stage = FirewallRuleStage::global_bypass;
-  rule.priority = 0;
-  rule.family = FirewallFamily::any;
-  rule.action = SkipEstablishedOrDnatAction{};
-  registrar.register_rule(std::move(rule));
-}
-
-void SkipMarkedPacketsRuleModule::register_rules(
-    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
-  if (!context.skip_marked_packets) {
-    return;
-  }
-  FirewallRuleInstance rule;
-  rule.key = FirewallRuleKey::compact(id(), "all");
-  rule.stage = FirewallRuleStage::global_bypass;
-  rule.priority = 1;
-  rule.family = FirewallFamily::any;
-  rule.action = SkipMarkedPacketsAction{};
-  registrar.register_rule(std::move(rule));
-}
-
-void InboundInterfaceFilterRuleModule::register_rules(
-    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
-  if (context.inbound_interfaces.empty()) {
-    return;
-  }
-  FirewallRuleInstance rule;
-  std::string semantic_instance;
-  for (const auto& interface : context.inbound_interfaces) {
-    semantic_instance += interface;
-    semantic_instance.push_back(';');
-  }
-  rule.key = FirewallRuleKey::compact(id(), semantic_instance);
-  rule.stage = FirewallRuleStage::global_bypass;
-  rule.priority = 2;
-  rule.family = FirewallFamily::any;
-  rule.action = InboundInterfaceFilterAction{context.inbound_interfaces};
-  registrar.register_rule(std::move(rule));
-}
-
 namespace {
 
 void register_mark_rules(const FirewallBuildContext& context,

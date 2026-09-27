@@ -302,6 +302,10 @@ set(SOURCES
   src/firewall/firewall_runtime.cpp
   src/firewall/firewall_rule_modules.cpp
   src/firewall/rules/dns_detour.cpp
+  src/firewall/rules/restore_conntrack_mark.cpp
+  src/firewall/rules/skip_established_or_dnat.cpp
+  src/firewall/rules/skip_marked_packets.cpp
+  src/firewall/rules/inbound_interface_filter.cpp
   src/firewall/port_spec_util.cpp
   src/firewall/iptables.cpp
   src/firewall/nftables.cpp

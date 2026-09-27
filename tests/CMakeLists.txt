@@ -94,6 +94,10 @@ add_executable(keen-pbr-tests
   ../src/firewall/firewall_runtime.cpp
   ../src/firewall/firewall_rule_modules.cpp
   ../src/firewall/rules/dns_detour.cpp
+  ../src/firewall/rules/restore_conntrack_mark.cpp
+  ../src/firewall/rules/skip_established_or_dnat.cpp
+  ../src/firewall/rules/skip_marked_packets.cpp
+  ../src/firewall/rules/inbound_interface_filter.cpp
   ../src/firewall/port_spec_util.cpp
   ../src/firewall/nftables.cpp
   ../src/firewall/nft_batch_pipe.cpp
