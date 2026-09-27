@@ -74,7 +74,6 @@ ListSetUsage reused_list_set_usage(
     const FirewallPlan* previous_active_plan,
     const std::string& list_name,
     const ListConfig& list_config,
-    Firewall& firewall,
     bool ipv6_enabled) {
     if (previous_active_plan == nullptr) {
         throw FirewallRulesOnlyError(
@@ -95,23 +94,8 @@ ListSetUsage reused_list_set_usage(
                 return declaration.name == name;
             });
     };
-    const auto validate_physical_name = [&](const auto set) {
-        if (set == previous_active_plan->sets.end()) {
-            return;
-        }
-        const std::string physical_name = firewall.physical_set_name(set->name);
-        if (previous_active_plan->applied_physical_set_names.find(physical_name) ==
-            previous_active_plan->applied_physical_set_names.end()) {
-            throw FirewallRulesOnlyError(
-                "active firewall plan references a stale physical set for list " +
-                list_name);
-        }
-    };
-
     const auto static4 = find_set("kpbr4_" + list_name);
     const auto dynamic4 = find_set("kpbr4d_" + list_name);
-    validate_physical_name(static4);
-    validate_physical_name(dynamic4);
     usage.has_static_entries = static4 != previous_active_plan->sets.end();
     usage.has_domain_entries = dynamic4 != previous_active_plan->sets.end();
     std::optional<uint32_t> dynamic_timeout;
@@ -122,8 +106,6 @@ ListSetUsage reused_list_set_usage(
     if (ipv6_enabled) {
         const auto static6 = find_set("kpbr6_" + list_name);
         const auto dynamic6 = find_set("kpbr6d_" + list_name);
-        validate_physical_name(static6);
-        validate_physical_name(dynamic6);
         usage.has_static_entries =
             usage.has_static_entries || static6 != previous_active_plan->sets.end();
         usage.has_domain_entries =
@@ -283,38 +265,21 @@ std::vector<RuleState> apply_runtime_firewall(
         fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
 
     std::map<std::string, ListSetUsage> list_usage_cache;
-    const bool has_route_lists = std::any_of(
-        route_rules.begin(), route_rules.end(), [](const RouteRule& rule) {
-          return !route_rule_lists(rule).empty();
-        });
-    const bool defer_rules_only_lists =
-        mode == FirewallApplyMode::RulesOnly && has_route_lists;
-    if (!defer_rules_only_lists) {
-      for (std::size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
-        for (const auto& list_name : route_rule_lists(route_rules[rule_idx])) {
-          const auto list_cfg_it = lists_map.find(list_name);
-          if (list_cfg_it == lists_map.end() ||
-              list_usage_cache.find(list_name) != list_usage_cache.end()) {
-            continue;
-          }
-          list_usage_cache.emplace(
-              list_name,
-              analyze_list_set_usage(list_name, list_cfg_it->second,
-                                     *list_streamer));
+    for (const auto& route_rule : route_rules) {
+      for (const auto& list_name : route_rule_lists(route_rule)) {
+        const auto list_cfg_it = lists_map.find(list_name);
+        if (list_cfg_it == lists_map.end() ||
+            list_usage_cache.find(list_name) != list_usage_cache.end()) {
+          continue;
         }
-      }
-    }
-    if (defer_rules_only_lists) {
-      // RulesOnly defers list inspection until after backend preflight. Mark
-      // referenced lists as potentially populated so validation sees every
-      // possible canonical action; the plan is rebuilt from realized sets
-      // below before applying the completed plan.
-      for (const auto& route_rule : route_rules) {
-        for (const auto& list_name : route_rule_lists(route_rule)) {
-          if (lists_map.find(list_name) != lists_map.end()) {
-            list_usage_cache.emplace(list_name, ListSetUsage{true, false, 0});
-          }
-        }
+        list_usage_cache.emplace(
+            list_name,
+            mode == FirewallApplyMode::RulesOnly
+                ? reused_list_set_usage(previous_active_plan, list_name,
+                                        list_cfg_it->second,
+                                        ipv6_decision.enabled)
+                : analyze_list_set_usage(list_name, list_cfg_it->second,
+                                         *list_streamer));
       }
     }
     FirewallPlanBuildInputs plan_inputs{
@@ -341,23 +306,17 @@ std::vector<RuleState> apply_runtime_firewall(
                   *daemon_config.ipset_maxelem)}
             : std::nullopt);
     firewall.prepare_apply(mode);
-    if (defer_rules_only_lists) {
-      list_usage_cache.clear();
-      for (const auto& route_rule : route_rules) {
-        for (const auto& list_name : route_rule_lists(route_rule)) {
-          const auto list_cfg_it = lists_map.find(list_name);
-          if (list_cfg_it == lists_map.end() ||
-              list_usage_cache.find(list_name) != list_usage_cache.end()) {
-            continue;
-          }
-          list_usage_cache.emplace(
-              list_name,
-              reused_list_set_usage(previous_active_plan, list_name,
-                                    list_cfg_it->second, firewall,
-                                    ipv6_decision.enabled));
+    if (mode == FirewallApplyMode::RulesOnly && previous_active_plan != nullptr) {
+      for (const auto& declaration : plan.sets) {
+        const std::string physical_name =
+            firewall.physical_set_name(declaration.name);
+        if (previous_active_plan->applied_physical_set_names.find(
+                physical_name) ==
+            previous_active_plan->applied_physical_set_names.end()) {
+          throw FirewallRulesOnlyError(
+              "active firewall plan references a stale physical set");
         }
       }
-      plan = build_firewall_plan(plan_inputs);
     }
 
     // The finalized plan owns set existence and schemas. Stage its physical

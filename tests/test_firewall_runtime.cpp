@@ -767,6 +767,72 @@ TEST_CASE("RulesOnly validates deferred list-backed actions before preparation")
   CHECK(firewall.calls.empty());
 }
 
+TEST_CASE("RulesOnly rejects list-backed balance with an empty active plan") {
+  const Config previous_config = empty_inline_list_config();
+  const Config config = parse_config(R"({
+    "daemon": {"ipv6_enabled":false},
+    "outbounds": [
+      {"type":"table","tag":"wan","table":254},
+      {"type":"urltest","tag":"auto","strategy":"balance",
+       "outbound_groups":[{"outbounds":["wan"]}]}
+    ],
+    "lists": {"remote": {"ip_cidrs":[]}},
+    "route": {"rules": [{"list":["remote"],"outbound":"auto"}]}
+  })");
+  const OutboundMarkMap marks{{"auto", 1}, {"wan", 2}};
+  const FirewallBalanceCandidates candidates = {
+      {"auto", {{2, true, false}}}};
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-empty-plan-balance-test-cache");
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
+  REQUIRE(apply_runtime_firewall(
+              previous_config, {{"wan", 1}}, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
+  REQUIRE(previous_plan.sets.empty());
+
+  RecordingFirewall firewall;
+  firewall.backend_type = FirewallBackend::iptables;
+  CHECK_THROWS_AS(apply_runtime_firewall(
+                      config, marks, cache, firewall,
+                      FirewallApplyMode::RulesOnly, &previous_plan, false, {}, {},
+                      &candidates),
+                  FirewallError);
+  CHECK(firewall.calls.empty());
+  CHECK(firewall.prepared_modes.empty());
+}
+
+TEST_CASE("RulesOnly rejects list-backed default gateway with an empty active plan") {
+  const Config previous_config = empty_inline_list_config();
+  const Config config = parse_config(R"({
+    "daemon": {"ipv6_enabled":false},
+    "outbounds": [{"type":"table","tag":"wan","table":254}],
+    "lists": {"remote": {"ip_cidrs":[]}},
+    "route": {"rules": [{"list":["remote"],"default_gateway":"ipv4",
+                            "outbound":"wan"}]}
+  })");
+  const OutboundMarkMap marks{{"wan", 1}};
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-empty-plan-gateway-test-cache");
+  RecordingFirewall previous_firewall;
+  FirewallPlan previous_plan;
+  REQUIRE(apply_runtime_firewall(
+              previous_config, marks, cache, previous_firewall,
+              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
+              &previous_plan)
+              .size() == 1);
+  REQUIRE(previous_plan.sets.empty());
+
+  RecordingFirewall firewall;
+  firewall.backend_type = FirewallBackend::iptables;
+  CHECK_THROWS_AS(apply_runtime_firewall(
+                      config, marks, cache, firewall,
+                      FirewallApplyMode::RulesOnly, &previous_plan),
+                  FirewallError);
+  CHECK(firewall.calls.empty());
+  CHECK(firewall.prepared_modes.empty());
+}
+
 TEST_CASE("runtime emits DNS detours as OUTPUT TCP/UDP rules") {
   const Config config = parse_config(R"({
     "daemon": {"ipv6_enabled":false},
@@ -927,7 +993,7 @@ TEST_CASE("non-RulesOnly list analysis fails before firewall preparation") {
   CHECK(firewall.calls.empty());
 }
 
-TEST_CASE("RulesOnly falls back when realized rule state is missing") {
+TEST_CASE("RulesOnly falls back when the active plan is missing") {
   const Config config = empty_source_list_config();
   RulesOnlyFirewall firewall;
   const OutboundMarkMap marks{{"wan", 1}};
@@ -937,8 +1003,7 @@ TEST_CASE("RulesOnly falls back when realized rule state is missing") {
                       config, marks, cache, firewall,
                   FirewallApplyMode::RulesOnly, nullptr),
                   std::exception);
-  REQUIRE(firewall.prepared_modes.size() == 1);
-  CHECK(firewall.prepared_modes[0] == FirewallApplyMode::RulesOnly);
+  CHECK(firewall.prepared_modes.empty());
 }
 
 TEST_CASE("RulesOnly falls back when active plan list identity is unknown") {
@@ -964,8 +1029,7 @@ TEST_CASE("RulesOnly falls back when active plan list identity is unknown") {
                       config, marks, cache, firewall,
                       FirewallApplyMode::RulesOnly, &previous_plan),
                   std::exception);
-  REQUIRE(firewall.prepared_modes.size() == 1);
-  CHECK(firewall.prepared_modes[0] == FirewallApplyMode::RulesOnly);
+  CHECK(firewall.prepared_modes.empty());
 }
 
 TEST_CASE("RulesOnly reuses aligned empty URL list without streaming") {
@@ -1033,9 +1097,9 @@ TEST_CASE("RulesOnly fallback preserves and materializes a valid list") {
       &previous_plan);
 
   REQUIRE(states.size() == 1);
-  CHECK(firewall.prepared_modes == std::vector<FirewallApplyMode>{
-                                     FirewallApplyMode::RulesOnly,
-                                     FirewallApplyMode::PreserveSets});
+  CHECK(firewall.prepared_modes ==
+        std::vector<FirewallApplyMode>{FirewallApplyMode::RulesOnly,
+                                       FirewallApplyMode::PreserveSets});
   CHECK(firewall.applied_modes == std::vector<FirewallApplyMode>{
                                     FirewallApplyMode::RulesOnly,
                                     FirewallApplyMode::PreserveSets});
@@ -1068,9 +1132,9 @@ TEST_CASE("RulesOnly rejects an active plan static set from another generation")
       &previous_plan);
 
   REQUIRE(states.size() == 1);
-  CHECK(firewall.prepared_modes == std::vector<FirewallApplyMode>{
-                                     FirewallApplyMode::RulesOnly,
-                                     FirewallApplyMode::PreserveSets});
+  CHECK(firewall.prepared_modes ==
+        std::vector<FirewallApplyMode>{FirewallApplyMode::RulesOnly,
+                                       FirewallApplyMode::PreserveSets});
   CHECK(firewall.applied_modes ==
         std::vector<FirewallApplyMode>{FirewallApplyMode::PreserveSets});
   CHECK(firewall.stream_count == 1);
@@ -1182,9 +1246,8 @@ TEST_CASE("RulesOnly falls back when dynamic timeout changes") {
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
       &previous_plan);
   REQUIRE(states.size() == 1);
-  CHECK(firewall.prepared_modes == std::vector<FirewallApplyMode>{
-                                     FirewallApplyMode::RulesOnly,
-                                     FirewallApplyMode::PreserveSets});
+  CHECK(firewall.prepared_modes ==
+        std::vector<FirewallApplyMode>{FirewallApplyMode::PreserveSets});
   CHECK(firewall.applied_mode == FirewallApplyMode::PreserveSets);
   const auto dynamic_set = std::find_if(
       firewall.set_declarations_detail.begin(),

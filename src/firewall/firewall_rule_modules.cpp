@@ -305,6 +305,17 @@ void RouteBalanceRuleModule::register_rules(
       continue;
     }
 
+    if (context.backend == FirewallBackend::iptables &&
+        std::any_of(route_rule_lists(route_rule).begin(),
+                    route_rule_lists(route_rule).end(), [&](const auto& list_name) {
+                      return context.lists.find(list_name) != context.lists.end();
+                    })) {
+      throw FirewallError(
+          "unsupported firewall construct: module_id=route.balance, rule=" +
+          std::to_string(rule_index) +
+          ", backend=iptables, construct=BalanceAction (requires nftables)");
+    }
+
     // Preserve the prepared vector; nftables owns zero/one/many candidate
     // expansion, filtering, and fallback compilation.
     static const std::vector<FirewallBalanceCandidate> empty_candidates;
