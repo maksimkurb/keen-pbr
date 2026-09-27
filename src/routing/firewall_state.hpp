@@ -37,10 +37,6 @@ class FirewallState {
 public:
     FirewallState() = default;
 
-    // Replace compatibility state without claiming a successfully applied
-    // canonical plan.
-    void set_rules(std::vector<RuleState> rules);
-
     // Publish the successfully applied canonical plan and its compatibility
     // projection as one runtime-state update.
     void set_active_plan(FirewallPlan plan, std::vector<RuleState> rules);

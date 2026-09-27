@@ -765,97 +765,43 @@ std::vector<RuleState> build_fw_rule_states(
 
     for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
         const auto& rule = route_rules[rule_idx];
-
-        if (!route_rule_enabled(rule)) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = route_rule_lists(rule);
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Skip;
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
-
-        auto decision = resolve_route_action(rule.outbound, all_outbounds);
-
-        if (decision.is_skip) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = route_rule_lists(rule);
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Skip;
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
-
-        if (!decision.outbound.has_value() || !*decision.outbound) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = route_rule_lists(rule);
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Skip;
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
-
-        const Outbound* ob = *decision.outbound;
-
-        if (decision.is_passthrough) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = route_rule_lists(rule);
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Pass;
-
-            for (const auto& list_name : route_rule_lists(rule)) {
-                auto list_cfg_it = lists_map.find(list_name);
-                if (list_cfg_it == lists_map.end()) continue;
-
-                const std::string set4  = "kpbr4_"  + list_name;
-                const std::string set6  = "kpbr6_"  + list_name;
-                const std::string set4d = "kpbr4d_" + list_name;
-                const std::string set6d = "kpbr6d_" + list_name;
-
-                rs.set_names.push_back(set4);
-                rs.set_names.push_back(set6);
-                rs.set_names.push_back(set4d);
-                rs.set_names.push_back(set6d);
-            }
-
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
-
-        const bool is_blackhole = (ob->type == OutboundType::BLACKHOLE);
-
         RuleState rs;
         rs.rule_index = rule_idx;
         rs.list_names = route_rule_lists(rule);
         rs.outbound_tag = rule.outbound;
 
-        if (is_blackhole) {
-            rs.action_type = RuleActionType::Drop;
-        } else {
-            rs.action_type = RuleActionType::Mark;
-            auto mark_it = marks.find(ob->tag);
-            if (mark_it != marks.end()) {
-                rs.fwmark = mark_it->second;
+        rs.action_type = RuleActionType::Skip;
+        if (route_rule_enabled(rule)) {
+            const auto decision = resolve_route_action(rule.outbound, all_outbounds);
+            if (!decision.is_skip && decision.outbound.has_value() &&
+                *decision.outbound != nullptr) {
+                if (decision.is_passthrough) {
+                    rs.action_type = RuleActionType::Pass;
+                } else {
+                    const Outbound* ob = *decision.outbound;
+                    if (ob->type == OutboundType::BLACKHOLE) {
+                        rs.action_type = RuleActionType::Drop;
+                    } else {
+                        rs.action_type = RuleActionType::Mark;
+                        auto mark_it = marks.find(ob->tag);
+                        if (mark_it != marks.end()) {
+                            rs.fwmark = mark_it->second;
+                        }
+                    }
+                }
             }
         }
 
-        for (const auto& list_name : route_rule_lists(rule)) {
-            auto list_cfg_it = lists_map.find(list_name);
-            if (list_cfg_it == lists_map.end()) continue;
+        if (rs.action_type != RuleActionType::Skip) {
+            for (const auto& list_name : rs.list_names) {
+                auto list_cfg_it = lists_map.find(list_name);
+                if (list_cfg_it == lists_map.end()) continue;
 
-            const std::string set4  = "kpbr4_"  + list_name;
-            const std::string set6  = "kpbr6_"  + list_name;
-            const std::string set4d = "kpbr4d_" + list_name;
-            const std::string set6d = "kpbr6d_" + list_name;
-
-            rs.set_names.push_back(set4);
-            rs.set_names.push_back(set6);
-            rs.set_names.push_back(set4d);
-            rs.set_names.push_back(set6d);
+                rs.set_names.push_back("kpbr4_" + list_name);
+                rs.set_names.push_back("kpbr6_" + list_name);
+                rs.set_names.push_back("kpbr4d_" + list_name);
+                rs.set_names.push_back("kpbr6d_" + list_name);
+            }
         }
 
         rule_states.push_back(std::move(rs));

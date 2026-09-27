@@ -4,10 +4,6 @@
 
 namespace keen_pbr3 {
 
-void FirewallState::set_rules(std::vector<RuleState> rules) {
-    rules_ = std::move(rules);
-}
-
 void FirewallState::set_active_plan(FirewallPlan plan,
                                     std::vector<RuleState> rules) {
     fwmark_mask_ = plan.fwmark_mask;

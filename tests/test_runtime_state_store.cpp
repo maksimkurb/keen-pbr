@@ -134,7 +134,8 @@ TEST_CASE("RuntimeStateStore exposes only compact realized rule data to control 
     rule.outbound_tag = "vpn";
     rule.action_type = RuleActionType::Mark;
     rule.fwmark = 0x10000;
-    state.firewall_state.set_rules({rule});
+    FirewallPlan plan;
+    state.firewall_state.set_active_plan(std::move(plan), {rule});
     state.runtime_state = RuntimeState::running;
     store.publish(std::move(state));
 
