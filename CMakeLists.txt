@@ -301,6 +301,7 @@ set(SOURCES
   src/firewall/firewall.cpp
   src/firewall/firewall_runtime.cpp
   src/firewall/firewall_rule_modules.cpp
+  src/firewall/rules/dns_detour.cpp
   src/firewall/port_spec_util.cpp
   src/firewall/iptables.cpp
   src/firewall/nftables.cpp
