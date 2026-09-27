@@ -4,7 +4,6 @@
 #include "firewall_snapshot.hpp"
 #include "../health/routing_health.hpp"
 
-#include <cstdint>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -14,7 +13,6 @@ namespace keen_pbr3 {
 // repeated comments from MARK/CONNMARK/RETURN or family/protocol expansion are
 // treated as one logical bundle.
 std::vector<FirewallRuleCheck> verify_firewall_plan(
-    const FirewallPlan& plan, const FirewallSnapshot& snapshot,
-    uint32_t fwmark_mask = 0xFFFFFFFFu);
+    const FirewallPlan& plan, const FirewallSnapshot& snapshot);
 
 } // namespace keen_pbr3

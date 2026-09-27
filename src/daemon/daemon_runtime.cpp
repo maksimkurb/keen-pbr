@@ -1066,7 +1066,6 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         std::chrono::seconds{daemon_config.exec_timeout_seconds.value_or(30)},
         std::chrono::seconds{daemon_config.exec_kill_grace_seconds.value_or(2)});
     firewall_state_.set_outbound_marks(outbound_marks_);
-    firewall_state_.set_fwmark_mask(fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{})));
 
     teardown_dns_probe();
 

@@ -85,8 +85,7 @@ RoutingHealthReport build_routing_health_report(
                 firewall_backend, raw_prerouting, std::move(runner));
             const auto snapshot = inspector->inspect();
             report.firewall_chain = firewall_chain_from_snapshot(snapshot);
-            report.firewall_rules = verify_firewall_plan(
-                *active_plan, snapshot, active_plan->fwmark_mask);
+            report.firewall_rules = verify_firewall_plan(*active_plan, snapshot);
         }
 
         // 2. Create routing verifier

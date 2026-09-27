@@ -643,8 +643,6 @@ int run_status_command_impl(const Config& config, const std::string& config_path
 
     FirewallState fw_state;
     fw_state.set_outbound_marks(marks);
-    fw_state.set_fwmark_mask(
-        fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{})));
     RoutingHealthReport report = build_routing_health_report(
         resolve_firewall_backend(firewall_backend_preference(config)),
         RawPreroutingMode{},

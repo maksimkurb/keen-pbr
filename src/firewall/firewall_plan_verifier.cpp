@@ -690,9 +690,7 @@ bool legacy_prefilter_rule_usable(const ObservedFirewallRule& rule,
 } // namespace
 
 std::vector<FirewallRuleCheck> verify_firewall_plan(
-    const FirewallPlan& plan, const FirewallSnapshot& snapshot,
-    uint32_t fwmark_mask) {
-    (void)fwmark_mask;
+    const FirewallPlan& plan, const FirewallSnapshot& snapshot) {
     std::vector<FirewallRuleCheck> checks;
     if (!snapshot.error.empty() || !snapshot.available) {
         for (const auto& rule : plan.rules) {
