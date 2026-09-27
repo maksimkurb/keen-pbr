@@ -26,7 +26,7 @@ class IntegrationModulesTest(unittest.TestCase):
         module = load_system_module()
         expected = (
             "service_lifecycle", "dns_routing_save", "urltest_rebuild",
-            "route_balance", "iptables_ab_convergence", "rule_shapes",
+            "route_balance", "route_balance_failover", "iptables_ab_convergence", "rule_shapes",
             "table_interface", "test_group_table", "multiport_validation",
             "route_list", "route_proto",
             "route_dscp", "route_src_port", "route_dest_port", "route_src_addr",
