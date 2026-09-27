@@ -421,6 +421,40 @@ TEST_CASE("nft balance snapshot rejects altered selector, guard, mapping, and se
     CHECK(verify(std::move(duplicate_ct_setter)) == CheckStatus::mismatch);
 }
 
+TEST_CASE("balance verifier rejects incomplete setter observations") {
+    const auto key = FirewallRuleKey{"route.balance", "incomplete"};
+    const auto plan = balance_plan(key);
+    const auto& expected = plan.rules.front();
+
+    FirewallSnapshot snapshot;
+    snapshot.available = true;
+    snapshot.backend = FirewallBackend::nftables;
+    ObservedFirewallRule observed;
+    observed.key = key;
+    observed.family = expected.family;
+    observed.criteria = expected.criteria;
+    observed.action = expected.action;
+    std::get<BalanceAction>(observed.action).fallback_mark = 0;
+    auto& details = observed.balance.emplace();
+    details.selector_mode = "inc";
+    details.selector_modulus = 2;
+    details.mark_guard_present = true;
+    details.mark_guard_op = "==";
+    details.mark_guard_mask = plan.fwmark_mask;
+    details.target_indices = {0, 1};
+    details.target_marks = {0x10000u};
+    details.setter_actions = {MarkAction{0x10000u, plan.fwmark_mask},
+                              MarkAction{0x20000u, plan.fwmark_mask}};
+    details.setter_ct_actions = details.setter_actions;
+    snapshot.rules.push_back(std::move(observed));
+
+    const auto checks = verify_firewall_plan(plan, snapshot);
+    REQUIRE(checks.size() == 1);
+    CHECK(checks.front().status == CheckStatus::mismatch);
+    CHECK(checks.front().detail.find("vmap mark count mismatch") !=
+          std::string::npos);
+}
+
 TEST_CASE("nft balance mismatch reports the matching physical hook") {
     const auto key = FirewallRuleKey{"route.balance", "output"};
     FirewallPlan plan;

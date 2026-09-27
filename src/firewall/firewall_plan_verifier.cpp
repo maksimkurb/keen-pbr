@@ -106,59 +106,14 @@ std::string keyed_detail(const FirewallRuleInstance& rule,
     return keen_pbr3::format("key={} {}", rule_key_text(rule.key), detail);
 }
 
-bool balance_details_equal(const ObservedFirewallRule& observed,
-                           const BalanceAction& expected,
-                           uint32_t fwmark_mask) {
-    if (!observed.balance.has_value()) return false;
-    const auto& actual = *observed.balance;
-    if (actual.selector_mode != "inc" ||
-        actual.selector_modulus != expected.candidates.size() ||
-        !actual.mark_guard_present || actual.mark_guard_op != "==" ||
-        actual.mark_guard_mask != fwmark_mask || actual.mark_guard_value != 0 ||
-        actual.target_indices.size() != expected.candidates.size() ||
-        actual.target_marks.size() != expected.candidates.size() ||
-        actual.setter_actions.size() != expected.candidates.size() ||
-        actual.setter_ct_actions.size() != expected.candidates.size()) {
-        return false;
-    }
-    for (std::size_t index = 0; index < expected.candidates.size(); ++index) {
-        if (actual.target_indices[index] != index ||
-            actual.target_marks[index] != expected.candidates[index].fwmark ||
-            !actual.setter_actions[index].has_value() ||
-            actual.setter_actions[index]->value != expected.candidates[index].fwmark ||
-            actual.setter_actions[index]->mask != fwmark_mask ||
-            !actual.setter_ct_actions[index].has_value() ||
-            actual.setter_ct_actions[index]->value != expected.candidates[index].fwmark ||
-            actual.setter_ct_actions[index]->mask != fwmark_mask) {
-            return false;
-        }
-    }
-    return true;
-}
+std::string balance_mismatch_detail(const ObservedFirewallRule& observed,
+                                    const BalanceAction& expected,
+                                    uint32_t fwmark_mask);
 
 bool action_equal(const FirewallRuleAction& left, const FirewallRuleAction& right) {
     if (const auto* left_mark = std::get_if<MarkAction>(&left)) {
         const auto* right_mark = std::get_if<MarkAction>(&right);
         return right_mark != nullptr && *left_mark == *right_mark;
-    }
-    if (const auto* left_balance = std::get_if<BalanceAction>(&left)) {
-        const auto* right_balance = std::get_if<BalanceAction>(&right);
-        if (right_balance == nullptr ||
-            (right_balance->fallback_mark != 0 &&
-             left_balance->fallback_mark != right_balance->fallback_mark) ||
-            left_balance->candidates.size() != right_balance->candidates.size()) {
-            return false;
-        }
-        // Family eligibility is applied while expanding a plan into a
-        // physical classifier.  nft JSON does not retain that metadata on
-        // the balance vmap, so compare the observable mark mapping only.
-        return std::equal(
-            left_balance->candidates.begin(), left_balance->candidates.end(),
-            right_balance->candidates.begin(),
-            [](const FirewallBalanceCandidate& lhs,
-               const FirewallBalanceCandidate& rhs) {
-                return lhs.fwmark == rhs.fwmark;
-            });
     }
     if (const auto* left_verdict = std::get_if<VerdictAction>(&left)) {
         const auto* right_verdict = std::get_if<VerdictAction>(&right);
@@ -190,10 +145,10 @@ bool action_equal(const FirewallRuleAction& left, const FirewallRuleAction& righ
 bool action_equal(const ObservedFirewallRule& observed,
                   const FirewallRuleAction& expected,
                   uint32_t fwmark_mask) {
-    if (!action_equal(observed.action, expected)) return false;
-    const auto* balance = std::get_if<BalanceAction>(&expected);
-    return balance == nullptr || balance_details_equal(observed, *balance,
-                                                        fwmark_mask);
+    if (const auto* balance = std::get_if<BalanceAction>(&expected)) {
+        return balance_mismatch_detail(observed, *balance, fwmark_mask).empty();
+    }
+    return action_equal(observed.action, expected);
 }
 
 bool rule_equal(const ObservedFirewallRule& observed,
@@ -587,10 +542,20 @@ std::string balance_mismatch_detail(const ObservedFirewallRule& observed,
             "balance owned-mark-empty guard mask mismatch: expected {:#x} got {:#x}",
             fwmark_mask, actual.mark_guard_mask);
     }
-    if (actual.target_indices.size() != expected.candidates.size()) {
+    const auto candidate_count = expected.candidates.size();
+    if (actual.target_indices.size() != candidate_count) {
         return "balance vmap target count mismatch";
     }
-    for (std::size_t index = 0; index < expected.candidates.size(); ++index) {
+    if (actual.target_marks.size() != candidate_count) {
+        return "balance vmap mark count mismatch";
+    }
+    if (actual.setter_actions.size() != candidate_count) {
+        return "balance setter count mismatch";
+    }
+    if (actual.setter_ct_actions.size() != candidate_count) {
+        return "balance conntrack setter count mismatch";
+    }
+    for (std::size_t index = 0; index < candidate_count; ++index) {
         if (actual.target_indices[index] != index) {
             return keen_pbr3::format(
                 "balance vmap index/order mismatch at position {}", index);
@@ -630,7 +595,7 @@ std::string balance_mismatch_detail(const ObservedFirewallRule& observed,
                 index, fwmark_mask, actual.setter_ct_actions[index]->mask);
         }
     }
-    return "balance action mismatch";
+    return {};
 }
 
 std::string mismatch_detail(const FirewallRuleInstance& expected,
