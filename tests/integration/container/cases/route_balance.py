@@ -42,11 +42,14 @@ def wait_for_balance_status(context, active, inactive=(), description="balance s
 
 
 def assert_balance_health(context):
-    routing = context.routing_health_running()
-    assert routing["firewall_backend"] == "nftables", routing
-    assert routing["overall"] == "ok", routing
-    firewall = context.firewall_text()
-    assert "numgen" in firewall and "vmap" in firewall, firewall
+    def healthy():
+        routing = context.api("/api/health/routing")
+        if routing.get("overall") != "ok" or routing.get("firewall_backend") != "nftables":
+            return False
+        firewall = context.firewall_text()
+        return routing if "numgen" in firewall and "vmap" in firewall else False
+
+    return context.wait_for("balance firewall health", healthy)
 
 
 def probe_identities(context, source_ports, token_prefix):
@@ -59,6 +62,21 @@ def probe_identities(context, source_ports, token_prefix):
         assert payload is not None and payload["identity"] in {"wan_direct", "wan_pbr"}, payload
         identities.add(payload["identity"])
     return identities
+
+
+def assert_no_leak(context, source_ports, token_prefix):
+    tokens = set()
+    for index, source_port in enumerate(source_ports):
+        token = f"{token_prefix}-{index}"
+        tokens.add(token)
+        assert context.client_probe(
+            destination="198.18.0.10", destination_port=19000,
+            source="192.0.2.2", source_port=source_port,
+            token=token, check=False) is None
+
+    for side in ("direct", "pbr"):
+        leaked = [item for item in context.observations(side) if item.get("token") in tokens]
+        assert not leaked, (side, leaked)
 
 
 def register(registry):
@@ -96,4 +114,36 @@ def register(registry):
         assert_balance_health(context)
         assert probe_identities(
             context, range(22500, 22504), "route-balance-failover-recovered") == {
+                "wan_direct", "wan_pbr"}
+
+    @registry.case("route_balance_no_leak", backends=("nftables",))
+    def route_balance_no_leak(context):
+        apply_balance(context)
+        wait_for_balance_status(context, ("wan_direct", "wan_pbr"),
+                                description="no-leak precondition candidates active")
+        assert_balance_health(context)
+        assert probe_identities(context, range(22600, 22604), "route-balance-no-leak-pre") == {
+            "wan_direct", "wan_pbr"}
+
+        health_drop = ("-p", "tcp", "--dport", "18080", "-j", "DROP")
+        try:
+            for side in ("direct", "pbr"):
+                context.wan(side, "iptables", "-I", "INPUT", *health_drop)
+            wait_for_balance_status(
+                context, (), ("wan_direct", "wan_pbr"),
+                "both balance candidates excluded")
+            main_route = context.run("ip", "route", "get", "198.18.0.10").stdout
+            assert "dev wan_direct" in main_route, main_route
+            assert_no_leak(context, range(22700, 22704), "route-balance-no-leak")
+        finally:
+            for side in ("direct", "pbr"):
+                context.wan(side, "iptables", "-D", "INPUT", *health_drop,
+                            check=False)
+
+        wait_for_balance_status(
+            context, ("wan_direct", "wan_pbr"),
+            description="both no-leak candidates recovered")
+        assert_balance_health(context)
+        assert probe_identities(
+            context, range(22800, 22804), "route-balance-no-leak-recovered") == {
                 "wan_direct", "wan_pbr"}
