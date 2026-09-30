@@ -231,6 +231,47 @@ TEST_CASE("iptables keyed RETURN is only a matching MARK companion") {
     CHECK(checks[0].detail.find("duplicate") != std::string::npos);
 }
 
+TEST_CASE("iptables snapshot treats every valid KPBR key in owned chains as owned") {
+    const auto key = FirewallRuleKey{"route.mark", "one"};
+    const std::string rules =
+        "-N KeenPbrTable\n"
+        "-N KeenPbrTable_A\n"
+        "-A PREROUTING -j KeenPbrTable\n"
+        "-A KeenPbrTable -j KeenPbrTable_A\n"
+        "-A KeenPbrTable_A -m set --match-set kpbr4s_list dst "
+        "-m comment --comment kpbr:v1:route.mark:one "
+        "-j MARK --set-xmark 0x10000/0xffffffff\n"
+        "-A KeenPbrTable_A -m set --match-set kpbr4s_list dst "
+        "-m comment --comment kpbr:v1:new.module:extra "
+        "-j MARK --set-xmark 0x20000/0xffffffff\n"
+        "-A KeenPbrTable_A -m set --match-set kpbr4s_list dst "
+        "-m comment --comment foreign:rule "
+        "-j MARK --set-xmark 0x30000/0xffffffff\n"
+        "-A KeenPbrTable_A -m set --match-set kpbr4s_list dst "
+        "-m comment --comment kpbr:v2:route.mark:unknown "
+        "-j MARK --set-xmark 0x40000/0xffffffff\n";
+    const auto snapshot = inspect_iptables_snapshot(CommandRunner(
+        [&](const std::vector<std::string>& args) {
+            if (args[0] == "iptables") return command_result(rules);
+            if (args[0] == "ip6tables") return command_result("");
+            return command_result("create kpbr4s_list hash:net family inet\n");
+        }));
+
+    REQUIRE(snapshot.available);
+    REQUIRE(snapshot.rules.size() == 4);
+    CHECK(snapshot.rules[1].key ==
+          std::optional<FirewallRuleKey>{{"new.module", "extra"}});
+    CHECK_FALSE(snapshot.rules[2].key.has_value());
+    CHECK_FALSE(snapshot.rules[3].key.has_value());
+
+    const auto checks = verify_firewall_plan(mark_plan(key), snapshot);
+    REQUIRE(checks.size() == 2);
+    CHECK(checks.front().status == CheckStatus::ok);
+    CHECK(checks.back().status == CheckStatus::mismatch);
+    CHECK(checks.back().detail.find("extra owned firewall rule key new.module:extra") !=
+          std::string::npos);
+}
+
 TEST_CASE("nft snapshot parses the same canonical rule and reads once") {
     const auto key = FirewallRuleKey{"route.mark", "one"};
     const std::string json = R"({"nftables":[
@@ -255,6 +296,49 @@ TEST_CASE("nft snapshot parses the same canonical rule and reads once") {
     REQUIRE(snapshot.rules.size() == 1);
     CHECK(snapshot.rules[0].key == std::optional<FirewallRuleKey>{key});
     CHECK(verify_firewall_plan(mark_plan(key), snapshot)[0].status == CheckStatus::ok);
+}
+
+TEST_CASE("nft snapshot treats every valid KPBR key in owned chains as owned") {
+    const auto key = FirewallRuleKey{"route.mark", "one"};
+    nlohmann::json document = nlohmann::json::parse(R"({"nftables":[
+      {"table":{"family":"inet","name":"KeenPbrTable"}},
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"prerouting",
+                  "type":"filter","hook":"prerouting"}},
+      {"rule":{"family":"inet","table":"KeenPbrTable","chain":"prerouting",
+                "comment":"kpbr:v1:route.mark:one","expr":[
+                  {"match":{"op":"==","left":{"payload":{"protocol":"ip","field":"daddr"}},"right":"@kpbr4_list"}},
+                  {"mangle":{"key":{"meta":{"key":"mark"}},"value":65536}},
+                  {"accept":null}]}}
+    ]})");
+    auto extra_rule = document["nftables"].back();
+    extra_rule["rule"]["comment"] = "kpbr:v1:new.module:extra";
+    extra_rule["rule"]["expr"][1]["mangle"]["value"] = 131072;
+    document["nftables"].push_back(extra_rule);
+    extra_rule["rule"]["comment"] = "foreign:rule";
+    extra_rule["rule"]["expr"][1]["mangle"]["value"] = 196608;
+    document["nftables"].push_back(extra_rule);
+    extra_rule["rule"]["comment"] = "kpbr:v2:route.mark:unknown";
+    extra_rule["rule"]["expr"][1]["mangle"]["value"] = 262144;
+    document["nftables"].push_back(extra_rule);
+
+    const auto snapshot = inspect_nftables_snapshot(CommandRunner(
+        [&](const std::vector<std::string>&) {
+            return command_result(document.dump());
+        }));
+
+    REQUIRE(snapshot.available);
+    REQUIRE(snapshot.rules.size() == 4);
+    CHECK(snapshot.rules[1].key ==
+          std::optional<FirewallRuleKey>{{"new.module", "extra"}});
+    CHECK_FALSE(snapshot.rules[2].key.has_value());
+    CHECK_FALSE(snapshot.rules[3].key.has_value());
+
+    const auto checks = verify_firewall_plan(mark_plan(key), snapshot);
+    REQUIRE(checks.size() == 2);
+    CHECK(checks.front().status == CheckStatus::ok);
+    CHECK(checks.back().status == CheckStatus::mismatch);
+    CHECK(checks.back().detail.find("extra owned firewall rule key new.module:extra") !=
+          std::string::npos);
 }
 
 TEST_CASE("nft snapshot recovers masks from conntrack setter chains") {
@@ -674,7 +758,7 @@ TEST_CASE("foreign, unknown-version and no-comment rules obey ownership fallback
     snapshot.backend = FirewallBackend::nftables;
 
     ObservedFirewallRule foreign;
-    foreign.key = FirewallRuleKey{"foreign", "one"};
+    foreign.comment = "foreign:rule";
     foreign.family = FirewallFamily::ipv4;
     foreign.criteria.dst_set_name = "kpbr4_list";
     foreign.action = MarkAction{0x10000u, 0xFFFFFFFFu};

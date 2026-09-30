@@ -13,10 +13,6 @@
 namespace keen_pbr3 {
 namespace {
 
-bool starts_with(const std::string& value, const char* prefix) {
-    return value.rfind(prefix, 0) == 0;
-}
-
 bool has_iptables_interface(const std::string& raw,
                             const std::string& expected) {
     std::istringstream stream(raw);
@@ -27,11 +23,6 @@ bool has_iptables_interface(const std::string& raw,
         previous = std::move(token);
     }
     return false;
-}
-
-bool is_owned_module(const std::string& module) {
-    return starts_with(module, "route.") || starts_with(module, "dns.") ||
-           starts_with(module, "prefilter.");
 }
 
 std::string family_name(FirewallFamily family) {
@@ -926,7 +917,7 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
             checks.push_back(std::move(check));
             continue;
         }
-        if (!observed.key.has_value() || !is_owned_module(observed.key->module_id)) {
+        if (!observed.key.has_value()) {
             continue;
         }
         const std::string key = observed.key->module_id + ":" +
