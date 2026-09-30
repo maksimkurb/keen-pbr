@@ -14,7 +14,8 @@ from cases import (dns_no_leak, dns_routing_save, dns_upstream_ipv4,
                    route_balance, route_dest_addr, route_dest_port, route_dscp, route_list,
                    route_proto, route_src_addr, route_src_port, rule_shapes,
                    service_lifecycle, sigusr1_no_packet_leak, table_interface,
-                   test_group_table, urltest_rebuild, iptables_ab_convergence)
+                   test_group_table, urltest_rebuild, iptables_ab_convergence,
+                   prefilter_skip_marked)
 
 CASE_MODULES = (
     service_lifecycle,
@@ -22,6 +23,7 @@ CASE_MODULES = (
     urltest_rebuild,
     route_balance,
     iptables_ab_convergence,
+    prefilter_skip_marked,
     rule_shapes,
     table_interface,
     test_group_table,
