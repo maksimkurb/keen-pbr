@@ -1,4 +1,5 @@
 #include "firewall_plan_verifier.hpp"
+#include "firewall_rule_modules.hpp"
 
 #include "../util/format_compat.hpp"
 
@@ -97,10 +98,6 @@ std::string keyed_detail(const FirewallRuleInstance& rule,
     return keen_pbr3::format("key={} {}", rule_key_text(rule.key), detail);
 }
 
-std::string balance_mismatch_detail(const ObservedFirewallRule& observed,
-                                    const BalanceAction& expected,
-                                    uint32_t fwmark_mask);
-
 bool action_equal(const FirewallRuleAction& left, const FirewallRuleAction& right) {
     if (const auto* left_mark = std::get_if<MarkAction>(&left)) {
         const auto* right_mark = std::get_if<MarkAction>(&right);
@@ -137,7 +134,8 @@ bool action_equal(const ObservedFirewallRule& observed,
                   const FirewallRuleAction& expected,
                   uint32_t fwmark_mask) {
     if (const auto* balance = std::get_if<BalanceAction>(&expected)) {
-        return balance_mismatch_detail(observed, *balance, fwmark_mask).empty();
+        return std::get_if<BalanceAction>(&observed.action) != nullptr &&
+               balance_rule_mismatch_detail(observed, *balance, fwmark_mask).empty();
     }
     return action_equal(observed.action, expected);
 }
@@ -488,107 +486,6 @@ std::set<std::size_t> prefilter_order_errors(
     return errors;
 }
 
-std::string balance_mismatch_detail(const ObservedFirewallRule& observed,
-                                    const BalanceAction& expected,
-                                    uint32_t fwmark_mask) {
-    const auto* actual_action = std::get_if<BalanceAction>(&observed.action);
-    if (actual_action == nullptr) {
-        return keen_pbr3::format("action mismatch: expected balance got {}",
-                                 observed_action_detail(observed.action));
-    }
-    if ((actual_action->fallback_mark != 0 &&
-         actual_action->fallback_mark != expected.fallback_mark) ||
-        actual_action->candidates.size() != expected.candidates.size() ||
-        !std::equal(
-            actual_action->candidates.begin(), actual_action->candidates.end(),
-            expected.candidates.begin(),
-            [](const FirewallBalanceCandidate& lhs,
-               const FirewallBalanceCandidate& rhs) {
-                return lhs.fwmark == rhs.fwmark;
-            })) {
-        return "balance candidate mapping mismatch";
-    }
-    if (!observed.balance.has_value()) {
-        return "balance details missing from nft snapshot";
-    }
-    const auto& actual = *observed.balance;
-    if (actual.selector_mode != "inc") {
-        return keen_pbr3::format("balance selector mode mismatch: expected inc got {}",
-                                 actual.selector_mode.empty() ? "<missing>"
-                                                               : actual.selector_mode);
-    }
-    if (actual.selector_modulus != expected.candidates.size()) {
-        return keen_pbr3::format(
-            "balance selector modulus mismatch: expected {} got {}",
-            expected.candidates.size(), actual.selector_modulus);
-    }
-    if (!actual.mark_guard_present) {
-        return "balance owned-mark-empty guard missing";
-    }
-    if (actual.mark_guard_op != "==" || actual.mark_guard_value != 0) {
-        return "balance owned-mark-empty guard operator/value mismatch";
-    }
-    if (actual.mark_guard_mask != fwmark_mask) {
-        return keen_pbr3::format(
-            "balance owned-mark-empty guard mask mismatch: expected {:#x} got {:#x}",
-            fwmark_mask, actual.mark_guard_mask);
-    }
-    const auto candidate_count = expected.candidates.size();
-    if (actual.target_indices.size() != candidate_count) {
-        return "balance vmap target count mismatch";
-    }
-    if (actual.target_marks.size() != candidate_count) {
-        return "balance vmap mark count mismatch";
-    }
-    if (actual.setter_actions.size() != candidate_count) {
-        return "balance setter count mismatch";
-    }
-    if (actual.setter_ct_actions.size() != candidate_count) {
-        return "balance conntrack setter count mismatch";
-    }
-    for (std::size_t index = 0; index < candidate_count; ++index) {
-        if (actual.target_indices[index] != index) {
-            return keen_pbr3::format(
-                "balance vmap index/order mismatch at position {}", index);
-        }
-        if (actual.target_marks[index] != expected.candidates[index].fwmark) {
-            return keen_pbr3::format(
-                "balance vmap mark mismatch at index {}: expected {:#x} got {:#x}",
-                index, expected.candidates[index].fwmark,
-                actual.target_marks[index]);
-        }
-        if (!actual.setter_actions[index].has_value()) {
-            return keen_pbr3::format("balance setter missing at index {}", index);
-        }
-        if (actual.setter_actions[index]->value != expected.candidates[index].fwmark) {
-            return keen_pbr3::format(
-                "balance setter value mismatch at index {}: expected {:#x} got {:#x}",
-                index, expected.candidates[index].fwmark,
-                actual.setter_actions[index]->value);
-        }
-        if (actual.setter_actions[index]->mask != fwmark_mask) {
-            return keen_pbr3::format(
-                "balance setter mask mismatch at index {}: expected {:#x} got {:#x}",
-                index, fwmark_mask, actual.setter_actions[index]->mask);
-        }
-        if (!actual.setter_ct_actions[index].has_value()) {
-            return keen_pbr3::format("balance conntrack setter missing at index {}", index);
-        }
-        if (actual.setter_ct_actions[index]->value != expected.candidates[index].fwmark) {
-            return keen_pbr3::format(
-                "balance conntrack setter value mismatch at index {}: expected {:#x} got {:#x}",
-                index, expected.candidates[index].fwmark,
-                actual.setter_ct_actions[index]->value);
-        }
-        if (actual.setter_ct_actions[index]->mask != fwmark_mask) {
-            return keen_pbr3::format(
-                "balance conntrack setter mask mismatch at index {}: expected {:#x} got {:#x}",
-                index, fwmark_mask, actual.setter_ct_actions[index]->mask);
-        }
-    }
-    return {};
-}
-
 std::string mismatch_detail(const FirewallRuleInstance& expected,
                             const ExpectedPhysicalRule& physical,
                             const ObservedFirewallRule& observed,
@@ -611,8 +508,14 @@ std::string mismatch_detail(const FirewallRuleInstance& expected,
             criteria_summary(observed.criteria)));
     }
     if (const auto* balance = std::get_if<BalanceAction>(&physical.action)) {
+        if (std::get_if<BalanceAction>(&observed.action) == nullptr) {
+            return keyed_detail(expected, keen_pbr3::format(
+                "action mismatch: expected balance got {}",
+                observed_action_detail(observed.action)));
+        }
         return keyed_detail(expected,
-                            balance_mismatch_detail(observed, *balance, fwmark_mask));
+                            balance_rule_mismatch_detail(observed, *balance,
+                                                         fwmark_mask));
     }
     return keyed_detail(expected, keen_pbr3::format(
         "action mismatch: expected {} got {}",

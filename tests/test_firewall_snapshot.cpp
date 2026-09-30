@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/firewall/firewall_plan_verifier.hpp"
+#include "../src/firewall/firewall_rule_modules.hpp"
 #include "../src/firewall/firewall_snapshot.hpp"
 
 #include <netinet/in.h>
@@ -537,6 +538,16 @@ TEST_CASE("balance verifier rejects incomplete setter observations") {
     CHECK(checks.front().status == CheckStatus::mismatch);
     CHECK(checks.front().detail.find("vmap mark count mismatch") !=
           std::string::npos);
+}
+
+TEST_CASE("route.balance semantic verifier is directly callable") {
+    const auto expected = BalanceAction{
+        0x30000u, {{0x10000u, true, false}, {0x20000u, true, false}}};
+    ObservedFirewallRule observed;
+    observed.action = expected;
+
+    CHECK(balance_rule_mismatch_detail(observed, expected, 0x00FF0000u) ==
+          "balance details missing from nft snapshot");
 }
 
 TEST_CASE("nft balance mismatch reports the matching physical hook") {

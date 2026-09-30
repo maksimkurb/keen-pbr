@@ -17,6 +17,8 @@
 
 namespace keen_pbr3 {
 
+struct ObservedFirewallRule;
+
 // Immutable inputs shared by route rule modules. It deliberately contains
 // data views only; backend mutation happens when the complete plan is applied.
 struct FirewallBuildContext {
@@ -86,6 +88,10 @@ public:
   void register_rules(const FirewallBuildContext& context,
                       FirewallRuleRegistrar& registrar) const;
 };
+
+std::string balance_rule_mismatch_detail(const ObservedFirewallRule& observed,
+                                         const BalanceAction& expected,
+                                         uint32_t fwmark_mask);
 
 class DnsDetourRuleModule final {
 public:
