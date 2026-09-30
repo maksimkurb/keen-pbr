@@ -306,6 +306,11 @@ set(SOURCES
   src/firewall/rules/skip_established_or_dnat.cpp
   src/firewall/rules/skip_marked_packets.cpp
   src/firewall/rules/inbound_interface_filter.cpp
+  src/firewall/rules/route_targets.cpp
+  src/firewall/rules/route_mark.cpp
+  src/firewall/rules/route_drop.cpp
+  src/firewall/rules/route_pass.cpp
+  src/firewall/rules/route_balance.cpp
   src/firewall/port_spec_util.cpp
   src/firewall/iptables.cpp
   src/firewall/nftables.cpp

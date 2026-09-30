@@ -52,6 +52,13 @@ struct RouteRuleTarget {
 std::vector<RouteRuleTarget> expand_route_rule_targets(
     const FirewallBuildContext& context, std::size_t rule_index);
 
+void register_route_rule_targets(const FirewallBuildContext& context,
+                                 FirewallRuleRegistrar& registrar,
+                                 std::string_view module_id,
+                                 std::size_t rule_index,
+                                 const FirewallRuleAction& action,
+                                 bool action_enabled = true);
+
 class RouteMarkRuleModule final {
 public:
   std::string_view id() const noexcept { return "route.mark"; }
