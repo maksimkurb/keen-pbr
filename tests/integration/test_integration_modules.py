@@ -28,6 +28,7 @@ class IntegrationModulesTest(unittest.TestCase):
             "service_lifecycle", "dns_routing_save", "urltest_rebuild",
             "route_balance", "route_balance_failover", "route_balance_no_leak",
             "iptables_ab_convergence", "prefilter_skip_marked", "rule_shapes",
+            "route_pass", "route_drop",
             "table_interface", "test_group_table", "multiport_validation",
             "route_list", "route_proto",
             "route_dscp", "route_src_port", "route_dest_port", "route_src_addr",

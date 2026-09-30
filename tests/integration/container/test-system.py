@@ -12,7 +12,8 @@ from integration_context import (SystemContext, diagnostics, preserve_diagnostic
 from cases import (dns_no_leak, dns_routing_save, dns_upstream_ipv4,
                    dns_upstream_ipv6, multiport_validation, route_all_criteria,
                    route_balance, route_dest_addr, route_dest_port, route_dscp, route_list,
-                   route_proto, route_src_addr, route_src_port, rule_shapes,
+                   route_drop, route_pass, route_proto, route_src_addr, route_src_port,
+                   rule_shapes,
                    service_lifecycle, sigusr1_no_packet_leak, table_interface,
                    test_group_table, urltest_rebuild, iptables_ab_convergence,
                    prefilter_skip_marked)
@@ -25,6 +26,8 @@ CASE_MODULES = (
     iptables_ab_convergence,
     prefilter_skip_marked,
     rule_shapes,
+    route_pass,
+    route_drop,
     table_interface,
     test_group_table,
     multiport_validation,
