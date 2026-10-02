@@ -1,5 +1,6 @@
 #include "../firewall_rule_modules.hpp"
 
+#include "../ip_family.hpp"
 #include "../../config/routing_state.hpp"
 
 #include <string>
@@ -26,7 +27,11 @@ FirewallFamily family_for_criteria(const FirewallRuleCriteria& criteria) {
   bool has_ipv6 = false;
   const auto inspect_addresses = [&](const std::vector<std::string>& addresses) {
     for (const auto& address : addresses) {
-      if (address.find(':') == std::string::npos) {
+      const auto family = ip_family_of(address);
+      if (!family.has_value()) {
+        throw FirewallError("invalid address in route rule: " + address);
+      }
+      if (*family == FirewallFamily::ipv4) {
         has_ipv4 = true;
       } else {
         has_ipv6 = true;

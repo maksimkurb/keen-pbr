@@ -917,6 +917,26 @@ TEST_CASE("physical: canonical helpers") {
   }
 }
 
+TEST_CASE("physical: parse IPv4 and IPv6 CIDR from iptables dump") {
+  const std::string text =
+      "*mangle\n"
+      ":PREROUTING ACCEPT [0:0]\n"
+      ":KeenPbrTable_A - [0:0]\n"
+      "-A KeenPbrTable_A -d 10.0.0.0/8 -j ACCEPT\n"
+      "-A KeenPbrTable_A -d 2001:db8::/32 -j ACCEPT\n"
+      "COMMIT\n";
+  const auto set = parse_iptables_save(text, Fam::ipv4);
+  const auto &chain = require_chain(
+      set, ipt_id(Role::prerouting_generation, Table::mangle, Fam::ipv4, Gen::a));
+  REQUIRE(chain.rules.size() == 2);
+  CHECK(chain.rules[0].matches ==
+        std::vector<PhysicalMatch>{
+            AddrMatch{PhysicalDir::dst, false, {"10.0.0.0/8"}}});
+  // IPv6 CIDR is parsed and normalized.
+  CHECK(chain.rules[1].matches ==
+        std::vector<PhysicalMatch>{
+            AddrMatch{PhysicalDir::dst, false, {"2001:db8::/32"}}});
+}
 
 // ---------------------------------------------------------------------------
 // Round trip: lowering the plans that produced the committed kernel dumps

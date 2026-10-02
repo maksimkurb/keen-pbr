@@ -86,16 +86,22 @@ bool parse_cidr(std::string_view text, Cidr &out) {
   std::memcpy(buffer, host.data(), host.size());
   buffer[host.size()] = '\0';
   out = Cidr{};
-  out.v6 = host.find(':') != std::string_view::npos;
-  if (out.v6) {
-    in6_addr a6{};
-    if (inet_pton(AF_INET6, buffer, &a6) != 1) return false;
-    std::memcpy(out.addr.data(), &a6, 16);
-  } else {
-    in_addr a4{};
-    if (inet_pton(AF_INET, buffer, &a4) != 1) return false;
+
+  // Try IPv4 first, then IPv6
+  in_addr a4{};
+  if (inet_pton(AF_INET, buffer, &a4) == 1) {
+    out.v6 = false;
     std::memcpy(out.addr.data(), &a4, 4);
+  } else {
+    in6_addr a6{};
+    if (inet_pton(AF_INET6, buffer, &a6) == 1) {
+      out.v6 = true;
+      std::memcpy(out.addr.data(), &a6, 16);
+    } else {
+      return false;
+    }
   }
+
   const unsigned max_len = out.v6 ? 128U : 32U;
   unsigned len = max_len;
   if (slash != std::string_view::npos) {
