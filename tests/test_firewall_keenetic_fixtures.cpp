@@ -12,18 +12,17 @@ namespace keen_pbr3 {
 namespace {
 
 using Role = PhysicalChainRole;
-using Gen = PhysicalGeneration;
 using Table = PhysicalTable;
 using Fam = FirewallFamily;
 
 // Helper to create chain identifiers
 PhysicalChainId ipt_id(Role role, Table table, Fam family,
-                       Gen generation = Gen::none) {
+                       const std::string &name = {}) {
   PhysicalChainId id;
   id.role = role;
   id.table = table;
   id.family = family;
-  id.generation = generation;
+  id.name = name;
   return id;
 }
 
@@ -142,6 +141,18 @@ TEST_CASE("keenetic fixtures: mangle_v4 parsing and validation") {
     CHECK(jump->target.name == "KeenPbrOutput");
   }
 
+  SUBCASE("the KeenPbrOutput dispatcher classifies as the OUTPUT chain role, "
+          "the legacy generation as stale other_owned") {
+    const PhysicalChain *output = set.find(
+        ipt_id(Role::iptables_output, Table::mangle, Fam::ipv4));
+    REQUIRE_MESSAGE(output != nullptr, "KeenPbrOutput not found");
+    CHECK(output->rules.size() == 1);
+    CHECK(classify_iptables_chain("KeenPbrOutput_B", Table::mangle, Fam::ipv4)
+              ->role == Role::other_owned);
+    CHECK(classify_iptables_chain("KeenPbrOutput_A", Table::mangle, Fam::ipv4)
+              ->role == Role::other_owned);
+  }
+
   SUBCASE("system PREROUTING has no keen-pbr jump") {
     auto prerouting = find_system_chain(set, "PREROUTING", Table::mangle, Fam::ipv4);
     if (prerouting != nullptr) {
@@ -157,16 +168,16 @@ TEST_CASE("keenetic fixtures: mangle_v4 parsing and validation") {
   }
 
   SUBCASE("KeenPbrOutput_B has exactly 20 rules") {
-    auto chain_b = ipt_id(Role::output_generation, Table::mangle,
-                          Fam::ipv4, Gen::b);
+    auto chain_b = ipt_id(Role::other_owned, Table::mangle, Fam::ipv4,
+                          "KeenPbrOutput_B");
     const PhysicalChain *b = set.find(chain_b);
     REQUIRE_MESSAGE(b != nullptr, "KeenPbrOutput_B not found");
     CHECK(b->rules.size() == 20);
   }
 
   SUBCASE("KeenPbrOutput_B first rule has CopyMark restore statement") {
-    auto chain_b = ipt_id(Role::output_generation, Table::mangle,
-                          Fam::ipv4, Gen::b);
+    auto chain_b = ipt_id(Role::other_owned, Table::mangle, Fam::ipv4,
+                          "KeenPbrOutput_B");
     const PhysicalChain *b = set.find(chain_b);
     REQUIRE_MESSAGE(b != nullptr, "KeenPbrOutput_B not found");
     REQUIRE(b->rules.size() > 0);
@@ -184,8 +195,8 @@ TEST_CASE("keenetic fixtures: mangle_v4 parsing and validation") {
   }
 
   SUBCASE("KeenPbrOutput_B fifth rule (index 4) has IifMatch negated br0 and RETURN") {
-    auto chain_b = ipt_id(Role::output_generation, Table::mangle,
-                          Fam::ipv4, Gen::b);
+    auto chain_b = ipt_id(Role::other_owned, Table::mangle, Fam::ipv4,
+                          "KeenPbrOutput_B");
     const PhysicalChain *b = set.find(chain_b);
     REQUIRE_MESSAGE(b != nullptr, "KeenPbrOutput_B not found");
     REQUIRE(b->rules.size() > 4);
@@ -213,8 +224,8 @@ TEST_CASE("keenetic fixtures: mangle_v4 parsing and validation") {
   }
 
   SUBCASE("DSCP rule parses correctly (0x2c -> 44, SetMark 0x10000/0xff0000)") {
-    auto chain_b = ipt_id(Role::output_generation, Table::mangle,
-                          Fam::ipv4, Gen::b);
+    auto chain_b = ipt_id(Role::other_owned, Table::mangle, Fam::ipv4,
+                          "KeenPbrOutput_B");
     const PhysicalChain *b = set.find(chain_b);
     REQUIRE_MESSAGE(b != nullptr, "KeenPbrOutput_B not found");
 
@@ -248,8 +259,8 @@ TEST_CASE("keenetic fixtures: mangle_v4 parsing and validation") {
   }
 
   SUBCASE("mark negation parses with full mask (! --mark 0x0 -> mask 0xffffffff)") {
-    auto chain_b = ipt_id(Role::output_generation, Table::mangle,
-                          Fam::ipv4, Gen::b);
+    auto chain_b = ipt_id(Role::other_owned, Table::mangle, Fam::ipv4,
+                          "KeenPbrOutput_B");
     const PhysicalChain *b = set.find(chain_b);
     REQUIRE_MESSAGE(b != nullptr, "KeenPbrOutput_B not found");
 
@@ -314,11 +325,11 @@ TEST_CASE("keenetic fixtures: raw_v4 parsing and validation") {
     CHECK(jump->target.name == "KeenPbrRaw");
   }
 
-  SUBCASE("both KeenPbrRaw_A and KeenPbrRaw_B are captured") {
-    auto chain_a = ipt_id(Role::prerouting_generation, Table::raw,
-                          Fam::ipv4, Gen::a);
-    auto chain_b = ipt_id(Role::prerouting_generation, Table::raw,
-                          Fam::ipv4, Gen::b);
+  SUBCASE("stale legacy KeenPbrRaw_A/_B are captured as other_owned") {
+    auto chain_a = ipt_id(Role::other_owned, Table::raw, Fam::ipv4,
+                          "KeenPbrRaw_A");
+    auto chain_b = ipt_id(Role::other_owned, Table::raw, Fam::ipv4,
+                          "KeenPbrRaw_B");
     const PhysicalChain *a = set.find(chain_a);
     const PhysicalChain *b = set.find(chain_b);
     REQUIRE_MESSAGE(a != nullptr, "KeenPbrRaw_A not found");

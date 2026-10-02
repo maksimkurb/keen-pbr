@@ -29,9 +29,9 @@ touch.
 | Stage | Knows | Must NOT know |
 |---|---|---|
 | Policy module (`src/firewall/rules/*.cpp`) | *Why/what*: which traffic, which action, whether it is enabled | Backends, chain names, iptables/nft syntax |
-| `FirewallPlan` (`firewall_plan.hpp`) | Desired logical rules + set declarations | Anything about a previous apply (A/B generation, physical names) |
+| `FirewallPlan` (`firewall_plan.hpp`) | Desired logical rules + set declarations | Anything about a previous apply (physical names) |
 | Lowering (`firewall_lowering.cpp`) | *How*: each logical action → ordered physical rules per chain, per backend | System state (it is a pure function) |
-| Renderers (`iptables.cpp`, `nftables.cpp`) | Physical rule → text/JSON; lifecycle (sets, A/B, transactions, cleanup) | Policy actions (`MarkAction`, prefilters, …) |
+| Renderers (`iptables.cpp`, `nftables.cpp`) | Physical rule → text/JSON; lifecycle (sets, transactions, cleanup) | Policy actions (`MarkAction`, prefilters, …) |
 | Parsers (`firewall_physical.cpp`) | Kernel text/JSON → `PhysicalRuleset` | Policy meaning — never guess "this is a restore rule" |
 | Verifier (`firewall_plan_verifier.cpp`) | Compare two `PhysicalRuleset`s in order | Policy module ids, action types |
 
@@ -58,7 +58,7 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   `shared_ptr<const ActiveFirewall>` **only after a successful apply**.
   Readers take one snapshot and never see two applies mixed.
 - **`PhysicalRuleset`** (`firewall_physical.hpp`): list of `PhysicalChain`s;
-  each has a typed `PhysicalChainId` (role, table, family, generation, setter
+  each has a typed `PhysicalChainId` (role, table, family, setter
   mark — not a free-form name) and an ordered vector of `PhysicalRule`. A rule
   is `family` + ordered typed matches + ordered typed statements + optional
   `key` (diagnostics only) + `plan_rule` (index of the plan rule that produced
@@ -100,21 +100,33 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
 
 ## Backend lifecycle notes
 
-- **iptables** writes classifiers into A/B generation chains
-  (`KeenPbrTable_A/B` in mangle, or `KeenPbrRaw_A/B` + `KeenPbrOutput_A/B` in
-  raw-PREROUTING mode), then switches the dispatcher chain (`KeenPbrTable`,
-  `KeenPbrRaw`, `KeenPbrTable_OUTPUT`/`KeenPbrOutput`) to the new generation.
-  Only the target generation is flushed and rewritten; the inactive slot may
-  be absent, empty or stale, and the verifier ignores it.
-  `Firewall::expected_hook_rules()` returns the expected jump/dispatcher rules.
+- **iptables** has one classification chain per builtin hook and family, holding
+  the lowered rules directly (no dispatchers, no A/B chains): PREROUTING
+  classification in `KeenPbrRaw` (raw table, raw-prerouting mode) or
+  `KeenPbrTable` (mangle), OUTPUT classification in `KeenPbrOutput` (mangle, in
+  both modes). Placement is decided by lowering from the rule's hook: route
+  rules (hook=prerouting) go to PREROUTING and OUTPUT, DNS-detour rules
+  (hook=output) only to OUTPUT, and the inbound-interface prefilter (and its
+  multi-interface fragments) only to PREROUTING, since router-originated
+  packets have no input interface.
+  Apply is one `iptables-restore --noflush` transaction per table and family:
+  it declares (flushes) our chains, appends the rules, ensures exactly one hook
+  per chain in the builtin chains (the builtin chains are never declared, so
+  foreign rules stay) and, in the same commit, flushes and deletes the retired
+  A/B chains (`KeenPbrTable_A/B`, `KeenPbrRaw_A/B`, `KeenPbrOutput_A/B`,
+  `KeenPbrTable_OUTPUT` and its `OUTPUT` hook) that exist and are no longer
+  referenced. Leftover legacy chains classify as `other_owned` and are reported
+  by the verifier until the next apply removes them.
+  `Firewall::expected_hook_rules()` returns the expected builtin-chain jumps.
 - **nftables** replaces the whole `inet KeenPbrTable` content in one batch;
   balance uses `numgen inc mod N` + `vmap` into `setmark_XXXXXXXX` chains.
   Balancing is nft-only; iptables rejects it at lowering time.
 - Sets: logical names are `kpbr4_<list>`, `kpbr6_<list>` (static) and
-  `kpbr4d_<list>`, `kpbr6d_<list>` (dynamic). iptables maps static sets to
-  generation-specific physical names (`kpbr4s_`/`kpbr4S_`, …). Physical names
-  are part of the on-router state and must stay byte-identical across
-  versions.
+  `kpbr4d_<list>`, `kpbr6d_<list>` (dynamic). iptables still maps static sets to
+  generation-specific physical names (`kpbr4s_`/`kpbr4S_`, …); the generation
+  is derived from the static sets referenced by the live chains (the chains
+  themselves have no generations). Physical names are part of the on-router
+  state and must stay byte-identical across versions.
 
 ## Apply modes
 

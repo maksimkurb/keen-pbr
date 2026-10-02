@@ -15,12 +15,17 @@
 // insertion order), never reordered.
 //
 // What is covered: the rule CONTENT of the owned chains
-//   iptables: the A/B generation chains (KeenPbrTable_A/B, KeenPbrRaw_A/B,
-//             KeenPbrOutput_A/B), one set per enabled family;
+//   iptables: the classification chains KeenPbrRaw (raw) or KeenPbrTable
+//             (mangle) for PREROUTING and KeenPbrOutput (mangle) for OUTPUT,
+//             one pair per enabled family;
 //   nft:      the base chains `prerouting` / `output` and the setter chains.
-// Dispatcher chains, builtin-chain hooks and A/B publication stay backend
-// owned lifecycle; the backends expose them as PhysicalRules separately
-// (Firewall::expected_hook_rules()).
+// Builtin-chain hooks stay backend owned lifecycle; the backends expose them as
+// PhysicalRules separately (Firewall::expected_hook_rules()).
+//
+// iptables placement: route rules (hook=prerouting) go to both the PREROUTING
+// and the OUTPUT chain; hook=output rules (DNS detour) only to OUTPUT; the
+// inbound-interface prefilter and its multi-interface fragments only to
+// PREROUTING; restore-conntrack and DNAT skip need conntrack (not in raw).
 //
 // The function is pure: it never inspects the system.
 
@@ -47,9 +52,6 @@ struct FirewallLoweringContext {
   // supports comments.
   bool comments_ipv4_supported{true};
   bool comments_ipv6_supported{true};
-  // iptables: A/B generation that receives the rules, per family.
-  FirewallSetGeneration generation_ipv4{FirewallSetGeneration::A};
-  FirewallSetGeneration generation_ipv6{FirewallSetGeneration::A};
   uint32_t fwmark_mask{0xFFFFFFFFu};
   // nft: marks that always get a setter chain (marks allocated to this daemon
   // instance), in addition to the marks used by the plan.
@@ -66,12 +68,11 @@ PhysicalRuleset lower_firewall_plan(const FirewallPlan &plan,
 // Chain naming shared by lowering and the backends.
 // ---------------------------------------------------------------------------
 
-// KeenPbrTable_A/B (mangle) or KeenPbrRaw_A/B (raw) holding PREROUTING rules.
-const char *iptables_prerouting_generation_chain_name(
-    bool raw, FirewallSetGeneration generation);
-// KeenPbrOutput_A/B (raw mode OUTPUT rules).
-const char *
-iptables_output_generation_chain_name(FirewallSetGeneration generation);
+// KeenPbrRaw (raw) or KeenPbrTable (mangle): the PREROUTING classification
+// chain.
+const char *iptables_prerouting_chain_name(bool raw);
+// KeenPbrOutput (mangle, both modes): the OUTPUT classification chain.
+const char *iptables_output_chain_name();
 
 PhysicalChainId iptables_physical_chain_id(const std::string &name,
                                            PhysicalTable table,

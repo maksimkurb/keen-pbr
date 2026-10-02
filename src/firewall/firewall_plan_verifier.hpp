@@ -19,11 +19,10 @@ bool firewall_expected_uses_ipv6(const PhysicalRuleset& expected);
 //
 //   * every expected chain is compared rule by rule, in order; base chain
 //     attributes (nft hook/priority/policy) are compared as well;
-//   * observed keen-pbr chains that are not expected are reported, except the
-//     inactive A/B iptables generation: apply flushes and rewrites only the
-//     target generation and never touches the other slot, so that chain may
-//     exist (stale) or not;
-//   * hook jumps are ordinary rules of the expected system/dispatcher chains,
+//   * observed keen-pbr chains that are not expected are reported, including
+//     leftovers of the retired iptables A/B layout (apply deletes them, so a
+//     leftover is real drift the daemon fixes on the next apply);
+//   * hook jumps are ordinary rules of the expected system chains,
 //     foreign rules in system chains never reach the observed ruleset.
 //
 // One FirewallRuleCheck is produced per plan rule that was lowered to at least

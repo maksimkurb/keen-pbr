@@ -77,8 +77,8 @@ TEST_CASE("iptables snapshot parses the real kernel dump into chains") {
       false);
   REQUIRE(snapshot.available);
   const auto* generation = snapshot.ruleset.find(
-      {PhysicalChainRole::prerouting_generation, PhysicalTable::mangle,
-       FirewallFamily::ipv4, PhysicalGeneration::a, 0, "KeenPbrTable_A"});
+      {PhysicalChainRole::iptables_prerouting, PhysicalTable::mangle,
+       FirewallFamily::ipv4, 0, "KeenPbrTable"});
   REQUIRE(generation != nullptr);
   CHECK(generation->rules.size() > 20);
 }
@@ -107,7 +107,7 @@ TEST_CASE("nft snapshot reads the table once, without set elements") {
                                              "inet", "KeenPbrTable"});
   CHECK(snapshot.ruleset.find(
             {PhysicalChainRole::nft_prerouting, PhysicalTable::nft_inet,
-             FirewallFamily::any, PhysicalGeneration::none, 0, "prerouting"}) !=
+             FirewallFamily::any, 0, "prerouting"}) !=
         nullptr);
 }
 

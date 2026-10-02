@@ -30,11 +30,11 @@ scenario iptables_mangle "$run_case
   ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_mangle_v6.save\"
   iptables -t mangle -S >\"\$KPBR_OUT/iptables_mangle_v4.rules\"
   # Foreign / unknown additions made with the stock tool.
-  iptables -t mangle -A KeenPbrTable_A -s 203.0.113.9 -j ACCEPT
-  iptables -t mangle -I KeenPbrTable_A 1 -m limit --limit 1/s -j RETURN
-  iptables -t mangle -A KeenPbrTable_A -o eth9 -m comment --comment 'not ours' -j LOG
+  iptables -t mangle -A KeenPbrTable -s 203.0.113.9 -j ACCEPT
+  iptables -t mangle -I KeenPbrTable 1 -m limit --limit 1/s -j RETURN
+  iptables -t mangle -A KeenPbrTable -o eth9 -m comment --comment 'not ours' -j LOG
   iptables -t mangle -A PREROUTING -i eth0 -j ACCEPT
-  iptables -t mangle -A PREROUTING -j KeenPbrTable_A
+  iptables -t mangle -A PREROUTING -j KeenPbrOutput
   iptables-save -t mangle >\"\$KPBR_OUT/iptables_mangle_v4_foreign.save\"
   iptables -t mangle -S >\"\$KPBR_OUT/iptables_mangle_v4_foreign.rules\""
 
@@ -56,33 +56,33 @@ scenario nftables "$run_case
 # print them back.
 scenario iptables_misc "ip link set lo up
   for ipt in iptables ip6tables; do
-    \$ipt -t mangle -N KeenPbrTable_A; \$ipt -t mangle -N KeenPbrTable_B
-    \$ipt -t mangle -A KeenPbrTable_A -j MARK --set-mark 0x10
-    \$ipt -t mangle -A KeenPbrTable_A -j MARK --set-mark 0x10/0xff
-    \$ipt -t mangle -A KeenPbrTable_A -m mark ! --mark 0x0/0xffffffff -j ACCEPT
-    \$ipt -t mangle -A KeenPbrTable_A -m mark --mark 5 -j ACCEPT
-    \$ipt -t mangle -A KeenPbrTable_A -m dscp --dscp-class AF11 -j RETURN
-    \$ipt -t mangle -A KeenPbrTable_A -m dscp --dscp 10 -j RETURN
-    \$ipt -t mangle -A KeenPbrTable_A -p tcp --dport 80:80 -j RETURN
-    \$ipt -t mangle -A KeenPbrTable_A -p udp -m multiport ! --dports 53,80:90 -j RETURN
-    \$ipt -t mangle -A KeenPbrTable_A -m conntrack --ctdir ORIGINAL -m connmark ! --mark 0x0/0xff0000 -j CONNMARK --restore-mark --mask 0xff0000
-    \$ipt -t mangle -A KeenPbrTable_A -j CONNMARK --save-mark --nfmask 0xff --ctmask 0xf
-    \$ipt -t mangle -A KeenPbrTable_A -p udp -m comment --comment 'kpbr:v1:a.b:c d' -j RETURN
-    \$ipt -t mangle -A KeenPbrTable_A -m comment --comment 'kpbr:v1:route.mark:abc' -j RETURN
-    \$ipt -t mangle -A KeenPbrTable_A -m comment --comment 'kpbr:v9:route.mark:abc' -j RETURN
-    \$ipt -t mangle -A KeenPbrTable_A -m limit --limit 1/s -j RETURN
-    \$ipt -t mangle -A KeenPbrTable_A -o eth9 -j LOG
-    \$ipt -t mangle -A KeenPbrTable_A -g KeenPbrTable_B
-    \$ipt -t mangle -A KeenPbrTable_A -j SomeoneElsesChain 2>/dev/null || true
-    \$ipt -t mangle -A PREROUTING -j KeenPbrTable_A
-    \$ipt -t mangle -A PREROUTING -j KeenPbrTable_A
+    \$ipt -t mangle -N KeenPbrTable; \$ipt -t mangle -N KeenPbrOutput
+    \$ipt -t mangle -A KeenPbrTable -j MARK --set-mark 0x10
+    \$ipt -t mangle -A KeenPbrTable -j MARK --set-mark 0x10/0xff
+    \$ipt -t mangle -A KeenPbrTable -m mark ! --mark 0x0/0xffffffff -j ACCEPT
+    \$ipt -t mangle -A KeenPbrTable -m mark --mark 5 -j ACCEPT
+    \$ipt -t mangle -A KeenPbrTable -m dscp --dscp-class AF11 -j RETURN
+    \$ipt -t mangle -A KeenPbrTable -m dscp --dscp 10 -j RETURN
+    \$ipt -t mangle -A KeenPbrTable -p tcp --dport 80:80 -j RETURN
+    \$ipt -t mangle -A KeenPbrTable -p udp -m multiport ! --dports 53,80:90 -j RETURN
+    \$ipt -t mangle -A KeenPbrTable -m conntrack --ctdir ORIGINAL -m connmark ! --mark 0x0/0xff0000 -j CONNMARK --restore-mark --mask 0xff0000
+    \$ipt -t mangle -A KeenPbrTable -j CONNMARK --save-mark --nfmask 0xff --ctmask 0xf
+    \$ipt -t mangle -A KeenPbrTable -p udp -m comment --comment 'kpbr:v1:a.b:c d' -j RETURN
+    \$ipt -t mangle -A KeenPbrTable -m comment --comment 'kpbr:v1:route.mark:abc' -j RETURN
+    \$ipt -t mangle -A KeenPbrTable -m comment --comment 'kpbr:v9:route.mark:abc' -j RETURN
+    \$ipt -t mangle -A KeenPbrTable -m limit --limit 1/s -j RETURN
+    \$ipt -t mangle -A KeenPbrTable -o eth9 -j LOG
+    \$ipt -t mangle -A KeenPbrTable -g KeenPbrOutput
+    \$ipt -t mangle -A KeenPbrTable -j SomeoneElsesChain 2>/dev/null || true
+    \$ipt -t mangle -A PREROUTING -j KeenPbrTable
+    \$ipt -t mangle -A PREROUTING -j KeenPbrTable
     \$ipt -t mangle -A PREROUTING -i eth0 -j ACCEPT
-    \$ipt -t mangle -A INPUT -j KeenPbrTable_B
+    \$ipt -t mangle -A INPUT -j KeenPbrOutput
   done
-  iptables -t mangle -A KeenPbrTable_A -f -j DROP
-  iptables -t mangle -A KeenPbrTable_A -s 1.2.3.4 ! -d 10.1.2.3/8 -j RETURN
-  iptables -t mangle -A KeenPbrTable_A -s 10.0.0.0/8,192.168.0.0/16 -j RETURN
-  ip6tables -t mangle -A KeenPbrTable_A -s 2001:db8::1 -d 2001:DB8:0:0::5/64 -p udp --dport 53 -j RETURN
+  iptables -t mangle -A KeenPbrTable -f -j DROP
+  iptables -t mangle -A KeenPbrTable -s 1.2.3.4 ! -d 10.1.2.3/8 -j RETURN
+  iptables -t mangle -A KeenPbrTable -s 10.0.0.0/8,192.168.0.0/16 -j RETURN
+  ip6tables -t mangle -A KeenPbrTable -s 2001:db8::1 -d 2001:DB8:0:0::5/64 -p udp --dport 53 -j RETURN
   iptables-save -t mangle >\"\$KPBR_OUT/iptables_misc_v4.save\"
   ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_misc_v6.save\""
 

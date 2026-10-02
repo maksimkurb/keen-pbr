@@ -204,8 +204,6 @@ std::optional<uint32_t> installed_mark(const PhysicalRule& rule) {
 
 const char* chain_kind(PhysicalChainRole role) {
     switch (role) {
-    case PhysicalChainRole::prerouting_dispatcher:
-    case PhysicalChainRole::output_dispatcher:
     case PhysicalChainRole::system_prerouting:
     case PhysicalChainRole::system_output:
     case PhysicalChainRole::system_other:
@@ -215,11 +213,6 @@ const char* chain_kind(PhysicalChainRole role) {
     default:
         return "chain";
     }
-}
-
-bool is_generation_role(PhysicalChainRole role) {
-    return role == PhysicalChainRole::prerouting_generation ||
-           role == PhysicalChainRole::output_generation;
 }
 
 bool is_system_role(PhysicalChainRole role) {
@@ -528,23 +521,6 @@ void diff_chain(Report& report, const PhysicalChain& expected,
     diff_rules(report, expected, *observed);
 }
 
-// apply() flushes and rewrites only the target A/B generation of each
-// iptables slot (iptables.cpp: build_*_script `-F target`, then
-// verify_applied_generation) and leaves the previously active one as it was:
-// stale rules after a rebuild, absent after a destructive apply.  A
-// generation chain whose sibling generation is expected is that inactive slot.
-bool is_inactive_generation(const PhysicalRuleset& expected,
-                            const PhysicalChainId& id) {
-    if (!is_generation_role(id.role)) return false;
-    return std::any_of(
-        expected.chains.begin(), expected.chains.end(),
-        [&](const PhysicalChain& chain) {
-            return chain.id.role == id.role && chain.id.table == id.table &&
-                   chain.id.family == id.family &&
-                   chain.id.generation != id.generation;
-        });
-}
-
 } // namespace
 
 bool firewall_expected_uses_ipv6(const PhysicalRuleset& expected) {
@@ -570,8 +546,7 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
     }
 
     for (const auto& chain : snapshot.ruleset.chains) {
-        if (expected.find(chain.id) != nullptr ||
-            is_inactive_generation(expected, chain.id)) {
+        if (expected.find(chain.id) != nullptr) {
             continue;
         }
         const std::string label = chain_label(chain.id);
@@ -583,13 +558,6 @@ std::vector<FirewallRuleCheck> verify_firewall_plan(
                     keen_pbr3::format("unexpected rule in {} at index {}: {}",
                                       label, i, describe_rule(chain.rules[i])));
             }
-        } else if (chain.id.table != PhysicalTable::nft_inet) {
-            // An unreferenced iptables chain of keen-pbr's namespace is
-            // unmanaged leftovers: apply never deletes it (only the lifecycle
-            // sweep of a destructive apply does) and it is harmless unless a
-            // rule reaches it, which the diff of the hook, dispatcher and
-            // generation chains reports.
-            continue;
         } else {
             report.add_extra(
                 chain.id, CheckStatus::mismatch,
