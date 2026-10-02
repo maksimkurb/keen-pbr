@@ -6,6 +6,7 @@
 #include "../src/firewall/firewall_snapshot.hpp"
 #include "../src/firewall/nft_batch_pipe.hpp"
 #include "../src/firewall/nftables.hpp"
+#include "../src/firewall/firewall_lowering.hpp"
 
 #include <nlohmann/json.hpp>
 #include <cstdlib>
@@ -87,27 +88,58 @@ public:
     return NftablesFirewall::build_output_chain_json();
   }
 
+  static FirewallLoweringContext context(uint32_t mask) {
+    FirewallLoweringContext ctx;
+    ctx.backend = FirewallBackend::nftables;
+    ctx.fwmark_mask = mask;
+    return ctx;
+  }
+
   static nlohmann::json build_setter_rule_json(uint32_t fwmark,
                                                 uint32_t fwmark_mask) {
-    return NftablesFirewall::build_setter_rule_json(fwmark, fwmark_mask);
+    auto ctx = context(fwmark_mask);
+    ctx.owned_marks = {fwmark};
+    const auto ruleset = lower_firewall_plan(FirewallPlan{}, ctx);
+    const auto* chain = ruleset.find(
+        nft_physical_chain_id(PhysicalChainRole::nft_setter, fwmark));
+    REQUIRE(chain != nullptr);
+    return render_nft_rule(chain->id, chain->rules.front());
+  }
+
+  // Rule commands of the prerouting then the output chain.
+  static nlohmann::json render_rules(const PhysicalRuleset& ruleset) {
+    nlohmann::json commands = nlohmann::json::array();
+    for (const auto role : {PhysicalChainRole::nft_prerouting,
+                            PhysicalChainRole::nft_output}) {
+      const auto* chain = ruleset.find(nft_physical_chain_id(role));
+      REQUIRE(chain != nullptr);
+      for (const auto& rule : chain->rules) {
+        commands.push_back(render_nft_rule(chain->id, rule));
+      }
+    }
+    return commands;
   }
 
   static nlohmann::json build_balance_document() {
     NftablesFirewall firewall;
     firewall.set_fwmark_mask(0x00ff0000U);
-    FirewallPrefilter prefilter;
-    prefilter.restore_conntrack_mark = true;
-    prefilter.conntrack_mark_mask = 0x00ff0000U;
-    firewall.append_restore_conntrack_mark_rule({}, prefilter.conntrack_mark_mask);
     firewall.set_owned_marks(
         {0x00010000U, 0x00020000U, 0x00030000U, 0x00040000U});
-    FirewallRuleCriteria criteria;
-    criteria.default_gateway = DefaultGatewayFamily::Ipv4;
-    criteria.default_gateway_bypass = {"127.0.0.0/8", "192.168.1.0/24"};
-    criteria.apply_output = true;
-    firewall.append_balance_rule(
-        {}, 0x00010000U,
-        {{0x00020000U, true, false}, {0x00030000U, true, false}}, criteria);
+    FirewallPlan plan;
+    plan.fwmark_mask = 0x00ff0000U;
+    FirewallRuleInstance restore;
+    restore.action = RestoreConntrackMarkAction{0x00ff0000U};
+    plan.rules.push_back(std::move(restore));
+    FirewallRuleInstance balance;
+    balance.family = FirewallFamily::any;
+    balance.hook = FirewallHook::output;
+    balance.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+    balance.criteria.default_gateway_bypass = {"127.0.0.0/8", "192.168.1.0/24"};
+    balance.criteria.apply_output = true;
+    balance.action = BalanceAction{
+        0x00010000U, {{0x00020000U, true, false}, {0x00030000U, true, false}}};
+    plan.rules.push_back(std::move(balance));
+    firewall.compile_plan(plan, FirewallApplyMode::Destructive);
     NftablesFirewall::LiveTableState live;
     return firewall.build_apply_document(live, true);
   }
@@ -115,15 +147,19 @@ public:
   static nlohmann::json build_split_balance_document() {
     NftablesFirewall firewall;
     firewall.set_fwmark_mask(0x00ff0000U);
-    FirewallRuleCriteria criteria;
-    criteria.proto = L4Proto::Tcp;
-    criteria.dst_port = "443";
-    const std::vector<FirewallBalanceCandidate> candidates = {
-        {0x00010000U, true, false}, {0x00020000U, true, false},
-        {0x00030000U, false, true}, {0x00040000U, false, true}};
-    firewall.append_balance_rule(
-        FirewallRuleKey{"route.balance", "split"}, 0x00050000U,
-        candidates, criteria);
+    FirewallPlan plan;
+    plan.fwmark_mask = 0x00ff0000U;
+    FirewallRuleInstance balance;
+    balance.key = FirewallRuleKey{"route.balance", "split"};
+    balance.family = FirewallFamily::any;
+    balance.criteria.proto = L4Proto::Tcp;
+    balance.criteria.dst_port = "443";
+    balance.action = BalanceAction{
+        0x00050000U,
+        {{0x00010000U, true, false}, {0x00020000U, true, false},
+         {0x00030000U, false, true}, {0x00040000U, false, true}}};
+    plan.rules.push_back(std::move(balance));
+    firewall.compile_plan(plan, FirewallApplyMode::Destructive);
     NftablesFirewall::LiveTableState live;
     return firewall.build_apply_document(live, true);
   }
@@ -174,12 +210,13 @@ public:
         {"kpbr4s_domains", "ipv4_addr", 0});
     firewall.pending_elements_.emplace(
         "kpbr4s_domains", nlohmann::json::array({"192.0.2.1"}));
-    NftablesFirewall::PendingRule rule;
-    rule.family = AF_INET;
-    rule.action = NftablesFirewall::PendingRule::Mark;
-    rule.fwmark = 42;
+    FirewallPlan plan;
+    FirewallRuleInstance rule;
+    rule.family = FirewallFamily::ipv4;
+    rule.action = MarkAction{42, 0xFFFFFFFFu};
     rule.criteria.dst_set_name = "kpbr4s_domains";
-    firewall.pending_rules_.push_back(std::move(rule));
+    plan.rules.push_back(std::move(rule));
+    firewall.compile_plan(plan, FirewallApplyMode::Destructive);
     return firewall.build_apply_document(live, false, false, false, true);
   }
 
@@ -216,56 +253,81 @@ public:
     ProtoPortFilter filter;
   };
 
+  static FirewallPlan plan_from(const FirewallPrefilter& prefilter,
+                                const std::vector<RuleDesc>& descs,
+                                uint32_t mask = 0xFFFFFFFFu) {
+    FirewallPlan plan;
+    plan.fwmark_mask = mask;
+    const auto key_of = [](const std::string& comment) {
+      return comment.empty() ? FirewallRuleKey{}
+                             : FirewallRuleKey::from_comment(comment);
+    };
+    const auto add = [&](const std::string& comment, FirewallRuleAction action) {
+      FirewallRuleInstance rule;
+      rule.key = key_of(comment);
+      rule.family = FirewallFamily::any;
+      rule.action = std::move(action);
+      plan.rules.push_back(std::move(rule));
+    };
+    if (prefilter.restore_conntrack_mark) {
+      add(prefilter.restore_conntrack_mark_comment,
+          RestoreConntrackMarkAction{prefilter.conntrack_mark_mask});
+    }
+    if (prefilter.skip_established_or_dnat) {
+      add(prefilter.skip_established_or_dnat_comment,
+          SkipEstablishedOrDnatAction{});
+    }
+    if (prefilter.skip_marked_packets) {
+      add(prefilter.skip_marked_packets_comment, SkipMarkedPacketsAction{});
+    }
+    if (prefilter.has_inbound_interfaces()) {
+      add(prefilter.inbound_interface_filter_comment,
+          InboundInterfaceFilterAction{*prefilter.inbound_interfaces});
+    }
+    for (const auto& d : descs) {
+      FirewallRuleInstance rule;
+      rule.family = d.family == AF_INET6 ? FirewallFamily::ipv6
+                                         : FirewallFamily::ipv4;
+      rule.criteria = d.filter;
+      if (!d.set_name.empty()) {
+        rule.criteria.dst_set_name = d.set_name;
+      }
+      rule.hook = rule.criteria.apply_output ? FirewallHook::output
+                                             : FirewallHook::prerouting;
+      if (d.action == RuleDesc::Mark) {
+        rule.action = MarkAction{d.fwmark, mask};
+      } else {
+        rule.action = d.action == RuleDesc::Drop ? VerdictAction::drop
+                                                 : VerdictAction::pass;
+      }
+      plan.rules.push_back(std::move(rule));
+    }
+    return plan;
+  }
+
   static nlohmann::json build_rule_add_commands(
       FirewallPrefilter prefilter,
       const std::vector<RuleDesc> &descs) {
-    std::vector<NftablesFirewall::PendingRule> rules;
-    rules.reserve(descs.size());
-    for (const auto &d : descs) {
-      NftablesFirewall::PendingRule pr;
-      pr.family = d.family;
-      if (d.action == RuleDesc::Mark) {
-        pr.action = NftablesFirewall::PendingRule::Mark;
-      } else if (d.action == RuleDesc::Drop) {
-        pr.action = NftablesFirewall::PendingRule::Drop;
-      } else {
-        pr.action = NftablesFirewall::PendingRule::Pass;
-      }
-      pr.fwmark = d.fwmark;
-      pr.criteria = d.filter;
-      if (!d.set_name.empty()) {
-        pr.criteria.dst_set_name = d.set_name;
-      }
-      rules.push_back(std::move(pr));
-    }
-    return NftablesFirewall::build_rule_add_commands(prefilter, rules);
+    const auto plan = plan_from(prefilter, descs);
+    return render_rules(lower_firewall_plan(plan, context(plan.fwmark_mask)));
   }
 
   static nlohmann::json build_rule_add_commands_for_rule(
       int family, RuleDesc::Action action, uint32_t fwmark,
       FirewallRuleCriteria criteria, bool list_backed,
       FirewallPrefilter prefilter = {}) {
-    NftablesFirewall fw;
+    RuleDesc desc;
+    desc.family = family;
+    desc.action = action;
+    desc.fwmark = fwmark;
+    desc.filter = std::move(criteria);
     if (list_backed) {
-      criteria.dst_set_name = "pairwise_set";
-      fw.created_sets_["pairwise_set"] = family;
+      desc.set_name = "pairwise_set";
     }
-
-    NftablesFirewall::PendingRule::Action mapped_action =
-        NftablesFirewall::PendingRule::Mark;
-    if (action == RuleDesc::Drop) {
-      mapped_action = NftablesFirewall::PendingRule::Drop;
-    } else if (action == RuleDesc::Pass) {
-      mapped_action = NftablesFirewall::PendingRule::Pass;
-    }
-
-    fw.append_rules_for_family(family, mapped_action, fwmark, criteria);
-    return NftablesFirewall::build_rule_add_commands(prefilter, fw.pending_rules_);
+    return build_rule_add_commands(prefilter, {desc});
   }
 
   static nlohmann::json build_prefilter_listing() {
-    NftablesFirewall firewall;
-    firewall.set_fwmark_mask(0xFFFFFFFFu);
     const FirewallRuleKey restore_key{"prefilter.restore_conntrack_mark", "one"};
     const FirewallRuleKey dnat_key{"prefilter.skip_established_or_dnat", "one"};
     const FirewallRuleKey marked_key{"prefilter.skip_marked_packets", "one"};
@@ -281,13 +343,17 @@ public:
     prefilter.skip_established_or_dnat_comment = dnat_key.comment();
     prefilter.skip_marked_packets_comment = marked_key.comment();
     prefilter.inbound_interface_filter_comment = inbound_key.comment();
-    FirewallRuleCriteria route_criteria;
-    route_criteria.dst_set_name = "pairwise_set";
-    firewall.created_sets_["pairwise_set"] = AF_INET;
-    firewall.append_mark_rule(route_key, 0x10000u, route_criteria);
+    auto plan = plan_from(prefilter, {});
+    FirewallRuleInstance route;
+    route.key = route_key;
+    route.family = FirewallFamily::any;
+    route.criteria.dst_set_name = "pairwise_set";
+    route.action = MarkAction{0x10000u, 0xFFFFFFFFu};
+    plan.rules.push_back(std::move(route));
+    plan.sets.push_back({"pairwise_set", FirewallFamily::ipv4, 0});
 
-    const auto commands = NftablesFirewall::build_rule_add_commands(
-        prefilter, firewall.pending_rules_, {0x10000u});
+    const auto commands =
+        render_rules(lower_firewall_plan(plan, context(plan.fwmark_mask)));
     nlohmann::json listing;
     listing["nftables"] = nlohmann::json::array({
         nlohmann::json{{"table", {{"family", "inet"},
@@ -312,18 +378,56 @@ public:
       uint32_t fwmark, const FirewallRuleCriteria &criteria,
       uint32_t fwmark_mask = 0xFFFFFFFFu,
       FirewallPrefilter prefilter = {}) {
-    NftablesFirewall fw;
-    fw.set_fwmark_mask(fwmark_mask);
-    fw.append_mark_rule({}, fwmark, criteria);
-    return NftablesFirewall::build_rule_add_commands(prefilter, fw.pending_rules_);
+    auto plan = plan_from(prefilter, {}, fwmark_mask);
+    FirewallRuleInstance rule;
+    rule.family = FirewallFamily::any;
+    rule.criteria = criteria;
+    rule.hook = criteria.apply_output ? FirewallHook::output
+                                      : FirewallHook::prerouting;
+    rule.action = MarkAction{fwmark, fwmark_mask};
+    plan.rules.push_back(std::move(rule));
+    return render_rules(lower_firewall_plan(plan, context(fwmark_mask)));
   }
 
   static nlohmann::json build_rule_add_commands_via_plan(
       const FirewallPlan& plan) {
     NftablesFirewall fw;
     fw.compile_plan(plan, FirewallApplyMode::Destructive);
-    return NftablesFirewall::build_rule_add_commands(fw.prefilter_,
-                                                     fw.pending_rules_);
+    return render_rules(fw.pending_ruleset_);
+  }
+
+  // The single rule a one-rule plan lowers to, in the chain it lands in.
+  static nlohmann::json single_rule_json(
+      const std::string &set_name, int family, FirewallRuleAction action,
+      ProtoPortFilter filter, uint32_t fwmark_mask, bool direct,
+      bool save_conntrack_mark, FirewallRuleKey key) {
+    FirewallPlan plan;
+    plan.fwmark_mask = fwmark_mask;
+    if (save_conntrack_mark) {
+      FirewallRuleInstance restore;
+      restore.action = RestoreConntrackMarkAction{fwmark_mask};
+      plan.rules.push_back(std::move(restore));
+    }
+    FirewallRuleInstance rule;
+    rule.key = std::move(key);
+    rule.family = family == AF_INET6 ? FirewallFamily::ipv6
+                                     : FirewallFamily::ipv4;
+    rule.criteria = std::move(filter);
+    if (!direct && !set_name.empty()) {
+      rule.criteria.dst_set_name = set_name;
+    }
+    rule.hook = rule.criteria.apply_output ? FirewallHook::output
+                                           : FirewallHook::prerouting;
+    rule.action = std::move(action);
+    const bool output = rule.criteria.apply_output;
+    plan.rules.push_back(std::move(rule));
+    const auto ruleset = lower_firewall_plan(plan, context(fwmark_mask));
+    const auto* chain = ruleset.find(nft_physical_chain_id(
+        output ? PhysicalChainRole::nft_output
+               : PhysicalChainRole::nft_prerouting));
+    REQUIRE(chain != nullptr);
+    REQUIRE_FALSE(chain->rules.empty());
+    return render_nft_rule(chain->id, chain->rules.back());
   }
 
   static nlohmann::json build_mark_rule_json(const std::string &set_name,
@@ -333,46 +437,32 @@ public:
                                              bool direct = false,
                                              bool save_conntrack_mark = false,
                                              FirewallRuleKey key = {}) {
-    NftablesFirewall::PendingRule pr;
-    pr.family = family;
-    pr.action = NftablesFirewall::PendingRule::Mark;
-    pr.fwmark = fwmark;
-    pr.fwmark_mask = fwmark_mask;
-    pr.save_conntrack_mark = save_conntrack_mark;
-    pr.key = std::move(key);
-    pr.criteria = filter;
-    if (!direct && !set_name.empty()) {
-      pr.criteria.dst_set_name = set_name;
-    }
-    return NftablesFirewall::build_mark_rule_json(pr);
+    return single_rule_json(set_name, family, MarkAction{fwmark, fwmark_mask},
+                            std::move(filter), fwmark_mask, direct,
+                            save_conntrack_mark, std::move(key));
   }
 
   static nlohmann::json build_drop_rule_json(const std::string &set_name,
                                              int family,
                                              ProtoPortFilter filter = {}) {
-    NftablesFirewall::PendingRule pr;
-    pr.family = family;
-    pr.action = NftablesFirewall::PendingRule::Drop;
-    pr.fwmark = 0;
-    pr.criteria = filter;
-    if (!set_name.empty()) {
-      pr.criteria.dst_set_name = set_name;
-    }
-    return NftablesFirewall::build_drop_rule_json(pr);
+    return single_rule_json(set_name, family, VerdictAction::drop,
+                            std::move(filter), 0xFFFFFFFFu, false, false, {});
   }
 
   static nlohmann::json build_pass_rule_json(const std::string &set_name,
                                              int family,
                                              ProtoPortFilter filter = {}) {
-    NftablesFirewall::PendingRule pr;
-    pr.family = family;
-    pr.action = NftablesFirewall::PendingRule::Pass;
-    pr.fwmark = 0;
-    pr.criteria = filter;
-    if (!set_name.empty()) {
-      pr.criteria.dst_set_name = set_name;
+    return single_rule_json(set_name, family, VerdictAction::pass,
+                            std::move(filter), 0xFFFFFFFFu, false, false, {});
+  }
+
+  // The match expressions of a rule, without guard-free statements.
+  static nlohmann::json match_exprs(const nlohmann::json &command) {
+    nlohmann::json matches = nlohmann::json::array();
+    for (const auto &expr : command["add"]["rule"]["expr"]) {
+      if (expr.contains("match")) matches.push_back(expr);
     }
-    return NftablesFirewall::build_pass_rule_json(pr);
+    return matches;
   }
 
   static nlohmann::json build_port_match_exprs(const std::string &proto,
@@ -380,10 +470,19 @@ public:
                                                const std::string &dst_port,
                                                bool negate_src = false,
                                                bool negate_dst = false) {
-    return NftablesFirewall::build_port_match_exprs(parse_test_proto(proto),
-                                                    PortSpec(src_port),
-                                                    PortSpec(dst_port),
-                                                    negate_src, negate_dst);
+    FirewallPlan plan;
+    FirewallRuleInstance rule;
+    rule.family = FirewallFamily::any;
+    rule.criteria.proto = parse_test_proto(proto);
+    rule.criteria.src_port = PortSpec(src_port);
+    rule.criteria.dst_port = PortSpec(dst_port);
+    rule.criteria.negate_src_port = negate_src;
+    rule.criteria.negate_dst_port = negate_dst;
+    rule.action = VerdictAction::pass;
+    plan.rules.push_back(std::move(rule));
+    const auto commands =
+        render_rules(lower_firewall_plan(plan, context(0xFFFFFFFFu)));
+    return match_exprs(commands.front());
   }
 
   static nlohmann::json
@@ -391,8 +490,18 @@ public:
                          const std::vector<std::string> &src_addr,
                          const std::vector<std::string> &dst_addr,
                          bool negate_src = false, bool negate_dst = false) {
-    return NftablesFirewall::build_addr_match_exprs(
-        ip_proto, src_addr, dst_addr, negate_src, negate_dst);
+    FirewallPlan plan;
+    FirewallRuleInstance rule;
+    rule.family = ip_proto == "ip6" ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
+    rule.criteria.src_addr = src_addr;
+    rule.criteria.dst_addr = dst_addr;
+    rule.criteria.negate_src_addr = negate_src;
+    rule.criteria.negate_dst_addr = negate_dst;
+    rule.action = VerdictAction::pass;
+    plan.rules.push_back(std::move(rule));
+    const auto commands =
+        render_rules(lower_firewall_plan(plan, context(0xFFFFFFFFu)));
+    return match_exprs(commands.front());
   }
 
   static nlohmann::json build_elements_json(const std::string &set_name,
@@ -549,8 +658,9 @@ TEST_CASE("nft route.mark default-gateway companion round-trips") {
   const auto commands = T::build_rule_add_commands_via_plan(plan);
 
   REQUIRE(commands.size() == 2);
-  CHECK(commands[0]["add"]["rule"]["chain"] == "output");
-  CHECK(commands[1]["add"]["rule"]["chain"] == "prerouting");
+  // Rules are grouped per chain: prerouting first, then output.
+  CHECK(commands[0]["add"]["rule"]["chain"] == "prerouting");
+  CHECK(commands[1]["add"]["rule"]["chain"] == "output");
   CHECK(verify_nft_rule_commands(commands, plan) == CheckStatus::ok);
 }
 
@@ -713,14 +823,14 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead both classification cha
   CHECK(marked_expr[0]["match"]["right"] == 0);
   CHECK(marked_expr[2].contains("accept"));
 
-  const auto &output_marked_expr = cmds[2]["add"]["rule"]["expr"];
-  CHECK(cmds[2]["add"]["rule"]["chain"] == "output");
+  const auto &output_marked_expr = cmds[4]["add"]["rule"]["expr"];
+  CHECK(cmds[4]["add"]["rule"]["chain"] == "output");
   CHECK(output_marked_expr[0]["match"]["left"]["meta"]["key"] == "mark");
   CHECK(output_marked_expr[0]["match"]["op"] == "!=");
   CHECK(output_marked_expr[0]["match"]["right"] == 0);
   CHECK(output_marked_expr[2].contains("accept"));
 
-  const auto &iface_expr = cmds[3]["add"]["rule"]["expr"];
+  const auto &iface_expr = cmds[2]["add"]["rule"]["expr"];
   CHECK(iface_expr[0]["match"]["op"] == "!=");
   CHECK(iface_expr[0]["match"]["left"]["meta"]["key"] == "iifname");
   CHECK(iface_expr[0]["match"]["right"]["set"][0] == "br0");
@@ -729,7 +839,7 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead both classification cha
 
   CHECK(cmds.dump().find("\"state\"") == std::string::npos);
 
-  const auto &mark_expr = cmds[4]["add"]["rule"]["expr"];
+  const auto &mark_expr = cmds[3]["add"]["rule"]["expr"];
   CHECK(mark_expr[0]["match"]["left"]["payload"]["protocol"] == "ip");
   CHECK(mark_expr[0]["match"]["right"] == "@myset");
   CHECK(mark_expr[2]["mangle"]["value"] == 256);
@@ -758,11 +868,11 @@ TEST_CASE("build_rule_add_commands: conntrack restore is masked, ordered, and fa
   CHECK(restore[3]["match"]["op"] == "in");
   CHECK(restore[3]["match"]["right"]["set"][0] == 256);
   CHECK(restore[4].contains("accept"));
-  CHECK(commands[1]["add"]["rule"]["chain"] == "output");
+  CHECK(commands[2]["add"]["rule"]["chain"] == "output");
 
   // The policy rule follows the conditional restore rule. An unmarked new
   // connection fails restore[1] and therefore reaches normal classification.
-  CHECK(commands[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  CHECK(commands[1]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 TEST_CASE("nft emitted prefilters are inspected with ownership and exact restore mapping") {
@@ -977,9 +1087,9 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface gua
   CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["op"] == "in");
   CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "status");
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
-  CHECK(cmds[2]["add"]["rule"]["chain"] == "output");
-  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
-  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  CHECK(cmds[3]["add"]["rule"]["chain"] == "output");
+  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
 }
 
 TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface guard before route rule") {
@@ -1005,10 +1115,10 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface g
   REQUIRE(cmds.is_array());
   REQUIRE(cmds.size() == 5);
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
-  CHECK(cmds[2]["add"]["rule"]["chain"] == "output");
-  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "iifname");
-  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["right"] == "br0");
-  CHECK(cmds[4]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "iifname");
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "br0");
+  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  CHECK(cmds[4]["add"]["rule"]["chain"] == "output");
 }
 
 TEST_CASE("mark plan: port-only tcp/udp rule emits one tcp and one udp entry") {
@@ -1586,10 +1696,10 @@ TEST_CASE("build_addr_match_exprs: multiple src_addr → saddr match with set") 
   REQUIRE(exprs.size() == 1);
   CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "saddr");
   CHECK(exprs[0]["match"]["right"].contains("set"));
-  CHECK(exprs[0]["match"]["right"]["set"][0]["prefix"]["addr"] == "192.168.1.0");
-  CHECK(exprs[0]["match"]["right"]["set"][0]["prefix"]["len"] == 24);
-  CHECK(exprs[0]["match"]["right"]["set"][1]["prefix"]["addr"] == "10.0.0.0");
-  CHECK(exprs[0]["match"]["right"]["set"][1]["prefix"]["len"] == 8);
+  CHECK(exprs[0]["match"]["right"]["set"][0]["prefix"]["addr"] == "10.0.0.0");
+  CHECK(exprs[0]["match"]["right"]["set"][0]["prefix"]["len"] == 8);
+  CHECK(exprs[0]["match"]["right"]["set"][1]["prefix"]["addr"] == "192.168.1.0");
+  CHECK(exprs[0]["match"]["right"]["set"][1]["prefix"]["len"] == 24);
 }
 
 TEST_CASE("build_addr_match_exprs: single dst_addr → daddr match with string") {
@@ -1756,10 +1866,10 @@ TEST_CASE("build_addr_match_exprs: negated multiple src_addr → set literal "
   CHECK(exprs[0]["match"]["op"] == "!=");
   const auto &rhs = exprs[0]["match"]["right"];
   REQUIRE(rhs.contains("set"));
-  CHECK(rhs["set"][0]["prefix"]["addr"] == "192.168.1.0");
-  CHECK(rhs["set"][0]["prefix"]["len"] == 24);
-  CHECK(rhs["set"][1]["prefix"]["addr"] == "10.0.0.0");
-  CHECK(rhs["set"][1]["prefix"]["len"] == 8);
+  CHECK(rhs["set"][0]["prefix"]["addr"] == "10.0.0.0");
+  CHECK(rhs["set"][0]["prefix"]["len"] == 8);
+  CHECK(rhs["set"][1]["prefix"]["addr"] == "192.168.1.0");
+  CHECK(rhs["set"][1]["prefix"]["len"] == 24);
 }
 
 TEST_CASE("build_addr_match_exprs: negated multiple dst_addr → set literal "
@@ -1771,9 +1881,9 @@ TEST_CASE("build_addr_match_exprs: negated multiple dst_addr → set literal "
   CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "daddr");
   const auto &rhs = exprs[0]["match"]["right"];
   REQUIRE(rhs.contains("set"));
-  CHECK(rhs["set"][0]["prefix"]["addr"] == "8.8.8.0");
+  CHECK(rhs["set"][0]["prefix"]["addr"] == "1.1.1.0");
   CHECK(rhs["set"][0]["prefix"]["len"] == 24);
-  CHECK(rhs["set"][1]["prefix"]["addr"] == "1.1.1.0");
+  CHECK(rhs["set"][1]["prefix"]["addr"] == "8.8.8.0");
   CHECK(rhs["set"][1]["prefix"]["len"] == 24);
 }
 
@@ -1785,10 +1895,10 @@ TEST_CASE("build_addr_match_exprs: non-negated multiple src_addr stays == "
   CHECK(exprs[0]["match"]["op"] == "==");
   const auto &rhs = exprs[0]["match"]["right"];
   REQUIRE(rhs.contains("set"));
-  CHECK(rhs["set"][0]["prefix"]["addr"] == "192.168.1.0");
-  CHECK(rhs["set"][0]["prefix"]["len"] == 24);
-  CHECK(rhs["set"][1]["prefix"]["addr"] == "10.0.0.0");
-  CHECK(rhs["set"][1]["prefix"]["len"] == 8);
+  CHECK(rhs["set"][0]["prefix"]["addr"] == "10.0.0.0");
+  CHECK(rhs["set"][0]["prefix"]["len"] == 8);
+  CHECK(rhs["set"][1]["prefix"]["addr"] == "192.168.1.0");
+  CHECK(rhs["set"][1]["prefix"]["len"] == 24);
 }
 
 TEST_CASE("build_addr_match_exprs: non-negated stays == (regression)") {
@@ -1852,10 +1962,10 @@ TEST_CASE("build_mark_rule_json: multiple negated src_addrs → != with set "
       CHECK(e["match"]["op"] == "!=");
       const auto &rhs = e["match"]["right"];
       REQUIRE(rhs.contains("set"));
-      CHECK(rhs["set"][0]["prefix"]["addr"] == "192.168.1.0");
-      CHECK(rhs["set"][0]["prefix"]["len"] == 24);
-      CHECK(rhs["set"][1]["prefix"]["addr"] == "10.0.0.0");
-      CHECK(rhs["set"][1]["prefix"]["len"] == 8);
+      CHECK(rhs["set"][0]["prefix"]["addr"] == "10.0.0.0");
+      CHECK(rhs["set"][0]["prefix"]["len"] == 8);
+      CHECK(rhs["set"][1]["prefix"]["addr"] == "192.168.1.0");
+      CHECK(rhs["set"][1]["prefix"]["len"] == 24);
       found = true;
     }
   }

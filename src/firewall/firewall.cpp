@@ -1,4 +1,5 @@
 #include "firewall.hpp"
+#include "firewall_physical.hpp"
 #include "../util/firewall_backend_utils.hpp"
 
 #include <algorithm>
@@ -23,6 +24,8 @@ std::optional<uint32_t> normalize_ipset_hashsize(uint32_t requested) {
   }
   return static_cast<uint32_t>(normalized);
 }
+
+PhysicalRuleset Firewall::expected_hook_rules() const { return {}; }
 
 const char *firewall_backend_name(FirewallBackend backend) {
   switch (backend) {

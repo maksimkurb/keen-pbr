@@ -1,4 +1,5 @@
 #include "iptables.hpp"
+#include "firewall_lowering.hpp"
 #include "firewall_plan.hpp"
 #include "firewall_rule.hpp"
 #include "../log/logger.hpp"
@@ -12,6 +13,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cctype>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <set>
@@ -23,31 +25,6 @@
 namespace keen_pbr3 {
 
 namespace {
-
-std::vector<L4Proto> expand_l4_protos(L4Proto proto) {
-  if (proto == L4Proto::TcpUdp) {
-    return {L4Proto::Tcp, L4Proto::Udp};
-  }
-  return {proto};
-}
-
-std::vector<L4Proto>
-expand_l4_protos_for_iptables(const FirewallRuleCriteria &criteria) {
-  if (criteria.proto == L4Proto::Any &&
-      (!criteria.src_port.empty() || !criteria.dst_port.empty())) {
-    // iptables requires an explicit L4 protocol whenever port matchers are
-    // used.
-    return {L4Proto::Tcp, L4Proto::Udp};
-  }
-  return expand_l4_protos(criteria.proto);
-}
-
-std::string comment_fragment(const FirewallRuleKey &key) {
-  if (key.module_id.empty() && key.instance_id.empty()) {
-    return {};
-  }
-  return keen_pbr3::format(" -m comment --comment {}", key.comment());
-}
 
 bool cleanup_command_reports_absence(const ExecCaptureResult &result) {
   if (result.exit_code == 0 && !result.truncated && !result.timed_out) {
@@ -63,15 +40,6 @@ bool cleanup_command_reports_absence(const ExecCaptureResult &result) {
          output.find("no such") != std::string::npos ||
          output.find("does not exist") != std::string::npos ||
          output.find("cannot be found") != std::string::npos;
-}
-
-FirewallRuleCriteria materialize_criteria(const FirewallRuleCriteria& criteria,
-                                          const IptablesFirewall& firewall) {
-  FirewallRuleCriteria result = criteria;
-  if (result.dst_set_name.has_value()) {
-    result.dst_set_name = firewall.physical_set_name(*result.dst_set_name);
-  }
-  return result;
 }
 
 ExecCaptureResult run_cleanup_command(const std::vector<std::string> &args) {
@@ -100,14 +68,12 @@ IptablesFirewall::IptablesFirewall(RawPreroutingMode raw_prerouting)
 
 const char *
 IptablesFirewall::generation_chain(FirewallSetGeneration generation) {
-  return generation == FirewallSetGeneration::A ? "KeenPbrTable_A"
-                                                : "KeenPbrTable_B";
+  return iptables_prerouting_generation_chain_name(false, generation);
 }
 
 const char *
 IptablesFirewall::output_generation_chain(FirewallSetGeneration generation) {
-  return generation == FirewallSetGeneration::A ? "KeenPbrOutput_A"
-                                                : "KeenPbrOutput_B";
+  return iptables_output_generation_chain_name(generation);
 }
 
 const char *IptablesFirewall::prerouting_table_name(bool ipv6) const {
@@ -122,10 +88,8 @@ IptablesFirewall::prerouting_dispatcher_chain_name(bool ipv6) const {
 const char *
 IptablesFirewall::prerouting_generation_chain(FirewallSetGeneration generation,
                                               bool ipv6) const {
-  return uses_raw_prerouting(ipv6)
-             ? (generation == FirewallSetGeneration::A ? "KeenPbrRaw_A"
-                                                       : "KeenPbrRaw_B")
-             : generation_chain(generation);
+  return iptables_prerouting_generation_chain_name(uses_raw_prerouting(ipv6),
+                                                   generation);
 }
 
 void IptablesFirewall::validate_raw_prerouting_capability(bool ipv6) const {
@@ -169,8 +133,7 @@ void IptablesFirewall::validate_raw_prerouting_capability(bool ipv6) const {
 void IptablesFirewall::prepare_apply(FirewallApplyMode mode) {
   pending_sets_.clear();
   pending_elements_.clear();
-  pending_rules_.clear();
-  prefilter_ = {};
+  pending_ruleset_ = {};
   prepared_mode_ = mode;
   apply_prepared_ = false;
   static_generations_prepared_ = false;
@@ -187,8 +150,6 @@ void IptablesFirewall::prepare_apply(FirewallApplyMode mode) {
           ? *comments_override_
           : (!ipv6_enabled() || !ipv6_backend_available() ||
              probe_xt_comment(true));
-  prefilter_.comments_ipv4_supported = comment_v4_supported_;
-  prefilter_.comments_ipv6_supported = comment_v6_supported_;
 
   if (mode == FirewallApplyMode::RulesOnly) {
     // RulesOnly preparation is deliberately inspection-only. In particular,
@@ -365,104 +326,6 @@ void IptablesFirewall::create_ipset(const std::string &set_name, int family,
     throw FirewallError("conflicting ipset declaration for " + set_name);
   }
   created_sets_[set_name] = family;
-}
-
-void IptablesFirewall::append_rules_for_family(
-    bool ipv6, PendingRule::Action action, uint32_t fwmark,
-    const FirewallRuleCriteria &criteria, const FirewallRuleKey &key) {
-  if (ipv6 && !ipv6_enabled()) {
-    return;
-  }
-  FirewallRuleInstance logical;
-  logical.hook = criteria.apply_output ? FirewallHook::output
-                                       : FirewallHook::prerouting;
-  logical.family = ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
-  logical.criteria = criteria;
-  logical.action = action == PendingRule::Mark
-      ? FirewallRuleAction{MarkAction{fwmark, fwmark_mask()}}
-      : FirewallRuleAction{action == PendingRule::Drop ? VerdictAction::drop
-                                                       : VerdictAction::pass};
-  for (const auto& physical : materialize_firewall_classifiers(
-           logical, FirewallBackend::iptables, fwmark_mask())) {
-    PendingRule pr;
-    pr.ipv6 = physical.family == FirewallFamily::ipv6;
-    pr.action = action;
-    pr.fwmark = fwmark;
-    pr.fwmark_mask = fwmark_mask();
-    pr.key = key;
-    pr.comment_supported = comments_supported_for_family(pr.ipv6);
-    pr.criteria = physical.criteria;
-    pending_rules_.push_back(std::move(pr));
-  }
-}
-
-void IptablesFirewall::append_mark_rule(
-    const FirewallRuleKey &key, uint32_t fwmark,
-    const FirewallRuleCriteria &criteria) {
-  if (criteria.dst_set_name.has_value()) {
-    auto it = created_sets_.find(*criteria.dst_set_name);
-    bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
-    append_rules_for_family(ipv6, PendingRule::Mark, fwmark, criteria, key);
-    return;
-  }
-  append_rules_for_family(false, PendingRule::Mark, fwmark, criteria, key);
-  append_rules_for_family(true, PendingRule::Mark, fwmark, criteria, key);
-}
-
-void IptablesFirewall::append_drop_rule(
-    const FirewallRuleKey &key, const FirewallRuleCriteria &criteria) {
-  if (criteria.dst_set_name.has_value()) {
-    auto it = created_sets_.find(*criteria.dst_set_name);
-    bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
-    append_rules_for_family(ipv6, PendingRule::Drop, 0, criteria, key);
-    return;
-  }
-  append_rules_for_family(false, PendingRule::Drop, 0, criteria, key);
-  append_rules_for_family(true, PendingRule::Drop, 0, criteria, key);
-}
-
-void IptablesFirewall::append_pass_rule(
-    const FirewallRuleKey &key, const FirewallRuleCriteria &criteria) {
-  if (criteria.dst_set_name.has_value()) {
-    auto it = created_sets_.find(*criteria.dst_set_name);
-    bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
-    append_rules_for_family(ipv6, PendingRule::Pass, 0, criteria, key);
-    return;
-  }
-  append_rules_for_family(false, PendingRule::Pass, 0, criteria, key);
-  append_rules_for_family(true, PendingRule::Pass, 0, criteria, key);
-}
-
-void IptablesFirewall::append_restore_conntrack_mark_rule(
-    const FirewallRuleKey& key, uint32_t mask) {
-  prefilter_.restore_conntrack_mark = true;
-  prefilter_.conntrack_mark_mask = mask;
-  if (!key.module_id.empty() || !key.instance_id.empty()) {
-    prefilter_.restore_conntrack_mark_comment = key.comment();
-  }
-}
-
-void IptablesFirewall::append_skip_established_or_dnat_rule(
-    const FirewallRuleKey& key) {
-  prefilter_.skip_established_or_dnat = true;
-  if (!key.module_id.empty() || !key.instance_id.empty()) {
-    prefilter_.skip_established_or_dnat_comment = key.comment();
-  }
-}
-
-void IptablesFirewall::append_skip_marked_packets_rule(const FirewallRuleKey& key) {
-  prefilter_.skip_marked_packets = true;
-  if (!key.module_id.empty() || !key.instance_id.empty()) {
-    prefilter_.skip_marked_packets_comment = key.comment();
-  }
-}
-
-void IptablesFirewall::append_inbound_interface_filter_rule(
-    const FirewallRuleKey& key, const std::vector<std::string>& interfaces) {
-  prefilter_.inbound_interfaces = interfaces;
-  if (!key.module_id.empty() || !key.instance_id.empty()) {
-    prefilter_.inbound_interface_filter_comment = key.comment();
-  }
 }
 
 std::unique_ptr<ListEntryVisitor>
@@ -734,20 +597,27 @@ void IptablesFirewall::preflight_reused_set_schemas(
     }
   }
 
-  for (const auto &rule : pending_rules_) {
-    if (!rule.criteria.dst_set_name.has_value()) {
-      continue;
-    }
-    const auto expected = std::find_if(
-        pending_sets_.begin(), pending_sets_.end(), [&](const PendingSet &set) {
-          return set.name == *rule.criteria.dst_set_name &&
-                 ((rule.ipv6 && set.family_str == "inet6") ||
-                  (!rule.ipv6 && set.family_str == "inet"));
-        });
-    if (expected == pending_sets_.end()) {
-      throw FirewallRulesOnlyError(
-          "required reused ipset " + *rule.criteria.dst_set_name +
-          " has no compatible declaration for the packet family");
+  for (const auto &chain : pending_ruleset_.chains) {
+    const bool ipv6 = chain.id.family == FirewallFamily::ipv6;
+    for (const auto &rule : chain.rules) {
+      for (const auto &match : rule.matches) {
+        const auto *set_match = std::get_if<SetMatch>(&match);
+        if (set_match == nullptr) {
+          continue;
+        }
+        const auto expected = std::find_if(
+            pending_sets_.begin(), pending_sets_.end(),
+            [&](const PendingSet &set) {
+              return set.name == set_match->name &&
+                     ((ipv6 && set.family_str == "inet6") ||
+                      (!ipv6 && set.family_str == "inet"));
+            });
+        if (expected == pending_sets_.end()) {
+          throw FirewallRulesOnlyError(
+              "required reused ipset " + set_match->name +
+              " has no compatible declaration for the packet family");
+        }
+      }
     }
   }
 
@@ -1375,257 +1245,218 @@ void IptablesFirewall::verify_applied_generation(
   }
 }
 
-std::vector<std::string> IptablesFirewall::build_proto_port_fragments(
-    L4Proto proto, const PortSpec &src_port, const PortSpec &dst_port,
-    bool negate_src_port, bool negate_dst_port) {
-  if (proto == L4Proto::Any && src_port.empty() && dst_port.empty()) {
-    return {""};
-  }
+namespace {
 
-  const std::string proto_frag =
-      proto == L4Proto::Any ? "" : " -p " + std::string(l4_proto_name(proto));
-
-  auto chunks = [](const PortSpec &spec) {
-    std::vector<PortSpec> result;
-    PortSpec chunk;
-    size_t slots = 0;
-    for (const auto &range : spec.ranges) {
-      const size_t range_slots = range.from == range.to ? 1 : 2;
-      if (!chunk.ranges.empty() && slots + range_slots > 15) {
-        result.push_back(std::move(chunk));
-        chunk = PortSpec{};
-        slots = 0;
-      }
-      chunk.ranges.push_back(range);
-      slots += range_slots;
-    }
-    if (!chunk.ranges.empty()) {
-      result.push_back(std::move(chunk));
-    }
-    return result;
-  };
-
-  auto side_fragments = [&](const PortSpec &spec, bool source, bool negated) {
-    if (spec.empty()) {
-      return std::vector<std::string>{""};
-    }
-    const bool list = classify_port_spec(spec) == PortSpecKind::List;
-    const std::string singular = source ? " --sport " : " --dport ";
-    const std::string plural = source ? " --sports " : " --dports ";
-    if (!list) {
-      return std::vector<std::string>{
-          std::string(negated ? " !" : "") + singular +
-          spec.to_iptables_string()};
-    }
-
-    const auto list_chunks = chunks(spec);
-    if (negated) {
-      std::string fragment;
-      for (const auto &chunk : list_chunks) {
-        fragment +=
-            " -m multiport !" + plural + chunk.to_iptables_string();
-      }
-      return std::vector<std::string>{std::move(fragment)};
-    }
-
-    std::vector<std::string> result;
-    result.reserve(list_chunks.size());
-    for (const auto &chunk : list_chunks) {
-      result.push_back(" -m multiport" + plural +
-                       chunk.to_iptables_string());
-    }
-    return result;
-  };
-
-  const auto src_fragments =
-      side_fragments(src_port, /*source=*/true, negate_src_port);
-  const auto dst_fragments =
-      side_fragments(dst_port, /*source=*/false, negate_dst_port);
-  std::vector<std::string> fragments;
-  fragments.reserve(src_fragments.size() * dst_fragments.size());
-  for (const auto &src : src_fragments) {
-    for (const auto &dst : dst_fragments) {
-      fragments.push_back(proto_frag + src + dst);
-    }
-  }
-  return fragments;
+// Emission order of the matches of one rule.  Rules are held in canonical
+// kind order; iptables-restore only needs `-p` before the port options and a
+// module before its options.
+int iptables_match_rank(const PhysicalMatch &match) {
+  if (std::holds_alternative<SetMatch>(match)) return 0;
+  if (std::holds_alternative<IifMatch>(match)) return 1;
+  if (std::holds_alternative<AddrMatch>(match)) return 2;
+  if (std::holds_alternative<DscpMatch>(match)) return 3;
+  if (std::holds_alternative<ProtoMatch>(match)) return 4;
+  if (std::holds_alternative<PortMatch>(match)) return 5;
+  if (std::holds_alternative<CtDirMatch>(match)) return 6;
+  if (std::holds_alternative<CtStateMatch>(match)) return 7;
+  return 8;
 }
 
-std::string IptablesFirewall::build_prefilter_lines(
-    const FirewallPrefilter &prefilter, const std::string &chain,
-    bool allow_conntrack, bool comments_supported) {
-  std::string lines;
-  const auto comment = [comments_supported](const std::string& value) {
-    if (!comments_supported || value.empty()) return std::string{};
-    return keen_pbr3::format(" -m comment --comment {}", value);
-  };
-  const std::string restore_comment = comment(prefilter.restore_conntrack_mark_comment);
-  const std::string dnat_comment = comment(prefilter.skip_established_or_dnat_comment);
-  const std::string marked_comment = comment(prefilter.skip_marked_packets_comment);
-  const std::string inbound_comment = comment(prefilter.inbound_interface_filter_comment);
-  // raw PREROUTING runs before conntrack.  Do not rely on CONNMARK, ctstate,
-  // or ctdir there: every forwarded packet is classified directly instead.
-  if (allow_conntrack && prefilter.restore_conntrack_mark &&
-      prefilter.conntrack_mark_mask != 0) {
-    const std::string mask =
-        keen_pbr3::format("{:#x}", prefilter.conntrack_mark_mask);
-    lines += keen_pbr3::format(
-        "-A {} -m conntrack --ctdir ORIGINAL -m connmark ! --mark 0/{} "
-        "{} -j CONNMARK --restore-mark --mask {}\n"
-        "-A {} -m conntrack --ctdir ORIGINAL -m mark ! --mark 0/{}{} -j RETURN\n",
-        chain, mask, restore_comment, mask, chain, mask, restore_comment);
-  }
-  if (allow_conntrack && prefilter.skip_established_or_dnat) {
-    lines += keen_pbr3::format(
-        "-A {} -m conntrack --ctstate DNAT{} -j RETURN\n", chain,
-        dnat_comment);
-  }
-
-  if (prefilter.skip_marked_packets) {
-    lines += keen_pbr3::format(
-        "-A {} -m mark ! --mark 0x0/0xffffffff{} -j ACCEPT\n", chain,
-        marked_comment);
-  }
-
-  if (prefilter.has_inbound_interfaces() &&
-      prefilter.inbound_interfaces.has_value() &&
-      prefilter.inbound_interfaces->size() == 1) {
-    lines += keen_pbr3::format("-A {} ! -i {}{} -j RETURN\n", chain,
-                               prefilter.inbound_interfaces->front(),
-                               inbound_comment);
-  }
-
-  return lines;
+void append_hex(std::string &out, uint32_t value) {
+  char buffer[16];
+  const int length = std::snprintf(buffer, sizeof(buffer), "0x%x", value);
+  out.append(buffer, static_cast<std::size_t>(length));
 }
 
-std::vector<std::string> IptablesFirewall::build_rule_lines(
-    const PendingRule &pr, const FirewallPrefilter &prefilter,
-    const std::string &chain, bool allow_conntrack) {
-  // iptables cannot express a multi-value negated -i guard in one rule, so
-  // multi-interface allowlists are expanded into one positive -i match per
-  // rule.
-  std::vector<std::string> iface_frags;
-  if (prefilter.has_inbound_interfaces() &&
-      prefilter.inbound_interfaces.has_value() &&
-      prefilter.inbound_interfaces->size() > 1) {
-    iface_frags.reserve(prefilter.inbound_interfaces->size());
-    for (const auto &iface : *prefilter.inbound_interfaces) {
-      iface_frags.push_back(" -i " + iface);
+void append_port_ranges(std::string &out, const std::vector<PortRange> &ranges) {
+  for (std::size_t index = 0; index < ranges.size(); ++index) {
+    if (index != 0) out.push_back(',');
+    out += std::to_string(ranges[index].from);
+    if (ranges[index].from != ranges[index].to) {
+      out.push_back(':');
+      out += std::to_string(ranges[index].to);
+    }
+  }
+}
+
+void append_ct_states(std::string &out, uint8_t states) {
+  struct Named {
+    uint8_t bit;
+    const char *name;
+  };
+  static constexpr Named kNames[] = {
+      {ct_new, "NEW"},         {ct_established, "ESTABLISHED"},
+      {ct_related, "RELATED"}, {ct_invalid, "INVALID"},
+      {ct_untracked, "UNTRACKED"}, {ct_snat, "SNAT"}, {ct_dnat, "DNAT"}};
+  bool first = true;
+  for (const auto &named : kNames) {
+    if ((states & named.bit) == 0) continue;
+    if (!first) out.push_back(',');
+    out += named.name;
+    first = false;
+  }
+}
+
+void append_iptables_match(std::string &out, const PhysicalMatch &match) {
+  if (const auto *set = std::get_if<SetMatch>(&match)) {
+    out += set->negate ? " -m set ! --match-set " : " -m set --match-set ";
+    out += set->name;
+    out += set->dir == PhysicalDir::src ? " src" : " dst";
+  } else if (const auto *iif = std::get_if<IifMatch>(&match)) {
+    if (iif->names.size() != 1U) {
+      throw FirewallError(
+          "iptables cannot express an interface list in one rule");
+    }
+    out += iif->negate ? " ! -i " : " -i ";
+    out += iif->names.front();
+  } else if (const auto *addr = std::get_if<AddrMatch>(&match)) {
+    out += addr->negate ? " ! " : " ";
+    out += addr->dir == PhysicalDir::src ? "-s " : "-d ";
+    for (std::size_t index = 0; index < addr->cidrs.size(); ++index) {
+      if (index != 0) out.push_back(',');
+      out += addr->cidrs[index];
+    }
+  } else if (const auto *dscp = std::get_if<DscpMatch>(&match)) {
+    out += " -m dscp --dscp ";
+    out += std::to_string(static_cast<int>(dscp->value));
+  } else if (const auto *proto = std::get_if<ProtoMatch>(&match)) {
+    out += " -p ";
+    out += l4_proto_name(proto->proto);
+  } else if (const auto *port = std::get_if<PortMatch>(&match)) {
+    const bool list = port->ranges.size() > 1U;
+    const bool source = port->dir == PhysicalDir::src;
+    if (list) {
+      out += port->negate ? " -m multiport !" : " -m multiport";
+      out += source ? " --sports " : " --dports ";
+    } else {
+      out += port->negate ? " !" : "";
+      out += source ? " --sport " : " --dport ";
+    }
+    append_port_ranges(out, port->ranges);
+  } else if (const auto *dir = std::get_if<CtDirMatch>(&match)) {
+    out += dir->original ? " -m conntrack --ctdir ORIGINAL"
+                         : " -m conntrack --ctdir REPLY";
+  } else if (const auto *state = std::get_if<CtStateMatch>(&match)) {
+    out += state->negate ? " -m conntrack ! --ctstate "
+                         : " -m conntrack --ctstate ";
+    append_ct_states(out, state->states);
+  } else if (const auto *mark = std::get_if<MarkMatch>(&match)) {
+    if (mark->values.size() != 1U) {
+      throw FirewallError("iptables cannot express a mark list in one rule");
+    }
+    out += mark->kind == PhysicalMarkKind::conntrack ? " -m connmark"
+                                                     : " -m mark";
+    out += mark->negate ? " ! --mark " : " --mark ";
+    append_hex(out, mark->values.front());
+    out.push_back('/');
+    append_hex(out, mark->mask);
+  } else {
+    throw FirewallError("cannot render an unknown iptables match");
+  }
+}
+
+void append_iptables_target(std::string &out, const PhysicalStatement &stmt) {
+  if (const auto *mark = std::get_if<SetMarkStmt>(&stmt)) {
+    out += mark->kind == PhysicalMarkKind::conntrack
+               ? " -j CONNMARK --set-xmark "
+               : " -j MARK --set-xmark ";
+    append_hex(out, mark->value);
+    out.push_back('/');
+    append_hex(out, mark->mask);
+  } else if (const auto *copy = std::get_if<CopyMarkStmt>(&stmt)) {
+    out += copy->to_conntrack ? " -j CONNMARK --save-mark"
+                              : " -j CONNMARK --restore-mark";
+    if (copy->nfmask == copy->ctmask) {
+      out += " --mask ";
+      append_hex(out, copy->nfmask);
+    } else {
+      out += " --nfmask ";
+      append_hex(out, copy->nfmask);
+      out += " --ctmask ";
+      append_hex(out, copy->ctmask);
+    }
+  } else if (const auto *jump = std::get_if<JumpStmt>(&stmt)) {
+    out += jump->is_goto ? " -g " : " -j ";
+    out += jump->target.name;
+  } else if (const auto *verdict = std::get_if<VerdictStmt>(&stmt)) {
+    switch (verdict->verdict) {
+    case PhysicalVerdict::accept:
+      out += " -j ACCEPT";
+      break;
+    case PhysicalVerdict::drop:
+      out += " -j DROP";
+      break;
+    case PhysicalVerdict::return_:
+      out += " -j RETURN";
+      break;
     }
   } else {
-    iface_frags.push_back("");
+    throw FirewallError("cannot render an unsupported iptables statement");
   }
+}
 
-  std::string addr_frag;
-  if (!pr.criteria.src_addr.empty())
-    addr_frag += std::string(pr.criteria.negate_src_addr ? " !" : "") + " -s " +
-                 pr.criteria.src_addr[0];
-  if (!pr.criteria.dst_addr.empty())
-    addr_frag += std::string(pr.criteria.negate_dst_addr ? " !" : "") + " -d " +
-                 pr.criteria.dst_addr[0];
-  std::string dscp_frag;
-  if (pr.criteria.dscp.has_value()) {
-    dscp_frag = keen_pbr3::format(" -m dscp --dscp {}",
-                                  static_cast<int>(*pr.criteria.dscp));
+} // namespace
+
+std::string render_iptables_rule(const PhysicalRule &rule,
+                                 const std::string &chain) {
+  if (rule.statements.size() != 1U) {
+    throw FirewallError("an iptables rule has exactly one target");
   }
-  const std::string comment_frag =
-      pr.comment_supported ? comment_fragment(pr.key) : std::string{};
-  std::vector<std::string> lines;
-  lines.reserve(iface_frags.size() * 2);
-  auto append_mark_and_save = [&](std::string mark_line) {
-    lines.push_back(mark_line);
-    if (!allow_conntrack || !prefilter.restore_conntrack_mark ||
-        prefilter.conntrack_mark_mask == 0) {
-      return;
-    }
-    const auto target = mark_line.find(" -j MARK ");
-    if (target == std::string::npos) {
-      return;
-    }
-    mark_line.replace(
-        target, mark_line.size() - target,
-        keen_pbr3::format(" -j CONNMARK --save-mark --mask {:#x}\n",
-                          prefilter.conntrack_mark_mask));
-    lines.push_back(std::move(mark_line));
-  };
-  for (const auto proto : expand_l4_protos_for_iptables(pr.criteria)) {
-    const auto port_fragments = build_proto_port_fragments(
-        proto, pr.criteria.src_port, pr.criteria.dst_port,
-        pr.criteria.negate_src_port, pr.criteria.negate_dst_port);
-
-    for (const auto &pp : port_fragments) {
-      for (const auto &iface_frag : iface_frags) {
-        if (!pr.criteria.dst_set_name.has_value()) {
-          if (pr.action == PendingRule::Mark) {
-            const std::string mark_target = keen_pbr3::format(
-                "-j MARK --set-xmark {:#x}/{:#x}", pr.fwmark, pr.fwmark_mask);
-            append_mark_and_save(keen_pbr3::format(
-                "-A {}{}{}{}{}{} {}\n", chain, iface_frag, addr_frag,
-                dscp_frag, pp, comment_frag, mark_target));
-            lines.push_back(keen_pbr3::format(
-                "-A {}{}{}{}{}{} -j RETURN\n", chain, iface_frag, addr_frag,
-                dscp_frag, pp, comment_frag));
-          } else if (pr.action == PendingRule::Drop) {
-            lines.push_back(keen_pbr3::format(
-                "-A {}{}{}{}{}{} -j DROP\n", chain, iface_frag, addr_frag,
-                dscp_frag, pp, comment_frag));
-          } else {
-            lines.push_back(keen_pbr3::format(
-                "-A {}{}{}{}{}{} -j RETURN\n", chain, iface_frag, addr_frag,
-                dscp_frag, pp, comment_frag));
-          }
-        } else {
-          if (pr.action == PendingRule::Mark) {
-            const std::string mark_target = keen_pbr3::format(
-                "-j MARK --set-xmark {:#x}/{:#x}", pr.fwmark, pr.fwmark_mask);
-            append_mark_and_save(keen_pbr3::format(
-                "-A {} -m set --match-set {} dst{}{}{}{}{} {}\n", chain,
-                *pr.criteria.dst_set_name, iface_frag, addr_frag, dscp_frag, pp,
-                comment_frag, mark_target));
-            lines.push_back(keen_pbr3::format(
-                "-A {} -m set --match-set {} dst{}{}{}{}{} -j RETURN\n", chain,
-                *pr.criteria.dst_set_name, iface_frag, addr_frag, dscp_frag,
-                pp, comment_frag));
-          } else if (pr.action == PendingRule::Drop) {
-            lines.push_back(keen_pbr3::format(
-                "-A {} -m set --match-set {} dst{}{}{}{}{} -j DROP\n", chain,
-                *pr.criteria.dst_set_name, iface_frag, addr_frag, dscp_frag,
-                pp, comment_frag));
-          } else {
-            lines.push_back(keen_pbr3::format(
-                "-A {} -m set --match-set {} dst{}{}{}{}{} -j RETURN\n", chain,
-                *pr.criteria.dst_set_name, iface_frag, addr_frag, dscp_frag,
-                pp, comment_frag));
-          }
-        }
+  std::string line;
+  line.reserve(160);
+  line += "-A ";
+  line += chain;
+  // Stable order by emission rank; rules have a handful of matches.
+  for (int rank = 0; rank <= 8; ++rank) {
+    for (const auto &match : rule.matches) {
+      if (iptables_match_rank(match) == rank) {
+        append_iptables_match(line, match);
       }
     }
   }
-
-  return lines;
+  if (rule.key.has_value()) {
+    line += " -m comment --comment ";
+    line += rule.key->comment();
+  }
+  append_iptables_target(line, rule.statements.front());
+  line.push_back('\n');
+  return line;
 }
+
+namespace {
+
+std::string render_chain(const PhysicalRuleset &rules,
+                         const PhysicalChainId &id, const char *chain_name) {
+  std::string out;
+  const PhysicalChain *chain = rules.find(id);
+  if (chain == nullptr) {
+    return out;
+  }
+  out.reserve(chain->rules.size() * 160U);
+  for (const auto &rule : chain->rules) {
+    out += render_iptables_rule(rule, chain_name);
+  }
+  return out;
+}
+
+} // namespace
 
 std::string
 IptablesFirewall::build_ipt_script(bool ipv6,
                                    FirewallSetGeneration target_generation,
-                                   const std::vector<PendingRule> &rules,
-                                   const FirewallPrefilter &prefilter) {
-  const std::string target = generation_chain(target_generation);
+                                   const PhysicalRuleset &rules) {
+  const char *target =
+      iptables_prerouting_generation_chain_name(false, target_generation);
+  const auto family = ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
   std::string s = "*mangle\n";
   s += keen_pbr3::format(
       ":{} - [0:0]\n:{}_OUTPUT - [0:0]\n:{} - [0:0]\n"
       "-F {}\n-F {}\n-F {}_OUTPUT\n",
       CHAIN_NAME, CHAIN_NAME, target, target, CHAIN_NAME, CHAIN_NAME);
-  s += build_prefilter_lines(prefilter, target, /*allow_conntrack=*/true,
-                             prefilter.comments_supported(ipv6));
-  for (const auto &pr : rules) {
-    if (pr.ipv6 != ipv6)
-      continue;
-    for (auto line : build_rule_lines(pr, prefilter, target,
-                                      /*allow_conntrack=*/true)) {
-      s += line;
-    }
-  }
+  s += render_chain(rules,
+                    iptables_physical_chain_id(target, PhysicalTable::mangle,
+                                               family),
+                    target);
   s += keen_pbr3::format("-A {} -j {}\n-A {}_OUTPUT -j {}\n", CHAIN_NAME,
                          target, CHAIN_NAME, target);
   s += "COMMIT\n";
@@ -1634,64 +1465,108 @@ IptablesFirewall::build_ipt_script(bool ipv6,
 
 std::string IptablesFirewall::build_raw_prerouting_script(
     bool ipv6, FirewallSetGeneration target_generation,
-    const std::vector<PendingRule> &rules,
-    const FirewallPrefilter &prefilter) {
-  const std::string target = target_generation == FirewallSetGeneration::A
-                                 ? "KeenPbrRaw_A"
-                                 : "KeenPbrRaw_B";
+    const PhysicalRuleset &rules) {
+  const char *target =
+      iptables_prerouting_generation_chain_name(true, target_generation);
+  const auto family = ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
   std::string s = "*raw\n";
   s += keen_pbr3::format(
       ":{} - [0:0]\n:{} - [0:0]\n-F {}\n-F {}\n", RAW_CHAIN_NAME, target,
       target, RAW_CHAIN_NAME);
-  s += build_prefilter_lines(prefilter, target, /*allow_conntrack=*/false,
-                             prefilter.comments_supported(ipv6));
-  for (const auto &pr : rules) {
-    if (pr.ipv6 != ipv6)
-      continue;
-    for (const auto &line : build_rule_lines(pr, prefilter, target,
-                                             /*allow_conntrack=*/false))
-      s += line;
-  }
+  s += render_chain(rules,
+                    iptables_physical_chain_id(target, PhysicalTable::raw,
+                                               family),
+                    target);
   s += keen_pbr3::format("-A {} -j {}\n", RAW_CHAIN_NAME, target);
   return s + "COMMIT\n";
 }
 
 std::string IptablesFirewall::build_output_script(
     bool ipv6, FirewallSetGeneration target_generation,
-    const std::vector<PendingRule> &rules,
-    const FirewallPrefilter &prefilter) {
-  const std::string target = output_generation_chain(target_generation);
+    const PhysicalRuleset &rules) {
+  const char *target = iptables_output_generation_chain_name(target_generation);
+  const auto family = ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
   std::string s = "*mangle\n";
   s += keen_pbr3::format(
       ":{} - [0:0]\n:{} - [0:0]\n-F {}\n-F {}\n", OUTPUT_CHAIN_NAME, target,
       target, OUTPUT_CHAIN_NAME);
-  // OUTPUT remains mangle-based and retains the existing connmark optimization.
-  s += build_prefilter_lines(prefilter, target, /*allow_conntrack=*/true,
-                             prefilter.comments_supported(ipv6));
-  for (const auto &pr : rules) {
-    if (pr.ipv6 != ipv6)
-      continue;
-    for (const auto &line : build_rule_lines(pr, prefilter, target,
-                                             /*allow_conntrack=*/true))
-      s += line;
-  }
+  s += render_chain(rules,
+                    iptables_physical_chain_id(target, PhysicalTable::mangle,
+                                               family),
+                    target);
   s += keen_pbr3::format("-A {} -j {}\n", OUTPUT_CHAIN_NAME, target);
   return s + "COMMIT\n";
 }
 
-void IptablesFirewall::append_balance_rule(
-    const FirewallRuleKey&, uint32_t,
-    const std::vector<FirewallBalanceCandidate>&,
-    const FirewallRuleCriteria&) {
-  throw FirewallError(
-      "connection balancing requires the nftables firewall backend");
+FirewallLoweringContext
+IptablesFirewall::lowering_context(uint32_t fwmark_mask) const {
+  FirewallLoweringContext context;
+  context.backend = FirewallBackend::iptables;
+  context.raw_prerouting = raw_prerouting_;
+  context.ipv6_enabled = ipv6_enabled();
+  context.comments_ipv4_supported = comment_v4_supported_;
+  context.comments_ipv6_supported = comment_v6_supported_;
+  context.generation_ipv4 = target_v4_generation_;
+  context.generation_ipv6 = target_v6_generation_;
+  context.fwmark_mask = fwmark_mask;
+  context.physical_set_name = [this](const std::string &name) {
+    return physical_set_name(name);
+  };
+  return context;
+}
+
+PhysicalRuleset IptablesFirewall::expected_hook_rules() const {
+  PhysicalRuleset result;
+  const auto add_chain = [&result](const char *name, PhysicalTable table,
+                                   FirewallFamily family,
+                                   const PhysicalChainId &target) {
+    PhysicalChain chain;
+    chain.id = iptables_physical_chain_id(name, table, family);
+    PhysicalRule rule;
+    rule.family = family;
+    rule.statements.push_back(JumpStmt{target, false});
+    chain.rules.push_back(std::move(rule));
+    result.chains.push_back(std::move(chain));
+  };
+  const auto add_family = [&](bool ipv6) {
+    const auto family = ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
+    const bool raw = uses_raw_prerouting(ipv6);
+    const auto generation =
+        ipv6 ? target_v6_generation_ : target_v4_generation_;
+    const PhysicalTable pre_table =
+        raw ? PhysicalTable::raw : PhysicalTable::mangle;
+    const std::string pre_dispatcher =
+        prerouting_dispatcher_chain_name(ipv6);
+    const std::string pre_generation =
+        prerouting_generation_chain(generation, ipv6);
+    const std::string out_dispatcher =
+        raw ? std::string(OUTPUT_CHAIN_NAME)
+            : std::string(CHAIN_NAME) + "_OUTPUT";
+    const std::string out_generation =
+        raw ? std::string(output_generation_chain(generation))
+            : pre_generation;
+    const auto id = [&](const std::string &name, PhysicalTable table) {
+      return iptables_physical_chain_id(name, table, family);
+    };
+    add_chain("PREROUTING", pre_table, family, id(pre_dispatcher, pre_table));
+    add_chain(pre_dispatcher.c_str(), pre_table, family,
+              id(pre_generation, pre_table));
+    add_chain("OUTPUT", PhysicalTable::mangle, family,
+              id(out_dispatcher, PhysicalTable::mangle));
+    add_chain(out_dispatcher.c_str(), PhysicalTable::mangle, family,
+              id(out_generation, PhysicalTable::mangle));
+  };
+  add_family(false);
+  if (ipv6_enabled() && ipv6_backend_available()) {
+    add_family(true);
+  }
+  return result;
 }
 
 void IptablesFirewall::clear_pending() {
   pending_sets_.clear();
   pending_elements_.clear();
-  pending_rules_.clear();
-  prefilter_ = {};
+  pending_ruleset_ = {};
   apply_prepared_ = false;
 }
 
@@ -1705,51 +1580,8 @@ void IptablesFirewall::compile_plan(const FirewallPlan& plan,
     create_ipset(physical_set_name(declaration.name), family,
                  declaration.timeout);
   }
-
-  for (const auto& rule : plan.rules) {
-    const FirewallRuleCriteria criteria = materialize_criteria(rule.criteria, *this);
-    const auto append = [&](PendingRule::Action action, uint32_t fwmark) {
-      if (rule.family == FirewallFamily::ipv4) {
-        append_rules_for_family(false, action, fwmark, criteria, rule.key);
-      } else if (rule.family == FirewallFamily::ipv6) {
-        append_rules_for_family(true, action, fwmark, criteria, rule.key);
-      } else {
-        switch (action) {
-        case PendingRule::Mark:
-          append_mark_rule(rule.key, fwmark, criteria);
-          break;
-        case PendingRule::Drop:
-          append_drop_rule(rule.key, criteria);
-          break;
-        case PendingRule::Pass:
-          append_pass_rule(rule.key, criteria);
-          break;
-        }
-      }
-    };
-
-    if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
-      append(PendingRule::Mark, mark->value);
-    } else if (const auto* balance =
-                   std::get_if<BalanceAction>(&rule.action)) {
-      append_balance_rule(rule.key, balance->fallback_mark,
-                          balance->candidates, criteria);
-    } else if (const auto* restore =
-                   std::get_if<RestoreConntrackMarkAction>(&rule.action)) {
-      append_restore_conntrack_mark_rule(rule.key, restore->mask);
-    } else if (std::holds_alternative<SkipEstablishedOrDnatAction>(rule.action)) {
-      append_skip_established_or_dnat_rule(rule.key);
-    } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
-      append_skip_marked_packets_rule(rule.key);
-    } else if (const auto* inbound =
-                   std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
-      append_inbound_interface_filter_rule(rule.key, inbound->interfaces);
-    } else if (std::get<VerdictAction>(rule.action) == VerdictAction::drop) {
-      append(PendingRule::Drop, 0);
-    } else {
-      append(PendingRule::Pass, 0);
-    }
-  }
+  pending_ruleset_ =
+      lower_firewall_plan(plan, lowering_context(plan.fwmark_mask));
 }
 
 void IptablesFirewall::apply(const FirewallPlan& plan, FirewallApplyMode mode) {
@@ -1876,46 +1708,38 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
   // Phase 2: iptables rules via iptables-restore / ip6tables-restore.
   // Always materialize the KeenPbrTable scaffold for both protocols so
   // diagnostics can verify chain/jump presence even when no rules are needed.
-  bool has_v4 = true;
-  bool has_v6 = effective_ipv6;
-  for (const auto &pr : pending_rules_) {
-    if (pr.ipv6 && effective_ipv6)
-      has_v6 = true;
-    else if (!pr.ipv6)
-      has_v4 = true;
-  }
+  const bool has_v4 = true;
+  const bool has_v6 = effective_ipv6;
 
   if (has_v4) {
     if (uses_raw_prerouting(false)) {
       // Publish local OUTPUT first and the primary forwarded-traffic
       // PREROUTING path last. Both slots use the same stable fwmarks.
       pipe_to_cmd({"iptables-restore", "--noflush", "--counters"},
-                  build_output_script(false, target_v4_generation_, pending_rules_,
-                                      prefilter_));
+                  build_output_script(false, target_v4_generation_,
+                                      pending_ruleset_));
       pipe_to_cmd({"iptables-restore", "--noflush", "--counters"},
                   build_raw_prerouting_script(false, target_v4_generation_,
-                                              pending_rules_,
-                                              prefilter_));
+                                              pending_ruleset_));
     } else {
       pipe_to_cmd({"iptables-restore", "--noflush", "--counters"},
-                  build_ipt_script(false, target_v4_generation_, pending_rules_,
-                                   prefilter_));
+                  build_ipt_script(false, target_v4_generation_,
+                                   pending_ruleset_));
     }
     chain_v4_created_ = true;
   }
   if (has_v6) {
     if (uses_raw_prerouting(true)) {
       pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
-                  build_output_script(true, target_v6_generation_, pending_rules_,
-                                      prefilter_));
+                  build_output_script(true, target_v6_generation_,
+                                      pending_ruleset_));
       pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
                   build_raw_prerouting_script(true, target_v6_generation_,
-                                              pending_rules_,
-                                              prefilter_));
+                                              pending_ruleset_));
     } else {
       pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
-                  build_ipt_script(true, target_v6_generation_, pending_rules_,
-                                   prefilter_));
+                  build_ipt_script(true, target_v6_generation_,
+                                   pending_ruleset_));
     }
     chain_v6_created_ = true;
   }
@@ -1936,7 +1760,7 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
   // Clear pending buffers
   pending_sets_.clear();
   pending_elements_.clear();
-  pending_rules_.clear();
+  pending_ruleset_ = {};
 }
 
 void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
@@ -2072,7 +1896,7 @@ void IptablesFirewall::cleanup_impl() {
 
   pending_sets_.clear();
   pending_elements_.clear();
-  pending_rules_.clear();
+  pending_ruleset_ = {};
 }
 
 void IptablesFirewall::cleanup() { cleanup_impl(); }

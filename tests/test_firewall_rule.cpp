@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/firewall/firewall_rule.hpp"
+#include "../src/firewall/firewall_lowering.hpp"
 
 #include <stdexcept>
 
