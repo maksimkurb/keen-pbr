@@ -2,7 +2,7 @@
 
 // Backend-neutral, typed description of the rules that keen-pbr owns in the
 // kernel ("physical ruleset").  It is the common target of
-//   * the lowering of a FirewallPlan (planned, step 2b), and
+//   * the lowering of a FirewallPlan (firewall_lowering.hpp), and
 //   * the parsers of real backend output (iptables-save / nft -j), below.
 // A verifier can then be a pure ordered per-chain diff of two PhysicalRulesets
 // with no policy knowledge.
