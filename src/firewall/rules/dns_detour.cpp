@@ -1,5 +1,6 @@
 #include "../firewall_rule_modules.hpp"
 
+#include "../ip_family.hpp"
 #include "../../dns/dns_router.hpp"
 #include "../../routing/target.hpp"
 
@@ -57,19 +58,24 @@ void register_dns_detour_rules(const FirewallBuildContext& context,
                           server.tag);
     }
     for (const DnsServerConfig* resolved_server : resolved_servers) {
-      const FirewallFamily family =
-          resolved_server->resolved_ip.find(':') == std::string::npos
-              ? FirewallFamily::ipv4
-              : FirewallFamily::ipv6;
-      const char* family_label =
-          family == FirewallFamily::ipv6 ? "ipv6" : "ipv4";
       const auto& address = resolved_server->resolved_ip;
       const auto port = resolved_server->port;
       const auto fwmark = mark_it->second;
-      if (address.empty() || port == 0 || fwmark == 0 ||
-          (family == FirewallFamily::ipv6 && !context.ipv6_enabled)) {
+      // An unresolved endpoint is skipped, not an error.
+      if (address.empty() || port == 0 || fwmark == 0) {
         continue;
       }
+      const auto resolved_family = ip_family_of(address);
+      if (!resolved_family.has_value()) {
+        throw FirewallError("invalid resolved DNS server address for tag " +
+                            server.tag + ": " + address);
+      }
+      const FirewallFamily family = *resolved_family;
+      if (family == FirewallFamily::ipv6 && !context.ipv6_enabled) {
+        continue;
+      }
+      const char* family_label =
+          family == FirewallFamily::ipv6 ? "ipv6" : "ipv4";
 
       const std::string endpoint_id =
           "server=" + server.tag + ";route=" + outbound->tag +

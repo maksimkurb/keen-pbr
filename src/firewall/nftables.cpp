@@ -4,6 +4,7 @@
 #include "nft_batch_pipe.hpp"
 #include "firewall_rule.hpp"
 #include "port_spec_util.hpp"
+#include "ip_family.hpp"
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
 #include "../util/safe_exec.hpp"
@@ -228,12 +229,16 @@ json payload(const std::string& protocol, const char* field) {
 // Single CIDR -> prefix object.  Several -> {"set": [prefix...]}.
 json cidr_list_rhs(const std::vector<std::string>& cidrs) {
     const auto to_prefix = [](const std::string& cidr) -> json {
+        const auto family = ip_family_of(cidr);
+        if (!family.has_value()) {
+            throw FirewallError("invalid address in nft rule: " + cidr);
+        }
         const auto slash = cidr.find('/');
         if (slash != std::string::npos) {
             return {{"prefix", {{"addr", cidr.substr(0, slash)},
                                  {"len", std::stoi(cidr.substr(slash + 1))}}}};
         }
-        const bool ipv6 = cidr.find(':') != std::string::npos;
+        const bool ipv6 = *family == FirewallFamily::ipv6;
         return {{"prefix", {{"addr", cidr}, {"len", ipv6 ? 128 : 32}}}};
     };
     if (cidrs.size() == 1) return to_prefix(cidrs.front());

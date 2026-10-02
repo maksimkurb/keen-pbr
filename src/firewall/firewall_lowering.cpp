@@ -1,5 +1,6 @@
 #include "firewall_lowering.hpp"
 
+#include "ip_family.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <map>
@@ -15,8 +16,12 @@ namespace keen_pbr3 {
 
 namespace {
 
-bool is_ipv6_address(const std::string& address) {
-  return address.find(':') != std::string::npos;
+FirewallFamily get_address_family(const std::string& address) {
+  const auto family = ip_family_of(address);
+  if (!family.has_value()) {
+    throw FirewallError("invalid address in firewall rule criteria: " + address);
+  }
+  return *family;
 }
 
 bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
@@ -66,7 +71,7 @@ std::vector<std::string> addresses_for_family(
     const std::vector<std::string>& addresses, FirewallFamily family) {
   std::vector<std::string> result;
   for (const auto& address : addresses) {
-    if ((family == FirewallFamily::ipv6) == is_ipv6_address(address)) {
+    if (get_address_family(address) == family) {
       result.push_back(address);
     }
   }

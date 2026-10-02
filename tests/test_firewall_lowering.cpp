@@ -841,4 +841,14 @@ TEST_CASE("nft renderer: every match and statement kind") {
   }
 }
 
+TEST_CASE("lowering: invalid address in firewall rule criteria") {
+  FirewallRuleCriteria criteria;
+  criteria.dst_addr = {"not-an-ip"};
+  CHECK_THROWS_AS(
+      lower_firewall_plan(
+          plan_of({mark_rule("a", Fam::ipv4, criteria)}),
+          ipt_context()),
+      FirewallError);
+}
+
 } // namespace keen_pbr3
