@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# Regenerate tests/firewall_it/fixtures/physical/* from REAL kernel state.
+#
+# Each scenario runs in a throw-away rootless user+network namespace
+# (`unshare -Urn`, no sudo).  The keen-pbr unit-test binary applies a
+# representative FirewallPlan through the real iptables/nftables backend (see
+# the "physical fixture capture" case in tests/test_firewall_physical.cpp) and
+# this script then dumps the kernel state with the stock tools.
+#
+#   cmake -S . -B cmake-build-gcc -DBUILD_TESTS=ON && \
+#     cmake --build cmake-build-gcc --target keen-pbr-tests
+#   bash tests/firewall_it/scripts/capture_physical_fixtures.sh \
+#     cmake-build-gcc/tests/keen-pbr-tests
+set -euo pipefail
+
+test_bin=$(realpath "${1:?usage: $0 <keen-pbr-tests binary>}")
+out=$(cd "$(dirname "${BASH_SOURCE[0]}")/../fixtures/physical" && pwd)
+
+scenario() {
+  local name=$1
+  shift
+  KPBR_CAPTURE_SCENARIO=$name KPBR_TEST_BIN=$test_bin KPBR_OUT=$out \
+    unshare --user --map-root-user --net bash -euc "$*"
+}
+
+run_case='ip link set lo up; "$KPBR_TEST_BIN" -tc="physical fixture capture*" >/dev/null || { "$KPBR_TEST_BIN" -tc="physical fixture capture*" >&2; exit 1; }'
+
+scenario iptables_mangle "$run_case
+  iptables-save -t mangle >\"\$KPBR_OUT/iptables_mangle_v4.save\"
+  ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_mangle_v6.save\"
+  iptables -t mangle -S >\"\$KPBR_OUT/iptables_mangle_v4.rules\"
+  # Foreign / unknown additions made with the stock tool.
+  iptables -t mangle -A KeenPbrTable_A -s 203.0.113.9 -j ACCEPT
+  iptables -t mangle -I KeenPbrTable_A 1 -m limit --limit 1/s -j RETURN
+  iptables -t mangle -A KeenPbrTable_A -o eth9 -m comment --comment 'not ours' -j LOG
+  iptables -t mangle -A PREROUTING -i eth0 -j ACCEPT
+  iptables -t mangle -A PREROUTING -j KeenPbrTable_A
+  iptables-save -t mangle >\"\$KPBR_OUT/iptables_mangle_v4_foreign.save\"
+  iptables -t mangle -S >\"\$KPBR_OUT/iptables_mangle_v4_foreign.rules\""
+
+scenario iptables_raw "iptables -t raw -S >/dev/null; ip6tables -t raw -S >/dev/null
+  $run_case
+  { iptables-save -t raw; iptables-save -t mangle; } >\"\$KPBR_OUT/iptables_raw_v4.save\"
+  { ip6tables-save -t raw; ip6tables-save -t mangle; } >\"\$KPBR_OUT/iptables_raw_v6.save\""
+
+scenario nftables "$run_case
+  nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_balance.json\"
+  nft list table inet KeenPbrTable >\"\$KPBR_OUT/nft_balance.nft\"
+  nft add rule inet KeenPbrTable prerouting ip saddr 203.0.113.9 accept
+  nft add rule inet KeenPbrTable prerouting limit rate 1/second accept
+  nft add rule inet KeenPbrTable prerouting ip daddr 198.51.100.7 drop comment '\"not ours\"'
+  nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_foreign.json\""
+
+# Representative zoo of kernel spellings (one rule per interesting form), added
+# with the stock tools so the dump shows exactly how iptables-save / nft -j
+# print them back.
+scenario iptables_misc "ip link set lo up
+  for ipt in iptables ip6tables; do
+    \$ipt -t mangle -N KeenPbrTable_A; \$ipt -t mangle -N KeenPbrTable_B
+    \$ipt -t mangle -A KeenPbrTable_A -j MARK --set-mark 0x10
+    \$ipt -t mangle -A KeenPbrTable_A -j MARK --set-mark 0x10/0xff
+    \$ipt -t mangle -A KeenPbrTable_A -m mark ! --mark 0x0/0xffffffff -j ACCEPT
+    \$ipt -t mangle -A KeenPbrTable_A -m mark --mark 5 -j ACCEPT
+    \$ipt -t mangle -A KeenPbrTable_A -m dscp --dscp-class AF11 -j RETURN
+    \$ipt -t mangle -A KeenPbrTable_A -m dscp --dscp 10 -j RETURN
+    \$ipt -t mangle -A KeenPbrTable_A -p tcp --dport 80:80 -j RETURN
+    \$ipt -t mangle -A KeenPbrTable_A -p udp -m multiport ! --dports 53,80:90 -j RETURN
+    \$ipt -t mangle -A KeenPbrTable_A -m conntrack --ctdir ORIGINAL -m connmark ! --mark 0x0/0xff0000 -j CONNMARK --restore-mark --mask 0xff0000
+    \$ipt -t mangle -A KeenPbrTable_A -j CONNMARK --save-mark --nfmask 0xff --ctmask 0xf
+    \$ipt -t mangle -A KeenPbrTable_A -p udp -m comment --comment 'kpbr:v1:a.b:c d' -j RETURN
+    \$ipt -t mangle -A KeenPbrTable_A -m comment --comment 'kpbr:v1:route.mark:abc' -j RETURN
+    \$ipt -t mangle -A KeenPbrTable_A -m comment --comment 'kpbr:v9:route.mark:abc' -j RETURN
+    \$ipt -t mangle -A KeenPbrTable_A -m limit --limit 1/s -j RETURN
+    \$ipt -t mangle -A KeenPbrTable_A -o eth9 -j LOG
+    \$ipt -t mangle -A KeenPbrTable_A -g KeenPbrTable_B
+    \$ipt -t mangle -A KeenPbrTable_A -j SomeoneElsesChain 2>/dev/null || true
+    \$ipt -t mangle -A PREROUTING -j KeenPbrTable_A
+    \$ipt -t mangle -A PREROUTING -j KeenPbrTable_A
+    \$ipt -t mangle -A PREROUTING -i eth0 -j ACCEPT
+    \$ipt -t mangle -A INPUT -j KeenPbrTable_B
+  done
+  iptables -t mangle -A KeenPbrTable_A -f -j DROP
+  iptables -t mangle -A KeenPbrTable_A -s 1.2.3.4 ! -d 10.1.2.3/8 -j RETURN
+  iptables -t mangle -A KeenPbrTable_A -s 10.0.0.0/8,192.168.0.0/16 -j RETURN
+  ip6tables -t mangle -A KeenPbrTable_A -s 2001:db8::1 -d 2001:DB8:0:0::5/64 -p udp --dport 53 -j RETURN
+  iptables-save -t mangle >\"\$KPBR_OUT/iptables_misc_v4.save\"
+  ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_misc_v6.save\""
+
+scenario nft_misc "ip link set lo up
+  nft add table inet KeenPbrTable
+  nft add chain inet KeenPbrTable prerouting '{ type filter hook prerouting priority -150; policy accept; }'
+  nft add chain inet KeenPbrTable setmark_00000010
+  nft add set inet KeenPbrTable kpbr4_x '{ type ipv4_addr; flags interval; }'
+  nft add element inet KeenPbrTable kpbr4_x '{ 10.0.0.0/8, 192.0.2.1 }'
+  while IFS= read -r rule; do nft add rule inet KeenPbrTable prerouting \$rule; done <<'EOF_RULES'
+tcp dport { 443, 80, 81, 8000-9000, 8500-9500, 22-25, 80 } accept
+ip daddr { 9.9.9.9, 8.8.8.8, 10.0.0.0/8, 10.1.0.0/16 } accept
+ip daddr 1.2.3.4/32 accept
+ip saddr 10.1.2.3/8 accept
+ip6 daddr 2001:DB8:0::5/64 accept
+ip dscp 0x2e accept
+ip dscp 7 accept
+ip dscp cs1 accept
+meta mark set 5 accept
+meta mark set meta mark and 0xff00ffff or 0x10000 accept
+iifname { \"lan0\", \"br0\", \"lan0\" } accept
+ct state { established, related } accept
+ct status dnat accept
+meta mark != 0 accept
+meta mark and 0xff == 0x10 accept
+tcp dport != { 80, 443 } accept
+meta l4proto { tcp, udp } accept
+ip saddr . tcp dport { 1.2.3.4 . 80 } accept
+limit rate 1/second accept
+ip daddr @kpbr4_x jump setmark_00000010
+goto setmark_00000010
+return
+EOF_RULES
+  nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_misc.json\"
+  nft list table inet KeenPbrTable >\"\$KPBR_OUT/nft_misc.nft\""

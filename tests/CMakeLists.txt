@@ -4,6 +4,7 @@ add_executable(keen-pbr-tests
   test_firewall_verifier.cpp
   test_firewall_runtime.cpp
   test_firewall_snapshot.cpp
+  test_firewall_physical.cpp
   test_firewall_plan.cpp
   test_firewall_rule_modules.cpp
   test_firewall_rule.cpp
@@ -87,6 +88,7 @@ add_executable(keen-pbr-tests
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
   ../src/firewall/firewall_snapshot.cpp
+  ../src/firewall/firewall_physical.cpp
   ../src/firewall/firewall_plan_verifier.cpp
   ../src/firewall/firewall_plan.cpp
   ../src/firewall/firewall_rule.cpp
