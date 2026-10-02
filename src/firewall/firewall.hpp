@@ -71,13 +71,12 @@ struct FirewallRuleCriteria {
   bool negate_dst_port = false; // if true, match packets NOT to dst_port
   bool negate_src_addr = false; // if true, match packets NOT from src_addr
   bool negate_dst_addr = false; // if true, match packets NOT to dst_addr
-  bool apply_output = false;    // classify locally generated packets instead of prerouting
   DefaultGatewayFamily default_gateway = DefaultGatewayFamily::None;
   std::vector<std::string> default_gateway_bypass;
   bool empty() const {
     return !dst_set_name.has_value() && !dscp.has_value() &&
            proto == L4Proto::Any && src_port.empty() && dst_port.empty() &&
-           src_addr.empty() && dst_addr.empty() && !apply_output &&
+           src_addr.empty() && dst_addr.empty() &&
            default_gateway == DefaultGatewayFamily::None;
   }
 

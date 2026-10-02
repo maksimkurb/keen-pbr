@@ -91,8 +91,7 @@ std::string instance_id(const FirewallBuildContext& context,
          ";target=" +
          (target.set_name.has_value() ? *target.set_name : "none") +
          ";family=" + family_name(target.family) +
-         ";proto=" + protocol_name(criteria, context.backend) +
-         ";hook=" + (criteria.apply_output ? "output" : "prerouting");
+         ";proto=" + protocol_name(criteria, context.backend);
 }
 
 bool family_matches_default_gateway(const FirewallRuleCriteria& criteria,
@@ -196,8 +195,7 @@ void register_route_rule_targets(const FirewallBuildContext& context,
         module_id, instance_id(context, rule_index, target));
     rule.stage = FirewallRuleStage::route_classification;
     rule.priority = static_cast<int>(rule_index);
-    rule.hook = target.criteria.apply_output ? FirewallHook::output
-                                             : FirewallHook::prerouting;
+    rule.hook = FirewallHook::prerouting;
     rule.family = target.family;
     rule.criteria = target.criteria;
     rule.criteria.dst_set_name = target.set_name;

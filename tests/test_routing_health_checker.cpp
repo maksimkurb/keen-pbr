@@ -66,6 +66,12 @@ const char* active_mark_snapshot() {
                              "right":"@kpbr4_list"}},
                   {"mangle":{"key":{"meta":{"key":"mark"}},"value":65536}},
                   {"accept":null}]}},
+      {"rule":{"family":"inet","table":"KeenPbrTable","chain":"output",
+                "comment":"kpbr:v1:route.mark:active","expr":[
+                  {"match":{"op":"==","left":{"payload":{"protocol":"ip","field":"daddr"}},
+                             "right":"@kpbr4_list"}},
+                  {"mangle":{"key":{"meta":{"key":"mark"}},"value":65536}},
+                  {"accept":null}]}},
       {"chain":{"family":"inet","table":"KeenPbrTable","name":"setmark_00010000"}},
       {"rule":{"family":"inet","table":"KeenPbrTable","chain":"setmark_00010000",
                 "expr":[

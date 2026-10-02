@@ -131,10 +131,9 @@ public:
     plan.rules.push_back(std::move(restore));
     FirewallRuleInstance balance;
     balance.family = FirewallFamily::any;
-    balance.hook = FirewallHook::output;
+    balance.hook = FirewallHook::prerouting;
     balance.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
     balance.criteria.default_gateway_bypass = {"127.0.0.0/8", "192.168.1.0/24"};
-    balance.criteria.apply_output = true;
     balance.action = BalanceAction{
         0x00010000U, {{0x00020000U, true, false}, {0x00030000U, true, false}}};
     plan.rules.push_back(std::move(balance));
@@ -291,8 +290,7 @@ public:
       if (!d.set_name.empty()) {
         rule.criteria.dst_set_name = d.set_name;
       }
-      rule.hook = rule.criteria.apply_output ? FirewallHook::output
-                                             : FirewallHook::prerouting;
+      rule.hook = FirewallHook::prerouting;
       if (d.action == RuleDesc::Mark) {
         rule.action = MarkAction{d.fwmark, mask};
       } else {
@@ -381,8 +379,7 @@ public:
     FirewallRuleInstance rule;
     rule.family = FirewallFamily::any;
     rule.criteria = criteria;
-    rule.hook = criteria.apply_output ? FirewallHook::output
-                                      : FirewallHook::prerouting;
+    rule.hook = FirewallHook::prerouting;
     rule.action = MarkAction{fwmark, fwmark_mask};
     plan.rules.push_back(std::move(rule));
     return render_rules(lower_firewall_plan(plan, context(fwmark_mask)));
@@ -399,7 +396,8 @@ public:
   static nlohmann::json single_rule_json(
       const std::string &set_name, int family, FirewallRuleAction action,
       ProtoPortFilter filter, uint32_t fwmark_mask, bool direct,
-      bool save_conntrack_mark, FirewallRuleKey key) {
+      bool save_conntrack_mark, FirewallRuleKey key,
+      FirewallHook hook = FirewallHook::prerouting) {
     FirewallPlan plan;
     plan.fwmark_mask = fwmark_mask;
     if (save_conntrack_mark) {
@@ -415,10 +413,9 @@ public:
     if (!direct && !set_name.empty()) {
       rule.criteria.dst_set_name = set_name;
     }
-    rule.hook = rule.criteria.apply_output ? FirewallHook::output
-                                           : FirewallHook::prerouting;
+    rule.hook = hook;
     rule.action = std::move(action);
-    const bool output = rule.criteria.apply_output;
+    const bool output = hook == FirewallHook::output;
     plan.rules.push_back(std::move(rule));
     const auto ruleset = lower_firewall_plan(plan, context(fwmark_mask));
     const auto* chain = ruleset.find(nft_physical_chain_id(
@@ -555,8 +552,7 @@ static FirewallPlan route_mark_plan(const FirewallRuleKey& key,
                     : criteria.default_gateway == DefaultGatewayFamily::Ipv6
                           ? FirewallFamily::ipv6
                           : FirewallFamily::any;
-  rule.hook = criteria.apply_output ? FirewallHook::output
-                                    : FirewallHook::prerouting;
+  rule.hook = FirewallHook::prerouting;
   rule.criteria = std::move(criteria);
   rule.action = MarkAction{fwmark, fwmark_mask};
   FirewallRuleRegistrar registrar(plan);
@@ -565,7 +561,7 @@ static FirewallPlan route_mark_plan(const FirewallRuleKey& key,
   return plan;
 }
 
-TEST_CASE("nft route.mark emits one physical rule per address family and protocol") {
+TEST_CASE("nft route.mark emits rules in both prerouting and output chains") {
   const FirewallRuleKey key{"route.mark", "materialized"};
   FirewallRuleCriteria criteria;
   criteria.proto = L4Proto::TcpUdp;
@@ -574,16 +570,16 @@ TEST_CASE("nft route.mark emits one physical rule per address family and protoco
   const auto plan = route_mark_plan(key, criteria, 0x00100000u);
   const auto commands = T::build_rule_add_commands_via_plan(plan);
 
+  // Route rules now appear in both prerouting and output chains, so commands are doubled.
   // Whether the emitted rules are what the kernel reports back, and what a
   // corrupted ruleset looks like to the verifier, is covered with real nft
   // dumps in test_firewall_lowering.cpp and test_firewall_verifier.cpp.
-  CHECK(commands.size() == 4);
+  CHECK(commands.size() == 8);
 }
 
-TEST_CASE("nft route.mark default-gateway companion is emitted to output and prerouting") {
+TEST_CASE("nft route.mark default-gateway is emitted to output and prerouting") {
   const FirewallRuleKey key{"route.mark", "gateway"};
   FirewallRuleCriteria criteria;
-  criteria.apply_output = true;
   criteria.default_gateway = DefaultGatewayFamily::Ipv4;
   criteria.default_gateway_bypass = {"192.0.2.0/24"};
   const auto plan = route_mark_plan(key, criteria, 0x00100000u);
@@ -704,7 +700,7 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead both classification cha
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 5);
+  REQUIRE(cmds.size() == 7);
 
   const auto &dnat_expr = cmds[0]["add"]["rule"]["expr"];
   CHECK(dnat_expr[0]["match"]["op"] == "in");
@@ -718,8 +714,11 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead both classification cha
   CHECK(marked_expr[0]["match"]["right"] == 0);
   CHECK(marked_expr[2].contains("accept"));
 
-  const auto &output_marked_expr = cmds[4]["add"]["rule"]["expr"];
+  // Prerouting: dnat, marked, iface, mark; output: dnat, marked, mark.
   CHECK(cmds[4]["add"]["rule"]["chain"] == "output");
+  CHECK(cmds[4]["add"]["rule"]["expr"][0]["match"]["right"] == "dnat");
+  const auto &output_marked_expr = cmds[5]["add"]["rule"]["expr"];
+  CHECK(cmds[5]["add"]["rule"]["chain"] == "output");
   CHECK(output_marked_expr[0]["match"]["left"]["meta"]["key"] == "mark");
   CHECK(output_marked_expr[0]["match"]["op"] == "!=");
   CHECK(output_marked_expr[0]["match"]["right"] == 0);
@@ -739,6 +738,8 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead both classification cha
   CHECK(mark_expr[0]["match"]["right"] == "@myset");
   CHECK(mark_expr[2]["mangle"]["value"] == 256);
   CHECK(mark_expr[3].contains("accept"));
+  CHECK(cmds[6]["add"]["rule"]["chain"] == "output");
+  CHECK(cmds[6]["add"]["rule"]["expr"] == cmds[3]["add"]["rule"]["expr"]);
 }
 
 TEST_CASE("build_rule_add_commands: conntrack restore is masked, ordered, and falls through") {
@@ -748,7 +749,7 @@ TEST_CASE("build_rule_add_commands: conntrack restore is masked, ordered, and fa
 
   const auto commands = T::build_rule_add_commands(prefilter,
                                                      {mark_rule("myset", AF_INET, 256)});
-  REQUIRE(commands.size() == 3);
+  REQUIRE(commands.size() == 4);
   const auto& restore = commands[0]["add"]["rule"]["expr"];
   REQUIRE(restore.size() == 5);
   CHECK(restore[0]["match"]["left"]["ct"]["key"] == "direction");
@@ -782,7 +783,7 @@ TEST_CASE("nft empty owned marks emit no restore") {
   prefilter.skip_marked_packets_comment = marked_key.comment();
 
   const auto commands = T::build_rule_add_commands(prefilter, {});
-  REQUIRE(commands.size() == 3);
+  REQUIRE(commands.size() == 4);
   CHECK(std::none_of(commands.begin(), commands.end(), [](const auto& command) {
     return command["add"]["rule"].value("comment", "") ==
            "kpbr:v1:prefilter.restore_conntrack_mark:one";
@@ -810,13 +811,16 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface gua
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 4);
+  REQUIRE(cmds.size() == 6);
   CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["op"] == "in");
   CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "status");
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
   CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  // Output repeats dnat, marked, route rule in the same order.
   CHECK(cmds[3]["add"]["rule"]["chain"] == "output");
-  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
+  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["right"] == "dnat");
+  CHECK(cmds[4]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
+  CHECK(cmds[5]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface guard before route rule") {
@@ -840,12 +844,18 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface g
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 5);
+  REQUIRE(cmds.size() == 7);
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
   CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "iifname");
   CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "br0");
   CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  // Output: dnat, marked, route rule; never the inbound-interface guard.
   CHECK(cmds[4]["add"]["rule"]["chain"] == "output");
+  CHECK(cmds[6]["add"]["rule"]["chain"] == "output");
+  CHECK(cmds[6]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  for (std::size_t i = 4; i < cmds.size(); ++i) {
+    CHECK(cmds[i].dump().find("iifname") == std::string::npos);
+  }
 }
 
 TEST_CASE("mark plan: port-only tcp/udp rule emits one tcp and one udp entry") {
@@ -857,7 +867,7 @@ TEST_CASE("mark plan: port-only tcp/udp rule emits one tcp and one udp entry") {
       T::build_rule_add_commands_via_mark_plan(0x10000, criteria);
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 4);
+  REQUIRE(cmds.size() == 8);
   CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["right"] == "tcp");
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "udp");
   CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "tcp");
@@ -871,13 +881,18 @@ TEST_CASE("nft output chain: DNS detour chain uses output hook") {
   CHECK(chain["add"]["chain"]["type"] == "route");
 }
 
-TEST_CASE("nft output-only detour does not also classify prerouting") {
-  FirewallRuleCriteria criteria;
-  criteria.apply_output = true;
-  criteria.dst_addr = {"192.0.2.53"};
+TEST_CASE("nft output-only detour (hook=output) does not also classify prerouting") {
+  FirewallPlan plan;
+  plan.fwmark_mask = 0xFFFFFFFFu;
+  FirewallRuleInstance rule;
+  rule.family = FirewallFamily::ipv4;
+  rule.hook = FirewallHook::output;
+  rule.criteria.dst_addr = {"192.0.2.53"};
+  rule.action = MarkAction{0x00010000U, 0xFFFFFFFFu};
+  plan.rules.push_back(std::move(rule));
 
-  const auto commands = T::build_rule_add_commands_for_rule(
-      AF_INET, T::RuleDesc::Mark, 0x00010000U, criteria, false);
+  const auto commands = T::render_rules(
+      lower_firewall_plan(plan, T::context(0xFFFFFFFFu)));
 
   REQUIRE(commands.size() == 1);
   CHECK(commands[0]["add"]["rule"]["chain"] == "output");
@@ -917,7 +932,7 @@ TEST_CASE("nft split balance classifiers are family guarded") {
     }
   }
 
-  REQUIRE(emitted.size() == 2);
+  REQUIRE(emitted.size() == 4);
   CHECK(emitted[0]["expr"][0]["match"]["left"]["meta"]["key"] ==
         "nfproto");
   CHECK(emitted[0]["expr"][0]["match"]["right"] == "ipv4");
@@ -1048,10 +1063,10 @@ TEST_CASE("build_rule_json: keyed IPv4/IPv6 policy rules carry comments") {
   CHECK(v4["add"]["rule"]["comment"] == key.comment());
   CHECK(v6["add"]["rule"]["comment"] == key.comment());
 
-  ProtoPortFilter output_filter;
-  output_filter.apply_output = true;
-  const auto output = T::build_mark_rule_json(
-      "myset", AF_INET, 256, output_filter, 0xFFFFFFFFu, false, false, key);
+  // Test output-only rule with hook=output
+  const auto output = T::single_rule_json(
+      "myset", AF_INET, MarkAction{256, 0xFFFFFFFFu}, {}, 0xFFFFFFFFu, false,
+      false, key, FirewallHook::output);
   CHECK(output["add"]["rule"]["chain"] == "output");
   CHECK(output["add"]["rule"]["comment"] == key.comment());
 
@@ -1102,7 +1117,7 @@ TEST_CASE("build_rule_add_commands: skip_marked_packets prefilter can be disable
   const auto cmds = T::build_rule_add_commands(prefilter,
                                                {mark_rule("myset", AF_INET, 256)});
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 2);
+  REQUIRE(cmds.size() == 4);
   CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "status");
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
@@ -1370,7 +1385,7 @@ TEST_CASE("mark plan: dscp-only rule emits IPv4 and IPv6 entries") {
   FirewallRuleCriteria criteria;
   criteria.dscp = 46;
   auto commands = T::build_rule_add_commands_via_mark_plan(0x100, criteria);
-  REQUIRE(commands.size() == 2);
+  REQUIRE(commands.size() == 4);
   CHECK(commands[0]["add"]["rule"]["expr"][0]["match"]["left"]["payload"]["protocol"] == "ip");
   CHECK(commands[1]["add"]["rule"]["expr"][0]["match"]["left"]["payload"]["protocol"] == "ip6");
 }

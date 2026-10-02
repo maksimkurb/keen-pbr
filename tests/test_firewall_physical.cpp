@@ -732,14 +732,26 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
     CHECK(v6vmap.entries[2].second == setter(0x40000u));
   }
 
-  SUBCASE("output chain keeps companion and OUTPUT-only rules") {
+  SUBCASE("output chain mirrors prerouting except inbound filter and output-only rules") {
+    const auto &p = require_chain(set, pre);
     const auto &o = require_chain(set, out);
-    REQUIRE(o.rules.size() == 5);
-    CHECK(o.rules[3].matches ==
-          std::vector<PhysicalMatch>{
-              SetMatch{"kpbr4_hybrid", PhysicalDir::dst, false}});
-    CHECK(o.rules[3].statements ==
-          std::vector<PhysicalStatement>{VerdictStmt{PhysicalVerdict::drop}});
+    REQUIRE(p.rules.size() == 18);
+    REQUIRE(o.rules.size() == 19);
+    // Prerouting rule 3 is the inbound-interface filter, which never applies
+    // to router-originated traffic; output rules 13 and 14 come from plan
+    // rules with hook=output.
+    std::vector<PhysicalRule> shared;
+    for (std::size_t i = 0; i < p.rules.size(); ++i) {
+      if (i != 3) shared.push_back(p.rules[i]);
+    }
+    std::vector<PhysicalRule> output_shared;
+    for (std::size_t i = 0; i < o.rules.size(); ++i) {
+      if (i != 13 && i != 14) output_shared.push_back(o.rules[i]);
+    }
+    CHECK(output_shared == shared);
+    CHECK(std::holds_alternative<IifMatch>(p.rules[3].matches.front()));
+    CHECK(std::get<SetMatch>(o.rules[13].matches.front()).name == "kpbr4d_routed");
+    CHECK(std::get<SetMatch>(o.rules[14].matches.front()).name == "kpbr4_hybrid");
   }
 }
 

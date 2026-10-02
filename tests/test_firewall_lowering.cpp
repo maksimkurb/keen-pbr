@@ -21,12 +21,12 @@ constexpr uint32_t kMark3 = 0x30000u;
 
 FirewallRuleInstance make_rule(std::string module, std::string instance,
                                Fam family, FirewallRuleCriteria criteria,
-                               FirewallRuleAction action) {
+                               FirewallRuleAction action,
+                               FirewallHook hook = FirewallHook::prerouting) {
   FirewallRuleInstance rule;
   rule.key = {std::move(module), std::move(instance)};
   rule.family = family;
-  rule.hook = criteria.apply_output ? FirewallHook::output
-                                    : FirewallHook::prerouting;
+  rule.hook = hook;
   rule.criteria = std::move(criteria);
   rule.action = std::move(action);
   return rule;
@@ -350,11 +350,10 @@ TEST_CASE("lowering iptables: prefilters") {
 TEST_CASE("lowering iptables: PREROUTING and OUTPUT placement") {
   const auto routes = [] {
     FirewallRuleCriteria detour = for_set("kpbr4s_dns");
-    detour.apply_output = true;
     return plan_of({make_rule("route.mark", "route", Fam::ipv4,
                               for_set("kpbr4s_x"), MarkAction{kMark1, kMask}),
                     make_rule("dns.detour", "detour", Fam::ipv4, detour,
-                              MarkAction{kMark2, kMask}),
+                              MarkAction{kMark2, kMask}, FirewallHook::output),
                     make_rule("route.drop", "last", Fam::ipv4,
                               for_set("kpbr4s_y"), VerdictAction::drop)});
   };
@@ -510,7 +509,9 @@ TEST_CASE("lowering nftables: chains and mark shapes") {
   CHECK(nft_out(set).base ==
         PhysicalBaseChain{PhysicalBaseChain::Type::route,
                           PhysicalBaseChain::Hook::output, -150, true});
-  CHECK(nft_out(set).rules.empty());
+  // Route rules appear in both chains
+  REQUIRE(nft_out(set).rules.size() == 1);
+  CHECK(nft_out(set).rules[0] == nft_pre(set).rules[0]);
 
   SUBCASE("without restore the mark is set inline") {
     REQUIRE(nft_pre(set).rules.size() == 1);
@@ -544,8 +545,10 @@ TEST_CASE("lowering nftables: chains and mark shapes") {
     CHECK(pre.rules[1].statements ==
           std::vector<PhysicalStatement>{JumpStmt{
               nft_physical_chain_id(Role::nft_setter, kMark1), false}});
-    // The restore rule guards OUTPUT too.
-    CHECK(nft_out(restored).rules.size() == 1);
+    // The restore rule and route rule both appear in OUTPUT
+    REQUIRE(nft_out(restored).rules.size() == 2);
+    CHECK(nft_out(restored).rules[0] == pre.rules[0]);
+    CHECK(nft_out(restored).rules[1] == pre.rules[1]);
   }
   SUBCASE("owned marks always get a setter, restore needs at least one") {
     auto context = nft_context();
@@ -598,9 +601,8 @@ TEST_CASE("lowering nftables: family handling") {
   }
 }
 
-TEST_CASE("lowering nftables: default gateway companion and OUTPUT rules") {
+TEST_CASE("lowering nftables: route rules in both chains and OUTPUT-only rules") {
   FirewallRuleCriteria criteria;
-  criteria.apply_output = true;
   criteria.default_gateway = DefaultGatewayFamily::Ipv4;
   criteria.default_gateway_bypass = {"192.168.0.0/16", "10.0.0.0/8"};
   const auto set = lower_firewall_plan(
@@ -618,12 +620,11 @@ TEST_CASE("lowering nftables: default gateway companion and OUTPUT rules") {
     CHECK(nft_out(none).rules.empty());
     CHECK(nft_pre(none).rules.empty());
   }
-  SUBCASE("an OUTPUT-only rule has no companion") {
+  SUBCASE("an OUTPUT-only rule (hook=output) has no companion in prerouting") {
     FirewallRuleCriteria only_output = for_set("kpbr4d_x");
-    only_output.apply_output = true;
     const auto lowered = lower_firewall_plan(
         plan_of({make_rule("route.drop", "o", Fam::ipv4, only_output,
-                           VerdictAction::drop)}),
+                           VerdictAction::drop, FirewallHook::output)}),
         nft_context());
     CHECK(nft_pre(lowered).rules.empty());
     REQUIRE(nft_out(lowered).rules.size() == 1);
@@ -689,15 +690,84 @@ TEST_CASE("lowering nftables: prefilters") {
   const auto set = lower_firewall_plan(plan, nft_context());
   const auto &pre = nft_pre(set).rules;
   const auto &out = nft_out(set).rules;
-  // pre: restore, dnat, skip marked, inbound, route.  out: restore, skip marked.
+  // pre: restore, dnat, skip marked, inbound, route.  out: restore, dnat (now in both), skip marked, route.
   REQUIRE(pre.size() == 5);
-  REQUIRE(out.size() == 2);
+  REQUIRE(out.size() == 4);
   CHECK(has_match(pre[1], CtStateMatch{ct_dnat, false}));
   CHECK(has_match(pre[3], IifMatch{true, {"lan0", "wg0"}}));
   CHECK(verdict_of(pre[3]) == PhysicalVerdict::accept);
-  CHECK(has_match(out[1], MarkMatch{PhysicalMarkKind::packet, 0xFFFFFFFFu, true,
+  CHECK(has_match(out[2], MarkMatch{PhysicalMarkKind::packet, 0xFFFFFFFFu, true,
                                     {0}}));
   CHECK(pre[0] == out[0]);
+  // DNAT skip appears in both chains
+  CHECK(pre[1] == out[1]);
+  // Route rule appears in both chains
+  CHECK(pre[4] == out[3]);
+}
+
+// ===========================================================================
+// nftables placement tests (a-e from brief)
+// ===========================================================================
+
+TEST_CASE("nftables lowering: route mark rule appears in both prerouting and output") {
+  // Test (a): nft route mark rule in both prerouting and output
+  const auto set = lower_firewall_plan(
+      plan_of({mark_rule("route", Fam::ipv4, for_set("kpbr4_x"), kMark1)}),
+      nft_context());
+  CHECK(nft_pre(set).rules.size() == 1);
+  CHECK(nft_out(set).rules.size() == 1);
+  CHECK(nft_pre(set).rules[0] == nft_out(set).rules[0]);
+}
+
+TEST_CASE("nftables lowering: hook=output rule appears only in output chain") {
+  // Test (b): nft hook=output rule only in output
+  const auto set = lower_firewall_plan(
+      plan_of({make_rule("dns.detour", "output_only", Fam::ipv4,
+                         for_set("kpbr4_dns"), MarkAction{kMark1, kMask},
+                         FirewallHook::output)}),
+      nft_context());
+  CHECK(nft_pre(set).rules.empty());
+  CHECK(nft_out(set).rules.size() == 1);
+}
+
+TEST_CASE("nftables lowering: inbound interface filter only in prerouting") {
+  // Test (c): nft inbound filter only in prerouting
+  auto plan = plan_of({});
+  plan.rules.push_back(make_rule("prefilter.inbound_interface", "iif",
+                                 Fam::any, {},
+                                 InboundInterfaceFilterAction{{"lan0"}}));
+  const auto set = lower_firewall_plan(plan, nft_context());
+  CHECK(nft_pre(set).rules.size() == 1);
+  CHECK(has_match(nft_pre(set).rules[0], IifMatch{true, {"lan0"}}));
+  CHECK(nft_out(set).rules.empty());
+}
+
+TEST_CASE("nftables lowering: DNAT skip in both chains") {
+  // Test (d): nft DNAT skip in both prerouting and output
+  auto plan = plan_of({});
+  plan.rules.push_back(make_rule("prefilter.skip_established_or_dnat", "dnat",
+                                 Fam::any, {},
+                                 SkipEstablishedOrDnatAction{}));
+  const auto set = lower_firewall_plan(plan, nft_context());
+  CHECK(nft_pre(set).rules.size() == 1);
+  CHECK(nft_out(set).rules.size() == 1);
+  CHECK(has_match(nft_pre(set).rules[0], CtStateMatch{ct_dnat, false}));
+  CHECK(has_match(nft_out(set).rules[0], CtStateMatch{ct_dnat, false}));
+}
+
+TEST_CASE("nftables lowering: default_gateway route rule in both prerouting and output") {
+  // Test (e): nft default_gateway route rule exactly once in prerouting and once in output
+  FirewallRuleCriteria criteria;
+  criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+  criteria.default_gateway_bypass = {"192.168.0.0/16"};
+  const auto set = lower_firewall_plan(
+      plan_of({mark_rule("gateway", Fam::ipv4, criteria, kMark1)}),
+      nft_context());
+  CHECK(nft_pre(set).rules.size() == 1);
+  CHECK(nft_out(set).rules.size() == 1);
+  CHECK(nft_pre(set).rules[0] == nft_out(set).rules[0]);
+  CHECK(has_match(nft_pre(set).rules[0],
+                  AddrMatch{PhysicalDir::dst, true, {"192.168.0.0/16"}}));
 }
 
 // ===========================================================================

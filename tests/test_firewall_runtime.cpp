@@ -626,7 +626,6 @@ TEST_CASE("runtime captures OUTPUT default-gateway bypass criteria") {
 
   REQUIRE(firewall.recorded_rules.size() == 1);
   const auto &criteria = firewall.recorded_rules.front().criteria;
-  CHECK(criteria.apply_output);
   CHECK(criteria.default_gateway == DefaultGatewayFamily::Ipv4);
   CHECK(std::find(criteria.default_gateway_bypass.begin(),
                   criteria.default_gateway_bypass.end(),
@@ -671,7 +670,6 @@ TEST_CASE("runtime replays only the gateway family for populated route lists") {
   for (const auto &recorded : firewall.recorded_rules) {
     CHECK(recorded.action == RecordingFirewall::RuleAction::Mark);
     CHECK(recorded.fwmark == 0x100U);
-    CHECK(recorded.criteria.apply_output);
     CHECK(recorded.criteria.default_gateway == DefaultGatewayFamily::Ipv4);
     CHECK(recorded.criteria.proto == L4Proto::TcpUdp);
     CHECK(recorded.criteria.dst_port == PortSpec("443"));
@@ -856,7 +854,6 @@ TEST_CASE("runtime emits DNS detours as OUTPUT TCP/UDP rules") {
     CHECK(rule.fwmark == 0x200U);
     CHECK(rule.criteria.dst_port == PortSpec("5353"));
     CHECK(rule.criteria.dst_addr == std::vector<std::string>{"192.0.2.53"});
-    CHECK(rule.criteria.apply_output);
   }
   CHECK(firewall.recorded_rules[0].criteria.proto == L4Proto::Tcp);
   CHECK(firewall.recorded_rules[1].criteria.proto == L4Proto::Udp);

@@ -37,18 +37,17 @@ public:
         seen_mark = mark->value;
         seen_key = current.key;
         seen_criteria = materialize(current.criteria);
-        replayed.push_back(seen_criteria.apply_output ? "dns" : "route");
+        replayed.push_back(current.hook == FirewallHook::output ? "dns" : "route");
       } else if (const auto* balance =
                      std::get_if<BalanceAction>(&current.action)) {
         seen_mark = balance->fallback_mark;
         seen_candidates = balance->candidates;
         seen_key = current.key;
         seen_criteria = materialize(current.criteria);
-        replayed.push_back(seen_criteria.apply_output ? "dns" : "route");
+        replayed.push_back(current.hook == FirewallHook::output ? "dns" : "route");
       } else if (const auto* verdict = std::get_if<VerdictAction>(&current.action)) {
         if (*verdict == VerdictAction::drop || *verdict == VerdictAction::pass) {
-          const auto criteria = materialize(current.criteria);
-          replayed.push_back(criteria.apply_output ? "dns" : "route");
+          replayed.push_back(current.hook == FirewallHook::output ? "dns" : "route");
         }
       }
     }
@@ -105,20 +104,13 @@ TEST_CASE("FirewallRuleRegistrar assigns stable insertion order and sorts") {
   CHECK(plan.rules[2].insertion_order == 0);
 }
 
-TEST_CASE("FirewallRuleRegistrar rejects duplicate keys and invalid placement") {
+TEST_CASE("FirewallRuleRegistrar rejects duplicate keys") {
   FirewallPlan plan;
   FirewallRuleRegistrar registrar(plan);
   registrar.register_rule(rule("route", "same", FirewallRuleStage::terminal, 0));
   CHECK_THROWS_AS(
       registrar.register_rule(rule("route", "same", FirewallRuleStage::terminal, 1)),
       std::invalid_argument);
-
-  FirewallPlan invalid_plan;
-  FirewallRuleRegistrar invalid_registrar(invalid_plan);
-  auto invalid = rule("route", "output", FirewallRuleStage::terminal, 0);
-  invalid.hook = FirewallHook::output;
-  CHECK_THROWS_AS(invalid_registrar.register_rule(std::move(invalid)),
-                  std::invalid_argument);
 }
 
 TEST_CASE("FirewallRuleRegistrar deduplicates identical sets and rejects conflicts") {
@@ -359,9 +351,7 @@ TEST_CASE("backend validation accepts nftables-only constructs on nftables") {
 
   auto gateway = rule("route.mark", "gateway", FirewallRuleStage::route_classification,
                       1);
-  gateway.hook = FirewallHook::output;
   gateway.family = FirewallFamily::ipv4;
-  gateway.criteria.apply_output = true;
   gateway.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
   gateway.action = MarkAction{0x100U, 0xFFFFFFFFU};
   plan.rules.push_back(gateway);
@@ -384,9 +374,7 @@ TEST_CASE("backend validation rejects unsupported construct with stable detail")
   FirewallPlan gateway_plan;
   auto gateway = rule("route.mark", "gateway", FirewallRuleStage::route_classification,
                       0);
-  gateway.hook = FirewallHook::output;
   gateway.family = FirewallFamily::ipv4;
-  gateway.criteria.apply_output = true;
   gateway.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
   gateway_plan.rules.push_back(std::move(gateway));
   CHECK_THROWS_WITH(
