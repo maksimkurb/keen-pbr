@@ -23,15 +23,6 @@ void validate_firewall_rule(const FirewallRuleInstance& rule,
       rule.family != FirewallFamily::any) {
     throw std::invalid_argument("firewall rule has an invalid family");
   }
-  if (rule.hook == FirewallHook::output) {
-    if (!rule.criteria.apply_output) {
-      throw std::invalid_argument(
-          "output firewall rule must set criteria.apply_output");
-    }
-  } else if (rule.criteria.apply_output) {
-    throw std::invalid_argument(
-        "prerouting firewall rule cannot set criteria.apply_output");
-  }
 
   if ((rule.criteria.default_gateway == DefaultGatewayFamily::Ipv4 &&
       rule.family != FirewallFamily::ipv4) ||

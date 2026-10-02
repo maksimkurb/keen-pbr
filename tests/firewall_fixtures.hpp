@@ -77,15 +77,15 @@ inline FirewallRuleInstance capture_rule(std::string_view module,
                                   FirewallRuleStage stage, int priority,
                                   FirewallFamily family,
                                   FirewallRuleCriteria criteria,
-                                  FirewallRuleAction action) {
+                                  FirewallRuleAction action,
+                                  FirewallHook hook = FirewallHook::prerouting) {
   FirewallRuleInstance rule;
   rule.key = FirewallRuleKey::compact(module, semantic);
   rule.stage = stage;
   rule.priority = priority;
   rule.family = family;
   rule.criteria = std::move(criteria);
-  rule.hook = rule.criteria.apply_output ? FirewallHook::output
-                                         : FirewallHook::prerouting;
+  rule.hook = hook;
   rule.action = std::move(action);
   return rule;
 }
@@ -199,15 +199,19 @@ inline FirewallPlan capture_plan(bool nft, bool two_interfaces, bool conntrack) 
   }
   {
     FirewallRuleCriteria c;
-    c.apply_output = true;
     c.dst_set_name = "kpbr4d_routed";
-    route("route.mark", FirewallFamily::ipv4, c, mark1);
+    r.register_rule(capture_rule("route.mark", "r" + std::to_string(index),
+                                 S::route_classification, index, FirewallFamily::ipv4,
+                                 c, mark1, FirewallHook::output));
+    ++index;
   }
   {
     FirewallRuleCriteria c;
-    c.apply_output = true;
     c.dst_set_name = "kpbr4_hybrid";
-    route("route.drop", FirewallFamily::ipv4, c, VerdictAction::drop);
+    r.register_rule(capture_rule("route.drop", "r" + std::to_string(index),
+                                 S::route_classification, index, FirewallFamily::ipv4,
+                                 c, VerdictAction::drop, FirewallHook::output));
+    ++index;
   }
   if (nft) {
     {
@@ -218,7 +222,6 @@ inline FirewallPlan capture_plan(bool nft, bool two_interfaces, bool conntrack) 
     }
     {
       FirewallRuleCriteria c;
-      c.apply_output = true;
       c.default_gateway = DefaultGatewayFamily::Ipv6;
       c.default_gateway_bypass = {"fd00::/8"};
       route("route.mark", FirewallFamily::ipv6, c, mark2);

@@ -663,7 +663,6 @@ FirewallRuleCriteria build_firewall_rule_criteria(
         const bool ipv6 = *rule.default_gateway == api::DefaultGateway::IPV6;
         criteria.default_gateway = ipv6 ? DefaultGatewayFamily::Ipv6
                                         : DefaultGatewayFamily::Ipv4;
-        criteria.apply_output = true;
         std::set<std::string> bypass;
         const auto add = [&bypass](const std::string& destination) {
             if (!destination.empty() && destination != "default" &&

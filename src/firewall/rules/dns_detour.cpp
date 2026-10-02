@@ -95,7 +95,6 @@ void register_dns_detour_rules(const FirewallBuildContext& context,
         rule.criteria.proto = proto;
         rule.criteria.dst_port = std::to_string(port);
         rule.criteria.dst_addr = {address};
-        rule.criteria.apply_output = true;
         rule.action = MarkAction{fwmark, context.fwmark_mask};
         registrar.register_rule(std::move(rule));
       }

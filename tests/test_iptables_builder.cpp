@@ -243,8 +243,7 @@ public:
       if (!d.set_name.empty()) {
         rule.criteria.dst_set_name = d.set_name;
       }
-      rule.hook = rule.criteria.apply_output ? FirewallHook::output
-                                             : FirewallHook::prerouting;
+      rule.hook = FirewallHook::prerouting;
       if (d.action == RuleDesc::Mark) {
         rule.action = MarkAction{d.fwmark, fwmark_mask};
       } else {
@@ -1906,10 +1905,29 @@ TEST_CASE("build_ipt_script: empty rules still build the chains and hooks (fresh
 }
 
 TEST_CASE("mangle restore: route rules land in both chains, DNS-detour only in OUTPUT") {
-  Rule route{"kpbr4s_x", false, false, Rule::Mark, 0x100, {}};
-  Rule detour{"kpbr4s_dns", false, false, Rule::Mark, 0x200, {}};
-  detour.filter.apply_output = true;
-  const auto script = T::build_mangle_script(false, {route, detour});
+  // Create a custom plan with both route and DNS-detour rules
+  FirewallPlan plan;
+  plan.fwmark_mask = 0xFFFFFFFFu;
+
+  FirewallRuleInstance route;
+  route.family = FirewallFamily::ipv4;
+  route.hook = FirewallHook::prerouting;
+  route.criteria.dst_set_name = "kpbr4s_x";
+  route.action = MarkAction{0x100, 0xFFFFFFFFu};
+  plan.rules.push_back(std::move(route));
+
+  FirewallRuleInstance detour;
+  detour.family = FirewallFamily::ipv4;
+  detour.hook = FirewallHook::output;
+  detour.criteria.dst_set_name = "kpbr4s_dns";
+  detour.action = MarkAction{0x200, 0xFFFFFFFFu};
+  plan.rules.push_back(std::move(detour));
+
+  const auto ruleset = T::lower(plan);
+  const auto script = T::table_script("mangle", false,
+                                      {{"KeenPbrTable", "PREROUTING"},
+                                       {"KeenPbrOutput", "OUTPUT"}},
+                                      ruleset);
   CHECK(script.find("-A KeenPbrTable -m set --match-set kpbr4s_x dst -j MARK") !=
         std::string::npos);
   CHECK(script.find("-A KeenPbrOutput -m set --match-set kpbr4s_x dst -j MARK") !=

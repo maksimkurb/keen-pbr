@@ -112,13 +112,13 @@ TEST_CASE("route modules emit zero, one, and many canonical instances") {
   REQUIRE(drop_plan.rules.front().source_rule_index == 1);
   CHECK(drop_plan.rules.front().key == FirewallRuleKey::compact(
       "route.drop",
-      "rule=1;occurrence=0;target=none;family=any;proto=any;hook=prerouting"));
+      "rule=1;occurrence=0;target=none;family=any;proto=any"));
   CHECK(std::get<VerdictAction>(drop_plan.rules.front().action) ==
         VerdictAction::drop);
   REQUIRE(pass_plan.rules.front().source_rule_index == 2);
   CHECK(pass_plan.rules.front().key == FirewallRuleKey::compact(
       "route.pass",
-      "rule=2;occurrence=0;target=none;family=any;proto=any;hook=prerouting"));
+      "rule=2;occurrence=0;target=none;family=any;proto=any"));
   CHECK(std::get<VerdictAction>(pass_plan.rules.front().action) ==
         VerdictAction::pass);
   const auto static_target = std::find_if(
@@ -225,7 +225,7 @@ TEST_CASE("route mark owns selection and reads runtime marks") {
   CHECK(ipv4.family == FirewallFamily::ipv4);
   CHECK(ipv4.key == FirewallRuleKey::compact(
                          "route.mark",
-                         "rule=0;occurrence=0;target=none;family=ipv4;proto=any;hook=prerouting"));
+                         "rule=0;occurrence=0;target=none;family=ipv4;proto=any"));
 
   const auto& ipv6 = plan.rules[1];
   CHECK(ipv6.source_rule_index == 1);
@@ -233,7 +233,7 @@ TEST_CASE("route mark owns selection and reads runtime marks") {
   CHECK(ipv6.family == FirewallFamily::ipv6);
   CHECK(ipv6.key == FirewallRuleKey::compact(
                          "route.mark",
-                         "rule=1;occurrence=0;target=none;family=ipv6;proto=any;hook=prerouting"));
+                         "rule=1;occurrence=0;target=none;family=ipv6;proto=any"));
 
   for (std::size_t index = 0; index < plan.rules.size(); ++index) {
     const auto& rule = plan.rules[index];
@@ -571,7 +571,6 @@ TEST_CASE("config builds ordered DNS detour rules in the firewall plan") {
   CHECK(first[3]->criteria.proto == L4Proto::Udp);
   for (const auto* rule : first) {
     CHECK(rule->hook == FirewallHook::output);
-    CHECK(rule->criteria.apply_output);
     CHECK(rule->criteria.dst_port == PortSpec("5353"));
   }
   CHECK(std::get<MarkAction>(first[0]->action).value == 0x300U);
@@ -758,8 +757,7 @@ TEST_CASE("IPv4 default gateway keeps both list families but emits IPv4 rules") 
   CHECK(plan.rules[4].criteria.dst_set_name == "kpbr4d_remote");
   for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[3], plan.rules[4]}) {
     CHECK(rule.family == FirewallFamily::ipv4);
-    CHECK(rule.hook == FirewallHook::output);
-    CHECK(rule.criteria.apply_output);
+    CHECK(rule.hook == FirewallHook::prerouting);
     CHECK(rule.criteria.default_gateway == DefaultGatewayFamily::Ipv4);
     CHECK(rule.criteria.proto == L4Proto::TcpUdp);
     CHECK(rule.criteria.dst_port == PortSpec("443"));
@@ -779,8 +777,7 @@ TEST_CASE("IPv6 default gateway keeps both list families but emits IPv6 rules") 
   CHECK(plan.rules[4].criteria.dst_set_name == "kpbr6d_remote");
   for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[3], plan.rules[4]}) {
     CHECK(rule.family == FirewallFamily::ipv6);
-    CHECK(rule.hook == FirewallHook::output);
-    CHECK(rule.criteria.apply_output);
+    CHECK(rule.hook == FirewallHook::prerouting);
     CHECK(rule.criteria.default_gateway == DefaultGatewayFamily::Ipv6);
     CHECK(rule.criteria.proto == L4Proto::TcpUdp);
     CHECK(rule.criteria.dst_port == PortSpec("443"));

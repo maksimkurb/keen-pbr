@@ -153,17 +153,7 @@ std::vector<FirewallPhysicalClassifier> materialize_firewall_classifiers(
                 ? std::vector<std::string>{dst[dst_index]} : dst;
           }
 
-          const bool add_gateway_companion =
-              backend == FirewallBackend::nftables &&
-              rule.criteria.apply_output &&
-              rule.criteria.default_gateway != DefaultGatewayFamily::None;
           result.push_back(physical);
-          if (add_gateway_companion) {
-            auto companion = physical;
-            companion.hook = FirewallHook::prerouting;
-            companion.criteria.apply_output = false;
-            result.push_back(std::move(companion));
-          }
         }
       }
     }
@@ -791,9 +781,11 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
       }
     } else if (std::holds_alternative<SkipEstablishedOrDnatAction>(
                    rule.action)) {
-      prerouting.rules.push_back(build_rule(
-          any, {CtStateMatch{ct_dnat, false}},
-          {verdict(PhysicalVerdict::accept)}, key));
+      for (auto *chain : {&prerouting, &output}) {
+        chain->rules.push_back(build_rule(
+            any, {CtStateMatch{ct_dnat, false}},
+            {verdict(PhysicalVerdict::accept)}, key));
+      }
     } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
       for (auto *chain : {&prerouting, &output}) {
         chain->rules.push_back(build_rule(
@@ -853,11 +845,15 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
           statements.push_back(
               verdict(drop ? PhysicalVerdict::drop : PhysicalVerdict::accept));
         }
-        const bool to_output =
-            criteria.apply_output || classifier.hook == FirewallHook::output;
-        (to_output ? output : prerouting)
-            .rules.push_back(build_rule(family, std::move(matches),
-                                        std::move(statements), key));
+        if (classifier.hook == FirewallHook::output) {
+          output.rules.push_back(build_rule(family, std::move(matches),
+                                            std::move(statements), key));
+        } else {
+          // Route rules (hook == prerouting) go to both prerouting and output chains
+          prerouting.rules.push_back(build_rule(family, matches, statements, key));
+          output.rules.push_back(build_rule(family, std::move(matches),
+                                            std::move(statements), key));
+        }
       }
     }
     stamp_plan_rule(prerouting, prerouting_before, plan_index);
