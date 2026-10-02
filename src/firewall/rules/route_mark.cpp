@@ -4,8 +4,12 @@
 
 namespace keen_pbr3 {
 
-void RouteMarkRuleModule::register_rules(
-    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
+namespace {
+constexpr std::string_view kModuleId = "route.mark";
+}
+
+void register_route_mark_rules(const FirewallBuildContext& context,
+                               FirewallRuleRegistrar& registrar) {
   if (context.outbound_marks == nullptr) {
     return;
   }
@@ -35,7 +39,7 @@ void RouteMarkRuleModule::register_rules(
                                 ? 0
                                 : mark_it->second;
     register_route_rule_targets(
-        context, registrar, id(), rule_index,
+        context, registrar, kModuleId, rule_index,
         FirewallRuleAction{MarkAction{fwmark, context.fwmark_mask}},
         fwmark != 0);
   }

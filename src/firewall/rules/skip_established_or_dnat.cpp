@@ -4,13 +4,16 @@
 
 namespace keen_pbr3 {
 
-void SkipEstablishedOrDnatRuleModule::register_rules(
-    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
-  if (!context.skip_established_or_dnat) {
-    return;
-  }
+namespace {
+constexpr std::string_view kModuleId = "prefilter.skip_established_or_dnat";
+}
+
+void register_skip_established_or_dnat_rules(const FirewallBuildContext& context,
+                                             FirewallRuleRegistrar& registrar) {
+  // Always enabled: DNATed and established flows keep their existing path.
+  (void)context;
   FirewallRuleInstance rule;
-  rule.key = FirewallRuleKey::compact(id(), "dnat");
+  rule.key = FirewallRuleKey::compact(kModuleId, "dnat");
   rule.stage = FirewallRuleStage::global_bypass;
   rule.priority = 0;
   rule.family = FirewallFamily::any;

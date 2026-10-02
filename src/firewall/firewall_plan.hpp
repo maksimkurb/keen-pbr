@@ -2,11 +2,13 @@
 
 #include "firewall_rule.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <map>
 #include <set>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -29,6 +31,17 @@ struct FirewallPlan {
   std::set<std::string> referenced_list_names;
   uint32_t fwmark_mask{0xFFFFFFFFu};
 };
+
+// True when the plan contains a rule carrying Action. The plan is the single
+// source of truth for policy decisions made by modules (e.g. prefilter
+// enablement); consumers query it instead of recomputing them from config.
+template <typename Action>
+bool plan_has_action(const FirewallPlan& plan) {
+  return std::any_of(plan.rules.begin(), plan.rules.end(),
+                     [](const FirewallRuleInstance& rule) {
+                       return std::holds_alternative<Action>(rule.action);
+                     });
+}
 
 class FirewallRuleRegistrar {
 public:

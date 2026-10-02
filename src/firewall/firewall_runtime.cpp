@@ -2,6 +2,7 @@
 #include "firewall_physical.hpp"
 #include "firewall_rule_modules.hpp"
 
+#include "../config/list_parser.hpp"
 #include "../config/routing_state.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_set_usage.hpp"
@@ -50,6 +51,32 @@ bool ipset_maxelem_changed(const std::optional<int64_t> &current,
 }
 
 } // namespace
+
+void IpFamilySplitVisitor::on_entry(EntryType type, std::string_view entry) {
+  if (type == EntryType::Domain) {
+    return;
+  }
+  const auto family = ListParser::entry_family(type, entry);
+  if (!family.has_value()) {
+    constexpr std::size_t kMaxDetailedInvalidEntries = 5;
+    const std::size_t count = ++invalid_entries_;
+    if (count <= kMaxDetailedInvalidEntries) {
+      Logger::instance().warn(
+          "Skipping list entry '{}' in list {}: not a valid IPv4/IPv6 address or CIDR",
+          std::string(entry.substr(0, 128)), list_name_);
+    } else if (count == kMaxDetailedInvalidEntries + 1) {
+      Logger::instance().warn(
+          "Too many unclassifiable entries in list {}; further entries will be skipped without warnings",
+          list_name_);
+    }
+    return;
+  }
+  ListEntryVisitor* loader =
+      *family == EntryFamily::Ipv6 ? ipv6_ : ipv4_;
+  if (loader != nullptr) {
+    loader->on_entry(type, entry);
+  }
+}
 
 FirewallConfigApplyPolicy firewall_config_apply_policy(
     FirewallBackend backend, const Config &current, const Config &candidate) {
@@ -207,7 +234,6 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
     (void)usage;
     plan.referenced_list_names.insert(list_name);
   }
-  const auto prefilter = build_firewall_prefilter(inputs.config);
 
   const auto& all_outbounds =
       inputs.config.outbounds.value_or(std::vector<Outbound>{});
@@ -217,18 +243,10 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   const auto& route_rules =
       route_config.rules.value_or(std::vector<RouteRule>{});
   FirewallRuleRegistrar registrar(plan);
-  const bool owned_marks_present = std::any_of(
-      inputs.outbound_marks.begin(), inputs.outbound_marks.end(),
-      [](const auto& entry) { return entry.second != 0; });
-  const bool restore_conntrack_mark =
-      inputs.backend == FirewallBackend::iptables || owned_marks_present;
   const FirewallBuildContext context{
       route_rules, all_outbounds, lists_map, inputs.list_usage,
       inputs.main_routes, inputs.interfaces, inputs.backend,
       inputs.ipv6_enabled, inputs.fwmark_mask, inputs.balance_candidates,
-      restore_conntrack_mark, prefilter.skip_established_or_dnat,
-      prefilter.skip_marked_packets,
-      prefilter.inbound_interfaces.value_or(std::vector<std::string>{}),
       &inputs.config, &inputs.outbound_marks};
   for (const auto register_module : route_rule_module_manifest()) {
     register_module(context, registrar);
@@ -381,19 +399,7 @@ ActiveFirewall apply_runtime_firewall(
         auto loader6 = set6.has_value()
             ? firewall.create_batch_loader(*set6)
             : nullptr;
-        FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
-          if (type == EntryType::Domain) {
-            return;
-          }
-          const bool is_ipv6 = entry.find(':') != std::string_view::npos;
-          if (is_ipv6) {
-            if (loader6) {
-              loader6->on_entry(type, entry);
-            }
-          } else if (loader4) {
-            loader4->on_entry(type, entry);
-          }
-        });
+        IpFamilySplitVisitor splitter(loader4.get(), loader6.get(), list_name);
         list_streamer->stream_list(list_name, list_cfg_it->second, splitter);
         if (loader4) {
           loader4->finish();

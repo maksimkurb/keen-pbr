@@ -7,8 +7,11 @@
 #include <doctest/doctest.h>
 
 #include "../src/firewall/firewall_plan.hpp"
+#include "../src/firewall/firewall_runtime.hpp"
 
 #include <filesystem>
+#include <map>
+#include <optional>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -17,6 +20,55 @@
 #include <vector>
 
 namespace keen_pbr3 {
+
+// Backend-builder test vocabulary for the prefilter portion of a plan. It is
+// only a fixture shorthand mapped onto plan rules by the builder tests; the
+// production code derives these decisions solely from the plan modules.
+struct PrefilterFixture {
+  std::optional<std::vector<std::string>> inbound_interfaces;
+  bool skip_established_or_dnat{false};
+  bool skip_marked_packets{false};
+  bool restore_conntrack_mark{false};
+  uint32_t conntrack_mark_mask{0};
+  std::string restore_conntrack_mark_comment;
+  std::string skip_established_or_dnat_comment;
+  std::string skip_marked_packets_comment;
+  std::string inbound_interface_filter_comment;
+  bool comments_ipv4_supported{true};
+  bool comments_ipv6_supported{true};
+
+  bool has_inbound_interfaces() const {
+    return inbound_interfaces.has_value() && !inbound_interfaces->empty();
+  }
+  bool comments_supported(bool ipv6) const {
+    return ipv6 ? comments_ipv6_supported : comments_ipv4_supported;
+  }
+};
+
+// Prefilter fixture derived from a config through the real plan modules
+// (bypass and interface guard only; conntrack restore stays off).
+inline PrefilterFixture prefilter_fixture_from_config(
+    const Config& config,
+    FirewallBackend backend = FirewallBackend::iptables) {
+  const OutboundMarkMap marks;
+  const std::map<std::string, ListSetUsage> usage;
+  const std::vector<DumpedRoute> routes;
+  const std::vector<DumpedInterface> interfaces;
+  const FirewallPlan plan = build_firewall_plan(
+      {config, marks, usage, routes, interfaces, nullptr, true, 0xFFFFFFFFu,
+       backend});
+  PrefilterFixture fixture;
+  fixture.skip_established_or_dnat =
+      plan_has_action<SkipEstablishedOrDnatAction>(plan);
+  fixture.skip_marked_packets = plan_has_action<SkipMarkedPacketsAction>(plan);
+  for (const auto& rule : plan.rules) {
+    if (const auto* inbound =
+            std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
+      fixture.inbound_interfaces = inbound->interfaces;
+    }
+  }
+  return fixture;
+}
 
 inline constexpr uint32_t kCaptureMask = 0x00FF0000u;
 

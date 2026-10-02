@@ -8,8 +8,12 @@
 
 namespace keen_pbr3 {
 
-void RouteBalanceRuleModule::register_rules(
-    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
+namespace {
+constexpr std::string_view kModuleId = "route.balance";
+}
+
+void register_route_balance_rules(const FirewallBuildContext& context,
+                                  FirewallRuleRegistrar& registrar) {
   for (std::size_t rule_index = 0; rule_index < context.route_rules.size();
        ++rule_index) {
     const auto& route_rule = context.route_rules[rule_index];
@@ -34,7 +38,8 @@ void RouteBalanceRuleModule::register_rules(
                       return context.lists.find(list_name) != context.lists.end();
                     })) {
       throw FirewallError(
-          "unsupported firewall construct: module_id=route.balance, rule=" +
+          "unsupported firewall construct: module_id=" +
+          std::string(kModuleId) + ", rule=" +
           std::to_string(rule_index) +
           ", backend=iptables, construct=BalanceAction (requires nftables)");
     }
@@ -52,7 +57,7 @@ void RouteBalanceRuleModule::register_rules(
                                                : it->second;
                                   }();
     register_route_rule_targets(
-        context, registrar, id(), rule_index,
+        context, registrar, kModuleId, rule_index,
         FirewallRuleAction{BalanceAction{mark_it->second, candidates}});
   }
 }

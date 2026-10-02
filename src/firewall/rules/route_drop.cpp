@@ -4,8 +4,12 @@
 
 namespace keen_pbr3 {
 
-void RouteDropRuleModule::register_rules(
-    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
+namespace {
+constexpr std::string_view kModuleId = "route.drop";
+}
+
+void register_route_drop_rules(const FirewallBuildContext& context,
+                               FirewallRuleRegistrar& registrar) {
   for (std::size_t rule_index = 0; rule_index < context.route_rules.size();
        ++rule_index) {
     const auto& route_rule = context.route_rules[rule_index];
@@ -19,7 +23,7 @@ void RouteDropRuleModule::register_rules(
       continue;
     }
     register_route_rule_targets(
-        context, registrar, id(), rule_index,
+        context, registrar, kModuleId, rule_index,
         FirewallRuleAction{VerdictAction::drop});
   }
 }

@@ -1,5 +1,7 @@
 #include "ipset_restore_pipe.hpp"
 
+#include "../config/list_parser.hpp"
+
 #include <string>
 
 namespace keen_pbr3 {
@@ -16,7 +18,11 @@ void IpsetRestoreVisitor::on_entry(EntryType type, std::string_view entry) {
     // an all-addresses CIDR by expressing it as the two /1 networks.
     if (type == EntryType::Cidr && entry.size() >= 2 &&
         entry.substr(entry.size() - 2) == "/0") {
-        if (entry.find(':') != std::string_view::npos) {
+        const auto family = ListParser::entry_family(type, entry);
+        if (!family.has_value()) {
+            return; // Not a valid CIDR; never guess a family.
+        }
+        if (*family == EntryFamily::Ipv6) {
             buffer_ << "add " << set_name_ << " ::/1 -exist\n";
             buffer_ << "add " << set_name_ << " 8000::/1 -exist\n";
         } else {

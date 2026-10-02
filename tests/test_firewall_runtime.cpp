@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
+#include <utility>
 #include <unistd.h>
 #include <vector>
 
@@ -1418,6 +1419,78 @@ TEST_CASE("FirewallState readers get one coherent snapshot across a publish") {
   state.clear_active_firewall();
   CHECK(state.active_firewall() == nullptr);
   CHECK(held->rule_states.size() == 1);
+}
+
+namespace {
+
+class CollectingVisitor final : public ListEntryVisitor {
+public:
+  void on_entry(EntryType type, std::string_view entry) override {
+    entries.emplace_back(type, std::string(entry));
+  }
+  std::vector<std::pair<EntryType, std::string>> entries;
+};
+
+} // namespace
+
+TEST_CASE("IpFamilySplitVisitor routes entries by address family") {
+  CollectingVisitor v4;
+  CollectingVisitor v6;
+  IpFamilySplitVisitor splitter(&v4, &v6, "test");
+
+  splitter.on_entry(EntryType::Ip, "192.0.2.1");
+  splitter.on_entry(EntryType::Cidr, "192.0.2.0/24");
+  splitter.on_entry(EntryType::Ip, "2001:db8::1");
+  splitter.on_entry(EntryType::Cidr, "2001:db8::/32");
+  splitter.on_entry(EntryType::Ip, "::ffff:192.0.2.1");  // IPv4-mapped IPv6
+  splitter.on_entry(EntryType::Cidr, "::ffff:192.0.2.0/120");
+  splitter.on_entry(EntryType::Domain, "example.test");
+
+  using Entries = std::vector<std::pair<EntryType, std::string>>;
+  CHECK(v4.entries == Entries{{EntryType::Ip, "192.0.2.1"},
+                              {EntryType::Cidr, "192.0.2.0/24"}});
+  CHECK(v6.entries == Entries{{EntryType::Ip, "2001:db8::1"},
+                              {EntryType::Cidr, "2001:db8::/32"},
+                              {EntryType::Ip, "::ffff:192.0.2.1"},
+                              {EntryType::Cidr, "::ffff:192.0.2.0/120"}});
+  CHECK(splitter.invalid_entries() == 0);
+}
+
+TEST_CASE("IpFamilySplitVisitor never sends invalid entries to the IPv4 loader") {
+  CollectingVisitor v4;
+  CollectingVisitor v6;
+  IpFamilySplitVisitor splitter(&v4, &v6, "test");
+
+  splitter.on_entry(EntryType::Ip, "not-an-ip");
+  splitter.on_entry(EntryType::Ip, "192.0.2");
+  splitter.on_entry(EntryType::Ip, "1.2.3.4:80");
+  splitter.on_entry(EntryType::Ip, "2001:db8::zz");
+  splitter.on_entry(EntryType::Ip, "fe80::1%eth0");
+  splitter.on_entry(EntryType::Ip, "192.0.2.0/24");  // prefix on an Ip entry
+  splitter.on_entry(EntryType::Cidr, "192.0.2.1");   // Cidr without prefix
+  splitter.on_entry(EntryType::Cidr, "2001:db8::/");
+  splitter.on_entry(EntryType::Ip, "");
+
+  CHECK(v4.entries.empty());
+  CHECK(v6.entries.empty());
+  CHECK(splitter.invalid_entries() == 9);
+
+  splitter.on_entry(EntryType::Ip, "192.0.2.9");
+  CHECK(v4.entries.size() == 1);
+}
+
+TEST_CASE("IpFamilySplitVisitor tolerates a missing family loader") {
+  CollectingVisitor v4;
+  IpFamilySplitVisitor v4_only(&v4, nullptr, "test");
+  v4_only.on_entry(EntryType::Ip, "2001:db8::1");
+  v4_only.on_entry(EntryType::Ip, "192.0.2.1");
+  CHECK(v4.entries.size() == 1);
+
+  CollectingVisitor v6;
+  IpFamilySplitVisitor v6_only(nullptr, &v6, "test");
+  v6_only.on_entry(EntryType::Ip, "192.0.2.1");
+  v6_only.on_entry(EntryType::Ip, "2001:db8::1");
+  CHECK(v6.entries.size() == 1);
 }
 
 } // namespace keen_pbr3

@@ -10,8 +10,12 @@
 
 namespace keen_pbr3 {
 
-void DnsDetourRuleModule::register_rules(
-    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar) const {
+namespace {
+constexpr std::string_view kModuleId = "dns.detour";
+}
+
+void register_dns_detour_rules(const FirewallBuildContext& context,
+                               FirewallRuleRegistrar& registrar) {
   if (context.config == nullptr || context.outbound_marks == nullptr ||
       !context.config->dns.has_value()) {
     return;
@@ -76,7 +80,7 @@ void DnsDetourRuleModule::register_rules(
       for (const auto proto : {L4Proto::Tcp, L4Proto::Udp}) {
         FirewallRuleInstance rule;
         rule.key = FirewallRuleKey::compact(
-            id(), endpoint_id + ";occurrence=" + std::to_string(occurrence) +
+            kModuleId, endpoint_id + ";occurrence=" + std::to_string(occurrence) +
                     ";proto=" + l4_proto_name(proto));
         rule.stage = FirewallRuleStage::route_classification;
         rule.priority = priority++;

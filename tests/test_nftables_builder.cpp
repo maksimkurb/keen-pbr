@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include "firewall_fixtures.hpp"
 #include "../src/config/config.hpp"
 #include "../src/config/routing_state.hpp"
 #include "../src/firewall/nft_batch_pipe.hpp"
@@ -251,7 +252,7 @@ public:
     ProtoPortFilter filter;
   };
 
-  static FirewallPlan plan_from(const FirewallPrefilter& prefilter,
+  static FirewallPlan plan_from(const PrefilterFixture& prefilter,
                                 const std::vector<RuleDesc>& descs,
                                 uint32_t mask = 0xFFFFFFFFu) {
     FirewallPlan plan;
@@ -304,7 +305,7 @@ public:
   }
 
   static nlohmann::json build_rule_add_commands(
-      FirewallPrefilter prefilter,
+      PrefilterFixture prefilter,
       const std::vector<RuleDesc> &descs) {
     const auto plan = plan_from(prefilter, descs);
     return render_rules(lower_firewall_plan(plan, context(plan.fwmark_mask)));
@@ -313,7 +314,7 @@ public:
   static nlohmann::json build_rule_add_commands_for_rule(
       int family, RuleDesc::Action action, uint32_t fwmark,
       FirewallRuleCriteria criteria, bool list_backed,
-      FirewallPrefilter prefilter = {}) {
+      PrefilterFixture prefilter = {}) {
     RuleDesc desc;
     desc.family = family;
     desc.action = action;
@@ -331,7 +332,7 @@ public:
     const FirewallRuleKey marked_key{"prefilter.skip_marked_packets", "one"};
     const FirewallRuleKey inbound_key{"prefilter.inbound_interface", "one"};
     const FirewallRuleKey route_key{"route.mark", "one"};
-    FirewallPrefilter prefilter;
+    PrefilterFixture prefilter;
     prefilter.restore_conntrack_mark = true;
     prefilter.conntrack_mark_mask = 0xFFFFFFFFu;
     prefilter.skip_established_or_dnat = true;
@@ -375,7 +376,7 @@ public:
   static nlohmann::json build_rule_add_commands_via_mark_plan(
       uint32_t fwmark, const FirewallRuleCriteria &criteria,
       uint32_t fwmark_mask = 0xFFFFFFFFu,
-      FirewallPrefilter prefilter = {}) {
+      PrefilterFixture prefilter = {}) {
     auto plan = plan_from(prefilter, {}, fwmark_mask);
     FirewallRuleInstance rule;
     rule.family = FirewallFamily::any;
@@ -606,10 +607,10 @@ static Rule mark_rule(const std::string &set_name, int family, uint32_t fwmark,
   return r;
 }
 
-static FirewallPrefilter prefilter_with_interfaces(
+static PrefilterFixture prefilter_with_interfaces(
     std::vector<std::string> interfaces,
     bool skip_established_or_dnat = true) {
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.skip_established_or_dnat = skip_established_or_dnat;
   prefilter.skip_marked_packets = true;
   prefilter.inbound_interfaces = std::move(interfaces);
@@ -741,7 +742,7 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead both classification cha
 }
 
 TEST_CASE("build_rule_add_commands: conntrack restore is masked, ordered, and falls through") {
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0x00FF0000u;
 
@@ -770,7 +771,7 @@ TEST_CASE("build_rule_add_commands: conntrack restore is masked, ordered, and fa
 }
 
 TEST_CASE("nft empty owned marks emit no restore") {
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xFFFFFFFFu;
   prefilter.skip_established_or_dnat = true;
@@ -805,7 +806,7 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface gua
   })");
 
   const auto cmds = T::build_rule_add_commands(
-      build_firewall_prefilter(cfg),
+      prefilter_fixture_from_config(cfg),
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
@@ -835,7 +836,7 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface g
   })");
 
   const auto cmds = T::build_rule_add_commands(
-      build_firewall_prefilter(cfg),
+      prefilter_fixture_from_config(cfg),
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
@@ -1094,7 +1095,7 @@ TEST_CASE("build_mark_rule_json: conntrack setter jump is the final statement") 
 }
 
 TEST_CASE("build_rule_add_commands: skip_marked_packets prefilter can be disabled") {
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.skip_established_or_dnat = true;
   prefilter.skip_marked_packets = false;
 
