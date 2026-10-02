@@ -54,7 +54,21 @@ public:
   }
   bool uses_raw_prerouting() const override { return raw_prerouting_.ipv4; }
 
+  // Test/fixture-only seam: bypass the /proc capability probes (xt_comment
+  // registration, raw table registration), which are absent on nft-backed
+  // iptables.  Production code never calls this; probing is unchanged by
+  // default.
+  void override_capabilities_for_fixtures(
+      std::optional<bool> comments_supported,
+      std::optional<RawPreroutingMode> raw_prerouting) {
+    comments_override_ = comments_supported;
+    if (raw_prerouting.has_value()) {
+      raw_prerouting_ = *raw_prerouting;
+    }
+  }
+
 private:
+  std::optional<bool> comments_override_;
   static constexpr const char *CHAIN_NAME = "KeenPbrTable";
   static constexpr const char *RAW_CHAIN_NAME = "KeenPbrRaw";
   static constexpr const char *OUTPUT_CHAIN_NAME = "KeenPbrOutput";

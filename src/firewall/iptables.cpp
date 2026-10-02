@@ -179,9 +179,14 @@ void IptablesFirewall::prepare_apply(FirewallApplyMode mode) {
   // live chains, mutate ipsets, or publish a restore transaction.  IPv4 is
   // always an active backend; IPv6 only needs probing when it is enabled and
   // its backend is available.  Unsupported frontends simply omit comments.
-  comment_v4_supported_ = probe_xt_comment(false);
+  comment_v4_supported_ = comments_override_.has_value()
+                              ? *comments_override_
+                              : probe_xt_comment(false);
   comment_v6_supported_ =
-      !ipv6_enabled() || !ipv6_backend_available() || probe_xt_comment(true);
+      comments_override_.has_value()
+          ? *comments_override_
+          : (!ipv6_enabled() || !ipv6_backend_available() ||
+             probe_xt_comment(true));
   prefilter_.comments_ipv4_supported = comment_v4_supported_;
   prefilter_.comments_ipv6_supported = comment_v6_supported_;
 
