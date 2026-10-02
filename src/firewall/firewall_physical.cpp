@@ -17,7 +17,7 @@ namespace keen_pbr3 {
 
 bool PhysicalChainId::operator==(const PhysicalChainId &other) const {
   if (role != other.role || table != other.table || family != other.family ||
-      generation != other.generation || setter_mark != other.setter_mark) {
+      setter_mark != other.setter_mark) {
     return false;
   }
   if (role == PhysicalChainRole::other_owned ||
@@ -336,14 +336,11 @@ bool is_owned_role(PhysicalChainRole role) {
 }
 
 PhysicalChainId iptables_id(PhysicalChainRole role, PhysicalTable table,
-                            FirewallFamily family,
-                            PhysicalGeneration generation,
-                            std::string_view name) {
+                            FirewallFamily family, std::string_view name) {
   PhysicalChainId id;
   id.role = role;
   id.table = table;
   id.family = family;
-  id.generation = generation;
   id.name.assign(name);
   return id;
 }
@@ -354,47 +351,29 @@ std::optional<PhysicalChainId> classify_iptables_chain(std::string_view name,
                                                        PhysicalTable table,
                                                        FirewallFamily family) {
   using R = PhysicalChainRole;
-  using G = PhysicalGeneration;
   if (name == "PREROUTING") {
-    return iptables_id(R::system_prerouting, table, family, G::none, name);
+    return iptables_id(R::system_prerouting, table, family, name);
   }
   if (name == "OUTPUT") {
-    return iptables_id(R::system_output, table, family, G::none, name);
+    return iptables_id(R::system_output, table, family, name);
   }
   if (name == "INPUT" || name == "FORWARD" || name == "POSTROUTING") {
-    return iptables_id(R::system_other, table, family, G::none, name);
+    return iptables_id(R::system_other, table, family, name);
   }
   if (name.substr(0, kIptablesOwnedPrefix.size()) != kIptablesOwnedPrefix) {
     return std::nullopt;
   }
-  struct Known {
-    std::string_view base;
-    R dispatcher;
-    R generation;
-  };
-  static constexpr std::array<Known, 3> kKnown{{
-      {"KeenPbrTable", R::prerouting_dispatcher, R::prerouting_generation},
-      {"KeenPbrRaw", R::prerouting_dispatcher, R::prerouting_generation},
-      {"KeenPbrOutput", R::output_dispatcher, R::output_generation},
-  }};
-  for (const auto &known : kKnown) {
-    if (name == known.base) {
-      return iptables_id(known.dispatcher, table, family, G::none, name);
-    }
-    if (name.size() == known.base.size() + 2U &&
-        name.substr(0, known.base.size()) == known.base &&
-        name[known.base.size()] == '_') {
-      const char suffix = name.back();
-      if (suffix == 'A' || suffix == 'B') {
-        return iptables_id(known.generation, table, family,
-                           suffix == 'A' ? G::a : G::b, name);
-      }
-    }
+  // Only the current layout is classified as ours-and-expected.  Leftovers of
+  // the retired A/B layout (KeenPbrTable_A/B, KeenPbrRaw_A/B,
+  // KeenPbrOutput_A/B, KeenPbrTable_OUTPUT) are other_owned so a stale chain is
+  // reported.
+  if (name == "KeenPbrTable" || name == "KeenPbrRaw") {
+    return iptables_id(R::iptables_prerouting, table, family, name);
   }
-  if (name == "KeenPbrTable_OUTPUT") {
-    return iptables_id(R::output_dispatcher, table, family, G::none, name);
+  if (name == "KeenPbrOutput") {
+    return iptables_id(R::iptables_output, table, family, name);
   }
-  return iptables_id(R::other_owned, table, family, G::none, name);
+  return iptables_id(R::other_owned, table, family, name);
 }
 
 // ===========================================================================

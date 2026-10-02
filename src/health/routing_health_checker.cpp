@@ -38,13 +38,13 @@ bool route_matches(const RouteSpec& expected, const DumpedRoute& actual) {
 }
 
 // Whether the owned entry chain and its hook exist.  iptables: the
-// PREROUTING dispatcher chain and a builtin PREROUTING jump into keen-pbr (the
+// PREROUTING classification chain and a builtin PREROUTING jump into keen-pbr (the
 // parser only keeps those); nftables: the prerouting base chain, whose hook is
 // a chain attribute.
 FirewallChainCheck firewall_chain_from_snapshot(const FirewallSnapshot& snapshot) {
     FirewallChainCheck result;
     for (const auto& chain : snapshot.ruleset.chains) {
-        if (chain.id.role == PhysicalChainRole::prerouting_dispatcher ||
+        if (chain.id.role == PhysicalChainRole::iptables_prerouting ||
             chain.id.role == PhysicalChainRole::nft_prerouting) {
             result.chain_present = true;
         }

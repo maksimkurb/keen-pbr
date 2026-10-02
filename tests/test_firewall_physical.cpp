@@ -61,17 +61,16 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
 // ---------------------------------------------------------------------------
 
 using Role = PhysicalChainRole;
-using Gen = PhysicalGeneration;
 using Table = PhysicalTable;
 using Fam = FirewallFamily;
 
 PhysicalChainId ipt_id(Role role, Table table, Fam family,
-                       Gen generation = Gen::none) {
+                       const std::string &name = {}) {
   PhysicalChainId id;
   id.role = role;
   id.table = table;
   id.family = family;
-  id.generation = generation;
+  id.name = name;
   return id;
 }
 
@@ -134,38 +133,56 @@ TEST_CASE("physical: iptables mangle IPv4 dump is parsed rule for rule") {
   const std::string text = read_fixture("iptables_mangle_v4.save");
   const auto set = parse_iptables_save(text, Fam::ipv4);
 
-  const auto a = ipt_id(Role::prerouting_generation, Table::mangle, Fam::ipv4,
-                        Gen::a);
+  const auto a = ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv4);
   const auto &chain_a = require_chain(set, a);
   CHECK(chain_a.rules.size() ==
-        count_lines_with_prefix(text, "-A KeenPbrTable_A "));
-  CHECK(chain_a.rules.size() == 31);
+        count_lines_with_prefix(text, "-A KeenPbrTable "));
+  CHECK(chain_a.rules.size() == 27);
   for (const auto &rule : chain_a.rules) {
     CHECK_FALSE(has_unknown(rule));
     CHECK(rule.key.has_value());
   }
 
-  SUBCASE("dispatchers and hook rules") {
-    const auto dispatcher =
-        ipt_id(Role::prerouting_dispatcher, Table::mangle, Fam::ipv4);
+  SUBCASE("hook rules jump straight into the classification chains") {
     const auto output =
-        ipt_id(Role::output_dispatcher, Table::mangle, Fam::ipv4);
-    const auto &d = require_chain(set, dispatcher);
-    REQUIRE(d.rules.size() == 1);
-    CHECK(d.rules[0] == make_rule(Fam::ipv4, {}, {JumpStmt{a, false}}));
-    const auto &o = require_chain(set, output);
-    REQUIRE(o.rules.size() == 1);
-    CHECK(o.rules[0] == make_rule(Fam::ipv4, {}, {JumpStmt{a, false}}));
-
+        ipt_id(Role::iptables_output, Table::mangle, Fam::ipv4);
     const auto &pre = require_chain(
         set, ipt_id(Role::system_prerouting, Table::mangle, Fam::ipv4));
     REQUIRE(pre.rules.size() == 1);
-    CHECK(pre.rules[0] ==
-          make_rule(Fam::ipv4, {}, {JumpStmt{dispatcher, false}}));
+    CHECK(pre.rules[0] == make_rule(Fam::ipv4, {}, {JumpStmt{a, false}}));
     const auto &out = require_chain(
         set, ipt_id(Role::system_output, Table::mangle, Fam::ipv4));
     REQUIRE(out.rules.size() == 1);
     CHECK(out.rules[0] == make_rule(Fam::ipv4, {}, {JumpStmt{output, false}}));
+    // No dispatcher rule and no A/B chains: the chains hold the rules.
+    for (const auto &chain : set.chains) {
+      CHECK_MESSAGE(chain.id.role != Role::other_owned,
+                    "unexpected owned chain " << chain.id.name);
+    }
+  }
+
+  SUBCASE("OUTPUT chain: DNS-detour rules only here, no inbound-interface guard") {
+    const auto &out = require_chain(
+        set, ipt_id(Role::iptables_output, Table::mangle, Fam::ipv4));
+    CHECK(out.rules.size() ==
+          count_lines_with_prefix(text, "-A KeenPbrOutput "));
+    bool dynamic_set = false;
+    for (const auto &rule : out.rules) {
+      for (const auto &match : rule.matches) {
+        CHECK(std::get_if<IifMatch>(&match) == nullptr);
+        if (const auto *set_match = std::get_if<SetMatch>(&match)) {
+          dynamic_set = dynamic_set || set_match->name == "kpbr4d_routed";
+        }
+      }
+    }
+    CHECK(dynamic_set);
+    for (const auto &rule : chain_a.rules) {
+      for (const auto &match : rule.matches) {
+        if (const auto *set_match = std::get_if<SetMatch>(&match)) {
+          CHECK(set_match->name != "kpbr4d_routed");
+        }
+      }
+    }
   }
 
   SUBCASE("prefilter rules (mask omission, --mask spelled nfmask/ctmask)") {
@@ -242,20 +259,15 @@ TEST_CASE("physical: iptables mangle IPv4 dump is parsed rule for rule") {
 
   SUBCASE("sport range, negated dport, physical set names are kept") {
     bool negated_dport = false;
-    bool dynamic_set = false;
     for (const auto &rule : chain_a.rules) {
       for (const auto &match : rule.matches) {
         if (const auto *port = std::get_if<PortMatch>(&match)) {
           negated_dport = negated_dport || (port->negate && port->ranges.size() == 1 &&
                                             port->ranges[0].from == 443);
         }
-        if (const auto *set_match = std::get_if<SetMatch>(&match)) {
-          dynamic_set = dynamic_set || set_match->name == "kpbr4d_routed";
-        }
       }
     }
     CHECK(negated_dport);
-    CHECK(dynamic_set);
   }
 }
 
@@ -263,7 +275,7 @@ TEST_CASE("physical: iptables IPv6 dump") {
   const auto set =
       parse_iptables_save(read_fixture("iptables_mangle_v6.save"), Fam::ipv6);
   const auto &chain = require_chain(
-      set, ipt_id(Role::prerouting_generation, Table::mangle, Fam::ipv6, Gen::a));
+      set, ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv6));
   bool found = false;
   for (const auto &rule : chain.rules) {
     CHECK(rule.family == Fam::ipv6);
@@ -276,8 +288,7 @@ TEST_CASE("physical: iptables IPv6 dump") {
   }
   CHECK(found);
   // The chain of the other family does not exist in this ruleset.
-  CHECK(set.find(ipt_id(Role::prerouting_generation, Table::mangle, Fam::ipv4,
-                        Gen::a)) == nullptr);
+  CHECK(set.find(ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv4)) == nullptr);
 }
 
 TEST_CASE("physical: iptables raw PREROUTING layout (raw + mangle OUTPUT)") {
@@ -285,17 +296,13 @@ TEST_CASE("physical: iptables raw PREROUTING layout (raw + mangle OUTPUT)") {
   const auto set = parse_iptables_save(text, Fam::ipv4);
 
   const auto raw_a =
-      ipt_id(Role::prerouting_generation, Table::raw, Fam::ipv4, Gen::a);
-  const auto raw_dispatcher =
-      ipt_id(Role::prerouting_dispatcher, Table::raw, Fam::ipv4);
+      ipt_id(Role::iptables_prerouting, Table::raw, Fam::ipv4);
   const auto out_a =
-      ipt_id(Role::output_generation, Table::mangle, Fam::ipv4, Gen::a);
-  const auto out_dispatcher =
-      ipt_id(Role::output_dispatcher, Table::mangle, Fam::ipv4);
+      ipt_id(Role::iptables_output, Table::mangle, Fam::ipv4);
 
   const auto &raw_chain = require_chain(set, raw_a);
   CHECK(raw_chain.rules.size() ==
-        count_lines_with_prefix(text, "-A KeenPbrRaw_A "));
+        count_lines_with_prefix(text, "-A KeenPbrRaw "));
   // Multi-interface inbound allowlist: one `-i` fragment per interface.
   bool lan0 = false;
   bool guest = false;
@@ -317,7 +324,7 @@ TEST_CASE("physical: iptables raw PREROUTING layout (raw + mangle OUTPUT)") {
 
   const auto &out_chain = require_chain(set, out_a);
   CHECK(out_chain.rules.size() ==
-        count_lines_with_prefix(text, "-A KeenPbrOutput_A "));
+        count_lines_with_prefix(text, "-A KeenPbrOutput "));
   CHECK(out_chain.rules[0].statements ==
         std::vector<PhysicalStatement>{CopyMarkStmt{false, kMask, kMask}});
 
@@ -326,23 +333,26 @@ TEST_CASE("physical: iptables raw PREROUTING layout (raw + mangle OUTPUT)") {
       set, ipt_id(Role::system_prerouting, Table::raw, Fam::ipv4));
   CHECK(pre.rules ==
         std::vector<PhysicalRule>{
-            make_rule(Fam::ipv4, {}, {JumpStmt{raw_dispatcher, false}})});
+            make_rule(Fam::ipv4, {}, {JumpStmt{raw_a, false}})});
   const auto &out = require_chain(
       set, ipt_id(Role::system_output, Table::mangle, Fam::ipv4));
   CHECK(out.rules ==
         std::vector<PhysicalRule>{
-            make_rule(Fam::ipv4, {}, {JumpStmt{out_dispatcher, false}})});
-  CHECK(require_chain(set, raw_dispatcher).rules[0] ==
-        make_rule(Fam::ipv4, {}, {JumpStmt{raw_a, false}}));
+            make_rule(Fam::ipv4, {}, {JumpStmt{out_a, false}})});
+  // The OUTPUT chain does not carry the inbound-interface guard.
+  for (const auto &rule : out_chain.rules) {
+    for (const auto &match : rule.matches) {
+      CHECK(std::get_if<IifMatch>(&match) == nullptr);
+    }
+  }
 }
 
 TEST_CASE("physical: iptables foreign rules, unknown matches, stray hooks") {
   const std::string text = read_fixture("iptables_mangle_v4_foreign.save");
   const auto set = parse_iptables_save(text, Fam::ipv4);
-  const auto a = ipt_id(Role::prerouting_generation, Table::mangle, Fam::ipv4,
-                        Gen::a);
+  const auto a = ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv4);
   const auto &chain = require_chain(set, a);
-  const std::size_t total = count_lines_with_prefix(text, "-A KeenPbrTable_A ");
+  const std::size_t total = count_lines_with_prefix(text, "-A KeenPbrTable ");
   REQUIRE(chain.rules.size() == total);
 
   SUBCASE("foreign rule inside an owned chain is captured, without a key") {
@@ -381,13 +391,13 @@ TEST_CASE("physical: iptables foreign rules, unknown matches, stray hooks") {
     const auto &pre = require_chain(
         set, ipt_id(Role::system_prerouting, Table::mangle, Fam::ipv4));
     // `-A PREROUTING -j KeenPbrTable` (real hook) and a later
-    // `-j KeenPbrTable_A` (misplaced extra hook).  `-i eth0 -j ACCEPT` is
+    // `-j KeenPbrOutput` (misplaced extra hook).  `-i eth0 -j ACCEPT` is
     // foreign and dropped.
     REQUIRE(pre.rules.size() == 2);
     CHECK(std::get<JumpStmt>(pre.rules[0].statements[0]).target.role ==
-          Role::prerouting_dispatcher);
+          Role::iptables_prerouting);
     CHECK(std::get<JumpStmt>(pre.rules[1].statements[0]).target.role ==
-          Role::prerouting_generation);
+          Role::iptables_output);
   }
 }
 
@@ -398,7 +408,7 @@ TEST_CASE("physical: `iptables -S` output parses to the same ruleset") {
   const auto listed = parse_iptables_save(
       read_fixture("iptables_mangle_v4.rules"), Fam::ipv4, Table::mangle);
   CHECK(saved == listed);
-  CHECK(saved.chains.size() == 5);
+  CHECK(saved.chains.size() == 4);
   // Same for a dump containing unknown rules (which never compare equal).
   const auto foreign_saved = parse_iptables_save(
       read_fixture("iptables_mangle_v4_foreign.save"), Fam::ipv4);
@@ -415,8 +425,7 @@ TEST_CASE("physical: `iptables -S` output parses to the same ruleset") {
 TEST_CASE("physical: iptables spelling zoo (real iptables-save output)") {
   const auto v4 =
       parse_iptables_save(read_fixture("iptables_misc_v4.save"), Fam::ipv4);
-  const auto a = ipt_id(Role::prerouting_generation, Table::mangle, Fam::ipv4,
-                        Gen::a);
+  const auto a = ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv4);
   const auto &chain = require_chain(v4, a);
   const auto &r = chain.rules;
   REQUIRE(r.size() == 20);
@@ -468,8 +477,7 @@ TEST_CASE("physical: iptables spelling zoo (real iptables-save output)") {
   }
 
   SUBCASE("goto, `-f`, unknown module, address canonicalization") {
-    const auto b = ipt_id(Role::prerouting_generation, Table::mangle, Fam::ipv4,
-                          Gen::b);
+    const auto b = ipt_id(Role::iptables_output, Table::mangle, Fam::ipv4);
     CHECK(r[15] == make_rule(Fam::ipv4, {}, {JumpStmt{b, true}}));
     CHECK(has_unknown(r[16])); // -f
     CHECK(std::get<UnknownMatch>(r[16].matches[0]).text == "-f");
@@ -498,7 +506,7 @@ TEST_CASE("physical: iptables spelling zoo (real iptables-save output)") {
     const auto v6 =
         parse_iptables_save(read_fixture("iptables_misc_v6.save"), Fam::ipv6);
     const auto &chain6 = require_chain(
-        v6, ipt_id(Role::prerouting_generation, Table::mangle, Fam::ipv6, Gen::a));
+        v6, ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv6));
     const auto &last = chain6.rules.back();
     CHECK(last.matches[0] ==
           PhysicalMatch{AddrMatch{PhysicalDir::src, false, {"2001:db8::1/128"}}});
@@ -511,27 +519,26 @@ TEST_CASE("physical: iptables parser edge cases") {
   const std::string text =
       "# Generated by iptables-save\n"
       "*nat\n"
-      ":KeenPbrTable_A - [0:0]\n"
-      "-A KeenPbrTable_A -j ACCEPT\n"
+      ":KeenPbrTable - [0:0]\n"
+      "-A KeenPbrTable -j ACCEPT\n"
       "COMMIT\n"
       "*mangle\n"
       ":PREROUTING ACCEPT [0:0]\n"
-      ":KeenPbrTable_A - [0:0]\n"
+      ":KeenPbrTable - [0:0]\n"
       ":KeenPbrWeird - [0:0]\n"
       ":UserChain - [0:0]\n"
-      "[5:300] -A KeenPbrTable_A -m comment --comment \"kpbr:v1:a:b\" -j DROP\n"
-      "-A KeenPbrTable_A -j UserChain\n"
-      "-A KeenPbrTable_A\n"
-      "-A KeenPbrTable_A -j MARK --set-xmark 0x1/0x0\n"
-      "-A KeenPbrTable_A -p icmp -j ACCEPT\n"
-      "-A KeenPbrTable_A -m comment --comment \"say \\\"hi\\\"\" -j ACCEPT\n"
+      "[5:300] -A KeenPbrTable -m comment --comment \"kpbr:v1:a:b\" -j DROP\n"
+      "-A KeenPbrTable -j UserChain\n"
+      "-A KeenPbrTable\n"
+      "-A KeenPbrTable -j MARK --set-xmark 0x1/0x0\n"
+      "-A KeenPbrTable -p icmp -j ACCEPT\n"
+      "-A KeenPbrTable -m comment --comment \"say \\\"hi\\\"\" -j ACCEPT\n"
       "-A KeenPbrWeird -j ACCEPT\n"
-      "-A UserChain -j KeenPbrTable_A\n"
-      "-A PREROUTING -m comment --comment kpbr:v1:hook:1 -j KeenPbrTable_A\n"
+      "-A UserChain -j KeenPbrTable\n"
+      "-A PREROUTING -m comment --comment kpbr:v1:hook:1 -j KeenPbrTable\n"
       "COMMIT\n";
   const auto set = parse_iptables_save(text, Fam::ipv4);
-  const auto a = ipt_id(Role::prerouting_generation, Table::mangle, Fam::ipv4,
-                        Gen::a);
+  const auto a = ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv4);
   const auto &chain = require_chain(set, a);
   REQUIRE(chain.rules.size() == 6);
   // `*nat` is not examined; counters prefix is accepted; the key is read.
@@ -903,14 +910,12 @@ TEST_CASE("physical: canonical helpers") {
     CHECK(again == rule);
   }
   SUBCASE("chain identity ignores the diagnostic name") {
-    PhysicalChainId a = ipt_id(Role::prerouting_generation, Table::mangle,
-                               Fam::ipv4, Gen::a);
+    PhysicalChainId a = ipt_id(Role::iptables_prerouting, Table::mangle,
+                               Fam::ipv4);
     PhysicalChainId b = a;
-    a.name = "KeenPbrTable_A";
+    a.name = "KeenPbrTable";
     b.name = "renamed";
     CHECK(a == b);
-    b.generation = Gen::b;
-    CHECK(a != b);
     b = a;
     b.table = Table::raw;
     CHECK(a != b);
@@ -921,13 +926,13 @@ TEST_CASE("physical: parse IPv4 and IPv6 CIDR from iptables dump") {
   const std::string text =
       "*mangle\n"
       ":PREROUTING ACCEPT [0:0]\n"
-      ":KeenPbrTable_A - [0:0]\n"
-      "-A KeenPbrTable_A -d 10.0.0.0/8 -j ACCEPT\n"
-      "-A KeenPbrTable_A -d 2001:db8::/32 -j ACCEPT\n"
+      ":KeenPbrTable - [0:0]\n"
+      "-A KeenPbrTable -d 10.0.0.0/8 -j ACCEPT\n"
+      "-A KeenPbrTable -d 2001:db8::/32 -j ACCEPT\n"
       "COMMIT\n";
   const auto set = parse_iptables_save(text, Fam::ipv4);
   const auto &chain = require_chain(
-      set, ipt_id(Role::prerouting_generation, Table::mangle, Fam::ipv4, Gen::a));
+      set, ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv4));
   REQUIRE(chain.rules.size() == 2);
   CHECK(chain.rules[0].matches ==
         std::vector<PhysicalMatch>{
@@ -944,8 +949,8 @@ TEST_CASE("physical: parse IPv4 and IPv6 CIDR from iptables dump") {
 // ---------------------------------------------------------------------------
 
 bool is_lowered_role(Role role) {
-  return role == Role::prerouting_generation ||
-         role == Role::output_generation || role == Role::nft_prerouting ||
+  return role == Role::iptables_prerouting ||
+         role == Role::iptables_output || role == Role::nft_prerouting ||
          role == Role::nft_output || role == Role::nft_setter;
 }
 

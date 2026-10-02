@@ -78,8 +78,14 @@ const PhysicalChain &chain_of(const PhysicalRuleset &set,
   return *chain;
 }
 
+// The PREROUTING classification chain of the mangle layout.
 const PhysicalChain &gen_a(const PhysicalRuleset &set, Fam family) {
-  return chain_of(set, ipt_chain("KeenPbrTable_A", PhysicalTable::mangle, family));
+  return chain_of(set, ipt_chain("KeenPbrTable", PhysicalTable::mangle, family));
+}
+
+// The OUTPUT classification chain (mangle, both modes).
+const PhysicalChain &out_chain(const PhysicalRuleset &set, Fam family) {
+  return chain_of(set, ipt_chain("KeenPbrOutput", PhysicalTable::mangle, family));
 }
 
 const PhysicalChain &nft_pre(const PhysicalRuleset &set) {
@@ -139,7 +145,7 @@ TEST_CASE("lowering iptables: family expansion") {
   SUBCASE("family any without a set lowers to both families") {
     const auto set = lower_firewall_plan(
         plan_of({mark_rule("a", Fam::any, {})}), ipt_context());
-    REQUIRE(set.chains.size() == 2);
+    REQUIRE(set.chains.size() == 4);
     CHECK(gen_a(set, Fam::ipv4).rules.size() == 2);
     CHECK(gen_a(set, Fam::ipv6).rules.size() == 2);
     CHECK(gen_a(set, Fam::ipv6).rules[0].family == Fam::ipv6);
@@ -174,8 +180,10 @@ TEST_CASE("lowering iptables: family expansion") {
     context.ipv6_enabled = false;
     const auto set = lower_firewall_plan(
         plan_of({mark_rule("a", Fam::any, {})}), context);
-    REQUIRE(set.chains.size() == 1);
-    CHECK(set.chains[0].id.family == Fam::ipv4);
+    REQUIRE(set.chains.size() == 2);
+    for (const auto &chain : set.chains) {
+      CHECK(chain.id.family == Fam::ipv4);
+    }
   }
 }
 
@@ -294,20 +302,20 @@ TEST_CASE("lowering iptables: prefilters") {
     const auto set = lower_firewall_plan(prefilter_plan(true, {"lan0"}), context);
     REQUIRE(set.chains.size() == 2);
     const auto &raw = chain_of(
-        set, ipt_chain("KeenPbrRaw_A", PhysicalTable::raw, Fam::ipv4));
+        set, ipt_chain("KeenPbrRaw", PhysicalTable::raw, Fam::ipv4));
     const auto &output = chain_of(
-        set, ipt_chain("KeenPbrOutput_A", PhysicalTable::mangle, Fam::ipv4));
+        set, ipt_chain("KeenPbrOutput", PhysicalTable::mangle, Fam::ipv4));
     CHECK(raw.rules.size() == 2); // skip marked, inbound
-    CHECK(output.rules.size() == 5);
+    CHECK(output.rules.size() == 4); // restore pair, dnat, skip marked (no inbound)
   }
   SUBCASE("only the family in raw mode moves") {
     auto context = ipt_context();
     context.raw_prerouting = RawPreroutingMode{false, true};
     const auto set = lower_firewall_plan(prefilter_plan(false, {}), context);
-    CHECK(set.chains.size() == 3);
-    CHECK(set.find(ipt_chain("KeenPbrTable_A", PhysicalTable::mangle,
+    CHECK(set.chains.size() == 4);
+    CHECK(set.find(ipt_chain("KeenPbrTable", PhysicalTable::mangle,
                              Fam::ipv4)) != nullptr);
-    CHECK(set.find(ipt_chain("KeenPbrRaw_A", PhysicalTable::raw, Fam::ipv6)) !=
+    CHECK(set.find(ipt_chain("KeenPbrRaw", PhysicalTable::raw, Fam::ipv6)) !=
           nullptr);
   }
   SUBCASE("conntrack save follows each mark in mangle but not in raw") {
@@ -321,7 +329,7 @@ TEST_CASE("lowering iptables: prefilters") {
     auto context = ipt_context();
     context.raw_prerouting = RawPreroutingMode{true, true};
     const auto raw = lower_firewall_plan(plan, context);
-    CHECK(chain_of(raw, ipt_chain("KeenPbrRaw_A", PhysicalTable::raw, Fam::ipv4))
+    CHECK(chain_of(raw, ipt_chain("KeenPbrRaw", PhysicalTable::raw, Fam::ipv4))
               .rules.size() == 3);
   }
   SUBCASE("multiple interfaces become per-interface fragments") {
@@ -339,6 +347,94 @@ TEST_CASE("lowering iptables: prefilters") {
   }
 }
 
+TEST_CASE("lowering iptables: PREROUTING and OUTPUT placement") {
+  const auto routes = [] {
+    FirewallRuleCriteria detour = for_set("kpbr4s_dns");
+    detour.apply_output = true;
+    return plan_of({make_rule("route.mark", "route", Fam::ipv4,
+                              for_set("kpbr4s_x"), MarkAction{kMark1, kMask}),
+                    make_rule("dns.detour", "detour", Fam::ipv4, detour,
+                              MarkAction{kMark2, kMask}),
+                    make_rule("route.drop", "last", Fam::ipv4,
+                              for_set("kpbr4s_y"), VerdictAction::drop)});
+  };
+  const auto instance_ids = [](const PhysicalChain &chain) {
+    std::vector<std::string> ids;
+    for (const auto &rule : chain.rules) {
+      if (ids.empty() || ids.back() != rule.key->instance_id) {
+        ids.push_back(rule.key->instance_id);
+      }
+    }
+    return ids;
+  };
+
+  SUBCASE("route rules go to both chains, DNS detour only to OUTPUT") {
+    const auto set = lower_firewall_plan(routes(), ipt_context());
+    CHECK(instance_ids(gen_a(set, Fam::ipv4)) ==
+          std::vector<std::string>{"route", "last"});
+    // Plan order is preserved inside each chain.
+    CHECK(instance_ids(out_chain(set, Fam::ipv4)) ==
+          std::vector<std::string>{"route", "detour", "last"});
+    CHECK(out_chain(set, Fam::ipv4).rules.size() == 5);
+  }
+  SUBCASE("raw mode: raw PREROUTING and mangle OUTPUT place the same way") {
+    auto context = ipt_context();
+    context.raw_prerouting = RawPreroutingMode{true, true};
+    const auto set = lower_firewall_plan(routes(), context);
+    CHECK(instance_ids(chain_of(set, ipt_chain("KeenPbrRaw", PhysicalTable::raw,
+                                               Fam::ipv4))) ==
+          std::vector<std::string>{"route", "last"});
+    CHECK(instance_ids(out_chain(set, Fam::ipv4)) ==
+          std::vector<std::string>{"route", "detour", "last"});
+    CHECK(set.chains.size() == 4);
+  }
+  SUBCASE("IPv6 disabled leaves only the IPv4 pair") {
+    auto context = ipt_context();
+    context.ipv6_enabled = false;
+    const auto set = lower_firewall_plan(routes(), context);
+    CHECK(set.chains.size() == 2);
+  }
+  SUBCASE("single inbound filter is PREROUTING only") {
+    const auto set = with_route(prefilter_plan(false, {"lan0"}),
+                                mark_rule("a", Fam::ipv4, for_set("kpbr4s_x")));
+    bool pre = false;
+    for (const auto &rule : gen_a(set, Fam::ipv4).rules) {
+      pre = pre || find_match<IifMatch>(rule) != nullptr;
+    }
+    CHECK(pre);
+    for (const auto &rule : out_chain(set, Fam::ipv4).rules) {
+      CHECK(find_match<IifMatch>(rule) == nullptr);
+    }
+    // dnat, skip marked, MARK, RETURN.
+    CHECK(out_chain(set, Fam::ipv4).rules.size() == 4);
+  }
+  SUBCASE("multi-interface fragments are PREROUTING only") {
+    const auto set = with_route(prefilter_plan(false, {"lan0", "br-guest"}),
+                                mark_rule("a", Fam::ipv4, for_set("kpbr4s_x")));
+    for (const auto &rule : out_chain(set, Fam::ipv4).rules) {
+      CHECK(find_match<IifMatch>(rule) == nullptr);
+    }
+    // dnat, skip marked, MARK, RETURN: one unfragmented classifier.
+    CHECK(out_chain(set, Fam::ipv4).rules.size() == 4);
+    CHECK(gen_a(set, Fam::ipv4).rules.size() == 6);
+  }
+  SUBCASE("restore and DNAT skip are not in raw PREROUTING but are in OUTPUT") {
+    auto context = ipt_context();
+    context.raw_prerouting = RawPreroutingMode{true, true};
+    const auto set = lower_firewall_plan(prefilter_plan(true, {"lan0"}), context);
+    const auto &raw =
+        chain_of(set, ipt_chain("KeenPbrRaw", PhysicalTable::raw, Fam::ipv4));
+    for (const auto &rule : raw.rules) {
+      CHECK(find_match<CtStateMatch>(rule) == nullptr);
+      CHECK(find_match<CtDirMatch>(rule) == nullptr);
+    }
+    CHECK(raw.rules.size() == 2); // skip marked, inbound
+    // restore pair, dnat, skip marked.
+    CHECK(out_chain(set, Fam::ipv4).rules.size() == 4);
+    CHECK(out_chain(set, Fam::ipv6).rules.size() == 4);
+  }
+}
+
 TEST_CASE("lowering iptables: order, generations, comments") {
   SUBCASE("overlapping sets keep the order of the plan") {
     const auto set = lower_firewall_plan(
@@ -353,15 +449,18 @@ TEST_CASE("lowering iptables: order, generations, comments") {
     CHECK(rules[2].key->instance_id == "second");
     CHECK(rules[4].key->instance_id == "third");
   }
-  SUBCASE("generation B names the B chains per family") {
-    auto context = ipt_context();
-    context.generation_ipv6 = FirewallSetGeneration::B;
+  SUBCASE("each family has a PREROUTING and an OUTPUT chain, no generations") {
     const auto set =
-        lower_firewall_plan(plan_of({mark_rule("a", Fam::any, {})}), context);
-    CHECK(set.find(ipt_chain("KeenPbrTable_A", PhysicalTable::mangle,
-                             Fam::ipv4)) != nullptr);
-    CHECK(set.find(ipt_chain("KeenPbrTable_B", PhysicalTable::mangle,
-                             Fam::ipv6)) != nullptr);
+        lower_firewall_plan(plan_of({mark_rule("a", Fam::any, {})}), ipt_context());
+    CHECK(set.chains.size() == 4);
+    for (const auto family : {Fam::ipv4, Fam::ipv6}) {
+      CHECK(set.find(ipt_chain("KeenPbrTable", PhysicalTable::mangle, family)) !=
+            nullptr);
+      CHECK(set.find(ipt_chain("KeenPbrOutput", PhysicalTable::mangle, family)) !=
+            nullptr);
+      CHECK(set.find(ipt_chain("KeenPbrTable_A", PhysicalTable::mangle,
+                               family)) == nullptr);
+    }
   }
   SUBCASE("keys are kept only where comments are supported") {
     auto context = ipt_context();
@@ -684,9 +783,9 @@ TEST_CASE("iptables renderer: every match and statement kind") {
                        {CopyMarkStmt{true, 0xff, 0xf}})) ==
         "-A C -j CONNMARK --save-mark --nfmask 0xff --ctmask 0xf\n");
   CHECK(render(rule_of(Fam::ipv4, {},
-                       {JumpStmt{ipt_chain("KeenPbrTable_A", PhysicalTable::mangle,
+                       {JumpStmt{ipt_chain("KeenPbrTable", PhysicalTable::mangle,
                                            Fam::ipv4),
-                                 false}})) == "-A C -j KeenPbrTable_A\n");
+                                 false}})) == "-A C -j KeenPbrTable\n");
   CHECK(render(rule_of(Fam::ipv4, {}, {VerdictStmt{PhysicalVerdict::drop}})) ==
         "-A C -j DROP\n");
 

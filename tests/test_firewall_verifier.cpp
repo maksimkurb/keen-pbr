@@ -352,12 +352,12 @@ TEST_CASE("verifier iptables: extra rules in an owned chain are unexpected") {
 
   SUBCASE("a foreign rule inserted between owned rules") {
     const auto texts = map_texts(mangle_texts(), [](const std::string& t) {
-      return with_line_after(t, "-d 8.8.8.8/32", "-A KeenPbrTable_A -j LOG");
+      return with_line_after(t, "-d 8.8.8.8/32", "-A KeenPbrTable -j LOG");
     });
     const auto checks = verify_iptables(plan, expected, texts, {});
     CHECK(problems(checks) == 1);
     CHECK(extras_of(plan, checks) == 1);
-    CHECK_MESSAGE(any_detail(checks, "unexpected rule in mangle/KeenPbrTable_A at index"),
+    CHECK_MESSAGE(any_detail(checks, "unexpected rule in mangle/KeenPbrTable at index"),
                   describe(checks));
   }
   SUBCASE("the real kernel dump with foreign rules appended and inserted") {
@@ -365,11 +365,11 @@ TEST_CASE("verifier iptables: extra rules in an owned chain are unexpected") {
     texts.v4_mangle = read_fixture("iptables_mangle_v4_foreign.rules");
     const auto checks = verify_iptables(plan, expected, texts, {});
     // limit (inserted first), -s 203.0.113.9 and -o eth9 LOG; plus the extra
-    // PREROUTING jump straight into the generation chain.  Rules of the plan
+    // PREROUTING jump straight into the OUTPUT chain.  Rules of the plan
     // itself are all in place.
     CHECK_MESSAGE(extras_of(plan, checks) == 4, describe(checks));
     CHECK(problems(checks) == 4);
-    CHECK(any_detail(checks, "unexpected rule in mangle/KeenPbrTable_A at index 0"));
+    CHECK(any_detail(checks, "unexpected rule in mangle/KeenPbrTable at index 0"));
     CHECK(any_detail(checks, "unexpected rule in mangle/PREROUTING at index 1"));
     for (std::size_t i = 0; i < plan.rules.size(); ++i) {
       CHECK(checks[i].status == CheckStatus::ok);
@@ -377,7 +377,7 @@ TEST_CASE("verifier iptables: extra rules in an owned chain are unexpected") {
   }
 }
 
-TEST_CASE("verifier iptables: hook and dispatcher jumps") {
+TEST_CASE("verifier iptables: hook jumps") {
   const auto plan = capture_plan(false, false, true);
   const auto expected = iptables_expected(plan, {});
 
@@ -416,24 +416,24 @@ TEST_CASE("verifier iptables: hook and dispatcher jumps") {
         map_texts(mangle_texts(),
                   [](const std::string& t) {
                     return with_duplicated_line(
-                        t, "-A OUTPUT -j KeenPbrTable_OUTPUT");
+                        t, "-A OUTPUT -j KeenPbrOutput");
                   }),
         {});
     CHECK(problems(checks) == 1);
     CHECK(any_detail(checks, "mangle/OUTPUT"));
   }
-  SUBCASE("dispatcher jumping to the wrong generation") {
+  SUBCASE("OUTPUT hook jumping to the wrong chain") {
     const auto checks = verify_iptables(
         plan, expected,
         map_texts(mangle_texts(),
                   [](const std::string& t) {
-                    return replace_first(t, "-A KeenPbrTable -j KeenPbrTable_A",
-                                         "-A KeenPbrTable -j KeenPbrTable_B");
+                    return replace_first(t, "-A OUTPUT -j KeenPbrOutput",
+                                         "-A OUTPUT -j KeenPbrTable");
                   }),
         {});
     CHECK(problems(checks) == 1);
-    CHECK_MESSAGE(any_detail(checks, "expected ipv4 -> jump KeenPbrTable_A but "
-                                     "observed ipv4 -> jump KeenPbrTable_B"),
+    CHECK_MESSAGE(any_detail(checks, "expected ipv4 -> jump KeenPbrOutput but "
+                                     "observed ipv4 -> jump KeenPbrTable"),
                   describe(checks));
   }
   SUBCASE("the IPv6 tables are checked too") {
@@ -449,22 +449,22 @@ TEST_CASE("verifier iptables: hook and dispatcher jumps") {
         plan, expected,
         map_texts(mangle_texts(),
                   [](const std::string& t) {
-                    return with_line_after(t, "-A OUTPUT -j KeenPbrTable_OUTPUT",
-                                           "-A INPUT -j KeenPbrTable_A");
+                    return with_line_after(t, "-A OUTPUT -j KeenPbrOutput",
+                                           "-A INPUT -j KeenPbrTable");
                   }),
         {});
     CHECK(problems(checks) == 1);
     CHECK(any_detail(checks, "unexpected rule in mangle/INPUT"));
   }
-  SUBCASE("raw layout: wrong raw dispatcher target") {
+  SUBCASE("raw layout: raw PREROUTING hook jumping to the wrong chain") {
     const auto raw_plan = capture_plan(false, true, true);
     const auto raw_expected = iptables_expected(raw_plan, kRawBoth);
     auto texts = raw_texts();
-    texts.v4_raw = replace_first(texts.v4_raw, "-A KeenPbrRaw -j KeenPbrRaw_A",
-                                 "-A KeenPbrRaw -j KeenPbrRaw_B");
+    texts.v4_raw = replace_first(texts.v4_raw, "-A PREROUTING -j KeenPbrRaw",
+                                 "-A PREROUTING -j KeenPbrOutput");
     const auto checks = verify_iptables(raw_plan, raw_expected, texts, kRawBoth);
     CHECK(problems(checks) == 1);
-    CHECK(any_detail(checks, "KeenPbrRaw_B"));
+    CHECK(any_detail(checks, "KeenPbrOutput"));
   }
 }
 
@@ -479,7 +479,7 @@ TEST_CASE("verifier iptables: foreign state is ignored, stale keen-pbr state is 
     const auto checks = verify([](const std::string& t) {
       auto text = with_line_after(t, "-A PREROUTING -j KeenPbrTable",
                                   "-A PREROUTING -i eth0 -j ACCEPT");
-      text = with_line_after(text, "-A OUTPUT -j KeenPbrTable_OUTPUT",
+      text = with_line_after(text, "-A OUTPUT -j KeenPbrOutput",
                              "-A FORWARD -j ACCEPT");
       text = replace_first(text, "-N KeenPbrTable\n",
                            "-N KeenPbrTable\n-N SomeoneElse\n");
@@ -488,36 +488,49 @@ TEST_CASE("verifier iptables: foreign state is ignored, stale keen-pbr state is 
     });
     CHECK_MESSAGE(problems(checks) == 0, describe(checks));
   }
-  SUBCASE("the inactive generation may be absent, empty or stale") {
-    // iptables.cpp: apply rewrites only the target generation chain and
-    // leaves the previously active one as it was (stale after a rebuild,
-    // absent after a destructive apply).
+  SUBCASE("a clean kernel is ok") {
     CHECK(problems(verify([](const std::string& t) { return t; })) == 0);
-    CHECK(problems(verify([](const std::string& t) {
-            return replace_first(t, "-N KeenPbrTable_A\n",
-                                 "-N KeenPbrTable_A\n-N KeenPbrTable_B\n");
-          })) == 0);
+  }
+  SUBCASE("a leftover legacy A/B chain is drift the next apply removes") {
+    // Apply flushes and deletes KeenPbrTable_A/B, KeenPbrRaw_A/B,
+    // KeenPbrOutput_A/B and KeenPbrTable_OUTPUT, so a leftover is reported.
+    for (const char* legacy : {"KeenPbrTable_A", "KeenPbrTable_B",
+                               "KeenPbrOutput_A", "KeenPbrOutput_B",
+                               "KeenPbrTable_OUTPUT", "KeenPbrRaw_B"}) {
+      CAPTURE(legacy);
+      const auto checks = verify([&](const std::string& t) {
+        return replace_first(t, "-N KeenPbrTable\n",
+                             std::string("-N KeenPbrTable\n-N ") + legacy +
+                                 "\n");
+      });
+      CHECK(problems(checks) == 1);
+      CHECK(any_detail(checks, std::string("unexpected keen-pbr chain mangle/") +
+                                   legacy));
+    }
+  }
+  SUBCASE("a stale legacy chain with rules is reported once") {
     const auto stale = verify([](const std::string& t) {
-      auto text = replace_first(t, "-N KeenPbrTable_A\n",
-                                "-N KeenPbrTable_A\n-N KeenPbrTable_B\n");
-      return with_line_after(text, "-A KeenPbrTable -j KeenPbrTable_A",
+      auto text = replace_first(t, "-N KeenPbrTable\n",
+                                "-N KeenPbrTable\n-N KeenPbrTable_B\n");
+      return with_line_after(text, "-N KeenPbrTable_B",
                              "-A KeenPbrTable_B -m set --match-set old dst -j "
                              "MARK --set-xmark 0x70000/0xff0000");
     });
-    CHECK_MESSAGE(problems(stale) == 0, describe(stale));
+    CHECK(problems(stale) == 1);
+    CHECK(any_detail(stale, "unexpected keen-pbr chain mangle/KeenPbrTable_B (1 rules)"));
   }
-  SUBCASE("the active generation chain missing flags every rule it holds") {
+  SUBCASE("the PREROUTING chain missing flags every rule it holds") {
     const auto checks = verify([](const std::string& t) {
       std::string text;
       for (const auto& line : split_lines(t)) {
-        if (line.rfind("-A KeenPbrTable_A ", 0) == 0 || line == "-N KeenPbrTable_A") {
+        if (line.rfind("-A KeenPbrTable ", 0) == 0 || line == "-N KeenPbrTable") {
           continue;
         }
         text += line + "\n";
       }
       return text;
     });
-    CHECK(any_detail(checks, "chain mangle/KeenPbrTable_A is missing",
+    CHECK(any_detail(checks, "chain mangle/KeenPbrTable is missing",
                      CheckStatus::missing));
     CHECK(checks[plan_index(plan, "route.pass")].status ==
           CheckStatus::missing);
@@ -526,22 +539,17 @@ TEST_CASE("verifier iptables: foreign state is ignored, stale keen-pbr state is 
     // IPv6-only rules live in another chain and stay ok.
     CHECK(checks[plan_index(plan, "route.mark", 1)].status == CheckStatus::ok);
   }
-  SUBCASE("an unreferenced leftover chain is harmless, a reachable one is not") {
-    // Apply never deletes it (see the integration case
-    // iptables_ab_convergence), so reporting it would never clear.
-    CHECK(problems(verify([](const std::string& t) {
-            return replace_first(t, "-N KeenPbrTable\n",
-                                 "-N KeenPbrTable\n-N KeenPbrTable_Unknown\n"
-                                 "-N KeenPbrOutput_A\n");
-          })) == 0);
+  SUBCASE("a leftover chain that is also reachable is reported with its jump") {
     const auto reachable = verify([](const std::string& t) {
       auto text = replace_first(t, "-N KeenPbrTable\n",
                                 "-N KeenPbrTable\n-N KeenPbrTable_Unknown\n");
-      return with_line_after(text, "-A KeenPbrTable -j KeenPbrTable_A",
+      return with_line_after(text, "-A KeenPbrTable ",
                              "-A KeenPbrTable -j KeenPbrTable_Unknown");
     });
-    CHECK(problems(reachable) == 1);
+    CHECK(problems(reachable) == 2);
     CHECK(any_detail(reachable, "unexpected rule in mangle/KeenPbrTable at"));
+    CHECK(any_detail(reachable,
+                     "unexpected keen-pbr chain mangle/KeenPbrTable_Unknown"));
   }
 }
 

@@ -291,14 +291,14 @@ public:
 
   // Everything keen-pbr expects in the kernel once `plan` has been applied by
   // this backend, as the backend realized it: the lowered owned chains
-  // (generation, raw/mangle placement, comment support, resolved set names,
+  // (raw/mangle placement, comment support, resolved set names,
   // owned marks) merged with expected_hook_rules().  Call after apply() while
   // the backend still holds the facts of that apply.  Rules carry the index of
   // the plan rule that produced them (PhysicalRule::plan_rule).
   virtual PhysicalRuleset expected_ruleset(const FirewallPlan &plan) const;
 
-  // Hook/dispatcher jump rules of the active generation as physical rules
-  // (iptables dispatchers and builtin-chain hooks).  Empty for backends whose
+  // Builtin-chain hook jump rules as physical rules (iptables
+  // PREROUTING/OUTPUT jumps into the KeenPbr chains).  Empty for backends whose
   // hooks are chain attributes carried by the lowered ruleset itself.
   virtual PhysicalRuleset expected_hook_rules() const;
 

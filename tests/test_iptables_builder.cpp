@@ -138,18 +138,24 @@ public:
   static std::string static_set_name(FirewallSetGeneration generation,
                                      const std::string &name, int family) {
     IptablesFirewall firewall;
-    firewall.target_v4_generation_ = generation;
-    firewall.target_v6_generation_ = generation;
+    firewall.target_static_v4_generation_ = generation;
+    firewall.target_static_v6_generation_ = generation;
     return firewall.static_set_name(name, family);
   }
 
-  static std::string static_set_name_for_live_rules(const std::string &rules) {
+  // The static-set name selected for a PreserveSets apply over `dump` (the
+  // output of `iptables -t mangle -S`).  Throws like prepare_apply when the
+  // live rules reference both generations.
+  static std::string static_set_name_for_live_rules(const std::string &dump) {
     IptablesFirewall firewall;
-    const auto state = IptablesFirewall::parse_live_generation(
-        rules, "KeenPbrTable", "KeenPbrTable_A", "KeenPbrTable_B");
-    firewall.target_v4_generation_ =
-        IptablesFirewall::target_generation_for_states(
-            state, IptablesFirewall::LiveGenerationState::Missing);
+    const auto live = IptablesFirewall::parse_static_set_references(
+        dump, {"KeenPbrTable", "KeenPbrOutput", "KeenPbrTable_OUTPUT"}, false);
+    if (live.generation == IptablesFirewall::LiveGenerationState::Invalid) {
+      throw FirewallError("static ipsets from multiple generations");
+    }
+    firewall.target_static_v4_generation_ =
+        IptablesFirewall::static_target_for_mode(FirewallApplyMode::PreserveSets,
+                                                 live.generation);
     return firewall.static_set_name("sample", AF_INET);
   }
 
@@ -162,7 +168,7 @@ public:
   static std::string prerouting_chain(RawPreroutingMode mode, bool ipv6) {
     IptablesFirewall firewall;
     firewall.raw_prerouting_ = mode;
-    return firewall.prerouting_dispatcher_chain_name(ipv6);
+    return firewall.prerouting_chain_name(ipv6);
   }
 
   static std::string cleanup_sweep_log(RawPreroutingMode mode) {
@@ -252,33 +258,49 @@ public:
 
   static PhysicalRuleset lower(const FirewallPlan &plan,
                                RawPreroutingMode raw = {},
-                               FirewallSetGeneration generation =
-                                   FirewallSetGeneration::A,
                                bool comments = true) {
     FirewallLoweringContext context;
     context.backend = FirewallBackend::iptables;
     context.raw_prerouting = raw;
-    context.generation_ipv4 = generation;
-    context.generation_ipv6 = generation;
     context.comments_ipv4_supported = comments;
     context.comments_ipv6_supported = comments;
     context.fwmark_mask = plan.fwmark_mask;
     return lower_firewall_plan(plan, context);
   }
 
+  using ChainSpec = IptablesFirewall::OwnedChainSpec;
+
+  static std::string table_script(const char *table, bool ipv6,
+                                  const std::vector<ChainSpec> &chains,
+                                  const PhysicalRuleset &ruleset,
+                                  const std::string &observed = {}) {
+    return IptablesFirewall::build_table_script(
+        table, ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4, chains,
+        ruleset, observed);
+  }
+
+  // The PREROUTING chain (KeenPbrTable) of the mangle layout only.
   static std::string build_ipt_script(bool ipv6,
                                       const std::vector<RuleDesc> &descs,
                                       PrefilterFixture prefilter = {}) {
-    const auto ruleset = lower(
-        plan_from(descs, prefilter), {}, FirewallSetGeneration::A,
-        prefilter.comments_supported(ipv6));
-    return IptablesFirewall::build_ipt_script(ipv6, FirewallSetGeneration::A,
-                                              ruleset);
+    const auto ruleset = lower(plan_from(descs, prefilter), {},
+                               prefilter.comments_supported(ipv6));
+    return table_script("mangle", ipv6, {{"KeenPbrTable", "PREROUTING"}},
+                        ruleset);
   }
 
-  static std::string build_replacement_script() {
-    return IptablesFirewall::build_ipt_script(false, FirewallSetGeneration::B,
-                                              {});
+  // The whole mangle restore (PREROUTING + OUTPUT chains) over an observed
+  // `iptables -t mangle -S` dump.
+  static std::string
+  build_mangle_script(bool ipv6, const std::vector<RuleDesc> &descs,
+                      PrefilterFixture prefilter = {},
+                      const std::string &observed = {}) {
+    const auto ruleset = lower(plan_from(descs, prefilter), {},
+                               prefilter.comments_supported(ipv6));
+    return table_script(
+        "mangle", ipv6,
+        {{"KeenPbrTable", "PREROUTING"}, {"KeenPbrOutput", "OUTPUT"}}, ruleset,
+        observed);
   }
 
   static std::string build_raw_script(const std::vector<RuleDesc> &descs,
@@ -288,68 +310,30 @@ public:
 
   static std::string
   build_raw_script_for_family(bool ipv6, const std::vector<RuleDesc> &descs,
-                              PrefilterFixture prefilter = {}) {
-    const auto ruleset =
-        lower(plan_from(descs, prefilter), RawPreroutingMode{true, true},
-              FirewallSetGeneration::A, prefilter.comments_supported(ipv6));
-    return IptablesFirewall::build_raw_prerouting_script(
-        ipv6, FirewallSetGeneration::A, ruleset);
-  }
-
-  static std::string
-  build_raw_script_for_generation(FirewallSetGeneration generation,
-                                  const std::vector<RuleDesc> &descs = {}) {
-    const auto ruleset = lower(plan_from(descs, {}), RawPreroutingMode{true, false},
-                               generation);
-    return IptablesFirewall::build_raw_prerouting_script(false, generation,
-                                                         ruleset);
-  }
-
-  static std::string
-  build_output_script_for_generation(FirewallSetGeneration generation) {
-    return IptablesFirewall::build_output_script(false, generation, {});
+                              PrefilterFixture prefilter = {},
+                              const std::string &observed = {}) {
+    const auto ruleset = lower(plan_from(descs, prefilter),
+                               RawPreroutingMode{true, true},
+                               prefilter.comments_supported(ipv6));
+    return table_script("raw", ipv6, {{"KeenPbrRaw", "PREROUTING"}}, ruleset,
+                        observed);
   }
 
   static std::string build_output_script_for_family(
       bool ipv6, const std::vector<RuleDesc> &descs,
-      PrefilterFixture prefilter = {}) {
-    const auto ruleset =
-        lower(plan_from(descs, prefilter), RawPreroutingMode{true, true},
-              FirewallSetGeneration::A, prefilter.comments_supported(ipv6));
-    return IptablesFirewall::build_output_script(
-        ipv6, FirewallSetGeneration::A, ruleset);
+      PrefilterFixture prefilter = {}, const std::string &observed = {}) {
+    const auto ruleset = lower(plan_from(descs, prefilter),
+                               RawPreroutingMode{true, true},
+                               prefilter.comments_supported(ipv6));
+    return table_script("mangle", ipv6, {{"KeenPbrOutput", "OUTPUT"}}, ruleset,
+                        observed);
   }
 
-  static PhysicalRuleset expected_hooks(RawPreroutingMode mode,
-                                        FirewallSetGeneration generation) {
+  static PhysicalRuleset expected_hooks(RawPreroutingMode mode) {
     IptablesFirewall firewall;
     firewall.raw_prerouting_ = mode;
     firewall.set_ipv6_enabled(false);
-    firewall.target_v4_generation_ = generation;
     return firewall.expected_hook_rules();
-  }
-
-  static int
-  live_generation_state(const std::string &rules,
-                        const std::string &dispatcher = "KeenPbrTable") {
-    return static_cast<int>(IptablesFirewall::parse_live_generation(
-        rules, dispatcher, "KeenPbrTable_A", "KeenPbrTable_B"));
-  }
-
-  static int live_generation_state_for_dispatcher(
-      const std::string &rules, const std::string &dispatcher,
-      const std::string &generation_a, const std::string &generation_b) {
-    return static_cast<int>(IptablesFirewall::parse_live_generation(
-        rules, dispatcher, generation_a, generation_b));
-  }
-
-  static std::pair<bool, bool> live_generation_references(
-      const std::string &rules, const std::string &dispatcher = "KeenPbrTable",
-      const std::string &generation_a = "KeenPbrTable_A",
-      const std::string &generation_b = "KeenPbrTable_B") {
-    const auto details = IptablesFirewall::parse_live_generation_details(
-        rules, dispatcher, generation_a, generation_b);
-    return {details.references_a, details.references_b};
   }
 
   static int state_a() {
@@ -365,24 +349,31 @@ public:
     return static_cast<int>(IptablesFirewall::LiveGenerationState::Invalid);
   }
 
+  // Static-set references reachable from the owned chain `KeenPbrTable` of a
+  // `-S` dump fragment (the chain declaration is added here).
+  static IptablesFirewall::StaticSetInspection
+  inspect_dump(const std::string &rules, bool ipv6,
+               const std::vector<std::string> &roots) {
+    return IptablesFirewall::parse_static_set_references(rules, roots, ipv6);
+  }
+
   static int static_set_generation(const std::string &rules, bool ipv6 = false) {
-    return static_cast<int>(IptablesFirewall::parse_static_set_references(
-                                rules, ipv6)
-                                .generation);
+    return static_cast<int>(
+        inspect_dump("-N KeenPbrTable\n" + rules, ipv6, {"KeenPbrTable"})
+            .generation);
   }
 
   static std::set<std::string> static_set_names(const std::string &rules,
                                                 bool ipv6 = false) {
-    return IptablesFirewall::parse_static_set_references(rules, ipv6).names;
+    return inspect_dump("-N KeenPbrTable\n" + rules, ipv6, {"KeenPbrTable"})
+        .names;
   }
 
-  static FirewallSetGeneration static_target_for_mode(
-      FirewallApplyMode mode, int live_static,
-      FirewallSetGeneration rule_target) {
+  static FirewallSetGeneration static_target_for_mode(FirewallApplyMode mode,
+                                                      int live_static) {
     return IptablesFirewall::static_target_for_mode(
         mode,
-        static_cast<IptablesFirewall::LiveGenerationState>(live_static),
-        rule_target);
+        static_cast<IptablesFirewall::LiveGenerationState>(live_static));
   }
 
   static std::string static_name_for_generation(FirewallSetGeneration generation,
@@ -392,45 +383,14 @@ public:
                                                              generation);
   }
 
-  static FirewallSetGeneration target_for_states(int primary, int secondary) {
-    return IptablesFirewall::target_generation_for_states(
-        static_cast<IptablesFirewall::LiveGenerationState>(primary),
-        static_cast<IptablesFirewall::LiveGenerationState>(secondary));
-  }
-
-  static FirewallSetGeneration prepared_v4_target(
-      const IptablesFirewall &firewall) {
-    return firewall.target_v4_generation_;
-  }
-
-  static FirewallSetGeneration plan_target_for_states(int primary,
-                                                      int secondary) {
-    return IptablesFirewall::generation_plan_for_states(
-               static_cast<IptablesFirewall::LiveGenerationState>(primary),
-               static_cast<IptablesFirewall::LiveGenerationState>(secondary))
-        .target;
-  }
-
-  static bool plan_repairs_output(int primary, int secondary) {
-    return IptablesFirewall::generation_plan_for_states(
-               static_cast<IptablesFirewall::LiveGenerationState>(primary),
-               static_cast<IptablesFirewall::LiveGenerationState>(secondary))
-        .repair_output;
-  }
-
-  static std::string build_rules_for_slots(FirewallSetGeneration rule_generation,
-                                            FirewallSetGeneration set_generation,
-                                            bool ipv6) {
+  static std::string build_rules_for_set_slot(FirewallSetGeneration set_generation,
+                                              bool ipv6) {
     IptablesFirewall firewall;
-    firewall.target_v4_generation_ = rule_generation;
-    firewall.target_v6_generation_ = rule_generation;
     firewall.target_static_v4_generation_ = set_generation;
     firewall.target_static_v6_generation_ = set_generation;
-    firewall.static_generations_prepared_ = true;
     RuleDesc rule{firewall.static_set_name("sample", ipv6 ? AF_INET6 : AF_INET),
                   ipv6, false, RuleDesc::Mark, 42, {}, {}};
-    const auto ruleset = lower(plan_from({rule}, {}), {}, rule_generation);
-    return IptablesFirewall::build_ipt_script(ipv6, rule_generation, ruleset);
+    return build_ipt_script(ipv6, {rule});
   }
 
   static size_t count_exact_jump(const std::string &rules,
@@ -466,17 +426,16 @@ public:
       desc.set_name = "pairwise_set";
     }
     const auto ruleset = lower(plan_from({desc}, prefilter, fwmark_mask), {},
-                               FirewallSetGeneration::A,
                                prefilter.comments_supported(ipv6));
-    return IptablesFirewall::build_ipt_script(ipv6, FirewallSetGeneration::A,
-                                              ruleset);
+    return table_script("mangle", ipv6, {{"KeenPbrTable", "PREROUTING"}},
+                        ruleset);
   }
 
   static std::string build_route_mark_script(const FirewallPlan& plan) {
     IptablesFirewall fw;
     fw.compile_plan(plan, FirewallApplyMode::Destructive);
-    return IptablesFirewall::build_ipt_script(
-        false, FirewallSetGeneration::A, fw.pending_ruleset_);
+    return table_script("mangle", false, {{"KeenPbrTable", "PREROUTING"}},
+                        fw.pending_ruleset_);
   }
 
   // The `-p ... --sport/--dport ...` part of the single MARK rule that the
@@ -546,27 +505,18 @@ std::string hook_target(const PhysicalRuleset &hooks, const std::string &name,
 
 } // namespace
 
-TEST_CASE("iptables expected hook rules follow layout and generation") {
-  const auto mangle =
-      T::expected_hooks(RawPreroutingMode{}, FirewallSetGeneration::B);
-  CHECK(mangle.chains.size() == 4);
+TEST_CASE("iptables expected hook rules point at the classification chains") {
+  const auto mangle = T::expected_hooks(RawPreroutingMode{});
+  CHECK(mangle.chains.size() == 2);
   CHECK(hook_target(mangle, "PREROUTING", PhysicalTable::mangle) ==
         "KeenPbrTable");
-  CHECK(hook_target(mangle, "KeenPbrTable", PhysicalTable::mangle) ==
-        "KeenPbrTable_B");
   CHECK(hook_target(mangle, "OUTPUT", PhysicalTable::mangle) ==
-        "KeenPbrTable_OUTPUT");
-  CHECK(hook_target(mangle, "KeenPbrTable_OUTPUT", PhysicalTable::mangle) ==
-        "KeenPbrTable_B");
+        "KeenPbrOutput");
 
-  const auto raw = T::expected_hooks(RawPreroutingMode{true, false},
-                                     FirewallSetGeneration::A);
-  CHECK(raw.chains.size() == 4);
+  const auto raw = T::expected_hooks(RawPreroutingMode{true, false});
+  CHECK(raw.chains.size() == 2);
   CHECK(hook_target(raw, "PREROUTING", PhysicalTable::raw) == "KeenPbrRaw");
-  CHECK(hook_target(raw, "KeenPbrRaw", PhysicalTable::raw) == "KeenPbrRaw_A");
   CHECK(hook_target(raw, "OUTPUT", PhysicalTable::mangle) == "KeenPbrOutput");
-  CHECK(hook_target(raw, "KeenPbrOutput", PhysicalTable::mangle) ==
-        "KeenPbrOutput_A");
   // Identity matches what the iptables-save parser reports.
   CHECK(raw.find(iptables_physical_chain_id("PREROUTING", PhysicalTable::raw,
                                             FirewallFamily::ipv4))
@@ -675,24 +625,37 @@ TEST_CASE("IptablesFirewall cleanup propagates command failure") {
 
 TEST_CASE("IPv6 RAW RulesOnly references select one static-set generation") {
   const auto rules =
-      "-A KeenPbrRaw -j KeenPbrRaw_A\n"
-      "-A KeenPbrRaw_A -m set --match-set kpbr6s_remote dst -j RETURN\n";
-  CHECK(T::static_set_generation(rules, true) == T::state_a());
-  CHECK(T::static_set_names(rules, true) ==
-        std::set<std::string>{"kpbr6s_remote"});
+      "-N KeenPbrRaw\n"
+      "-A KeenPbrRaw -m set --match-set kpbr6s_remote dst -j RETURN\n";
+  const auto live = T::inspect_dump(rules, true, {"KeenPbrRaw"});
+  CHECK(static_cast<int>(live.generation) == T::state_a());
+  CHECK(live.names == std::set<std::string>{"kpbr6s_remote"});
+  CHECK(live.prerouting_chain_present);
 }
 
-TEST_CASE("RAW6 A/B recovery treats PREROUTING as authoritative") {
-  CHECK(T::live_generation_state_for_dispatcher(
-            "-A KeenPbrRaw -j KeenPbrRaw_A\n", "KeenPbrRaw",
-            "KeenPbrRaw_A", "KeenPbrRaw_B") == T::state_a());
-  CHECK(T::live_generation_state_for_dispatcher(
-            "-A KeenPbrRaw -j KeenPbrRaw_B\n", "KeenPbrRaw",
-            "KeenPbrRaw_A", "KeenPbrRaw_B") == T::state_b());
-  CHECK(T::target_for_states(T::state_a(), T::state_b()) ==
-        FirewallSetGeneration::B);
-  CHECK(T::target_for_states(T::state_b(), T::state_a()) ==
-        FirewallSetGeneration::A);
+TEST_CASE("static-set inspection follows a retired dispatcher to its active generation") {
+  // A router upgraded from the A/B layout: only the chain the dispatcher
+  // reaches counts, a stale sibling referencing the other generation does not.
+  const std::string legacy =
+      "-N KeenPbrRaw\n-N KeenPbrRaw_A\n-N KeenPbrRaw_B\n"
+      "-A KeenPbrRaw -j KeenPbrRaw_B\n"
+      "-A KeenPbrRaw_A -m set --match-set kpbr4s_stale dst -j RETURN\n"
+      "-A KeenPbrRaw_B -m set --match-set kpbr4S_live dst -j RETURN\n";
+  const auto live = T::inspect_dump(legacy, false, {"KeenPbrRaw"});
+  CHECK(static_cast<int>(live.generation) == T::state_b());
+  CHECK(live.names == std::set<std::string>{"kpbr4S_live"});
+  // Unreachable-only references are not seen.
+  CHECK(static_cast<int>(
+            T::inspect_dump(legacy, false, {"KeenPbrOutput"}).generation) ==
+        T::state_missing());
+  // Both generations reachable is reported as invalid.
+  CHECK(static_cast<int>(
+            T::inspect_dump("-N KeenPbrRaw\n-N KeenPbrRaw_A\n"
+                            "-A KeenPbrRaw -j KeenPbrRaw_A\n"
+                            "-A KeenPbrRaw -m set --match-set kpbr4S_x dst -j RETURN\n"
+                            "-A KeenPbrRaw_A -m set --match-set kpbr4s_y dst -j RETURN\n",
+                            false, {"KeenPbrRaw"})
+                .generation) == T::state_invalid());
 }
 
 TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
@@ -704,10 +667,8 @@ TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
   const std::string script = T::build_raw_script({rule}, prefilter);
   CHECK(script.find("*raw\n") != std::string::npos);
   CHECK(script.find(":KeenPbrRaw - [0:0]") != std::string::npos);
-  CHECK(script.find(":KeenPbrRaw_A - [0:0]") != std::string::npos);
-  CHECK(script.find(":KeenPbrRaw_B - [0:0]") == std::string::npos);
-  CHECK(script.find("-A KeenPbrRaw -j KeenPbrRaw_A") != std::string::npos);
-  CHECK(script.find("-A PREROUTING -j KeenPbrRaw") == std::string::npos);
+  CHECK(script.find("KeenPbrRaw_") == std::string::npos);
+  CHECK(script.find("-A PREROUTING -j KeenPbrRaw\n") != std::string::npos);
   CHECK(script.find("--set-xmark 0x100/0xffffffff") != std::string::npos);
   CHECK(script.find("CONNMARK") == std::string::npos);
   CHECK(script.find("-m conntrack") == std::string::npos);
@@ -1054,75 +1015,69 @@ TEST_CASE("ipset reconcile: static A/B names fit the ipset limit") {
   CHECK(("kpbr6d_" + longest_name).size() == 31);
 }
 
-TEST_CASE("ipset reconcile: live dispatcher selects the inactive static slot") {
+TEST_CASE("ipset reconcile: live rules select the inactive static slot") {
   CHECK(T::static_set_name_for_live_rules("") == "kpbr4s_sample");
   CHECK(T::static_set_name_for_live_rules(
-            "-N KeenPbrTable\n-A KeenPbrTable -j KeenPbrTable_A\n") ==
-        "kpbr4S_sample");
+            "-N KeenPbrTable\n-A KeenPbrTable -m set --match-set kpbr4s_x dst "
+            "-j MARK\n") == "kpbr4S_sample");
   CHECK(T::static_set_name_for_live_rules(
-            "-N KeenPbrTable\n-A KeenPbrTable -j KeenPbrTable_B\n") ==
+            "-N KeenPbrTable\n-A KeenPbrTable -m set --match-set kpbr4S_x dst "
+            "-j MARK\n") == "kpbr4s_sample");
+  // Legacy dispatcher layout reached through KeenPbrTable_OUTPUT too.
+  CHECK(T::static_set_name_for_live_rules(
+            "-N KeenPbrTable_OUTPUT\n-N KeenPbrTable_B\n"
+            "-A KeenPbrTable_OUTPUT -j KeenPbrTable_B\n"
+            "-A KeenPbrTable -m set --match-set kpbr4S_x dst -j MARK\n") ==
         "kpbr4s_sample");
   CHECK_THROWS(T::static_set_name_for_live_rules(
-      "-A KeenPbrTable -j UnknownGeneration\n"));
-}
-
-TEST_CASE("RulesOnly generation plan keeps static and rule slots distinct") {
-  CHECK(T::plan_target_for_states(T::state_a(), T::state_a()) ==
-        FirewallSetGeneration::B);
-  CHECK_FALSE(T::plan_repairs_output(T::state_a(), T::state_a()));
-  CHECK(T::plan_target_for_states(T::state_a(), T::state_b()) ==
-        FirewallSetGeneration::B);
-  CHECK(T::plan_repairs_output(T::state_a(), T::state_b()));
-  CHECK(T::plan_target_for_states(T::state_b(), T::state_a()) ==
-        FirewallSetGeneration::A);
-  CHECK(T::plan_repairs_output(T::state_b(), T::state_a()));
+      "-N KeenPbrTable\n"
+      "-A KeenPbrTable -m set --match-set kpbr4s_x dst -j MARK\n"
+      "-A KeenPbrTable -m set --match-set kpbr4S_y dst -j MARK\n"));
 }
 
 TEST_CASE("RulesOnly derives static slot from live match-set references") {
   CHECK(T::static_set_generation(
-            "-A KeenPbrTable_B -m set --match-set kpbr4s_remote dst -j MARK\n") ==
+            "-A KeenPbrTable -m set --match-set kpbr4s_remote dst -j MARK\n") ==
         T::state_a());
   CHECK(T::static_set_generation(
-            "-A KeenPbrTable_A -m set --match-set kpbr4S_remote dst -j MARK\n") ==
+            "-A KeenPbrTable -m set --match-set kpbr4S_remote dst -j MARK\n") ==
         T::state_b());
   CHECK(T::static_set_generation(
-            "-A KeenPbrTable_A -m set --match-set kpbr4s_remote dst -j MARK\n"
-            "-A KeenPbrTable_A -m set --match-set kpbr4s_other dst -j RETURN\n") ==
+            "-A KeenPbrTable -m set --match-set kpbr4s_remote dst -j MARK\n"
+            "-A KeenPbrTable -m set --match-set kpbr4s_other dst -j RETURN\n") ==
         T::state_a());
   CHECK(T::static_set_generation(
-            "-A KeenPbrTable_A -m set --match-set kpbr4s_remote dst -j MARK\n"
-            "-A KeenPbrTable_A -m set --match-set kpbr4S_other dst -j RETURN\n") ==
+            "-A KeenPbrTable -m set --match-set kpbr4s_remote dst -j MARK\n"
+            "-A KeenPbrTable -m set --match-set kpbr4S_other dst -j RETURN\n") ==
         T::state_invalid());
   CHECK(T::static_set_generation(
-            "-A KeenPbrTable_A -m set --match-set kpbr4d_remote dst -j MARK\n") ==
+            "-A KeenPbrTable -m set --match-set kpbr4d_remote dst -j MARK\n") ==
         T::state_missing());
   CHECK(T::static_set_generation(
-            "-A KeenPbrTable_B -m set --match-set kpbr6S_remote dst -j MARK\n",
+            "-A KeenPbrTable -m set --match-set kpbr6S_remote dst -j MARK\n",
             true) == T::state_b());
   CHECK(T::static_set_names(
-            "-A KeenPbrTable_B -m set --match-set kpbr4S_remote dst -j MARK\n") ==
+            "-A KeenPbrTable -m set --match-set kpbr4S_remote dst -j MARK\n") ==
         std::set<std::string>{"kpbr4S_remote"});
 }
 
 TEST_CASE("static generation transition helper covers RulesOnly and refreshes") {
-  CHECK(T::static_target_for_mode(FirewallApplyMode::RulesOnly, T::state_a(),
-                                  FirewallSetGeneration::B) ==
+  CHECK(T::static_target_for_mode(FirewallApplyMode::RulesOnly, T::state_a()) ==
         FirewallSetGeneration::A);
-  CHECK(T::static_target_for_mode(FirewallApplyMode::RulesOnly, T::state_b(),
-                                  FirewallSetGeneration::A) ==
+  CHECK(T::static_target_for_mode(FirewallApplyMode::RulesOnly, T::state_b()) ==
         FirewallSetGeneration::B);
-  CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets, T::state_a(),
-                                  FirewallSetGeneration::B) ==
-        FirewallSetGeneration::B);
-  CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets, T::state_b(),
-                                  FirewallSetGeneration::A) ==
+  CHECK(T::static_target_for_mode(FirewallApplyMode::RulesOnly,
+                                  T::state_missing()) ==
         FirewallSetGeneration::A);
-  CHECK(T::static_target_for_mode(FirewallApplyMode::StaticSetsOnly,
-                                  T::state_a(), FirewallSetGeneration::A) ==
-        FirewallSetGeneration::B);
   CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets,
-                                  T::state_missing(), FirewallSetGeneration::B) ==
-        FirewallSetGeneration::B);
+                                  T::state_a()) == FirewallSetGeneration::B);
+  CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets,
+                                  T::state_b()) == FirewallSetGeneration::A);
+  CHECK(T::static_target_for_mode(FirewallApplyMode::StaticSetsOnly,
+                                  T::state_a()) == FirewallSetGeneration::B);
+  CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets,
+                                  T::state_missing()) ==
+        FirewallSetGeneration::A);
 
   CHECK(T::static_name_for_generation(FirewallSetGeneration::A, "remote",
                                       AF_INET) == "kpbr4s_remote");
@@ -1133,6 +1088,32 @@ TEST_CASE("static generation transition helper covers RulesOnly and refreshes") 
   CHECK(T::static_name_for_generation(FirewallSetGeneration::B, "remote",
                                       AF_INET6) == "kpbr6S_remote");
 }
+
+namespace {
+
+// Fake iptables for apply tests: `-S` of a table prints `table_dump`, the
+// builtin chains print their single hook.  Every mutation through the
+// iptables binary (not through iptables-restore) is appended to `mutation_log`.
+std::string fake_iptables_script(const std::string &table_dump,
+                                 const std::string &mutation_log) {
+  return "#!/bin/sh\n"
+         "mutation_log='" + mutation_log + "'\n"
+         "for arg in \"$@\"; do\n"
+         "  case \"$arg\" in\n"
+         "    -A|-D|-I|-F|-X) /bin/printf '%s\\n' \"$*\" >> \"$mutation_log\" ;;\n"
+         "  esac\n"
+         "done\n"
+         "last=''\n"
+         "for arg in \"$@\"; do last=\"$arg\"; done\n"
+         "case \"$last\" in\n"
+         "  -S) /bin/printf '%s\\n' '" + table_dump + "' ;;\n"
+         "  PREROUTING) /bin/printf '%s\\n' '-A PREROUTING -j KeenPbrTable' ;;\n"
+         "  OUTPUT) /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrOutput' ;;\n"
+         "esac\n"
+         "exit 0\n";
+}
+
+} // namespace
 
 TEST_CASE("Destructive apply preserves compatible dynamic schemas") {
   struct ApplyResult {
@@ -1163,11 +1144,7 @@ TEST_CASE("Destructive apply preserves compatible dynamic schemas") {
           "if [ \"$last\" = \"PREROUTING\" ]; then\n"
           "  /bin/printf '%s\\n' '-A PREROUTING -j KeenPbrTable'\n"
           "elif [ \"$last\" = \"OUTPUT\" ]; then\n"
-          "  /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrTable_OUTPUT'\n"
-          "elif [ \"$last\" = \"KeenPbrTable\" ]; then\n"
-          "  /bin/printf '%s\\n' '-N KeenPbrTable' '-A KeenPbrTable -j KeenPbrTable_A'\n"
-          "elif [ \"$last\" = \"KeenPbrTable_OUTPUT\" ]; then\n"
-          "  /bin/printf '%s\\n' '-N KeenPbrTable_OUTPUT' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_A'\n"
+          "  /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrOutput'\n"
           "fi\n"
           "exit 0\n");
     };
@@ -1254,68 +1231,23 @@ TEST_CASE("Destructive apply preserves compatible dynamic schemas") {
   CHECK(inspection_failed.mutations.empty());
 }
 
-TEST_CASE("plan validation defers mismatched OUTPUT repair") {
+TEST_CASE("an invalid plan fails before any firewall mutation, a valid one commits once") {
   const auto sandbox = std::filesystem::temp_directory_path() /
                        ("keen-pbr-iptables-plan-validation-" +
                         std::to_string(static_cast<long long>(getpid())));
   std::filesystem::remove_all(sandbox);
   std::filesystem::create_directories(sandbox);
-  const auto state_file = sandbox / "dispatchers";
   const auto restore_log = sandbox / "restore.log";
   const auto mutation_log = sandbox / "mutations.log";
-  {
-    std::ofstream state(state_file);
-    REQUIRE(state.good());
-    state << "A B\n";
-  }
 
-  write_executable(
-      sandbox / "iptables",
-      "#!/bin/sh\n"
-      "state_file='" + state_file.string() + "'\n"
-      "mutation_log='" + mutation_log.string() + "'\n"
-      "primary=A; output=B\n"
-      "if [ -f \"$state_file\" ]; then read primary output < \"$state_file\"; fi\n"
-      "for arg in \"$@\"; do\n"
-      "  case \"$arg\" in\n"
-      "    -A|-D|-I|-F|-X) /bin/printf '%s\\n' \"$*\" >> \"$mutation_log\" ;;\n"
-      "  esac\n"
-      "done\n"
-      "last=''\n"
-      "for arg in \"$@\"; do last=\"$arg\"; done\n"
-      "case \"$last\" in\n"
-      "  -S) /bin/printf '%s\\n' \"-A KeenPbrTable -j KeenPbrTable_$primary\" \"-A KeenPbrTable_OUTPUT -j KeenPbrTable_$output\" ;;\n"
-      "  KeenPbrTable) /bin/printf '%s\\n' '-N KeenPbrTable' \"-A KeenPbrTable -j KeenPbrTable_$primary\" ;;\n"
-      "  KeenPbrTable_OUTPUT) /bin/printf '%s\\n' '-N KeenPbrTable_OUTPUT' \"-A KeenPbrTable_OUTPUT -j KeenPbrTable_$output\" ;;\n"
-      "  KeenPbrTable_A|KeenPbrTable_B) /bin/printf '%s\\n' \"-N $last\" ;;\n"
-      "  PREROUTING) /bin/printf '%s\\n' '-A PREROUTING -j KeenPbrTable' ;;\n"
-      "  OUTPUT) /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrTable_OUTPUT' ;;\n"
-      "esac\n"
-      "exit 0\n");
+  write_executable(sandbox / "iptables",
+                   fake_iptables_script("", mutation_log.string()));
   write_executable(
       sandbox / "iptables-restore",
       "#!/bin/sh\n"
-      "state_file='" + state_file.string() + "'\n"
-      "restore_log='" + restore_log.string() + "'\n"
       "if [ \"$1\" = \"--test\" ]; then /bin/cat >/dev/null; exit 0; fi\n"
-      "input=$(/bin/cat)\n"
-      "if /bin/printf '%s' \"$input\" | /bin/grep -q -- '-F KeenPbrTable'; then\n"
-      "  marker=rules\n"
-      "else\n"
-      "  marker=output\n"
-      "fi\n"
-      "primary=A; output=B\n"
-      "if [ -f \"$state_file\" ]; then read primary output < \"$state_file\"; fi\n"
-      "case \"$input\" in\n"
-      "  *'-A KeenPbrTable_OUTPUT -j KeenPbrTable_A'*) output=A ;;\n"
-      "  *'-A KeenPbrTable_OUTPUT -j KeenPbrTable_B'*) output=B ;;\n"
-      "esac\n"
-      "case \"$input\" in\n"
-      "  *'-A KeenPbrTable -j KeenPbrTable_A'*) primary=A ;;\n"
-      "  *'-A KeenPbrTable -j KeenPbrTable_B'*) primary=B ;;\n"
-      "esac\n"
-      "/bin/printf '%s %s target=%s/%s\\n' \"$*\" \"$marker\" \"$primary\" \"$output\" >> \"$restore_log\"\n"
-      "/bin/printf '%s %s\\n' \"$primary\" \"$output\" > \"$state_file\"\n"
+      "/bin/printf '%s\\n' \"$*\" >> '" + restore_log.string() + "'\n"
+      "/bin/cat >> '" + restore_log.string() + "'\n"
       "exit 0\n");
   write_executable(sandbox / "ipset", "#!/bin/sh\nexit 0\n");
 
@@ -1349,27 +1281,23 @@ TEST_CASE("plan validation defers mismatched OUTPUT repair") {
   CHECK_NOTHROW(firewall.apply(valid, FirewallApplyMode::PreserveSets));
 
   std::ifstream restores(restore_log);
-  REQUIRE(restores.good());
-  std::vector<std::string> restore_commands;
-  std::string command;
-  while (std::getline(restores, command)) {
-    restore_commands.push_back(command);
-  }
-  REQUIRE(restore_commands.size() == 2);
-  CHECK(restore_commands[0].find("output") != std::string::npos);
-  CHECK(restore_commands[1].find("rules") != std::string::npos);
-
-  std::ifstream state(state_file);
-  std::string primary;
-  std::string output;
-  state >> primary >> output;
-  CHECK(primary == "B");
-  CHECK(output == "B");
+  std::ostringstream restored;
+  restored << restores.rdbuf();
+  const std::string text = restored.str();
+  // One transaction for the mangle table: both chains, both hooks, no A/B.
+  CHECK(text.find("--noflush") != std::string::npos);
+  CHECK(text.find("*mangle\n:KeenPbrTable - [0:0]\n:KeenPbrOutput - [0:0]\n") !=
+        std::string::npos);
+  CHECK(text.find("-A PREROUTING -j KeenPbrTable\n") != std::string::npos);
+  CHECK(text.find("-A OUTPUT -j KeenPbrOutput\n") != std::string::npos);
+  CHECK(text.find("_A") == std::string::npos);
+  CHECK(text.find("_B") == std::string::npos);
+  CHECK(text.find("*mangle", text.find("*mangle") + 1) == std::string::npos);
   CHECK_FALSE(std::filesystem::exists(mutation_log));
   std::filesystem::remove_all(sandbox);
 }
 
-TEST_CASE("RulesOnly stale generation is typed and does not repair OUTPUT") {
+TEST_CASE("RulesOnly reports a static-set generation change as typed and does not restore") {
   const auto sandbox = std::filesystem::temp_directory_path() /
                        ("keen-pbr-iptables-rules-only-" +
                         std::to_string(static_cast<long long>(getpid())));
@@ -1378,23 +1306,22 @@ TEST_CASE("RulesOnly stale generation is typed and does not repair OUTPUT") {
   const auto count_file = sandbox / "iptables-count";
   const auto restore_log = sandbox / "restore.log";
 
+  // The first table dump (prepare) references static A; every later dump
+  // references static B, as if another process rebuilt the sets in between.
   write_executable(
       sandbox / "iptables",
       "#!/bin/sh\n"
       "count_file='" + count_file.string() + "'\n"
       "count=0\n"
       "if [ -f \"$count_file\" ]; then count=$(/bin/cat \"$count_file\"); fi\n"
-      "count=$((count + 1))\n"
-      "/bin/printf '%s\\n' \"$count\" > \"$count_file\"\n"
-      "primary=A\n"
-      "secondary=A\n"
-      "if [ \"$count\" -gt 4 ]; then primary=B; secondary=A; fi\n"
       "last=''\n"
       "for arg in \"$@\"; do last=\"$arg\"; done\n"
       "if [ \"$last\" = \"-S\" ]; then\n"
-      "  /bin/printf '%s\\n' \"-N KeenPbrTable\" \"-A KeenPbrTable -j KeenPbrTable_$primary\" \"-N KeenPbrTable_OUTPUT\" \"-A KeenPbrTable_OUTPUT -j KeenPbrTable_$secondary\"\n"
-      "else\n"
-      "  /bin/printf '%s\\n' \"-N $last\" \"-A $last -m set --match-set kpbr4s_remote dst -j MARK\"\n"
+      "  count=$((count + 1))\n"
+      "  /bin/printf '%s\\n' \"$count\" > \"$count_file\"\n"
+      "  slot=s\n"
+      "  if [ \"$count\" -gt 1 ]; then slot=S; fi\n"
+      "  /bin/printf '%s\\n' '-N KeenPbrTable' \"-A KeenPbrTable -m set --match-set kpbr4${slot}_remote dst -j MARK\"\n"
       "fi\n");
   write_executable(
       sandbox / "ipset",
@@ -1435,51 +1362,49 @@ TEST_CASE("RulesOnly stale generation is typed and does not repair OUTPUT") {
   std::filesystem::remove_all(sandbox);
 }
 
-TEST_CASE("consecutive RulesOnly applies flip rule slots while reusing static A") {
+TEST_CASE("RulesOnly without a live PREROUTING chain is a typed fallback") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-rules-only-missing-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox);
+  write_executable(sandbox / "iptables",
+                   fake_iptables_script("-P PREROUTING ACCEPT",
+                                        (sandbox / "m.log").string()));
+  PathGuard path_guard;
+  const char *old_path = std::getenv("PATH");
+  const std::string path = sandbox.string() + ":" +
+                           (old_path == nullptr ? std::string{} : old_path);
+  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+  IptablesFirewall firewall;
+  firewall.set_ipv6_enabled(false);
+  CHECK_THROWS_AS(firewall.prepare_apply(FirewallApplyMode::RulesOnly),
+                  FirewallRulesOnlyError);
+  std::filesystem::remove_all(sandbox);
+}
+
+TEST_CASE("consecutive RulesOnly applies rewrite the same chains while reusing static A") {
   const auto sandbox = std::filesystem::temp_directory_path() /
                        ("keen-pbr-iptables-rules-only-consecutive-" +
                         std::to_string(static_cast<long long>(getpid())));
   std::filesystem::remove_all(sandbox);
   std::filesystem::create_directories(sandbox);
-  const auto state_file = sandbox / "generation";
   const auto restore_count_file = sandbox / "restore-count";
-  const auto restore_log = sandbox / "restore-generations.log";
   const auto mutation_log = sandbox / "ipset-mutations.log";
+  const auto iptables_mutations = sandbox / "iptables-mutations.log";
   const auto restore_one = sandbox / "restore-1.rules";
   const auto restore_two = sandbox / "restore-2.rules";
-  {
-    std::ofstream initial_state(state_file);
-    REQUIRE(initial_state.good());
-    initial_state << "A\n";
-  }
 
+  // The live state: our chain with static A references and both hooks.
   write_executable(
       sandbox / "iptables",
-      "#!/bin/sh\n"
-      "state_file='" + state_file.string() + "'\n"
-      "state=A\n"
-      "if [ -f \"$state_file\" ]; then state=$(/bin/cat \"$state_file\"); fi\n"
-      "last=''\n"
-      "for arg in \"$@\"; do last=\"$arg\"; done\n"
-      "if [ \"$last\" = \"-S\" ]; then\n"
-      "  /bin/printf '%s\\n' \"-N KeenPbrTable\" \"-A KeenPbrTable -j KeenPbrTable_$state\" \"-N KeenPbrTable_OUTPUT\" \"-A KeenPbrTable_OUTPUT -j KeenPbrTable_$state\"\n"
-      "  exit 0\n"
-      "fi\n"
-      "case \"$last\" in\n"
-      "  KeenPbrTable|KeenPbrTable_OUTPUT)\n"
-      "    /bin/printf '%s\\n' \"-N $last\" \"-A $last -j KeenPbrTable_$state\"\n"
-      "    ;;\n"
-      "  KeenPbrTable_A|KeenPbrTable_B)\n"
-      "    /bin/printf '%s\\n' \"-N $last\" \"-A $last -m set --match-set kpbr4s_remote dst -j MARK\"\n"
-      "    ;;\n"
-      "  PREROUTING)\n"
-      "    /bin/printf '%s\\n' '-A PREROUTING -j KeenPbrTable'\n"
-      "    ;;\n"
-      "  OUTPUT)\n"
-      "    /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrTable_OUTPUT'\n"
-      "    ;;\n"
-      "esac\n"
-      "exit 0\n");
+      fake_iptables_script(
+          "-P PREROUTING ACCEPT\n-P OUTPUT ACCEPT\n-N KeenPbrTable\n"
+          "-N KeenPbrOutput\n-A PREROUTING -j KeenPbrTable\n"
+          "-A OUTPUT -j KeenPbrOutput\n"
+          "-A KeenPbrTable -m set --match-set kpbr4s_remote dst -j MARK\n"
+          "-A KeenPbrOutput -m set --match-set kpbr4s_remote dst -j MARK",
+          iptables_mutations.string()));
   write_executable(
       sandbox / "ipset",
       "#!/bin/sh\n"
@@ -1500,25 +1425,13 @@ TEST_CASE("consecutive RulesOnly applies flip rule slots while reusing static A"
   write_executable(
       sandbox / "iptables-restore",
       "#!/bin/sh\n"
-      "state_file='" + state_file.string() + "'\n"
       "count_file='" + restore_count_file.string() + "'\n"
-      "restore_log='" + restore_log.string() + "'\n"
       "count=0\n"
       "if [ \"$1\" = \"--test\" ]; then /bin/cat >/dev/null; exit 0; fi\n"
       "if [ -f \"$count_file\" ]; then count=$(/bin/cat \"$count_file\"); fi\n"
       "count=$((count + 1))\n"
       "/bin/printf '%s\\n' \"$count\" > \"$count_file\"\n"
-      "input_file='" + sandbox.string() + "/restore-'\"$count\"'.rules'\n"
-      "/bin/cat > \"$input_file\"\n"
-      "target=''\n"
-      "while IFS= read -r line; do\n"
-      "  case \"$line\" in\n"
-      "    '-A KeenPbrTable -j KeenPbrTable_A') target=A ;;\n"
-      "    '-A KeenPbrTable -j KeenPbrTable_B') target=B ;;\n"
-      "  esac\n"
-      "done < \"$input_file\"\n"
-      "/bin/printf '%s\\n' \"$target\" >> \"$restore_log\"\n"
-      "if [ -n \"$target\" ]; then /bin/printf '%s\\n' \"$target\" > \"$state_file\"; fi\n"
+      "/bin/cat > '" + sandbox.string() + "/restore-'\"$count\"'.rules'\n"
       "exit 0\n");
 
   PathGuard path_guard;
@@ -1541,15 +1454,6 @@ TEST_CASE("consecutive RulesOnly applies flip rule slots while reusing static A"
 
   apply_rules_only();
   apply_rules_only();
-
-  std::ifstream generations_input(restore_log);
-  REQUIRE(generations_input.good());
-  std::vector<std::string> generations;
-  std::string generation;
-  while (std::getline(generations_input, generation)) {
-    generations.push_back(generation);
-  }
-  CHECK(generations == std::vector<std::string>{"B", "A"});
   CHECK_FALSE(std::filesystem::exists(mutation_log));
 
   const auto read_rules = [](const std::filesystem::path &path) {
@@ -1560,122 +1464,30 @@ TEST_CASE("consecutive RulesOnly applies flip rule slots while reusing static A"
   };
   const auto first_rules = read_rules(restore_one);
   const auto second_rules = read_rules(restore_two);
-  CHECK(first_rules.find("-A KeenPbrTable_B") != std::string::npos);
-  CHECK(second_rules.find("-A KeenPbrTable_A") != std::string::npos);
-  CHECK(first_rules.find("--match-set kpbr4s_remote") != std::string::npos);
-  CHECK(second_rules.find("--match-set kpbr4s_remote") != std::string::npos);
-  CHECK(first_rules.find("kpbr4S_remote") == std::string::npos);
-  CHECK(second_rules.find("kpbr4S_remote") == std::string::npos);
-
-  std::filesystem::remove_all(sandbox);
-}
-
-TEST_CASE("RulesOnly rules can target inactive generation while using active sets") {
-  const auto a_sets_b_rules = T::build_rules_for_slots(
-      FirewallSetGeneration::B, FirewallSetGeneration::A, false);
-  CHECK(a_sets_b_rules.find("KeenPbrTable_B") != std::string::npos);
-  CHECK(a_sets_b_rules.find("kpbr4s_sample") != std::string::npos);
-
-  const auto b_sets_a_rules = T::build_rules_for_slots(
-      FirewallSetGeneration::A, FirewallSetGeneration::B, true);
-  CHECK(b_sets_a_rules.find("KeenPbrTable_A") != std::string::npos);
-  CHECK(b_sets_a_rules.find("kpbr6S_sample") != std::string::npos);
-}
-
-TEST_CASE("set-refresh modes publish new rules with the inactive static slot") {
-  // A prior RulesOnly apply may leave live B rules referring to static A
-  // sets. PreserveSets and StaticSetsOnly must refresh B, then publish A
-  // rules that refer to B rather than flushing the still-live A sets.
-  const auto refreshed = T::build_rules_for_slots(
-      FirewallSetGeneration::A, FirewallSetGeneration::B, false);
-  CHECK(refreshed.find("-A KeenPbrTable_A -m set --match-set kpbr4S_sample") !=
+  // Same chains and static sets every time; hooks already present are not
+  // added again.
+  CHECK(first_rules == second_rules);
+  CHECK(first_rules.find("-A KeenPbrTable -m set --match-set kpbr4s_remote") !=
         std::string::npos);
-  CHECK(refreshed.find("--match-set kpbr4s_sample") == std::string::npos);
-}
+  CHECK(first_rules.find("-A KeenPbrOutput -m set --match-set kpbr4s_remote") !=
+        std::string::npos);
+  CHECK(first_rules.find("kpbr4S_remote") == std::string::npos);
+  CHECK(first_rules.find("-A PREROUTING") == std::string::npos);
+  CHECK(first_rules.find("-A OUTPUT") == std::string::npos);
+  CHECK(first_rules.find("-X ") == std::string::npos);
+  CHECK_FALSE(std::filesystem::exists(iptables_mutations));
 
-TEST_CASE("live generation parser rejects damaged dispatchers") {
-  CHECK(T::live_generation_state(
-            "-N KeenPbrTable\n-A KeenPbrTable -j KeenPbrTable_A\n") ==
-        T::state_a());
-  CHECK(T::live_generation_state(
-            "-N KeenPbrTable\n-A KeenPbrTable -j KeenPbrTable_B\n") ==
-        T::state_b());
-  CHECK(T::live_generation_state("-N KeenPbrTable\n") == T::state_missing());
-  CHECK(T::live_generation_state("-A KeenPbrTable -j KeenPbrTable_A\n"
-                                 "-A KeenPbrTable -j KeenPbrTable_B\n") ==
-        T::state_invalid());
-  CHECK(T::live_generation_state("-A KeenPbrTable -j KeenPbrTable_A\n"
-                                 "-A KeenPbrTable -j KeenPbrTable_A\n") ==
-        T::state_invalid());
-  CHECK(T::live_generation_state("-A KeenPbrTable -j ForeignTarget\n") ==
-        T::state_invalid());
-}
-
-TEST_CASE("damaged dispatcher retains conservative generation references") {
-  const auto only_a = T::live_generation_references(
-      "-A KeenPbrTable -j KeenPbrTable_A\n"
-      "-A KeenPbrTable -j RETURN\n");
-  CHECK(only_a == std::pair<bool, bool>{true, false});
-
-  const auto both = T::live_generation_references(
-      "-A KeenPbrTable -j KeenPbrTable_A\n"
-      "-A KeenPbrTable -j KeenPbrTable_B\n");
-  CHECK(both == std::pair<bool, bool>{true, true});
-
-  const auto conditional = T::live_generation_references(
-      "-A KeenPbrTable -m comment --comment foreign -j KeenPbrTable_A\n");
-  CHECK(conditional == std::pair<bool, bool>{true, false});
-
-  const auto goto_a = T::live_generation_references(
-      "-A KeenPbrTable -g KeenPbrTable_A\n");
-  CHECK(goto_a == std::pair<bool, bool>{true, false});
-
-  const auto long_goto_b = T::live_generation_references(
-      "-A KeenPbrTable --goto KeenPbrTable_B\n");
-  CHECK(long_goto_b == std::pair<bool, bool>{false, true});
-
-  const auto compact_goto_a = T::live_generation_references(
-      "-A KeenPbrTable -gKeenPbrTable_A\n");
-  CHECK(compact_goto_a == std::pair<bool, bool>{true, false});
-
-  const auto equals_jump_b = T::live_generation_references(
-      "-A KeenPbrTable --jump=KeenPbrTable_B\n");
-  CHECK(equals_jump_b == std::pair<bool, bool>{false, true});
-}
-
-TEST_CASE("damaged dispatcher goto preserves reachable generation") {
-  const auto sandbox = std::filesystem::temp_directory_path() /
-                       ("keen-pbr-iptables-goto-" +
-                        std::to_string(static_cast<long long>(getpid())));
   std::filesystem::remove_all(sandbox);
-  std::filesystem::create_directories(sandbox);
-  write_executable(
-      sandbox / "iptables",
-      "#!/bin/sh\n"
-      "last=''\n"
-      "for arg in \"$@\"; do last=\"$arg\"; done\n"
-      "if [ \"$last\" = \"-S\" ]; then\n"
-      "  /bin/printf '%s\\n' '-N KeenPbrTable' '-A KeenPbrTable --goto KeenPbrTable_A' '-A KeenPbrTable -j RETURN' '-N KeenPbrTable_OUTPUT' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_A'\n"
-      "fi\n"
-      "exit 0\n");
-  write_executable(sandbox / "iptables-restore",
-                   "#!/bin/sh\n/bin/cat >/dev/null\nexit 0\n");
-  write_executable(sandbox / "ipset", "#!/bin/sh\nexit 0\n");
+}
 
-  PathGuard path_guard;
-  const char *old_path = std::getenv("PATH");
-  const std::string path = sandbox.string() + ":" +
-                           (old_path == nullptr ? std::string{} : old_path);
-  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
-
-  IptablesFirewall firewall;
-  firewall.set_ipv6_enabled(false);
-  firewall.prepare_apply(FirewallApplyMode::PreserveSets);
-  CHECK(T::prepared_v4_target(firewall) == FirewallSetGeneration::B);
-  const auto script = T::build_replacement_script();
-  CHECK(script.find("-F KeenPbrTable_A\n") == std::string::npos);
-  CHECK(script.find("-F KeenPbrTable_B\n") != std::string::npos);
-  std::filesystem::remove_all(sandbox);
+TEST_CASE("static slot is independent of the chains the rules are written to") {
+  const auto a_sets = T::build_rules_for_set_slot(FirewallSetGeneration::A, false);
+  CHECK(a_sets.find("-A KeenPbrTable -m set --match-set kpbr4s_sample") !=
+        std::string::npos);
+  const auto b_sets = T::build_rules_for_set_slot(FirewallSetGeneration::B, true);
+  CHECK(b_sets.find("-A KeenPbrTable -m set --match-set kpbr6S_sample") !=
+        std::string::npos);
+  CHECK(b_sets.find("kpbr6s_sample") == std::string::npos);
 }
 
 TEST_CASE("xt_comment registration parser requires an exact token") {
@@ -1811,11 +1623,8 @@ TEST_CASE("unsupported xt_comment omits comments without changing apply") {
         "last=''\n"
         "for arg in \"$@\"; do last=\"$arg\"; done\n"
         "case \"$last\" in\n"
-        "  -S) /bin/printf '%s\\n' '-N KeenPbrTable' '-A KeenPbrTable -j KeenPbrTable_A' '-N KeenPbrTable_OUTPUT' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_A' ;;\n"
         "  PREROUTING) /bin/printf '%s\\n' '-A PREROUTING -j KeenPbrTable' ;;\n"
-        "  OUTPUT) /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrTable_OUTPUT' ;;\n"
-        "  KeenPbrTable) /bin/printf '%s\\n' '-N KeenPbrTable' '-A KeenPbrTable -j KeenPbrTable_A' ;;\n"
-        "  KeenPbrTable_OUTPUT) /bin/printf '%s\\n' '-N KeenPbrTable_OUTPUT' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_A' ;;\n"
+        "  OUTPUT) /bin/printf '%s\\n' '-A OUTPUT -j KeenPbrOutput' ;;\n"
         "esac\n"
         "exit 0\n");
   };
@@ -1883,7 +1692,7 @@ TEST_CASE("unsupported xt_comment omits comments without changing apply") {
   std::filesystem::remove_all(sandbox);
 }
 
-TEST_CASE("ambiguous damaged dispatcher fails before PreserveSets mutation") {
+TEST_CASE("live rules referencing both static generations fail before PreserveSets mutation") {
   const auto sandbox = std::filesystem::temp_directory_path() /
                        ("keen-pbr-iptables-ambiguous-" +
                         std::to_string(static_cast<long long>(getpid())));
@@ -1892,10 +1701,11 @@ TEST_CASE("ambiguous damaged dispatcher fails before PreserveSets mutation") {
   const auto mutation_log = sandbox / "mutation.log";
   write_executable(
       sandbox / "iptables",
-      "#!/bin/sh\n"
-      "if [ \"$1\" = \"-m\" ] && [ \"$2\" = \"comment\" ]; then exit 0; fi\n"
-      "/bin/printf '%s\\n' '-A KeenPbrTable --goto KeenPbrTable_A' '-A KeenPbrTable -j KeenPbrTable_B' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_A' '-A KeenPbrTable_OUTPUT -j KeenPbrTable_B'\n"
-      "exit 0\n");
+      fake_iptables_script(
+          "-N KeenPbrTable\n"
+          "-A KeenPbrTable -m set --match-set kpbr4s_x dst -j MARK\n"
+          "-A KeenPbrTable -m set --match-set kpbr4S_y dst -j MARK",
+          (sandbox / "iptables-mutation.log").string()));
   write_executable(
       sandbox / "ipset",
       "#!/bin/sh\n"
@@ -1914,28 +1724,6 @@ TEST_CASE("ambiguous damaged dispatcher fails before PreserveSets mutation") {
                   FirewallError);
   CHECK_FALSE(std::filesystem::exists(mutation_log));
   std::filesystem::remove_all(sandbox);
-}
-
-TEST_CASE("target generation accounts for both dispatchers") {
-  CHECK(T::target_for_states(T::state_missing(), T::state_missing()) ==
-        FirewallSetGeneration::A);
-  CHECK(T::target_for_states(T::state_a(), T::state_missing()) ==
-        FirewallSetGeneration::B);
-  CHECK(T::target_for_states(T::state_missing(), T::state_b()) ==
-        FirewallSetGeneration::A);
-  CHECK(T::target_for_states(T::state_a(), T::state_a()) ==
-        FirewallSetGeneration::B);
-  CHECK(T::target_for_states(T::state_b(), T::state_b()) ==
-        FirewallSetGeneration::A);
-  // On a partial publication, PREROUTING is authoritative; OUTPUT is rolled
-  // back to it before this target is used.
-  CHECK(T::target_for_states(T::state_a(), T::state_b()) ==
-        FirewallSetGeneration::B);
-  CHECK(T::target_for_states(T::state_b(), T::state_a()) ==
-        FirewallSetGeneration::A);
-  CHECK_THROWS(
-      T::target_for_states(T::state_invalid(), T::state_missing()));
-  CHECK_THROWS(T::target_for_states(T::state_missing(), T::state_invalid()));
 }
 
 TEST_CASE("hook parser counts only exact daemon-owned jumps") {
@@ -1957,13 +1745,10 @@ TEST_CASE("build_ipt_script: IPv4 mark rule") {
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100)});
   CHECK(s.find("*mangle") != std::string::npos);
   CHECK(s.find(":KeenPbrTable") != std::string::npos);
-  CHECK(s.find("-A PREROUTING -j KeenPbrTable") == std::string::npos);
-  CHECK(s.find("-A OUTPUT -j KeenPbrTable_OUTPUT") == std::string::npos);
-  CHECK(s.find("-A KeenPbrTable_OUTPUT -j KeenPbrTable_A") !=
-        std::string::npos);
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -j MARK "
+  CHECK(s.find("-A KeenPbrOutput") == std::string::npos);
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j MARK "
                "--set-xmark 0x100/0xffffffff") != std::string::npos);
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -j RETURN") !=
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j RETURN") !=
         std::string::npos);
   CHECK(s.size() >= 7);
   CHECK(s.substr(s.size() - 7) == "COMMIT\n");
@@ -2064,21 +1849,21 @@ TEST_CASE("iptables empty owned marks retain unconditional restore output") {
 
 TEST_CASE("build_ipt_script: IPv4 drop rule") {
   auto s = T::build_ipt_script(false, {drop_rule("blacklist", false)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set blacklist dst -j DROP") !=
+  CHECK(s.find("-A KeenPbrTable -m set --match-set blacklist dst -j DROP") !=
         std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: IPv4 pass rule") {
   auto s = T::build_ipt_script(false, {pass_rule("allowlist", false)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set allowlist dst -j RETURN") !=
+  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -j RETURN") !=
         std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: IPv6 mark rule") {
   auto s = T::build_ipt_script(true, {mark_rule("v6set", true, 0x200)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set v6set dst -j MARK "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set v6set dst -j MARK "
                "--set-xmark 0x200/0xffffffff") != std::string::npos);
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set v6set dst -j RETURN") !=
+  CHECK(s.find("-A KeenPbrTable -m set --match-set v6set dst -j RETURN") !=
         std::string::npos);
   CHECK(s.substr(s.size() - 7) == "COMMIT\n");
 }
@@ -2112,84 +1897,160 @@ TEST_CASE("build_ipt_script: multiple rules appear in order") {
   CHECK(pos_first < pos_second);
 }
 
-TEST_CASE("build_ipt_script: empty rules still build KeenPbrTable scaffold") {
-  auto s = T::build_ipt_script(false, {});
-  CHECK(s.find("*mangle\n") != std::string::npos);
-  CHECK(s.find(":KeenPbrTable - [0:0]\n") != std::string::npos);
-  CHECK(s.find("-A PREROUTING -j KeenPbrTable\n") == std::string::npos);
-  CHECK(s.find("-A OUTPUT -j KeenPbrTable_OUTPUT\n") == std::string::npos);
-  CHECK(s ==
-        "*mangle\n:KeenPbrTable - [0:0]\n:KeenPbrTable_OUTPUT - [0:0]\n"
-        ":KeenPbrTable_A - [0:0]\n-F KeenPbrTable_A\n-F KeenPbrTable\n"
-        "-F KeenPbrTable_OUTPUT\n-A KeenPbrTable -j KeenPbrTable_A\n"
-        "-A KeenPbrTable_OUTPUT -j KeenPbrTable_A\nCOMMIT\n");
+TEST_CASE("build_ipt_script: empty rules still build the chains and hooks (fresh install)") {
+  CHECK(T::build_mangle_script(false, {}) ==
+        "*mangle\n:KeenPbrTable - [0:0]\n:KeenPbrOutput - [0:0]\n"
+        "-A PREROUTING -j KeenPbrTable\n-A OUTPUT -j KeenPbrOutput\nCOMMIT\n");
+  // IPv6 renders identically for the same layout.
+  CHECK(T::build_mangle_script(true, {}) == T::build_mangle_script(false, {}));
 }
 
-TEST_CASE("build_ipt_script: replacement rebuilds inactive B chain and "
-          "switches dispatcher") {
-  const auto script =
-      keen_pbr3::IptablesBuilderTest::build_replacement_script();
-  const auto flush = script.find("-F KeenPbrTable_B");
-  const auto dispatcher_flush =
-      script.find("-F KeenPbrTable\n-F KeenPbrTable_OUTPUT");
-  const auto dispatcher_jump = script.find("-A KeenPbrTable -j KeenPbrTable_B");
-  const auto output_jump =
-      script.find("-A KeenPbrTable_OUTPUT -j KeenPbrTable_B");
-
-  REQUIRE(flush != std::string::npos);
-  REQUIRE(dispatcher_flush != std::string::npos);
-  REQUIRE(dispatcher_jump != std::string::npos);
-  REQUIRE(output_jump != std::string::npos);
-  CHECK(script.find(":KeenPbrTable_A - [0:0]") == std::string::npos);
-  CHECK(script.find(":KeenPbrTable_B - [0:0]") != std::string::npos);
-  CHECK(flush < dispatcher_flush);
-  CHECK(dispatcher_flush < dispatcher_jump);
-  CHECK(script.find("-X KeenPbrTable_A") == std::string::npos);
-  CHECK(script.find("-R KeenPbrTable") == std::string::npos);
-  CHECK(script.find("-F KeenPbrTable_A") == std::string::npos);
-  CHECK(script.find("-A PREROUTING -j KeenPbrTable") == std::string::npos);
-  CHECK(script.find("-A OUTPUT -j KeenPbrTable_OUTPUT") == std::string::npos);
-}
-
-TEST_CASE("generation scripts declare only the target slot so noflush "
-          "preserves the active slot") {
-  const auto raw = T::build_raw_script_for_generation(FirewallSetGeneration::B);
-  CHECK(raw.find(":KeenPbrRaw - [0:0]") != std::string::npos);
-  CHECK(raw.find(":KeenPbrRaw_A - [0:0]") == std::string::npos);
-  CHECK(raw.find(":KeenPbrRaw_B - [0:0]") != std::string::npos);
-  CHECK(raw.find("-F KeenPbrRaw_B\n") != std::string::npos);
-  CHECK(raw.find("-F KeenPbrRaw_A\n") == std::string::npos);
-  CHECK(raw.find("-F KeenPbrRaw\n") != std::string::npos);
-  CHECK(raw.find("-A KeenPbrRaw -j KeenPbrRaw_B\n") != std::string::npos);
-  CHECK(raw.find("-A PREROUTING") == std::string::npos);
-
-  const auto output =
-      T::build_output_script_for_generation(FirewallSetGeneration::B);
-  CHECK(output.find(":KeenPbrOutput - [0:0]") != std::string::npos);
-  CHECK(output.find(":KeenPbrOutput_A - [0:0]") == std::string::npos);
-  CHECK(output.find(":KeenPbrOutput_B - [0:0]") != std::string::npos);
-  CHECK(output.find("-F KeenPbrOutput_B\n") != std::string::npos);
-  CHECK(output.find("-F KeenPbrOutput_A\n") == std::string::npos);
-  CHECK(output.find("-A KeenPbrOutput -j KeenPbrOutput_B\n") !=
+TEST_CASE("mangle restore: route rules land in both chains, DNS-detour only in OUTPUT") {
+  Rule route{"kpbr4s_x", false, false, Rule::Mark, 0x100, {}};
+  Rule detour{"kpbr4s_dns", false, false, Rule::Mark, 0x200, {}};
+  detour.filter.apply_output = true;
+  const auto script = T::build_mangle_script(false, {route, detour});
+  CHECK(script.find("-A KeenPbrTable -m set --match-set kpbr4s_x dst -j MARK") !=
         std::string::npos);
-  CHECK(output.find("-A OUTPUT") == std::string::npos);
+  CHECK(script.find("-A KeenPbrOutput -m set --match-set kpbr4s_x dst -j MARK") !=
+        std::string::npos);
+  CHECK(script.find("-A KeenPbrTable -m set --match-set kpbr4s_dns") ==
+        std::string::npos);
+  CHECK(script.find("-A KeenPbrOutput -m set --match-set kpbr4s_dns dst -j MARK") !=
+        std::string::npos);
+  // PREROUTING chain rules come first, then OUTPUT, then the hooks.
+  CHECK(script.find("-A KeenPbrTable ") < script.find("-A KeenPbrOutput "));
+  CHECK(script.find("-A KeenPbrOutput ") < script.find("-A PREROUTING "));
+  CHECK(script.substr(script.size() - 7) == "COMMIT\n");
 }
 
-TEST_CASE("generation-specific drop and pass rules are emitted into the target "
-          "slot") {
-  const auto raw_drop = T::build_raw_script_for_generation(
-      FirewallSetGeneration::B, {drop_rule("blocked", false)});
+TEST_CASE("mangle restore: the inbound-interface guard is PREROUTING only") {
+  const auto script = T::build_mangle_script(
+      false, {mark_rule("myset", false, 0x100)},
+      prefilter_with_interfaces({"br0"}));
+  CHECK(script.find("-A KeenPbrTable ! -i br0 -j RETURN\n") !=
+        std::string::npos);
+  CHECK(script.find("-A KeenPbrOutput ! -i br0") == std::string::npos);
+  CHECK(script.find("-A KeenPbrOutput -m set --match-set myset dst -j MARK") !=
+        std::string::npos);
+}
+
+TEST_CASE("restore re-apply is idempotent: hooks are not duplicated, extras are dropped") {
+  const std::string live =
+      "-P PREROUTING ACCEPT\n-P OUTPUT ACCEPT\n-N KeenPbrTable\n-N KeenPbrOutput\n"
+      "-A PREROUTING -j KeenPbrTable\n-A OUTPUT -j KeenPbrOutput\n"
+      "-A KeenPbrTable -j RETURN\n";
+  const auto script = T::build_mangle_script(false, {}, {}, live);
+  CHECK(script ==
+        "*mangle\n:KeenPbrTable - [0:0]\n:KeenPbrOutput - [0:0]\nCOMMIT\n");
+
+  const std::string duplicated =
+      live + "-A PREROUTING -j KeenPbrTable\n-A PREROUTING -p tcp -j KeenPbrTable\n";
+  const auto fixed = T::build_mangle_script(false, {}, {}, duplicated);
+  // Two exact hooks -> one removed; the conditional foreign-looking jump is
+  // not ours and is left alone.
+  CHECK(fixed ==
+        "*mangle\n:KeenPbrTable - [0:0]\n:KeenPbrOutput - [0:0]\n"
+        "-D PREROUTING -j KeenPbrTable\nCOMMIT\n");
+}
+
+TEST_CASE("restore upgrade from the legacy non-raw A/B layout deletes it in the same commit") {
+  const std::string legacy =
+      "-P PREROUTING ACCEPT\n-P OUTPUT ACCEPT\n"
+      "-N KeenPbrTable\n-N KeenPbrTable_OUTPUT\n-N KeenPbrTable_A\n"
+      "-N KeenPbrTable_B\n-N ForeignChain\n"
+      "-A PREROUTING -j KeenPbrTable\n-A OUTPUT -j KeenPbrTable_OUTPUT\n"
+      "-A KeenPbrTable -j KeenPbrTable_B\n"
+      "-A KeenPbrTable_OUTPUT -j KeenPbrTable_B\n"
+      "-A KeenPbrTable_B -j RETURN\n"
+      "-A ForeignChain -j ACCEPT\n";
+  const auto script = T::build_mangle_script(false, {mark_rule("x", false, 1)}, {},
+                                             legacy);
+  const auto at = [&](const std::string &needle) { return script.find(needle); };
+  // New chains and every legacy chain are declared (flushed) first.
+  for (const char *chain : {"KeenPbrTable", "KeenPbrOutput", "KeenPbrTable_OUTPUT",
+                            "KeenPbrTable_A", "KeenPbrTable_B"}) {
+    CHECK_MESSAGE(at(std::string(":") + chain + " - [0:0]\n") != std::string::npos,
+                  chain);
+  }
+  CHECK(at(":ForeignChain") == std::string::npos);
+  // The legacy OUTPUT hook goes away before its chain is deleted; the
+  // PREROUTING hook is kept single, and the new OUTPUT hook is added.
+  REQUIRE(at("-D OUTPUT -j KeenPbrTable_OUTPUT\n") != std::string::npos);
+  CHECK(at("-D OUTPUT -j KeenPbrTable_OUTPUT\n") < at("-X KeenPbrTable_OUTPUT\n"));
+  CHECK(at("-A PREROUTING -j KeenPbrTable\n") == std::string::npos);
+  CHECK(at("-D PREROUTING") == std::string::npos);
+  CHECK(at("-A OUTPUT -j KeenPbrOutput\n") != std::string::npos);
+  for (const char *chain :
+       {"KeenPbrTable_OUTPUT", "KeenPbrTable_A", "KeenPbrTable_B"}) {
+    CHECK_MESSAGE(at(std::string("-X ") + chain + "\n") != std::string::npos,
+                  chain);
+  }
+  CHECK(at("-X KeenPbrTable\n") == std::string::npos);
+  CHECK(at("-X KeenPbrOutput\n") == std::string::npos);
+  // Every declaration precedes every rule and delete; COMMIT is last.
+  CHECK(at(":KeenPbrTable_B - [0:0]\n") < at("-A KeenPbrTable "));
+  CHECK(at("-A KeenPbrOutput ") < at("-X "));
+  CHECK(script.substr(script.size() - 7) == "COMMIT\n");
+  // Exactly one *table section: one commit.
+  CHECK(script.find("COMMIT") == script.size() - 7);
+}
+
+TEST_CASE("restore does not delete a legacy chain that a foreign rule still reaches") {
+  const std::string live =
+      "-P OUTPUT ACCEPT\n-N KeenPbrTable_A\n-N Other\n"
+      "-A Other -j KeenPbrTable_A\n";
+  const auto script = T::build_mangle_script(false, {}, {}, live);
+  CHECK(script.find(":KeenPbrTable_A - [0:0]\n") != std::string::npos);
+  CHECK(script.find("-X KeenPbrTable_A") == std::string::npos);
+}
+
+TEST_CASE("restore upgrade from the real Keenetic legacy fixtures (raw layout)") {
+  // Raw mode as seen on a router that ran the A/B layout: KeenPbrRaw is a
+  // dispatcher to KeenPbrRaw_B with a stale KeenPbrRaw_A; mangle holds the
+  // KeenPbrOutput dispatcher and KeenPbrOutput_B.
+  const std::string raw_dump = read_fixture("keenetic_1.4.21/raw_v4.rules");
+  const auto raw = T::build_raw_script_for_family(false, {mark_rule("x", false, 1)},
+                                                  {}, raw_dump);
+  CHECK(raw.find("*raw\n:KeenPbrRaw - [0:0]\n") == 0);
+  CHECK(raw.find(":KeenPbrRaw_A - [0:0]\n") != std::string::npos);
+  CHECK(raw.find(":KeenPbrRaw_B - [0:0]\n") != std::string::npos);
+  CHECK(raw.find("-X KeenPbrRaw_A\n") != std::string::npos);
+  CHECK(raw.find("-X KeenPbrRaw_B\n") != std::string::npos);
+  CHECK(raw.find("-X KeenPbrRaw\n") == std::string::npos);
+  // The hook `-A PREROUTING -j KeenPbrRaw` exists once: nothing added/removed.
+  CHECK(raw.find("-A PREROUTING") == std::string::npos);
+  CHECK(raw.find("-D PREROUTING") == std::string::npos);
+  CHECK(raw.find("-A KeenPbrRaw -m set --match-set") != std::string::npos);
+  CHECK(raw.find("-A KeenPbrRaw -j KeenPbrRaw_B") == std::string::npos);
+
+  const std::string mangle_dump = read_fixture("keenetic_1.4.21/mangle_v4.rules");
+  const auto mangle = T::build_output_script_for_family(
+      false, {mark_rule("x", false, 1)}, {}, mangle_dump);
+  CHECK(mangle.find(":KeenPbrOutput - [0:0]\n:KeenPbrOutput_B - [0:0]\n") !=
+        std::string::npos);
+  CHECK(mangle.find("-X KeenPbrOutput_B\n") != std::string::npos);
+  CHECK(mangle.find("-X KeenPbrOutput\n") == std::string::npos);
+  CHECK(mangle.find("-A OUTPUT") == std::string::npos);
+  CHECK(mangle.find("-D OUTPUT") == std::string::npos);
+  // Foreign NDM chains and their rules are never touched.
+  CHECK(mangle.find("_NDM_") == std::string::npos);
+  CHECK(mangle.find("*mangle\n") == 0);
+  CHECK(mangle.find("-A KeenPbrOutput_B") == std::string::npos);
+}
+
+TEST_CASE("raw drop and pass rules are emitted into the single raw chain") {
+  const auto raw_drop = T::build_raw_script({drop_rule("blocked", false)});
   CHECK(raw_drop.find(
-            "-A KeenPbrRaw_B -m set --match-set blocked dst -j DROP\n") !=
+            "-A KeenPbrRaw -m set --match-set blocked dst -j DROP\n") !=
         std::string::npos);
   CHECK(raw_drop.find(
             "-A KeenPbrTable -m set --match-set blocked dst -j DROP\n") ==
         std::string::npos);
 
-  const auto raw_pass = T::build_raw_script_for_generation(
-      FirewallSetGeneration::B, {pass_rule("allowed", false)});
+  const auto raw_pass = T::build_raw_script({pass_rule("allowed", false)});
   CHECK(raw_pass.find(
-            "-A KeenPbrRaw_B -m set --match-set allowed dst -j RETURN\n") !=
+            "-A KeenPbrRaw -m set --match-set allowed dst -j RETURN\n") !=
         std::string::npos);
 }
 
@@ -2199,11 +2060,11 @@ TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before "
                                prefilter_with_interfaces({"br0"}));
 
   const std::string dnat =
-      "-A KeenPbrTable_A -m conntrack --ctstate DNAT -j RETURN\n";
+      "-A KeenPbrTable -m conntrack --ctstate DNAT -j RETURN\n";
   const std::string marked =
-      "-A KeenPbrTable_A -m mark ! --mark 0x0/0xffffffff -j ACCEPT\n";
-  const std::string iface = "-A KeenPbrTable_A ! -i br0 -j RETURN\n";
-  const std::string mark = "-A KeenPbrTable_A -m set --match-set myset dst -j "
+      "-A KeenPbrTable -m mark ! --mark 0x0/0xffffffff -j ACCEPT\n";
+  const std::string iface = "-A KeenPbrTable ! -i br0 -j RETURN\n";
+  const std::string mark = "-A KeenPbrTable -m set --match-set myset dst -j "
                            "MARK --set-xmark 0x100/0xffffffff\n";
 
   const auto dnat_pos = s.find(dnat);
@@ -2267,9 +2128,9 @@ TEST_CASE("build_ipt_script: multi-interface prefilter expands route rules "
       T::build_ipt_script(false, {pass_rule("allowlist", false)},
                           prefilter_with_interfaces({"br0", "wg0"}, false));
 
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set allowlist dst -i br0 -j "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -i br0 -j "
                "RETURN\n") != std::string::npos);
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set allowlist dst -i wg0 -j "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -i wg0 -j "
                "RETURN\n") != std::string::npos);
 }
 
@@ -2294,8 +2155,8 @@ TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body "
   auto s = T::build_ipt_script(false, {mark_rule("kpbr4_local", false, 0x100)},
                                prefilter);
 
-  const std::string iface = "-A KeenPbrTable_A ! -i br0 -j RETURN\n";
-  const std::string mark = "-A KeenPbrTable_A -m set --match-set kpbr4_local dst "
+  const std::string iface = "-A KeenPbrTable ! -i br0 -j RETURN\n";
+  const std::string mark = "-A KeenPbrTable -m set --match-set kpbr4_local dst "
                            "-j MARK --set-xmark 0x100/0xffffffff\n";
   const auto iface_pos = s.find(iface);
   const auto mark_pos = s.find(mark);
@@ -2315,7 +2176,7 @@ TEST_CASE("build_ipt_script_for_rule: masked mark rule uses set-xmark") {
   FirewallRuleCriteria criteria;
   auto s = T::build_ipt_script_for_rule(false, Rule::Mark, 0x00010000, criteria,
                                         true, 0x00FF0000);
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set pairwise_set dst -j MARK "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set pairwise_set dst -j MARK "
                "--set-xmark 0x10000/0xff0000\n") != std::string::npos);
   CHECK(s.find("[0:0] -A") == std::string::npos);
 }
@@ -2342,7 +2203,7 @@ TEST_CASE("build_ipt_script: config-derived prefilter omits interface guard "
                                prefilter);
 
   CHECK(s.find("! -i ") == std::string::npos);
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set kpbr4_local dst -j MARK "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set kpbr4_local dst -j MARK "
                "--set-xmark 0x100/0xffffffff\n") != std::string::npos);
 }
 
@@ -2388,7 +2249,7 @@ TEST_CASE("build_ipt_script: tcp + single dest_port in rule") {
   f.proto = L4Proto::Tcp;
   f.dst_port = "443";
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -p tcp --dport "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp --dport "
                "443 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -2397,7 +2258,7 @@ TEST_CASE("build_ipt_script: dscp matcher is emitted") {
   ProtoPortFilter f;
   f.dscp = 46;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -m dscp --dscp "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -m dscp --dscp "
                "46 -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
 }
 
@@ -2406,7 +2267,7 @@ TEST_CASE("build_ipt_script: udp + port range in rule") {
   f.proto = L4Proto::Udp;
   f.dst_port = "8000-9000";
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set bl dst -p udp --dport "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set bl dst -p udp --dport "
                "8000:9000 -j DROP") != std::string::npos);
 }
 
@@ -2542,20 +2403,20 @@ TEST_CASE(
   f.proto = L4Proto::Any;
   f.src_port = "11111";
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -p tcp --sport "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp --sport "
                "11111 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -p udp --sport "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p udp --sport "
                "11111 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst --sport 11111") ==
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst --sport 11111") ==
         std::string::npos);
 }
 
 TEST_CASE(
     "build_ipt_script: no proto, no ports → no extra flags (regression)") {
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -j MARK "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j MARK "
                "--set-xmark 0x100/0xffffffff") != std::string::npos);
   CHECK(s.find("-p ") == std::string::npos);
   CHECK(s.find("--dport") == std::string::npos);
@@ -2569,7 +2430,7 @@ TEST_CASE("build_ipt_script: single src_addr → -s flag") {
   ProtoPortFilter f;
   f.src_addr = {"192.168.10.0/24"};
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -s "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -s "
                "192.168.10.0/24 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -2578,7 +2439,7 @@ TEST_CASE("build_ipt_script: single dest_addr → -d flag") {
   ProtoPortFilter f;
   f.dst_addr = {"10.0.0.0/8"};
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -d 10.0.0.0/8 -j "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -d 10.0.0.0/8 -j "
                "MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
 }
 
@@ -2587,7 +2448,7 @@ TEST_CASE("build_ipt_script: src_addr + dest_addr → both flags") {
   f.src_addr = {"192.168.1.0/24"};
   f.dst_addr = {"8.8.8.0/24"};
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -s 192.168.1.0/24 "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -s 192.168.1.0/24 "
                "-d 8.8.8.0/24 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -2599,7 +2460,7 @@ TEST_CASE("build_ipt_script: src_addr + tcp/udp + dest_port → addr and proto "
   f.proto = L4Proto::Tcp;
   f.dst_port = "443";
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -s 192.168.1.0/24 "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -s 192.168.1.0/24 "
                "-p tcp --dport 443 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -2608,7 +2469,7 @@ TEST_CASE("build_ipt_script: drop rule with src_addr → -s flag on DROP") {
   ProtoPortFilter f;
   f.src_addr = {"10.10.0.0/16"};
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set bl dst -s 10.10.0.0/16 -j "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set bl dst -s 10.10.0.0/16 -j "
                "DROP") != std::string::npos);
 }
 
@@ -2659,7 +2520,7 @@ TEST_CASE("build_ipt_script: negated src_addr → ! -s flag") {
   f.src_addr = {"192.168.1.0/24"};
   f.negate_src_addr = true;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst ! -s "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst ! -s "
                "192.168.1.0/24 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -2669,7 +2530,7 @@ TEST_CASE("build_ipt_script: negated dest_addr → ! -d flag") {
   f.dst_addr = {"10.0.0.0/8"};
   f.negate_dst_addr = true;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst ! -d 10.0.0.0/8 "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst ! -d 10.0.0.0/8 "
                "-j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
 }
 
@@ -2679,7 +2540,7 @@ TEST_CASE("build_ipt_script: negated dest_port in full rule") {
   f.dst_port = "443";
   f.negate_dst_port = true;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set myset dst -p tcp ! --dport "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp ! --dport "
                "443 -j MARK --set-xmark 0x100/0xffffffff") !=
         std::string::npos);
 }
@@ -2693,7 +2554,7 @@ TEST_CASE("build_ipt_script: combined negated src_addr + negated dest_port") {
   f.negate_dst_port = true;
   auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
   CHECK(
-      s.find("-A KeenPbrTable_A -m set --match-set myset dst ! -s 192.168.1.0/24 "
+      s.find("-A KeenPbrTable -m set --match-set myset dst ! -s 192.168.1.0/24 "
              "-p tcp ! --dport 443 -j MARK --set-xmark 0x100/0xffffffff") !=
       std::string::npos);
 }
@@ -2703,7 +2564,7 @@ TEST_CASE("build_ipt_script: drop rule with negated src_addr") {
   f.src_addr = {"10.10.0.0/16"};
   f.negate_src_addr = true;
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
-  CHECK(s.find("-A KeenPbrTable_A -m set --match-set bl dst ! -s 10.10.0.0/16 -j "
+  CHECK(s.find("-A KeenPbrTable -m set --match-set bl dst ! -s 10.10.0.0/16 -j "
                "DROP") != std::string::npos);
 }
 

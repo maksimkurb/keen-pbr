@@ -48,19 +48,12 @@ enum class PhysicalTable : uint8_t {
 };
 
 enum class PhysicalChainRole : uint8_t {
-  // iptables: dispatcher hooked from the builtin PREROUTING chain
-  // (KeenPbrTable in mangle, KeenPbrRaw in raw).
-  prerouting_dispatcher,
-  // iptables: dispatcher hooked from mangle OUTPUT
-  // (KeenPbrTable_OUTPUT, or KeenPbrOutput in raw mode).
-  output_dispatcher,
-  // iptables: A/B generation chain holding PREROUTING classifiers
-  // (KeenPbrTable_A/B, KeenPbrRaw_A/B).  In non-raw mode the same chain is
-  // also reached from the output dispatcher.
-  prerouting_generation,
-  // iptables: A/B generation chain holding OUTPUT classifiers in raw mode
-  // (KeenPbrOutput_A/B).
-  output_generation,
+  // iptables: classification chain hooked from the builtin PREROUTING chain
+  // (KeenPbrRaw in raw, KeenPbrTable in mangle).  Holds the rules directly.
+  iptables_prerouting,
+  // iptables: classification chain hooked from mangle OUTPUT
+  // (KeenPbrOutput, in both raw and mangle modes).
+  iptables_output,
   // nft: base chain `prerouting` / `output` of the keen-pbr table.
   nft_prerouting,
   nft_output,
@@ -77,14 +70,11 @@ enum class PhysicalChainRole : uint8_t {
   other_owned,
 };
 
-enum class PhysicalGeneration : uint8_t { none, a, b };
-
 struct PhysicalChainId {
   PhysicalChainRole role{PhysicalChainRole::other_owned};
   PhysicalTable table{PhysicalTable::mangle};
   // ipv4/ipv6 for iptables tables; any for the nft inet table.
   FirewallFamily family{FirewallFamily::any};
-  PhysicalGeneration generation{PhysicalGeneration::none};
   // nft_setter only: the mark the chain installs (from the chain name).
   uint32_t setter_mark{0};
   // Diagnostics only, except for other_owned / system_other where it is part of

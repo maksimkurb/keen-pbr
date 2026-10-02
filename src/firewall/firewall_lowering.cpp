@@ -176,20 +176,11 @@ std::vector<FirewallPhysicalClassifier> materialize_firewall_classifiers(
 // Chain naming
 // ===========================================================================
 
-const char *iptables_prerouting_generation_chain_name(
-    bool raw, FirewallSetGeneration generation) {
-  const bool a = generation == FirewallSetGeneration::A;
-  if (raw) {
-    return a ? "KeenPbrRaw_A" : "KeenPbrRaw_B";
-  }
-  return a ? "KeenPbrTable_A" : "KeenPbrTable_B";
+const char *iptables_prerouting_chain_name(bool raw) {
+  return raw ? "KeenPbrRaw" : "KeenPbrTable";
 }
 
-const char *
-iptables_output_generation_chain_name(FirewallSetGeneration generation) {
-  return generation == FirewallSetGeneration::A ? "KeenPbrOutput_A"
-                                                : "KeenPbrOutput_B";
-}
+const char *iptables_output_chain_name() { return "KeenPbrOutput"; }
 
 PhysicalChainId iptables_physical_chain_id(const std::string &name,
                                            PhysicalTable table,
@@ -386,6 +377,9 @@ private:
 struct IptablesChain {
   PhysicalChain chain;
   FirewallFamily family{FirewallFamily::ipv4};
+  // Which builtin hook feeds this chain.  PREROUTING sees an input interface
+  // and forwarded traffic; OUTPUT only sees router-originated packets.
+  FirewallHook hook{FirewallHook::prerouting};
   // Conntrack based prefilters and CONNMARK saving need conntrack to have run:
   // not in raw PREROUTING.
   bool conntrack{true};
@@ -496,6 +490,11 @@ void lower_iptables_prefilter(const FirewallRuleInstance &rule,
                    {verdict(PhysicalVerdict::accept)}, key));
   } else if (const auto *inbound =
                  std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
+    // Router-originated packets have no input interface: the filter would
+    // wrongly disable all OUTPUT classification.
+    if (target.hook != FirewallHook::prerouting) {
+      return;
+    }
     // iptables cannot express a multi-value negated -i guard in one rule;
     // multi-interface allowlists become per-interface fragments of every
     // classifier rule instead.
@@ -535,7 +534,8 @@ void lower_iptables_classifier(const FirewallRuleInstance &rule,
   }
 
   std::vector<const std::string *> interfaces;
-  if (facts.inbound_interfaces != nullptr &&
+  if (target.hook == FirewallHook::prerouting &&
+      facts.inbound_interfaces != nullptr &&
       facts.inbound_interfaces->size() > 1U) {
     for (const auto &name : *facts.inbound_interfaces) {
       interfaces.push_back(&name);
@@ -596,41 +596,34 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
     }
   }
 
+  // One PREROUTING and one OUTPUT chain per enabled family.  Chains hold the
+  // rules directly; there are no dispatchers or A/B generations.
   std::vector<IptablesChain> chains;
   const auto add_family = [&](FirewallFamily family) {
     const bool ipv6 = family == FirewallFamily::ipv6;
-    const auto generation =
-        ipv6 ? context.generation_ipv6 : context.generation_ipv4;
     const bool comments = ipv6 ? context.comments_ipv6_supported
                                : context.comments_ipv4_supported;
-    if (context.raw_prerouting.uses(ipv6)) {
-      // OUTPUT stays in mangle and keeps the conntrack optimizations.
-      IptablesChain output;
-      output.chain.id = iptables_physical_chain_id(
-          iptables_output_generation_chain_name(generation),
-          PhysicalTable::mangle, family);
-      output.family = family;
-      output.conntrack = true;
-      output.comments = comments;
-      chains.push_back(std::move(output));
-      IptablesChain raw;
-      raw.chain.id = iptables_physical_chain_id(
-          iptables_prerouting_generation_chain_name(true, generation),
-          PhysicalTable::raw, family);
-      raw.family = family;
-      raw.conntrack = false;
-      raw.comments = comments;
-      chains.push_back(std::move(raw));
-    } else {
-      IptablesChain mangle;
-      mangle.chain.id = iptables_physical_chain_id(
-          iptables_prerouting_generation_chain_name(false, generation),
-          PhysicalTable::mangle, family);
-      mangle.family = family;
-      mangle.conntrack = true;
-      mangle.comments = comments;
-      chains.push_back(std::move(mangle));
-    }
+    const bool raw = context.raw_prerouting.uses(ipv6);
+    IptablesChain prerouting;
+    prerouting.chain.id = iptables_physical_chain_id(
+        iptables_prerouting_chain_name(raw),
+        raw ? PhysicalTable::raw : PhysicalTable::mangle, family);
+    prerouting.family = family;
+    prerouting.hook = FirewallHook::prerouting;
+    // raw PREROUTING runs before conntrack.
+    prerouting.conntrack = !raw;
+    prerouting.comments = comments;
+    chains.push_back(std::move(prerouting));
+    // OUTPUT stays in mangle in both modes and keeps the conntrack
+    // optimizations.
+    IptablesChain output;
+    output.chain.id = iptables_physical_chain_id(
+        iptables_output_chain_name(), PhysicalTable::mangle, family);
+    output.family = family;
+    output.hook = FirewallHook::output;
+    output.conntrack = true;
+    output.comments = comments;
+    chains.push_back(std::move(output));
   };
   add_family(FirewallFamily::ipv4);
   if (context.ipv6_enabled) {
@@ -649,7 +642,11 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
     if (is_classifier_action(rule.action)) {
       for (const auto &classifier : expander.expand(rule)) {
         for (auto &target : chains) {
-          if (target.family == classifier.family) {
+          // Route rules (prerouting hook) cover forwarded and local traffic;
+          // output-hook rules (DNS detour) only local traffic.
+          if (target.family == classifier.family &&
+              (classifier.hook == FirewallHook::prerouting ||
+               target.hook == FirewallHook::output)) {
             lower_iptables_classifier(rule, classifier, facts,
                                       context.fwmark_mask, target);
           }
