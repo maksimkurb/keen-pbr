@@ -1,6 +1,8 @@
 #pragma once
 
 #include "firewall.hpp"
+#include "firewall_lowering.hpp"
+#include "firewall_physical.hpp"
 #include "firewall_rule.hpp"
 
 #include <cstdint>
@@ -53,6 +55,8 @@ public:
     return raw_prerouting_;
   }
   bool uses_raw_prerouting() const override { return raw_prerouting_.ipv4; }
+  // Dispatcher and builtin-chain hook jumps of the active generation.
+  PhysicalRuleset expected_hook_rules() const override;
 
   // Test/fixture-only seam: bypass the /proc capability probes (xt_comment
   // registration, raw table registration), which are absent on nft-backed
@@ -88,22 +92,6 @@ private:
     std::optional<uint32_t> maxelem;
   };
 
-  // Describes an iptables/ip6tables rule to be added to KeenPbrTable.
-  struct PendingRule {
-    std::string set_name; // ipset name to match with --match-set
-    bool ipv6;            // true → ip6tables, false → iptables
-    enum Action { Mark, Drop, Pass } action; // MARK, DROP, or RETURN target
-    uint32_t fwmark;                         // only for Mark
-    uint32_t fwmark_mask{0xFFFFFFFFu};       // only for Mark
-    FirewallRuleCriteria criteria;           // optional packet match criteria
-    // Logical ownership key: every physical role and family/protocol expansion
-    // of one canonical rule intentionally carries the same key.
-    FirewallRuleKey key;
-    // Set during prepare_apply() after the read-only xt_comment probe.  The
-    // default keeps direct builder tests and legacy callers comment-capable.
-    bool comment_supported{true};
-  };
-
   enum class LiveGenerationState { A, B, Missing, Invalid };
 
   struct DispatcherInspection {
@@ -131,22 +119,6 @@ private:
     std::set<std::string> names;
   };
 
-  void append_mark_rule(const FirewallRuleKey &key, uint32_t fwmark,
-                        const FirewallRuleCriteria &criteria);
-  void append_balance_rule(
-      const FirewallRuleKey &key, uint32_t fallback_fwmark,
-      const std::vector<FirewallBalanceCandidate> &candidates,
-      const FirewallRuleCriteria &criteria);
-  void append_drop_rule(const FirewallRuleKey &key,
-                        const FirewallRuleCriteria &criteria);
-  void append_pass_rule(const FirewallRuleKey &key,
-                        const FirewallRuleCriteria &criteria);
-  void append_restore_conntrack_mark_rule(const FirewallRuleKey &key,
-                                          uint32_t mask);
-  void append_skip_established_or_dnat_rule(const FirewallRuleKey &key);
-  void append_skip_marked_packets_rule(const FirewallRuleKey &key);
-  void append_inbound_interface_filter_rule(
-      const FirewallRuleKey &key, const std::vector<std::string> &interfaces);
   void compile_plan(const FirewallPlan &plan, FirewallApplyMode mode);
   void apply_prepared(FirewallApplyMode mode);
   void clear_pending();
@@ -161,51 +133,20 @@ private:
   find_incompatible_dynamic_set_schema(bool effective_ipv6) const;
   void preflight_dynamic_set_schemas(bool effective_ipv6) const;
   void preflight_reused_set_schemas(bool effective_ipv6) const;
+  // Pure renderers of the lowered ruleset of one family into an
+  // iptables-restore transaction.  They add only the stable dispatcher/chain
+  // scaffolding; every rule line comes from the PhysicalRuleset.
   static std::string
   build_raw_prerouting_script(bool ipv6,
                               FirewallSetGeneration target_generation,
-                              const std::vector<PendingRule> &rules,
-                              const FirewallPrefilter &prefilter);
-  // IPv4 convenience helper for RAW PREROUTING.
-  static std::string
-  build_raw_prerouting_script(FirewallSetGeneration target_generation,
-                              const std::vector<PendingRule> &rules,
-                              const FirewallPrefilter &prefilter) {
-    return build_raw_prerouting_script(false, target_generation, rules,
-                                       prefilter);
-  }
-  static std::string
-  build_output_script(bool ipv6, FirewallSetGeneration target_generation,
-                      const std::vector<PendingRule> &rules,
-                      const FirewallPrefilter &prefilter);
-  // IPv4 convenience helper for OUTPUT.
-  static std::string
-  build_output_script(FirewallSetGeneration target_generation,
-                      const std::vector<PendingRule> &rules,
-                      const FirewallPrefilter &prefilter) {
-    return build_output_script(false, target_generation, rules, prefilter);
-  }
-  static std::string
-  build_ipt_script(bool ipv6, FirewallSetGeneration target_generation,
-                   const std::vector<PendingRule> &rules,
-                   const FirewallPrefilter &prefilter = {});
-  // Build early RETURN lines for the global prefilter.
-  static std::string
-  build_prefilter_lines(const FirewallPrefilter &prefilter,
-                        const std::string &chain, bool allow_conntrack,
-                        bool comments_supported = true);
-  // Build the proto/port fragment for a single rule (single proto, not
-  // tcp/udp).
-  static std::vector<std::string>
-  build_proto_port_fragments(L4Proto proto, const PortSpec &src_port,
-                             const PortSpec &dst_port,
-                             bool negate_src_port = false,
-                             bool negate_dst_port = false);
-  // Build one or more iptables-restore lines for a queued rule.
-  static std::vector<std::string>
-  build_rule_lines(const PendingRule &pr,
-                   const FirewallPrefilter &prefilter,
-                   const std::string &chain, bool allow_conntrack);
+                              const PhysicalRuleset &rules);
+  static std::string build_output_script(bool ipv6,
+                                         FirewallSetGeneration target_generation,
+                                         const PhysicalRuleset &rules);
+  static std::string build_ipt_script(bool ipv6,
+                                      FirewallSetGeneration target_generation,
+                                      const PhysicalRuleset &rules);
+  FirewallLoweringContext lowering_context(uint32_t fwmark_mask) const;
   bool probe_xt_comment(bool ipv6) const;
   // Probe a caller-supplied registration file before running the restore
   // grammar check.  The path parameter is an injectable seam for tests;
@@ -271,21 +212,12 @@ private:
   const char *prerouting_generation_chain(FirewallSetGeneration generation,
                                           bool ipv6) const;
   static const char *output_generation_chain(FirewallSetGeneration generation);
-  // Expand filter (proto, src_addr, dst_addr) into cross-product of
-  // PendingRules and append them to out.  tcp/udp is split into two entries.
-  // Multiple CIDRs in src_addr / dst_addr each become separate rules (OR
-  // semantics when combined).
-  void append_rules_for_family(bool ipv6, PendingRule::Action action,
-                               uint32_t fwmark,
-                               const FirewallRuleCriteria &criteria,
-                               const FirewallRuleKey &key = {});
-
   // Sets queued for creation, flushed by apply().
   std::vector<PendingSet> pending_sets_;
   // Per-set element buffers for ipset restore lines, keyed by set name.
   std::map<std::string, std::ostringstream> pending_elements_;
-  // Rules queued for insertion into KeenPbrTable, flushed by apply().
-  std::vector<PendingRule> pending_rules_;
+  // Lowered rules of the owned generation chains, flushed by apply().
+  PhysicalRuleset pending_ruleset_;
 
   // Track created ipsets: set_name -> family (AF_INET/AF_INET6)
   std::map<std::string, int> created_sets_;
@@ -307,12 +239,17 @@ private:
   bool comment_v4_supported_{true};
   bool comment_v6_supported_{true};
   RawPreroutingMode raw_prerouting_{};
-  FirewallPrefilter prefilter_{};
 
 #ifdef KEEN_PBR3_TESTING
   friend class IptablesBuilderTest;
 #endif
 };
+
+// Renders one canonical rule as an `iptables-restore` `-A <chain> ...` line
+// (newline terminated).  Pure: all policy was decided by the lowering.  Throws
+// FirewallError for rules iptables cannot express in one line.
+std::string render_iptables_rule(const PhysicalRule &rule,
+                                 const std::string &chain);
 
 // Factory function called from firewall.cpp
 std::unique_ptr<Firewall>

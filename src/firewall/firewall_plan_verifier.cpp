@@ -1,5 +1,6 @@
 #include "firewall_plan_verifier.hpp"
 #include "firewall_rule_modules.hpp"
+#include "firewall_lowering.hpp"
 
 #include "../util/format_compat.hpp"
 

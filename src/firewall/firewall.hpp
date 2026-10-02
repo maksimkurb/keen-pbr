@@ -15,6 +15,7 @@ namespace keen_pbr3 {
 
 class ListEntryVisitor;
 struct FirewallPlan;
+struct PhysicalRuleset;
 enum class DefaultGatewayFamily : uint8_t { None, Ipv4, Ipv6 };
 
 struct FirewallBalanceCandidate {
@@ -89,8 +90,9 @@ struct FirewallRuleCriteria {
 
 using ProtoPortFilter = FirewallRuleCriteria;
 
-// Backend compatibility state populated by canonical prefilter actions.
-// This is not part of FirewallPlan or the public Firewall API.
+// Daemon-side summary of the configured prefilters (conntrack policy).  The
+// backends do not use it: prefilter rules reach them as canonical plan actions
+// and are lowered in firewall_lowering.cpp.
 struct FirewallPrefilter {
   std::optional<std::vector<std::string>> inbound_interfaces;
   bool skip_established_or_dnat{false};
@@ -317,6 +319,11 @@ public:
     virtual bool uses_raw_prerouting() const {
       return raw_prerouting_mode().ipv4;
     }
+
+  // Hook/dispatcher jump rules of the active generation as physical rules
+  // (iptables dispatchers and builtin-chain hooks).  Empty for backends whose
+  // hooks are chain attributes carried by the lowered ruleset itself.
+  virtual PhysicalRuleset expected_hook_rules() const;
 
   // Non-copyable
   Firewall(const Firewall &) = delete;

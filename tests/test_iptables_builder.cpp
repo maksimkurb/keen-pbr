@@ -4,6 +4,7 @@
 #include "../src/config/routing_state.hpp"
 #include "../src/firewall/ipset_restore_pipe.hpp"
 #include "../src/firewall/iptables.hpp"
+#include "../src/firewall/firewall_lowering.hpp"
 #include "../src/firewall/firewall_plan_verifier.hpp"
 #include "../src/firewall/firewall_plan.hpp"
 #include "../src/firewall/firewall_snapshot.hpp"
@@ -190,36 +191,95 @@ public:
     return contents.str();
   }
 
+  // Legacy fixture vocabulary (rule descriptors + a prefilter struct) mapped
+  // onto a FirewallPlan; the backend itself only sees the plan.
+  static FirewallRuleKey key_from_comment(const std::string &comment) {
+    return comment.empty() ? FirewallRuleKey{}
+                           : FirewallRuleKey::from_comment(comment);
+  }
+
+  static FirewallPlan plan_from(const std::vector<RuleDesc> &descs,
+                                const FirewallPrefilter &prefilter,
+                                uint32_t fwmark_mask = 0xFFFFFFFFu) {
+    FirewallPlan plan;
+    plan.fwmark_mask = fwmark_mask;
+    const auto add = [&plan](FirewallRuleKey key, FirewallRuleAction action,
+                             FirewallRuleStage stage) {
+      FirewallRuleInstance rule;
+      rule.key = std::move(key);
+      rule.stage = stage;
+      rule.family = FirewallFamily::any;
+      rule.action = std::move(action);
+      plan.rules.push_back(std::move(rule));
+    };
+    if (prefilter.restore_conntrack_mark) {
+      add(key_from_comment(prefilter.restore_conntrack_mark_comment),
+          RestoreConntrackMarkAction{prefilter.conntrack_mark_mask},
+          FirewallRuleStage::restore_conntrack);
+    }
+    if (prefilter.skip_established_or_dnat) {
+      add(key_from_comment(prefilter.skip_established_or_dnat_comment),
+          SkipEstablishedOrDnatAction{}, FirewallRuleStage::global_bypass);
+    }
+    if (prefilter.skip_marked_packets) {
+      add(key_from_comment(prefilter.skip_marked_packets_comment),
+          SkipMarkedPacketsAction{}, FirewallRuleStage::global_bypass);
+    }
+    if (prefilter.has_inbound_interfaces()) {
+      add(key_from_comment(prefilter.inbound_interface_filter_comment),
+          InboundInterfaceFilterAction{*prefilter.inbound_interfaces},
+          FirewallRuleStage::global_bypass);
+    }
+    for (const auto &d : descs) {
+      FirewallRuleInstance rule;
+      rule.key = d.key;
+      rule.family = d.ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
+      rule.criteria = d.filter;
+      if (!d.set_name.empty()) {
+        rule.criteria.dst_set_name = d.set_name;
+      }
+      rule.hook = rule.criteria.apply_output ? FirewallHook::output
+                                             : FirewallHook::prerouting;
+      if (d.action == RuleDesc::Mark) {
+        rule.action = MarkAction{d.fwmark, fwmark_mask};
+      } else {
+        rule.action = d.action == RuleDesc::Drop ? VerdictAction::drop
+                                                 : VerdictAction::pass;
+      }
+      plan.rules.push_back(std::move(rule));
+    }
+    return plan;
+  }
+
+  static PhysicalRuleset lower(const FirewallPlan &plan,
+                               RawPreroutingMode raw = {},
+                               FirewallSetGeneration generation =
+                                   FirewallSetGeneration::A,
+                               bool comments = true) {
+    FirewallLoweringContext context;
+    context.backend = FirewallBackend::iptables;
+    context.raw_prerouting = raw;
+    context.generation_ipv4 = generation;
+    context.generation_ipv6 = generation;
+    context.comments_ipv4_supported = comments;
+    context.comments_ipv6_supported = comments;
+    context.fwmark_mask = plan.fwmark_mask;
+    return lower_firewall_plan(plan, context);
+  }
+
   static std::string build_ipt_script(bool ipv6,
                                       const std::vector<RuleDesc> &descs,
                                       FirewallPrefilter prefilter = {}) {
-    std::vector<IptablesFirewall::PendingRule> rules;
-    rules.reserve(descs.size());
-    for (const auto &d : descs) {
-      IptablesFirewall::PendingRule pr;
-      pr.ipv6 = d.ipv6;
-      if (d.action == RuleDesc::Mark) {
-        pr.action = IptablesFirewall::PendingRule::Mark;
-      } else if (d.action == RuleDesc::Drop) {
-        pr.action = IptablesFirewall::PendingRule::Drop;
-      } else {
-        pr.action = IptablesFirewall::PendingRule::Pass;
-      }
-      pr.fwmark = d.fwmark;
-      pr.key = d.key;
-      pr.criteria = d.filter;
-      if (!d.set_name.empty()) {
-        pr.criteria.dst_set_name = d.set_name;
-      }
-      rules.push_back(std::move(pr));
-    }
-    return IptablesFirewall::build_ipt_script(
-        ipv6, FirewallSetGeneration::A, rules, prefilter);
+    const auto ruleset = lower(
+        plan_from(descs, prefilter), {}, FirewallSetGeneration::A,
+        prefilter.comments_supported(ipv6));
+    return IptablesFirewall::build_ipt_script(ipv6, FirewallSetGeneration::A,
+                                              ruleset);
   }
 
   static std::string build_replacement_script() {
     return IptablesFirewall::build_ipt_script(false, FirewallSetGeneration::B,
-                                              {}, {});
+                                              {});
   }
 
   static std::string build_raw_script(const std::vector<RuleDesc> &descs,
@@ -230,71 +290,44 @@ public:
   static std::string
   build_raw_script_for_family(bool ipv6, const std::vector<RuleDesc> &descs,
                               FirewallPrefilter prefilter = {}) {
-    std::vector<IptablesFirewall::PendingRule> rules;
-    for (const auto &d : descs) {
-      IptablesFirewall::PendingRule pr;
-      pr.ipv6 = d.ipv6;
-      pr.action =
-          d.action == RuleDesc::Mark   ? IptablesFirewall::PendingRule::Mark
-          : d.action == RuleDesc::Drop ? IptablesFirewall::PendingRule::Drop
-                                       : IptablesFirewall::PendingRule::Pass;
-      pr.fwmark = d.fwmark;
-      pr.key = d.key;
-      pr.criteria = d.filter;
-      if (!d.set_name.empty())
-        pr.criteria.dst_set_name = d.set_name;
-      rules.push_back(std::move(pr));
-    }
+    const auto ruleset =
+        lower(plan_from(descs, prefilter), RawPreroutingMode{true, true},
+              FirewallSetGeneration::A, prefilter.comments_supported(ipv6));
     return IptablesFirewall::build_raw_prerouting_script(
-        ipv6, FirewallSetGeneration::A, rules, prefilter);
+        ipv6, FirewallSetGeneration::A, ruleset);
   }
 
   static std::string
   build_raw_script_for_generation(FirewallSetGeneration generation,
                                   const std::vector<RuleDesc> &descs = {}) {
-    std::vector<IptablesFirewall::PendingRule> rules;
-    for (const auto &d : descs) {
-      IptablesFirewall::PendingRule pr;
-      pr.ipv6 = d.ipv6;
-      pr.action =
-          d.action == RuleDesc::Mark   ? IptablesFirewall::PendingRule::Mark
-          : d.action == RuleDesc::Drop ? IptablesFirewall::PendingRule::Drop
-                                       : IptablesFirewall::PendingRule::Pass;
-      pr.fwmark = d.fwmark;
-      pr.key = d.key;
-      pr.criteria = d.filter;
-      if (!d.set_name.empty())
-        pr.criteria.dst_set_name = d.set_name;
-      rules.push_back(std::move(pr));
-    }
-    return IptablesFirewall::build_raw_prerouting_script(generation, rules, {});
+    const auto ruleset = lower(plan_from(descs, {}), RawPreroutingMode{true, false},
+                               generation);
+    return IptablesFirewall::build_raw_prerouting_script(false, generation,
+                                                         ruleset);
   }
 
   static std::string
   build_output_script_for_generation(FirewallSetGeneration generation) {
-    return IptablesFirewall::build_output_script(generation, {}, {});
+    return IptablesFirewall::build_output_script(false, generation, {});
   }
 
   static std::string build_output_script_for_family(
       bool ipv6, const std::vector<RuleDesc> &descs,
       FirewallPrefilter prefilter = {}) {
-    std::vector<IptablesFirewall::PendingRule> rules;
-    for (const auto &d : descs) {
-      IptablesFirewall::PendingRule pr;
-      pr.ipv6 = d.ipv6;
-      pr.action = d.action == RuleDesc::Mark
-                      ? IptablesFirewall::PendingRule::Mark
-                      : d.action == RuleDesc::Drop
-                            ? IptablesFirewall::PendingRule::Drop
-                            : IptablesFirewall::PendingRule::Pass;
-      pr.fwmark = d.fwmark;
-      pr.key = d.key;
-      pr.criteria = d.filter;
-      if (!d.set_name.empty()) pr.criteria.dst_set_name = d.set_name;
-      rules.push_back(std::move(pr));
-    }
+    const auto ruleset =
+        lower(plan_from(descs, prefilter), RawPreroutingMode{true, true},
+              FirewallSetGeneration::A, prefilter.comments_supported(ipv6));
     return IptablesFirewall::build_output_script(
-        ipv6, FirewallSetGeneration::A, rules, prefilter);
+        ipv6, FirewallSetGeneration::A, ruleset);
+  }
+
+  static PhysicalRuleset expected_hooks(RawPreroutingMode mode,
+                                        FirewallSetGeneration generation) {
+    IptablesFirewall firewall;
+    firewall.raw_prerouting_ = mode;
+    firewall.set_ipv6_enabled(false);
+    firewall.target_v4_generation_ = generation;
+    return firewall.expected_hook_rules();
   }
 
   static int
@@ -395,14 +428,10 @@ public:
     firewall.target_static_v4_generation_ = set_generation;
     firewall.target_static_v6_generation_ = set_generation;
     firewall.static_generations_prepared_ = true;
-    IptablesFirewall::PendingRule rule;
-    rule.ipv6 = ipv6;
-    rule.action = IptablesFirewall::PendingRule::Mark;
-    rule.fwmark = 42;
-    rule.criteria.dst_set_name =
-        firewall.static_set_name("sample", ipv6 ? AF_INET6 : AF_INET);
-    return IptablesFirewall::build_ipt_script(
-        ipv6, rule_generation, {rule}, {});
+    RuleDesc rule{firewall.static_set_name("sample", ipv6 ? AF_INET6 : AF_INET),
+                  ipv6, false, RuleDesc::Mark, 42, {}, {}};
+    const auto ruleset = lower(plan_from({rule}, {}), {}, rule_generation);
+    return IptablesFirewall::build_ipt_script(ipv6, rule_generation, ruleset);
   }
 
   static size_t count_exact_jump(const std::string &rules,
@@ -428,46 +457,55 @@ public:
                             uint32_t fwmark_mask = 0xFFFFFFFFu,
                             FirewallPrefilter prefilter = {},
                             FirewallRuleKey key = {}) {
-    IptablesFirewall fw;
-    fw.set_fwmark_mask(fwmark_mask);
+    RuleDesc desc;
+    desc.ipv6 = ipv6;
+    desc.action = action;
+    desc.fwmark = fwmark;
+    desc.filter = std::move(criteria);
+    desc.key = std::move(key);
     if (list_backed) {
-      criteria.dst_set_name = "pairwise_set";
-      fw.created_sets_["pairwise_set"] = ipv6 ? AF_INET6 : AF_INET;
+      desc.set_name = "pairwise_set";
     }
-
-    IptablesFirewall::PendingRule::Action mapped_action =
-        IptablesFirewall::PendingRule::Mark;
-    if (action == RuleDesc::Drop) {
-      mapped_action = IptablesFirewall::PendingRule::Drop;
-    } else if (action == RuleDesc::Pass) {
-      mapped_action = IptablesFirewall::PendingRule::Pass;
-    }
-
-    fw.append_rules_for_family(ipv6, mapped_action, fwmark, criteria, key);
-    return IptablesFirewall::build_ipt_script(
-        ipv6, FirewallSetGeneration::A, fw.pending_rules_, prefilter);
+    const auto ruleset = lower(plan_from({desc}, prefilter, fwmark_mask), {},
+                               FirewallSetGeneration::A,
+                               prefilter.comments_supported(ipv6));
+    return IptablesFirewall::build_ipt_script(ipv6, FirewallSetGeneration::A,
+                                              ruleset);
   }
 
   static std::string build_route_mark_script(const FirewallPlan& plan) {
     IptablesFirewall fw;
     fw.compile_plan(plan, FirewallApplyMode::Destructive);
     return IptablesFirewall::build_ipt_script(
-        false, FirewallSetGeneration::A, fw.pending_rules_, fw.prefilter_);
+        false, FirewallSetGeneration::A, fw.pending_ruleset_);
   }
 
+  // The `-p ... --sport/--dport ...` part of the single MARK rule that the
+  // given selectors lower to.
   static std::string build_proto_port_fragment(const std::string &proto,
                                                const std::string &src_port,
                                                const std::string &dst_port,
                                                bool negate_src = false,
                                                bool negate_dst = false) {
-    const auto fragments = IptablesFirewall::build_proto_port_fragments(
-        parse_test_proto(proto), PortSpec(src_port), PortSpec(dst_port),
-        negate_src, negate_dst);
-    if (fragments.size() != 1) {
+    RuleDesc desc;
+    desc.ipv6 = false;
+    desc.action = RuleDesc::Mark;
+    desc.fwmark = 1;
+    desc.filter.proto = parse_test_proto(proto);
+    desc.filter.src_port = PortSpec(src_port);
+    desc.filter.dst_port = PortSpec(dst_port);
+    desc.filter.negate_src_port = negate_src;
+    desc.filter.negate_dst_port = negate_dst;
+    const auto ruleset = lower(plan_from({desc}, {}));
+    const auto &rules = ruleset.chains.front().rules;
+    // MARK + RETURN per fragment, no conntrack save without a restore action.
+    if (rules.size() != 2) {
       throw std::invalid_argument(
           "Port specification requires multiple iptables rules");
     }
-    return fragments.front();
+    std::string line = render_iptables_rule(rules.front(), "");
+    line = line.substr(3, line.find(" -j MARK") - 3);
+    return line;
   }
 
   static size_t pending_set_count_after_duplicate_create() {
@@ -573,12 +611,53 @@ TEST_CASE("iptables route.mark emitted script round-trips with inbound fragments
 
   const auto missing = inspect_iptables_listing(replace_first(
       script,
-      "-A KeenPbrTable_A -i br-lan -s 192.0.2.10 -d 198.51.100.10 -p tcp "
+      "-A KeenPbrTable_A -i br-lan -s 192.0.2.10/32 -d 198.51.100.10/32 -p tcp "
       "-m comment --comment kpbr:v1:route.mark:materialized "
       "-j MARK --set-xmark 0x100000/0xffffffff\n",
       ""));
   CHECK(verify_firewall_plan(plan, missing)[1].status ==
         CheckStatus::mismatch);
+}
+
+namespace {
+
+// The jump target name of the only rule of `chain` in the expected hooks.
+std::string hook_target(const PhysicalRuleset &hooks, const std::string &name,
+                        PhysicalTable table) {
+  const auto *chain =
+      hooks.find(iptables_physical_chain_id(name, table, FirewallFamily::ipv4));
+  REQUIRE(chain != nullptr);
+  REQUIRE(chain->rules.size() == 1);
+  return std::get<JumpStmt>(chain->rules[0].statements.at(0)).target.name;
+}
+
+} // namespace
+
+TEST_CASE("iptables expected hook rules follow layout and generation") {
+  const auto mangle =
+      T::expected_hooks(RawPreroutingMode{}, FirewallSetGeneration::B);
+  CHECK(mangle.chains.size() == 4);
+  CHECK(hook_target(mangle, "PREROUTING", PhysicalTable::mangle) ==
+        "KeenPbrTable");
+  CHECK(hook_target(mangle, "KeenPbrTable", PhysicalTable::mangle) ==
+        "KeenPbrTable_B");
+  CHECK(hook_target(mangle, "OUTPUT", PhysicalTable::mangle) ==
+        "KeenPbrTable_OUTPUT");
+  CHECK(hook_target(mangle, "KeenPbrTable_OUTPUT", PhysicalTable::mangle) ==
+        "KeenPbrTable_B");
+
+  const auto raw = T::expected_hooks(RawPreroutingMode{true, false},
+                                     FirewallSetGeneration::A);
+  CHECK(raw.chains.size() == 4);
+  CHECK(hook_target(raw, "PREROUTING", PhysicalTable::raw) == "KeenPbrRaw");
+  CHECK(hook_target(raw, "KeenPbrRaw", PhysicalTable::raw) == "KeenPbrRaw_A");
+  CHECK(hook_target(raw, "OUTPUT", PhysicalTable::mangle) == "KeenPbrOutput");
+  CHECK(hook_target(raw, "KeenPbrOutput", PhysicalTable::mangle) ==
+        "KeenPbrOutput_A");
+  // Identity matches what the iptables-save parser reports.
+  CHECK(raw.find(iptables_physical_chain_id("PREROUTING", PhysicalTable::raw,
+                                            FirewallFamily::ipv4))
+            ->id.role == PhysicalChainRole::system_prerouting);
 }
 
 TEST_CASE("IptablesFirewall deduplicates repeated static ipset declarations") {
@@ -2159,7 +2238,7 @@ TEST_CASE("iptables empty owned marks retain unconditional restore output") {
   prefilter.restore_conntrack_mark_comment = restore_key.comment();
   const auto script = T::build_ipt_script(false, {}, prefilter);
   CHECK(script.find("-j CONNMARK --restore-mark") != std::string::npos);
-  CHECK(script.find("-m mark ! --mark 0/0xffffffff") != std::string::npos);
+  CHECK(script.find("-m mark ! --mark 0x0/0xffffffff") != std::string::npos);
 
   const auto v6 = T::build_ipt_script(true, {}, prefilter);
   const auto runner = [&](const std::vector<std::string>& args) {
@@ -2347,16 +2426,16 @@ TEST_CASE("build_ipt_script: conntrack restore is original-direction and mask "
   const auto script =
       T::build_ipt_script(false, {mark_rule("myset", false, 0x100)}, prefilter);
   CHECK(script.find(
-            "-m conntrack --ctdir ORIGINAL -m connmark ! --mark 0/0xff0000") !=
+            "-m conntrack --ctdir ORIGINAL -m connmark ! --mark 0x0/0xff0000") !=
         std::string::npos);
   CHECK(script.find("CONNMARK --restore-mark --mask 0xff0000") !=
         std::string::npos);
   CHECK(script.find("CONNMARK --save-mark --mask 0xff0000") !=
         std::string::npos);
   const auto restore =
-      script.find("--ctdir ORIGINAL -m connmark ! --mark 0/0xff0000");
+      script.find("--ctdir ORIGINAL -m connmark ! --mark 0x0/0xff0000");
   const auto restored_return = script.find(
-      "-m conntrack --ctdir ORIGINAL -m mark ! --mark 0/0xff0000 -j RETURN");
+      "-m conntrack --ctdir ORIGINAL -m mark ! --mark 0x0/0xff0000 -j RETURN");
   const auto policy = script.find("--match-set myset dst -j MARK");
   const auto save = script.find(
       "--match-set myset dst -j CONNMARK --save-mark --mask 0xff0000");
@@ -2613,32 +2692,32 @@ TEST_CASE("build_ipt_script: tcp/udp + port list → two rules") {
 TEST_CASE("build_ipt_script: oversized multiport list is split at 15 slots") {
   ProtoPortFilter f;
   f.proto = L4Proto::Tcp;
-  f.dst_port = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16";
+  f.dst_port = "1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31";
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
-  CHECK(s.find("--dports 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 -j DROP") !=
+  CHECK(s.find("--dports 1,3,5,7,9,11,13,15,17,19,21,23,25,27,29 -j DROP") !=
         std::string::npos);
-  CHECK(s.find("--dports 16 -j DROP") != std::string::npos);
+  CHECK(s.find("--dport 31 -j DROP") != std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: multiport ranges consume two slots") {
   ProtoPortFilter f;
   f.proto = L4Proto::Udp;
-  f.dst_port = "1-2,3-4,5-6,7-8,9-10,11-12,13-14,15-16";
+  f.dst_port = "1-2,4-5,7-8,10-11,13-14,16-17,19-20,22-23";
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
-  CHECK(s.find("--dports 1:2,3:4,5:6,7:8,9:10,11:12,13:14 -j DROP") !=
+  CHECK(s.find("--dports 1:2,4:5,7:8,10:11,13:14,16:17,19:20 -j DROP") !=
         std::string::npos);
-  CHECK(s.find("--dports 15:16 -j DROP") != std::string::npos);
+  CHECK(s.find("--dport 22:23 -j DROP") != std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: oversized negated multiport list remains AND") {
   ProtoPortFilter f;
   f.proto = L4Proto::Tcp;
-  f.dst_port = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16";
+  f.dst_port = "1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31";
   f.negate_dst_port = true;
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
   CHECK(s.find("-m multiport ! --dports "
-               "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 "
-               "-m multiport ! --dports 16 -j DROP") != std::string::npos);
+               "1,3,5,7,9,11,13,15,17,19,21,23,25,27,29 "
+               "! --dport 31 -j DROP") != std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: source list preserves single destination port") {
@@ -2664,17 +2743,17 @@ TEST_CASE("build_ipt_script: destination list preserves single source port") {
 TEST_CASE("build_ipt_script: oversized positive port lists cross product") {
   ProtoPortFilter f;
   f.proto = L4Proto::Tcp;
-  f.src_port = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16";
+  f.src_port = "1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31";
   f.dst_port =
-      "101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116";
+      "101,103,105,107,109,111,113,115,117,119,121,123,125,127,129,131";
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
   const std::string src_a =
-      "-m multiport --sports 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15";
-  const std::string src_b = "-m multiport --sports 16";
+      "-m multiport --sports 1,3,5,7,9,11,13,15,17,19,21,23,25,27,29";
+  const std::string src_b = "--sport 31";
   const std::string dst_a =
       "-m multiport --dports "
-      "101,102,103,104,105,106,107,108,109,110,111,112,113,114,115";
-  const std::string dst_b = "-m multiport --dports 116";
+      "101,103,105,107,109,111,113,115,117,119,121,123,125,127,129";
+  const std::string dst_b = "--dport 131";
   CHECK(s.find(src_a + " " + dst_a + " -j DROP") != std::string::npos);
   CHECK(s.find(src_a + " " + dst_b + " -j DROP") != std::string::npos);
   CHECK(s.find(src_b + " " + dst_a + " -j DROP") != std::string::npos);
@@ -2684,37 +2763,37 @@ TEST_CASE("build_ipt_script: oversized positive port lists cross product") {
 TEST_CASE("build_ipt_script: negated chunks combine with positive alternatives") {
   ProtoPortFilter f;
   f.proto = L4Proto::Udp;
-  f.src_port = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16";
+  f.src_port = "1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31";
   f.negate_src_port = true;
   f.dst_port =
-      "101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116";
+      "101,103,105,107,109,111,113,115,117,119,121,123,125,127,129,131";
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
   const std::string excluded =
-      "-m multiport ! --sports 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 "
-      "-m multiport ! --sports 16";
+      "-m multiport ! --sports 1,3,5,7,9,11,13,15,17,19,21,23,25,27,29 "
+      "! --sport 31";
   CHECK(s.find(excluded + " -m multiport --dports "
-                          "101,102,103,104,105,106,107,108,109,110,111,112,"
-                          "113,114,115 -j DROP") != std::string::npos);
-  CHECK(s.find(excluded + " -m multiport --dports 116 -j DROP") !=
+                          "101,103,105,107,109,111,113,115,117,119,121,123,125,127,129"
+                          " -j DROP") != std::string::npos);
+  CHECK(s.find(excluded + " --dport 131 -j DROP") !=
         std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: positive chunks combine with negated destination") {
   ProtoPortFilter f;
   f.proto = L4Proto::Udp;
-  f.src_port = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16";
+  f.src_port = "1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31";
   f.dst_port =
-      "101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116";
+      "101,103,105,107,109,111,113,115,117,119,121,123,125,127,129,131";
   f.negate_dst_port = true;
   auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
   const std::string excluded =
       "-m multiport ! --dports "
-      "101,102,103,104,105,106,107,108,109,110,111,112,113,114,115 "
-      "-m multiport ! --dports 116";
+      "101,103,105,107,109,111,113,115,117,119,121,123,125,127,129 "
+      "! --dport 131";
   CHECK(s.find("-m multiport --sports "
-               "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 " +
+               "1,3,5,7,9,11,13,15,17,19,21,23,25,27,29 " +
                excluded + " -j DROP") != std::string::npos);
-  CHECK(s.find("-m multiport --sports 16 " + excluded + " -j DROP") !=
+  CHECK(s.find("--sport 31 " + excluded + " -j DROP") !=
         std::string::npos);
 }
 

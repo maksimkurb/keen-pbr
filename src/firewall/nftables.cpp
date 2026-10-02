@@ -1,4 +1,5 @@
 #include "nftables.hpp"
+#include "firewall_lowering.hpp"
 #include "firewall_plan.hpp"
 #include "nft_batch_pipe.hpp"
 #include "firewall_rule.hpp"
@@ -47,42 +48,10 @@ ExecCaptureResult run_cleanup_command(const std::vector<std::string>& args) {
     return result;
 }
 
-bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
-    return criteria.dst_set_name.has_value()
-        || criteria.dscp.has_value()
-        || !criteria.src_addr.empty()
-        || !criteria.dst_addr.empty()
-        || !criteria.src_port.empty()
-        || !criteria.dst_port.empty()
-        || criteria.default_gateway != DefaultGatewayFamily::None;
-}
-
 nlohmann::json family_match_expr(int family) {
     return {{"match", {{"op", "=="},
                         {"left", {{"meta", {{"key", "nfproto"}}}}},
                         {"right", family == AF_INET6 ? "ipv6" : "ipv4"}}}};
-}
-
-void add_rule_comment(nlohmann::json& command, const FirewallRuleKey& key) {
-    if (key.module_id.empty() && key.instance_id.empty()) {
-        return;
-    }
-    command["add"]["rule"]["comment"] = key.comment();
-}
-
-void add_rule_comment(nlohmann::json& command, const std::string& comment) {
-    if (!comment.empty()) {
-        command["add"]["rule"]["comment"] = comment;
-    }
-}
-
-FirewallRuleCriteria materialize_criteria(const FirewallRuleCriteria& criteria,
-                                          const NftablesFirewall& firewall) {
-    FirewallRuleCriteria result = criteria;
-    if (result.dst_set_name.has_value()) {
-        result.dst_set_name = firewall.physical_set_name(*result.dst_set_name);
-    }
-    return result;
 }
 
 } // namespace
@@ -104,8 +73,7 @@ NftablesFirewall::~NftablesFirewall() {
 void NftablesFirewall::prepare_apply(FirewallApplyMode mode) {
     pending_sets_.clear();
     pending_elements_.clear();
-    pending_rules_.clear();
-    prefilter_ = {};
+    pending_ruleset_ = {};
     prepared_mode_ = mode;
     apply_prepared_ = true;
 }
@@ -131,207 +99,10 @@ void NftablesFirewall::create_ipset(const std::string& set_name, int family,
     created_sets_[set_name] = family;
 }
 
-void NftablesFirewall::append_rules_for_family(int family,
-                                               PendingRule::Action action,
-                                               uint32_t fwmark,
-                                               const FirewallRuleCriteria& criteria,
-                                               const FirewallRuleKey& key) {
-    if (family == AF_INET6 && !ipv6_enabled()) {
-        return;
-    }
-    if ((criteria.default_gateway == DefaultGatewayFamily::Ipv4 && family != AF_INET) ||
-        (criteria.default_gateway == DefaultGatewayFamily::Ipv6 && family != AF_INET6)) {
-        return;
-    }
-
-    FirewallRuleInstance logical;
-    logical.hook = criteria.apply_output ? FirewallHook::output
-                                         : FirewallHook::prerouting;
-    logical.family = family == AF_INET6 ? FirewallFamily::ipv6
-                                        : FirewallFamily::ipv4;
-    logical.criteria = criteria;
-    logical.action = action == PendingRule::Mark
-        ? FirewallRuleAction{MarkAction{fwmark, fwmark_mask()}}
-        : FirewallRuleAction{action == PendingRule::Drop ? VerdictAction::drop
-                                                         : VerdictAction::pass};
-    for (const auto& physical : materialize_firewall_classifiers(
-             logical, FirewallBackend::nftables, fwmark_mask())) {
-        PendingRule pr;
-        pr.family = physical.family == FirewallFamily::ipv6 ? AF_INET6 : AF_INET;
-        pr.action = action;
-        pr.fwmark = fwmark;
-        pr.fwmark_mask = fwmark_mask();
-        pr.key = key;
-        pr.criteria = physical.criteria;
-        pending_rules_.push_back(std::move(pr));
-    }
-}
-
-void NftablesFirewall::append_balance_rules_for_family(
-    int family,
-    uint32_t fallback_fwmark,
-    const std::vector<FirewallBalanceCandidate>& candidates,
-    const FirewallRuleCriteria& criteria,
-    const FirewallRuleKey& key) {
-    if (family == AF_INET6 && !ipv6_enabled()) {
-        return;
-    }
-    if ((criteria.default_gateway == DefaultGatewayFamily::Ipv4 && family != AF_INET) ||
-        (criteria.default_gateway == DefaultGatewayFamily::Ipv6 && family != AF_INET6)) {
-        return;
-    }
-
-    std::vector<uint32_t> marks;
-    for (const auto& candidate : candidates) {
-        if ((family == AF_INET && candidate.ipv4) ||
-            (family == AF_INET6 && candidate.ipv6)) {
-            marks.push_back(candidate.fwmark);
-        }
-    }
-    if (marks.empty()) {
-        const auto before = pending_rules_.size();
-        append_rules_for_family(family, PendingRule::Mark, fallback_fwmark,
-                                criteria, key);
-        for (std::size_t index = before; index < pending_rules_.size(); ++index) {
-            pending_rules_[index].family_guard = true;
-        }
-        return;
-    }
-    if (marks.size() == 1) {
-        const auto before = pending_rules_.size();
-        append_rules_for_family(family, PendingRule::Mark, marks.front(), criteria,
-                                key);
-        for (std::size_t index = before; index < pending_rules_.size(); ++index) {
-            pending_rules_[index].family_guard = true;
-        }
-        return;
-    }
-
-    PendingRule pr;
-    pr.family = family;
-    pr.action = PendingRule::Balance;
-    pr.fwmark = fallback_fwmark;
-    pr.fwmark_mask = fwmark_mask();
-    pr.family_guard = true;
-    pr.balance_marks = std::move(marks);
-    pr.key = key;
-    pr.criteria = criteria;
-    pending_rules_.push_back(std::move(pr));
-    if (criteria.apply_output &&
-        criteria.default_gateway != DefaultGatewayFamily::None) {
-        PendingRule prerouting_rule = pending_rules_.back();
-        prerouting_rule.criteria.apply_output = false;
-        pending_rules_.push_back(std::move(prerouting_rule));
-    }
-}
-
-void NftablesFirewall::append_mark_rule(const FirewallRuleKey& key,
-                                        uint32_t fwmark,
-                                        const FirewallRuleCriteria& criteria) {
-    if (criteria.dst_set_name.has_value()) {
-        auto it = created_sets_.find(*criteria.dst_set_name);
-        int family = (it != created_sets_.end()) ? it->second : AF_INET;
-        append_rules_for_family(family, PendingRule::Mark, fwmark, criteria, key);
-        return;
-    }
-    if (!needs_family_specific_rule(criteria)) {
-        append_rules_for_family(AF_INET, PendingRule::Mark, fwmark, criteria, key);
-        return;
-    }
-    append_rules_for_family(AF_INET, PendingRule::Mark, fwmark, criteria, key);
-    append_rules_for_family(AF_INET6, PendingRule::Mark, fwmark, criteria, key);
-}
-
-void NftablesFirewall::append_balance_rule(
-    const FirewallRuleKey& key, uint32_t fallback_fwmark,
-    const std::vector<FirewallBalanceCandidate>& candidates,
-    const FirewallRuleCriteria& criteria) {
-    if (criteria.dst_set_name.has_value()) {
-        const auto it = created_sets_.find(*criteria.dst_set_name);
-        const int family = it != created_sets_.end() ? it->second : AF_INET;
-        append_balance_rules_for_family(family, fallback_fwmark, candidates, criteria,
-                                        key);
-        return;
-    }
-    if (!needs_family_specific_rule(criteria)) {
-        append_balance_rules_for_family(AF_INET, fallback_fwmark, candidates, criteria,
-                                        key);
-        append_balance_rules_for_family(AF_INET6, fallback_fwmark, candidates, criteria,
-                                        key);
-        return;
-    }
-    append_balance_rules_for_family(AF_INET, fallback_fwmark, candidates, criteria, key);
-    append_balance_rules_for_family(AF_INET6, fallback_fwmark, candidates, criteria, key);
-}
-
 void NftablesFirewall::set_owned_marks(const std::vector<uint32_t>& marks) {
     owned_marks_.clear();
     for (const uint32_t mark : marks) {
         if (mark != 0) owned_marks_.insert(mark);
-    }
-}
-
-void NftablesFirewall::append_drop_rule(const FirewallRuleKey& key,
-                                        const FirewallRuleCriteria& criteria) {
-    if (criteria.dst_set_name.has_value()) {
-        auto it = created_sets_.find(*criteria.dst_set_name);
-        int family = (it != created_sets_.end()) ? it->second : AF_INET;
-        append_rules_for_family(family, PendingRule::Drop, 0, criteria, key);
-        return;
-    }
-    if (!needs_family_specific_rule(criteria)) {
-        append_rules_for_family(AF_INET, PendingRule::Drop, 0, criteria, key);
-        return;
-    }
-    append_rules_for_family(AF_INET, PendingRule::Drop, 0, criteria, key);
-    append_rules_for_family(AF_INET6, PendingRule::Drop, 0, criteria, key);
-}
-
-void NftablesFirewall::append_pass_rule(const FirewallRuleKey& key,
-                                        const FirewallRuleCriteria& criteria) {
-    if (criteria.dst_set_name.has_value()) {
-        auto it = created_sets_.find(*criteria.dst_set_name);
-        int family = (it != created_sets_.end()) ? it->second : AF_INET;
-        append_rules_for_family(family, PendingRule::Pass, 0, criteria, key);
-        return;
-    }
-    if (!needs_family_specific_rule(criteria)) {
-        append_rules_for_family(AF_INET, PendingRule::Pass, 0, criteria, key);
-        return;
-    }
-    append_rules_for_family(AF_INET, PendingRule::Pass, 0, criteria, key);
-    append_rules_for_family(AF_INET6, PendingRule::Pass, 0, criteria, key);
-}
-
-void NftablesFirewall::append_restore_conntrack_mark_rule(
-    const FirewallRuleKey& key, uint32_t mask) {
-    prefilter_.restore_conntrack_mark = true;
-    prefilter_.conntrack_mark_mask = mask;
-    if (!key.module_id.empty() || !key.instance_id.empty()) {
-        prefilter_.restore_conntrack_mark_comment = key.comment();
-    }
-}
-
-void NftablesFirewall::append_skip_established_or_dnat_rule(
-    const FirewallRuleKey& key) {
-    prefilter_.skip_established_or_dnat = true;
-    if (!key.module_id.empty() || !key.instance_id.empty()) {
-        prefilter_.skip_established_or_dnat_comment = key.comment();
-    }
-}
-
-void NftablesFirewall::append_skip_marked_packets_rule(const FirewallRuleKey& key) {
-    prefilter_.skip_marked_packets = true;
-    if (!key.module_id.empty() || !key.instance_id.empty()) {
-        prefilter_.skip_marked_packets_comment = key.comment();
-    }
-}
-
-void NftablesFirewall::append_inbound_interface_filter_rule(
-    const FirewallRuleKey& key, const std::vector<std::string>& interfaces) {
-    prefilter_.inbound_interfaces = interfaces;
-    if (!key.module_id.empty() || !key.instance_id.empty()) {
-        prefilter_.inbound_interface_filter_comment = key.comment();
     }
 }
 
@@ -347,33 +118,6 @@ std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
         buf = nlohmann::json::array();
     }
     return std::make_unique<NftBatchVisitor>(buf, set_name);
-}
-
-// --- Port spec helpers ---
-
-// Parse a port spec into an nftables JSON right-hand side value.
-// "443"       → 443  (integer)
-// "8000-9000" → {"range": [8000, 9000]}
-// "80,443"    → {"set": [80, 443]}
-static nlohmann::json port_spec_to_nft_rhs(const PortSpec& spec) {
-    PortSpecKind kind = classify_port_spec(spec);
-    if (kind == PortSpecKind::List) {
-        nlohmann::json arr = nlohmann::json::array();
-        for (const auto& range : spec.ranges) {
-            if (range.from != range.to) {
-                arr.push_back({{"range", nlohmann::json::array({range.from, range.to})}});
-            } else {
-                arr.push_back(range.from);
-            }
-        }
-        return {{"set", arr}};
-    }
-
-    if (kind == PortSpecKind::Range) {
-        return {{"range", nlohmann::json::array({spec.ranges[0].from, spec.ranges[0].to})}};
-    }
-
-    return spec.ranges[0].from;
 }
 
 // --- Private static helpers ---
@@ -434,48 +178,15 @@ nlohmann::json NftablesFirewall::build_delete_output_chain_json() {
     }}}}};
 }
 
-std::string NftablesFirewall::setter_chain_name(uint32_t fwmark) {
-    std::ostringstream name;
-    name << "setmark_" << std::hex << std::setw(8) << std::setfill('0') << fwmark;
-    return name.str();
-}
-
 nlohmann::json NftablesFirewall::build_setter_chain_json(uint32_t fwmark) {
     return {{"add", {{"chain", {
-        {"family", "inet"}, {"table", TABLE_NAME}, {"name", setter_chain_name(fwmark)}
+        {"family", "inet"}, {"table", TABLE_NAME}, {"name", nft_setter_chain_name(fwmark)}
     }}}}};
 }
 
 nlohmann::json NftablesFirewall::build_delete_setter_chain_json(uint32_t fwmark) {
     return {{"delete", {{"chain", {
-        {"family", "inet"}, {"table", TABLE_NAME}, {"name", setter_chain_name(fwmark)}
-    }}}}};
-}
-
-nlohmann::json NftablesFirewall::build_setter_rule_json(uint32_t fwmark,
-                                                          uint32_t fwmark_mask) {
-    const uint32_t preserved = ~fwmark_mask;
-    const nlohmann::json set_mark = {{"|", nlohmann::json::array({
-        {{"&", nlohmann::json::array({{{"meta", {{"key", "mark"}}}}, preserved})}},
-        fwmark
-    })}};
-    const nlohmann::json set_ctmark = {{"|", nlohmann::json::array({
-        {{"&", nlohmann::json::array({{{"ct", {{"key", "mark"}}}}, preserved})}},
-        fwmark
-    })}};
-    nlohmann::json expr = nlohmann::json::array();
-    expr.push_back({{"mangle", {
-        {"key", {{"meta", {{"key", "mark"}}}}},
-        {"value", set_mark}
-    }}});
-    expr.push_back({{"mangle", {
-        {"key", {{"ct", {{"key", "mark"}}}}},
-        {"value", set_ctmark}
-    }}});
-    expr.push_back({{"accept", nullptr}});
-    return {{"add", {{"rule", {
-        {"family", "inet"}, {"table", TABLE_NAME}, {"chain", setter_chain_name(fwmark)},
-        {"expr", expr}
+        {"family", "inet"}, {"table", TABLE_NAME}, {"name", nft_setter_chain_name(fwmark)}
     }}}}};
 }
 
@@ -497,414 +208,254 @@ std::string NftablesFirewall::set_schema_key(const PendingSet& set) {
     return set.type + ":" + std::to_string(set.timeout);
 }
 
-nlohmann::json NftablesFirewall::build_rule_add_commands(
-    const FirewallPrefilter& prefilter,
-    const std::vector<PendingRule>& rules,
-    const std::set<uint32_t>& owned_marks) {
-    nlohmann::json commands = nlohmann::json::array();
+// --- PhysicalRule -> nft JSON ---
 
-    std::set<uint32_t> setter_marks = owned_marks;
-    for (const auto& rule : rules) {
-        if (rule.action == PendingRule::Mark && rule.fwmark != 0) {
-            setter_marks.insert(rule.fwmark);
+namespace {
+
+using json = nlohmann::json;
+
+json meta_key(const char* key) { return {{"meta", {{"key", key}}}}; }
+
+json mark_key(PhysicalMarkKind kind) {
+    return kind == PhysicalMarkKind::conntrack
+        ? json{{"ct", {{"key", "mark"}}}} : meta_key("mark");
+}
+
+json payload(const std::string& protocol, const char* field) {
+    return {{"payload", {{"protocol", protocol}, {"field", field}}}};
+}
+
+// Single CIDR -> prefix object.  Several -> {"set": [prefix...]}.
+json cidr_list_rhs(const std::vector<std::string>& cidrs) {
+    const auto to_prefix = [](const std::string& cidr) -> json {
+        const auto slash = cidr.find('/');
+        if (slash != std::string::npos) {
+            return {{"prefix", {{"addr", cidr.substr(0, slash)},
+                                 {"len", std::stoi(cidr.substr(slash + 1))}}}};
         }
-        if (rule.action == PendingRule::Balance) {
-            setter_marks.insert(rule.balance_marks.begin(), rule.balance_marks.end());
-        }
+        const bool ipv6 = cidr.find(':') != std::string::npos;
+        return {{"prefix", {{"addr", cidr}, {"len", ipv6 ? 128 : 32}}}};
+    };
+    if (cidrs.size() == 1) return to_prefix(cidrs.front());
+    json set = json::array();
+    for (const auto& cidr : cidrs) set.push_back(to_prefix(cidr));
+    return {{"set", std::move(set)}};
+}
+
+json port_ranges_rhs(const std::vector<PortRange>& ranges) {
+    const auto to_value = [](const PortRange& range) -> json {
+        return range.from == range.to
+            ? json(range.from)
+            : json{{"range", json::array({range.from, range.to})}};
+    };
+    if (ranges.size() == 1) return to_value(ranges.front());
+    json set = json::array();
+    for (const auto& range : ranges) set.push_back(to_value(range));
+    return {{"set", std::move(set)}};
+}
+
+json match_expr(const char* op, json left, json right) {
+    return {{"match", {{"op", op}, {"left", std::move(left)},
+                        {"right", std::move(right)}}}};
+}
+
+// `positive_set`: render a positive mark list as an `in` set even when it has
+// a single entry (the ct-restore re-check).
+json mark_match_expr(const MarkMatch& mark, bool positive_set) {
+    json left = mark_key(mark.kind);
+    // The bare `meta mark != 0` form is the skip-marked prefilter; every other
+    // test names its mask explicitly.
+    if (mark.mask != 0xFFFFFFFFu || mark.kind == PhysicalMarkKind::conntrack ||
+        !mark.negate) {
+        left = {{"&", json::array({std::move(left), mark.mask})}};
     }
-
-    if (prefilter.restore_conntrack_mark && prefilter.conntrack_mark_mask != 0 &&
-        !setter_marks.empty()) {
-        const uint32_t mask = prefilter.conntrack_mark_mask;
-        nlohmann::json restore_expr = nlohmann::json::array();
-        restore_expr.push_back({{"match", {{"op", "=="},
-            {"left", {{"ct", {{"key", "direction"}}}}}, {"right", 0}}}});
-        restore_expr.push_back({{"match", {{"op", "!="},
-            {"left", {{"&", nlohmann::json::array({
-                {{"ct", {{"key", "mark"}}}}, mask
-            })}}}, {"right", 0}}}});
-        nlohmann::json targets = nlohmann::json::array();
-        for (const uint32_t mark : setter_marks) {
-            targets.push_back(nlohmann::json::array({
-                mark, {{"jump", {{"target", setter_chain_name(mark)}}}}
-            }));
-        }
-        nlohmann::json restore_vmap;
-        restore_vmap["key"] = {{"&", nlohmann::json::array({
-            {{"ct", {{"key", "mark"}}}}, mask
-        })}};
-        restore_vmap["data"] = {{"set", targets}};
-        restore_expr.push_back({{"vmap", restore_vmap}});
-        nlohmann::json known_marks = nlohmann::json::array();
-        for (const uint32_t mark : setter_marks) {
-            known_marks.push_back(mark);
-        }
-        restore_expr.push_back({{"match", {{"op", "in"},
-            {"left", {{"&", nlohmann::json::array({
-                {{"ct", {{"key", "mark"}}}}, mask
-            })}}}, {"right", {{"set", known_marks}}}}}});
-        restore_expr.push_back({{"accept", nullptr}});
-        const nlohmann::json restore_rule = {{"family", "inet"},
-                                             {"table", TABLE_NAME},
-                                             {"chain", CHAIN_NAME},
-                                             {"expr", restore_expr}};
-        auto restore_command =
-            nlohmann::json{{"add", {{"rule", restore_rule}}}};
-        add_rule_comment(restore_command, prefilter.restore_conntrack_mark_comment);
-        commands.push_back(std::move(restore_command));
-        nlohmann::json output_restore_rule = restore_rule;
-        output_restore_rule["chain"] = OUTPUT_CHAIN_NAME;
-        auto output_restore_command =
-            nlohmann::json{{"add", {{"rule", output_restore_rule}}}};
-        add_rule_comment(output_restore_command,
-                         prefilter.restore_conntrack_mark_comment);
-        commands.push_back(std::move(output_restore_command));
+    if (mark.negate) {
+        return match_expr("!=", std::move(left), mark.values.front());
     }
-
-    if (prefilter.skip_established_or_dnat) {
-        nlohmann::json dnat_expr = nlohmann::json::array();
-        dnat_expr.push_back({{"match", {
-            {"op", "in"},
-            {"left", {{"ct", {{"key", "status"}}}}},
-            {"right", "dnat"}
-        }}});
-        dnat_expr.push_back({{"counter", nullptr}});
-        dnat_expr.push_back({{"accept", nullptr}});
-        const nlohmann::json dnat_rule = {
-            {"family", "inet"},
-            {"table", TABLE_NAME},
-            {"chain", CHAIN_NAME},
-            {"expr", dnat_expr}
-        };
-        auto dnat_command = nlohmann::json{{"add", {{"rule", dnat_rule}}}};
-        add_rule_comment(dnat_command, prefilter.skip_established_or_dnat_comment);
-        commands.push_back(std::move(dnat_command));
+    if (positive_set || mark.values.size() > 1) {
+        json set = json::array();
+        for (const uint32_t value : mark.values) set.push_back(value);
+        return match_expr("in", std::move(left), {{"set", std::move(set)}});
     }
+    return match_expr("==", std::move(left), mark.values.front());
+}
 
-    if (prefilter.skip_marked_packets) {
-        nlohmann::json marked_expr = nlohmann::json::array();
-        marked_expr.push_back({{"match", {
-            {"op", "!="},
-            {"left", {{"meta", {{"key", "mark"}}}}},
-            {"right", 0}
-        }}});
-        marked_expr.push_back({{"counter", nullptr}});
-        marked_expr.push_back({{"accept", nullptr}});
-        for (const auto* chain : {CHAIN_NAME, OUTPUT_CHAIN_NAME}) {
-            const nlohmann::json marked_rule = {
-                {"family", "inet"},
-                {"table", TABLE_NAME},
-                {"chain", chain},
-                {"expr", marked_expr}
-            };
-            auto marked_command = nlohmann::json{{"add", {{"rule", marked_rule}}}};
-            add_rule_comment(marked_command, prefilter.skip_marked_packets_comment);
-            commands.push_back(std::move(marked_command));
-        }
-    }
-
-    if (prefilter.has_inbound_interfaces()
-        && prefilter.inbound_interfaces.has_value()) {
-        nlohmann::json iface_rhs;
-        if (prefilter.inbound_interfaces->size() == 1) {
-            iface_rhs = prefilter.inbound_interfaces->front();
-        } else {
-            iface_rhs = {{"set", nlohmann::json::array()}};
-            for (const auto& iface : *prefilter.inbound_interfaces) {
-                iface_rhs["set"].push_back(iface);
+void append_ct_state_exprs(json& expr, const CtStateMatch& match) {
+    const struct { uint8_t bit; const char* name; bool status; } kBits[] = {
+        {ct_new, "new", false}, {ct_established, "established", false},
+        {ct_related, "related", false}, {ct_invalid, "invalid", false},
+        {ct_untracked, "untracked", false}, {ct_snat, "snat", true},
+        {ct_dnat, "dnat", true}};
+    for (const bool status : {false, true}) {
+        json names = json::array();
+        for (const auto& entry : kBits) {
+            if (entry.status == status && (match.states & entry.bit) != 0) {
+                names.push_back(entry.name);
             }
         }
-
-        nlohmann::json iface_expr = nlohmann::json::array();
-        iface_expr.push_back({{"match", {
-            {"op", "!="},
-            {"left", {{"meta", {{"key", "iifname"}}}}},
-            {"right", iface_rhs}
-        }}});
-        iface_expr.push_back({{"counter", nullptr}});
-        iface_expr.push_back({{"accept", nullptr}});
-        const nlohmann::json inbound_rule = {
-            {"family", "inet"},
-            {"table", TABLE_NAME},
-            {"chain", CHAIN_NAME},
-            {"expr", iface_expr}
-        };
-        auto inbound_command = nlohmann::json{{"add", {{"rule", inbound_rule}}}};
-        add_rule_comment(inbound_command,
-                         prefilter.inbound_interface_filter_comment);
-        commands.push_back(std::move(inbound_command));
+        if (names.empty()) continue;
+        json right = names.size() == 1 ? names.front() : json{{"set", names}};
+        expr.push_back(match_expr(match.negate ? "!=" : "in",
+                                  {{"ct", {{"key", status ? "status" : "state"}}}},
+                                  std::move(right)));
     }
+}
 
-    for (const auto& pr : rules) {
-        if (pr.action == PendingRule::Mark) {
-            commands.push_back(build_mark_rule_json(pr));
-        } else if (pr.action == PendingRule::Balance) {
-            commands.push_back(build_balance_rule_json(pr));
-        } else if (pr.action == PendingRule::Drop) {
-            commands.push_back(build_drop_rule_json(pr));
+void append_match_exprs(json& expr, const PhysicalMatch& match,
+                        const std::string& ip_proto, bool late) {
+    if (const auto* set = std::get_if<SetMatch>(&match)) {
+        expr.push_back(match_expr(
+            set->negate ? "!=" : "==",
+            payload(ip_proto, set->dir == PhysicalDir::src ? "saddr" : "daddr"),
+            "@" + set->name));
+    } else if (const auto* dscp = std::get_if<DscpMatch>(&match)) {
+        expr.push_back(match_expr("==", payload(ip_proto, "dscp"),
+                                  static_cast<int>(dscp->value)));
+    } else if (const auto* addr = std::get_if<AddrMatch>(&match)) {
+        expr.push_back(match_expr(
+            addr->negate ? "!=" : "==",
+            payload(ip_proto, addr->dir == PhysicalDir::src ? "saddr" : "daddr"),
+            cidr_list_rhs(addr->cidrs)));
+    } else if (const auto* proto = std::get_if<ProtoMatch>(&match)) {
+        expr.push_back(match_expr("==", meta_key("l4proto"),
+                                  l4_proto_name(proto->proto)));
+    } else if (const auto* port = std::get_if<PortMatch>(&match)) {
+        const char* protocol = port->transport == PhysicalTransport::tcp ? "tcp"
+            : port->transport == PhysicalTransport::udp ? "udp" : "th";
+        expr.push_back(match_expr(
+            port->negate ? "!=" : "==",
+            payload(protocol, port->dir == PhysicalDir::src ? "sport" : "dport"),
+            port_ranges_rhs(port->ranges)));
+    } else if (const auto* iif = std::get_if<IifMatch>(&match)) {
+        json right;
+        if (iif->names.size() == 1) {
+            right = iif->names.front();
         } else {
-            commands.push_back(build_pass_rule_json(pr));
+            right = {{"set", json(iif->names)}};
         }
-    }
-
-    return commands;
-}
-
-nlohmann::json NftablesFirewall::build_port_match_exprs(L4Proto proto,
-                                                          const PortSpec& src_port,
-                                                          const PortSpec& dst_port,
-                                                          bool negate_src_port,
-                                                          bool negate_dst_port) {
-    nlohmann::json exprs = nlohmann::json::array();
-    if (proto == L4Proto::Any && src_port.empty() && dst_port.empty()) {
-        return exprs;
-    }
-    // proto match (next-header) — never negated
-    if (proto != L4Proto::Any) {
-        exprs.push_back({{"match", {{"op", "=="}, {"left", {{"meta", {{"key", "l4proto"}}}}}, {"right", l4_proto_name(proto)}}}});
-    }
-    // For port payload fields, nft expects a transport-header payload protocol.
-    // When proto is unspecified, use "th" (transport header) so expressions like
-    // dport/sport are still valid.
-    const std::string payload_proto = proto == L4Proto::Any ? "th" : l4_proto_name(proto);
-    // src_port match
-    if (!src_port.empty()) {
-        std::string op = negate_src_port ? "!=" : "==";
-        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", payload_proto}, {"field", "sport"}}}}}, {"right", port_spec_to_nft_rhs(src_port)}}}});
-    }
-    // dst_port match
-    if (!dst_port.empty()) {
-        std::string op = negate_dst_port ? "!=" : "==";
-        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", payload_proto}, {"field", "dport"}}}}}, {"right", port_spec_to_nft_rhs(dst_port)}}}});
-    }
-    return exprs;
-}
-
-// Convert a CIDR list to an nftables JSON right-hand side value.
-// Single CIDR → plain string.  Multiple CIDRs → {"set": ["cidr1", "cidr2"]}.
-static nlohmann::json cidr_list_to_nft_rhs(const std::vector<std::string>& addrs) {
-    auto addr_to_rhs = [](const std::string& addr) -> nlohmann::json {
-        const auto slash = addr.find('/');
-        if (slash != std::string::npos) {
-            const std::string base = addr.substr(0, slash);
-            const int len = std::stoi(addr.substr(slash + 1));
-            return {{"prefix", {{"addr", base}, {"len", len}}}};
-        }
-
-        const bool ipv6 = addr.find(':') != std::string::npos;
-        return {{"prefix", {{"addr", addr}, {"len", ipv6 ? 128 : 32}}}};
-    };
-
-    if (addrs.size() == 1) return addr_to_rhs(addrs[0]);
-    nlohmann::json arr = nlohmann::json::array();
-    for (const auto& a : addrs) arr.push_back(addr_to_rhs(a));
-    return {{"set", arr}};
-}
-
-static nlohmann::json default_gateway_match_exprs(
-    const std::string& ip_proto, const FirewallRuleCriteria& criteria) {
-    nlohmann::json exprs = nlohmann::json::array();
-    if (criteria.default_gateway == DefaultGatewayFamily::None) {
-        return exprs;
-    }
-    exprs.push_back({{"match", {{"op", "!="},
-        {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}},
-        {"right", cidr_list_to_nft_rhs(criteria.default_gateway_bypass)}}}});
-    return exprs;
-}
-
-nlohmann::json NftablesFirewall::build_addr_match_exprs(const std::string& ip_proto,
-                                                         const std::vector<std::string>& src_addr,
-                                                         const std::vector<std::string>& dst_addr,
-                                                         bool negate_src_addr,
-                                                         bool negate_dst_addr) {
-    nlohmann::json exprs = nlohmann::json::array();
-    if (!src_addr.empty()) {
-        std::string op = negate_src_addr ? "!=" : "==";
-        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "saddr"}}}}}, {"right", cidr_list_to_nft_rhs(src_addr)}}}});
-    }
-    if (!dst_addr.empty()) {
-        std::string op = negate_dst_addr ? "!=" : "==";
-        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", cidr_list_to_nft_rhs(dst_addr)}}}});
-    }
-    return exprs;
-}
-
-nlohmann::json NftablesFirewall::build_dscp_match_exprs(const std::string& ip_proto,
-                                                        std::optional<uint8_t> dscp) {
-    nlohmann::json exprs = nlohmann::json::array();
-    if (!dscp.has_value()) {
-        return exprs;
-    }
-
-    exprs.push_back({{"match", {
-        {"op", "=="},
-        {"left", {{"payload", {{"protocol", ip_proto}, {"field", "dscp"}}}}},
-        {"right", static_cast<int>(*dscp)}
-    }}});
-    return exprs;
-}
-
-nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
-    std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
-    nlohmann::json expr = nlohmann::json::array();
-    if (pr.family_guard) {
-        expr.push_back(family_match_expr(pr.family));
-    }
-    if (pr.criteria.dst_set_name.has_value()) {
-        // set-membership match
-        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
-    }
-    for (const auto& e : build_dscp_match_exprs(ip_proto, pr.criteria.dscp)) {
-        expr.push_back(e);
-    }
-    // Append src/dst address constraints
-    for (const auto& e : build_addr_match_exprs(ip_proto, pr.criteria.src_addr, pr.criteria.dst_addr,
-                                                 pr.criteria.negate_src_addr, pr.criteria.negate_dst_addr)) {
-        expr.push_back(e);
-    }
-    for (const auto& e : default_gateway_match_exprs(ip_proto, pr.criteria)) {
-        expr.push_back(e);
-    }
-    // Append proto/port match expressions
-    for (const auto& e : build_port_match_exprs(pr.criteria.proto, pr.criteria.src_port, pr.criteria.dst_port,
-                                                  pr.criteria.negate_src_port, pr.criteria.negate_dst_port)) {
-        expr.push_back(e);
-    }
-    expr.push_back({{"counter", nullptr}});
-    if (pr.save_conntrack_mark) {
-        expr.push_back({{"jump", {{"target", setter_chain_name(pr.fwmark)}}}});
-    } else if (pr.fwmark_mask == 0xFFFFFFFFu) {
-        expr.push_back({{"mangle", {
-            {"key", {{"meta", {{"key", "mark"}}}}}, {"value", pr.fwmark}
-        }}});
+        expr.push_back(match_expr(iif->negate ? "!=" : "==", meta_key("iifname"),
+                                  std::move(right)));
+    } else if (const auto* dir = std::get_if<CtDirMatch>(&match)) {
+        expr.push_back(match_expr("==", {{"ct", {{"key", "direction"}}}},
+                                  dir->original ? 0 : 1));
+    } else if (const auto* state = std::get_if<CtStateMatch>(&match)) {
+        append_ct_state_exprs(expr, *state);
+    } else if (const auto* mark = std::get_if<MarkMatch>(&match)) {
+        expr.push_back(mark_match_expr(*mark, late && !mark->negate));
     } else {
-        expr.push_back({{"mangle", {
-            {"key", {{"meta", {{"key", "mark"}}}}},
-            {"value", {{"|", nlohmann::json::array({
-                {{"&", nlohmann::json::array({{{"meta", {{"key", "mark"}}}},
-                                                  static_cast<uint32_t>(~pr.fwmark_mask)})}},
-                pr.fwmark
-            })}}}
-        }}});
+        throw FirewallError("cannot render an unknown nft match");
     }
-    if (!pr.save_conntrack_mark) {
-        expr.push_back({{"accept", nullptr}});
-    }
-    nlohmann::json command = {{"add", {{"rule", {
-        {"family", "inet"},
-        {"table", TABLE_NAME},
-        {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME},
-        {"expr", expr}
-    }}}}};
-    add_rule_comment(command, pr.key);
-    return command;
 }
 
-nlohmann::json NftablesFirewall::build_balance_rule_json(const PendingRule& pr) {
-    const std::string ip_proto = pr.family == AF_INET6 ? "ip6" : "ip";
-    nlohmann::json expr = nlohmann::json::array();
-    // Balance candidates are filtered independently for each physical family.
-    // Keep the two classifiers disjoint even when their packet criteria are
-    // otherwise family-neutral (for example, a port-only rule).
-    expr.push_back(family_match_expr(pr.family));
-    if (pr.criteria.dst_set_name.has_value()) {
-        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
-    }
-    for (const auto& e : build_dscp_match_exprs(ip_proto, pr.criteria.dscp)) expr.push_back(e);
-    for (const auto& e : build_addr_match_exprs(ip_proto, pr.criteria.src_addr, pr.criteria.dst_addr,
-                                                 pr.criteria.negate_src_addr, pr.criteria.negate_dst_addr)) expr.push_back(e);
-    for (const auto& e : default_gateway_match_exprs(ip_proto, pr.criteria)) expr.push_back(e);
-    for (const auto& e : build_port_match_exprs(pr.criteria.proto, pr.criteria.src_port, pr.criteria.dst_port,
-                                                 pr.criteria.negate_src_port, pr.criteria.negate_dst_port)) expr.push_back(e);
-    const nlohmann::json mark_is_empty = {{"&", nlohmann::json::array({
-        {{"meta", {{"key", "mark"}}}}, pr.fwmark_mask
-    })}};
-    expr.push_back({{"match", {{"op", "=="}, {"left", mark_is_empty}, {"right", 0}}}});
-    nlohmann::json targets = nlohmann::json::array();
-    for (std::size_t index = 0; index < pr.balance_marks.size(); ++index) {
-        targets.push_back(nlohmann::json::array({
-            index, {{"jump", {{"target", setter_chain_name(pr.balance_marks[index])}}}}
-        }));
-    }
-    expr.push_back({{"counter", nullptr}});
-    nlohmann::json balance_vmap;
-    balance_vmap["key"] = {{"numgen", {{"mode", "inc"},
-                                           {"mod", pr.balance_marks.size()}}}};
-    balance_vmap["data"] = {{"set", targets}};
-    expr.push_back({{"vmap", balance_vmap}});
-    expr.push_back({{"accept", nullptr}});
-    nlohmann::json command = {{"add", {{"rule", {
-        {"family", "inet"}, {"table", TABLE_NAME},
-        {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME}, {"expr", expr}
-    }}}}};
-    add_rule_comment(command, pr.key);
-    return command;
+// Emission order of the matches of one rule.  Rules are held in canonical kind
+// order; the order written to nft keeps the cheapest/most selective tests
+// first and puts the conntrack direction before the conntrack mark.
+int nft_match_rank(const PhysicalMatch& match) {
+    if (std::holds_alternative<SetMatch>(match)) return 0;
+    if (std::holds_alternative<DscpMatch>(match)) return 1;
+    if (std::holds_alternative<AddrMatch>(match)) return 2;
+    if (std::holds_alternative<ProtoMatch>(match)) return 3;
+    if (std::holds_alternative<PortMatch>(match)) return 4;
+    if (std::holds_alternative<IifMatch>(match)) return 5;
+    if (std::holds_alternative<CtDirMatch>(match)) return 6;
+    if (std::holds_alternative<MarkMatch>(match)) return 7;
+    return 8;
 }
 
-nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
-    std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
-    nlohmann::json expr = nlohmann::json::array();
-    if (pr.criteria.dst_set_name.has_value()) {
-        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
+json mark_value_expr(const SetMarkStmt& stmt) {
+    if (stmt.mask == 0xFFFFFFFFu) {
+        return stmt.value;
     }
-    for (const auto& e : build_dscp_match_exprs(ip_proto, pr.criteria.dscp)) {
-        expr.push_back(e);
-    }
-    // Append src/dst address constraints
-    for (const auto& e : build_addr_match_exprs(ip_proto, pr.criteria.src_addr, pr.criteria.dst_addr,
-                                                 pr.criteria.negate_src_addr, pr.criteria.negate_dst_addr)) {
-        expr.push_back(e);
-    }
-    for (const auto& e : default_gateway_match_exprs(ip_proto, pr.criteria)) {
-        expr.push_back(e);
-    }
-    // Append proto/port match expressions
-    for (const auto& e : build_port_match_exprs(pr.criteria.proto, pr.criteria.src_port, pr.criteria.dst_port,
-                                                  pr.criteria.negate_src_port, pr.criteria.negate_dst_port)) {
-        expr.push_back(e);
-    }
-    expr.push_back({{"counter", nullptr}});
-    expr.push_back({{"drop", nullptr}});
-    nlohmann::json command = {{"add", {{"rule", {
-        {"family", "inet"},
-        {"table", TABLE_NAME},
-        {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME},
-        {"expr", expr}
-    }}}}};
-    add_rule_comment(command, pr.key);
-    return command;
+    return {{"|", json::array({
+        {{"&", json::array({mark_key(stmt.kind),
+                            static_cast<uint32_t>(~stmt.mask)})}},
+        stmt.value})}};
 }
 
-nlohmann::json NftablesFirewall::build_pass_rule_json(const PendingRule& pr) {
-    std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
-    nlohmann::json expr = nlohmann::json::array();
-    if (pr.criteria.dst_set_name.has_value()) {
-        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
+json setter_target(const PhysicalChainId& target) {
+    return {{"jump", {{"target", target.name}}}};
+}
+
+void append_statement_exprs(json& expr, const PhysicalStatement& statement,
+                            const std::string& ip_proto) {
+    if (const auto* mark = std::get_if<SetMarkStmt>(&statement)) {
+        expr.push_back({{"mangle", {{"key", mark_key(mark->kind)},
+                                     {"value", mark_value_expr(*mark)}}}});
+    } else if (const auto* jump = std::get_if<JumpStmt>(&statement)) {
+        expr.push_back({{jump->is_goto ? "goto" : "jump",
+                         {{"target", jump->target.name}}}});
+    } else if (const auto* verdict = std::get_if<VerdictStmt>(&statement)) {
+        switch (verdict->verdict) {
+        case PhysicalVerdict::accept: expr.push_back({{"accept", nullptr}}); break;
+        case PhysicalVerdict::drop: expr.push_back({{"drop", nullptr}}); break;
+        case PhysicalVerdict::return_: expr.push_back({{"return", nullptr}}); break;
+        }
+    } else if (const auto* vmap = std::get_if<VmapStmt>(&statement)) {
+        json key = vmap->key == PhysicalVmapKey::numgen_inc
+            ? json{{"numgen", {{"mode", "inc"}, {"mod", vmap->param}}}}
+            : json{{"&", json::array({json{{"ct", {{"key", "mark"}}}},
+                                       vmap->param})}};
+        json targets = json::array();
+        for (const auto& [value, chain] : vmap->entries) {
+            targets.push_back(json::array({value, setter_target(chain)}));
+        }
+        expr.push_back({{"vmap", {{"key", std::move(key)},
+                                   {"data", {{"set", std::move(targets)}}}}}});
+    } else if (const auto* late = std::get_if<LateMatchStmt>(&statement)) {
+        append_match_exprs(expr, late->match, ip_proto, /*late=*/true);
+    } else {
+        throw FirewallError("cannot render an unsupported nft statement");
     }
-    for (const auto& e : build_dscp_match_exprs(ip_proto, pr.criteria.dscp)) {
-        expr.push_back(e);
+}
+
+} // namespace
+
+nlohmann::json render_nft_rule(const PhysicalChainId& chain,
+                               const PhysicalRule& rule) {
+    const std::string ip_proto =
+        rule.family == FirewallFamily::ipv6 ? "ip6" : "ip";
+    json expr = json::array();
+
+    // A payload match on the address family selects it implicitly; any other
+    // family-specific rule needs the explicit guard.
+    bool implies_family = false;
+    bool restore_vmap = false;
+    for (const auto& match : rule.matches) {
+        implies_family = implies_family ||
+            std::holds_alternative<SetMatch>(match) ||
+            std::holds_alternative<DscpMatch>(match) ||
+            std::holds_alternative<AddrMatch>(match);
     }
-    for (const auto& e : build_addr_match_exprs(ip_proto, pr.criteria.src_addr, pr.criteria.dst_addr,
-                                                 pr.criteria.negate_src_addr, pr.criteria.negate_dst_addr)) {
-        expr.push_back(e);
+    for (const auto& statement : rule.statements) {
+        const auto* vmap = std::get_if<VmapStmt>(&statement);
+        restore_vmap = restore_vmap || (vmap != nullptr &&
+            vmap->key == PhysicalVmapKey::conntrack_mark_and);
     }
-    for (const auto& e : default_gateway_match_exprs(ip_proto, pr.criteria)) {
-        expr.push_back(e);
+    if (rule.family != FirewallFamily::any && !implies_family) {
+        expr.push_back(family_match_expr(
+            rule.family == FirewallFamily::ipv6 ? AF_INET6 : AF_INET));
     }
-    for (const auto& e : build_port_match_exprs(pr.criteria.proto, pr.criteria.src_port, pr.criteria.dst_port,
-                                                  pr.criteria.negate_src_port, pr.criteria.negate_dst_port)) {
-        expr.push_back(e);
+    for (int rank = 0; rank <= 8; ++rank) {
+        for (const auto& match : rule.matches) {
+            if (nft_match_rank(match) == rank) {
+                append_match_exprs(expr, match, ip_proto, /*late=*/false);
+            }
+        }
     }
-    expr.push_back({{"counter", nullptr}});
-    expr.push_back({{"accept", nullptr}});
-    nlohmann::json command = {{"add", {{"rule", {
-        {"family", "inet"},
-        {"table", TABLE_NAME},
-        {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME},
-        {"expr", expr}
-    }}}}};
-    add_rule_comment(command, pr.key);
+    // Counters everywhere except the ct-restore hot path and setter chains.
+    if (!restore_vmap && chain.role != PhysicalChainRole::nft_setter) {
+        expr.push_back({{"counter", nullptr}});
+    }
+    for (const auto& statement : rule.statements) {
+        append_statement_exprs(expr, statement, ip_proto);
+    }
+
+    json command = {{"add", {{"rule", {
+        {"family", "inet"}, {"table", "KeenPbrTable"}, {"chain", chain.name},
+        {"expr", std::move(expr)}}}}}};
+    if (rule.key.has_value()) {
+        command["add"]["rule"]["comment"] = rule.key->comment();
+    }
     return command;
 }
 
@@ -1062,24 +613,28 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
         arr.push_back(build_chain_json());
         arr.push_back(build_output_chain_json());
 
-        std::set<uint32_t> setter_marks = owned_marks_;
-        for (const auto& rule : pending_rules_) {
-            if (rule.action == PendingRule::Mark && rule.fwmark != 0) {
-                setter_marks.insert(rule.fwmark);
+        // Setter chains must exist before the rules that jump to them.
+        for (const auto& chain : pending_ruleset_.chains) {
+            if (chain.id.role != PhysicalChainRole::nft_setter) {
+                continue;
             }
-            if (rule.action == PendingRule::Balance) {
-                setter_marks.insert(rule.balance_marks.begin(), rule.balance_marks.end());
+            arr.push_back(build_setter_chain_json(chain.id.setter_mark));
+            for (const auto& rule : chain.rules) {
+                arr.push_back(render_nft_rule(chain.id, rule));
             }
-        }
-        for (const uint32_t mark : setter_marks) {
-            arr.push_back(build_setter_chain_json(mark));
-            arr.push_back(build_setter_rule_json(mark, fwmark_mask()));
         }
 
-        // Rules
-        for (const auto& cmd : build_rule_add_commands(
-                 prefilter_, pending_rules_, owned_marks_)) {
-            arr.push_back(cmd);
+        // Rules, in chain order and plan order inside each chain.
+        for (const auto role : {PhysicalChainRole::nft_prerouting,
+                                PhysicalChainRole::nft_output}) {
+            for (const auto& chain : pending_ruleset_.chains) {
+                if (chain.id.role != role) {
+                    continue;
+                }
+                for (const auto& rule : chain.rules) {
+                    arr.push_back(render_nft_rule(chain.id, rule));
+                }
+            }
         }
     }
 
@@ -1110,21 +665,26 @@ void NftablesFirewall::preflight_reused_set_schemas(
         throw FirewallRulesOnlyError(
             "required nft firewall table or classification chain is missing");
     }
-    for (const auto& rule : pending_rules_) {
-        if (!rule.criteria.dst_set_name.has_value()) {
-            continue;
-        }
-        const auto expected = std::find_if(
-            pending_sets_.begin(), pending_sets_.end(),
-            [&](const PendingSet& set) {
-                return set.name == *rule.criteria.dst_set_name &&
-                       ((rule.family == AF_INET6 && set.type == "ipv6_addr") ||
-                        (rule.family == AF_INET && set.type == "ipv4_addr"));
-            });
-        if (expected == pending_sets_.end()) {
-            throw FirewallRulesOnlyError(
-                "required reused nft set " + *rule.criteria.dst_set_name +
-                " has no compatible declaration for the packet family");
+    for (const auto& chain : pending_ruleset_.chains) {
+        for (const auto& rule : chain.rules) {
+            for (const auto& match : rule.matches) {
+                const auto* set_match = std::get_if<SetMatch>(&match);
+                if (set_match == nullptr) {
+                    continue;
+                }
+                const bool ipv6 = rule.family == FirewallFamily::ipv6;
+                const auto expected = std::find_if(
+                    pending_sets_.begin(), pending_sets_.end(),
+                    [&](const PendingSet& set) {
+                        return set.name == set_match->name &&
+                               set.type == (ipv6 ? "ipv6_addr" : "ipv4_addr");
+                    });
+                if (expected == pending_sets_.end()) {
+                    throw FirewallRulesOnlyError(
+                        "required reused nft set " + set_match->name +
+                        " has no compatible declaration for the packet family");
+                }
+            }
         }
     }
     for (const auto& expected : pending_sets_) {
@@ -1144,8 +704,7 @@ void NftablesFirewall::preflight_reused_set_schemas(
 void NftablesFirewall::clear_pending() {
     pending_sets_.clear();
     pending_elements_.clear();
-    pending_rules_.clear();
-    prefilter_ = {};
+    pending_ruleset_ = {};
     apply_prepared_ = false;
 }
 
@@ -1160,63 +719,15 @@ void NftablesFirewall::compile_plan(const FirewallPlan& plan,
                      declaration.timeout);
     }
 
-    for (const auto& rule : plan.rules) {
-        const FirewallRuleCriteria criteria = materialize_criteria(rule.criteria, *this);
-        const auto append = [&](PendingRule::Action action, uint32_t fwmark) {
-            if (rule.family == FirewallFamily::ipv4) {
-                append_rules_for_family(AF_INET, action, fwmark, criteria, rule.key);
-            } else if (rule.family == FirewallFamily::ipv6) {
-                append_rules_for_family(AF_INET6, action, fwmark, criteria, rule.key);
-            } else {
-                switch (action) {
-                case PendingRule::Mark:
-                    append_mark_rule(rule.key, fwmark, criteria);
-                    break;
-                case PendingRule::Drop:
-                    append_drop_rule(rule.key, criteria);
-                    break;
-                case PendingRule::Pass:
-                    append_pass_rule(rule.key, criteria);
-                    break;
-                case PendingRule::Balance:
-                    throw FirewallError("invalid balance compiler dispatch");
-                }
-            }
-        };
-
-        if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
-            append(PendingRule::Mark, mark->value);
-        } else if (const auto* balance =
-                       std::get_if<BalanceAction>(&rule.action)) {
-            if (rule.family == FirewallFamily::ipv4) {
-                append_balance_rules_for_family(AF_INET, balance->fallback_mark,
-                                                balance->candidates, criteria,
-                                                rule.key);
-            } else if (rule.family == FirewallFamily::ipv6) {
-                append_balance_rules_for_family(AF_INET6,
-                                                balance->fallback_mark,
-                                                balance->candidates, criteria,
-                                                rule.key);
-            } else {
-                append_balance_rule(rule.key, balance->fallback_mark,
-                                    balance->candidates, criteria);
-            }
-        } else if (const auto* restore =
-                       std::get_if<RestoreConntrackMarkAction>(&rule.action)) {
-            append_restore_conntrack_mark_rule(rule.key, restore->mask);
-        } else if (std::holds_alternative<SkipEstablishedOrDnatAction>(rule.action)) {
-            append_skip_established_or_dnat_rule(rule.key);
-        } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
-            append_skip_marked_packets_rule(rule.key);
-        } else if (const auto* inbound =
-                       std::get_if<InboundInterfaceFilterAction>(&rule.action)) {
-            append_inbound_interface_filter_rule(rule.key, inbound->interfaces);
-        } else if (std::get<VerdictAction>(rule.action) == VerdictAction::drop) {
-            append(PendingRule::Drop, 0);
-        } else {
-            append(PendingRule::Pass, 0);
-        }
-    }
+    FirewallLoweringContext context;
+    context.backend = FirewallBackend::nftables;
+    context.ipv6_enabled = ipv6_enabled();
+    context.fwmark_mask = plan.fwmark_mask;
+    context.owned_marks.assign(owned_marks_.begin(), owned_marks_.end());
+    context.physical_set_name = [this](const std::string& name) {
+        return physical_set_name(name);
+    };
+    pending_ruleset_ = lower_firewall_plan(plan, context);
 }
 
 void NftablesFirewall::apply(const FirewallPlan& plan, FirewallApplyMode mode) {
@@ -1257,10 +768,6 @@ void NftablesFirewall::apply_prepared(FirewallApplyMode mode) {
         throw FirewallError("cannot refresh list sets before nft firewall state exists");
     }
     const bool emit_full_table = !live_state.table_exists;
-    for (auto& rule : pending_rules_) {
-        rule.save_conntrack_mark = prefilter_.restore_conntrack_mark &&
-                                   prefilter_.conntrack_mark_mask != 0;
-    }
     const bool clear_dynamic_sets = mode == FirewallApplyMode::Destructive
         && clear_dynamic_sets_on_apply();
     nlohmann::json doc = build_apply_document(
@@ -1279,7 +786,7 @@ void NftablesFirewall::apply_prepared(FirewallApplyMode mode) {
     // Clear pending buffers
     pending_sets_.clear();
     pending_elements_.clear();
-    pending_rules_.clear();
+    pending_ruleset_ = {};
     table_created_ = true;
 }
 
@@ -1298,7 +805,7 @@ void NftablesFirewall::cleanup_impl() {
     created_sets_.clear();
     pending_sets_.clear();
     pending_elements_.clear();
-    pending_rules_.clear();
+    pending_ruleset_ = {};
     apply_prepared_ = false;
 }
 

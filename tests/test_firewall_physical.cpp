@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/firewall/firewall_physical.hpp"
+#include "../src/firewall/firewall_lowering.hpp"
 #include "../src/firewall/firewall_plan.hpp"
 #include "../src/firewall/nftables.hpp"
 
@@ -1099,6 +1100,102 @@ TEST_CASE("physical: canonical helpers") {
     b.table = Table::raw;
     CHECK(a != b);
   }
+}
+
+
+// ---------------------------------------------------------------------------
+// Round trip: lowering the plans that produced the committed kernel dumps
+// must give exactly what the parsers read back from those dumps.
+// ---------------------------------------------------------------------------
+
+bool is_lowered_role(Role role) {
+  return role == Role::prerouting_generation ||
+         role == Role::output_generation || role == Role::nft_prerouting ||
+         role == Role::nft_output || role == Role::nft_setter;
+}
+
+// Compares every owned chain rule for rule (dispatchers and system hooks are
+// backend lifecycle, not lowering).
+void check_lowered_equals_parsed(const PhysicalRuleset &lowered,
+                                 const PhysicalRuleset &parsed) {
+  std::size_t parsed_owned = 0;
+  for (const auto &chain : parsed.chains) {
+    if (is_lowered_role(chain.id.role)) ++parsed_owned;
+  }
+  CHECK(lowered.chains.size() == parsed_owned);
+  for (const auto &chain : lowered.chains) {
+    const PhysicalChain *kernel = parsed.find(chain.id);
+    REQUIRE_MESSAGE(kernel != nullptr, "chain not in dump: " << chain.id.name);
+    CHECK(kernel->base == chain.base);
+    REQUIRE_MESSAGE(kernel->rules.size() == chain.rules.size(),
+                    "rule count of " << chain.id.name);
+    for (std::size_t index = 0; index < chain.rules.size(); ++index) {
+      CHECK_MESSAGE(chain.rules[index] == kernel->rules[index],
+                    chain.id.name << " rule " << index);
+      CHECK_MESSAGE(chain.rules[index].key.has_value() ==
+                        kernel->rules[index].key.has_value(),
+                    chain.id.name << " rule " << index << " key");
+      if (chain.rules[index].key && kernel->rules[index].key) {
+        CHECK(*chain.rules[index].key == *kernel->rules[index].key);
+      }
+    }
+  }
+}
+
+FirewallLoweringContext capture_context(FirewallBackend backend,
+                                        RawPreroutingMode raw) {
+  FirewallLoweringContext context;
+  context.backend = backend;
+  context.raw_prerouting = raw;
+  context.fwmark_mask = kCaptureMask;
+  // The A generation names static sets kpbr4s_* / kpbr6s_*.
+  context.physical_set_name = [backend](const std::string &name) {
+    if (backend == FirewallBackend::iptables &&
+        (name.rfind("kpbr4_", 0) == 0 || name.rfind("kpbr6_", 0) == 0)) {
+      return name.substr(0, 5) + "s" + name.substr(5);
+    }
+    return name;
+  };
+  return context;
+}
+
+TEST_CASE("lowering round trip: iptables mangle layout equals the kernel dump") {
+  const auto plan = capture_plan(false, false, true);
+  const auto lowered = lower_firewall_plan(
+      plan, capture_context(FirewallBackend::iptables, {}));
+  PhysicalRuleset v4;
+  PhysicalRuleset v6;
+  for (const auto &chain : lowered.chains) {
+    (chain.id.family == Fam::ipv4 ? v4 : v6).chains.push_back(chain);
+  }
+  check_lowered_equals_parsed(
+      v4, parse_iptables_save(read_fixture("iptables_mangle_v4.save"), Fam::ipv4));
+  check_lowered_equals_parsed(
+      v6, parse_iptables_save(read_fixture("iptables_mangle_v6.save"), Fam::ipv6));
+}
+
+TEST_CASE("lowering round trip: iptables RAW PREROUTING layout equals the kernel dump") {
+  const auto plan = capture_plan(false, true, true);
+  const auto lowered = lower_firewall_plan(
+      plan, capture_context(FirewallBackend::iptables,
+                            RawPreroutingMode{true, true}));
+  PhysicalRuleset v4;
+  PhysicalRuleset v6;
+  for (const auto &chain : lowered.chains) {
+    (chain.id.family == Fam::ipv4 ? v4 : v6).chains.push_back(chain);
+  }
+  check_lowered_equals_parsed(
+      v4, parse_iptables_save(read_fixture("iptables_raw_v4.save"), Fam::ipv4));
+  check_lowered_equals_parsed(
+      v6, parse_iptables_save(read_fixture("iptables_raw_v6.save"), Fam::ipv6));
+}
+
+TEST_CASE("lowering round trip: nftables layout equals the kernel dump") {
+  const auto plan = capture_plan(true, true, true);
+  const auto lowered =
+      lower_firewall_plan(plan, capture_context(FirewallBackend::nftables, {}));
+  check_lowered_equals_parsed(lowered,
+                              parse_nft_json(read_fixture("nft_balance.json")));
 }
 
 } // namespace
