@@ -37,11 +37,22 @@ bool route_matches(const RouteSpec& expected, const DumpedRoute& actual) {
            (expected.family == 0 || expected.family == actual.family);
 }
 
+// Whether the owned entry chain and its hook exist.  iptables: the
+// PREROUTING dispatcher chain and a builtin PREROUTING jump into keen-pbr (the
+// parser only keeps those); nftables: the prerouting base chain, whose hook is
+// a chain attribute.
 FirewallChainCheck firewall_chain_from_snapshot(const FirewallSnapshot& snapshot) {
     FirewallChainCheck result;
-    for (const auto& chain : snapshot.chains) {
-        result.chain_present = true;
-        if (chain.hook == FirewallHook::prerouting && chain.hook_present) {
+    for (const auto& chain : snapshot.ruleset.chains) {
+        if (chain.id.role == PhysicalChainRole::prerouting_dispatcher ||
+            chain.id.role == PhysicalChainRole::nft_prerouting) {
+            result.chain_present = true;
+        }
+        if ((chain.id.role == PhysicalChainRole::system_prerouting &&
+             !chain.rules.empty()) ||
+            (chain.id.role == PhysicalChainRole::nft_prerouting &&
+             chain.base.has_value() &&
+             chain.base->hook == PhysicalBaseChain::Hook::prerouting)) {
             result.prerouting_hook_present = true;
         }
     }
@@ -79,13 +90,21 @@ RoutingHealthReport build_routing_health_report(
             report.firewall_chain.detail =
                 "active firewall plan unavailable; routing runtime is not ready";
         } else {
-            // Inspect once, then compare the neutral snapshot with the active
-            // plan. RuleState is only a control/API projection.
+            // Inspect once and diff the observed ruleset against the one the
+            // backend lowered at apply time. RuleState is only a control/API
+            // projection.
+            if (!active->result.expected_ruleset) {
+                throw std::runtime_error(
+                    "active firewall has no expected ruleset");
+            }
+            const PhysicalRuleset& expected = *active->result.expected_ruleset;
             auto inspector = create_firewall_snapshot_inspector(
                 firewall_backend, raw_prerouting, std::move(runner));
-            const auto snapshot = inspector->inspect();
+            const auto snapshot =
+                inspector->inspect(firewall_expected_uses_ipv6(expected));
             report.firewall_chain = firewall_chain_from_snapshot(snapshot);
-            report.firewall_rules = verify_firewall_plan(active->plan, snapshot);
+            report.firewall_rules =
+                verify_firewall_plan(active->plan, expected, snapshot);
         }
 
         // 2. Create routing verifier

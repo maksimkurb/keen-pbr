@@ -57,22 +57,32 @@ public:
   bool uses_raw_prerouting() const override { return raw_prerouting_.ipv4; }
   // Dispatcher and builtin-chain hook jumps of the active generation.
   PhysicalRuleset expected_hook_rules() const override;
+  PhysicalRuleset expected_ruleset(const FirewallPlan &plan) const override;
 
   // Test/fixture-only seam: bypass the /proc capability probes (xt_comment
   // registration, raw table registration), which are absent on nft-backed
   // iptables.  Production code never calls this; probing is unchanged by
   // default.
+  // `ipv6_backend` likewise replaces the ip6tables availability probe.  The
+  // comment override also applies at once, so expected_ruleset() can be
+  // built without prepare_apply() (which inspects the live system).
   void override_capabilities_for_fixtures(
       std::optional<bool> comments_supported,
-      std::optional<RawPreroutingMode> raw_prerouting) {
+      std::optional<RawPreroutingMode> raw_prerouting,
+      std::optional<bool> ipv6_backend = std::nullopt) {
     comments_override_ = comments_supported;
+    if (comments_supported.has_value()) {
+      comment_v4_supported_ = comment_v6_supported_ = *comments_supported;
+    }
     if (raw_prerouting.has_value()) {
       raw_prerouting_ = *raw_prerouting;
     }
+    ipv6_backend_override_ = ipv6_backend;
   }
 
 private:
   std::optional<bool> comments_override_;
+  std::optional<bool> ipv6_backend_override_;
   static constexpr const char *CHAIN_NAME = "KeenPbrTable";
   static constexpr const char *RAW_CHAIN_NAME = "KeenPbrRaw";
   static constexpr const char *OUTPUT_CHAIN_NAME = "KeenPbrOutput";

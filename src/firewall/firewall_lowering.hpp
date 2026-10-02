@@ -84,8 +84,7 @@ std::string nft_setter_chain_name(uint32_t mark);
 
 // ---------------------------------------------------------------------------
 // Classifier expansion (family / protocol / address / gateway companion).
-// Lowering builds on it; the legacy snapshot verifier still consumes it until
-// it is rewritten as a diff of PhysicalRulesets.
+// Lowering builds on it.
 // ---------------------------------------------------------------------------
 
 // Backend-neutral physical classifier form.
@@ -94,16 +93,12 @@ struct FirewallPhysicalClassifier {
   FirewallHook hook{FirewallHook::prerouting};
   FirewallRuleCriteria criteria;
   FirewallRuleAction action{MarkAction{}};
-  // iptables expands a multi-interface inbound prefilter into route fragments;
-  // nftables keeps that operation in its prefilter chain.
-  std::string inbound_interface;
 };
 
 // Materialize the generic classifier forms emitted by either backend.  This
 // is pure: it does not resolve sets or inspect backend/system state.
 std::vector<FirewallPhysicalClassifier> materialize_firewall_classifiers(
     const FirewallRuleInstance &rule, FirewallBackend backend,
-    uint32_t fwmark_mask,
-    const std::vector<std::string> *inbound_interfaces = nullptr);
+    uint32_t fwmark_mask);
 
 } // namespace keen_pbr3

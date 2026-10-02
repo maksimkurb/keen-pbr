@@ -2,8 +2,6 @@
 
 #include "../src/config/config.hpp"
 #include "../src/config/routing_state.hpp"
-#include "../src/firewall/firewall_plan_verifier.hpp"
-#include "../src/firewall/firewall_snapshot.hpp"
 #include "../src/firewall/nft_batch_pipe.hpp"
 #include "../src/firewall/nftables.hpp"
 #include "../src/firewall/firewall_lowering.hpp"
@@ -543,23 +541,6 @@ Config parse_valid_config(const std::string& json) {
 
 } // namespace
 
-static nlohmann::json nft_listing_from_rule_commands(
-    const nlohmann::json& commands) {
-  nlohmann::json listing;
-  listing["nftables"] = nlohmann::json::array({
-      { {"table", {{"family", "inet"}, {"name", "KeenPbrTable"}}} },
-      { {"chain", {{"family", "inet"}, {"table", "KeenPbrTable"},
-                     {"name", "prerouting"}, {"type", "filter"},
-                     {"hook", "prerouting"}}} },
-      { {"chain", {{"family", "inet"}, {"table", "KeenPbrTable"},
-                     {"name", "output"}, {"type", "filter"},
-                     {"hook", "output"}}} } });
-  for (const auto& command : commands) {
-    listing["nftables"].push_back({{"rule", command.at("add").at("rule")}});
-  }
-  return listing;
-}
-
 static FirewallPlan route_mark_plan(const FirewallRuleKey& key,
                                     FirewallRuleCriteria criteria,
                                     uint32_t fwmark,
@@ -583,19 +564,7 @@ static FirewallPlan route_mark_plan(const FirewallRuleKey& key,
   return plan;
 }
 
-static CheckStatus verify_nft_rule_commands(const nlohmann::json& commands,
-                                            const FirewallPlan& plan) {
-  const auto listing = nft_listing_from_rule_commands(commands);
-  const auto snapshot = inspect_nftables_snapshot(CommandRunner(
-      [&](const std::vector<std::string>&) {
-        return CommandResult{listing.dump(), 0, false};
-      }));
-  const auto checks = verify_firewall_plan(plan, snapshot);
-  REQUIRE(checks.size() == 1);
-  return checks.front().status;
-}
-
-TEST_CASE("nft route.mark emitted forms round-trip through parser and verifier") {
+TEST_CASE("nft route.mark emits one physical rule per address family and protocol") {
   const FirewallRuleKey key{"route.mark", "materialized"};
   FirewallRuleCriteria criteria;
   criteria.proto = L4Proto::TcpUdp;
@@ -604,51 +573,13 @@ TEST_CASE("nft route.mark emitted forms round-trip through parser and verifier")
   const auto plan = route_mark_plan(key, criteria, 0x00100000u);
   const auto commands = T::build_rule_add_commands_via_plan(plan);
 
+  // Whether the emitted rules are what the kernel reports back, and what a
+  // corrupted ruleset looks like to the verifier, is covered with real nft
+  // dumps in test_firewall_lowering.cpp and test_firewall_verifier.cpp.
   CHECK(commands.size() == 4);
-  CHECK(verify_nft_rule_commands(commands, plan) == CheckStatus::ok);
-
-  auto wrong_mark = commands;
-  for (auto& command : wrong_mark) {
-    for (auto& expression : command["add"]["rule"]["expr"]) {
-      if (expression.contains("mangle") &&
-          expression["mangle"]["value"].is_number_unsigned()) {
-        expression["mangle"]["value"] = 0x00200000u;
-        break;
-      }
-    }
-    break;
-  }
-  CHECK(verify_nft_rule_commands(wrong_mark, plan) == CheckStatus::mismatch);
-
-  const auto partial_plan = route_mark_plan(key, criteria, 0x00100000u,
-                                            0x00FF0000u);
-  const auto partial_commands = T::build_rule_add_commands_via_plan(partial_plan);
-  CHECK(verify_nft_rule_commands(partial_commands, partial_plan) ==
-        CheckStatus::ok);
-  auto wrong_mask = partial_commands;
-  for (auto& command : wrong_mask) {
-    for (auto& expression : command["add"]["rule"]["expr"]) {
-      if (expression.contains("mangle") &&
-          expression["mangle"]["value"].is_object()) {
-        expression["mangle"]["value"]["|"][0]["&"][1] = 0x0000FFFFu;
-        break;
-      }
-    }
-    break;
-  }
-  CHECK(verify_nft_rule_commands(wrong_mask, partial_plan) ==
-        CheckStatus::mismatch);
-
-  auto missing = commands;
-  missing.erase(missing.begin());
-  CHECK(verify_nft_rule_commands(missing, plan) == CheckStatus::mismatch);
-
-  auto reordered = commands;
-  std::swap(reordered[0], reordered[3]);
-  CHECK(verify_nft_rule_commands(reordered, plan) == CheckStatus::ok);
 }
 
-TEST_CASE("nft route.mark default-gateway companion round-trips") {
+TEST_CASE("nft route.mark default-gateway companion is emitted to output and prerouting") {
   const FirewallRuleKey key{"route.mark", "gateway"};
   FirewallRuleCriteria criteria;
   criteria.apply_output = true;
@@ -661,7 +592,6 @@ TEST_CASE("nft route.mark default-gateway companion round-trips") {
   // Rules are grouped per chain: prerouting first, then output.
   CHECK(commands[0]["add"]["rule"]["chain"] == "prerouting");
   CHECK(commands[1]["add"]["rule"]["chain"] == "output");
-  CHECK(verify_nft_rule_commands(commands, plan) == CheckStatus::ok);
 }
 
 static Rule mark_rule(const std::string &set_name, int family, uint32_t fwmark,
@@ -684,42 +614,6 @@ static FirewallPrefilter prefilter_with_interfaces(
   prefilter.skip_marked_packets = true;
   prefilter.inbound_interfaces = std::move(interfaces);
   return prefilter;
-}
-
-static nlohmann::json list_document_from_add_document(
-    const nlohmann::json& add_document) {
-  nlohmann::json listed;
-  listed["nftables"] = nlohmann::json::array();
-  for (const auto& command : add_document.at("nftables")) {
-    if (!command.is_object() || !command.contains("add") ||
-        !command["add"].is_object()) {
-      continue;
-    }
-    for (const auto* kind : {"table", "chain", "set", "rule"}) {
-      if (command["add"].contains(kind)) {
-        listed["nftables"].push_back({{kind, command["add"][kind]}});
-      }
-    }
-  }
-  return listed;
-}
-
-static FirewallPlan split_balance_plan() {
-  FirewallPlan plan;
-  plan.fwmark_mask = 0x00ff0000U;
-  FirewallRuleInstance rule;
-  rule.key = FirewallRuleKey{"route.balance", "split"};
-  rule.family = FirewallFamily::any;
-  rule.criteria.proto = L4Proto::Tcp;
-  rule.criteria.dst_port = "443";
-  rule.action = BalanceAction{
-      0x00050000U,
-      {{0x00010000U, true, false}, {0x00020000U, true, false},
-       {0x00030000U, false, true}, {0x00040000U, false, true}}};
-  FirewallRuleRegistrar registrar(plan);
-  registrar.register_rule(std::move(rule));
-  registrar.finish();
-  return plan;
 }
 
 // =============================================================================
@@ -875,135 +769,7 @@ TEST_CASE("build_rule_add_commands: conntrack restore is masked, ordered, and fa
   CHECK(commands[1]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
-TEST_CASE("nft emitted prefilters are inspected with ownership and exact restore mapping") {
-  const auto listing = T::build_prefilter_listing();
-  const auto snapshot = inspect_nftables_snapshot(CommandRunner(
-      [&](const std::vector<std::string>&) {
-        return CommandResult{listing.dump(), 0, false};
-      }));
-  REQUIRE(snapshot.available);
-
-  FirewallPlan plan;
-  FirewallRuleRegistrar registrar(plan);
-  FirewallRuleInstance restore;
-  restore.key = {"prefilter.restore_conntrack_mark", "one"};
-  restore.family = FirewallFamily::any;
-  restore.action = RestoreConntrackMarkAction{0xFFFFFFFFu};
-  registrar.register_rule(std::move(restore));
-  FirewallRuleInstance dnat;
-  dnat.key = {"prefilter.skip_established_or_dnat", "one"};
-  dnat.family = FirewallFamily::any;
-  dnat.action = SkipEstablishedOrDnatAction{};
-  registrar.register_rule(std::move(dnat));
-  FirewallRuleInstance marked;
-  marked.key = {"prefilter.skip_marked_packets", "one"};
-  marked.family = FirewallFamily::any;
-  marked.action = SkipMarkedPacketsAction{};
-  registrar.register_rule(std::move(marked));
-  FirewallRuleInstance inbound;
-  inbound.key = {"prefilter.inbound_interface", "one"};
-  inbound.family = FirewallFamily::any;
-  inbound.action = InboundInterfaceFilterAction{{"br-lan"}};
-  registrar.register_rule(std::move(inbound));
-  FirewallRuleInstance route;
-  route.key = {"route.mark", "one"};
-  route.family = FirewallFamily::ipv4;
-  route.criteria.dst_set_name = "pairwise_set";
-  route.action = MarkAction{0x10000u, 0xFFFFFFFFu};
-  registrar.register_rule(std::move(route));
-  registrar.finish();
-
-  const auto checks = verify_firewall_plan(plan, snapshot);
-  REQUIRE(checks.size() == 5);
-  for (const auto& check : checks) {
-    CHECK_MESSAGE(check.status == CheckStatus::ok, check.detail);
-  }
-
-  auto malformed = listing;
-  for (auto& entry : malformed["nftables"]) {
-    if (!entry.contains("rule") ||
-        entry["rule"].value("comment", "") !=
-            "kpbr:v1:prefilter.restore_conntrack_mark:one") {
-      continue;
-    }
-    std::swap(entry["rule"]["expr"][2], entry["rule"]["expr"][3]);
-    break;
-  }
-  const auto malformed_snapshot = inspect_nftables_snapshot(CommandRunner(
-      [&](const std::vector<std::string>&) {
-        return CommandResult{malformed.dump(), 0, false};
-      }));
-  REQUIRE(malformed_snapshot.available);
-  const auto malformed_checks = verify_firewall_plan(plan, malformed_snapshot);
-  REQUIRE(malformed_checks.size() == 5);
-  CHECK(malformed_checks.front().status == CheckStatus::mismatch);
-
-  auto malformed_target = listing;
-  for (auto& entry : malformed_target["nftables"]) {
-    if (!entry.contains("rule") ||
-        entry["rule"].value("comment", "") !=
-            "kpbr:v1:prefilter.restore_conntrack_mark:one") {
-      continue;
-    }
-    auto& vmap = entry["rule"]["expr"][2]["vmap"]["data"]["set"];
-    vmap[0][1]["jump"]["target"] = "setmark_00020000";
-    break;
-  }
-  const auto malformed_target_snapshot = inspect_nftables_snapshot(CommandRunner(
-      [&](const std::vector<std::string>&) {
-        return CommandResult{malformed_target.dump(), 0, false};
-      }));
-  REQUIRE(malformed_target_snapshot.available);
-  const auto malformed_target_checks =
-      verify_firewall_plan(plan, malformed_target_snapshot);
-  REQUIRE(malformed_target_checks.size() == 5);
-  CHECK(malformed_target_checks.front().status == CheckStatus::mismatch);
-
-  // A partially migrated snapshot may still have one unkeyed canonical
-  // prefilter physical rule beside keyed rules.  It is a valid bounded legacy
-  // fallback, not a missing rule.
-  auto mixed = listing;
-  for (auto& entry : mixed["nftables"]) {
-    if (!entry.contains("rule") ||
-        entry["rule"].value("comment", "") !=
-            "kpbr:v1:prefilter.skip_marked_packets:one") {
-      continue;
-    }
-    entry["rule"].erase("comment");
-    break;
-  }
-  const auto mixed_snapshot = inspect_nftables_snapshot(CommandRunner(
-      [&](const std::vector<std::string>&) {
-        return CommandResult{mixed.dump(), 0, false};
-      }));
-  REQUIRE(mixed_snapshot.available);
-  const auto mixed_checks = verify_firewall_plan(plan, mixed_snapshot);
-  REQUIRE(mixed_checks.size() == 5);
-  for (const auto& check : mixed_checks) {
-    CHECK_MESSAGE(check.status == CheckStatus::ok, check.detail);
-  }
-
-  // With the prefilter policy disabled, a stale unkeyed canonical bypass is
-  // still owned state and must be reported as extra.
-  auto disabled = mixed;
-  FirewallPlan disabled_plan;
-  FirewallRuleRegistrar disabled_registrar(disabled_plan);
-  disabled_registrar.register_rule(plan.rules.back());
-  disabled_registrar.finish();
-  const auto disabled_snapshot = inspect_nftables_snapshot(CommandRunner(
-      [&](const std::vector<std::string>&) {
-        return CommandResult{disabled.dump(), 0, false};
-      }));
-  REQUIRE(disabled_snapshot.available);
-  const auto disabled_checks = verify_firewall_plan(disabled_plan,
-                                                    disabled_snapshot);
-  CHECK(std::any_of(disabled_checks.begin(), disabled_checks.end(),
-                    [](const auto& check) {
-                      return check.detail == "extra legacy prefilter rule";
-                    }));
-}
-
-TEST_CASE("nft empty owned marks emit no restore and verify without it") {
+TEST_CASE("nft empty owned marks emit no restore") {
   FirewallPrefilter prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xFFFFFFFFu;
@@ -1020,46 +786,6 @@ TEST_CASE("nft empty owned marks emit no restore and verify without it") {
     return command["add"]["rule"].value("comment", "") ==
            "kpbr:v1:prefilter.restore_conntrack_mark:one";
   }));
-
-  nlohmann::json listing;
-  listing["nftables"] = nlohmann::json::array({
-      nlohmann::json{{"table", {{"family", "inet"},
-                                 {"name", "KeenPbrTable"}}}},
-      nlohmann::json{{"chain", {{"family", "inet"},
-                                 {"table", "KeenPbrTable"},
-                                 {"name", "prerouting"},
-                                 {"type", "filter"},
-                                 {"hook", "prerouting"}}}},
-      nlohmann::json{{"chain", {{"family", "inet"},
-                                 {"table", "KeenPbrTable"},
-                                 {"name", "output"},
-                                 {"type", "filter"},
-                                 {"hook", "output"}}}}});
-  for (const auto& command : commands) {
-    listing["nftables"].push_back({{"rule", command["add"]["rule"]}});
-  }
-  const auto snapshot = inspect_nftables_snapshot(CommandRunner(
-      [&](const std::vector<std::string>&) {
-        return CommandResult{listing.dump(), 0, false};
-      }));
-  REQUIRE(snapshot.available);
-
-  FirewallPlan plan;
-  FirewallRuleRegistrar registrar(plan);
-  FirewallRuleInstance dnat;
-  dnat.key = dnat_key;
-  dnat.action = SkipEstablishedOrDnatAction{};
-  registrar.register_rule(std::move(dnat));
-  FirewallRuleInstance marked;
-  marked.key = marked_key;
-  marked.action = SkipMarkedPacketsAction{};
-  registrar.register_rule(std::move(marked));
-  registrar.finish();
-  const auto checks = verify_firewall_plan(plan, snapshot);
-  REQUIRE(checks.size() == 2);
-  for (const auto& check : checks) {
-    CHECK_MESSAGE(check.status == CheckStatus::ok, check.detail);
-  }
 }
 
 TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface guard when inbound list is empty") {
@@ -1177,7 +903,7 @@ TEST_CASE("nft balance classifier uses numgen vmap and mask-preserving setters")
   CHECK(output_rule);
 }
 
-TEST_CASE("nft split balance classifiers are family guarded and verify independently") {
+TEST_CASE("nft split balance classifiers are family guarded") {
   const auto document = T::build_split_balance_document();
   std::vector<nlohmann::json> emitted;
   for (const auto& command : document["nftables"]) {
@@ -1197,17 +923,6 @@ TEST_CASE("nft split balance classifiers are family guarded and verify independe
   CHECK(emitted[1]["expr"][0]["match"]["left"]["meta"]["key"] ==
         "nfproto");
   CHECK(emitted[1]["expr"][0]["match"]["right"] == "ipv6");
-
-  const auto listed = list_document_from_add_document(document);
-  const auto snapshot = inspect_nftables_snapshot(CommandRunner(
-      [&](const std::vector<std::string>&) {
-        return CommandResult{listed.dump(), 0, false};
-      }));
-  REQUIRE(snapshot.available);
-  REQUIRE(snapshot.rules.size() == 2);
-  const auto checks = verify_firewall_plan(split_balance_plan(), snapshot);
-  REQUIRE(checks.size() == 1);
-  CHECK(checks.front().status == CheckStatus::ok);
 }
 
 TEST_CASE("nft balance restores an inactive owned child without selecting it anew") {

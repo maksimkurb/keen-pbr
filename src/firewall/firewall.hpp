@@ -181,6 +181,10 @@ struct FirewallApplyResult {
   // RulesOnly compares the backend's current names against these to detect an
   // externally changed A/B generation.
   std::vector<std::string> physical_set_names;
+  // The complete ruleset keen-pbr expects in the kernel after this apply
+  // (Firewall::expected_ruleset), lowered once at apply time so verification
+  // never re-lowers the plan.  Null only for a default-constructed result.
+  std::shared_ptr<const PhysicalRuleset> expected_ruleset;
 
   bool has_physical_set(const std::string &name) const;
 };
@@ -319,6 +323,14 @@ public:
     virtual bool uses_raw_prerouting() const {
       return raw_prerouting_mode().ipv4;
     }
+
+  // Everything keen-pbr expects in the kernel once `plan` has been applied by
+  // this backend, as the backend realized it: the lowered owned chains
+  // (generation, raw/mangle placement, comment support, resolved set names,
+  // owned marks) merged with expected_hook_rules().  Call after apply() while
+  // the backend still holds the facts of that apply.  Rules carry the index of
+  // the plan rule that produced them (PhysicalRule::plan_rule).
+  virtual PhysicalRuleset expected_ruleset(const FirewallPlan &plan) const;
 
   // Hook/dispatcher jump rules of the active generation as physical rules
   // (iptables dispatchers and builtin-chain hooks).  Empty for backends whose

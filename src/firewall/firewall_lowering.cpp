@@ -113,8 +113,7 @@ std::optional<FirewallRuleAction> action_for_family(
 
 std::vector<FirewallPhysicalClassifier> materialize_firewall_classifiers(
     const FirewallRuleInstance& rule, FirewallBackend backend,
-    uint32_t fwmark_mask,
-    const std::vector<std::string>* inbound_interfaces) {
+    uint32_t fwmark_mask) {
   std::vector<FirewallPhysicalClassifier> result;
   for (const auto family : materialization_families(rule, backend)) {
     const auto src = addresses_for_family(rule.criteria.src_addr, family);
@@ -153,16 +152,7 @@ std::vector<FirewallPhysicalClassifier> materialize_firewall_classifiers(
               backend == FirewallBackend::nftables &&
               rule.criteria.apply_output &&
               rule.criteria.default_gateway != DefaultGatewayFamily::None;
-          if (backend == FirewallBackend::iptables &&
-              inbound_interfaces != nullptr && inbound_interfaces->size() > 1U) {
-            for (const auto& interface : *inbound_interfaces) {
-              auto fragment = physical;
-              fragment.inbound_interface = interface;
-              result.push_back(std::move(fragment));
-            }
-          } else {
-            result.push_back(physical);
-          }
+          result.push_back(physical);
           if (add_gateway_companion) {
             auto companion = physical;
             companion.hook = FirewallHook::prerouting;
@@ -305,6 +295,15 @@ SetMarkStmt set_mark(PhysicalMarkKind kind, uint32_t value, uint32_t mask) {
 
 MarkMatch mark_is_not_zero(PhysicalMarkKind kind, uint32_t mask) {
   return MarkMatch{kind, mask, true, {0}};
+}
+
+// Record the plan rule that produced the rules appended to `chain` since it
+// held `from` rules.
+void stamp_plan_rule(PhysicalChain &chain, std::size_t from,
+                     std::size_t plan_index) {
+  for (std::size_t i = from; i < chain.rules.size(); ++i) {
+    chain.rules[i].plan_rule = static_cast<uint32_t>(plan_index);
+  }
 }
 
 VerdictStmt verdict(PhysicalVerdict value) { return VerdictStmt{value}; }
@@ -635,7 +634,13 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
 
   const PlanFacts facts = collect_plan_facts(plan);
   const ClassifierExpander expander(plan, context);
-  for (const auto &rule : plan.rules) {
+  for (std::size_t index = 0; index < plan.rules.size(); ++index) {
+    const auto &rule = plan.rules[index];
+    std::vector<std::size_t> before;
+    before.reserve(chains.size());
+    for (const auto &target : chains) {
+      before.push_back(target.chain.rules.size());
+    }
     if (is_classifier_action(rule.action)) {
       for (const auto &classifier : expander.expand(rule)) {
         for (auto &target : chains) {
@@ -649,6 +654,9 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
       for (auto &target : chains) {
         lower_iptables_prefilter(rule, target);
       }
+    }
+    for (std::size_t i = 0; i < chains.size(); ++i) {
+      stamp_plan_rule(chains[i].chain, before[i], index);
     }
   }
 
@@ -747,7 +755,11 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
   output.base = PhysicalBaseChain{PhysicalBaseChain::Type::route,
                                   PhysicalBaseChain::Hook::output, -150, true};
 
-  for (const auto &rule : plan.rules) {
+  for (std::size_t plan_index = 0; plan_index < plan.rules.size();
+       ++plan_index) {
+    const auto &rule = plan.rules[plan_index];
+    const std::size_t prerouting_before = prerouting.rules.size();
+    const std::size_t output_before = output.rules.size();
     const auto key = physical_key(rule.key, true);
     const FirewallFamily any = FirewallFamily::any;
     if (const auto *restore =
@@ -846,6 +858,8 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
                                         std::move(statements), key));
       }
     }
+    stamp_plan_rule(prerouting, prerouting_before, plan_index);
+    stamp_plan_rule(output, output_before, plan_index);
   }
 
   PhysicalRuleset result;

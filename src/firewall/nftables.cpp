@@ -719,15 +719,26 @@ void NftablesFirewall::compile_plan(const FirewallPlan& plan,
                      declaration.timeout);
     }
 
+    pending_ruleset_ =
+        lower_firewall_plan(plan, lowering_context(plan.fwmark_mask));
+}
+
+FirewallLoweringContext NftablesFirewall::lowering_context(
+    uint32_t fwmark_mask) const {
     FirewallLoweringContext context;
     context.backend = FirewallBackend::nftables;
     context.ipv6_enabled = ipv6_enabled();
-    context.fwmark_mask = plan.fwmark_mask;
+    context.fwmark_mask = fwmark_mask;
     context.owned_marks.assign(owned_marks_.begin(), owned_marks_.end());
     context.physical_set_name = [this](const std::string& name) {
         return physical_set_name(name);
     };
-    pending_ruleset_ = lower_firewall_plan(plan, context);
+    return context;
+}
+
+PhysicalRuleset NftablesFirewall::expected_ruleset(
+    const FirewallPlan& plan) const {
+    return lower_firewall_plan(plan, lowering_context(plan.fwmark_mask));
 }
 
 void NftablesFirewall::apply(const FirewallPlan& plan, FirewallApplyMode mode) {

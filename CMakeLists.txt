@@ -319,8 +319,6 @@ set(SOURCES
   src/firewall/ipset_restore_pipe.cpp
   src/firewall/nft_batch_pipe.cpp
   src/firewall/firewall_verifier.cpp
-  src/firewall/iptables_verifier.cpp
-  src/firewall/nftables_verifier.cpp
   src/dns/dns_server.cpp
   src/dns/keenetic_dns.cpp
   src/dns/dns_txt_client.cpp

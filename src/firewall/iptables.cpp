@@ -645,6 +645,9 @@ void IptablesFirewall::preflight_reused_set_schemas(
 }
 
 bool IptablesFirewall::ipv6_backend_available() const {
+  if (ipv6_backend_override_.has_value()) {
+    return *ipv6_backend_override_;
+  }
   return iptables_ipv6_supported();
 }
 
@@ -1560,6 +1563,16 @@ PhysicalRuleset IptablesFirewall::expected_hook_rules() const {
   if (ipv6_enabled() && ipv6_backend_available()) {
     add_family(true);
   }
+  return result;
+}
+
+PhysicalRuleset
+IptablesFirewall::expected_ruleset(const FirewallPlan &plan) const {
+  auto context = lowering_context(plan.fwmark_mask);
+  // apply_prepared() skips the IPv6 tables when the IPv6 backend is missing.
+  context.ipv6_enabled = ipv6_enabled() && ipv6_backend_available();
+  PhysicalRuleset result = lower_firewall_plan(plan, context);
+  append_physical_ruleset(result, expected_hook_rules());
   return result;
 }
 
