@@ -5,6 +5,7 @@ add_executable(keen-pbr-tests
   test_firewall_runtime.cpp
   test_firewall_snapshot.cpp
   test_firewall_physical.cpp
+  test_firewall_keenetic_fixtures.cpp
   test_firewall_lowering.cpp
   test_ip_family.cpp
   test_firewall_plan.cpp
