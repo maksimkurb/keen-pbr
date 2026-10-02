@@ -280,6 +280,10 @@ using PhysicalStatement =
 // Rules, chains, ruleset
 // ---------------------------------------------------------------------------
 
+// `PhysicalRule::plan_rule` value of rules that no plan rule produced (hook
+// jumps, setter chain bodies, every parsed rule).
+inline constexpr uint32_t kNoPlanRule = 0xFFFFFFFFu;
+
 struct PhysicalRule {
   // L3 family the rule applies to.  iptables: the table family.  nft: the
   // `meta nfproto` guard, else the ip/ip6 payload family used by the matches,
@@ -289,8 +293,12 @@ struct PhysicalRule {
   std::vector<PhysicalStatement> statements;
   // Parsed from the rule comment; diagnostics only, ignored by operator==.
   std::optional<FirewallRuleKey> key;
+  // Lowering only: index into FirewallPlan::rules of the plan rule this
+  // physical rule was produced from, so a verifier can attribute a difference
+  // without comments.  Diagnostics only, ignored by operator==.
+  uint32_t plan_rule{kNoPlanRule};
 
-  // Ignores `key`.
+  // Ignores `key` and `plan_rule`.
   bool operator==(const PhysicalRule &other) const {
     return family == other.family && matches == other.matches &&
            statements == other.statements;
@@ -310,6 +318,7 @@ struct PhysicalBaseChain {
     return type == o.type && hook == o.hook && priority == o.priority &&
            policy_accept == o.policy_accept;
   }
+  bool operator!=(const PhysicalBaseChain &o) const { return !(*this == o); }
 };
 
 struct PhysicalChain {

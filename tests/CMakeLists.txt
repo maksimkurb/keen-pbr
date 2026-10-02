@@ -85,8 +85,6 @@ add_executable(keen-pbr-tests
   ../src/routing/firewall_state.cpp
   ../src/runtime/operation_coordinator.cpp
   ../src/runtime/lifecycle_operation.cpp
-  ../src/firewall/iptables_verifier.cpp
-  ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
   ../src/firewall/firewall_snapshot.cpp
   ../src/firewall/firewall_physical.cpp

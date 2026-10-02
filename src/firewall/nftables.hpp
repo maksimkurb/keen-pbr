@@ -1,6 +1,7 @@
 #pragma once
 
 #include "firewall.hpp"
+#include "firewall_lowering.hpp"
 #include "firewall_physical.hpp"
 #include "firewall_rule.hpp"
 
@@ -42,8 +43,12 @@ public:
     void cleanup() override;
     // Returns FirewallBackend::nftables.
     FirewallBackend backend() const override;
+    // The lowered owned chains (nft hooks are chain attributes, so there are
+    // no separate hook rules).
+    PhysicalRuleset expected_ruleset(const FirewallPlan& plan) const override;
 
 private:
+    FirewallLoweringContext lowering_context(uint32_t fwmark_mask) const;
     static constexpr const char* TABLE_NAME = "KeenPbrTable";
     static constexpr const char* CHAIN_NAME = "prerouting";
     static constexpr const char* OUTPUT_CHAIN_NAME = "output";

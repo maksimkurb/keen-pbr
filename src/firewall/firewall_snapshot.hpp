@@ -1,79 +1,35 @@
 #pragma once
 
-#include "firewall_rule.hpp"
+#include "firewall_physical.hpp"
 #include "firewall_verifier.hpp"
 
 #include <memory>
-#include <optional>
 #include <string>
-#include <vector>
 
 namespace keen_pbr3 {
 
-// One physical rule observed in an owned firewall chain.  A missing key is
-// either an old rule without comments (legacy=true) or an explicitly foreign
-// or unknown comment (legacy=false); the distinction keeps fallback bounded.
-struct ObservedFirewallRule {
-    std::optional<FirewallRuleKey> key;
-    std::optional<std::string> comment;
-    FirewallHook hook{FirewallHook::prerouting};
-    FirewallFamily family{FirewallFamily::ipv4};
-    FirewallRuleCriteria criteria;
-    FirewallRuleAction action{MarkAction{}};
-    std::string raw;
-    std::string chain;
-    bool legacy{false};
-    bool restore_conntrack_companion{false};
-    std::size_t order{0};
-    struct BalanceDetails {
-        std::string selector_mode;
-        uint32_t selector_modulus{0};
-        bool mark_guard_present{false};
-        std::string mark_guard_op;
-        uint32_t mark_guard_mask{0};
-        uint32_t mark_guard_value{0};
-        std::vector<uint32_t> target_indices;
-        std::vector<uint32_t> target_marks;
-        std::vector<std::optional<MarkAction>> setter_actions;
-        std::vector<std::optional<MarkAction>> setter_ct_actions;
-    };
-    std::optional<BalanceDetails> balance;
-};
-
-struct ObservedFirewallSet {
-    std::string name;
-    FirewallFamily family{FirewallFamily::ipv4};
-    uint32_t timeout_seconds{0};
-    bool dynamic{false};
-};
-
-struct ObservedFirewallChain {
-    std::string name;
-    FirewallHook hook{FirewallHook::prerouting};
-    FirewallFamily family{FirewallFamily::ipv4};
-    bool hook_present{false};
-};
-
-// This snapshot intentionally owns only one read's semantic rule observations,
-// so rule verification does not couple to chain/set transaction state.
+// One read of the kernel firewall state as a backend-neutral PhysicalRuleset
+// (see firewall_physical.hpp).  It carries no policy knowledge: the verifier
+// diffs it against the ruleset expected from the active apply.
 struct FirewallSnapshot {
     FirewallBackend backend{FirewallBackend::iptables};
-    RawPreroutingMode raw_prerouting{};
     bool available{false};
     std::string error;
-    std::vector<ObservedFirewallRule> rules;
-    std::vector<ObservedFirewallSet> sets;
-    std::vector<ObservedFirewallChain> chains;
+    PhysicalRuleset ruleset;
 };
 
 class FirewallSnapshotInspector {
 public:
     virtual ~FirewallSnapshotInspector() = default;
-    virtual FirewallSnapshot inspect() const = 0;
+    // Reads only the tables that can hold keen-pbr rules: iptables mangle
+    // (plus raw per family in RAW PREROUTING mode) for IPv4 and, when
+    // `ipv6_enabled`, IPv6; the nft KeenPbrTable without set elements.
+    virtual FirewallSnapshot inspect(bool ipv6_enabled) const = 0;
 };
 
 FirewallSnapshot inspect_iptables_snapshot(
-    const CommandRunner& runner, RawPreroutingMode raw_prerouting = {});
+    const CommandRunner& runner, RawPreroutingMode raw_prerouting = {},
+    bool ipv6_enabled = true);
 FirewallSnapshot inspect_nftables_snapshot(const CommandRunner& runner);
 
 std::unique_ptr<FirewallSnapshotInspector> create_firewall_snapshot_inspector(

@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/firewall/firewall_rule_modules.hpp"
+#include "../src/firewall/firewall_lowering.hpp"
 #include "../src/firewall/firewall_plan_verifier.hpp"
 #include "../src/firewall/firewall_runtime.hpp"
 #include "../src/firewall/firewall_snapshot.hpp"
@@ -552,28 +553,40 @@ TEST_CASE("health reports only the removed DNS physical instance as missing") {
     dns_plan.rules.push_back(*instance);
   }
 
+  // Lower the DNS plan the way the nft backend does and drop the physical
+  // rules of the removed instance from the observed side.  The verifier knows
+  // nothing about DNS: only that rules of that plan rule are gone.
+  FirewallLoweringContext context;
+  context.backend = FirewallBackend::nftables;
+  context.fwmark_mask = dns_plan.fwmark_mask;
+  const PhysicalRuleset expected = lower_firewall_plan(dns_plan, context);
+  std::size_t removed_index = dns_plan.rules.size();
+  for (std::size_t index = 0; index < dns_plan.rules.size(); ++index) {
+    if (dns_plan.rules[index].key == removed_key) removed_index = index;
+  }
+  REQUIRE(removed_index < dns_plan.rules.size());
+
   FirewallSnapshot snapshot;
   snapshot.backend = FirewallBackend::nftables;
   snapshot.available = true;
-  for (const auto& expected : dns_plan.rules) {
-    if (expected.key == removed_key) {
-      continue;
-    }
-    ObservedFirewallRule observed;
-    observed.key = expected.key;
-    observed.hook = expected.hook;
-    observed.family = expected.family;
-    observed.criteria = expected.criteria;
-    observed.action = expected.action;
-    snapshot.rules.push_back(std::move(observed));
+  snapshot.ruleset = expected;
+  std::size_t removed_rules = 0;
+  for (auto& chain : snapshot.ruleset.chains) {
+    const auto end = std::remove_if(
+        chain.rules.begin(), chain.rules.end(), [&](const PhysicalRule& rule) {
+          const bool remove = rule.plan_rule == removed_index;
+          removed_rules += remove ? 1U : 0U;
+          return remove;
+        });
+    chain.rules.erase(end, chain.rules.end());
   }
+  REQUIRE(removed_rules > 0);
 
-  const auto checks = verify_firewall_plan(dns_plan, snapshot);
+  const auto checks = verify_firewall_plan(dns_plan, expected, snapshot);
   REQUIRE(checks.size() == dns_plan.rules.size());
   for (std::size_t index = 0; index < checks.size(); ++index) {
     CHECK(checks[index].status ==
-          (dns_plan.rules[index].key == removed_key ? CheckStatus::missing
-                                                    : CheckStatus::ok));
+          (index == removed_index ? CheckStatus::missing : CheckStatus::ok));
   }
 }
 

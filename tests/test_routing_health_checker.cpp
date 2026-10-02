@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include "../src/firewall/firewall_lowering.hpp"
 #include "../src/health/routing_health_checker.hpp"
 
 #include <utility>
@@ -37,16 +38,39 @@ FirewallPlan active_direct_plan() {
     return plan;
 }
 
+// What the nft backend publishes with an apply: the lowered ruleset of the
+// plan, computed once.
+ActiveFirewall active_nft(FirewallPlan plan, std::vector<RuleState> states) {
+    FirewallLoweringContext context;
+    context.backend = FirewallBackend::nftables;
+    context.fwmark_mask = plan.fwmark_mask;
+    FirewallApplyResult result;
+    result.expected_ruleset = std::make_shared<const PhysicalRuleset>(
+        lower_firewall_plan(plan, context));
+    return ActiveFirewall{std::move(plan), std::move(result),
+                          std::move(states)};
+}
+
 const char* active_mark_snapshot() {
     return R"({"nftables":[
       {"table":{"family":"inet","name":"KeenPbrTable"}},
       {"chain":{"family":"inet","table":"KeenPbrTable","name":"prerouting",
-                  "type":"filter","hook":"prerouting"}},
+                  "type":"filter","hook":"prerouting","prio":-150,
+                  "policy":"accept"}},
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"output",
+                  "type":"route","hook":"output","prio":-150,
+                  "policy":"accept"}},
       {"rule":{"family":"inet","table":"KeenPbrTable","chain":"prerouting",
                 "comment":"kpbr:v1:route.mark:active","expr":[
                   {"match":{"op":"==","left":{"payload":{"protocol":"ip","field":"daddr"}},
                              "right":"@kpbr4_list"}},
                   {"mangle":{"key":{"meta":{"key":"mark"}},"value":65536}},
+                  {"accept":null}]}},
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"setmark_00010000"}},
+      {"rule":{"family":"inet","table":"KeenPbrTable","chain":"setmark_00010000",
+                "expr":[
+                  {"mangle":{"key":{"meta":{"key":"mark"}},"value":65536}},
+                  {"mangle":{"key":{"ct":{"key":"mark"}},"value":65536}},
                   {"accept":null}]}}
     ]})";
 }
@@ -59,8 +83,7 @@ TEST_CASE("routing health compares the active plan instead of RuleState") {
     RuleState projection{};
     projection.action_type = RuleActionType::Mark;
     projection.fwmark = 0x20000u;
-    state.publish_active_firewall(
-        ActiveFirewall{std::move(plan), {}, {projection}});
+    state.publish_active_firewall(active_nft(std::move(plan), {projection}));
 
     int calls = 0;
     NetlinkManager netlink;
@@ -94,9 +117,9 @@ TEST_CASE("routing health is explicitly not ready without an active plan") {
     CHECK(report.firewall_chain.detail.find("not ready") != std::string::npos);
 }
 
-TEST_CASE("routing health reports missing active direct criteria") {
+TEST_CASE("routing health reports an active direct rule that the kernel lacks") {
     FirewallState state;
-    state.publish_active_firewall(ActiveFirewall{active_direct_plan(), {}, {}});
+    state.publish_active_firewall(active_nft(active_direct_plan(), {}));
 
     NetlinkManager netlink;
     const auto report = build_routing_health_report(
@@ -111,7 +134,9 @@ TEST_CASE("routing health reports missing active direct criteria") {
             continue;
         }
         direct_rule_missing = true;
-        CHECK(check.status == CheckStatus::missing);
+        // The kernel holds a different rule in its place.
+        CHECK(check.status == CheckStatus::mismatch);
+        CHECK(check.detail.find("192.0.2.0/24") != std::string::npos);
     }
     CHECK(direct_rule_missing);
 }

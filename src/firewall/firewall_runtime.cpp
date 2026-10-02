@@ -1,4 +1,5 @@
 #include "firewall_runtime.hpp"
+#include "firewall_physical.hpp"
 #include "firewall_rule_modules.hpp"
 
 #include "../config/routing_state.hpp"
@@ -417,6 +418,8 @@ ActiveFirewall apply_runtime_firewall(
       result.physical_set_names.push_back(
           firewall.physical_set_name(declaration.name));
     }
+    result.expected_ruleset = std::make_shared<const PhysicalRuleset>(
+        firewall.expected_ruleset(plan));
     std::sort(result.physical_set_names.begin(), result.physical_set_names.end());
     result.physical_set_names.erase(
         std::unique(result.physical_set_names.begin(),
