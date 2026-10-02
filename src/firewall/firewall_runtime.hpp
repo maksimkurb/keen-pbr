@@ -44,19 +44,21 @@ struct FirewallPlanBuildInputs {
 FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs);
 
 // Materialize the runtime firewall configuration using the real backend.
-// Returns the realized rule-state snapshot that should be stored for later
-// verification and status reporting.
-std::vector<RuleState> apply_runtime_firewall(
+// Returns the plan, backend apply result and rule-state projection of the
+// successful apply as one object for the caller to publish. Throws without
+// returning anything when preparation or apply fails.
+// previous_active is the last published ActiveFirewall (or null); it supplies
+// list usage and the physical set names for the RulesOnly preflight.
+ActiveFirewall apply_runtime_firewall(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
     const CacheManager& cache_manager,
     Firewall& firewall,
     FirewallApplyMode mode = FirewallApplyMode::Destructive,
-    const FirewallPlan* previous_active_plan = nullptr,
+    const ActiveFirewall* previous_active = nullptr,
     bool force_clear_dynamic_sets = false,
     const std::vector<DumpedRoute>& main_routes = {},
     const std::vector<DumpedInterface>& interfaces = {},
-    const FirewallBalanceCandidates* balance_candidates = nullptr,
-    FirewallPlan* applied_plan = nullptr);
+    const FirewallBalanceCandidates* balance_candidates = nullptr);
 
 } // namespace keen_pbr3

@@ -59,7 +59,8 @@ TEST_CASE("routing health compares the active plan instead of RuleState") {
     RuleState projection{};
     projection.action_type = RuleActionType::Mark;
     projection.fwmark = 0x20000u;
-    state.set_active_plan(std::move(plan), {projection});
+    state.publish_active_firewall(
+        ActiveFirewall{std::move(plan), {}, {projection}});
 
     int calls = 0;
     NetlinkManager netlink;
@@ -95,7 +96,7 @@ TEST_CASE("routing health is explicitly not ready without an active plan") {
 
 TEST_CASE("routing health reports missing active direct criteria") {
     FirewallState state;
-    state.set_active_plan(active_direct_plan(), {});
+    state.publish_active_firewall(ActiveFirewall{active_direct_plan(), {}, {}});
 
     NetlinkManager netlink;
     const auto report = build_routing_health_report(

@@ -237,18 +237,26 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   return plan;
 }
 
-std::vector<RuleState> apply_runtime_firewall(
+ActiveFirewall apply_runtime_firewall(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
     const CacheManager& cache_manager,
     Firewall& firewall,
     FirewallApplyMode mode,
-    const FirewallPlan* previous_active_plan,
+    const ActiveFirewall* previous_active,
     bool force_clear_dynamic_sets,
     const std::vector<DumpedRoute>& main_routes,
     const std::vector<DumpedInterface>& interfaces,
-    const FirewallBalanceCandidates* balance_candidates,
-    FirewallPlan* applied_plan) {
+    const FirewallBalanceCandidates* balance_candidates) {
+  // Success boundary: the returned ActiveFirewall exists only after
+  // firewall.apply() returned. A failure while preparing (planning, streaming,
+  // RulesOnly preflight) happens before any kernel mutation, so the caller's
+  // previous active object stays accurate. A failure inside apply() may have
+  // touched the kernel, but nothing new is published either; the exception
+  // propagates and the health verifier reports the resulting drift. There is
+  // deliberately no rollback here.
+  const FirewallPlan* previous_active_plan =
+      previous_active != nullptr ? &previous_active->plan : nullptr;
   try {
     std::unique_ptr<ListStreamer> list_streamer;
     if (mode != FirewallApplyMode::RulesOnly) {
@@ -306,13 +314,11 @@ std::vector<RuleState> apply_runtime_firewall(
                   *daemon_config.ipset_maxelem)}
             : std::nullopt);
     firewall.prepare_apply(mode);
-    if (mode == FirewallApplyMode::RulesOnly && previous_active_plan != nullptr) {
+    if (mode == FirewallApplyMode::RulesOnly && previous_active != nullptr) {
       for (const auto& declaration : plan.sets) {
         const std::string physical_name =
             firewall.physical_set_name(declaration.name);
-        if (previous_active_plan->applied_physical_set_names.find(
-                physical_name) ==
-            previous_active_plan->applied_physical_set_names.end()) {
+        if (!previous_active->result.has_physical_set(physical_name)) {
           throw FirewallRulesOnlyError(
               "active firewall plan references a stale physical set");
         }
@@ -400,14 +406,24 @@ std::vector<RuleState> apply_runtime_firewall(
     auto rule_states = project_rule_states(config, plan, firewall);
 
     firewall.apply(plan, mode);
+
+    // The backend stays the source of truth: physical_set_name() resolves
+    // against the generation prepare_apply() selected for this very apply, so
+    // no extra return channel from the virtual apply() is needed.
+    FirewallApplyResult result;
+    result.mode = mode;
+    result.physical_set_names.reserve(plan.sets.size());
     for (const auto& declaration : plan.sets) {
-      plan.applied_physical_set_names.insert(
+      result.physical_set_names.push_back(
           firewall.physical_set_name(declaration.name));
     }
-    if (applied_plan != nullptr) {
-      *applied_plan = std::move(plan);
-    }
-    return rule_states;
+    std::sort(result.physical_set_names.begin(), result.physical_set_names.end());
+    result.physical_set_names.erase(
+        std::unique(result.physical_set_names.begin(),
+                    result.physical_set_names.end()),
+        result.physical_set_names.end());
+    return ActiveFirewall{std::move(plan), std::move(result),
+                          std::move(rule_states)};
   } catch (const FirewallRulesOnlyError& error) {
     if (mode != FirewallApplyMode::RulesOnly) {
         throw;
@@ -417,12 +433,11 @@ std::vector<RuleState> apply_runtime_firewall(
         error.what());
     return apply_runtime_firewall(config, outbound_marks, cache_manager, firewall,
                                   FirewallApplyMode::PreserveSets,
-                                  previous_active_plan,
+                                  previous_active,
                                   /*force_clear_dynamic_sets=*/false,
                                   main_routes,
                                   interfaces,
-                                  balance_candidates,
-                                  applied_plan);
+                                  balance_candidates);
   }
 }
 

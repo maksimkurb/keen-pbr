@@ -74,8 +74,8 @@ RoutingHealthReport build_routing_health_report(
     report.firewall_backend = firewall_backend;
 
     try {
-        const auto& active_plan = firewall_state.get_active_plan();
-        if (!active_plan.has_value()) {
+        const auto active = firewall_state.active_firewall();
+        if (!active) {
             report.firewall_chain.detail =
                 "active firewall plan unavailable; routing runtime is not ready";
         } else {
@@ -85,7 +85,7 @@ RoutingHealthReport build_routing_health_report(
                 firewall_backend, raw_prerouting, std::move(runner));
             const auto snapshot = inspector->inspect();
             report.firewall_chain = firewall_chain_from_snapshot(snapshot);
-            report.firewall_rules = verify_firewall_plan(*active_plan, snapshot);
+            report.firewall_rules = verify_firewall_plan(active->plan, snapshot);
         }
 
         // 2. Create routing verifier

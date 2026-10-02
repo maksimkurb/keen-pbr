@@ -361,7 +361,7 @@ TEST_CASE("runtime preserves ordered direct rule actions and selectors") {
 
   const auto states = apply_runtime_firewall(
       config, {{"wan", 0x100U}}, cache, firewall,
-      FirewallApplyMode::Destructive);
+      FirewallApplyMode::Destructive).rule_states;
 
   REQUIRE(states.size() == 5);
   REQUIRE(firewall.recorded_rules.size() == 5);
@@ -399,28 +399,30 @@ TEST_CASE("failed firewall apply does not publish a candidate plan") {
   firewall.fail_apply = true;
   CacheManager cache("/tmp/keen-pbr-firewall-runtime-failed-plan-test-cache");
 
-  FirewallPlan previous;
-  previous.fwmark_mask = 0x00FF0000u;
+  ActiveFirewall previous;
+  previous.plan.fwmark_mask = 0x00FF0000u;
+  previous.result.physical_set_names = {"kpbr4_old"};
   FirewallState state;
-  state.set_active_plan(std::move(previous), {});
+  state.publish_active_firewall(std::move(previous));
+  const auto before = state.active_firewall();
 
-  FirewallPlan candidate;
-  candidate.fwmark_mask = 0x12345678u;
   bool failed = false;
   try {
-    auto rules = apply_runtime_firewall(
+    // Injected failure inside firewall.apply(): nothing is returned, so the
+    // daemon-side publish step is never reached.
+    state.publish_active_firewall(apply_runtime_firewall(
         config, {{"wan", 0x100U}}, cache, firewall,
-        FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-        &candidate);
-    state.set_active_plan(std::move(candidate), std::move(rules));
+        FirewallApplyMode::PreserveSets, before.get()));
   } catch (const FirewallError&) {
     failed = true;
   }
   CHECK(failed);
-  CHECK(candidate.rules.empty());
-  CHECK(candidate.fwmark_mask == 0x12345678u);
-  REQUIRE(state.get_active_plan().has_value());
-  CHECK(state.get_active_plan()->fwmark_mask == 0x00FF0000u);
+  CHECK(firewall.calls.back() == "apply");
+  REQUIRE(state.active_firewall() != nullptr);
+  CHECK(state.active_firewall() == before);
+  CHECK(state.active_firewall()->plan.fwmark_mask == 0x00FF0000u);
+  CHECK(state.active_firewall()->result.physical_set_names ==
+        std::vector<std::string>{"kpbr4_old"});
 }
 
 TEST_CASE("runtime emits static and dynamic list sets in family order") {
@@ -437,11 +439,11 @@ TEST_CASE("runtime emits static and dynamic list sets in family order") {
 
   RecordingFirewall firewall;
   CacheManager cache("/tmp/keen-pbr-firewall-runtime-list-test-cache");
-  FirewallPlan applied_plan;
-  const auto states = apply_runtime_firewall(
+  const auto applied_result = apply_runtime_firewall(
       config, {{"wan", 0x100U}}, cache, firewall,
-      FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-      &applied_plan);
+      FirewallApplyMode::PreserveSets);
+  const auto& states = applied_result.rule_states;
+  const auto& applied_plan = applied_result.plan;
 
   REQUIRE(states.size() == 1);
   const std::vector<std::string> expected_sets = ipv6_enabled
@@ -489,14 +491,14 @@ TEST_CASE("runtime projects and streams only finalized list-set declarations") {
   })");
   RecordingFirewall firewall;
   CacheManager cache("/tmp/keen-pbr-firewall-runtime-plan-projection-test-cache");
-  FirewallPlan applied_plan;
 
   // The balance route has no runtime mark, so its canonical plan omits the
   // list sets even though list analysis finds static entries.
-  const auto states = apply_runtime_firewall(
+  const auto applied_result = apply_runtime_firewall(
       config, {{"wan", 0x100U}}, cache, firewall,
-      FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-      &applied_plan);
+      FirewallApplyMode::PreserveSets);
+  const auto& states = applied_result.rule_states;
+  const auto& applied_plan = applied_result.plan;
 
   REQUIRE(states.size() == 1);
   CHECK(states.front().action_type == RuleActionType::Skip);
@@ -529,10 +531,10 @@ TEST_CASE("RulesOnly preserves shared list usage after a skipped first rule") {
   CacheManager cache("/tmp/keen-pbr-firewall-runtime-shared-rules-only-test-cache");
 
   RecordingFirewall initial_firewall;
-  FirewallPlan previous_plan;
-  const auto previous_states = apply_runtime_firewall(
-      config, marks, cache, initial_firewall, FirewallApplyMode::PreserveSets,
-      nullptr, false, {}, {}, nullptr, &previous_plan);
+  ActiveFirewall previous_plan;
+  previous_plan = apply_runtime_firewall(
+      config, marks, cache, initial_firewall, FirewallApplyMode::PreserveSets);
+  const auto& previous_states = previous_plan.rule_states;
   REQUIRE(previous_states.size() == 2);
   CHECK(previous_states[0].action_type == RuleActionType::Skip);
   CHECK(previous_states[1].action_type == RuleActionType::Mark);
@@ -541,7 +543,7 @@ TEST_CASE("RulesOnly preserves shared list usage after a skipped first rule") {
   RulesOnlyFirewall rules_only_firewall;
   const auto states = apply_runtime_firewall(
       config, marks, cache, rules_only_firewall, FirewallApplyMode::RulesOnly,
-      &previous_plan);
+      &previous_plan).rule_states;
 
   REQUIRE(states.size() == 2);
   CHECK(states[0].action_type == RuleActionType::Skip);
@@ -567,12 +569,12 @@ TEST_CASE("runtime streams a shared static list once per family") {
   const bool ipv6_enabled = resolve_ipv6_support(config).enabled;
   RecordingFirewall firewall;
   CacheManager cache("/tmp/keen-pbr-firewall-runtime-shared-list-test-cache");
-  FirewallPlan applied_plan;
 
-  const auto states = apply_runtime_firewall(
+  const auto applied_result = apply_runtime_firewall(
       config, {{"wan", 0x100U}}, cache, firewall,
-      FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-      &applied_plan);
+      FirewallApplyMode::PreserveSets);
+  const auto& states = applied_result.rule_states;
+  const auto& applied_plan = applied_result.plan;
 
   REQUIRE(states.size() == 2);
   const std::vector<std::string> expected_state_sets =
@@ -652,7 +654,7 @@ TEST_CASE("runtime replays only the gateway family for populated route lists") {
 
   const auto states = apply_runtime_firewall(
       config, {{"wan", 0x100U}}, cache, firewall,
-      FirewallApplyMode::PreserveSets);
+      FirewallApplyMode::PreserveSets).rule_states;
   const bool ipv6_enabled = resolve_ipv6_support(config).enabled;
 
   REQUIRE(states.size() == 1);
@@ -694,7 +696,7 @@ TEST_CASE("runtime passes balance fallback and candidates to the firewall") {
   const auto states = apply_runtime_firewall(
       config, {{"auto", 0x100U}, {"wan_a", 0x200U}, {"wan_b", 0x300U}},
       cache, firewall, FirewallApplyMode::PreserveSets, nullptr, false, {}, {},
-      &candidates);
+      &candidates).rule_states;
 
   REQUIRE(states.size() == 1);
   CHECK(states.front().action_type == RuleActionType::Mark);
@@ -784,13 +786,12 @@ TEST_CASE("RulesOnly rejects list-backed balance with an empty active plan") {
       {"auto", {{2, true, false}}}};
   CacheManager cache("/tmp/keen-pbr-firewall-runtime-empty-plan-balance-test-cache");
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
-  REQUIRE(apply_runtime_firewall(
+  ActiveFirewall previous_plan;
+  previous_plan = apply_runtime_firewall(
               previous_config, {{"wan", 1}}, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
-  REQUIRE(previous_plan.sets.empty());
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
+  REQUIRE(previous_plan.plan.sets.empty());
 
   RecordingFirewall firewall;
   firewall.backend_type = FirewallBackend::iptables;
@@ -815,13 +816,12 @@ TEST_CASE("RulesOnly rejects list-backed default gateway with an empty active pl
   const OutboundMarkMap marks{{"wan", 1}};
   CacheManager cache("/tmp/keen-pbr-firewall-runtime-empty-plan-gateway-test-cache");
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
-  REQUIRE(apply_runtime_firewall(
+  ActiveFirewall previous_plan;
+  previous_plan = apply_runtime_firewall(
               previous_config, marks, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
-  REQUIRE(previous_plan.sets.empty());
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
+  REQUIRE(previous_plan.plan.sets.empty());
 
   RecordingFirewall firewall;
   firewall.backend_type = FirewallBackend::iptables;
@@ -928,7 +928,7 @@ TEST_CASE("runtime leaves inactive and empty route cases without rules") {
 
   const auto states = apply_runtime_firewall(
       config, {{"wan", 0x100U}}, cache, firewall,
-      FirewallApplyMode::StaticSetsOnly);
+      FirewallApplyMode::StaticSetsOnly).rule_states;
 
   REQUIRE(states.size() == 3);
   CHECK(states[0].action_type == RuleActionType::Skip);
@@ -961,20 +961,19 @@ TEST_CASE("RulesOnly reuses aligned empty file list without streaming") {
   const Config previous_config = empty_inline_list_config();
   const Config config = empty_source_list_config();
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
+  ActiveFirewall previous_plan;
   CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
-  REQUIRE(apply_runtime_firewall(
+  previous_plan = apply_runtime_firewall(
               previous_config, {{"wan", 1}}, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
 
   RulesOnlyFirewall firewall;
   const OutboundMarkMap marks{{"wan", 1}};
 
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
-      &previous_plan);
+      &previous_plan).rule_states;
 
   REQUIRE(states.size() == 1);
   CHECK(firewall.applied_mode == FirewallApplyMode::RulesOnly);
@@ -1014,13 +1013,12 @@ TEST_CASE("RulesOnly falls back when active plan list identity is unknown") {
   })");
   const Config config = empty_source_list_config();
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
+  ActiveFirewall previous_plan;
   CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
-  REQUIRE(apply_runtime_firewall(
+  previous_plan = apply_runtime_firewall(
               previous_config, {{"wan", 1}}, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
 
   RulesOnlyFirewall firewall;
   const OutboundMarkMap marks{{"wan", 1}};
@@ -1036,13 +1034,12 @@ TEST_CASE("RulesOnly reuses aligned empty URL list without streaming") {
   const Config previous_config = empty_inline_list_config();
   const Config config = empty_url_list_config();
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
+  ActiveFirewall previous_plan;
   CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
-  REQUIRE(apply_runtime_firewall(
+  previous_plan = apply_runtime_firewall(
               previous_config, {{"wan", 1}}, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
 
   RulesOnlyFirewall firewall;
   const OutboundMarkMap marks{{"wan", 1}};
@@ -1059,13 +1056,12 @@ TEST_CASE("RulesOnly trusts realized empty state after inline entries parse away
   const Config previous_config = empty_inline_list_config();
   const Config config = invalid_inline_list_config();
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
+  ActiveFirewall previous_plan;
   CacheManager cache("/tmp/keen-pbr-rules-only-test-cache");
-  REQUIRE(apply_runtime_firewall(
+  previous_plan = apply_runtime_firewall(
               previous_config, {{"wan", 1}}, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
 
   RulesOnlyFirewall firewall;
   const OutboundMarkMap marks{{"wan", 1}};
@@ -1081,20 +1077,19 @@ TEST_CASE("RulesOnly trusts realized empty state after inline entries parse away
 TEST_CASE("RulesOnly fallback preserves and materializes a valid list") {
   const Config config = valid_inline_list_config();
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
+  ActiveFirewall previous_plan;
   RecordingFirewall firewall;
   firewall.fail_rules_only = true;
   const OutboundMarkMap marks{{"wan", 1}};
   CacheManager cache("/tmp/keen-pbr-rules-only-valid-list-test-cache");
-  REQUIRE(apply_runtime_firewall(
+  previous_plan = apply_runtime_firewall(
               config, marks, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
 
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
-      &previous_plan);
+      &previous_plan).rule_states;
 
   REQUIRE(states.size() == 1);
   CHECK(firewall.prepared_modes ==
@@ -1116,20 +1111,19 @@ TEST_CASE("RulesOnly rejects an active plan static set from another generation")
   const Config config = valid_inline_list_config();
   const OutboundMarkMap marks{{"wan", 1}};
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
+  ActiveFirewall previous_plan;
   CacheManager cache("/tmp/keen-pbr-rules-only-stale-set-test-cache");
-  REQUIRE(apply_runtime_firewall(
+  previous_plan = apply_runtime_firewall(
               config, marks, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
 
   RecordingFirewall firewall;
   firewall.generation_names = true;
 
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
-      &previous_plan);
+      &previous_plan).rule_states;
 
   REQUIRE(states.size() == 1);
   CHECK(firewall.prepared_modes ==
@@ -1164,19 +1158,18 @@ TEST_CASE("RulesOnly validates active plan IPv6 static generation") {
   const Config config = valid_inline_ipv6_list_config();
   const OutboundMarkMap marks{{"wan", 1}};
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
+  ActiveFirewall previous_plan;
   CacheManager cache("/tmp/keen-pbr-rules-only-stale-ipv6-test-cache");
-  REQUIRE(apply_runtime_firewall(
+  previous_plan = apply_runtime_firewall(
               config, marks, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
 
   RecordingFirewall firewall;
   firewall.generation_names_ipv6 = true;
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
-      &previous_plan);
+      &previous_plan).rule_states;
 
   REQUIRE(states.size() == 1);
   CHECK(firewall.prepared_modes == std::vector<FirewallApplyMode>{
@@ -1199,18 +1192,17 @@ TEST_CASE("RulesOnly reuses dynamic timeout from the active plan") {
   })");
   const OutboundMarkMap marks{{"wan", 1}};
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
+  ActiveFirewall previous_plan;
   CacheManager cache("/tmp/keen-pbr-rules-only-dynamic-timeout-test-cache");
-  REQUIRE(apply_runtime_firewall(
+  previous_plan = apply_runtime_firewall(
               previous_config, marks, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
 
   RulesOnlyFirewall firewall;
   const auto states = apply_runtime_firewall(
       previous_config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
-      &previous_plan);
+      &previous_plan).rule_states;
   REQUIRE(states.size() == 1);
   const auto dynamic_set = std::find_if(
       firewall.set_declarations_detail.begin(),
@@ -1233,18 +1225,17 @@ TEST_CASE("RulesOnly falls back when dynamic timeout changes") {
   config.lists->at("remote").ttl_ms = 60000;
   const OutboundMarkMap marks{{"wan", 1}};
   RecordingFirewall previous_firewall;
-  FirewallPlan previous_plan;
+  ActiveFirewall previous_plan;
   CacheManager cache("/tmp/keen-pbr-rules-only-dynamic-timeout-change-test-cache");
-  REQUIRE(apply_runtime_firewall(
+  previous_plan = apply_runtime_firewall(
               previous_config, marks, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets, nullptr, false, {}, {}, nullptr,
-              &previous_plan)
-              .size() == 1);
+              FirewallApplyMode::PreserveSets);
+  REQUIRE(previous_plan.rule_states.size() == 1);
 
   RulesOnlyFirewall firewall;
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
-      &previous_plan);
+      &previous_plan).rule_states;
   REQUIRE(states.size() == 1);
   CHECK(firewall.prepared_modes ==
         std::vector<FirewallApplyMode>{FirewallApplyMode::PreserveSets});
@@ -1257,6 +1248,176 @@ TEST_CASE("RulesOnly falls back when dynamic timeout changes") {
       });
   REQUIRE(dynamic_set != firewall.set_declarations_detail.end());
   CHECK(dynamic_set->timeout == 60U);
+}
+
+namespace {
+
+// FirewallPlan has no operator==; compare the fields that carry intent.
+std::string plan_fingerprint(const FirewallPlan& plan) {
+  std::string out = std::to_string(plan.fwmark_mask) + "|";
+  for (const auto& rule : plan.rules) {
+    out += rule.key.module_id + "/" + rule.key.instance_id + ":" +
+           std::to_string(static_cast<int>(rule.stage)) + ":" +
+           std::to_string(rule.priority) + ":" +
+           std::to_string(rule.insertion_order) + ":" +
+           rule.criteria.dst_set_name.value_or("-") + ";";
+  }
+  out += "|";
+  for (const auto& set : plan.sets) {
+    out += set.name + ":" + std::to_string(set.timeout) + ";";
+  }
+  for (const auto& name : plan.referenced_list_names) {
+    out += "|" + name;
+  }
+  return out;
+}
+
+} // namespace
+
+TEST_CASE("desired plan is independent of the backend set generation") {
+  const Config config = valid_inline_list_config();
+  const OutboundMarkMap marks{{"wan", 1}};
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-plan-gen-test-cache");
+  RecordingFirewall plain;
+  RecordingFirewall generational;
+  generational.generation_names = true;
+
+  const auto first = apply_runtime_firewall(
+      config, marks, cache, plain, FirewallApplyMode::PreserveSets);
+  const auto second = apply_runtime_firewall(
+      config, marks, cache, generational, FirewallApplyMode::PreserveSets);
+
+  CHECK(plan_fingerprint(first.plan) == plan_fingerprint(second.plan));
+  CHECK(first.result.physical_set_names ==
+        std::vector<std::string>{"kpbr4_remote"});
+  CHECK(second.result.physical_set_names ==
+        std::vector<std::string>{"kpbr4s_remote"});
+}
+
+TEST_CASE("successful apply returns consistent plan, result and rule states") {
+  const Config config = valid_inline_list_config();
+  const OutboundMarkMap marks{{"wan", 1}};
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-active-test-cache");
+  RecordingFirewall firewall;
+
+  const auto active = apply_runtime_firewall(
+      config, marks, cache, firewall, FirewallApplyMode::PreserveSets);
+
+  CHECK(active.result.mode == FirewallApplyMode::PreserveSets);
+  REQUIRE(active.rule_states.size() == 1);
+  CHECK(active.rule_states.front().set_names ==
+        std::vector<std::string>{"kpbr4_remote"});
+  REQUIRE(active.plan.sets.size() == 1);
+  CHECK(active.plan.sets.front().name == "kpbr4_remote");
+  CHECK(active.result.has_physical_set("kpbr4_remote"));
+  CHECK_FALSE(active.result.has_physical_set("kpbr4s_remote"));
+}
+
+TEST_CASE("preparation failure keeps the previous active firewall") {
+  // A list-backed default gateway cannot be planned for iptables from an empty
+  // active plan; planning fails before the backend is touched.
+  const Config previous_config = empty_inline_list_config();
+  const Config config = parse_config(R"({
+    "daemon": {"ipv6_enabled":false},
+    "outbounds": [{"type":"table","tag":"wan","table":254}],
+    "lists": {"remote": {"ip_cidrs":[]}},
+    "route": {"rules": [{"list":["remote"],"default_gateway":"ipv4",
+                            "outbound":"wan"}]}
+  })");
+  const OutboundMarkMap marks{{"wan", 1}};
+  CacheManager cache("/tmp/keen-pbr-firewall-runtime-prep-fail-test-cache");
+  RecordingFirewall previous_firewall;
+  FirewallState state;
+  state.publish_active_firewall(apply_runtime_firewall(
+      previous_config, marks, cache, previous_firewall,
+      FirewallApplyMode::PreserveSets));
+  const auto before = state.active_firewall();
+  REQUIRE(before != nullptr);
+
+  RecordingFirewall firewall;
+  firewall.backend_type = FirewallBackend::iptables;
+  CHECK_THROWS_AS(state.publish_active_firewall(apply_runtime_firewall(
+                      config, marks, cache, firewall,
+                      FirewallApplyMode::RulesOnly, before.get())),
+                  FirewallError);
+  CHECK(firewall.calls.empty());
+  CHECK(state.active_firewall() == before);
+}
+
+TEST_CASE("RulesOnly with a matching previous result stays RulesOnly") {
+  const Config config = valid_inline_list_config();
+  const OutboundMarkMap marks{{"wan", 1}};
+  CacheManager cache("/tmp/keen-pbr-rules-only-match-test-cache");
+  RecordingFirewall previous_firewall;
+  previous_firewall.generation_names = true;
+  const auto previous = apply_runtime_firewall(
+      config, marks, cache, previous_firewall, FirewallApplyMode::PreserveSets);
+
+  RecordingFirewall firewall;
+  firewall.generation_names = true;
+  const auto active = apply_runtime_firewall(
+      config, marks, cache, firewall, FirewallApplyMode::RulesOnly, &previous);
+
+  CHECK(firewall.prepared_modes ==
+        std::vector<FirewallApplyMode>{FirewallApplyMode::RulesOnly});
+  CHECK(firewall.applied_modes ==
+        std::vector<FirewallApplyMode>{FirewallApplyMode::RulesOnly});
+  CHECK(active.result.mode == FirewallApplyMode::RulesOnly);
+  CHECK(active.result.physical_set_names == previous.result.physical_set_names);
+}
+
+TEST_CASE("RulesOnly with a stale previous result falls back exactly once") {
+  const Config config = valid_inline_list_config();
+  const OutboundMarkMap marks{{"wan", 1}};
+  CacheManager cache("/tmp/keen-pbr-rules-only-stale-result-test-cache");
+  RecordingFirewall previous_firewall;
+  const auto previous = apply_runtime_firewall(
+      config, marks, cache, previous_firewall, FirewallApplyMode::PreserveSets);
+
+  // The backend now selects the other A/B generation.
+  RecordingFirewall firewall;
+  firewall.generation_names = true;
+  const auto active = apply_runtime_firewall(
+      config, marks, cache, firewall, FirewallApplyMode::RulesOnly, &previous);
+
+  CHECK(firewall.prepared_modes ==
+        std::vector<FirewallApplyMode>{FirewallApplyMode::RulesOnly,
+                                       FirewallApplyMode::PreserveSets});
+  CHECK(active.result.mode == FirewallApplyMode::PreserveSets);
+  CHECK(active.result.physical_set_names ==
+        std::vector<std::string>{"kpbr4s_remote"});
+}
+
+TEST_CASE("FirewallState readers get one coherent snapshot across a publish") {
+  FirewallState state;
+  CHECK(state.active_firewall() == nullptr);
+  CHECK(state.get_rules().empty());
+
+  ActiveFirewall first;
+  first.plan.fwmark_mask = 1;
+  first.result.physical_set_names = {"a"};
+  first.rule_states.resize(1);
+  state.publish_active_firewall(std::move(first));
+  const auto held = state.active_firewall();
+  const FirewallState copy = state;
+
+  ActiveFirewall second;
+  second.plan.fwmark_mask = 2;
+  second.result.physical_set_names = {"b"};
+  second.rule_states.resize(2);
+  state.publish_active_firewall(std::move(second));
+
+  // A held snapshot (and a copied state) keeps the complete first apply.
+  CHECK(held->plan.fwmark_mask == 1);
+  CHECK(held->result.physical_set_names == std::vector<std::string>{"a"});
+  CHECK(held->rule_states.size() == 1);
+  CHECK(copy.active_firewall() == held);
+  CHECK(state.active_firewall()->plan.fwmark_mask == 2);
+  CHECK(state.get_rules().size() == 2);
+
+  state.clear_active_firewall();
+  CHECK(state.active_firewall() == nullptr);
+  CHECK(held->rule_states.size() == 1);
 }
 
 } // namespace keen_pbr3

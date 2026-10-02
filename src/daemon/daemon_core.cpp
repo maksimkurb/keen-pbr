@@ -563,7 +563,7 @@ RoutingHealthReport Daemon::cached_routing_health() {
       runtime_snapshot.runtime_state != RuntimeState::applying &&
       runtime_snapshot.runtime_state != RuntimeState::stopped &&
       runtime_snapshot.runtime_state != RuntimeState::shutting_down &&
-      runtime_snapshot.firewall_state.get_active_plan().has_value();
+      runtime_snapshot.firewall_state.active_firewall() != nullptr;
   if (!runtime_ready) {
     const auto detail = runtime_snapshot.runtime_state == RuntimeState::starting
         ? "routing runtime initialization is in progress"
@@ -1615,7 +1615,7 @@ void Daemon::run() {
   policy_rules_.clear();
   route_table_.clear();
   firewall_->cleanup();
-  firewall_state_.clear_active_plan();
+  firewall_state_.clear_active_firewall();
   remove_pid_file();
 }
 

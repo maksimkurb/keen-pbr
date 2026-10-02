@@ -38,16 +38,18 @@ TEST_CASE("RuntimeStateStore publishes active plan and API projection together")
     projection.rule_index = 3;
     projection.action_type = RuleActionType::Mark;
     projection.fwmark = 0x00010000u;
-    state.firewall_state.set_active_plan(std::move(plan), {projection});
+    state.firewall_state.publish_active_firewall(
+        ActiveFirewall{std::move(plan), {}, {projection}});
     store.publish(std::move(state));
 
     const auto snapshot = store.snapshot();
-    REQUIRE(snapshot.firewall_state.get_active_plan().has_value());
-    CHECK(snapshot.firewall_state.get_active_plan()->rules.size() == 1);
+    const auto active = snapshot.firewall_state.active_firewall();
+    REQUIRE(active != nullptr);
+    CHECK(active->plan.rules.size() == 1);
     REQUIRE(snapshot.firewall_state.get_rules().size() == 1);
     CHECK(snapshot.firewall_state.get_rules().front().rule_index == 3);
     CHECK(snapshot.firewall_state.get_rules().front().fwmark ==
-          std::get<MarkAction>(snapshot.firewall_state.get_active_plan()->rules.front().action).value);
+          std::get<MarkAction>(active->plan.rules.front().action).value);
 }
 
 TEST_CASE("FirewallState clears active plan and projection after teardown") {
@@ -59,11 +61,11 @@ TEST_CASE("FirewallState clears active plan and projection after teardown") {
     FirewallRuleRegistrar registrar(plan);
     registrar.register_rule(std::move(rule));
     registrar.finish();
-    state.set_active_plan(std::move(plan), {RuleState{}});
+    state.publish_active_firewall(ActiveFirewall{std::move(plan), {}, {RuleState{}}});
 
-    state.clear_active_plan();
+    state.clear_active_firewall();
 
-    CHECK_FALSE(state.get_active_plan().has_value());
+    CHECK(state.active_firewall() == nullptr);
     CHECK(state.get_rules().empty());
 }
 
@@ -81,8 +83,8 @@ TEST_CASE("RuntimeStateStore readers never observe a mixed plan projection") {
     RuleState first_projection{};
     first_projection.action_type = RuleActionType::Mark;
     first_projection.fwmark = 1;
-    first.firewall_state.set_active_plan(std::move(first_plan),
-                                         {first_projection});
+    first.firewall_state.publish_active_firewall(
+        ActiveFirewall{std::move(first_plan), {}, {first_projection}});
 
     RuntimeStateSnapshot second = first;
     FirewallPlan second_plan;
@@ -96,8 +98,8 @@ TEST_CASE("RuntimeStateStore readers never observe a mixed plan projection") {
     RuleState second_projection{};
     second_projection.action_type = RuleActionType::Mark;
     second_projection.fwmark = 2;
-    second.firewall_state.set_active_plan(std::move(second_plan),
-                                          {second_projection});
+    second.firewall_state.publish_active_firewall(
+        ActiveFirewall{std::move(second_plan), {}, {second_projection}});
 
     RuntimeStateStore store;
     store.publish(first);
@@ -111,11 +113,11 @@ TEST_CASE("RuntimeStateStore readers never observe a mixed plan projection") {
     });
     while (!done.load(std::memory_order_acquire)) {
         const auto snapshot = store.snapshot();
-        const auto& active = snapshot.firewall_state.get_active_plan();
-        if (!active.has_value() || active->rules.size() != 1 ||
-            snapshot.firewall_state.get_rules().size() != 1 ||
-            std::get<MarkAction>(active->rules.front().action).value !=
-                snapshot.firewall_state.get_rules().front().fwmark) {
+        const auto active = snapshot.firewall_state.active_firewall();
+        if (!active || active->plan.rules.size() != 1 ||
+            active->rule_states.size() != 1 ||
+            std::get<MarkAction>(active->plan.rules.front().action).value !=
+                active->rule_states.front().fwmark) {
             consistent.store(false, std::memory_order_release);
             break;
         }
@@ -135,7 +137,8 @@ TEST_CASE("RuntimeStateStore exposes only compact realized rule data to control 
     rule.action_type = RuleActionType::Mark;
     rule.fwmark = 0x10000;
     FirewallPlan plan;
-    state.firewall_state.set_active_plan(std::move(plan), {rule});
+    state.firewall_state.publish_active_firewall(
+        ActiveFirewall{std::move(plan), {}, {rule}});
     state.runtime_state = RuntimeState::running;
     store.publish(std::move(state));
 
