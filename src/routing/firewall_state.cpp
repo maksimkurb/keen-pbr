@@ -4,19 +4,16 @@
 
 namespace keen_pbr3 {
 
-void FirewallState::set_active_plan(FirewallPlan plan,
-                                    std::vector<RuleState> rules) {
-    active_plan_ = std::move(plan);
-    rules_ = std::move(rules);
+void FirewallState::publish_active_firewall(ActiveFirewall active) {
+    active_ = std::make_shared<const ActiveFirewall>(std::move(active));
 }
 
-const std::optional<FirewallPlan>& FirewallState::get_active_plan() const {
-    return active_plan_;
+std::shared_ptr<const ActiveFirewall> FirewallState::active_firewall() const {
+    return active_;
 }
 
-void FirewallState::clear_active_plan() {
-    active_plan_.reset();
-    rules_.clear();
+void FirewallState::clear_active_firewall() {
+    active_.reset();
 }
 
 void FirewallState::set_urltest_selection(const std::string& urltest_tag,
@@ -25,7 +22,8 @@ void FirewallState::set_urltest_selection(const std::string& urltest_tag,
 }
 
 const std::vector<RuleState>& FirewallState::get_rules() const {
-    return rules_;
+    static const std::vector<RuleState> empty;
+    return active_ ? active_->rule_states : empty;
 }
 
 const OutboundMarkMap& FirewallState::get_outbound_marks() const {

@@ -186,7 +186,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     policy_rules_.clear();
     route_table_.clear();
     firewall_->cleanup();
-    firewall_state_.clear_active_plan();
+    firewall_state_.clear_active_firewall();
     if (keenetic_dns_refresh_task_id_ >= 0) {
         scheduler_->cancel(keenetic_dns_refresh_task_id_);
         keenetic_dns_refresh_task_id_ = -1;
@@ -327,21 +327,19 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         : netlink_.dump_routes_in_table(254);
     const auto interfaces = netlink_.dump_interfaces();
     const auto balance_candidates = build_balance_candidates(owned_main_routes, interfaces);
-    FirewallPlan applied_plan;
-    const auto& previous_active_plan = firewall_state_.get_active_plan();
-    auto rule_states = apply_runtime_firewall(
+    const auto previous_active = firewall_state_.active_firewall();
+    auto active = apply_runtime_firewall(
         config_,
         outbound_marks_,
         list_service_.cache_manager(),
         *firewall_,
         mode,
-        previous_active_plan.has_value() ? &*previous_active_plan : nullptr,
+        previous_active.get(),
         force_clear_dynamic_sets,
         owned_main_routes,
         interfaces,
-        &balance_candidates,
-        &applied_plan);
-    firewall_state_.set_active_plan(std::move(applied_plan), std::move(rule_states));
+        &balance_candidates);
+    firewall_state_.publish_active_firewall(std::move(active));
     (void)conntrack_manager_.reconcile(
         ConntrackPolicy{prefilter.skip_established_or_dnat});
 }

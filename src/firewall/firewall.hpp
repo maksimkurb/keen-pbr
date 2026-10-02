@@ -170,6 +170,19 @@ enum class FirewallApplyMode : uint8_t {
   RulesOnly
 };
 
+// What the backend actually realized for one successful apply. Kept apart from
+// FirewallPlan, which is desired intent only and must not change when the
+// backend picks a different A/B set generation.
+struct FirewallApplyResult {
+  FirewallApplyMode mode{FirewallApplyMode::Destructive};
+  // Sorted, unique physical names of the sets declared by the applied plan.
+  // RulesOnly compares the backend's current names against these to detect an
+  // externally changed A/B generation.
+  std::vector<std::string> physical_set_names;
+
+  bool has_physical_set(const std::string &name) const;
+};
+
 enum class FirewallSetGeneration : uint8_t { A, B };
 
 // Return the kernel-normalized initial hashsize for an ipset declaration.

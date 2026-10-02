@@ -27,9 +27,6 @@ struct FirewallPlan {
   // referenced lists that produced no sets, so RulesOnly can distinguish an
   // applied empty list from a list absent from the active configuration.
   std::set<std::string> referenced_list_names;
-  // Physical set names selected by the backend for this successful apply.
-  // RulesOnly uses these to detect an externally changed A/B generation.
-  std::set<std::string> applied_physical_set_names;
   uint32_t fwmark_mask{0xFFFFFFFFu};
 };
 

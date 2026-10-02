@@ -6,6 +6,11 @@
 
 namespace keen_pbr3 {
 
+bool FirewallApplyResult::has_physical_set(const std::string &name) const {
+  return std::binary_search(physical_set_names.begin(),
+                            physical_set_names.end(), name);
+}
+
 std::optional<uint32_t> normalize_ipset_hashsize(uint32_t requested) {
   constexpr uint64_t kMinimumHashsize = 64;
   const uint64_t target = std::max<uint64_t>(requested, kMinimumHashsize);
