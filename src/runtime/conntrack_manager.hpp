@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../firewall/firewall_plan.hpp"
+
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -17,6 +19,10 @@ struct ConntrackPolicy {
     }
     bool operator!=(const ConntrackPolicy& other) const { return !(*this == other); }
 };
+
+// Conntrack policy implied by an applied firewall plan: the bypass is wanted
+// exactly when the plan carries the established/DNAT bypass rule.
+ConntrackPolicy conntrack_policy_for_plan(const FirewallPlan& plan);
 
 enum class TestGroupSwitchReason {
     initial,

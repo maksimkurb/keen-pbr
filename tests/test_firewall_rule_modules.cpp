@@ -39,7 +39,7 @@ struct ModuleFixture {
   FirewallBuildContext context() const {
     return {*config.route->rules, *config.outbounds, *config.lists,
             usage, main_routes, interfaces, FirewallBackend::nftables, true,
-            0xFFFFFFFFU, nullptr, true, true, true, {}, &config, &marks};
+            0xFFFFFFFFU, nullptr, &config, &marks};
   }
 };
 
@@ -64,7 +64,7 @@ struct BalanceModuleFixture {
   FirewallBuildContext context() const {
     return {*config.route->rules, *config.outbounds, lists, usage,
             main_routes, interfaces, FirewallBackend::nftables, true,
-            0xFFFFFFFFU, &candidates, true, true, true, {}, &config, &marks};
+            0xFFFFFFFFU, &candidates, &config, &marks};
   }
 };
 
@@ -73,7 +73,7 @@ FirewallPlan build_module_plan(const Module& module, const Fixture& fixture) {
   FirewallPlan plan;
   FirewallRuleRegistrar registrar(plan);
   const auto context = fixture.context();
-  module.register_rules(context, registrar);
+  module(context, registrar);
   registrar.finish();
   return plan;
 }
@@ -102,9 +102,9 @@ std::vector<const FirewallRuleInstance*> dns_rules(const FirewallPlan& plan) {
 
 TEST_CASE("route modules emit zero, one, and many canonical instances") {
   const ModuleFixture fixture;
-  const auto mark_plan = build_module_plan(RouteMarkRuleModule{}, fixture);
-  const auto drop_plan = build_module_plan(RouteDropRuleModule{}, fixture);
-  const auto pass_plan = build_module_plan(RoutePassRuleModule{}, fixture);
+  const auto mark_plan = build_module_plan(register_route_mark_rules, fixture);
+  const auto drop_plan = build_module_plan(register_route_drop_rules, fixture);
+  const auto pass_plan = build_module_plan(register_route_pass_rules, fixture);
 
   REQUIRE(mark_plan.rules.size() == 5);
   CHECK(drop_plan.rules.size() == 1);
@@ -143,15 +143,15 @@ TEST_CASE("route modules emit zero, one, and many canonical instances") {
       no_interfaces, FirewallBackend::nftables, true, 0xFFFFFFFFU};
   FirewallPlan no_plan;
   FirewallRuleRegistrar no_registrar(no_plan);
-  RouteMarkRuleModule{}.register_rules(no_context, no_registrar);
+  register_route_mark_rules(no_context, no_registrar);
   no_registrar.finish();
   CHECK(no_plan.rules.empty());
 }
 
 TEST_CASE("route module keys are stable and mark changes are semantic") {
   const ModuleFixture fixture;
-  const auto first = build_module_plan(RouteMarkRuleModule{}, fixture);
-  const auto second = build_module_plan(RouteMarkRuleModule{}, fixture);
+  const auto first = build_module_plan(register_route_mark_rules, fixture);
+  const auto second = build_module_plan(register_route_mark_rules, fixture);
   REQUIRE(first.rules.size() == second.rules.size());
   for (std::size_t index = 0; index < first.rules.size(); ++index) {
     CHECK(first.rules[index].key == second.rules[index].key);
@@ -162,7 +162,7 @@ TEST_CASE("route module keys are stable and mark changes are semantic") {
   context.outbound_marks = &changed_marks;
   FirewallPlan changed;
   FirewallRuleRegistrar registrar(changed);
-  RouteMarkRuleModule{}.register_rules(context, registrar);
+  register_route_mark_rules(context, registrar);
   registrar.finish();
 
   REQUIRE(changed.rules.size() == first.rules.size());
@@ -205,11 +205,11 @@ TEST_CASE("route mark owns selection and reads runtime marks") {
   const FirewallBuildContext context{
       *config.route->rules, *config.outbounds, *config.lists,
       usage, main_routes, interfaces, FirewallBackend::nftables, true, mask,
-      nullptr, true, true, true, {}, &config, &marks};
+      nullptr, &config, &marks};
   FirewallPlan plan;
   plan.fwmark_mask = mask;
   FirewallRuleRegistrar registrar(plan);
-  RouteMarkRuleModule{}.register_rules(context, registrar);
+  register_route_mark_rules(context, registrar);
   registrar.finish();
 
   REQUIRE(plan.rules.size() == 6);
@@ -253,6 +253,25 @@ TEST_CASE("route mark owns selection and reads runtime marks") {
   CHECK(plan.rules[5].criteria.dst_set_name == "kpbr6d_remote");
 }
 
+TEST_CASE("route module manifest is iterable without a manual count") {
+  const auto manifest = route_rule_module_manifest();
+  const std::vector<RouteRuleModuleRegistration> modules(manifest.begin(),
+                                                         manifest.end());
+  CHECK(modules.size() == manifest.size());
+  const std::vector<RouteRuleModuleRegistration> expected = {
+      register_restore_conntrack_mark_rules,
+      register_skip_established_or_dnat_rules,
+      register_skip_marked_packets_rules,
+      register_inbound_interface_filter_rules,
+      register_route_mark_rules,
+      register_route_drop_rules,
+      register_route_pass_rules,
+      register_route_balance_rules,
+      register_dns_detour_rules,
+  };
+  CHECK(modules == expected);
+}
+
 TEST_CASE("route module manifest has explicit deterministic order") {
   const ModuleFixture fixture;
   const auto context = fixture.context();
@@ -279,22 +298,25 @@ TEST_CASE("route module manifest has explicit deterministic order") {
   CHECK(plan.rules[5].key.module_id == "route.pass");
 }
 
+FirewallPlan build_plan_with(RouteRuleModuleRegistration module,
+                             const FirewallBuildContext& context) {
+  FirewallPlan plan;
+  plan.fwmark_mask = context.fwmark_mask;
+  FirewallRuleRegistrar registrar(plan);
+  module(context, registrar);
+  registrar.finish();
+  return plan;
+}
+
 TEST_CASE("prefilter modules emit canonical operations and honor inputs") {
   const ModuleFixture fixture;
+  Config config = fixture.config;
+  config.route->inbound_interfaces = std::vector<std::string>{"br-lan", "wg0"};
   auto context = fixture.context();
   context.fwmark_mask = 0x00FF0000U;
-  context.inbound_interfaces = {"br-lan", "wg0"};
+  context.config = &config;
 
-  const auto build = [&](auto module) {
-    FirewallPlan plan;
-    plan.fwmark_mask = context.fwmark_mask;
-    FirewallRuleRegistrar registrar(plan);
-    module.register_rules(context, registrar);
-    registrar.finish();
-    return plan;
-  };
-
-  const auto restore = build(RestoreConntrackMarkRuleModule{});
+  const auto restore = build_plan_with(register_restore_conntrack_mark_rules, context);
   REQUIRE(restore.rules.size() == 1);
   CHECK(restore.rules.front().stage == FirewallRuleStage::restore_conntrack);
   CHECK(restore.rules.front().priority == 0);
@@ -302,59 +324,125 @@ TEST_CASE("prefilter modules emit canonical operations and honor inputs") {
   CHECK(std::get<RestoreConntrackMarkAction>(restore.rules.front().action).mask ==
         context.fwmark_mask);
 
-  const auto dnat = build(SkipEstablishedOrDnatRuleModule{});
+  const auto dnat = build_plan_with(register_skip_established_or_dnat_rules, context);
   REQUIRE(dnat.rules.size() == 1);
   CHECK(dnat.rules.front().stage == FirewallRuleStage::global_bypass);
   CHECK(dnat.rules.front().priority == 0);
   CHECK(std::holds_alternative<SkipEstablishedOrDnatAction>(
       dnat.rules.front().action));
 
-  const auto marked = build(SkipMarkedPacketsRuleModule{});
+  const auto marked = build_plan_with(register_skip_marked_packets_rules, context);
   REQUIRE(marked.rules.size() == 1);
   CHECK(marked.rules.front().priority == 1);
   CHECK(std::holds_alternative<SkipMarkedPacketsAction>(
       marked.rules.front().action));
 
-  const auto inbound = build(InboundInterfaceFilterRuleModule{});
+  const auto inbound = build_plan_with(register_inbound_interface_filter_rules, context);
   REQUIRE(inbound.rules.size() == 1);
   CHECK(inbound.rules.front().priority == 2);
   CHECK(std::get<InboundInterfaceFilterAction>(inbound.rules.front().action)
-            .interfaces == context.inbound_interfaces);
+            .interfaces == std::vector<std::string>{"br-lan", "wg0"});
   CHECK(inbound.rules.front().key.module_id ==
         "prefilter.inbound_interface");
   CHECK(inbound.rules.front().key == FirewallRuleKey::compact(
       "prefilter.inbound_interface", "br-lan;wg0;"));
-
-  context.restore_conntrack_mark = false;
-  context.skip_established_or_dnat = false;
-  context.skip_marked_packets = false;
-  context.inbound_interfaces.clear();
-  CHECK(build(RestoreConntrackMarkRuleModule{}).rules.empty());
-  CHECK(build(SkipEstablishedOrDnatRuleModule{}).rules.empty());
-  CHECK(build(SkipMarkedPacketsRuleModule{}).rules.empty());
-  CHECK(build(InboundInterfaceFilterRuleModule{}).rules.empty());
 }
 
-TEST_CASE("nft restore prefilter follows owned mark materialization") {
+TEST_CASE("skip_marked_packets and inbound interface conditions follow config") {
   const ModuleFixture fixture;
+  Config config = fixture.config;
   auto context = fixture.context();
-  context.restore_conntrack_mark = false;
+  context.config = &config;
 
-  FirewallPlan nft_plan;
-  FirewallRuleRegistrar nft_registrar(nft_plan);
-  RestoreConntrackMarkRuleModule{}.register_rules(context, nft_registrar);
-  nft_registrar.finish();
-  CHECK(nft_plan.rules.empty());
+  const auto marked = [&] {
+    return plan_has_action<SkipMarkedPacketsAction>(
+        build_plan_with(register_skip_marked_packets_rules, context));
+  };
+  const auto inbound = [&] {
+    return plan_has_action<InboundInterfaceFilterAction>(
+        build_plan_with(register_inbound_interface_filter_rules, context));
+  };
+
+  // Defaults: marked-packet bypass on, no interface restriction.
+  CHECK(marked());
+  CHECK_FALSE(inbound());
+
+  config.daemon = DaemonConfig{};
+  config.daemon->skip_marked_packets = std::nullopt;
+  CHECK(marked());
+  config.daemon->skip_marked_packets = false;
+  CHECK_FALSE(marked());
+  config.daemon->skip_marked_packets = true;
+  CHECK(marked());
+
+  config.route->inbound_interfaces = std::vector<std::string>{};
+  CHECK_FALSE(inbound());
+  config.route->inbound_interfaces = std::vector<std::string>{"br0"};
+  CHECK(inbound());
+  config.route.reset();
+  CHECK_FALSE(inbound());
+
+  // Without a config the safe defaults apply.
+  context.config = nullptr;
+  CHECK(marked());
+  CHECK_FALSE(inbound());
+}
+
+TEST_CASE("established/DNAT bypass is emitted on both backends") {
+  const ModuleFixture fixture;
+  for (const auto backend :
+       {FirewallBackend::nftables, FirewallBackend::iptables}) {
+    auto context = fixture.context();
+    context.backend = backend;
+    context.outbound_marks = nullptr;
+    context.config = nullptr;
+    CHECK(plan_has_action<SkipEstablishedOrDnatAction>(
+        build_plan_with(register_skip_established_or_dnat_rules, context)));
+  }
+}
+
+TEST_CASE("restore conntrack mark follows backend, owned marks and mask") {
+  const ModuleFixture fixture;
+  const OutboundMarkMap zero_marks{{"wan", 0U}};
+  const OutboundMarkMap no_marks;
+  const auto restores = [](const FirewallBuildContext& context) {
+    return plan_has_action<RestoreConntrackMarkAction>(
+        build_plan_with(register_restore_conntrack_mark_rules, context));
+  };
+
+  auto context = fixture.context();
+  context.backend = FirewallBackend::nftables;
+  CHECK(restores(context));  // owned non-zero mark present
+  context.outbound_marks = &zero_marks;
+  CHECK_FALSE(restores(context));
+  context.outbound_marks = &no_marks;
+  CHECK_FALSE(restores(context));
+  context.outbound_marks = nullptr;
+  CHECK_FALSE(restores(context));
 
   context.backend = FirewallBackend::iptables;
-  context.restore_conntrack_mark = true;
-  FirewallPlan iptables_plan;
-  FirewallRuleRegistrar iptables_registrar(iptables_plan);
-  RestoreConntrackMarkRuleModule{}.register_rules(context, iptables_registrar);
-  iptables_registrar.finish();
-  REQUIRE(iptables_plan.rules.size() == 1);
-  CHECK(std::holds_alternative<RestoreConntrackMarkAction>(
-      iptables_plan.rules.front().action));
+  CHECK(restores(context));  // iptables restores regardless of marks
+  context.outbound_marks = &no_marks;
+  CHECK(restores(context));
+  context.outbound_marks = fixture.context().outbound_marks;
+  CHECK(restores(context));
+
+  // A zero fwmark mask leaves no owned bits to restore on either backend.
+  context.fwmark_mask = 0;
+  CHECK_FALSE(restores(context));
+  context.backend = FirewallBackend::nftables;
+  CHECK_FALSE(restores(context));
+}
+
+TEST_CASE("restore conntrack mark rule carries the configured mask") {
+  const ModuleFixture fixture;
+  auto context = fixture.context();
+  context.fwmark_mask = 0x00FF0000U;
+  const auto plan = build_plan_with(register_restore_conntrack_mark_rules, context);
+  REQUIRE(plan.rules.size() == 1);
+  CHECK(plan.rules.front().key ==
+        FirewallRuleKey::compact("prefilter.restore_conntrack_mark",
+                                 "mask=" + std::to_string(0x00FF0000U)));
 }
 
 TEST_CASE("route balance module preserves fallback and candidate ordering") {
@@ -366,7 +454,7 @@ TEST_CASE("route balance module preserves fallback and candidate ordering") {
 
   for (const auto& candidates : candidate_cases) {
     fixture.candidates["auto"] = candidates;
-    const auto plan = build_module_plan(RouteBalanceRuleModule{}, fixture);
+    const auto plan = build_module_plan(register_route_balance_rules, fixture);
     REQUIRE(plan.rules.size() == 1);
     REQUIRE(std::holds_alternative<BalanceAction>(plan.rules.front().action));
     const auto& action = std::get<BalanceAction>(plan.rules.front().action);
@@ -378,10 +466,10 @@ TEST_CASE("route balance module preserves fallback and candidate ordering") {
 TEST_CASE("route balance candidate changes retain identity and change semantics") {
   BalanceModuleFixture fixture;
   fixture.candidates["auto"] = {{0x200U, true, true}, {0x300U, false, true}};
-  const auto first = build_module_plan(RouteBalanceRuleModule{}, fixture);
+  const auto first = build_module_plan(register_route_balance_rules, fixture);
 
   fixture.candidates["auto"] = {{0x300U, false, true}, {0x400U, true, true}};
-  const auto changed = build_module_plan(RouteBalanceRuleModule{}, fixture);
+  const auto changed = build_module_plan(register_route_balance_rules, fixture);
 
   REQUIRE(first.rules.size() == 1);
   REQUIRE(changed.rules.size() == 1);
@@ -397,7 +485,7 @@ TEST_CASE("route balance skips rules without an owned fallback mark") {
     context.outbound_marks = &marks;
     FirewallPlan plan;
     FirewallRuleRegistrar registrar(plan);
-    RouteBalanceRuleModule{}.register_rules(context, registrar);
+    register_route_balance_rules(context, registrar);
     registrar.finish();
     return plan;
   };
@@ -415,7 +503,7 @@ TEST_CASE("route balance keeps nftables-only backend validation") {
   FirewallPlan plan;
   plan.fwmark_mask = context.fwmark_mask;
   FirewallRuleRegistrar registrar(plan);
-  RouteBalanceRuleModule{}.register_rules(context, registrar);
+  register_route_balance_rules(context, registrar);
   registrar.finish();
 
   REQUIRE(plan.rules.size() == 1);
@@ -610,8 +698,8 @@ TEST_CASE("route module manifest keeps reordered config rules in priority order"
   const std::map<std::string, ListSetUsage> usage;
   const FirewallBuildContext context{
       *config.route->rules, *config.outbounds, lists, usage, main_routes,
-      interfaces, FirewallBackend::nftables, true, 0xFFFFFFFFU, nullptr, true,
-      true, true, {}, &config, &marks};
+      interfaces, FirewallBackend::nftables, true, 0xFFFFFFFFU, nullptr,
+      &config, &marks};
   FirewallPlan plan;
   FirewallRuleRegistrar registrar(plan);
   for (const auto register_module : route_rule_module_manifest()) {

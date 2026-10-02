@@ -321,7 +321,6 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
                             bool force_clear_dynamic_sets,
                             const std::vector<DumpedRoute>* main_routes) {
     invalidate_routing_health_cache();
-    const FirewallPrefilter prefilter = build_firewall_prefilter(config_);
     const auto owned_main_routes = main_routes != nullptr
         ? *main_routes
         : netlink_.dump_routes_in_table(254);
@@ -339,9 +338,10 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         owned_main_routes,
         interfaces,
         &balance_candidates);
+    // Derived from the plan that was actually applied, never recomputed.
+    const ConntrackPolicy conntrack_policy = conntrack_policy_for_plan(active.plan);
     firewall_state_.publish_active_firewall(std::move(active));
-    (void)conntrack_manager_.reconcile(
-        ConntrackPolicy{prefilter.skip_established_or_dnat});
+    (void)conntrack_manager_.reconcile(conntrack_policy);
 }
 
 FirewallBalanceCandidates Daemon::build_balance_candidates(

@@ -70,10 +70,6 @@ bool is_interface_outbound_family_reachable(const Outbound& outbound,
 // not make a gatewayless tunnel capable of carrying arbitrary IPv6 traffic.
 bool interface_has_routed_ipv6(const DumpedInterface& interface);
 
-// Build the global firewall prefilter derived from route-level config.
-// Missing or empty inbound_interfaces leaves interface restriction disabled.
-FirewallPrefilter build_firewall_prefilter(const Config& cfg);
-
 // Build the realized firewall selector criteria for a route rule.
 FirewallRuleCriteria build_firewall_rule_criteria(
     const RouteRule& rule,

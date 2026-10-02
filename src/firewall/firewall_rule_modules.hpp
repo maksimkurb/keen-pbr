@@ -6,7 +6,6 @@
 #include "../lists/list_set_usage.hpp"
 #include "../routing/netlink.hpp"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -30,10 +29,6 @@ struct FirewallBuildContext {
   bool ipv6_enabled{true};
   uint32_t fwmark_mask{0xFFFFFFFFu};
   const FirewallBalanceCandidates* balance_candidates{nullptr};
-  bool restore_conntrack_mark{true};
-  bool skip_established_or_dnat{true};
-  bool skip_marked_packets{true};
-  std::vector<std::string> inbound_interfaces;
   const Config* config{nullptr};
   const OutboundMarkMap* outbound_marks{nullptr};
 };
@@ -59,75 +54,44 @@ void register_route_rule_targets(const FirewallBuildContext& context,
                                  const FirewallRuleAction& action,
                                  bool action_enabled = true);
 
-class RouteMarkRuleModule final {
-public:
-  std::string_view id() const noexcept { return "route.mark"; }
-  void register_rules(const FirewallBuildContext& context,
-                      FirewallRuleRegistrar& registrar) const;
-};
+// Policy modules. Each registers its rules into the plan, deciding for itself
+// from the context whether it applies; none touches a backend.
+void register_route_mark_rules(const FirewallBuildContext& context,
+                               FirewallRuleRegistrar& registrar);
+void register_route_drop_rules(const FirewallBuildContext& context,
+                               FirewallRuleRegistrar& registrar);
+void register_route_pass_rules(const FirewallBuildContext& context,
+                               FirewallRuleRegistrar& registrar);
+void register_route_balance_rules(const FirewallBuildContext& context,
+                                  FirewallRuleRegistrar& registrar);
+void register_dns_detour_rules(const FirewallBuildContext& context,
+                               FirewallRuleRegistrar& registrar);
+void register_restore_conntrack_mark_rules(const FirewallBuildContext& context,
+                                           FirewallRuleRegistrar& registrar);
+void register_skip_established_or_dnat_rules(
+    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar);
+void register_skip_marked_packets_rules(const FirewallBuildContext& context,
+                                        FirewallRuleRegistrar& registrar);
+void register_inbound_interface_filter_rules(
+    const FirewallBuildContext& context, FirewallRuleRegistrar& registrar);
 
-class RouteDropRuleModule final {
-public:
-  std::string_view id() const noexcept { return "route.drop"; }
-  void register_rules(const FirewallBuildContext& context,
-                      FirewallRuleRegistrar& registrar) const;
-};
-
-class RoutePassRuleModule final {
-public:
-  std::string_view id() const noexcept { return "route.pass"; }
-  void register_rules(const FirewallBuildContext& context,
-                      FirewallRuleRegistrar& registrar) const;
-};
-
-class RouteBalanceRuleModule final {
-public:
-  std::string_view id() const noexcept { return "route.balance"; }
-  void register_rules(const FirewallBuildContext& context,
-                      FirewallRuleRegistrar& registrar) const;
-};
-
-class DnsDetourRuleModule final {
-public:
-  std::string_view id() const noexcept { return "dns.detour"; }
-  void register_rules(const FirewallBuildContext& context,
-                      FirewallRuleRegistrar& registrar) const;
-};
-
-class RestoreConntrackMarkRuleModule final {
-public:
-  std::string_view id() const noexcept { return "prefilter.restore_conntrack_mark"; }
-  void register_rules(const FirewallBuildContext& context,
-                      FirewallRuleRegistrar& registrar) const;
-};
-
-class SkipEstablishedOrDnatRuleModule final {
-public:
-  std::string_view id() const noexcept { return "prefilter.skip_established_or_dnat"; }
-  void register_rules(const FirewallBuildContext& context,
-                      FirewallRuleRegistrar& registrar) const;
-};
-
-class SkipMarkedPacketsRuleModule final {
-public:
-  std::string_view id() const noexcept { return "prefilter.skip_marked_packets"; }
-  void register_rules(const FirewallBuildContext& context,
-                      FirewallRuleRegistrar& registrar) const;
-};
-
-class InboundInterfaceFilterRuleModule final {
-public:
-  std::string_view id() const noexcept { return "prefilter.inbound_interface"; }
-  void register_rules(const FirewallBuildContext& context,
-                      FirewallRuleRegistrar& registrar) const;
-};
-
-// Explicit order is part of the plan contract. Adding another route action
-// means adding its registration function to this manifest, not a branch in
-// the runtime apply loop.
 using RouteRuleModuleRegistration =
     void (*)(const FirewallBuildContext&, FirewallRuleRegistrar&);
 
-std::array<RouteRuleModuleRegistration, 9> route_rule_module_manifest();
+// Iterable view over the module manifest; its size is deduced where the
+// manifest is defined (firewall_rule_modules.cpp).
+struct RouteRuleModuleManifest {
+  const RouteRuleModuleRegistration* first;
+  const RouteRuleModuleRegistration* last;
+
+  const RouteRuleModuleRegistration* begin() const { return first; }
+  const RouteRuleModuleRegistration* end() const { return last; }
+  std::size_t size() const { return static_cast<std::size_t>(last - first); }
+};
+
+// Explicit order is part of the plan contract. Adding another module means
+// adding its registration function to the manifest in the .cpp, not a branch
+// in the runtime apply loop.
+RouteRuleModuleManifest route_rule_module_manifest();
 
 } // namespace keen_pbr3

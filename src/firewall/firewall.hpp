@@ -90,41 +90,6 @@ struct FirewallRuleCriteria {
 
 using ProtoPortFilter = FirewallRuleCriteria;
 
-// Daemon-side summary of the configured prefilters (conntrack policy).  The
-// backends do not use it: prefilter rules reach them as canonical plan actions
-// and are lowered in firewall_lowering.cpp.
-struct FirewallPrefilter {
-  std::optional<std::vector<std::string>> inbound_interfaces;
-  bool skip_established_or_dnat{false};
-  bool skip_marked_packets{false};
-  // Restore only the daemon-owned portion of ctmark for original-direction
-  // packets before normal classification. Disabled by default for builder
-  // callers; runtime enables it with the configured fwmark mask.
-  bool restore_conntrack_mark{false};
-  uint32_t conntrack_mark_mask{0};
-  // Backends preserve canonical ownership while expanding these operations
-  // into physical rules.
-  std::string restore_conntrack_mark_comment;
-  std::string skip_established_or_dnat_comment;
-  std::string skip_marked_packets_comment;
-  std::string inbound_interface_filter_comment;
-  bool comments_ipv4_supported{true};
-  bool comments_ipv6_supported{true};
-
-  bool has_inbound_interfaces() const {
-    return inbound_interfaces.has_value() && !inbound_interfaces->empty();
-  }
-
-  bool empty() const {
-    return !restore_conntrack_mark && !skip_established_or_dnat &&
-           !skip_marked_packets && !has_inbound_interfaces();
-  }
-
-  bool comments_supported(bool ipv6) const {
-    return ipv6 ? comments_ipv6_supported : comments_ipv4_supported;
-  }
-};
-
 class FirewallError : public std::runtime_error {
 public:
   using std::runtime_error::runtime_error;

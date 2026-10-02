@@ -198,7 +198,7 @@ public:
   }
 
   static FirewallPlan plan_from(const std::vector<RuleDesc> &descs,
-                                const FirewallPrefilter &prefilter,
+                                const PrefilterFixture &prefilter,
                                 uint32_t fwmark_mask = 0xFFFFFFFFu) {
     FirewallPlan plan;
     plan.fwmark_mask = fwmark_mask;
@@ -268,7 +268,7 @@ public:
 
   static std::string build_ipt_script(bool ipv6,
                                       const std::vector<RuleDesc> &descs,
-                                      FirewallPrefilter prefilter = {}) {
+                                      PrefilterFixture prefilter = {}) {
     const auto ruleset = lower(
         plan_from(descs, prefilter), {}, FirewallSetGeneration::A,
         prefilter.comments_supported(ipv6));
@@ -282,13 +282,13 @@ public:
   }
 
   static std::string build_raw_script(const std::vector<RuleDesc> &descs,
-                                      FirewallPrefilter prefilter = {}) {
+                                      PrefilterFixture prefilter = {}) {
     return build_raw_script_for_family(false, descs, prefilter);
   }
 
   static std::string
   build_raw_script_for_family(bool ipv6, const std::vector<RuleDesc> &descs,
-                              FirewallPrefilter prefilter = {}) {
+                              PrefilterFixture prefilter = {}) {
     const auto ruleset =
         lower(plan_from(descs, prefilter), RawPreroutingMode{true, true},
               FirewallSetGeneration::A, prefilter.comments_supported(ipv6));
@@ -312,7 +312,7 @@ public:
 
   static std::string build_output_script_for_family(
       bool ipv6, const std::vector<RuleDesc> &descs,
-      FirewallPrefilter prefilter = {}) {
+      PrefilterFixture prefilter = {}) {
     const auto ruleset =
         lower(plan_from(descs, prefilter), RawPreroutingMode{true, true},
               FirewallSetGeneration::A, prefilter.comments_supported(ipv6));
@@ -454,7 +454,7 @@ public:
   build_ipt_script_for_rule(bool ipv6, RuleDesc::Action action, uint32_t fwmark,
                             FirewallRuleCriteria criteria, bool list_backed,
                             uint32_t fwmark_mask = 0xFFFFFFFFu,
-                            FirewallPrefilter prefilter = {},
+                            PrefilterFixture prefilter = {},
                             FirewallRuleKey key = {}) {
     RuleDesc desc;
     desc.ipv6 = ipv6;
@@ -697,7 +697,7 @@ TEST_CASE("RAW6 A/B recovery treats PREROUTING as authoritative") {
 
 TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
   Rule rule{"kpbr4s_minecraft", false, false, Rule::Mark, 0x100, {}};
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xff00;
   prefilter.skip_established_or_dnat = true;
@@ -719,7 +719,7 @@ TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
 TEST_CASE("IPv6 raw prerouting filters families and keeps no-conntrack semantics") {
   Rule v4{"kpbr4s_v4", false, false, Rule::Mark, 0x100, {}};
   Rule v6{"kpbr6s_v6", true, false, Rule::Mark, 0x200, {}};
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xff00;
   const auto script = T::build_raw_script_for_family(true, {v4, v6}, prefilter);
@@ -734,7 +734,7 @@ TEST_CASE("IPv6 raw prerouting filters families and keeps no-conntrack semantics
 TEST_CASE("IPv6 raw mode keeps OUTPUT in mangle with connmark optimization") {
   Rule v4{"kpbr4s_v4", false, false, Rule::Mark, 0x100, {}};
   Rule v6{"kpbr6s_v6", true, false, Rule::Mark, 0x200, {}};
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xff00;
   const auto script = T::build_output_script_for_family(true, {v4, v6}, prefilter);
@@ -806,10 +806,10 @@ static Rule pass_rule(const std::string &set_name, bool ipv6,
   return r;
 }
 
-static FirewallPrefilter
+static PrefilterFixture
 prefilter_with_interfaces(std::vector<std::string> interfaces,
                           bool skip_established_or_dnat = true) {
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.skip_established_or_dnat = skip_established_or_dnat;
   prefilter.skip_marked_packets = true;
   prefilter.inbound_interfaces = std::move(interfaces);
@@ -1998,7 +1998,7 @@ TEST_CASE("build_ipt_script: keyed policy rules carry validated ownership commen
 
   FirewallRuleCriteria bundle_filter;
   bundle_filter.proto = L4Proto::TcpUdp;
-  FirewallPrefilter bundle_prefilter;
+  PrefilterFixture bundle_prefilter;
   bundle_prefilter.restore_conntrack_mark = true;
   bundle_prefilter.conntrack_mark_mask = 0xFF00U;
   const auto bundle_script = T::build_ipt_script_for_rule(
@@ -2020,7 +2020,7 @@ TEST_CASE("build_ipt_script: keyed policy rules carry validated ownership commen
 
 TEST_CASE("iptables emitted prefilter bundle is ordered before classifiers") {
   const FirewallRuleKey route_key{"route.mark", "one"};
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xFFFFFFFFu;
   prefilter.restore_conntrack_mark_comment =
@@ -2052,7 +2052,7 @@ TEST_CASE("iptables emitted prefilter bundle is ordered before classifiers") {
 }
 
 TEST_CASE("iptables empty owned marks retain unconditional restore output") {
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xFFFFFFFFu;
   const FirewallRuleKey restore_key{"prefilter.restore_conntrack_mark", "one"};
@@ -2222,7 +2222,7 @@ TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before "
 
 TEST_CASE("build_ipt_script: conntrack restore is original-direction and mask "
           "scoped") {
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0x00FF0000U;
   const auto script =
@@ -2251,7 +2251,7 @@ TEST_CASE("build_ipt_script: conntrack restore is original-direction and mask "
 }
 
 TEST_CASE("build_ipt_script: skip_marked_packets prefilter can be disabled") {
-  FirewallPrefilter prefilter;
+  PrefilterFixture prefilter;
   prefilter.skip_established_or_dnat = true;
   prefilter.skip_marked_packets = false;
 
@@ -2290,7 +2290,7 @@ TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body "
     }
   })");
 
-  const auto prefilter = build_firewall_prefilter(cfg);
+  const auto prefilter = prefilter_fixture_from_config(cfg);
   auto s = T::build_ipt_script(false, {mark_rule("kpbr4_local", false, 0x100)},
                                prefilter);
 
@@ -2337,7 +2337,7 @@ TEST_CASE("build_ipt_script: config-derived prefilter omits interface guard "
     }
   })");
 
-  const auto prefilter = build_firewall_prefilter(cfg);
+  const auto prefilter = prefilter_fixture_from_config(cfg);
   auto s = T::build_ipt_script(false, {mark_rule("kpbr4_local", false, 0x100)},
                                prefilter);
 

@@ -621,20 +621,6 @@ bool interface_has_routed_ipv6(const DumpedInterface& interface) {
         });
 }
 
-FirewallPrefilter build_firewall_prefilter(const Config& cfg) {
-    FirewallPrefilter prefilter;
-    prefilter.skip_established_or_dnat = true;
-    prefilter.skip_marked_packets = cfg.daemon.value_or(DaemonConfig{}).skip_marked_packets.value_or(true);
-
-    const auto route_cfg = cfg.route.value_or(RouteConfig{});
-    if (route_cfg.inbound_interfaces.has_value()
-        && !route_cfg.inbound_interfaces->empty()) {
-        prefilter.inbound_interfaces = *route_cfg.inbound_interfaces;
-    }
-
-    return prefilter;
-}
-
 FirewallRuleCriteria build_firewall_rule_criteria(
     const RouteRule& rule,
     const std::vector<DumpedRoute>& main_routes,
