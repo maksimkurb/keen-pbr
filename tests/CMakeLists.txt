@@ -21,6 +21,7 @@ add_executable(keen-pbr-tests
   test_test_routing.cpp
   test_keenetic_dns.cpp
   test_dns_probe_server.cpp
+  test_dns_wire.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
   test_list_streamer.cpp
@@ -122,6 +123,7 @@ add_executable(keen-pbr-tests
   ../src/dns/keenetic_dns.cpp
   ../src/daemon/system_resolver_hook.cpp
   ../src/dns/dns_probe_server.cpp
+  ../src/dns/dns_wire.cpp
   ../src/cache/cache_manager.cpp
   ../src/ipc/control_protocol.cpp
   ../src/ipc/control_client.cpp
