@@ -348,6 +348,8 @@ set(SOURCES
   src/daemon/runtime_state_store.cpp
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
+  src/netfilter/nl_msg.cpp
+  src/netfilter/nl_socket.cpp
   src/util/blocking_executor.cpp
   src/util/firewall_backend_utils.cpp
   src/util/ipv6_support.cpp
