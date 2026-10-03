@@ -10,7 +10,11 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import type { DnsCheckStatus } from "@/hooks/use-dns-check"
-import { DNS_CHECK_DOMAIN_SUFFIX, useDnsCheck } from "@/hooks/use-dns-check"
+import {
+  DNS_CHECK_DOMAIN_SUFFIX,
+  normalizeDnsMarkerDomain,
+  useDnsCheck,
+} from "@/hooks/use-dns-check"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,10 +41,12 @@ export function DnsCheckModal({
   open,
   onOpenChange,
   browserStatus,
+  markerDomain,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   browserStatus: DnsCheckStatus
+  markerDomain?: string
 }) {
   const { t } = useTranslation()
   const {
@@ -48,7 +54,7 @@ export function DnsCheckModal({
     checkState: pcCheckState,
     startCheck: startPcCheck,
     reset: resetPcCheck,
-  } = useDnsCheck()
+  } = useDnsCheck(markerDomain)
   useEffect(() => {
     if (open) {
       startPcCheck(false)
@@ -56,7 +62,7 @@ export function DnsCheckModal({
   }, [open, startPcCheck])
 
   const command = pcCheckState.randomString
-    ? `nslookup ${pcCheckState.randomString}.${DNS_CHECK_DOMAIN_SUFFIX}`
+    ? `nslookup ${pcCheckState.randomString}.${normalizeDnsMarkerDomain(markerDomain || DNS_CHECK_DOMAIN_SUFFIX)}`
     : ""
 
   const isBrowserSuccess = browserStatus === "success"

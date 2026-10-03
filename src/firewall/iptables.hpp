@@ -1,6 +1,9 @@
 #pragma once
 
 #include "firewall.hpp"
+#include "firewall_lowering.hpp"
+#include "firewall_physical.hpp"
+#include "firewall_rule.hpp"
 
 #include <cstdint>
 #include <map>
@@ -9,6 +12,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -25,31 +29,22 @@ public:
   ~IptablesFirewall() override = default;
 
   void prepare_apply(FirewallApplyMode mode) override;
-  std::string static_set_name(const std::string &list_name,
-                              int family) const override;
-  std::vector<std::string>
-  static_set_names(const std::string &list_name, int family) const override;
 
   // Buffer an ipset create command (hash:net family, optional timeout).
   void create_ipset(const std::string &set_name, int family,
                     uint32_t timeout = 0) override;
-
-  // Buffer an iptables/ip6tables -j MARK --set-mark rule for the given ipset.
-  void create_mark_rule(uint32_t fwmark,
-                        const FirewallRuleCriteria &criteria = {}) override;
-  // Buffer an iptables/ip6tables -j DROP rule for the given criteria.
-  void create_drop_rule(const FirewallRuleCriteria &criteria = {}) override;
-  // Buffer an iptables/ip6tables -j RETURN rule for the given criteria.
-  void create_pass_rule(const FirewallRuleCriteria &criteria = {}) override;
 
   // Return an IpsetRestoreVisitor that appends 'add' lines to the pending
   // element buffer for set_name; entries are flushed during apply().
   std::unique_ptr<ListEntryVisitor>
   create_batch_loader(const std::string &set_name) override;
 
-  // Populate the inactive A/B static-set generation, then atomically rebuild
-  // and retarget the stable PREROUTING and OUTPUT dispatchers.
-  void apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
+  // Create or refresh the static sets (temp set + swap when the set already
+  // exists), replace each table's KeenPbr chains (and retire legacy A/B
+  // chains) with one iptables-restore transaction per table and family, then
+  // destroy owned sets the new rules no longer reference.
+  void apply(const FirewallPlan &plan,
+             FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
   // Destroy all buffered ipsets (ipset destroy) and flush/delete the
   // KeenPbrTable chain from both iptables and ip6tables mangle tables.
   void cleanup() override;
@@ -59,17 +54,40 @@ public:
     return raw_prerouting_;
   }
   bool uses_raw_prerouting() const override { return raw_prerouting_.ipv4; }
+  // Builtin-chain hook jumps into the PREROUTING/OUTPUT classification chains.
+  PhysicalRuleset expected_hook_rules() const override;
+  PhysicalRuleset expected_ruleset(const FirewallPlan &plan) const override;
+
+  // Test/fixture-only seam: bypass the /proc capability probes (xt_comment
+  // registration, raw table registration), which are absent on nft-backed
+  // iptables.  Production code never calls this; probing is unchanged by
+  // default.
+  // `ipv6_backend` likewise replaces the ip6tables availability probe.  The
+  // comment override also applies at once, so expected_ruleset() can be
+  // built without prepare_apply() (which inspects the live system).
+  void override_capabilities_for_fixtures(
+      std::optional<bool> comments_supported,
+      std::optional<RawPreroutingMode> raw_prerouting,
+      std::optional<bool> ipv6_backend = std::nullopt) {
+    comments_override_ = comments_supported;
+    if (comments_supported.has_value()) {
+      comment_v4_supported_ = comment_v6_supported_ = *comments_supported;
+    }
+    if (raw_prerouting.has_value()) {
+      raw_prerouting_ = *raw_prerouting;
+    }
+    ipv6_backend_override_ = ipv6_backend;
+  }
 
 private:
-  static constexpr const char *CHAIN_NAME = "KeenPbrTable";
-  static constexpr const char *RAW_CHAIN_NAME = "KeenPbrRaw";
-  static constexpr const char *OUTPUT_CHAIN_NAME = "KeenPbrOutput";
+  std::optional<bool> comments_override_;
+  std::optional<bool> ipv6_backend_override_;
   void cleanup_live_impl(bool preserve_dynamic_sets = false,
                          bool sweep_live_state = false);
   void cleanup_impl();
   void cleanup_rules_impl(bool sweep_live_state = false);
   void cleanup_saved_sets(bool preserve_dynamic_sets);
-  static void cleanup_legacy_generation_chains(const char *command);
+  static void cleanup_legacy_numbered_chains(const char *command);
 
   // Describes a set to be created via 'ipset restore'.
   struct PendingSet {
@@ -80,127 +98,92 @@ private:
     std::optional<uint32_t> maxelem;
   };
 
-  // Describes an iptables/ip6tables rule to be added to KeenPbrTable.
-  struct PendingRule {
-    std::string set_name; // ipset name to match with --match-set
-    bool ipv6;            // true → ip6tables, false → iptables
-    enum Action { Mark, Drop, Pass } action; // MARK, DROP, or RETURN target
-    uint32_t fwmark;                         // only for Mark
-    uint32_t fwmark_mask{0xFFFFFFFFu};       // only for Mark
-    FirewallRuleCriteria criteria;           // optional packet match criteria
-  };
-
-  enum class LiveGenerationState { A, B, Missing, Invalid };
-
-  struct GenerationInspection {
-    LiveGenerationState primary{LiveGenerationState::Missing};
-    LiveGenerationState secondary{LiveGenerationState::Missing};
-  };
-
-  struct GenerationPlan {
-    FirewallSetGeneration target{FirewallSetGeneration::A};
-    bool repair_output{false};
-  };
-
-  struct StaticSetInspection {
-    LiveGenerationState generation{LiveGenerationState::Missing};
-    std::set<std::string> names;
-  };
+  void compile_plan(const FirewallPlan &plan, FirewallApplyMode mode);
+  void apply_prepared(FirewallApplyMode mode);
+  void clear_pending();
 
   // Build the 'create <name> hash:net family <f> [capacity] [timeout <t>]'
   // line. -exist remains the final token for ipset restore compatibility.
   static std::string build_ipset_create_line(const PendingSet &ps);
   static bool is_dynamic_set_name(const std::string &set_name);
+  // Strict grammar of the static-set names keen-pbr owns.  Stable:
+  // kpbr4_<tag>/kpbr6_<tag>; Temp: kpbr4t_<tag>/kpbr6t_<tag> (refresh
+  // staging); Legacy: kpbr4s_/kpbr4S_/kpbr6s_/kpbr6S_<tag> (retired A/B
+  // generations).  <tag> is a list name (lowercase letters, digits, `_`,
+  // starting with a letter, at most 24 characters).
+  enum class OwnedSetKind { None, Stable, Temp, Legacy };
+  static OwnedSetKind classify_owned_static_set(const std::string &name);
+  // Staging name of a stable static set; nullopt for any other name.
+  static std::optional<std::string> temp_set_name(const std::string &stable);
+  // Rewrites the `add <from> ` prefix of every restore line to `add <to> `.
+  static void append_retargeted_elements(std::string &out,
+                                         const std::string &elements,
+                                         const std::string &from,
+                                         const std::string &to);
+  // `ipset destroy`; reports instead of throwing.  True when the set is gone.
+  static bool destroy_set_best_effort(const std::string &name);
+  // Destroys owned static sets in `live` that the new rules no longer
+  // reference (everything but the stable names in `keep`).
+  void destroy_unreferenced_static_sets(const std::set<std::string> &live,
+                                        const std::set<std::string> &keep);
   static bool dynamic_set_schema_compatible(const std::string &saved_sets,
                                             const PendingSet &expected);
   std::optional<std::string>
   find_incompatible_dynamic_set_schema(bool effective_ipv6) const;
   void preflight_dynamic_set_schemas(bool effective_ipv6) const;
   void preflight_reused_set_schemas(bool effective_ipv6) const;
+  // One owned classification chain of a table and the builtin chain that
+  // jumps into it.
+  struct OwnedChainSpec {
+    std::string name;
+    const char *hook_chain; // "PREROUTING", "OUTPUT", "POSTROUTING", ...
+    // Pinned hooks are inserted at position 1 (`-I <chain> 1`) and repaired
+    // when they drift; the others are appended.
+    bool pinned{false};
+    // Second builtin chain that also jumps into this chain (KeenPbrSniff:
+    // FORWARD and OUTPUT).
+    const char *extra_hook_chain{nullptr};
+  };
+  // Pure renderer of one table of one family into an iptables-restore
+  // transaction: declares (flushes) the owned chains, appends the lowered
+  // rules, ensures exactly one builtin-chain hook per chain, and flushes and
+  // deletes the retired A/B chains found in `observed_dump` (the output of
+  // `iptables -t <table> -S`) in the same commit.  Every rule line comes from
+  // the PhysicalRuleset.
   static std::string
-  build_raw_prerouting_script(bool ipv6,
-                              FirewallSetGeneration target_generation,
-                              const std::vector<PendingRule> &rules,
-                              const FirewallGlobalPrefilter &prefilter);
-  // Compatibility helper: build IPv4 RAW PREROUTING.
-  static std::string
-  build_raw_prerouting_script(FirewallSetGeneration target_generation,
-                              const std::vector<PendingRule> &rules,
-                              const FirewallGlobalPrefilter &prefilter) {
-    return build_raw_prerouting_script(false, target_generation, rules,
-                                       prefilter);
+  build_table_script(const char *table, FirewallFamily family,
+                     const std::vector<OwnedChainSpec> &chains,
+                     const PhysicalRuleset &rules,
+                     const std::string &observed_dump);
+  FirewallLoweringContext lowering_context(uint32_t fwmark_mask) const;
+  bool probe_xt_comment(bool ipv6) const;
+  // Probe a caller-supplied registration file before running the restore
+  // grammar check.  The path parameter is an injectable seam for tests;
+  // production always supplies the corresponding /proc/net file.
+  bool probe_xt_comment_from_registration(
+      bool ipv6, const std::string &registration_path) const;
+  static bool has_xt_comment_registration(const std::string &contents);
+  bool comments_supported_for_family(bool ipv6) const {
+    return ipv6 ? comment_v6_supported_ : comment_v4_supported_;
   }
-  static std::string
-  build_output_script(bool ipv6, FirewallSetGeneration target_generation,
-                      const std::vector<PendingRule> &rules,
-                      const FirewallGlobalPrefilter &prefilter);
-  // Compatibility helper: build IPv4 OUTPUT.
-  static std::string
-  build_output_script(FirewallSetGeneration target_generation,
-                      const std::vector<PendingRule> &rules,
-                      const FirewallGlobalPrefilter &prefilter) {
-    return build_output_script(false, target_generation, rules, prefilter);
-  }
-  static std::string
-  build_ipt_script(bool ipv6, FirewallSetGeneration target_generation,
-                   const std::vector<PendingRule> &rules,
-                   const FirewallGlobalPrefilter &prefilter = {});
-  // Build early RETURN lines for the global prefilter.
-  static std::string
-  build_prefilter_lines(const FirewallGlobalPrefilter &prefilter,
-                        const std::string &chain, bool allow_conntrack);
-  // Build the proto/port fragment for a single rule (single proto, not
-  // tcp/udp).
-  static std::vector<std::string>
-  build_proto_port_fragments(L4Proto proto, const PortSpec &src_port,
-                             const PortSpec &dst_port,
-                             bool negate_src_port = false,
-                             bool negate_dst_port = false);
-  // Build one or more iptables-restore lines for a queued rule.
-  static std::vector<std::string>
-  build_rule_lines(const PendingRule &pr,
-                   const FirewallGlobalPrefilter &prefilter,
-                   const std::string &chain, bool allow_conntrack);
   bool ipv6_backend_available() const;
   void validate_raw_prerouting_capability(bool ipv6) const;
-  LiveGenerationState inspect_live_generation(bool ipv6) const;
-  GenerationInspection inspect_generation(bool ipv6) const;
-  StaticSetInspection inspect_static_sets(
-      bool ipv6, const GenerationInspection &inspection) const;
-  static StaticSetInspection parse_static_set_references(
-      const std::string &rules, bool ipv6);
-  static GenerationPlan generation_plan_for_states(
-      LiveGenerationState primary, LiveGenerationState secondary);
-  static FirewallSetGeneration static_target_for_mode(
-      FirewallApplyMode mode, LiveGenerationState live_static,
-      FirewallSetGeneration rule_target);
-  static void validate_target_generation(const GenerationPlan &plan,
-                                         FirewallSetGeneration expected);
-  LiveGenerationState inspect_dispatcher(
-      const char *command, const char *table, const std::string &dispatcher,
-      const std::string &generation_a,
-      const std::string &generation_b) const;
-  FirewallSetGeneration select_target_generation(bool ipv6,
-                                                 bool repair_output) const;
-  void ensure_target_generation_inactive(
-      bool ipv6, FirewallSetGeneration target, bool repair_output) const;
-  void publish_dispatcher(bool ipv6, bool output,
-                          FirewallSetGeneration generation) const;
-  static LiveGenerationState
-  parse_live_generation(const std::string &rules, const std::string &dispatcher,
-                        const std::string &generation_a,
-                        const std::string &generation_b);
-  static FirewallSetGeneration
-  target_generation_for_states(LiveGenerationState primary,
-                               LiveGenerationState secondary);
-  void reconcile_hooks(bool ipv6) const;
-  void verify_applied_generation(bool ipv6, FirewallSetGeneration target) const;
+  // `iptables -t <table> -S`; throws FirewallError on failure.
+  static std::string capture_table_dump(bool ipv6, const char *table);
+  // The PREROUTING classification chain of the family exists live
+  // (RulesOnly reuses the live rules).
+  bool live_prerouting_chain_present(bool ipv6) const;
+  // Names of the live ipsets (`ipset list -n`); nullopt when the listing
+  // fails.
+  static std::optional<std::set<std::string>> list_live_ipset_names();
+  void verify_applied_hooks(bool ipv6) const;
+  // The first `-A <source>` rule of the dump is exactly the plain jump.
+  static bool first_rule_is_jump(const std::string &rules,
+                                 const std::string &source_chain,
+                                 const std::string &target_chain);
   static size_t count_exact_jump(const std::string &rules,
                                  const std::string &source_chain,
                                  const std::string &target_chain);
-  static void reconcile_hook(const char *command, const char *table,
-                             const char *builtin_chain,
-                             const char *target_chain);
   static void remove_all_hooks(const char *command, const char *table,
                                const char *builtin_chain,
                                const char *target_chain);
@@ -208,24 +191,13 @@ private:
   bool uses_raw_prerouting(bool ipv6) const {
     return raw_prerouting_.uses(ipv6);
   }
-  const char *prerouting_dispatcher_chain_name(bool ipv6) const;
-  const char *prerouting_generation_chain(FirewallSetGeneration generation,
-                                          bool ipv6) const;
-  static const char *output_generation_chain(FirewallSetGeneration generation);
-  // Expand filter (proto, src_addr, dst_addr) into cross-product of
-  // PendingRules and append them to out.  tcp/udp is split into two entries.
-  // Multiple CIDRs in src_addr / dst_addr each become separate rules (OR
-  // semantics when combined).
-  void append_rules_for_family(bool ipv6, PendingRule::Action action,
-                               uint32_t fwmark,
-                               const FirewallRuleCriteria &criteria);
-
+  const char *prerouting_chain_name(bool ipv6) const;
   // Sets queued for creation, flushed by apply().
   std::vector<PendingSet> pending_sets_;
   // Per-set element buffers for ipset restore lines, keyed by set name.
   std::map<std::string, std::ostringstream> pending_elements_;
-  // Rules queued for insertion into KeenPbrTable, flushed by apply().
-  std::vector<PendingRule> pending_rules_;
+  // Lowered rules of the owned classification chains, flushed by apply().
+  PhysicalRuleset pending_ruleset_;
 
   // Track created ipsets: set_name -> family (AF_INET/AF_INET6)
   std::map<std::string, int> created_sets_;
@@ -233,23 +205,22 @@ private:
   // Track whether chain + jump rule exist for each protocol
   bool chain_v4_created_ = false;
   bool chain_v6_created_ = false;
-  static const char *generation_chain(FirewallSetGeneration generation);
-  static std::string static_set_name_for_generation(
-      const std::string &list_name, int family,
-      FirewallSetGeneration generation);
-  FirewallSetGeneration target_v4_generation_{FirewallSetGeneration::A};
-  FirewallSetGeneration target_v6_generation_{FirewallSetGeneration::A};
-  FirewallSetGeneration target_static_v4_generation_{FirewallSetGeneration::A};
-  FirewallSetGeneration target_static_v6_generation_{FirewallSetGeneration::A};
-  bool static_generations_prepared_{false};
   FirewallApplyMode prepared_mode_{FirewallApplyMode::Destructive};
   bool apply_prepared_{false};
+  bool comment_v4_supported_{true};
+  bool comment_v6_supported_{true};
   RawPreroutingMode raw_prerouting_{};
 
 #ifdef KEEN_PBR3_TESTING
   friend class IptablesBuilderTest;
 #endif
 };
+
+// Renders one canonical rule as an `iptables-restore` `-A <chain> ...` line
+// (newline terminated).  Pure: all policy was decided by the lowering.  Throws
+// FirewallError for rules iptables cannot express in one line.
+std::string render_iptables_rule(const PhysicalRule &rule,
+                                 const std::string &chain);
 
 // Factory function called from firewall.cpp
 std::unique_ptr<Firewall>

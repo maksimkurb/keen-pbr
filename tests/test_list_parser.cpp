@@ -95,4 +95,23 @@ TEST_CASE("ListParser rejects malformed DNS labels") {
     }
 }
 
+TEST_CASE("ListParser::entry_family classifies Ip and Cidr entries") {
+    using F = EntryFamily;
+    CHECK(ListParser::entry_family(EntryType::Ip, "192.0.2.1") == F::Ipv4);
+    CHECK(ListParser::entry_family(EntryType::Cidr, "192.0.2.0/24") == F::Ipv4);
+    CHECK(ListParser::entry_family(EntryType::Ip, "2001:db8::1") == F::Ipv6);
+    CHECK(ListParser::entry_family(EntryType::Cidr, "2001:db8::/32") == F::Ipv6);
+    CHECK(ListParser::entry_family(EntryType::Ip, "::ffff:192.0.2.1") == F::Ipv6);
+    CHECK(ListParser::entry_family(EntryType::Cidr, "::ffff:192.0.2.0/120") == F::Ipv6);
+
+    CHECK_FALSE(ListParser::entry_family(EntryType::Domain, "example.test").has_value());
+    CHECK_FALSE(ListParser::entry_family(EntryType::Ip, "example.test").has_value());
+    CHECK_FALSE(ListParser::entry_family(EntryType::Ip, "192.0.2.0/24").has_value());
+    CHECK_FALSE(ListParser::entry_family(EntryType::Cidr, "192.0.2.1").has_value());
+    CHECK_FALSE(ListParser::entry_family(EntryType::Cidr, "192.0.2.0/33").has_value());
+    CHECK_FALSE(ListParser::entry_family(EntryType::Cidr, "2001:db8::/").has_value());
+    CHECK_FALSE(ListParser::entry_family(EntryType::Ip, "fe80::1%eth0").has_value());
+    CHECK_FALSE(ListParser::entry_family(EntryType::Ip, "").has_value());
+}
+
 } // namespace keen_pbr3

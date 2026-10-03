@@ -153,6 +153,23 @@ bool ListParser::classify_entry(std::string_view entry, ListEntryVisitor& visito
     return false;
 }
 
+std::optional<EntryFamily> ListParser::entry_family(EntryType type,
+                                                    std::string_view entry) {
+    switch (type) {
+        case EntryType::Ip:
+            if (is_ipv4(entry)) return EntryFamily::Ipv4;
+            if (is_ipv6(entry)) return EntryFamily::Ipv6;
+            break;
+        case EntryType::Cidr:
+            if (is_cidr_v4(entry)) return EntryFamily::Ipv4;
+            if (is_cidr_v6(entry)) return EntryFamily::Ipv6;
+            break;
+        case EntryType::Domain:
+            break;
+    }
+    return std::nullopt;
+}
+
 void ListParser::stream_parse(std::istream& input,
                               ListEntryVisitor& visitor,
                               std::string_view source_name) {

@@ -51,6 +51,7 @@ api::HealthResponse build_health_response(const ServiceHealthState& service_heal
         resp.os_type = service_health.os_type;
         resp.os_version = service_health.os_version;
         resp.build_variant = service_health.build_variant;
+        resp.resolver_integration = service_health.resolver_integration;
         resp.resolver_config_hash = service_health.resolver_config_hash;
         resp.resolver_config_hash_actual = service_health.resolver_config_hash_actual;
         resp.resolver_config_hash_actual_ts = service_health.resolver_config_hash_actual_ts;
@@ -65,6 +66,7 @@ api::HealthResponse build_health_response(const ServiceHealthState& service_heal
                                            .get<api::LifecycleOperation>();
         }
 
+        resp.intercept = service_health.intercept;
         resp.config_is_draft = service_health.config_is_draft;
         resp.rollback_available = service_health.rollback_available;
         return resp;

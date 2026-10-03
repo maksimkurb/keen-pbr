@@ -2,10 +2,36 @@
 
 #include "runtime/conntrack_manager.hpp"
 
+#include <utility>
 #include <vector>
 #include <string>
 
 namespace keen_pbr3 {
+
+TEST_CASE("conntrack policy derives from the applied plan") {
+    const auto plan_with = [](bool dnat) {
+        FirewallPlan plan;
+        FirewallRuleRegistrar registrar(plan);
+        FirewallRuleInstance mark;
+        mark.key = FirewallRuleKey::compact("test.mark", "one");
+        mark.stage = FirewallRuleStage::route_classification;
+        mark.action = MarkAction{0x100, 0xFFFFFFFFu};
+        registrar.register_rule(std::move(mark));
+        if (dnat) {
+            FirewallRuleInstance bypass;
+            bypass.key = FirewallRuleKey::compact("test.dnat", "one");
+            bypass.stage = FirewallRuleStage::global_bypass;
+            bypass.action = SkipEstablishedOrDnatAction{};
+            registrar.register_rule(std::move(bypass));
+        }
+        registrar.finish();
+        return plan;
+    };
+
+    CHECK(conntrack_policy_for_plan(plan_with(true)).bypass_established_or_dnat);
+    CHECK_FALSE(conntrack_policy_for_plan(plan_with(false)).bypass_established_or_dnat);
+    CHECK_FALSE(conntrack_policy_for_plan(FirewallPlan{}).bypass_established_or_dnat);
+}
 
 TEST_CASE("ConntrackManager reconciles only policy changes") {
     ConntrackManager manager;

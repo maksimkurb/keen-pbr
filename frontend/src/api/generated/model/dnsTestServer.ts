@@ -6,6 +6,11 @@
  * OpenAPI spec version: 3.0.0
  */
 
+/**
+ * Deprecated and ignored. The built-in DNS probe server was replaced by the interceptor marker (`intercept.dns.marker`). The object is still accepted for backwards compatibility and a warning is logged.
+
+ * @deprecated
+ */
 export interface DnsTestServer {
   /** IPv4 listen address for the built-in DNS test server. */
   listen: string;

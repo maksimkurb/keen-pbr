@@ -3,22 +3,24 @@ title: DNS
 weight: 4
 ---
 
-Настройки DNS используйте, если хотите, чтобы домены из списка разрешались через определённый DNS-сервер — как правило, тот же VPN, который пропускает соответствующий трафик.
+Маршрутизация по доменам работает и без настроек DNS: keen-pbr сам перехватывает
+DNS-ответы и видимые L7-данные и заполняет динамические наборы списков. См.
+[архитектуру DNS-перехвата](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md).
 
-При установке пакета на роутере keen-pbr обычно сам заботится об интеграции с dnsmasq. Большинству пользователей достаточно задать:
-
-- `system_resolver` (оставьте значения по умолчанию)
-- `servers`
-- `rules`
-- `fallback`
+Настройки ниже нужны только для выбора отдельных upstream DNS-серверов. Это
+необязательная интеграция с **dnsmasq**: установите
+`dns.resolver_integration: "dnsmasq"`, если хотите, чтобы keen-pbr генерировал
+конфигурацию dnsmasq с per-list upstream, fallback и статическими записями.
+При значении `none` (по умолчанию) keen-pbr не настраивает системный
+резолвер.
 
 ## Конфигурация
 
 ```json { filename="config.json" }
 {
   "dns": {
+    "resolver_integration": "dnsmasq",
     "system_resolver": {
-      "type": "dnsmasq-nftset",
       "address": "127.0.0.1"
     },
     "servers": [...],
@@ -30,11 +32,25 @@ weight: 4
 
 | Поле | Тип | Описание |
 |---|---|---|
-| `system_resolver` | object | Как keen-pbr обновляет dnsmasq в системе |
+| `resolver_integration` | string | `none` (по умолчанию) или `dnsmasq`. При `none` keen-pbr не трогает системный резолвер; per-list `rules`/`fallback` и `system_resolver` неактивны, но определения серверов (включая `detour`) остаются значимыми для обычного DNS-трафика. |
+| `system_resolver` | object | Как keen-pbr проверяет dnsmasq (требуется для `dnsmasq`) |
 | `servers` | array | Определения DNS-серверов |
 | `rules` | array | Правила сопоставления списков DNS-серверам |
 | `fallback` | array of string | Упорядоченные теги DNS-серверов для запросов, которые не соответствуют никакому правилу |
-| `dns_test_server` | object | Опциональный встроенный DNS-пробник для расширенного устранения неполадок |
+| `dns_test_server` | object | Устаревшее поле, принимается, но игнорируется; используйте `intercept.dns.marker` |
+
+## Интеграция с резолвером
+
+| Значение | Поведение |
+|---|---|
+| `none` | По умолчанию. dnsmasq не настраивается, а динамические наборы заполняются перехватчиком DNS/L7. |
+| `dnsmasq` | keen-pbr генерирует конфигурацию и проверяет её через TXT-запись. Если DNS-перехват недоступен, включается условный fallback через `ipset=`/`nftset=`. |
+
+Для старых конфигураций без `resolver_integration` автоматически выбирается
+`dnsmasq`, если заданы непустые `dns.rules` или `dns.system_resolver`; во всех
+остальных случаях выбирается `none`, и значение сохраняется явно при следующей
+записи. `dns.rules` при режиме `none` допустимы, но вызывают предупреждение:
+per-list upstream требует dnsmasq.
 
 ## System Resolver
 
@@ -44,29 +60,118 @@ weight: 4
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `type` | string | да | Тип интеграции резолвера: `dnsmasq-ipset` или `dnsmasq-nftset` |
 | `address` | string | да | Адрес резолвера, используемый для интеграции и проверок состояния через TXT, например `"127.0.0.1"` или `"127.0.0.1:5353"` |
 
-## DNS Test Server
+## DNS Test Server (устарел)
 
-`dns.dns_test_server` опционален. Он mainly полезен при устранении неполадок с DNS, когда вы хотите, чтобы keen-pbr предоставил простой тестовый DNS-listener.
+`dns.dns_test_server` больше не запускает listener: поле принимается для
+совместимости и игнорируется с предупреждением. Для проверки пути DNS
+используется marker `check.keen.pbr`, который при включённом перехвате получает
+ответ `127.0.0.88`. События наблюдения доступны через SSE API.
 
-| Поле | Тип | Обязательно | Описание |
+Секция `intercept` управляет перехватом DNS-ответов и L7-наблюдением:
+
+| Поле | Тип | По умолчанию | Описание |
 |---|---|---|---|
-| `listen` | string | да | IPv4-адрес прослушивания в форме `host:port`, например `"127.0.0.88:53"` |
-| `answer_ipv4` | string | нет | IPv4-адрес, возвращаемый в ответе DNS-пробника (`nslookup check.keen.pbr`). По умолчанию — хост-часть из `listen`. |
+| `enabled` | boolean | `true` | Включить перехват при наличии возможностей ядра |
+| `min_ttl_s` / `max_ttl_s` | integer | `300` / `86400` | Границы TTL адресов, добавляемых в динамические наборы |
+| `dns.enabled` | boolean | `true` | NFQUEUE DNS hold; UDP и TCP DNS |
+| `dns.queue_num` | integer | `9053` | Номер NFQUEUE |
+| `dns.hold_timeout_ms` | integer | `30` | Бюджет обработки в userspace, не строгий kernel timeout |
+| `dns.marker` | object | `check.keen.pbr` / `127.0.0.88` | Диагностический DNS marker |
+| `l7.enabled` | boolean | `true` | NFLOG-наблюдение |
+| `l7.nflog_group` | integer | `9054` | Группа NFLOG |
+| `l7.tls` / `http` / `quic` | boolean | `true` | Источники SNI, HTTP Host и QUIC Initial |
 
-```json
-{
-  "dns": {
-    "dns_test_server": {
-      "listen": "127.0.0.88:53"
-    }
-  }
-}
-```
+Отсутствующая возможность NFQUEUE/NFLOG отключает только соответствующую
+часть и отражается в health. `queue-bypass` помогает только когда listener
+отсутствует; уже привязанный, но остановившийся listener может удерживать
+пакеты. Полное описание failure semantics приведено на странице архитектуры.
 
-Когда HTTP API включён, вы можете проверить, работает ли ваш DNS, через веб-интерфейс.
+### Требования к ядру
+
+Релизные сборки компилируются со старыми UAPI-заголовками (Linux 3.4 для mips,
+3.10 для aarch64, см. `src/netfilter/uapi_compat.hpp`), а на роутерах работают
+более новые ядра (Keenetic 4.9+). В таблице указан первый mainline-релиз, в
+котором появился каждый механизм. Данные взяты из истории upstream: для каждой
+строки указан файл, который проверялся на последовательных тегах
+[torvalds/linux](https://github.com/torvalds/linux) (`blob/<tag>/<path>`;
+заголовки лежат в `include/linux/netfilter/` до v3.7 и в
+`include/uapi/linux/netfilter/` после). Вендорские ядра могут бэкпортировать
+или вырезать возможности, поэтому keen-pbr не полагается на эти номера во время
+работы, а проверяет примитивы на деле (см. [Runtime-проверки](#runtime-проверки)).
+
+| Возможность (для чего нужна) | Первый mainline | Где проверено (upstream) | Нужна для | Если нет |
+|---|---|---|---|---|
+| nfnetlink_queue: `NFQNL_CFG_CMD_BIND`, `NFQA_CFG_PARAMS`, `NFQA_PAYLOAD` в вердикте | 2.6.14 | `nfnetlink_queue.h` | DNS hold | обязательно |
+| Обработчик NFQUEUE регистрируется при загрузке модуля. keen-pbr не отправляет `PF_BIND`; на более старых ядрах bind подтверждается, но пакеты никогда не ставятся в очередь | 3.8 | `net/netfilter/nfnetlink_queue_core.c`: `PF_BIND` регистрирует обработчик в v3.7 и просто `return 0` в v3.8 | DNS hold | обязательно; **не проверяется пробой** (bind проходит) |
+| Цель `xt_NFQUEUE` | 2.6.16 | `net/netfilter/xt_NFQUEUE.c` (раньше `ipt_NFQUEUE`) | DNS hold, iptables | обязательно |
+| `xt_NFQUEUE --queue-bypass` (`xt_NFQ_info_v2`) | 2.6.39 | `xt_NFQUEUE.h` | DNS hold, iptables | обязательно (правило не загрузится) |
+| nft `queue ... bypass` (`NFT_QUEUE_FLAG_BYPASS`, `nft_queue.c`) | 3.14 | `nf_tables.h`, `nft_queue.c` | DNS hold, nft | обязательно |
+| `NFQA_CFG_FLAGS`/`NFQA_CFG_MASK` + `NFQA_CFG_F_FAIL_OPEN` | 3.6 | `nfnetlink_queue.h` | DNS hold | необязательно: работа без fail-open, `fail_open=false` и предупреждение |
+| `NFQA_CAP_LEN` (обнаружение усечённого захвата) | 3.7 | `nfnetlink_queue.h` | DNS hold | необязательно: усечение всё равно ловится по длине IP-заголовка |
+| `NFQNL_MSG_VERDICT_BATCH` (пакетный accept при остановке) | 3.1 | `nfnetlink_queue.h` | сброс очереди при остановке | необязательно: пакеты отпускаются по одному |
+| Подмена payload в вердикте в начальном user namespace | 2.6.14 (как `NFQA_PAYLOAD`) | живой тест проекта (см. [архитектуру перехвата](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)); upstream-коммит с ограничением по user namespace не найден | подмена marker | необязательно: marker пропускается без изменений |
+| nfnetlink_log: bind/режим `NFULNL_MSG_CONFIG` | 2.6.14 | `net/netfilter/nfnetlink_log.c` | L7 | обязательно |
+| Цель `xt_NFLOG` (`--nflog-group`, `--nflog-size`, `--nflog-threshold`) | 2.6.20 | `net/netfilter/xt_NFLOG.c`, `xt_NFLOG.h` | L7, iptables | обязательно |
+| nft `log group ... snaplen ... queue-threshold` (`NFTA_LOG_GROUP`, `_SNAPLEN`, `_QTHRESHOLD`) | 3.13 | `nf_tables.h`, `nft_log.c` | L7, nft | обязательно |
+| `NFULA_CT` (атрибуты conntrack в записях NFLOG) | 4.4 | `nfnetlink_log.h` | не используется | не требуется |
+| `xt_connbytes` (`--connbytes ... packets`) | 2.6.16 | `net/netfilter/xt_connbytes.c` | L7, iptables | обязательно |
+| Переключатель учёта conntrack во время работы (`nf_conntrack_acct`) | 2.6.27 | `net/netfilter/nf_conntrack_acct.c` | L7 | обязательно (keen-pbr включает его сам) |
+| `xt_conntrack` `--ctdir` (`XT_CONNTRACK_DIRECTION`) | 2.6.25 | `xt_conntrack.h` | DNS hold, iptables | обязательно |
+| nft `ct original packets` (`NFT_CT_PKTS`) | 4.5 | `nf_tables.h`, `nft_ct.c` | L7, nft | обязательно |
+| nft `ct direction` (`NFTA_CT_DIRECTION`) | 3.13 | `nf_tables.h` | DNS hold, nft | обязательно |
+| Протокол ipset netlink 6 (`IPSET_CMD_PROTOCOL`), тайм-аут элемента `IPSET_ATTR_TIMEOUT`, `hash:net` | 2.6.39 | `ipset/ip_set.h` (`IPSET_PROTOCOL 6` в v2.6.39, v3.4 и v4.9), `ipset/ip_set_hash_net.c` | запись в наборы, ipset | обязательно |
+| nf_tables: batch (`NFNL_MSG_BATCH_BEGIN`), `NFT_MSG_NEWSETELEM`/`DELSETELEM` | 3.13 | `nfnetlink.h`, `nf_tables.h`, `nf_tables_api.c` | запись в наборы, nft | обязательно |
+| Семейство nf_tables `inet` (`NFPROTO_INET`) | 3.14 | `include/uapi/linux/netfilter.h` | nft | обязательно |
+| Тайм-аут элемента набора nf_tables (`NFT_SET_TIMEOUT`, `NFTA_SET_ELEM_TIMEOUT`) | 4.1 | `nf_tables.h` | запись в наборы, nft | обязательно |
+| ctnetlink: dump и delete | 2.6.16 | `net/netfilter/nf_conntrack_netlink.c` | очистка conntrack | необязательно: очистка отключается |
+| ctnetlink `CTA_ZONE` | 2.6.34 | `nfnetlink_conntrack.h` | очистка conntrack | необязательно |
+| ctnetlink `CTA_TUPLE_ZONE` | 4.3 | `nfnetlink_conntrack.h` | очистка conntrack | необязательно |
+| `NETLINK_NO_ENOBUFS` | 2.6.30 | `netlink.h` | настройка сокета | необязательно |
+| `NETLINK_CAP_ACK` | 4.3 | `netlink.h` | настройка сокета | необязательно (ошибка `setsockopt` игнорируется) |
+| `NETLINK_EXT_ACK` | 4.12 | `netlink.h` | настройка сокета | необязательно (ошибка `setsockopt` игнорируется) |
+| ioctl `NS_GET_USERNS` (возможность подмены) | 4.9 | `include/uapi/linux/nsfs.h` | подмена marker | необязательно: вне начального namespace `payload_replacement` равен `unknown` |
+| nft `numgen` (только балансировка, не перехват) | 4.9 | `net/netfilter/nft_numgen.c` | outbound `balance`, nft | вне этой страницы |
+
+#### Минимум для каждого бэкенда
+
+| Бэкенд | DNS hold | L7-наблюдение | Полный набор |
+|---|---|---|---|
+| iptables | 3.8 (регистрация обработчика очереди; строки `--queue-bypass`, ipset и `--ctdir` старше) | 2.6.39 (ipset); модули L7 старше | 3.8 |
+| nftables | 4.1 (тайм-аут элемента набора) | 4.5 (`ct original packets`) | 4.5 (4.9 для балансировки outbound) |
+
+Fail-open требует 3.6; любое ядро, подходящее под минимум DNS hold для iptables
+(3.8), его уже имеет, поэтому проба `fail_open` может не пройти там только на
+вендорских ядрах, где возможность вырезана.
+
+«Обязательно» означает, что при отсутствии возможности соответствующая часть
+отключается и это отражается в health; сам keen-pbr продолжает работать, а
+другая часть остаётся активной. «Необязательно» означает, что часть работает с
+урезанным поведением, предупреждением в `/api/health/service` и строкой в логе.
+
+#### Runtime-проверки
+
+Номера версий говорят о том, что выпустил upstream, но не о том, что делает
+конкретное ядро роутера. Поэтому после проверки `/proc/net/ip*_tables_*`
+(только iptables) keen-pbr выполняет каждый примитив на деле и выводит результат
+в `intercept.probes` ответа `GET /api/health/service`. Проверки не затрагивают
+пользовательский трафик и никогда не приводят к ошибке применения конфигурации.
+
+| Проба | Запрос | Результат |
+|---|---|---|
+| `set_backend` | ipset: `IPSET_CMD_PROTOCOL` (нужен ответ не ниже протокола 6). nftables: `NEWSETELEM` в batch в несуществующий набор (`ENOENT` доказывает, что nf_tables отвечает; `EOPNOTSUPP`/`EINVAL` — что нет) | `unsupported`/`error` отключает DNS hold и L7 |
+| `nfqueue` | bind настроенной очереди и `NFQA_CFG_PARAMS`, выполняются самим сервисом | сбой отключает только DNS hold |
+| `fail_open` | `NFQA_CFG_FLAGS(FAIL_OPEN)` на привязанной очереди и контрольный запрос с неизвестным битом флага. Ядра до 3.6 игнорируют атрибут и подтверждают оба запроса, поэтому принятый контрольный запрос означает, что флаг не разбирался | `unsupported`: очередь работает без fail-open, `capabilities.fail_open=false`, предупреждение |
+| `payload_replacement` | владелец network namespace через `NS_GET_USERNS` | `supported`, `unsupported` или `unknown`; информационно |
+| `nflog` | bind настроенной группы, выполняется самим сервисом | сбой отключает только L7 |
+| `set_write` | после создания наборов файрволом: добавление и удаление `192.0.2.255` / `2001:db8::ffff` с тайм-аутом 1 с в одном наборе `kpbr4d_*`/`kpbr6d_*` (ipset `ADD`/`DEL`, nft `NEWSETELEM`/`DELSETELEM`) | при сбое правила перехвата снимаются, DNS hold и L7 отключаются; `skipped`, если динамических наборов нет |
+| `conntrack` | запрос дампа ctnetlink, прерываемый после первого ответа | сбой отключает только очистку conntrack (предупреждение) |
+
+`kernel_release` (`uname -r`) выводится для информации и не влияет ни на какие
+решения. Неудачная проба кэшируется до следующего runtime-обновления (в том
+числе по `SIGUSR1`) или смены конфигурации, поэтому ядро, отвергнувшее listener,
+не опрашивается при каждом применении.
 
 ## DNS-серверы
 

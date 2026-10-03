@@ -27,12 +27,7 @@
   },
 
   "dns": {
-    "system_resolver": {
-      "address": "127.0.0.1"
-    },
-    "dns_test_server": {
-      "listen": "127.0.0.88:12153"
-    },
+    "resolver_integration": "none",
     "servers": [
       {
         "tag": "keenetic_dns",

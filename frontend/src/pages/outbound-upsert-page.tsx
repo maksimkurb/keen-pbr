@@ -63,6 +63,7 @@ type OutboundDraft = {
   gateway6: string
   table: string
   outboundGroups: OutboundGroupDraft[]
+  strategy: NonNullable<Outbound["strategy"]>
   probeUrl: string
   interval: string
   tolerance: string
@@ -98,6 +99,7 @@ const OUTBOUND_FIELD_NAMES = {
   gateway6: "gateway6",
   table: "table",
   outboundGroups: "outboundGroups",
+  strategy: "strategy",
   probeUrl: "probeUrl",
   interval: "interval",
   tolerance: "tolerance",
@@ -123,6 +125,7 @@ const sampleNewOutbound: OutboundDraft = {
   gateway6: "",
   table: "",
   outboundGroups: [{ outbounds: [], candidates: [] }],
+  strategy: "priority",
   probeUrl: "https://www.gstatic.com/generate_204",
   interval: "180000",
   tolerance: "100",
@@ -401,6 +404,7 @@ function OutboundForm({
   const isUrltest = outboundType === "urltest"
   const isIcmptest = outboundType === "icmptest"
   const isProbeTest = isUrltest || isIcmptest
+  const strategyOptions = ["priority", "balance"] as const
   const tagId = useId()
   const interfaceId = useId()
   const gatewayId = useId()
@@ -876,6 +880,55 @@ function OutboundForm({
               </SectionCard>
             )
           }}
+        </form.Field>
+      ) : null}
+
+      {isProbeTest ? (
+        <form.Field name={OUTBOUND_FIELD_NAMES.strategy}>
+          {(field) => (
+            <Field>
+              <FieldLabel>
+                {t("pages.outboundUpsert.strategy.label")}
+              </FieldLabel>
+              <FieldContent>
+                <Select
+                  items={strategyOptions.map((strategy) => ({
+                    value: strategy,
+                    label: t(
+                      `pages.outboundUpsert.strategy.options.${strategy}`
+                    ),
+                  }))}
+                  onValueChange={(value) =>
+                    field.handleChange(
+                      (value as NonNullable<Outbound["strategy"]>) ?? "priority"
+                    )
+                  }
+                  value={field.state.value}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>
+                        {t("pages.outboundUpsert.strategy.label")}
+                      </SelectLabel>
+                      {strategyOptions.map((strategy) => (
+                        <SelectItem key={strategy} value={strategy}>
+                          {t(
+                            `pages.outboundUpsert.strategy.options.${strategy}`
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldHint
+                  description={t("pages.outboundUpsert.strategy.hint")}
+                />
+              </FieldContent>
+            </Field>
+          )}
         </form.Field>
       ) : null}
 
@@ -1457,6 +1510,7 @@ function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
           : { outbounds: [...(group.outbounds ?? [])], candidates: [] }
       ) ?? sampleNewOutbound.outboundGroups,
     probeUrl: outbound.url ?? sampleNewOutbound.probeUrl,
+    strategy: outbound.strategy ?? sampleNewOutbound.strategy,
     interval:
       outbound.interval_ms?.toString() ??
       (isIcmp ? "60000" : sampleNewOutbound.interval),
@@ -1524,6 +1578,7 @@ function buildOutboundPayload(draft: OutboundDraft): Outbound {
       url: draft.probeUrl.trim() || undefined,
       interval_ms: parseNumber(draft.interval),
       tolerance_ms: parseNumber(draft.tolerance),
+      strategy: draft.strategy,
       outbound_groups: getOutboundGroupTags(draft.outboundGroups, false).map(
         (group) => ({
           outbounds: group,
@@ -1553,6 +1608,7 @@ function buildOutboundPayload(draft: OutboundDraft): Outbound {
       max_rtt_ms: parseNumber(draft.maxRtt),
       interval_ms: parseNumber(draft.interval),
       tolerance_ms: parseNumber(draft.tolerance),
+      strategy: draft.strategy,
       outbound_groups: draft.outboundGroups.map((group) => ({
         candidates: group.candidates.map((candidate) => ({
           outbound: candidate.outbound,

@@ -1,6 +1,9 @@
 #pragma once
 
 #include "firewall.hpp"
+#include "firewall_lowering.hpp"
+#include "firewall_physical.hpp"
+#include "firewall_rule.hpp"
 
 #include <cstdint>
 #include <map>
@@ -25,13 +28,7 @@ public:
     void create_ipset(const std::string& set_name, int family,
                       uint32_t timeout = 0) override;
 
-    // Buffer a meta mark set rule that matches the given criteria.
-    void create_mark_rule(uint32_t fwmark,
-                          const FirewallRuleCriteria& criteria = {}) override;
-    // Buffer a drop verdict rule that matches the given criteria.
-    void create_drop_rule(const FirewallRuleCriteria& criteria = {}) override;
-    // Buffer a pass-through verdict rule that matches the given criteria.
-    void create_pass_rule(const FirewallRuleCriteria& criteria = {}) override;
+    void set_owned_marks(const std::vector<uint32_t>& marks) override;
 
     // Return an NftBatchVisitor that appends element values to the pending
     // element buffer for set_name; elements are flushed during apply().
@@ -40,13 +37,18 @@ public:
 
     // Atomically apply all pending table/set/rule/element operations via
     // a single 'nft -j -f -' invocation with a JSON batch.
-    void apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
+    void apply(const FirewallPlan& plan,
+               FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
     // Delete the inet KeenPbrTable table, removing all sets and rules within it.
     void cleanup() override;
     // Returns FirewallBackend::nftables.
     FirewallBackend backend() const override;
+    // The lowered owned chains (nft hooks are chain attributes, so there are
+    // no separate hook rules).
+    PhysicalRuleset expected_ruleset(const FirewallPlan& plan) const override;
 
 private:
+    FirewallLoweringContext lowering_context(uint32_t fwmark_mask) const;
     static constexpr const char* TABLE_NAME = "KeenPbrTable";
     static constexpr const char* CHAIN_NAME = "prerouting";
     static constexpr const char* OUTPUT_CHAIN_NAME = "output";
@@ -58,6 +60,9 @@ private:
         bool table_exists{false};
         bool chain_exists{false};
         bool output_chain_exists{false};
+        // dns_hold / sniff_fwd / sniff_out base chains found live.
+        std::set<std::string> intercept_chains;
+        std::set<uint32_t> setter_chain_marks;
         std::set<std::string> set_names;
         std::map<std::string, std::string> set_schemas;
     };
@@ -76,15 +81,9 @@ private:
         uint32_t timeout;   // entry TTL in seconds (0 = no timeout)
     };
 
-    // Describes a rule to be added to the prerouting chain.
-    struct PendingRule {
-        int family;  // AF_INET or AF_INET6
-        enum Action { Mark, Drop, Pass } action; // meta mark, drop, or accept verdict
-        uint32_t fwmark; // only for Mark
-        uint32_t fwmark_mask{0xFFFFFFFFu}; // only for Mark
-        bool save_conntrack_mark{false};
-        FirewallRuleCriteria criteria; // optional packet match criteria
-    };
+    void compile_plan(const FirewallPlan& plan, FirewallApplyMode mode);
+    void apply_prepared(FirewallApplyMode mode);
+    void clear_pending();
 
     // Build the nftables JSON object for creating the inet KeenPbrTable table.
     static nlohmann::json build_table_json();
@@ -94,54 +93,31 @@ private:
     static nlohmann::json build_chain_json();
     static nlohmann::json build_output_chain_json();
     // Build the JSON object for deleting the prerouting chain.
+    // Base chain declaration of the interception chains.
+    static nlohmann::json build_base_chain_json(const PhysicalChainId& id,
+                                                const PhysicalBaseChain& base);
+    static nlohmann::json build_delete_named_chain_json(const std::string& name);
+    static bool is_intercept_chain_name(const std::string& name);
     static nlohmann::json build_delete_chain_json();
     static nlohmann::json build_delete_output_chain_json();
+    static nlohmann::json build_setter_chain_json(uint32_t fwmark);
+    static nlohmann::json build_delete_setter_chain_json(uint32_t fwmark);
     static nlohmann::json build_flush_set_json(const std::string& set_name);
     static nlohmann::json build_delete_set_json(const std::string& set_name);
     static bool is_dynamic_set_name(const std::string& set_name);
     static std::string set_schema_key(const PendingSet& set);
     void preflight_reused_set_schemas(const LiveTableState& live_state) const;
-    // Build all prerouting rule add-commands, including global prefilter rules.
-    static nlohmann::json build_rule_add_commands(
-        const FirewallGlobalPrefilter& prefilter,
-        const std::vector<PendingRule>& rules);
-    // Build the JSON rule object for a meta mark set action matching a named set.
-    static nlohmann::json build_mark_rule_json(const PendingRule& pr);
-    // Build the JSON rule object for a drop verdict matching a named set.
-    static nlohmann::json build_drop_rule_json(const PendingRule& pr);
-    // Build the JSON rule object for a pass-through verdict matching a named set.
-    static nlohmann::json build_pass_rule_json(const PendingRule& pr);
-    // Build nftables match expression(s) for proto/port filter.
-    // Returns a (possibly empty) array of JSON match expressions.
-    static nlohmann::json build_port_match_exprs(L4Proto proto,
-                                                  const PortSpec& src_port,
-                                                  const PortSpec& dst_port,
-                                                  bool negate_src_port = false,
-                                                  bool negate_dst_port = false);
-    // Build nftables match expression(s) for source/destination CIDR constraints.
-    // ip_proto is "ip" or "ip6". Returns a (possibly empty) array of JSON match expressions.
-    static nlohmann::json build_addr_match_exprs(const std::string& ip_proto,
-                                                  const std::vector<std::string>& src_addr,
-                                                  const std::vector<std::string>& dst_addr,
-                                                  bool negate_src_addr = false,
-                                                  bool negate_dst_addr = false);
-    // Build nftables match expression(s) for DSCP.
-    static nlohmann::json build_dscp_match_exprs(const std::string& ip_proto,
-                                                  std::optional<uint8_t> dscp);
     // Build the JSON element-add object for bulk-loading elems into a named set.
     static nlohmann::json build_elements_json(const std::string& set_name,
                                               const nlohmann::json& elems);
-    void append_rules_for_family(int family,
-                                 PendingRule::Action action,
-                                 uint32_t fwmark,
-                                 const FirewallRuleCriteria& criteria);
-
     // Sets queued for creation, flushed by apply().
     std::vector<PendingSet> pending_sets_;
     // Per-set element buffers (JSON arrays) for batch element loading, keyed by set name.
     std::map<std::string, nlohmann::json> pending_elements_;
-    // Rules queued for insertion into the prerouting chain, flushed by apply().
-    std::vector<PendingRule> pending_rules_;
+    // Lowered rules of the owned chains (prerouting, output, setters), flushed
+    // by apply().
+    PhysicalRuleset pending_ruleset_;
+    std::set<uint32_t> owned_marks_;
 
     // Track created sets for family lookup: set_name -> family (AF_INET/AF_INET6)
     std::map<std::string, int> created_sets_;
@@ -149,11 +125,18 @@ private:
     // True once the inet KeenPbrTable table has been created via apply().
     bool table_created_ = false;
     FirewallApplyMode prepared_mode_{FirewallApplyMode::Destructive};
+    bool apply_prepared_{false};
 
 #ifdef KEEN_PBR3_TESTING
     friend class NftablesBuilderTest;
 #endif
 };
+
+// Renders one canonical rule as an `add rule` command of the nft JSON API for
+// `chain`.  Pure: all policy was decided by the lowering.  Throws FirewallError
+// for rules nft cannot express.
+nlohmann::json render_nft_rule(const PhysicalChainId& chain,
+                               const PhysicalRule& rule);
 
 // Factory function called from firewall.cpp
 std::unique_ptr<Firewall> create_nftables_firewall();

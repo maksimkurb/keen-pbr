@@ -1,7 +1,9 @@
 #include "firewall_runtime.hpp"
+#include "firewall_physical.hpp"
+#include "firewall_rule_modules.hpp"
 
+#include "../config/list_parser.hpp"
 #include "../config/routing_state.hpp"
-#include "../dns/dns_router.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_set_usage.hpp"
 #include "../lists/list_streamer.hpp"
@@ -50,6 +52,32 @@ bool ipset_maxelem_changed(const std::optional<int64_t> &current,
 
 } // namespace
 
+void IpFamilySplitVisitor::on_entry(EntryType type, std::string_view entry) {
+  if (type == EntryType::Domain) {
+    return;
+  }
+  const auto family = ListParser::entry_family(type, entry);
+  if (!family.has_value()) {
+    constexpr std::size_t kMaxDetailedInvalidEntries = 5;
+    const std::size_t count = ++invalid_entries_;
+    if (count <= kMaxDetailedInvalidEntries) {
+      Logger::instance().warn(
+          "Skipping list entry '{}' in list {}: not a valid IPv4/IPv6 address or CIDR",
+          std::string(entry.substr(0, 128)), list_name_);
+    } else if (count == kMaxDetailedInvalidEntries + 1) {
+      Logger::instance().warn(
+          "Too many unclassifiable entries in list {}; further entries will be skipped without warnings",
+          list_name_);
+    }
+    return;
+  }
+  ListEntryVisitor* loader =
+      *family == EntryFamily::Ipv6 ? ipv6_ : ipv4_;
+  if (loader != nullptr) {
+    loader->on_entry(type, entry);
+  }
+}
+
 FirewallConfigApplyPolicy firewall_config_apply_policy(
     FirewallBackend backend, const Config &current, const Config &candidate) {
   if (backend != FirewallBackend::iptables) {
@@ -70,108 +98,231 @@ FirewallConfigApplyPolicy firewall_config_apply_policy(
 
 namespace {
 
-const Outbound* find_outbound_by_tag(const std::vector<Outbound>& outbounds,
-                                     const std::string& tag) {
-    for (const auto& outbound : outbounds) {
-        if (outbound.tag == tag) {
-            return &outbound;
-        }
-    }
-    return nullptr;
-}
-
-bool contains_set_name(const RuleState& state, const std::string& name) {
-    return std::find(state.set_names.begin(), state.set_names.end(), name) !=
-           state.set_names.end();
-}
-
 ListSetUsage reused_list_set_usage(
-    const std::vector<RuleState>* previous_rule_states,
-    size_t rule_index,
+    const FirewallPlan* previous_active_plan,
     const std::string& list_name,
     const ListConfig& list_config,
-    Firewall& firewall,
     bool ipv6_enabled) {
-    if (previous_rule_states == nullptr ||
-        rule_index >= previous_rule_states->size()) {
+    if (previous_active_plan == nullptr) {
         throw FirewallRulesOnlyError(
-            "no realized firewall state is available for route rule " +
-            std::to_string(rule_index) + " list " + list_name);
+            "no active firewall plan is available for list " + list_name);
     }
 
-    const RuleState& previous = previous_rule_states->at(rule_index);
-    if (previous.rule_index != rule_index ||
-        std::find(previous.list_names.begin(), previous.list_names.end(),
-                  list_name) == previous.list_names.end()) {
+    if (previous_active_plan->referenced_list_names.find(list_name) ==
+        previous_active_plan->referenced_list_names.end()) {
         throw FirewallRulesOnlyError(
-            "realized firewall state does not contain route rule " +
-            std::to_string(rule_index) + " list " + list_name);
+            "active firewall plan does not contain list " + list_name);
     }
 
     ListSetUsage usage;
-    const auto static_usage_for_family = [&](int family) {
-        const std::string expected = firewall.static_set_name(list_name, family);
-        const auto candidates = firewall.static_set_names(list_name, family);
-        const bool has_expected = contains_set_name(previous, expected);
-        const bool has_alternate = std::any_of(
-            candidates.begin(), candidates.end(), [&](const std::string& name) {
-                return name != expected && contains_set_name(previous, name);
+    const auto find_set = [&](const std::string& name) {
+        return std::find_if(
+            previous_active_plan->sets.begin(), previous_active_plan->sets.end(),
+            [&](const FirewallSetDeclaration& declaration) {
+                return declaration.name == name;
             });
-        if (has_alternate) {
-            throw FirewallRulesOnlyError(
-                std::string("realized firewall state references a stale static ipset for ") +
-                "route rule " + std::to_string(rule_index) + " list " +
-                list_name);
-        }
-        return has_expected;
     };
-
-    const std::string set4d = firewall.dynamic_set_name(list_name, AF_INET);
-    usage.has_static_entries = static_usage_for_family(AF_INET);
-    usage.has_domain_entries = contains_set_name(previous, set4d);
-    if (ipv6_enabled) {
-        const bool has_static_v6 = static_usage_for_family(AF_INET6);
-        usage.has_static_entries = usage.has_static_entries || has_static_v6;
-        usage.has_domain_entries = usage.has_domain_entries ||
-                                   contains_set_name(
-                                       previous,
-                                       firewall.dynamic_set_name(list_name,
-                                                                 AF_INET6));
+    const auto static4 = find_set("kpbr4_" + list_name);
+    const auto dynamic4 = find_set("kpbr4d_" + list_name);
+    usage.has_static_entries = static4 != previous_active_plan->sets.end();
+    usage.has_domain_entries = dynamic4 != previous_active_plan->sets.end();
+    std::optional<uint32_t> dynamic_timeout;
+    if (dynamic4 != previous_active_plan->sets.end()) {
+        dynamic_timeout = dynamic4->timeout;
     }
 
-    const int64_t ttl_ms = list_config.ttl_ms.value_or(0);
-    if (ttl_ms >= 1000) {
-        usage.dynamic_timeout = static_cast<uint32_t>(ttl_ms / 1000);
+    if (ipv6_enabled) {
+        const auto static6 = find_set("kpbr6_" + list_name);
+        const auto dynamic6 = find_set("kpbr6d_" + list_name);
+        usage.has_static_entries =
+            usage.has_static_entries || static6 != previous_active_plan->sets.end();
+        usage.has_domain_entries =
+            usage.has_domain_entries || dynamic6 != previous_active_plan->sets.end();
+        if (dynamic6 != previous_active_plan->sets.end()) {
+            if (dynamic_timeout.has_value() &&
+                *dynamic_timeout != dynamic6->timeout) {
+                throw FirewallRulesOnlyError(
+                    "active firewall plan has inconsistent dynamic set timeouts for list " +
+                    list_name);
+            }
+            dynamic_timeout = dynamic6->timeout;
+        }
+    }
+
+    if (dynamic_timeout.has_value()) {
+        const int64_t ttl_ms = list_config.ttl_ms.value_or(0);
+        const uint32_t configured_timeout = ttl_ms >= 1000
+                                                ? static_cast<uint32_t>(ttl_ms / 1000)
+                                                : 0;
+        if (*dynamic_timeout != configured_timeout) {
+            throw FirewallRulesOnlyError(
+                "list " + list_name + " dynamic timeout changed since the active firewall plan");
+        }
+        usage.dynamic_timeout = *dynamic_timeout;
     }
     return usage;
 }
 
+std::vector<RuleState> project_rule_states(
+    const Config& config, const FirewallPlan& plan, const Firewall& firewall) {
+    const auto route_rules =
+        config.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+    std::vector<RuleState> rule_states(route_rules.size());
+    std::vector<bool> projected(route_rules.size(), false);
+
+    for (std::size_t rule_index = 0; rule_index < route_rules.size(); ++rule_index) {
+        auto& state = rule_states[rule_index];
+        state.rule_index = rule_index;
+        state.list_names = route_rule_lists(route_rules[rule_index]);
+        state.outbound_tag = route_rules[rule_index].outbound;
+        state.action_type = RuleActionType::Skip;
+    }
+
+    for (const auto& rule : plan.rules) {
+        if (rule.source_rule_index >= rule_states.size()) {
+            continue;
+        }
+
+        auto& state = rule_states[rule.source_rule_index];
+        if (!projected[rule.source_rule_index]) {
+            if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
+                state.action_type = RuleActionType::Mark;
+                state.fwmark = mark->value;
+            } else if (const auto* balance =
+                           std::get_if<BalanceAction>(&rule.action)) {
+                state.action_type = RuleActionType::Mark;
+                state.fwmark = balance->fallback_mark;
+            } else if (const auto* verdict =
+                           std::get_if<VerdictAction>(&rule.action)) {
+                state.action_type = *verdict == VerdictAction::drop
+                                        ? RuleActionType::Drop
+                                        : RuleActionType::Pass;
+            } else {
+                continue;
+            }
+            state.criteria = rule.criteria;
+            state.criteria.dst_set_name.reset();
+            const auto append_plan_set = [&](const std::string& logical_name) {
+                const auto declaration = std::find_if(
+                    plan.sets.begin(), plan.sets.end(), [&](const auto& candidate) {
+                        return candidate.name == logical_name;
+                    });
+                if (declaration != plan.sets.end()) {
+                    state.set_names.push_back(
+                        firewall.physical_set_name(declaration->name));
+                }
+            };
+            for (const auto& list_name : state.list_names) {
+                append_plan_set("kpbr4_" + list_name);
+                append_plan_set("kpbr6_" + list_name);
+                append_plan_set("kpbr4d_" + list_name);
+                append_plan_set("kpbr6d_" + list_name);
+            }
+            projected[rule.source_rule_index] = true;
+        }
+    }
+
+    return rule_states;
+}
+
 } // namespace
 
-std::vector<RuleState> apply_runtime_firewall(
+FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
+  FirewallPlan plan;
+  plan.fwmark_mask = inputs.fwmark_mask;
+  for (const auto& [list_name, usage] : inputs.list_usage) {
+    (void)usage;
+    plan.referenced_list_names.insert(list_name);
+  }
+
+  const auto& all_outbounds =
+      inputs.config.outbounds.value_or(std::vector<Outbound>{});
+  static const std::map<std::string, ListConfig> empty_lists;
+  const auto& lists_map = inputs.config.lists ? *inputs.config.lists : empty_lists;
+  const auto route_config = inputs.config.route.value_or(RouteConfig{});
+  const auto& route_rules =
+      route_config.rules.value_or(std::vector<RouteRule>{});
+  FirewallRuleRegistrar registrar(plan);
+  const FirewallBuildContext context{
+      route_rules, all_outbounds, lists_map, inputs.list_usage,
+      inputs.main_routes, inputs.interfaces, inputs.backend,
+      inputs.ipv6_enabled, inputs.fwmark_mask, inputs.balance_candidates,
+      &inputs.config, &inputs.outbound_marks, inputs.intercept};
+  for (const auto register_module : route_rule_module_manifest()) {
+    register_module(context, registrar);
+  }
+
+  registrar.finish();
+  return plan;
+}
+
+ActiveFirewall apply_runtime_firewall(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
     const CacheManager& cache_manager,
     Firewall& firewall,
     FirewallApplyMode mode,
-    const std::vector<RuleState>* previous_rule_states,
-    bool force_clear_dynamic_sets) {
+    const ActiveFirewall* previous_active,
+    bool force_clear_dynamic_sets,
+    const std::vector<DumpedRoute>& main_routes,
+    const std::vector<DumpedInterface>& interfaces,
+    const FirewallBalanceCandidates* balance_candidates,
+    const std::optional<InterceptFirewallSettings>& intercept) {
+  // Success boundary: the returned ActiveFirewall exists only after
+  // firewall.apply() returned. A failure while preparing (planning, streaming,
+  // RulesOnly preflight) happens before any kernel mutation, so the caller's
+  // previous active object stays accurate. A failure inside apply() may have
+  // touched the kernel, but nothing new is published either; the exception
+  // propagates and the health verifier reports the resulting drift. There is
+  // deliberately no rollback here.
+  const FirewallPlan* previous_active_plan =
+      previous_active != nullptr ? &previous_active->plan : nullptr;
   try {
     std::unique_ptr<ListStreamer> list_streamer;
     if (mode != FirewallApplyMode::RulesOnly) {
-        list_streamer = std::make_unique<ListStreamer>(cache_manager);
+      list_streamer = std::make_unique<ListStreamer>(cache_manager);
     }
-    auto rule_states = build_fw_rule_states(config, outbound_marks);
     const RouteConfig route_config = config.route.value_or(RouteConfig{});
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
     log_ipv6_support_decision_once(ipv6_decision);
+    const auto daemon_config = config.daemon.value_or(DaemonConfig{});
+    static const std::map<std::string, ListConfig> empty_lists;
+    const auto& lists_map = config.lists ? *config.lists : empty_lists;
+    const auto& route_rules = route_config.rules.value_or(std::vector<RouteRule>{});
+    const uint32_t fwmark_mask =
+        fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
+
+    std::map<std::string, ListSetUsage> list_usage_cache;
+    for (const auto& route_rule : route_rules) {
+      for (const auto& list_name : route_rule_lists(route_rule)) {
+        const auto list_cfg_it = lists_map.find(list_name);
+        if (list_cfg_it == lists_map.end() ||
+            list_usage_cache.find(list_name) != list_usage_cache.end()) {
+          continue;
+        }
+        list_usage_cache.emplace(
+            list_name,
+            mode == FirewallApplyMode::RulesOnly
+                ? reused_list_set_usage(previous_active_plan, list_name,
+                                        list_cfg_it->second,
+                                        ipv6_decision.enabled)
+                : analyze_list_set_usage(list_name, list_cfg_it->second,
+                                         *list_streamer));
+      }
+    }
+    FirewallPlanBuildInputs plan_inputs{
+        config, outbound_marks, list_usage_cache, main_routes, interfaces,
+        balance_candidates, ipv6_decision.enabled, fwmark_mask,
+        firewall.backend(), intercept};
+    FirewallPlan plan = build_firewall_plan(plan_inputs);
+    validate_firewall_plan_backend(plan, firewall.backend());
+
     firewall.set_ipv6_enabled(ipv6_decision.enabled);
     firewall.set_clear_dynamic_sets_on_apply(
-        config.daemon.value_or(DaemonConfig{}).clear_dynamic_sets_on_apply.value_or(true));
+        config.daemon.value_or(DaemonConfig{}).clear_dynamic_sets_on_apply.value_or(false));
     if (force_clear_dynamic_sets) {
       firewall.set_clear_dynamic_sets_on_apply(true);
     }
-    const auto daemon_config = config.daemon.value_or(DaemonConfig{});
     firewall.set_ipset_hashsize(
         daemon_config.ipset_hashsize.has_value()
             ? std::optional<uint32_t>{static_cast<uint32_t>(
@@ -183,190 +334,106 @@ std::vector<RuleState> apply_runtime_firewall(
                   *daemon_config.ipset_maxelem)}
             : std::nullopt);
     firewall.prepare_apply(mode);
-    auto prefilter = build_firewall_global_prefilter(config);
-    prefilter.restore_conntrack_mark = true;
-    prefilter.conntrack_mark_mask = fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
-    firewall.set_global_prefilter(std::move(prefilter));
-    firewall.set_fwmark_mask(fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{})));
-
-    const auto& all_outbounds = config.outbounds.value_or(std::vector<Outbound>{});
-    static const std::map<std::string, ListConfig> empty_lists;
-    const auto& lists_map = config.lists ? *config.lists : empty_lists;
-    const auto& route_rules = route_config.rules.value_or(std::vector<RouteRule>{});
-    std::map<std::string, ListSetUsage> list_usage_cache;
-
-    for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
-        const auto& rule = route_rules[rule_idx];
-        RuleState& rule_state = rule_states[rule_idx];
-
-        if (rule_state.action_type == RuleActionType::Skip) {
-            continue;
+    // RulesOnly reuses the sets of the previous apply under their stable
+    // names, so every set the new plan needs must have been realized by it
+    // (a newly added list has no set yet).  The backend verifies that the
+    // sets still exist in the kernel.
+    if (mode == FirewallApplyMode::RulesOnly && previous_active != nullptr) {
+      for (const auto& declaration : plan.sets) {
+        if (!previous_active->result.has_physical_set(
+                firewall.physical_set_name(declaration.name))) {
+          throw FirewallRulesOnlyError(
+              "active firewall plan does not contain set " + declaration.name);
         }
-
-        rule_state.set_names.clear();
-
-        const bool is_blackhole = rule_state.action_type == RuleActionType::Drop;
-        const bool is_pass = rule_state.action_type == RuleActionType::Pass;
-        FirewallRuleCriteria criteria = build_firewall_rule_criteria(rule);
-        rule_state.criteria = criteria;
-
-        auto apply_rule = [&](const std::optional<std::string>& dst_set_name) {
-            FirewallRuleCriteria rule_criteria = criteria;
-            rule_criteria.dst_set_name = dst_set_name;
-
-            if (is_blackhole) {
-                firewall.create_drop_rule(rule_criteria);
-            } else if (is_pass) {
-                firewall.create_pass_rule(rule_criteria);
-            } else if (rule_state.fwmark != 0) {
-                firewall.create_mark_rule(rule_state.fwmark, rule_criteria);
-            }
-        };
-
-        const auto& list_names = route_rule_lists(rule);
-        if (!list_names.empty()) {
-            bool emitted_rule = false;
-
-            for (const auto& list_name : list_names) {
-                auto list_cfg_it = lists_map.find(list_name);
-                if (list_cfg_it == lists_map.end()) {
-                    continue;
-                }
-
-                const auto& list_cfg = list_cfg_it->second;
-                auto usage_it = list_usage_cache.find(list_name);
-                if (usage_it == list_usage_cache.end()) {
-                    usage_it = list_usage_cache.emplace(
-                        list_name,
-                        mode == FirewallApplyMode::RulesOnly
-                            ? reused_list_set_usage(previous_rule_states, rule_idx,
-                                                    list_name, list_cfg, firewall,
-                                                    ipv6_decision.enabled)
-                            : analyze_list_set_usage(list_name, list_cfg,
-                                                     *list_streamer)).first;
-                }
-                const auto& usage = usage_it->second;
-
-                const std::string set4 = firewall.static_set_name(list_name, AF_INET);
-                const std::string set6 = firewall.static_set_name(list_name, AF_INET6);
-                const std::string set4d = firewall.dynamic_set_name(list_name, AF_INET);
-                const std::string set6d = firewall.dynamic_set_name(list_name, AF_INET6);
-
-                if (usage.has_static_entries) {
-                    firewall.create_ipset(set4, AF_INET, 0);
-                    rule_state.set_names.push_back(set4);
-                    if (ipv6_decision.enabled) {
-                        firewall.create_ipset(set6, AF_INET6, 0);
-                        rule_state.set_names.push_back(set6);
-                    }
-
-                    if (mode != FirewallApplyMode::RulesOnly) {
-                        auto loader4 = firewall.create_batch_loader(set4);
-                        auto loader6 = ipv6_decision.enabled
-                            ? firewall.create_batch_loader(set6)
-                            : nullptr;
-                        FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
-                            if (type == EntryType::Domain) {
-                                return;
-                            }
-                            const bool is_ipv6 = entry.find(':') != std::string_view::npos;
-                            if (is_ipv6) {
-                                if (loader6) {
-                                    loader6->on_entry(type, entry);
-                                }
-                            } else {
-                                loader4->on_entry(type, entry);
-                            }
-                        });
-                        list_streamer->stream_list(list_name, list_cfg, splitter);
-                        loader4->finish();
-                        if (loader6) {
-                            loader6->finish();
-                        }
-                    }
-                }
-
-                if (usage.has_domain_entries) {
-                    firewall.create_ipset(set4d, AF_INET, usage.dynamic_timeout);
-                    rule_state.set_names.push_back(set4d);
-                    if (ipv6_decision.enabled) {
-                        firewall.create_ipset(set6d, AF_INET6, usage.dynamic_timeout);
-                        rule_state.set_names.push_back(set6d);
-                    }
-                }
-
-                if (usage.has_static_entries) {
-                    apply_rule(set4);
-                    if (ipv6_decision.enabled) {
-                        apply_rule(set6);
-                    }
-                    emitted_rule = true;
-                }
-                if (usage.has_domain_entries) {
-                    apply_rule(set4d);
-                    if (ipv6_decision.enabled) {
-                        apply_rule(set6d);
-                    }
-                    emitted_rule = true;
-                }
-            }
-
-            if (!emitted_rule && criteria.has_rule_selector()) {
-                apply_rule(std::nullopt);
-            }
-        } else if (criteria.has_rule_selector()) {
-            apply_rule(std::nullopt);
-        }
+      }
     }
 
-    if (config.dns.has_value()) {
-        const auto& dns_servers = config.dns->servers.value_or(std::vector<DnsServer>{});
-        const DnsServerRegistry dns_registry(config.dns.value_or(DnsConfig{}));
-        for (const auto& server : dns_servers) {
-            if (!server.detour.has_value()) {
-                continue;
-            }
-
-            const Outbound* detour_outbound =
-                find_outbound_by_tag(all_outbounds, server.detour.value());
-            if (!detour_outbound) {
-                continue;
-            }
-
-            std::string effective_tag = detour_outbound->tag;
-    if (detour_outbound->type == OutboundType::URLTEST || detour_outbound->type == OutboundType::ICMPTEST) {
-                // A URLTEST route is switched behind its stable table/mark.
-                // DNS detours must not pin existing flows to the transient
-                // selected child mark.
-            } else {
-                // The internal detour mark has an unconditional terminal guard
-                // even when the user-facing outbound is configured non-strict.
-                effective_tag = internal_detour_mark_key(detour_outbound->tag);
-            }
-
-            auto mark_it = outbound_marks.find(effective_tag);
-            if (mark_it == outbound_marks.end()) {
-                continue;
-            }
-
-            const auto resolved_servers = dns_registry.get_servers(server.tag);
-            if (resolved_servers.empty()) {
-                throw FirewallError("DNS server tag not found during detour setup: " + server.tag);
-            }
-
-            for (const DnsServerConfig* resolved_server : resolved_servers) {
-                FirewallRuleCriteria criteria;
-                criteria.proto = L4Proto::TcpUdp;
-                criteria.dst_port = std::to_string(resolved_server->port);
-                criteria.dst_addr = {resolved_server->resolved_ip};
-                criteria.apply_output = true;
-                firewall.create_mark_rule(mark_it->second, criteria);
-            }
-        }
+    // The finalized plan owns set existence and schemas. Stage its physical
+    // declarations before list streaming; apply(plan) repeats these calls as
+    // an idempotent direct-apply safeguard.
+    for (const auto& declaration : plan.sets) {
+      const int family = declaration.family == FirewallFamily::ipv6
+                             ? AF_INET6
+                             : AF_INET;
+      const std::string physical_name =
+          firewall.physical_set_name(declaration.name);
+      firewall.create_ipset(physical_name, family, declaration.timeout);
     }
 
-    firewall.apply(mode);
-    return rule_states;
+    const auto planned_physical_set_name =
+        [&](const std::string& logical_name) -> std::optional<std::string> {
+      const auto declaration = std::find_if(
+          plan.sets.begin(), plan.sets.end(), [&](const auto& candidate) {
+            return candidate.name == logical_name;
+          });
+      if (declaration == plan.sets.end()) {
+        return std::nullopt;
+      }
+      return firewall.physical_set_name(declaration->name);
+    };
+
+    std::vector<uint32_t> owned_marks;
+    owned_marks.reserve(outbound_marks.size());
+    for (const auto& [tag, mark] : outbound_marks) {
+        (void)tag;
+        owned_marks.push_back(mark);
+    }
+    firewall.set_owned_marks(owned_marks);
+
+    // Stream each planned static list once. Route rules only project the
+    // finalized plan into RuleState below; they must not duplicate resource
+    // loading when several rules reference the same list.
+    if (mode != FirewallApplyMode::RulesOnly) {
+      for (const auto& list_usage : list_usage_cache) {
+        const auto& list_name = list_usage.first;
+        const auto list_cfg_it = lists_map.find(list_name);
+        if (list_cfg_it == lists_map.end()) {
+          continue;
+        }
+
+        const auto set4 = planned_physical_set_name("kpbr4_" + list_name);
+        const auto set6 = planned_physical_set_name("kpbr6_" + list_name);
+        if (!set4.has_value() && !set6.has_value()) {
+          continue;
+        }
+
+        auto loader4 = set4.has_value()
+            ? firewall.create_batch_loader(*set4)
+            : nullptr;
+        auto loader6 = set6.has_value()
+            ? firewall.create_batch_loader(*set6)
+            : nullptr;
+        IpFamilySplitVisitor splitter(loader4.get(), loader6.get(), list_name);
+        list_streamer->stream_list(list_name, list_cfg_it->second, splitter);
+        if (loader4) {
+          loader4->finish();
+        }
+        if (loader6) {
+          loader6->finish();
+        }
+      }
+    }
+
+    auto rule_states = project_rule_states(config, plan, firewall);
+
+    firewall.apply(plan, mode);
+
+    FirewallApplyResult result;
+    result.mode = mode;
+    result.physical_set_names.reserve(plan.sets.size());
+    for (const auto& declaration : plan.sets) {
+      result.physical_set_names.push_back(
+          firewall.physical_set_name(declaration.name));
+    }
+    result.expected_ruleset = std::make_shared<const PhysicalRuleset>(
+        firewall.expected_ruleset(plan));
+    std::sort(result.physical_set_names.begin(), result.physical_set_names.end());
+    result.physical_set_names.erase(
+        std::unique(result.physical_set_names.begin(),
+                    result.physical_set_names.end()),
+        result.physical_set_names.end());
+    return ActiveFirewall{std::move(plan), std::move(result),
+                          std::move(rule_states)};
   } catch (const FirewallRulesOnlyError& error) {
     if (mode != FirewallApplyMode::RulesOnly) {
         throw;
@@ -376,8 +443,12 @@ std::vector<RuleState> apply_runtime_firewall(
         error.what());
     return apply_runtime_firewall(config, outbound_marks, cache_manager, firewall,
                                   FirewallApplyMode::PreserveSets,
-                                  previous_rule_states,
-                                  /*force_clear_dynamic_sets=*/false);
+                                  previous_active,
+                                  /*force_clear_dynamic_sets=*/false,
+                                  main_routes,
+                                  interfaces,
+                                  balance_candidates,
+                                  intercept);
   }
 }
 

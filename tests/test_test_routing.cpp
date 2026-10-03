@@ -396,7 +396,7 @@ TEST_CASE("compute_test_routing includes route rule conditions in diagnostics") 
     std::filesystem::remove_all(temp_dir);
 }
 
-TEST_CASE("compute_test_routing uses realized iptables generation set names") {
+TEST_CASE("compute_test_routing uses realized iptables set names") {
     const auto temp_dir = make_temp_dir();
     const auto bin_dir = temp_dir / "bin";
     const auto invocation_log = temp_dir / "ipset-invocations.txt";
@@ -407,7 +407,7 @@ TEST_CASE("compute_test_routing uses realized iptables generation set names") {
         bin_dir / "ipset",
         "#!/bin/sh\n"
         "echo test >> " + invocation_log.string() + "\n"
-        "if [ \"$1\" = test ] && [ \"$2\" = kpbr4S_remote ] && "
+        "if [ \"$1\" = test ] && [ \"$2\" = kpbr4_remote ] && "
         "[ \"$3\" = 203.0.113.10 ]; then\n"
         "  exit 0\n"
         "fi\n"
@@ -448,7 +448,7 @@ TEST_CASE("compute_test_routing uses realized iptables generation set names") {
     RuleState realized;
     realized.rule_index = 0;
     realized.list_names = {"remote"};
-    realized.set_names = {"kpbr4S_remote"};
+    realized.set_names = {"kpbr4_remote"};
     realized.outbound_tag = "vpn";
     realized.action_type = RuleActionType::Mark;
     const std::vector<RuleState> realized_rules{realized};
@@ -506,4 +506,47 @@ TEST_CASE("daemon test-routing response is rendered as a human-readable table") 
     CHECK(stdout_capture.str().find("Expected Outbound") != std::string::npos);
     CHECK(stdout_capture.str().find("domains (via example.com)") != std::string::npos);
     CHECK(stdout_capture.str().find("{\"") == std::string::npos);
+}
+
+TEST_CASE("compute_test_routing matches domains through DomainIndex semantics") {
+    if (!udp_socket_available()) {
+        DOCTEST_INFO("UDP sockets unavailable in current environment");
+        return;
+    }
+
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir);
+    cache.ensure_dir();
+    TestDnsServer server({"10.0.0.53"}, {});
+
+    Config config = build_test_config();
+    api::SystemResolver system_resolver;
+    system_resolver.address = server.address();
+    config.dns->system_resolver = system_resolver;
+
+    ListConfig domains;
+    domains.domains = std::vector<std::string>{"*.Example.COM", "other.test"};
+    ListConfig no_match;
+    no_match.domains = std::vector<std::string>{"badexample.com", "sub.example.com.evil"};
+    config.lists = std::map<std::string, ListConfig>{{"domains", domains}, {"no_match", no_match}};
+    RouteRule rule;
+    rule.outbound = "vpn";
+    rule.list = std::vector<std::string>{"no_match", "domains"};
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{rule};
+    config.route = route;
+
+    // Case-insensitive, wildcard prefix stripped, label-boundary suffix match.
+    const auto result = compute_test_routing(config, cache, "A.B.Example.com");
+    REQUIRE(result.rule_diagnostics.size() == 1);
+    CHECK(result.rule_diagnostics[0].target_in_lists);
+    REQUIRE(result.rule_diagnostics[0].target_match.has_value());
+    CHECK(result.rule_diagnostics[0].target_match->list_name == "domains");
+    CHECK(result.rule_diagnostics[0].target_match->via == "example.com");
+
+    const auto unrelated = compute_test_routing(config, cache, "notexample.com");
+    REQUIRE(unrelated.rule_diagnostics.size() == 1);
+    CHECK_FALSE(unrelated.rule_diagnostics[0].target_in_lists);
+
+    std::filesystem::remove_all(temp_dir);
 }

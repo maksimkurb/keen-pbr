@@ -1,0 +1,279 @@
+# DNS and L7 interception
+
+keen-pbr can learn the addresses behind domain lists from traffic that already
+passes through the router. This is the primary path when
+`dns.resolver_integration` is `none` (the default); it does not require
+dnsmasq and does not replace the system resolver.
+
+The implementation has two independent parts:
+
+* DNS response hold uses NFQUEUE. A response is parsed, matching A/AAAA
+  addresses are published to the list's dynamic sets with a bounded TTL, and
+  the original packet is accepted. Only the UDP marker response is rewritten;
+  TCP marker responses are accepted unchanged.
+* L7 sniffing uses NFLOG. The first visible payload of a flow is inspected for
+  TLS SNI, HTTP Host, or a QUIC Initial name. A match updates the same dynamic
+  sets and may request best-effort conntrack cleanup so a newly learned address
+  is classified on the next connection.
+
+The firewall plan owns the hooks and their order. DNS hold is attached to
+postrouting for UDP/TCP DNS traffic; L7 logging is attached to the forwarding
+and locally generated paths. The iptables and nftables backends use the same
+logical lowering and verify the application-owned chains after apply.
+
+## Minimal configuration
+
+Interception is enabled by default when the required kernel facilities are
+available. The effective defaults are:
+
+```json
+{
+  "daemon": {
+    "clear_dynamic_sets_on_apply": false
+  },
+  "dns": {
+    "resolver_integration": "none"
+  },
+  "intercept": {
+    "enabled": true,
+    "min_ttl_s": 300,
+    "max_ttl_s": 86400,
+    "dns": {
+      "enabled": true,
+      "queue_num": 9053,
+      "hold_timeout_ms": 30,
+      "marker": {
+        "domain": "check.keen.pbr",
+        "answer_ipv4": "127.0.0.88"
+      }
+    },
+    "l7": {
+      "enabled": true,
+      "nflog_group": 9054,
+      "tls": true,
+      "http": true,
+      "quic": true
+    }
+  }
+}
+```
+
+`clear_dynamic_sets_on_apply` is false by default. Learned addresses therefore
+survive an ordinary apply or runtime refresh and leave the sets when their
+element timeout expires. A full clear is an explicit configuration choice.
+
+`min_ttl_s` and `max_ttl_s` clamp the TTL used for addresses learned from DNS.
+When a list has `ttl_ms >= 1000`, its value in seconds overrides the global
+minimum for that list; the global maximum still applies. Static list entries
+are not affected. L7-derived addresses have no DNS record TTL, so they use the
+same list/global floor and maximum. The list-level `ttl_ms` also remains
+relevant to resolver-generated `ipset=`/`nftset=` fallback.
+
+## Resolver integration
+
+`dns.resolver_integration` has two modes:
+
+* `none` (default): keen-pbr does not configure, reload, or require dnsmasq.
+  DNS interception and L7 learning are independent of this setting.
+* `dnsmasq`: keen-pbr manages the optional per-list upstream configuration and
+  its health check. If DNS interception is unavailable on the device, the
+  generated dnsmasq configuration includes the conditional `ipset=`/`nftset=`
+  fallback so dnsmasq can populate dynamic sets instead.
+
+For a pre-existing configuration with this field absent, keen-pbr migrates to
+`dnsmasq` only when `dns.rules` is non-empty or `dns.system_resolver` exists;
+otherwise it persists `none`. `dns.rules` with `none` is accepted but warns,
+because per-list upstream selection requires dnsmasq. The old
+`dns.dns_test_server` option is deprecated and ignored.
+
+## DNS packet flow
+
+1. The firewall sends UDP or TCP DNS responses to the configured NFQUEUE.
+2. keen-pbr validates the IP/UDP/TCP and DNS wire layout, matches names against
+   the published `DomainIndex`, and writes matching IPv4/IPv6 addresses to the
+   owned dynamic sets.
+3. The packet is accepted. DNS is not proxied and the answer is not changed,
+   except for the marker response described below.
+
+TCP DNS is parsed when the complete DNS message is present in one segment. A
+partial TCP message is accepted and counted as `dns_tcp_partial`; it is not
+silently treated as a complete answer. Malformed packets are accepted with a
+parse-error counter so interception cannot become a packet-drop policy.
+
+The hold timeout is a userspace processing budget. It is not a kernel promise
+that a packet cannot wait longer than 30 ms. A bound but frozen listener can
+leave packets queued; queue-bypass does not turn that state into a timeout.
+This path does not request `SO_TIMESTAMP` or another enqueue timestamp, so the
+deadline starts when userspace wakes for the queue; it cannot account for time
+already spent waiting in the kernel queue.
+
+## Marker and payload replacement
+
+The marker domain (`check.keen.pbr` by default) is answered with `127.0.0.88`
+for the DNS hold path. Payload replacement is UDP-only and works over either
+IPv4 or IPv6 transport; IPv4 header and UDP checksums are rebuilt as needed.
+TCP marker responses are accepted without replacement. This marker is a
+diagnostic signal, not a separate DNS server.
+
+On newer kernels, NFQUEUE payload replacement requires the process's network
+namespace to be owned by the initial user namespace. In a nested user
+namespace the kernel can reject the mangle with `EPERM`; keen-pbr detects that
+capability and skips replacement, accepting the original packet instead.
+Rootless replacement is not claimed as verified. The marker path must
+therefore be tested in a root-owned network namespace on such kernels.
+
+## L7 visibility and cleanup
+
+NFLOG observes visible first-flow payloads, not decrypted application data:
+
+* TLS SNI, HTTP Host, and QUIC Initial names can be learned when present;
+* DoH, DoT, and warm resolver caches are not DNS-hold inputs, though TLS/HTTP/
+  QUIC metadata may still be visible to L7;
+* encrypted-client-hello (ECH) names remain unavailable;
+* SNI/Host fronting can associate an arbitrary destination address with a name,
+  so enabling those sources has an inherent security trade-off.
+
+When DNS hold and L7 interception are both enabled, L7 parsing submits matched
+work to a separate writer and a bounded 256-job queue. DNS admission never
+waits behind an L7 set write. Queue overflow or apply-time cancellation rejects
+the L7 work and records the set error; it does not make the DNS hold path wait.
+Each L7 set-write transaction has a 100 ms budget, which is a userspace writer
+budget rather than a network-wide deadline.
+
+When a new address is added, conntrack cleanup is best effort and targets the
+matching original tuple/address. The first connection can already be in flight
+and an application retry may be required. Cleanup must not remove unrelated
+zones or marked entries; failures are counted in health rather than hidden.
+
+## Failure behavior
+
+| Situation | Behavior |
+|---|---|
+| No NFQUEUE listener | A queue configured with bypass lets packets continue. |
+| Queue overflow or netlink delivery failure | NFQUEUE `FAIL_OPEN`, when configured and supported by the kernel/rule, lets the affected packet continue. |
+| Listener is bound but stalled/frozen | Already queued packets can remain held; there is no kernel hold deadline. |
+| Graceful shutdown | Queueing rules are removed before the listener stops. Closing a queue with pending entries can drop them, so shutdown is not described as an ACCEPT guarantee. |
+| NFLOG loss/overrun | The packet is not blocked; the loss/overrun counter and health state expose reduced learning. |
+| NFLOG receive failure | L7 is marked degraded and the DNS NFQUEUE path continues. |
+| Fatal listener failure | The service unbinds the listener and reports `running: false`. |
+| Apply or snapshot publication | Admitted writes drain, queued L7 work is cancelled, and the old snapshot is invalidated before the new snapshot is published. Failed publication does not permit stale writes; health exposes initialization/degraded state. |
+| NFQUEUE or NFLOG cannot be bound | Only that part is disabled before any rule references it; the other keeps running. The failure is cached until the next runtime refresh. |
+| Kernel rejects `NFQA_CFG_F_FAIL_OPEN` | The queue runs without fail-open, `capabilities.fail_open` is `false` and a warning is reported. |
+| Dynamic set write test fails after apply | The interception rules are detached again, DNS hold and L7 are disabled and the reason is reported. The apply itself still succeeds. |
+| ctnetlink does not answer | Conntrack cleanup is disabled with a warning; interception continues. |
+| DNS/L7 capability missing | The unavailable part is disabled and reported independently; the other part can remain active. |
+
+## Kernel requirements
+
+Release builds compile against old UAPI headers (Linux 3.4 on mips, 3.10 on
+aarch64, see `src/netfilter/uapi_compat.hpp`); the routers run newer kernels
+(Keenetic 4.9+). The versions below are the first mainline release in which
+each primitive exists. They were taken from upstream history: every row names
+the file that was checked at successive tags of
+[torvalds/linux](https://github.com/torvalds/linux) (`blob/<tag>/<path>`;
+headers live in `include/linux/netfilter/` before v3.7 and in
+`include/uapi/linux/netfilter/` since). Vendor kernels may backport or strip
+features, so keen-pbr does not trust these numbers at runtime: see
+[Runtime probes](#runtime-probes).
+
+| Feature (what keen-pbr uses it for) | First mainline | Checked in (upstream) | Needed by | If missing |
+|---|---|---|---|---|
+| nfnetlink_queue: `NFQNL_CFG_CMD_BIND`, `NFQA_CFG_PARAMS`, `NFQA_PAYLOAD` in a verdict | 2.6.14 | `nfnetlink_queue.h` | DNS hold | required |
+| NFQUEUE handler registered at module load. keen-pbr never sends `PF_BIND`; before this the bind is ACKed but nothing is ever queued | 3.8 | `net/netfilter/nfnetlink_queue_core.c`: `PF_BIND` is a handler registration in v3.7 and `return 0` in v3.8 | DNS hold | required; **cannot be probed** (the bind succeeds) |
+| `xt_NFQUEUE` target | 2.6.16 | `net/netfilter/xt_NFQUEUE.c` (`ipt_NFQUEUE` before) | DNS hold, iptables | required |
+| `xt_NFQUEUE --queue-bypass` (`xt_NFQ_info_v2`) | 2.6.39 | `xt_NFQUEUE.h` | DNS hold, iptables | required (rule fails to load) |
+| nft `queue ... bypass` (`NFT_QUEUE_FLAG_BYPASS`, `nft_queue.c`) | 3.14 | `nf_tables.h`, `nft_queue.c` | DNS hold, nft | required |
+| `NFQA_CFG_FLAGS`/`NFQA_CFG_MASK` + `NFQA_CFG_F_FAIL_OPEN` | 3.6 | `nfnetlink_queue.h` | DNS hold | optional: runs without fail-open, `fail_open=false` + warning |
+| `NFQA_CAP_LEN` (detects truncated captures) | 3.7 | `nfnetlink_queue.h` | DNS hold | optional: the IP header length check still catches truncation |
+| `NFQNL_MSG_VERDICT_BATCH` (batch accept on shutdown) | 3.1 | `nfnetlink_queue.h` | shutdown drain | optional: packets are released one by one |
+| Verdict payload replacement in the initial user namespace | 2.6.14 (same as `NFQA_PAYLOAD`) | project live test, see [Marker and payload replacement](#marker-and-payload-replacement); no upstream commit identified for the user-namespace limit | marker rewrite | optional: marker is accepted unchanged |
+| nfnetlink_log: `NFULNL_MSG_CONFIG` bind/mode | 2.6.14 | `net/netfilter/nfnetlink_log.c` | L7 | required |
+| `xt_NFLOG` target (`--nflog-group`, `--nflog-size`, `--nflog-threshold`) | 2.6.20 | `net/netfilter/xt_NFLOG.c`, `xt_NFLOG.h` | L7, iptables | required |
+| nft `log group ... snaplen ... queue-threshold` (`NFTA_LOG_GROUP`, `_SNAPLEN`, `_QTHRESHOLD`) | 3.13 | `nf_tables.h`, `nft_log.c` | L7, nft | required |
+| `NFULA_CT` (conntrack attributes in NFLOG records) | 4.4 | `nfnetlink_log.h` | not used | not required |
+| `xt_connbytes` (`--connbytes ... packets`) | 2.6.16 | `net/netfilter/xt_connbytes.c` | L7, iptables | required |
+| Runtime conntrack accounting switch (`nf_conntrack_acct`) | 2.6.27 | `net/netfilter/nf_conntrack_acct.c` | L7 | required (keen-pbr enables it) |
+| `xt_conntrack` `--ctdir` (`XT_CONNTRACK_DIRECTION`) | 2.6.25 | `xt_conntrack.h` | DNS hold, iptables | required |
+| nft `ct original packets` (`NFT_CT_PKTS`) | 4.5 | `nf_tables.h`, `nft_ct.c` | L7, nft | required |
+| nft `ct direction` (`NFTA_CT_DIRECTION`) | 3.13 | `nf_tables.h` | DNS hold, nft | required |
+| ipset netlink protocol 6 (`IPSET_CMD_PROTOCOL`), per-element `IPSET_ATTR_TIMEOUT`, `hash:net` | 2.6.39 | `ipset/ip_set.h` (`IPSET_PROTOCOL 6` in v2.6.39, v3.4 and v4.9), `ipset/ip_set_hash_net.c` | set writes, ipset | required |
+| nf_tables: batch (`NFNL_MSG_BATCH_BEGIN`), `NFT_MSG_NEWSETELEM`/`DELSETELEM` | 3.13 | `nfnetlink.h`, `nf_tables.h`, `nf_tables_api.c` | set writes, nft | required |
+| nf_tables `inet` family (`NFPROTO_INET`) | 3.14 | `include/uapi/linux/netfilter.h` | nft | required |
+| nf_tables set element timeout (`NFT_SET_TIMEOUT`, `NFTA_SET_ELEM_TIMEOUT`) | 4.1 | `nf_tables.h` | set writes, nft | required |
+| ctnetlink dump and delete | 2.6.16 | `net/netfilter/nf_conntrack_netlink.c` | conntrack cleanup | optional: cleanup disabled |
+| ctnetlink `CTA_ZONE` | 2.6.34 | `nfnetlink_conntrack.h` | conntrack cleanup | optional (zones are only read when present) |
+| ctnetlink `CTA_TUPLE_ZONE` | 4.3 | `nfnetlink_conntrack.h` | conntrack cleanup | optional |
+| `NETLINK_NO_ENOBUFS` | 2.6.30 | `netlink.h` | socket tuning | optional |
+| `NETLINK_CAP_ACK` | 4.3 | `netlink.h` | socket tuning | optional (`setsockopt` failure is ignored) |
+| `NETLINK_EXT_ACK` | 4.12 | `netlink.h` | socket tuning | optional (`setsockopt` failure is ignored) |
+| `NS_GET_USERNS` ioctl (replacement capability) | 4.9 | `include/uapi/linux/nsfs.h` | marker rewrite | optional: `payload_replacement` is `unknown` outside the initial namespace |
+| nft `numgen` (balanced routing only, not interception) | 4.9 | `net/netfilter/nft_numgen.c` | `balance` outbounds, nft | outside this page |
+
+### Minimum per backend
+
+| Backend | DNS hold | L7 sniffing | Full feature set |
+|---|---|---|---|
+| iptables | 3.8 (queue handler registration; the `--queue-bypass`, ipset and `--ctdir` rows are all older) | 2.6.39 (ipset); L7 modules are older | 3.8 plus 3.6 for fail-open |
+| nftables | 4.1 (set element timeout) | 4.5 (`ct original packets`) | 4.5 (4.9 for balanced outbounds) |
+
+Fail-open needs 3.6, which every kernel that meets the iptables DNS-hold
+minimum (3.8) already has; the `fail_open` probe can only fail there on vendor
+kernels that stripped the feature.
+
+Required means the part that needs it is disabled and reported when it is
+missing; keen-pbr itself keeps running and the other part stays active.
+Optional means the part keeps working with reduced behaviour, a warning in
+`/api/health/service` and a log line.
+
+### Runtime probes
+
+Version numbers say what upstream shipped, not what a given router kernel
+does. After the `/proc/net/ip*_tables_*` check (iptables only), keen-pbr
+therefore exercises each primitive and reports the result in
+`intercept.probes` of `GET /api/health/service`. Nothing here touches user
+traffic and a probe never fails a configuration apply.
+
+| Probe | Request | Result |
+|---|---|---|
+| `set_backend` | ipset: `IPSET_CMD_PROTOCOL` (needs a reply of at least protocol 6). nftables: a batched `NEWSETELEM` against a set that does not exist (`ENOENT` proves nf_tables answers; `EOPNOTSUPP`/`EINVAL` means it does not) | `unsupported`/`error` disables DNS hold and L7 |
+| `nfqueue` | bind of the configured queue number plus `NFQA_CFG_PARAMS`, done by the service itself | failure disables DNS hold only |
+| `fail_open` | `NFQA_CFG_FLAGS(FAIL_OPEN)` on the bound queue, plus a control request with an unknown flag bit. Kernels before 3.6 ignore the attribute and ACK both, so a control that is accepted means the flag was never parsed | `unsupported`: queue runs without fail-open, `capabilities.fail_open=false`, warning |
+| `payload_replacement` | `NS_GET_USERNS` owner of the network namespace | `supported`, `unsupported` or `unknown`; informational |
+| `nflog` | bind of the configured group, done by the service itself | failure disables L7 only |
+| `set_write` | after the firewall created the sets: add and delete of `192.0.2.255` / `2001:db8::ffff` with a 1 s timeout on one `kpbr4d_*`/`kpbr6d_*` set (ipset `ADD`/`DEL`, nft `NEWSETELEM`/`DELSETELEM`) | failure removes the interception rules again and disables DNS hold and L7; `skipped` when no dynamic set exists |
+| `conntrack` | a ctnetlink dump request, abandoned after the first reply | failure disables conntrack cleanup only (warning) |
+
+`kernel_release` (`uname -r`) is reported for information and is never used to
+decide anything. A failed probe is cached until the next runtime refresh
+(which includes `SIGUSR1`) or configuration change, so a kernel that
+rejects a listener is not retried on every apply.
+
+## Health and diagnostics
+
+`GET /api/health/service` reports resolver mode and an `intercept` object. The
+interception health separates `dns_hold_active` and `l7_active`, reports
+`capabilities.nfqueue`, `capabilities.nflog`, and `capabilities.connbytes`
+(plus `fail_open`, `payload_replacement` and `conntrack_cleanup` once probed),
+lists the functional [probe results](#runtime-probes) in `probes`
+(`feature`, `status`, `reason`), degraded-but-running conditions in `warnings`,
+and the kernel release and ipset protocol, and exposes counters such as DNS packets/parse errors/hold timeouts, partial TCP,
+NFQUEUE/NFLOG overruns, set additions/errors, and conntrack requests/deletes.
+`SIGUSR1` schedules a runtime refresh and clears the cached interception
+capability probe before reapplying the runtime state, so newly available kernel
+facilities are rechecked.
+
+`GET /api/dns/test` is an SSE stream, not the removed probe listener. It emits
+`HELLO` and `INTERCEPT` events with `source` (`dns`, `marker`, `sni`, `http`, or
+`quic`), `domain`, matched `lists`, learned `ips`, `hold_us`, and
+`timed_out`, plus add/refresh/error counts.
+
+## Platform limits
+
+The portable implementation has not verified Keenetic hardware offload,
+legacy iptables 1.4.21 behavior, or a root-owned marker run on a production
+router. Those require device-specific/manual checks. Absence of the
+Keenetic dump is not evidence that these paths are supported.
+
+See the [DNS configuration reference](../docs/content/docs/configuration/dns.md),
+[REST API reference](../docs/content/docs/rest-api.md), and
+[firewall architecture](firewall-architecture.md) for operational details.

@@ -7,9 +7,11 @@
  */
 import type { HealthResponseRuntimeState } from './healthResponseRuntimeState';
 import type { HealthResponseStatus } from './healthResponseStatus';
+import type { InterceptHealth } from './interceptHealth';
 import type { LifecycleOperation } from './lifecycleOperation';
 import type { ResolverConfigProbeStatus } from './resolverConfigProbeStatus';
 import type { ResolverConfigSyncState } from './resolverConfigSyncState';
+import type { ResolverIntegrationMode } from './resolverIntegrationMode';
 import type { RuntimeOutboundStatus } from './runtimeOutboundStatus';
 
 export interface HealthResponse {
@@ -29,7 +31,8 @@ export interface HealthResponse {
   /** Host platform build variant. On OpenWrt this includes `target/subtarget`; on other OSes it contains the detected target.
    */
   build_variant: string;
-  /** MD5 hex digest of the current domain-to-ipset mapping. Matches the txt-record written by generate-resolver-config; use to verify the dnsmasq config is up to date.
+  resolver_integration?: ResolverIntegrationMode;
+  /** Only meaningful when `resolver_integration` is `dnsmasq`; empty otherwise (as are the other `resolver_*` fields, with `resolver_config_probe_status` set to `disabled`). MD5 hex digest of the current domain-to-ipset mapping. Matches the txt-record written by generate-resolver-config; use to verify the dnsmasq config is up to date.
    */
   resolver_config_hash?: string;
   /** MD5 hex digest read from TXT record `config-hash.keen.pbr` using `dns.system_resolver.address` (optional `:port`, default `:53`), normalized to a raw md5 string.
@@ -54,4 +57,5 @@ export interface HealthResponse {
    */
   rollback_available: boolean;
   lifecycle_operation?: LifecycleOperation;
+  intercept?: InterceptHealth;
 }

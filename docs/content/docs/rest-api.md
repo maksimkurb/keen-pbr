@@ -89,6 +89,13 @@ curl http://127.0.0.1:12121/api/health/service
 
 `resolver_config_hash` is an MD5 hex digest of the expected domain-to-ipset mapping derived from the current config. `resolver_config_hash_actual` reflects the hash of the config that was last applied to the running system resolver. When these two values differ, the dnsmasq config may be out of date.
 
+When interception is configured, the same response includes an `intercept`
+object. It reports `dns_hold_active` and `l7_active` independently, capability
+flags (`nfqueue`, `nflog`, `connbytes`), and counters for DNS parsing/holds,
+partial TCP, L7 packets, set updates, conntrack cleanup, and NFQUEUE/NFLOG
+overruns. A missing NFQUEUE capability does not imply that L7 is unavailable,
+and vice versa.
+
 For live outbound runtime state (health, latency, circuit breaker) use `GET /api/runtime/outbounds`.
 
 ---
@@ -402,7 +409,7 @@ curl http://127.0.0.1:12121/api/health/routing
 
 ## GET /api/dns/test
 
-Streams DNS queries observed by the built-in `dns.dns_test_server` listener as Server-Sent Events. Each event payload is a JSON object. The connection receives a `HELLO` event immediately, then one `DNS` event per queried name while the connection is open.
+Streams the daemon's traffic interception events as Server-Sent Events. Each event payload is a JSON object. The connection receives a `HELLO` event immediately, then one `INTERCEPT` event per intercepted DNS response, TLS SNI, HTTP Host or QUIC Initial while the connection is open. The legacy `DNS` events of the removed `dns.dns_test_server` probe are no longer emitted; the marker domain (`intercept.dns.marker`) is reported as an `INTERCEPT` event with `source` `marker`.
 
 ```bash {filename="bash"}
 curl -N http://127.0.0.1:12121/api/dns/test
@@ -413,8 +420,6 @@ curl -N http://127.0.0.1:12121/api/dns/test
 ```text
 data: {"type":"HELLO"}
 
-data: {"type":"DNS","domain":"example.com","source_ip":"192.168.1.10","ecs":"203.0.113.0/24"}
-
-data: {"type":"DNS","domain":"connectivity-check.local","source_ip":"192.168.1.11","ecs":null}
+data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
 
 ```

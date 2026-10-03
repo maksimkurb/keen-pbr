@@ -23,7 +23,7 @@ export interface DaemonConfig {
   /** Whether firewall prefilter rules should bypass packets that already carry a fwmark. Defaults to `true` when omitted or set to `null`.
    */
   skip_marked_packets?: boolean | null;
-  /** Whether a full firewall apply should clear dnsmasq-owned dynamic IP sets before recreating runtime rules. Defaults to `true` when omitted or set to `null`. List-only and preserve-set reconciles never clear dynamic entries.
+  /** Whether a full firewall apply should clear the dynamic (domain learned) IP sets before recreating runtime rules. Defaults to `false` when omitted or set to `null`: the sets are refilled only when clients query DNS again, so clearing them makes domain routes stop working until the next lookup. List-only and preserve-set reconciles never clear dynamic entries.
    */
   clear_dynamic_sets_on_apply?: boolean | null;
   /**

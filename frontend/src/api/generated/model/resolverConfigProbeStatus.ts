@@ -7,7 +7,7 @@
  */
 
 /**
- * Result of the latest resolver TXT probe for `config-hash.keen.pbr`. Missing or invalid TXT means dnsmasq config sync cannot be verified and may be stale; query_failed means the daemon could not query the configured resolver endpoint.
+ * Result of the latest resolver TXT probe for `config-hash.keen.pbr`. Missing or invalid TXT means dnsmasq config sync cannot be verified and may be stale; query_failed means the daemon could not query the configured resolver endpoint. `disabled` is reported when `dns.resolver_integration` is `none`; in that mode all `resolver_*` health fields stay present but carry no resolver state.
 
  */
 export type ResolverConfigProbeStatus = typeof ResolverConfigProbeStatus[keyof typeof ResolverConfigProbeStatus];
@@ -19,5 +19,6 @@ export const ResolverConfigProbeStatus = {
   invalid_txt: 'invalid_txt',
   query_failed: 'query_failed',
   not_configured: 'not_configured',
+  disabled: 'disabled',
   unknown: 'unknown',
 } as const;

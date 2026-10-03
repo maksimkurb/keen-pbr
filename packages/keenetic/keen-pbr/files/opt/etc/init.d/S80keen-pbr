@@ -361,7 +361,23 @@ prepare_stop() {
     enable_hwnat
 }
 
+# The dnsmasq integration is optional.  It is on when config.json sets
+# dns.resolver_integration to "dnsmasq", or, for configs written before the
+# option existed, when dns.system_resolver is configured.
+resolver_integration_enabled() {
+    [ -r "$CONFIG" ] || return 1
+    if grep -Eq '"resolver_integration"[[:space:]]*:' "$CONFIG"; then
+        grep -Eq '"resolver_integration"[[:space:]]*:[[:space:]]*"dnsmasq"' "$CONFIG"
+        return $?
+    fi
+    grep -Eq '"system_resolver"[[:space:]]*:' "$CONFIG"
+}
+
 reapply_dnsmasq_config() {
+    resolver_integration_enabled || {
+        log "dnsmasq integration is disabled (dns.resolver_integration); nothing to reapply"
+        return 0
+    }
     if [ -x "$DNSMASQ_HELPER" ]; then
         "$DNSMASQ_HELPER" reload || return 1
     fi

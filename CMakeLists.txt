@@ -265,17 +265,23 @@ set(SOURCES
   src/config/config_writer.cpp
   src/config/routing_state.cpp
   src/config/list_parser.cpp
-  src/runtime/runtime_reconciler.cpp
   src/runtime/conntrack_manager.cpp
   src/runtime/resolver_coordinator.cpp
   src/runtime/runtime_state_machine.cpp
   src/runtime/operation_coordinator.cpp
   src/runtime/lifecycle_operation.cpp
-  src/firewall/firewall_reconciler.cpp
+  src/firewall/firewall_snapshot.cpp
+  src/firewall/firewall_physical.cpp
+  src/firewall/firewall_lowering.cpp
+  src/firewall/ip_family.cpp
+  src/firewall/firewall_plan_verifier.cpp
+  src/firewall/firewall_plan.cpp
+  src/firewall/firewall_rule.cpp
   src/lists/ipset.cpp
   src/lists/kernel_set_tester.cpp
   src/lists/list_streamer.cpp
   src/lists/list_set_usage.cpp
+  src/lists/domain_index.cpp
   src/cache/cache_manager.cpp
   src/cmd/status.cpp
   src/cmd/test_routing.cpp
@@ -298,23 +304,42 @@ set(SOURCES
   src/routing/firewall_state.cpp
   src/firewall/firewall.cpp
   src/firewall/firewall_runtime.cpp
+  src/firewall/firewall_rule_modules.cpp
+  src/firewall/rules/dns_detour.cpp
+  src/firewall/rules/restore_conntrack_mark.cpp
+  src/firewall/rules/skip_established_or_dnat.cpp
+  src/firewall/rules/skip_marked_packets.cpp
+  src/firewall/rules/inbound_interface_filter.cpp
+  src/firewall/rules/route_targets.cpp
+  src/firewall/rules/route_mark.cpp
+  src/firewall/rules/route_drop.cpp
+  src/firewall/rules/route_pass.cpp
+  src/firewall/rules/route_balance.cpp
+  src/firewall/rules/intercept_dns_hold.cpp
+  src/firewall/rules/intercept_l7_sniff.cpp
   src/firewall/port_spec_util.cpp
   src/firewall/iptables.cpp
   src/firewall/nftables.cpp
   src/firewall/ipset_restore_pipe.cpp
   src/firewall/nft_batch_pipe.cpp
   src/firewall/firewall_verifier.cpp
-  src/firewall/iptables_verifier.cpp
-  src/firewall/nftables_verifier.cpp
   src/dns/dns_server.cpp
   src/dns/keenetic_dns.cpp
   src/dns/dns_txt_client.cpp
-  src/dns/dns_probe_server.cpp
+  src/dns/dns_wire.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
+  src/l7/crypto/sha256.cpp
+  src/l7/crypto/aes128.cpp
+  src/l7/quic_initial.cpp
+  src/l7/tls_client_hello.cpp
+  src/l7/http_host.cpp
+  src/l7/flow_buffer.cpp
   src/ipc/control_protocol.cpp
   src/ipc/control_client.cpp
   src/ipc/resolver_fallback.cpp
+  src/resolver/resolver_integration.cpp
+  src/resolver/dnsmasq_integration.cpp
   src/daemon/config_store.cpp
   src/daemon/disk_config_state.cpp
   src/daemon/config_apply_transaction.cpp
@@ -323,8 +348,9 @@ set(SOURCES
   src/daemon/daemon_runtime.cpp
   src/daemon/daemon_resolver.cpp
   src/daemon/daemon_api.cpp
-  src/daemon/daemon_dns_probe.cpp
+  src/daemon/daemon_intercept.cpp
   src/daemon/list_service.cpp
+  src/daemon/lifecycle_stages.cpp
   src/daemon/resolver_health.cpp
   src/daemon/resolver_apply_confirmation.cpp
   src/daemon/resolver_stream_wait.cpp
@@ -332,6 +358,19 @@ set(SOURCES
   src/daemon/runtime_state_store.cpp
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
+  src/netfilter/nl_msg.cpp
+  src/netfilter/nl_socket.cpp
+  src/netfilter/nfqueue.cpp
+  src/netfilter/nflog.cpp
+  src/netfilter/conntrack.cpp
+  src/netfilter/set_writer.cpp
+  src/netfilter/kernel_probe.cpp
+  src/intercept/intercept_processor.cpp
+  src/intercept/intercept_service.cpp
+  src/intercept/intercept_capabilities.cpp
+  src/intercept/intercept_report.cpp
+  src/intercept/intercept_settings.cpp
+  src/intercept/intercept_snapshot_builder.cpp
   src/util/blocking_executor.cpp
   src/util/firewall_backend_utils.cpp
   src/util/ipv6_support.cpp

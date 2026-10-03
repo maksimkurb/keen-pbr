@@ -42,7 +42,7 @@ Package format folders (`opkg`, `ipk`, `apk`, `deb`) are intentionally omitted.
 - `build-number`: the source commit's UTC Unix timestamp.
 - `keenetic_version`: currently `current` (reserved for future compatibility).
 - `openwrt_version`: explicit OpenWrt release line (for example `24.10.4`, `25.12.2`).
-- `debian_version`: explicit Debian release line (`bullseye`, `bookworm`, or `trixie`).
+- `debian_version`: explicit Debian release line (`bookworm` or `trixie`).
 
 ## GitHub Actions
 

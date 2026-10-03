@@ -58,6 +58,37 @@ TEST_CASE("icmptest validation accepts a timing-safe complete probe set") {
     CHECK_NOTHROW(parse_test_config(nlohmann::json(cfg).dump()));
 }
 
+TEST_CASE("test-group balance and default gateway rules are parsed") {
+    const auto cfg = parse_test_config(R"({
+      "daemon":{"firewall_backend":"nftables"},
+      "outbounds":[
+        {"type":"interface","tag":"wan_a","interface":"wan_a"},
+        {"type":"interface","tag":"wan_b","interface":"wan_b"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
+      ],
+      "route":{"rules":[
+        {"default_gateway":"ipv4","outbound":"auto"},
+        {"default_gateway":"ipv6","outbound":"auto"}
+      ]}
+    })");
+    CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
+    CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
+}
+
+TEST_CASE("balance and default gateway reject the iptables backend") {
+    const auto issues = validate_issues(R"({
+      "daemon":{"firewall_backend":"iptables"},
+      "outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan"]}]}
+      ],
+      "route":{"rules":[{"default_gateway":"ipv4","outbound":"auto"}]}
+    })");
+    CHECK(issues.size() >= 2);
+}
+
 TEST_CASE("icmptest migrates the legacy split probe form in memory") {
     const auto cfg = parse_test_config(R"({"outbounds":[
       {"type":"interface","tag":"wan","interface":"wan"},
@@ -595,19 +626,16 @@ TEST_CASE("dns test server: explicit answer IPv4 parses") {
     CHECK(cfg.dns->dns_test_server->answer_ipv4.value_or("") == "127.0.0.99");
 }
 
-TEST_CASE("dns test server: invalid listen is rejected") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"not-an-ip:53"}}})";
-    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
-}
-
-TEST_CASE("dns test server: ipv6 listen is rejected") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"[::1]:53"}}})";
-    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
-}
-
-TEST_CASE("dns test server: invalid answer IPv4 is rejected") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"example.com"}}})";
-    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
+TEST_CASE("dns test server: deprecated and ignored, invalid values no longer rejected") {
+    for (const char* json : {
+             R"({"dns":{"dns_test_server":{"listen":"not-an-ip:53"}}})",
+             R"({"dns":{"dns_test_server":{"listen":"[::1]:53"}}})",
+             R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"example.com"}}})"}) {
+        auto cfg = parse_test_config(json);
+        const auto warnings = config_warnings(cfg);
+        REQUIRE(warnings.size() == 1);
+        CHECK(warnings.front().find("intercept.dns.marker") != std::string::npos);
+    }
 }
 
 TEST_CASE("config validation: accepts system_resolver") {
@@ -624,9 +652,10 @@ TEST_CASE("config validation: accepts system_resolver") {
     CHECK_NOTHROW(validate_config(cfg));
 }
 
-TEST_CASE("config validation: rejects missing system_resolver") {
+TEST_CASE("config validation: dnsmasq integration requires system_resolver") {
     auto cfg = parse_config(R"({
         "dns": {
+            "resolver_integration": "dnsmasq",
             "servers": [
                 {"tag":"plain_dns","address":"8.8.8.8"}
             ],
@@ -640,8 +669,69 @@ TEST_CASE("config validation: rejects missing system_resolver") {
     } catch (const ConfigValidationError& e) {
         REQUIRE(e.issues().size() == 1);
         CHECK(e.issues().front().path == "dns.system_resolver");
-        CHECK(e.issues().front().message == "dns.system_resolver must be present");
+        CHECK(e.issues().front().message ==
+              "dns.system_resolver must be present when dns.resolver_integration is 'dnsmasq'");
     }
+}
+
+TEST_CASE("config validation: system_resolver is optional without dnsmasq integration") {
+    auto cfg = parse_config(R"({
+        "dns": {
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "fallback": ["plain_dns"]
+        }
+    })");
+    CHECK_NOTHROW(validate_config(cfg));
+    CHECK_NOTHROW(validate_config(parse_config(R"({"outbounds":[]})")));
+}
+
+TEST_CASE("resolver integration migration: absent field with dns.rules becomes dnsmasq") {
+    auto cfg = parse_config(R"({
+        "lists": {"l": {"domains": ["example.com"]}},
+        "dns": {
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "rules": [{"list":["l"],"server":"plain_dns"}],
+            "system_resolver": {"address": "127.0.0.1"}
+        }
+    })");
+    REQUIRE(cfg.dns->resolver_integration.has_value());
+    CHECK(*cfg.dns->resolver_integration == ResolverIntegrationMode::DNSMASQ);
+    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::DNSMASQ);
+    // The migrated value is written explicitly on the next save.
+    CHECK(nlohmann::json(cfg).at("dns").at("resolver_integration") == "dnsmasq");
+}
+
+TEST_CASE("resolver integration migration: absent field with system_resolver becomes dnsmasq") {
+    auto cfg = parse_config(R"({"dns":{"system_resolver":{"address":"127.0.0.1"}}})");
+    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::DNSMASQ);
+}
+
+TEST_CASE("resolver integration migration: absent field without rules becomes none") {
+    auto cfg = parse_config(R"({
+        "dns": {"servers": [{"tag":"plain_dns","address":"8.8.8.8"}]}
+    })");
+    REQUIRE(cfg.dns->resolver_integration.has_value());
+    CHECK(*cfg.dns->resolver_integration == ResolverIntegrationMode::NONE);
+    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::NONE);
+    CHECK(effective_resolver_integration(parse_config("{}")) == ResolverIntegrationMode::NONE);
+    CHECK(config_warnings(cfg).empty());
+}
+
+TEST_CASE("resolver integration: explicit none with dns.rules warns but is valid") {
+    auto cfg = parse_config(R"({
+        "lists": {"l": {"domains": ["example.com"]}},
+        "dns": {
+            "resolver_integration": "none",
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "rules": [{"list":["l"],"server":"plain_dns"}]
+        }
+    })");
+    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::NONE);
+    CHECK_NOTHROW(validate_config(cfg));
+    const auto warnings = config_warnings(cfg);
+    REQUIRE(warnings.size() == 1);
+    CHECK(warnings.front().find("per-list upstream requires resolver_integration=dnsmasq") !=
+          std::string::npos);
 }
 
 TEST_CASE("config validation: allows missing fallback") {
@@ -1524,4 +1614,62 @@ TEST_CASE("device name may be empty and is limited to 128 characters") {
     const auto issues = validate_issues(nlohmann::json{{"device_name", long_name}}.dump());
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "device_name");
+}
+
+TEST_CASE("intercept: defaults are accepted and absent values stay optional") {
+    const auto cfg = parse_test_config(R"({"intercept":{}})");
+    REQUIRE(cfg.intercept.has_value());
+    CHECK_FALSE(cfg.intercept->enabled.has_value());
+    const auto full = parse_test_config(R"({"intercept":{
+      "enabled":true,"min_ttl_s":300,"max_ttl_s":86400,
+      "dns":{"enabled":true,"queue_num":9053,"hold_timeout_ms":30,
+             "marker":{"domain":"check.keen.pbr","answer_ipv4":"127.0.0.88"}},
+      "l7":{"enabled":true,"nflog_group":9054,"tls":true,"http":true,"quic":true}}})");
+    CHECK(*full.intercept->dns->queue_num == 9053);
+    CHECK(*full.intercept->l7->nflog_group == 9054);
+    CHECK_NOTHROW(parse_test_config(nlohmann::json(full).dump()));
+}
+
+TEST_CASE("intercept: rejects invalid queue/group numbers") {
+    for (const char* bad : {"0", "65536", "-1", "64511", "65023"}) {
+        const auto q = validate_issues(std::string(R"({"intercept":{"dns":{"queue_num":)") + bad + "}}}");
+        REQUIRE(q.size() == 1);
+        CHECK(q[0].path == "intercept.dns.queue_num");
+        const auto g = validate_issues(std::string(R"({"intercept":{"l7":{"nflog_group":)") + bad + "}}}");
+        REQUIRE(g.size() == 1);
+        CHECK(g[0].path == "intercept.l7.nflog_group");
+    }
+    CHECK(validate_issues(R"({"intercept":{"dns":{"queue_num":1},"l7":{"nflog_group":65535}}})").empty());
+}
+
+TEST_CASE("intercept: hold timeout, ttl range and marker are validated") {
+    CHECK(validate_issues(R"({"intercept":{"dns":{"hold_timeout_ms":5}}})").empty());
+    CHECK(validate_issues(R"({"intercept":{"dns":{"hold_timeout_ms":500}}})").empty());
+    for (const char* bad : {"4", "501", "0"}) {
+        const auto issues = validate_issues(
+            std::string(R"({"intercept":{"dns":{"hold_timeout_ms":)") + bad + "}}}");
+        REQUIRE(issues.size() == 1);
+        CHECK(issues[0].path == "intercept.dns.hold_timeout_ms");
+    }
+
+    auto ttl = validate_issues(R"({"intercept":{"min_ttl_s":600,"max_ttl_s":300}})");
+    REQUIRE(ttl.size() == 1);
+    CHECK(ttl[0].path == "intercept.min_ttl_s");
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_s":300,"max_ttl_s":300}})").empty());
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_s":0}})").size() == 1);
+    // A lone min above the default max is also inconsistent.
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_s":90000}})").size() == 1);
+
+    for (const char* bad : {"", "-bad.example", "a..b", "bad domain", "a.b-"}) {
+        const auto issues = validate_issues(
+            std::string(R"({"intercept":{"dns":{"marker":{"domain":")") + bad + R"("}}}})");
+        REQUIRE(issues.size() == 1);
+        CHECK(issues[0].path == "intercept.dns.marker.domain");
+    }
+    CHECK(validate_issues(R"({"intercept":{"dns":{"marker":{"domain":"check.example.org"}}}})").empty());
+
+    const auto ip = validate_issues(R"({"intercept":{"dns":{"marker":{"answer_ipv4":"999.1.1.1"}}}})");
+    REQUIRE(ip.size() == 1);
+    CHECK(ip[0].path == "intercept.dns.marker.answer_ipv4");
+    CHECK(validate_issues(R"({"intercept":{"dns":{"marker":{"answer_ipv4":"::1"}}}})").size() == 1);
 }

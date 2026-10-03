@@ -24,11 +24,6 @@ override_dh_auto_configure:
 
 override_dh_auto_test:
 
-override_dh_dwz:
-	# Bullseye dwz cannot process DW_OP_255 emitted in the current debug data.
-	# dwz only optimizes debug information; package stripping still runs normally.
-	:
-
 override_dh_auto_install:
 	dh_auto_install
 	test -n "$(KEEN_PBR_FRONTEND_DIST)"

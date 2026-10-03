@@ -34,7 +34,8 @@ public:
                      const std::map<std::string, ListConfig>& lists,
                      ResolverType resolver_type = ResolverType::DNSMASQ_IPSET,
                      std::string hash_version = KEEN_PBR3_VERSION_FULL_STRING,
-                     bool ipv6_enabled = true);
+                     bool ipv6_enabled = true,
+                     bool daemon_fills_dynamic_sets = false);
 
     // Generate dnsmasq configuration and stream it to the output.
     // Produces ipset=/nftset= and server= directives for all matched domains.
@@ -54,7 +55,8 @@ public:
         const DnsConfig& dns_config,
         const std::map<std::string, ListConfig>& lists,
         std::string hash_version = KEEN_PBR3_VERSION_FULL_STRING,
-        bool ipv6_enabled = true);
+        bool ipv6_enabled = true,
+        bool daemon_fills_dynamic_sets = false);
 
     // Build the dynamic (dnsmasq-populated) IPv4/IPv6 set names for a given list name.
     // These are the sets referenced by ipset=/nftset= directives in dnsmasq config.
@@ -87,6 +89,9 @@ private:
     ResolverType resolver_type_;
     std::string hash_version_;
     bool ipv6_enabled_;
+    // True when the daemon's DNS interception fills the dynamic sets: no
+    // ipset=/nftset= directives (nor their hash records) are produced.
+    bool daemon_fills_dynamic_sets_;
 };
 
 } // namespace keen_pbr3

@@ -1,0 +1,128 @@
+#include "intercept_report.hpp"
+
+namespace keen_pbr3 {
+
+namespace {
+int64_t load(const std::atomic<uint64_t>& value) {
+    return static_cast<int64_t>(value.load(std::memory_order_relaxed));
+}
+} // namespace
+
+static api::InterceptProbeFeatureStatus probe_status_to_api(nfnl::ProbeStatus status) {
+    switch (status) {
+    case nfnl::ProbeStatus::ok: return api::InterceptProbeFeatureStatus::OK;
+    case nfnl::ProbeStatus::unsupported: return api::InterceptProbeFeatureStatus::UNSUPPORTED;
+    case nfnl::ProbeStatus::error: return api::InterceptProbeFeatureStatus::ERROR;
+    case nfnl::ProbeStatus::skipped: return api::InterceptProbeFeatureStatus::SKIPPED;
+    case nfnl::ProbeStatus::not_run: break;
+    }
+    return api::InterceptProbeFeatureStatus::NOT_RUN;
+}
+
+const char* intercept_source_name(InterceptSource source) {
+    switch (source) {
+    case InterceptSource::dns: return "dns";
+    case InterceptSource::sni: return "sni";
+    case InterceptSource::http: return "http";
+    case InterceptSource::quic: return "quic";
+    case InterceptSource::marker: return "marker";
+    }
+    return "dns";
+}
+
+api::InterceptHealthClass make_intercept_health(const InterceptEffective& effective,
+                                                bool running,
+                                                const InterceptCounters* counters,
+                                                uint64_t events_seq,
+                                                bool snapshot_ready) {
+    api::InterceptHealthClass health;
+    health.enabled = effective.config_enabled;
+    health.running = running;
+    health.dns_hold_active = running && effective.dns_hold && snapshot_ready;
+    health.l7_active = running && effective.l7 && snapshot_ready;
+    health.capabilities.nfqueue = effective.capabilities.nfqueue;
+    health.capabilities.nflog = effective.capabilities.nflog;
+    health.capabilities.connbytes = effective.capabilities.connbytes;
+    const auto& probe = effective.capabilities.probe;
+    health.capabilities.fail_open = probe.fail_open.status == nfnl::ProbeStatus::not_run
+                                        ? std::nullopt
+                                        : std::optional<bool>(probe.fail_open.is_ok());
+    if (probe.nfqueue.status != nfnl::ProbeStatus::not_run) {
+        switch (probe.replacement) {
+        case nfnl::ReplacementCapability::supported:
+            health.capabilities.payload_replacement = api::PayloadReplacement::SUPPORTED;
+            break;
+        case nfnl::ReplacementCapability::unsupported:
+            health.capabilities.payload_replacement = api::PayloadReplacement::UNSUPPORTED;
+            break;
+        case nfnl::ReplacementCapability::unknown:
+            health.capabilities.payload_replacement = api::PayloadReplacement::UNKNOWN;
+            break;
+        }
+    }
+    if (probe.conntrack.status != nfnl::ProbeStatus::not_run) {
+        health.capabilities.conntrack_cleanup = effective.conntrack_cleanup;
+    }
+    if (!probe.kernel_release.empty()) health.kernel_release = probe.kernel_release;
+    if (probe.ipset_protocol != 0) health.ipset_protocol = probe.ipset_protocol;
+    std::vector<api::InterceptProbeFeatureElement> probes;
+    for (const auto& item : probe.items()) {
+        api::InterceptProbeFeatureElement out;
+        out.feature = item.feature;
+        out.status = probe_status_to_api(item.result.status);
+        if (!item.result.reason.empty()) out.reason = item.result.reason;
+        probes.push_back(std::move(out));
+    }
+    health.probes = std::move(probes);
+    if (!effective.warnings.empty()) health.warnings = effective.warnings;
+    health.reasons = effective.reasons;
+    if (!effective.config_enabled) {
+        health.reasons.insert(health.reasons.begin(), "interception is disabled by config");
+    }
+    if (running && !snapshot_ready) {
+        health.reasons.push_back("interception snapshot is still initializing");
+    }
+    health.queue_num = effective.queue_num;
+    health.nflog_group = effective.nflog_group;
+    health.events_seq = static_cast<int64_t>(events_seq);
+    if (counters != nullptr) {
+        api::Counters out;
+        out.dns_packets = load(counters->dns_packets);
+        out.dns_parse_errors = load(counters->dns_parse_errors);
+        out.dns_matched = load(counters->dns_matched);
+        out.dns_hold_timeouts = load(counters->dns_hold_timeouts);
+        out.dns_tcp_partial = load(counters->dns_tcp_partial);
+        out.marker_hits = load(counters->marker_hits);
+        out.l7_packets = load(counters->l7_packets);
+        out.l7_matched = load(counters->l7_matched);
+        out.set_added = load(counters->set_added);
+        out.set_refreshed = load(counters->set_refreshed);
+        out.set_errors = load(counters->set_errors);
+        out.conntrack_requests = load(counters->conntrack_requests);
+        out.conntrack_deleted = load(counters->conntrack_deleted);
+        out.conntrack_errors = load(counters->conntrack_errors);
+        out.queue_overruns = load(counters->queue_overruns);
+        out.log_overruns = load(counters->log_overruns);
+        health.counters = out;
+    }
+    return health;
+}
+
+nlohmann::json intercept_event_to_json(const InterceptEvent& event) {
+    return {
+        {"type", "INTERCEPT"},
+        {"seq", event.seq},
+        {"ts_ms", event.ts_ms},
+        {"source", intercept_source_name(event.source)},
+        {"domain", event.domain},
+        {"lists", event.lists},
+        {"ips", event.ips},
+        {"added", event.added},
+        {"refreshed", event.refreshed},
+        {"errors", event.errors},
+        {"hold_us", event.hold_us},
+        {"timed_out", event.timed_out},
+    };
+}
+
+} // namespace keen_pbr3

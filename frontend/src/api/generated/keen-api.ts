@@ -2405,7 +2405,7 @@ export function useGetStatusEvents<TData = Awaited<ReturnType<typeof getStatusEv
 
 
 /**
- * Streams DNS query names observed by the built-in `dns.test_server` listener as Server-Sent Events. Each connection receives `HELLO` first, then one event per queried DNS name.
+ * Streams the daemon's traffic interception events as Server-Sent Events. Each connection receives `HELLO` first, then one `INTERCEPT` event per intercepted DNS response, TLS SNI, HTTP Host or QUIC Initial (see the `DnsTestInterceptEvent` schema). The legacy `DNS` events of the removed built-in probe server are no longer emitted; the DNS marker domain (`intercept.dns.marker`) is answered by the interceptor and reported as an `INTERCEPT` event with `source` `marker`.
 
  * @summary Stream DNS test queries
  */

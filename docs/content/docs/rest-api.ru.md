@@ -91,6 +91,12 @@ curl http://127.0.0.1:12121/api/health/service
 
 `resolver_config_hash` — это MD5-хеш ожидаемого сопоставления домен-ipset, полученного из текущей конфигурации. `resolver_config_hash_actual` отражает хеш конфигурации, которая была последний раз применена к работающему системному резолверу. Когда эти два значения различаются, конфигурация dnsmasq может быть устаревшей.
 
+При включённом перехвате этот ответ также содержит объект `intercept`. В нём
+раздельно указаны `dns_hold_active` и `l7_active`, возможности
+(`nfqueue`, `nflog`, `connbytes`) и счётчики DNS-разбора/hold, частичных TCP,
+L7-пакетов, обновлений наборов, очистки conntrack и переполнений NFQUEUE/NFLOG.
+Недоступность NFQUEUE не означает недоступность L7 и наоборот.
+
 Для текущего состояния outbounds во время выполнения (здоровье, задержка, circuit breaker) используйте `GET /api/runtime/outbounds`.
 
 ---
@@ -404,7 +410,10 @@ curl http://127.0.0.1:12121/api/health/routing
 
 ## GET /api/dns/test
 
-Транслирует DNS-запросы, наблюдаемые встроенным listener `dns.dns_test_server` как Server-Sent Events. Каждый event-пayload — это JSON-объект. Соединение получает event `HELLO` немедленно, затем по одному event `DNS` на запрошенное имя, пока соединение открыто.
+Транслирует события перехвата как Server-Sent Events. Соединение получает
+`HELLO`, затем события `INTERCEPT` для DNS-ответов, marker, TLS SNI, HTTP Host
+или QUIC Initial. Старые события `DNS` от удалённого
+`dns.dns_test_server` больше не выдаются.
 
 ```bash {filename="bash"}
 curl -N http://127.0.0.1:12121/api/dns/test
@@ -415,7 +424,5 @@ curl -N http://127.0.0.1:12121/api/dns/test
 ```text
 data: {"type":"HELLO"}
 
-data: {"type":"DNS","domain":"example.com","source_ip":"192.168.1.10","ecs":"203.0.113.0/24"}
-
-data: {"type":"DNS","domain":"connectivity-check.local","source_ip":"192.168.1.11","ecs":null}
+data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
 ```

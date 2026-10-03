@@ -260,6 +260,9 @@ std::optional<std::string> resolver_fallback_reason(const std::string &error) {
     return "runtime_stopped";
   if (error == "runtime_shutting_down")
     return "runtime_shutting_down";
+  if (error == "resolver_integration_disabled" ||
+      error.find("dns.resolver_integration is none") != std::string::npos)
+    return "resolver_integration_disabled";
   if (error.find("control socket unavailable") != std::string::npos ||
       error.find("control socket create failed") != std::string::npos) {
     return "daemon_unavailable";
@@ -474,7 +477,8 @@ int main(int argc, char *argv[]) {
         keen_pbr3::DnsmasqGenerator generator(
             registry, streamer, route, dns, lists, type,
             KEEN_PBR3_VERSION_FULL_STRING,
-            result.value("ipv6_enabled", true));
+            result.value("ipv6_enabled", true),
+            result.value("intercept_dns_hold", false));
         const std::string generated_hash = generator.generate_with_hash(std::cout);
         std::cout << "txt-record=resolver-state.keen.pbr,"
                   << std::time(nullptr) << "|active|runtime_active\n";
@@ -547,9 +551,15 @@ int main(int argc, char *argv[]) {
       const auto config_path = state.value(
           "config_path", std::string(KEEN_PBR_DEFAULT_CONFIG_PATH));
       const auto config = load_committed_config(config_path);
+      if (opts.run_status) {
+        if (!state.contains("routing_health") || state.at("routing_health").is_null()) {
+          return keen_pbr3::run_status_command(config, config_path,
+                                               nullptr);
+        }
+        return keen_pbr3::run_status_command(
+            config, config_path, state.at("routing_health"));
+      }
       const auto rules = parse_realized_rules(state);
-      if (opts.run_status)
-        return keen_pbr3::run_status_command(config, config_path, rules);
       const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
                                  .cache_dir.value_or("/var/cache/keen-pbr");
       keen_pbr3::CacheManager cache(cache_dir,
@@ -569,7 +579,8 @@ int main(int argc, char *argv[]) {
           state.value("firewall_backend", "iptables") == "nftables"
               ? keen_pbr3::ResolverType::DNSMASQ_NFTSET
               : keen_pbr3::ResolverType::DNSMASQ_IPSET,
-          KEEN_PBR3_VERSION_FULL_STRING, state.value("ipv6_enabled", true));
+          KEEN_PBR3_VERSION_FULL_STRING, state.value("ipv6_enabled", true),
+          state.value("intercept_dns_hold", false));
       std::cout << generator.compute_config_hash() << '\n';
       return 0;
     }

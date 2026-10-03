@@ -72,6 +72,28 @@ describe("routing rule enabled helpers", () => {
     expect(normalizeRouteRuleDraft(draft).dscp).toBe(46)
   })
 
+  test("route rule draft serializes default gateway mode without conditions", () => {
+    const draft = toRouteRuleDraft({
+      default_gateway: "ipv6",
+      list: ["ignored"],
+      proto: "tcp",
+      outbound: "vpn",
+    })
+
+    expect(draft.mode).toBe("ipv6")
+    expect(normalizeRouteRuleDraft(draft)).toEqual({
+      enabled: true,
+      outbound: "vpn",
+      default_gateway: "ipv6",
+    })
+  })
+
+  test("normal route rule mode omits default gateway", () => {
+    expect(normalizeRouteRuleDraft(emptyRouteRuleDraft)).not.toHaveProperty(
+      "default_gateway"
+    )
+  })
+
   test("setRouteRuleEnabled updates only the targeted rule", () => {
     const rules = [
       { list: ["one"], outbound: "vpn" },

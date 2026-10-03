@@ -31,6 +31,7 @@ struct RuntimeStateSnapshot {
     bool routing_runtime_active{true};
     RuntimeState runtime_state{RuntimeState::starting};
     std::string runtime_state_reason;
+    api::ResolverIntegration resolver_integration{api::ResolverIntegration::NONE};
 };
 
 struct ServiceRuntimeSnapshot {
@@ -46,6 +47,7 @@ struct ServiceRuntimeSnapshot {
     bool routing_runtime_active{true};
     RuntimeState runtime_state{RuntimeState::starting};
     std::string runtime_state_reason;
+    api::ResolverIntegration resolver_integration{api::ResolverIntegration::NONE};
 };
 
 struct OutboundRuntimeSnapshot {
@@ -66,6 +68,7 @@ struct ResolverRuntimeStateUpdate {
     api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
     std::optional<std::int64_t> resolver_last_probe_ts;
     std::optional<std::int64_t> apply_started_ts;
+    api::ResolverIntegration resolver_integration{api::ResolverIntegration::NONE};
 };
 
 // Minimal immutable view used by the control socket. It deliberately omits

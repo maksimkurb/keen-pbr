@@ -1,0 +1,42 @@
+-P PREROUTING ACCEPT
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-P POSTROUTING ACCEPT
+-N KeenPbrOutput
+-N KeenPbrOutput_A
+-N KeenPbrOutput_B
+-N _NDM_DNSRT_PRERT
+-N _NDM_HOTSPOT_PRERT
+-N _NDM_OUTPUT_DELAY
+-A PREROUTING -j _NDM_HOTSPOT_PRERT
+-A PREROUTING -m mark --mark 0x0 -j _NDM_DNSRT_PRERT
+-A FORWARD -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+-A FORWARD -j NDMMARK --set-xndmmark 0x4/0x0
+-A OUTPUT -j _NDM_OUTPUT_DELAY
+-A OUTPUT -j KeenPbrOutput
+-A KeenPbrOutput -j KeenPbrOutput_B
+-A KeenPbrOutput_A -m conntrack --ctdir ORIGINAL -m connmark ! --mark 0x0/0xff0000 -j CONNMARK --restore-mark --nfmask 0xff0000 --ctmask 0xff0000
+-A KeenPbrOutput_A -m conntrack --ctdir ORIGINAL -m mark ! --mark 0x0/0xff0000 -j RETURN
+-A KeenPbrOutput_A -m conntrack --ctstate DNAT -j RETURN
+-A KeenPbrOutput_A -m mark ! --mark 0x0 -j ACCEPT
+-A KeenPbrOutput_A ! -i br0 -j RETURN
+-A KeenPbrOutput_A -m set --match-set kpbr6S_vpn_local dst -j MARK --set-xmark 0x50000/0xff0000
+-A KeenPbrOutput_A -m set --match-set kpbr6S_vpn_local dst -j CONNMARK --save-mark --nfmask 0xff0000 --ctmask 0xff0000
+-A KeenPbrOutput_A -m set --match-set kpbr6S_vpn_local dst -j RETURN
+-A KeenPbrOutput_B -m conntrack --ctdir ORIGINAL -m connmark ! --mark 0x0/0xff0000 -j CONNMARK --restore-mark --nfmask 0xff0000 --ctmask 0xff0000
+-A KeenPbrOutput_B -m conntrack --ctdir ORIGINAL -m mark ! --mark 0x0/0xff0000 -j RETURN
+-A KeenPbrOutput_B -m conntrack --ctstate DNAT -j RETURN
+-A KeenPbrOutput_B -m mark ! --mark 0x0 -j ACCEPT
+-A KeenPbrOutput_B ! -i br0 -j RETURN
+-A KeenPbrOutput_B -m dscp --dscp 0x2c -j MARK --set-xmark 0x10000/0xff0000
+-A KeenPbrOutput_B -m dscp --dscp 0x2c -j CONNMARK --save-mark --nfmask 0xff0000 --ctmask 0xff0000
+-A KeenPbrOutput_B -m dscp --dscp 0x2c -j RETURN
+-A KeenPbrOutput_B -m set --match-set kpbr6S_vpn_local dst -j MARK --set-xmark 0x50000/0xff0000
+-A KeenPbrOutput_B -m set --match-set kpbr6S_vpn_local dst -j CONNMARK --save-mark --nfmask 0xff0000 --ctmask 0xff0000
+-A KeenPbrOutput_B -m set --match-set kpbr6S_vpn_local dst -j RETURN
+-A KeenPbrOutput_B -m set --match-set kpbr6d_direct dst -j MARK --set-xmark 0x10000/0xff0000
+-A KeenPbrOutput_B -m set --match-set kpbr6d_direct dst -j CONNMARK --save-mark --nfmask 0xff0000 --ctmask 0xff0000
+-A KeenPbrOutput_B -m set --match-set kpbr6d_direct dst -j RETURN
+-A _NDM_HOTSPOT_PRERT -m mac --mac-source 02:00:00:00:00:01 -j RETURN
+-A _NDM_HOTSPOT_PRERT -m mac --mac-source 02:00:00:00:00:02 -j MARK --set-xmark 0xffffaab/0xffffffff

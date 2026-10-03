@@ -146,9 +146,11 @@ When a route rule resolves to an `ignore` outbound, keen-pbr installs a matching
 
 Use this when you have several candidate outbounds and want keen-pbr to automatically pick the best available one.
 
-Firewall rules keep the `urltest` outbound's stable mark. Its policy rule points
-at the selected child's routing table, including an existing table used by a
-`table` outbound; firewall rules are not rebuilt on selection changes.
+With the default `priority` strategy, firewall rules keep the `urltest`
+outbound's stable mark. Its policy rule points at the selected child's routing
+table, including an existing table used by a `table` outbound; firewall rules
+are not rebuilt on selection changes. `balance` keeps that stable mark for
+internal detours, but refreshes its nftables classifier after each probe sweep.
 
 keen-pbr always appends terminal IPv4 and IPv6 `unreachable` default routes to
 the generated `urltest` fallback table. This table is selected when no child is
@@ -163,17 +165,31 @@ falling through to normal routing.
 | `interval_ms` | integer | no (default: `180000`) | Interval between probes in milliseconds |
 | `probe_timeout_ms` | integer | no (default: `5000`) | Timeout for each individual probe attempt in milliseconds |
 | `tolerance_ms` | integer | no (default: `100`) | Latency tolerance in ms; prevent outbound switching if the latency difference between the current and new best outbound is less than this tolerance |
+| `strategy` | string | no (default: `"priority"`) | `"priority"` selects one child as before. nftables-only `"balance"` distributes new connections equally over usable children in the first healthy lowest-weight group. |
 | `outbound_groups` | array | yes | Ordered list of outbound groups (see below) |
 | `retry` | object | no | Retry configuration (see below) |
 | `circuit_breaker` | object | no | Circuit breaker configuration (see below) |
 
 ### Outbound Groups
 
-Groups are checked in order. Within the first healthy group, outbounds are selected by the lowest latency. If all outbounds in a group are unhealthy, the next group is evaluated. This lets you define more complex priority rules. For example, you can prefer one of two slower outbounds first, and if both are unavailable, fall back to another outbound that is faster but more expensive.
+Groups are checked by ascending `weight` (lower is higher priority); equal
+weights keep their configuration order. Within the first healthy group,
+`priority` selects by latency. If all outbounds in a group are unhealthy, the
+next tier is evaluated.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `weight` | integer | no (default: `1`) | Group priority; lower values are tried first. It is not a per-candidate balancing weight. |
 | `outbounds` | array of string | yes | Ordered list of outbound tags to try |
+
+With `strategy: "balance"`, selection is per connection, not per HTTP request.
+HTTP/2 and QUIC multiplexed traffic stays on the WAN chosen for that connection.
+`weight` remains a group priority only; children are equal. `tolerance_ms`
+applies only to `priority` selection. A failed balance child has its conntrack
+flows removed; `conntrack_on_switch: "delete"` also removes the group's
+candidate flows when the test group's scalar selection changes. When no candidate is usable,
+the test group's existing terminal fallback blocks marked traffic rather than
+leaking to the main table.
 
 ### Retry Configuration
 
@@ -200,7 +216,8 @@ Groups are checked in order. Within the first healthy group, outbounds are selec
 
 `icmptest` selects candidates like `urltest`, but sends ICMP Echo packets through
 each candidate's fwmark. Every candidate needs one explicit literal IPv4 or IPv6
-destination in its group entry.
+destination in its group entry. It supports the same `priority` (default) and
+nftables-only `balance` strategies.
 
 ```json { filename="config.json" }
 {

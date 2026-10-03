@@ -3,7 +3,14 @@ add_executable(keen-pbr-tests
   test_main.cpp
   test_firewall_verifier.cpp
   test_firewall_runtime.cpp
-  test_firewall_reconciler.cpp
+  test_firewall_snapshot.cpp
+  test_firewall_physical.cpp
+  test_firewall_keenetic_fixtures.cpp
+  test_firewall_lowering.cpp
+  test_ip_family.cpp
+  test_firewall_plan.cpp
+  test_firewall_rule_modules.cpp
+  test_firewall_rule.cpp
   test_nftables_builder.cpp
   test_iptables_builder.cpp
   test_cron.cpp
@@ -13,11 +20,26 @@ add_executable(keen-pbr-tests
   test_dns_server.cpp
   test_test_routing.cpp
   test_keenetic_dns.cpp
-  test_dns_probe_server.cpp
+  test_dns_wire.cpp
+  test_nfnetlink.cpp
+  test_l7_crypto.cpp
+  test_l7_quic.cpp
+  test_l7_tls.cpp
+  test_l7_http.cpp
+  test_l7_flow_buffer.cpp
+  test_nfqueue.cpp
+  test_nfnetfilter_wrappers.cpp
+  test_set_writer.cpp
+  test_intercept_processor.cpp
+  test_intercept_live.cpp
+  test_intercept_wiring.cpp
+  test_intercept_probe.cpp
+  test_kernel_probe.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
   test_list_streamer.cpp
   test_list_service.cpp
+  test_domain_index.cpp
   test_control_protocol.cpp
   test_resolver_fallback.cpp
   test_resolver_apply_confirmation.cpp
@@ -52,12 +74,14 @@ add_executable(keen-pbr-tests
   test_status_stream.cpp
   test_port_spec_util.cpp
   test_pid_file.cpp
-  test_runtime_reconciler.cpp
   test_conntrack_manager.cpp
   test_resolver_coordinator.cpp
+  test_resolver_integration.cpp
   test_runtime_state_machine.cpp
   test_runtime_state_store.cpp
+  test_routing_health_checker.cpp
   test_runtime_outbound_state.cpp
+  test_status.cpp
   test_operation_coordinator.cpp
   test_lifecycle_operation.cpp
   test_crash_diagnostics.cpp
@@ -68,22 +92,40 @@ add_executable(keen-pbr-tests
   ../src/daemon/disk_config_state.cpp
   ../src/crash/crash_diagnostics.cpp
   ../src/config/routing_state.cpp
-  ../src/runtime/runtime_reconciler.cpp
   ../src/runtime/conntrack_manager.cpp
   ../src/runtime/resolver_coordinator.cpp
   ../src/runtime/runtime_state_machine.cpp
   ../src/daemon/runtime_state_store.cpp
   ../src/health/circuit_breaker.cpp
   ../src/health/runtime_outbound_state.cpp
+  ../src/health/routing_health_checker.cpp
+  ../src/cmd/status.cpp
   ../src/routing/firewall_state.cpp
   ../src/runtime/operation_coordinator.cpp
   ../src/runtime/lifecycle_operation.cpp
-  ../src/firewall/iptables_verifier.cpp
-  ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
-  ../src/firewall/firewall_reconciler.cpp
+  ../src/firewall/firewall_snapshot.cpp
+  ../src/firewall/firewall_physical.cpp
+  ../src/firewall/firewall_lowering.cpp
+  ../src/firewall/ip_family.cpp
+  ../src/firewall/firewall_plan_verifier.cpp
+  ../src/firewall/firewall_plan.cpp
+  ../src/firewall/firewall_rule.cpp
   ../src/firewall/firewall.cpp
   ../src/firewall/firewall_runtime.cpp
+  ../src/firewall/firewall_rule_modules.cpp
+  ../src/firewall/rules/dns_detour.cpp
+  ../src/firewall/rules/restore_conntrack_mark.cpp
+  ../src/firewall/rules/skip_established_or_dnat.cpp
+  ../src/firewall/rules/skip_marked_packets.cpp
+  ../src/firewall/rules/inbound_interface_filter.cpp
+  ../src/firewall/rules/route_targets.cpp
+  ../src/firewall/rules/route_mark.cpp
+  ../src/firewall/rules/route_drop.cpp
+  ../src/firewall/rules/route_pass.cpp
+  ../src/firewall/rules/route_balance.cpp
+  ../src/firewall/rules/intercept_dns_hold.cpp
+  ../src/firewall/rules/intercept_l7_sniff.cpp
   ../src/firewall/port_spec_util.cpp
   ../src/firewall/nftables.cpp
   ../src/firewall/nft_batch_pipe.cpp
@@ -97,20 +139,30 @@ add_executable(keen-pbr-tests
   ../src/dns/dns_server.cpp
   ../src/dns/keenetic_dns.cpp
   ../src/daemon/system_resolver_hook.cpp
-  ../src/dns/dns_probe_server.cpp
+  ../src/dns/dns_wire.cpp
+  ../src/l7/crypto/sha256.cpp
+  ../src/l7/crypto/aes128.cpp
+  ../src/l7/quic_initial.cpp
+  ../src/l7/tls_client_hello.cpp
+  ../src/l7/http_host.cpp
+  ../src/l7/flow_buffer.cpp
   ../src/cache/cache_manager.cpp
   ../src/ipc/control_protocol.cpp
   ../src/ipc/control_client.cpp
   ../src/ipc/resolver_fallback.cpp
+  ../src/resolver/resolver_integration.cpp
+  ../src/resolver/dnsmasq_integration.cpp
   ../src/daemon/resolver_apply_confirmation.cpp
   ../src/daemon/resolver_stream_wait.cpp
   ../src/lists/ipset.cpp
   ../src/lists/kernel_set_tester.cpp
   ../src/lists/list_streamer.cpp
   ../src/lists/list_set_usage.cpp
+  ../src/lists/domain_index.cpp
   ../src/config/list_parser.cpp
   ../src/cmd/test_routing.cpp
   ../src/daemon/list_service.cpp
+  ../src/daemon/lifecycle_stages.cpp
   ../src/daemon/pid_file.cpp
   ../src/daemon/resolver_health.cpp
   ../src/daemon/resolver_sync_state_machine.cpp
@@ -122,6 +174,19 @@ add_executable(keen-pbr-tests
   ../src/routing/netlink.cpp
   ../src/routing/interface_monitor.cpp
   ../src/routing/urltest_selection.cpp
+  ../src/netfilter/nl_msg.cpp
+  ../src/netfilter/nl_socket.cpp
+  ../src/netfilter/nfqueue.cpp
+  ../src/netfilter/nflog.cpp
+  ../src/netfilter/conntrack.cpp
+  ../src/netfilter/set_writer.cpp
+  ../src/netfilter/kernel_probe.cpp
+  ../src/intercept/intercept_processor.cpp
+  ../src/intercept/intercept_service.cpp
+  ../src/intercept/intercept_capabilities.cpp
+  ../src/intercept/intercept_report.cpp
+  ../src/intercept/intercept_settings.cpp
+  ../src/intercept/intercept_snapshot_builder.cpp
   ../src/util/blocking_executor.cpp
   ../src/util/firewall_backend_utils.cpp
   ../src/util/ipv6_support.cpp

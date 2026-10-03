@@ -10,6 +10,7 @@ sys.path.insert(0, str(CONTAINER))
 from integration_context import parse_observations, parse_probe, ssh_command
 from probe import family_for
 from cases.sigusr1_no_packet_leak import run_signal_cycles
+from cases.l7_payloads import QUIC_INITIAL, http_request, tls_client_hello
 
 
 def load_system_module():
@@ -25,19 +26,23 @@ class IntegrationModulesTest(unittest.TestCase):
     def test_registration_is_explicit_ordered_and_complete(self):
         module = load_system_module()
         expected = (
-            "service_lifecycle", "dns_routing_save", "urltest_rebuild",
-            "iptables_ab_convergence", "rule_shapes",
+            "service_lifecycle", "dns_routing_save", "dns_interception",
+            "l7_interception", "urltest_rebuild",
+            "route_balance", "route_balance_failover", "route_balance_no_leak",
+            "iptables_chain_convergence", "prefilter_skip_marked", "inbound_interface_filter", "restore_conntrack_mark", "skip_established_or_dnat", "firewall_corruption_recovery", "loop_safety_marked_socket", "rule_shapes",
+            "route_pass", "route_drop",
             "table_interface", "test_group_table", "multiport_validation",
             "route_list", "route_proto",
             "route_dscp", "route_src_port", "route_dest_port", "route_src_addr",
             "route_dest_addr", "route_all_criteria", "dns_upstream_ipv4",
             "dns_upstream_ipv6", "sigusr1_no_packet_leak", "dns_no_leak",
+            "resolver_integration_none",
         )
         registry = module.build_registry()
         self.assertEqual(registry.names, expected)
         self.assertEqual(
             tuple(case.name for case in registry.select("all", "nftables")),
-            tuple(name for name in expected if name != "iptables_ab_convergence"))
+            tuple(name for name in expected if name != "iptables_chain_convergence"))
         selected = registry.select("route_dscp,dns_no_leak", "iptables")
         self.assertEqual([case.name for case in selected], ["route_dscp", "dns_no_leak"])
 
@@ -60,6 +65,14 @@ class IntegrationModulesTest(unittest.TestCase):
         import socket
         self.assertEqual(family_for("198.18.0.10"), socket.AF_INET)
         self.assertEqual(family_for("2001:db8:100::10"), socket.AF_INET6)
+
+    def test_l7_payload_fixtures_are_real_protocol_frames(self):
+        tls = tls_client_hello("example.com")
+        self.assertEqual(tls[:5], b"\x16\x03\x03" + len(tls[5:]).to_bytes(2, "big"))
+        self.assertIn(b"example.com", tls)
+        self.assertTrue(http_request("example.com").startswith(b"GET /"))
+        self.assertEqual(QUIC_INITIAL[0] & 0x80, 0x80)
+        self.assertGreater(len(QUIC_INITIAL), 100)
 
     def test_sigusr1_cycles_are_strictly_sequenced(self):
         events = []

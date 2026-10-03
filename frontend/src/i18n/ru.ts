@@ -236,6 +236,7 @@ export const ruTranslation = {
       dnsmasqWaiting: "dnsmasq перезагружается",
       dnsmasqStale: "dnsmasq требуется перезапуск",
       dnsmasqUnavailable: "проверка dnsmasq не прошла",
+      dnsmasqDisabled: "интеграция с dnsmasq отключена",
       dnsmasqUnknown: "статус dnsmasq неизвестен",
       actions: {
         start: "Запустить",
@@ -326,9 +327,11 @@ export const ruTranslation = {
       card: {
         title: "Проверка DNS",
         description:
-          "Проверяет, что DNS-разрешение через keen-pbr работает корректно - из этого браузера или с другого устройства.",
+          "Наблюдает DNS-трафик через keen-pbr из этого браузера или с другого устройства; замена синтетического ответа отдельно не проверяется.",
         disabledDescription:
-          "Включите опцию `dns.dns_test_server` в конфигурационном файле, чтобы включить самопроверку DNS.",
+          "Включите перехват DNS в настройках, чтобы запустить самопроверку DNS.",
+        runtimeDisabledDescription:
+          "Перехват DNS недоступен, поэтому самопроверка по домену-маркеру отключена.",
         configuredServers: "Настроенные DNS-серверы",
         noServers:
           "На странице DNS-серверов не определено ни одного DNS-сервера.",
@@ -347,21 +350,85 @@ export const ruTranslation = {
         copyAria: "Скопировать команду",
       },
       status: {
-        disabled: "Встроенный DNS-пробник отключён в конфиге.",
-        browserSuccess: "DNS-запрос из браузера достиг dnsmasq.",
-        manualProbeSuccess: "DNS-запрос от устройства достиг dnsmasq.",
+        disabled: "Перехват DNS отключён в конфигурации.",
+        browserSuccess: "Перехватчик увидел DNS-запрос из браузера.",
+        manualProbeSuccess: "Перехватчик увидел DNS-запрос от устройства.",
         browserProbeFail:
-          "Запрос браузера завершился, но DNS-пробник не увидел lookup.",
+          "Запрос браузера завершился, но перехватчик не увидел lookup маркера.",
         sseUnavailable:
           "Поток событий DNS в реальном времени недоступен, поэтому проверка не смогла запуститься.",
         browserFail:
-          "Запрос браузера выполнился, но DNS lookup не был замечен.",
+          "Запрос браузера выполнился, но перехватчик не увидел lookup маркера.",
         sseFail: "Поток событий DNS в реальном времени не подключён.",
         browserChecking: "Проверяем DNS-путь браузера...",
         browserUnknown: "Статус DNS в браузере пока неизвестен.",
-        manualSuccess: "DNS-запрос от устройства достиг dnsmasq.",
+        manualSuccess: "Перехватчик увидел DNS-запрос от устройства.",
         manualWaiting: "Ожидание вашей ручной команды nslookup...",
         manualIncomplete: "Ручной тест устройства ещё не завершён.",
+      },
+      monitor: {
+        connecting: "Подключаемся к событиям перехвата в реальном времени...",
+        connected: "Монитор событий перехвата подключён.",
+        error: "Монитор событий перехвата отключён.",
+      },
+      event: {
+        title: "Последнее событие перехвата",
+        source: "Источник",
+        domain: "Домен",
+        lists: "Списки",
+        ips: "IP-адреса",
+        hold_us: "Удержание (мкс)",
+        timed_out: "Истёк тайм-аут",
+      },
+    },
+    intercept: {
+      title: "Перехват трафика",
+      description: "Состояние перехвата DNS и L7 на стороне демона.",
+      status: {
+        disabled: "Отключён",
+        running: "Работает",
+        stopped: "Не работает",
+      },
+      dnsHoldActive: "Удержание DNS включено",
+      dnsHoldInactive: "Удержание DNS выключено",
+      l7Active: "L7 включён",
+      l7Inactive: "L7 выключен",
+      supported: "доступно",
+      unsupported: "недоступно",
+      unsupportedWarning: "Некоторые функции перехвата недоступны",
+      capabilities: {
+        nfqueue: "NFQUEUE",
+        nflog: "NFLOG",
+        connbytes: "connbytes",
+      },
+      probes: {
+        title: "Проверки ядра",
+        kernel: "Ядро {{release}}",
+        status: {
+          ok: "ок",
+          unsupported: "не поддерживается",
+          error: "ошибка",
+          skipped: "пропущено",
+          not_run: "не выполнялась",
+        },
+      },
+      counters: {
+        dnsPackets: "DNS-пакеты",
+        dnsParseErrors: "Ошибки разбора DNS",
+        dnsMatched: "Совпадения DNS",
+        dnsHoldTimeouts: "Тайм-ауты удержания DNS",
+        dnsTcpPartial: "Неполные DNS TCP",
+        markerHits: "Попадания маркера",
+        l7Packets: "L7-пакеты",
+        l7Matched: "Совпадения L7",
+        setAdded: "Добавлено в наборы",
+        setRefreshed: "Обновлено в наборах",
+        setErrors: "Ошибки наборов",
+        conntrackRequests: "Запросы conntrack",
+        conntrackDeleted: "Удалено conntrack",
+        conntrackErrors: "Ошибки conntrack",
+        queueOverruns: "Переполнения очереди",
+        logOverruns: "Переполнения журнала",
       },
     },
     routingTest: {
@@ -462,6 +529,51 @@ export const ruTranslation = {
         inboundInterfacesStatusMissing: "Отсутствует",
         inboundInterfacesMissingDetail:
           "Этот интерфейс сохранён в конфиге, но сейчас отсутствует в живом списке интерфейсов системы.",
+      },
+      resolver: {
+        title: "Интеграция с резолвером",
+        description:
+          "Используйте dnsmasq, когда нужны DNS-серверы и правила для списков.",
+        integrationLabel: "Интеграция с резолвером",
+        integrationHint:
+          "None — режим по умолчанию: keen-pbr заполняет динамические наборы через перехват и не изменяет dnsmasq. DNS-серверы и правила доступны в режиме dnsmasq.",
+        options: {
+          none: "None (только перехват)",
+          dnsmasq: "dnsmasq",
+        },
+        addressLabel: "Адрес системного резолвера",
+        addressHint:
+          "Адрес для управления dnsmasq и проверки хэша конфигурации, например 127.0.0.1 или 127.0.0.1:5353.",
+      },
+      intercept: {
+        title: "Перехват трафика",
+        description:
+          "Заполняйте динамические наборы из DNS-ответов и TLS, HTTP или QUIC-трафика.",
+        enabledLabel: "Включить перехват трафика",
+        enabledHint:
+          "При включении keen-pbr узнаёт назначения без интеграции с dnsmasq.",
+        minTtlLabel: "Минимальный TTL (секунды)",
+        minTtlHint: "Минимальное время элементов в наборах.",
+        maxTtlLabel: "Максимальный TTL (секунды)",
+        maxTtlHint: "Максимальное время элементов в наборах.",
+        dnsEnabledLabel: "Включить перехват DNS",
+        dnsEnabledHint:
+          "Ненадолго удерживать DNS-ответы, пока адреса добавляются в наборы.",
+        queueLabel: "Номер NFQUEUE",
+        queueHint: "Очередь для перехвата DNS-ответов.",
+        holdTimeoutLabel: "Тайм-аут удержания DNS (миллисекунды)",
+        holdTimeoutHint: "Максимальное удержание DNS-ответа (5–500 мс).",
+        markerDomainLabel: "Домен-маркер",
+        markerDomainHint: "Домен для синтетического DNS-ответа.",
+        markerAddressLabel: "IPv4-адрес маркера",
+        markerAddressHint: "IPv4-адрес, возвращаемый для домена-маркера.",
+        l7EnabledLabel: "Включить перехват L7",
+        l7EnabledHint: "Узнавать назначения из TLS SNI, HTTP Host и QUIC.",
+        nflogGroupLabel: "Группа NFLOG",
+        nflogGroupHint: "Группа для событий TLS, HTTP и QUIC.",
+        tlsLabel: "TLS SNI",
+        httpLabel: "HTTP Host",
+        quicLabel: "QUIC",
       },
       autoupdate: {
         title: "Автообновление списков",
@@ -669,6 +781,15 @@ export const ruTranslation = {
       },
       actions: { create: "Создать правило", save: "Сохранить правило" },
       fields: {
+        mode: "Тип правила",
+        ruleType: "Типы правил",
+        modeOptions: {
+          normal: "Обычное правило",
+          ipv4: "Шлюз по умолчанию IPv4",
+          ipv6: "Шлюз по умолчанию IPv6",
+        },
+        modeHint:
+          "Правила шлюза по умолчанию сопоставляют нелокальный трафик одного семейства IP и не используют другие условия.",
         lists: "Списки",
         listsPlaceholderDescription:
           "Добавьте один или несколько настроенных списков для этого правила.",
@@ -783,6 +904,14 @@ export const ruTranslation = {
         noExtraFields:
           "Для этого типа не нужны дополнительные поля, кроме тега outbound.",
       },
+      strategy: {
+        label: "Стратегия выбора",
+        hint: "Priority оставляет один выбранный outbound; balance распределяет новые соединения между исправными outbound (только nftables).",
+        options: {
+          priority: "По приоритету",
+          balance: "Балансировка",
+        },
+      },
       fields: {
         tag: "Название",
         tagHint:
@@ -807,9 +936,11 @@ export const ruTranslation = {
         interfaceHint:
           "Имя исходящего интерфейса, напр. `tun0`, `eth0`, `wg0`.",
         gateway: "Шлюз (IPv4)",
-        gatewayHint: "Необязательный IPv4-адрес шлюза для этого outbound.",
+        gatewayHint:
+          "Необязательный IPv4-шлюз; `auto` автоматически выбирает его из основного маршрута по умолчанию.",
         gateway6: "Шлюз (IPv6)",
-        gateway6Hint: "Необязательный IPv6-адрес шлюза для этого outbound.",
+        gateway6Hint:
+          "Необязательный IPv6-шлюз; `auto` автоматически выбирает его из основного маршрута по умолчанию.",
       },
       table: {
         title: "Настройки таблицы маршрутизации",

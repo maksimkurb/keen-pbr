@@ -418,12 +418,13 @@ TEST_CASE("hash changes when fallback list order changes") {
     CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
 }
 
-TEST_CASE("generate-resolver-config includes dns probe server directive when enabled") {
+TEST_CASE("generate-resolver-config no longer emits the dns probe server directives") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer(cache);
 
     auto route_cfg = make_route_cfg("mylist");
     auto dns_cfg = make_empty_dns_cfg();
+    // The deprecated option is ignored: the marker is answered by the interceptor.
     DnsTestServer probe_cfg;
     probe_cfg.listen = "127.0.0.88:53";
     dns_cfg.dns_test_server = probe_cfg;
@@ -433,8 +434,8 @@ TEST_CASE("generate-resolver-config includes dns probe server directive when ena
     DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
     const std::string output = run_generate(gen);
 
-    CHECK(output.find("rebind-domain-ok=keen.pbr\n") != std::string::npos);
-    CHECK(output.find("server=/check.keen.pbr/127.0.0.88#53\n") != std::string::npos);
+    CHECK(output.find("check.keen.pbr") == std::string::npos);
+    CHECK(output.find("rebind-domain-ok=keen.pbr") == std::string::npos);
 }
 
 TEST_CASE("generate-resolver-config blocks firefox doh canary domain") {
@@ -822,37 +823,26 @@ TEST_CASE("hash changes when allow_domain_rebinding changes") {
     CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
 }
 
-TEST_CASE("hash changes when dns probe server changes") {
+TEST_CASE("hash ignores the deprecated dns probe server") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer1(cache);
     ListStreamer streamer2(cache);
-    ListStreamer streamer3(cache);
 
     auto route_cfg = make_route_cfg("mylist");
     auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
 
     auto dns_cfg1 = make_empty_dns_cfg();
     auto dns_cfg2 = make_empty_dns_cfg();
-    auto dns_cfg3 = make_empty_dns_cfg();
-
-    DnsTestServer probe1;
-    probe1.listen = "127.0.0.88:53";
-    dns_cfg2.dns_test_server = probe1;
-
-    DnsTestServer probe2;
-    probe2.listen = "127.0.0.99:5300";
-    dns_cfg3.dns_test_server = probe2;
+    DnsTestServer probe;
+    probe.listen = "127.0.0.88:53";
+    dns_cfg2.dns_test_server = probe;
 
     DnsServerRegistry reg1(dns_cfg1);
     DnsServerRegistry reg2(dns_cfg2);
-    DnsServerRegistry reg3(dns_cfg3);
-
     DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg1, lists);
     DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg2, lists);
-    DnsmasqGenerator gen3(reg3, streamer3, route_cfg, dns_cfg3, lists);
 
-    CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
-    CHECK(gen2.compute_config_hash() != gen3.compute_config_hash());
+    CHECK(gen1.compute_config_hash() == gen2.compute_config_hash());
 }
 
 TEST_CASE("hash changes when keenetic static dns entries change") {
@@ -1191,4 +1181,52 @@ TEST_CASE("nft resolver stream keeps routed and DNS-only list directives togethe
     CHECK(output.find("rebind-domain-ok=/home.example/\n") != std::string::npos);
     CHECK(output.find("rebind-domain-ok=/ts.net/\n") != std::string::npos);
     CHECK(extract_txt_hash(output) == expected_hash);
+}
+
+TEST_CASE("daemon-filled dynamic sets: no ipset/nftset directives, other directives kept") {
+    CacheManager cache("/nonexistent/cache");
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_dns_cfg(list_name, "upstream", "8.8.8.8");
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    for (const auto type : {ResolverType::DNSMASQ_IPSET, ResolverType::DNSMASQ_NFTSET}) {
+        ListStreamer streamer_on(cache);
+        ListStreamer streamer_off(cache);
+        DnsServerRegistry reg_on(dns_cfg);
+        DnsServerRegistry reg_off(dns_cfg);
+        DnsmasqGenerator on(reg_on, streamer_on, route_cfg, dns_cfg, lists, type,
+                            "test", true, true);
+        DnsmasqGenerator off(reg_off, streamer_off, route_cfg, dns_cfg, lists, type,
+                             "test", true, false);
+        const std::string out_on = run_generate(on);
+        const std::string out_off = run_generate(off);
+
+        CHECK(out_off.find("set=/example.com") != std::string::npos);
+        CHECK(out_on.find("ipset=") == std::string::npos);
+        CHECK(out_on.find("nftset=") == std::string::npos);
+        CHECK(out_on.find("server=/example.com/8.8.8.8\n") != std::string::npos);
+        // The hash reflects what is emitted, so it differs from the legacy one.
+        CHECK(extract_txt_hash(out_on) != extract_txt_hash(out_off));
+    }
+}
+
+TEST_CASE("daemon-filled dynamic sets: hash matches between emit and compute") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_empty_dns_cfg();
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+    DnsServerRegistry reg1(dns_cfg);
+    DnsServerRegistry reg2(dns_cfg);
+
+    DnsmasqGenerator gen(reg1, streamer1, route_cfg, dns_cfg, lists,
+                         ResolverType::DNSMASQ_IPSET, "test", true, true);
+    const std::string emitted = extract_txt_hash(run_generate(gen));
+    const std::string computed = DnsmasqGenerator::compute_config_hash(
+        reg2, streamer2, route_cfg, dns_cfg, lists, "test", true, true);
+    CHECK(emitted == computed);
 }

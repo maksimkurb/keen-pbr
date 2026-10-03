@@ -2,6 +2,9 @@
 
 #include "daemon/runtime_state_store.hpp"
 
+#include <atomic>
+#include <thread>
+
 namespace keen_pbr3 {
 
 TEST_CASE("RuntimeStateStore publishes runtime state and transition reason") {
@@ -17,6 +20,112 @@ TEST_CASE("RuntimeStateStore publishes runtime state and transition reason") {
     CHECK(actual.runtime_state_reason == "rollback failed");
 }
 
+TEST_CASE("RuntimeStateStore publishes active plan and API projection together") {
+    RuntimeStateStore store;
+    RuntimeStateSnapshot state;
+
+    FirewallPlan plan;
+    plan.fwmark_mask = 0x00FF0000u;
+    FirewallRuleInstance planned_rule;
+    planned_rule.key = FirewallRuleKey{"route.mark", "active"};
+    planned_rule.family = FirewallFamily::ipv4;
+    planned_rule.action = MarkAction{0x00010000u, plan.fwmark_mask};
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(std::move(planned_rule));
+    registrar.finish();
+
+    RuleState projection{};
+    projection.rule_index = 3;
+    projection.action_type = RuleActionType::Mark;
+    projection.fwmark = 0x00010000u;
+    state.firewall_state.publish_active_firewall(
+        ActiveFirewall{std::move(plan), {}, {projection}});
+    store.publish(std::move(state));
+
+    const auto snapshot = store.snapshot();
+    const auto active = snapshot.firewall_state.active_firewall();
+    REQUIRE(active != nullptr);
+    CHECK(active->plan.rules.size() == 1);
+    REQUIRE(snapshot.firewall_state.get_rules().size() == 1);
+    CHECK(snapshot.firewall_state.get_rules().front().rule_index == 3);
+    CHECK(snapshot.firewall_state.get_rules().front().fwmark ==
+          std::get<MarkAction>(active->plan.rules.front().action).value);
+}
+
+TEST_CASE("FirewallState clears active plan and projection after teardown") {
+    FirewallState state;
+    FirewallPlan plan;
+    FirewallRuleInstance rule;
+    rule.key = FirewallRuleKey{"route.mark", "teardown"};
+    rule.action = MarkAction{1};
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(std::move(rule));
+    registrar.finish();
+    state.publish_active_firewall(ActiveFirewall{std::move(plan), {}, {RuleState{}}});
+
+    state.clear_active_firewall();
+
+    CHECK(state.active_firewall() == nullptr);
+    CHECK(state.get_rules().empty());
+}
+
+TEST_CASE("RuntimeStateStore readers never observe a mixed plan projection") {
+    RuntimeStateSnapshot first;
+    FirewallPlan first_plan;
+    first_plan.fwmark_mask = 0xFFFFFFFFu;
+    FirewallRuleInstance first_rule;
+    first_rule.key = FirewallRuleKey{"route.mark", "first"};
+    first_rule.family = FirewallFamily::ipv4;
+    first_rule.action = MarkAction{1};
+    FirewallRuleRegistrar first_registrar(first_plan);
+    first_registrar.register_rule(std::move(first_rule));
+    first_registrar.finish();
+    RuleState first_projection{};
+    first_projection.action_type = RuleActionType::Mark;
+    first_projection.fwmark = 1;
+    first.firewall_state.publish_active_firewall(
+        ActiveFirewall{std::move(first_plan), {}, {first_projection}});
+
+    RuntimeStateSnapshot second = first;
+    FirewallPlan second_plan;
+    FirewallRuleInstance second_rule;
+    second_rule.key = FirewallRuleKey{"route.mark", "second"};
+    second_rule.family = FirewallFamily::ipv4;
+    second_rule.action = MarkAction{2};
+    FirewallRuleRegistrar second_registrar(second_plan);
+    second_registrar.register_rule(std::move(second_rule));
+    second_registrar.finish();
+    RuleState second_projection{};
+    second_projection.action_type = RuleActionType::Mark;
+    second_projection.fwmark = 2;
+    second.firewall_state.publish_active_firewall(
+        ActiveFirewall{std::move(second_plan), {}, {second_projection}});
+
+    RuntimeStateStore store;
+    store.publish(first);
+    std::atomic<bool> done{false};
+    std::atomic<bool> consistent{true};
+    std::thread writer([&] {
+        for (int index = 0; index < 1000; ++index) {
+            store.publish(index % 2 == 0 ? first : second);
+        }
+        done.store(true, std::memory_order_release);
+    });
+    while (!done.load(std::memory_order_acquire)) {
+        const auto snapshot = store.snapshot();
+        const auto active = snapshot.firewall_state.active_firewall();
+        if (!active || active->plan.rules.size() != 1 ||
+            active->rule_states.size() != 1 ||
+            std::get<MarkAction>(active->plan.rules.front().action).value !=
+                active->rule_states.front().fwmark) {
+            consistent.store(false, std::memory_order_release);
+            break;
+        }
+    }
+    writer.join();
+    CHECK(consistent.load(std::memory_order_acquire));
+}
+
 TEST_CASE("RuntimeStateStore exposes only compact realized rule data to control clients") {
     RuntimeStateStore store;
     RuntimeStateSnapshot state;
@@ -27,7 +136,9 @@ TEST_CASE("RuntimeStateStore exposes only compact realized rule data to control 
     rule.outbound_tag = "vpn";
     rule.action_type = RuleActionType::Mark;
     rule.fwmark = 0x10000;
-    state.firewall_state.set_rules({rule});
+    FirewallPlan plan;
+    state.firewall_state.publish_active_firewall(
+        ActiveFirewall{std::move(plan), {}, {rule}});
     state.runtime_state = RuntimeState::running;
     store.publish(std::move(state));
 

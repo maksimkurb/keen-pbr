@@ -51,6 +51,23 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 | `dest_port` | string | no | Match only specific destination ports |
 | `src_addr` | string | no | Match only specific source addresses |
 | `dest_addr` | string | no | Match only specific destination addresses |
+| `default_gateway` | `"ipv4"` or `"ipv6"` | no | nftables-only default-route matcher. It bypasses local, directly connected, link-local, and multicast/control destinations. Put these rules last. |
+
+## Default-gateway failover or balancing
+
+Use one final rule per family. keen-pbr derives the bypass prefixes from the
+main routing table, so LAN and directly connected destinations retain normal
+routing. The nft output chain is a `route` chain, therefore router-originated
+traffic is rerouted after marking too.
+
+```json { filename="config.json" }
+{
+  "route": { "rules": [
+    { "default_gateway": "ipv4", "outbound": "auto" },
+    { "default_gateway": "ipv6", "outbound": "auto" }
+  ] }
+}
+```
 
 ## Examples
 

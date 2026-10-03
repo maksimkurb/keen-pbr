@@ -6,6 +6,7 @@ on:
       - 'main'
       - 'dev'
       - 'dev-*'
+      - 'feature/*'
     paths:
       - 'build_scripts/**'
       - 'cmake/**'

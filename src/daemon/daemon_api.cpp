@@ -1,5 +1,6 @@
 #include "daemon.hpp"
 #include "config_apply_transaction.hpp"
+#include "lifecycle_stages.hpp"
 #include "../config/config_writer.hpp"
 
 #ifdef WITH_API
@@ -17,10 +18,7 @@
 #include "../api/server.hpp"
 #include "../api/status_stream.hpp"
 #include "../config/routing_state.hpp"
-#include "../dns/dns_router.hpp"
-#include "../dns/dnsmasq_gen.hpp"
 #include "../util/ipv6_support.hpp"
-#include "../health/routing_health_checker.hpp"
 #include "../health/runtime_interface_inventory.hpp"
 #include "../health/runtime_outbound_state.hpp"
 #include "../keenetic/interface_descriptions.hpp"
@@ -36,38 +34,6 @@
 namespace keen_pbr3 {
 
 namespace {
-
-std::vector<LifecycleOperationStage> lifecycle_stages(LifecycleOperationType type) {
-    switch (type) {
-    case LifecycleOperationType::ApplyConfig:
-        return {{"validate_config", "Validate configuration"},
-                {"prepare_remote_lists", "Prepare remote lists"},
-                {"commit_config", "Commit configuration"},
-                {"reconcile_runtime", "Reconcile routing and firewall"},
-                {"reload_dnsmasq", "Reload dnsmasq"},
-                {"verify_dnsmasq", "Verify dnsmasq configuration"}};
-    case LifecycleOperationType::RollbackConfig:
-        return {{"restore_config", "Restore previous configuration"},
-                {"validate_config", "Validate restored configuration"},
-                {"prepare_remote_lists", "Prepare remote lists"},
-                {"reconcile_runtime", "Reconcile routing and firewall"},
-                {"reload_dnsmasq", "Reload dnsmasq"},
-                {"verify_dnsmasq", "Verify dnsmasq configuration"}};
-    case LifecycleOperationType::Restart:
-        return {{"stop_routing", "Stop routing and firewall"},
-                {"start_routing", "Start routing and firewall"},
-                {"reload_dnsmasq", "Reload dnsmasq"},
-                {"verify_dnsmasq", "Verify dnsmasq configuration"}};
-    case LifecycleOperationType::Start:
-        return {{"start_routing", "Start routing and firewall"},
-                {"reload_dnsmasq", "Reload dnsmasq"},
-                {"verify_dnsmasq", "Verify dnsmasq configuration"}};
-    case LifecycleOperationType::Stop:
-        return {{"stop_routing", "Stop routing and firewall"},
-                {"reload_fallback", "Reload dnsmasq with fallback configuration"}};
-    }
-    return {};
-}
 
 const char* config_operation_state_name(ConfigOperationState state) {
     switch (state) {
@@ -92,9 +58,18 @@ std::string Daemon::submit_lifecycle_operation(LifecycleRequest request) {
         rollback_available_.load(std::memory_order_acquire)) {
         throw ApiError("Roll back the failed apply before another lifecycle operation", 409);
     }
+    // The resolver stages are listed whenever the integration is, or is about
+    // to be, enabled; they are skipped at run time if it ends up disabled.
+    bool resolver_stages = resolver_integration_->enabled();
+    if (request.type == LifecycleOperationType::ApplyConfig && request.config.has_value()) {
+        resolver_stages = resolver_stages ||
+            effective_resolver_integration(*request.config) ==
+                api::ResolverIntegration::DNSMASQ;
+    }
     LifecycleOperationSnapshot operation;
     if (const auto active = lifecycle_operations_.begin(
-            request.type, lifecycle_stages(request.type), operation)) {
+            request.type, lifecycle_stages(request.type, resolver_stages),
+            operation)) {
         throw ApiError("A lifecycle operation is already active", 409,
                        nlohmann::json{{"error", "A lifecycle operation is already active"},
                                       {"active_operation_id", *active}}.dump());
@@ -135,6 +110,30 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
     auto run_control = [&](const char* stage, std::function<void()> work) {
         start_stage(stage);
         enqueue_control_task(std::move(work), true, "lifecycle:" + id + ":" + stage);
+        succeed_stage();
+    };
+    // reload_dnsmasq / verify_dnsmasq: only with an enabled resolver
+    // integration; otherwise both stages are skipped.
+    auto run_resolver_stages = [&](const char* label) {
+        if (!resolver_integration_->active()) {
+            const char* detail = resolver_integration_->enabled()
+                ? "No system resolver configured"
+                : "Resolver integration is disabled";
+            lifecycle_operations_.skip_stage(id, "reload_dnsmasq", detail);
+            lifecycle_operations_.skip_stage(id, "verify_dnsmasq", detail);
+            return;
+        }
+        start_stage("reload_dnsmasq");
+        const auto reload = resolver_integration_->reload(ResolverReloadRequest{label});
+        if (!reload.ok) {
+            throw DaemonError(reload.error.empty() ? "system resolver reload hook failed"
+                                                   : reload.error);
+        }
+        succeed_stage();
+
+        start_stage("verify_dnsmasq");
+        const auto verified = resolver_integration_->verify(ResolverReloadRequest{label});
+        if (!verified.ok) throw DaemonError(verified.error);
         succeed_stage();
     };
     auto mark_broken = [&](const std::string& reason) {
@@ -208,36 +207,7 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
                 }
             });
 
-            const bool resolver_configured = has_system_resolver(config_store_.active_config());
-            if (resolver_configured) {
-                start_stage("reload_dnsmasq");
-                auto reload = resolver_hook_executor_.submit(
-                    "lifecycle-resolver-reload", [this] { return run_system_resolver_hook_reload(); });
-                if (!reload.get()) throw DaemonError("system resolver reload hook failed");
-                succeed_stage();
-
-                start_stage("verify_dnsmasq");
-                const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-                const std::int64_t apply_started =
-                    apply_started_ts_.load(std::memory_order_acquire);
-                Config candidate = config_store_.active_config();
-                auto verification = resolver_io_executor_.submit(
-                    "lifecycle-resolver-verification",
-                    [this, candidate = std::move(candidate),
-                     expected_hash = resolver_snapshot.expected_hash,
-                     apply_started] {
-                        std::string error;
-                        const bool ok = wait_for_resolver_config_hash_confirmation(
-                            candidate, expected_hash, apply_started, error);
-                        return std::make_pair(ok, error);
-                    });
-                const auto [verified, verification_error] = verification.get();
-                if (!verified) throw DaemonError(verification_error);
-                succeed_stage();
-            } else {
-                lifecycle_operations_.skip_stage(id, "reload_dnsmasq", "No system resolver configured");
-                lifecycle_operations_.skip_stage(id, "verify_dnsmasq", "No system resolver configured");
-            }
+            run_resolver_stages("lifecycle-resolver");
 
             enqueue_control_task([this] { complete_running_runtime("config apply verified"); },
                                  true, "lifecycle:" + id + ":finalize-runtime");
@@ -278,34 +248,7 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
                 }
             });
 
-            if (has_system_resolver(config_store_.active_config())) {
-                start_stage("reload_dnsmasq");
-                auto reload = resolver_hook_executor_.submit(
-                    "lifecycle-rollback-resolver-reload",
-                    [this] { return run_system_resolver_hook_reload(); });
-                if (!reload.get()) throw DaemonError("system resolver reload hook failed");
-                succeed_stage();
-
-                start_stage("verify_dnsmasq");
-                const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-                Config active = config_store_.active_config();
-                const auto started = apply_started_ts_.load(std::memory_order_acquire);
-                auto verification = resolver_io_executor_.submit(
-                    "lifecycle-rollback-resolver-verification",
-                    [this, active = std::move(active),
-                     expected = resolver_snapshot.expected_hash, started] {
-                        std::string error;
-                        const bool ok = wait_for_resolver_config_hash_confirmation(
-                            active, expected, started, error);
-                        return std::make_pair(ok, error);
-                    });
-                const auto [verified, verification_error] = verification.get();
-                if (!verified) throw DaemonError(verification_error);
-                succeed_stage();
-            } else {
-                lifecycle_operations_.skip_stage(id, "reload_dnsmasq", "No system resolver configured");
-                lifecycle_operations_.skip_stage(id, "verify_dnsmasq", "No system resolver configured");
-            }
+            run_resolver_stages("lifecycle-rollback-resolver");
 
             enqueue_control_task([this] {
                 complete_running_runtime("configuration rollback verified");
@@ -317,15 +260,15 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
         } else if (request.type == LifecycleOperationType::Stop) {
             runtime_mutated = true;
             run_control("stop_routing", [this] { teardown_routing_and_firewall(true); });
-            start_stage("reload_fallback");
-            if (has_system_resolver(config_store_.active_config())) {
-                auto fallback = resolver_hook_executor_.submit(
-                    "lifecycle-resolver-fallback",
-                    [this] { return run_system_resolver_hook("deactivate"); });
-                if (!fallback.get()) throw DaemonError("system resolver fallback reload failed");
+            if (resolver_integration_->enabled()) {
+                start_stage("reload_fallback");
+                if (!resolver_integration_->fallback()) {
+                    throw DaemonError("system resolver fallback reload failed");
+                }
                 succeed_stage();
             } else {
-                lifecycle_operations_.skip_stage(id, current_stage, "No system resolver configured");
+                lifecycle_operations_.skip_stage(id, "reload_fallback",
+                                                 "Resolver integration is disabled");
             }
         } else {
             if (request.type == LifecycleOperationType::Restart) {
@@ -335,32 +278,7 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             runtime_mutated = true;
             run_control("start_routing", [this] { setup_routing_and_firewall(); });
 
-            const Config active = config_store_.active_config();
-            if (has_system_resolver(active)) {
-                start_stage("reload_dnsmasq");
-                auto reload = resolver_hook_executor_.submit(
-                    "lifecycle-resolver-reload", [this] { return run_system_resolver_hook_reload(); });
-                if (!reload.get()) throw DaemonError("system resolver reload hook failed");
-                succeed_stage();
-
-                start_stage("verify_dnsmasq");
-                const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-                const auto started = apply_started_ts_.load(std::memory_order_acquire);
-                auto verification = resolver_io_executor_.submit(
-                    "lifecycle-resolver-verification",
-                    [this, active, expected = resolver_snapshot.expected_hash, started] {
-                        std::string error;
-                        const bool ok = wait_for_resolver_config_hash_confirmation(
-                            active, expected, started, error);
-                        return std::make_pair(ok, error);
-                    });
-                const auto [verified, verification_error] = verification.get();
-                if (!verified) throw DaemonError(verification_error);
-                succeed_stage();
-            } else {
-                lifecycle_operations_.skip_stage(id, "reload_dnsmasq", "No system resolver configured");
-                lifecycle_operations_.skip_stage(id, "verify_dnsmasq", "No system resolver configured");
-            }
+            run_resolver_stages("lifecycle-resolver");
             enqueue_control_task([this] { complete_running_runtime("lifecycle operation complete"); },
                                  true, "lifecycle:" + id + ":finalize-runtime");
         }
@@ -461,7 +379,6 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
     auto completion_future = completion->get_future();
     const std::int64_t apply_started_ts = unix_timestamp_now_seconds();
     result->apply_started_ts = apply_started_ts;
-    apply_started_ts_.store(apply_started_ts, std::memory_order_release);
 
     try {
         *prepared = prepare_runtime_inputs(config, true);
@@ -496,97 +413,77 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
             try {
                 apply_prepared_runtime_inputs(std::move(*prepared), false);
                 transaction->candidate_applied();
-                const std::string expected_hash =
-                    resolver_sync_.snapshot(unix_timestamp_now_seconds()).expected_hash;
-                const Config candidate = config_;
-                const std::int64_t apply_started_ts = result->apply_started_ts.value_or(0);
-                const bool queued = resolver_io_executor_.try_post(
-                    "config-apply-resolver-confirmation",
+                resolver_integration_->verify_async(
+                    ResolverReloadRequest{"config apply confirmation"},
                     [this,
                      result,
                      completion,
                      completed,
                      transaction,
                      persist_config,
-                     saved_config_json,
-                     candidate,
-                     expected_hash,
-                     apply_started_ts] {
-                        std::string confirmation_error;
-                        bool confirmed = false;
-                        try {
-                            confirmed = wait_for_resolver_config_hash_confirmation(
-                                candidate, expected_hash, apply_started_ts, confirmation_error);
-                        } catch (const std::exception& error) {
-                            confirmation_error = error.what();
-                        } catch (...) {
-                            confirmation_error = "resolver confirmation failed with an unknown error";
-                        }
-                        post_control_task(
-                            [this,
-                             result,
-                             completion,
-                             completed,
-                             transaction,
-                             persist_config,
-                             saved_config_json,
-                             confirmed,
-                             confirmation_error = std::move(confirmation_error)]() mutable {
-                                const auto complete_inner = [completion, completed](ConfigApplyResult value) {
-                                    bool expected = false;
-                                    if (completed->compare_exchange_strong(
-                                            expected, true, std::memory_order_acq_rel)) {
-                                        completion->set_value(std::move(value));
-                                    }
-                                };
-                                auto fail_after_mutation_inner = [this, result,
-                                                                  &complete_inner]() mutable {
-                                    std::string ignored_error;
-                                    (void)runtime_state_machine_.transition(
-                                        RuntimeState::broken, "config apply failed", ignored_error);
-                                    publish_runtime_state();
-                                    complete_inner(*result);
-                                };
-                                if (!confirmed) {
-                                    result->error = confirmation_error;
-                                    Logger::instance().error("Candidate resolver confirmation failed: {}",
-                                                             confirmation_error);
-                                    fail_after_mutation_inner();
-                                    return;
+                     saved_config_json](ResolverReloadResult verification) mutable {
+                    post_control_task(
+                        [this,
+                         result,
+                         completion,
+                         completed,
+                         transaction,
+                         persist_config,
+                         saved_config_json,
+                         confirmed = verification.ok,
+                         confirmation_error = std::move(verification.error)]() mutable {
+                            const auto complete_inner = [completion, completed](ConfigApplyResult value) {
+                                bool expected = false;
+                                if (completed->compare_exchange_strong(
+                                        expected, true, std::memory_order_acq_rel)) {
+                                    completion->set_value(std::move(value));
                                 }
-                                try {
-                                    transaction->resolver_confirmed();
-                                    if (!transaction->may_commit()) {
-                                        throw DaemonError("resolver confirmation did not unlock config commit");
-                                    }
-                                    if (persist_config) {
-                                        write_config_atomically(config_path_, saved_config_json);
-                                    }
-                                    config_store_.replace_active(config_, outbound_marks_);
-                                    if (persist_config) {
-                                        config_store_.clear_staged();
-                                    }
-                                    transition_runtime_or_throw(RuntimeState::running,
-                                                                "config apply complete");
-                                    publish_runtime_state();
-                                    result->saved = persist_config;
-                                    result->applied = true;
-                                    transaction->committed();
-                                } catch (const std::exception& error) {
-                                    result->error = error.what();
-                                    Logger::instance().error("Config durable commit failed: {}", error.what());
-                                    // The candidate is already serving successfully. A durable
-                                    // write failure fails only the commit and keeps it as a draft.
-                                    complete_inner(*result);
-                                    return;
-                                }
+                            };
+                            auto fail_after_mutation_inner = [this, result,
+                                                              &complete_inner]() mutable {
+                                std::string ignored_error;
+                                (void)runtime_state_machine_.transition(
+                                    RuntimeState::broken, "config apply failed", ignored_error);
+                                publish_runtime_state();
                                 complete_inner(*result);
-                            },
-                            "config-apply-resolver-confirmation-commit");
+                            };
+                            if (!confirmed) {
+                                result->error = confirmation_error;
+                                Logger::instance().error("Candidate resolver confirmation failed: {}",
+                                                         confirmation_error);
+                                fail_after_mutation_inner();
+                                return;
+                            }
+                            try {
+                                transaction->resolver_confirmed();
+                                if (!transaction->may_commit()) {
+                                    throw DaemonError("resolver confirmation did not unlock config commit");
+                                }
+                                if (persist_config) {
+                                    write_config_atomically(config_path_, saved_config_json);
+                                }
+                                config_store_.replace_active(config_, outbound_marks_);
+                                if (persist_config) {
+                                    config_store_.clear_staged();
+                                }
+                                transition_runtime_or_throw(RuntimeState::running,
+                                                            "config apply complete");
+                                publish_runtime_state();
+                                result->saved = persist_config;
+                                result->applied = true;
+                                transaction->committed();
+                            } catch (const std::exception& error) {
+                                result->error = error.what();
+                                Logger::instance().error("Config durable commit failed: {}", error.what());
+                                // The candidate is already serving successfully. A durable
+                                // write failure fails only the commit and keeps it as a draft.
+                                complete_inner(*result);
+                                return;
+                            }
+                            complete_inner(*result);
+                        },
+                        "config-apply-resolver-confirmation-commit");
                     });
-                if (!queued) {
-                    throw DaemonError("resolver confirmation executor is unavailable");
-                }
             } catch (const std::exception& e) {
                 result->error = e.what();
                 Logger::instance().error("Apply staged config task failed: {}", e.what());
@@ -758,18 +655,11 @@ void Daemon::setup_api() {
             (void)build_fw_rule_states(config, marks);
 
             ListStreamer streamer(list_service_.cache_manager());
-            const DnsConfig dns_cfg = config.dns.value_or(DnsConfig{});
-            DnsServerRegistry dns_registry(dns_cfg);
             const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
             log_ipv6_support_decision_once(ipv6_decision);
-            (void)DnsmasqGenerator::compute_config_hash(
-                dns_registry,
-                streamer,
-                config.route.value_or(RouteConfig{}),
-                dns_cfg,
-                config.lists.value_or(std::map<std::string, ListConfig>{}),
-                KEEN_PBR3_VERSION_FULL_STRING,
-                ipv6_decision.enabled);
+            // Renders the resolver output once when a resolver integration is
+            // enabled; a no-op otherwise.
+            dry_run_resolver_generation(config, streamer, ipv6_decision.enabled);
         },
         [this]() {
             const auto runtime_snapshot = runtime_state_store_.service_snapshot();
@@ -783,6 +673,7 @@ void Daemon::setup_api() {
             service_health.os_type = system_info.os_type;
             service_health.os_version = system_info.os_version;
             service_health.build_variant = system_info.build_variant;
+            service_health.resolver_integration = runtime_snapshot.resolver_integration;
             service_health.resolver_config_hash = runtime_snapshot.resolver_config_hash;
             service_health.resolver_config_hash_actual = runtime_snapshot.resolver_config_hash_actual;
             service_health.resolver_config_hash_actual_ts = runtime_snapshot.resolver_config_hash_actual_ts;
@@ -797,26 +688,11 @@ void Daemon::setup_api() {
             service_health.rollback_available =
                 rollback_available_.load(std::memory_order_acquire);
             service_health.lifecycle_operation = lifecycle_operation_store_.snapshot();
+            service_health.intercept = build_intercept_health();
             return service_health;
         },
         [this]() {
-            const auto runtime_snapshot = runtime_state_store_.snapshot();
-
-            if (runtime_snapshot.runtime_state == RuntimeState::starting) {
-                RoutingHealthReport report;
-                report.firewall_backend = firewall_->backend();
-                report.firewall_chain.detail =
-                    "routing runtime initialization is in progress";
-                return report;
-            }
-
-            return build_routing_health_report(
-                firewall_->backend(),
-                firewall_->raw_prerouting_mode(),
-                runtime_snapshot.firewall_state,
-                runtime_snapshot.route_specs,
-                runtime_snapshot.policy_rule_specs,
-                netlink_);
+            return cached_routing_health();
         },
         [this]() {
             const Config config_snapshot = config_store_.active_config();

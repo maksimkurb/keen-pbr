@@ -38,22 +38,22 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Default: true (also when set to null).
     "skip_marked_packets": true,
 
-    // Clear dnsmasq-managed dynamic sets during a full apply or runtime restart.
-    // Default: true (also when set to null).
-    "clear_dynamic_sets_on_apply": true,
+    // Clear interception/resolver-learned dynamic sets during a full apply or
+    // runtime restart. Default: false (also when set to null).
+    "clear_dynamic_sets_on_apply": false,
 
     // Optional initial hash table size for ipsets created by the iptables backend.
     // Has no effect with nftables. Minimum: 1; maximum: 2147483648. Omit or set
     // to null to use the ipset default (1024).
     // Changing it while iptables is running recreates owned ipsets and clears
-    // dnsmasq-learned entries.
+    // interception/resolver-learned entries.
     "ipset_hashsize": null,
 
     // Optional maximum element count for ipsets created by the iptables backend.
     // Has no effect with nftables. Minimum: 1; maximum: 4294967295. Omit or set
     // to null to use the ipset default (65536).
     // Changing it while iptables is running recreates owned ipsets and clears
-    // dnsmasq-learned entries.
+    // interception/resolver-learned entries.
     "ipset_maxelem": null,
 
     // Reuse the currently live list sets during safe runtime refreshes.
@@ -151,11 +151,15 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Default: no default, required for type="interface".
       "interface": "wg0",
 
-      // Optional IPv4 gateway for the interface outbound.
+      // Optional IPv4 gateway for the interface outbound. Set to "auto" to
+      // discover the unique lowest-metric matching default route in the main
+      // table; omit it for a gatewayless route.
       // Default: null
       "gateway": "10.8.0.1",
 
-      // Optional IPv6 gateway for the interface outbound.
+      // Optional IPv6 gateway for the interface outbound. Set to "auto" to
+      // discover the unique lowest-metric matching default route in the main
+      // table; omit it for a gatewayless route.
       // Default: null
       "gateway6": "2001:db8::1",
 
@@ -175,9 +179,9 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       "type": "interface",
       "tag": "wan",
       "interface": "eth0",
-      // Set a gateway only when it is stable. For a dynamic WAN gateway, use a
-      // table outbound with table=254 (the main routing table) instead.
-      "gateway": "172.12.33.1"
+      // Set a stable gateway explicitly, or use "auto" for a dynamic WAN
+      // gateway discovered from the matching main-table default route.
+      "gateway": "auto"
     },
     
     {
@@ -232,6 +236,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Do not switch if the new candidate is only slightly better than the current one.
       // Minimum: 0 ms. Default: 100 for urltest.
       "tolerance_ms": 100,
+
+      // Selection strategy: "priority" (default) keeps one selected child.
+      // nftables-only "balance" spreads new connections equally over usable
+      // children in the first healthy lowest-weight group.
+      "strategy": "priority",
 
       // Compatibility field for older configs.
       // Urltest always appends terminal IPv4/IPv6 unreachable routes as a kill-switch.
@@ -424,27 +433,19 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     }
   },
 
-  // DNS configuration.
-  // dns.system_resolver is required for daemon runtime.
+  // DNS configuration. Interception fills dynamic sets without a resolver.
   "dns": {
+    // "none" is the default. This example uses "dnsmasq" for per-list upstreams.
+    "resolver_integration": "dnsmasq",
     // Resolver used for runtime integration and TXT health checks.
-    // Default: no default, required by the running daemon.
+    // Required only when resolver_integration is "dnsmasq".
     "system_resolver": {
       "address": "127.0.0.1"
     },
 
-    // Optional built-in DNS probe server for the Web UI and troubleshooting.
-    // To check that this computer sends DNS queries through keen-pbr, run:
-    // > nslookup check.keen.pbr
-    // The response should contain answer_ipv4 (127.0.0.88).
+    // Deprecated compatibility field. It is accepted but ignored.
     "dns_test_server": {
-      // IPv4 listen address in host:port form.
-      // Default: no default, required when dns_test_server is present.
-      "listen": "127.0.0.88:12153",
-
-      // IPv4 A-record answer returned by the probe server.
-      // Default: the host part of listen.
-      "answer_ipv4": "127.0.0.88"
+      "listen": "127.0.0.88:12153"
     },
 
     // All supported DNS server styles.
@@ -529,6 +530,30 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     "fallback": ["google_dns", "auto_dns", "keenetic_dns"]
   },
 
+  // Traffic interception. All fields below have defaults; capability gaps
+  // disable DNS and L7 independently and are reported by health.
+  "intercept": {
+    "enabled": true,
+    "min_ttl_s": 300,
+    "max_ttl_s": 86400,
+    "dns": {
+      "enabled": true,
+      "queue_num": 9053,
+      "hold_timeout_ms": 30,
+      "marker": {
+        "domain": "check.keen.pbr",
+        "answer_ipv4": "127.0.0.88"
+      }
+    },
+    "l7": {
+      "enabled": true,
+      "nflog_group": 9054,
+      "tls": true,
+      "http": true,
+      "quic": true
+    }
+  },
+
   // Firewall mark allocation.
   // This section is optional.
   "fwmark": {
@@ -598,6 +623,10 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         // Match traffic only if dest IP matches
         // Supported: single IP, CIDR
         "dest_addr": "203.0.113.0/24",
+
+        // nftables-only catch-all for non-local, non-connected IPv4 traffic.
+        // Keep default_gateway rules last and add a separate IPv6 rule.
+        "default_gateway": "ipv4",
 
         // Match traffic only if source port matches
         // Supported: single port, multiple port comma-separated, range

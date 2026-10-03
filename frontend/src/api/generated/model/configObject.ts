@@ -10,6 +10,7 @@ import type { ConfigObjectLists } from './configObjectLists';
 import type { DaemonConfig } from './daemonConfig';
 import type { DnsConfig } from './dnsConfig';
 import type { FwmarkConfig } from './fwmarkConfig';
+import type { InterceptConfig } from './interceptConfig';
 import type { IprouteConfig } from './iprouteConfig';
 import type { ListsAutoupdateConfig } from './listsAutoupdateConfig';
 import type { Outbound } from './outbound';
@@ -34,4 +35,5 @@ export interface ConfigObject {
   fwmark?: FwmarkConfig;
   iproute?: IprouteConfig;
   lists_autoupdate?: ListsAutoupdateConfig;
+  intercept?: InterceptConfig;
 }

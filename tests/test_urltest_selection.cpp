@@ -57,6 +57,8 @@ TEST_CASE("URLTEST and ICMPTEST share selection and tolerance behavior") {
 
         state.last_results = {{"a", result(true, 30)}, {"b", result(true, 20)}};
         CHECK(select_test_group_outbound(state) == "a");
+        CHECK(select_test_group_usable_outbounds(state) ==
+              std::vector<std::string>{"a", "b"});
 
         state.selected_outbound = "a";
         state.last_results["a"] = result(true, 35);
@@ -70,6 +72,14 @@ TEST_CASE("URLTEST and ICMPTEST share selection and tolerance behavior") {
         state.last_results["c"] = result(true, 50);
         CHECK(select_test_group_outbound(state) == "c");
     }
+}
+
+TEST_CASE("balance candidates use only the first healthy priority tier") {
+    auto state = state_for(OutboundType::URLTEST);
+    state.last_results = {{"a", result(false, 0)}, {"b", result(true, 20)},
+                          {"c", result(true, 1)}};
+    CHECK(select_test_group_usable_outbounds(state) ==
+          std::vector<std::string>{"b"});
 }
 
 } // namespace keen_pbr3

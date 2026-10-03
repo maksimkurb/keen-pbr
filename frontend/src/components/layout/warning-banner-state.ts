@@ -116,8 +116,8 @@ export function useWarningBannerState(): WarningBannerState {
 
 export function getWarningBannerMode(
   serviceHealth: HealthResponse | null,
-  retainedOperation: LifecycleOperation | null =
-    serviceHealth?.lifecycle_operation ?? null
+  retainedOperation: LifecycleOperation | null = serviceHealth?.lifecycle_operation ??
+    null
 ): WarningBannerMode {
   if (retainedOperation?.status === "running") return "lifecycle-running"
   if (retainedOperation?.status === "succeeded") return "lifecycle-success"
@@ -126,9 +126,16 @@ export function getWarningBannerMode(
   if (serviceHealth.rollback_available) return "lifecycle-error"
 
   if (serviceHealth.config_is_draft) {
-    return serviceHealth.resolver_config_sync_state === "stale"
+    return serviceHealth.resolver_config_sync_state === "stale" &&
+      serviceHealth.resolver_integration === "dnsmasq"
       ? "draft-and-dnsmasq"
       : "draft"
+  }
+  if (
+    serviceHealth.resolver_integration === "none" ||
+    serviceHealth.resolver_config_probe_status === "disabled"
+  ) {
+    return "hidden"
   }
   if (serviceHealth.resolver_config_sync_state === "stale") {
     return "dnsmasq-stale"
@@ -152,7 +159,9 @@ export function retainLifecycleOperation(
   }
   if (!previous || previous.id !== incoming.id) return incoming
   const rank = { pending: 0, running: 1, skipped: 2, succeeded: 2, failed: 2 }
-  const previousStages = new Map(previous.stages.map((stage) => [stage.id, stage]))
+  const previousStages = new Map(
+    previous.stages.map((stage) => [stage.id, stage])
+  )
   return {
     ...incoming,
     stages: incoming.stages.map((stage) => {

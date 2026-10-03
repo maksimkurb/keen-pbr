@@ -22,7 +22,7 @@ TEST_IP6 = "2001:db8:100::10"
 CONTAINER_DIR = pathlib.Path(__file__).resolve().parent
 BASE_CONFIG = CONTAINER_DIR / "config.json"
 TOPOLOGY = CONTAINER_DIR / "topology.sh"
-CONFIG_PATH = pathlib.Path("/etc/keen-pbr/config.json")
+CONFIG_PATH = pathlib.Path(os.environ.get("KPBR_CONFIG_PATH", "/etc/keen-pbr/config.json"))
 REMOTE_CONTAINER_DIR = "/mnt/payload/tests/integration/container"
 
 
@@ -107,6 +107,13 @@ class SystemContext:
         assert health["runtime_state"] == "running", health
         return health
 
+    def routing_health_running(self):
+        def healthy():
+            routing = self.api("/api/health/routing")
+            return routing if routing.get("overall") == "ok" else False
+
+        return self.wait_for("routing health refresh", healthy)
+
     def selected_outbound(self, tag="auto", selected="wan_pbr"):
         state = self.api("/api/runtime/outbounds")
         outbound = next((item for item in state["outbounds"] if item["tag"] == tag), None)
@@ -150,6 +157,42 @@ class SystemContext:
         assert result.returncode == 0, result.stderr
         return parse_probe(result.stdout, token)
 
+    def client_raw_probe(self, *, proto: str, destination: str = TEST_IP,
+                         destination_port: int, payload_hex: str,
+                         source_port: int | None = None,
+                         no_receive: bool = True, timeout: float = 4) -> dict:
+        token = uuid.uuid4().hex
+        args = ["python3", f"{REMOTE_CONTAINER_DIR}/probe.py", "client",
+                "--proto", proto, "--destination", destination,
+                "--destination-port", str(destination_port),
+                "--payload-hex", payload_hex, "--token", token,
+                "--timeout", str(timeout)]
+        if source_port is not None:
+            args += ["--source-port", str(source_port)]
+        if no_receive:
+            args.append("--no-receive")
+        result = self.client(*args, check=False, timeout=timeout + 5)
+        assert result.returncode == 0, result.stderr
+        return json.loads(result.stdout.splitlines()[-1])
+
+    def intercept_health(self) -> dict:
+        health = self.api("/api/health/service")
+        value = health.get("intercept")
+        assert isinstance(value, dict), health
+        return value
+
+    def wait_intercept(self, *, dns_hold: bool | None = None,
+                       l7: bool | None = None) -> dict:
+        def ready():
+            value = self.intercept_health()
+            if dns_hold is not None and value.get("dns_hold_active") != dns_hold:
+                return False
+            if l7 is not None and value.get("l7_active") != l7:
+                return False
+            return value
+
+        return self.wait_for("interception health", ready)
+
     def assert_probe_path(self, expected: str, **probe) -> dict:
         payload = self.client_probe(**probe)
         assert payload is not None and payload["identity"] == expected, payload
@@ -176,14 +219,32 @@ class SystemContext:
                      f": > /run/kpbr-wan/{side}/dns-v6.jsonl; "
                      "iptables -F 2>/dev/null || true; ip6tables -F 2>/dev/null || true")
 
-    def dynamic_set_contains(self, address: str = TEST_IP):
+    def dynamic_set_contains(self, address: str = TEST_IP, list_name: str = "routed"):
         if self.backend == "iptables":
-            family = "kpbr6d_routed" if ":" in address else "kpbr4d_routed"
+            family = (f"kpbr6d_{list_name}" if ":" in address
+                      else f"kpbr4d_{list_name}")
             self.run("ipset", "test", family, address)
         else:
-            family = "kpbr6d_routed" if ":" in address else "kpbr4d_routed"
+            family = (f"kpbr6d_{list_name}" if ":" in address
+                      else f"kpbr4d_{list_name}")
             output = self.run("nft", "list", "set", "inet", "KeenPbrTable", family).stdout
             assert address in output, output
+        return True
+
+    def dynamic_set_delete(self, address: str = TEST_IP, list_name: str = "routed"):
+        family = (f"kpbr6d_{list_name}" if ":" in address
+                  else f"kpbr4d_{list_name}")
+        if self.backend == "iptables":
+            self.run("ipset", "del", family, address, check=False)
+        else:
+            self.run("nft", "delete", "element", "inet", "KeenPbrTable", family,
+                     "{", address, "}", check=False)
+
+    def dynamic_set_present(self, address: str = TEST_IP, list_name: str = "routed"):
+        try:
+            self.dynamic_set_contains(address, list_name)
+        except AssertionError:
+            return False
         return True
 
     def apply_config(self, config: dict):
@@ -199,8 +260,7 @@ class SystemContext:
 
         health = self.wait_for("config lifecycle completion", applied_operation)
         self.health_running()
-        routing = self.api("/api/health/routing")
-        assert routing["overall"] == "ok", routing
+        routing = self.routing_health_running()
         assert routing["firewall_backend"] == self.backend, routing
         return health
 

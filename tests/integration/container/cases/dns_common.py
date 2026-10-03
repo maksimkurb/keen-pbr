@@ -12,6 +12,7 @@ def dns_config(context, servers, fallback, rules=None, lists=None):
     config["lists"] = lists or {}
     config["route"] = {"inbound_interfaces": ["lan0"], "rules": []}
     config["dns"] = {
+        "resolver_integration": "dnsmasq",
         "system_resolver": {"address": "192.0.2.1"},
         "servers": servers,
         "fallback": fallback,

@@ -1,6 +1,4 @@
 #include "firewall_verifier.hpp"
-#include "iptables_verifier.hpp"
-#include "nftables_verifier.hpp"
 #include "../util/safe_exec.hpp"
 
 #include <atomic>
@@ -29,24 +27,6 @@ CommandResult run_command_capture(const std::vector<std::string>& args) {
         .exit_code = result.exit_code,
         .truncated = result.truncated,
     };
-}
-
-std::unique_ptr<FirewallVerifier> create_firewall_verifier(
-    FirewallBackend backend,
-    RawPreroutingMode raw_prerouting,
-    CommandRunner runner) {
-    switch (backend) {
-        case FirewallBackend::iptables:
-            return create_iptables_verifier(std::move(runner), raw_prerouting);
-        case FirewallBackend::nftables:
-            if (raw_prerouting.ipv4 || raw_prerouting.ipv6) {
-                throw FirewallError(
-                    "RAW PREROUTING is supported only with the iptables "
-                    "firewall backend");
-            }
-            return create_nftables_verifier(std::move(runner));
-    }
-    throw FirewallError("unknown firewall backend");
 }
 
 } // namespace keen_pbr3

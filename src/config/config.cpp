@@ -15,7 +15,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "../dns/dns_probe_server.hpp"
+#include "../log/logger.hpp"
 #include "../util/cron.hpp"
 
 namespace keen_pbr3 {
@@ -32,6 +32,23 @@ bool is_valid_ipv4_address(const std::string& ip) {
 bool is_valid_ipv6_address(const std::string& ip) {
     in6_addr addr{};
     return inet_pton(AF_INET6, ip.c_str(), &addr) == 1;
+}
+
+bool is_valid_marker_domain(const std::string& domain) {
+    if (domain.empty() || domain.size() > 253) return false;
+    std::size_t label_len = 0;
+    char prev = '.';
+    for (const char ch : domain) {
+        if (ch == '.') {
+            if (label_len == 0 || prev == '-') return false;
+            label_len = 0;
+        } else {
+            const bool ok = std::isalnum(static_cast<unsigned char>(ch)) || ch == '-' || ch == '_';
+            if (!ok || (label_len == 0 && ch == '-') || ++label_len > 63) return false;
+        }
+        prev = ch;
+    }
+    return label_len > 0 && prev != '-';
 }
 
 bool is_http_url(const std::string& url) {
@@ -289,7 +306,7 @@ bool parse_uint_in_range(const std::string& raw, int min_value, int max_value, i
 }
 
 constexpr size_t IPSET_MAX_NAME = 31;
-constexpr size_t IPSET_PREFIX_LEN = 7; // len("kpbr4d_"), "kpbr4s_", or "kpbr4S_"
+constexpr size_t IPSET_PREFIX_LEN = 7; // len("kpbr4d_") == len("kpbr4t_") (dynamic / refresh temp)
 constexpr size_t MAX_TAG_LEN = IPSET_MAX_NAME - IPSET_PREFIX_LEN; // 24
 
 bool is_valid_tag(const std::string& value) {
@@ -560,12 +577,13 @@ void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIss
             rule_has_string_condition(rule, "src_port") ||
             rule_has_string_condition(rule, "dest_port") ||
             rule_has_string_condition(rule, "src_addr") ||
-            rule_has_string_condition(rule, "dest_addr");
+            rule_has_string_condition(rule, "dest_addr") ||
+            rule_has_present_condition(rule, "default_gateway");
 
         if (!has_any_condition) {
             add_issue(issues,
                       rule_path,
-                      "Route rule must include at least one condition: list, dscp, src_port, dest_port, src_addr, or dest_addr.");
+                      "Route rule must include at least one condition: list, dscp, src_port, dest_port, src_addr, dest_addr, or default_gateway.");
         }
 
         validate_dscp_field(rule, rule_path, issues);
@@ -855,6 +873,19 @@ Config parse_config_json(json parsed_json) {
         });
     }
 
+    // Migration: configs written before dns.resolver_integration existed keep
+    // using dnsmasq when they rely on it.  The value is made explicit here so
+    // that the next save persists it.
+    if (cfg.dns.has_value() && !cfg.dns->resolver_integration.has_value()) {
+        const auto effective = effective_resolver_integration(cfg);
+        cfg.dns->resolver_integration = effective;
+        if (effective == ResolverIntegrationMode::DNSMASQ) {
+            Logger::instance().info(
+                "dns.resolver_integration is not set; using 'dnsmasq' because "
+                "dns.rules or dns.system_resolver is configured");
+        }
+    }
+
     return cfg;
 }
 
@@ -1007,6 +1038,55 @@ void validate_config(const Config& cfg) {
         }
     }
 
+    if (cfg.intercept) {
+        const auto& ic = *cfg.intercept;
+        const auto check_port = [&issues](const char* path, const std::optional<int64_t>& value) {
+            if (!value.has_value()) return;
+            if (*value < 1 || *value > 65535) {
+                add_issue(issues, path, std::string(path) + " must be between 1 and 65535");
+            } else if (*value == 64511 || *value == 65023) {
+                add_issue(issues, path,
+                          std::string(path) + " " + std::to_string(*value) +
+                              " is reserved by Keenetic NDM");
+            }
+        };
+        const int64_t min_ttl = ic.min_ttl_s.value_or(300);
+        const int64_t max_ttl = ic.max_ttl_s.value_or(86400);
+        if (ic.min_ttl_s.has_value() && min_ttl < 1) {
+            add_issue(issues, "intercept.min_ttl_s", "intercept.min_ttl_s must be >= 1");
+        }
+        if (ic.max_ttl_s.has_value() && max_ttl < 1) {
+            add_issue(issues, "intercept.max_ttl_s", "intercept.max_ttl_s must be >= 1");
+        }
+        if (min_ttl > max_ttl) {
+            add_issue(issues, "intercept.min_ttl_s",
+                      "intercept.min_ttl_s must be <= intercept.max_ttl_s");
+        }
+        if (ic.dns) {
+            check_port("intercept.dns.queue_num", ic.dns->queue_num);
+            if (ic.dns->hold_timeout_ms.has_value() &&
+                (*ic.dns->hold_timeout_ms < 5 || *ic.dns->hold_timeout_ms > 500)) {
+                add_issue(issues, "intercept.dns.hold_timeout_ms",
+                          "intercept.dns.hold_timeout_ms must be between 5 and 500");
+            }
+            if (ic.dns->marker) {
+                if (ic.dns->marker->domain.has_value() &&
+                    !is_valid_marker_domain(*ic.dns->marker->domain)) {
+                    add_issue(issues, "intercept.dns.marker.domain",
+                              "intercept.dns.marker.domain is not a valid domain name");
+                }
+                if (ic.dns->marker->answer_ipv4.has_value() &&
+                    !is_valid_ipv4_address(*ic.dns->marker->answer_ipv4)) {
+                    add_issue(issues, "intercept.dns.marker.answer_ipv4",
+                              "intercept.dns.marker.answer_ipv4 must be a valid IPv4 address");
+                }
+            }
+        }
+        if (ic.l7) {
+            check_port("intercept.l7.nflog_group", ic.l7->nflog_group);
+        }
+    }
+
     for (const auto& [name, list_cfg] : cfg.lists.value_or(std::map<std::string, ListConfig>{})) {
         const std::string list_path = name.empty() ? "lists" : "lists." + name;
         validate_tag(issues, list_path, "List name", name);
@@ -1042,13 +1122,15 @@ void validate_config(const Config& cfg) {
                           "Interface outbound '" + ob.tag +
                               "' requires a non-empty interface name");
             }
-            if (ob.gateway.has_value() && !is_valid_ipv4_address(*ob.gateway)) {
+            if (ob.gateway.has_value() && *ob.gateway != "auto" &&
+                !is_valid_ipv4_address(*ob.gateway)) {
                 add_issue(issues,
                           "outbounds." + ob.tag + ".gateway",
                           "Interface outbound '" + ob.tag +
                               "' gateway must be a valid IPv4 address");
             }
-            if (ob.gateway6.has_value() && !is_valid_ipv6_address(*ob.gateway6)) {
+            if (ob.gateway6.has_value() && *ob.gateway6 != "auto" &&
+                !is_valid_ipv6_address(*ob.gateway6)) {
                 add_issue(issues,
                           "outbounds." + ob.tag + ".gateway6",
                           "Interface outbound '" + ob.tag +
@@ -1056,7 +1138,13 @@ void validate_config(const Config& cfg) {
             }
         }
 
-        if (ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) continue;
+        if (ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) {
+            if (ob.strategy.has_value()) {
+                add_issue(issues, "outbounds." + ob.tag + ".strategy",
+                          "strategy is supported only by urltest and icmptest outbounds");
+            }
+            continue;
+        }
         const bool is_icmp = ob.type == OutboundType::ICMPTEST;
 
         if (!is_icmp && (!ob.url.has_value() || ob.url->empty())) {
@@ -1274,8 +1362,20 @@ void validate_config(const Config& cfg) {
     }
 
     if (firewall_backend_preference(cfg) == FirewallBackendPreference::iptables) {
+        for (const auto& outbound : outbounds) {
+            if ((outbound.type == OutboundType::URLTEST ||
+                 outbound.type == OutboundType::ICMPTEST) &&
+                outbound_uses_balance(outbound)) {
+                add_issue(issues, "outbounds." + outbound.tag + ".strategy",
+                          "balance strategy requires daemon.firewall_backend=nftables");
+            }
+        }
         for (size_t i = 0; i < route_rules.size(); ++i) {
             const auto& rule = route_rules[i];
+            if (rule.default_gateway.has_value()) {
+                add_issue(issues, "route.rules[" + std::to_string(i) + "].default_gateway",
+                          "default_gateway requires daemon.firewall_backend=nftables");
+            }
             if (!route_rule_uses_unsupported_iptables_multiport_combo(rule)) {
                 continue;
             }
@@ -1407,15 +1507,14 @@ void validate_config(const Config& cfg) {
         }
 
         if (cfg.dns->system_resolver.has_value()) {
-            const auto& resolver = *cfg.dns->system_resolver;
-
-            if (resolver.address.empty()) {
+            if (cfg.dns->system_resolver->address.empty()) {
                 add_issue(issues, "dns.system_resolver.address",
                           "dns.system_resolver.address must not be empty");
             }
-        } else {
+        } else if (effective_resolver_integration(cfg) == ResolverIntegrationMode::DNSMASQ) {
             add_issue(issues, "dns.system_resolver",
-                      "dns.system_resolver must be present");
+                      "dns.system_resolver must be present when "
+                      "dns.resolver_integration is 'dnsmasq'");
         }
 
         const auto dns_rules = cfg.dns->rules.value_or(std::vector<DnsRule>{});
@@ -1438,20 +1537,10 @@ void validate_config(const Config& cfg) {
             }
         }
 
-        if (cfg.dns->dns_test_server.has_value()) {
-            try {
-                const auto& test_cfg = *cfg.dns->dns_test_server;
-                const std::string* answer_ip =
-                    test_cfg.answer_ipv4 ? &*test_cfg.answer_ipv4 : nullptr;
-                (void)parse_dns_probe_server_settings(test_cfg.listen, answer_ip);
-            } catch (const std::exception& e) {
-                add_issue(issues, "dns.dns_test_server",
-                          std::string("dns.dns_test_server: ") + e.what());
-            }
-        }
-    } else {
-        add_issue(issues, "dns.system_resolver",
-                  "dns.system_resolver must be present");
+    }
+
+    for (const auto& warning : config_warnings(cfg)) {
+        Logger::instance().warn("Configuration: {}", warning);
     }
 
     if (!issues.empty()) {
@@ -1472,6 +1561,24 @@ FirewallBackendPreference firewall_backend_preference(const Config& config) {
     }
 
     return to_firewall_backend_preference(*config.daemon->firewall_backend);
+}
+
+std::vector<std::string> config_warnings(const Config& config) {
+    std::vector<std::string> warnings;
+    if (!config.dns.has_value()) return warnings;
+    const auto& dns = *config.dns;
+    if (effective_resolver_integration(config) == ResolverIntegrationMode::NONE &&
+        !dns.rules.value_or(std::vector<DnsRule>{}).empty()) {
+        warnings.push_back(
+            "dns.rules is set but dns.resolver_integration is 'none': "
+            "per-list upstream requires resolver_integration=dnsmasq");
+    }
+    if (dns.dns_test_server.has_value()) {
+        warnings.push_back(
+            "dns.dns_test_server is deprecated and ignored: replaced by "
+            "intercept.dns.marker");
+    }
+    return warnings;
 }
 
 Config parse_and_validate_config(const std::string& json_str) {

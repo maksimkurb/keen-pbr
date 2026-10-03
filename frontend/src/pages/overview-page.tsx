@@ -3,8 +3,17 @@ import { useTranslation } from "react-i18next"
 import { Download, Play, RotateCw, Square } from "lucide-react"
 
 import type { ApiError } from "@/api/client"
-import type { Outbound, RuntimeOutboundState } from "@/api/generated/model"
-import type { DnsCheckStatus } from "@/hooks/use-dns-check"
+import type {
+  InterceptHealth,
+  InterceptProbeFeatureStatus,
+  Outbound,
+  RuntimeOutboundState,
+} from "@/api/generated/model"
+import {
+  DNS_CHECK_DOMAIN_SUFFIX,
+  type DnsCheckStatus,
+  useInterceptEventMonitor,
+} from "@/hooks/use-dns-check"
 import {
   useGetConfig,
   useGetHealthRouting,
@@ -103,10 +112,25 @@ export function OverviewPage() {
   )
   const dnsmasqBadge = getDnsmasqBadgeState(
     serviceHealth?.resolver_live_status,
-    serviceHealth?.resolver_config_sync_state
+    serviceHealth?.resolver_config_sync_state,
+    serviceHealth?.resolver_integration,
+    serviceHealth?.resolver_config_probe_status
   )
   const hasServiceHealth = Boolean(serviceHealth)
   const isServiceRunning = serviceHealth?.status === "running"
+  const markerConfig = loadedConfig?.intercept?.dns?.marker
+  const dnsCheckConfigEnabled =
+    Boolean(loadedConfig) &&
+    loadedConfig?.intercept?.enabled !== false &&
+    loadedConfig?.intercept?.dns?.enabled !== false
+  const dnsCheckRuntimeEnabled =
+    serviceHealth?.intercept?.running === true &&
+    serviceHealth.intercept.dns_hold_active === true
+  const dnsCheckEnabled = dnsCheckConfigEnabled && dnsCheckRuntimeEnabled
+  const dnsCheckDisabledReason = !dnsCheckConfigEnabled ? "config" : "runtime"
+  const interceptMonitor = useInterceptEventMonitor(
+    serviceHealth?.intercept?.running === true
+  )
   const outboundRows = useMemo(() => {
     const configuredOutbounds = loadedConfig?.outbounds ?? []
     if (configuredOutbounds.length === 0) {
@@ -258,10 +282,16 @@ export function OverviewPage() {
         </SectionCard>
 
         <DnsCheckWidget
-          dnsProbeEnabled={Boolean(loadedConfig?.dns?.dns_test_server)}
+          disabledReason={dnsCheckDisabledReason}
+          dnsProbeEnabled={dnsCheckEnabled}
+          liveEvent={interceptMonitor.lastEvent}
+          liveMonitorStatus={interceptMonitor.status}
+          markerDomain={markerConfig?.domain ?? DNS_CHECK_DOMAIN_SUFFIX}
           onStatusChange={setDnsCheckStatus}
         />
       </div>
+
+      <InterceptHealthCard health={serviceHealth?.intercept} />
 
       <RoutingTestPanel />
 
@@ -375,6 +405,188 @@ function TableSkeleton() {
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-full" />
+    </div>
+  )
+}
+
+function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
+  const { t } = useTranslation()
+
+  if (!health) {
+    return null
+  }
+
+  const status = !health.enabled
+    ? t("overview.intercept.status.disabled")
+    : health.running
+      ? t("overview.intercept.status.running")
+      : t("overview.intercept.status.stopped")
+  const statusTone = !health.enabled
+    ? "warning"
+    : health.running
+      ? "healthy"
+      : "degraded"
+  const counters = health.counters
+  const capabilities = [
+    ["nfqueue", health.capabilities.nfqueue],
+    ["nflog", health.capabilities.nflog],
+    ["connbytes", health.capabilities.connbytes],
+  ] as const
+  const counterEntries = counters
+    ? ([
+        ["dnsPackets", counters.dns_packets],
+        ["dnsParseErrors", counters.dns_parse_errors],
+        ["dnsMatched", counters.dns_matched],
+        ["dnsHoldTimeouts", counters.dns_hold_timeouts],
+        ["dnsTcpPartial", counters.dns_tcp_partial],
+        ["markerHits", counters.marker_hits],
+        ["l7Packets", counters.l7_packets],
+        ["l7Matched", counters.l7_matched],
+        ["setAdded", counters.set_added],
+        ["setRefreshed", counters.set_refreshed],
+        ["setErrors", counters.set_errors],
+        ["conntrackRequests", counters.conntrack_requests],
+        ["conntrackDeleted", counters.conntrack_deleted],
+        ["conntrackErrors", counters.conntrack_errors],
+        ["queueOverruns", counters.queue_overruns],
+        ["logOverruns", counters.log_overruns],
+      ] as const)
+    : []
+
+  return (
+    <SectionCard
+      description={t("overview.intercept.description")}
+      title={t("overview.intercept.title")}
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone={statusTone}>{status}</StatusBadge>
+          <StatusBadge tone={health.dns_hold_active ? "healthy" : "warning"}>
+            {health.dns_hold_active
+              ? t("overview.intercept.dnsHoldActive")
+              : t("overview.intercept.dnsHoldInactive")}
+          </StatusBadge>
+          <StatusBadge tone={health.l7_active ? "healthy" : "warning"}>
+            {health.l7_active
+              ? t("overview.intercept.l7Active")
+              : t("overview.intercept.l7Inactive")}
+          </StatusBadge>
+        </div>
+
+        <div className="grid gap-3 text-sm sm:grid-cols-3">
+          {capabilities.map(([name, supported]) => (
+            <div className="flex items-center justify-between gap-2" key={name}>
+              <span className="text-muted-foreground">
+                {t(`overview.intercept.capabilities.${name}`)}
+              </span>
+              <span
+                className={supported ? "text-emerald-600" : "text-destructive"}
+              >
+                {supported
+                  ? t("overview.intercept.supported")
+                  : t("overview.intercept.unsupported")}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {health.probes && health.probes.length > 0 ? (
+          <div className="space-y-1 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">
+                {t("overview.intercept.probes.title")}
+              </span>
+              {health.kernel_release ? (
+                <span className="text-muted-foreground">
+                  {t("overview.intercept.probes.kernel", {
+                    release: health.kernel_release,
+                  })}
+                </span>
+              ) : null}
+            </div>
+            <ul className="space-y-0.5" data-testid="intercept-probes">
+              {health.probes.map((probe) => (
+                <li
+                  className="flex flex-wrap items-baseline gap-x-2"
+                  key={probe.feature}
+                >
+                  <span className="text-muted-foreground">{probe.feature}</span>
+                  <span className={probeStatusClass(probe.status)}>
+                    {t(`overview.intercept.probes.status.${probe.status}`)}
+                  </span>
+                  {probe.reason ? (
+                    <span className="text-xs text-muted-foreground">
+                      {probe.reason}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {health.warnings && health.warnings.length > 0 ? (
+          <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
+            <AlertDescription>
+              <ul className="list-disc pl-5">
+                {health.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {health.reasons.length > 0 ? (
+          <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
+            <AlertDescription>
+              <div className="space-y-1">
+                <div className="font-medium">
+                  {t("overview.intercept.unsupportedWarning")}
+                </div>
+                <ul className="list-disc pl-5">
+                  {health.reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {counterEntries.length > 0 ? (
+          <div className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            {counterEntries.map(([name, value]) => (
+              <Counter
+                key={name}
+                label={t(`overview.intercept.counters.${name}`)}
+                value={value}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </SectionCard>
+  )
+}
+
+function probeStatusClass(status: InterceptProbeFeatureStatus) {
+  switch (status) {
+    case "ok":
+      return "text-emerald-600"
+    case "unsupported":
+    case "error":
+      return "text-destructive"
+    default:
+      return "text-muted-foreground"
+  }
+}
+
+function Counter({ label, value }: { label: string; value?: number }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium tabular-nums">{value ?? 0}</span>
     </div>
   )
 }

@@ -6,10 +6,11 @@ import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
+import type { ResolverIntegrationMode } from "@/api/generated/model/resolverIntegrationMode"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig, useGetRuntimeInterfaces } from "@/api/queries"
-import { selectConfig } from "@/api/selectors"
+import { effectiveResolverIntegration, selectConfig } from "@/api/selectors"
 import {
   Field,
   FieldContent,
@@ -33,6 +34,13 @@ import {
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   clearFormServerErrors,
@@ -41,7 +49,7 @@ import {
 } from "@/lib/form-api-errors"
 import { toast } from "sonner"
 
-type SettingsDraft = {
+export type SettingsDraft = {
   deviceName: string
   strictEnforcement: boolean
   skipMarkedPackets: boolean
@@ -55,13 +63,28 @@ type SettingsDraft = {
   fwmarkStart: string
   fwmarkMask: string
   tableStart: string
+  resolverIntegration: ResolverIntegrationMode
+  systemResolverAddress: string
+  interceptEnabled: boolean
+  interceptMinTtlS: string
+  interceptMaxTtlS: string
+  interceptDnsEnabled: boolean
+  interceptDnsQueueNum: string
+  interceptDnsHoldTimeoutMs: string
+  interceptMarkerDomain: string
+  interceptMarkerAddress: string
+  interceptL7Enabled: boolean
+  interceptL7NflogGroup: string
+  interceptL7Tls: boolean
+  interceptL7Http: boolean
+  interceptL7Quic: boolean
 }
 
 const fallbackDraft: SettingsDraft = {
   deviceName: "",
   strictEnforcement: true,
   skipMarkedPackets: true,
-  clearDynamicSetsOnApply: true,
+  clearDynamicSetsOnApply: false,
   ipv6Enabled: true,
   ipsetHashsize: "",
   ipsetMaxelem: "",
@@ -71,6 +94,21 @@ const fallbackDraft: SettingsDraft = {
   fwmarkStart: "0x00010000",
   fwmarkMask: "0xffff0000",
   tableStart: "150",
+  resolverIntegration: "none",
+  systemResolverAddress: "127.0.0.1",
+  interceptEnabled: true,
+  interceptMinTtlS: "300",
+  interceptMaxTtlS: "86400",
+  interceptDnsEnabled: true,
+  interceptDnsQueueNum: "9053",
+  interceptDnsHoldTimeoutMs: "30",
+  interceptMarkerDomain: "check.keen.pbr",
+  interceptMarkerAddress: "127.0.0.88",
+  interceptL7Enabled: true,
+  interceptL7NflogGroup: "9054",
+  interceptL7Tls: true,
+  interceptL7Http: true,
+  interceptL7Quic: true,
 }
 
 const SETTINGS_FIELD_NAMES = {
@@ -87,6 +125,21 @@ const SETTINGS_FIELD_NAMES = {
   fwmarkStart: "fwmarkStart",
   fwmarkMask: "fwmarkMask",
   tableStart: "tableStart",
+  resolverIntegration: "resolverIntegration",
+  systemResolverAddress: "systemResolverAddress",
+  interceptEnabled: "interceptEnabled",
+  interceptMinTtlS: "interceptMinTtlS",
+  interceptMaxTtlS: "interceptMaxTtlS",
+  interceptDnsEnabled: "interceptDnsEnabled",
+  interceptDnsQueueNum: "interceptDnsQueueNum",
+  interceptDnsHoldTimeoutMs: "interceptDnsHoldTimeoutMs",
+  interceptMarkerDomain: "interceptMarkerDomain",
+  interceptMarkerAddress: "interceptMarkerAddress",
+  interceptL7Enabled: "interceptL7Enabled",
+  interceptL7NflogGroup: "interceptL7NflogGroup",
+  interceptL7Tls: "interceptL7Tls",
+  interceptL7Http: "interceptL7Http",
+  interceptL7Quic: "interceptL7Quic",
 } as const
 
 type SettingsFieldName =
@@ -235,6 +288,258 @@ function LoadedGeneralConfigPage({
               </Field>
             )}
           </form.Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("pages.settings.resolver.title")}</CardTitle>
+          <CardDescription>
+            {t("pages.settings.resolver.description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FieldGroup>
+            <form.Field name={SETTINGS_FIELD_NAMES.resolverIntegration}>
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor="resolver-integration">
+                    {t("pages.settings.resolver.integrationLabel")}
+                  </FieldLabel>
+                  <FieldContent>
+                    <Select
+                      onValueChange={(value) =>
+                        field.handleChange(
+                          (value ?? "none") as ResolverIntegrationMode
+                        )
+                      }
+                      value={field.state.value}
+                    >
+                      <SelectTrigger id="resolver-integration">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          {t("pages.settings.resolver.options.none")}
+                        </SelectItem>
+                        <SelectItem value="dnsmasq">
+                          {t("pages.settings.resolver.options.dnsmasq")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FieldHint
+                      description={t("pages.settings.resolver.integrationHint")}
+                    />
+                  </FieldContent>
+                </Field>
+              )}
+            </form.Field>
+
+            <form.Subscribe
+              selector={(state) => state.values.resolverIntegration}
+            >
+              {(resolverIntegration) =>
+                resolverIntegration === "dnsmasq" ? (
+                  <form.Field name={SETTINGS_FIELD_NAMES.systemResolverAddress}>
+                    {(field) => {
+                      const error = getFirstFieldError(field.state.meta.errors)
+                      return (
+                        <Field invalid={Boolean(error)}>
+                          <FieldLabel htmlFor="system-resolver-address">
+                            {t("pages.settings.resolver.addressLabel")}
+                          </FieldLabel>
+                          <FieldContent>
+                            <Input
+                              aria-invalid={Boolean(error)}
+                              id="system-resolver-address"
+                              onBlur={field.handleBlur}
+                              onChange={(event) =>
+                                field.handleChange(event.target.value)
+                              }
+                              value={field.state.value}
+                            />
+                            <FieldHint
+                              description={t(
+                                "pages.settings.resolver.addressHint"
+                              )}
+                              error={error}
+                            />
+                          </FieldContent>
+                        </Field>
+                      )
+                    }}
+                  </form.Field>
+                ) : null
+              }
+            </form.Subscribe>
+          </FieldGroup>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("pages.settings.intercept.title")}</CardTitle>
+          <CardDescription>
+            {t("pages.settings.intercept.description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FieldGroup>
+            <form.Field name={SETTINGS_FIELD_NAMES.interceptEnabled}>
+              {(field) => (
+                <BooleanSettingField
+                  checked={field.state.value}
+                  id="intercept-enabled"
+                  label={t("pages.settings.intercept.enabledLabel")}
+                  hint={t("pages.settings.intercept.enabledHint")}
+                  onChange={(checked) => field.handleChange(checked)}
+                />
+              )}
+            </form.Field>
+
+            <FieldSeparator />
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <form.Field name={SETTINGS_FIELD_NAMES.interceptMinTtlS}>
+                {(field) => (
+                  <NumberSettingField
+                    field={field}
+                    id="intercept-min-ttl"
+                    label={t("pages.settings.intercept.minTtlLabel")}
+                    hint={t("pages.settings.intercept.minTtlHint")}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={SETTINGS_FIELD_NAMES.interceptMaxTtlS}>
+                {(field) => (
+                  <NumberSettingField
+                    field={field}
+                    id="intercept-max-ttl"
+                    label={t("pages.settings.intercept.maxTtlLabel")}
+                    hint={t("pages.settings.intercept.maxTtlHint")}
+                  />
+                )}
+              </form.Field>
+            </div>
+
+            <FieldSeparator />
+
+            <form.Field name={SETTINGS_FIELD_NAMES.interceptDnsEnabled}>
+              {(field) => (
+                <BooleanSettingField
+                  checked={field.state.value}
+                  id="intercept-dns-enabled"
+                  label={t("pages.settings.intercept.dnsEnabledLabel")}
+                  hint={t("pages.settings.intercept.dnsEnabledHint")}
+                  onChange={(checked) => field.handleChange(checked)}
+                />
+              )}
+            </form.Field>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <form.Field name={SETTINGS_FIELD_NAMES.interceptDnsQueueNum}>
+                {(field) => (
+                  <NumberSettingField
+                    field={field}
+                    id="intercept-dns-queue"
+                    label={t("pages.settings.intercept.queueLabel")}
+                    hint={t("pages.settings.intercept.queueHint")}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={SETTINGS_FIELD_NAMES.interceptDnsHoldTimeoutMs}>
+                {(field) => (
+                  <NumberSettingField
+                    field={field}
+                    id="intercept-dns-timeout"
+                    label={t("pages.settings.intercept.holdTimeoutLabel")}
+                    hint={t("pages.settings.intercept.holdTimeoutHint")}
+                  />
+                )}
+              </form.Field>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <form.Field name={SETTINGS_FIELD_NAMES.interceptMarkerDomain}>
+                {(field) => (
+                  <TextSettingField
+                    field={field}
+                    id="intercept-marker-domain"
+                    label={t("pages.settings.intercept.markerDomainLabel")}
+                    hint={t("pages.settings.intercept.markerDomainHint")}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={SETTINGS_FIELD_NAMES.interceptMarkerAddress}>
+                {(field) => (
+                  <TextSettingField
+                    field={field}
+                    id="intercept-marker-address"
+                    label={t("pages.settings.intercept.markerAddressLabel")}
+                    hint={t("pages.settings.intercept.markerAddressHint")}
+                  />
+                )}
+              </form.Field>
+            </div>
+
+            <FieldSeparator />
+
+            <form.Field name={SETTINGS_FIELD_NAMES.interceptL7Enabled}>
+              {(field) => (
+                <BooleanSettingField
+                  checked={field.state.value}
+                  id="intercept-l7-enabled"
+                  label={t("pages.settings.intercept.l7EnabledLabel")}
+                  hint={t("pages.settings.intercept.l7EnabledHint")}
+                  onChange={(checked) => field.handleChange(checked)}
+                />
+              )}
+            </form.Field>
+
+            <form.Field name={SETTINGS_FIELD_NAMES.interceptL7NflogGroup}>
+              {(field) => (
+                <NumberSettingField
+                  field={field}
+                  id="intercept-l7-group"
+                  label={t("pages.settings.intercept.nflogGroupLabel")}
+                  hint={t("pages.settings.intercept.nflogGroupHint")}
+                />
+              )}
+            </form.Field>
+
+            <div className="grid gap-6 md:grid-cols-3">
+              <form.Field name={SETTINGS_FIELD_NAMES.interceptL7Tls}>
+                {(field) => (
+                  <BooleanSettingField
+                    checked={field.state.value}
+                    id="intercept-l7-tls"
+                    label={t("pages.settings.intercept.tlsLabel")}
+                    onChange={(checked) => field.handleChange(checked)}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={SETTINGS_FIELD_NAMES.interceptL7Http}>
+                {(field) => (
+                  <BooleanSettingField
+                    checked={field.state.value}
+                    id="intercept-l7-http"
+                    label={t("pages.settings.intercept.httpLabel")}
+                    onChange={(checked) => field.handleChange(checked)}
+                  />
+                )}
+              </form.Field>
+              <form.Field name={SETTINGS_FIELD_NAMES.interceptL7Quic}>
+                {(field) => (
+                  <BooleanSettingField
+                    checked={field.state.value}
+                    id="intercept-l7-quic"
+                    label={t("pages.settings.intercept.quicLabel")}
+                    onChange={(checked) => field.handleChange(checked)}
+                  />
+                )}
+              </form.Field>
+            </div>
+          </FieldGroup>
         </CardContent>
       </Card>
 
@@ -805,12 +1110,118 @@ function GeneralConfigPageSkeleton() {
   )
 }
 
+type TextFieldApi = {
+  state: { value: string; meta: { errors: unknown[] } }
+  handleBlur: () => void
+  handleChange: (value: string) => void
+}
+
+function BooleanSettingField({
+  checked,
+  hint,
+  id,
+  label,
+  onChange,
+}: {
+  checked: boolean
+  hint?: string
+  id: string
+  label: string
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <Field>
+      <FieldContent>
+        <div className="flex items-center space-x-3">
+          <Checkbox
+            checked={checked}
+            id={id}
+            onCheckedChange={(value) => onChange(value === true)}
+          />
+          <FieldLabel
+            className="cursor-pointer flex-col items-start gap-0"
+            htmlFor={id}
+          >
+            {label}
+          </FieldLabel>
+        </div>
+        {hint ? <FieldHint description={hint} /> : null}
+      </FieldContent>
+    </Field>
+  )
+}
+
+function TextSettingField({
+  field,
+  hint,
+  id,
+  label,
+}: {
+  field: TextFieldApi
+  hint?: string
+  id: string
+  label: string
+}) {
+  const error = getFirstFieldError(field.state.meta.errors)
+  return (
+    <Field invalid={Boolean(error)}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldContent>
+        <Input
+          aria-invalid={Boolean(error)}
+          id={id}
+          onBlur={field.handleBlur}
+          onChange={(event) => field.handleChange(event.target.value)}
+          value={field.state.value}
+        />
+        <FieldHint description={hint} error={error} />
+      </FieldContent>
+    </Field>
+  )
+}
+
+function NumberSettingField({
+  field,
+  hint,
+  id,
+  label,
+}: {
+  field: TextFieldApi
+  hint?: string
+  id: string
+  label: string
+}) {
+  const error = getFirstFieldError(field.state.meta.errors)
+  return (
+    <Field invalid={Boolean(error)}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldContent>
+        <Input
+          aria-invalid={Boolean(error)}
+          id={id}
+          inputMode="numeric"
+          onBlur={field.handleBlur}
+          onChange={(event) => field.handleChange(event.target.value)}
+          type="number"
+          value={field.state.value}
+        />
+        <FieldHint description={hint} error={error} />
+      </FieldContent>
+    </Field>
+  )
+}
+
 function getFirstFieldError(errors: unknown[]) {
   const firstError = errors[0]
   return typeof firstError === "string" ? firstError : null
 }
 
-function getDraftFromConfig(config: ConfigObject): SettingsDraft {
+// eslint-disable-next-line react-refresh/only-export-components
+export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
+  const intercept = config.intercept
+  const dns = intercept?.dns
+  const marker = dns?.marker
+  const l7 = intercept?.l7
   return {
     deviceName: config.device_name ?? fallbackDraft.deviceName,
     strictEnforcement:
@@ -834,14 +1245,54 @@ function getDraftFromConfig(config: ConfigObject): SettingsDraft {
       config.iproute?.table_start,
       fallbackDraft.tableStart
     ),
+    resolverIntegration: effectiveResolverIntegration(config),
+    systemResolverAddress:
+      config.dns?.system_resolver?.address ??
+      fallbackDraft.systemResolverAddress,
+    interceptEnabled: intercept?.enabled ?? fallbackDraft.interceptEnabled,
+    interceptMinTtlS: toStringInt(
+      intercept?.min_ttl_s,
+      fallbackDraft.interceptMinTtlS
+    ),
+    interceptMaxTtlS: toStringInt(
+      intercept?.max_ttl_s,
+      fallbackDraft.interceptMaxTtlS
+    ),
+    interceptDnsEnabled: dns?.enabled ?? fallbackDraft.interceptDnsEnabled,
+    interceptDnsQueueNum: toStringInt(
+      dns?.queue_num,
+      fallbackDraft.interceptDnsQueueNum
+    ),
+    interceptDnsHoldTimeoutMs: toStringInt(
+      dns?.hold_timeout_ms,
+      fallbackDraft.interceptDnsHoldTimeoutMs
+    ),
+    interceptMarkerDomain:
+      marker?.domain ?? fallbackDraft.interceptMarkerDomain,
+    interceptMarkerAddress:
+      marker?.answer_ipv4 ?? fallbackDraft.interceptMarkerAddress,
+    interceptL7Enabled: l7?.enabled ?? fallbackDraft.interceptL7Enabled,
+    interceptL7NflogGroup: toStringInt(
+      l7?.nflog_group,
+      fallbackDraft.interceptL7NflogGroup
+    ),
+    interceptL7Tls: l7?.tls ?? fallbackDraft.interceptL7Tls,
+    interceptL7Http: l7?.http ?? fallbackDraft.interceptL7Http,
+    interceptL7Quic: l7?.quic ?? fallbackDraft.interceptL7Quic,
   }
 }
 
-function buildUpdatedConfig(
+// eslint-disable-next-line react-refresh/only-export-components
+export function buildUpdatedConfig(
   config: ConfigObject,
   draft: SettingsDraft
 ): ConfigObject {
   const tableStart = parseStrictDecimalToNumber(draft.tableStart)
+  const marker = {
+    ...config.intercept?.dns?.marker,
+    domain: draft.interceptMarkerDomain.trim(),
+    answer_ipv4: draft.interceptMarkerAddress.trim(),
+  }
 
   return {
     ...config,
@@ -872,6 +1323,40 @@ function buildUpdatedConfig(
       ...config.lists_autoupdate,
       enabled: draft.listsAutoupdateEnabled,
       cron: draft.cron.trim(),
+    },
+    dns: {
+      ...config.dns,
+      resolver_integration: draft.resolverIntegration,
+      system_resolver:
+        draft.resolverIntegration === "dnsmasq"
+          ? {
+              ...config.dns?.system_resolver,
+              address: draft.systemResolverAddress.trim(),
+            }
+          : config.dns?.system_resolver,
+    },
+    intercept: {
+      ...config.intercept,
+      enabled: draft.interceptEnabled,
+      min_ttl_s: toOptionalBackendInteger(draft.interceptMinTtlS),
+      max_ttl_s: toOptionalBackendInteger(draft.interceptMaxTtlS),
+      dns: {
+        ...config.intercept?.dns,
+        enabled: draft.interceptDnsEnabled,
+        queue_num: toOptionalBackendInteger(draft.interceptDnsQueueNum),
+        hold_timeout_ms: toOptionalBackendInteger(
+          draft.interceptDnsHoldTimeoutMs
+        ),
+        marker,
+      },
+      l7: {
+        ...config.intercept?.l7,
+        enabled: draft.interceptL7Enabled,
+        nflog_group: toOptionalBackendInteger(draft.interceptL7NflogGroup),
+        tls: draft.interceptL7Tls,
+        http: draft.interceptL7Http,
+        quic: draft.interceptL7Quic,
+      },
     },
   }
 }
@@ -965,6 +1450,37 @@ function resolveSettingsFieldPath(path: string): SettingsFieldName | undefined {
       return SETTINGS_FIELD_NAMES.fwmarkMask
     case "iproute.table_start":
       return SETTINGS_FIELD_NAMES.tableStart
+    case "dns.resolver_integration":
+      return SETTINGS_FIELD_NAMES.resolverIntegration
+    case "dns.system_resolver":
+    case "dns.system_resolver.address":
+      return SETTINGS_FIELD_NAMES.systemResolverAddress
+    case "intercept.enabled":
+      return SETTINGS_FIELD_NAMES.interceptEnabled
+    case "intercept.min_ttl_s":
+      return SETTINGS_FIELD_NAMES.interceptMinTtlS
+    case "intercept.max_ttl_s":
+      return SETTINGS_FIELD_NAMES.interceptMaxTtlS
+    case "intercept.dns.enabled":
+      return SETTINGS_FIELD_NAMES.interceptDnsEnabled
+    case "intercept.dns.queue_num":
+      return SETTINGS_FIELD_NAMES.interceptDnsQueueNum
+    case "intercept.dns.hold_timeout_ms":
+      return SETTINGS_FIELD_NAMES.interceptDnsHoldTimeoutMs
+    case "intercept.dns.marker.domain":
+      return SETTINGS_FIELD_NAMES.interceptMarkerDomain
+    case "intercept.dns.marker.answer_ipv4":
+      return SETTINGS_FIELD_NAMES.interceptMarkerAddress
+    case "intercept.l7.enabled":
+      return SETTINGS_FIELD_NAMES.interceptL7Enabled
+    case "intercept.l7.nflog_group":
+      return SETTINGS_FIELD_NAMES.interceptL7NflogGroup
+    case "intercept.l7.tls":
+      return SETTINGS_FIELD_NAMES.interceptL7Tls
+    case "intercept.l7.http":
+      return SETTINGS_FIELD_NAMES.interceptL7Http
+    case "intercept.l7.quic":
+      return SETTINGS_FIELD_NAMES.interceptL7Quic
     default:
       return undefined
   }

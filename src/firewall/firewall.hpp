@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <map>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -13,6 +14,26 @@
 namespace keen_pbr3 {
 
 class ListEntryVisitor;
+struct FirewallPlan;
+struct PhysicalRuleset;
+enum class DefaultGatewayFamily : uint8_t { None, Ipv4, Ipv6 };
+
+struct FirewallBalanceCandidate {
+  uint32_t fwmark;
+  bool ipv4{true};
+  bool ipv6{true};
+
+  bool operator==(const FirewallBalanceCandidate& other) const {
+    return fwmark == other.fwmark && ipv4 == other.ipv4 && ipv6 == other.ipv6;
+  }
+
+  bool operator!=(const FirewallBalanceCandidate& other) const {
+    return !(*this == other);
+  }
+};
+
+using FirewallBalanceCandidates =
+    std::map<std::string, std::vector<FirewallBalanceCandidate>>;
 enum class L4Proto : uint8_t {
   Any,
   Tcp,
@@ -34,6 +55,12 @@ inline const char *l4_proto_name(L4Proto proto) {
   return "";
 }
 
+// Inclusive packet-count window of the conntrack entry (connbytes).
+struct PacketCountRange {
+  uint32_t from{0};
+  uint32_t to{0};
+};
+
 // Match criteria for firewall mark/drop/pass rules.
 // All fields default to empty meaning "any".
 struct FirewallRuleCriteria {
@@ -50,40 +77,29 @@ struct FirewallRuleCriteria {
   bool negate_dst_port = false; // if true, match packets NOT to dst_port
   bool negate_src_addr = false; // if true, match packets NOT from src_addr
   bool negate_dst_addr = false; // if true, match packets NOT to dst_addr
-  bool apply_output = false;    // also classify locally generated packets
+  DefaultGatewayFamily default_gateway = DefaultGatewayFamily::None;
+  std::vector<std::string> default_gateway_bypass;
+  // Reply-direction packets of an established connection (interception only).
+  bool ct_established_reply = false;
+  // Original-direction packet count window of the connection (interception
+  // only); needs conntrack.
+  std::optional<PacketCountRange> connbytes_original_packets;
   bool empty() const {
     return !dst_set_name.has_value() && !dscp.has_value() &&
+           !ct_established_reply && !connbytes_original_packets.has_value() &&
            proto == L4Proto::Any && src_port.empty() && dst_port.empty() &&
-           src_addr.empty() && dst_addr.empty() && !apply_output;
+           src_addr.empty() && dst_addr.empty() &&
+           default_gateway == DefaultGatewayFamily::None;
   }
 
   bool has_rule_selector() const {
     return dst_set_name.has_value() || dscp.has_value() || !src_port.empty() ||
-           !dst_port.empty() || !src_addr.empty() || !dst_addr.empty();
+           !dst_port.empty() || !src_addr.empty() || !dst_addr.empty() ||
+           default_gateway != DefaultGatewayFamily::None;
   }
 };
 
 using ProtoPortFilter = FirewallRuleCriteria;
-
-struct FirewallGlobalPrefilter {
-  std::optional<std::vector<std::string>> inbound_interfaces;
-  bool skip_established_or_dnat{false};
-  bool skip_marked_packets{false};
-  // Restore only the daemon-owned portion of ctmark for original-direction
-  // packets before normal classification. Disabled by default for builder
-  // callers; runtime enables it with the configured fwmark mask.
-  bool restore_conntrack_mark{false};
-  uint32_t conntrack_mark_mask{0};
-
-  bool has_inbound_interfaces() const {
-    return inbound_interfaces.has_value() && !inbound_interfaces->empty();
-  }
-
-  bool empty() const {
-    return !skip_established_or_dnat && !skip_marked_packets &&
-           !has_inbound_interfaces();
-  }
-};
 
 class FirewallError : public std::runtime_error {
 public:
@@ -132,7 +148,21 @@ enum class FirewallApplyMode : uint8_t {
   RulesOnly
 };
 
-enum class FirewallSetGeneration : uint8_t { A, B };
+// What the backend actually realized for one successful apply. Kept apart from
+// FirewallPlan, which is desired intent only and never carries apply results.
+struct FirewallApplyResult {
+  FirewallApplyMode mode{FirewallApplyMode::Destructive};
+  // Sorted, unique physical names of the sets declared by the applied plan.
+  // RulesOnly checks that every set its plan needs was realized by the
+  // previous apply (set names are stable across applies).
+  std::vector<std::string> physical_set_names;
+  // The complete ruleset keen-pbr expects in the kernel after this apply
+  // (Firewall::expected_ruleset), lowered once at apply time so verification
+  // never re-lowers the plan.  Null only for a default-constructed result.
+  std::shared_ptr<const PhysicalRuleset> expected_ruleset;
+
+  bool has_physical_set(const std::string &name) const;
+};
 
 // Return the kernel-normalized initial hashsize for an ipset declaration.
 // The result is absent when the normalized value cannot be represented by
@@ -143,35 +173,32 @@ std::optional<uint32_t> normalize_ipset_hashsize(uint32_t requested);
 // Both iptables and nftables backends implement this interface.
 //
 // Usage pattern (transactional rebuild):
-//   create_ipset() / create_mark_rule() / create_drop_rule() /
-//   create_pass_rule() — buffer operations create_batch_loader() → stream
-//   entries → finish() apply()    — atomically commit everything using the
-//   requested apply mode
+//   prepare_apply() → stage plan.sets with create_ipset() →
+//   create_batch_loader() streams entries → apply(plan) commits everything
+//   using the requested apply mode
 class Firewall {
 public:
   virtual ~Firewall() = default;
 
-  // Start a new buffered apply attempt. Backends use this to select any
-  // attempt-scoped physical names before rules and set contents are queued.
+  // Start a new buffered apply attempt. Backends use this to probe
+  // capabilities and discard buffers before rules and set contents are queued.
   virtual void prepare_apply(FirewallApplyMode mode) { (void)mode; }
 
-  virtual std::string static_set_name(const std::string &list_name,
-                                      int family) const {
+  // Physical set names are stable and equal to the logical names:
+  // kpbr4_<list> / kpbr6_<list> (static), kpbr4d_<list> / kpbr6d_<list>
+  // (dynamic).  Both backends use them verbatim.
+  static std::string static_set_name(const std::string &list_name, int family) {
     return std::string(family == AF_INET6 ? "kpbr6_" : "kpbr4_") + list_name;
   }
 
-  // Return every physical static-set name that may represent this logical
-  // list for the backend. Most backends have one stable name; A/B backends
-  // expose both generations so RulesOnly can reject stale realized state
-  // instead of treating the list as empty.
-  virtual std::vector<std::string>
-  static_set_names(const std::string &list_name, int family) const {
-    return {static_set_name(list_name, family)};
+  static std::string dynamic_set_name(const std::string &list_name,
+                                      int family) {
+    return std::string(family == AF_INET6 ? "kpbr6d_" : "kpbr4d_") + list_name;
   }
 
-  virtual std::string dynamic_set_name(const std::string &list_name,
-                                       int family) const {
-    return std::string(family == AF_INET6 ? "kpbr6d_" : "kpbr4d_") + list_name;
+  // Resolve a canonical logical set reference to its physical name.
+  static std::string physical_set_name(const std::string &logical_name) {
+    return logical_name;
   }
 
   // Create a named IP set for storing IP addresses and/or CIDR subnets.
@@ -181,21 +208,6 @@ public:
   virtual void create_ipset(const std::string &set_name, int family,
                             uint32_t timeout = 0) = 0;
 
-  // Create a firewall rule that marks packets matching the given criteria
-  // with the specified firewall mark (fwmark).
-  // fwmark: mark value to apply to matching packets
-  // criteria: optional match criteria (default = any packet)
-  virtual void create_mark_rule(uint32_t fwmark,
-                                const FirewallRuleCriteria &criteria = {}) = 0;
-
-  // Create a firewall rule that drops packets matching the given criteria.
-  // Used for blackhole outbounds that don't need routing tables or fwmarks.
-  virtual void create_drop_rule(const FirewallRuleCriteria &criteria = {}) = 0;
-
-  // Create a firewall rule that stops keen-pbr processing for matching packets
-  // and leaves them unmodified for normal system routing.
-  virtual void create_pass_rule(const FirewallRuleCriteria &criteria = {}) = 0;
-
   // Create a batch loader visitor for streaming IP/CIDR entries into a set.
   // Returns a ListEntryVisitor that buffers entries for atomic application.
   // Caller must call finish() on the returned visitor after streaming is
@@ -203,18 +215,11 @@ public:
   virtual std::unique_ptr<ListEntryVisitor>
   create_batch_loader(const std::string &set_name) = 0;
 
-  // Apply all pending changes atomically (where supported by the backend).
-  virtual void
-  apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) = 0;
-
-  // Configure a backend-wide prefilter emitted ahead of mark/drop/pass rules.
-  void set_global_prefilter(FirewallGlobalPrefilter prefilter) {
-    global_prefilter_ = std::move(prefilter);
-  }
-
-  const FirewallGlobalPrefilter &global_prefilter() const {
-    return global_prefilter_;
-  }
+  // Compile and apply the complete canonical desired state atomically (where
+  // supported by the backend).  prepare_apply() remains separate because the
+  // runtime needs attempt-specific set names before loading list contents.
+  virtual void apply(const FirewallPlan &plan,
+                     FirewallApplyMode mode = FirewallApplyMode::Destructive) = 0;
 
   void set_ipv6_enabled(bool enabled) { ipv6_enabled_ = enabled; }
 
@@ -223,6 +228,13 @@ public:
   void set_fwmark_mask(uint32_t fwmark_mask) { fwmark_mask_ = fwmark_mask; }
 
   uint32_t fwmark_mask() const { return fwmark_mask_; }
+
+  // Marks allocated to this daemon instance. Backends that restore conntrack
+  // marks can retain healthy established flows even when a classifier no
+  // longer selects that child for new connections.
+  virtual void set_owned_marks(const std::vector<uint32_t>& marks) {
+    (void)marks;
+  }
 
   void set_clear_dynamic_sets_on_apply(bool clear) {
     clear_dynamic_sets_on_apply_ = clear;
@@ -265,6 +277,19 @@ public:
       return raw_prerouting_mode().ipv4;
     }
 
+  // Everything keen-pbr expects in the kernel once `plan` has been applied by
+  // this backend, as the backend realized it: the lowered owned chains
+  // (raw/mangle placement, comment support, resolved set names,
+  // owned marks) merged with expected_hook_rules().  Call after apply() while
+  // the backend still holds the facts of that apply.  Rules carry the index of
+  // the plan rule that produced them (PhysicalRule::plan_rule).
+  virtual PhysicalRuleset expected_ruleset(const FirewallPlan &plan) const;
+
+  // Builtin-chain hook jump rules as physical rules (iptables
+  // PREROUTING/OUTPUT jumps into the KeenPbr chains).  Empty for backends whose
+  // hooks are chain attributes carried by the lowered ruleset itself.
+  virtual PhysicalRuleset expected_hook_rules() const;
+
   // Non-copyable
   Firewall(const Firewall &) = delete;
   Firewall &operator=(const Firewall &) = delete;
@@ -272,10 +297,9 @@ public:
 protected:
   Firewall() = default;
 
-  FirewallGlobalPrefilter global_prefilter_;
   uint32_t fwmark_mask_{0xFFFFFFFFu};
   bool ipv6_enabled_{true};
-  bool clear_dynamic_sets_on_apply_{true};
+  bool clear_dynamic_sets_on_apply_{false};
   std::optional<uint32_t> ipset_hashsize_;
   std::optional<uint32_t> ipset_maxelem_;
 };
