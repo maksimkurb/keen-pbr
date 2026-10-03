@@ -328,6 +328,9 @@ set(SOURCES
   src/dns/dns_wire.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
+  src/l7/crypto/sha256.cpp
+  src/l7/crypto/aes128.cpp
+  src/l7/quic_initial.cpp
   src/ipc/control_protocol.cpp
   src/ipc/control_client.cpp
   src/ipc/resolver_fallback.cpp
