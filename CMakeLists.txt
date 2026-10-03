@@ -331,6 +331,9 @@ set(SOURCES
   src/l7/crypto/sha256.cpp
   src/l7/crypto/aes128.cpp
   src/l7/quic_initial.cpp
+  src/l7/tls_client_hello.cpp
+  src/l7/http_host.cpp
+  src/l7/flow_buffer.cpp
   src/ipc/control_protocol.cpp
   src/ipc/control_client.cpp
   src/ipc/resolver_fallback.cpp
