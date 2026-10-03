@@ -79,13 +79,11 @@ InterceptEffective Daemon::resolve_intercept_effective() {
     for (const auto& warning : effective.warnings) {
         Logger::instance().warn("Interception (degraded): {}", warning);
     }
-    // Without the daemon's DNS hold nothing fills the dynamic sets unless the
-    // dnsmasq integration (ipset=/nftset= fallback) is enabled.
-    if (!effective.dns_hold &&
-        effective_resolver_integration(config_) == ResolverIntegrationMode::NONE) {
+    // Without the daemon's DNS hold nothing fills the dynamic sets.
+    if (!effective.dns_hold) {
         Logger::instance().warn(
-            "DNS interception is unavailable and dns.resolver_integration is 'none': "
-            "domains of lists will not be added to routing sets");
+            "DNS interception is unavailable: domains of lists will not be "
+            "added to routing sets");
     }
     return effective;
 }

@@ -26,14 +26,6 @@ Config parse_test_config(const std::string& json_str) {
         fallback_server.address = "127.0.0.1";
         cfg.dns->servers = std::vector<DnsServer>{fallback_server};
     }
-    if (!cfg.dns->fallback.has_value()) {
-        cfg.dns->fallback = std::vector<std::string>{"default_dns"};
-    }
-    if (!cfg.dns->system_resolver.has_value()) {
-        api::SystemResolver resolver;
-        resolver.address = "127.0.0.1";
-        cfg.dns->system_resolver = resolver;
-    }
     validate_config(cfg);
     return cfg;
 }
@@ -205,14 +197,6 @@ static std::vector<ConfigValidationIssue> validate_issues(const std::string& jso
             fallback_server.tag = "default_dns";
             fallback_server.address = "127.0.0.1";
             cfg.dns->servers = std::vector<DnsServer>{fallback_server};
-        }
-        if (!cfg.dns->fallback.has_value()) {
-            cfg.dns->fallback = std::vector<std::string>{"default_dns"};
-        }
-        if (!cfg.dns->system_resolver.has_value()) {
-            api::SystemResolver resolver;
-            resolver.address = "127.0.0.1";
-            cfg.dns->system_resolver = resolver;
         }
         validate_config(cfg);
         return {};
@@ -524,68 +508,6 @@ TEST_CASE("route rule enabled: parse and serialize cover true false omitted and 
     CHECK(json_null["route"]["rules"][0]["enabled"].is_null());
 }
 
-TEST_CASE("dns rule enabled: parse and serialize cover true false omitted and null") {
-    const auto cfg_true = parse_test_config(R"({
-        "lists":{"ads":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
-            "fallback":["vpn_dns"],
-            "rules":[{"enabled":true,"list":["ads"],"server":"vpn_dns"}]
-        }
-    })");
-    REQUIRE(cfg_true.dns.has_value());
-    REQUIRE(cfg_true.dns->rules.has_value());
-    REQUIRE(cfg_true.dns->rules->size() == 1);
-    CHECK(cfg_true.dns->rules->at(0).enabled == std::optional<bool>(true));
-    const nlohmann::json json_true = cfg_true;
-    CHECK(json_true["dns"]["rules"][0]["enabled"] == true);
-
-    const auto cfg_false = parse_test_config(R"({
-        "lists":{"ads":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
-            "fallback":["vpn_dns"],
-            "rules":[{"enabled":false,"list":["ads"],"server":"vpn_dns"}]
-        }
-    })");
-    REQUIRE(cfg_false.dns.has_value());
-    REQUIRE(cfg_false.dns->rules.has_value());
-    REQUIRE(cfg_false.dns->rules->size() == 1);
-    CHECK(cfg_false.dns->rules->at(0).enabled == std::optional<bool>(false));
-    const nlohmann::json json_false = cfg_false;
-    CHECK(json_false["dns"]["rules"][0]["enabled"] == false);
-
-    const auto cfg_omitted = parse_test_config(R"({
-        "lists":{"ads":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
-            "fallback":["vpn_dns"],
-            "rules":[{"list":["ads"],"server":"vpn_dns"}]
-        }
-    })");
-    REQUIRE(cfg_omitted.dns.has_value());
-    REQUIRE(cfg_omitted.dns->rules.has_value());
-    REQUIRE(cfg_omitted.dns->rules->size() == 1);
-    CHECK_FALSE(cfg_omitted.dns->rules->at(0).enabled.has_value());
-    const nlohmann::json json_omitted = cfg_omitted;
-    CHECK(json_omitted["dns"]["rules"][0]["enabled"].is_null());
-
-    const auto cfg_null = parse_test_config(R"({
-        "lists":{"ads":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
-            "fallback":["vpn_dns"],
-            "rules":[{"enabled":null,"list":["ads"],"server":"vpn_dns"}]
-        }
-    })");
-    REQUIRE(cfg_null.dns.has_value());
-    REQUIRE(cfg_null.dns->rules.has_value());
-    REQUIRE(cfg_null.dns->rules->size() == 1);
-    CHECK_FALSE(cfg_null.dns->rules->at(0).enabled.has_value());
-    const nlohmann::json json_null = cfg_null;
-    CHECK(json_null["dns"]["rules"][0]["enabled"].is_null());
-}
-
 TEST_CASE("dns servers: duplicate server definition is rejected") {
     std::string json = R"({
         "dns":{
@@ -652,88 +574,6 @@ TEST_CASE("config validation: accepts system_resolver") {
     CHECK_NOTHROW(validate_config(cfg));
 }
 
-TEST_CASE("config validation: dnsmasq integration requires system_resolver") {
-    auto cfg = parse_config(R"({
-        "dns": {
-            "resolver_integration": "dnsmasq",
-            "servers": [
-                {"tag":"plain_dns","address":"8.8.8.8"}
-            ],
-            "fallback": ["plain_dns"]
-        }
-    })");
-
-    try {
-        validate_config(cfg);
-        FAIL("Expected ConfigValidationError");
-    } catch (const ConfigValidationError& e) {
-        REQUIRE(e.issues().size() == 1);
-        CHECK(e.issues().front().path == "dns.system_resolver");
-        CHECK(e.issues().front().message ==
-              "dns.system_resolver must be present when dns.resolver_integration is 'dnsmasq'");
-    }
-}
-
-TEST_CASE("config validation: system_resolver is optional without dnsmasq integration") {
-    auto cfg = parse_config(R"({
-        "dns": {
-            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
-            "fallback": ["plain_dns"]
-        }
-    })");
-    CHECK_NOTHROW(validate_config(cfg));
-    CHECK_NOTHROW(validate_config(parse_config(R"({"outbounds":[]})")));
-}
-
-TEST_CASE("resolver integration migration: absent field with dns.rules becomes dnsmasq") {
-    auto cfg = parse_config(R"({
-        "lists": {"l": {"domains": ["example.com"]}},
-        "dns": {
-            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
-            "rules": [{"list":["l"],"server":"plain_dns"}],
-            "system_resolver": {"address": "127.0.0.1"}
-        }
-    })");
-    REQUIRE(cfg.dns->resolver_integration.has_value());
-    CHECK(*cfg.dns->resolver_integration == ResolverIntegrationMode::DNSMASQ);
-    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::DNSMASQ);
-    // The migrated value is written explicitly on the next save.
-    CHECK(nlohmann::json(cfg).at("dns").at("resolver_integration") == "dnsmasq");
-}
-
-TEST_CASE("resolver integration migration: absent field with system_resolver becomes dnsmasq") {
-    auto cfg = parse_config(R"({"dns":{"system_resolver":{"address":"127.0.0.1"}}})");
-    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::DNSMASQ);
-}
-
-TEST_CASE("resolver integration migration: absent field without rules becomes none") {
-    auto cfg = parse_config(R"({
-        "dns": {"servers": [{"tag":"plain_dns","address":"8.8.8.8"}]}
-    })");
-    REQUIRE(cfg.dns->resolver_integration.has_value());
-    CHECK(*cfg.dns->resolver_integration == ResolverIntegrationMode::NONE);
-    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::NONE);
-    CHECK(effective_resolver_integration(parse_config("{}")) == ResolverIntegrationMode::NONE);
-    CHECK(config_warnings(cfg).empty());
-}
-
-TEST_CASE("resolver integration: explicit none with dns.rules warns but is valid") {
-    auto cfg = parse_config(R"({
-        "lists": {"l": {"domains": ["example.com"]}},
-        "dns": {
-            "resolver_integration": "none",
-            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
-            "rules": [{"list":["l"],"server":"plain_dns"}]
-        }
-    })");
-    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::NONE);
-    CHECK_NOTHROW(validate_config(cfg));
-    const auto warnings = config_warnings(cfg);
-    REQUIRE(warnings.size() == 1);
-    CHECK(warnings.front().find("per-list upstream requires resolver_integration=dnsmasq") !=
-          std::string::npos);
-}
-
 TEST_CASE("config validation: allows missing fallback") {
     auto cfg = parse_config(R"({
         "dns": {
@@ -759,55 +599,6 @@ TEST_CASE("config validation: allows empty fallback array") {
     })");
 
     CHECK_NOTHROW(validate_config(cfg));
-}
-
-TEST_CASE("config validation: rejects unknown fallback tag") {
-    auto cfg = parse_config(R"({
-        "dns": {
-            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
-            "fallback": ["missing_dns"],
-            "system_resolver": {
-                "address": "127.0.0.1"
-            }
-        }
-    })");
-
-    CHECK_THROWS_AS(validate_config(cfg), ConfigValidationError);
-}
-
-TEST_CASE("config validation: rejects duplicate fallback tag") {
-    auto cfg = parse_config(R"({
-        "dns": {
-            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
-            "fallback": ["plain_dns", "plain_dns"],
-            "system_resolver": {
-                "address": "127.0.0.1"
-            }
-        }
-    })");
-
-    CHECK_THROWS_AS(validate_config(cfg), ConfigValidationError);
-}
-
-TEST_CASE("config validation: collects empty system_resolver fields") {
-    Config cfg;
-    cfg.dns = DnsConfig{};
-    DnsServer fallback_server;
-    fallback_server.tag = "default_dns";
-    fallback_server.address = "127.0.0.1";
-    cfg.dns->servers = std::vector<DnsServer>{fallback_server};
-    cfg.dns->fallback = std::vector<std::string>{"default_dns"};
-    api::SystemResolver resolver{};
-    cfg.dns->system_resolver = resolver;
-
-    try {
-        validate_config(cfg);
-        FAIL("Expected ConfigValidationError");
-    } catch (const ConfigValidationError& e) {
-        REQUIRE(e.issues().size() == 1);
-        CHECK(e.issues()[0].path == "dns.system_resolver.address");
-        CHECK(e.issues()[0].message == "dns.system_resolver.address must not be empty");
-    }
 }
 
 TEST_CASE("config validation: accepts legacy system_resolver.type and ignores it") {
@@ -1540,34 +1331,6 @@ TEST_CASE("route rule: unknown list name is rejected") {
     CHECK(issues[0].message.find("unknown list") != std::string::npos);
 }
 
-TEST_CASE("dns rule: unknown server tag is rejected") {
-    const auto issues = validate_issues(R"({
-        "lists":{"domains":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"main","address":"1.1.1.1"}],
-            "fallback":["main"],
-            "rules":[{"list":["domains"],"server":"missing"}]
-        }
-    })");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "dns.rules[0].server");
-    CHECK(issues[0].message.find("unknown DNS server") != std::string::npos);
-}
-
-TEST_CASE("dns rule: unknown list name is rejected") {
-    const auto issues = validate_issues(R"({
-        "lists":{"domains":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"main","address":"1.1.1.1"}],
-            "fallback":["main"],
-            "rules":[{"list":["ghost"],"server":"main"}]
-        }
-    })");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "dns.rules[0].list[0]");
-    CHECK(issues[0].message.find("unknown list") != std::string::npos);
-}
-
 TEST_CASE("interface outbound: empty interface name is rejected") {
     const auto issues = validate_issues(R"({
         "outbounds":[{"tag":"wan","type":"interface","interface":""}]
@@ -1580,13 +1343,6 @@ TEST_CASE("daemon execution timeout must be positive") {
     const auto issues = validate_issues(R"({"daemon":{"exec_timeout_seconds":0}})");
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "daemon.exec_timeout_seconds");
-}
-
-TEST_CASE("daemon resolver ready timeout must be positive") {
-    const auto issues = validate_issues(
-        R"({"daemon":{"resolver_ready_timeout_seconds":0}})");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "daemon.resolver_ready_timeout_seconds");
 }
 
 TEST_CASE("daemon execution kill grace may be zero but not negative") {
@@ -1672,4 +1428,36 @@ TEST_CASE("intercept: hold timeout, ttl range and marker are validated") {
     REQUIRE(ip.size() == 1);
     CHECK(ip[0].path == "intercept.dns.marker.answer_ipv4");
     CHECK(validate_issues(R"({"intercept":{"dns":{"marker":{"answer_ipv4":"::1"}}}})").size() == 1);
+}
+
+TEST_CASE("config warnings: deprecated resolver fields are reported in one warning") {
+    auto cfg = parse_config(R"({
+        "lists": {"l": {"domains": ["example.com"]}},
+        "daemon": {"resolver_ready_timeout_seconds": 30},
+        "dns": {
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "rules": [{"list":["l"],"server":"plain_dns"}],
+            "fallback": ["plain_dns"],
+            "system_resolver": {"address": "127.0.0.1"},
+            "resolver_integration": "dnsmasq"
+        }
+    })");
+    CHECK_NOTHROW(validate_config(cfg));
+    const auto warnings = config_warnings(cfg);
+    REQUIRE(warnings.size() == 1);
+    for (const char* field : {"dns.rules", "dns.fallback", "dns.system_resolver",
+                              "dns.resolver_integration",
+                              "daemon.resolver_ready_timeout_seconds"}) {
+        CAPTURE(field);
+        CHECK(warnings.front().find(field) != std::string::npos);
+    }
+    CHECK(warnings.front().find("no longer manages dnsmasq") != std::string::npos);
+}
+
+TEST_CASE("config warnings: no deprecation warning without deprecated fields") {
+    auto cfg = parse_config(R"({
+        "dns": {"servers": [{"tag":"plain_dns","address":"8.8.8.8"}]}
+    })");
+    CHECK(config_warnings(cfg).empty());
+    CHECK(config_warnings(parse_config("{}")).empty());
 }

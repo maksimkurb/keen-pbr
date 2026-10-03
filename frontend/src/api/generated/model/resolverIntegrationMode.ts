@@ -7,14 +7,9 @@
  */
 
 /**
- * Optional integration with an external system resolver. - none: the daemon fills the dynamic sets itself by intercepting DNS
-  and L7 traffic; no resolver is touched (default).
-- dnsmasq: keen-pbr additionally manages a dnsmasq configuration
-  (per-list upstream DNS via `dns.rules`, Keenetic static entries,
-  fallback servers, rebind exceptions). dnsmasq remains the dynamic set
-  filler only when interception is unavailable.
-When the field is absent, configs that define `dns.rules` or `dns.system_resolver` are migrated to `dnsmasq`; otherwise `none`.
+ * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq. Accepted only so that old config files keep parsing.
 
+ * @deprecated
  */
 export type ResolverIntegrationMode = typeof ResolverIntegrationMode[keyof typeof ResolverIntegrationMode];
 

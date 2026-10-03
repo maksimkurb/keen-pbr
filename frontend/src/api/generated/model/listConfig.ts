@@ -20,7 +20,7 @@ export interface ListConfig {
   ip_cidrs?: string[];
   /** Path to a local list file. */
   file?: string;
-  /** TTL for dnsmasq-resolved ipset entries in milliseconds. `0` means no timeout.
+  /** TTL for dynamically learned set entries in milliseconds. `0` means no timeout.
    */
   ttl_ms?: number;
   /** Optional outbound tag to use when downloading this list. If set, download traffic is marked with the outbound's fwmark and routed via its dedicated routing table. If omitted, the system default routing table is used.

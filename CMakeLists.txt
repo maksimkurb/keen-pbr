@@ -87,12 +87,10 @@ set(KEEN_PBR_DEFAULT_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/conf
   "Default config file path used by keen-pbr when --config is not passed")
 set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CACHE STRING
   "Default frontend static root served by API (SPA assets)")
-set(KEEN_PBR_SYSTEM_RESOLVER_HOOK "${CMAKE_INSTALL_FULL_LIBDIR}/keen-pbr/dnsmasq.sh" CACHE STRING
-  "System resolver hook command path compiled into keen-pbr")
 set(KEEN_PBR_CONTROL_SOCKET "/run/keen-pbr/control.sock" CACHE STRING
   "Unix SOCK_STREAM control socket used by operational CLI commands")
-set(KEEN_PBR_RESOLVER_FALLBACK_CONFIG "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/dnsmasq-fallback.conf" CACHE STRING
-  "Static dnsmasq config emitted when the daemon resolver stream is unavailable")
+set(KEEN_PBR_DNSMASQ_FALLBACK_CONFIG "" CACHE STRING
+  "Optional file printed by the deprecated 'generate-resolver-config' CLI stub (legacy dnsmasq conf-script compatibility); empty prints nothing")
 set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
   "Compile-time target OS identity exposed via /api/health/service (for example: openwrt, keenetic, debian)")
 set(KEEN_PBR_TARGET_VERSION "unknown" CACHE STRING "Target firmware/distribution version")
@@ -266,7 +264,6 @@ set(SOURCES
   src/config/routing_state.cpp
   src/config/list_parser.cpp
   src/runtime/conntrack_manager.cpp
-  src/runtime/resolver_coordinator.cpp
   src/runtime/runtime_state_machine.cpp
   src/runtime/operation_coordinator.cpp
   src/runtime/lifecycle_operation.cpp
@@ -326,10 +323,8 @@ set(SOURCES
   src/firewall/firewall_verifier.cpp
   src/dns/dns_server.cpp
   src/dns/keenetic_dns.cpp
-  src/dns/dns_txt_client.cpp
   src/dns/dns_wire.cpp
   src/dns/dns_router.cpp
-  src/dns/dnsmasq_gen.cpp
   src/l7/crypto/sha256.cpp
   src/l7/crypto/aes128.cpp
   src/l7/quic_initial.cpp
@@ -338,26 +333,18 @@ set(SOURCES
   src/l7/flow_buffer.cpp
   src/ipc/control_protocol.cpp
   src/ipc/control_client.cpp
-  src/ipc/resolver_fallback.cpp
-  src/resolver/resolver_integration.cpp
-  src/resolver/dnsmasq_integration.cpp
   src/daemon/config_store.cpp
   src/daemon/disk_config_state.cpp
   src/daemon/config_apply_transaction.cpp
   src/daemon/pid_file.cpp
   src/daemon/daemon_core.cpp
   src/daemon/daemon_runtime.cpp
-  src/daemon/daemon_resolver.cpp
+  src/daemon/daemon_state.cpp
   src/daemon/daemon_api.cpp
   src/daemon/daemon_intercept.cpp
   src/daemon/list_service.cpp
   src/daemon/lifecycle_stages.cpp
-  src/daemon/resolver_health.cpp
-  src/daemon/resolver_apply_confirmation.cpp
-  src/daemon/resolver_stream_wait.cpp
-  src/daemon/resolver_sync_state_machine.cpp
   src/daemon/runtime_state_store.cpp
-  src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
   src/netfilter/nl_msg.cpp
   src/netfilter/nl_socket.cpp
@@ -424,9 +411,8 @@ target_include_directories(keen-pbr PRIVATE
 target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"
-  KEEN_PBR_SYSTEM_RESOLVER_HOOK="${KEEN_PBR_SYSTEM_RESOLVER_HOOK}"
   KEEN_PBR_CONTROL_SOCKET="${KEEN_PBR_CONTROL_SOCKET}"
-  KEEN_PBR_RESOLVER_FALLBACK_CONFIG="${KEEN_PBR_RESOLVER_FALLBACK_CONFIG}"
+  KEEN_PBR_DNSMASQ_FALLBACK_CONFIG="${KEEN_PBR_DNSMASQ_FALLBACK_CONFIG}"
   KEEN_PBR_TARGET_OS="${KEEN_PBR_TARGET_OS}"
   KEEN_PBR_TARGET_VERSION="${KEEN_PBR_TARGET_VERSION}"
   KEEN_PBR_TARGET_ARCH="${KEEN_PBR_TARGET_ARCH}"

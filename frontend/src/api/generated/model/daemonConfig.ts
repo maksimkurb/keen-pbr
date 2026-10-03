@@ -27,14 +27,14 @@ export interface DaemonConfig {
    */
   clear_dynamic_sets_on_apply?: boolean | null;
   /**
-     * Optional initial hash table size for ipsets created by the iptables backend. This has no effect when the nftables backend is selected. Omit or set to null to use the ipset default (1024). Changing this value on a running iptables backend recreates owned ipsets and clears dnsmasq-learned entries.
+     * Optional initial hash table size for ipsets created by the iptables backend. This has no effect when the nftables backend is selected. Omit or set to null to use the ipset default (1024). Changing this value on a running iptables backend recreates owned ipsets and clears learned entries.
 
      * @minimum 1
      * @maximum 2147483648
      */
   ipset_hashsize?: number | null;
   /**
-     * Optional maximum number of elements for ipsets created by the iptables backend. This has no effect when the nftables backend is selected. Omit or set to null to use the ipset default (65536). Changing this value on a running iptables backend recreates owned ipsets and clears dnsmasq-learned entries.
+     * Optional maximum number of elements for ipsets created by the iptables backend. This has no effect when the nftables backend is selected. Omit or set to null to use the ipset default (65536). Changing this value on a running iptables backend recreates owned ipsets and clears learned entries.
 
      * @minimum 1
      * @maximum 4294967295
@@ -43,7 +43,7 @@ export interface DaemonConfig {
   /** Whether safe runtime refreshes (SIGUSR1, URLTEST/ICMPTEST selection, and interface state changes) should rebuild rules while reusing the currently live static list sets. Defaults to `true` when omitted or set to `null`; failed preflight falls back to PreserveSets.
    */
   reuse_static_sets_on_runtime_refresh?: boolean | null;
-  /** Whether keen-pbr should install IPv6 firewall sets/rules and emit IPv6 resolver set targets. Defaults to `true` when omitted or set to `null`. If enabled but the system lacks IPv6 support, keen-pbr logs an error and continues in IPv4-only mode.
+  /** Whether keen-pbr should install IPv6 firewall sets/rules and emit IPv6 dynamic set targets. Defaults to `true` when omitted or set to `null`. If enabled but the system lacks IPv6 support, keen-pbr logs an error and continues in IPv4-only mode.
    */
   ipv6_enabled?: boolean | null;
   /** Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable.
@@ -60,7 +60,8 @@ export interface DaemonConfig {
      */
   exec_timeout_seconds?: number;
   /**
-     * Maximum time to wait for dnsmasq resolver configuration generation to complete after the resolver reload hook completes.
+     * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq.
+     * @deprecated
      * @minimum 1
      */
   resolver_ready_timeout_seconds?: number;

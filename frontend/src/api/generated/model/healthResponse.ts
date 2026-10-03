@@ -9,10 +9,6 @@ import type { HealthResponseRuntimeState } from './healthResponseRuntimeState';
 import type { HealthResponseStatus } from './healthResponseStatus';
 import type { InterceptHealth } from './interceptHealth';
 import type { LifecycleOperation } from './lifecycleOperation';
-import type { ResolverConfigProbeStatus } from './resolverConfigProbeStatus';
-import type { ResolverConfigSyncState } from './resolverConfigSyncState';
-import type { ResolverIntegrationMode } from './resolverIntegrationMode';
-import type { RuntimeOutboundStatus } from './runtimeOutboundStatus';
 
 export interface HealthResponse {
   /** Daemon version string. */
@@ -31,25 +27,9 @@ export interface HealthResponse {
   /** Host platform build variant. On OpenWrt this includes `target/subtarget`; on other OSes it contains the detected target.
    */
   build_variant: string;
-  resolver_integration?: ResolverIntegrationMode;
-  /** Only meaningful when `resolver_integration` is `dnsmasq`; empty otherwise (as are the other `resolver_*` fields, with `resolver_config_probe_status` set to `disabled`). MD5 hex digest of the current domain-to-ipset mapping. Matches the txt-record written by generate-resolver-config; use to verify the dnsmasq config is up to date.
-   */
-  resolver_config_hash?: string;
-  /** MD5 hex digest read from TXT record `config-hash.keen.pbr` using `dns.system_resolver.address` (optional `:port`, default `:53`), normalized to a raw md5 string.
-   */
-  resolver_config_hash_actual?: string;
-  /** Resolver TXT metadata timestamp from `config-hash.keen.pbr`, when published as `<ts>|<hash>`. Represents when dnsmasq last reloaded resolver config (Unix seconds).
-   */
-  resolver_config_hash_actual_ts?: number;
-  resolver_live_status: RuntimeOutboundStatus;
-  resolver_config_probe_status?: ResolverConfigProbeStatus;
-  /** Unix timestamp (seconds) when the daemon last completed a live TXT probe against the configured system resolver.
-   */
-  resolver_last_probe_ts?: number;
   /** Server-authoritative Unix timestamp (seconds) captured when `POST /api/config/save` started applying the staged config.
    */
   apply_started_ts?: number;
-  resolver_config_sync_state?: ResolverConfigSyncState;
   /** Whether a newer configuration has been staged in memory but not yet persisted and applied.
    */
   config_is_draft: boolean;

@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesA52KmX data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesE3Y34A data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -516,12 +516,6 @@ namespace api {
         LifecycleOperationType type;
     };
 
-    enum class ResolverConfigProbeStatus : int { DISABLED, INVALID_TXT, MISSING_TXT, NOT_CONFIGURED, QUERY_FAILED, SUCCESS, UNKNOWN };
-
-    enum class ResolverConfigSyncState : int { CONVERGED, CONVERGING, STALE };
-
-    enum class ResolverLiveStatus : int { DEGRADED, HEALTHY, UNAVAILABLE, UNKNOWN };
-
     enum class RuntimeState : int { APPLYING, BROKEN, RESTART_REQUIRED, RUNNING, SHUTTING_DOWN, STARTING, STOPPED };
 
     enum class HealthResponseStatus : int { RUNNING, STOPPED };
@@ -535,14 +529,6 @@ namespace api {
         std::optional<LifecycleOperation> lifecycle_operation;
         std::string os_type;
         std::string os_version;
-        std::optional<std::string> resolver_config_hash;
-        std::optional<std::string> resolver_config_hash_actual;
-        std::optional<int64_t> resolver_config_hash_actual_ts;
-        std::optional<ResolverConfigProbeStatus> resolver_config_probe_status;
-        std::optional<ResolverConfigSyncState> resolver_config_sync_state;
-        std::optional<ResolverIntegration> resolver_integration;
-        std::optional<int64_t> resolver_last_probe_ts;
-        ResolverLiveStatus resolver_live_status;
         bool rollback_available;
         std::optional<RuntimeState> runtime_state;
         std::optional<std::string> runtime_state_reason;
@@ -702,10 +688,12 @@ namespace api {
         RuntimeInterfaceStatusEnum status;
     };
 
+    enum class RuntimeOutboundStatusEnum : int { DEGRADED, HEALTHY, UNAVAILABLE, UNKNOWN };
+
     struct RuntimeOutboundStateElement {
         std::optional<std::string> detail;
         std::vector<RuntimeInterfaceState> interfaces;
-        ResolverLiveStatus status;
+        RuntimeOutboundStatusEnum status;
         std::string tag;
         OutboundType type;
     };
@@ -748,7 +736,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesA52KmX {
+    struct KeenPbrTypesE3Y34A {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -802,8 +790,6 @@ namespace api {
         std::optional<OutboundGroupElement> outbound_group;
         std::optional<PolicyRuleCheck> policy_rule_check;
         std::optional<ReloadResponse> reload_response;
-        std::optional<ResolverConfigProbeStatus> resolver_config_probe_status;
-        std::optional<ResolverConfigSyncState> resolver_config_sync_state;
         std::optional<ResolverIntegration> resolver_integration_mode;
         std::optional<Retry> retry_config;
         std::optional<Route> route_config;
@@ -824,7 +810,7 @@ namespace api {
         std::optional<RuntimeInterfaceStatusEnum> runtime_interface_status;
         std::optional<RuntimeOutboundsResponse> runtime_outbounds_response;
         std::optional<RuntimeOutboundStateElement> runtime_outbound_state;
-        std::optional<ResolverLiveStatus> runtime_outbound_status;
+        std::optional<RuntimeOutboundStatusEnum> runtime_outbound_status;
         std::optional<StatusEventInterfaces> status_event_interfaces;
         std::optional<StatusEventOutbounds> status_event_outbounds;
         std::optional<StatusEventService> status_event_service;
@@ -1062,8 +1048,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesA52KmX & x);
-    void to_json(json & j, const KeenPbrTypesA52KmX & x);
+    void from_json(const json & j, KeenPbrTypesE3Y34A & x);
+    void to_json(json & j, const KeenPbrTypesE3Y34A & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1116,15 +1102,6 @@ namespace api {
     void from_json(const json & j, LifecycleOperationType & x);
     void to_json(json & j, const LifecycleOperationType & x);
 
-    void from_json(const json & j, ResolverConfigProbeStatus & x);
-    void to_json(json & j, const ResolverConfigProbeStatus & x);
-
-    void from_json(const json & j, ResolverConfigSyncState & x);
-    void to_json(json & j, const ResolverConfigSyncState & x);
-
-    void from_json(const json & j, ResolverLiveStatus & x);
-    void to_json(json & j, const ResolverLiveStatus & x);
-
     void from_json(const json & j, RuntimeState & x);
     void to_json(json & j, const RuntimeState & x);
 
@@ -1151,6 +1128,9 @@ namespace api {
 
     void from_json(const json & j, RuntimeInterfaceStatusEnum & x);
     void to_json(json & j, const RuntimeInterfaceStatusEnum & x);
+
+    void from_json(const json & j, RuntimeOutboundStatusEnum & x);
+    void to_json(json & j, const RuntimeOutboundStatusEnum & x);
 
     void from_json(const json & j, StatusEventInterfacesType & x);
     void to_json(json & j, const StatusEventInterfacesType & x);
@@ -2007,14 +1987,6 @@ namespace api {
         x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "lifecycle_operation");
         x.os_type = j.at("os_type").get<std::string>();
         x.os_version = j.at("os_version").get<std::string>();
-        x.resolver_config_hash = get_stack_optional<std::string>(j, "resolver_config_hash");
-        x.resolver_config_hash_actual = get_stack_optional<std::string>(j, "resolver_config_hash_actual");
-        x.resolver_config_hash_actual_ts = get_stack_optional<int64_t>(j, "resolver_config_hash_actual_ts");
-        x.resolver_config_probe_status = get_stack_optional<ResolverConfigProbeStatus>(j, "resolver_config_probe_status");
-        x.resolver_config_sync_state = get_stack_optional<ResolverConfigSyncState>(j, "resolver_config_sync_state");
-        x.resolver_integration = get_stack_optional<ResolverIntegration>(j, "resolver_integration");
-        x.resolver_last_probe_ts = get_stack_optional<int64_t>(j, "resolver_last_probe_ts");
-        x.resolver_live_status = j.at("resolver_live_status").get<ResolverLiveStatus>();
         x.rollback_available = j.at("rollback_available").get<bool>();
         x.runtime_state = get_stack_optional<RuntimeState>(j, "runtime_state");
         x.runtime_state_reason = get_stack_optional<std::string>(j, "runtime_state_reason");
@@ -2032,14 +2004,6 @@ namespace api {
         j["lifecycle_operation"] = x.lifecycle_operation;
         j["os_type"] = x.os_type;
         j["os_version"] = x.os_version;
-        j["resolver_config_hash"] = x.resolver_config_hash;
-        j["resolver_config_hash_actual"] = x.resolver_config_hash_actual;
-        j["resolver_config_hash_actual_ts"] = x.resolver_config_hash_actual_ts;
-        j["resolver_config_probe_status"] = x.resolver_config_probe_status;
-        j["resolver_config_sync_state"] = x.resolver_config_sync_state;
-        j["resolver_integration"] = x.resolver_integration;
-        j["resolver_last_probe_ts"] = x.resolver_last_probe_ts;
-        j["resolver_live_status"] = x.resolver_live_status;
         j["rollback_available"] = x.rollback_available;
         j["runtime_state"] = x.runtime_state;
         j["runtime_state_reason"] = x.runtime_state_reason;
@@ -2343,7 +2307,7 @@ namespace api {
     inline void from_json(const json & j, RuntimeOutboundStateElement& x) {
         x.detail = get_stack_optional<std::string>(j, "detail");
         x.interfaces = j.at("interfaces").get<std::vector<RuntimeInterfaceState>>();
-        x.status = j.at("status").get<ResolverLiveStatus>();
+        x.status = j.at("status").get<RuntimeOutboundStatusEnum>();
         x.tag = j.at("tag").get<std::string>();
         x.type = j.at("type").get<OutboundType>();
     }
@@ -2423,7 +2387,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesA52KmX& x) {
+    inline void from_json(const json & j, KeenPbrTypesE3Y34A& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2477,8 +2441,6 @@ namespace api {
         x.outbound_group = get_stack_optional<OutboundGroupElement>(j, "OutboundGroup");
         x.policy_rule_check = get_stack_optional<PolicyRuleCheck>(j, "PolicyRuleCheck");
         x.reload_response = get_stack_optional<ReloadResponse>(j, "ReloadResponse");
-        x.resolver_config_probe_status = get_stack_optional<ResolverConfigProbeStatus>(j, "ResolverConfigProbeStatus");
-        x.resolver_config_sync_state = get_stack_optional<ResolverConfigSyncState>(j, "ResolverConfigSyncState");
         x.resolver_integration_mode = get_stack_optional<ResolverIntegration>(j, "ResolverIntegrationMode");
         x.retry_config = get_stack_optional<Retry>(j, "RetryConfig");
         x.route_config = get_stack_optional<Route>(j, "RouteConfig");
@@ -2499,7 +2461,7 @@ namespace api {
         x.runtime_interface_status = get_stack_optional<RuntimeInterfaceStatusEnum>(j, "RuntimeInterfaceStatus");
         x.runtime_outbounds_response = get_stack_optional<RuntimeOutboundsResponse>(j, "RuntimeOutboundsResponse");
         x.runtime_outbound_state = get_stack_optional<RuntimeOutboundStateElement>(j, "RuntimeOutboundState");
-        x.runtime_outbound_status = get_stack_optional<ResolverLiveStatus>(j, "RuntimeOutboundStatus");
+        x.runtime_outbound_status = get_stack_optional<RuntimeOutboundStatusEnum>(j, "RuntimeOutboundStatus");
         x.status_event_interfaces = get_stack_optional<StatusEventInterfaces>(j, "StatusEventInterfaces");
         x.status_event_outbounds = get_stack_optional<StatusEventOutbounds>(j, "StatusEventOutbounds");
         x.status_event_service = get_stack_optional<StatusEventService>(j, "StatusEventService");
@@ -2508,7 +2470,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesA52KmX & x) {
+    inline void to_json(json & j, const KeenPbrTypesE3Y34A & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2563,8 +2525,6 @@ namespace api {
         j["OutboundGroup"] = x.outbound_group;
         j["PolicyRuleCheck"] = x.policy_rule_check;
         j["ReloadResponse"] = x.reload_response;
-        j["ResolverConfigProbeStatus"] = x.resolver_config_probe_status;
-        j["ResolverConfigSyncState"] = x.resolver_config_sync_state;
         j["ResolverIntegrationMode"] = x.resolver_integration_mode;
         j["RetryConfig"] = x.retry_config;
         j["RouteConfig"] = x.route_config;
@@ -2868,64 +2828,6 @@ namespace api {
         }
     }
 
-    inline void from_json(const json & j, ResolverConfigProbeStatus & x) {
-        if (j == "disabled") x = ResolverConfigProbeStatus::DISABLED;
-        else if (j == "invalid_txt") x = ResolverConfigProbeStatus::INVALID_TXT;
-        else if (j == "missing_txt") x = ResolverConfigProbeStatus::MISSING_TXT;
-        else if (j == "not_configured") x = ResolverConfigProbeStatus::NOT_CONFIGURED;
-        else if (j == "query_failed") x = ResolverConfigProbeStatus::QUERY_FAILED;
-        else if (j == "success") x = ResolverConfigProbeStatus::SUCCESS;
-        else if (j == "unknown") x = ResolverConfigProbeStatus::UNKNOWN;
-        else { throw std::runtime_error("Cannot deserialize to enumeration \"ResolverConfigProbeStatus\""); }
-    }
-
-    inline void to_json(json & j, const ResolverConfigProbeStatus & x) {
-        switch (x) {
-            case ResolverConfigProbeStatus::DISABLED: j = "disabled"; break;
-            case ResolverConfigProbeStatus::INVALID_TXT: j = "invalid_txt"; break;
-            case ResolverConfigProbeStatus::MISSING_TXT: j = "missing_txt"; break;
-            case ResolverConfigProbeStatus::NOT_CONFIGURED: j = "not_configured"; break;
-            case ResolverConfigProbeStatus::QUERY_FAILED: j = "query_failed"; break;
-            case ResolverConfigProbeStatus::SUCCESS: j = "success"; break;
-            case ResolverConfigProbeStatus::UNKNOWN: j = "unknown"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"ResolverConfigProbeStatus\": " + std::to_string(static_cast<int>(x)));
-        }
-    }
-
-    inline void from_json(const json & j, ResolverConfigSyncState & x) {
-        if (j == "converged") x = ResolverConfigSyncState::CONVERGED;
-        else if (j == "converging") x = ResolverConfigSyncState::CONVERGING;
-        else if (j == "stale") x = ResolverConfigSyncState::STALE;
-        else { throw std::runtime_error("Cannot deserialize to enumeration \"ResolverConfigSyncState\""); }
-    }
-
-    inline void to_json(json & j, const ResolverConfigSyncState & x) {
-        switch (x) {
-            case ResolverConfigSyncState::CONVERGED: j = "converged"; break;
-            case ResolverConfigSyncState::CONVERGING: j = "converging"; break;
-            case ResolverConfigSyncState::STALE: j = "stale"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"ResolverConfigSyncState\": " + std::to_string(static_cast<int>(x)));
-        }
-    }
-
-    inline void from_json(const json & j, ResolverLiveStatus & x) {
-        if (j == "degraded") x = ResolverLiveStatus::DEGRADED;
-        else if (j == "healthy") x = ResolverLiveStatus::HEALTHY;
-        else if (j == "unavailable") x = ResolverLiveStatus::UNAVAILABLE;
-        else if (j == "unknown") x = ResolverLiveStatus::UNKNOWN;
-        else { throw std::runtime_error("Cannot deserialize to enumeration \"ResolverLiveStatus\""); }
-    }
-
-    inline void to_json(json & j, const ResolverLiveStatus & x) {
-        switch (x) {
-            case ResolverLiveStatus::DEGRADED: j = "degraded"; break;
-            case ResolverLiveStatus::HEALTHY: j = "healthy"; break;
-            case ResolverLiveStatus::UNAVAILABLE: j = "unavailable"; break;
-            case ResolverLiveStatus::UNKNOWN: j = "unknown"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"ResolverLiveStatus\": " + std::to_string(static_cast<int>(x)));
-        }
-    }
-
     inline void from_json(const json & j, RuntimeState & x) {
         if (j == "applying") x = RuntimeState::APPLYING;
         else if (j == "broken") x = RuntimeState::BROKEN;
@@ -3065,6 +2967,24 @@ namespace api {
             case RuntimeInterfaceStatusEnum::UNAVAILABLE: j = "unavailable"; break;
             case RuntimeInterfaceStatusEnum::UNKNOWN: j = "unknown"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RuntimeInterfaceStatusEnum\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, RuntimeOutboundStatusEnum & x) {
+        if (j == "degraded") x = RuntimeOutboundStatusEnum::DEGRADED;
+        else if (j == "healthy") x = RuntimeOutboundStatusEnum::HEALTHY;
+        else if (j == "unavailable") x = RuntimeOutboundStatusEnum::UNAVAILABLE;
+        else if (j == "unknown") x = RuntimeOutboundStatusEnum::UNKNOWN;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RuntimeOutboundStatusEnum\""); }
+    }
+
+    inline void to_json(json & j, const RuntimeOutboundStatusEnum & x) {
+        switch (x) {
+            case RuntimeOutboundStatusEnum::DEGRADED: j = "degraded"; break;
+            case RuntimeOutboundStatusEnum::HEALTHY: j = "healthy"; break;
+            case RuntimeOutboundStatusEnum::UNAVAILABLE: j = "unavailable"; break;
+            case RuntimeOutboundStatusEnum::UNKNOWN: j = "unknown"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"RuntimeOutboundStatusEnum\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

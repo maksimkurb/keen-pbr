@@ -122,7 +122,7 @@ paths:
       summary: Service health and outbound status
       description: >
         Returns the running daemon version, routing runtime status, and
-        resolver/config summary for the daemon. Outbound runtime diagnostics
+        config summary for the daemon. Outbound runtime diagnostics
         are exposed via `/api/runtime/outbounds`.
       operationId: getHealthService
       responses:
@@ -137,9 +137,8 @@ paths:
     post:
       summary: Start routing runtime
       description: >
-        Applies keen-pbr routing/firewall runtime state and runs dnsmasq
-        registration hooks to activate the managed resolver config without
-        stopping the API process.
+        Applies keen-pbr routing/firewall runtime state without stopping the
+        API process.
       operationId: postServiceStart
       responses:
         "202":
@@ -155,8 +154,7 @@ paths:
     post:
       summary: Stop routing runtime
       description: >
-        Removes keen-pbr routing/firewall runtime state and runs dnsmasq
-        deactivation hooks to load fallback resolver config while keeping the
+        Removes keen-pbr routing/firewall runtime state while keeping the
         API process running.
       operationId: postServiceStop
       responses:
@@ -173,8 +171,7 @@ paths:
     post:
       summary: Restart routing runtime
       description: >
-        Re-applies keen-pbr routing/firewall runtime state and dnsmasq
-        registration hooks for the managed resolver config.
+        Re-applies keen-pbr routing/firewall runtime state.
       operationId: postServiceRestart
       responses:
         "202":
@@ -343,7 +340,7 @@ paths:
       summary: Roll back a failed configuration apply
       description: >
         Atomically restores the previous config inode retained in memory by the
-        daemon and reconciles routing and dnsmasq against it. Available only
+        daemon and reconciles routing against it. Available only
         after a committed apply fails before the transaction is verified.
       operationId: postConfigRollback
       responses:
@@ -626,7 +623,7 @@ components:
             backend. This has no effect when the nftables backend is selected.
             Omit or set to null to use the ipset default (1024). Changing this
             value on a running iptables backend recreates owned ipsets and
-            clears dnsmasq-learned entries.
+            clears learned entries.
           example: 1024
         ipset_maxelem:
           type: integer
@@ -638,7 +635,7 @@ components:
             iptables backend. This has no effect when the nftables backend is
             selected. Omit or set to null to use the ipset default (65536).
             Changing this value on a running iptables backend recreates owned
-            ipsets and clears dnsmasq-learned entries.
+            ipsets and clears learned entries.
           example: 65536
         reuse_static_sets_on_runtime_refresh:
           type: boolean
@@ -655,7 +652,7 @@ components:
           nullable: true
           description: >
             Whether keen-pbr should install IPv6 firewall sets/rules and emit IPv6
-            resolver set targets. Defaults to `true` when omitted or set to `null`.
+            dynamic set targets. Defaults to `true` when omitted or set to `null`.
             If enabled but the system lacks IPv6 support, keen-pbr logs an error and
             continues in IPv4-only mode.
           default: true
@@ -689,7 +686,9 @@ components:
           type: integer
           minimum: 1
           default: 120
-          description: Maximum time to wait for dnsmasq resolver configuration generation to complete after the resolver reload hook completes.
+          deprecated: true
+          description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq."
+
         exec_kill_grace_seconds:
           type: integer
           minimum: 0
@@ -1117,7 +1116,7 @@ components:
         ttl_ms:
           type: integer
           description: >
-            TTL for dnsmasq-resolved ipset entries in milliseconds.
+            TTL for dynamically learned set entries in milliseconds.
             `0` means no timeout.
           default: 0
           example: 86400000
@@ -1161,6 +1160,9 @@ components:
 
     DnsRule:
       type: object
+      deprecated: true
+      description: >
+        Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
       required: [list, server]
       properties:
         enabled:
@@ -1211,25 +1213,16 @@ components:
       type: string
       enum: [none, dnsmasq]
       default: none
+      deprecated: true
       description: >
-        Optional integration with an external system resolver.
-        - none: the daemon fills the dynamic sets itself by intercepting DNS
-          and L7 traffic; no resolver is touched (default).
-        - dnsmasq: keen-pbr additionally manages a dnsmasq configuration
-          (per-list upstream DNS via `dns.rules`, Keenetic static entries,
-          fallback servers, rebind exceptions). dnsmasq remains the dynamic set
-          filler only when interception is unavailable.
-        When the field is absent, configs that define `dns.rules` or
-        `dns.system_resolver` are migrated to `dnsmasq`; otherwise `none`.
+        Ignored since 3.0.0: keen-pbr no longer manages dnsmasq. Accepted only so that old config files keep parsing.
 
     DnsSystemResolver:
       type: object
+      deprecated: true
       required: [address]
       description: >
-        System resolver endpoint used when `dns.resolver_integration` is
-        `dnsmasq`. It is the resolver queried for the TXT record
-        `config-hash.keen.pbr` to verify that the generated configuration was
-        loaded. Not used (and not required) when the integration is `none`.
+        Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
       properties:
         address:
           type: string
@@ -1249,20 +1242,28 @@ components:
             $ref: "#/components/schemas/DnsServer"
         rules:
           type: array
+          deprecated: true
+          description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception."
           items:
             $ref: "#/components/schemas/DnsRule"
         fallback:
           type: array
-          description: Ordered DNS server tags to use when no rule matches.
+          deprecated: true
+          description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception."
           items:
             type: string
-          example: ["google-dns", "quad9"]
         resolver_integration:
-          $ref: "#/components/schemas/ResolverIntegrationMode"
+          deprecated: true
+          description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception."
+          allOf:
+            - $ref: "#/components/schemas/ResolverIntegrationMode"
         dns_test_server:
           $ref: "#/components/schemas/DnsTestServer"
         system_resolver:
-          $ref: "#/components/schemas/DnsSystemResolver"
+          deprecated: true
+          description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception."
+          allOf:
+            - $ref: "#/components/schemas/DnsSystemResolver"
 
     RouteRule:
       type: object
@@ -1470,7 +1471,7 @@ components:
       type: object
       description: >
         Daemon-side traffic interception that fills the dynamic (domain
-        learned) sets instead of dnsmasq. Parts that the kernel does not
+        learned) sets. Parts that the kernel does not
         support are disabled automatically and reported in `/api/health/service`.
       properties:
         enabled:
@@ -1578,7 +1579,7 @@ components:
           description: Whether the interception service is bound and processing packets.
         dns_hold_active:
           type: boolean
-          description: DNS responses are held and sets are filled by the daemon (dnsmasq set directives are not emitted).
+          description: DNS responses are held and sets are filled by the daemon.
         l7_active:
           type: boolean
           description: TLS SNI / HTTP Host / QUIC sniffing is active.
@@ -1960,7 +1961,7 @@ components:
     HealthResponse:
       type: object
       required:
-        [version, build, status, os_type, os_version, build_variant, resolver_live_status, config_is_draft, rollback_available]
+        [version, build, status, os_type, os_version, build_variant, config_is_draft, rollback_available]
       properties:
         version:
           type: string
@@ -1998,44 +1999,6 @@ components:
             `target/subtarget`; on other OSes it contains the detected target.
           example: "mediatek/filogic"
 
-        resolver_integration:
-          $ref: "#/components/schemas/ResolverIntegrationMode"
-        resolver_config_hash:
-          type: string
-          description: >
-            Only meaningful when `resolver_integration` is `dnsmasq`; empty
-            otherwise (as are the other `resolver_*` fields, with
-            `resolver_config_probe_status` set to `disabled`).
-            MD5 hex digest of the current domain-to-ipset mapping.
-            Matches the txt-record written by generate-resolver-config; use to
-            verify the dnsmasq config is up to date.
-          example: "a3f7c1d9e2b84560abcdef1234567890"
-        resolver_config_hash_actual:
-          type: string
-          description: >
-            MD5 hex digest read from TXT record `config-hash.keen.pbr` using
-            `dns.system_resolver.address` (optional `:port`, default `:53`),
-            normalized to a raw md5 string.
-          example: "a3f7c1d9e2b84560abcdef1234567890"
-        resolver_config_hash_actual_ts:
-          type: integer
-          format: int64
-          description: >
-            Resolver TXT metadata timestamp from `config-hash.keen.pbr`, when
-            published as `<ts>|<hash>`. Represents when dnsmasq last reloaded
-            resolver config (Unix seconds).
-          example: 1712345678
-        resolver_live_status:
-          $ref: "#/components/schemas/RuntimeOutboundStatus"
-        resolver_config_probe_status:
-          $ref: "#/components/schemas/ResolverConfigProbeStatus"
-        resolver_last_probe_ts:
-          type: integer
-          format: int64
-          description: >
-            Unix timestamp (seconds) when the daemon last completed a live TXT
-            probe against the configured system resolver.
-          example: 1712345681
         apply_started_ts:
           type: integer
           format: int64
@@ -2043,8 +2006,6 @@ components:
             Server-authoritative Unix timestamp (seconds) captured when
             `POST /api/config/save` started applying the staged config.
           example: 1712345680
-        resolver_config_sync_state:
-          $ref: "#/components/schemas/ResolverConfigSyncState"
         config_is_draft:
           type: boolean
           description: >
@@ -2111,30 +2072,6 @@ components:
           enum: [pending, running, succeeded, failed, skipped]
         detail:
           type: string
-
-    ResolverConfigSyncState:
-      type: string
-      description: >
-        Resolver config synchronization state derived from
-        `resolver_config_hash_actual_ts`, `apply_started_ts`, and hash comparison:
-        - converging: `actual_ts < apply_started_ts` during a short post-apply window (15s)
-        - converged: `actual_ts >= apply_started_ts && hash_equal`
-        - stale: `actual_ts >= apply_started_ts && hash_mismatch`, or when the
-          post-apply converging window has elapsed but timestamp is still behind
-          and hashes do not match
-      enum: [converging, converged, stale]
-
-    ResolverConfigProbeStatus:
-      type: string
-      description: >
-        Result of the latest resolver TXT probe for `config-hash.keen.pbr`.
-        Missing or invalid TXT means dnsmasq config sync cannot be verified and
-        may be stale; query_failed means the daemon could not query the
-        configured resolver endpoint.
-        `disabled` is reported when `dns.resolver_integration` is `none`; in
-        that mode all `resolver_*` health fields stay present but carry no
-        resolver state.
-      enum: [success, missing_txt, invalid_txt, query_failed, not_configured, disabled, unknown]
 
     # -------------------------------------------------------------------------
     # /api/runtime/outbounds

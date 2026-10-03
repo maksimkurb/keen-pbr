@@ -83,8 +83,6 @@ export * from './policyRuleCheck';
 export * from './policyRuleCheckExpectedAction';
 export * from './reloadResponse';
 export * from './reloadResponseStatus';
-export * from './resolverConfigProbeStatus';
-export * from './resolverConfigSyncState';
 export * from './resolverIntegrationMode';
 export * from './retryConfig';
 export * from './routeConfig';

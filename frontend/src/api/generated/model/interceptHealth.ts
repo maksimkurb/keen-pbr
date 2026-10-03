@@ -14,7 +14,7 @@ export interface InterceptHealth {
   enabled: boolean;
   /** Whether the interception service is bound and processing packets. */
   running: boolean;
-  /** DNS responses are held and sets are filled by the daemon (dnsmasq set directives are not emitted). */
+  /** DNS responses are held and sets are filled by the daemon. */
   dns_hold_active: boolean;
   /** TLS SNI / HTTP Host / QUIC sniffing is active. */
   l7_active: boolean;

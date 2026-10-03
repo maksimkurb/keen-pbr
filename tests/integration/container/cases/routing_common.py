@@ -15,7 +15,6 @@ def routing_config(context, rules, lists=None):
     ]
     config["lists"] = lists or {}
     config["route"] = {"inbound_interfaces": ["lan0"], "rules": rules}
-    config["dns"]["rules"] = []
     return config
 
 

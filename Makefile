@@ -59,7 +59,6 @@ test: ## Build and run unit tests (doctest)
 	sh tests/test_keenetic_raw_policy.sh
 	sh tests/test_dnsmasq_helpers.sh
 	python3 tests/check_firewall_dependencies.py
-	python3 tests/check_resolver_dependencies.py
 
 INTEGRATION_BACKEND ?= all
 INTEGRATION_BIN ?=
@@ -72,8 +71,6 @@ NETNS_INTEGRATION_CMAKE_FLAGS := \
 	-DKEEN_PBR_TARGET_VERSION:STRING=rootless-netns \
 	-DKEEN_PBR_BUILD_VARIANT:STRING=full \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/run/keen-pbr-it/config.json \
-	-DKEEN_PBR_RESOLVER_FALLBACK_CONFIG:STRING=/run/keen-pbr-it/dnsmasq-fallback.conf \
-	-DKEEN_PBR_SYSTEM_RESOLVER_HOOK:STRING=/mnt/repo/tests/integration/netns/resolver-hook.sh \
 	-DKEEN_PBR_CONTROL_SOCKET:STRING=/run/keen-pbr/control.sock \
 	-DKEEN_PBR_FRONTEND_ROOT:STRING=/mnt/repo/frontend/dist
 

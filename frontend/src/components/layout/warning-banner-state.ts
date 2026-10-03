@@ -14,9 +14,6 @@ const SUCCESS_RETENTION_MS = 1_500
 export type WarningBannerMode =
   | "hidden"
   | "draft"
-  | "draft-and-dnsmasq"
-  | "dnsmasq-stale"
-  | "dnsmasq-error"
   | "lifecycle-running"
   | "lifecycle-success"
   | "lifecycle-error"

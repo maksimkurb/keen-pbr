@@ -21,18 +21,18 @@ void ConfigApplyTransaction::candidate_applied() {
     state_ = ConfigApplyTransactionState::CandidateApplied;
 }
 
-void ConfigApplyTransaction::resolver_confirmed() {
-    require_state(state_, ConfigApplyTransactionState::CandidateApplied, "resolver_confirmed");
-    state_ = ConfigApplyTransactionState::ResolverConfirmed;
+void ConfigApplyTransaction::runtime_confirmed() {
+    require_state(state_, ConfigApplyTransactionState::CandidateApplied, "runtime_confirmed");
+    state_ = ConfigApplyTransactionState::RuntimeConfirmed;
 }
 
 void ConfigApplyTransaction::committed() {
-    require_state(state_, ConfigApplyTransactionState::ResolverConfirmed, "committed");
+    require_state(state_, ConfigApplyTransactionState::RuntimeConfirmed, "committed");
     state_ = ConfigApplyTransactionState::Committed;
 }
 
 bool ConfigApplyTransaction::may_commit() const noexcept {
-    return state_ == ConfigApplyTransactionState::ResolverConfirmed;
+    return state_ == ConfigApplyTransactionState::RuntimeConfirmed;
 }
 
 } // namespace keen_pbr3

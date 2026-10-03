@@ -743,7 +743,7 @@ export const usePostAuthSettings = <TError = void,
     }
 
 /**
- * Returns the running daemon version, routing runtime status, and resolver/config summary for the daemon. Outbound runtime diagnostics are exposed via `/api/runtime/outbounds`.
+ * Returns the running daemon version, routing runtime status, and config summary for the daemon. Outbound runtime diagnostics are exposed via `/api/runtime/outbounds`.
 
  * @summary Service health and outbound status
  */
@@ -856,7 +856,7 @@ export function useGetHealthService<TData = Awaited<ReturnType<typeof getHealthS
 
 
 /**
- * Applies keen-pbr routing/firewall runtime state and runs dnsmasq registration hooks to activate the managed resolver config without stopping the API process.
+ * Applies keen-pbr routing/firewall runtime state without stopping the API process.
 
  * @summary Start routing runtime
  */
@@ -947,7 +947,7 @@ export const usePostServiceStart = <TError = void,
     }
 
 /**
- * Removes keen-pbr routing/firewall runtime state and runs dnsmasq deactivation hooks to load fallback resolver config while keeping the API process running.
+ * Removes keen-pbr routing/firewall runtime state while keeping the API process running.
 
  * @summary Stop routing runtime
  */
@@ -1038,7 +1038,7 @@ export const usePostServiceStop = <TError = void,
     }
 
 /**
- * Re-applies keen-pbr routing/firewall runtime state and dnsmasq registration hooks for the managed resolver config.
+ * Re-applies keen-pbr routing/firewall runtime state.
 
  * @summary Restart routing runtime
  */
@@ -1645,7 +1645,7 @@ export const usePostConfigDiscard = <TError = ErrorResponse,
     }
 
 /**
- * Atomically restores the previous config inode retained in memory by the daemon and reconciles routing and dnsmasq against it. Available only after a committed apply fails before the transaction is verified.
+ * Atomically restores the previous config inode retained in memory by the daemon and reconciles routing against it. Available only after a committed apply fails before the transaction is verified.
 
  * @summary Roll back a failed configuration apply
  */

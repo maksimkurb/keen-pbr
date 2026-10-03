@@ -2,7 +2,6 @@
 
 #include "../config/routing_state.hpp"
 #include "../dns/dns_server.hpp"
-#include "../dns/legacy_resolver_lock.hpp"
 #include "../lists/domain_index.hpp"
 #include "../lists/ipset.hpp"
 #include "../lists/kernel_set_tester.hpp"
@@ -20,8 +19,10 @@
 #include <cerrno>
 #include <cctype>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <map>
+#include <mutex>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <resolv.h>
@@ -205,174 +206,67 @@ bool extract_ips_from_dns_answer(const unsigned char* answer,
     return found;
 }
 
-std::optional<std::string> query_dns_record_with_resolver(
-    const std::optional<DnsServerConfig>& server,
+// The legacy BIND resolver routines operate on the process-global `_res` state
+// and are not thread-safe; test-routing requests may run on several API worker
+// threads, so serialize them (the res_n* variants are absent on musl).
+std::mutex& legacy_resolver_mutex() {
+    static std::mutex mutex;
+    return mutex;
+}
+
+std::optional<std::string> query_dns_record_with_system_resolver(
     const std::string& domain,
     int record_type,
     std::vector<std::string>& ips) {
     std::array<unsigned char, NS_PACKETSZ * 8> answer {};
     int response_len = -1;
-
-    if (!server.has_value()) {
-        // res_query() resolves via the global _res; serialize it.
+    {
         std::lock_guard<std::mutex> resolver_lock(legacy_resolver_mutex());
         response_len = res_query(domain.c_str(),
                                  ns_c_in,
                                  record_type,
                                  answer.data(),
                                  static_cast<int>(answer.size()));
-    } else {
-        sockaddr_storage resolver_addr {};
-        socklen_t resolver_addr_len = 0;
-        int address_family = AF_UNSPEC;
-
-        if (is_ipv6_address(server->resolved_ip)) {
-            auto* addr6 = reinterpret_cast<sockaddr_in6*>(&resolver_addr);
-            addr6->sin6_family = AF_INET6;
-            addr6->sin6_port = htons(server->port);
-            if (inet_pton(AF_INET6, server->resolved_ip.c_str(), &addr6->sin6_addr) != 1) {
-                return keen_pbr3::format("Resolver '{}' has invalid IPv6 address", server->address);
-            }
-            address_family = AF_INET6;
-            resolver_addr_len = sizeof(sockaddr_in6);
-        } else {
-            auto* addr4 = reinterpret_cast<sockaddr_in*>(&resolver_addr);
-            addr4->sin_family = AF_INET;
-            addr4->sin_port = htons(server->port);
-            if (inet_pton(AF_INET, server->resolved_ip.c_str(), &addr4->sin_addr) != 1) {
-                return keen_pbr3::format("Resolver '{}' has invalid IPv4 address", server->address);
-            }
-            address_family = AF_INET;
-            resolver_addr_len = sizeof(sockaddr_in);
-        }
-
-        std::array<unsigned char, NS_PACKETSZ * 2> query {};
-        int query_len = -1;
-        {
-            // res_mkquery() builds the packet using the global _res.
-            std::lock_guard<std::mutex> resolver_lock(legacy_resolver_mutex());
-            query_len = res_mkquery(ns_o_query,
-                                    domain.c_str(),
-                                    ns_c_in,
-                                    record_type,
-                                    nullptr,
-                                    0,
-                                    nullptr,
-                                    query.data(),
-                                    static_cast<int>(query.size()));
-        }
-        if (query_len < 0) {
-            return keen_pbr3::format("Failed to build DNS {} query",
-                                     record_type == ns_t_a ? "A" : "AAAA");
-        }
-
-        const int socket_fd = socket(address_family, SOCK_DGRAM, 0);
-        if (socket_fd < 0) {
-            return keen_pbr3::format("Failed to create DNS socket: {}", std::strerror(errno));
-        }
-        const auto close_socket = [socket_fd]() { close(socket_fd); };
-
-        timeval socket_timeout {};
-        socket_timeout.tv_sec = 2;
-        socket_timeout.tv_usec = 0;
-        if (setsockopt(socket_fd,
-                       SOL_SOCKET,
-                       SO_SNDTIMEO,
-                       &socket_timeout,
-                       sizeof(socket_timeout)) != 0 ||
-            setsockopt(socket_fd,
-                       SOL_SOCKET,
-                       SO_RCVTIMEO,
-                       &socket_timeout,
-                       sizeof(socket_timeout)) != 0) {
-            const std::string error = std::strerror(errno);
-            close_socket();
-            return keen_pbr3::format("Failed to configure DNS socket timeout: {}", error);
-        }
-
-        const ssize_t sent = sendto(socket_fd,
-                                    query.data(),
-                                    static_cast<size_t>(query_len),
-                                    0,
-                                    reinterpret_cast<const sockaddr*>(&resolver_addr),
-                                    resolver_addr_len);
-        if (sent != static_cast<ssize_t>(query_len)) {
-            const std::string error = std::strerror(errno);
-            close_socket();
-            return keen_pbr3::format("Failed to send DNS {} query via '{}': {}",
-                                     record_type == ns_t_a ? "A" : "AAAA",
-                                     server->address,
-                                     error);
-        }
-
-        const ssize_t received = recvfrom(socket_fd,
-                                          answer.data(),
-                                          answer.size(),
-                                          0,
-                                          nullptr,
-                                          nullptr);
-        if (received <= 0) {
-            const std::string error = std::strerror(errno);
-            close_socket();
-            return keen_pbr3::format("DNS {} query via '{}' failed: {}",
-                                     record_type == ns_t_a ? "A" : "AAAA",
-                                     server->address,
-                                     error);
-        }
-        response_len = static_cast<int>(received);
-        close_socket();
     }
 
     if (response_len < 0) {
         const char* reason = hstrerror(h_errno);
-        return keen_pbr3::format("DNS {} query via '{}' failed: {}",
+        return keen_pbr3::format("DNS {} query via 'resolv.conf' failed: {}",
                                  record_type == ns_t_a ? "A" : "AAAA",
-                                 server.has_value() ? server->address : "resolv.conf",
                                  reason != nullptr ? reason : "unknown resolver error");
     }
 
     std::string parse_error;
     if (!extract_ips_from_dns_answer(answer.data(), response_len, record_type, ips, &parse_error) &&
         !parse_error.empty()) {
-        return keen_pbr3::format("DNS {} query via '{}' failed: {}",
+        return keen_pbr3::format("DNS {} query via 'resolv.conf' failed: {}",
                                  record_type == ns_t_a ? "A" : "AAAA",
-                                 server.has_value() ? server->address : "resolv.conf",
                                  parse_error);
     }
 
     return std::nullopt;
 }
 
-std::vector<std::string> resolve_domain_with_system_resolver(const Config& config,
-                                                             const std::string& domain,
+std::function<std::vector<std::string>(const std::string&)>& domain_resolver_override() {
+    static std::function<std::vector<std::string>(const std::string&)> override_fn;
+    return override_fn;
+}
+
+std::vector<std::string> resolve_domain_with_system_resolver(const std::string& domain,
                                                              std::vector<std::string>& warnings) {
+    if (domain_resolver_override()) {
+        return domain_resolver_override()(domain);
+    }
     std::vector<std::string> ips;
 
-    const DnsConfig dns_config = config.dns.value_or(DnsConfig{});
-    std::optional<DnsServerConfig> resolver;
-    if (dns_config.system_resolver.has_value() &&
-        !dns_config.system_resolver->address.empty()) {
-        try {
-            resolver = parse_dns_server("system_resolver",
-                                        dns_config.system_resolver->address,
-                                        std::nullopt);
-        } catch (const std::exception& e) {
-            warnings.push_back(keen_pbr3::format("DNS system resolver '{}' is invalid: {}",
-                                                 dns_config.system_resolver->address,
-                                                 e.what()));
-            return ips;
-        }
-    }
-
     std::optional<std::string> a_error =
-        query_dns_record_with_resolver(resolver, domain, ns_t_a, ips);
+        query_dns_record_with_system_resolver(domain, ns_t_a, ips);
     std::optional<std::string> aaaa_error =
-        query_dns_record_with_resolver(resolver, domain, ns_t_aaaa, ips);
+        query_dns_record_with_system_resolver(domain, ns_t_aaaa, ips);
 
     if (ips.empty() && a_error.has_value() && aaaa_error.has_value()) {
-        warnings.push_back(keen_pbr3::format("DNS resolution failed for '{}' via system resolver '{}': {}; {}",
+        warnings.push_back(keen_pbr3::format("DNS resolution failed for '{}' via system resolver: {}; {}",
                                              domain,
-                                             resolver.has_value() ? resolver->address : "resolv.conf",
                                              *a_error,
                                              *aaaa_error));
     }
@@ -497,6 +391,11 @@ struct PerIpRoutingResult {
 
 } // namespace
 
+void set_domain_resolver_for_tests(
+    std::function<std::vector<std::string>(const std::string& domain)> resolver) {
+    domain_resolver_override() = std::move(resolver);
+}
+
 TestRoutingResult compute_test_routing(const Config& config,
                                         const CacheManager& cache,
                                         const std::string& target,
@@ -512,7 +411,7 @@ TestRoutingResult compute_test_routing(const Config& config,
 
     if (result.is_domain) {
         domain_cands = domain_candidates(lowercase_copy(target));
-        ips = resolve_domain_with_system_resolver(config, target, result.warnings);
+        ips = resolve_domain_with_system_resolver(target, result.warnings);
         if (ips.empty() && !result.warnings.empty()) {
             result.dns_error = result.warnings.front();
         }

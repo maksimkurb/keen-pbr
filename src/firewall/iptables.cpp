@@ -1302,7 +1302,7 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
   }
 
   // RulesOnly is strictly inspection-only for sets: every referenced static
-  // and dnsmasq-owned set must already exist with the exact expected schema.
+  // and daemon-owned set must already exist with the exact expected schema.
   // Do this before any rule transaction so a failure can safely fall back to
   // PreserveSets.
   if (mode == FirewallApplyMode::RulesOnly) {
@@ -1365,7 +1365,7 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
         continue;
       }
       if (is_dynamic_set_name(ps.name)) {
-        // dnsmasq owns these entries. A routine re-apply must neither
+        // The daemon owns these entries. A routine re-apply must neither
         // flush them nor alter their existing contents. Re-declaring with
         // -exist also recreates a set lost during an external firewall flush.
         ipset_script += build_ipset_create_line(ps);

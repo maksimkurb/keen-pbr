@@ -65,10 +65,5 @@ void apply_listener_probe(InterceptEffective& effective, const InterceptRuntimeP
 // not change anything.
 void apply_set_write_probe(InterceptEffective& effective, const nfnl::ProbeResult& set_write);
 
-// Whether the dnsmasq config must omit ipset=/nftset= directives (the daemon
-// fills the dynamic sets itself).
-inline bool intercept_replaces_resolver_sets(const InterceptEffective& effective) {
-    return effective.dns_hold;
-}
 
 } // namespace keen_pbr3

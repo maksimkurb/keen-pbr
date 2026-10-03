@@ -44,7 +44,6 @@ import { SectionCard } from "@/components/shared/section-card"
 import { RoutingHealthCard } from "@/components/overview/routing-health-card"
 import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
 import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-download-dialog"
-import { getDnsmasqBadgeState } from "@/components/overview/dnsmasq-status"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
 import { useAuth } from "@/auth/auth-context"
@@ -109,12 +108,6 @@ export function OverviewPage() {
         ).map((runtimeInterface) => [runtimeInterface.name, runtimeInterface])
       ),
     [runtimeInterfacesQuery.data]
-  )
-  const dnsmasqBadge = getDnsmasqBadgeState(
-    serviceHealth?.resolver_live_status,
-    serviceHealth?.resolver_config_sync_state,
-    serviceHealth?.resolver_integration,
-    serviceHealth?.resolver_config_probe_status
   )
   const hasServiceHealth = Boolean(serviceHealth)
   const isServiceRunning = serviceHealth?.status === "running"
@@ -235,9 +228,6 @@ export function OverviewPage() {
                       tone={mapServiceStatusTone(serviceHealth.status)}
                     >
                       {serviceHealth.status}
-                    </StatusBadge>
-                    <StatusBadge tone={dnsmasqBadge.tone}>
-                      {t(dnsmasqBadge.labelKey)}
                     </StatusBadge>
                   </div>
                 </div>

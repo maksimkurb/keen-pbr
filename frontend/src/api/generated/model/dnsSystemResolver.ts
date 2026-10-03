@@ -7,8 +7,9 @@
  */
 
 /**
- * System resolver endpoint used when `dns.resolver_integration` is `dnsmasq`. It is the resolver queried for the TXT record `config-hash.keen.pbr` to verify that the generated configuration was loaded. Not used (and not required) when the integration is `none`.
+ * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
 
+ * @deprecated
  */
 export interface DnsSystemResolver {
   /** IP address or host for the system resolver, with optional port. This is also the resolver endpoint used for TXT lookup of `config-hash.keen.pbr`; if the port is omitted, runtime behavior defaults to 53.

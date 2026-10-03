@@ -4,6 +4,7 @@
 #include "../config/config.hpp"
 #include "../routing/firewall_state.hpp"
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -52,6 +53,11 @@ struct TestRoutingResult {
     std::optional<std::string> dns_error;
     std::vector<std::string> warnings;
 };
+
+// Test hook: replaces the system resolver used to resolve a domain target.
+// Pass an empty function to restore the default behavior.
+void set_domain_resolver_for_tests(
+    std::function<std::vector<std::string>(const std::string& domain)> resolver);
 
 // Compute expected (config+cache) and actual (kernel ipset/nftset) routing for target.
 // When available, realized_rule_states must be the states returned by the live

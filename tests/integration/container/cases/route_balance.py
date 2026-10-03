@@ -19,7 +19,6 @@ def apply_balance(context):
                               "outbounds": ["wan_direct", "wan_pbr"]}]},
     ]
     config["lists"] = {}
-    config["dns"]["rules"] = []
     config["route"] = {"inbound_interfaces": ["lan0"], "rules": [
         {"outbound": "auto", "dest_addr": "198.18.0.10/32"},
     ]}

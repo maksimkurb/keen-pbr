@@ -35,10 +35,6 @@ void Daemon::transition_runtime_or_throw(RuntimeState next, const char* reason) 
 
 void Daemon::stop_routing_runtime() {
     teardown_routing_and_firewall(true);
-    if (resolver_integration_->enabled() && !resolver_integration_->fallback()) {
-        throw DaemonError("System resolver fallback hook failed");
-    }
-    resolver_integration_->refresh_health_async();
     Logger::instance().info("Routing runtime stopped.");
 }
 
@@ -73,7 +69,6 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     // The rules are gone; only now unbind so no queued packet is dropped.
     stop_intercept_service();
     firewall_state_.clear_active_firewall();
-    resolver_integration_->runtime_stopping();
 
     routing_runtime_active_ = false;
     transition_runtime_or_throw(explicit_stop ? RuntimeState::stopped : RuntimeState::applying,
@@ -84,7 +79,6 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
 
 void Daemon::start_routing_runtime() {
     setup_routing_and_firewall();
-    reload_and_verify_resolver_or_throw("runtime start");
     complete_running_runtime("runtime started");
     Logger::instance().info("Routing runtime started.");
 }
@@ -98,20 +92,18 @@ void Daemon::setup_routing_and_firewall() {
 
     const auto main_routes = netlink_.dump_routes_in_table(254);
     setup_static_routing(&main_routes);
-    resolver_integration_->prepare_runtime();
     apply_firewall(FirewallApplyMode::Destructive, false, &main_routes);
     routing_runtime_active_ = true;
     if (runtime_state_machine_.state() != RuntimeState::applying) {
         transition_runtime_or_throw(RuntimeState::applying, "runtime starting");
     }
     publish_runtime_state();
-    begin_resolver_generation();
+    begin_runtime_generation();
 }
 
 void Daemon::complete_running_runtime(const char* reason) {
     register_urltest_outbounds();
     schedule_lists_autoupdate();
-    resolver_integration_->runtime_running();
     transition_runtime_or_throw(RuntimeState::running, reason);
     publish_runtime_state();
 }
@@ -123,7 +115,6 @@ void Daemon::restart_routing_runtime() {
 
     teardown_routing_and_firewall(false);
     setup_routing_and_firewall();
-    reload_and_verify_resolver_or_throw("runtime restart");
     complete_running_runtime("runtime restarted");
 }
 
@@ -378,17 +369,13 @@ FirewallBalanceCandidates Daemon::build_balance_candidates(
     return candidates;
 }
 
-void Daemon::reconcile_lists_only(bool reload_resolver) {
+void Daemon::reconcile_lists_only() {
     if (!routing_runtime_active_) {
         throw DaemonError("list-only reconcile requires an active routing runtime");
     }
 
     try {
         apply_firewall(FirewallApplyMode::StaticSetsOnly);
-        if (reload_resolver) {
-            refresh_generation_snapshot();
-            reload_resolver_or_throw("list refresh");
-        }
         publish_runtime_state();
     } catch (...) {
         std::string ignored_error;
@@ -745,10 +732,9 @@ ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
     auto& log = Logger::instance();
     ListsRefreshExecutionResult result;
     const auto relevant_lists = collect_relevant_list_names(config_);
-    const auto dns_relevant_lists = collect_dns_relevant_list_names(config_);
     result.refresh_result =
         list_service_.refresh_remote_lists(
-            config_, outbound_marks_, &relevant_lists, target_lists, &dns_relevant_lists);
+            config_, outbound_marks_, &relevant_lists, target_lists);
 
     if (!result.refresh_result.changed_lists.empty()) {
         log.info("Lists refresh ({}): updated list(s): {}", source,
@@ -764,7 +750,7 @@ ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
         log.info("Lists refresh ({}): relevant list(s) changed ({}), reloading runtime",
                  source,
                  format_list_names(result.refresh_result.relevant_changed_lists));
-        reconcile_lists_only(result.refresh_result.any_dns_relevant_changed());
+        reconcile_lists_only();
         result.reloaded = true;
         return result;
     }
@@ -852,7 +838,7 @@ void Daemon::commit_lists_refresh_async_result(
                     "Lists refresh (autoupdate): relevant list(s) changed ({}), reloading runtime",
                     format_list_names(result.refresh_result.relevant_changed_lists));
                 try {
-                    reconcile_lists_only(result.refresh_result.any_dns_relevant_changed());
+                    reconcile_lists_only();
                     result.reloaded = true;
                 } catch (const std::exception& e) {
                     Logger::instance().error("Lists autoupdate reload failed: {}", e.what());
@@ -898,7 +884,6 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
     const OutboundMarkMap marks_snapshot = outbound_marks_;
     const bool runtime_active_snapshot = routing_runtime_active_;
     const auto relevant_lists = collect_relevant_list_names(config_snapshot);
-    const auto dns_relevant_lists = collect_dns_relevant_list_names(config_snapshot);
     const auto generation = runtime_generation_.load(std::memory_order_acquire);
     const TraceId trace_id = ensure_trace_id();
 
@@ -909,7 +894,6 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
          marks_snapshot,
          runtime_active_snapshot,
          relevant_lists,
-         dns_relevant_lists,
          generation,
          trace_id]() mutable {
             ScopedTraceContext trace_scope(trace_id);
@@ -923,8 +907,7 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
                 refresh_result = list_service_.refresh_remote_lists(config_snapshot,
                                                                    marks_snapshot,
                                                                    &relevant_lists,
-                                                                   nullptr,
-                                                                   &dns_relevant_lists);
+                                                                   nullptr);
             } catch (const std::exception& e) {
                 error = e.what();
             }
@@ -976,7 +959,6 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
 void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
                                            bool publish_active_snapshot) {
     reconcile_prepared_runtime(std::move(prepared));
-    reload_and_verify_resolver_or_throw("config apply");
     complete_running_runtime("config apply complete");
     if (publish_active_snapshot) {
         config_store_.replace_active(config_, outbound_marks_);
@@ -996,14 +978,8 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
     if (firewall_policy.force_clear_dynamic_sets) {
         Logger::instance().warn(
             "iptables ipset capacity changed; recreating owned ipsets and "
-            "clearing dnsmasq-learned entries");
+            "clearing learned entries");
     }
-
-    // Resolve the integration transition before promoting the candidate into
-    // daemon-owned active state.  In particular, a failed dnsmasq
-    // deactivation must leave config_, marks, and the API-visible resolver
-    // mode pointing at the still-owned old integration.
-    sync_resolver_integration(prepared.config);
 
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
     // A config change may alter the interception setup: probe again.
@@ -1013,12 +989,6 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         scheduler_->cancel(lists_autoupdate_task_id_);
         lists_autoupdate_task_id_ = -1;
     }
-    // Stop periodic resolver work of the integration that served the old
-    // configuration before the new one takes over.  A mode transition has
-    // already stopped the old integration in sync_resolver_integration(); the
-    // operation is intentionally idempotent.
-    resolver_integration_->runtime_stopping();
-
     outbound_marks_ = std::move(prepared.outbound_marks);
     config_ = std::move(prepared.config);
     const auto daemon_config = config_.daemon.value_or(DaemonConfig{});
@@ -1032,7 +1002,6 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
     pending_urltest_conntrack_cleanup_.clear();
     const auto main_routes = netlink_.dump_routes_in_table(254);
     reconcile_static_routing(nullptr, &main_routes);
-    resolver_integration_->prepare_runtime();
     apply_firewall(firewall_policy.mode,
                    firewall_policy.force_clear_dynamic_sets,
                    &main_routes,
@@ -1040,7 +1009,7 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
                    &old_marks);
     routing_runtime_active_ = true;
     transition_runtime_or_throw(RuntimeState::applying, "config apply");
-    begin_resolver_generation();
+    begin_runtime_generation();
     publish_runtime_state();
 }
 

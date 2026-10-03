@@ -10,18 +10,10 @@ RuntimeStateSnapshot RuntimeStateStore::snapshot() const {
 ServiceRuntimeSnapshot RuntimeStateStore::service_snapshot() const {
     KPBR_SHARED_LOCK(lock, mutex_);
     return ServiceRuntimeSnapshot{
-        snapshot_.resolver_config_hash,
-        snapshot_.resolver_config_hash_actual,
-        snapshot_.resolver_config_hash_actual_ts,
-        snapshot_.resolver_config_sync_state,
-        snapshot_.resolver_config_probe_status,
-        snapshot_.resolver_live_status,
-        snapshot_.resolver_last_probe_ts,
         snapshot_.apply_started_ts,
         snapshot_.routing_runtime_active,
         snapshot_.runtime_state,
         snapshot_.runtime_state_reason,
-        snapshot_.resolver_integration,
     };
 }
 
@@ -57,20 +49,6 @@ ControlRuntimeSnapshot RuntimeStateStore::control_snapshot(bool include_realized
 void RuntimeStateStore::publish(RuntimeStateSnapshot snapshot) {
     KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
     snapshot_ = std::move(snapshot);
-}
-
-void RuntimeStateStore::update_resolver(ResolverRuntimeStateUpdate update) {
-    KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
-    snapshot_.resolver_config_hash = std::move(update.resolver_config_hash);
-    snapshot_.resolver_config_hash_actual =
-        std::move(update.resolver_config_hash_actual);
-    snapshot_.resolver_config_hash_actual_ts = update.resolver_config_hash_actual_ts;
-    snapshot_.resolver_config_sync_state = update.resolver_config_sync_state;
-    snapshot_.resolver_config_probe_status = update.resolver_config_probe_status;
-    snapshot_.resolver_live_status = update.resolver_live_status;
-    snapshot_.resolver_last_probe_ts = update.resolver_last_probe_ts;
-    snapshot_.apply_started_ts = update.apply_started_ts;
-    snapshot_.resolver_integration = update.resolver_integration;
 }
 
 void RuntimeStateStore::update_urltest(std::string tag,

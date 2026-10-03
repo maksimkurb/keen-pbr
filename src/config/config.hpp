@@ -55,7 +55,6 @@ using DnsServer            = api::DnsServerElement;
 using DnsTestServer        = api::DnsTestServer;
 using DnsRule              = api::DnsRuleElement;
 using DnsConfig            = api::DnsConfigClass;
-using ResolverIntegrationMode = api::ResolverIntegration;  // enum: NONE, DNSMASQ
 using RouteRule            = api::RouteRuleElement;
 using RouteConfig          = api::Route;
 using FwmarkConfig         = api::Fwmark;
@@ -67,14 +66,6 @@ using InterceptL7Config    = api::L7;
 // Note: DnsRule.list (not .lists) and RouteRule.list (not .lists) match JSON keys.
 
 constexpr std::size_t kDefaultMaxFileSizeBytes = std::size_t{8} * 1024U * 1024U; // 8 MiB
-constexpr std::int64_t kDefaultResolverReadyTimeoutSeconds = 120;
-
-inline std::chrono::seconds resolver_ready_timeout(const Config& config) {
-    return std::chrono::seconds{
-        config.daemon.value_or(DaemonConfig{})
-            .resolver_ready_timeout_seconds.value_or(
-                kDefaultResolverReadyTimeoutSeconds)};
-}
 
 inline const std::vector<std::string>& route_rule_lists(const RouteRule& rule) {
     static const std::vector<std::string> empty;
@@ -82,10 +73,6 @@ inline const std::vector<std::string>& route_rule_lists(const RouteRule& rule) {
 }
 
 inline bool route_rule_enabled(const RouteRule& rule) {
-    return rule.enabled.value_or(true);
-}
-
-inline bool dns_rule_enabled(const DnsRule& rule) {
     return rule.enabled.value_or(true);
 }
 
@@ -111,26 +98,6 @@ inline std::string outbound_group_target(const OutboundGroup& group,
 inline bool outbound_uses_balance(const Outbound& outbound) {
     return outbound.strategy.value_or(api::Strategy::PRIORITY) ==
            api::Strategy::BALANCE;
-}
-
-// Effective resolver integration mode of a configuration.  An explicit
-// dns.resolver_integration always wins.  When the field is absent (configs
-// written before the option existed) the mode is migrated: a config that
-// defines non-empty dns.rules or a dns.system_resolver keeps relying on
-// dnsmasq, everything else runs without a resolver integration.
-inline ResolverIntegrationMode effective_resolver_integration(const Config& config) {
-    if (!config.dns.has_value()) return ResolverIntegrationMode::NONE;
-    if (config.dns->resolver_integration.has_value()) {
-        return *config.dns->resolver_integration;
-    }
-    const bool has_rules = !config.dns->rules.value_or(std::vector<DnsRule>{}).empty();
-    return (has_rules || config.dns->system_resolver.has_value())
-        ? ResolverIntegrationMode::DNSMASQ
-        : ResolverIntegrationMode::NONE;
-}
-
-inline const char* resolver_integration_name(ResolverIntegrationMode mode) {
-    return mode == ResolverIntegrationMode::DNSMASQ ? "dnsmasq" : "none";
 }
 
 // Non-fatal configuration findings (deprecated or ineffective settings).

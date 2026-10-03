@@ -218,7 +218,6 @@ TEST_CASE("effective intercept: defaults with full capabilities enable both part
     CHECK(settings->l7_sniff);
     CHECK(settings->queue_num == 9053);
     CHECK(settings->nflog_group == 9054);
-    CHECK(intercept_replaces_resolver_sets(eff));
 }
 
 TEST_CASE("effective intercept: capabilities restrict the active parts") {
@@ -239,7 +238,6 @@ TEST_CASE("effective intercept: capabilities restrict the active parts") {
     eff = resolve_effective_intercept(config_from("{}"), FirewallBackend::iptables, no_queue);
     CHECK_FALSE(eff.dns_hold);
     CHECK(eff.l7);
-    CHECK_FALSE(intercept_replaces_resolver_sets(eff));
     CHECK(eff.reasons.size() == 1);
 
     eff = resolve_effective_intercept(config_from("{}"), FirewallBackend::iptables,

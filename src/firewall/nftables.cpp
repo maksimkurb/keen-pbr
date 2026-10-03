@@ -699,7 +699,7 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
         }
     }
 
-    // Sets. Dynamic dnsmasq sets keep their learned elements during normal
+    // Sets. Dynamic sets keep their learned elements during normal
     // re-apply; static sets are refreshed in this same nft transaction.
     if (!rules_only) {
       for (const auto& ps : pending_sets_) {

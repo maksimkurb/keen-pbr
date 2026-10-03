@@ -151,7 +151,7 @@ TEST_CASE("RuntimeStateStore exposes only compact realized rule data to control 
     CHECK(store.control_snapshot(false).realized_rules.empty());
 }
 
-TEST_CASE("RuntimeStateStore resolver updates preserve routing and urltest state") {
+TEST_CASE("RuntimeStateStore urltest updates preserve routing state") {
     RuntimeStateStore store;
     RuntimeStateSnapshot state;
     RouteSpec route;
@@ -165,27 +165,16 @@ TEST_CASE("RuntimeStateStore resolver updates preserve routing and urltest state
     state.urltest_states.emplace("auto", UrltestState{});
     store.publish(std::move(state));
 
-    ResolverRuntimeStateUpdate update;
-    update.resolver_config_hash = "expected";
-    update.resolver_config_hash_actual = "actual";
-    update.resolver_last_probe_ts = 123;
-    update.resolver_live_status = api::ResolverLiveStatus::HEALTHY;
-    store.update_resolver(std::move(update));
-
     const auto full = store.snapshot();
     CHECK(full.route_specs.size() == 1);
     CHECK(full.policy_rule_specs.size() == 1);
     CHECK(full.urltest_states.count("auto") == 1);
-    const auto service = store.service_snapshot();
-    CHECK(service.resolver_config_hash == "expected");
-    CHECK(service.resolver_config_hash_actual == "actual");
-    CHECK(service.resolver_last_probe_ts == 123);
 }
 
 TEST_CASE("RuntimeStateStore updates one urltest without changing other state") {
     RuntimeStateStore store;
     RuntimeStateSnapshot state;
-    state.resolver_config_hash = "resolver";
+    state.apply_started_ts = 42;
     state.urltest_states.emplace("other", UrltestState{});
     store.publish(std::move(state));
 
@@ -194,7 +183,7 @@ TEST_CASE("RuntimeStateStore updates one urltest without changing other state") 
     const auto outbound = store.outbound_snapshot();
     CHECK(outbound.urltest_states.count("auto") == 1);
     CHECK(outbound.urltest_states.count("other") == 1);
-    CHECK(store.service_snapshot().resolver_config_hash == "resolver");
+    CHECK(store.service_snapshot().apply_started_ts == 42);
 
     store.update_urltest("auto", std::nullopt);
     CHECK(store.outbound_snapshot().urltest_states.count("auto") == 0);

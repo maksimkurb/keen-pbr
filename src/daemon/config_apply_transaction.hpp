@@ -5,7 +5,7 @@ namespace keen_pbr3 {
 enum class ConfigApplyTransactionState {
     Prepared,
     CandidateApplied,
-    ResolverConfirmed,
+    RuntimeConfirmed,
     Committed,
 };
 
@@ -14,7 +14,7 @@ enum class ConfigApplyTransactionState {
 class ConfigApplyTransaction {
 public:
     void candidate_applied();
-    void resolver_confirmed();
+    void runtime_confirmed();
     void committed();
 
     bool may_commit() const noexcept;

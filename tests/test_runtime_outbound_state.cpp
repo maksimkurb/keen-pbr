@@ -74,10 +74,10 @@ TEST_CASE("runtime outbound projection reuses one route snapshot") {
         });
 
     REQUIRE(response.outbounds.size() == 4);
-    CHECK(response.outbounds[0].status == api::ResolverLiveStatus::HEALTHY);
-    CHECK(response.outbounds[1].status == api::ResolverLiveStatus::HEALTHY);
-    CHECK(response.outbounds[2].status == api::ResolverLiveStatus::UNKNOWN);
-    CHECK(response.outbounds[3].status == api::ResolverLiveStatus::HEALTHY);
+    CHECK(response.outbounds[0].status == api::RuntimeOutboundStatusEnum::HEALTHY);
+    CHECK(response.outbounds[1].status == api::RuntimeOutboundStatusEnum::HEALTHY);
+    CHECK(response.outbounds[2].status == api::RuntimeOutboundStatusEnum::UNKNOWN);
+    CHECK(response.outbounds[3].status == api::RuntimeOutboundStatusEnum::HEALTHY);
     CHECK(response.outbounds[3].interfaces.size() == 1);
     CHECK(response.outbounds[3].interfaces[0].status == api::RuntimeInterfaceStatusEnum::ACTIVE);
     CHECK(response.outbounds[3].interfaces[0].latency_ms == 12);
@@ -159,7 +159,7 @@ TEST_CASE("runtime test-group projection reports table candidate probe state") {
     response = build();
     CHECK(response.outbounds[1].interfaces[0].status ==
           api::RuntimeInterfaceStatusEnum::DEGRADED);
-    CHECK(response.outbounds[1].status == api::ResolverLiveStatus::DEGRADED);
+    CHECK(response.outbounds[1].status == api::RuntimeOutboundStatusEnum::DEGRADED);
 }
 
 TEST_CASE("runtime balance projection reports each usable first-tier child active") {
@@ -199,7 +199,7 @@ TEST_CASE("runtime balance projection reports each usable first-tier child activ
 
     REQUIRE(response.outbounds.size() == 4);
     const auto& balanced = response.outbounds[3];
-    CHECK(balanced.status == api::ResolverLiveStatus::HEALTHY);
+    CHECK(balanced.status == api::RuntimeOutboundStatusEnum::HEALTHY);
     REQUIRE(balanced.interfaces.size() == 3);
     CHECK(balanced.interfaces[0].status == api::RuntimeInterfaceStatusEnum::ACTIVE);
     CHECK(balanced.interfaces[1].status == api::RuntimeInterfaceStatusEnum::ACTIVE);

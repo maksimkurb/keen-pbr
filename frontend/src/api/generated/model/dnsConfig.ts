@@ -13,10 +13,25 @@ import type { ResolverIntegrationMode } from './resolverIntegrationMode';
 
 export interface DnsConfig {
   servers?: DnsServer[];
+  /**
+     * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
+     * @deprecated
+     */
   rules?: DnsRule[];
-  /** Ordered DNS server tags to use when no rule matches. */
+  /**
+     * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
+     * @deprecated
+     */
   fallback?: string[];
+  /**
+     * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
+     * @deprecated
+     */
   resolver_integration?: ResolverIntegrationMode;
   dns_test_server?: DnsTestServer;
+  /**
+     * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
+     * @deprecated
+     */
   system_resolver?: DnsSystemResolver;
 }

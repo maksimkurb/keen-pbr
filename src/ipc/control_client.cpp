@@ -16,7 +16,6 @@
 namespace keen_pbr3::ipc {
 namespace {
 
-constexpr std::size_t kResolverStreamChunkBytes = static_cast<std::size_t>(16) * 1024U;
 using Deadline = std::chrono::steady_clock::time_point;
 
 Deadline deadline_after(int timeout_ms) {
@@ -159,63 +158,6 @@ nlohmann::json request_control(const std::string& socket_path,
         close_fd();
         throw;
     }
-}
-
-void stream_control(const std::string& socket_path,
-                    const nlohmann::json& request,
-                    std::ostream& output,
-                    int connect_timeout_ms,
-                    int idle_timeout_ms) {
-    validate_request_envelope(request);
-    bool active_bytes_streamed = false;
-    int fd = -1;
-    try {
-        const auto connect_deadline = deadline_after(connect_timeout_ms);
-        fd = connect_control_socket(socket_path, connect_deadline);
-        try {
-            write_all(fd, encode_message(request), connect_deadline);
-            read_start_marker(fd, connect_deadline);
-        } catch (const ControlTimeoutError&) {
-            throw ControlTimeoutError(
-                "control socket timeout waiting for socket ack");
-        }
-        const auto response = read_response_envelope(fd, deadline_after(idle_timeout_ms));
-        if (!response.value("ok", false)) {
-            const auto code = response.value("error", nlohmann::json::object()).value("code", "daemon_error");
-            throw ControlStreamError(code, false);
-        }
-        if (!response.value("stream", false)) {
-            throw ControlStreamError("protocol_error", false);
-        }
-
-        while (true) {
-            const std::string length_frame = read_exact(
-                fd, sizeof(std::uint32_t), deadline_after(idle_timeout_ms));
-            std::uint32_t length = 0;
-            std::memcpy(&length, length_frame.data(), sizeof(length));
-            const std::size_t chunk_size = ntohl(length);
-            if (chunk_size == 0) break;
-            if (chunk_size > kResolverStreamChunkBytes) {
-                throw ControlStreamError("protocol_error", active_bytes_streamed);
-            }
-            const std::string chunk = read_exact(
-                fd, chunk_size, deadline_after(idle_timeout_ms));
-            output.write(chunk.data(), static_cast<std::streamsize>(chunk.size()));
-            output.flush();
-            if (!output) throw ControlStreamError("stdout_error", active_bytes_streamed);
-            active_bytes_streamed = true;
-        }
-    } catch (const ControlStreamError&) {
-        if (fd >= 0) close(fd);
-        throw;
-    } catch (const ControlProtocolError& error) {
-        if (fd >= 0) close(fd);
-        throw ControlStreamError(error.what(), active_bytes_streamed);
-    } catch (...) {
-        if (fd >= 0) close(fd);
-        throw;
-    }
-    if (fd >= 0) close(fd);
 }
 
 } // namespace keen_pbr3::ipc

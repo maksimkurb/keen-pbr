@@ -4,7 +4,7 @@
 
 using namespace keen_pbr3;
 
-TEST_CASE("config apply transaction commits only after resolver confirmation") {
+TEST_CASE("config apply transaction commits only after runtime confirmation") {
     ConfigApplyTransaction transaction;
     CHECK_FALSE(transaction.may_commit());
     CHECK_THROWS(transaction.committed());
@@ -13,7 +13,7 @@ TEST_CASE("config apply transaction commits only after resolver confirmation") {
     CHECK_FALSE(transaction.may_commit());
     CHECK_THROWS(transaction.committed());
 
-    transaction.resolver_confirmed();
+    transaction.runtime_confirmed();
     CHECK(transaction.may_commit());
     transaction.committed();
     CHECK(transaction.state() == ConfigApplyTransactionState::Committed);

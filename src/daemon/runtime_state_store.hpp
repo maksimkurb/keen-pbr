@@ -20,34 +20,17 @@ struct RuntimeStateSnapshot {
     std::vector<RouteSpec> route_specs;
     std::vector<RuleSpec> policy_rule_specs;
     std::map<std::string, UrltestState> urltest_states;
-    std::string resolver_config_hash;
-    std::string resolver_config_hash_actual;
-    std::optional<std::int64_t> resolver_config_hash_actual_ts;
-    std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
-    api::ResolverConfigProbeStatus resolver_config_probe_status{api::ResolverConfigProbeStatus::UNKNOWN};
-    api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
-    std::optional<std::int64_t> resolver_last_probe_ts;
     std::optional<std::int64_t> apply_started_ts;
     bool routing_runtime_active{true};
     RuntimeState runtime_state{RuntimeState::starting};
     std::string runtime_state_reason;
-    api::ResolverIntegration resolver_integration{api::ResolverIntegration::NONE};
 };
 
 struct ServiceRuntimeSnapshot {
-    std::string resolver_config_hash;
-    std::string resolver_config_hash_actual;
-    std::optional<std::int64_t> resolver_config_hash_actual_ts;
-    std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
-    api::ResolverConfigProbeStatus resolver_config_probe_status{
-        api::ResolverConfigProbeStatus::UNKNOWN};
-    api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
-    std::optional<std::int64_t> resolver_last_probe_ts;
     std::optional<std::int64_t> apply_started_ts;
     bool routing_runtime_active{true};
     RuntimeState runtime_state{RuntimeState::starting};
     std::string runtime_state_reason;
-    api::ResolverIntegration resolver_integration{api::ResolverIntegration::NONE};
 };
 
 struct OutboundRuntimeSnapshot {
@@ -56,19 +39,6 @@ struct OutboundRuntimeSnapshot {
     std::map<std::string, std::string> applied_urltest_selections;
     std::map<std::string, UrltestState> urltest_states;
     RuntimeState runtime_state{RuntimeState::starting};
-};
-
-struct ResolverRuntimeStateUpdate {
-    std::string resolver_config_hash;
-    std::string resolver_config_hash_actual;
-    std::optional<std::int64_t> resolver_config_hash_actual_ts;
-    std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
-    api::ResolverConfigProbeStatus resolver_config_probe_status{
-        api::ResolverConfigProbeStatus::UNKNOWN};
-    api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
-    std::optional<std::int64_t> resolver_last_probe_ts;
-    std::optional<std::int64_t> apply_started_ts;
-    api::ResolverIntegration resolver_integration{api::ResolverIntegration::NONE};
 };
 
 // Minimal immutable view used by the control socket. It deliberately omits
@@ -94,7 +64,6 @@ public:
     OutboundRuntimeSnapshot outbound_snapshot() const;
     ControlRuntimeSnapshot control_snapshot(bool include_realized_rules) const;
     void publish(RuntimeStateSnapshot snapshot);
-    void update_resolver(ResolverRuntimeStateUpdate update);
     void update_urltest(std::string tag, std::optional<UrltestState> state);
 
 private:

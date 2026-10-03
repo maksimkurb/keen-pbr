@@ -48,17 +48,7 @@ struct ServiceHealthState {
     std::string os_type{"unknown"};
     std::string os_version{"unknown"};
     std::string build_variant{"unknown"};
-    // `none` reports the resolver_* fields as disabled (probe status
-    // `disabled`, no hashes).
-    api::ResolverIntegration resolver_integration{api::ResolverIntegration::NONE};
-    std::string resolver_config_hash;
-    std::string resolver_config_hash_actual;
-    std::optional<std::int64_t> resolver_config_hash_actual_ts;
-    api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
-    api::ResolverConfigProbeStatus resolver_config_probe_status{api::ResolverConfigProbeStatus::UNKNOWN};
-    std::optional<std::int64_t> resolver_last_probe_ts;
     std::optional<std::int64_t> apply_started_ts;
-    std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
     bool config_is_draft{false};
     bool rollback_available{false};
     std::optional<LifecycleOperationSnapshot> lifecycle_operation;
@@ -207,10 +197,10 @@ struct ApiContext {
 };
 
 // Register all API endpoint handlers on the given ApiServer.
-//   GET  /api/health/service  - daemon version/status + resolver/config summary
-//   POST /api/service/start   - start routing runtime and activate dnsmasq hook
-//   POST /api/service/stop    - stop routing runtime and deactivate dnsmasq hook
-//   POST /api/service/restart - restart routing runtime and activate dnsmasq hook
+//   GET  /api/health/service  - daemon version/status + config summary
+//   POST /api/service/start   - start routing runtime
+//   POST /api/service/stop    - stop routing runtime
+//   POST /api/service/restart - restart routing runtime
 //   POST /api/lists/refresh   - refresh one or all URL-backed lists
 //   GET  /api/config          - return current config and draft status
 //   POST /api/config          - validate + stage config in memory

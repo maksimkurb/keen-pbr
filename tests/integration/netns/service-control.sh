@@ -8,31 +8,31 @@ dns_child_pid="$KPBR_RUNTIME/dnsmasq.child.pid"
 dns_pid="$KPBR_RUNTIME/dnsmasq.pid"
 keen_log="$KPBR_RUNTIME/keen-pbr.log"
 dns_log="$KPBR_RUNTIME/dnsmasq.log"
-resolver_conf="$KPBR_RUNTIME/resolver.conf"
-fallback_conf="$KPBR_RUNTIME/dnsmasq-fallback.conf"
+upstream_conf="$KPBR_RUNTIME/dnsmasq-upstream.conf"
 
+# dnsmasq is an unmanaged, plain forwarding resolver in this harness; keen-pbr
+# no longer configures it.  Cases that need a different upstream rewrite the
+# file and restart the dnsmasq unit.
 ensure_dns_files() {
   mkdir -p "$KPBR_RUNTIME"
-  if [[ ! -f "$fallback_conf" ]]; then
-    cat >"$fallback_conf" <<EOF_FALLBACK
-# Private integration fallback: never use an external resolver.
+  if [[ ! -f "$upstream_conf" ]]; then
+    cat >"$upstream_conf" <<EOF_UPSTREAM
+# Private integration upstream: never use an external resolver.
 server=10.20.0.2#15353
-EOF_FALLBACK
-  fi
-  if [[ ! -f "$resolver_conf" ]]; then
-    printf 'conf-file=%s\n' "$fallback_conf" >"$resolver_conf"
+EOF_UPSTREAM
   fi
 }
 
-append_resolver_options() {
-  local config=$1 line
+# dnsmasq refuses to read config files owned by foreign uids inside the
+# rootless user namespace, so the upstream file is translated to options.
+upstream_options() {
+  local line
   while IFS= read -r line || [[ -n "$line" ]]; do
     case "$line" in
       ''|'#'*) continue ;;
-      conf-file=*) append_resolver_options "${line#conf-file=}" ;;
       *) resolver_options+=("--$line") ;;
     esac
-  done <"$config"
+  done <"$upstream_conf"
 }
 
 start_dnsmasq() {
@@ -41,7 +41,7 @@ start_dnsmasq() {
   rm -f "$dns_pid"
   ensure_dns_files
   resolver_options=()
-  append_resolver_options "$resolver_conf"
+  upstream_options
   : >>"$dns_log"
   # --no-daemon keeps dnsmasq in debug mode, which also avoids its privileged
   # user/group drop.  A rootless user namespace cannot call setgroups(2)
@@ -107,19 +107,11 @@ start_keen() {
     tail -n 160 "$keen_log" >&2 || true
     die "keen-pbr API did not reach running state"
   }
-
-  # Make the DNS view deterministic before the test starts.  The daemon also
-  # calls this hook on lifecycle/config changes; this initial call is idempotent.
-  "$KPBR_REPO_ROOT/tests/integration/netns/resolver-hook.sh" reload
 }
 
 stop_keen() {
   stop_pidfile "$keen_child_pid"
   rm -f "$keen_daemon_pid" /run/keen-pbr/control.sock "$KPBR_RUNTIME/control.sock"
-  # Match the Debian unit's deactivate semantics for the next dnsmasq start,
-  # without restarting anything during teardown.
-  ensure_dns_files
-  printf 'conf-file=%s\n' "$fallback_conf" >"$resolver_conf"
 }
 
 status_unit() {

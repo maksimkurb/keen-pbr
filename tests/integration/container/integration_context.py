@@ -309,6 +309,9 @@ def setup_case(context: SystemContext, _case) -> None:
     context.reset_peers()
     CONFIG_PATH.write_text(json.dumps(baseline_config(context.backend), indent=2) + "\n",
                            encoding="utf-8")
+    # Plain forwarding resolver: reset its upstream to the harness default.
+    pathlib.Path(os.environ.get("KPBR_RUNTIME", "/run/keen-pbr-it"),
+                 "dnsmasq-upstream.conf").unlink(missing_ok=True)
     context.run("systemctl", "reset-failed", "dnsmasq.service", "keen-pbr.service",
                 check=False)
     context.run("systemctl", "restart", "dnsmasq.service")

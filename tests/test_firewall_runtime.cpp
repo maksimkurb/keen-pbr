@@ -814,7 +814,7 @@ TEST_CASE("runtime emits DNS detours as OUTPUT TCP/UDP rules") {
   const Config config = parse_config(R"({
     "daemon": {"ipv6_enabled":false},
     "outbounds": [{"type":"table","tag":"wan","table":100}],
-    "dns": {"resolver_integration":"dnsmasq","servers":[{"tag":"upstream","address":"192.0.2.53:5353",
+    "dns": {"servers":[{"tag":"upstream","address":"192.0.2.53:5353",
                             "detour":"wan"}]}
   })");
   RecordingFirewall firewall;
@@ -844,7 +844,7 @@ TEST_CASE("runtime DNS detour precedence follows configured order") {
       {"type":"table","tag":"route_z","table":100},
       {"type":"table","tag":"route_a","table":101}
     ],
-    "dns": {"resolver_integration":"dnsmasq","servers":[
+    "dns": {"servers":[
       {"tag":"upstream_z","address":"192.0.2.54:5353",
        "detour":"route_z"},
       {"tag":"upstream_a","address":"192.0.2.53:5353",

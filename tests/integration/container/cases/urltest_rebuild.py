@@ -1,5 +1,5 @@
 def register(registry):
-    @registry.case("urltest_rebuild")
+    @registry.case("urltest_rebuild", requires=("nfqueue",))
     def urltest_rebuild(context):
         context.wait_for("initial urltest selection", context.selected_outbound)
         stopped = context.api("/api/service/stop", "POST")

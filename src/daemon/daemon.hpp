@@ -16,7 +16,6 @@
 #include "../runtime/conntrack_manager.hpp"
 #include "../runtime/lifecycle_operation.hpp"
 #include "../runtime/operation_coordinator.hpp"
-#include "../resolver/resolver_integration.hpp"
 #include "../runtime/runtime_state_machine.hpp"
 #include "../util/blocking_executor.hpp"
 #include "../util/traced_mutex.hpp"
@@ -97,12 +96,10 @@ struct PendingUrltestConntrackCleanup {
   uint32_t mark_mask{0};
 };
 
-// Per-runtime-generation decisions the control socket reports and the resolver
-// output (when a resolver integration is enabled) is generated from.
+// Per-runtime-generation decisions the control socket reports.
 struct ControlGenerationSnapshot {
   bool ipv6_enabled{true};
-  // The daemon fills the dynamic sets (DNS hold active): a resolver must not
-  // fill them as well.
+  // The daemon fills the dynamic sets (DNS hold active).
   bool intercept_dns_hold{false};
   std::uint64_t generation{0};
 };
@@ -124,9 +121,7 @@ const Outbound *find_outbound(const std::vector<Outbound> &outbounds,
 // Handles signal dispatch, routing, firewall, urltest, and API lifecycle.
 class Daemon {
 public:
-  Daemon(Config config, std::string config_path, DaemonOptions opts,
-         HookCommandExecutor hook_command_executor =
-             default_hook_command_executor);
+  Daemon(Config config, std::string config_path, DaemonOptions opts);
   ~Daemon();
 
   // Non-copyable, non-movable
@@ -208,7 +203,6 @@ private:
   void continue_startup_after_lists(
       std::optional<RemoteListsRefreshResult> refresh_result,
       std::string error);
-  void finish_startup_after_resolver_reload(ResolverReloadResult reload);
   void fail_startup_runtime(std::string error);
 
   // lifecycle and runtime apply
@@ -225,7 +219,7 @@ private:
                       const std::vector<DumpedRoute>* main_routes = nullptr,
                       const Config* quiesce_config = nullptr,
                       const OutboundMarkMap* quiesce_marks = nullptr);
-  void reconcile_lists_only(bool reload_resolver);
+  void reconcile_lists_only();
 
   // Traffic interception (DNS hold / L7 sniff), see daemon_intercept.cpp.
   InterceptEffective resolve_intercept_effective();
@@ -255,7 +249,7 @@ private:
       const std::string &urltest_tag, std::uint64_t probe_generation,
       std::map<std::string, URLTestResult> results, TraceId trace_id);
   void apply_config(Config config, bool refresh_remote_lists = true);
-  // Candidate application may mutate kernel/resolver state while keeping the
+  // Candidate application may mutate kernel state while keeping the
   // externally visible active snapshot unchanged until its transaction commits.
   void apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
                                      bool publish_active_snapshot = true);
@@ -272,13 +266,8 @@ private:
   void restart_routing_runtime();
   bool routing_runtime_active() const;
   void transition_runtime_or_throw(RuntimeState next, const char *reason);
-  // Resolver integration (see src/resolver/): every call is a no-op when the
-  // integration is `none`.
-  ResolverIntegrationHost make_resolver_host();
-  void sync_resolver_integration(const Config &config);
-  void reload_resolver_or_throw(const char *reason);
-  void reload_and_verify_resolver_or_throw(const char *reason);
-  void begin_resolver_generation();
+  // Marks the start of a runtime apply and refreshes the control snapshot.
+  void begin_runtime_generation();
   void schedule_lists_autoupdate();
   ListsRefreshExecutionResult execute_remote_list_refresh(
       const std::set<std::string> *target_lists = nullptr,
@@ -319,13 +308,10 @@ private:
 
   // Recompute the per-generation control snapshot from the current config.
   void refresh_generation_snapshot();
-  bool accept_resolver_generated_hash(std::uint64_t generation,
-                                      const std::string &hash);
   ControlGenerationSnapshot make_generation_snapshot();
   RuntimeStateSnapshot build_runtime_state_snapshot() const;
   void publish_runtime_state(
       StatusPublishScope scope = StatusPublishScope::ServiceAndOutbounds);
-  void publish_resolver_runtime_state();
   void publish_urltest_runtime_state(const std::string &tag);
 
   // Lists autoupdate state
@@ -461,12 +447,9 @@ IcmpTester icmp_tester_;
   std::unique_ptr<StatusStream> status_stream_;
 #endif
 
-  // Optional resolver integration; NoResolverIntegration unless
-  // dns.resolver_integration is `dnsmasq`.  Declared last so it is destroyed
-  // first: its workers call back into the members above.
   bool routing_runtime_active_{true};
-  ResolverIntegrationDeps resolver_deps_;
-  std::unique_ptr<ResolverIntegration> resolver_integration_;
+  // Unix seconds of the last runtime apply start; 0 when none happened yet.
+  std::atomic<std::int64_t> apply_started_ts_{0};
 };
 
 } // namespace keen_pbr3

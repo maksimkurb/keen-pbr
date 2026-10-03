@@ -3,8 +3,7 @@
 
 namespace keen_pbr3 {
 
-DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
-    : fallback_tags_(dns_config.fallback.value_or(std::vector<std::string>{})) {
+DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config) {
     // Parse all DNS server definitions into DnsServerConfig
     for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
         const auto server_type = server.type.value_or(api::DnsServerType::STATIC);
@@ -23,23 +22,6 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
             throw DnsError("DNS server '" + server.tag + "' has unsupported type");
         }
     }
-
-    // Validate that fallback server tags exist
-    for (const auto& fallback_tag : fallback_tags_) {
-        if (servers_.find(fallback_tag) == servers_.end()) {
-            throw DnsError("DNS fallback server tag not found: '" + fallback_tag + "'");
-        }
-    }
-
-    // Validate that all rule server tags exist
-    for (const auto& rule : dns_config.rules.value_or(std::vector<DnsRule>{})) {
-        if (!dns_rule_enabled(rule)) {
-            continue;
-        }
-        if (servers_.find(rule.server) == servers_.end()) {
-            throw DnsError("DNS rule references unknown server tag: '" + rule.server + "'");
-        }
-    }
 }
 
 std::vector<const DnsServerConfig*> DnsServerRegistry::get_servers(const std::string& tag) const {
@@ -53,17 +35,6 @@ std::vector<const DnsServerConfig*> DnsServerRegistry::get_servers(const std::st
         resolved_servers.push_back(&server);
     }
     return resolved_servers;
-}
-
-std::vector<const DnsServerConfig*> DnsServerRegistry::fallback_servers() const {
-    std::vector<const DnsServerConfig*> fallback_servers;
-    for (const auto& fallback_tag : fallback_tags_) {
-        const auto resolved_servers = get_servers(fallback_tag);
-        fallback_servers.insert(fallback_servers.end(),
-                                resolved_servers.begin(),
-                                resolved_servers.end());
-    }
-    return fallback_servers;
 }
 
 } // namespace keen_pbr3

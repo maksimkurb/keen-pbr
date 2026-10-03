@@ -9,7 +9,7 @@ import type { InterceptDnsConfig } from './interceptDnsConfig';
 import type { InterceptL7Config } from './interceptL7Config';
 
 /**
- * Daemon-side traffic interception that fills the dynamic (domain learned) sets instead of dnsmasq. Parts that the kernel does not support are disabled automatically and reported in `/api/health/service`.
+ * Daemon-side traffic interception that fills the dynamic (domain learned) sets. Parts that the kernel does not support are disabled automatically and reported in `/api/health/service`.
 
  */
 export interface InterceptConfig {

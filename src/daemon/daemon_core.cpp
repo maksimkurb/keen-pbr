@@ -123,16 +123,11 @@ nlohmann::json control_rule_state_json(const ControlRuntimeSnapshot::Rule &rule)
 
 nlohmann::json control_runtime_state_json(
     const ControlRuntimeSnapshot &snapshot, FirewallBackend backend,
-    bool ipv6_enabled, bool intercept_dns_hold, bool resolver_integration,
+    bool ipv6_enabled, bool intercept_dns_hold,
     std::uint64_t generation, const std::string &config_path) {
   nlohmann::json rules = nlohmann::json::array();
   for (const auto &rule : snapshot.realized_rules)
     rules.push_back(control_rule_state_json(rule));
-  // Without a resolver integration nothing manages the resolver: a stray
-  // conf-script call is answered with the static fallback.
-  const bool fallback = !resolver_integration ||
-                        snapshot.runtime_state == RuntimeState::stopped ||
-                        snapshot.runtime_state == RuntimeState::shutting_down;
   return {{"runtime_state", runtime_state_name(snapshot.runtime_state)},
           {"runtime_state_reason", snapshot.runtime_state_reason},
           {"routing_runtime_active", snapshot.routing_runtime_active},
@@ -140,17 +135,7 @@ nlohmann::json control_runtime_state_json(
           {"firewall_backend", firewall_backend_name(backend)},
           {"ipv6_enabled", ipv6_enabled},
           {"intercept_dns_hold", intercept_dns_hold},
-          {"resolver_integration", resolver_integration},
           {"config_path", config_path},
-          {"resolver_mode", fallback ? "fallback" : "active"},
-          {"resolver_fallback_reason",
-           fallback
-               ? (!resolver_integration
-                      ? "resolver_integration_disabled"
-                      : (snapshot.runtime_state == RuntimeState::shutting_down
-                             ? "runtime_shutting_down"
-                             : "runtime_stopped"))
-               : ""},
           {"realized_rules", std::move(rules)}};
 }
 
@@ -183,8 +168,7 @@ const Outbound *find_outbound(const std::vector<Outbound> &outbounds,
   return nullptr;
 }
 
-Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts,
-               HookCommandExecutor hook_command_executor)
+Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
     : config_store_(config),
       list_service_(config.daemon.value_or(DaemonConfig{})
                         .cache_dir.value_or("/var/cache/keen-pbr"),
@@ -203,10 +187,6 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts,
           config_.fwmark.value_or(FwmarkConfig{}),
           config_.outbounds.value_or(std::vector<Outbound>{}))),
       routing_runtime_active_(true) {
-  resolver_deps_.host = make_resolver_host();
-  resolver_deps_.hook_executor = hook_command_executor
-                                     ? std::move(hook_command_executor)
-                                     : HookCommandExecutor{default_hook_command_executor};
   if (opts_.use_raw_prerouting || opts_.use_raw6_prerouting) {
     const auto raw_mode = firewall_->raw_prerouting_mode();
     Logger::instance().info(
@@ -244,8 +224,6 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts,
   firewall_state_.set_outbound_marks(outbound_marks_);
   list_service_.ensure_dir();
   scheduler_ = std::make_unique<Scheduler>(*this);
-  sync_resolver_integration(config_);
-
 #ifdef WITH_API
   dns_test_broadcaster_ = std::make_unique<SseBroadcaster>();
 #endif
@@ -255,7 +233,6 @@ Daemon::~Daemon() {
   try {
     accept_posted_control_tasks_.store(false, std::memory_order_release);
     lifecycle_executor_.shutdown();
-    if (resolver_integration_) resolver_integration_->shutdown();
     routing_test_executor_.shutdown();
     blocking_executor_.shutdown();
     if (rollback_config_fd_ >= 0) {
@@ -677,24 +654,10 @@ void Daemon::handle_ipc_control_socket() {
     nlohmann::json response;
     try {
       const std::string operation = request.at("operation").get<std::string>();
-      // Only a running resolver hook gates control mutations; with the
-      // integration disabled no hook ever runs.
-      const bool resolver_hook_inflight =
-          resolver_integration_->hook_in_flight();
-      const bool read_only_operation =
-          operation == "status" || operation == "resolver-config-hash" ||
-          operation == "test-routing";
       const bool startup_mutation =
           runtime_state_machine_.state() == RuntimeState::starting &&
           (operation == "download" || operation == "test-routing");
-      if (resolver_hook_inflight && operation != "generate-resolver-config" &&
-          operation != "resolver-config-generated" &&
-          !read_only_operation) {
-        response =
-            ipc::make_error_response(request, "busy",
-                                     "mutating control operations are "
-                                     "unavailable during resolver reload");
-      } else if (startup_mutation) {
+      if (startup_mutation) {
         response = ipc::make_error_response(
             request, "busy",
             "routing runtime initialization is still in progress");
@@ -704,51 +667,21 @@ void Daemon::handle_ipc_control_socket() {
           throw ipc::ControlProtocolError(
               "control peer is not authorized for this operation");
         }
-        if (operation != "status" && operation != "resolver-config-hash" &&
-            operation != "download" && operation != "test-routing" &&
-            operation != "generate-resolver-config" &&
-            operation != "resolver-config-generated") {
+        if (operation != "status" && operation != "download" &&
+            operation != "test-routing") {
           response = ipc::make_error_response(request, "unsupported_operation",
                                               "unsupported control operation");
-        } else if (operation == "resolver-config-hash" &&
-                   !resolver_integration_->enabled()) {
-          response = ipc::make_error_response(
-              request, "resolver_integration_disabled",
-              "dns.resolver_integration is none");
-        } else if ((operation == "generate-resolver-config" ||
-                    operation == "resolver-config-generated") &&
-                   !resolver_integration_->enabled()) {
-          response = ipc::make_error_response(
-              request, "resolver_integration_disabled",
-              "dns.resolver_integration is none");
-        } else if (operation == "resolver-config-generated") {
-          const auto generation = request.value("generation", std::uint64_t{0});
-          const auto hash = request.value("hash", "");
-          if (!accept_resolver_generated_hash(generation, hash)) {
-            response = ipc::make_error_response(
-                request, "stale_generation",
-                "resolver output belongs to a stale runtime generation");
-          } else {
-            response = {{"protocol_version", ipc::kControlProtocolVersion},
-                        {"request_id", request.at("request_id")},
-                        {"ok", true},
-                        {"result", {{"generation", generation}}}};
-          }
-        } else if (operation == "status" ||
-                   operation == "resolver-config-hash" ||
-                   operation == "test-routing" ||
-                   operation == "generate-resolver-config") {
+        } else if (operation == "status" || operation == "test-routing") {
           const bool include_realized_rules =
               operation == "status" || operation == "test-routing";
           const auto snapshot =
               runtime_state_store_.control_snapshot(include_realized_rules);
-          if (snapshot.runtime_state == RuntimeState::applying &&
-              operation != "generate-resolver-config") {
+          if (snapshot.runtime_state == RuntimeState::applying) {
             response = ipc::make_error_response(
                 request, "busy", "runtime configuration is being applied");
           } else {
             // Status must remain a nonblocking control operation.  The
-            // resolver generation normally supplies the cached decision; a
+            // runtime generation normally supplies the cached decision; a
             // pre-generation status response uses the conservative display
             // default instead of probing the firewall on this event loop.
             const bool ipv6_enabled = generation_snapshot_.has_value()
@@ -762,7 +695,7 @@ void Daemon::handle_ipc_control_socket() {
                     : intercept_effective_snapshot().dns_hold;
             auto result = control_runtime_state_json(
                 snapshot, firewall_->backend(), ipv6_enabled,
-                intercept_dns_hold, resolver_integration_->enabled(),
+                intercept_dns_hold,
                 runtime_generation_.load(std::memory_order_acquire),
                 config_path_);
             if (operation == "status") {
@@ -797,9 +730,8 @@ void Daemon::handle_ipc_control_socket() {
             reloaded = result.reloaded;
           } else {
             const auto relevant = collect_relevant_list_names(config_);
-            const auto dns_relevant = collect_dns_relevant_list_names(config_);
             refresh = list_service_.refresh_remote_lists(
-                config_, outbound_marks_, &relevant, nullptr, &dns_relevant);
+                config_, outbound_marks_, &relevant, nullptr);
           }
           response = {{"protocol_version", ipc::kControlProtocolVersion},
                       {"request_id", request.at("request_id")},
@@ -1391,14 +1323,13 @@ void Daemon::begin_startup_runtime() {
     log.info("Startup lists: checking local cache; only missing remote lists "
              "will be downloaded.");
     const auto relevant_lists = collect_relevant_list_names(config_);
-    const auto dns_relevant_lists = collect_dns_relevant_list_names(config_);
     const bool queued = blocking_executor_.try_post(
-        "startup-lists", [this, relevant_lists, dns_relevant_lists] {
+        "startup-lists", [this, relevant_lists] {
           std::optional<RemoteListsRefreshResult> refresh_result;
           std::string error;
           try {
             refresh_result = list_service_.download_uncached(
-                config_, outbound_marks_, &relevant_lists, &dns_relevant_lists);
+                config_, outbound_marks_, &relevant_lists);
           } catch (const std::exception &exception) {
             error = exception.what();
           } catch (...) {
@@ -1456,78 +1387,26 @@ void Daemon::continue_startup_after_lists(
   try {
     apply_firewall(FirewallApplyMode::Destructive);
     log.info("Firewall rules and routing applied.");
-    if (result.any_dns_relevant_changed()) {
-      log.info("Startup lists: DNS-relevant list(s) changed: {}",
-               format_list_names(result.dns_relevant_changed_lists));
-    }
 
-    // Publish the desired resolver generation before reloading the resolver
-    // so it can stream the complete managed configuration through the
-    // already-running control socket.  With the integration disabled the
-    // reload completes immediately.
-    begin_resolver_generation();
+    begin_runtime_generation();
     publish_runtime_state();
 
-    resolver_integration_->reload_async(
-        ResolverReloadRequest{"startup"}, [this](ResolverReloadResult reload) {
-          post_control_task(
-              [this, reload = std::move(reload)]() mutable {
-                finish_startup_after_resolver_reload(std::move(reload));
-              },
-              "startup-after-resolver-reload");
-        });
-  } catch (const std::exception &exception) {
-    fail_startup_runtime(exception.what());
-  } catch (...) {
-    fail_startup_runtime("unknown firewall or resolver initialization error");
-  }
-}
-
-void Daemon::finish_startup_after_resolver_reload(ResolverReloadResult reload) {
-  if (!reload.ok) {
-    fail_startup_runtime(reload.error.empty() ? "system resolver reload hook failed"
-                                              : std::move(reload.error));
-    return;
-  }
-
-  try {
     refresh_generation_snapshot();
     register_interface_monitor_fd();
-    if (!resolver_integration_->active()) {
-      complete_running_runtime("startup complete");
-      Logger::instance().info("Routing runtime started.");
-      return;
-    }
-
-    resolver_integration_->verify_async(
-        ResolverReloadRequest{"startup"}, [this](ResolverReloadResult verified) {
-          post_control_task(
-              [this, verified = std::move(verified)]() mutable {
-                if (!verified.ok) {
-                  fail_startup_runtime(verified.error);
-                  return;
-                }
-                try {
-                  complete_running_runtime("startup complete");
-                  Logger::instance().info("Routing runtime started.");
-                } catch (const std::exception &exception) {
-                  fail_startup_runtime(exception.what());
-                }
-              },
-              "startup-after-resolver-verification");
-        });
+    complete_running_runtime("startup complete");
+    log.info("Routing runtime started.");
   } catch (const std::exception &exception) {
     fail_startup_runtime(exception.what());
   } catch (...) {
-    fail_startup_runtime("unknown startup finalization error");
+    fail_startup_runtime("unknown firewall initialization error");
   }
 }
 
 void Daemon::run() {
   auto &log = Logger::instance();
 
-  // Make the control plane observable before any routing, list download, or
-  // resolver work. Health reports runtime_state=starting until the deferred
+  // Make the control plane observable before any routing or list download
+  // work. Health reports runtime_state=starting until the deferred
   // initialization pipeline completes or reports a concrete failure.
   publish_runtime_state();
 
@@ -1552,30 +1431,10 @@ void Daemon::run() {
   log.info("Shutting down...");
   transition_runtime_or_throw(RuntimeState::shutting_down, "daemon shutdown");
   publish_runtime_state();
-  if (resolver_integration_->enabled()) {
-    try {
-      if (!resolver_integration_->fallback()) {
-        log.warn("System resolver shutdown hook failed; the resolver will use "
-                 "its fallback on its next restart");
-      }
-    } catch (const std::exception &error) {
-      log.warn("System resolver shutdown hook failed: {}; the resolver will "
-               "use its fallback on its next restart",
-               error.what());
-    }
-
-    // Some init scripts return before the resolver invokes its conf-script.
-    // Keep the control socket alive long enough to answer that final
-    // fallback request instead of closing the connection underneath the
-    // helper.
-    resolver_integration_->drain_callbacks(std::chrono::seconds{1});
-  }
-
   event_loop_active_.store(false, std::memory_order_release);
   event_loop_thread_id_.store(std::thread::id{}, std::memory_order_relaxed);
   accept_posted_control_tasks_.store(false, std::memory_order_release);
   lifecycle_executor_.shutdown();
-  resolver_integration_->shutdown();
   routing_test_executor_.shutdown();
   blocking_executor_.shutdown();
 

@@ -7,8 +7,7 @@ from integration_context import TEST_IP, TEST_IP6
 
 def _config(context):
     config = dns_config(context,
-        [{"tag": "upstream", "address": "10.20.0.2:15353"}],
-        ["upstream"], [], {
+        [{"tag": "upstream", "address": "10.20.0.2:15353"}], {
         "l7": {"domains": ["example.com", "http.example.com"]},
     })
     config["route"] = {"inbound_interfaces": ["lan0"],

@@ -28,7 +28,7 @@ struct FirewallConfigApplyPolicy {
 
 // Select the apply mode required when a candidate configuration replaces the
 // currently active runtime configuration. Static sets are refreshed through a
-// temp set + swap, which accepts any capacity, but the dnsmasq-owned dynamic
+// temp set + swap, which accepts any capacity, but the daemon-owned dynamic
 // sets cannot change maxelem/hashsize in place (their learned entries live in
 // the set), so capacity changes still require recreating the owned sets.
 FirewallConfigApplyPolicy firewall_config_apply_policy(

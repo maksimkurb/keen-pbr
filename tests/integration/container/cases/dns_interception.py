@@ -11,9 +11,6 @@ def _config(context):
     config = dns_config(
         context,
         [{"tag": "upstream", "address": "10.20.0.2:15353"}],
-        ["upstream"],
-        [{"list": ["learned"], "server": "upstream",
-          "allow_domain_rebinding": True}],
         {"learned": {"domains": ["target.cname.test"]}},
     )
     config["route"] = {"inbound_interfaces": ["lan0"],
@@ -86,7 +83,7 @@ def register(registry):
         context.wait_for("CNAME IPv6 address publication", lambda: (
             context.dynamic_set_contains(TEST_IP6, list_name="learned")))
 
-        # Bypass dnsmasq entirely: this query traverses the client→router→WAN
+        # Bypass the router resolver entirely: this query traverses the client→router→WAN
         # path to the upstream fixture's real port 53.  Clearing the learned
         # address first prevents a pre-populated set from making this a false
         # positive.
