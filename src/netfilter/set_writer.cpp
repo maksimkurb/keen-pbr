@@ -1,12 +1,8 @@
 #include "set_writer.hpp"
 
 #include "nl_socket.hpp"
+#include "uapi_compat.hpp"
 
-#include <linux/netfilter.h>
-#include <linux/netfilter/ipset/ip_set.h>
-#include <linux/netfilter/nf_tables.h>
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netlink.h>
 
 #include <algorithm>
 #include <cerrno>

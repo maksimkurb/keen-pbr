@@ -1,9 +1,7 @@
 #include "nflog.hpp"
+#include "uapi_compat.hpp"
 
 #include <arpa/inet.h>
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netfilter/nfnetlink_log.h>
-#include <linux/netlink.h>
 #include <poll.h>
 
 #include <cerrno>
@@ -72,7 +70,7 @@ bool parse_nflog_packet(const MsgView& message, LoggedPacket& packet) {
     packet.indev = attr_u32_be(attrs[NFULA_IFINDEX_INDEV]);
     packet.outdev = attr_u32_be(attrs[NFULA_IFINDEX_OUTDEV]);
     packet.payload = payload.payload;
-    packet.conntrack_attrs = attrs[NFULA_CT].payload;
+    packet.conntrack_attrs = attrs[uapi::kNfulaCt].payload;
     return true;
 }
 

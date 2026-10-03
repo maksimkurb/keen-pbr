@@ -1,10 +1,7 @@
 #include "nfqueue.hpp"
+#include "uapi_compat.hpp"
 
 #include <arpa/inet.h>
-#include <linux/netfilter.h>
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netfilter/nfnetlink_queue.h>
-#include <linux/netlink.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -20,8 +17,7 @@ namespace keen_pbr3::nfnl {
 
 namespace {
 
-// Defined locally so that old toolchain headers lacking NFQA_CAP_LEN still build.
-constexpr uint16_t kNfqaCapLen = 13;
+constexpr uint16_t kNfqaCapLen = uapi::kNfqaCapLen;
 
 constexpr uint16_t kMsgConfig = (NFNL_SUBSYS_QUEUE << 8) | NFQNL_MSG_CONFIG;
 constexpr uint16_t kMsgVerdict = (NFNL_SUBSYS_QUEUE << 8) | NFQNL_MSG_VERDICT;
@@ -32,10 +28,6 @@ constexpr uint16_t kReqAck = NLM_F_REQUEST | NLM_F_ACK;
 constexpr std::size_t kRxBufSize = 128 * 1024;  // > max netlink skb for a 64 KiB copy range
 constexpr int kMaxDatagramsPerReceive = 256;
 constexpr int kConfigTimeoutMs = 2000;
-// Keep building with older embedded headers that predate linux/nsfs.h.
-#ifndef NS_GET_USERNS
-#define NS_GET_USERNS _IO(0xb7, 0x1)
-#endif
 constexpr ino_t kInitialUserNamespaceInode = static_cast<ino_t>(0xEFFFFFFDU);
 constexpr ino_t kInitialNetworkNamespaceInode = static_cast<ino_t>(0xEFFFFFF9U);
 
@@ -150,8 +142,8 @@ void build_nfqueue_params(MsgBuilder& b, uint32_t seq, const NfQueueOptions& o) 
     params.copy_mode = NFQNL_COPY_PACKET;
     b.put(NFQA_CFG_PARAMS, &params, sizeof(params));
     b.put_u32_be(NFQA_CFG_QUEUE_MAXLEN, o.queue_maxlen);
-    b.put_u32_be(NFQA_CFG_MASK, NFQA_CFG_F_FAIL_OPEN);
-    b.put_u32_be(NFQA_CFG_FLAGS, o.fail_open ? NFQA_CFG_F_FAIL_OPEN : 0u);
+    b.put_u32_be(uapi::kNfqaCfgMask, uapi::kNfqaCfgFFailOpen);
+    b.put_u32_be(uapi::kNfqaCfgFlags, o.fail_open ? uapi::kNfqaCfgFFailOpen : 0u);
     b.end();
 }
 
