@@ -310,6 +310,26 @@ std::optional<uint16_t> parse_port(std::string_view text) {
   return static_cast<uint16_t>(*value);
 }
 
+// Jumps into these chains must be the first rule of their builtin chain.
+bool is_pinned_hook_target(PhysicalChainRole role) {
+  return role == PhysicalChainRole::iptables_dns_hold ||
+         role == PhysicalChainRole::iptables_sniff;
+}
+
+std::size_t builtin_slot(const PhysicalChainId &id) {
+  switch (id.role) {
+  case PhysicalChainRole::system_prerouting:
+    return 0;
+  case PhysicalChainRole::system_output:
+    return 3;
+  default:
+    break;
+  }
+  if (id.name == "INPUT") return 1;
+  if (id.name == "FORWARD") return 2;
+  return 4; // POSTROUTING
+}
+
 std::optional<FirewallRuleKey> key_from_comment(std::string_view comment) {
   try {
     return FirewallRuleKey::from_comment(comment);
@@ -372,6 +392,12 @@ std::optional<PhysicalChainId> classify_iptables_chain(std::string_view name,
   }
   if (name == "KeenPbrOutput") {
     return iptables_id(R::iptables_output, table, family, name);
+  }
+  if (name == "KeenPbrDnsHold") {
+    return iptables_id(R::iptables_dns_hold, table, family, name);
+  }
+  if (name == "KeenPbrSniff") {
+    return iptables_id(R::iptables_sniff, table, family, name);
   }
   return iptables_id(R::other_owned, table, family, name);
 }
@@ -436,6 +462,11 @@ struct IptablesRuleParser {
   struct Result {
     PhysicalRule rule;
     std::optional<std::string_view> comment;
+    // connbytes needs --connbytes, --connbytes-dir and --connbytes-mode; the
+    // kernel prints all three.  A partial one is not trusted.
+    std::optional<std::size_t> connbytes_index;
+    bool connbytes_dir{false};
+    bool connbytes_mode{false};
   };
 
   void unknown_match(Result &r, std::size_t from, std::size_t to) const {
@@ -488,6 +519,19 @@ struct IptablesRuleParser {
   }
 
   Result parse(std::size_t first) const {
+    Result r = parse_tokens(first);
+    if (r.connbytes_index.has_value() &&
+        !(r.connbytes_dir && r.connbytes_mode)) {
+      auto &match = r.rule.matches[*r.connbytes_index];
+      const auto &bytes = std::get<ConnbytesMatch>(match);
+      match = UnknownMatch{"-m connbytes --connbytes " +
+                           std::to_string(bytes.from) + ":" +
+                           std::to_string(bytes.to) + " (incomplete)"};
+    }
+    return r;
+  }
+
+  Result parse_tokens(std::size_t first) const {
     Result r;
     r.rule.family = family;
     PhysicalTransport proto_transport = PhysicalTransport::any;
@@ -508,9 +552,9 @@ struct IptablesRuleParser {
 
       if (token == "-m" && i + 1 < size) {
         module = tokens[i + 1];
-        static constexpr std::array<std::string_view, 9> kKnownModules{
+        static constexpr std::array<std::string_view, 10> kKnownModules{
             "tcp",  "udp",  "multiport", "comment", "set",
-            "dscp", "mark", "connmark",  "conntrack"};
+            "dscp", "mark", "connmark",  "conntrack", "connbytes"};
         if (std::find(kKnownModules.begin(), kKnownModules.end(), module) ==
             kKnownModules.end()) {
           // Never drop a module silently, even when none of its options is
@@ -640,6 +684,45 @@ struct IptablesRuleParser {
       }
       return at;
     }
+    if (module == "connbytes" && !neg) {
+      if (option == "--connbytes" && at + 1 < size &&
+          !r.connbytes_index.has_value()) {
+        const std::string_view text = tokens[at + 1];
+        const auto colon = text.find(':');
+        const auto from = parse_u32(text.substr(0, colon));
+        const auto to = colon == std::string_view::npos
+                            ? std::nullopt
+                            : parse_u32(text.substr(colon + 1));
+        if (from.has_value() && to.has_value() && *from <= *to) {
+          r.connbytes_index = r.rule.matches.size();
+          r.rule.matches.push_back(ConnbytesMatch{
+              ConnbytesDir::original, ConnbytesMode::packets, *from, *to});
+          return at + 2;
+        }
+        return at;
+      }
+      if ((option == "--connbytes-dir" || option == "--connbytes-mode") &&
+          at + 1 < size && r.connbytes_index.has_value()) {
+        auto &bytes = std::get<ConnbytesMatch>(r.rule.matches[*r.connbytes_index]);
+        const std::string_view value = tokens[at + 1];
+        if (option == "--connbytes-dir" && !r.connbytes_dir) {
+          if (value == "original") bytes.dir = ConnbytesDir::original;
+          else if (value == "reply") bytes.dir = ConnbytesDir::reply;
+          else if (value == "both") bytes.dir = ConnbytesDir::both;
+          else return at;
+          r.connbytes_dir = true;
+          return at + 2;
+        }
+        if (option == "--connbytes-mode" && !r.connbytes_mode) {
+          if (value == "packets") bytes.mode = ConnbytesMode::packets;
+          else if (value == "bytes") bytes.mode = ConnbytesMode::bytes;
+          else return at;
+          r.connbytes_mode = true;
+          return at + 2;
+        }
+      }
+      return at;
+    }
     if (module == "conntrack") {
       if (option == "--ctdir" && at + 1 < size && !neg &&
           (tokens[at + 1] == "ORIGINAL" || tokens[at + 1] == "REPLY")) {
@@ -699,6 +782,71 @@ struct IptablesRuleParser {
         return;
       }
     }
+    if (!is_goto && target == "NFQUEUE") {
+      QueueStmt queue;
+      bool ok = false;
+      for (std::size_t i = args; i < size;) {
+        if (tokens[i] == "--queue-num" && i + 1 < size) {
+          const auto value = parse_u32(tokens[i + 1]);
+          if (!value.has_value() || *value > 65535U) {
+            ok = false;
+            break;
+          }
+          queue.num = static_cast<uint16_t>(*value);
+          ok = true;
+          i += 2;
+        } else if (tokens[i] == "--queue-bypass") {
+          queue.bypass = true;
+          ++i;
+        } else {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) {
+        r.rule.statements.push_back(queue);
+        return;
+      }
+    }
+    if (!is_goto && target == "NFLOG") {
+      // iptables-save prints a bare `-j NFLOG` for group 0.
+      LogStmt log;
+      bool ok = true;
+      for (std::size_t i = args; i < size;) {
+        if (tokens[i] == "--nflog-group" && i + 1 < size) {
+          const auto value = parse_u32(tokens[i + 1]);
+          if (!value.has_value() || *value > 65535U) {
+            ok = false;
+            break;
+          }
+          log.group = static_cast<uint16_t>(*value);
+          i += 2;
+        } else if (tokens[i] == "--nflog-size" && i + 1 < size) {
+          const auto value = parse_u32(tokens[i + 1]);
+          if (!value.has_value() || *value > 65535U) {
+            ok = false;
+            break;
+          }
+          log.snaplen = static_cast<uint16_t>(*value);
+          i += 2;
+        } else if (tokens[i] == "--nflog-threshold" && i + 1 < size) {
+          const auto value = parse_u32(tokens[i + 1]);
+          if (!value.has_value() || *value == 0) {
+            ok = false;
+            break;
+          }
+          log.threshold = *value;
+          i += 2;
+        } else {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) {
+        r.rule.statements.push_back(log);
+        return;
+      }
+    }
     if (!is_goto && target == "MARK" && size == args + 2 &&
         tokens[args] == "--set-xmark") {
       // MARK --set-xmark value/mask (iptables-save prints this for every
@@ -751,6 +899,9 @@ PhysicalRuleset parse_iptables_save(std::string_view output,
   bool table_active = true;
   IptablesRuleParser parser{table, family, {}};
   parser.tokens.reserve(48);
+  // Rules seen so far in each builtin chain of the current table (ours and
+  // foreign), indexed by builtin_slot().
+  std::array<uint32_t, 5> builtin_rules{};
 
   std::size_t pos = 0;
   while (pos < output.size()) {
@@ -763,6 +914,7 @@ PhysicalRuleset parse_iptables_save(std::string_view output,
     if (line[0] == '*') {
       const std::string_view name = line.substr(1);
       table_active = true;
+      builtin_rules.fill(0);
       if (name == "mangle") table = PhysicalTable::mangle;
       else if (name == "raw") table = PhysicalTable::raw;
       else table_active = false;
@@ -812,12 +964,19 @@ PhysicalRuleset parse_iptables_save(std::string_view output,
     if (!chain_id.has_value()) continue; // foreign chain
     auto parsed = parser.parse(2);
     if (!is_owned_role(chain_id->role)) {
-      // System chain: keep only hook rules into keen-pbr chains.
+      // System chain: keep only hook rules into keen-pbr chains, but count
+      // every rule so the position of a pinned jump is its real index.
+      const uint32_t position = builtin_rules[builtin_slot(*chain_id)]++;
       bool hook = false;
+      bool pinned = false;
       for (const auto &statement : parsed.rule.statements) {
-        if (std::holds_alternative<JumpStmt>(statement)) hook = true;
+        if (const auto *jump = std::get_if<JumpStmt>(&statement)) {
+          hook = true;
+          pinned = pinned || is_pinned_hook_target(jump->target.role);
+        }
       }
       if (!hook) continue;
+      if (pinned) parsed.rule.hook_position = position;
     }
     if (parsed.comment.has_value()) {
       parsed.rule.key = key_from_comment(*parsed.comment);
@@ -866,6 +1025,15 @@ std::optional<uint32_t> json_u32(const json &value) {
   return std::nullopt;
 }
 
+std::optional<uint64_t> json_u64(const json &value) {
+  if (value.is_number_unsigned()) return value.get<uint64_t>();
+  if (value.is_number_integer()) {
+    const auto v = value.get<int64_t>();
+    if (v >= 0) return static_cast<uint64_t>(v);
+  }
+  return std::nullopt;
+}
+
 PhysicalChainId nft_chain_id(std::string_view name) {
   PhysicalChainId id;
   id.table = PhysicalTable::nft_inet;
@@ -875,6 +1043,12 @@ PhysicalChainId nft_chain_id(std::string_view name) {
     id.role = PhysicalChainRole::nft_prerouting;
   } else if (name == "output") {
     id.role = PhysicalChainRole::nft_output;
+  } else if (name == "dns_hold") {
+    id.role = PhysicalChainRole::nft_dns_hold;
+  } else if (name == "sniff_fwd") {
+    id.role = PhysicalChainRole::nft_sniff_forward;
+  } else if (name == "sniff_out") {
+    id.role = PhysicalChainRole::nft_sniff_output;
   } else if (name.size() == 16 && name.substr(0, 8) == "setmark_") {
     const std::string_view hex = name.substr(8);
     uint32_t mark = 0;
@@ -1084,7 +1258,41 @@ struct NftRuleParser {
 
     if (left.is_object() && left.size() == 1 && left.contains("ct")) {
       const std::string key = left["ct"].value("key", "");
-      if (key == "direction" && !negate && right.is_string()) {
+      if ((key == "packets" || key == "bytes") && !negate && op == "==") {
+        // `ct [original|reply] packets|bytes A-B` prints as one `==` against a
+        // range (a single count as a plain number); no `dir` means both
+        // directions.  Any other ct operand attribute or comparison stays
+        // unknown.
+        const auto &ct = left["ct"];
+        ConnbytesDir dir = ConnbytesDir::both;
+        bool ok = ct.is_object();
+        for (auto it = ct.begin(); ok && it != ct.end(); ++it) {
+          if (it.key() == "key") continue;
+          if (it.key() == "dir" && it.value().is_string() &&
+              (it.value() == "original" || it.value() == "reply")) {
+            dir = it.value() == "original" ? ConnbytesDir::original
+                                           : ConnbytesDir::reply;
+            continue;
+          }
+          ok = false;
+        }
+        std::optional<uint64_t> from;
+        std::optional<uint64_t> to;
+        if (right.is_object() && right.size() == 1 && right.contains("range") &&
+            right["range"].is_array() && right["range"].size() == 2) {
+          from = json_u64(right["range"][0]);
+          to = json_u64(right["range"][1]);
+        } else {
+          from = to = json_u64(right);
+        }
+        if (ok && from.has_value() && to.has_value() && *from <= *to) {
+          add_match(ConnbytesMatch{dir,
+                                   key == "bytes" ? ConnbytesMode::bytes
+                                                  : ConnbytesMode::packets,
+                                   *from, *to});
+          return;
+        }
+      } else if (key == "direction" && !negate && right.is_string()) {
         const std::string value = right.get<std::string>();
         if (value == "original" || value == "reply") {
           add_match(CtDirMatch{value == "original"});
@@ -1305,6 +1513,59 @@ struct NftRuleParser {
       parse_vmap(expr);
     } else if (name == "mangle") {
       parse_mangle(expr);
+    } else if (name == "queue") {
+      // Only `queue num N [bypass]` is understood; a range (load balancing),
+      // fanout or any other attribute stays unknown.
+      const auto &q = expr["queue"];
+      bool ok = q.is_object() && q.contains("num");
+      std::optional<uint32_t> num;
+      bool bypass = false;
+      for (auto it = ok ? q.begin() : q.end(); ok && it != q.end(); ++it) {
+        if (it.key() == "num") {
+          num = json_u32(it.value());
+          ok = num.has_value() && *num <= 65535U;
+        } else if (it.key() == "flags" && it.value().is_array() &&
+                   it.value().size() == 1 && it.value()[0].is_string() &&
+                   it.value()[0] == "bypass") {
+          bypass = true;
+        } else {
+          ok = false;
+        }
+      }
+      if (ok) {
+        add_statement(QueueStmt{static_cast<uint16_t>(*num), bypass});
+      } else {
+        add_statement(UnknownStmt{expr.dump()});
+      }
+    } else if (name == "log") {
+      // Only the NFLOG form: `log group G [snaplen S] [queue-threshold T]`.
+      // A syslog log (no group), prefix, level or flags stay unknown.
+      const auto &l = expr["log"];
+      bool ok = l.is_object() && l.contains("group");
+      std::optional<uint32_t> group;
+      uint32_t snaplen = 0;
+      uint32_t threshold = 1;
+      for (auto it = ok ? l.begin() : l.end(); ok && it != l.end(); ++it) {
+        const auto value = json_u32(it.value());
+        if (it.key() == "group") {
+          group = value;
+          ok = value.has_value() && *value <= 65535U;
+        } else if (it.key() == "snaplen") {
+          ok = value.has_value() && *value <= 65535U;
+          if (ok) snaplen = *value;
+        } else if (it.key() == "queue-threshold") {
+          ok = value.has_value() && *value > 0;
+          if (ok) threshold = *value;
+        } else {
+          ok = false;
+        }
+      }
+      if (ok) {
+        add_statement(LogStmt{static_cast<uint16_t>(*group),
+                              static_cast<uint16_t>(snaplen), threshold});
+      } else {
+        add_statement(UnknownStmt{expr.dump()});
+      }
     } else {
       add_statement(UnknownStmt{expr.dump()});
     }
@@ -1352,6 +1613,8 @@ PhysicalRuleset parse_nft_json(std::string_view text) {
         const std::string hook = c.value("hook", "");
         base.hook = hook == "prerouting" ? PhysicalBaseChain::Hook::prerouting
                     : hook == "output"   ? PhysicalBaseChain::Hook::output
+                    : hook == "forward" ? PhysicalBaseChain::Hook::forward
+                    : hook == "postrouting" ? PhysicalBaseChain::Hook::postrouting
                                          : PhysicalBaseChain::Hook::other;
         base.priority = static_cast<int32_t>(c.value("prio", 0));
         base.policy_accept = c.value("policy", "accept") == "accept";

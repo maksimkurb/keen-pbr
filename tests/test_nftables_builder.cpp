@@ -162,6 +162,29 @@ public:
     return firewall.build_apply_document(live, true);
   }
 
+  // Apply document of a plan carrying the interception rules (or none).
+  static nlohmann::json build_intercept_document(
+      bool dns_hold, bool l7_sniff, bool live_intercept_chains,
+      bool emit_full_table) {
+    NftablesFirewall::LiveTableState live;
+    if (live_intercept_chains) {
+      live.table_exists = true;
+      live.chain_exists = true;
+      live.output_chain_exists = true;
+      live.intercept_chains = {"dns_hold", "sniff_fwd", "sniff_out"};
+    }
+    NftablesFirewall firewall;
+    InterceptFirewallSettings settings;
+    settings.dns_hold = dns_hold;
+    settings.l7_sniff = l7_sniff;
+    FirewallPlan plan;
+    plan.fwmark_mask = 0x00ff0000U;
+    plan.rules = intercept_module_rules(settings);
+    firewall.set_fwmark_mask(plan.fwmark_mask);
+    firewall.compile_plan(plan, FirewallApplyMode::Destructive);
+    return firewall.build_apply_document(live, emit_full_table);
+  }
+
   static nlohmann::json build_delete_chain_json() {
     return NftablesFirewall::build_delete_chain_json();
   }
@@ -564,6 +587,161 @@ static FirewallPlan route_mark_plan(const FirewallRuleKey& key,
   registrar.register_rule(std::move(rule));
   registrar.finish();
   return plan;
+}
+
+namespace {
+
+// `add chain` / `delete chain` commands of the document, by chain name.
+std::vector<nlohmann::json> chain_commands(const nlohmann::json& document,
+                                           const char* verb) {
+  std::vector<nlohmann::json> result;
+  for (const auto& item : document.at("nftables")) {
+    if (item.contains(verb) && item.at(verb).contains("chain")) {
+      result.push_back(item.at(verb).at("chain"));
+    }
+  }
+  return result;
+}
+
+const nlohmann::json* find_chain(const std::vector<nlohmann::json>& chains,
+                                 const std::string& name) {
+  for (const auto& chain : chains) {
+    if (chain.value("name", "") == name) return &chain;
+  }
+  return nullptr;
+}
+
+std::vector<nlohmann::json> rules_of(const nlohmann::json& document,
+                                     const std::string& chain) {
+  std::vector<nlohmann::json> result;
+  for (const auto& item : document.at("nftables")) {
+    if (item.contains("add") && item.at("add").contains("rule") &&
+        item.at("add").at("rule").at("chain") == chain) {
+      result.push_back(item.at("add").at("rule"));
+    }
+  }
+  return result;
+}
+
+} // namespace
+
+TEST_CASE("nft interception base chains are declared with their hooks") {
+  const auto document = T::build_intercept_document(true, true, false, true);
+  const auto adds = chain_commands(document, "add");
+  const auto expect_chain = [&](const char* name, const char* hook) {
+    const auto* chain = find_chain(adds, name);
+    REQUIRE_MESSAGE(chain != nullptr, name);
+    CHECK(chain->at("family") == "inet");
+    CHECK(chain->at("table") == "KeenPbrTable");
+    CHECK(chain->at("type") == "filter");
+    CHECK(chain->at("hook") == hook);
+    CHECK(chain->at("prio") == -150);
+    CHECK(chain->at("policy") == "accept");
+  };
+  expect_chain("dns_hold", "postrouting");
+  expect_chain("sniff_fwd", "forward");
+  expect_chain("sniff_out", "output");
+  // Base chains need no jump: nothing refers to them.
+  CHECK(document.dump().find("\"jump\"") == std::string::npos);
+
+  const auto dns = rules_of(document, "dns_hold");
+  REQUIRE(dns.size() == 2);
+  const auto& expr = dns[0].at("expr");
+  CHECK(expr.dump() ==
+        R"([{"match":{"left":{"meta":{"key":"l4proto"}},"op":"==","right":"udp"}},)"
+        R"({"match":{"left":{"payload":{"field":"sport","protocol":"udp"}},"op":"==","right":53}},)"
+        R"({"match":{"left":{"ct":{"key":"state"}},"op":"in","right":"established"}},)"
+        R"({"match":{"left":{"ct":{"key":"direction"}},"op":"==","right":1}},)"
+        R"({"counter":null},{"queue":{"flags":["bypass"],"num":9053}}])");
+  for (const char* chain : {"sniff_fwd", "sniff_out"}) {
+    const auto sniff = rules_of(document, chain);
+    REQUIRE(sniff.size() == 2);
+    CHECK(sniff[0].at("expr").dump() ==
+          R"([{"match":{"left":{"meta":{"key":"l4proto"}},"op":"==","right":"tcp"}},)"
+          R"({"match":{"left":{"payload":{"field":"dport","protocol":"tcp"}},"op":"==","right":{"set":[80,443]}}},)"
+          R"({"match":{"left":{"ct":{"dir":"original","key":"packets"}},"op":"==","right":{"range":[1,6]}}},)"
+          R"({"counter":null},{"log":{"group":9054,"snaplen":2048}}])");
+    CHECK(sniff[1].at("expr")[1].dump() ==
+          R"({"match":{"left":{"payload":{"field":"dport","protocol":"udp"}},"op":"==","right":443}})");
+    CHECK(sniff[0].at("comment").get<std::string>().rfind("kpbr:v1:", 0) == 0);
+  }
+  // Declared before the rules that fill them.
+  const std::string text = document.dump();
+  CHECK(text.find("\"dns_hold\"") < text.find("\"queue\""));
+}
+
+TEST_CASE("nft without interception rules declares no interception chains") {
+  const auto document = T::build_intercept_document(false, false, false, true);
+  for (const char* name : {"dns_hold", "sniff_fwd", "sniff_out"}) {
+    CHECK(find_chain(chain_commands(document, "add"), name) == nullptr);
+  }
+  CHECK(chain_commands(document, "add").size() == 2);
+  CHECK(document.dump().find("queue") == std::string::npos);
+  CHECK(document.dump().find("\"log\"") == std::string::npos);
+}
+
+TEST_CASE("nft interception chains of a live table are replaced or removed") {
+  SUBCASE("enabled: deleted and recreated in the same document") {
+    const auto document = T::build_intercept_document(true, true, true, false);
+    const auto deletes = chain_commands(document, "delete");
+    const auto adds = chain_commands(document, "add");
+    for (const char* name : {"dns_hold", "sniff_fwd", "sniff_out"}) {
+      CHECK(find_chain(deletes, name) != nullptr);
+      CHECK(find_chain(adds, name) != nullptr);
+    }
+    // Every delete precedes the add of the same chain.
+    const std::string text = document.dump();
+    CHECK(text.find("{\"delete\":{\"chain\":{\"family\":\"inet\",\"name\":\"dns_hold\"") !=
+          std::string::npos);
+  }
+  SUBCASE("disabled: only deleted") {
+    const auto document = T::build_intercept_document(false, false, true, false);
+    for (const char* name : {"dns_hold", "sniff_fwd", "sniff_out"}) {
+      CHECK(find_chain(chain_commands(document, "delete"), name) != nullptr);
+      CHECK(find_chain(chain_commands(document, "add"), name) == nullptr);
+    }
+  }
+  SUBCASE("only the sniff chains disabled") {
+    const auto document = T::build_intercept_document(true, false, true, false);
+    CHECK(find_chain(chain_commands(document, "add"), "dns_hold") != nullptr);
+    CHECK(find_chain(chain_commands(document, "delete"), "sniff_fwd") != nullptr);
+    CHECK(find_chain(chain_commands(document, "add"), "sniff_fwd") == nullptr);
+  }
+  SUBCASE("a fresh table has nothing to delete") {
+    const auto document = T::build_intercept_document(true, true, true, true);
+    CHECK(chain_commands(document, "delete").empty());
+  }
+}
+
+TEST_CASE("nft interception rendering of the new statements") {
+  const auto render = [](PhysicalStatement statement) {
+    PhysicalRule rule;
+    rule.statements.push_back(std::move(statement));
+    return render_nft_rule(nft_physical_chain_id(PhysicalChainRole::nft_dns_hold),
+                           rule)["add"]["rule"]["expr"]
+        .back();
+  };
+  CHECK(render(QueueStmt{5, false}).dump() == R"({"queue":{"num":5}})");
+  CHECK(render(QueueStmt{5, true}).dump() ==
+        R"({"queue":{"flags":["bypass"],"num":5}})");
+  CHECK(render(LogStmt{7, 0, 1}).dump() == R"({"log":{"group":7}})");
+  CHECK(render(LogStmt{7, 99, 4}).dump() ==
+        R"({"log":{"group":7,"queue-threshold":4,"snaplen":99}})");
+  // Counted bytes, both directions.
+  PhysicalRule bytes;
+  bytes.matches.push_back(
+      ConnbytesMatch{ConnbytesDir::both, ConnbytesMode::bytes, 10, 20});
+  bytes.statements.push_back(VerdictStmt{PhysicalVerdict::accept});
+  CHECK(render_nft_rule(nft_physical_chain_id(PhysicalChainRole::nft_sniff_forward),
+                        bytes)["add"]["rule"]["expr"][0]
+            .dump() ==
+        R"({"match":{"left":{"ct":{"key":"bytes"}},"op":"==","right":{"range":[10,20]}}})");
+  bytes.matches[0] =
+      ConnbytesMatch{ConnbytesDir::reply, ConnbytesMode::packets, 3, 3};
+  CHECK(render_nft_rule(nft_physical_chain_id(PhysicalChainRole::nft_sniff_forward),
+                        bytes)["add"]["rule"]["expr"][0]
+            .dump() ==
+        R"({"match":{"left":{"ct":{"dir":"reply","key":"packets"}},"op":"==","right":3}})");
 }
 
 TEST_CASE("nft route.mark emits rules in both prerouting and output chains") {

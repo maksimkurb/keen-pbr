@@ -304,6 +304,27 @@ public:
                         observed);
   }
 
+  // The whole mangle restore of the interception chains next to the
+  // classification ones, over an observed `iptables -t mangle -S` dump.
+  // `enabled` false keeps the plan (and so the chain specs) without them.
+  static std::string intercept_script(bool ipv6, bool enabled,
+                                      const std::string &observed) {
+    InterceptFirewallSettings settings;
+    settings.dns_hold = enabled;
+    settings.l7_sniff = enabled;
+    FirewallPlan plan;
+    plan.fwmark_mask = 0xFFFFFFFFu;
+    plan.rules = intercept_module_rules(settings);
+    const auto ruleset = lower(plan);
+    std::vector<ChainSpec> chains = {{"KeenPbrTable", "PREROUTING"},
+                                     {"KeenPbrOutput", "OUTPUT"}};
+    if (enabled) {
+      chains.push_back({"KeenPbrDnsHold", "POSTROUTING", true, nullptr});
+      chains.push_back({"KeenPbrSniff", "FORWARD", true, "OUTPUT"});
+    }
+    return table_script("mangle", ipv6, chains, ruleset, observed);
+  }
+
   static PhysicalRuleset expected_hooks(RawPreroutingMode mode) {
     IptablesFirewall firewall;
     firewall.raw_prerouting_ = mode;
@@ -482,6 +503,179 @@ TEST_CASE("iptables expected ruleset equals the real kernel dump in both layouts
                                   RawPreroutingMode{true, true}, true) ==
         kernel_dump(read_fixture("iptables_raw_v4.save"),
                     read_fixture("iptables_raw_v6.save")));
+}
+
+TEST_CASE("iptables expected ruleset with interception equals the real kernel dump") {
+  // Chains, rules and the pinned first-position jumps of POSTROUTING, FORWARD
+  // and OUTPUT, in both families.
+  CHECK(iptables_expected_ruleset(capture_plan_with_intercept(false, false, true),
+                                  {}, true) ==
+        kernel_dump(read_fixture("iptables_intercept_mangle_v4.save"),
+                    read_fixture("iptables_intercept_mangle_v6.save")));
+  // Raw mode moves PREROUTING only: the interception chains stay in mangle.
+  const auto raw = iptables_expected_ruleset(
+      capture_plan_with_intercept(false, true, true),
+      RawPreroutingMode{true, true}, true);
+  for (const auto family : {FirewallFamily::ipv4, FirewallFamily::ipv6}) {
+    CHECK(raw.find(iptables_physical_chain_id("KeenPbrSniff",
+                                              PhysicalTable::mangle, family)));
+    CHECK_FALSE(raw.find(iptables_physical_chain_id("KeenPbrSniff",
+                                                    PhysicalTable::raw, family)));
+  }
+}
+
+TEST_CASE("iptables expected ruleset without interception has no pinned hooks") {
+  const auto expected = iptables_expected_ruleset(
+      capture_plan(false, false, true), {}, true);
+  for (const auto &chain : expected.chains) {
+    CHECK(chain.id.role != PhysicalChainRole::iptables_dns_hold);
+    CHECK(chain.id.role != PhysicalChainRole::iptables_sniff);
+    CHECK(chain.id.name != "FORWARD");
+    CHECK(chain.id.name != "POSTROUTING");
+    for (const auto &rule : chain.rules) {
+      CHECK_FALSE(rule.hook_position.has_value());
+    }
+  }
+}
+
+TEST_CASE("iptables interception chains are hooked at position 1") {
+  const std::string script = T::intercept_script(false, true, "");
+  CHECK(script.find(":KeenPbrDnsHold - [0:0]\n") != std::string::npos);
+  CHECK(script.find(":KeenPbrSniff - [0:0]\n") != std::string::npos);
+  CHECK(script.find("-I POSTROUTING 1 -j KeenPbrDnsHold\n") != std::string::npos);
+  CHECK(script.find("-I FORWARD 1 -j KeenPbrSniff\n") != std::string::npos);
+  CHECK(script.find("-I OUTPUT 1 -j KeenPbrSniff\n") != std::string::npos);
+  // The classification hooks keep appending.
+  CHECK(script.find("-A PREROUTING -j KeenPbrTable\n") != std::string::npos);
+  CHECK(script.find("-A OUTPUT -j KeenPbrOutput\n") != std::string::npos);
+  CHECK(script.find("-A POSTROUTING") == std::string::npos);
+  CHECK(script.find("-A FORWARD") == std::string::npos);
+  CHECK(script.find("-A OUTPUT -j KeenPbrSniff") == std::string::npos);
+  // The rules themselves.
+  CHECK(script.find("-A KeenPbrDnsHold -p udp --sport 53 -m conntrack "
+                    "--ctstate ESTABLISHED --ctdir REPLY") != std::string::npos);
+  CHECK(script.find("-j NFQUEUE --queue-num 9053 --queue-bypass\n") !=
+        std::string::npos);
+  CHECK(script.find("-A KeenPbrSniff -p tcp -m multiport --dports 80,443 -m "
+                    "connbytes --connbytes 1:6 --connbytes-dir original "
+                    "--connbytes-mode packets") != std::string::npos);
+  CHECK(script.find("-j NFLOG --nflog-group 9054 --nflog-size 2048\n") !=
+        std::string::npos);
+  CHECK(script.find("-A KeenPbrSniff -p udp --dport 443 -m connbytes") !=
+        std::string::npos);
+  // Same for ip6tables.
+  CHECK(T::intercept_script(true, true, "").find(
+            "-I POSTROUTING 1 -j KeenPbrDnsHold\n") != std::string::npos);
+  // The chains precede the hooks that reference them; the transaction ends
+  // with COMMIT.
+  CHECK(script.find(":KeenPbrSniff") < script.find("-I FORWARD 1"));
+  CHECK(script.rfind("COMMIT\n") == script.size() - 7);
+}
+
+TEST_CASE("iptables interception hooks that are already first are left alone") {
+  const std::string observed = read_fixture("iptables_intercept_mangle_v4.rules");
+  const std::string script = T::intercept_script(false, true, observed);
+  CHECK(script.find("-I POSTROUTING") == std::string::npos);
+  CHECK(script.find("-I FORWARD") == std::string::npos);
+  CHECK(script.find("-I OUTPUT") == std::string::npos);
+  CHECK(script.find("-D POSTROUTING") == std::string::npos);
+  CHECK(script.find("-D FORWARD") == std::string::npos);
+  CHECK(script.find("-D OUTPUT -j KeenPbrSniff") == std::string::npos);
+  // Idempotent: the classification hooks exist as well.
+  CHECK(script.find("-A PREROUTING") == std::string::npos);
+  CHECK(script.find("-A OUTPUT -j") == std::string::npos);
+}
+
+TEST_CASE("iptables interception hook pushed down by a foreign rule is repaired") {
+  // Real dump: foreign rules were inserted in front of every pinned jump.
+  const std::string observed =
+      read_fixture("iptables_intercept_mangle_v4_foreign.rules");
+  const std::string script = T::intercept_script(false, true, observed);
+  const auto at = [&](const std::string &line) {
+    const auto pos = script.find(line);
+    CHECK_MESSAGE(pos != std::string::npos, "missing " << line);
+    return pos;
+  };
+  CHECK(at("-D POSTROUTING -j KeenPbrDnsHold\n") <
+        at("-I POSTROUTING 1 -j KeenPbrDnsHold\n"));
+  CHECK(at("-D FORWARD -j KeenPbrSniff\n") <
+        at("-I FORWARD 1 -j KeenPbrSniff\n"));
+  CHECK(at("-D OUTPUT -j KeenPbrSniff\n") <
+        at("-I OUTPUT 1 -j KeenPbrSniff\n"));
+  // Exactly one of each; foreign rules are never deleted.
+  const auto count = [&](const std::string &needle) {
+    std::size_t n = 0;
+    for (auto pos = script.find(needle); pos != std::string::npos;
+         pos = script.find(needle, pos + 1)) {
+      ++n;
+    }
+    return n;
+  };
+  CHECK(count("-D POSTROUTING") == 1);
+  CHECK(count("-I POSTROUTING") == 1);
+  CHECK(count("ACCEPT") == 0);
+}
+
+TEST_CASE("iptables interception: a missing or duplicated hook is reinstated once") {
+  const std::string base = read_fixture("iptables_intercept_mangle_v4.rules");
+  SUBCASE("missing") {
+    std::string observed = base;
+    const std::string line = "-A POSTROUTING -j KeenPbrDnsHold\n";
+    observed.erase(observed.find(line), line.size());
+    const std::string script = T::intercept_script(false, true, observed);
+    CHECK(script.find("-D POSTROUTING") == std::string::npos);
+    CHECK(script.find("-I POSTROUTING 1 -j KeenPbrDnsHold\n") !=
+          std::string::npos);
+  }
+  SUBCASE("duplicated") {
+    std::string observed = base;
+    const std::string line = "-A OUTPUT -j KeenPbrSniff\n";
+    observed.insert(observed.find(line), line);
+    const std::string script = T::intercept_script(false, true, observed);
+    std::size_t deletes = 0;
+    for (auto pos = script.find("-D OUTPUT -j KeenPbrSniff\n");
+         pos != std::string::npos;
+         pos = script.find("-D OUTPUT -j KeenPbrSniff\n", pos + 1)) {
+      ++deletes;
+    }
+    CHECK(deletes == 2);
+    CHECK(script.find("-I OUTPUT 1 -j KeenPbrSniff\n") != std::string::npos);
+  }
+}
+
+TEST_CASE("iptables interception disabled: hooks and chains are retired") {
+  const std::string observed = read_fixture("iptables_intercept_mangle_v4.rules");
+  const std::string script = T::intercept_script(false, false, observed);
+  CHECK(script.find(":KeenPbrDnsHold - [0:0]\n") != std::string::npos);
+  CHECK(script.find(":KeenPbrSniff - [0:0]\n") != std::string::npos);
+  CHECK(script.find("-D POSTROUTING -j KeenPbrDnsHold\n") != std::string::npos);
+  CHECK(script.find("-D FORWARD -j KeenPbrSniff\n") != std::string::npos);
+  CHECK(script.find("-D OUTPUT -j KeenPbrSniff\n") != std::string::npos);
+  CHECK(script.find("-X KeenPbrDnsHold\n") != std::string::npos);
+  CHECK(script.find("-X KeenPbrSniff\n") != std::string::npos);
+  CHECK(script.find("-I ") == std::string::npos);
+  // Nothing to retire when they do not exist.
+  const std::string clean = T::intercept_script(false, false, "");
+  CHECK(clean.find("KeenPbrDnsHold") == std::string::npos);
+  CHECK(clean.find("KeenPbrSniff") == std::string::npos);
+  // An enabled apply never deletes the chains it declares.
+  CHECK(T::intercept_script(false, true, observed).find("-X KeenPbr") ==
+        std::string::npos);
+}
+
+TEST_CASE("live-state cleanup removes the interception hooks and chains") {
+  const auto log = T::cleanup_sweep_log(RawPreroutingMode{});
+  for (const char *command : {"iptables", "ip6tables"}) {
+    const std::string prefix = std::string(command) + " -t mangle ";
+    CHECK(log.find(prefix + "-S POSTROUTING") != std::string::npos);
+    CHECK(log.find(prefix + "-S FORWARD") != std::string::npos);
+    CHECK(log.find(prefix + "-F KeenPbrDnsHold") != std::string::npos);
+    CHECK(log.find(prefix + "-X KeenPbrDnsHold") != std::string::npos);
+    CHECK(log.find(prefix + "-F KeenPbrSniff") != std::string::npos);
+    CHECK(log.find(prefix + "-X KeenPbrSniff") != std::string::npos);
+  }
+  // Hooks are removed before their chains.
+  CHECK(log.find("-S FORWARD") < log.find("-F KeenPbrSniff"));
 }
 
 TEST_CASE("iptables expected ruleset follows IPv6 availability") {

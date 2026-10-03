@@ -136,7 +136,13 @@ private:
   // jumps into it.
   struct OwnedChainSpec {
     std::string name;
-    const char *hook_chain; // "PREROUTING" or "OUTPUT"
+    const char *hook_chain; // "PREROUTING", "OUTPUT", "POSTROUTING", ...
+    // Pinned hooks are inserted at position 1 (`-I <chain> 1`) and repaired
+    // when they drift; the others are appended.
+    bool pinned{false};
+    // Second builtin chain that also jumps into this chain (KeenPbrSniff:
+    // FORWARD and OUTPUT).
+    const char *extra_hook_chain{nullptr};
   };
   // Pure renderer of one table of one family into an iptables-restore
   // transaction: declares (flushes) the owned chains, appends the lowered
@@ -171,6 +177,10 @@ private:
   // fails.
   static std::optional<std::set<std::string>> list_live_ipset_names();
   void verify_applied_hooks(bool ipv6) const;
+  // The first `-A <source>` rule of the dump is exactly the plain jump.
+  static bool first_rule_is_jump(const std::string &rules,
+                                 const std::string &source_chain,
+                                 const std::string &target_chain);
   static size_t count_exact_jump(const std::string &rules,
                                  const std::string &source_chain,
                                  const std::string &target_chain);

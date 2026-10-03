@@ -910,4 +910,209 @@ TEST_CASE("verifier nftables: an absent table or failed read reports everything 
       nft_runner(Json{{"nftables", Json::array()}})));
 }
 
+// ---------------------------------------------------------------------------
+// Interception (DNS hold, L7 sniff): pinned iptables jumps and nft base chains
+// ---------------------------------------------------------------------------
+
+namespace {
+
+IptTexts intercept_texts() {
+  return {read_fixture("iptables_intercept_mangle_v4.rules"),
+          read_fixture("iptables_intercept_mangle_v6.save"), {}, {}};
+}
+
+} // namespace
+
+TEST_CASE("verifier iptables interception: the real kernel dump is entirely ok") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  const auto checks = verify_iptables(plan, expected, intercept_texts(), {});
+  CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  // The two output-hook sniff rules share KeenPbrSniff with their forward
+  // twins and lower to no rule of their own.
+  CHECK(checks.size() == plan.rules.size() - 2);
+  const auto queue = plan_index(plan, "dns.intercept_hold");
+  CHECK(checks[queue].action == "queue");
+  CHECK(checks[plan_index(plan, "l7.sniff")].action == "log");
+}
+
+TEST_CASE("verifier iptables interception: foreign rules elsewhere are no drift") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  auto texts = intercept_texts();
+  // Behind our jumps, in chains we hook, and in the INPUT chain.
+  texts.v4_mangle = with_line_after(texts.v4_mangle,
+                                    "-A POSTROUTING -j KeenPbrDnsHold",
+                                    "-A POSTROUTING -o eth8 -j ACCEPT");
+  texts.v4_mangle = with_line_after(texts.v4_mangle, "-A FORWARD -j KeenPbrSniff",
+                                    "-A FORWARD -p icmp -j ACCEPT");
+  texts.v4_mangle = with_line_after(texts.v4_mangle, "-P INPUT ACCEPT",
+                                    "-A INPUT -p tcp -j ACCEPT");
+  const auto checks = verify_iptables(plan, expected, texts, {});
+  CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+}
+
+TEST_CASE("verifier iptables interception: a jump that is not first is drift") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  // Real dump with foreign rules inserted in front of every pinned jump.
+  const auto moved = IptTexts{read_fixture("iptables_intercept_mangle_v4_foreign.rules"),
+                              read_fixture("iptables_intercept_mangle_v6.save"),
+                              {}, {}};
+  const auto checks = verify_iptables(plan, expected, moved, {});
+  CHECK_MESSAGE(problems(checks) == 3, describe(checks));
+  CHECK(any_detail(checks, "(position 1)"));
+  CHECK(any_detail(checks, "(position 0)"));
+  CHECK(any_detail(checks, "mangle/POSTROUTING"));
+  CHECK(any_detail(checks, "mangle/FORWARD"));
+  CHECK(any_detail(checks, "mangle/OUTPUT"));
+}
+
+TEST_CASE("verifier iptables interception: missing and duplicate jumps") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  SUBCASE("missing jump") {
+    auto texts = intercept_texts();
+    texts.v4_mangle = without_line(texts.v4_mangle,
+                                   "-A POSTROUTING -j KeenPbrDnsHold");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+    CHECK(any_detail(checks, "rule missing in mangle/POSTROUTING",
+                     CheckStatus::missing));
+  }
+  SUBCASE("duplicate jump") {
+    auto texts = intercept_texts();
+    texts.v4_mangle =
+        with_duplicated_line(texts.v4_mangle, "-A FORWARD -j KeenPbrSniff");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) >= 1, describe(checks));
+    CHECK(any_detail(checks, "mangle/FORWARD"));
+  }
+  SUBCASE("v6 hooks are verified too") {
+    auto texts = intercept_texts();
+    texts.v6_mangle = without_line(texts.v6_mangle, "-A OUTPUT -j KeenPbrSniff");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+    CHECK(any_detail(checks, "mangle/OUTPUT (ipv6)", CheckStatus::missing));
+  }
+}
+
+TEST_CASE("verifier iptables interception: wrong queue number or group") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  SUBCASE("queue number") {
+    auto texts = intercept_texts();
+    texts.v4_mangle =
+        replace_first(texts.v4_mangle, "--queue-num 9053", "--queue-num 9999");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+    CHECK(any_detail(checks, "nfqueue 9999"));
+    CHECK(checks[plan_index(plan, "dns.intercept_hold")].status ==
+          CheckStatus::mismatch);
+  }
+  SUBCASE("queue bypass flag lost") {
+    auto texts = intercept_texts();
+    texts.v4_mangle =
+        replace_first(texts.v4_mangle, " --queue-bypass", "");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+  }
+  SUBCASE("nflog group") {
+    auto texts = intercept_texts();
+    texts.v4_mangle =
+        replace_first(texts.v4_mangle, "--nflog-group 9054", "--nflog-group 1");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+    CHECK(any_detail(checks, "nflog group 1"));
+  }
+  SUBCASE("connbytes window") {
+    auto texts = intercept_texts();
+    texts.v4_mangle =
+        replace_first(texts.v4_mangle, "--connbytes 1:6", "--connbytes 1:9");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+    CHECK(any_detail(checks, "connbytes original 1-9"));
+  }
+}
+
+TEST_CASE("verifier iptables interception: leftovers of a disabled feature are reported") {
+  const auto plan = capture_plan(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  const auto checks = verify_iptables(plan, expected, intercept_texts(), {});
+  CHECK(problems(checks) >= 4);
+  CHECK(any_detail(checks, "unexpected keen-pbr chain mangle/KeenPbrDnsHold"));
+  CHECK(any_detail(checks, "unexpected keen-pbr chain mangle/KeenPbrSniff"));
+  CHECK(any_detail(checks, "unexpected rule in mangle/POSTROUTING"));
+  CHECK(any_detail(checks, "unexpected rule in mangle/FORWARD"));
+}
+
+TEST_CASE("verifier nftables interception: the real kernel dump is entirely ok") {
+  const auto plan = capture_plan_with_intercept(true, true, true);
+  const auto expected = nft_expected(plan);
+  const auto document = Json::parse(read_fixture("nft_intercept.json"));
+  const auto checks = verify_nft(plan, expected, document);
+  CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  CHECK(extras_of(plan, checks) == 0);
+}
+
+TEST_CASE("verifier nftables interception: drift") {
+  const auto plan = capture_plan_with_intercept(true, true, true);
+  const auto expected = nft_expected(plan);
+  SUBCASE("wrong queue number") {
+    auto document = Json::parse(read_fixture("nft_intercept.json"));
+    for (auto& item : items(document)) {
+      if (!item.contains("rule") || item["rule"]["chain"] != "dns_hold") continue;
+      for (auto& expr : item["rule"]["expr"]) {
+        if (expr.contains("queue")) expr["queue"]["num"] = 1;
+      }
+    }
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK_MESSAGE(problems(checks) == 2, describe(checks));
+    CHECK(any_detail(checks, "nfqueue 1 bypass"));
+  }
+  SUBCASE("wrong group") {
+    auto document = Json::parse(read_fixture("nft_intercept.json"));
+    for (auto& item : items(document)) {
+      if (!item.contains("rule") || item["rule"]["chain"] != "sniff_out") continue;
+      for (auto& expr : item["rule"]["expr"]) {
+        if (expr.contains("log")) expr["log"]["group"] = 7;
+      }
+    }
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK_MESSAGE(problems(checks) == 2, describe(checks));
+    CHECK(any_detail(checks, "nflog group 7"));
+  }
+  SUBCASE("base chain hook and priority") {
+    auto document = Json::parse(read_fixture("nft_intercept.json"));
+    auto& chain = items(document)[nft_chain_at(document, "sniff_fwd")]["chain"];
+    chain["hook"] = "prerouting";
+    items(document)[nft_chain_at(document, "dns_hold")]["chain"]["prio"] = 0;
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK_MESSAGE(problems(checks) == 2, describe(checks));
+    CHECK(any_detail(checks, "base chain attributes of sniff_fwd differ"));
+    CHECK(any_detail(checks, "base chain attributes of dns_hold differ"));
+  }
+  SUBCASE("missing chain") {
+    auto document = Json::parse(read_fixture("nft_intercept.json"));
+    auto& all = items(document);
+    all.erase(std::remove_if(all.begin(), all.end(), [](const Json& item) {
+                return (item.contains("rule") &&
+                        item["rule"]["chain"] == "sniff_out") ||
+                       (item.contains("chain") &&
+                        item["chain"]["name"] == "sniff_out");
+              }), all.end());
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK_MESSAGE(problems(checks) >= 1, describe(checks));
+    CHECK(any_detail(checks, "chain sniff_out is missing", CheckStatus::missing));
+  }
+  SUBCASE("disabled feature leaves chains behind") {
+    const auto plain = capture_plan(true, true, true);
+    const auto checks = verify_nft(plain, nft_expected(plain),
+                                   Json::parse(read_fixture("nft_intercept.json")));
+    CHECK(any_detail(checks, "unexpected keen-pbr chain dns_hold"));
+    CHECK(any_detail(checks, "unexpected keen-pbr chain sniff_fwd"));
+    CHECK(any_detail(checks, "unexpected keen-pbr chain sniff_out"));
+  }
+}
+
 } // namespace keen_pbr3

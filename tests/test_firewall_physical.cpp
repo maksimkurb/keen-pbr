@@ -34,11 +34,24 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
     return;
   }
   const std::string name = scenario;
-  if (name == "nftables") {
+  // *_intercept: the capture plan plus DNS hold and L7 sniff.  *_repair
+  // re-applies in place (PreserveSets) so a drifted hook is repaired instead
+  // of recreated; the plain scenarios are Destructive.
+  const bool intercept = name == "nft_intercept" ||
+                         name == "nft_intercept_repair" ||
+                         name == "iptables_intercept" ||
+                         name == "iptables_intercept_repair";
+  const bool repair = name.size() > 7 &&
+                      name.compare(name.size() - 7, 7, "_repair") == 0;
+  const FirewallApplyMode apply_mode =
+      repair ? FirewallApplyMode::PreserveSets : FirewallApplyMode::Destructive;
+  if (name == "nftables" || name.rfind("nft_intercept", 0) == 0 ||
+      name == "nft_plain_repair") {
     auto firewall = create_nftables_firewall();
-    firewall->prepare_apply(FirewallApplyMode::Destructive);
-    firewall->apply(capture_plan(true, true, true),
-                    FirewallApplyMode::Destructive);
+    firewall->prepare_apply(apply_mode);
+    firewall->apply(intercept ? capture_plan_with_intercept(true, true, true)
+                              : capture_plan(true, true, true),
+                    apply_mode);
     // The nft backend deletes its table on destruction; the dump needs it.
     (void)firewall.release();
     return;
@@ -49,9 +62,13 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
   // nft-backed iptables has no /proc/net/ip*_tables_*; force the capabilities
   // that legacy iptables reports.
   firewall.override_capabilities_for_fixtures(true, mode);
-  firewall.prepare_apply(FirewallApplyMode::Destructive);
-  firewall.apply(capture_plan(false, name != "iptables_mangle", true),
-                 FirewallApplyMode::Destructive);
+  firewall.prepare_apply(apply_mode);
+  firewall.apply(
+      intercept ? capture_plan_with_intercept(false, false, true)
+                : capture_plan(false, name != "iptables_mangle" &&
+                                          name != "iptables_plain_repair",
+                               true),
+      apply_mode);
 }
 
 
@@ -877,6 +894,366 @@ TEST_CASE("physical: nft parser robustness") {
   CHECK(has_unknown(conflict.chains[0].rules[0]));
 }
 
+// ---------------------------------------------------------------------------
+// Interception constructs: NFQUEUE / NFLOG / connbytes / ctdir, pinned hooks.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// Rules of one owned iptables chain parsed from `-A` lines.
+std::vector<PhysicalRule> parse_sniff_rules(const std::string &lines) {
+  const auto set = parse_iptables_save(
+      "*mangle\n:KeenPbrSniff - [0:0]\n" + lines + "COMMIT\n", Fam::ipv4);
+  return require_chain(set, ipt_id(Role::iptables_sniff, Table::mangle, Fam::ipv4))
+      .rules;
+}
+
+PhysicalRule parse_sniff_rule(const std::string &rule) {
+  const auto rules = parse_sniff_rules("-A KeenPbrSniff " + rule + "\n");
+  REQUIRE(rules.size() == 1);
+  return rules.front();
+}
+
+// The rule of a one-rule nft document.
+PhysicalRule parse_nft_expr(const std::string &exprs,
+                            const std::string &chain = "sniff_fwd") {
+  const auto set = parse_nft_json(
+      R"({"nftables":[{"rule":{"family":"inet","table":"KeenPbrTable","chain":")" +
+      chain + R"(","expr":)" + exprs + "}}]}");
+  REQUIRE(set.chains.size() == 1);
+  REQUIRE(set.chains[0].rules.size() == 1);
+  return set.chains[0].rules[0];
+}
+
+} // namespace
+
+TEST_CASE("physical: iptables connbytes, NFQUEUE, NFLOG and ctdir") {
+  SUBCASE("the exact kernel spelling of the emitted rules") {
+    const auto rule = parse_sniff_rule(
+        "-p tcp -m multiport --dports 80,443 -m connbytes --connbytes 1:6 "
+        "--connbytes-mode packets --connbytes-dir original -j NFLOG "
+        "--nflog-group 9054 --nflog-size 2048");
+    CHECK(rule == make_rule(
+                      Fam::ipv4,
+                      {ProtoMatch{L4Proto::Tcp},
+                       PortMatch{PhysicalTransport::tcp, PhysicalDir::dst, false,
+                                 {{80, 80}, {443, 443}}},
+                       ConnbytesMatch{ConnbytesDir::original,
+                                      ConnbytesMode::packets, 1, 6}},
+                      {LogStmt{9054, 2048, 1}}));
+    // The port list is canonical whatever its spelling.
+    CHECK(rule == parse_sniff_rule(
+                      "-p tcp -m multiport --dports 443,80 -m connbytes "
+                      "--connbytes 1:6 --connbytes-mode packets "
+                      "--connbytes-dir original -j NFLOG --nflog-group 9054 "
+                      "--nflog-size 2048"));
+  }
+  SUBCASE("direction and mode variants") {
+    const auto both = parse_sniff_rule(
+        "-m connbytes --connbytes 0:9 --connbytes-mode bytes "
+        "--connbytes-dir both -j NFLOG --nflog-group 1");
+    REQUIRE(both.matches.size() == 1);
+    CHECK(std::get<ConnbytesMatch>(both.matches[0]) ==
+          ConnbytesMatch{ConnbytesDir::both, ConnbytesMode::bytes, 0, 9});
+    CHECK(std::get<LogStmt>(both.statements[0]) == LogStmt{1, 0, 1});
+    const auto reply = parse_sniff_rule(
+        "-m connbytes --connbytes 2:3 --connbytes-mode packets "
+        "--connbytes-dir reply -j RETURN");
+    CHECK(std::get<ConnbytesMatch>(reply.matches[0]).dir == ConnbytesDir::reply);
+  }
+  SUBCASE("a partial or malformed connbytes is never trusted") {
+    for (const char *text : {
+             "-m connbytes --connbytes 1:6 -j RETURN",
+             "-m connbytes --connbytes 1:6 --connbytes-mode packets -j RETURN",
+             "-m connbytes --connbytes 1:6 --connbytes-dir original -j RETURN",
+             "-m connbytes --connbytes 6:1 --connbytes-mode packets "
+             "--connbytes-dir original -j RETURN",
+             "-m connbytes --connbytes 6 --connbytes-mode packets "
+             "--connbytes-dir original -j RETURN",
+             "-m connbytes --connbytes x:6 --connbytes-mode packets "
+             "--connbytes-dir original -j RETURN",
+             "-m connbytes --connbytes 1:6 --connbytes-mode avgpkt "
+             "--connbytes-dir original -j RETURN",
+             "-m connbytes --connbytes 1:6 --connbytes-mode packets "
+             "--connbytes-dir sideways -j RETURN",
+             "-m connbytes ! --connbytes 1:6 --connbytes-mode packets "
+             "--connbytes-dir original -j RETURN",
+             "-m connbytes --connbytes-dir original --connbytes-mode packets "
+             "--connbytes 1:6 -j RETURN",
+             "-m connbytes --connbytes-dir original -j RETURN"}) {
+      CAPTURE(text);
+      const auto rule = parse_sniff_rule(text);
+      CHECK(has_unknown(rule));
+      for (const auto &match : rule.matches) {
+        CHECK_FALSE(std::holds_alternative<ConnbytesMatch>(match));
+      }
+    }
+  }
+  SUBCASE("a repeated --connbytes is reported") {
+    CHECK(has_unknown(parse_sniff_rule(
+        "-m connbytes --connbytes 1:6 --connbytes 2:3 --connbytes-mode "
+        "packets --connbytes-dir original -j RETURN")));
+  }
+  SUBCASE("NFQUEUE") {
+    const auto rule = parse_sniff_rule(
+        "-p udp -m udp --sport 53 -m conntrack --ctstate ESTABLISHED --ctdir "
+        "REPLY -j NFQUEUE --queue-num 9053 --queue-bypass");
+    CHECK(rule == make_rule(Fam::ipv4,
+                            {ProtoMatch{L4Proto::Udp},
+                             PortMatch{PhysicalTransport::udp, PhysicalDir::src,
+                                       false, {{53, 53}}},
+                             CtStateMatch{ct_established, false},
+                             CtDirMatch{false}},
+                            {QueueStmt{9053, true}}));
+    CHECK(parse_sniff_rule("-j NFQUEUE --queue-num 3").statements[0] ==
+          PhysicalStatement{QueueStmt{3, false}});
+    // The kernel prints the number even for the default queue.
+    CHECK(parse_sniff_rule("-j NFQUEUE --queue-num 0 --queue-bypass")
+              .statements[0] == PhysicalStatement{QueueStmt{0, true}});
+    for (const char *text : {"-j NFQUEUE", "-j NFQUEUE --queue-balance 3:5",
+                             "-j NFQUEUE --queue-num 70000",
+                             "-j NFQUEUE --queue-num x",
+                             "-j NFQUEUE --queue-num 3 --queue-cpu-fanout",
+                             "-j NFQUEUE --queue-num",
+                             "-g NFQUEUE"}) {
+      CAPTURE(text);
+      CHECK(std::holds_alternative<UnknownStmt>(
+          parse_sniff_rule(text).statements.back()));
+    }
+  }
+  SUBCASE("NFLOG") {
+    CHECK(parse_sniff_rule("-j NFLOG --nflog-group 5 --nflog-size 100")
+              .statements[0] == PhysicalStatement{LogStmt{5, 100, 1}});
+    CHECK(parse_sniff_rule("-j NFLOG --nflog-group 5 --nflog-threshold 7")
+              .statements[0] == PhysicalStatement{LogStmt{5, 0, 7}});
+    // An explicit default threshold is the same rule (iptables-nft prints it).
+    CHECK(parse_sniff_rule("-j NFLOG --nflog-group 5 --nflog-threshold 1")
+              .statements[0] == PhysicalStatement{LogStmt{5, 0, 1}});
+    // group 0 is the bare `-j NFLOG`.
+    CHECK(parse_sniff_rule("-j NFLOG").statements[0] ==
+          PhysicalStatement{LogStmt{0, 0, 1}});
+    for (const char *text : {"-j NFLOG --nflog-group 5 --nflog-prefix hi",
+                             "-j NFLOG --nflog-group 70000",
+                             "-j NFLOG --nflog-group 5 --nflog-size 70000",
+                             "-j NFLOG --nflog-group 5 --nflog-threshold 0",
+                             "-j NFLOG --nflog-group",
+                             "-j NFLOG --bogus 1"}) {
+      CAPTURE(text);
+      CHECK(std::holds_alternative<UnknownStmt>(
+          parse_sniff_rule(text).statements.back()));
+    }
+  }
+  SUBCASE("conntrack options keep their meaning") {
+    const auto rule = parse_sniff_rule(
+        "-m conntrack --ctdir REPLY --ctstate NEW,ESTABLISHED -j RETURN");
+    CHECK(rule.matches == std::vector<PhysicalMatch>{
+                              CtStateMatch{ct_new | ct_established, false},
+                              CtDirMatch{false}});
+    CHECK(has_unknown(parse_sniff_rule("-m conntrack ! --ctdir REPLY -j RETURN")));
+    CHECK(has_unknown(parse_sniff_rule("-m conntrack --ctdir SIDEWAYS -j RETURN")));
+  }
+}
+
+TEST_CASE("physical: iptables hook position among all builtin rules") {
+  const auto parse = [](const std::string &mangle) {
+    return parse_iptables_save("*mangle\n" + mangle + "COMMIT\n", Fam::ipv4);
+  };
+  const auto forward_id = ipt_id(Role::system_other, Table::mangle, Fam::ipv4,
+                                 "FORWARD");
+  const auto position = [](const PhysicalChain &chain, std::size_t index) {
+    return chain.rules.at(index).hook_position;
+  };
+  SUBCASE("first rule, foreign rules before and after") {
+    const auto set = parse(
+        "-A FORWARD -j KeenPbrSniff\n-A FORWARD -p icmp -j ACCEPT\n");
+    const auto &chain = require_chain(set, forward_id);
+    REQUIRE(chain.rules.size() == 1);
+    CHECK(position(chain, 0) == std::optional<uint32_t>{0});
+    CHECK(chain.rules[0] ==
+          [&] {
+            auto rule = make_rule(
+                Fam::ipv4, {},
+                {JumpStmt{ipt_id(Role::iptables_sniff, Table::mangle, Fam::ipv4,
+                                 "KeenPbrSniff"),
+                          false}});
+            rule.hook_position = 0;
+            return rule;
+          }());
+  }
+  SUBCASE("foreign rules in front move the position") {
+    const auto set = parse(
+        "-A FORWARD -p icmp -j ACCEPT\n-A FORWARD -j DROP\n"
+        "-A FORWARD -j KeenPbrSniff\n");
+    const auto &chain = require_chain(set, forward_id);
+    REQUIRE(chain.rules.size() == 1);
+    CHECK(position(chain, 0) == std::optional<uint32_t>{2});
+  }
+  SUBCASE("a duplicate jump is kept with both positions") {
+    const auto set = parse(
+        "-A FORWARD -j KeenPbrSniff\n-A FORWARD -j ACCEPT\n"
+        "-A FORWARD -j KeenPbrSniff\n");
+    const auto &chain = require_chain(set, forward_id);
+    REQUIRE(chain.rules.size() == 2);
+    CHECK(position(chain, 0) == std::optional<uint32_t>{0});
+    CHECK(position(chain, 1) == std::optional<uint32_t>{2});
+  }
+  SUBCASE("only pinned jumps carry a position; chains are counted apart") {
+    const auto set = parse(
+        "-A PREROUTING -p tcp -j ACCEPT\n-A PREROUTING -j KeenPbrTable\n"
+        "-A OUTPUT -o eth9 -j ACCEPT\n-A OUTPUT -j KeenPbrSniff\n"
+        "-A OUTPUT -j KeenPbrOutput\n-A POSTROUTING -j KeenPbrDnsHold\n");
+    const auto &pre = require_chain(
+        set, ipt_id(Role::system_prerouting, Table::mangle, Fam::ipv4));
+    CHECK_FALSE(position(pre, 0).has_value());
+    const auto &out = require_chain(
+        set, ipt_id(Role::system_output, Table::mangle, Fam::ipv4));
+    REQUIRE(out.rules.size() == 2);
+    CHECK(position(out, 0) == std::optional<uint32_t>{1});
+    CHECK_FALSE(position(out, 1).has_value());
+    CHECK(position(require_chain(set, ipt_id(Role::system_other, Table::mangle,
+                                             Fam::ipv4, "POSTROUTING")),
+                   0) == std::optional<uint32_t>{0});
+  }
+  SUBCASE("the iptables -S spelling counts the same way") {
+    const auto set = parse_iptables_save(
+        "-P FORWARD ACCEPT\n-N KeenPbrSniff\n-A FORWARD -p icmp -j ACCEPT\n"
+        "-A FORWARD -j KeenPbrSniff\n",
+        Fam::ipv4);
+    CHECK(position(require_chain(set, forward_id), 0) ==
+          std::optional<uint32_t>{1});
+  }
+  SUBCASE("the real dump with foreign rules in front") {
+    const auto set = parse_iptables_save(
+        read_fixture("iptables_intercept_mangle_v4_foreign.rules"), Fam::ipv4);
+    CHECK(position(require_chain(set, forward_id), 0) ==
+          std::optional<uint32_t>{1});
+    const auto &out = require_chain(
+        set, ipt_id(Role::system_output, Table::mangle, Fam::ipv4));
+    REQUIRE(out.rules.size() == 2);
+    CHECK(position(out, 0) == std::optional<uint32_t>{1});
+    const auto &post = require_chain(
+        set, ipt_id(Role::system_other, Table::mangle, Fam::ipv4, "POSTROUTING"));
+    REQUIRE(post.rules.size() == 1);
+    CHECK(position(post, 0) == std::optional<uint32_t>{1});
+  }
+}
+
+TEST_CASE("physical: nft queue, log, ct counters and new base chain hooks") {
+  using nlohmann::json;
+  const std::string port =
+      R"({"match":{"op":"==","left":{"payload":{"protocol":"tcp","field":"dport"}},"right":443}})";
+  SUBCASE("queue") {
+    const auto rule = parse_nft_expr(
+        R"([{"counter":{"packets":0,"bytes":0}},{"queue":{"num":9053,"flags":["bypass"]}}])",
+        "dns_hold");
+    CHECK(rule == make_rule(Fam::any, {}, {QueueStmt{9053, true}}));
+    CHECK(parse_nft_expr(R"([{"queue":{"num":4}}])").statements[0] ==
+          PhysicalStatement{QueueStmt{4, false}});
+    for (const char *text :
+         {R"([{"queue":{"num":{"range":[3,5]}}}])",
+          R"([{"queue":{"num":3,"flags":["bypass","fanout"]}}])",
+          R"([{"queue":{"num":3,"flags":["fanout"]}}])",
+          R"([{"queue":{"num":3,"flags":"bypass"}}])",
+          R"([{"queue":{"num":70000}}])", R"([{"queue":{}}])",
+          R"([{"queue":{"flags":["bypass"]}}])",
+          R"([{"queue":{"num":3,"extra":1}}])", R"([{"queue":5}])"}) {
+      CAPTURE(text);
+      CHECK(std::holds_alternative<UnknownStmt>(
+          parse_nft_expr(text).statements.back()));
+    }
+  }
+  SUBCASE("log") {
+    CHECK(parse_nft_expr(R"([{"log":{"group":9054,"snaplen":2048}}])")
+              .statements[0] == PhysicalStatement{LogStmt{9054, 2048, 1}});
+    CHECK(parse_nft_expr(R"([{"log":{"group":1}}])").statements[0] ==
+          PhysicalStatement{LogStmt{1, 0, 1}});
+    CHECK(parse_nft_expr(
+              R"([{"log":{"group":1,"snaplen":10,"queue-threshold":7}}])")
+              .statements[0] == PhysicalStatement{LogStmt{1, 10, 7}});
+    for (const char *text :
+         {R"([{"log":{"prefix":"x","group":1}}])", R"([{"log":null}])",
+          R"([{"log":{"level":"warn"}}])", R"([{"log":{"snaplen":10}}])",
+          R"([{"log":{"group":70000}}])", R"([{"log":{"group":1,"snaplen":70000}}])",
+          R"([{"log":{"group":1,"queue-threshold":0}}])",
+          R"([{"log":{"group":1,"flags":["all"]}}])",
+          R"([{"log":{"group":"x"}}])"}) {
+      CAPTURE(text);
+      CHECK(std::holds_alternative<UnknownStmt>(
+          parse_nft_expr(text).statements.back()));
+    }
+  }
+  SUBCASE("ct packets / bytes ranges") {
+    const auto ct = [&](const std::string &left, const std::string &right,
+                        const char *op = "==") {
+      return parse_nft_expr(
+          "[" + port + R"(,{"match":{"op":")" + op + R"(","left":)" + left +
+          R"(,"right":)" + right + R"(}},{"accept":null}])");
+    };
+    const auto last_match = [](const PhysicalRule &rule) {
+      return rule.matches.back();
+    };
+    const auto original =
+        R"({"ct":{"key":"packets","dir":"original"}})";
+    CHECK(last_match(ct(original, R"({"range":[1,6]})")) ==
+          PhysicalMatch{ConnbytesMatch{ConnbytesDir::original,
+                                       ConnbytesMode::packets, 1, 6}});
+    CHECK(last_match(ct(original, "3")) ==
+          PhysicalMatch{ConnbytesMatch{ConnbytesDir::original,
+                                       ConnbytesMode::packets, 3, 3}});
+    CHECK(last_match(ct(R"({"ct":{"key":"packets"}})", "3")) ==
+          PhysicalMatch{ConnbytesMatch{ConnbytesDir::both,
+                                       ConnbytesMode::packets, 3, 3}});
+    CHECK(last_match(ct(R"({"ct":{"key":"bytes","dir":"reply"}})",
+                        R"({"range":[10,20]})")) ==
+          PhysicalMatch{ConnbytesMatch{ConnbytesDir::reply,
+                                       ConnbytesMode::bytes, 10, 20}});
+    // Ranges above 32 bits and the order of bounds are kept exact.
+    CHECK(last_match(ct(original, R"({"range":[1,5000000000]})")) ==
+          PhysicalMatch{ConnbytesMatch{ConnbytesDir::original,
+                                       ConnbytesMode::packets, 1, 5000000000ULL}});
+    for (const auto &[left, right, op] :
+         std::vector<std::tuple<std::string, std::string, const char *>>{
+             {original, R"({"range":[1,6]})", "!="},
+             {original, "4", ">"},
+             {original, "4", ">="},
+             {original, R"({"range":[6,1]})", "=="},
+             {original, R"({"range":[1,6,7]})", "=="},
+             {original, R"("x")", "=="},
+             {original, "-1", "=="},
+             {R"({"ct":{"key":"packets","dir":"sideways"}})", "4", "=="},
+             {R"({"ct":{"key":"packets","dir":"original","family":"ip"}})", "4",
+              "=="},
+             {R"({"ct":{"key":"avgpkt"}})", "4", "=="}}) {
+      CAPTURE(left);
+      CAPTURE(right);
+      CAPTURE(op);
+      const auto rule = ct(left, right, op);
+      CHECK(has_unknown(rule));
+      for (const auto &match : rule.matches) {
+        CHECK_FALSE(std::holds_alternative<ConnbytesMatch>(match));
+      }
+    }
+  }
+  SUBCASE("forward and postrouting base chains") {
+    const auto set = parse_nft_json(R"({"nftables":[
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"dns_hold","type":"filter","hook":"postrouting","prio":-150,"policy":"accept"}},
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"sniff_fwd","type":"filter","hook":"forward","prio":-150,"policy":"accept"}},
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"sniff_out","type":"filter","hook":"output","prio":-150,"policy":"accept"}},
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"sniff_in","type":"filter","hook":"input","prio":0,"policy":"accept"}}
+    ]})");
+    const auto base = [&](Role role) {
+      return require_chain(set, nft_id(role)).base;
+    };
+    CHECK(base(Role::nft_dns_hold)->hook == PhysicalBaseChain::Hook::postrouting);
+    CHECK(base(Role::nft_sniff_forward)->hook == PhysicalBaseChain::Hook::forward);
+    CHECK(base(Role::nft_sniff_output)->hook == PhysicalBaseChain::Hook::output);
+    CHECK(base(Role::nft_dns_hold)->priority == -150);
+    PhysicalChainId unknown = nft_id(Role::other_owned);
+    unknown.name = "sniff_in";
+    CHECK(require_chain(set, unknown).base->hook == PhysicalBaseChain::Hook::other);
+  }
+}
+
 TEST_CASE("physical: canonical helpers") {
   SUBCASE("cidr") {
     CHECK(canonical_cidr("1.2.3.4") == "1.2.3.4/32");
@@ -962,8 +1339,11 @@ TEST_CASE("physical: parse IPv4 and IPv6 CIDR from iptables dump") {
 
 bool is_lowered_role(Role role) {
   return role == Role::iptables_prerouting ||
-         role == Role::iptables_output || role == Role::nft_prerouting ||
-         role == Role::nft_output || role == Role::nft_setter;
+         role == Role::iptables_output || role == Role::iptables_dns_hold ||
+         role == Role::iptables_sniff || role == Role::nft_prerouting ||
+         role == Role::nft_output || role == Role::nft_dns_hold ||
+         role == Role::nft_sniff_forward || role == Role::nft_sniff_output ||
+         role == Role::nft_setter;
 }
 
 // Compares every owned chain rule for rule (dispatchers and system hooks are
@@ -1041,6 +1421,61 @@ TEST_CASE("lowering round trip: nftables layout equals the kernel dump") {
       lower_firewall_plan(plan, capture_context(FirewallBackend::nftables, {}));
   check_lowered_equals_parsed(lowered,
                               parse_nft_json(read_fixture("nft_balance.json")));
+}
+
+TEST_CASE("lowering round trip: iptables interception equals the kernel dump") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto lowered = lower_firewall_plan(
+      plan, capture_context(FirewallBackend::iptables, {}));
+  PhysicalRuleset v4;
+  PhysicalRuleset v6;
+  for (const auto &chain : lowered.chains) {
+    (chain.id.family == Fam::ipv4 ? v4 : v6).chains.push_back(chain);
+  }
+  const auto parsed4 = parse_iptables_save(
+      read_fixture("iptables_intercept_mangle_v4.save"), Fam::ipv4);
+  const auto parsed6 = parse_iptables_save(
+      read_fixture("iptables_intercept_mangle_v6.save"), Fam::ipv6);
+  check_lowered_equals_parsed(v4, parsed4);
+  check_lowered_equals_parsed(v6, parsed6);
+  // The `-S` spelling of the same state parses identically.
+  const auto parsed_s = parse_iptables_save(
+      read_fixture("iptables_intercept_mangle_v4.rules"), Fam::ipv4);
+  check_lowered_equals_parsed(v4, parsed_s);
+
+  // Pinned hooks: first rule of each builtin chain, in both families.
+  for (const auto *parsed : {&parsed4, &parsed6}) {
+    const Fam family = parsed == &parsed4 ? Fam::ipv4 : Fam::ipv6;
+    const auto first = [&](Role role, const char *name) {
+      return require_chain(*parsed, ipt_id(role, Table::mangle, family, name))
+          .rules;
+    };
+    const auto post = first(Role::system_other, "POSTROUTING");
+    const auto fwd = first(Role::system_other, "FORWARD");
+    const auto out = first(Role::system_output, "OUTPUT");
+    REQUIRE(post.size() == 1);
+    REQUIRE(fwd.size() == 1);
+    REQUIRE(out.size() == 2);
+    CHECK(post[0].hook_position == std::optional<uint32_t>{0});
+    CHECK(fwd[0].hook_position == std::optional<uint32_t>{0});
+    CHECK(out[0].hook_position == std::optional<uint32_t>{0});
+    CHECK_FALSE(out[1].hook_position.has_value());
+    const auto *jump = std::get_if<JumpStmt>(&out[0].statements.at(0));
+    REQUIRE(jump != nullptr);
+    CHECK(jump->target.role == Role::iptables_sniff);
+  }
+}
+
+TEST_CASE("lowering round trip: nftables interception equals the kernel dump") {
+  const auto plan = capture_plan_with_intercept(true, true, true);
+  const auto lowered =
+      lower_firewall_plan(plan, capture_context(FirewallBackend::nftables, {}));
+  const auto parsed = parse_nft_json(read_fixture("nft_intercept.json"));
+  check_lowered_equals_parsed(lowered, parsed);
+  for (const auto role : {Role::nft_dns_hold, Role::nft_sniff_forward,
+                          Role::nft_sniff_output}) {
+    CHECK(lowered.find(nft_id(role)) != nullptr);
+  }
 }
 
 } // namespace

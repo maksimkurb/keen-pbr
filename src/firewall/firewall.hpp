@@ -55,6 +55,12 @@ inline const char *l4_proto_name(L4Proto proto) {
   return "";
 }
 
+// Inclusive packet-count window of the conntrack entry (connbytes).
+struct PacketCountRange {
+  uint32_t from{0};
+  uint32_t to{0};
+};
+
 // Match criteria for firewall mark/drop/pass rules.
 // All fields default to empty meaning "any".
 struct FirewallRuleCriteria {
@@ -73,8 +79,14 @@ struct FirewallRuleCriteria {
   bool negate_dst_addr = false; // if true, match packets NOT to dst_addr
   DefaultGatewayFamily default_gateway = DefaultGatewayFamily::None;
   std::vector<std::string> default_gateway_bypass;
+  // Reply-direction packets of an established connection (interception only).
+  bool ct_established_reply = false;
+  // Original-direction packet count window of the connection (interception
+  // only); needs conntrack.
+  std::optional<PacketCountRange> connbytes_original_packets;
   bool empty() const {
     return !dst_set_name.has_value() && !dscp.has_value() &&
+           !ct_established_reply && !connbytes_original_packets.has_value() &&
            proto == L4Proto::Any && src_port.empty() && dst_port.empty() &&
            src_addr.empty() && dst_addr.empty() &&
            default_gateway == DefaultGatewayFamily::None;

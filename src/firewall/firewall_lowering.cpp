@@ -84,7 +84,9 @@ std::optional<FirewallRuleAction> action_for_family(
   const auto* balance = std::get_if<BalanceAction>(&action);
   if (balance == nullptr) {
     if (std::holds_alternative<MarkAction>(action) ||
-        std::holds_alternative<VerdictAction>(action)) {
+        std::holds_alternative<VerdictAction>(action) ||
+        std::holds_alternative<QueueAction>(action) ||
+        std::holds_alternative<LogAction>(action)) {
       return action;
     }
     return std::nullopt;
@@ -172,6 +174,10 @@ const char *iptables_prerouting_chain_name(bool raw) {
 
 const char *iptables_output_chain_name() { return "KeenPbrOutput"; }
 
+const char *iptables_dns_hold_chain_name() { return "KeenPbrDnsHold"; }
+
+const char *iptables_sniff_chain_name() { return "KeenPbrSniff"; }
+
 PhysicalChainId iptables_physical_chain_id(const std::string &name,
                                            PhysicalTable table,
                                            FirewallFamily family) {
@@ -203,6 +209,15 @@ PhysicalChainId nft_physical_chain_id(PhysicalChainRole role, uint32_t mark) {
     break;
   case PhysicalChainRole::nft_output:
     id.name = "output";
+    break;
+  case PhysicalChainRole::nft_dns_hold:
+    id.name = "dns_hold";
+    break;
+  case PhysicalChainRole::nft_sniff_forward:
+    id.name = "sniff_fwd";
+    break;
+  case PhysicalChainRole::nft_sniff_output:
+    id.name = "sniff_out";
     break;
   case PhysicalChainRole::nft_setter:
     id.setter_mark = mark;
@@ -250,6 +265,38 @@ bool is_classifier_action(const FirewallRuleAction &action) {
   return std::holds_alternative<MarkAction>(action) ||
          std::holds_alternative<BalanceAction>(action) ||
          std::holds_alternative<VerdictAction>(action);
+}
+
+// NFQUEUE / NFLOG rules.  They never classify: they live in their own chains
+// (mangle on iptables, dedicated base chains on nft) and ignore raw mode and
+// the prefilters.
+bool is_intercept_action(const FirewallRuleAction &action) {
+  return std::holds_alternative<QueueAction>(action) ||
+         std::holds_alternative<LogAction>(action);
+}
+
+// Matches of the interception-only criteria (conntrack state/direction and
+// connection packet window).
+void append_intercept_matches(const FirewallRuleCriteria &criteria,
+                              Matches &matches) {
+  if (criteria.ct_established_reply) {
+    matches.push_back(CtStateMatch{ct_established, false});
+    matches.push_back(CtDirMatch{false});
+  }
+  if (criteria.connbytes_original_packets.has_value()) {
+    matches.push_back(ConnbytesMatch{
+        ConnbytesDir::original, ConnbytesMode::packets,
+        criteria.connbytes_original_packets->from,
+        criteria.connbytes_original_packets->to});
+  }
+}
+
+PhysicalStatement intercept_statement(const FirewallRuleAction &action) {
+  if (const auto *queue = std::get_if<QueueAction>(&action)) {
+    return QueueStmt{queue->num, queue->bypass};
+  }
+  const auto &log = std::get<LogAction>(action);
+  return LogStmt{log.group, log.snaplen, 1};
 }
 
 std::optional<FirewallRuleKey> physical_key(const FirewallRuleKey &key,
@@ -374,6 +421,9 @@ struct IptablesChain {
   // not in raw PREROUTING.
   bool conntrack{true};
   bool comments{true};
+  // The interception chains hold only interception rules; the classification
+  // chains never receive them.
+  bool intercept{false};
 };
 
 // iptables multiport accepts at most 15 ports; a range takes two slots.
@@ -573,6 +623,36 @@ void lower_iptables_classifier(const FirewallRuleInstance &rule,
   }
 }
 
+// One interception rule: the same family/protocol/port expansion as a
+// classifier, plus conntrack matches, ending in NFQUEUE or NFLOG.  Equal rules
+// are not repeated: KeenPbrSniff serves both FORWARD and OUTPUT, so the plan's
+// forward and output copies of a sniff rule are one physical rule.
+void lower_iptables_intercept(const FirewallRuleInstance &rule,
+                              const FirewallPhysicalClassifier &classifier,
+                              IptablesChain &target) {
+  const auto &criteria = classifier.criteria;
+  const auto key = physical_key(rule.key, target.comments);
+
+  Matches base;
+  if (criteria.proto != L4Proto::Any) {
+    base.push_back(ProtoMatch{criteria.proto});
+  }
+  append_intercept_matches(criteria, base);
+
+  auto &rules = target.chain.rules;
+  for (const auto &ports :
+       iptables_port_fragments(criteria, transport_for(criteria.proto))) {
+    Matches matches = base;
+    matches.insert(matches.end(), ports.begin(), ports.end());
+    PhysicalRule physical = build_rule(
+        target.family, std::move(matches),
+        {intercept_statement(classifier.action)}, key);
+    if (std::find(rules.begin(), rules.end(), physical) == rules.end()) {
+      rules.push_back(std::move(physical));
+    }
+  }
+}
+
 PhysicalRuleset lower_iptables(const FirewallPlan &plan,
                                const FirewallLoweringContext &context) {
   for (const auto &rule : plan.rules) {
@@ -585,6 +665,9 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
           "default_gateway requires the nftables firewall backend");
     }
   }
+
+  const bool has_queue = plan_has_action<QueueAction>(plan);
+  const bool has_log = plan_has_action<LogAction>(plan);
 
   // One PREROUTING and one OUTPUT chain per enabled family.  Chains hold the
   // rules directly; there are no dispatchers or A/B generations.
@@ -614,6 +697,27 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
     output.conntrack = true;
     output.comments = comments;
     chains.push_back(std::move(output));
+    // Interception chains exist only when the plan asks for them; they are
+    // always in mangle (conntrack/connbytes need conntrack to have run).
+    const auto add_intercept_chain = [&](const char *name,
+                                         FirewallHook hook) {
+      IptablesChain chain;
+      chain.chain.id = iptables_physical_chain_id(name, PhysicalTable::mangle,
+                                                  family);
+      chain.family = family;
+      chain.hook = hook;
+      chain.conntrack = true;
+      chain.comments = comments;
+      chain.intercept = true;
+      chains.push_back(std::move(chain));
+    };
+    if (has_queue) {
+      add_intercept_chain(iptables_dns_hold_chain_name(),
+                          FirewallHook::postrouting);
+    }
+    if (has_log) {
+      add_intercept_chain(iptables_sniff_chain_name(), FirewallHook::forward);
+    }
   };
   add_family(FirewallFamily::ipv4);
   if (context.ipv6_enabled) {
@@ -629,12 +733,22 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
     for (const auto &target : chains) {
       before.push_back(target.chain.rules.size());
     }
-    if (is_classifier_action(rule.action)) {
+    if (is_intercept_action(rule.action)) {
+      const bool dns_hold = rule.hook == FirewallHook::postrouting;
+      for (const auto &classifier : expander.expand(rule)) {
+        for (auto &target : chains) {
+          if (target.intercept && target.family == classifier.family &&
+              (target.hook == FirewallHook::postrouting) == dns_hold) {
+            lower_iptables_intercept(rule, classifier, target);
+          }
+        }
+      }
+    } else if (is_classifier_action(rule.action)) {
       for (const auto &classifier : expander.expand(rule)) {
         for (auto &target : chains) {
           // Route rules (prerouting hook) cover forwarded and local traffic;
           // output-hook rules (DNS detour) only local traffic.
-          if (target.family == classifier.family &&
+          if (!target.intercept && target.family == classifier.family &&
               (classifier.hook == FirewallHook::prerouting ||
                target.hook == FirewallHook::output)) {
             lower_iptables_classifier(rule, classifier, facts,
@@ -644,7 +758,7 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
       }
     } else {
       for (auto &target : chains) {
-        lower_iptables_prefilter(rule, target);
+        if (!target.intercept) lower_iptables_prefilter(rule, target);
       }
     }
     for (std::size_t i = 0; i < chains.size(); ++i) {
@@ -746,15 +860,55 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
   output.id = nft_physical_chain_id(PhysicalChainRole::nft_output);
   output.base = PhysicalBaseChain{PhysicalBaseChain::Type::route,
                                   PhysicalBaseChain::Hook::output, -150, true};
+  // Interception base chains: kept only when they received a rule.
+  const auto intercept_chain = [](PhysicalChainRole role,
+                                  PhysicalBaseChain::Hook hook) {
+    PhysicalChain chain;
+    chain.id = nft_physical_chain_id(role);
+    chain.base = PhysicalBaseChain{PhysicalBaseChain::Type::filter, hook, -150,
+                                   true};
+    return chain;
+  };
+  PhysicalChain dns_hold = intercept_chain(
+      PhysicalChainRole::nft_dns_hold, PhysicalBaseChain::Hook::postrouting);
+  PhysicalChain sniff_forward = intercept_chain(
+      PhysicalChainRole::nft_sniff_forward, PhysicalBaseChain::Hook::forward);
+  PhysicalChain sniff_output = intercept_chain(
+      PhysicalChainRole::nft_sniff_output, PhysicalBaseChain::Hook::output);
 
   for (std::size_t plan_index = 0; plan_index < plan.rules.size();
        ++plan_index) {
     const auto &rule = plan.rules[plan_index];
     const std::size_t prerouting_before = prerouting.rules.size();
     const std::size_t output_before = output.rules.size();
+    const std::size_t dns_hold_before = dns_hold.rules.size();
+    const std::size_t sniff_forward_before = sniff_forward.rules.size();
+    const std::size_t sniff_output_before = sniff_output.rules.size();
     const auto key = physical_key(rule.key, true);
     const FirewallFamily any = FirewallFamily::any;
-    if (const auto *restore =
+    if (is_intercept_action(rule.action)) {
+      PhysicalChain &chain =
+          rule.hook == FirewallHook::postrouting ? dns_hold
+          : rule.hook == FirewallHook::forward   ? sniff_forward
+                                                 : sniff_output;
+      for (const auto &classifier : expander.expand(rule)) {
+        const auto &criteria = classifier.criteria;
+        const FirewallFamily family =
+            has_family_payload(criteria) ? classifier.family : any;
+        Matches matches = nft_criteria_matches(criteria);
+        append_intercept_matches(criteria, matches);
+        // A port criterion makes the expansion family-specific even though
+        // the nft rule is family-agnostic: both families lower to the same
+        // physical rule, which is kept once.
+        PhysicalRule physical = build_rule(
+            family, std::move(matches),
+            {intercept_statement(classifier.action)}, key);
+        if (std::find(chain.rules.begin(), chain.rules.end(), physical) ==
+            chain.rules.end()) {
+          chain.rules.push_back(std::move(physical));
+        }
+      }
+    } else if (const auto *restore =
             std::get_if<RestoreConntrackMarkAction>(&rule.action)) {
       if (restore->mask == 0 || setter_marks.empty()) continue;
       // Restore the owned part of the connection mark: jump to the setter of
@@ -858,11 +1012,17 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
     }
     stamp_plan_rule(prerouting, prerouting_before, plan_index);
     stamp_plan_rule(output, output_before, plan_index);
+    stamp_plan_rule(dns_hold, dns_hold_before, plan_index);
+    stamp_plan_rule(sniff_forward, sniff_forward_before, plan_index);
+    stamp_plan_rule(sniff_output, sniff_output_before, plan_index);
   }
 
   PhysicalRuleset result;
   result.chains.push_back(std::move(prerouting));
   result.chains.push_back(std::move(output));
+  for (auto *chain : {&dns_hold, &sniff_forward, &sniff_output}) {
+    if (!chain->rules.empty()) result.chains.push_back(std::move(*chain));
+  }
   for (const uint32_t mark : setter_marks) {
     PhysicalChain setter;
     setter.id = nft_physical_chain_id(PhysicalChainRole::nft_setter, mark);

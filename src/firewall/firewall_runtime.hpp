@@ -8,10 +8,12 @@
 #include "../routing/netlink.hpp"
 #include "firewall.hpp"
 #include "firewall_plan.hpp"
+#include "firewall_rule_modules.hpp"
 
 #include <cstdint>
 #include <cstddef>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -65,6 +67,8 @@ struct FirewallPlanBuildInputs {
   bool ipv6_enabled{true};
   uint32_t fwmark_mask{0xFFFFFFFFu};
   FirewallBackend backend{FirewallBackend::iptables};
+  // nullopt: no interception (DNS hold / L7 sniff) rules are planned.
+  std::optional<InterceptFirewallSettings> intercept;
 };
 
 // Build the canonical desired firewall state. This function has no backend

@@ -60,6 +60,8 @@ private:
         bool table_exists{false};
         bool chain_exists{false};
         bool output_chain_exists{false};
+        // dns_hold / sniff_fwd / sniff_out base chains found live.
+        std::set<std::string> intercept_chains;
         std::set<uint32_t> setter_chain_marks;
         std::set<std::string> set_names;
         std::map<std::string, std::string> set_schemas;
@@ -91,6 +93,11 @@ private:
     static nlohmann::json build_chain_json();
     static nlohmann::json build_output_chain_json();
     // Build the JSON object for deleting the prerouting chain.
+    // Base chain declaration of the interception chains.
+    static nlohmann::json build_base_chain_json(const PhysicalChainId& id,
+                                                const PhysicalBaseChain& base);
+    static nlohmann::json build_delete_named_chain_json(const std::string& name);
+    static bool is_intercept_chain_name(const std::string& name);
     static nlohmann::json build_delete_chain_json();
     static nlohmann::json build_delete_output_chain_json();
     static nlohmann::json build_setter_chain_json(uint32_t fwmark);

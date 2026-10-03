@@ -100,11 +100,35 @@ struct InboundInterfaceFilterAction {
 
 enum class VerdictAction : uint8_t { drop, pass };
 
+// Hand the packet to a netfilter queue (NFQUEUE).  `bypass` accepts the packet
+// when no userspace listener is bound.
+struct QueueAction {
+  uint16_t num{0};
+  bool bypass{true};
+
+  bool operator==(const QueueAction &other) const {
+    return num == other.num && bypass == other.bypass;
+  }
+  bool operator!=(const QueueAction &other) const { return !(*this == other); }
+};
+
+// Copy the packet to an NFLOG group and keep evaluating the chain.
+struct LogAction {
+  uint16_t group{0};
+  uint16_t snaplen{0};
+
+  bool operator==(const LogAction &other) const {
+    return group == other.group && snaplen == other.snaplen;
+  }
+  bool operator!=(const LogAction &other) const { return !(*this == other); }
+};
+
 using FirewallRuleAction = std::variant<MarkAction, BalanceAction, VerdictAction,
                                         RestoreConntrackMarkAction,
                                         SkipEstablishedOrDnatAction,
                                         SkipMarkedPacketsAction,
-                                        InboundInterfaceFilterAction>;
+                                        InboundInterfaceFilterAction,
+                                        QueueAction, LogAction>;
 
 enum class FirewallRuleStage : uint16_t {
   restore_conntrack = 100,
@@ -112,9 +136,14 @@ enum class FirewallRuleStage : uint16_t {
   dns_detour = 300,
   route_classification = 400,
   terminal = 500,
+  // Observation-only rules (DNS hold, L7 sniff) in their own chains.
+  interception = 600,
 };
 
-enum class FirewallHook : uint8_t { prerouting, output };
+// prerouting/output carry classification rules.  forward/postrouting exist for
+// interception rules, which live in their own chains: QueueAction at
+// postrouting, LogAction at forward or output.
+enum class FirewallHook : uint8_t { prerouting, output, forward, postrouting };
 // `any` means the canonical rule applies to both families; it is not an
 // inferred IPv4 family and is expanded physically by the selected backend.
 enum class FirewallFamily : uint8_t { ipv4, ipv6, any };

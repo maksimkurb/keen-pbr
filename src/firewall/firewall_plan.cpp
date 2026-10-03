@@ -15,8 +15,24 @@ void validate_firewall_rule(const FirewallRuleInstance& rule,
   }
   (void)rule.key.comment();
   if (rule.hook != FirewallHook::prerouting &&
-      rule.hook != FirewallHook::output) {
+      rule.hook != FirewallHook::output && rule.hook != FirewallHook::forward &&
+      rule.hook != FirewallHook::postrouting) {
     throw std::invalid_argument("firewall rule has an invalid hook");
+  }
+  // Interception actions live in their own chains: NFQUEUE on the way out
+  // (postrouting), NFLOG on forwarded or locally generated traffic.  Every
+  // other action classifies in prerouting/output.
+  const bool queue = std::holds_alternative<QueueAction>(rule.action);
+  const bool log = std::holds_alternative<LogAction>(rule.action);
+  const bool hook_ok =
+      queue ? rule.hook == FirewallHook::postrouting
+      : log ? (rule.hook == FirewallHook::forward ||
+               rule.hook == FirewallHook::output)
+            : (rule.hook == FirewallHook::prerouting ||
+               rule.hook == FirewallHook::output);
+  if (!hook_ok) {
+    throw std::invalid_argument(
+        "firewall rule action is not valid for its hook");
   }
   if (rule.family != FirewallFamily::ipv4 &&
       rule.family != FirewallFamily::ipv6 &&
@@ -30,6 +46,12 @@ void validate_firewall_rule(const FirewallRuleInstance& rule,
        rule.family != FirewallFamily::ipv6)) {
     throw std::invalid_argument(
         "firewall rule family is incompatible with default gateway");
+  }
+
+  if (rule.criteria.connbytes_original_packets.has_value() &&
+      rule.criteria.connbytes_original_packets->from >
+          rule.criteria.connbytes_original_packets->to) {
+    throw std::invalid_argument("firewall rule has an invalid packet window");
   }
 
   if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
