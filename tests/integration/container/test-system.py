@@ -16,7 +16,8 @@ from cases import (dns_no_leak, dns_routing_save, dns_upstream_ipv4,
                    rule_shapes,
                    service_lifecycle, sigusr1_no_packet_leak, table_interface,
                    test_group_table, urltest_rebuild, iptables_chain_convergence,
-                   prefilter_skip_marked, inbound_interface_filter, restore_conntrack_mark)
+                   prefilter_skip_marked, inbound_interface_filter, restore_conntrack_mark,
+                   skip_established_or_dnat)
 
 CASE_MODULES = (
     service_lifecycle,
@@ -27,6 +28,7 @@ CASE_MODULES = (
     prefilter_skip_marked,
     inbound_interface_filter,
     restore_conntrack_mark,
+    skip_established_or_dnat,
     rule_shapes,
     route_pass,
     route_drop,
