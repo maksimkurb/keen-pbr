@@ -50,6 +50,15 @@ const char* replacement_capability_name(ReplacementCapability capability);
 // ENOSYS, ENOPROTOOPT and EPROTONOSUPPORT mean the kernel lacks the feature.
 ProbeResult classify_errno(int err, std::string_view what);
 
+// A bind of NFQUEUE (`queue` true) or an NFLOG group failing with EINVAL
+// usually means the nfnetlink_queue / nfnetlink_log subsystem is not
+// registered (module missing, e.g. kmod-nfnetlink-queue not installed on
+// OpenWrt).  The module exposes /proc/net/netfilter/nfnetlink_{queue,log}
+// when loaded; if that file is absent this returns an actionable reason,
+// otherwise an empty string.
+std::string nfnl_module_missing_hint(bool queue, int err,
+                                     std::string_view proc_path = {});
+
 // NFQA_CFG_FLAGS(FAIL_OPEN) probe.  `enable_err` is the ACK errno for the real
 // request; `control_err` the ACK errno for the same request carrying an unknown
 // flag bit.  Kernels older than 3.6 silently ignore the attribute (both ACK

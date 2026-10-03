@@ -70,6 +70,11 @@ If you do not plan to use the keen-pbr Web UI or API, you can install the `keen-
 It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.
 {{< /callout >}}
 
+{{< callout type="warning" >}}
+DNS and L7 interception needs the kernel modules `nfnetlink_queue`, `nfnetlink_log` and `nft_queue`.
+The package pulls in `kmod-nfnetlink-queue`, `kmod-nfnetlink-log` and `kmod-nft-queue` automatically. If you installed an older build or removed them, install them manually; otherwise the daemon logs `cannot bind netfilter queue/log ... Invalid argument` and `/api/health/service` names the missing module. `nft_log` is part of `kmod-nft-core`.
+{{< /callout >}}
+
 ### Next steps
 
 Open [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) and use the **Web UI** tab for the easiest first setup. If you installed `keen-pbr-headless`, use the **JSON / CLI** tab instead.

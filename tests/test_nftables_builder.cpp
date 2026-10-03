@@ -13,6 +13,7 @@
 #include <fstream>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <cstdio>
 #include <unistd.h>
 
 #include <array>
@@ -218,6 +219,25 @@ public:
     live.set_schemas.emplace("kpbr4d_domains", live_schema);
     firewall.pending_sets_.push_back({"kpbr4d_domains", "ipv4_addr", 300});
     return firewall.build_apply_document(live, false, false, clear);
+  }
+
+  static nlohmann::json build_legacy_set_with_live_chains_document() {
+    NftablesFirewall firewall;
+    NftablesFirewall::LiveTableState live;
+    live.table_exists = true;
+    live.chain_exists = true;
+    live.output_chain_exists = true;
+    live.set_names.insert("kpbr4d_domains");
+    live.set_schemas.emplace("kpbr4d_domains", "ipv4_addr:300:interval:timeout");
+    firewall.pending_sets_.push_back({"kpbr4d_domains", "ipv4_addr", 300});
+    FirewallPlan plan;
+    FirewallRuleInstance rule;
+    rule.family = FirewallFamily::ipv4;
+    rule.action = MarkAction{42, 0xFFFFFFFFu};
+    rule.criteria.dst_set_name = "kpbr4d_domains";
+    plan.rules.push_back(std::move(rule));
+    firewall.compile_plan(plan, FirewallApplyMode::Destructive);
+    return firewall.build_apply_document(live, false);
   }
 
   static nlohmann::json build_rules_only_document() {
@@ -1229,6 +1249,39 @@ TEST_CASE("nft legacy interval dynamic set is deleted and recreated") {
   CHECK(doc.find("\"interval\"") == std::string::npos);
   CHECK(T::set_schema_key({"kpbr4d_domains", "ipv4_addr", 300}) == "ipv4_addr:300:timeout");
   CHECK(T::set_schema_key({"kpbr4_domains", "ipv4_addr", 300}) == "ipv4_addr:300");
+}
+
+TEST_CASE("nft legacy set recreation deletes referencing chains first") {
+  // A set still referenced by a live rule cannot be deleted (EBUSY rolls the
+  // whole batch back), so the chains holding those rules go first.
+  const auto doc = T::build_legacy_set_with_live_chains_document();
+  int delete_prerouting = -1, delete_output = -1, delete_set = -1, add_set = -1,
+      add_prerouting = -1, add_rule = -1;
+  int index = 0;
+  for (const auto& command : doc["nftables"]) {
+    if (command.contains("delete")) {
+      const auto& body = command["delete"];
+      if (body.contains("chain")) {
+        (body["chain"]["name"] == "prerouting" ? delete_prerouting : delete_output) = index;
+      } else if (body.contains("set")) {
+        delete_set = index;
+      }
+    } else if (command.contains("add")) {
+      const auto& body = command["add"];
+      if (body.contains("set")) add_set = index;
+      if (body.contains("chain") && body["chain"]["name"] == "prerouting") add_prerouting = index;
+      if (body.contains("rule") && add_rule < 0) add_rule = index;
+    }
+    ++index;
+  }
+  REQUIRE(delete_prerouting >= 0);
+  REQUIRE(delete_output >= 0);
+  REQUIRE(delete_set >= 0);
+  CHECK(delete_prerouting < delete_set);
+  CHECK(delete_output < delete_set);
+  CHECK(delete_set < add_set);
+  CHECK(add_set < add_prerouting);
+  CHECK(add_prerouting < add_rule);
 }
 
 // =============================================================================
@@ -2454,3 +2507,79 @@ bool pairwise_is_complete(const std::vector<PairwiseIndex> &cases) {
 }
 
 } // namespace
+
+// --- live upgrade (isolated netns only, same gating as test_set_writer.cpp) ----
+
+namespace {
+
+bool nft_live_netns_guard() {
+  const char* enabled = std::getenv("KPBR_NETLINK_IT");
+  const char* guard = std::getenv("KPBR_NETLINK_IN_NETNS");
+  const char* parent_id = std::getenv("KPBR_NETLINK_PARENT_NS");
+  if (enabled == nullptr || std::string(enabled) != "1" || guard == nullptr ||
+      std::string(guard) != "1" || parent_id == nullptr ||
+      std::string(parent_id).empty()) {
+    return false;
+  }
+  struct stat self{};
+  if (::stat("/proc/self/ns/net", &self) != 0) return false;
+  const std::string current =
+      std::to_string(self.st_dev) + ":" + std::to_string(self.st_ino);
+  return current != parent_id;
+}
+
+std::string nft_capture(const std::string& command) {
+  std::string out;
+  if (FILE* pipe = ::popen((command + " 2>&1").c_str(), "r")) {
+    char buffer[512];
+    while (std::size_t n = std::fread(buffer, 1, sizeof(buffer), pipe)) {
+      out.append(buffer, n);
+    }
+    ::pclose(pipe);
+  }
+  return out;
+}
+
+} // namespace
+
+TEST_CASE("nft live: upgrade replaces legacy interval dynamic sets referenced by rules "
+          "(isolated netns only)") {
+  if (!nft_live_netns_guard()) return;
+
+  // The previous release: interval+timeout dynamic sets used by rules in the
+  // classification base chains.
+  REQUIRE(std::system("nft delete table inet KeenPbrTable >/dev/null 2>&1") >= 0);
+  REQUIRE(std::system("nft add table inet KeenPbrTable") == 0);
+  REQUIRE(std::system("nft add set inet KeenPbrTable kpbr4d_legacy "
+                      "'{ type ipv4_addr; flags interval,timeout; auto-merge; "
+                      "timeout 5m; }'") == 0);
+  REQUIRE(std::system("nft add chain inet KeenPbrTable prerouting "
+                      "'{ type filter hook prerouting priority mangle; }'") == 0);
+  REQUIRE(std::system("nft add chain inet KeenPbrTable output "
+                      "'{ type route hook output priority mangle; }'") == 0);
+  REQUIRE(std::system("nft add rule inet KeenPbrTable prerouting "
+                      "ip daddr @kpbr4d_legacy meta mark set 0x10000") == 0);
+  REQUIRE(std::system("nft add rule inet KeenPbrTable output "
+                      "ip daddr @kpbr4d_legacy meta mark set 0x10000") == 0);
+
+  NftablesFirewall firewall;
+  firewall.prepare_apply(FirewallApplyMode::Destructive);
+  firewall.create_ipset("kpbr4d_legacy", AF_INET, 7200);
+  FirewallPlan plan;
+  FirewallRuleInstance rule;
+  rule.family = FirewallFamily::ipv4;
+  rule.action = MarkAction{0x10000, 0xFFFFFFFFu};
+  rule.key = FirewallRuleKey{"route.mark", "legacy"};
+  rule.criteria.dst_set_name = "kpbr4d_legacy";
+  plan.rules.push_back(std::move(rule));
+  CHECK_NOTHROW(firewall.apply(plan, FirewallApplyMode::Destructive));
+
+  const std::string set = nft_capture("nft list set inet KeenPbrTable kpbr4d_legacy");
+  INFO(set);
+  CHECK(set.find("timeout") != std::string::npos);
+  CHECK(set.find("interval") == std::string::npos);
+  const std::string chain = nft_capture("nft list chain inet KeenPbrTable prerouting");
+  INFO(chain);
+  CHECK(chain.find("@kpbr4d_legacy") != std::string::npos);
+  (void)std::system("nft delete table inet KeenPbrTable >/dev/null 2>&1");
+}

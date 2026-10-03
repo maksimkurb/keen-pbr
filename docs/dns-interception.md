@@ -225,6 +225,22 @@ missing; keen-pbr itself keeps running and the other part stays active.
 Optional means the part keeps working with reduced behaviour, a warning in
 `/api/health/service` and a log line.
 
+### Kernel modules per platform
+
+* OpenWrt: `kmod-nfnetlink-queue`, `kmod-nfnetlink-log` and (nftables)
+  `kmod-nft-queue` (plus `kmod-nf-conntrack-netlink`) are dependencies of the `keen-pbr` packages (`nft_log` is in
+  `kmod-nft-core`; ctnetlink comes with `conntrack`). Without them the NFQUEUE
+  and NFLOG binds fail with `EINVAL` (the nfnetlink subsystem is not
+  registered); the `nfqueue`/`nflog` probes then report "kernel module
+  nfnetlink_queue is not available" (decided by the absence of
+  `/proc/net/netfilter/nfnetlink_queue` / `nfnetlink_log`).
+* Debian and similar: the stock kernel ships these modules; nothing to install.
+* Keenetic: the modules are part of the firmware.
+
+Before binding, the daemon tries `modprobe` once for `nfnetlink_queue` and
+`nfnetlink_log` (plus `nft_queue`, `nft_log`, `nft_ct` for nftables) and ignores
+failures.
+
 ### Runtime probes
 
 Version numbers say what upstream shipped, not what a given router kernel

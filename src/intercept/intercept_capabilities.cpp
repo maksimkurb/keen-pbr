@@ -206,10 +206,27 @@ nfnl::ProbeResult probe_intercept_set_write(FirewallBackend backend,
     return result;
 }
 
+void load_intercept_modules(FirewallBackend backend, const InterceptProbeEnv& env) {
+    // Best effort, failures ignored: the netlink subsystems are not always
+    // autoloaded (OpenWrt) and a missing module is reported at bind time.
+    std::vector<const char*> modules{"nfnetlink_queue", "nfnetlink_log"};
+    if (backend == FirewallBackend::nftables) {
+        modules.insert(modules.end(), {"nft_queue", "nft_log", "nft_ct"});
+    }
+    for (const char* module : modules) {
+        if (env.modprobe) {
+            env.modprobe(module);
+        } else {
+            (void)safe_exec({"modprobe", module}, /*suppress_output=*/true);
+        }
+    }
+}
+
 InterceptCapabilities probe_intercept_capabilities(FirewallBackend backend,
                                                    bool ipv6_enabled,
                                                    const InterceptProbeEnv& env) {
     InterceptCapabilities caps;
+    load_intercept_modules(backend, env);
     run_runtime_probes(caps.probe, backend, env);
     if (backend == FirewallBackend::nftables) {
         caps.nfqueue = true;

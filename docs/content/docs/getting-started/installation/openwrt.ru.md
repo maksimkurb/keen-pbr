@@ -75,6 +75,11 @@ service keen-pbr restart
 Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета.
 {{< /callout >}}
 
+{{< callout type="warning" >}}
+Для перехвата DNS и L7 нужны модули ядра `nfnetlink_queue`, `nfnetlink_log` и `nft_queue`.
+Пакет автоматически подтягивает `kmod-nfnetlink-queue`, `kmod-nfnetlink-log` и `kmod-nft-queue`. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет `cannot bind netfilter queue/log ... Invalid argument`, а `/api/health/service` называет отсутствующий модуль. `nft_log` входит в `kmod-nft-core`.
+{{< /callout >}}
+
 ### Следующие шаги
 
 Откройте [Быстрый старт]({{< relref "/docs/getting-started/quick-start" >}}) и используйте вкладку **Веб-интерфейс** для самой простой первоначальной настройки. Если вы установили `keen-pbr-headless`, используйте вкладку **JSON / CLI**.

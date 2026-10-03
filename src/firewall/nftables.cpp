@@ -677,6 +677,28 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
         arr.push_back(build_table_json());
     }
 
+    // Live chains whose rules may reference a set must be removed before that
+    // set is deleted in the same transaction, otherwise the kernel answers
+    // EBUSY and the whole batch rolls back (legacy interval dynamic sets).
+    if (!static_sets_only) {
+        if (!emit_full_table && live_state.chain_exists) {
+            arr.push_back(build_delete_chain_json());
+        }
+        if (!emit_full_table && live_state.output_chain_exists) {
+            arr.push_back(build_delete_output_chain_json());
+        }
+        for (const uint32_t mark : live_state.setter_chain_marks) {
+            arr.push_back(build_delete_setter_chain_json(mark));
+        }
+        // Interception base chains are replaced like the classification
+        // ones; a live one the plan no longer carries is just removed.
+        if (!emit_full_table) {
+            for (const auto& name : live_state.intercept_chains) {
+                arr.push_back(build_delete_named_chain_json(name));
+            }
+        }
+    }
+
     // Sets. Dynamic dnsmasq sets keep their learned elements during normal
     // re-apply; static sets are refreshed in this same nft transaction.
     if (!rules_only) {
@@ -704,23 +726,6 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
     }
 
     if (!static_sets_only) {
-        // Chain with prerouting hook
-        if (!emit_full_table && live_state.chain_exists) {
-            arr.push_back(build_delete_chain_json());
-        }
-        if (!emit_full_table && live_state.output_chain_exists) {
-            arr.push_back(build_delete_output_chain_json());
-        }
-        for (const uint32_t mark : live_state.setter_chain_marks) {
-            arr.push_back(build_delete_setter_chain_json(mark));
-        }
-        // Interception base chains are replaced like the classification
-        // ones; a live one the plan no longer carries is just removed.
-        if (!emit_full_table) {
-            for (const auto& name : live_state.intercept_chains) {
-                arr.push_back(build_delete_named_chain_json(name));
-            }
-        }
         arr.push_back(build_chain_json());
         arr.push_back(build_output_chain_json());
         for (const auto role : {PhysicalChainRole::nft_dns_hold,

@@ -25,7 +25,16 @@ namespace {
 struct FakeProc {
     std::filesystem::path dir;
     InterceptProbeEnv env;
-    std::vector<std::string> modprobed;
+    std::vector<std::string> modprobed;  // table modules only (see record())
+    std::vector<std::string> nfnl_modprobed;  // nfnetlink_*/nft_* preloads
+
+    void record(const std::string& module) {
+        if (module.rfind("nfnetlink_", 0) == 0 || module.rfind("nft_", 0) == 0) {
+            nfnl_modprobed.push_back(module);
+        } else {
+            modprobed.push_back(module);
+        }
+    }
 
     FakeProc() {
         dir = std::filesystem::temp_directory_path() /
@@ -36,7 +45,7 @@ struct FakeProc {
         env.ip6_targets = (dir / "ip6_targets").string();
         env.ip_matches = (dir / "ip_matches").string();
         env.ip6_matches = (dir / "ip6_matches").string();
-        env.modprobe = [this](const std::string& module) { modprobed.push_back(module); };
+        env.modprobe = [this](const std::string& module) { record(module); };
         env.runtime_probes = false;  // these tests cover the /proc logic only
     }
     ~FakeProc() { std::filesystem::remove_all(dir); }
@@ -81,13 +90,37 @@ TEST_CASE("intercept probe: iptables with everything loaded does not modprobe") 
     CHECK(proc.modprobed.empty());
 }
 
+TEST_CASE("intercept probe: nfnetlink queue/log modules are preloaded per backend") {
+    FakeProc proc;
+    proc.fill_all();
+    (void)probe_intercept_capabilities(FirewallBackend::iptables, true, proc.env);
+    CHECK(proc.nfnl_modprobed ==
+          std::vector<std::string>{"nfnetlink_queue", "nfnetlink_log"});
+    proc.nfnl_modprobed.clear();
+    (void)probe_intercept_capabilities(FirewallBackend::nftables, true, proc.env);
+    CHECK(proc.nfnl_modprobed ==
+          std::vector<std::string>{"nfnetlink_queue", "nfnetlink_log", "nft_queue",
+                                   "nft_log", "nft_ct"});
+}
+
+TEST_CASE("intercept bind EINVAL names the missing nfnetlink kernel module") {
+    const std::string absent = "/nonexistent/nfnetlink_queue";
+    const auto queue = nfnl::nfnl_module_missing_hint(true, EINVAL, absent);
+    CHECK(queue.find("nfnetlink_queue") != std::string::npos);
+    CHECK(queue.find("kmod-nfnetlink-queue") != std::string::npos);
+    CHECK(nfnl::nfnl_module_missing_hint(false, EINVAL, absent).find("kmod-nfnetlink-log") !=
+          std::string::npos);
+    CHECK(nfnl::nfnl_module_missing_hint(true, EPERM, absent).empty());
+    CHECK(nfnl::nfnl_module_missing_hint(true, EINVAL, "/proc/self/status").empty());
+}
+
 TEST_CASE("intercept probe: missing modules are modprobed once and re-read") {
     FakeProc proc;
     proc.fill_all();
     FakeProc::write(proc.env.ip_targets, {"NFQUEUE"});
     FakeProc::write(proc.env.ip6_targets, {"NFQUEUE"});
     proc.env.modprobe = [&proc](const std::string& module) {
-        proc.modprobed.push_back(module);
+        proc.record(module);
         if (module == "xt_NFLOG") {
             FakeProc::write(proc.env.ip_targets, {"NFQUEUE", "NFLOG"});
             FakeProc::write(proc.env.ip6_targets, {"NFQUEUE", "NFLOG"});

@@ -102,7 +102,7 @@ define Package/keen-pbr
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (full)
   VERSION:=$(if $(CONFIG_USE_APK),$(PKG_VERSION)-r$(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE))
-  DEPENDS:=+conntrack +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +(x86_64||aarch64||arm):libunwind +zlib +libzstd
+  DEPENDS:=+conntrack +kmod-nfnetlink-queue +kmod-nfnetlink-log +kmod-nft-queue +kmod-nf-conntrack-netlink +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +(x86_64||aarch64||arm):libunwind +zlib +libzstd
   VARIANT:=full
 endef
 
@@ -156,7 +156,7 @@ define Package/keen-pbr-headless
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (headless)
   VERSION:=$(if $(CONFIG_USE_APK),$(PKG_VERSION)-r$(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE))
-  DEPENDS:=+conntrack +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +(x86_64||aarch64||arm):libunwind +zlib +libzstd
+  DEPENDS:=+conntrack +kmod-nfnetlink-queue +kmod-nfnetlink-log +kmod-nft-queue +kmod-nf-conntrack-netlink +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +(x86_64||aarch64||arm):libunwind +zlib +libzstd
   VARIANT:=headless
 endef
 

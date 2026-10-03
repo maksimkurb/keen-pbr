@@ -3,6 +3,8 @@
 #include "conntrack.hpp"
 #include "uapi_compat.hpp"
 
+#include <unistd.h>
+
 #include <cerrno>
 #include <cstring>
 #include <limits>
@@ -90,6 +92,20 @@ ProbeResult classify_errno(int err, std::string_view what) {
         return make_probe_result(ProbeStatus::unsupported, with_errno(what, err));
     }
     return make_probe_result(ProbeStatus::error, with_errno(what, err));
+}
+
+std::string nfnl_module_missing_hint(bool queue, int err, std::string_view proc_path) {
+    if (err != EINVAL) return {};
+    const std::string path = proc_path.empty()
+        ? std::string(queue ? "/proc/net/netfilter/nfnetlink_queue"
+                            : "/proc/net/netfilter/nfnetlink_log")
+        : std::string(proc_path);
+    if (::access(path.c_str(), F_OK) == 0) return {};
+    return queue
+        ? "kernel module nfnetlink_queue is not available (OpenWrt: install package "
+          "kmod-nfnetlink-queue and kmod-nft-queue)"
+        : "kernel module nfnetlink_log is not available (OpenWrt: install package "
+          "kmod-nfnetlink-log)";
 }
 
 ProbeResult classify_fail_open(int enable_err, int control_err) {

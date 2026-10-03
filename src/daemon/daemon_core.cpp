@@ -1603,7 +1603,19 @@ void Daemon::run() {
     (void)tag;
     owned_marks.insert(mark);
   }
+  // Process supervisors (procd: ~5 s) SIGKILL a daemon that is slow to exit,
+  // which would leave the firewall rules behind.  Everything below is
+  // best-effort cleanup, so bound each external command tightly and give the
+  // conntrack flush (which can be slow on a large table) a shared budget.
+  set_safe_exec_timeouts(std::chrono::milliseconds{1500},
+                         std::chrono::milliseconds{200});
+  const auto conntrack_deadline =
+      std::chrono::steady_clock::now() + std::chrono::milliseconds{2000};
   for (uint32_t mark : owned_marks) {
+    if (std::chrono::steady_clock::now() >= conntrack_deadline) {
+      log.warn("Skipping remaining conntrack cleanup: shutdown time budget exhausted");
+      break;
+    }
     if (!conntrack_manager_.delete_mark(mark, mark_mask)) {
       log.warn("Best-effort conntrack cleanup failed for mark {:#x}/{:#x}",
                mark, mark_mask);

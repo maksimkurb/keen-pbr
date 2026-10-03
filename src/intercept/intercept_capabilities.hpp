@@ -70,8 +70,11 @@ struct InterceptProbeEnv {
 };
 
 // iptables: reads the kernel's loaded target/match lists, trying one
-// `modprobe` per missing module and re-reading.  nftables: nft_queue/nft_log/
-// nft_ct autoload, so everything is reported as available.
+// `modprobe` per missing module and re-reading.  nftables: everything is
+// reported as available; a missing nfnetlink_queue/nfnetlink_log module shows
+// up when the listener binds.  Both backends first try to `modprobe`
+// nfnetlink_queue and nfnetlink_log (plus nft_queue/nft_log/nft_ct for
+// nftables), ignoring failures.
 InterceptCapabilities probe_intercept_capabilities(FirewallBackend backend,
                                                    bool ipv6_enabled,
                                                    const InterceptProbeEnv& env = {});

@@ -208,7 +208,19 @@ inline std::string read_temporary_file(FILE* file) {
     return content;
 }
 
-inline void log_failed_pipe_input(const std::string& command, const std::string& input) {
+inline void log_failed_pipe_input(const std::string& command,
+                                  const std::string& input,
+                                  const std::string& response = {}) {
+    if (!response.empty()) {
+        constexpr std::size_t max_response_bytes = 2048;
+        const bool response_truncated = response.size() > max_response_bytes;
+        Logger::instance().error(
+            "safe_exec_pipe_output cmd={} output_bytes={} truncated={}:\n{}",
+            command,
+            response.size(),
+            response_truncated ? "true" : "false",
+            response.substr(0, max_response_bytes));
+    }
     constexpr std::size_t max_preview_bytes = 4096;
     const bool truncated = input.size() > max_preview_bytes;
     const std::string preview = input.substr(0, std::min(input.size(), max_preview_bytes));
@@ -351,7 +363,7 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
                                      command,
                                      exit_code,
                                      duration_ms);
-            log_failed_pipe_input(command, input);
+            log_failed_pipe_input(command, input, response);
             record_command_failure(command, exit_code, input, response);
         }
         return exit_code;
@@ -360,7 +372,7 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
                              command,
                              duration_ms,
                              wait_result.timed_out ? "timeout" : "abnormal_exit");
-    log_failed_pipe_input(command, input);
+    log_failed_pipe_input(command, input, response);
     record_command_failure(command, -1, input, response,
                            wait_result.timed_out ? "timeout" : "abnormal_exit");
     return -1;

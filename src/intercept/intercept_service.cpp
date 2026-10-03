@@ -209,6 +209,13 @@ void InterceptService::start(const InterceptServiceOptions& options,
                 listener_probe_.nfqueue.status = nfnl::ProbeStatus::error;
             }
             listener_probe_.nfqueue.reason = queue_error;
+            if (nl != nullptr) {
+                const auto hint = nfnl::nfnl_module_missing_hint(true, nl->code());
+                if (!hint.empty()) {
+                    listener_probe_.nfqueue.reason = hint + "; " + queue_error;
+                    queue_error = listener_probe_.nfqueue.reason;
+                }
+            }
         }
     }
     if (options.nflog_group) {
@@ -227,6 +234,13 @@ void InterceptService::start(const InterceptServiceOptions& options,
                 listener_probe_.nflog.status = nfnl::ProbeStatus::error;
             }
             listener_probe_.nflog.reason = log_error;
+            if (nl != nullptr) {
+                const auto hint = nfnl::nfnl_module_missing_hint(false, nl->code());
+                if (!hint.empty()) {
+                    listener_probe_.nflog.reason = hint + "; " + log_error;
+                    log_error = listener_probe_.nflog.reason;
+                }
+            }
         }
     }
     if ((options.queue_num || options.nflog_group) && !queue_ && !log_) {
