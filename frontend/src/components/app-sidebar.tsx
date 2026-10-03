@@ -23,11 +23,17 @@ import {
 import { useSidebar } from "@/components/ui/sidebar-context"
 import { useAuth } from "@/auth/auth-context"
 import { Button } from "@/components/ui/button"
+import { useGetConfig } from "@/api/queries"
+import { effectiveResolverIntegration, selectConfig } from "@/api/selectors"
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const { isMobile, toggleSidebar } = useSidebar()
   const { t } = useTranslation()
   const auth = useAuth()
+  const configQuery = useGetConfig()
+  const config = selectConfig(configQuery.data)
+  const showDnsmasqSettings =
+    !config || effectiveResolverIntegration(config) === "dnsmasq"
 
   const data = {
     navMain: [
@@ -59,10 +65,14 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
             title: t("nav.items.outbounds"),
             url: "/outbounds",
           },
-          {
-            title: t("nav.items.dnsServers"),
-            url: "/dns-servers",
-          },
+          ...(showDnsmasqSettings
+            ? [
+                {
+                  title: t("nav.items.dnsServers"),
+                  url: "/dns-servers",
+                },
+              ]
+            : []),
         ],
       },
       {
@@ -78,10 +88,14 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
             title: t("nav.items.routingRules"),
             url: "/routing-rules",
           },
-          {
-            title: t("nav.items.dnsRules"),
-            url: "/dns-rules",
-          },
+          ...(showDnsmasqSettings
+            ? [
+                {
+                  title: t("nav.items.dnsRules"),
+                  url: "/dns-rules",
+                },
+              ]
+            : []),
         ],
       },
     ],

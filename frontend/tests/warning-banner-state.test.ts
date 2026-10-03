@@ -36,6 +36,7 @@ describe("getWarningBannerMode", () => {
       getWarningBannerMode(
         health({
           resolver_live_status: "unavailable",
+          resolver_integration: "dnsmasq",
           resolver_config_probe_status: "query_failed",
           apply_started_ts: 100,
         }),
@@ -44,16 +45,40 @@ describe("getWarningBannerMode", () => {
     ).toBe("dnsmasq-error")
   })
 
-  test("keeps query failed probe in converging mode during recent apply", () => {
+  test("does not show resolver failure when probing is disabled", () => {
+    expect(
+      getWarningBannerMode(
+        health({
+          resolver_config_probe_status: "disabled",
+          resolver_config_sync_state: "stale",
+        })
+      )
+    ).toBe("hidden")
+  })
+
+  test("keeps query failed probe as a dnsmasq error during recent apply", () => {
     expect(
       getWarningBannerMode(
         health({
           resolver_live_status: "unavailable",
+          resolver_integration: "dnsmasq",
           resolver_config_probe_status: "query_failed",
           apply_started_ts: 100,
         }),
         105_000
       )
-    ).toBe("dnsmasq-converging")
+    ).toBe("dnsmasq-error")
+  })
+
+  test("hides resolver failure when integration is explicitly disabled", () => {
+    expect(
+      getWarningBannerMode(
+        health({
+          resolver_live_status: "unavailable",
+          resolver_integration: "none",
+          resolver_config_probe_status: "query_failed",
+        })
+      )
+    ).toBe("hidden")
   })
 })

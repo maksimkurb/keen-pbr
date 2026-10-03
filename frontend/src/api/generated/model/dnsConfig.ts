@@ -9,12 +9,14 @@ import type { DnsRule } from './dnsRule';
 import type { DnsServer } from './dnsServer';
 import type { DnsSystemResolver } from './dnsSystemResolver';
 import type { DnsTestServer } from './dnsTestServer';
+import type { ResolverIntegrationMode } from './resolverIntegrationMode';
 
 export interface DnsConfig {
   servers?: DnsServer[];
   rules?: DnsRule[];
   /** Ordered DNS server tags to use when no rule matches. */
   fallback?: string[];
+  resolver_integration?: ResolverIntegrationMode;
   dns_test_server?: DnsTestServer;
   system_resolver?: DnsSystemResolver;
 }
