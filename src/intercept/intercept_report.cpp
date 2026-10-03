@@ -22,18 +22,22 @@ const char* intercept_source_name(InterceptSource source) {
 api::InterceptHealthClass make_intercept_health(const InterceptEffective& effective,
                                                 bool running,
                                                 const InterceptCounters* counters,
-                                                uint64_t events_seq) {
+                                                uint64_t events_seq,
+                                                bool snapshot_ready) {
     api::InterceptHealthClass health;
     health.enabled = effective.config_enabled;
     health.running = running;
-    health.dns_hold_active = running && effective.dns_hold;
-    health.l7_active = running && effective.l7;
+    health.dns_hold_active = running && effective.dns_hold && snapshot_ready;
+    health.l7_active = running && effective.l7 && snapshot_ready;
     health.capabilities.nfqueue = effective.capabilities.nfqueue;
     health.capabilities.nflog = effective.capabilities.nflog;
     health.capabilities.connbytes = effective.capabilities.connbytes;
     health.reasons = effective.reasons;
     if (!effective.config_enabled) {
         health.reasons.insert(health.reasons.begin(), "interception is disabled by config");
+    }
+    if (running && !snapshot_ready) {
+        health.reasons.push_back("interception snapshot is still initializing");
     }
     health.queue_num = effective.queue_num;
     health.nflog_group = effective.nflog_group;

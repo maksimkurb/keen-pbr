@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -53,6 +54,17 @@ struct InterceptEvent {
     bool timed_out{false};
 };
 
+// A matched L7 packet is handed to the service's bounded worker when DNS
+// interception is enabled.  Keep the snapshot alive because SetAdd stores
+// string_views into its set names.
+struct InterceptL7Work {
+    std::shared_ptr<const InterceptSnapshot> snapshot;
+    std::vector<nfnl::SetAdd> adds;
+    InterceptEvent event;
+    uint8_t family{0};
+    std::array<uint8_t, 16> destination{};
+};
+
 struct InterceptCounters {
     std::atomic<uint64_t> dns_packets{0};
     std::atomic<uint64_t> dns_parse_errors{0};
@@ -84,10 +96,19 @@ public:
 // events_since() and counters are thread-safe.
 class InterceptProcessor {
 public:
+    using L7Submitter = std::function<void(InterceptL7Work)>;
+    using WriterAdmission = std::function<bool()>;
+    using WriterRelease = std::function<void()>;
+
     InterceptProcessor(nfnl::DynamicSetWriter& writer, ConntrackCleanupSink& cleanup,
                        InterceptCounters& counters);
 
     void set_snapshot(std::shared_ptr<const InterceptSnapshot> snapshot);
+    void set_l7_submitter(L7Submitter submitter);
+    void set_writer_callbacks(WriterAdmission dns_admission, WriterRelease dns_release,
+                              WriterAdmission l7_admission, WriterRelease l7_release);
+    void process_l7_work(InterceptL7Work work, nfnl::DynamicSetWriter& writer);
+    void reject_l7_work(InterceptL7Work work);
 
     struct DnsDecision {
         bool replace{false};
@@ -114,6 +135,8 @@ private:
     void append_add(const InterceptSnapshot& snap, DomainIndex::ListId id, uint8_t family,
                     const std::array<uint8_t, 16>& addr, uint32_t record_ttl_s, bool use_record_ttl);
     void collect_list_names(const InterceptSnapshot& snap, std::vector<std::string>& out) const;
+    bool snapshot_is_current(const std::shared_ptr<const InterceptSnapshot>& snapshot) const;
+    void record_l7_result(InterceptL7Work work, nfnl::DynamicSetWriter& writer);
 
     nfnl::DynamicSetWriter& writer_;
     ConntrackCleanupSink& cleanup_;
@@ -121,6 +144,11 @@ private:
 
     mutable std::mutex snapshot_mutex_;
     std::shared_ptr<const InterceptSnapshot> snapshot_;
+    L7Submitter l7_submitter_;
+    WriterAdmission dns_admission_;
+    WriterRelease dns_release_;
+    WriterAdmission l7_admission_;
+    WriterRelease l7_release_;
 
     mutable std::mutex events_mutex_;
     std::deque<InterceptEvent> events_;

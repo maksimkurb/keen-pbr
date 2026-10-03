@@ -27,6 +27,33 @@ constexpr auto kCleanupDumpBudget = std::chrono::milliseconds(2000);
 
 } // namespace
 
+bool InterceptService::WriteGate::enter() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (paused_) return false;
+    ++in_flight_;
+    return true;
+}
+
+void InterceptService::WriteGate::leave() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (in_flight_ != 0) --in_flight_;
+    if (in_flight_ == 0) cv_.notify_all();
+}
+
+void InterceptService::WriteGate::pause() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    paused_ = true;
+    cv_.wait(lock, [this] { return in_flight_ == 0; });
+}
+
+void InterceptService::WriteGate::resume() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        paused_ = false;
+    }
+    cv_.notify_all();
+}
+
 // ---------------------------------------------------------------- cleanup queue
 
 void InterceptService::CleanupQueue::request(uint8_t family, const std::array<uint8_t, 16>& dst) {
@@ -62,19 +89,61 @@ void InterceptService::CleanupQueue::shutdown() {
     cv_.notify_all();
 }
 
+void InterceptService::CleanupQueue::reset() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    stopping_ = false;
+    pending_.clear();
+}
+
 // ---------------------------------------------------------------- service
 
-InterceptService::InterceptService(std::unique_ptr<nfnl::DynamicSetWriter> writer)
+InterceptService::InterceptService(std::unique_ptr<nfnl::DynamicSetWriter> writer,
+                                   std::unique_ptr<nfnl::DynamicSetWriter> l7_writer)
     : writer_(std::move(writer)),
+      l7_writer_(std::move(l7_writer)),
       cleanup_queue_(counters_),
-      processor_(*writer_, cleanup_queue_, counters_) {}
+      processor_(*writer_, cleanup_queue_, counters_) {
+    processor_.set_writer_callbacks(
+        [this] { return dns_writes_.enter(); },
+        [this] { dns_writes_.leave(); },
+        [this] { return l7_writes_.enter(); },
+        [this] { l7_writes_.leave(); });
+}
 
 InterceptService::~InterceptService() { stop(); }
+
+InterceptService::WritePause::~WritePause() {
+    if (service_ != nullptr) {
+        service_->l7_writes_.resume();
+        service_->dns_writes_.resume();
+    }
+}
+
+InterceptService::WritePause InterceptService::pause_writes() {
+    dns_writes_.pause();
+    l7_writes_.pause();
+    return WritePause(*this);
+}
+
+void InterceptService::invalidate_snapshot() {
+    processor_.set_snapshot(nullptr);
+    snapshot_ready_.store(false, std::memory_order_release);
+}
+
+void InterceptService::discard_l7_pending() {
+    std::deque<InterceptL7Work> dropped;
+    {
+        std::lock_guard<std::mutex> lock(l7_mutex_);
+        dropped.swap(l7_pending_);
+    }
+    for (auto& work : dropped) processor_.reject_l7_work(std::move(work));
+}
 
 bool InterceptService::running() const { return running_.load(); }
 
 void InterceptService::update_snapshot(std::shared_ptr<const InterceptSnapshot> snapshot) {
     processor_.set_snapshot(std::move(snapshot));
+    snapshot_ready_.store(true, std::memory_order_release);
 }
 
 std::vector<InterceptEvent> InterceptService::events_since(uint64_t after_seq,
@@ -85,9 +154,32 @@ std::vector<InterceptEvent> InterceptService::events_since(uint64_t after_seq,
 void InterceptService::start(const InterceptServiceOptions& options,
                              std::shared_ptr<const InterceptSnapshot> snapshot) {
     if (running_.load()) throw std::runtime_error("intercept service already running");
+    // A fatal hot-loop exit marks running=false before its worker objects are
+    // joined.  Reuse must drain those stale workers before resetting the
+    // queue state, otherwise a new L7 worker could run beside the old one.
+    if (hot_thread_.joinable() || l7_thread_.joinable() || cleanup_thread_.joinable()) {
+        stop();
+    }
     if (!writer_) throw std::runtime_error("intercept service has no set writer");
     options_ = options;
+    cleanup_queue_.reset();
+    {
+        std::lock_guard<std::mutex> lock(l7_mutex_);
+        l7_stopping_ = false;
+        l7_pending_.clear();
+    }
+    failed_.store(false, std::memory_order_release);
+    l7_degraded_.store(false, std::memory_order_release);
+    snapshot_ready_.store(false, std::memory_order_release);
     processor_.set_snapshot(std::move(snapshot));
+
+    if (l7_writer_) {
+        processor_.set_l7_submitter([this](InterceptL7Work work) {
+            submit_l7_work(std::move(work));
+        });
+    } else {
+        processor_.set_l7_submitter({});
+    }
 
     try {
         if (options.queue_num) {
@@ -119,15 +211,56 @@ void InterceptService::start(const InterceptServiceOptions& options,
         throw std::runtime_error(std::string("intercept: eventfd failed: ") + std::strerror(err));
     }
 
+    epoll_fd_ = ::epoll_create1(EPOLL_CLOEXEC);
+    if (epoll_fd_ < 0) {
+        const int err = errno;
+        ::close(stop_fd_);
+        stop_fd_ = -1;
+        queue_.reset();
+        log_.reset();
+        throw std::runtime_error(std::string("intercept: epoll_create1 failed: ") +
+                                 std::strerror(err));
+    }
+    const auto add_fd = [this](int fd) {
+        epoll_event ev{};
+        ev.events = EPOLLIN;
+        ev.data.fd = fd;
+        if (::epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, fd, &ev) < 0) {
+            const int err = errno;
+            throw std::runtime_error(std::string("intercept: epoll_ctl failed: ") +
+                                     std::strerror(err));
+        }
+    };
+    try {
+        add_fd(stop_fd_);
+        if (queue_) add_fd(queue_->fd());
+        if (log_) add_fd(log_->fd());
+    } catch (...) {
+        ::close(epoll_fd_);
+        epoll_fd_ = -1;
+        ::close(stop_fd_);
+        stop_fd_ = -1;
+        queue_.reset();
+        log_.reset();
+        throw;
+    }
+
     have_packet_id_ = false;
     running_.store(true);
     try {
         cleanup_thread_ = std::thread([this] { cleanup_loop(); });
+        if (l7_writer_) l7_thread_ = std::thread([this] { l7_loop(); });
         hot_thread_ = std::thread([this] { hot_loop(); });
     } catch (...) {
         running_.store(false);
         cleanup_queue_.shutdown();
+        stop_l7_worker();
         if (cleanup_thread_.joinable()) cleanup_thread_.join();
+        if (l7_thread_.joinable()) l7_thread_.join();
+        if (epoll_fd_ >= 0) {
+            ::close(epoll_fd_);
+            epoll_fd_ = -1;
+        }
         ::close(stop_fd_);
         stop_fd_ = -1;
         queue_.reset();
@@ -137,13 +270,15 @@ void InterceptService::start(const InterceptServiceOptions& options,
 }
 
 void InterceptService::stop() {
-    if (!hot_thread_.joinable() && !cleanup_thread_.joinable()) return;
+    if (!hot_thread_.joinable() && !cleanup_thread_.joinable() && !l7_thread_.joinable()) return;
     if (stop_fd_ >= 0) {
         const uint64_t one = 1;
         const ssize_t rc = ::write(stop_fd_, &one, sizeof(one));
         (void)rc;
     }
     if (hot_thread_.joinable()) hot_thread_.join();  // drains + ACCEPTs, then returns
+    stop_l7_worker();
+    if (l7_thread_.joinable()) l7_thread_.join();
     cleanup_queue_.shutdown();
     if (cleanup_thread_.joinable()) cleanup_thread_.join();
     queue_.reset();  // unbinds
@@ -199,21 +334,7 @@ void InterceptService::drain_queue() {
 }
 
 void InterceptService::hot_loop() {
-    const int ep = ::epoll_create1(EPOLL_CLOEXEC);
-    if (ep < 0) {
-        Logger::instance().error("intercept: epoll_create1 failed: {}", std::strerror(errno));
-        if (queue_) drain_queue();
-        return;
-    }
-    auto add_fd = [ep](int fd) {
-        epoll_event ev{};
-        ev.events = EPOLLIN;
-        ev.data.fd = fd;
-        ::epoll_ctl(ep, EPOLL_CTL_ADD, fd, &ev);
-    };
-    add_fd(stop_fd_);
-    if (queue_) add_fd(queue_->fd());
-    if (log_) add_fd(log_->fd());
+    const int ep = epoll_fd_;
 
     const auto hold = std::chrono::milliseconds(std::max(1, options_.hold_timeout_ms));
     bool failed = false;
@@ -223,6 +344,7 @@ void InterceptService::hot_loop() {
         if (n < 0) {
             if (errno == EINTR) continue;
             Logger::instance().error("intercept: epoll_wait failed: {}", std::strerror(errno));
+            failed = true;
             break;
         }
         // Budget starts when the kernel handed us the wakeup; shared by all
@@ -256,6 +378,7 @@ void InterceptService::hot_loop() {
             counters_.log_overruns.store(log_->overruns(), std::memory_order_relaxed);
             if (rc < 0) {
                 Logger::instance().error("intercept: NFLOG receive failed (errno={})", log_->last_errno());
+                l7_degraded_.store(true, std::memory_order_release);
                 log_.reset();  // keep serving the DNS queue
                 // fd removed from epoll automatically on close
             }
@@ -263,7 +386,62 @@ void InterceptService::hot_loop() {
         if (stop) break;
     }
     if (queue_) drain_queue();
-    ::close(ep);
+    if (failed) {
+        failed_.store(true, std::memory_order_release);
+        stop_l7_worker();
+        queue_.reset();
+        log_.reset();
+    }
+    running_.store(false, std::memory_order_release);
+    if (ep >= 0) {
+        ::close(ep);
+        epoll_fd_ = -1;
+    }
+}
+
+void InterceptService::submit_l7_work(InterceptL7Work work) {
+    bool rejected = false;
+    {
+        std::lock_guard<std::mutex> lock(l7_mutex_);
+        if (l7_stopping_ || l7_pending_.size() >= kL7Capacity) {
+            rejected = true;
+        } else {
+            l7_pending_.push_back(std::move(work));
+        }
+    }
+    if (rejected) {
+        processor_.reject_l7_work(std::move(work));
+        return;
+    }
+    l7_cv_.notify_one();
+}
+
+void InterceptService::stop_l7_worker() {
+    std::deque<InterceptL7Work> dropped;
+    {
+        std::lock_guard<std::mutex> lock(l7_mutex_);
+        l7_stopping_ = true;
+        dropped.swap(l7_pending_);
+    }
+    l7_cv_.notify_all();
+    for (auto& work : dropped) processor_.reject_l7_work(std::move(work));
+}
+
+void InterceptService::l7_loop() {
+    for (;;) {
+        InterceptL7Work work;
+        {
+            std::unique_lock<std::mutex> lock(l7_mutex_);
+            l7_cv_.wait(lock, [this] { return l7_stopping_ || !l7_pending_.empty(); });
+            if (l7_pending_.empty()) {
+                if (l7_stopping_) return;
+                continue;
+            }
+            work = std::move(l7_pending_.front());
+            l7_pending_.pop_front();
+        }
+        processor_.process_l7_work(std::move(work), *l7_writer_);
+    }
 }
 
 void InterceptService::cleanup_loop() {

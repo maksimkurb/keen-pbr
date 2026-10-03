@@ -2,11 +2,16 @@
 
 #include "../src/dns/dns_wire.hpp"
 #include "../src/intercept/intercept_processor.hpp"
+#include "../src/intercept/intercept_service.hpp"
 
 #include <netinet/in.h>
 
 #include <cerrno>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace keen_pbr3;
@@ -27,6 +32,8 @@ struct RecordedAdd {
 class FakeSetWriter : public DynamicSetWriter {
 public:
     bool add(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
+        if (on_enter) on_enter();
+        if (delay_ms > 0) std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
         last_timeout_ms = timeout_ms;
         ++calls;
         bool ok = true;
@@ -48,6 +55,8 @@ public:
     std::vector<RecordedAdd> recorded;
     SetAddResult result{SetAddResult::Added};
     bool simulate_timeout{false};
+    int delay_ms{0};
+    std::function<void()> on_enter;
     int last_timeout_ms{0};
     int calls{0};
     int errno_{0};
@@ -442,6 +451,38 @@ TEST_CASE("intercept: writer timeout counts and requests conntrack cleanup") {
     CHECK(events[0].timed_out);
 }
 
+TEST_CASE("intercept: expired DNS deadline accepts without a set write") {
+    Fixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(1), true);
+    CHECK(f.writer.calls == 0);
+    CHECK(f.counters.dns_hold_timeouts == 1);
+    CHECK(f.counters.set_errors == 0);
+    CHECK(f.cleanup.requests.empty());
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].timed_out);
+}
+
+TEST_CASE("intercept: DNS deadline is checked again after writer admission") {
+    Fixture f;
+    f.proc.set_writer_callbacks(
+        [] {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            return true;
+        },
+        {}, {}, {});
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.proc.on_dns_packet(view(pkt), Clock::now() + std::chrono::milliseconds(50), true);
+    CHECK(f.writer.calls == 1);
+    CHECK(f.writer.last_timeout_ms < 50);
+    CHECK(f.writer.last_timeout_ms >= 1);
+    CHECK(f.counters.dns_hold_timeouts == 0);
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK_FALSE(events[0].timed_out);
+}
+
 TEST_CASE("intercept: marker replacement") {
     Fixture f;
     const Bytes pkt = dns_packet(dns_response("check.keen.pbr", 3, {}));
@@ -506,6 +547,103 @@ TEST_CASE("intercept: L7 TLS SNI split across two segments") {
     f.proc.on_l7_packet(view(q2), now);
     CHECK(f.writer.recorded.size() == 4);
     CHECK(f.cleanup.requests.size() == 1);
+}
+
+TEST_CASE("intercept: L7 work can be handed to a bounded worker writer") {
+    Fixture f;
+    InterceptL7Work work;
+    bool submitted = false;
+    f.proc.set_l7_submitter([&](InterceptL7Work queued) {
+        submitted = true;
+        work = std::move(queued);
+    });
+    const Bytes pkt = tcp_packet(tls_stream("video.example.com"), 1, 443);
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    CHECK(submitted);
+    CHECK(f.writer.calls == 0);
+    REQUIRE_FALSE(work.adds.empty());
+    f.proc.process_l7_work(std::move(work), f.writer);
+    CHECK(f.writer.calls == 1);
+    CHECK(f.counters.set_added == 2);
+    CHECK(f.cleanup.requests.size() == 1);
+}
+
+TEST_CASE("intercept: queued L7 work cannot write after snapshot invalidation") {
+    Fixture f;
+    InterceptL7Work work;
+    f.proc.set_l7_submitter([&](InterceptL7Work queued) { work = std::move(queued); });
+    const Bytes pkt = tcp_packet(tls_stream("video.example.com"), 1, 443);
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    REQUIRE_FALSE(work.adds.empty());
+
+    // The worker may already have taken ownership when a reapply invalidates
+    // the old set snapshot.  It must reject that work instead of writing into
+    // sets whose ownership/schema may have changed.
+    f.proc.set_snapshot(nullptr);
+    f.proc.process_l7_work(std::move(work), f.writer);
+    CHECK(f.writer.calls == 0);
+    CHECK(f.counters.set_added == 0);
+    CHECK(f.counters.set_errors == 2);
+    CHECK(f.cleanup.requests.empty());
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].errors == 2);
+}
+
+TEST_CASE("intercept: slow L7 writer does not block DNS writer") {
+    Fixture f;
+    InterceptL7Work work;
+    f.proc.set_l7_submitter([&](InterceptL7Work queued) { work = std::move(queued); });
+    const Bytes l7 = tcp_packet(tls_stream("video.example.com"), 1, 443);
+    f.proc.on_l7_packet(view(l7), Clock::now());
+    REQUIRE_FALSE(work.adds.empty());
+
+    FakeSetWriter l7_writer;
+    l7_writer.delay_ms = 100;
+    f.writer.result = SetAddResult::Refreshed;
+    std::mutex entered_mutex;
+    std::condition_variable entered_cv;
+    bool entered = false;
+    l7_writer.on_enter = [&] {
+        {
+            std::lock_guard<std::mutex> lock(entered_mutex);
+            entered = true;
+        }
+        entered_cv.notify_one();
+    };
+    std::thread worker([&] { f.proc.process_l7_work(std::move(work), l7_writer); });
+    bool writer_entered = false;
+    {
+        std::unique_lock<std::mutex> lock(entered_mutex);
+        writer_entered = entered_cv.wait_for(lock, std::chrono::seconds(1), [&] { return entered; });
+    }
+    CHECK(writer_entered);
+    if (!writer_entered) {
+        worker.join();
+        return;
+    }
+
+    const auto started = Clock::now();
+    const Bytes dns = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.proc.on_dns_packet(view(dns), Clock::now() + std::chrono::milliseconds(30), true);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started);
+    worker.join();
+    CHECK(f.writer.calls == 1);
+    CHECK(l7_writer.calls == 1);
+    CHECK(elapsed.count() < 80);
+}
+
+TEST_CASE("intercept: paused writers do not block service teardown") {
+    Fixture f;
+    auto writer = std::make_unique<FakeSetWriter>();
+    InterceptService service(std::move(writer));
+    service.start(InterceptServiceOptions{}, f.snap);
+    {
+        auto pause = service.pause_writes();
+        service.stop();
+        CHECK_FALSE(service.running());
+    }
+    CHECK_FALSE(service.running());
 }
 
 TEST_CASE("intercept: L7 HTTP Host") {

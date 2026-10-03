@@ -222,7 +222,9 @@ private:
       const std::vector<DumpedInterface>& interfaces);
   void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive,
                       bool force_clear_dynamic_sets = false,
-                      const std::vector<DumpedRoute>* main_routes = nullptr);
+                      const std::vector<DumpedRoute>* main_routes = nullptr,
+                      const Config* quiesce_config = nullptr,
+                      const OutboundMarkMap* quiesce_marks = nullptr);
   void reconcile_lists_only(bool reload_resolver);
 
   // Traffic interception (DNS hold / L7 sniff), see daemon_intercept.cpp.
@@ -232,7 +234,9 @@ private:
   void quiesce_intercept_service(
       const std::vector<DumpedRoute> &main_routes,
       const std::vector<DumpedInterface> &interfaces,
-      const FirewallBalanceCandidates &balance_candidates);
+      const FirewallBalanceCandidates &balance_candidates,
+      const Config &quiesce_config,
+      const OutboundMarkMap &quiesce_marks);
   void stop_intercept_service();
   void schedule_intercept_snapshot_update(
       std::vector<FirewallSetDeclaration> sets,
