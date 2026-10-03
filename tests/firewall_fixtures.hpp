@@ -103,6 +103,10 @@ inline FirewallPlan capture_plan(bool nft, bool two_interfaces, bool conntrack) 
     r.register_rule(capture_rule("prefilter.restore_conntrack_mark", "mask",
                                  S::restore_conntrack, 0, FirewallFamily::any,
                                  {}, RestoreConntrackMarkAction{kCaptureMask}));
+    r.register_rule(capture_rule("prefilter.skip_local_replies", "reply",
+                                 S::global_bypass, -1, FirewallFamily::any, {},
+                                 SkipLocalRepliesAction{},
+                                 FirewallHook::output));
     r.register_rule(capture_rule("prefilter.skip_established_or_dnat", "dnat",
                                  S::global_bypass, 0, FirewallFamily::any, {},
                                  SkipEstablishedOrDnatAction{}));

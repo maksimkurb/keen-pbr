@@ -260,6 +260,7 @@ TEST_CASE("route module manifest is iterable without a manual count") {
   CHECK(modules.size() == manifest.size());
   const std::vector<RouteRuleModuleRegistration> expected = {
       register_restore_conntrack_mark_rules,
+      register_skip_local_replies_rules,
       register_skip_established_or_dnat_rules,
       register_skip_marked_packets_rules,
       register_inbound_interface_filter_rules,
@@ -284,20 +285,21 @@ TEST_CASE("route module manifest has explicit deterministic order") {
   }
   registrar.finish();
 
-  REQUIRE(plan.rules.size() == 10);
+  REQUIRE(plan.rules.size() == 11);
   CHECK(plan.rules[0].key.module_id == "prefilter.restore_conntrack_mark");
-  CHECK(plan.rules[1].key.module_id == "prefilter.skip_established_or_dnat");
-  CHECK(plan.rules[2].key.module_id == "prefilter.skip_marked_packets");
-  CHECK(plan.rules[3].source_rule_index == 0);
-  CHECK(plan.rules[4].source_rule_index == 1);
-  CHECK(plan.rules[5].source_rule_index == 2);
-  CHECK(plan.rules[6].source_rule_index == 3);
+  CHECK(plan.rules[1].key.module_id == "prefilter.skip_local_replies");
+  CHECK(plan.rules[2].key.module_id == "prefilter.skip_established_or_dnat");
+  CHECK(plan.rules[3].key.module_id == "prefilter.skip_marked_packets");
+  CHECK(plan.rules[4].source_rule_index == 0);
+  CHECK(plan.rules[5].source_rule_index == 1);
+  CHECK(plan.rules[6].source_rule_index == 2);
   CHECK(plan.rules[7].source_rule_index == 3);
   CHECK(plan.rules[8].source_rule_index == 3);
   CHECK(plan.rules[9].source_rule_index == 3);
-  CHECK(plan.rules[3].key.module_id == "route.mark");
-  CHECK(plan.rules[4].key.module_id == "route.drop");
-  CHECK(plan.rules[5].key.module_id == "route.pass");
+  CHECK(plan.rules[10].source_rule_index == 3);
+  CHECK(plan.rules[4].key.module_id == "route.mark");
+  CHECK(plan.rules[5].key.module_id == "route.drop");
+  CHECK(plan.rules[6].key.module_id == "route.pass");
 }
 
 FirewallPlan build_plan_with(RouteRuleModuleRegistration module,
@@ -332,6 +334,15 @@ TEST_CASE("prefilter modules emit canonical operations and honor inputs") {
   CHECK(dnat.rules.front().priority == 0);
   CHECK(std::holds_alternative<SkipEstablishedOrDnatAction>(
       dnat.rules.front().action));
+
+  const auto replies = build_plan_with(register_skip_local_replies_rules, context);
+  REQUIRE(replies.rules.size() == 1);
+  CHECK(replies.rules.front().stage == FirewallRuleStage::global_bypass);
+  CHECK(replies.rules.front().priority < dnat.rules.front().priority);
+  CHECK(replies.rules.front().hook == FirewallHook::output);
+  CHECK(replies.rules.front().family == FirewallFamily::any);
+  CHECK(std::holds_alternative<SkipLocalRepliesAction>(
+      replies.rules.front().action));
 
   const auto marked = build_plan_with(register_skip_marked_packets_rules, context);
   REQUIRE(marked.rules.size() == 1);
@@ -527,9 +538,9 @@ TEST_CASE("route balance module is included in the explicit manifest") {
   }
   registrar.finish();
 
-  REQUIRE(plan.rules.size() == 4);
+  REQUIRE(plan.rules.size() == 5);
   CHECK(plan.rules[0].key.module_id == "prefilter.restore_conntrack_mark");
-  CHECK(plan.rules[3].key.module_id == "route.balance");
+  CHECK(plan.rules[4].key.module_id == "route.balance");
 }
 
 TEST_CASE("config builds ordered DNS detour rules in the firewall plan") {
@@ -708,13 +719,13 @@ TEST_CASE("route module manifest keeps reordered config rules in priority order"
   }
   registrar.finish();
 
-  REQUIRE(plan.rules.size() == 6);
-  CHECK(plan.rules[3].source_rule_index == 0);
-  CHECK(plan.rules[4].source_rule_index == 1);
-  CHECK(plan.rules[5].source_rule_index == 2);
-  CHECK(std::holds_alternative<VerdictAction>(plan.rules[3].action));
-  CHECK(std::holds_alternative<MarkAction>(plan.rules[4].action));
-  CHECK(std::holds_alternative<VerdictAction>(plan.rules[5].action));
+  REQUIRE(plan.rules.size() == 7);
+  CHECK(plan.rules[4].source_rule_index == 0);
+  CHECK(plan.rules[5].source_rule_index == 1);
+  CHECK(plan.rules[6].source_rule_index == 2);
+  CHECK(std::holds_alternative<VerdictAction>(plan.rules[4].action));
+  CHECK(std::holds_alternative<MarkAction>(plan.rules[5].action));
+  CHECK(std::holds_alternative<VerdictAction>(plan.rules[6].action));
 }
 
 namespace {
@@ -754,10 +765,10 @@ TEST_CASE("IPv4 default gateway keeps both list families but emits IPv4 rules") 
   CHECK(plan.sets[1].name == "kpbr4d_remote");
   CHECK(plan.sets[2].name == "kpbr6_remote");
   CHECK(plan.sets[3].name == "kpbr6d_remote");
-  REQUIRE(plan.rules.size() == 5);
-  CHECK(plan.rules[3].criteria.dst_set_name == "kpbr4_remote");
-  CHECK(plan.rules[4].criteria.dst_set_name == "kpbr4d_remote");
-  for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[3], plan.rules[4]}) {
+  REQUIRE(plan.rules.size() == 6);
+  CHECK(plan.rules[4].criteria.dst_set_name == "kpbr4_remote");
+  CHECK(plan.rules[5].criteria.dst_set_name == "kpbr4d_remote");
+  for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[4], plan.rules[5]}) {
     CHECK(rule.family == FirewallFamily::ipv4);
     CHECK(rule.hook == FirewallHook::prerouting);
     CHECK(rule.criteria.default_gateway == DefaultGatewayFamily::Ipv4);
@@ -774,10 +785,10 @@ TEST_CASE("IPv6 default gateway keeps both list families but emits IPv6 rules") 
   CHECK(plan.sets[1].name == "kpbr4d_remote");
   CHECK(plan.sets[2].name == "kpbr6_remote");
   CHECK(plan.sets[3].name == "kpbr6d_remote");
-  REQUIRE(plan.rules.size() == 5);
-  CHECK(plan.rules[3].criteria.dst_set_name == "kpbr6_remote");
-  CHECK(plan.rules[4].criteria.dst_set_name == "kpbr6d_remote");
-  for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[3], plan.rules[4]}) {
+  REQUIRE(plan.rules.size() == 6);
+  CHECK(plan.rules[4].criteria.dst_set_name == "kpbr6_remote");
+  CHECK(plan.rules[5].criteria.dst_set_name == "kpbr6d_remote");
+  for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[4], plan.rules[5]}) {
     CHECK(rule.family == FirewallFamily::ipv6);
     CHECK(rule.hook == FirewallHook::prerouting);
     CHECK(rule.criteria.default_gateway == DefaultGatewayFamily::Ipv6);

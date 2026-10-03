@@ -109,6 +109,19 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   (hook=output) only to OUTPUT, and the inbound-interface prefilter (and its
   multi-interface fragments) only to PREROUTING, since router-originated
   packets have no input interface.
+  The `prefilter.skip_local_replies` prefilter (hook=output) is lowered to
+  OUTPUT only (`-m conntrack --ctdir REPLY -j RETURN` on iptables,
+  `ct direction reply accept` in the nft `output` chain), ahead of the
+  DNAT/marked-packet bypasses and all route classification: route rules apply
+  to router-originated traffic, but the answers local services (dnsmasq,
+  uhttpd, sshd, the API) send to inbound connections must follow the main
+  routing table, not a policy table.  PREROUTING does not get it: forwarded
+  replies are handled by `route.inbound_interfaces` (reply packets arrive on
+  the WAN/tunnel interface, which the filter skips).  Known gap: when
+  `inbound_interfaces` is empty, a forwarded REPLY-direction packet (e.g. a WAN
+  server answering a LAN client) is not restored (`restore_conntrack_mark` is
+  ORIGINAL-only) and can be re-marked by a catch-all rule; the analogous
+  prerouting `ct direction reply` skip is a possible follow-up.
   Apply is one `iptables-restore --noflush` transaction per table and family:
   it declares (flushes) our chains, appends the rules, ensures exactly one hook
   per chain in the builtin chains (the builtin chains are never declared, so

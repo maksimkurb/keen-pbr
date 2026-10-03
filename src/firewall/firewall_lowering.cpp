@@ -524,6 +524,14 @@ void lower_iptables_prefilter(const FirewallRuleInstance &rule,
     }
     rules.push_back(build_rule(family, {CtStateMatch{ct_dnat, false}},
                                {verdict(PhysicalVerdict::return_)}, key));
+  } else if (std::holds_alternative<SkipLocalRepliesAction>(rule.action)) {
+    // Answers of local services to inbound connections must follow the main
+    // routing table, never a route rule's policy table.
+    if (!target.conntrack || target.hook != FirewallHook::output) {
+      return;
+    }
+    rules.push_back(build_rule(family, {CtDirMatch{false}},
+                               {verdict(PhysicalVerdict::return_)}, key));
   } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
     rules.push_back(
         build_rule(family, {mark_is_not_zero(PhysicalMarkKind::packet, kFullMask)},
@@ -940,6 +948,10 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
             any, {CtStateMatch{ct_dnat, false}},
             {verdict(PhysicalVerdict::accept)}, key));
       }
+    } else if (std::holds_alternative<SkipLocalRepliesAction>(rule.action)) {
+      output.rules.push_back(build_rule(any, {CtDirMatch{false}},
+                                        {verdict(PhysicalVerdict::accept)},
+                                        key));
     } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
       for (auto *chain : {&prerouting, &output}) {
         chain->rules.push_back(build_rule(

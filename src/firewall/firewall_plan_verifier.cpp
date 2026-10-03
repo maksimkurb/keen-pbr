@@ -256,6 +256,9 @@ std::string action_name(const FirewallRuleAction& action) {
     if (std::holds_alternative<SkipEstablishedOrDnatAction>(action)) {
         return "skip_established_or_dnat";
     }
+    if (std::holds_alternative<SkipLocalRepliesAction>(action)) {
+        return "skip_local_replies";
+    }
     if (std::holds_alternative<SkipMarkedPacketsAction>(action)) {
         return "skip_marked_packets";
     }

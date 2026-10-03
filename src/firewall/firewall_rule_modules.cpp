@@ -7,6 +7,7 @@ namespace {
 
 constexpr RouteRuleModuleRegistration kRouteRuleModules[] = {
     register_restore_conntrack_mark_rules,
+    register_skip_local_replies_rules,
     register_skip_established_or_dnat_rules,
     register_skip_marked_packets_rules,
     register_inbound_interface_filter_rules,

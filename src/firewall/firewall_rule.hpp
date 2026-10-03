@@ -80,6 +80,15 @@ struct SkipEstablishedOrDnatAction {
   }
 };
 
+// OUTPUT only: replies of local services to inbound connections (conntrack
+// direction REPLY) are never classified by route rules.
+struct SkipLocalRepliesAction {
+  bool operator==(const SkipLocalRepliesAction&) const { return true; }
+  bool operator!=(const SkipLocalRepliesAction& other) const {
+    return !(*this == other);
+  }
+};
+
 struct SkipMarkedPacketsAction {
   bool operator==(const SkipMarkedPacketsAction&) const { return true; }
   bool operator!=(const SkipMarkedPacketsAction& other) const {
@@ -126,6 +135,7 @@ struct LogAction {
 using FirewallRuleAction = std::variant<MarkAction, BalanceAction, VerdictAction,
                                         RestoreConntrackMarkAction,
                                         SkipEstablishedOrDnatAction,
+                                        SkipLocalRepliesAction,
                                         SkipMarkedPacketsAction,
                                         InboundInterfaceFilterAction,
                                         QueueAction, LogAction>;

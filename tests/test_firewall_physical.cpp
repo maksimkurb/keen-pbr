@@ -753,22 +753,22 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
     const auto &p = require_chain(set, pre);
     const auto &o = require_chain(set, out);
     REQUIRE(p.rules.size() == 18);
-    REQUIRE(o.rules.size() == 19);
+    REQUIRE(o.rules.size() == 20);
     // Prerouting rule 3 is the inbound-interface filter, which never applies
-    // to router-originated traffic; output rules 13 and 14 come from plan
-    // rules with hook=output.
+    // to router-originated traffic; output rule 1 is the local-reply skip and
+    // output rules 14 and 15 come from plan rules with hook=output.
     std::vector<PhysicalRule> shared;
     for (std::size_t i = 0; i < p.rules.size(); ++i) {
       if (i != 3) shared.push_back(p.rules[i]);
     }
     std::vector<PhysicalRule> output_shared;
     for (std::size_t i = 0; i < o.rules.size(); ++i) {
-      if (i != 13 && i != 14) output_shared.push_back(o.rules[i]);
+      if (i != 1 && i != 14 && i != 15) output_shared.push_back(o.rules[i]);
     }
     CHECK(output_shared == shared);
     CHECK(std::holds_alternative<IifMatch>(p.rules[3].matches.front()));
-    CHECK(std::get<SetMatch>(o.rules[13].matches.front()).name == "kpbr4d_routed");
-    CHECK(std::get<SetMatch>(o.rules[14].matches.front()).name == "kpbr4_hybrid");
+    CHECK(std::get<SetMatch>(o.rules[14].matches.front()).name == "kpbr4d_routed");
+    CHECK(std::get<SetMatch>(o.rules[15].matches.front()).name == "kpbr4_hybrid");
   }
 }
 
