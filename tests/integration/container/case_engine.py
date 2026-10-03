@@ -21,20 +21,23 @@ class Case:
     name: str
     backends: frozenset[Backend]
     body: CaseBody
+    # Optional preflight capabilities (WARN-level) the case cannot run without.
+    requires: frozenset[str] = frozenset()
 
 
 class Registry:
     def __init__(self) -> None:
         self._cases: dict[str, Case] = {}
 
-    def case(self, name: str, backends: Iterable[Backend] = ("iptables", "nftables")):
+    def case(self, name: str, backends: Iterable[Backend] = ("iptables", "nftables"),
+             requires: Iterable[str] = ()):
         def register(body: CaseBody) -> CaseBody:
             if not name or name in self._cases:
                 raise ValueError(f"duplicate or empty integration case: {name!r}")
             supported = frozenset(backends)
             if not supported or not supported <= {"iptables", "nftables"}:
                 raise ValueError(f"invalid backends for {name}: {sorted(supported)}")
-            self._cases[name] = Case(name, supported, body)
+            self._cases[name] = Case(name, supported, body, frozenset(requires))
             return body
         return register
 
@@ -109,7 +112,8 @@ class Runner:
                  diagnose: Callable[[object, Case], str],
                  reporter: Reporter | None = None,
                  timeout_seconds: float = 180.0,
-                 preserve: Callable[[Case, str], None] | None = None) -> None:
+                 preserve: Callable[[Case, str], None] | None = None,
+                 missing_optional: Iterable[str] = ()) -> None:
         self.backend = backend
         self.cases = cases
         self.context = context
@@ -119,6 +123,7 @@ class Runner:
         self.reporter = reporter or Reporter()
         self.timeout_seconds = timeout_seconds
         self.preserve = preserve
+        self.missing_optional = frozenset(missing_optional)
 
     def _diagnose(self, case: Case, prefix: str) -> None:
         try:
@@ -137,6 +142,15 @@ class Runner:
         results: list[Result] = []
         self.reporter.event("BEGIN", backend=self.backend, cases=len(self.cases))
         for case in self.cases:
+            unavailable = sorted(case.requires & self.missing_optional)
+            if unavailable:
+                # An optional capability is absent: report an environment
+                # limitation, never a PASS and never a product failure.
+                reason = "missing_optional_capability:" + ",".join(unavailable)
+                self.reporter.event("END", backend=self.backend, case=case.name,
+                                    status="skip", reason=reason, duration_ms=0)
+                results.append(Result(self.backend, case.name, "skip", 0, reason))
+                continue
             started = time.monotonic()
             status = "pass"
             error = ""
@@ -175,7 +189,7 @@ class Runner:
 
 
 def aggregate_status(results: Iterable[Result]) -> int:
-    return 1 if any(result.status != "pass" for result in results) else 0
+    return 1 if any(result.status not in ("pass", "skip") for result in results) else 0
 
 
 def write_summary(path: str, backend: str, results: list[Result]) -> None:

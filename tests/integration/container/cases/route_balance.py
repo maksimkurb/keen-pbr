@@ -80,7 +80,7 @@ def assert_no_leak(context, source_ports, token_prefix):
 
 
 def register(registry):
-    @registry.case("route_balance", backends=("nftables",))
+    @registry.case("route_balance", backends=("nftables",), requires=("balance_numgen",))
     def route_balance(context):
         apply_balance(context)
         wait_for_balance_status(context, ("wan_direct", "wan_pbr"),
@@ -89,7 +89,7 @@ def register(registry):
         assert probe_identities(context, range(22000, 22004), "route-balance") == {
             "wan_direct", "wan_pbr"}
 
-    @registry.case("route_balance_failover", backends=("nftables",))
+    @registry.case("route_balance_failover", backends=("nftables",), requires=("balance_numgen",))
     def route_balance_failover(context):
         apply_balance(context)
         wait_for_balance_status(context, ("wan_direct", "wan_pbr"),
@@ -116,7 +116,7 @@ def register(registry):
             context, range(22500, 22504), "route-balance-failover-recovered") == {
                 "wan_direct", "wan_pbr"}
 
-    @registry.case("route_balance_no_leak", backends=("nftables",))
+    @registry.case("route_balance_no_leak", backends=("nftables",), requires=("balance_numgen",))
     def route_balance_no_leak(context):
         apply_balance(context)
         wait_for_balance_status(context, ("wan_direct", "wan_pbr"),

@@ -135,6 +135,8 @@ def one_probe(args: argparse.Namespace) -> dict:
             level = socket.IPPROTO_IP if family == socket.AF_INET else socket.IPPROTO_IPV6
             option = socket.IP_TOS if family == socket.AF_INET else socket.IPV6_TCLASS
             probe.setsockopt(level, option, args.dscp << 2)
+        if args.mark:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_MARK, args.mark)
         if args.source or args.source_port:
             probe.bind((args.source or ("0.0.0.0" if family == socket.AF_INET else "::"),
                         args.source_port or 0))
@@ -182,6 +184,7 @@ def add_client_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--source")
     parser.add_argument("--source-port", type=int)
     parser.add_argument("--dscp", type=int)
+    parser.add_argument("--mark", type=lambda value: int(value, 0))
     parser.add_argument("--token", required=True)
     parser.add_argument("--timeout", type=float, default=4)
 

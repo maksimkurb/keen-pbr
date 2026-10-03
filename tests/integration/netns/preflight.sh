@@ -8,6 +8,7 @@ check_harness_requirements "$KPBR_REPO_ROOT/tests/integration/netns/shims"
 [[ -x "$KPBR_BIN" ]] || die "keen-pbr binary is not executable inside sandbox"
 
 required_missing=0
+: >"$KPBR_RUNTIME/optional-missing"
 probe_capability() {
   local backend=$1 feature=$2 missing_status=$3 output
   shift 3
@@ -19,7 +20,12 @@ probe_capability() {
     output=${output//$'\n'/; }
     printf 'KPBR_IT_DIAG backend=%s case=suite stage=preflight feature=%s message=%s\n' \
       "$backend" "$feature" "${output// /_}" >&2
-    [[ $missing_status != ERROR ]] || required_missing=1
+    if [[ $missing_status == ERROR ]]; then
+      required_missing=1
+    else
+      # Cases that require this optional capability report SKIP, not PASS.
+      printf '%s %s\n' "$backend" "$feature" >>"$KPBR_RUNTIME/optional-missing"
+    fi
   fi
 }
 

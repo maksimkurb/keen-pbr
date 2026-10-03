@@ -17,7 +17,8 @@ from cases import (dns_no_leak, dns_routing_save, dns_upstream_ipv4,
                    service_lifecycle, sigusr1_no_packet_leak, table_interface,
                    test_group_table, urltest_rebuild, iptables_chain_convergence,
                    prefilter_skip_marked, inbound_interface_filter, restore_conntrack_mark,
-                   skip_established_or_dnat)
+                   skip_established_or_dnat, firewall_corruption_recovery,
+                   loop_safety_marked_socket)
 
 CASE_MODULES = (
     service_lifecycle,
@@ -29,6 +30,8 @@ CASE_MODULES = (
     inbound_interface_filter,
     restore_conntrack_mark,
     skip_established_or_dnat,
+    firewall_corruption_recovery,
+    loop_safety_marked_socket,
     rule_shapes,
     route_pass,
     route_drop,
@@ -57,6 +60,18 @@ def build_registry() -> Registry:
     return registry
 
 
+def optional_missing(backend: str) -> set[str]:
+    """Optional capabilities the preflight found absent for this backend."""
+    path = os.path.join(os.environ.get("KPBR_RUNTIME", "/run/keen-pbr-it"),
+                        "optional-missing")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            entries = [line.split() for line in handle]
+    except FileNotFoundError:
+        return set()
+    return {entry[1] for entry in entries if len(entry) == 2 and entry[0] == backend}
+
+
 def main() -> int:
     if len(sys.argv) != 2 or sys.argv[1] not in ("iptables", "nftables"):
         print("usage: test-system.py <iptables|nftables>", file=sys.stderr)
@@ -69,10 +84,12 @@ def main() -> int:
         print(f"KPBR_IT_END backend={backend} status=invalid_cases message={str(error).replace(' ', '_')}")
         return 2
     context = SystemContext(backend)
+    missing_optional = optional_missing(backend)
     timeout_seconds = float(os.environ.get("INTEGRATION_CASE_TIMEOUT", "180"))
     results = Runner(backend, cases, context, setup_case, teardown_case, diagnostics,
                      timeout_seconds=timeout_seconds,
-                     preserve=preserve_diagnostic).run()
+                     preserve=preserve_diagnostic,
+                     missing_optional=missing_optional).run()
     summary_path = os.environ.get("KPBR_IT_SUMMARY", "/mnt/seed/summary.json")
     write_summary(summary_path, backend, results)
     return aggregate_status(results)
