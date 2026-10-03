@@ -12,6 +12,10 @@ required_missing=0
 probe_capability() {
   local backend=$1 feature=$2 missing_status=$3 output
   shift 3
+  if [[ $missing_status == WARN ]] &&
+     grep -Fqx "$backend $feature" "$KPBR_RUNTIME/optional-missing"; then
+    return 0
+  fi
   if output=$("$@" 2>&1); then
     printf 'KPBR_IT_CAPABILITY backend=%s feature=%s status=OK\n' "$backend" "$feature"
   else
@@ -26,6 +30,25 @@ probe_capability() {
       # Cases that require this optional capability report SKIP, not PASS.
       printf '%s %s\n' "$backend" "$feature" >>"$KPBR_RUNTIME/optional-missing"
     fi
+  fi
+}
+
+probe_iptables_proc_capability() {
+  local feature file name missing=0
+  feature=$1
+  shift
+  for file in "$@"; do
+    name=${file##*:}
+    file=${file%%:*}
+    if [[ ! -r $file ]] || ! grep -Eq "^[[:space:]]*${name}([[:space:]]|$)" "$file"; then
+      missing=1
+    fi
+  done
+  if [[ $missing == 1 ]]; then
+    printf 'KPBR_IT_CAPABILITY backend=iptables feature=%s status=WARN\n' "$feature"
+    printf 'iptables %s\n' "$feature" >>"$KPBR_RUNTIME/optional-missing"
+    printf 'KPBR_IT_DIAG backend=iptables case=suite stage=preflight feature=%s message=runtime_proc_capability_unavailable\n' \
+      "$feature" >&2
   fi
 }
 
@@ -85,6 +108,25 @@ if [[ $backend == all || $backend == iptables ]]; then
     probe_capability iptables "connmark_restore_$family" ERROR "$binary" -t mangle -A KPBR_PREFLIGHT -j CONNMARK --restore-mark --mask 0xff00
     probe_capability iptables "comment_$family" WARN "$binary" -t mangle -A KPBR_PREFLIGHT -m comment --comment kpbr-preflight -j RETURN
   done
+  # The iptables shim can accept a rule even when the proc capability lists
+  # used by keen-pbr are unavailable.  Mirror the daemon's actual probe so
+  # interception cases skip honestly instead of failing during health wait.
+  probe_iptables_proc_capability nfqueue \
+    /proc/net/ip_tables_targets:NFQUEUE /proc/net/ip6_tables_targets:NFQUEUE \
+    /proc/net/ip_tables_matches:conntrack /proc/net/ip6_tables_matches:conntrack
+  probe_iptables_proc_capability nflog \
+    /proc/net/ip_tables_targets:NFLOG /proc/net/ip6_tables_targets:NFLOG
+  probe_iptables_proc_capability connbytes \
+    /proc/net/ip_tables_matches:connbytes /proc/net/ip6_tables_matches:connbytes
+  # Interception cases are optional on kernels/builds without the xt targets,
+  # but absence is reported as SKIP rather than silently passing the case.
+  probe_capability iptables nfqueue WARN iptables -t mangle -A KPBR_PREFLIGHT \
+    -p udp --sport 53 -j NFQUEUE --queue-num 9053 --queue-bypass
+  probe_capability iptables nflog WARN iptables -t mangle -A KPBR_PREFLIGHT \
+    -p udp --dport 443 -j NFLOG --nflog-group 9054 --nflog-size 2048 --nflog-threshold 1
+  probe_capability iptables connbytes WARN iptables -t mangle -A KPBR_PREFLIGHT \
+    -p tcp -m connbytes --connbytes 1:6 --connbytes-mode packets \
+    --connbytes-dir original -j RETURN
 fi
 
 if [[ $backend == all || $backend == nftables ]]; then
@@ -100,6 +142,12 @@ if [[ $backend == all || $backend == nftables ]]; then
   probe_capability nftables conntrack_mark ERROR nft add rule inet kpbr_preflight probe ct mark set meta mark
   probe_capability nftables comment ERROR nft add rule inet kpbr_preflight probe counter comment '"kpbr-preflight"'
   probe_capability nftables balance_numgen WARN nft add rule inet kpbr_preflight probe numgen inc mod 2 == 0 counter
+  probe_capability nftables nfqueue WARN nft add rule inet kpbr_preflight probe \
+    udp sport 53 queue num 9053 bypass
+  probe_capability nftables nflog WARN nft add rule inet kpbr_preflight probe \
+    udp dport 443 log group 9054 snaplen 2048 queue-threshold 1
+  probe_capability nftables connbytes WARN nft add rule inet kpbr_preflight probe \
+    ct original packets '>' 0 counter
 fi
 
 ip rule add pref 31999 fwmark 0x7f000000/0xff000000 table 249
