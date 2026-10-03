@@ -103,6 +103,9 @@ parse-error counter so interception cannot become a packet-drop policy.
 The hold timeout is a userspace processing budget. It is not a kernel promise
 that a packet cannot wait longer than 30 ms. A bound but frozen listener can
 leave packets queued; queue-bypass does not turn that state into a timeout.
+This path does not request `SO_TIMESTAMP` or another enqueue timestamp, so the
+deadline starts when userspace wakes for the queue; it cannot account for time
+already spent waiting in the kernel queue.
 
 ## Marker and payload replacement
 
@@ -130,14 +133,17 @@ NFLOG observes visible first-flow payloads, not decrypted application data:
 * SNI/Host fronting can associate an arbitrary destination address with a name,
   so enabling those sources has an inherent security trade-off.
 
+When DNS hold and L7 interception are both enabled, L7 parsing submits matched
+work to a separate writer and a bounded 256-job queue. DNS admission never
+waits behind an L7 set write. Queue overflow or apply-time cancellation rejects
+the L7 work and records the set error; it does not make the DNS hold path wait.
+Each L7 set-write transaction has a 100 ms budget, which is a userspace writer
+budget rather than a network-wide deadline.
+
 When a new address is added, conntrack cleanup is best effort and targets the
 matching original tuple/address. The first connection can already be in flight
 and an application retry may be required. Cleanup must not remove unrelated
 zones or marked entries; failures are counted in health rather than hidden.
-
-The L7 hot path is bounded but its current write path can still approach the
-known 100 ms review budget. Documentation must not treat that as a strict
-network-wide 30 ms guarantee.
 
 ## Failure behavior
 
@@ -148,6 +154,9 @@ network-wide 30 ms guarantee.
 | Listener is bound but stalled/frozen | Already queued packets can remain held; there is no kernel hold deadline. |
 | Graceful shutdown | Queueing rules are removed before the listener stops. Closing a queue with pending entries can drop them, so shutdown is not described as an ACCEPT guarantee. |
 | NFLOG loss/overrun | The packet is not blocked; the loss/overrun counter and health state expose reduced learning. |
+| NFLOG receive failure | L7 is marked degraded and the DNS NFQUEUE path continues. |
+| Fatal listener failure | The service unbinds the listener and reports `running: false`. |
+| Apply or snapshot publication | Admitted writes drain, queued L7 work is cancelled, and the old snapshot is invalidated before the new snapshot is published. Failed publication does not permit stale writes; health exposes initialization/degraded state. |
 | DNS/L7 capability missing | The unavailable part is disabled and reported independently; the other part can remain active. |
 
 ## Health and diagnostics
@@ -157,6 +166,9 @@ interception health separates `dns_hold_active` and `l7_active`, reports
 `capabilities.nfqueue`, `capabilities.nflog`, and `capabilities.connbytes`, and
 exposes counters such as DNS packets/parse errors/hold timeouts, partial TCP,
 NFQUEUE/NFLOG overruns, set additions/errors, and conntrack requests/deletes.
+`SIGUSR1` schedules a runtime refresh and clears the cached interception
+capability probe before reapplying the runtime state, so newly available kernel
+facilities are rechecked.
 
 `GET /api/dns/test` is an SSE stream, not the removed probe listener. It emits
 `HELLO` and `INTERCEPT` events with `source` (`dns`, `marker`, `sni`, `http`, or
