@@ -1,5 +1,7 @@
 import type {
+  ResolverConfigProbeStatus,
   ResolverConfigSyncState,
+  ResolverIntegrationMode,
   RuntimeOutboundStatus,
 } from "@/api/generated/model"
 
@@ -10,13 +12,23 @@ export type DnsmasqBadgeState = {
     | "overview.runtime.dnsmasqStale"
     | "overview.runtime.dnsmasqUnavailable"
     | "overview.runtime.dnsmasqUnknown"
+    | "overview.runtime.dnsmasqDisabled"
   tone: "healthy" | "warning" | "degraded"
 }
 
 export function getDnsmasqBadgeState(
   liveStatus: RuntimeOutboundStatus | undefined,
-  syncState: ResolverConfigSyncState | undefined
+  syncState: ResolverConfigSyncState | undefined,
+  resolverIntegration?: ResolverIntegrationMode,
+  probeStatus?: ResolverConfigProbeStatus
 ): DnsmasqBadgeState {
+  if (resolverIntegration === "none" || probeStatus === "disabled") {
+    return {
+      labelKey: "overview.runtime.dnsmasqDisabled",
+      tone: "healthy",
+    }
+  }
+
   if (syncState === "converging") {
     return {
       labelKey: "overview.runtime.dnsmasqWaiting",

@@ -44,4 +44,13 @@ describe("getDnsmasqBadgeState", () => {
       tone: "warning",
     })
   })
+
+  test("does not report resolver failure when integration is disabled", () => {
+    expect(
+      getDnsmasqBadgeState("unavailable", "stale", "none", "disabled")
+    ).toEqual({
+      labelKey: "overview.runtime.dnsmasqDisabled",
+      tone: "healthy",
+    })
+  })
 })

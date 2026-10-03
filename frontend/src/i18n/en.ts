@@ -233,6 +233,7 @@ export const enTranslation = {
       dnsmasqWaiting: "dnsmasq reloading",
       dnsmasqStale: "dnsmasq restart required",
       dnsmasqUnavailable: "dnsmasq probe failed",
+      dnsmasqDisabled: "dnsmasq integration disabled",
       dnsmasqUnknown: "dnsmasq status unknown",
       actions: {
         start: "Start",
@@ -319,9 +320,11 @@ export const enTranslation = {
       card: {
         title: "DNS check",
         description:
-          "Verifies that DNS resolution through keen-pbr is working correctly from this browser or another device.",
+          "Observes DNS traffic through keen-pbr from this browser or another device; it does not verify synthetic response replacement.",
         disabledDescription:
-          "Enable `dns.dns_test_server` option in the config file to run the DNS self-check.",
+          "Enable DNS interception in the settings to run the DNS self-check.",
+        runtimeDisabledDescription:
+          "The DNS interception runtime is unavailable, so the marker self-check is disabled.",
         configuredServers: "Configured DNS servers",
         noServers:
           "No upstream DNS servers are configured on the DNS Servers page.",
@@ -340,21 +343,77 @@ export const enTranslation = {
         copyAria: "Copy command",
       },
       status: {
-        disabled: "Built-in DNS probe is disabled in config.",
-        browserSuccess: "DNS request from the browser reached dnsmasq.",
-        manualProbeSuccess: "DNS request from the device reached dnsmasq.",
+        disabled: "DNS interception is disabled in config.",
+        browserSuccess:
+          "DNS request from the browser was observed by the interceptor.",
+        manualProbeSuccess:
+          "DNS request from the device was observed by the interceptor.",
         browserProbeFail:
-          "Browser request completed, but the DNS probe did not see the lookup.",
+          "Browser request completed, but the interceptor did not see the marker lookup.",
         sseUnavailable:
           "The live DNS event stream is unavailable, so the check could not start.",
         browserFail:
-          "Browser request ran, but the DNS lookup was not observed.",
+          "Browser request ran, but the interceptor did not observe the marker lookup.",
         sseFail: "Live DNS event stream is not connected.",
         browserChecking: "Checking browser DNS path...",
         browserUnknown: "Browser DNS status is not known yet.",
-        manualSuccess: "DNS request from the device reached dnsmasq.",
+        manualSuccess:
+          "DNS request from the device was observed by the interceptor.",
         manualWaiting: "Waiting for your manual nslookup command...",
         manualIncomplete: "Manual device test has not completed yet.",
+      },
+      monitor: {
+        connecting: "Connecting to live interception events...",
+        connected: "Live interception monitor connected.",
+        error: "Live interception monitor disconnected.",
+      },
+      event: {
+        title: "Latest interception event",
+        source: "Source",
+        domain: "Domain",
+        lists: "Lists",
+        ips: "IPs",
+        hold_us: "Hold (µs)",
+        timed_out: "Timed out",
+      },
+    },
+    intercept: {
+      title: "Traffic interception",
+      description: "Daemon-side DNS and L7 interception health.",
+      status: {
+        disabled: "Disabled",
+        running: "Running",
+        stopped: "Not running",
+      },
+      dnsHoldActive: "DNS hold active",
+      dnsHoldInactive: "DNS hold inactive",
+      l7Active: "L7 active",
+      l7Inactive: "L7 inactive",
+      supported: "supported",
+      unsupported: "unsupported",
+      unsupportedWarning: "Some interception features are unavailable",
+      capabilities: {
+        nfqueue: "NFQUEUE",
+        nflog: "NFLOG",
+        connbytes: "connbytes",
+      },
+      counters: {
+        dnsPackets: "DNS packets",
+        dnsParseErrors: "DNS parse errors",
+        dnsMatched: "DNS matched",
+        dnsHoldTimeouts: "DNS hold timeouts",
+        dnsTcpPartial: "DNS TCP partial",
+        markerHits: "Marker hits",
+        l7Packets: "L7 packets",
+        l7Matched: "L7 matched",
+        setAdded: "Set entries added",
+        setRefreshed: "Set entries refreshed",
+        setErrors: "Set errors",
+        conntrackRequests: "Conntrack requests",
+        conntrackDeleted: "Conntrack deleted",
+        conntrackErrors: "Conntrack errors",
+        queueOverruns: "Queue overruns",
+        logOverruns: "Log overruns",
       },
     },
     routingTest: {
@@ -451,6 +510,51 @@ export const enTranslation = {
         inboundInterfacesStatusMissing: "Missing",
         inboundInterfacesMissingDetail:
           "This interface is saved in config but is not present in the current live interface inventory.",
+      },
+      resolver: {
+        title: "Resolver integration",
+        description:
+          "Use dnsmasq integration only when per-list DNS servers and rules are needed.",
+        integrationLabel: "Resolver integration",
+        integrationHint:
+          "None is the default: keen-pbr fills dynamic sets through interception and does not touch dnsmasq. DNS servers and rules are available with dnsmasq integration.",
+        options: {
+          none: "None (interception only)",
+          dnsmasq: "dnsmasq",
+        },
+        addressLabel: "System resolver address",
+        addressHint:
+          "Address used to manage dnsmasq and verify its config hash, for example 127.0.0.1 or 127.0.0.1:5353.",
+      },
+      intercept: {
+        title: "Traffic interception",
+        description:
+          "Fill dynamic domain sets from DNS responses and TLS, HTTP, or QUIC traffic.",
+        enabledLabel: "Enable traffic interception",
+        enabledHint:
+          "When enabled, keen-pbr learns destinations without requiring dnsmasq integration.",
+        minTtlLabel: "Minimum TTL (seconds)",
+        minTtlHint: "Floor for learned set entry timeouts.",
+        maxTtlLabel: "Maximum TTL (seconds)",
+        maxTtlHint: "Upper bound for learned set entry timeouts.",
+        dnsEnabledLabel: "Enable DNS interception",
+        dnsEnabledHint:
+          "Hold DNS responses briefly while learned addresses are added to sets.",
+        queueLabel: "NFQUEUE number",
+        queueHint: "Queue used for DNS response interception.",
+        holdTimeoutLabel: "DNS hold timeout (milliseconds)",
+        holdTimeoutHint: "Maximum time to hold a DNS response (5–500 ms).",
+        markerDomainLabel: "Marker domain",
+        markerDomainHint: "Domain answered by the synthetic DNS marker.",
+        markerAddressLabel: "Marker IPv4 address",
+        markerAddressHint: "IPv4 address returned for the marker domain.",
+        l7EnabledLabel: "Enable L7 interception",
+        l7EnabledHint: "Learn destinations from TLS SNI, HTTP Host, and QUIC.",
+        nflogGroupLabel: "NFLOG group",
+        nflogGroupHint: "Group used for TLS, HTTP, and QUIC packet events.",
+        tlsLabel: "TLS SNI",
+        httpLabel: "HTTP Host",
+        quicLabel: "QUIC",
       },
       autoupdate: {
         title: "Lists autoupdate",

@@ -7,7 +7,7 @@
  */
 
 /**
- * System resolver integration used by daemon runtime. This object is required for service startup, reload, and applied config updates, although non-daemon commands may still parse configs without it.
+ * System resolver endpoint used when `dns.resolver_integration` is `dnsmasq`. It is the resolver queried for the TXT record `config-hash.keen.pbr` to verify that the generated configuration was loaded. Not used (and not required) when the integration is `none`.
 
  */
 export interface DnsSystemResolver {

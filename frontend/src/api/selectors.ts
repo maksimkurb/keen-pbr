@@ -2,6 +2,7 @@ import type { getConfigResponse } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { ConfigStateResponseListRefreshState } from "@/api/generated/model/configStateResponseListRefreshState"
 import type { Outbound } from "@/api/generated/model/outbound"
+import type { ResolverIntegrationMode } from "@/api/generated/model/resolverIntegrationMode"
 
 export function selectConfig(
   response?: getConfigResponse
@@ -40,4 +41,21 @@ export function findOutboundByTag(
   tag: string
 ): Outbound | undefined {
   return selectOutbounds(config).find((outbound) => outbound.tag === tag)
+}
+
+export function effectiveResolverIntegration(
+  config?: ConfigObject | null
+): ResolverIntegrationMode {
+  const dns = config?.dns
+  if (!dns) {
+    return "none"
+  }
+
+  if (dns.resolver_integration) {
+    return dns.resolver_integration
+  }
+
+  return (dns.rules?.length ?? 0) > 0 || Boolean(dns.system_resolver)
+    ? "dnsmasq"
+    : "none"
 }
