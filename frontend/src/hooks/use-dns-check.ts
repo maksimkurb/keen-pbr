@@ -135,29 +135,6 @@ export function useDnsCheck(
             return
           }
 
-          if (payload.type === "HELLO") {
-            sseConnected = true
-
-            if (performBrowserRequest) {
-              fetchControllerRef.current = new AbortController()
-              fetch(`https://${domain}`, {
-                signal: fetchControllerRef.current.signal,
-                mode: "no-cors",
-              }).catch((error: unknown) => {
-                if (
-                  error &&
-                  typeof error === "object" &&
-                  "name" in error &&
-                  error.name === "AbortError"
-                ) {
-                  return
-                }
-              })
-            }
-
-            return
-          }
-
           if (payload.type !== "INTERCEPT") {
             return
           }
@@ -178,9 +155,31 @@ export function useDnsCheck(
             showWarning: false,
           }))
           setStatus(performBrowserRequest ? "success" : "pc-success")
+        },
+        () => {
+          if (generation !== checkGenerationRef.current) {
+            return
+          }
+          // The stream is open: the connection itself works. Start the
+          // browser lookup now; the marker INTERCEPT event proves the path.
+          sseConnected = true
+
+          if (performBrowserRequest) {
+            fetchControllerRef.current = new AbortController()
+            fetch(`https://${domain}`, {
+              signal: fetchControllerRef.current.signal,
+              mode: "no-cors",
+            }).catch(() => {
+              /* Only the observed INTERCEPT event matters. */
+            })
+          }
         }
       ).catch(() => {
-        /* Let the timeout report the failure. */
+        if (generation !== checkGenerationRef.current) {
+          return
+        }
+        cleanup()
+        setStatus("sse-fail")
       })
 
       checkTimeoutRef.current = window.setTimeout(
@@ -327,12 +326,18 @@ export function useInterceptEventMonitor(
           return
         }
 
-        if (payload.type === "HELLO") {
+        if (payload.type === "INTERCEPT") {
           setStatus("connected")
-          return
+          setLastEvent(payload)
         }
-
-        setLastEvent(payload)
+      },
+      () => {
+        if (
+          generation === generationRef.current &&
+          !controller.signal.aborted
+        ) {
+          setStatus("connected")
+        }
       }
     )
       .then(() => {
