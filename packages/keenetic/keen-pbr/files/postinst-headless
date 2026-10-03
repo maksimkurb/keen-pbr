@@ -1,73 +1,16 @@
 #!/bin/sh
 
-DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
-DNSMASQ_TEMPLATE="/opt/usr/lib/keen-pbr/dnsmasq.conf.template"
-DNSMASQ_BACKUP="/opt/etc/dnsmasq.conf.backup-pre-keen-pbr"
-
 echo "keen-pbr-headless installation"
 echo "--------------------------------"
 
 mkdir -p /opt/usr/lib/keen-pbr
 
-has_keen_pbr_managed_block() {
-    [ -f "$DNSMASQ_CONF" ] || return 1
-
-    awk '
-        $0 == "# BEGIN keen-pbr managed block" {
-            if ((getline notice) > 0 &&
-                notice == "# Do not remove the following line, it is required for keen-pbr to function properly." &&
-                (getline config) > 0 &&
-                config == "conf-script=/opt/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry" &&
-                (getline end) > 0 &&
-                end == "# END keen-pbr managed block") {
-                found = 1
-            }
-        }
-        END { exit found ? 0 : 1 }
-    ' "$DNSMASQ_CONF"
-}
-
-answer=""
-if [ -f "$DNSMASQ_TEMPLATE" ] && ! has_keen_pbr_managed_block; then
-    if [ -n "${KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS:-}" ]; then
-        answer="$KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS"
-    elif [ -t 0 ] && [ -t 1 ]; then
-        echo "Tip: set KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS=Y or N to automate keen-pbr installation."
-        while :; do
-            printf "Replace %s with recommended keen-pbr dnsmasq defaults? [y/n]: " "$DNSMASQ_CONF"
-            read answer || answer=""
-            case "$answer" in
-                y|Y|n|N)
-                    break
-                    ;;
-                *)
-                    echo "Please enter Y or N."
-                    ;;
-            esac
-        done
-    else
-        echo "Tip: set KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS=Y or N to automate keen-pbr installation."
-    fi
-fi
-
-case "$answer" in
-    y|Y)
-        if [ -f "$DNSMASQ_CONF" ]; then
-            printf "Backing up existing %s to %s\n" "$DNSMASQ_CONF" "$DNSMASQ_BACKUP"
-            cp "$DNSMASQ_CONF" "$DNSMASQ_BACKUP"
-        fi
-        printf "Installing recommended keen-pbr dnsmasq base config to %s\n" "$DNSMASQ_CONF"
-        cp "$DNSMASQ_TEMPLATE" "$DNSMASQ_CONF"
-        ;;
-    n|N)
-        echo "Keeping existing dnsmasq base config unchanged."
-        ;;
-    "")
-        ;;
-    *)
-        printf "Ignoring invalid KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS value: %s. Use Y or N.\n" "$answer"
-        ;;
-esac
+# keen-pbr no longer touches dnsmasq on install: the dnsmasq integration is
+# optional (dns.resolver_integration = "dnsmasq" in config.json).  The daemon
+# installs its conf-script block itself (dnsmasq.sh activate) when the
+# integration is enabled, so an existing setup keeps working after an upgrade.
+# To apply the recommended dnsmasq base config manually, run:
+#   /opt/usr/lib/keen-pbr/dnsmasq.sh install-defaults
 
 echo ""
 /opt/etc/init.d/S80keen-pbr start || echo "Failed to start keen-pbr service"

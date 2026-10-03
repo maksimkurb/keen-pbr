@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../config/config.hpp"
-#include "../dns/dns_txt_client.hpp"
 #include "../firewall/firewall.hpp"
 #include "../health/routing_health.hpp"
 #include "../health/url_tester.hpp"
@@ -17,16 +16,14 @@
 #include "../runtime/conntrack_manager.hpp"
 #include "../runtime/lifecycle_operation.hpp"
 #include "../runtime/operation_coordinator.hpp"
-#include "../runtime/resolver_coordinator.hpp"
+#include "../resolver/resolver_integration.hpp"
 #include "../runtime/runtime_state_machine.hpp"
 #include "../util/blocking_executor.hpp"
 #include "../util/traced_mutex.hpp"
 #include "config_store.hpp"
 #include "list_service.hpp"
 #include "pid_file.hpp"
-#include "resolver_sync_state_machine.hpp"
 #include "runtime_state_store.hpp"
-#include "system_resolver_hook.hpp"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -49,9 +46,6 @@ class Firewall;
 class Scheduler;
 class UrltestManager;
 class IcmpTester;
-class DnsProbeServer;
-struct DnsProbeEvent;
-enum class ResolverType;
 
 #ifdef WITH_API
 enum class ConfigOperationState : uint8_t;
@@ -103,11 +97,12 @@ struct PendingUrltestConntrackCleanup {
   uint32_t mark_mask{0};
 };
 
-struct ResolverGenerationSnapshot {
-  ResolverType resolver_type;
+// Per-runtime-generation decisions the control socket reports and the resolver
+// output (when a resolver integration is enabled) is generated from.
+struct ControlGenerationSnapshot {
   bool ipv6_enabled{true};
-  // The daemon fills the dynamic sets (DNS hold active): dnsmasq must not
-  // emit ipset=/nftset= directives.
+  // The daemon fills the dynamic sets (DNS hold active): a resolver must not
+  // fill them as well.
   bool intercept_dns_hold{false};
   std::uint64_t generation{0};
 };
@@ -213,8 +208,7 @@ private:
   void continue_startup_after_lists(
       std::optional<RemoteListsRefreshResult> refresh_result,
       std::string error);
-  void finish_startup_after_resolver_hook(bool hook_succeeded,
-                                          std::string error);
+  void finish_startup_after_resolver_reload(ResolverReloadResult reload);
   void fail_startup_runtime(std::string error);
 
   // lifecycle and runtime apply
@@ -265,17 +259,18 @@ private:
   void setup_routing_and_firewall();
   void reconcile_prepared_runtime(PreparedRuntimeInputs prepared);
   void complete_running_runtime(const char *reason);
-  bool has_system_resolver(const Config &config) const;
   void start_routing_runtime();
   void stop_routing_runtime();
   void restart_routing_runtime();
   bool routing_runtime_active() const;
   void transition_runtime_or_throw(RuntimeState next, const char *reason);
-  bool run_system_resolver_hook(std::string_view action);
-  bool run_system_resolver_hook_reload();
-  bool wait_for_resolver_stream_after(std::uint64_t baseline,
-                                      std::chrono::seconds timeout);
-  void drain_shutdown_resolver_callbacks(std::chrono::milliseconds duration);
+  // Resolver integration (see src/resolver/): every call is a no-op when the
+  // integration is `none`.
+  ResolverIntegrationHost make_resolver_host();
+  void sync_resolver_integration(const Config &config);
+  void reload_resolver_or_throw(const char *reason);
+  void reload_and_verify_resolver_or_throw(const char *reason);
+  void begin_resolver_generation();
   void schedule_lists_autoupdate();
   ListsRefreshExecutionResult execute_remote_list_refresh(
       const std::set<std::string> *target_lists = nullptr,
@@ -292,20 +287,7 @@ private:
   void write_pid_file();
   void remove_pid_file();
 
-  // state publication and resolver sync
-  void refresh_resolver_config_hash_actual_async();
-  void maybe_schedule_resolver_config_hash_actual_refresh();
-  void schedule_resolver_config_hash_actual_retry();
-  void schedule_keenetic_dns_refresh();
-  bool refresh_keenetic_dns_cache(bool force_refresh);
-  void reset_resolver_actual_state();
-  void commit_resolver_hash_probe_result(
-      const std::string &resolver_addr, std::uint64_t generation,
-      std::optional<ResolverConfigHashProbeResult> probe_result,
-      std::optional<std::int64_t> probe_completed_ts, TraceId trace_id);
-  static bool wait_for_resolver_config_hash_confirmation(
-      const Config &candidate, const std::string &expected_hash,
-      std::int64_t apply_started_ts, std::string &error);
+  // state publication
 
 #ifdef WITH_API
   // API integration
@@ -327,28 +309,11 @@ private:
   refresh_lists_via_api(std::optional<std::string> requested_name);
 #endif
 
-  // DNS probe integration
-  void setup_dns_probe();
-  void teardown_dns_probe();
-  void handle_dns_probe_query_event(const DnsProbeEvent &event);
-  void handle_dns_probe_udp_events(uint32_t events);
-  void handle_dns_probe_tcp_listener_events(uint32_t events);
-  void handle_dns_probe_tcp_client_events(int client_fd, uint32_t events);
-  void handle_dns_probe_tcp_timer_events(uint32_t events);
-
-  ResolverSyncStateMachine resolver_sync_;
-  // Timestamp captured when /api/config/save apply starts (server
-  // authoritative).
-  std::atomic<std::int64_t> apply_started_ts_{0};
-
-  // Recompute resolver_config_hash_ from current config/cache state
-  void update_resolver_config_hash();
+  // Recompute the per-generation control snapshot from the current config.
+  void refresh_generation_snapshot();
   bool accept_resolver_generated_hash(std::uint64_t generation,
                                       const std::string &hash);
-  ResolverGenerationSnapshot make_resolver_generation_snapshot();
-  // Schedule (or reschedule) the periodic refresh of
-  // resolver_config_hash_actual_.
-  void schedule_resolver_config_hash_actual_refresh();
+  ControlGenerationSnapshot make_generation_snapshot();
   RuntimeStateSnapshot build_runtime_state_snapshot() const;
   void publish_runtime_state(
       StatusPublishScope scope = StatusPublishScope::ServiceAndOutbounds);
@@ -357,12 +322,6 @@ private:
 
   // Lists autoupdate state
   int lists_autoupdate_task_id_{-1};
-  // Periodic refresh task for cached Keenetic DNS server values.
-  int keenetic_dns_refresh_task_id_{-1};
-  // Periodic refresh task for the actual resolver config hash / live status.
-  int resolver_config_hash_actual_task_id_{-1};
-  // Short-interval retry while resolver hash is converging after apply.
-  int resolver_config_hash_actual_retry_task_id_{-1};
   // Debounced runtime refresh triggered by SIGUSR1.
   int sigusr1_refresh_task_id_{-1};
   // Retry task for interface monitor netlink reconnect after failure.
@@ -435,8 +394,7 @@ private:
   PolicyRuleManager policy_rules_;
   FirewallState firewall_state_;
   ConntrackManager conntrack_manager_;
-  ResolverCoordinator resolver_coordinator_;
-  std::optional<ResolverGenerationSnapshot> resolver_generation_snapshot_;
+  std::optional<ControlGenerationSnapshot> generation_snapshot_;
   RuntimeStateMachine runtime_state_machine_;
 URLTester url_tester_;
 IcmpTester icmp_tester_;
@@ -461,10 +419,6 @@ IcmpTester icmp_tester_;
   std::atomic<std::uint64_t> intercept_snapshot_seq_{0};
   std::uint64_t intercept_forwarded_seq_{0};
   int intercept_event_task_id_{-1};
-  // Resolver hooks can synchronously call back into resolver config streaming,
-  // so hook execution and resolver I/O must never share a worker.
-  BlockingExecutor resolver_hook_executor_{1, 16};
-  BlockingExecutor resolver_io_executor_{1, 32};
   BlockingExecutor lifecycle_executor_{1, 16};
   // An open descriptor pins the pre-apply inode without retaining another
   // parsed or serialized configuration in RAM.
@@ -490,11 +444,7 @@ IcmpTester icmp_tester_;
   std::atomic<std::uint64_t> runtime_generation_{1};
   std::atomic<bool> remote_list_refresh_inflight_{false};
   std::atomic<bool> ipc_mutation_inflight_{false};
-  std::atomic<bool> ipc_resolver_hook_inflight_{false};
-  std::atomic<bool> resolver_hash_refresh_inflight_{false};
-  std::atomic<std::uint64_t> resolver_stream_completed_{0};
   std::atomic<std::size_t> routing_tests_inflight_{0};
-  TracedMutex system_resolver_hook_mutex_;
 
 #ifdef WITH_API
   std::unique_ptr<ApiServer> api_server_;
@@ -503,9 +453,12 @@ IcmpTester icmp_tester_;
   std::unique_ptr<StatusStream> status_stream_;
 #endif
 
-  std::unique_ptr<DnsProbeServer> dns_probe_server_;
-  HookCommandExecutor hook_command_executor_;
+  // Optional resolver integration; NoResolverIntegration unless
+  // dns.resolver_integration is `dnsmasq`.  Declared last so it is destroyed
+  // first: its workers call back into the members above.
   bool routing_runtime_active_{true};
+  ResolverIntegrationDeps resolver_deps_;
+  std::unique_ptr<ResolverIntegration> resolver_integration_;
 };
 
 } // namespace keen_pbr3

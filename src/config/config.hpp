@@ -55,6 +55,7 @@ using DnsServer            = api::DnsServerElement;
 using DnsTestServer        = api::DnsTestServer;
 using DnsRule              = api::DnsRuleElement;
 using DnsConfig            = api::DnsConfigClass;
+using ResolverIntegrationMode = api::ResolverIntegration;  // enum: NONE, DNSMASQ
 using RouteRule            = api::RouteRuleElement;
 using RouteConfig          = api::Route;
 using FwmarkConfig         = api::Fwmark;
@@ -111,6 +112,30 @@ inline bool outbound_uses_balance(const Outbound& outbound) {
     return outbound.strategy.value_or(api::Strategy::PRIORITY) ==
            api::Strategy::BALANCE;
 }
+
+// Effective resolver integration mode of a configuration.  An explicit
+// dns.resolver_integration always wins.  When the field is absent (configs
+// written before the option existed) the mode is migrated: a config that
+// defines non-empty dns.rules or a dns.system_resolver keeps relying on
+// dnsmasq, everything else runs without a resolver integration.
+inline ResolverIntegrationMode effective_resolver_integration(const Config& config) {
+    if (!config.dns.has_value()) return ResolverIntegrationMode::NONE;
+    if (config.dns->resolver_integration.has_value()) {
+        return *config.dns->resolver_integration;
+    }
+    const bool has_rules = !config.dns->rules.value_or(std::vector<DnsRule>{}).empty();
+    return (has_rules || config.dns->system_resolver.has_value())
+        ? ResolverIntegrationMode::DNSMASQ
+        : ResolverIntegrationMode::NONE;
+}
+
+inline const char* resolver_integration_name(ResolverIntegrationMode mode) {
+    return mode == ResolverIntegrationMode::DNSMASQ ? "dnsmasq" : "none";
+}
+
+// Non-fatal configuration findings (deprecated or ineffective settings).
+// validate_config() logs them; they never make validation fail.
+std::vector<std::string> config_warnings(const Config& config);
 
 // --- JSON deserialization and validation ---
 

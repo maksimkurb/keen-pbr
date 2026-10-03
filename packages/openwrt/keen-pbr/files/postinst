@@ -2,10 +2,25 @@
 
 [ -n "$IPKG_INSTROOT" ] && exit 0
 
-# Refresh dnsmasq's procd-jail mounts before restarting it.  This is also an
-# upgrade migration from the obsolete control.sock file mount to its stable
-# parent directory, which remains valid when keen-pbr recreates the socket.
-/usr/lib/keen-pbr/dnsmasq.sh reload >/dev/null 2>&1 || true
+# dnsmasq is only touched when the optional dnsmasq integration is enabled
+# (dns.resolver_integration = "dnsmasq", or a pre-existing dns.system_resolver
+# in an older config).  Refresh its procd-jail mounts before restarting it;
+# this is also an upgrade migration from the obsolete control.sock file mount
+# to its stable parent directory, which remains valid when keen-pbr recreates
+# the socket.  Fresh installs and "none" setups leave dnsmasq alone.
+CONFIG=/etc/keen-pbr/config.json
+resolver_integration_enabled() {
+    [ -r "$CONFIG" ] || return 1
+    if grep -Eq '"resolver_integration"[[:space:]]*:' "$CONFIG"; then
+        grep -Eq '"resolver_integration"[[:space:]]*:[[:space:]]*"dnsmasq"' "$CONFIG"
+        return $?
+    fi
+    grep -Eq '"system_resolver"[[:space:]]*:' "$CONFIG"
+}
+
+if resolver_integration_enabled; then
+    /usr/lib/keen-pbr/dnsmasq.sh reload >/dev/null 2>&1 || true
+fi
 
 /etc/init.d/keen-pbr sync_firewall_hook >/dev/null 2>&1 || true
 

@@ -418,12 +418,13 @@ TEST_CASE("hash changes when fallback list order changes") {
     CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
 }
 
-TEST_CASE("generate-resolver-config includes dns probe server directive when enabled") {
+TEST_CASE("generate-resolver-config no longer emits the dns probe server directives") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer(cache);
 
     auto route_cfg = make_route_cfg("mylist");
     auto dns_cfg = make_empty_dns_cfg();
+    // The deprecated option is ignored: the marker is answered by the interceptor.
     DnsTestServer probe_cfg;
     probe_cfg.listen = "127.0.0.88:53";
     dns_cfg.dns_test_server = probe_cfg;
@@ -433,8 +434,8 @@ TEST_CASE("generate-resolver-config includes dns probe server directive when ena
     DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
     const std::string output = run_generate(gen);
 
-    CHECK(output.find("rebind-domain-ok=keen.pbr\n") != std::string::npos);
-    CHECK(output.find("server=/check.keen.pbr/127.0.0.88#53\n") != std::string::npos);
+    CHECK(output.find("check.keen.pbr") == std::string::npos);
+    CHECK(output.find("rebind-domain-ok=keen.pbr") == std::string::npos);
 }
 
 TEST_CASE("generate-resolver-config blocks firefox doh canary domain") {
@@ -822,37 +823,26 @@ TEST_CASE("hash changes when allow_domain_rebinding changes") {
     CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
 }
 
-TEST_CASE("hash changes when dns probe server changes") {
+TEST_CASE("hash ignores the deprecated dns probe server") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer1(cache);
     ListStreamer streamer2(cache);
-    ListStreamer streamer3(cache);
 
     auto route_cfg = make_route_cfg("mylist");
     auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
 
     auto dns_cfg1 = make_empty_dns_cfg();
     auto dns_cfg2 = make_empty_dns_cfg();
-    auto dns_cfg3 = make_empty_dns_cfg();
-
-    DnsTestServer probe1;
-    probe1.listen = "127.0.0.88:53";
-    dns_cfg2.dns_test_server = probe1;
-
-    DnsTestServer probe2;
-    probe2.listen = "127.0.0.99:5300";
-    dns_cfg3.dns_test_server = probe2;
+    DnsTestServer probe;
+    probe.listen = "127.0.0.88:53";
+    dns_cfg2.dns_test_server = probe;
 
     DnsServerRegistry reg1(dns_cfg1);
     DnsServerRegistry reg2(dns_cfg2);
-    DnsServerRegistry reg3(dns_cfg3);
-
     DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg1, lists);
     DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg2, lists);
-    DnsmasqGenerator gen3(reg3, streamer3, route_cfg, dns_cfg3, lists);
 
-    CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
-    CHECK(gen2.compute_config_hash() != gen3.compute_config_hash());
+    CHECK(gen1.compute_config_hash() == gen2.compute_config_hash());
 }
 
 TEST_CASE("hash changes when keenetic static dns entries change") {

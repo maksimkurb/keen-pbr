@@ -626,19 +626,16 @@ TEST_CASE("dns test server: explicit answer IPv4 parses") {
     CHECK(cfg.dns->dns_test_server->answer_ipv4.value_or("") == "127.0.0.99");
 }
 
-TEST_CASE("dns test server: invalid listen is rejected") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"not-an-ip:53"}}})";
-    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
-}
-
-TEST_CASE("dns test server: ipv6 listen is rejected") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"[::1]:53"}}})";
-    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
-}
-
-TEST_CASE("dns test server: invalid answer IPv4 is rejected") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"example.com"}}})";
-    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
+TEST_CASE("dns test server: deprecated and ignored, invalid values no longer rejected") {
+    for (const char* json : {
+             R"({"dns":{"dns_test_server":{"listen":"not-an-ip:53"}}})",
+             R"({"dns":{"dns_test_server":{"listen":"[::1]:53"}}})",
+             R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"example.com"}}})"}) {
+        auto cfg = parse_test_config(json);
+        const auto warnings = config_warnings(cfg);
+        REQUIRE(warnings.size() == 1);
+        CHECK(warnings.front().find("intercept.dns.marker") != std::string::npos);
+    }
 }
 
 TEST_CASE("config validation: accepts system_resolver") {
@@ -655,9 +652,10 @@ TEST_CASE("config validation: accepts system_resolver") {
     CHECK_NOTHROW(validate_config(cfg));
 }
 
-TEST_CASE("config validation: rejects missing system_resolver") {
+TEST_CASE("config validation: dnsmasq integration requires system_resolver") {
     auto cfg = parse_config(R"({
         "dns": {
+            "resolver_integration": "dnsmasq",
             "servers": [
                 {"tag":"plain_dns","address":"8.8.8.8"}
             ],
@@ -671,8 +669,69 @@ TEST_CASE("config validation: rejects missing system_resolver") {
     } catch (const ConfigValidationError& e) {
         REQUIRE(e.issues().size() == 1);
         CHECK(e.issues().front().path == "dns.system_resolver");
-        CHECK(e.issues().front().message == "dns.system_resolver must be present");
+        CHECK(e.issues().front().message ==
+              "dns.system_resolver must be present when dns.resolver_integration is 'dnsmasq'");
     }
+}
+
+TEST_CASE("config validation: system_resolver is optional without dnsmasq integration") {
+    auto cfg = parse_config(R"({
+        "dns": {
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "fallback": ["plain_dns"]
+        }
+    })");
+    CHECK_NOTHROW(validate_config(cfg));
+    CHECK_NOTHROW(validate_config(parse_config(R"({"outbounds":[]})")));
+}
+
+TEST_CASE("resolver integration migration: absent field with dns.rules becomes dnsmasq") {
+    auto cfg = parse_config(R"({
+        "lists": {"l": {"domains": ["example.com"]}},
+        "dns": {
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "rules": [{"list":["l"],"server":"plain_dns"}],
+            "system_resolver": {"address": "127.0.0.1"}
+        }
+    })");
+    REQUIRE(cfg.dns->resolver_integration.has_value());
+    CHECK(*cfg.dns->resolver_integration == ResolverIntegrationMode::DNSMASQ);
+    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::DNSMASQ);
+    // The migrated value is written explicitly on the next save.
+    CHECK(nlohmann::json(cfg).at("dns").at("resolver_integration") == "dnsmasq");
+}
+
+TEST_CASE("resolver integration migration: absent field with system_resolver becomes dnsmasq") {
+    auto cfg = parse_config(R"({"dns":{"system_resolver":{"address":"127.0.0.1"}}})");
+    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::DNSMASQ);
+}
+
+TEST_CASE("resolver integration migration: absent field without rules becomes none") {
+    auto cfg = parse_config(R"({
+        "dns": {"servers": [{"tag":"plain_dns","address":"8.8.8.8"}]}
+    })");
+    REQUIRE(cfg.dns->resolver_integration.has_value());
+    CHECK(*cfg.dns->resolver_integration == ResolverIntegrationMode::NONE);
+    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::NONE);
+    CHECK(effective_resolver_integration(parse_config("{}")) == ResolverIntegrationMode::NONE);
+    CHECK(config_warnings(cfg).empty());
+}
+
+TEST_CASE("resolver integration: explicit none with dns.rules warns but is valid") {
+    auto cfg = parse_config(R"({
+        "lists": {"l": {"domains": ["example.com"]}},
+        "dns": {
+            "resolver_integration": "none",
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "rules": [{"list":["l"],"server":"plain_dns"}]
+        }
+    })");
+    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::NONE);
+    CHECK_NOTHROW(validate_config(cfg));
+    const auto warnings = config_warnings(cfg);
+    REQUIRE(warnings.size() == 1);
+    CHECK(warnings.front().find("per-list upstream requires resolver_integration=dnsmasq") !=
+          std::string::npos);
 }
 
 TEST_CASE("config validation: allows missing fallback") {

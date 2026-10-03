@@ -31,6 +31,8 @@ write_managed_conf() {
         if [ "$existing" = "$line" ]; then
             return 0
         fi
+        log_message err "Refusing to overwrite unowned dnsmasq config $target"
+        return 1
     fi
 
     printf '%s\n' "$line" > "$target"
@@ -63,7 +65,10 @@ remove_temp_conf_for_section() {
     local confdir
 
     confdir="$(dnsmasq_confdir "$section")"
-    rm -f "${confdir}/${CONFFILE}"
+    if [ -f "${confdir}/${CONFFILE}" ]; then
+        write_managed_conf "${confdir}/${CONFFILE}" "$(conf_script_line)" "working" || return 1
+        rm -f "${confdir}/${CONFFILE}"
+    fi
     log_info "Removed ${confdir}/${CONFFILE}"
 }
 
@@ -72,6 +77,7 @@ remove_all_temp_confs() {
 
     for path in /tmp/dnsmasq.*.d/"${CONFFILE}" /tmp/dnsmasq.d/"${CONFFILE}"; do
         [ -e "$path" ] || continue
+        write_managed_conf "$path" "$(conf_script_line)" "working" || return 1
         rm -f "$path"
         log_info "Removed $path"
     done
@@ -81,10 +87,19 @@ install_persistent() {
     local section
 
     for section in $(dnsmasq_sections); do
-        write_temp_conf_for_section "$section" || true
+        write_temp_conf_for_section "$section"
     done
 
     "$UCI_HELPER" dnsmasq-install-persistent
+}
+
+# The dnsmasq integration is optional (dns.resolver_integration = "dnsmasq").
+# `activate` installs it (conf-script entries, jail mounts, UCI changes) and
+# restarts dnsmasq; `deactivate` removes it again.  The daemon calls them; the
+# init script and the package never touch dnsmasq otherwise.
+activate_dnsmasq() {
+    install_persistent
+    restart_dnsmasq
 }
 
 ensure_runtime_prereqs() {
@@ -97,7 +112,7 @@ prepare_dnsmasq() {
     ensure_runtime_prereqs
 
     for section in $(dnsmasq_sections); do
-        write_temp_conf_for_section "$section" || true
+        write_temp_conf_for_section "$section"
     done
 }
 
@@ -109,13 +124,15 @@ reload_dnsmasq() {
 uninstall_persistent() {
     local section
 
-    for section in $(dnsmasq_sections); do
-        remove_temp_conf_for_section "$section" || true
-    done
-
+    # Restore UCI state while the helper-owned conf files still prove
+    # ownership.  Removing them first would make the conservative UCI helper
+    # unable to distinguish our state from foreign dnsmasq settings.
     "$UCI_HELPER" dnsmasq-uninstall-persistent
 
-    remove_all_temp_confs || true
+    for section in $(dnsmasq_sections); do
+        remove_temp_conf_for_section "$section"
+    done
+    remove_all_temp_confs
 
     restart_dnsmasq
 }
@@ -123,7 +140,7 @@ uninstall_persistent() {
 restart_dnsmasq() {
     # Keep existing installations in sync when the jail mount contract changes.
     ensure_runtime_prereqs
-    /etc/init.d/dnsmasq restart 2>/dev/null || true
+    /etc/init.d/dnsmasq restart 2>/dev/null
 }
 
 print_help() {
@@ -133,8 +150,8 @@ Usage: $0 <command>
 Commands:
   install-persistent     Install the dynamic resolver integration.
   prepare                Create the constant conf-script entry without restarting dnsmasq.
-  activate               Prepare and restart dnsmasq; compatibility alias for reload.
-  deactivate             Prepare and restart dnsmasq; compatibility alias for reload.
+  activate               Install the dnsmasq integration and restart dnsmasq.
+  deactivate             Remove the dnsmasq integration and restart dnsmasq.
   uninstall-persistent   Remove persistent integration and helper-managed runtime config.
   restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
   reload                 Prepare and restart dnsmasq; used by the system resolver hook.
@@ -155,7 +172,13 @@ case "$1" in
     restart-dnsmasq)
         restart_dnsmasq
         ;;
-    activate|deactivate|reload)
+    activate)
+        activate_dnsmasq
+        ;;
+    deactivate)
+        uninstall_persistent
+        ;;
+    reload)
         reload_dnsmasq
         ;;
     help|-h|--help)
