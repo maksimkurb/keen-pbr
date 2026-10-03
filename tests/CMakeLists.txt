@@ -33,6 +33,7 @@ add_executable(keen-pbr-tests
   test_set_writer.cpp
   test_intercept_processor.cpp
   test_intercept_live.cpp
+  test_intercept_wiring.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
   test_list_streamer.cpp
@@ -177,6 +178,10 @@ add_executable(keen-pbr-tests
   ../src/netfilter/set_writer.cpp
   ../src/intercept/intercept_processor.cpp
   ../src/intercept/intercept_service.cpp
+  ../src/intercept/intercept_capabilities.cpp
+  ../src/intercept/intercept_report.cpp
+  ../src/intercept/intercept_settings.cpp
+  ../src/intercept/intercept_snapshot_builder.cpp
   ../src/util/blocking_executor.cpp
   ../src/util/firewall_backend_utils.cpp
   ../src/util/ipv6_support.cpp

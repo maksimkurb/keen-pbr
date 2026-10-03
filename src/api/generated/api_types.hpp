@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes1KKpXv data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesKoLNdC data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -220,7 +220,7 @@ namespace api {
         std::string address;
     };
 
-    struct Dns {
+    struct DnsConfigClass {
         std::optional<DnsTestServer> dns_test_server;
         std::optional<std::vector<std::string>> fallback;
         std::optional<std::vector<DnsRuleElement>> rules;
@@ -231,6 +231,34 @@ namespace api {
     struct Fwmark {
         std::optional<std::string> mask;
         std::optional<std::string> start;
+    };
+
+    struct Marker {
+        std::optional<std::string> answer_ipv4;
+        std::optional<std::string> domain;
+    };
+
+    struct InterceptDnsConfigClass {
+        std::optional<bool> enabled;
+        std::optional<int64_t> hold_timeout_ms;
+        std::optional<Marker> marker;
+        std::optional<int64_t> queue_num;
+    };
+
+    struct L7 {
+        std::optional<bool> enabled;
+        std::optional<bool> http;
+        std::optional<int64_t> nflog_group;
+        std::optional<bool> quic;
+        std::optional<bool> tls;
+    };
+
+    struct InterceptConfigClass {
+        std::optional<InterceptDnsConfigClass> dns;
+        std::optional<bool> enabled;
+        std::optional<L7> l7;
+        std::optional<int64_t> max_ttl_s;
+        std::optional<int64_t> min_ttl_s;
     };
 
     struct Iproute {
@@ -322,8 +350,9 @@ namespace api {
         std::optional<ApiConfig> api;
         std::optional<Daemon> daemon;
         std::optional<std::string> device_name;
-        std::optional<Dns> dns;
+        std::optional<DnsConfigClass> dns;
         std::optional<Fwmark> fwmark;
+        std::optional<InterceptConfigClass> intercept;
         std::optional<Iproute> iproute;
         std::optional<std::map<std::string, ListConfigValue>> lists;
         std::optional<ListsAutoupdate> lists_autoupdate;
@@ -334,8 +363,9 @@ namespace api {
     struct Config {
         std::optional<Daemon> daemon;
         std::optional<std::string> device_name;
-        std::optional<Dns> dns;
+        std::optional<DnsConfigClass> dns;
         std::optional<Fwmark> fwmark;
+        std::optional<InterceptConfigClass> intercept;
         std::optional<Iproute> iproute;
         std::optional<std::map<std::string, ListConfigValue>> lists;
         std::optional<ListsAutoupdate> lists_autoupdate;
@@ -361,6 +391,25 @@ namespace api {
         ConfigUpdateResponseStatus status;
     };
 
+    enum class Source : int { DNS, HTTP, MARKER, QUIC, SNI };
+
+    enum class DnsTestInterceptEventType : int { INTERCEPT };
+
+    struct DnsTestInterceptEvent {
+        int64_t added;
+        std::string domain;
+        int64_t errors;
+        int64_t hold_us;
+        std::vector<std::string> ips;
+        std::vector<std::string> lists;
+        int64_t refreshed;
+        int64_t seq;
+        Source source;
+        bool timed_out;
+        int64_t ts_ms;
+        DnsTestInterceptEventType type;
+    };
+
     struct ValidationErrorElement {
         std::string message;
         std::optional<std::string> path;
@@ -384,6 +433,44 @@ namespace api {
         std::optional<std::string> expected_fwmark;
         std::string set_name;
         CheckStatus status;
+    };
+
+    struct Capabilities {
+        bool connbytes;
+        bool nflog;
+        bool nfqueue;
+    };
+
+    struct Counters {
+        std::optional<int64_t> conntrack_deleted;
+        std::optional<int64_t> conntrack_errors;
+        std::optional<int64_t> conntrack_requests;
+        std::optional<int64_t> dns_hold_timeouts;
+        std::optional<int64_t> dns_matched;
+        std::optional<int64_t> dns_packets;
+        std::optional<int64_t> dns_parse_errors;
+        std::optional<int64_t> dns_tcp_partial;
+        std::optional<int64_t> l7_matched;
+        std::optional<int64_t> l7_packets;
+        std::optional<int64_t> log_overruns;
+        std::optional<int64_t> marker_hits;
+        std::optional<int64_t> queue_overruns;
+        std::optional<int64_t> set_added;
+        std::optional<int64_t> set_errors;
+        std::optional<int64_t> set_refreshed;
+    };
+
+    struct InterceptHealthClass {
+        Capabilities capabilities;
+        std::optional<Counters> counters;
+        bool dns_hold_active;
+        bool enabled;
+        std::optional<int64_t> events_seq;
+        bool l7_active;
+        std::optional<int64_t> nflog_group;
+        std::optional<int64_t> queue_num;
+        std::vector<std::string> reasons;
+        bool running;
     };
 
     enum class LifecycleOperationStageStatus : int { FAILED, PENDING, RUNNING, SKIPPED, SUCCEEDED };
@@ -424,6 +511,7 @@ namespace api {
         std::string build;
         std::string build_variant;
         bool config_is_draft;
+        std::optional<InterceptHealthClass> intercept;
         std::optional<LifecycleOperation> lifecycle_operation;
         std::string os_type;
         std::string os_version;
@@ -639,7 +727,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypes1KKpXv {
+    struct KeenPbrTypesKoLNdC {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -659,10 +747,11 @@ namespace api {
         std::optional<CorsConfigClass> cors_config;
         std::optional<Daemon> daemon_config;
         std::optional<DefaultGateway> default_gateway;
-        std::optional<Dns> dns_config;
+        std::optional<DnsConfigClass> dns_config;
         std::optional<DnsRuleElement> dns_rule;
         std::optional<DnsServerElement> dns_server;
         std::optional<SystemResolver> dns_system_resolver;
+        std::optional<DnsTestInterceptEvent> dns_test_intercept_event;
         std::optional<DnsTestServer> dns_test_server;
         std::optional<Config> draft_config;
         std::optional<ErrorResponse> error_response;
@@ -671,6 +760,13 @@ namespace api {
         std::optional<Fwmark> fwmark_config;
         std::optional<HealthResponse> health_response;
         std::optional<IcmpCandidateElement> icmp_candidate;
+        std::optional<Capabilities> intercept_capabilities_health;
+        std::optional<InterceptConfigClass> intercept_config;
+        std::optional<Counters> intercept_counters_health;
+        std::optional<InterceptDnsConfigClass> intercept_dns_config;
+        std::optional<InterceptHealthClass> intercept_health;
+        std::optional<L7> intercept_l7_config;
+        std::optional<Marker> intercept_marker_config;
         std::optional<Iproute> iproute_config;
         std::optional<LifecycleOperation> lifecycle_operation;
         std::optional<LifecycleOperationAcceptedResponse> lifecycle_operation_accepted_response;
@@ -775,11 +871,23 @@ namespace api {
     void from_json(const json & j, SystemResolver & x);
     void to_json(json & j, const SystemResolver & x);
 
-    void from_json(const json & j, Dns & x);
-    void to_json(json & j, const Dns & x);
+    void from_json(const json & j, DnsConfigClass & x);
+    void to_json(json & j, const DnsConfigClass & x);
 
     void from_json(const json & j, Fwmark & x);
     void to_json(json & j, const Fwmark & x);
+
+    void from_json(const json & j, Marker & x);
+    void to_json(json & j, const Marker & x);
+
+    void from_json(const json & j, InterceptDnsConfigClass & x);
+    void to_json(json & j, const InterceptDnsConfigClass & x);
+
+    void from_json(const json & j, L7 & x);
+    void to_json(json & j, const L7 & x);
+
+    void from_json(const json & j, InterceptConfigClass & x);
+    void to_json(json & j, const InterceptConfigClass & x);
 
     void from_json(const json & j, Iproute & x);
     void to_json(json & j, const Iproute & x);
@@ -823,6 +931,9 @@ namespace api {
     void from_json(const json & j, ConfigUpdateResponse & x);
     void to_json(json & j, const ConfigUpdateResponse & x);
 
+    void from_json(const json & j, DnsTestInterceptEvent & x);
+    void to_json(json & j, const DnsTestInterceptEvent & x);
+
     void from_json(const json & j, ValidationErrorElement & x);
     void to_json(json & j, const ValidationErrorElement & x);
 
@@ -834,6 +945,15 @@ namespace api {
 
     void from_json(const json & j, FirewallRuleCheck & x);
     void to_json(json & j, const FirewallRuleCheck & x);
+
+    void from_json(const json & j, Capabilities & x);
+    void to_json(json & j, const Capabilities & x);
+
+    void from_json(const json & j, Counters & x);
+    void to_json(json & j, const Counters & x);
+
+    void from_json(const json & j, InterceptHealthClass & x);
+    void to_json(json & j, const InterceptHealthClass & x);
 
     void from_json(const json & j, LifecycleOperationStageElement & x);
     void to_json(json & j, const LifecycleOperationStageElement & x);
@@ -916,8 +1036,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypes1KKpXv & x);
-    void to_json(json & j, const KeenPbrTypes1KKpXv & x);
+    void from_json(const json & j, KeenPbrTypesKoLNdC & x);
+    void to_json(json & j, const KeenPbrTypesKoLNdC & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -945,6 +1065,12 @@ namespace api {
 
     void from_json(const json & j, ConfigUpdateResponseStatus & x);
     void to_json(json & j, const ConfigUpdateResponseStatus & x);
+
+    void from_json(const json & j, Source & x);
+    void to_json(json & j, const Source & x);
+
+    void from_json(const json & j, DnsTestInterceptEventType & x);
+    void to_json(json & j, const DnsTestInterceptEventType & x);
 
     void from_json(const json & j, LifecycleOperationStageStatus & x);
     void to_json(json & j, const LifecycleOperationStageStatus & x);
@@ -1266,7 +1392,7 @@ namespace api {
         j["address"] = x.address;
     }
 
-    inline void from_json(const json & j, Dns& x) {
+    inline void from_json(const json & j, DnsConfigClass& x) {
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "dns_test_server");
         x.fallback = get_stack_optional<std::vector<std::string>>(j, "fallback");
         x.rules = get_stack_optional<std::vector<DnsRuleElement>>(j, "rules");
@@ -1274,7 +1400,7 @@ namespace api {
         x.system_resolver = get_stack_optional<SystemResolver>(j, "system_resolver");
     }
 
-    inline void to_json(json & j, const Dns & x) {
+    inline void to_json(json & j, const DnsConfigClass & x) {
         j = json::object();
         j["dns_test_server"] = x.dns_test_server;
         j["fallback"] = x.fallback;
@@ -1292,6 +1418,66 @@ namespace api {
         j = json::object();
         j["mask"] = x.mask;
         j["start"] = x.start;
+    }
+
+    inline void from_json(const json & j, Marker& x) {
+        x.answer_ipv4 = get_stack_optional<std::string>(j, "answer_ipv4");
+        x.domain = get_stack_optional<std::string>(j, "domain");
+    }
+
+    inline void to_json(json & j, const Marker & x) {
+        j = json::object();
+        j["answer_ipv4"] = x.answer_ipv4;
+        j["domain"] = x.domain;
+    }
+
+    inline void from_json(const json & j, InterceptDnsConfigClass& x) {
+        x.enabled = get_stack_optional<bool>(j, "enabled");
+        x.hold_timeout_ms = get_stack_optional<int64_t>(j, "hold_timeout_ms");
+        x.marker = get_stack_optional<Marker>(j, "marker");
+        x.queue_num = get_stack_optional<int64_t>(j, "queue_num");
+    }
+
+    inline void to_json(json & j, const InterceptDnsConfigClass & x) {
+        j = json::object();
+        j["enabled"] = x.enabled;
+        j["hold_timeout_ms"] = x.hold_timeout_ms;
+        j["marker"] = x.marker;
+        j["queue_num"] = x.queue_num;
+    }
+
+    inline void from_json(const json & j, L7& x) {
+        x.enabled = get_stack_optional<bool>(j, "enabled");
+        x.http = get_stack_optional<bool>(j, "http");
+        x.nflog_group = get_stack_optional<int64_t>(j, "nflog_group");
+        x.quic = get_stack_optional<bool>(j, "quic");
+        x.tls = get_stack_optional<bool>(j, "tls");
+    }
+
+    inline void to_json(json & j, const L7 & x) {
+        j = json::object();
+        j["enabled"] = x.enabled;
+        j["http"] = x.http;
+        j["nflog_group"] = x.nflog_group;
+        j["quic"] = x.quic;
+        j["tls"] = x.tls;
+    }
+
+    inline void from_json(const json & j, InterceptConfigClass& x) {
+        x.dns = get_stack_optional<InterceptDnsConfigClass>(j, "dns");
+        x.enabled = get_stack_optional<bool>(j, "enabled");
+        x.l7 = get_stack_optional<L7>(j, "l7");
+        x.max_ttl_s = get_stack_optional<int64_t>(j, "max_ttl_s");
+        x.min_ttl_s = get_stack_optional<int64_t>(j, "min_ttl_s");
+    }
+
+    inline void to_json(json & j, const InterceptConfigClass & x) {
+        j = json::object();
+        j["dns"] = x.dns;
+        j["enabled"] = x.enabled;
+        j["l7"] = x.l7;
+        j["max_ttl_s"] = x.max_ttl_s;
+        j["min_ttl_s"] = x.min_ttl_s;
     }
 
     inline void from_json(const json & j, Iproute& x) {
@@ -1461,8 +1647,9 @@ namespace api {
         x.api = get_stack_optional<ApiConfig>(j, "api");
         x.daemon = get_stack_optional<Daemon>(j, "daemon");
         x.device_name = get_stack_optional<std::string>(j, "device_name");
-        x.dns = get_stack_optional<Dns>(j, "dns");
+        x.dns = get_stack_optional<DnsConfigClass>(j, "dns");
         x.fwmark = get_stack_optional<Fwmark>(j, "fwmark");
+        x.intercept = get_stack_optional<InterceptConfigClass>(j, "intercept");
         x.iproute = get_stack_optional<Iproute>(j, "iproute");
         x.lists = get_stack_optional<std::map<std::string, ListConfigValue>>(j, "lists");
         x.lists_autoupdate = get_stack_optional<ListsAutoupdate>(j, "lists_autoupdate");
@@ -1477,6 +1664,7 @@ namespace api {
         j["device_name"] = x.device_name;
         j["dns"] = x.dns;
         j["fwmark"] = x.fwmark;
+        j["intercept"] = x.intercept;
         j["iproute"] = x.iproute;
         j["lists"] = x.lists;
         j["lists_autoupdate"] = x.lists_autoupdate;
@@ -1487,8 +1675,9 @@ namespace api {
     inline void from_json(const json & j, Config& x) {
         x.daemon = get_stack_optional<Daemon>(j, "daemon");
         x.device_name = get_stack_optional<std::string>(j, "device_name");
-        x.dns = get_stack_optional<Dns>(j, "dns");
+        x.dns = get_stack_optional<DnsConfigClass>(j, "dns");
         x.fwmark = get_stack_optional<Fwmark>(j, "fwmark");
+        x.intercept = get_stack_optional<InterceptConfigClass>(j, "intercept");
         x.iproute = get_stack_optional<Iproute>(j, "iproute");
         x.lists = get_stack_optional<std::map<std::string, ListConfigValue>>(j, "lists");
         x.lists_autoupdate = get_stack_optional<ListsAutoupdate>(j, "lists_autoupdate");
@@ -1502,6 +1691,7 @@ namespace api {
         j["device_name"] = x.device_name;
         j["dns"] = x.dns;
         j["fwmark"] = x.fwmark;
+        j["intercept"] = x.intercept;
         j["iproute"] = x.iproute;
         j["lists"] = x.lists;
         j["lists_autoupdate"] = x.lists_autoupdate;
@@ -1542,6 +1732,37 @@ namespace api {
         j["apply_started_ts"] = x.apply_started_ts;
         j["message"] = x.message;
         j["status"] = x.status;
+    }
+
+    inline void from_json(const json & j, DnsTestInterceptEvent& x) {
+        x.added = j.at("added").get<int64_t>();
+        x.domain = j.at("domain").get<std::string>();
+        x.errors = j.at("errors").get<int64_t>();
+        x.hold_us = j.at("hold_us").get<int64_t>();
+        x.ips = j.at("ips").get<std::vector<std::string>>();
+        x.lists = j.at("lists").get<std::vector<std::string>>();
+        x.refreshed = j.at("refreshed").get<int64_t>();
+        x.seq = j.at("seq").get<int64_t>();
+        x.source = j.at("source").get<Source>();
+        x.timed_out = j.at("timed_out").get<bool>();
+        x.ts_ms = j.at("ts_ms").get<int64_t>();
+        x.type = j.at("type").get<DnsTestInterceptEventType>();
+    }
+
+    inline void to_json(json & j, const DnsTestInterceptEvent & x) {
+        j = json::object();
+        j["added"] = x.added;
+        j["domain"] = x.domain;
+        j["errors"] = x.errors;
+        j["hold_us"] = x.hold_us;
+        j["ips"] = x.ips;
+        j["lists"] = x.lists;
+        j["refreshed"] = x.refreshed;
+        j["seq"] = x.seq;
+        j["source"] = x.source;
+        j["timed_out"] = x.timed_out;
+        j["ts_ms"] = x.ts_ms;
+        j["type"] = x.type;
     }
 
     inline void from_json(const json & j, ValidationErrorElement& x) {
@@ -1598,6 +1819,85 @@ namespace api {
         j["status"] = x.status;
     }
 
+    inline void from_json(const json & j, Capabilities& x) {
+        x.connbytes = j.at("connbytes").get<bool>();
+        x.nflog = j.at("nflog").get<bool>();
+        x.nfqueue = j.at("nfqueue").get<bool>();
+    }
+
+    inline void to_json(json & j, const Capabilities & x) {
+        j = json::object();
+        j["connbytes"] = x.connbytes;
+        j["nflog"] = x.nflog;
+        j["nfqueue"] = x.nfqueue;
+    }
+
+    inline void from_json(const json & j, Counters& x) {
+        x.conntrack_deleted = get_stack_optional<int64_t>(j, "conntrack_deleted");
+        x.conntrack_errors = get_stack_optional<int64_t>(j, "conntrack_errors");
+        x.conntrack_requests = get_stack_optional<int64_t>(j, "conntrack_requests");
+        x.dns_hold_timeouts = get_stack_optional<int64_t>(j, "dns_hold_timeouts");
+        x.dns_matched = get_stack_optional<int64_t>(j, "dns_matched");
+        x.dns_packets = get_stack_optional<int64_t>(j, "dns_packets");
+        x.dns_parse_errors = get_stack_optional<int64_t>(j, "dns_parse_errors");
+        x.dns_tcp_partial = get_stack_optional<int64_t>(j, "dns_tcp_partial");
+        x.l7_matched = get_stack_optional<int64_t>(j, "l7_matched");
+        x.l7_packets = get_stack_optional<int64_t>(j, "l7_packets");
+        x.log_overruns = get_stack_optional<int64_t>(j, "log_overruns");
+        x.marker_hits = get_stack_optional<int64_t>(j, "marker_hits");
+        x.queue_overruns = get_stack_optional<int64_t>(j, "queue_overruns");
+        x.set_added = get_stack_optional<int64_t>(j, "set_added");
+        x.set_errors = get_stack_optional<int64_t>(j, "set_errors");
+        x.set_refreshed = get_stack_optional<int64_t>(j, "set_refreshed");
+    }
+
+    inline void to_json(json & j, const Counters & x) {
+        j = json::object();
+        j["conntrack_deleted"] = x.conntrack_deleted;
+        j["conntrack_errors"] = x.conntrack_errors;
+        j["conntrack_requests"] = x.conntrack_requests;
+        j["dns_hold_timeouts"] = x.dns_hold_timeouts;
+        j["dns_matched"] = x.dns_matched;
+        j["dns_packets"] = x.dns_packets;
+        j["dns_parse_errors"] = x.dns_parse_errors;
+        j["dns_tcp_partial"] = x.dns_tcp_partial;
+        j["l7_matched"] = x.l7_matched;
+        j["l7_packets"] = x.l7_packets;
+        j["log_overruns"] = x.log_overruns;
+        j["marker_hits"] = x.marker_hits;
+        j["queue_overruns"] = x.queue_overruns;
+        j["set_added"] = x.set_added;
+        j["set_errors"] = x.set_errors;
+        j["set_refreshed"] = x.set_refreshed;
+    }
+
+    inline void from_json(const json & j, InterceptHealthClass& x) {
+        x.capabilities = j.at("capabilities").get<Capabilities>();
+        x.counters = get_stack_optional<Counters>(j, "counters");
+        x.dns_hold_active = j.at("dns_hold_active").get<bool>();
+        x.enabled = j.at("enabled").get<bool>();
+        x.events_seq = get_stack_optional<int64_t>(j, "events_seq");
+        x.l7_active = j.at("l7_active").get<bool>();
+        x.nflog_group = get_stack_optional<int64_t>(j, "nflog_group");
+        x.queue_num = get_stack_optional<int64_t>(j, "queue_num");
+        x.reasons = j.at("reasons").get<std::vector<std::string>>();
+        x.running = j.at("running").get<bool>();
+    }
+
+    inline void to_json(json & j, const InterceptHealthClass & x) {
+        j = json::object();
+        j["capabilities"] = x.capabilities;
+        j["counters"] = x.counters;
+        j["dns_hold_active"] = x.dns_hold_active;
+        j["enabled"] = x.enabled;
+        j["events_seq"] = x.events_seq;
+        j["l7_active"] = x.l7_active;
+        j["nflog_group"] = x.nflog_group;
+        j["queue_num"] = x.queue_num;
+        j["reasons"] = x.reasons;
+        j["running"] = x.running;
+    }
+
     inline void from_json(const json & j, LifecycleOperationStageElement& x) {
         x.detail = get_stack_optional<std::string>(j, "detail");
         x.id = j.at("id").get<std::string>();
@@ -1639,6 +1939,7 @@ namespace api {
         x.build = j.at("build").get<std::string>();
         x.build_variant = j.at("build_variant").get<std::string>();
         x.config_is_draft = j.at("config_is_draft").get<bool>();
+        x.intercept = get_stack_optional<InterceptHealthClass>(j, "intercept");
         x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "lifecycle_operation");
         x.os_type = j.at("os_type").get<std::string>();
         x.os_version = j.at("os_version").get<std::string>();
@@ -1662,6 +1963,7 @@ namespace api {
         j["build"] = x.build;
         j["build_variant"] = x.build_variant;
         j["config_is_draft"] = x.config_is_draft;
+        j["intercept"] = x.intercept;
         j["lifecycle_operation"] = x.lifecycle_operation;
         j["os_type"] = x.os_type;
         j["os_version"] = x.os_version;
@@ -2055,7 +2357,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes1KKpXv& x) {
+    inline void from_json(const json & j, KeenPbrTypesKoLNdC& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2075,10 +2377,11 @@ namespace api {
         x.cors_config = get_stack_optional<CorsConfigClass>(j, "CorsConfig");
         x.daemon_config = get_stack_optional<Daemon>(j, "DaemonConfig");
         x.default_gateway = get_stack_optional<DefaultGateway>(j, "DefaultGateway");
-        x.dns_config = get_stack_optional<Dns>(j, "DnsConfig");
+        x.dns_config = get_stack_optional<DnsConfigClass>(j, "DnsConfig");
         x.dns_rule = get_stack_optional<DnsRuleElement>(j, "DnsRule");
         x.dns_server = get_stack_optional<DnsServerElement>(j, "DnsServer");
         x.dns_system_resolver = get_stack_optional<SystemResolver>(j, "DnsSystemResolver");
+        x.dns_test_intercept_event = get_stack_optional<DnsTestInterceptEvent>(j, "DnsTestInterceptEvent");
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "DnsTestServer");
         x.draft_config = get_stack_optional<Config>(j, "DraftConfig");
         x.error_response = get_stack_optional<ErrorResponse>(j, "ErrorResponse");
@@ -2087,6 +2390,13 @@ namespace api {
         x.fwmark_config = get_stack_optional<Fwmark>(j, "FwmarkConfig");
         x.health_response = get_stack_optional<HealthResponse>(j, "HealthResponse");
         x.icmp_candidate = get_stack_optional<IcmpCandidateElement>(j, "IcmpCandidate");
+        x.intercept_capabilities_health = get_stack_optional<Capabilities>(j, "InterceptCapabilitiesHealth");
+        x.intercept_config = get_stack_optional<InterceptConfigClass>(j, "InterceptConfig");
+        x.intercept_counters_health = get_stack_optional<Counters>(j, "InterceptCountersHealth");
+        x.intercept_dns_config = get_stack_optional<InterceptDnsConfigClass>(j, "InterceptDnsConfig");
+        x.intercept_health = get_stack_optional<InterceptHealthClass>(j, "InterceptHealth");
+        x.intercept_l7_config = get_stack_optional<L7>(j, "InterceptL7Config");
+        x.intercept_marker_config = get_stack_optional<Marker>(j, "InterceptMarkerConfig");
         x.iproute_config = get_stack_optional<Iproute>(j, "IprouteConfig");
         x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "LifecycleOperation");
         x.lifecycle_operation_accepted_response = get_stack_optional<LifecycleOperationAcceptedResponse>(j, "LifecycleOperationAcceptedResponse");
@@ -2130,7 +2440,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes1KKpXv & x) {
+    inline void to_json(json & j, const KeenPbrTypesKoLNdC & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2155,6 +2465,7 @@ namespace api {
         j["DnsRule"] = x.dns_rule;
         j["DnsServer"] = x.dns_server;
         j["DnsSystemResolver"] = x.dns_system_resolver;
+        j["DnsTestInterceptEvent"] = x.dns_test_intercept_event;
         j["DnsTestServer"] = x.dns_test_server;
         j["DraftConfig"] = x.draft_config;
         j["ErrorResponse"] = x.error_response;
@@ -2163,6 +2474,13 @@ namespace api {
         j["FwmarkConfig"] = x.fwmark_config;
         j["HealthResponse"] = x.health_response;
         j["IcmpCandidate"] = x.icmp_candidate;
+        j["InterceptCapabilitiesHealth"] = x.intercept_capabilities_health;
+        j["InterceptConfig"] = x.intercept_config;
+        j["InterceptCountersHealth"] = x.intercept_counters_health;
+        j["InterceptDnsConfig"] = x.intercept_dns_config;
+        j["InterceptHealth"] = x.intercept_health;
+        j["InterceptL7Config"] = x.intercept_l7_config;
+        j["InterceptMarkerConfig"] = x.intercept_marker_config;
         j["IprouteConfig"] = x.iproute_config;
         j["LifecycleOperation"] = x.lifecycle_operation;
         j["LifecycleOperationAcceptedResponse"] = x.lifecycle_operation_accepted_response;
@@ -2339,6 +2657,38 @@ namespace api {
         switch (x) {
             case ConfigUpdateResponseStatus::OK: j = "ok"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"ConfigUpdateResponseStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, Source & x) {
+        if (j == "dns") x = Source::DNS;
+        else if (j == "http") x = Source::HTTP;
+        else if (j == "marker") x = Source::MARKER;
+        else if (j == "quic") x = Source::QUIC;
+        else if (j == "sni") x = Source::SNI;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"Source\""); }
+    }
+
+    inline void to_json(json & j, const Source & x) {
+        switch (x) {
+            case Source::DNS: j = "dns"; break;
+            case Source::HTTP: j = "http"; break;
+            case Source::MARKER: j = "marker"; break;
+            case Source::QUIC: j = "quic"; break;
+            case Source::SNI: j = "sni"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"Source\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, DnsTestInterceptEventType & x) {
+        if (j == "INTERCEPT") x = DnsTestInterceptEventType::INTERCEPT;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"DnsTestInterceptEventType\""); }
+    }
+
+    inline void to_json(json & j, const DnsTestInterceptEventType & x) {
+        switch (x) {
+            case DnsTestInterceptEventType::INTERCEPT: j = "INTERCEPT"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"DnsTestInterceptEventType\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

@@ -40,7 +40,7 @@ weight: 6
 
     // Очищать динамические наборы dnsmasq при полном применении или перезапуске runtime.
     // По умолчанию: true (также если задано null).
-    "clear_dynamic_sets_on_apply": true,
+    "clear_dynamic_sets_on_apply": false,
 
     // Необязательный начальный размер хеш-таблицы ipset, создаваемых бэкендом iptables.
     // Не действует с nftables. Минимум: 1; максимум: 2147483648. Оставьте null

@@ -69,6 +69,7 @@ ResolverGenerationSnapshot Daemon::make_resolver_generation_snapshot() {
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
     log_ipv6_support_decision_once(ipv6_decision);
     snapshot.ipv6_enabled = ipv6_decision.enabled;
+    snapshot.intercept_dns_hold = intercept_effective_snapshot().dns_hold;
     snapshot.generation = runtime_generation_.load(std::memory_order_acquire);
     return snapshot;
 }

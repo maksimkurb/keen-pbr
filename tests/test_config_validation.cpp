@@ -1556,3 +1556,61 @@ TEST_CASE("device name may be empty and is limited to 128 characters") {
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "device_name");
 }
+
+TEST_CASE("intercept: defaults are accepted and absent values stay optional") {
+    const auto cfg = parse_test_config(R"({"intercept":{}})");
+    REQUIRE(cfg.intercept.has_value());
+    CHECK_FALSE(cfg.intercept->enabled.has_value());
+    const auto full = parse_test_config(R"({"intercept":{
+      "enabled":true,"min_ttl_s":300,"max_ttl_s":86400,
+      "dns":{"enabled":true,"queue_num":9053,"hold_timeout_ms":30,
+             "marker":{"domain":"check.keen.pbr","answer_ipv4":"127.0.0.88"}},
+      "l7":{"enabled":true,"nflog_group":9054,"tls":true,"http":true,"quic":true}}})");
+    CHECK(*full.intercept->dns->queue_num == 9053);
+    CHECK(*full.intercept->l7->nflog_group == 9054);
+    CHECK_NOTHROW(parse_test_config(nlohmann::json(full).dump()));
+}
+
+TEST_CASE("intercept: rejects invalid queue/group numbers") {
+    for (const char* bad : {"0", "65536", "-1", "64511", "65023"}) {
+        const auto q = validate_issues(std::string(R"({"intercept":{"dns":{"queue_num":)") + bad + "}}}");
+        REQUIRE(q.size() == 1);
+        CHECK(q[0].path == "intercept.dns.queue_num");
+        const auto g = validate_issues(std::string(R"({"intercept":{"l7":{"nflog_group":)") + bad + "}}}");
+        REQUIRE(g.size() == 1);
+        CHECK(g[0].path == "intercept.l7.nflog_group");
+    }
+    CHECK(validate_issues(R"({"intercept":{"dns":{"queue_num":1},"l7":{"nflog_group":65535}}})").empty());
+}
+
+TEST_CASE("intercept: hold timeout, ttl range and marker are validated") {
+    CHECK(validate_issues(R"({"intercept":{"dns":{"hold_timeout_ms":5}}})").empty());
+    CHECK(validate_issues(R"({"intercept":{"dns":{"hold_timeout_ms":500}}})").empty());
+    for (const char* bad : {"4", "501", "0"}) {
+        const auto issues = validate_issues(
+            std::string(R"({"intercept":{"dns":{"hold_timeout_ms":)") + bad + "}}}");
+        REQUIRE(issues.size() == 1);
+        CHECK(issues[0].path == "intercept.dns.hold_timeout_ms");
+    }
+
+    auto ttl = validate_issues(R"({"intercept":{"min_ttl_s":600,"max_ttl_s":300}})");
+    REQUIRE(ttl.size() == 1);
+    CHECK(ttl[0].path == "intercept.min_ttl_s");
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_s":300,"max_ttl_s":300}})").empty());
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_s":0}})").size() == 1);
+    // A lone min above the default max is also inconsistent.
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_s":90000}})").size() == 1);
+
+    for (const char* bad : {"", "-bad.example", "a..b", "bad domain", "a.b-"}) {
+        const auto issues = validate_issues(
+            std::string(R"({"intercept":{"dns":{"marker":{"domain":")") + bad + R"("}}}})");
+        REQUIRE(issues.size() == 1);
+        CHECK(issues[0].path == "intercept.dns.marker.domain");
+    }
+    CHECK(validate_issues(R"({"intercept":{"dns":{"marker":{"domain":"check.example.org"}}}})").empty());
+
+    const auto ip = validate_issues(R"({"intercept":{"dns":{"marker":{"answer_ipv4":"999.1.1.1"}}}})");
+    REQUIRE(ip.size() == 1);
+    CHECK(ip[0].path == "intercept.dns.marker.answer_ipv4");
+    CHECK(validate_issues(R"({"intercept":{"dns":{"marker":{"answer_ipv4":"::1"}}}})").size() == 1);
+}

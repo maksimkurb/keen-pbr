@@ -91,6 +91,8 @@ ActiveFirewall apply_runtime_firewall(
     bool force_clear_dynamic_sets = false,
     const std::vector<DumpedRoute>& main_routes = {},
     const std::vector<DumpedInterface>& interfaces = {},
-    const FirewallBalanceCandidates* balance_candidates = nullptr);
+    const FirewallBalanceCandidates* balance_candidates = nullptr,
+    // nullopt: no interception (DNS hold / L7 sniff) rules are planned.
+    const std::optional<InterceptFirewallSettings>& intercept = std::nullopt);
 
 } // namespace keen_pbr3

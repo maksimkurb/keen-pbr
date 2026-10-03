@@ -348,6 +348,7 @@ set(SOURCES
   src/daemon/daemon_resolver.cpp
   src/daemon/daemon_api.cpp
   src/daemon/daemon_dns_probe.cpp
+  src/daemon/daemon_intercept.cpp
   src/daemon/list_service.cpp
   src/daemon/resolver_health.cpp
   src/daemon/resolver_apply_confirmation.cpp
@@ -364,6 +365,10 @@ set(SOURCES
   src/netfilter/set_writer.cpp
   src/intercept/intercept_processor.cpp
   src/intercept/intercept_service.cpp
+  src/intercept/intercept_capabilities.cpp
+  src/intercept/intercept_report.cpp
+  src/intercept/intercept_settings.cpp
+  src/intercept/intercept_snapshot_builder.cpp
   src/util/blocking_executor.cpp
   src/util/firewall_backend_utils.cpp
   src/util/ipv6_support.cpp

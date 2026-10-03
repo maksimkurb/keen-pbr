@@ -186,6 +186,8 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     policy_rules_.clear();
     route_table_.clear();
     firewall_->cleanup();
+    // The rules are gone; only now unbind so no queued packet is dropped.
+    stop_intercept_service();
     firewall_state_.clear_active_firewall();
     if (keenetic_dns_refresh_task_id_ >= 0) {
         scheduler_->cancel(keenetic_dns_refresh_task_id_);
@@ -326,6 +328,50 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         : netlink_.dump_routes_in_table(254);
     const auto interfaces = netlink_.dump_interfaces();
     const auto balance_candidates = build_balance_candidates(owned_main_routes, interfaces);
+
+    // Interception ordering: a service that must go away or rebind is
+    // detached from the rules first (quiesce), a needed service is bound
+    // before any rule queues to it.
+    InterceptEffective intercept = resolve_intercept_effective();
+    {
+        const InterceptServiceOptions wanted = [&intercept] {
+            InterceptServiceOptions options;
+            if (intercept.dns_hold) options.queue_num = intercept.queue_num;
+            if (intercept.l7) options.nflog_group = intercept.nflog_group;
+            options.hold_timeout_ms = intercept.hold_timeout_ms;
+            return options;
+        }();
+        bool service_running;
+        {
+            KPBR_LOCK_GUARD(intercept_mutex_);
+            service_running = intercept_service_ != nullptr;
+        }
+        const bool options_changed =
+            wanted.queue_num != intercept_service_options_.queue_num ||
+            wanted.nflog_group != intercept_service_options_.nflog_group ||
+            wanted.hold_timeout_ms != intercept_service_options_.hold_timeout_ms;
+        if (service_running && (!intercept.active() || options_changed)) {
+            quiesce_intercept_service(owned_main_routes, interfaces, balance_candidates);
+        }
+        if (intercept.active()) {
+            bool needs_start;
+            {
+                KPBR_LOCK_GUARD(intercept_mutex_);
+                needs_start = intercept_service_ == nullptr;
+            }
+            if (needs_start) {
+                start_intercept_service(intercept);
+            }
+            if (intercept.l7 && firewall_->backend() == FirewallBackend::nftables) {
+                (void)enable_conntrack_accounting();
+            }
+        }
+        {
+            KPBR_LOCK_GUARD(intercept_mutex_);
+            intercept_effective_ = intercept;
+        }
+    }
+
     const auto previous_active = firewall_state_.active_firewall();
     auto active = apply_runtime_firewall(
         config_,
@@ -337,11 +383,17 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         force_clear_dynamic_sets,
         owned_main_routes,
         interfaces,
-        &balance_candidates);
+        &balance_candidates,
+        intercept.firewall_settings());
     // Derived from the plan that was actually applied, never recomputed.
     const ConntrackPolicy conntrack_policy = conntrack_policy_for_plan(active.plan);
+    auto applied_sets = active.plan.sets;
     firewall_state_.publish_active_firewall(std::move(active));
     (void)conntrack_manager_.reconcile(conntrack_policy);
+    // Only after the apply that created the sets succeeded.
+    if (intercept.active()) {
+        schedule_intercept_snapshot_update(std::move(applied_sets), intercept);
+    }
 }
 
 FirewallBalanceCandidates Daemon::build_balance_candidates(
@@ -1039,6 +1091,8 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
     }
 
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
+    // A config change may alter the interception setup: probe again.
+    intercept_capabilities_.reset();
 
     if (lists_autoupdate_task_id_ >= 0) {
         scheduler_->cancel(lists_autoupdate_task_id_);

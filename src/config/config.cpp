@@ -34,6 +34,23 @@ bool is_valid_ipv6_address(const std::string& ip) {
     return inet_pton(AF_INET6, ip.c_str(), &addr) == 1;
 }
 
+bool is_valid_marker_domain(const std::string& domain) {
+    if (domain.empty() || domain.size() > 253) return false;
+    std::size_t label_len = 0;
+    char prev = '.';
+    for (const char ch : domain) {
+        if (ch == '.') {
+            if (label_len == 0 || prev == '-') return false;
+            label_len = 0;
+        } else {
+            const bool ok = std::isalnum(static_cast<unsigned char>(ch)) || ch == '-' || ch == '_';
+            if (!ok || (label_len == 0 && ch == '-') || ++label_len > 63) return false;
+        }
+        prev = ch;
+    }
+    return label_len > 0 && prev != '-';
+}
+
 bool is_http_url(const std::string& url) {
     const auto separator = url.find("://");
     if (separator == std::string::npos || separator + 3 >= url.size()) return false;
@@ -1005,6 +1022,55 @@ void validate_config(const Config& cfg) {
                 add_issue(issues, "lists_autoupdate.cron",
                           std::string("lists_autoupdate.cron: ") + e.what());
             }
+        }
+    }
+
+    if (cfg.intercept) {
+        const auto& ic = *cfg.intercept;
+        const auto check_port = [&issues](const char* path, const std::optional<int64_t>& value) {
+            if (!value.has_value()) return;
+            if (*value < 1 || *value > 65535) {
+                add_issue(issues, path, std::string(path) + " must be between 1 and 65535");
+            } else if (*value == 64511 || *value == 65023) {
+                add_issue(issues, path,
+                          std::string(path) + " " + std::to_string(*value) +
+                              " is reserved by Keenetic NDM");
+            }
+        };
+        const int64_t min_ttl = ic.min_ttl_s.value_or(300);
+        const int64_t max_ttl = ic.max_ttl_s.value_or(86400);
+        if (ic.min_ttl_s.has_value() && min_ttl < 1) {
+            add_issue(issues, "intercept.min_ttl_s", "intercept.min_ttl_s must be >= 1");
+        }
+        if (ic.max_ttl_s.has_value() && max_ttl < 1) {
+            add_issue(issues, "intercept.max_ttl_s", "intercept.max_ttl_s must be >= 1");
+        }
+        if (min_ttl > max_ttl) {
+            add_issue(issues, "intercept.min_ttl_s",
+                      "intercept.min_ttl_s must be <= intercept.max_ttl_s");
+        }
+        if (ic.dns) {
+            check_port("intercept.dns.queue_num", ic.dns->queue_num);
+            if (ic.dns->hold_timeout_ms.has_value() &&
+                (*ic.dns->hold_timeout_ms < 5 || *ic.dns->hold_timeout_ms > 500)) {
+                add_issue(issues, "intercept.dns.hold_timeout_ms",
+                          "intercept.dns.hold_timeout_ms must be between 5 and 500");
+            }
+            if (ic.dns->marker) {
+                if (ic.dns->marker->domain.has_value() &&
+                    !is_valid_marker_domain(*ic.dns->marker->domain)) {
+                    add_issue(issues, "intercept.dns.marker.domain",
+                              "intercept.dns.marker.domain is not a valid domain name");
+                }
+                if (ic.dns->marker->answer_ipv4.has_value() &&
+                    !is_valid_ipv4_address(*ic.dns->marker->answer_ipv4)) {
+                    add_issue(issues, "intercept.dns.marker.answer_ipv4",
+                              "intercept.dns.marker.answer_ipv4 must be a valid IPv4 address");
+                }
+            }
+        }
+        if (ic.l7) {
+            check_port("intercept.l7.nflog_group", ic.l7->nflog_group);
         }
     }
 

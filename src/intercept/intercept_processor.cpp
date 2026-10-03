@@ -84,6 +84,11 @@ std::vector<InterceptEvent> InterceptProcessor::events_since(uint64_t after_seq,
     return out;
 }
 
+uint64_t InterceptProcessor::last_event_seq() const {
+    std::lock_guard<std::mutex> lock(events_mutex_);
+    return next_seq_ - 1;
+}
+
 void InterceptProcessor::collect_list_names(const InterceptSnapshot& snap,
                                             std::vector<std::string>& out) const {
     const auto& names = snap.index->list_names();

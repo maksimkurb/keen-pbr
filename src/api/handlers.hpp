@@ -59,6 +59,7 @@ struct ServiceHealthState {
     bool config_is_draft{false};
     bool rollback_available{false};
     std::optional<LifecycleOperationSnapshot> lifecycle_operation;
+    std::optional<api::InterceptHealthClass> intercept;
 };
 
 struct ListRefreshOperationResult {

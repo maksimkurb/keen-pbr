@@ -299,7 +299,7 @@ protected:
 
   uint32_t fwmark_mask_{0xFFFFFFFFu};
   bool ipv6_enabled_{true};
-  bool clear_dynamic_sets_on_apply_{true};
+  bool clear_dynamic_sets_on_apply_{false};
   std::optional<uint32_t> ipset_hashsize_;
   std::optional<uint32_t> ipset_maxelem_;
 };

@@ -796,6 +796,7 @@ void Daemon::setup_api() {
             service_health.rollback_available =
                 rollback_available_.load(std::memory_order_acquire);
             service_health.lifecycle_operation = lifecycle_operation_store_.snapshot();
+            service_health.intercept = build_intercept_health();
             return service_health;
         },
         [this]() {

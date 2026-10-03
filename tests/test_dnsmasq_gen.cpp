@@ -1192,3 +1192,51 @@ TEST_CASE("nft resolver stream keeps routed and DNS-only list directives togethe
     CHECK(output.find("rebind-domain-ok=/ts.net/\n") != std::string::npos);
     CHECK(extract_txt_hash(output) == expected_hash);
 }
+
+TEST_CASE("daemon-filled dynamic sets: no ipset/nftset directives, other directives kept") {
+    CacheManager cache("/nonexistent/cache");
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_dns_cfg(list_name, "upstream", "8.8.8.8");
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    for (const auto type : {ResolverType::DNSMASQ_IPSET, ResolverType::DNSMASQ_NFTSET}) {
+        ListStreamer streamer_on(cache);
+        ListStreamer streamer_off(cache);
+        DnsServerRegistry reg_on(dns_cfg);
+        DnsServerRegistry reg_off(dns_cfg);
+        DnsmasqGenerator on(reg_on, streamer_on, route_cfg, dns_cfg, lists, type,
+                            "test", true, true);
+        DnsmasqGenerator off(reg_off, streamer_off, route_cfg, dns_cfg, lists, type,
+                             "test", true, false);
+        const std::string out_on = run_generate(on);
+        const std::string out_off = run_generate(off);
+
+        CHECK(out_off.find("set=/example.com") != std::string::npos);
+        CHECK(out_on.find("ipset=") == std::string::npos);
+        CHECK(out_on.find("nftset=") == std::string::npos);
+        CHECK(out_on.find("server=/example.com/8.8.8.8\n") != std::string::npos);
+        // The hash reflects what is emitted, so it differs from the legacy one.
+        CHECK(extract_txt_hash(out_on) != extract_txt_hash(out_off));
+    }
+}
+
+TEST_CASE("daemon-filled dynamic sets: hash matches between emit and compute") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_empty_dns_cfg();
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+    DnsServerRegistry reg1(dns_cfg);
+    DnsServerRegistry reg2(dns_cfg);
+
+    DnsmasqGenerator gen(reg1, streamer1, route_cfg, dns_cfg, lists,
+                         ResolverType::DNSMASQ_IPSET, "test", true, true);
+    const std::string emitted = extract_txt_hash(run_generate(gen));
+    const std::string computed = DnsmasqGenerator::compute_config_hash(
+        reg2, streamer2, route_cfg, dns_cfg, lists, "test", true, true);
+    CHECK(emitted == computed);
+}

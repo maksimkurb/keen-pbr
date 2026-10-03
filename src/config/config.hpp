@@ -54,12 +54,15 @@ using ListConfig           = api::ListConfigValue;
 using DnsServer            = api::DnsServerElement;
 using DnsTestServer        = api::DnsTestServer;
 using DnsRule              = api::DnsRuleElement;
-using DnsConfig            = api::Dns;
+using DnsConfig            = api::DnsConfigClass;
 using RouteRule            = api::RouteRuleElement;
 using RouteConfig          = api::Route;
 using FwmarkConfig         = api::Fwmark;
 using IprouteConfig        = api::Iproute;
 using ListsAutoupdateConfig = api::ListsAutoupdate;
+using InterceptConfig      = api::InterceptConfigClass;
+using InterceptDnsConfig   = api::InterceptDnsConfigClass;
+using InterceptL7Config    = api::L7;
 // Note: DnsRule.list (not .lists) and RouteRule.list (not .lists) match JSON keys.
 
 constexpr std::size_t kDefaultMaxFileSizeBytes = std::size_t{8} * 1024U * 1024U; // 8 MiB
