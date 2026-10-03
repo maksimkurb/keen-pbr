@@ -56,16 +56,27 @@ def fresh_healthy(context):
 # ---- recovery trigger -----------------------------------------------------
 
 def reapply(context):
-    """SIGUSR1 makes the daemon re-apply the firewall rules (RulesOnly)."""
+    """SIGUSR1 makes the daemon re-apply the firewall rules (RulesOnly).
+
+    The "SIGUSR1: firewall refresh complete" line is logged even when the
+    refresh swallowed an exception, so success is proven only by the
+    "Runtime iproute and firewall refresh complete." line logged after the
+    apply. A deferred refresh (config operation busy) is retried by the daemon.
+    """
+    success = "Runtime iproute and firewall refresh complete."
+    failure = "Runtime iproute and firewall refresh failed"
     sent = time.time()
     context.run("systemctl", "kill", "-s", "SIGUSR1", "keen-pbr.service")
 
     def completed():
         output = context.run(
             "journalctl", "--no-pager", "-u", "keen-pbr.service", f"--since=@{sent:.3f}",
-            "-g", "SIGUSR1: firewall refresh complete", check=False).stdout
-        return "SIGUSR1: firewall refresh complete" in output
-    context.wait_for("SIGUSR1 firewall refresh completion", completed, timeout=25)
+            check=False).stdout
+        if failure in output:  # not AssertionError: wait_for would retry it
+            raise RuntimeError(f"SIGUSR1 runtime refresh failed:\n{output}")
+        return (success in output
+                and "SIGUSR1: firewall refresh complete" in output)
+    context.wait_for("SIGUSR1 runtime refresh success", completed, timeout=25)
 
 
 # ---- iptables corruption --------------------------------------------------
