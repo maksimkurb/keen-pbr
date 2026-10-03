@@ -6,6 +6,7 @@
 #include <linux/netlink.h>
 
 #include <cstring>
+#include <cerrno>
 
 namespace keen_pbr3::nfnl {
 
@@ -209,6 +210,17 @@ bool parse_error(const MsgView& m, int& error_out, uint32_t& orig_seq_out) {
     orig_seq_out = 0;
     if (m.attrs.size() >= sizeof(int32_t) + kNlMsgHdr) {
         orig_seq_out = rd32(m.attrs.data() + sizeof(int32_t) + 8);
+    }
+    return true;
+}
+
+bool parse_done_error(const MsgView& m, int& error_out) {
+    if (m.type != NLMSG_DONE) return false;
+    error_out = (m.flags & NLM_F_DUMP_INTR) != 0 ? EINTR : 0;
+    if (m.attrs.size() >= sizeof(int32_t)) {
+        int32_t value = 0;
+        std::memcpy(&value, m.attrs.data(), sizeof(value));
+        if (value != 0) error_out = value < 0 ? -value : value;
     }
     return true;
 }

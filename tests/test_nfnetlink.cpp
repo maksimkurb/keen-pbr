@@ -258,3 +258,33 @@ TEST_CASE("nfnetlink: parse_error") {
         }));
     }
 }
+
+TEST_CASE("nfnetlink: DONE reports payload errors and interrupted dumps") {
+    auto make_done = [](uint16_t flags, int32_t payload) {
+        std::vector<uint8_t> d(20, 0);
+        const uint32_t len = 20;
+        std::memcpy(d.data(), &len, sizeof(len));
+        const uint16_t type = NLMSG_DONE;
+        std::memcpy(d.data() + 4, &type, sizeof(type));
+        std::memcpy(d.data() + 6, &flags, sizeof(flags));
+        const uint32_t seq = 17;
+        std::memcpy(d.data() + 8, &seq, sizeof(seq));
+        std::memcpy(d.data() + 16, &payload, sizeof(payload));
+        return d;
+    };
+
+    const auto payload_error = make_done(0, -EAGAIN);
+    CHECK(for_each_msg(view(payload_error), [&](const MsgView& msg) {
+        int error = 0;
+        CHECK(parse_done_error(msg, error));
+        CHECK(error == EAGAIN);
+        return true;
+    }));
+    const auto interrupted = make_done(NLM_F_DUMP_INTR, 0);
+    CHECK(for_each_msg(view(interrupted), [&](const MsgView& msg) {
+        int error = 0;
+        CHECK(parse_done_error(msg, error));
+        CHECK(error == EINTR);
+        return true;
+    }));
+}

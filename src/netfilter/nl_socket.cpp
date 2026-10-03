@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <ctime>
@@ -133,7 +134,9 @@ ssize_t NlSocket::recv(std::vector<uint8_t>& buf, int& err) {
 int NlSocket::transact(const uint8_t* req, std::size_t len, uint32_t first_seq, uint32_t last_seq,
                        int timeout_ms,
                        const std::function<void(const MsgView&)>& on_msg,
-                       const std::function<void(uint32_t seq, int err)>& on_ack) {
+                       const std::function<void(uint32_t seq, int err)>& on_ack,
+                       const std::vector<uint32_t>* extra_error_seqs) {
+    if (timeout_ms <= 0) return ETIMEDOUT;
     int err = 0;
     if (!send(req, len, err)) return err;
 
@@ -164,16 +167,47 @@ int NlSocket::transact(const uint8_t* req, std::size_t len, uint32_t first_seq, 
             const ssize_t n = recv(rx_, err);
             if (n < 0) {
                 if (err == EAGAIN || err == EWOULDBLOCK) break;
-                if (err == EMSGSIZE) continue;
+                // MSG_TRUNC consumes the datagram.  Retrying would silently
+                // lose an ACK or an NFQUEUE packet; surface the loss to the
+                // caller so it can fail closed/disable the listener.
+                if (err == EMSGSIZE) return err;
                 return err;
             }
-            for_each_msg(ByteView(rx_.data(), static_cast<std::size_t>(n)), [&](const MsgView& m) {
+            const bool well_formed = for_each_msg(
+                ByteView(rx_.data(), static_cast<std::size_t>(n)),
+                [&](const MsgView& m) {
                 const uint32_t idx = m.seq - first_seq;
-                if (idx >= count) return true;  // stale reply
+                if (idx >= count) {
+                    if (m.type == NLMSG_ERROR && extra_error_seqs != nullptr) {
+                        int e = 0;
+                        uint32_t orig = 0;
+                        if (std::find(extra_error_seqs->begin(), extra_error_seqs->end(),
+                                      m.seq) != extra_error_seqs->end()) {
+                            if (!parse_error(m, e, orig)) {
+                                if (first_error == 0) first_error = EPROTO;
+                            } else if (e != 0 && first_error == 0) {
+                                first_error = e;
+                            }
+                        }
+                    } else if (m.type != NLMSG_DONE && m.type != NLMSG_NOOP && on_msg) {
+                        // NFQUEUE packet messages can arrive while a config
+                        // transaction is waiting for its ACKs.
+                        on_msg(m);
+                    }
+                    return true;
+                }
                 if (m.type == NLMSG_ERROR) {
                     int e = 0;
                     uint32_t orig = 0;
-                    if (!parse_error(m, e, orig)) return true;
+                    if (!parse_error(m, e, orig)) {
+                        if (!acked[idx]) {
+                            acked[idx] = true;
+                            --pending;
+                        }
+                        if (first_error == 0) first_error = EPROTO;
+                        if (on_ack) on_ack(m.seq, EPROTO);
+                        return true;
+                    }
                     if (!acked[idx]) {
                         acked[idx] = true;
                         --pending;
@@ -182,16 +216,28 @@ int NlSocket::transact(const uint8_t* req, std::size_t len, uint32_t first_seq, 
                     if (on_ack) on_ack(m.seq, e);
                 } else if (m.type == NLMSG_DONE) {
                     // A dump request completes with DONE rather than an ACK.
+                    int e = 0;
+                    if (!parse_done_error(m, e)) e = EPROTO;
                     if (!acked[idx]) {
                         acked[idx] = true;
                         --pending;
                     }
-                    if (on_ack) on_ack(m.seq, 0);
+                    if (e != 0 && first_error == 0) first_error = e;
+                    if (on_ack) on_ack(m.seq, e);
                 } else if (on_msg) {
                     on_msg(m);
                 }
                 return true;
             });
+            if (!well_formed) return first_error != 0 ? first_error : EPROTO;
+            // Drain only the datagram just received before checking the
+            // deadline.  This preserves every recoverable NFQUEUE packet ID
+            // in that datagram while preventing a continuous stream of
+            // unrelated messages from starving the transaction forever.
+            if (pending == 0) break;
+            if (std::chrono::steady_clock::now() >= deadline) {
+                return first_error != 0 ? first_error : ETIMEDOUT;
+            }
         }
     }
     return first_error;

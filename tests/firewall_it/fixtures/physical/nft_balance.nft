@@ -7,8 +7,6 @@ table inet KeenPbrTable {
 
 	set kpbr4d_routed {
 		type ipv4_addr
-		flags interval,timeout
-		auto-merge
 		timeout 5m
 	}
 

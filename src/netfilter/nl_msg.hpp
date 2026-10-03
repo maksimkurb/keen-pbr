@@ -87,4 +87,8 @@ bool for_each_msg(ByteView datagram, const std::function<bool(const MsgView&)>& 
 // seq of the original request (0 if the kernel did not echo the header).
 bool parse_error(const MsgView& m, int& error_out, uint32_t& orig_seq_out);
 
+// For NLMSG_DONE, reports a non-zero dump error payload or EINTR when the
+// kernel marks the dump interrupted.  Returns false for other message types.
+bool parse_done_error(const MsgView& m, int& error_out);
+
 } // namespace keen_pbr3::nfnl

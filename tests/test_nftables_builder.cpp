@@ -186,12 +186,13 @@ public:
     return firewall.build_apply_document(live, false, true);
   }
 
-  static nlohmann::json build_dynamic_set_document(bool clear) {
+  static nlohmann::json build_dynamic_set_document(
+      bool clear, const std::string& live_schema = "ipv4_addr:300:timeout") {
     NftablesFirewall firewall;
     NftablesFirewall::LiveTableState live;
     live.table_exists = true;
     live.set_names.insert("kpbr4d_domains");
-    live.set_schemas.emplace("kpbr4d_domains", "ipv4_addr:300");
+    live.set_schemas.emplace("kpbr4d_domains", live_schema);
     firewall.pending_sets_.push_back({"kpbr4d_domains", "ipv4_addr", 300});
     return firewall.build_apply_document(live, false, false, clear);
   }
@@ -236,6 +237,10 @@ public:
     } catch (const FirewallRulesOnlyError&) {
       return false;
     }
+  }
+
+  static std::string set_schema_key(const NftablesFirewall::PendingSet& set) {
+    return NftablesFirewall::set_schema_key(set);
   }
 
   static bool is_dynamic_set_name(const std::string& name) {
@@ -1037,6 +1042,17 @@ TEST_CASE("nft destructive policy optionally flushes existing dynamic sets") {
   CHECK(cleared.find("kpbr4d_domains") != std::string::npos);
 }
 
+TEST_CASE("nft legacy interval dynamic set is deleted and recreated") {
+  // Old releases created dynamic sets with the interval flag.
+  const auto doc =
+      T::build_dynamic_set_document(false, "ipv4_addr:300:interval:timeout").dump();
+  CHECK(doc.find("\"delete\"") != std::string::npos);
+  CHECK(doc.find("\"add\"") != std::string::npos);
+  CHECK(doc.find("\"interval\"") == std::string::npos);
+  CHECK(T::set_schema_key({"kpbr4d_domains", "ipv4_addr", 300}) == "ipv4_addr:300:timeout");
+  CHECK(T::set_schema_key({"kpbr4_domains", "ipv4_addr", 300}) == "ipv4_addr:300");
+}
+
 // =============================================================================
 // build_mark_rule_json tests
 // =============================================================================
@@ -1766,7 +1782,9 @@ TEST_CASE("nft dynamic set naming: kpbr4d_ prefix, no timeout when ttl_ms=0") {
   const auto &set = j["add"]["set"];
   CHECK(set["name"] == "kpbr4d_mylist");
   CHECK(set["flags"].is_array());
-  CHECK(set["flags"][0] == "interval");
+  CHECK(set["flags"].size() == 1);
+  CHECK(set["flags"][0] == "timeout");
+  CHECK_FALSE(set.contains("auto-merge"));
   CHECK_FALSE(set.contains("timeout"));
 }
 
@@ -1785,8 +1803,9 @@ TEST_CASE("nft dynamic set naming: kpbr4d_ prefix, with timeout when ttl_ms set"
   const auto &set = j["add"]["set"];
   CHECK(set["name"] == "kpbr4d_mylist");
   CHECK(set["flags"].is_array());
-  CHECK(set["flags"][0] == "interval");
-  CHECK(set["flags"][1] == "timeout");
+  CHECK(set["flags"].size() == 1);
+  CHECK(set["flags"][0] == "timeout");
+  CHECK_FALSE(set.contains("auto-merge"));
   CHECK(set.contains("timeout"));
   CHECK(set["timeout"] == 3600);
 }
@@ -1796,8 +1815,8 @@ TEST_CASE("nft dynamic set naming: kpbr6d_ IPv6 with timeout") {
   const auto &set = j["add"]["set"];
   CHECK(set["name"] == "kpbr6d_mylist");
   CHECK(set["flags"].is_array());
-  CHECK(set["flags"][0] == "interval");
-  CHECK(set["flags"][1] == "timeout");
+  CHECK(set["flags"].size() == 1);
+  CHECK(set["flags"][0] == "timeout");
   CHECK(set["timeout"] == 86400);
 }
 
