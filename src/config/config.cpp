@@ -15,7 +15,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "../dns/dns_probe_server.hpp"
+#include "../log/logger.hpp"
 #include "../util/cron.hpp"
 
 namespace keen_pbr3 {
@@ -873,6 +873,19 @@ Config parse_config_json(json parsed_json) {
         });
     }
 
+    // Migration: configs written before dns.resolver_integration existed keep
+    // using dnsmasq when they rely on it.  The value is made explicit here so
+    // that the next save persists it.
+    if (cfg.dns.has_value() && !cfg.dns->resolver_integration.has_value()) {
+        const auto effective = effective_resolver_integration(cfg);
+        cfg.dns->resolver_integration = effective;
+        if (effective == ResolverIntegrationMode::DNSMASQ) {
+            Logger::instance().info(
+                "dns.resolver_integration is not set; using 'dnsmasq' because "
+                "dns.rules or dns.system_resolver is configured");
+        }
+    }
+
     return cfg;
 }
 
@@ -1494,15 +1507,14 @@ void validate_config(const Config& cfg) {
         }
 
         if (cfg.dns->system_resolver.has_value()) {
-            const auto& resolver = *cfg.dns->system_resolver;
-
-            if (resolver.address.empty()) {
+            if (cfg.dns->system_resolver->address.empty()) {
                 add_issue(issues, "dns.system_resolver.address",
                           "dns.system_resolver.address must not be empty");
             }
-        } else {
+        } else if (effective_resolver_integration(cfg) == ResolverIntegrationMode::DNSMASQ) {
             add_issue(issues, "dns.system_resolver",
-                      "dns.system_resolver must be present");
+                      "dns.system_resolver must be present when "
+                      "dns.resolver_integration is 'dnsmasq'");
         }
 
         const auto dns_rules = cfg.dns->rules.value_or(std::vector<DnsRule>{});
@@ -1525,20 +1537,10 @@ void validate_config(const Config& cfg) {
             }
         }
 
-        if (cfg.dns->dns_test_server.has_value()) {
-            try {
-                const auto& test_cfg = *cfg.dns->dns_test_server;
-                const std::string* answer_ip =
-                    test_cfg.answer_ipv4 ? &*test_cfg.answer_ipv4 : nullptr;
-                (void)parse_dns_probe_server_settings(test_cfg.listen, answer_ip);
-            } catch (const std::exception& e) {
-                add_issue(issues, "dns.dns_test_server",
-                          std::string("dns.dns_test_server: ") + e.what());
-            }
-        }
-    } else {
-        add_issue(issues, "dns.system_resolver",
-                  "dns.system_resolver must be present");
+    }
+
+    for (const auto& warning : config_warnings(cfg)) {
+        Logger::instance().warn("Configuration: {}", warning);
     }
 
     if (!issues.empty()) {
@@ -1559,6 +1561,24 @@ FirewallBackendPreference firewall_backend_preference(const Config& config) {
     }
 
     return to_firewall_backend_preference(*config.daemon->firewall_backend);
+}
+
+std::vector<std::string> config_warnings(const Config& config) {
+    std::vector<std::string> warnings;
+    if (!config.dns.has_value()) return warnings;
+    const auto& dns = *config.dns;
+    if (effective_resolver_integration(config) == ResolverIntegrationMode::NONE &&
+        !dns.rules.value_or(std::vector<DnsRule>{}).empty()) {
+        warnings.push_back(
+            "dns.rules is set but dns.resolver_integration is 'none': "
+            "per-list upstream requires resolver_integration=dnsmasq");
+    }
+    if (dns.dns_test_server.has_value()) {
+        warnings.push_back(
+            "dns.dns_test_server is deprecated and ignored: replaced by "
+            "intercept.dns.marker");
+    }
+    return warnings;
 }
 
 Config parse_and_validate_config(const std::string& json_str) {

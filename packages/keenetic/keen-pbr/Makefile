@@ -97,12 +97,14 @@ define Package/keen-pbr
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (full)
   VERSION:=$(PKG_VERSION)-$(PKG_RELEASE)
-  DEPENDS:=+conntrack +dnsmasq +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
+  DEPENDS:=+conntrack +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
   VARIANT:=full
 endef
 
 define Package/keen-pbr/description
   Policy-based routing daemon for OpenWRT and Keenetic routers with REST API and WebUI.
+  dnsmasq is optional: install it only to use the dnsmasq resolver integration
+  (per-list upstream DNS, dns.resolver_integration = "dnsmasq").
 endef
 
 define Package/keen-pbr/conffiles
@@ -154,12 +156,14 @@ define Package/keen-pbr-headless
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (headless)
   VERSION:=$(PKG_VERSION)-$(PKG_RELEASE)
-  DEPENDS:=+conntrack +dnsmasq +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
+  DEPENDS:=+conntrack +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
   VARIANT:=headless
 endef
 
 define Package/keen-pbr-headless/description
   Policy-based routing daemon for OpenWRT and Keenetic routers. REST API and WebUI are NOT included in the headless variant.
+  dnsmasq is optional: install it only to use the dnsmasq resolver integration
+  (per-list upstream DNS, dns.resolver_integration = "dnsmasq").
 endef
 
 define Package/keen-pbr-headless/conffiles

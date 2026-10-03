@@ -48,6 +48,9 @@ struct ServiceHealthState {
     std::string os_type{"unknown"};
     std::string os_version{"unknown"};
     std::string build_variant{"unknown"};
+    // `none` reports the resolver_* fields as disabled (probe status
+    // `disabled`, no hashes).
+    api::ResolverIntegration resolver_integration{api::ResolverIntegration::NONE};
     std::string resolver_config_hash;
     std::string resolver_config_hash_actual;
     std::optional<std::int64_t> resolver_config_hash_actual_ts;

@@ -491,13 +491,13 @@ paths:
     get:
       summary: Stream DNS test queries
       description: >
-        Streams DNS query names observed by the built-in `dns.test_server`
-        listener and the daemon's traffic interception events as
-        Server-Sent Events. Each connection receives `HELLO` first, then one
-        `DNS` event per queried DNS name and one `INTERCEPT` event per
-        intercepted DNS response, TLS SNI, HTTP Host or QUIC Initial (see the
-        `DnsTestInterceptEvent` schema). The `DNS` probe-server events are
-        deprecated and will be removed.
+        Streams the daemon's traffic interception events as Server-Sent
+        Events. Each connection receives `HELLO` first, then one `INTERCEPT`
+        event per intercepted DNS response, TLS SNI, HTTP Host or QUIC Initial
+        (see the `DnsTestInterceptEvent` schema). The legacy `DNS` events of
+        the removed built-in probe server are no longer emitted; the DNS
+        marker domain (`intercept.dns.marker`) is answered by the interceptor
+        and reported as an `INTERCEPT` event with `source` `marker`.
       operationId: getDnsTest
       responses:
         "200":
@@ -508,10 +508,6 @@ paths:
                 type: string
               example: |-
                 data: {"type":"HELLO"}
-
-                data: {"type":"DNS","domain":"example.com","source_ip":"192.168.1.10","ecs":"203.0.113.0/24"}
-
-                data: {"type":"DNS","domain":"connectivity-check.local","source_ip":"192.168.1.11","ecs":null}
 
                 data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
 
@@ -1195,6 +1191,11 @@ components:
 
     DnsTestServer:
       type: object
+      deprecated: true
+      description: >
+        Deprecated and ignored. The built-in DNS probe server was replaced by
+        the interceptor marker (`intercept.dns.marker`). The object is still
+        accepted for backwards compatibility and a warning is logged.
       required: [listen]
       properties:
         listen:
@@ -1206,13 +1207,29 @@ components:
           description: IPv4 address returned in synthetic `A` answers. Defaults to the host part of `listen`.
           example: "127.0.0.88"
 
+    ResolverIntegrationMode:
+      type: string
+      enum: [none, dnsmasq]
+      default: none
+      description: >
+        Optional integration with an external system resolver.
+        - none: the daemon fills the dynamic sets itself by intercepting DNS
+          and L7 traffic; no resolver is touched (default).
+        - dnsmasq: keen-pbr additionally manages a dnsmasq configuration
+          (per-list upstream DNS via `dns.rules`, Keenetic static entries,
+          fallback servers, rebind exceptions). dnsmasq remains the dynamic set
+          filler only when interception is unavailable.
+        When the field is absent, configs that define `dns.rules` or
+        `dns.system_resolver` are migrated to `dnsmasq`; otherwise `none`.
+
     DnsSystemResolver:
       type: object
       required: [address]
       description: >
-        System resolver integration used by daemon runtime. This object is
-        required for service startup, reload, and applied config updates,
-        although non-daemon commands may still parse configs without it.
+        System resolver endpoint used when `dns.resolver_integration` is
+        `dnsmasq`. It is the resolver queried for the TXT record
+        `config-hash.keen.pbr` to verify that the generated configuration was
+        loaded. Not used (and not required) when the integration is `none`.
       properties:
         address:
           type: string
@@ -1240,6 +1257,8 @@ components:
           items:
             type: string
           example: ["google-dns", "quad9"]
+        resolver_integration:
+          $ref: "#/components/schemas/ResolverIntegrationMode"
         dns_test_server:
           $ref: "#/components/schemas/DnsTestServer"
         system_resolver:
@@ -1922,9 +1941,14 @@ components:
             `target/subtarget`; on other OSes it contains the detected target.
           example: "mediatek/filogic"
 
+        resolver_integration:
+          $ref: "#/components/schemas/ResolverIntegrationMode"
         resolver_config_hash:
           type: string
           description: >
+            Only meaningful when `resolver_integration` is `dnsmasq`; empty
+            otherwise (as are the other `resolver_*` fields, with
+            `resolver_config_probe_status` set to `disabled`).
             MD5 hex digest of the current domain-to-ipset mapping.
             Matches the txt-record written by generate-resolver-config; use to
             verify the dnsmasq config is up to date.
@@ -2050,7 +2074,10 @@ components:
         Missing or invalid TXT means dnsmasq config sync cannot be verified and
         may be stale; query_failed means the daemon could not query the
         configured resolver endpoint.
-      enum: [success, missing_txt, invalid_txt, query_failed, not_configured, unknown]
+        `disabled` is reported when `dns.resolver_integration` is `none`; in
+        that mode all `resolver_*` health fields stay present but carry no
+        resolver state.
+      enum: [success, missing_txt, invalid_txt, query_failed, not_configured, disabled, unknown]
 
     # -------------------------------------------------------------------------
     # /api/runtime/outbounds

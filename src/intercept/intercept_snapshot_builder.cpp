@@ -1,6 +1,6 @@
 #include "intercept_snapshot_builder.hpp"
 
-#include "../dns/dnsmasq_gen.hpp"
+#include "../firewall/firewall.hpp"
 #include "../lists/domain_index.hpp"
 
 #include <algorithm>
@@ -40,8 +40,8 @@ std::shared_ptr<const InterceptSnapshot> build_intercept_snapshot(
             if (list_it == lists.end() || !seen.insert(list_name).second) {
                 continue;
             }
-            const std::string set4 = DnsmasqGenerator::ipset_name_v4(list_name);
-            const std::string set6 = DnsmasqGenerator::ipset_name_v6(list_name);
+            const std::string set4 = Firewall::dynamic_set_name(list_name, AF_INET);
+            const std::string set6 = Firewall::dynamic_set_name(list_name, AF_INET6);
             const bool has4 = declared.count(set4) > 0;
             const bool has6 = ipv6_enabled && declared.count(set6) > 0;
             if (!has4 && !has6) {

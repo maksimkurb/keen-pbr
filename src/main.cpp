@@ -260,6 +260,9 @@ std::optional<std::string> resolver_fallback_reason(const std::string &error) {
     return "runtime_stopped";
   if (error == "runtime_shutting_down")
     return "runtime_shutting_down";
+  if (error == "resolver_integration_disabled" ||
+      error.find("dns.resolver_integration is none") != std::string::npos)
+    return "resolver_integration_disabled";
   if (error.find("control socket unavailable") != std::string::npos ||
       error.find("control socket create failed") != std::string::npos) {
     return "daemon_unavailable";

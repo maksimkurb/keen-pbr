@@ -20,7 +20,6 @@ add_executable(keen-pbr-tests
   test_dns_server.cpp
   test_test_routing.cpp
   test_keenetic_dns.cpp
-  test_dns_probe_server.cpp
   test_dns_wire.cpp
   test_nfnetlink.cpp
   test_l7_crypto.cpp
@@ -75,6 +74,7 @@ add_executable(keen-pbr-tests
   test_pid_file.cpp
   test_conntrack_manager.cpp
   test_resolver_coordinator.cpp
+  test_resolver_integration.cpp
   test_runtime_state_machine.cpp
   test_runtime_state_store.cpp
   test_routing_health_checker.cpp
@@ -137,7 +137,6 @@ add_executable(keen-pbr-tests
   ../src/dns/dns_server.cpp
   ../src/dns/keenetic_dns.cpp
   ../src/daemon/system_resolver_hook.cpp
-  ../src/dns/dns_probe_server.cpp
   ../src/dns/dns_wire.cpp
   ../src/l7/crypto/sha256.cpp
   ../src/l7/crypto/aes128.cpp
@@ -149,6 +148,8 @@ add_executable(keen-pbr-tests
   ../src/ipc/control_protocol.cpp
   ../src/ipc/control_client.cpp
   ../src/ipc/resolver_fallback.cpp
+  ../src/resolver/resolver_integration.cpp
+  ../src/resolver/dnsmasq_integration.cpp
   ../src/daemon/resolver_apply_confirmation.cpp
   ../src/daemon/resolver_stream_wait.cpp
   ../src/lists/ipset.cpp
@@ -159,6 +160,7 @@ add_executable(keen-pbr-tests
   ../src/config/list_parser.cpp
   ../src/cmd/test_routing.cpp
   ../src/daemon/list_service.cpp
+  ../src/daemon/lifecycle_stages.cpp
   ../src/daemon/pid_file.cpp
   ../src/daemon/resolver_health.cpp
   ../src/daemon/resolver_sync_state_machine.cpp

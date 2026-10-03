@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesKoLNdC data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesDhEEk0 data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -200,6 +200,8 @@ namespace api {
         std::string listen;
     };
 
+    enum class ResolverIntegration : int { DNSMASQ, NONE };
+
     struct DnsRuleElement {
         std::optional<bool> allow_domain_rebinding;
         std::optional<bool> enabled;
@@ -223,6 +225,7 @@ namespace api {
     struct DnsConfigClass {
         std::optional<DnsTestServer> dns_test_server;
         std::optional<std::vector<std::string>> fallback;
+        std::optional<ResolverIntegration> resolver_integration;
         std::optional<std::vector<DnsRuleElement>> rules;
         std::optional<std::vector<DnsServerElement>> servers;
         std::optional<SystemResolver> system_resolver;
@@ -496,7 +499,7 @@ namespace api {
         LifecycleOperationType type;
     };
 
-    enum class ResolverConfigProbeStatus : int { INVALID_TXT, MISSING_TXT, NOT_CONFIGURED, QUERY_FAILED, SUCCESS, UNKNOWN };
+    enum class ResolverConfigProbeStatus : int { DISABLED, INVALID_TXT, MISSING_TXT, NOT_CONFIGURED, QUERY_FAILED, SUCCESS, UNKNOWN };
 
     enum class ResolverConfigSyncState : int { CONVERGED, CONVERGING, STALE };
 
@@ -520,6 +523,7 @@ namespace api {
         std::optional<int64_t> resolver_config_hash_actual_ts;
         std::optional<ResolverConfigProbeStatus> resolver_config_probe_status;
         std::optional<ResolverConfigSyncState> resolver_config_sync_state;
+        std::optional<ResolverIntegration> resolver_integration;
         std::optional<int64_t> resolver_last_probe_ts;
         ResolverLiveStatus resolver_live_status;
         bool rollback_available;
@@ -727,7 +731,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesKoLNdC {
+    struct KeenPbrTypesDhEEk0 {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -782,6 +786,7 @@ namespace api {
         std::optional<ReloadResponse> reload_response;
         std::optional<ResolverConfigProbeStatus> resolver_config_probe_status;
         std::optional<ResolverConfigSyncState> resolver_config_sync_state;
+        std::optional<ResolverIntegration> resolver_integration_mode;
         std::optional<Retry> retry_config;
         std::optional<Route> route_config;
         std::optional<RouteRuleElement> route_rule;
@@ -1036,8 +1041,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesKoLNdC & x);
-    void to_json(json & j, const KeenPbrTypesKoLNdC & x);
+    void from_json(const json & j, KeenPbrTypesDhEEk0 & x);
+    void to_json(json & j, const KeenPbrTypesDhEEk0 & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1047,6 +1052,9 @@ namespace api {
 
     void from_json(const json & j, StrictEnforcementAction & x);
     void to_json(json & j, const StrictEnforcementAction & x);
+
+    void from_json(const json & j, ResolverIntegration & x);
+    void to_json(json & j, const ResolverIntegration & x);
 
     void from_json(const json & j, DnsServerType & x);
     void to_json(json & j, const DnsServerType & x);
@@ -1395,6 +1403,7 @@ namespace api {
     inline void from_json(const json & j, DnsConfigClass& x) {
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "dns_test_server");
         x.fallback = get_stack_optional<std::vector<std::string>>(j, "fallback");
+        x.resolver_integration = get_stack_optional<ResolverIntegration>(j, "resolver_integration");
         x.rules = get_stack_optional<std::vector<DnsRuleElement>>(j, "rules");
         x.servers = get_stack_optional<std::vector<DnsServerElement>>(j, "servers");
         x.system_resolver = get_stack_optional<SystemResolver>(j, "system_resolver");
@@ -1404,6 +1413,7 @@ namespace api {
         j = json::object();
         j["dns_test_server"] = x.dns_test_server;
         j["fallback"] = x.fallback;
+        j["resolver_integration"] = x.resolver_integration;
         j["rules"] = x.rules;
         j["servers"] = x.servers;
         j["system_resolver"] = x.system_resolver;
@@ -1948,6 +1958,7 @@ namespace api {
         x.resolver_config_hash_actual_ts = get_stack_optional<int64_t>(j, "resolver_config_hash_actual_ts");
         x.resolver_config_probe_status = get_stack_optional<ResolverConfigProbeStatus>(j, "resolver_config_probe_status");
         x.resolver_config_sync_state = get_stack_optional<ResolverConfigSyncState>(j, "resolver_config_sync_state");
+        x.resolver_integration = get_stack_optional<ResolverIntegration>(j, "resolver_integration");
         x.resolver_last_probe_ts = get_stack_optional<int64_t>(j, "resolver_last_probe_ts");
         x.resolver_live_status = j.at("resolver_live_status").get<ResolverLiveStatus>();
         x.rollback_available = j.at("rollback_available").get<bool>();
@@ -1972,6 +1983,7 @@ namespace api {
         j["resolver_config_hash_actual_ts"] = x.resolver_config_hash_actual_ts;
         j["resolver_config_probe_status"] = x.resolver_config_probe_status;
         j["resolver_config_sync_state"] = x.resolver_config_sync_state;
+        j["resolver_integration"] = x.resolver_integration;
         j["resolver_last_probe_ts"] = x.resolver_last_probe_ts;
         j["resolver_live_status"] = x.resolver_live_status;
         j["rollback_available"] = x.rollback_available;
@@ -2357,7 +2369,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesKoLNdC& x) {
+    inline void from_json(const json & j, KeenPbrTypesDhEEk0& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2412,6 +2424,7 @@ namespace api {
         x.reload_response = get_stack_optional<ReloadResponse>(j, "ReloadResponse");
         x.resolver_config_probe_status = get_stack_optional<ResolverConfigProbeStatus>(j, "ResolverConfigProbeStatus");
         x.resolver_config_sync_state = get_stack_optional<ResolverConfigSyncState>(j, "ResolverConfigSyncState");
+        x.resolver_integration_mode = get_stack_optional<ResolverIntegration>(j, "ResolverIntegrationMode");
         x.retry_config = get_stack_optional<Retry>(j, "RetryConfig");
         x.route_config = get_stack_optional<Route>(j, "RouteConfig");
         x.route_rule = get_stack_optional<RouteRuleElement>(j, "RouteRule");
@@ -2440,7 +2453,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesKoLNdC & x) {
+    inline void to_json(json & j, const KeenPbrTypesDhEEk0 & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2496,6 +2509,7 @@ namespace api {
         j["ReloadResponse"] = x.reload_response;
         j["ResolverConfigProbeStatus"] = x.resolver_config_probe_status;
         j["ResolverConfigSyncState"] = x.resolver_config_sync_state;
+        j["ResolverIntegrationMode"] = x.resolver_integration_mode;
         j["RetryConfig"] = x.retry_config;
         j["RouteConfig"] = x.route_config;
         j["RouteRule"] = x.route_rule;
@@ -2567,6 +2581,20 @@ namespace api {
             case StrictEnforcementAction::BLACKHOLE: j = "blackhole"; break;
             case StrictEnforcementAction::UNREACHABLE: j = "unreachable"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"StrictEnforcementAction\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, ResolverIntegration & x) {
+        if (j == "dnsmasq") x = ResolverIntegration::DNSMASQ;
+        else if (j == "none") x = ResolverIntegration::NONE;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"ResolverIntegration\""); }
+    }
+
+    inline void to_json(json & j, const ResolverIntegration & x) {
+        switch (x) {
+            case ResolverIntegration::DNSMASQ: j = "dnsmasq"; break;
+            case ResolverIntegration::NONE: j = "none"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"ResolverIntegration\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
@@ -2749,7 +2777,8 @@ namespace api {
     }
 
     inline void from_json(const json & j, ResolverConfigProbeStatus & x) {
-        if (j == "invalid_txt") x = ResolverConfigProbeStatus::INVALID_TXT;
+        if (j == "disabled") x = ResolverConfigProbeStatus::DISABLED;
+        else if (j == "invalid_txt") x = ResolverConfigProbeStatus::INVALID_TXT;
         else if (j == "missing_txt") x = ResolverConfigProbeStatus::MISSING_TXT;
         else if (j == "not_configured") x = ResolverConfigProbeStatus::NOT_CONFIGURED;
         else if (j == "query_failed") x = ResolverConfigProbeStatus::QUERY_FAILED;
@@ -2760,6 +2789,7 @@ namespace api {
 
     inline void to_json(json & j, const ResolverConfigProbeStatus & x) {
         switch (x) {
+            case ResolverConfigProbeStatus::DISABLED: j = "disabled"; break;
             case ResolverConfigProbeStatus::INVALID_TXT: j = "invalid_txt"; break;
             case ResolverConfigProbeStatus::MISSING_TXT: j = "missing_txt"; break;
             case ResolverConfigProbeStatus::NOT_CONFIGURED: j = "not_configured"; break;

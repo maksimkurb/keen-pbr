@@ -1,7 +1,5 @@
 #include "system_resolver_hook.hpp"
 
-#include "../util/safe_exec.hpp"
-
 namespace keen_pbr3 {
 
 const char* system_resolver_hook_path() noexcept {
@@ -14,7 +12,13 @@ const char* system_resolver_hook_path() noexcept {
 
 std::vector<std::string> build_system_resolver_hook_args(const Config& config,
                                                          std::string_view action) {
-    if (!config.dns.has_value() || !config.dns->system_resolver.has_value()) {
+    return build_system_resolver_hook_args(
+        config.dns.has_value() && config.dns->system_resolver.has_value(), action);
+}
+
+std::vector<std::string> build_system_resolver_hook_args(bool resolver_configured,
+                                                         std::string_view action) {
+    if (!resolver_configured) {
         return {};
     }
 
@@ -50,10 +54,6 @@ bool execute_system_resolver_reload_hook(
 
     exit_code = executor(args);
     return exit_code == 0;
-}
-
-int default_hook_command_executor(const std::vector<std::string>& args) {
-    return safe_exec(args);
 }
 
 } // namespace keen_pbr3

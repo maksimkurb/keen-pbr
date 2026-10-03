@@ -19,119 +19,8 @@
 #include "../util/time_utils.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
-#include "system_resolver_hook.hpp"
-#include "resolver_stream_wait.hpp"
 
 namespace keen_pbr3 {
-
-bool Daemon::run_system_resolver_hook(std::string_view action) {
-    auto& log = Logger::instance();
-
-    std::string command;
-    int exit_code = 0;
-    bool ok = false;
-    const auto args = build_system_resolver_hook_args(config_, action);
-    if (args.empty()) {
-        command.clear();
-        exit_code = 0;
-        ok = true;
-    } else {
-        for (std::size_t index = 0; index < args.size(); ++index) {
-            if (index != 0) command += ' ';
-            command += args[index];
-        }
-        auto execute_hook = [this, args] {
-            KPBR_LOCK_GUARD(system_resolver_hook_mutex_);
-            ipc_resolver_hook_inflight_.store(true, std::memory_order_release);
-            try {
-                const int result = hook_command_executor_(args);
-                ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
-                return result;
-            } catch (...) {
-                ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
-                throw;
-            }
-        };
-        if (is_event_loop_thread()) {
-            // Some runtime reconfiguration paths still originate on the
-            // event-loop thread. Run the external hook on the existing
-            // bounded executor and service only its resolver stream while
-            // waiting. This avoids both deadlock and an extra thread/stack.
-            auto hook_result = resolver_hook_executor_.submit(
-                "system-resolver-hook-command", std::move(execute_hook));
-            while (hook_result.wait_for(std::chrono::milliseconds{10}) !=
-                   std::future_status::ready) {
-                handle_ipc_control_socket();
-            }
-            exit_code = hook_result.get();
-        } else {
-            exit_code = execute_hook();
-        }
-        ok = exit_code == 0;
-    }
-
-    if (command.empty()) {
-        return true;
-    }
-
-    if (!ok) {
-        log.warn("System resolver reload hook failed (exit code: {}): {}",
-                 exit_code,
-                 command);
-        return false;
-    }
-
-    log.info("System resolver hook complete: {}", command);
-    return true;
-}
-
-bool Daemon::run_system_resolver_hook_reload() {
-    const auto stream_baseline = resolver_stream_completed_.load(std::memory_order_acquire);
-    if (!run_system_resolver_hook("reload")) {
-        return false;
-    }
-    const auto timeout = resolver_ready_timeout(config_);
-    if (!wait_for_resolver_stream_after(stream_baseline, timeout)) {
-        const auto stream_current =
-            resolver_stream_completed_.load(std::memory_order_acquire);
-        Logger::instance().warn(
-            "Timed out after {} seconds waiting for dnsmasq resolver "
-            "configuration generation to complete after reload (resolver stream "
-            "completions baseline={}, current={})",
-            timeout.count(), stream_baseline, stream_current);
-        return false;
-    }
-    // The init script may return before dnsmasq invokes its conf-script. The
-    // completed-stream wait above makes this the true reload boundary.
-    // Recompute only the tiny expected hash afterwards, so confirmation uses
-    // the current list/DNS cache state without retaining the large config.
-    update_resolver_config_hash();
-    return true;
-}
-
-bool Daemon::wait_for_resolver_stream_after(std::uint64_t baseline,
-                                            std::chrono::seconds timeout) {
-    return keen_pbr3::wait_for_resolver_stream_after(
-        baseline, timeout,
-        [this] {
-            return resolver_stream_completed_.load(std::memory_order_acquire);
-        },
-        [this] {
-            if (is_event_loop_thread()) {
-                handle_ipc_control_socket();
-            }
-        },
-        wait_for_resolver_stream_poll,
-        resolver_stream_now);
-}
-
-void Daemon::drain_shutdown_resolver_callbacks(std::chrono::milliseconds duration) {
-    const auto deadline = std::chrono::steady_clock::now() + duration;
-    while (std::chrono::steady_clock::now() < deadline) {
-        handle_ipc_control_socket();
-        std::this_thread::sleep_for(std::chrono::milliseconds{10});
-    }
-}
 
 bool Daemon::routing_runtime_active() const {
     return runtime_state_store_.snapshot().routing_runtime_active;
@@ -146,16 +35,11 @@ void Daemon::transition_runtime_or_throw(RuntimeState next, const char* reason) 
 
 void Daemon::stop_routing_runtime() {
     teardown_routing_and_firewall(true);
-    if (has_system_resolver(config_) && !run_system_resolver_hook("deactivate")) {
-        throw DaemonError("System resolver deactivate hook failed");
+    if (resolver_integration_->enabled() && !resolver_integration_->fallback()) {
+        throw DaemonError("System resolver fallback hook failed");
     }
-    refresh_resolver_config_hash_actual_async();
+    resolver_integration_->refresh_health_async();
     Logger::instance().info("Routing runtime stopped.");
-}
-
-bool Daemon::has_system_resolver(const Config& config) const {
-    return config.dns.has_value() && config.dns->system_resolver.has_value() &&
-           !config.dns->system_resolver->address.empty();
 }
 
 void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
@@ -189,10 +73,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     // The rules are gone; only now unbind so no queued packet is dropped.
     stop_intercept_service();
     firewall_state_.clear_active_firewall();
-    if (keenetic_dns_refresh_task_id_ >= 0) {
-        scheduler_->cancel(keenetic_dns_refresh_task_id_);
-        keenetic_dns_refresh_task_id_ = -1;
-    }
+    resolver_integration_->runtime_stopping();
 
     routing_runtime_active_ = false;
     transition_runtime_or_throw(explicit_stop ? RuntimeState::stopped : RuntimeState::applying,
@@ -203,18 +84,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
 
 void Daemon::start_routing_runtime() {
     setup_routing_and_firewall();
-    if (has_system_resolver(config_)) {
-        if (!run_system_resolver_hook_reload()) {
-            throw DaemonError("system resolver reload hook failed");
-        }
-        std::string error;
-        const auto snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-        if (!wait_for_resolver_config_hash_confirmation(
-                config_, snapshot.expected_hash,
-                apply_started_ts_.load(std::memory_order_acquire), error)) {
-            throw DaemonError(error);
-        }
-    }
+    reload_and_verify_resolver_or_throw("runtime start");
     complete_running_runtime("runtime started");
     Logger::instance().info("Routing runtime started.");
 }
@@ -228,23 +98,20 @@ void Daemon::setup_routing_and_firewall() {
 
     const auto main_routes = netlink_.dump_routes_in_table(254);
     setup_static_routing(&main_routes);
-    (void)refresh_keenetic_dns_cache(true);
+    resolver_integration_->prepare_runtime();
     apply_firewall(FirewallApplyMode::Destructive, false, &main_routes);
     routing_runtime_active_ = true;
     if (runtime_state_machine_.state() != RuntimeState::applying) {
         transition_runtime_or_throw(RuntimeState::applying, "runtime starting");
     }
     publish_runtime_state();
-    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
-    update_resolver_config_hash();
-    setup_dns_probe();
+    begin_resolver_generation();
 }
 
 void Daemon::complete_running_runtime(const char* reason) {
     register_urltest_outbounds();
-    schedule_keenetic_dns_refresh();
     schedule_lists_autoupdate();
-    refresh_resolver_config_hash_actual_async();
+    resolver_integration_->runtime_running();
     transition_runtime_or_throw(RuntimeState::running, reason);
     publish_runtime_state();
 }
@@ -256,18 +123,7 @@ void Daemon::restart_routing_runtime() {
 
     teardown_routing_and_firewall(false);
     setup_routing_and_firewall();
-    if (has_system_resolver(config_)) {
-        if (!run_system_resolver_hook_reload()) {
-            throw DaemonError("system resolver reload hook failed");
-        }
-        std::string error;
-        const auto snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-        if (!wait_for_resolver_config_hash_confirmation(
-                config_, snapshot.expected_hash,
-                apply_started_ts_.load(std::memory_order_acquire), error)) {
-            throw DaemonError(error);
-        }
-    }
+    reload_and_verify_resolver_or_throw("runtime restart");
     complete_running_runtime("runtime restarted");
 }
 
@@ -466,10 +322,8 @@ void Daemon::reconcile_lists_only(bool reload_resolver) {
     try {
         apply_firewall(FirewallApplyMode::StaticSetsOnly);
         if (reload_resolver) {
-            update_resolver_config_hash();
-            if (!run_system_resolver_hook_reload()) {
-                throw DaemonError("system resolver reload hook failed");
-            }
+            refresh_generation_snapshot();
+            reload_resolver_or_throw("list refresh");
         }
         publish_runtime_state();
     } catch (...) {
@@ -1058,18 +912,7 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
 void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
                                            bool publish_active_snapshot) {
     reconcile_prepared_runtime(std::move(prepared));
-    if (has_system_resolver(config_) && !run_system_resolver_hook_reload()) {
-        throw DaemonError("system resolver reload hook failed");
-    }
-    if (has_system_resolver(config_)) {
-        std::string error;
-        const auto snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-        if (!wait_for_resolver_config_hash_confirmation(
-                config_, snapshot.expected_hash,
-                apply_started_ts_.load(std::memory_order_acquire), error)) {
-            throw DaemonError(error);
-        }
-    }
+    reload_and_verify_resolver_or_throw("config apply");
     complete_running_runtime("config apply complete");
     if (publish_active_snapshot) {
         config_store_.replace_active(config_, outbound_marks_);
@@ -1090,6 +933,12 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
             "clearing dnsmasq-learned entries");
     }
 
+    // Resolve the integration transition before promoting the candidate into
+    // daemon-owned active state.  In particular, a failed dnsmasq
+    // deactivation must leave config_, marks, and the API-visible resolver
+    // mode pointing at the still-owned old integration.
+    sync_resolver_integration(prepared.config);
+
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
     // A config change may alter the interception setup: probe again.
     intercept_capabilities_.reset();
@@ -1098,18 +947,11 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         scheduler_->cancel(lists_autoupdate_task_id_);
         lists_autoupdate_task_id_ = -1;
     }
-    if (keenetic_dns_refresh_task_id_ >= 0) {
-        scheduler_->cancel(keenetic_dns_refresh_task_id_);
-        keenetic_dns_refresh_task_id_ = -1;
-    }
-    if (resolver_config_hash_actual_task_id_ >= 0) {
-        scheduler_->cancel(resolver_config_hash_actual_task_id_);
-        resolver_config_hash_actual_task_id_ = -1;
-    }
-    if (resolver_config_hash_actual_retry_task_id_ >= 0) {
-        scheduler_->cancel(resolver_config_hash_actual_retry_task_id_);
-        resolver_config_hash_actual_retry_task_id_ = -1;
-    }
+    // Stop periodic resolver work of the integration that served the old
+    // configuration before the new one takes over.  A mode transition has
+    // already stopped the old integration in sync_resolver_integration(); the
+    // operation is intentionally idempotent.
+    resolver_integration_->runtime_stopping();
 
     outbound_marks_ = std::move(prepared.outbound_marks);
     config_ = std::move(prepared.config);
@@ -1118,24 +960,19 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         std::chrono::seconds{daemon_config.exec_timeout_seconds.value_or(30)},
         std::chrono::seconds{daemon_config.exec_kill_grace_seconds.value_or(2)});
     firewall_state_.set_outbound_marks(outbound_marks_);
-
-    teardown_dns_probe();
-
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
     pending_urltest_conntrack_cleanup_.clear();
     const auto main_routes = netlink_.dump_routes_in_table(254);
     reconcile_static_routing(nullptr, &main_routes);
-    (void)refresh_keenetic_dns_cache(true);
+    resolver_integration_->prepare_runtime();
     apply_firewall(firewall_policy.mode,
                    firewall_policy.force_clear_dynamic_sets,
                    &main_routes);
     routing_runtime_active_ = true;
     transition_runtime_or_throw(RuntimeState::applying, "config apply");
-    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
-    update_resolver_config_hash();
-    setup_dns_probe();
+    begin_resolver_generation();
     publish_runtime_state();
 }
 

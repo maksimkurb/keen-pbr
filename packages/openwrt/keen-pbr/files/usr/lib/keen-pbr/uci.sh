@@ -228,8 +228,19 @@ dnsmasq_ensure_runtime_prereqs() {
 dnsmasq_uninstall_persistent() {
     local section
     local changed=1
+    local confdir
+    local conf_path
 
     for section in $(dnsmasq_sections); do
+        # Only restore UCI values for sections whose helper-owned conf-script
+        # is still present.  A foreign section or a manually removed helper
+        # file must never have its server/mount settings deleted.
+        confdir="$(dnsmasq_confdir "$section")"
+        conf_path="${confdir}/keen-pbr.conf"
+        if [ ! -f "$conf_path" ] ||
+           ! grep -qxF "conf-script=${KEEN_PBR_BIN} generate-resolver-config dnsmasq" "$conf_path"; then
+            continue
+        fi
         if restore_list_option_for_section "$section" server kpbr_server; then
             changed=0
         fi

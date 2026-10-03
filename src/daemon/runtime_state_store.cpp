@@ -21,6 +21,7 @@ ServiceRuntimeSnapshot RuntimeStateStore::service_snapshot() const {
         snapshot_.routing_runtime_active,
         snapshot_.runtime_state,
         snapshot_.runtime_state_reason,
+        snapshot_.resolver_integration,
     };
 }
 
@@ -69,6 +70,7 @@ void RuntimeStateStore::update_resolver(ResolverRuntimeStateUpdate update) {
     snapshot_.resolver_live_status = update.resolver_live_status;
     snapshot_.resolver_last_probe_ts = update.resolver_last_probe_ts;
     snapshot_.apply_started_ts = update.apply_started_ts;
+    snapshot_.resolver_integration = update.resolver_integration;
 }
 
 void RuntimeStateStore::update_urltest(std::string tag,

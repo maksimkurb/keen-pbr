@@ -540,7 +540,7 @@ TEST_CASE("config builds ordered DNS detour rules in the firewall plan") {
       {"type":"table","tag":"unmarked","table":102},
       {"type":"table","tag":"zero_mark","table":103}
     ],
-    "dns": {"servers":[
+    "dns": {"resolver_integration":"dnsmasq","servers":[
       {"tag":"upstream_z","address":"[2001:db8::53]:5353",
        "detour":"route_z"},
       {"tag":"upstream_a","address":"192.0.2.53:5353",
@@ -609,7 +609,7 @@ TEST_CASE("config builds ordered DNS detour rules in the firewall plan") {
 
   const Config duplicate_endpoints = parse_config(R"({
     "outbounds": [{"type":"table","tag":"wan","table":100}],
-    "dns": {"servers":[
+    "dns": {"resolver_integration":"dnsmasq","servers":[
       {"tag":"upstream","address":"192.0.2.53:5353","detour":"wan"},
       {"tag":"upstream","address":"192.0.2.53:5353","detour":"wan"}
     ]}
@@ -626,7 +626,7 @@ TEST_CASE("config builds ordered DNS detour rules in the firewall plan") {
 TEST_CASE("health reports only the removed DNS physical instance as missing") {
   const Config config = parse_config(R"({
     "outbounds": [{"type":"table","tag":"wan","table":100}],
-    "dns": {"servers":[
+    "dns": {"resolver_integration":"dnsmasq","servers":[
       {"tag":"upstream_a","address":"192.0.2.53:5353","detour":"wan"},
       {"tag":"upstream_b","address":"192.0.2.54:5353","detour":"wan"}
     ]}

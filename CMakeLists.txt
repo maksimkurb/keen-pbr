@@ -326,7 +326,6 @@ set(SOURCES
   src/dns/dns_server.cpp
   src/dns/keenetic_dns.cpp
   src/dns/dns_txt_client.cpp
-  src/dns/dns_probe_server.cpp
   src/dns/dns_wire.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
@@ -339,6 +338,8 @@ set(SOURCES
   src/ipc/control_protocol.cpp
   src/ipc/control_client.cpp
   src/ipc/resolver_fallback.cpp
+  src/resolver/resolver_integration.cpp
+  src/resolver/dnsmasq_integration.cpp
   src/daemon/config_store.cpp
   src/daemon/disk_config_state.cpp
   src/daemon/config_apply_transaction.cpp
@@ -347,9 +348,9 @@ set(SOURCES
   src/daemon/daemon_runtime.cpp
   src/daemon/daemon_resolver.cpp
   src/daemon/daemon_api.cpp
-  src/daemon/daemon_dns_probe.cpp
   src/daemon/daemon_intercept.cpp
   src/daemon/list_service.cpp
+  src/daemon/lifecycle_stages.cpp
   src/daemon/resolver_health.cpp
   src/daemon/resolver_apply_confirmation.cpp
   src/daemon/resolver_stream_wait.cpp
