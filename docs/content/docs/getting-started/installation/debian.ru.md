@@ -51,3 +51,7 @@ systemctl restart keen-pbr
 {{< /callout >}}
 
 {{% /steps %}}
+
+## Обновление с интеграции dnsmasq
+
+Старые версии keen-pbr устанавливали в каталог конфигурации dnsmasq drop-in `keen-pbr.conf` со строкой `conf-script=/usr/lib/keen-pbr/dnsmasq.sh ...`. Интеграция удалена; при обновлении пакет удаляет этот drop-in, если в нём только строка keen-pbr. Остальная конфигурация dnsmasq не затрагивается. После этого перезапустите dnsmasq, если он запущен.

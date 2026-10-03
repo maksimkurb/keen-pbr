@@ -2,22 +2,9 @@
 
 set -e
 
-DNSMASQ_HELPER="/usr/lib/keen-pbr/dnsmasq.sh"
-
 if command -v systemctl >/dev/null 2>&1; then
     systemctl stop keen-pbr >/dev/null 2>&1 || true
     systemctl disable keen-pbr >/dev/null 2>&1 || true
 fi
-
-# On removal drop the conf-script entry so dnsmasq does not reference a helper
-# that is about to disappear.  No-op when the dnsmasq integration was never
-# installed; upgrades keep the entry.
-case "${1:-}" in
-        remove|deconfigure)
-            if [ -x "$DNSMASQ_HELPER" ]; then
-            "$DNSMASQ_HELPER" deactivate
-            fi
-        ;;
-esac
 
 exit 0

@@ -96,8 +96,7 @@ export function WarningBanner({
   const isLifecycleRunning = state.mode === "lifecycle-running"
   const isLifecycleSuccess = state.mode === "lifecycle-success"
   const isProgressing = isLifecycleRunning || isLifecycleSuccess
-  const isError =
-    state.mode === "dnsmasq-error" || state.mode === "lifecycle-error"
+  const isError = state.mode === "lifecycle-error"
   const handleApplyAndReload = () => {
     if (state.hasDraftConfig) {
       applyConfigMutation.mutate()
@@ -257,12 +256,6 @@ function getWarningBannerTitleKey(
   switch (mode) {
     case "draft":
       return "warning.compact.keenRestartRequired"
-    case "draft-and-dnsmasq":
-      return "warning.compact.keenAndDnsmasqRestartRequired"
-    case "dnsmasq-stale":
-      return "warning.compact.dnsmasqRestartRequired"
-    case "dnsmasq-error":
-      return "warning.compact.dnsmasqUnavailable"
     case "lifecycle-running":
       return getLifecycleOperationTitleKey("running", operationType)
     case "lifecycle-success":
@@ -312,12 +305,6 @@ function getWarningBannerDescriptionKey(mode: WarningBannerMode) {
   switch (mode) {
     case "draft":
       return "warning.compact.keenRestartRequiredDescription"
-    case "draft-and-dnsmasq":
-      return "warning.compact.keenAndDnsmasqRestartRequiredDescription"
-    case "dnsmasq-stale":
-      return "warning.compact.dnsmasqRestartRequiredDescription"
-    case "dnsmasq-error":
-      return "warning.compact.dnsmasqUnavailableDescription"
     case "lifecycle-running":
       return "warning.compact.runtimeReloadingDescription"
     case "lifecycle-success":

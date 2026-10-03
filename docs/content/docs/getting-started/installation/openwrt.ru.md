@@ -14,24 +14,6 @@ keen-pbr можно установить на роутерах OpenWrt из ре
 - OpenWrt 25.x и новее: `apk`
 - OpenWrt 24.x и старше: `opkg`
 
-### Замените `dnsmasq` на `dnsmasq-full`
-
-Установите `dnsmasq-full` перед установкой keen-pbr:
-
-{{< callout type="info" >}}
-Для OpenWrt 25.x и новее тоже нужен `dnsmasq-full` вместо стандартного `dnsmasq`.
-У меня нет роутера с `apk`, чтобы проверить точные шаги замены. Если вы знаете правильную процедуру, пожалуйста, отправьте PR с исправлением документации.
-{{< /callout >}}
-
-```bash {filename="bash"}
-# OpenWrt 25.x и новее
-apk --update-cache add dnsmasq-full
-
-# OpenWrt 24.x и старше
-opkg update && cd /tmp/ && opkg download dnsmasq-full
-opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
-```
-
 ### Установите со страницы репозитория
 
 Откройте страницу инструкций репозитория, выберите **OpenWrt** в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
@@ -89,3 +71,13 @@ service keen-pbr restart
 {{< /callout >}}
 
 {{% /steps %}}
+
+## Обновление с интеграции dnsmasq
+
+Старые версии keen-pbr управляли dnsmasq: переносили его upstream-серверы в `dhcp.@dnsmasq[*].kpbr_server`, добавляли `conf-script` и монтирования jail. Интеграция удалена, а `dnsmasq-full` больше не нужен. При обновлении пакета keen-pbr сам отменяет эти изменения:
+
+- upstream-серверы из `kpbr_server` возвращаются в `server` (без дубликатов, в исходном порядке), после чего `kpbr_server` удаляется;
+- записи `addnmount` keen-pbr (`/usr/sbin/keen-pbr`, `/etc/keen-pbr`, `/var/cache/keen-pbr`, `/var/run/keen-pbr`) и drop-in `keen-pbr.conf` в `confdir` dnsmasq удаляются;
+- UCI `dhcp` фиксируется (commit), dnsmasq перезапускается один раз. Повторный запуск ничего не меняет, а секции dnsmasq, которых keen-pbr не касался, остаются как есть.
+
+Миграцию можно запустить вручную: `/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr`.

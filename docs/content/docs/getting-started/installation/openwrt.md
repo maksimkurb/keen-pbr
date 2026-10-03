@@ -14,19 +14,6 @@ The repository page automatically shows the correct flow for your target:
 - OpenWrt 25.x and newer: `apk`
 - OpenWrt 24.x and older: `opkg`
 
-### Replace `dnsmasq` with `dnsmasq-full`
-
-Install `dnsmasq-full` before installing keen-pbr:
-
-```bash {filename="bash"}
-# OpenWrt 25.x and newer
-apk --update-cache add dnsmasq-full
-
-# OpenWrt 24.x and older
-opkg update && cd /tmp/ && opkg download dnsmasq-full
-opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
-```
-
 ### Install from the repository page
 
 Open the repository instructions page, select **OpenWrt** in the OS selector on the left, and use the generated commands for your exact version and architecture: 
@@ -84,3 +71,13 @@ If pre-built packages are not yet available for your platform, see [Build from S
 {{< /callout >}}
 
 {{% /steps %}}
+
+## Upgrading from the dnsmasq integration
+
+Older keen-pbr versions managed dnsmasq: they moved its upstream servers to `dhcp.@dnsmasq[*].kpbr_server`, added `conf-script` and jail mounts. This integration was removed, and `dnsmasq-full` is no longer required. On package upgrade keen-pbr undoes those changes automatically:
+
+- the upstream servers saved in `kpbr_server` are restored into `server` (no duplicates, original order), then `kpbr_server` is deleted;
+- the keen-pbr `addnmount` entries (`/usr/sbin/keen-pbr`, `/etc/keen-pbr`, `/var/cache/keen-pbr`, `/var/run/keen-pbr`) and the `keen-pbr.conf` drop-in in the dnsmasq `confdir` are removed;
+- UCI `dhcp` is committed and dnsmasq is restarted once. A second run changes nothing, and dnsmasq sections that were never touched by keen-pbr are left alone.
+
+You can re-run the migration manually with `/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr`.

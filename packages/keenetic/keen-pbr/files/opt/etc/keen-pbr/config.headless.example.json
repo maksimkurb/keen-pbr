@@ -27,7 +27,6 @@
   },
 
   "dns": {
-    "resolver_integration": "none",
     "servers": [
       {
         "tag": "keenetic_dns",
@@ -37,9 +36,7 @@
         "tag": "quad9",
         "address": "9.9.9.9"
       }
-    ],
-    "rules": [],
-    "fallback": ["keenetic_dns"]
+    ]
   },
 
   "fwmark": {

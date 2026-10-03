@@ -1,9 +1,10 @@
 # DNS and L7 interception
 
 keen-pbr can learn the addresses behind domain lists from traffic that already
-passes through the router. This is the primary path when
-`dns.resolver_integration` is `none` (the default); it does not require
-dnsmasq and does not replace the system resolver.
+passes through the router. This is the only way domain lists are turned
+into dynamic-set entries: keen-pbr does not configure, reload or require any
+resolver (dnsmasq, the Keenetic DNS proxy or another), and does not replace the
+system resolver.
 
 The implementation has two independent parts:
 
@@ -30,9 +31,6 @@ available. The effective defaults are:
 {
   "daemon": {
     "clear_dynamic_sets_on_apply": false
-  },
-  "dns": {
-    "resolver_integration": "none"
   },
   "intercept": {
     "enabled": true,
@@ -67,24 +65,17 @@ When a list has `ttl_ms >= 1000`, its value in seconds overrides the global
 minimum for that list; the global maximum still applies. Static list entries
 are not affected. L7-derived addresses have no DNS record TTL, so they use the
 same list/global floor and maximum. The list-level `ttl_ms` also remains
-relevant to resolver-generated `ipset=`/`nftset=` fallback.
+relevant to the sets filled by interception.
 
-## Resolver integration
+## Removed: dnsmasq integration
 
-`dns.resolver_integration` has two modes:
-
-* `none` (default): keen-pbr does not configure, reload, or require dnsmasq.
-  DNS interception and L7 learning are independent of this setting.
-* `dnsmasq`: keen-pbr manages the optional per-list upstream configuration and
-  its health check. If DNS interception is unavailable on the device, the
-  generated dnsmasq configuration includes the conditional `ipset=`/`nftset=`
-  fallback so dnsmasq can populate dynamic sets instead.
-
-For a pre-existing configuration with this field absent, keen-pbr migrates to
-`dnsmasq` only when `dns.rules` is non-empty or `dns.system_resolver` exists;
-otherwise it persists `none`. `dns.rules` with `none` is accepted but warns,
-because per-list upstream selection requires dnsmasq. The old
-`dns.dns_test_server` option is deprecated and ignored.
+Earlier versions could manage dnsmasq (`dns.resolver_integration`,
+`dns.system_resolver`, `dns.rules`, `dns.fallback`, `ipset=`/`nftset=`
+fallback). That integration has been removed. The fields are still accepted in
+`config.json` but ignored, with a warning in the log; the package upgrade
+cleans up the dnsmasq configuration it used to touch (see the upgrade notes in
+the user documentation). The old `dns.dns_test_server` option is deprecated and
+ignored as well.
 
 ## DNS packet flow
 
@@ -266,7 +257,7 @@ rejects a listener is not retried on every apply.
 
 ## Health and diagnostics
 
-`GET /api/health/service` reports resolver mode and an `intercept` object. The
+`GET /api/health/service` reports an `intercept` object. The
 interception health separates `dns_hold_active` and `l7_active`, reports
 `capabilities.nfqueue`, `capabilities.nflog`, and `capabilities.connbytes`
 (plus `fail_open`, `payload_replacement` and `conntrack_cleanup` once probed),

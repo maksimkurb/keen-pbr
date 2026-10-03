@@ -136,7 +136,6 @@ export const enTranslation = {
       dnsServers: "DNS Servers",
       lists: "Lists",
       routingRules: "Routing rules",
-      dnsRules: "DNS Rules",
     },
   },
   brand: {
@@ -162,19 +161,11 @@ export const enTranslation = {
       keenRestartRequired: "Pending changes",
       keenRestartRequiredDescription:
         "New settings found. Apply to restart keen-pbr.",
-      keenAndDnsmasqRestartRequired: "Out of sync",
-      keenAndDnsmasqRestartRequiredDescription:
-        "Apply changes to sync keen-pbr and dnsmasq.",
-      dnsmasqRestartRequired: "DNS-server config is outdated",
-      dnsmasqRestartRequiredDescription:
-        "dnsmasq needs a restart to update its resolver config.",
-      dnsmasqRestarting: "Restarting dnsmasq...",
-      dnsmasqRestartingDescription: "dnsmasq is restarting. Please wait.",
       runtimeReloading: "Reloading keen-pbr...",
       runtimeReloadingDescription: "Current stage: {{stage}}",
       runtimeReloadSucceeded: "keen-pbr is ready",
       runtimeReloadSucceededDescription:
-        "Routing and dnsmasq are serving the expected configuration.",
+        "Routing is serving the expected configuration.",
       runtimeApplying: "Applying keen-pbr configuration...",
       runtimeApplySucceeded: "keen-pbr configuration applied",
       runtimeApplyFailed: "keen-pbr configuration could not be applied",
@@ -192,17 +183,9 @@ export const enTranslation = {
       runtimeReloadFailed: "keen-pbr reload failed",
       runtimeReloadFailedDescription:
         "The routing runtime could not finish reloading. Try Apply & Restart again.",
-      dnsmasqUnavailable: "dnsmasq probe failed",
-      dnsmasqUnavailableDescription:
-        "keen-pbr could not query the dnsmasq health TXT record. Try Apply & Restart if this persists.",
-      staleAfterTimeout:
-        "dnsmasq last reloaded at {{actualTs}}. Restart routing runtime if this stays stale.",
     },
     full: {
       unsavedTitle: "Configuration is unsaved",
-      staleTitle: "dnsmasq is using a stale resolver config",
-      staleDescription:
-        "The expected resolver hash ({{expected}}…) doesn't match dnsmasq's active hash ({{actual}}…).",
     },
   },
   lifecycle: {
@@ -212,9 +195,6 @@ export const enTranslation = {
       reconcile_runtime: "Reconcile routing and firewall",
       stop_routing: "Stop routing and firewall",
       start_routing: "Start routing and firewall",
-      reload_dnsmasq: "Reload dnsmasq",
-      verify_dnsmasq: "Verify dnsmasq configuration",
-      reload_fallback: "Reload dnsmasq with fallback configuration",
       commit_config: "Commit configuration",
       restore_config: "Restore previous configuration",
     },
@@ -229,12 +209,6 @@ export const enTranslation = {
       version: "Version",
       router: "Router",
       status: "Routing status",
-      dnsmasqHealthy: "dnsmasq healthy",
-      dnsmasqWaiting: "dnsmasq reloading",
-      dnsmasqStale: "dnsmasq restart required",
-      dnsmasqUnavailable: "dnsmasq probe failed",
-      dnsmasqDisabled: "dnsmasq integration disabled",
-      dnsmasqUnknown: "dnsmasq status unknown",
       actions: {
         start: "Start",
         stop: "Stop",
@@ -500,10 +474,10 @@ export const enTranslation = {
           "Ignore packets that already have a fwmark set by other firewall rules so policy routing does not process them again.",
         clearDynamicSetsOnApplyLabel: "Clear learned domain addresses on apply",
         clearDynamicSetsOnApplyHint:
-          "Flush dnsmasq-managed dynamic firewall sets during a full config apply or runtime restart. Disable this to preserve learned addresses until their TTL expires.",
+          "Flush DNS-driven dynamic firewall sets during a full config apply or runtime restart. Disable this to preserve learned addresses until their TTL expires.",
         ipv6EnabledLabel: "Enable IPv6 support",
         ipv6EnabledHint:
-          "Install IPv6 firewall sets and emit IPv6 dnsmasq targets. Disable this on older firmware without IPv6 netfilter support.",
+          "Install IPv6 firewall sets and learn IPv6 destinations. Disable this on older firmware without IPv6 netfilter support.",
         inboundInterfacesLabel: "Inbound interfaces",
         inboundInterfacesHint:
           "Only packets arriving on the selected interfaces will be processed by policy routing. Leave this empty to match traffic from any interface.",
@@ -522,28 +496,12 @@ export const enTranslation = {
         inboundInterfacesMissingDetail:
           "This interface is saved in config but is not present in the current live interface inventory.",
       },
-      resolver: {
-        title: "Resolver integration",
-        description:
-          "Use dnsmasq integration only when per-list DNS servers and rules are needed.",
-        integrationLabel: "Resolver integration",
-        integrationHint:
-          "None is the default: keen-pbr fills dynamic sets through interception and does not touch dnsmasq. DNS servers and rules are available with dnsmasq integration.",
-        options: {
-          none: "None (interception only)",
-          dnsmasq: "dnsmasq",
-        },
-        addressLabel: "System resolver address",
-        addressHint:
-          "Address used to manage dnsmasq and verify its config hash, for example 127.0.0.1 or 127.0.0.1:5353.",
-      },
       intercept: {
         title: "Traffic interception",
         description:
           "Fill dynamic domain sets from DNS responses and TLS, HTTP, or QUIC traffic.",
         enabledLabel: "Enable traffic interception",
-        enabledHint:
-          "When enabled, keen-pbr learns destinations without requiring dnsmasq integration.",
+        enabledHint: "When enabled, keen-pbr learns destinations.",
         minTtlLabel: "Minimum TTL (seconds)",
         minTtlHint: "Floor for learned set entry timeouts.",
         maxTtlLabel: "Maximum TTL (seconds)",
@@ -594,10 +552,10 @@ export const enTranslation = {
           "The routing table ID assigned to your first outbound. Each additional outbound gets the next ID.",
         ipsetHashsizeLabel: "IPSet hash table size",
         ipsetHashsizeHint:
-          "Optional iptables-only setting for every hash:net set. Leave empty to use the ipset default (1024); this has no effect with nftables. Changing it while iptables is running recreates owned ipsets and clears learned dnsmasq addresses.",
+          "Optional iptables-only setting for every hash:net set. Leave empty to use the ipset default (1024); this has no effect with nftables. Changing it while iptables is running recreates owned ipsets and clears learned addresses.",
         ipsetMaxelemLabel: "IPSet maximum elements",
         ipsetMaxelemHint:
-          "Optional iptables-only setting for every hash:net set. Leave empty to use the ipset default (65536); this has no effect with nftables. Changing it while iptables is running recreates owned ipsets and clears learned dnsmasq addresses.",
+          "Optional iptables-only setting for every hash:net set. Leave empty to use the ipset default (65536); this has no effect with nftables. Changing it while iptables is running recreates owned ipsets and clears learned addresses.",
       },
       actions: {
         saving: "Saving...",
@@ -636,8 +594,6 @@ export const enTranslation = {
         items: {
           serverPrefix: "DNS server",
           serverSuffix: "will be deleted.",
-          dnsRule: "DNS rule #{{number}} will be deleted.",
-          fallback: "Fallback DNS will be changed.",
         },
       },
       bulk: {
@@ -1029,98 +985,9 @@ export const enTranslation = {
           'Outbound "{{outbound}}" references missing outbound tag "{{referenced}}".',
       },
     },
-    dnsRules: {
-      title: "DNS Rules",
-      description:
-        "Control which DNS server is used for domains in your lists.",
-      actions: {
-        add: "Add DNS rule",
-        enableRule: "Enable rule",
-        disableRule: "Disable rule",
-      },
-      bulk: {
-        selected: "{{count}} selected",
-        enable: "Enable selected",
-        disable: "Disable selected",
-        delete: "Delete selected",
-        confirmDelete: "Delete {{count}} DNS rule(s)?",
-      },
-      messages: {
-        saved: "DNS configuration staged. Apply new config to persist it.",
-      },
-      validation: {
-        invalidFallback:
-          "Primary DNS servers must reference existing server tags.",
-        invalidFallbackChange:
-          "Cannot change fallback while DNS rules are invalid.",
-        invalidResult: "Cannot save because resulting DNS rules are invalid.",
-      },
-      fallback: {
-        title: "Primary DNS servers",
-        description:
-          "The ordered DNS servers dnsmasq should use when no DNS rule matches.",
-        add: "Add primary DNS server",
-        placeholderTitle: "No primary DNS servers selected",
-        placeholderDescription:
-          "Add one or more DNS servers. The order is preserved and used in generated dnsmasq config.",
-        noneDefined: "No DNS servers defined on the DNS Servers page.",
-        noneAvailable: "All DNS servers are already selected.",
-      },
-      empty: {
-        title: "No DNS rules yet",
-        description:
-          "No rules yet - add a rule to route DNS lookups for specific lists through a chosen server.",
-      },
-      headers: {
-        criteria: "Match",
-        serverTag: "DNS server",
-        allowDomainRebinding: "Domain rebinding",
-        actions: "Actions",
-      },
-      criteriaLabels: {
-        lists: "Lists",
-      },
-      rebinding: {
-        enabled: "Allowed",
-        disabled: "Blocked",
-      },
-    },
     dnsRuleUpsert: {
-      createTitle: "Create DNS rule",
-      editTitle: "Edit DNS rule",
-      description:
-        "This rule defines which DNS server to use for domains in a specific list.",
-      cardDescription: "Set the list names and DNS server for this rule.",
-      messages: { saved: "DNS rule staged. Apply new config to persist it." },
       validation: {
-        notFound: "The requested DNS rule was not found.",
         fixErrors: "Fix validation errors before saving.",
-        serverRequired: "Rule must reference an existing DNS server.",
-        listsRequired: "Rule must include at least one list.",
-        unknownLists: "Unknown lists: {{lists}}",
-        duplicate: "Duplicate rule entry.",
-      },
-      missing: {
-        cardDescription: "The requested DNS rule could not be found.",
-        cardTitle: "Missing DNS rule",
-        description: "Return to DNS Rules and choose a valid entry.",
-        back: "Back to DNS rules",
-      },
-      actions: { create: "Create rule", save: "Save rule" },
-      fields: {
-        serverTag: "DNS server",
-        selectServer: "Select DNS server",
-        dnsServers: "DNS servers",
-        noServers: "No DNS servers defined on the DNS Servers page.",
-        listNames: "Domain lists",
-        allowDomainRebinding: "Allow domain rebinding for these domains",
-        allowDomainRebindingHint:
-          "Enable this only when you know this domain list points to internal services. Responses for matched domains will be allowed to contain internal/private IPs (for example 192.168.0.0/16, 10.0.0.0/8, and other local network ranges).",
-        listPlaceholderDescription:
-          "Choose which lists this rule applies to. Matching domains will use this DNS server.",
-        noListsSelected: "No lists selected",
-        noLists:
-          "No lists found. Please, create first filter on the Lists page.",
       },
     },
     lists: {
@@ -1159,8 +1026,6 @@ export const enTranslation = {
           listSuffix: "will be deleted.",
           routeRuleRemoved: "Routing rule #{{number}} will be deleted.",
           routeRuleUpdated: "Routing rule #{{number}} will be changed.",
-          dnsRuleRemoved: "DNS rule #{{number}} will be deleted.",
-          dnsRuleUpdated: "DNS rule #{{number}} will be changed.",
         },
       },
       bulk: {

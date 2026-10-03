@@ -6,20 +6,17 @@ STOP=10
 
 if type extra_command >/dev/null 2>&1; then
     extra_command "reapply_firewall" " Send SIGUSR1 to the running service"
-    extra_command "reapply_dnsmasq_config" " Regenerate keen-pbr dnsmasq config and restart dnsmasq"
     extra_command "sync_firewall_hook" " Ensure the fw4 include exists for keen-pbr"
     extra_command "remove_firewall_hook" " Remove the fw4 include for keen-pbr"
 else
-    EXTRA_COMMANDS="reapply_firewall reapply_dnsmasq_config sync_firewall_hook remove_firewall_hook"
+    EXTRA_COMMANDS="reapply_firewall sync_firewall_hook remove_firewall_hook"
     EXTRA_HELP="        reapply_firewall        Send SIGUSR1 to the running service
-        reapply_dnsmasq_config  Regenerate keen-pbr dnsmasq config and restart dnsmasq
         sync_firewall_hook      Ensure the fw4 include exists for keen-pbr
         remove_firewall_hook    Remove the fw4 include for keen-pbr"
 fi
 
 PROG=/usr/sbin/keen-pbr
 CONFIG=/etc/keen-pbr/config.json
-HELPER=/usr/lib/keen-pbr/dnsmasq.sh
 UCI_HELPER=/usr/lib/keen-pbr/uci.sh
 PIDFILE=/var/run/keen-pbr.pid
 
@@ -49,18 +46,6 @@ remove_fw4_include() {
     "$UCI_HELPER" firewall-remove
 }
 
-# The dnsmasq integration is optional.  It is on when config.json sets
-# dns.resolver_integration to "dnsmasq", or, for configs written before the
-# option existed, when dns.system_resolver is configured.
-resolver_integration_enabled() {
-    [ -r "$CONFIG" ] || return 1
-    if grep -Eq '"resolver_integration"[[:space:]]*:' "$CONFIG"; then
-        grep -Eq '"resolver_integration"[[:space:]]*:[[:space:]]*"dnsmasq"' "$CONFIG"
-        return $?
-    fi
-    grep -Eq '"system_resolver"[[:space:]]*:' "$CONFIG"
-}
-
 is_enabled() {
     [ -L "$(start_link_path)" ] || [ -L "$(stop_link_path)" ]
 }
@@ -79,8 +64,6 @@ enable() {
 
     ensure_fw4_include || return 1
 
-    # The dnsmasq integration (conf-script, jail mounts) is installed by the
-    # daemon itself (dnsmasq.sh activate) when it is enabled in config.json.
 }
 
 disable() {
@@ -89,10 +72,6 @@ disable() {
     [ -n "$IPKG_INSTROOT" ] && return 0
 
     remove_fw4_include || return 1
-
-    if [ -x "$HELPER" ]; then
-        "$HELPER" uninstall-persistent || return 1
-    fi
 }
 
 start_service() {
@@ -102,10 +81,6 @@ start_service() {
     ensure_fw4_include || return 1
 
     mkdir -p /var/cache/keen-pbr /var/run/keen-pbr
-
-    if resolver_integration_enabled && [ -x "$HELPER" ]; then
-        "$HELPER" prepare || return 1
-    fi
 
     procd_open_instance
     procd_set_param command "$PROG" --config "$CONFIG" --pid-file "$PIDFILE" --log-target syslog service
@@ -122,13 +97,6 @@ reload_service() {
 reapply_firewall() {
     [ -s "$PIDFILE" ] || return 1
     kill -SIGUSR1 "$(cat "$PIDFILE")"
-}
-
-reapply_dnsmasq_config() {
-    resolver_integration_enabled || return 0
-    if [ -x "$HELPER" ]; then
-        "$HELPER" reload || return 1
-    fi
 }
 
 sync_firewall_hook() {

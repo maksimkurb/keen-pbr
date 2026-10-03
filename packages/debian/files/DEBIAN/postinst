@@ -6,13 +6,16 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload >/dev/null 2>&1 || true
 fi
 
-# keen-pbr does not edit the dnsmasq configuration on install: the dnsmasq
-# integration is optional (dns.resolver_integration = "dnsmasq" in
-# /etc/keen-pbr/config.json) and the daemon installs its conf-script entry
-# itself (dnsmasq.sh activate) when it is enabled.  An existing setup keeps
-# working after an upgrade.  To apply the recommended dnsmasq base config
-# manually, run:
-#   /usr/lib/keen-pbr/dnsmasq.sh install-defaults
+# Migrate from the removed dnsmasq integration: clean up any drop-in configuration
+# that contains the keen-pbr conf-script line. This is idempotent and safe.
+conf_line="conf-script=/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry"
+for conf_path in /etc/dnsmasq.d/keen-pbr.conf /etc/dnsmasq/conf.d/keen-pbr.conf /etc/dnsmasq-conf.d/keen-pbr.conf; do
+    # Remove the drop-in only if it holds nothing but our conf-script line.
+    if [ -f "$conf_path" ] && grep -qxF "$conf_line" "$conf_path" &&
+       ! grep -vxF "$conf_line" "$conf_path" | grep -q '[^[:space:]]'; then
+        rm -f "$conf_path"
+    fi
+done
 
 if command -v systemctl >/dev/null 2>&1; then
     systemctl enable keen-pbr >/dev/null 2>&1 || true

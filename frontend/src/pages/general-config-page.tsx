@@ -6,11 +6,10 @@ import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
-import type { ResolverIntegrationMode } from "@/api/generated/model/resolverIntegrationMode"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig, useGetRuntimeInterfaces } from "@/api/queries"
-import { effectiveResolverIntegration, selectConfig } from "@/api/selectors"
+import { selectConfig } from "@/api/selectors"
 import {
   Field,
   FieldContent,
@@ -34,13 +33,6 @@ import {
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   clearFormServerErrors,
@@ -63,8 +55,6 @@ export type SettingsDraft = {
   fwmarkStart: string
   fwmarkMask: string
   tableStart: string
-  resolverIntegration: ResolverIntegrationMode
-  systemResolverAddress: string
   interceptEnabled: boolean
   interceptMinTtlS: string
   interceptMaxTtlS: string
@@ -94,8 +84,6 @@ const fallbackDraft: SettingsDraft = {
   fwmarkStart: "0x00010000",
   fwmarkMask: "0xffff0000",
   tableStart: "150",
-  resolverIntegration: "none",
-  systemResolverAddress: "127.0.0.1",
   interceptEnabled: true,
   interceptMinTtlS: "300",
   interceptMaxTtlS: "86400",
@@ -125,8 +113,6 @@ const SETTINGS_FIELD_NAMES = {
   fwmarkStart: "fwmarkStart",
   fwmarkMask: "fwmarkMask",
   tableStart: "tableStart",
-  resolverIntegration: "resolverIntegration",
-  systemResolverAddress: "systemResolverAddress",
   interceptEnabled: "interceptEnabled",
   interceptMinTtlS: "interceptMinTtlS",
   interceptMaxTtlS: "interceptMaxTtlS",
@@ -291,90 +277,6 @@ function LoadedGeneralConfigPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("pages.settings.resolver.title")}</CardTitle>
-          <CardDescription>
-            {t("pages.settings.resolver.description")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup>
-            <form.Field name={SETTINGS_FIELD_NAMES.resolverIntegration}>
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor="resolver-integration">
-                    {t("pages.settings.resolver.integrationLabel")}
-                  </FieldLabel>
-                  <FieldContent>
-                    <Select
-                      onValueChange={(value) =>
-                        field.handleChange(
-                          (value ?? "none") as ResolverIntegrationMode
-                        )
-                      }
-                      value={field.state.value}
-                    >
-                      <SelectTrigger id="resolver-integration">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">
-                          {t("pages.settings.resolver.options.none")}
-                        </SelectItem>
-                        <SelectItem value="dnsmasq">
-                          {t("pages.settings.resolver.options.dnsmasq")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FieldHint
-                      description={t("pages.settings.resolver.integrationHint")}
-                    />
-                  </FieldContent>
-                </Field>
-              )}
-            </form.Field>
-
-            <form.Subscribe
-              selector={(state) => state.values.resolverIntegration}
-            >
-              {(resolverIntegration) =>
-                resolverIntegration === "dnsmasq" ? (
-                  <form.Field name={SETTINGS_FIELD_NAMES.systemResolverAddress}>
-                    {(field) => {
-                      const error = getFirstFieldError(field.state.meta.errors)
-                      return (
-                        <Field invalid={Boolean(error)}>
-                          <FieldLabel htmlFor="system-resolver-address">
-                            {t("pages.settings.resolver.addressLabel")}
-                          </FieldLabel>
-                          <FieldContent>
-                            <Input
-                              aria-invalid={Boolean(error)}
-                              id="system-resolver-address"
-                              onBlur={field.handleBlur}
-                              onChange={(event) =>
-                                field.handleChange(event.target.value)
-                              }
-                              value={field.state.value}
-                            />
-                            <FieldHint
-                              description={t(
-                                "pages.settings.resolver.addressHint"
-                              )}
-                              error={error}
-                            />
-                          </FieldContent>
-                        </Field>
-                      )
-                    }}
-                  </form.Field>
-                ) : null
-              }
-            </form.Subscribe>
-          </FieldGroup>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -1245,10 +1147,6 @@ export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
       config.iproute?.table_start,
       fallbackDraft.tableStart
     ),
-    resolverIntegration: effectiveResolverIntegration(config),
-    systemResolverAddress:
-      config.dns?.system_resolver?.address ??
-      fallbackDraft.systemResolverAddress,
     interceptEnabled: intercept?.enabled ?? fallbackDraft.interceptEnabled,
     interceptMinTtlS: toStringInt(
       intercept?.min_ttl_s,
@@ -1326,14 +1224,6 @@ export function buildUpdatedConfig(
     },
     dns: {
       ...config.dns,
-      resolver_integration: draft.resolverIntegration,
-      system_resolver:
-        draft.resolverIntegration === "dnsmasq"
-          ? {
-              ...config.dns?.system_resolver,
-              address: draft.systemResolverAddress.trim(),
-            }
-          : config.dns?.system_resolver,
     },
     intercept: {
       ...config.intercept,
@@ -1450,11 +1340,6 @@ function resolveSettingsFieldPath(path: string): SettingsFieldName | undefined {
       return SETTINGS_FIELD_NAMES.fwmarkMask
     case "iproute.table_start":
       return SETTINGS_FIELD_NAMES.tableStart
-    case "dns.resolver_integration":
-      return SETTINGS_FIELD_NAMES.resolverIntegration
-    case "dns.system_resolver":
-    case "dns.system_resolver.address":
-      return SETTINGS_FIELD_NAMES.systemResolverAddress
     case "intercept.enabled":
       return SETTINGS_FIELD_NAMES.interceptEnabled
     case "intercept.min_ttl_s":

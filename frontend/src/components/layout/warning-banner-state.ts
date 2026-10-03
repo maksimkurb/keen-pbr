@@ -123,22 +123,7 @@ export function getWarningBannerMode(
   if (serviceHealth.rollback_available) return "lifecycle-error"
 
   if (serviceHealth.config_is_draft) {
-    return serviceHealth.resolver_config_sync_state === "stale" &&
-      serviceHealth.resolver_integration === "dnsmasq"
-      ? "draft-and-dnsmasq"
-      : "draft"
-  }
-  if (
-    serviceHealth.resolver_integration === "none" ||
-    serviceHealth.resolver_config_probe_status === "disabled"
-  ) {
-    return "hidden"
-  }
-  if (serviceHealth.resolver_config_sync_state === "stale") {
-    return "dnsmasq-stale"
-  }
-  if (serviceHealth.resolver_config_probe_status === "query_failed") {
-    return "dnsmasq-error"
+    return "draft"
   }
   return "hidden"
 }

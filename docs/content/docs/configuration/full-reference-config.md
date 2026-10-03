@@ -38,7 +38,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Default: true (also when set to null).
     "skip_marked_packets": true,
 
-    // Clear interception/resolver-learned dynamic sets during a full apply or
+    // Clear interception-learned dynamic sets during a full apply or
     // runtime restart. Default: false (also when set to null).
     "clear_dynamic_sets_on_apply": false,
 
@@ -46,21 +46,21 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Has no effect with nftables. Minimum: 1; maximum: 2147483648. Omit or set
     // to null to use the ipset default (1024).
     // Changing it while iptables is running recreates owned ipsets and clears
-    // interception/resolver-learned entries.
+    // interception-learned entries.
     "ipset_hashsize": null,
 
     // Optional maximum element count for ipsets created by the iptables backend.
     // Has no effect with nftables. Minimum: 1; maximum: 4294967295. Omit or set
     // to null to use the ipset default (65536).
     // Changing it while iptables is running recreates owned ipsets and clears
-    // interception/resolver-learned entries.
+    // interception-learned entries.
     "ipset_maxelem": null,
 
     // Reuse the currently live list sets during safe runtime refreshes.
     // Default: true; failed preflight falls back to PreserveSets.
     "reuse_static_sets_on_runtime_refresh": true,
 
-    // Install IPv4/IPv6 firewall sets and resolver targets.
+    // Install IPv4/IPv6 firewall sets and DNS-driven targets.
     // Default: true (also when set to null). If the system has no IPv6 support,
     // keen-pbr logs an error and continues in IPv4-only mode.
     "ipv6_enabled": true,
@@ -87,9 +87,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Minimum: 1. Default: 30.
     "exec_timeout_seconds": 30,
 
-    // Maximum time in seconds to wait for resolver configuration generation
-    // after the resolver reload hook completes. Minimum: 1. Default: 120.
-    "resolver_ready_timeout_seconds": 120,
+    // Removed: "resolver_ready_timeout_seconds" belonged to the dnsmasq
+    // integration. It is still accepted but ignored (a warning is logged).
 
     // Grace period in seconds after SIGTERM before a timed-out helper receives
     // SIGKILL. Minimum: 0. Default: 2.
@@ -372,10 +371,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // same effect.
       "domains": ["example.com", "othersite.net"],
 
-      // Time in milliseconds that IPs resolved by dnsmasq for these domains
-      // remain in the dynamic set. 0 keeps them indefinitely.
-      // Set this higher than dnsmasq max-cache-ttl (which is in seconds), with
-      // a safety margin. For max-cache-ttl=300, use at least 2100000 (35 min).
+      // Time in milliseconds that IPs learned for these domains by DNS/L7
+      // interception remain in the dynamic set. 0 keeps them indefinitely.
       // Default: 0 (no timeout); this example uses 24 hours.
       "ttl_ms": 86400000
     },
@@ -399,10 +396,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Default: null (use the system's normal routing)
       "detour": "auto_select",
 
-      // Time in milliseconds that IPs resolved by dnsmasq for these domains
-      // remain in the dynamic set. 0 keeps them indefinitely.
-      // Set this higher than dnsmasq max-cache-ttl (which is in seconds), with
-      // a safety margin. For max-cache-ttl=300, use at least 2100000 (35 min).
+      // Time in milliseconds that IPs learned for these domains by DNS/L7
+      // interception remain in the dynamic set. 0 keeps them indefinitely.
       // Default: 0 (no timeout); this example uses 24 hours.
       "ttl_ms": 86400000
     },
@@ -411,10 +406,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Local list file path.
       "file": "/etc/keen-pbr/local.lst",
       
-      // Time in milliseconds that IPs resolved by dnsmasq for these domains
-      // remain in the dynamic set. 0 keeps them indefinitely.
-      // Set this higher than dnsmasq max-cache-ttl (which is in seconds), with
-      // a safety margin. For max-cache-ttl=300, use at least 2100000 (35 min).
+      // Time in milliseconds that IPs learned for these domains by DNS/L7
+      // interception remain in the dynamic set. 0 keeps them indefinitely.
       // Default: 0 (no timeout); this example uses 24 hours.
       "ttl_ms": 86400000
     },
@@ -435,13 +428,9 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
   // DNS configuration. Interception fills dynamic sets without a resolver.
   "dns": {
-    // "none" is the default. This example uses "dnsmasq" for per-list upstreams.
-    "resolver_integration": "dnsmasq",
-    // Resolver used for runtime integration and TXT health checks.
-    // Required only when resolver_integration is "dnsmasq".
-    "system_resolver": {
-      "address": "127.0.0.1"
-    },
+    // Removed with the dnsmasq integration: "resolver_integration",
+    // "system_resolver", "rules" and "fallback". They are still accepted so that
+    // old configs load, but they are ignored and a warning is logged.
 
     // Deprecated compatibility field. It is accepted but ignored.
     "dns_test_server": {
@@ -489,45 +478,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         "tag": "keenetic_dns",
         "type": "keenetic"
       }
-    ],
-
-    // Domain-to-DNS-server rules.
-    "rules": [
-      {
-        // Whether this DNS rule is active.
-        // Default: true when omitted or set to null.
-        "enabled": true,
-
-        // Lists whose domains should be resolved by this server.
-        "list": ["inline_domains", "remote_list"],
-
-        // DNS server tag to use.
-        "server": "vpn_dns",
-
-        // Allow answers that resolve to private/local IP ranges.
-        // Default: false.
-        "allow_domain_rebinding": false
-      },
-
-      {
-        // Example rule for local services that intentionally resolve to RFC1918 addresses.
-        "list": ["mixed_sources"],
-        "server": "keenetic_dns",
-        "allow_domain_rebinding": true
-      },
-
-      {
-        // Example of a disabled DNS rule kept for later use.
-        "enabled": false,
-        "list": ["inline_domains"],
-        "server": "google_dns"
-      }
-    ],
-
-    // Upstream DNS servers used when no DNS rule matches.
-    // Default: no upstream servers.
-    // WARNING: if you don't provide at least one DNS server here, your Internet connectivity may fail.
-    "fallback": ["google_dns", "auto_dns", "keenetic_dns"]
+    ]
   },
 
   // Traffic interception. All fields below have defaults; capability gaps

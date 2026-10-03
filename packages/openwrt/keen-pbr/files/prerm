@@ -5,13 +5,8 @@
 
 /etc/init.d/keen-pbr disable >/dev/null 2>&1 || true
 
-cat <<'EOF'
-keen-pbr has restored the dnsmasq configuration.
-If internet access stopped working after package removal, restore upstream DNS manually with UCI.
-Example:
-  uci add_list dhcp.@dnsmasq[0].server='8.8.8.8'
-  uci commit dhcp
-  /etc/init.d/dnsmasq restart
-EOF
+# If migrating away from keen-pbr, restore dnsmasq configuration for any remaining integration.
+# This is the same idempotent migration as in postinst.
+/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr >/dev/null 2>&1 || true
 
 exit 0

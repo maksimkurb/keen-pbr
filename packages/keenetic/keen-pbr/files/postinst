@@ -5,12 +5,10 @@ echo "------------------------"
 
 mkdir -p /opt/usr/lib/keen-pbr
 
-# keen-pbr no longer touches dnsmasq on install: the dnsmasq integration is
-# optional (dns.resolver_integration = "dnsmasq" in config.json).  The daemon
-# installs its conf-script block itself (dnsmasq.sh activate) when the
-# integration is enabled, so an existing setup keeps working after an upgrade.
-# To apply the recommended dnsmasq base config manually, run:
-#   /opt/usr/lib/keen-pbr/dnsmasq.sh install-defaults
+# Migrate from the removed dnsmasq integration: clean up the dnsmasq
+# configuration and restore any servers that were managed by keen-pbr.
+# This is idempotent and safe to call even if the integration was never used.
+/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh >/dev/null 2>&1 || true
 
 echo ""
 /opt/etc/init.d/S80keen-pbr start || echo "Failed to start keen-pbr service"

@@ -337,7 +337,7 @@ toc: false
   {{< hextra/feature-card
     title="Интеграция с DNS"
     icon="server"
-    subtitle="Перехватывает DNS и видимые L7-имена и напрямую заполняет динамические наборы; необязательный dnsmasq даёт per-list upstream и резервный путь."
+    subtitle="Перехватывает DNS и видимые L7-имена и напрямую заполняет динамические наборы; резолвер не настраивается и не требуется."
   >}}
   {{< hextra/feature-card
     title="Два firewall-бэкенда"

@@ -23,8 +23,7 @@ weight: 2
 
 Домены сопоставляются службой DNS/L7-перехвата, а их IP добавляются в
 соответствующий динамический набор (`kpbr4d_<list>`, `kpbr6d_<list>`) с
-ограниченным TTL. При необязательной интеграции с dnsmasq директивы
-`ipset=`/`nftset=` остаются резервным путём, если DNS-перехват недоступен.
+ограниченным TTL.
 
 См. [Списки]({{< relref "/docs/configuration/lists" >}}) для полного справочника.
 
@@ -62,14 +61,10 @@ Outbounds типа `interface` и `table` получают fwmark и запис�
 
 ### DNS
 
-По умолчанию (`dns.resolver_integration: "none"`) keen-pbr не настраивает
-резолвер: NFQUEUE разбирает DNS-ответы, а NFLOG может извлекать TLS SNI, HTTP
+keen-pbr не настраивает резолвер и не зависит от него (dnsmasq, DNS-прокси
+Keenetic и любой другой работают как настроено): NFQUEUE разбирает DNS-ответы, а NFLOG может извлекать TLS SNI, HTTP
 Host и QUIC Initial. Подходящие IP добавляются в динамический набор, чтобы
 последующие пакеты маршрутизировались правильно.
-
-Необязательный режим `dnsmasq` сопоставляет списки с директивами `server=` и
-даёт fallback через `ipset=`/`nftset=`. Он генерирует и проверяет конфигурацию
-резолвера, но не заменяет независимый DNS-перехват.
 
 См. [DNS]({{< relref "/docs/configuration/dns" >}}) для полного справочника.
 См. [архитектуру DNS и L7-перехвата](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md) для потока
@@ -84,8 +79,7 @@ Host и QUIC Initial. Подходящие IP добавляются в дина
 3. **Настройка правил firewall** — в таблице `mangle` iptables или в таблице `inet KeenPbrTable` nftables создаются правила сопоставления по спискам и фильтрам, после чего в `PREROUTING` / `prerouting` проставляются нужные fwmark
 4. **Настройка маршрутизации** — под каждый outbound создаются таблица маршрутизации и запись `ip rule` на основе назначенных fwmark
 5. **Запуск перехвата** — при наличии capability подключаются DNS NFQUEUE и L7
-   NFLOG, затем публикуются DomainIndex и снимок динамических наборов; dnsmasq
-   настраивается отдельно, только если включена эта интеграция
+   NFLOG, затем публикуются DomainIndex и снимок динамических наборов
 6. **Запуск urltest-проверок** — если настроены outbounds типа `urltest`, начинаются периодические замеры задержки
 
 ---
@@ -97,7 +91,7 @@ flowchart TD
     subgraph Config["config.json"]
         RoutingOutbounds["Routing outbounds\n(interface, table,\nurltest-selected child)"]
         Lists["Lists\n(IPs, CIDRs, domains)"]
-        DNS["DNS\n(servers + rules)"]
+        DNS["DNS\n(servers + detour)"]
         RouteRules["Route Rules\n(list + filters →\nrouting / drop / pass)"]
     end
 
@@ -110,11 +104,10 @@ flowchart TD
     end
 
     Interceptor["DNS NFQUEUE + L7 NFLOG\n(DomainIndex → dynamic sets)"]
-    Dnsmasq["необязательный dnsmasq\n(server= / ipset= / nftset=)"]
 
     Lists -->|"IP/CIDR entries"| Ipsets
     Lists -->|"domain entries"| Interceptor
-    DNS --> Dnsmasq
+    DNS -->|"detour"| FwmarkRules
     Ipsets --> FwmarkRules
     RouteRules --> FwmarkRules
     RoutingOutbounds --> IpRules
@@ -123,7 +116,6 @@ flowchart TD
     FwmarkRules --> SystemRouting
     IpRules --> RoutingTables
     Interceptor -->|"resolved IPs → dynamic sets"| Ipsets
-    Dnsmasq -->|"fallback IPs → sets"| Ipsets
 ```
 
 ---

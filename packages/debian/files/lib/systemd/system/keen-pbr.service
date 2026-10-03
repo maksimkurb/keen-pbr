@@ -5,12 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# Kernel modules for the iptables backend; the optional dnsmasq integration is
-# installed by the daemon itself (dns.resolver_integration).
-ExecStartPre=-/usr/lib/keen-pbr/dnsmasq.sh ensure-modules
+# Kernel module for the iptables backend (not needed with nftables).
+ExecStartPre=-/bin/sh -c 'command -v nft >/dev/null 2>&1 || modprobe xt_multiport'
 ExecStart=/usr/sbin/keen-pbr --config /etc/keen-pbr/config.json --pid-file /var/run/keen-pbr.pid --log-target syslog service
 ExecReload=/bin/kill -HUP $MAINPID
-ExecStopPost=-/usr/lib/keen-pbr/dnsmasq.sh fallback
 Restart=on-failure
 RestartSec=5s
 

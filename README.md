@@ -33,7 +33,7 @@ It is built for embedded Linux routers and can:
 
 - route traffic through VPN, WAN, blackhole, or custom routing tables
 - use failover chains and health checks to keep traffic on healthy outbounds
-- learn domain IPs from DNS/L7 interception without requiring a resolver, with optional `dnsmasq` integration for per-list upstreams and fallback
+- learn domain IPs from DNS/L7 interception without configuring or requiring any resolver
 - provide an optional web UI and HTTP API for management and diagnostics
 
 ## Documentation & Installation

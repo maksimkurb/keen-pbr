@@ -158,7 +158,7 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   owned static sets that are no longer referenced (removed lists, retired
   `kpbr4s_/kpbr4S_/kpbr6s_/kpbr6S_` generation sets) are destroyed; "in use"
   is logged, not fatal. Only names matching the strict owned grammar are ever
-  destroyed. Dynamic sets (dnsmasq-owned) are never swapped.
+  destroyed. Dynamic sets (filled by interception) are never swapped.
 
 ## Apply modes
 

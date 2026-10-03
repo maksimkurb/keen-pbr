@@ -16,7 +16,7 @@ function operation(
     type: "restart",
     status,
     started_at: 1,
-    stages: [{ id: "reload_dnsmasq", title: "Reload", status: stageStatus }],
+    stages: [{ id: "apply_config", title: "Apply", status: stageStatus }],
   }
 }
 
@@ -62,7 +62,6 @@ describe("lifecycle operation retention", () => {
       os_type: "linux",
       os_version: "test",
       build_variant: "test",
-      resolver_live_status: "unknown",
       config_is_draft: false,
       rollback_available: true,
     } satisfies HealthResponse

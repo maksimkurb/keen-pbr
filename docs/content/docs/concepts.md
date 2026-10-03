@@ -23,9 +23,7 @@ At startup, IP/CIDR entries are loaded into kernel sets. The iptables backend al
 
 Domain entries are matched by the DNS/L7 interception service and their
 resolved IPs are added to the matching dynamic set (`kpbr4d_<list>`,
-`kpbr6d_<list>`) with bounded TTL. With the optional `dnsmasq` resolver
-integration, `ipset=`/`nftset=` directives remain a fallback when DNS
-interception is unavailable.
+`kpbr6d_<list>`) with bounded TTL.
 
 See [Lists]({{< relref "/docs/configuration/lists" >}}) for the full reference.
 
@@ -63,14 +61,10 @@ See [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) for the full
 
 ### DNS
 
-By default (`dns.resolver_integration: "none"`), keen-pbr does not configure a
-resolver: NFQUEUE parses DNS responses and NFLOG can learn TLS SNI, HTTP Host,
+keen-pbr does not configure or depend on any resolver (dnsmasq, the Keenetic
+DNS proxy or any other keeps working as set up): NFQUEUE parses DNS responses and NFLOG can learn TLS SNI, HTTP Host,
 and QUIC Initial names. Matching response IPs are injected into the
 corresponding dynamic set so subsequent packets are routed correctly.
-
-The optional `dnsmasq` mode maps domain lists to `server=` directives and
-provides `ipset=`/`nftset=` fallback. It writes the generated configuration and
-verifies the resolver, but DNS interception remains an independent path.
 
 See [DNS]({{< relref "/docs/configuration/dns" >}}) for the full reference.
 See the [DNS and L7 interception architecture](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)
@@ -86,7 +80,7 @@ for packet flow, capability gating, and failure behavior.
 4. **Install routing** — create routing tables and `ip rule` entries for each outbound based on assigned fwmarks
 5. **Start interception** — attach the DNS NFQUEUE and L7 NFLOG hooks when
    capabilities are available, then publish the DomainIndex and dynamic-set
-   snapshot; independently configure dnsmasq when that integration is enabled
+   snapshot
 6. **Start urltest probing** — if any `urltest` outbounds are configured, begin periodic latency probes
 
 ---
@@ -98,7 +92,7 @@ flowchart TD
     subgraph Config["config.json"]
         RoutingOutbounds["Routing outbounds\n(interface, table,\nurltest-selected child)"]
         Lists["Lists\n(IPs, CIDRs, domains)"]
-        DNS["DNS\n(servers + rules)"]
+        DNS["DNS\n(servers + detour)"]
         RouteRules["Route Rules\n(list + filters →\nrouting / drop / pass)"]
     end
 
@@ -111,11 +105,10 @@ flowchart TD
     end
 
     Interceptor["DNS NFQUEUE + L7 NFLOG\n(DomainIndex → dynamic sets)"]
-    Dnsmasq["optional dnsmasq\n(server= / ipset= / nftset=)"]
 
     Lists -->|"IP/CIDR entries"| Ipsets
     Lists -->|"domain entries"| Interceptor
-    DNS --> Dnsmasq
+    DNS -->|"detour"| FwmarkRules
     Ipsets --> FwmarkRules
     RouteRules --> FwmarkRules
     RoutingOutbounds --> IpRules
@@ -124,7 +117,6 @@ flowchart TD
     FwmarkRules --> SystemRouting
     IpRules --> RoutingTables
     Interceptor -->|"resolved IPs → dynamic sets"| Ipsets
-    Dnsmasq -->|"fallback IPs → sets"| Ipsets
 ```
 
 ---

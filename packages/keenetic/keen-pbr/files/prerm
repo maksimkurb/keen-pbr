@@ -3,5 +3,8 @@
 echo "Stopping keen-pbr service..."
 /opt/etc/init.d/S80keen-pbr stop || true
 
+# If dnsmasq migration is needed during uninstall, run it to clean up the configuration.
+# This is idempotent and safe.
+/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh >/dev/null 2>&1 || true
 
 exit 0

@@ -39,7 +39,7 @@ Consult the official Keenetic documentation on how to do it: [DoH and DoT proxy 
 2. Select "**Keenetic / NetCraze**" in the OS selector on the left, choose the "**current**" version, and select the architecture that matches your router.
     - TIP: You can run `opkg print-architecture` in an SSH session to see your router's architecture.
 3. Follow the instructions on the repository page carefully.
-4. When you run the `opkg install keen-pbr` command, the installation script will prompt you to confirm whether you want to replace your `dnsmasq` file. If you are not sure, press <kbd>y</kbd> and then <kbd>Enter</kbd>.
+4. Run the `opkg install keen-pbr` command.
     - Example install command:
       ```bash {filename="bash"}
       opkg install keen-pbr
@@ -126,7 +126,6 @@ Basic commands:
 | Start service | `/opt/etc/init.d/S80keen-pbr start` |
 | Restart service | `/opt/etc/init.d/S80keen-pbr restart` |
 | Check if **keen-pbr** alive | `/opt/etc/init.d/S80keen-pbr status` |
-| Check if **dnsmasq** alive | `/opt/etc/init.d/S56dnsmasq status` |
 
 {{< callout type="info" >}}
 If you do not plan to use the keen-pbr Web UI or API, consider installing the `keen-pbr-headless` package.
@@ -139,3 +138,13 @@ Go to the [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) page
 
 
 {{% /steps %}}
+
+## Upgrading from the dnsmasq integration
+
+Older keen-pbr versions added a managed block with a `conf-script` line to `/opt/etc/dnsmasq.conf`. This integration was removed; on package upgrade (and removal) `/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh` cleans up:
+
+- the keen-pbr managed block (and a bare `conf-script` line) is removed from `/opt/etc/dnsmasq.conf`; the original file is saved once as `/opt/etc/dnsmasq.conf.keen-pbr.bak`;
+- if the file has no `server=` line left, a marked block `# BEGIN keen-pbr fallback upstream` with the packaged fallback servers is appended so that dnsmasq keeps resolving. **Review it**, or replace it with your own upstream;
+- dnsmasq is restarted once. Running the script again changes nothing.
+
+Alternatively, remove Entware dnsmasq and use the built-in Keenetic DNS proxy (ndnproxy): keen-pbr does not need a particular resolver.

@@ -168,7 +168,6 @@ function RoutingRuleForm({
     )
   const listUsageSubtitle = useListUsageSubtitle(
     rules,
-    "routing",
     mode === "edit" ? parsedRuleIndex : undefined
   )
   const protoSelectItems = protoOptions.map((option) => ({

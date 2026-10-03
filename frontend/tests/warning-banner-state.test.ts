@@ -11,74 +11,26 @@ function health(overrides: Partial<HealthResponse>): HealthResponse {
     os_type: "keenetic",
     os_version: "test",
     build_variant: "test",
-    resolver_live_status: "healthy",
     config_is_draft: false,
     ...overrides,
   }
 }
 
 describe("getWarningBannerMode", () => {
-  test("maps stale resolver sync to restart warning even when live status is degraded", () => {
-    expect(
-      getWarningBannerMode(
-        health({
-          resolver_live_status: "degraded",
-          resolver_config_probe_status: "missing_txt",
-          resolver_config_sync_state: "stale",
-        }),
-        120_000
-      )
-    ).toBe("dnsmasq-stale")
+  test("is hidden for a healthy converged service", () => {
+    expect(getWarningBannerMode(health({}))).toBe("hidden")
+    expect(getWarningBannerMode(null)).toBe("hidden")
   })
 
-  test("maps query failed probe to red error after converge window", () => {
-    expect(
-      getWarningBannerMode(
-        health({
-          resolver_live_status: "unavailable",
-          resolver_integration: "dnsmasq",
-          resolver_config_probe_status: "query_failed",
-          apply_started_ts: 100,
-        }),
-        120_000
-      )
-    ).toBe("dnsmasq-error")
+  test("shows the draft banner for an unapplied config", () => {
+    expect(getWarningBannerMode(health({ config_is_draft: true }))).toBe(
+      "draft"
+    )
   })
 
-  test("does not show resolver failure when probing is disabled", () => {
-    expect(
-      getWarningBannerMode(
-        health({
-          resolver_config_probe_status: "disabled",
-          resolver_config_sync_state: "stale",
-        })
-      )
-    ).toBe("hidden")
-  })
-
-  test("keeps query failed probe as a dnsmasq error during recent apply", () => {
-    expect(
-      getWarningBannerMode(
-        health({
-          resolver_live_status: "unavailable",
-          resolver_integration: "dnsmasq",
-          resolver_config_probe_status: "query_failed",
-          apply_started_ts: 100,
-        }),
-        105_000
-      )
-    ).toBe("dnsmasq-error")
-  })
-
-  test("hides resolver failure when integration is explicitly disabled", () => {
-    expect(
-      getWarningBannerMode(
-        health({
-          resolver_live_status: "unavailable",
-          resolver_integration: "none",
-          resolver_config_probe_status: "query_failed",
-        })
-      )
-    ).toBe("hidden")
+  test("shows an error when a rollback is available", () => {
+    expect(getWarningBannerMode(health({ rollback_available: true }))).toBe(
+      "lifecycle-error"
+    )
   })
 })

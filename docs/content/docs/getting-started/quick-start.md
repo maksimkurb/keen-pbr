@@ -74,26 +74,13 @@ Go to **Outbounds** and create these two entries:
 
 This example uses the `main` Linux routing table as the fallback path, so `default` should point to routing table `254`.
 
-### Add the DNS servers
-
-Go to **DNS Servers** and create these entries:
-
-1. Create a DNS server named `vpn_dns` with the following options:
-    - `address = <your_vpn_dns_server_ip>`
-    - `outbound = vpn` if you want DNS queries for this server to go through the VPN
-
-2. Create another DNS server named `default_dns` with the following options:
-    - `address = <your_regular_dns_server_ip>`
-
 ### Create a test list
 
 Go to **Lists** and create a list such as `my_sites` with type `Domains / IPs`, then add a test domain like `ifconfig.co`.
 
-### Add routing and DNS rules
+### Add a routing rule
 
-1. Go to **Routing rules** and route `my_sites` through the `vpn` outbound.
-2. Go to **DNS Rules** and send `my_sites` to your VPN DNS server.
-3. Set the primary DNS server to the `default_dns`.
+Go to **Routing rules** and route `my_sites` through the `vpn` outbound.
 
 ### Verification
 
@@ -146,7 +133,7 @@ Example minimal config:
   "lists": {
     "my_sites": {   // list with inline domains
       "domains": ["ifconfig.co"],
-      "ttl_ms": 3600000 // for how long resolved IP should be added into routing ipsets after dnsmasq resolved it, in milliseconds
+      "ttl_ms": 3600000 // for how long resolved IP should be added into routing ipsets after it was seen in a DNS response, in milliseconds
     },
     "always_out": { // list with inline IPs
       "ip_cidrs": ["120.131.22.11"]
@@ -158,32 +145,6 @@ Example minimal config:
     "my_local_file_list": { // local file list
       "file": "/etc/keen-pbr/local.lst"
     }
-  },
-  "dns": {
-    "resolver_integration": "dnsmasq",
-    "system_resolver": {
-      "address": "127.0.0.1"
-    },
-    "servers": [
-      // DoH/DoT is not supported by keen-pbr.
-      // Install dnscrypt-proxy2, AdGuardHome or other resolvers for DoH
-      {
-        "tag": "vpn_dns",
-        "address": "10.8.0.1",
-        "detour": "vpn"
-      },
-      {
-        "tag": "default_dns",
-        "address": "1.1.1.1"
-      }
-    ],
-    "rules": [
-      { // All domains from list "my_sites" will be resolved through vpn_dns DNS server
-        "list": ["my_sites"],
-        "server": "vpn_dns"
-      }
-    ],
-    "fallback": ["default_dns"] // Default upstream DNS servers
   },
   "route": {
     "rules": [

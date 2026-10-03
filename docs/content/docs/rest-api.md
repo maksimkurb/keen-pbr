@@ -69,7 +69,7 @@ By default, the API listens on `0.0.0.0:12121`. All endpoints are served at the 
 
 ## GET /api/health/service
 
-Returns the running daemon version, routing runtime status, and resolver configuration summary.
+Returns the running daemon version and routing runtime status.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/health/service
@@ -81,13 +81,9 @@ curl http://127.0.0.1:12121/api/health/service
 {
   "version": "3.0.0",
   "status": "running",
-  "resolver_config_hash": "a3f7c1d9e2b84560abcdef1234567890",
-  "resolver_config_hash_actual": "a3f7c1d9e2b84560abcdef1234567890",
   "config_is_draft": false
 }
 ```
-
-`resolver_config_hash` is an MD5 hex digest of the expected domain-to-ipset mapping derived from the current config. `resolver_config_hash_actual` reflects the hash of the config that was last applied to the running system resolver. When these two values differ, the dnsmasq config may be out of date.
 
 When interception is configured, the same response includes an `intercept`
 object. It reports `dns_hold_active` and `l7_active` independently, capability

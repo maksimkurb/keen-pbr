@@ -4,7 +4,6 @@ export type PageKey =
   | "lists"
   | "outbounds"
   | "dns-servers"
-  | "dns-rules"
   | "routing-rules"
 
 export type NavItem = {
@@ -29,7 +28,6 @@ export const navItems: NavItem[] = [
     path: "/dns-servers",
     group: "internet",
   },
-  { key: "dns-rules", label: "DNS Rules", path: "/dns-rules", group: "rules" },
   { key: "lists", label: "Lists", path: "/lists", group: "rules" },
   {
     key: "routing-rules",

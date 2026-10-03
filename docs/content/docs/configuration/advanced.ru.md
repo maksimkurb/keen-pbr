@@ -16,7 +16,7 @@ weight: 5
 | `pid_file` | string | — | Путь к PID-файлу |
 | `cache_dir` | string | `/var/cache/keen-pbr` | Каталог для кэшированных данных списков |
 | `firewall_backend` | string | `"auto"` | Бэкенд firewall: `auto`, `iptables` или `nftables` |
-| `clear_dynamic_sets_on_apply` | boolean | `false` | Очищать динамические наборы dnsmasq при полном применении конфигурации или перезапуске runtime. Reconcile в режимах preserve/list-only их не очищает. |
+| `clear_dynamic_sets_on_apply` | boolean | `false` | Очищать динамические наборы, заполняемые по DNS, при полном применении конфигурации или перезапуске runtime. Reconcile в режимах preserve/list-only их не очищает. |
 | `ipset_hashsize` | integer | отсутствует | Необязательный начальный размер хеш-таблицы ipset, создаваемых бэкендом iptables (по умолчанию `1024`). Не действует с nftables. Допустимый диапазон: от 1 до 2147483648. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные адреса. |
 | `ipset_maxelem` | integer | отсутствует | Необязательное максимальное число элементов ipset, создаваемых бэкендом iptables (по умолчанию `65536`). Не действует с nftables. Допустимый диапазон: от 1 до 4294967295. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные адреса. |
 | `reuse_static_sets_on_runtime_refresh` | boolean | `true` | Пересобирать правила без чтения или изменения статических/динамических наборов при SIGUSR1, смене URLTEST/ICMPTEST и состояния интерфейса. Делает применение правил быстрее. При `false` будет всегда перезаполнять списки ipset. |

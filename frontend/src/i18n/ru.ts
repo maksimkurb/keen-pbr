@@ -137,7 +137,6 @@ export const ruTranslation = {
       dnsServers: "DNS-серверы",
       lists: "Списки",
       routingRules: "Правила маршрутизации",
-      dnsRules: "DNS-правила",
     },
   },
   brand: {
@@ -164,20 +163,11 @@ export const ruTranslation = {
       keenRestartRequired: "Несохранённые изменения",
       keenRestartRequiredDescription:
         "Настройки изменены. Примените их для перезапуска keen-pbr.",
-      keenAndDnsmasqRestartRequired: "Конфигурация устарела",
-      keenAndDnsmasqRestartRequiredDescription:
-        "Примените настройки, чтобы синхронизировать keen-pbr и dnsmasq.",
-      dnsmasqRestartRequired: "Конфигурация DNS-сервера устарела",
-      dnsmasqRestartRequiredDescription:
-        "dnsmasq использует устаревший конфиг. Требуется перезапуск.",
-      dnsmasqRestarting: "Перезапуск dnsmasq...",
-      dnsmasqRestartingDescription:
-        "DNS-сервер перезапускается, подождите немного.",
       runtimeReloading: "Перезагрузка keen-pbr...",
       runtimeReloadingDescription: "Текущий этап: {{stage}}",
       runtimeReloadSucceeded: "keen-pbr готов",
       runtimeReloadSucceededDescription:
-        "Маршрутизация и dnsmasq используют ожидаемую конфигурацию.",
+        "Маршрутизация использует ожидаемую конфигурацию.",
       runtimeApplying: "Применение конфигурации keen-pbr...",
       runtimeApplySucceeded: "Конфигурация keen-pbr применена",
       runtimeApplyFailed: "Не удалось применить конфигурацию keen-pbr",
@@ -195,17 +185,9 @@ export const ruTranslation = {
       runtimeReloadFailed: "Не удалось перезагрузить keen-pbr",
       runtimeReloadFailedDescription:
         "Не удалось завершить перезагрузку маршрутизации. Попробуйте применить настройки и перезапустить ещё раз.",
-      dnsmasqUnavailable: "проверка dnsmasq не прошла",
-      dnsmasqUnavailableDescription:
-        "keen-pbr не смог запросить TXT-запись состояния dnsmasq. Если статус не меняется, попробуйте применить и перезапустить.",
-      staleAfterTimeout:
-        "dnsmasq в последний раз перезагружался: {{actualTs}}. Если статус не меняется, перезапустите маршрутизацию.",
     },
     full: {
       unsavedTitle: "Конфигурация не сохранена",
-      staleTitle: "dnsmasq использует устаревший конфиг резолвера",
-      staleDescription:
-        "Ожидаемый хеш резолвера ({{expected}}…) не совпадает с активным хешем dnsmasq ({{actual}}…).",
     },
   },
   lifecycle: {
@@ -215,9 +197,6 @@ export const ruTranslation = {
       reconcile_runtime: "Согласование маршрутизации и межсетевого экрана",
       stop_routing: "Остановка маршрутизации и межсетевого экрана",
       start_routing: "Запуск маршрутизации и межсетевого экрана",
-      reload_dnsmasq: "Перезагрузка dnsmasq",
-      verify_dnsmasq: "Проверка конфигурации dnsmasq",
-      reload_fallback: "Перезагрузка dnsmasq с резервной конфигурацией",
       commit_config: "Сохранение конфигурации",
       restore_config: "Восстановление предыдущей конфигурации",
     },
@@ -232,12 +211,6 @@ export const ruTranslation = {
       version: "Версия",
       router: "Роутер",
       status: "Статус маршрутизации",
-      dnsmasqHealthy: "dnsmasq исправен",
-      dnsmasqWaiting: "dnsmasq перезагружается",
-      dnsmasqStale: "dnsmasq требуется перезапуск",
-      dnsmasqUnavailable: "проверка dnsmasq не прошла",
-      dnsmasqDisabled: "интеграция с dnsmasq отключена",
-      dnsmasqUnknown: "статус dnsmasq неизвестен",
       actions: {
         start: "Запустить",
         stop: "Остановить",
@@ -507,10 +480,10 @@ export const ruTranslation = {
         clearDynamicSetsOnApplyLabel:
           "Очищать изученные адреса доменов при применении",
         clearDynamicSetsOnApplyHint:
-          "Очищать динамические наборы firewall, управляемые dnsmasq, при полном применении конфигурации или перезапуске маршрутизации. Отключите, чтобы сохранять адреса до истечения их TTL.",
+          "Очищать динамические наборы firewall, заполняемые по DNS, при полном применении конфигурации или перезапуске маршрутизации. Отключите, чтобы сохранять адреса до истечения их TTL.",
         ipv6EnabledLabel: "Включить поддержку IPv6",
         ipv6EnabledHint:
-          "Создавать IPv6-наборы firewall и IPv6-цели dnsmasq. Отключите на старых прошивках без поддержки IPv6 netfilter.",
+          "Создавать IPv6-наборы firewall и IPv6-адреса назначения. Отключите на старых прошивках без поддержки IPv6 netfilter.",
         inboundInterfacesLabel: "Входящие интерфейсы",
         inboundInterfacesHint:
           "Policy routing будет применяться только к пакетам, пришедшим через выбранные интерфейсы. Оставьте поле пустым, чтобы обрабатывать трафик с любых интерфейсов.",
@@ -530,28 +503,12 @@ export const ruTranslation = {
         inboundInterfacesMissingDetail:
           "Этот интерфейс сохранён в конфиге, но сейчас отсутствует в живом списке интерфейсов системы.",
       },
-      resolver: {
-        title: "Интеграция с резолвером",
-        description:
-          "Используйте dnsmasq, когда нужны DNS-серверы и правила для списков.",
-        integrationLabel: "Интеграция с резолвером",
-        integrationHint:
-          "None — режим по умолчанию: keen-pbr заполняет динамические наборы через перехват и не изменяет dnsmasq. DNS-серверы и правила доступны в режиме dnsmasq.",
-        options: {
-          none: "None (только перехват)",
-          dnsmasq: "dnsmasq",
-        },
-        addressLabel: "Адрес системного резолвера",
-        addressHint:
-          "Адрес для управления dnsmasq и проверки хэша конфигурации, например 127.0.0.1 или 127.0.0.1:5353.",
-      },
       intercept: {
         title: "Перехват трафика",
         description:
           "Заполняйте динамические наборы из DNS-ответов и TLS, HTTP или QUIC-трафика.",
         enabledLabel: "Включить перехват трафика",
-        enabledHint:
-          "При включении keen-pbr узнаёт назначения без интеграции с dnsmasq.",
+        enabledHint: "При включении keen-pbr узнаёт назначения.",
         minTtlLabel: "Минимальный TTL (секунды)",
         minTtlHint: "Минимальное время элементов в наборах.",
         maxTtlLabel: "Максимальный TTL (секунды)",
@@ -603,10 +560,10 @@ export const ruTranslation = {
           "ID таблицы маршрутизации для первого outbound. Каждый следующий outbound получает следующий ID.",
         ipsetHashsizeLabel: "Размер хеш-таблицы IPSet",
         ipsetHashsizeHint:
-          "Необязательная настройка только для iptables для каждого набора hash:net. Оставьте пустым для значения ipset по умолчанию (1024); с nftables не действует. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные dnsmasq адреса.",
+          "Необязательная настройка только для iptables для каждого набора hash:net. Оставьте пустым для значения ipset по умолчанию (1024); с nftables не действует. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные адреса.",
         ipsetMaxelemLabel: "Максимум элементов IPSet",
         ipsetMaxelemHint:
-          "Необязательная настройка только для iptables для каждого набора hash:net. Оставьте пустым для значения ipset по умолчанию (65536); с nftables не действует. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные dnsmasq адреса.",
+          "Необязательная настройка только для iptables для каждого набора hash:net. Оставьте пустым для значения ipset по умолчанию (65536); с nftables не действует. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные адреса.",
       },
       actions: {
         saving: "Сохранение...",
@@ -646,8 +603,6 @@ export const ruTranslation = {
         items: {
           serverPrefix: "DNS-сервер",
           serverSuffix: "будет удалён.",
-          dnsRule: "DNS-правило #{{number}} будет удалено.",
-          fallback: "Fallback DNS будет изменён.",
         },
       },
       bulk: {
@@ -1048,103 +1003,9 @@ export const ruTranslation = {
           'Outbound "{{outbound}}" ссылается на отсутствующий тег "{{referenced}}".',
       },
     },
-    dnsRules: {
-      title: "DNS-правила",
-      description:
-        "Определяет, какой DNS-сервер используется для доменов из ваших списков.",
-      actions: {
-        add: "Добавить DNS-правило",
-        enableRule: "Включить правило",
-        disableRule: "Выключить правило",
-      },
-      bulk: {
-        selected: "Выбрано: {{count}}",
-        enable: "Включить выбранные",
-        disable: "Выключить выбранные",
-        delete: "Удалить выбранные",
-        confirmDelete: "Удалить {{count}} DNS-правил(о/а)?",
-      },
-      messages: {
-        saved:
-          "Конфигурация DNS сохранена в черновик. Примените новый конфиг, чтобы записать её.",
-      },
-      validation: {
-        invalidFallback:
-          "Основные DNS сервера должны ссылаться на существующие теги серверов.",
-        invalidFallbackChange:
-          "Нельзя изменить fallback, пока DNS-правила невалидны.",
-        invalidResult:
-          "Нельзя сохранить, потому что итоговые DNS-правила невалидны.",
-      },
-      fallback: {
-        title: "Основные DNS сервера",
-        description:
-          "Упорядоченный список DNS-серверов, которые dnsmasq использует, когда ни одно DNS-правило не подходит.",
-        add: "Добавить основной DNS сервер",
-        placeholderTitle: "Основные DNS сервера не выбраны",
-        placeholderDescription:
-          "Добавьте один или несколько DNS-серверов. Их порядок сохраняется и используется в сгенерированном конфиге dnsmasq.",
-        noneDefined: "На странице DNS-серверы не добавлено ни одного сервера.",
-        noneAvailable: "Все DNS-серверы уже выбраны.",
-      },
-      empty: {
-        title: "DNS-правил пока нет",
-        description:
-          "Правил пока нет - добавьте правило, чтобы направлять DNS-запросы по спискам через выбранный сервер.",
-      },
-      headers: {
-        criteria: "Условие",
-        serverTag: "DNS-сервер",
-        allowDomainRebinding: "Разрешение rebind",
-        actions: "Действия",
-      },
-      criteriaLabels: {
-        lists: "Списки",
-      },
-      rebinding: {
-        enabled: "Разрешён",
-        disabled: "Запрещён",
-      },
-    },
     dnsRuleUpsert: {
-      createTitle: "Создать DNS-правило",
-      editTitle: "Изменить DNS-правило",
-      description:
-        "Это правило определяет, какой DNS-сервер использовать для доменов из конкретного списка.",
-      cardDescription: "Укажите имена списков и DNS-сервер для этого правила.",
-      messages: {
-        saved:
-          "DNS-правило сохранено в черновик. Примените новый конфиг, чтобы записать его.",
-      },
       validation: {
-        notFound: "Запрошенное DNS-правило не найдено.",
         fixErrors: "Исправьте ошибки валидации перед сохранением.",
-        serverRequired: "Правило должно ссылаться на существующий DNS-сервер.",
-        listsRequired: "Правило должно содержать хотя бы один список.",
-        unknownLists: "Неизвестные списки: {{lists}}",
-        duplicate: "Дублирующееся правило.",
-      },
-      missing: {
-        cardDescription: "Запрошенное DNS-правило не найдено.",
-        cardTitle: "DNS-правило не найдено",
-        description: "Вернитесь к DNS-правилам и выберите корректную запись.",
-        back: "Назад к DNS-правилам",
-      },
-      actions: { create: "Создать правило", save: "Сохранить правило" },
-      fields: {
-        serverTag: "DNS-сервер",
-        selectServer: "Выберите DNS-сервер",
-        dnsServers: "DNS-серверы",
-        noServers: "На странице DNS-серверы не добавлено ни одного сервера.",
-        listNames: "Списки доменов",
-        allowDomainRebinding: "Разрешить DNS rebind для этих доменов",
-        allowDomainRebindingHint:
-          "Включайте только если вы точно знаете, что этот список доменов указывает на внутренние сервисы. Тогда ответы для подходящих доменов могут содержать внутренние/приватные IP-адреса (например, 192.168.0.0/16, 10.0.0.0/8 и другие диапазоны локальной сети).",
-        listPlaceholderDescription:
-          "Выберите списки для этого правила. Совпадающие домены будут использовать этот DNS-сервер.",
-        noListsSelected: "Списки не выбраны",
-        noLists:
-          "Не найдено ни одного списка. Пожалуйста, сначала создайте его на странице Списки.",
       },
     },
     lists: {
@@ -1183,8 +1044,6 @@ export const ruTranslation = {
           listSuffix: "будет удалён.",
           routeRuleRemoved: "Правило маршрутизации #{{number}} будет удалено.",
           routeRuleUpdated: "Правило маршрутизации #{{number}} будет изменено.",
-          dnsRuleRemoved: "DNS-правило #{{number}} будет удалено.",
-          dnsRuleUpdated: "DNS-правило #{{number}} будет изменено.",
         },
       },
       bulk: {

@@ -9,8 +9,8 @@ aliases:
 
 ## Быстрый порядок диагностики
 
-1. Проверьте системный журнал на ошибки `keen-pbr` и `dnsmasq`.
-2. Проверьте, что сервисы `keen-pbr` и `dnsmasq` запущены.
+1. Проверьте системный журнал на ошибки `keen-pbr`.
+2. Проверьте, что сервисы `keen-pbr` запущены.
 3. Если `keen-pbr` падает при запуске, запустите его вручную в foreground-режиме, чтобы увидеть больше логов: `keen-pbr --log-level verbose service`.
 4. Проверьте DNS: устройство должно использовать DNS роутера, а настроенный резолвер должен отвечать локально.
 5. Проверьте firewall: правила `keen-pbr` должны быть в `KeenPbrTable`.
@@ -20,7 +20,7 @@ aliases:
 
 ## Системный журнал
 
-Это первое место для диагностики. Ищите сообщения `keen-pbr`, `dnsmasq`, а также уровни `[E]` и `[W]`: так `keen-pbr` помечает ошибки и предупреждения. Если не хватает библиотек `iptables` / `nftables`, не найден интерфейс, занят порт API или сломан JSON, причина обычно будет написана именно здесь.
+Это первое место для диагностики. Ищите сообщения `keen-pbr`, а также уровни `[E]` и `[W]`: так `keen-pbr` помечает ошибки и предупреждения. Если не хватает библиотек `iptables` / `nftables`, не найден интерфейс, занят порт API или сломан JSON, причина обычно будет написана именно здесь.
 
 {{< tabs >}}
 {{< tab name="Keenetic / NetCraze" selected=true >}}
@@ -29,23 +29,23 @@ aliases:
 Из консоли можно прочитать журнал так:
 
 ```bash {filename="bash"}
-ndmc -c "show log once" | grep -E 'keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning'
+ndmc -c "show log once" | grep -E 'keen-pbr|\[E\]|\[W\]|error|warn|warning'
 ```
 {{< /tab >}}
 {{< tab name="OpenWrt" >}}
 ```bash {filename="bash"}
-logread | grep -E 'keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning'
+logread | grep -E 'keen-pbr|\[E\]|\[W\]|error|warn|warning'
 ```
 {{< /tab >}}
 {{< tab name="Debian" >}}
 ```bash {filename="bash"}
-journalctl -u keen-pbr -u dnsmasq
+journalctl -u keen-pbr
 ```
 
 Если нужен только текущий запуск:
 
 ```bash {filename="bash"}
-journalctl -u keen-pbr -u dnsmasq -b
+journalctl -u keen-pbr -b
 ```
 {{< /tab >}}
 {{< /tabs >}}
@@ -68,13 +68,9 @@ journalctl -u keen-pbr -u dnsmasq -b
    ```bash {filename="bash"}
    /opt/etc/init.d/S80keen-pbr status
    ```
-4. Проверьте статус `dnsmasq`:
+4. Прочитайте системный журнал:
    ```bash {filename="bash"}
-   /opt/etc/init.d/S56dnsmasq status
-   ```
-5. Прочитайте системный журнал:
-   ```bash {filename="bash"}
-   ndmc -c "show log once" | grep -E 'keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning'
+   ndmc -c "show log once" | grep -E 'keen-pbr|\[E\]|\[W\]|error|warn|warning'
    ```
 {{< /tab >}}
 {{< tab name="OpenWrt" >}}
@@ -90,13 +86,9 @@ journalctl -u keen-pbr -u dnsmasq -b
    ```bash {filename="bash"}
    service keen-pbr status
    ```
-4. Проверьте статус `dnsmasq`:
+4. Прочитайте системный журнал:
    ```bash {filename="bash"}
-   service dnsmasq status
-   ```
-5. Прочитайте системный журнал:
-   ```bash {filename="bash"}
-   logread | grep -E 'keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning'
+   logread | grep -E 'keen-pbr|\[E\]|\[W\]|error|warn|warning'
    ```
 {{< /tab >}}
 {{< tab name="Debian" >}}
@@ -112,13 +104,9 @@ journalctl -u keen-pbr -u dnsmasq -b
    ```bash {filename="bash"}
    systemctl status keen-pbr
    ```
-4. Проверьте статус `dnsmasq`:
+4. Прочитайте системный журнал:
    ```bash {filename="bash"}
-   systemctl status dnsmasq
-   ```
-5. Прочитайте системный журнал:
-   ```bash {filename="bash"}
-   journalctl -u keen-pbr -u dnsmasq -b
+   journalctl -u keen-pbr -b
    ```
 {{< /tab >}}
 {{< /tabs >}}
@@ -193,14 +181,13 @@ jq . /etc/keen-pbr/config.json
 
 Если ожидаемый и фактический outbound различаются, переходите последовательно к разделам DNS, firewall и маршрутизации ниже.
 
-## DNS-перехват и dnsmasq
+## DNS-перехват
 
-При значении `dns.resolver_integration: "none"` (по умолчанию) DNS-ответы
+keen-pbr не настраивает и не требует никакого резолвера: DNS-ответы
 удерживаются в NFQUEUE, а адреса из совпавших списков напрямую записываются в
-динамические наборы; конфигурация keen-pbr для dnsmasq не нужна. Режим
-`dnsmasq` нужен для per-list upstream и даёт fallback через `ipset`/`nftset`,
-если DNS-перехват недоступен. См. [архитектуру DNS-перехвата](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)
-для queue, marker, timeout и capability semantics.
+динамические наборы. См. [архитектуру DNS-перехвата](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)
+для queue, marker, timeout и capability semantics; счётчики перехвата и причины
+capability смотрите в `/api/health/service` (`intercept`).
 
 ### Проверка DNS с устройства пользователя
 
@@ -212,16 +199,17 @@ nslookup check.keen.pbr
 
 Ожидаемый ответ: `127.0.0.88`. Если ответа нет, устройство не использует DNS роутера, резолвер не отвечает или DNS-перехват недоступен.
 
-### Проверка dnsmasq на роутере или сервере
+### Проверка резолвера на роутере
 
-{{< tabs >}}
-{{< tab name="Keenetic / NetCraze" selected=true >}}
+keen-pbr работает с любым резолвером, который использует роутер. Проверьте, что он отвечает локально:
+
 ```bash {filename="bash"}
-/opt/etc/init.d/S56dnsmasq status
 nslookup google.com 127.0.0.1
 ```
 
-Если DNS-запросы клиентов не доходят до Entware `dnsmasq`, проверьте уникальную для Keenetic настройку:
+Если вы видите `Connection refused`, ваш резолвер не запущен или не слушает `127.0.0.1:53`. Проверьте его собственный сервис и журнал (например Entware `dnsmasq` на Keenetic, `dnsmasq` на OpenWrt и Debian или встроенный DNS-прокси Keenetic).
+
+На Keenetic, если DNS-запросы клиентов не доходят до Entware `dnsmasq`, проверьте настройку, специфичную для Keenetic:
 
 ```bash {filename="bash"}
 opkg dns-override
@@ -232,131 +220,23 @@ opkg dns-override
 ```bash {filename="bash"}
 system configuration save
 ```
-{{< /tab >}}
-{{< tab name="OpenWrt" >}}
-```bash {filename="bash"}
-service dnsmasq status
-nslookup google.com 127.0.0.1
-```
 
-Для резервного пути через dnsmasq нужен `dnsmasq-full`; при прямом DNS-перехвате
-этот пакет не требуется. Если в логах есть ошибки про неподдерживаемые `ipset`
-или `nftset`, проверьте установленный пакет:
-
-```bash {filename="bash"}
-opkg list-installed | grep dnsmasq
-```
-{{< /tab >}}
-{{< tab name="Debian" >}}
-```bash {filename="bash"}
-systemctl status dnsmasq
-nslookup google.com 127.0.0.1
-```
-
-Если `systemctl` недоступен, используйте:
-
-```bash {filename="bash"}
-service dnsmasq status
-```
-{{< /tab >}}
-{{< /tabs >}}
-
-Ожидаемо, `nslookup <домен> 127.0.0.1` возвращает IP-адреса. Если видите `Connection refused`, `dnsmasq` не запущен или слушает не на `127.0.0.1:53`.
-
-### Проверка сгенерированного resolver config
-
-Эта проверка относится только к `dns.resolver_integration: "dnsmasq"`. При
-значении `none` проверяйте `/api/health/service` и счётчики перехвата.
-
-Выберите backend, который используется на вашей системе.
-
-{{< tabs >}}
-{{< tab name="iptables / ipset" selected=true >}}
-```bash {filename="bash"}
-keen-pbr generate-resolver-config dnsmasq-ipset
-```
-
-Ожидаемо, вывод содержит директивы вида `ipset=/example.com/<set>`.
-{{< /tab >}}
-{{< tab name="nftables / nftset" >}}
-```bash {filename="bash"}
-keen-pbr generate-resolver-config dnsmasq-nftset
-```
-
-Ожидаемо, вывод содержит директивы вида `nftset=/example.com/...`.
-{{< /tab >}}
-{{< /tabs >}}
-
-Команда не должна завершаться ошибкой. Если она пишет, что кэш удалённого списка отсутствует, выполните:
-
-```bash {filename="bash"}
-keen-pbr download
-```
-
-{{% details title="Если DNS-правила не работают" closed="true" %}}
-1. Убедитесь, что имя списка в `dns.rules` точно совпадает с именем списка в `lists`.
-2. Убедитесь, что DNS-правило указывает на правильный тег DNS-сервера.
-3. Если DNS-сервер использует `detour`, убедитесь, что выбранный outbound работает.
-4. В режиме `dnsmasq` убедитесь, что конфигурация dnsmasq подключает generated config через `conf-file=` или `conf-script=`.
-5. Перезапустите `keen-pbr` и `dnsmasq`, затем снова проверьте логи.
+{{% details title="После обновления с интеграции dnsmasq" closed="true" %}}
+Старые версии управляли dnsmasq. При обновлении пакет удаляет hook `conf-script` keen-pbr и возвращает ваши upstream-серверы; см. заметки об обновлении в разделе [DNS]({{< relref "/docs/configuration/dns" >}}). На Keenetic в `/opt/etc/dnsmasq.conf` мог быть добавлен блок `# BEGIN keen-pbr fallback upstream`: проверьте его. Если dnsmasq не запускается, убедитесь, что в его конфигурации не осталось строки `conf-script=...keen-pbr...`.
 {{% /details %}}
 
 ## Веб-сайты не открываются: `DNS_PROBE_FINISHED_NXDOMAIN` / `ERR_NAME_NOT_RESOLVED`
 
-1. Если `dns.resolver_integration` равен `dnsmasq`, убедитесь, что `dns.fallback` настроен и указывает как минимум на один рабочий тег DNS-сервера. При `none` проверьте резолвер, которым пользуются клиенты.
-2. Убедитесь, что fallback DNS-сервер достижим с роутера или сервера. Если этот DNS-сервер использует `detour`, проверьте выбранный outbound.
-3. Убедитесь, что устройство пользователя использует DNS роутера.
-4. Перезапустите `keen-pbr` после изменения DNS-конфигурации.
+keen-pbr не разрешает имена для клиентов, поэтому проверьте резолвер, которым пользуются клиенты.
 
-Пример:
-
-```json { filename="config.json" }
-{
-  "dns": {
-    "servers": [
-      {
-        "tag": "default_dns",
-        "address": "1.1.1.1"
-      }
-    ],
-    "fallback": ["default_dns"]
-  }
-}
-```
-
-Без `dns.fallback` домены, которые не соответствуют ни одной записи `dns.rules`,
-могут не разрешиться в режиме `dnsmasq`; при прямом перехвате это поле не используется.
+1. Убедитесь, что устройство пользователя использует DNS роутера.
+2. Убедитесь, что у резолвера роутера есть рабочие upstream-серверы и он может до них достучаться.
+3. Проверьте с роутера: `nslookup google.com 127.0.0.1`.
+4. Если запись в `dns.servers` использует `detour`, проверьте выбранный outbound.
 
 ## Веб-сайты не открываются: `DNS_PROBE_FINISHED_BAD_CONFIG`
 
-В режиме `dnsmasq` это обычно означает, что dnsmasq не запущен или не смог
-применить конфигурацию. В режиме `none` проверьте системный резолвер и причины
-capability в health для `intercept`.
-
-1. Проверьте логи `dnsmasq`.
-2. Проверьте статус `dnsmasq`.
-3. Если вы недавно меняли DNS-настройки, перезапустите `keen-pbr` и `dnsmasq`.
-
-{{< tabs >}}
-{{< tab name="Keenetic / NetCraze" selected=true >}}
-```bash {filename="bash"}
-ndmc -c "show log once" | grep dnsmasq
-/opt/etc/init.d/S56dnsmasq status
-```
-{{< /tab >}}
-{{< tab name="OpenWrt" >}}
-```bash {filename="bash"}
-logread | grep dnsmasq
-service dnsmasq status
-```
-{{< /tab >}}
-{{< tab name="Debian" >}}
-```bash {filename="bash"}
-journalctl -u dnsmasq -b
-systemctl status dnsmasq
-```
-{{< /tab >}}
-{{< /tabs >}}
+Обычно это означает, что резолвер не запущен или не смог применить конфигурацию. Проверьте сервис и журнал резолвера на вашей платформе (например Entware `dnsmasq` на Keenetic, `dnsmasq` на OpenWrt и Debian) и причины capability для `intercept` в `/api/health/service`.
 
 ## Firewall и `KeenPbrTable`
 

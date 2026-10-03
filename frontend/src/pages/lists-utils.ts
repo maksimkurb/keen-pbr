@@ -2,9 +2,7 @@ import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { RouteRule } from "@/api/generated/model/routeRule"
 
 export type ListDeleteImpact = {
-  dnsRuleIndexes: number[]
   routeRuleIndexes: number[]
-  removedDnsRuleIndexes: number[]
   removedRouteRuleIndexes: number[]
 }
 
@@ -24,9 +22,7 @@ export function getListDeleteImpact(
   listIds: Iterable<string>
 ): ListDeleteImpact {
   const listIdSet = new Set(listIds)
-  const dnsRuleIndexes: number[] = []
   const routeRuleIndexes: number[] = []
-  const removedDnsRuleIndexes: number[] = []
   const removedRouteRuleIndexes: number[] = []
 
   for (const [index, rule] of (config.route?.rules ?? []).entries()) {
@@ -46,22 +42,8 @@ export function getListDeleteImpact(
     }
   }
 
-  for (const [index, rule] of (config.dns?.rules ?? []).entries()) {
-    const afterLists = rule.list.filter((name) => !listIdSet.has(name))
-
-    if (afterLists.length !== rule.list.length) {
-      dnsRuleIndexes.push(index)
-    }
-
-    if (rule.list.length > 0 && afterLists.length === 0) {
-      removedDnsRuleIndexes.push(index)
-    }
-  }
-
   return {
-    dnsRuleIndexes,
     routeRuleIndexes,
-    removedDnsRuleIndexes,
     removedRouteRuleIndexes,
   }
 }
@@ -76,15 +58,13 @@ export function buildUpdatedConfigForListsDelete(
   )
 }
 
-export function listDeletesAltersRoutingOrDnsRefs(
+export function listDeletesAltersRoutingRefs(
   before: ConfigObject,
   after: ConfigObject
 ) {
   return (
     JSON.stringify(before.route?.rules ?? []) !==
-      JSON.stringify(after.route?.rules ?? []) ||
-    JSON.stringify(before.dns?.rules ?? []) !==
-      JSON.stringify(after.dns?.rules ?? [])
+      JSON.stringify(after.route?.rules ?? [])
   )
 }
 
@@ -109,15 +89,6 @@ export function buildUpdatedConfigForListDelete(
           (rule) =>
             rule.list.length > 0 || hasRouteMatchConditionExceptLists(rule)
         ),
-    },
-    dns: {
-      ...config.dns,
-      rules: (config.dns?.rules ?? [])
-        .map((rule) => ({
-          ...rule,
-          list: rule.list.filter((name) => name !== listId),
-        }))
-        .filter((rule) => rule.list.length > 0),
     },
   }
 }

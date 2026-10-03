@@ -106,7 +106,7 @@ Model: Sonnet.
 Set names are built and recognised by string prefixes in many places:
 
 - `"kpbr4_" + list` / `"kpbr4d_" + list`: `src/config/routing_state.cpp:785-788`,
-  `src/dns/dnsmasq_gen.hpp:64-67`, `src/firewall/firewall.hpp:179-184`,
+  `src/firewall/firewall.hpp:179-184`,
   `src/firewall/rules/route_targets.cpp:14`.
 - "Is it dynamic?" via `rfind("kpbr4d_")`: `src/firewall/nftables.cpp:205`,
   `src/firewall/iptables.cpp:222`.
@@ -126,8 +126,6 @@ spread across 6+ files.
   backends check `ref.kind == dynamic` instead of prefixes.
 - The parser is used only where kernel output is read (cleanup, RulesOnly
   preflight).
-- `dnsmasq_gen.hpp` only switches to the formatter (dnsmasq is slated for
-  removal; no further investment there).
 
 ### Acceptance
 

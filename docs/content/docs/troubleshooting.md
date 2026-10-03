@@ -9,8 +9,8 @@ Start with logs and service status, then move to DNS, firewall, routing tables, 
 
 ## Quick Diagnostic Order
 
-1. Check the system log for `keen-pbr` and `dnsmasq` errors.
-2. Check that the `keen-pbr` and `dnsmasq` services are running.
+1. Check the system log for `keen-pbr` errors.
+2. Check that the `keen-pbr` services are running.
 3. If `keen-pbr` crashes during startup, run it manually in foreground mode to see more logs: `keen-pbr --log-level verbose service`.
 4. Check DNS: the user device must use the router DNS; the configured resolver must answer locally.
 5. Check the firewall: `keen-pbr` rules must be present in `KeenPbrTable`.
@@ -20,7 +20,7 @@ Start with logs and service status, then move to DNS, firewall, routing tables, 
 
 ## System Log
 
-This is the first place to look. Search for `keen-pbr`, `dnsmasq`, and the `[E]` / `[W]` levels: `keen-pbr` uses those prefixes for errors and warnings. If libraries for `iptables` / `nftables` are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.
+This is the first place to look. Search for `keen-pbr` and the `[E]` / `[W]` levels: `keen-pbr` uses those prefixes for errors and warnings. If libraries for `iptables` / `nftables` are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.
 
 {{< tabs >}}
 {{< tab name="Keenetic / NetCraze" selected=true >}}
@@ -29,23 +29,23 @@ In the Keenetic Web UI, open **Diagnostics** -> **System log**.
 From the console, read the log like this:
 
 ```bash {filename="bash"}
-ndmc -c "show log once" | grep -E 'keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning'
+ndmc -c "show log once" | grep -E 'keen-pbr|\[E\]|\[W\]|error|warn|warning'
 ```
 {{< /tab >}}
 {{< tab name="OpenWrt" >}}
 ```bash {filename="bash"}
-logread | grep -E 'keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning'
+logread | grep -E 'keen-pbr|\[E\]|\[W\]|error|warn|warning'
 ```
 {{< /tab >}}
 {{< tab name="Debian" >}}
 ```bash {filename="bash"}
-journalctl -u keen-pbr -u dnsmasq
+journalctl -u keen-pbr
 ```
 
 If you only need the current boot:
 
 ```bash {filename="bash"}
-journalctl -u keen-pbr -u dnsmasq -b
+journalctl -u keen-pbr -b
 ```
 {{< /tab >}}
 {{< /tabs >}}
@@ -68,13 +68,9 @@ In this scenario, do not start by editing the config blindly. Check status first
    ```bash {filename="bash"}
    /opt/etc/init.d/S80keen-pbr status
    ```
-4. Check `dnsmasq` status:
+4. Read the system log:
    ```bash {filename="bash"}
-   /opt/etc/init.d/S56dnsmasq status
-   ```
-5. Read the system log:
-   ```bash {filename="bash"}
-   ndmc -c "show log once" | grep -E 'keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning'
+   ndmc -c "show log once" | grep -E 'keen-pbr|\[E\]|\[W\]|error|warn|warning'
    ```
 {{< /tab >}}
 {{< tab name="OpenWrt" >}}
@@ -90,13 +86,9 @@ In this scenario, do not start by editing the config blindly. Check status first
    ```bash {filename="bash"}
    service keen-pbr status
    ```
-4. Check `dnsmasq` status:
+4. Read the system log:
    ```bash {filename="bash"}
-   service dnsmasq status
-   ```
-5. Read the system log:
-   ```bash {filename="bash"}
-   logread | grep -E 'keen-pbr|dnsmasq|\[E\]|\[W\]|error|warn|warning'
+   logread | grep -E 'keen-pbr|\[E\]|\[W\]|error|warn|warning'
    ```
 {{< /tab >}}
 {{< tab name="Debian" >}}
@@ -112,13 +104,9 @@ In this scenario, do not start by editing the config blindly. Check status first
    ```bash {filename="bash"}
    systemctl status keen-pbr
    ```
-4. Check `dnsmasq` status:
+4. Read the system log:
    ```bash {filename="bash"}
-   systemctl status dnsmasq
-   ```
-5. Read the system log:
-   ```bash {filename="bash"}
-   journalctl -u keen-pbr -u dnsmasq -b
+   journalctl -u keen-pbr -b
    ```
 {{< /tab >}}
 {{< /tabs >}}
@@ -193,14 +181,14 @@ jq . /etc/keen-pbr/config.json
 
 If the expected and actual outbounds differ, continue through the DNS, firewall, and routing sections below.
 
-## DNS interception and dnsmasq
+## DNS interception
 
-With the default `dns.resolver_integration: "none"`, DNS responses are held in
-NFQUEUE and matching addresses are written directly to dynamic sets; dnsmasq
-does not need a keen-pbr configuration. The optional `dnsmasq` mode is needed
-for per-list upstreams and supplies `ipset`/`nftset` fallback when DNS
-interception is unavailable. Check [DNS and L7 interception](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)
-for queue, marker, timeout, and capability semantics.
+keen-pbr does not configure or require any resolver: DNS responses are held in
+NFQUEUE and matching addresses are written directly to dynamic sets. Check
+[DNS and L7 interception](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)
+for queue, marker, timeout, and capability semantics, and inspect
+`/api/health/service` (`intercept`) for the interception counters and
+capability reasons.
 
 ### Check DNS From the User Device
 
@@ -212,16 +200,17 @@ nslookup check.keen.pbr
 
 Expected response: `127.0.0.88`. If there is no response, the device is not using the router DNS, the resolver is not answering, or DNS interception is unavailable.
 
-### Check dnsmasq on the Router or Server
+### Check the Router Resolver
 
-{{< tabs >}}
-{{< tab name="Keenetic / NetCraze" selected=true >}}
+keen-pbr works with whatever resolver the router uses. Check that it answers locally:
+
 ```bash {filename="bash"}
-/opt/etc/init.d/S56dnsmasq status
 nslookup google.com 127.0.0.1
 ```
 
-If client DNS requests do not reach Entware `dnsmasq`, check the Keenetic-only setting:
+If you see `Connection refused`, your resolver is not running or is not listening on `127.0.0.1:53`. Check its own service and log (for example Entware `dnsmasq` on Keenetic, `dnsmasq` on OpenWrt or Debian, or the built-in Keenetic DNS proxy).
+
+On Keenetic, if client DNS requests do not reach Entware `dnsmasq`, check the Keenetic-only setting:
 
 ```bash {filename="bash"}
 opkg dns-override
@@ -232,132 +221,23 @@ After changing it, save the Keenetic configuration:
 ```bash {filename="bash"}
 system configuration save
 ```
-{{< /tab >}}
-{{< tab name="OpenWrt" >}}
-```bash {filename="bash"}
-service dnsmasq status
-nslookup google.com 127.0.0.1
-```
 
-The optional dnsmasq fallback needs `dnsmasq-full`. With direct DNS interception
-this package is not required. If logs contain errors about unsupported `ipset`
-/ `nftset`, check the installed package:
-
-```bash {filename="bash"}
-opkg list-installed | grep dnsmasq
-```
-{{< /tab >}}
-{{< tab name="Debian" >}}
-```bash {filename="bash"}
-systemctl status dnsmasq
-nslookup google.com 127.0.0.1
-```
-
-If `systemctl` is not available, use:
-
-```bash {filename="bash"}
-service dnsmasq status
-```
-{{< /tab >}}
-{{< /tabs >}}
-
-Expected result: `nslookup <domain> 127.0.0.1` returns IP addresses. If you see `Connection refused`, `dnsmasq` is not running or is not listening on `127.0.0.1:53`.
-
-### Check the Generated Resolver Config
-
-This check applies only when `dns.resolver_integration` is `dnsmasq`. With the
-default `none`, inspect `/api/health/service` and the interception counters
-instead.
-
-Choose the backend used on your system.
-
-{{< tabs >}}
-{{< tab name="iptables / ipset" selected=true >}}
-```bash {filename="bash"}
-keen-pbr generate-resolver-config dnsmasq-ipset
-```
-
-Expected output contains directives like `ipset=/example.com/<set>`.
-{{< /tab >}}
-{{< tab name="nftables / nftset" >}}
-```bash {filename="bash"}
-keen-pbr generate-resolver-config dnsmasq-nftset
-```
-
-Expected output contains directives like `nftset=/example.com/...`.
-{{< /tab >}}
-{{< /tabs >}}
-
-The command should not exit with an error. If it says the remote list cache is missing, run:
-
-```bash {filename="bash"}
-keen-pbr download
-```
-
-{{% details title="If DNS rules do not work" closed="true" %}}
-1. Make sure the list name in `dns.rules` exactly matches the list name in `lists`.
-2. Make sure the DNS rule points to the correct DNS server tag.
-3. If the DNS server uses `detour`, make sure the selected outbound works.
-4. In `dnsmasq` mode, make sure the dnsmasq config includes the generated config through `conf-file=` or `conf-script=`.
-5. Restart `keen-pbr` and `dnsmasq`, then check logs again.
+{{% details title="After upgrading from the dnsmasq integration" closed="true" %}}
+Older versions managed dnsmasq. The package upgrade removes the keen-pbr `conf-script` hook and restores your upstream servers; see the upgrade notes in [DNS]({{< relref "/docs/configuration/dns" >}}). On Keenetic, a block marked `# BEGIN keen-pbr fallback upstream` may have been added to `/opt/etc/dnsmasq.conf`: review it. If dnsmasq refuses to start, check that no `conf-script=...keen-pbr...` line is left in its configuration.
 {{% /details %}}
 
 ## Websites Are Not Opening: `DNS_PROBE_FINISHED_NXDOMAIN` / `ERR_NAME_NOT_RESOLVED`
 
-1. If `dns.resolver_integration` is `dnsmasq`, make sure `dns.fallback` is configured and points to at least one working DNS server tag. With `none`, check the resolver used by the clients instead.
-2. Make sure the fallback DNS server is reachable from the router or server. If that DNS server uses `detour`, check the selected outbound.
-3. Make sure the user device is using the router DNS.
-4. Restart `keen-pbr` after changing DNS configuration.
+keen-pbr does not resolve names for clients, so check the resolver the clients use.
 
-Example:
-
-```json { filename="config.json" }
-{
-  "dns": {
-    "servers": [
-      {
-        "tag": "default_dns",
-        "address": "1.1.1.1"
-      }
-    ],
-    "fallback": ["default_dns"]
-  }
-}
-```
-
-Without `dns.fallback`, domains that do not match any `dns.rules` entry may fail
-to resolve in `dnsmasq` mode; it is not used by direct interception mode.
+1. Make sure the user device is using the router DNS.
+2. Make sure the router resolver has working upstream servers and can reach them.
+3. Test it from the router: `nslookup google.com 127.0.0.1`.
+4. If a `dns.servers` entry uses `detour`, check the selected outbound.
 
 ## Websites Are Not Opening: `DNS_PROBE_FINISHED_BAD_CONFIG`
 
-In `dnsmasq` mode this usually means dnsmasq is not running or failed to apply
-its configuration. In `none` mode, inspect the configured system resolver and
-the `intercept` health capability reasons instead.
-
-1. Check `dnsmasq` logs.
-2. Check `dnsmasq` status.
-3. If you recently changed DNS settings, restart `keen-pbr` and `dnsmasq`.
-
-{{< tabs >}}
-{{< tab name="Keenetic / NetCraze" selected=true >}}
-```bash {filename="bash"}
-ndmc -c "show log once" | grep dnsmasq
-/opt/etc/init.d/S56dnsmasq status
-```
-{{< /tab >}}
-{{< tab name="OpenWrt" >}}
-```bash {filename="bash"}
-logread | grep dnsmasq
-service dnsmasq status
-```
-{{< /tab >}}
-{{< tab name="Debian" >}}
-```bash {filename="bash"}
-journalctl -u dnsmasq -b
-systemctl status dnsmasq
-```
-{{< /tab >}}
-{{< /tabs >}}
+This usually means the resolver is not running or failed to apply its configuration. Check the resolver service and log on your platform (for example Entware `dnsmasq` on Keenetic, `dnsmasq` on OpenWrt and Debian), and the `intercept` capability reasons in `/api/health/service`.
 
 ## Firewall and `KeenPbrTable`
 

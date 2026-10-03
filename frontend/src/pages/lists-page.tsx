@@ -16,7 +16,6 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { ConfigStateResponseListRefreshState } from "@/api/generated/model/configStateResponseListRefreshState"
-import type { DnsRule } from "@/api/generated/model/dnsRule"
 import type { RouteRule } from "@/api/generated/model/routeRule"
 import {
   useConfigMutationPending,
@@ -538,29 +537,6 @@ function getListDeleteImpactItems(
     })
   }
 
-  for (const index of impact.removedDnsRuleIndexes) {
-    const rule = config?.dns?.rules?.[index]
-    items.push({
-      label: t("pages.lists.deleteDialog.items.dnsRuleRemoved", {
-        number: index + 1,
-      }),
-      details: getDnsRuleDetails(rule, deletedListIds, true, t),
-    })
-  }
-
-  for (const index of impact.dnsRuleIndexes) {
-    if (impact.removedDnsRuleIndexes.includes(index)) {
-      continue
-    }
-    const rule = config?.dns?.rules?.[index]
-    items.push({
-      label: t("pages.lists.deleteDialog.items.dnsRuleUpdated", {
-        number: index + 1,
-      }),
-      details: getDnsRuleDetails(rule, deletedListIds, false, t),
-    })
-  }
-
   return items
 }
 
@@ -621,29 +597,6 @@ function getRouteRuleDetails(
   )
 
   return details
-}
-
-function getDnsRuleDetails(
-  rule: DnsRule | undefined,
-  deletedListIds: ReadonlySet<string>,
-  isRemoved: boolean,
-  t: (key: string, options?: Record<string, unknown>) => string
-) {
-  if (!rule) {
-    return []
-  }
-
-  const afterLists = rule.list.filter((name) => !deletedListIds.has(name))
-
-  return [
-    formatDetail(
-      t("pages.dnsRules.criteriaLabels.lists"),
-      isRemoved
-        ? formatListValue(rule.list, t)
-        : formatTransition(rule.list, afterLists, t)
-    ),
-    formatDetail(t("pages.dnsRules.headers.serverTag"), rule.server),
-  ]
 }
 
 function appendOptionalDetail(

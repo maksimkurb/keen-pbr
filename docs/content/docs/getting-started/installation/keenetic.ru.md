@@ -38,7 +38,7 @@ keen-pbr можно установить на роутерах Keenetic / NetCra
 2. Выберите "**Keenetic / NetCraze**" в селекторе ОС слева, затем выберите версию "**current**" и архитектуру, соответствующую вашему роутеру.
     - Подсказка: в SSH-сессии можно выполнить `opkg print-architecture`, чтобы узнать архитектуру роутера.
 3. Внимательно следуйте инструкциям на странице репозитория шаг за шагом.
-4. Когда вы выполните команду `opkg install keen-pbr`, скрипт установки попросит подтвердить замену файла `dnsmasq`. Если вы не уверены, нажмите <kbd>y</kbd>, а затем <kbd>Enter</kbd>.
+4. Выполните команду `opkg install keen-pbr`.
     - Пример команды установки:
       ```bash {filename="bash"}
       opkg install keen-pbr
@@ -127,7 +127,6 @@ KEEN_PBR_RAW_PREROUTING="disable"
 | Запустить сервис | `/opt/etc/init.d/S80keen-pbr start` |
 | Перезапустить сервис | `/opt/etc/init.d/S80keen-pbr restart` |
 | Проверить, что **keen-pbr** работает | `/opt/etc/init.d/S80keen-pbr status` |
-| Проверить, что **dnsmasq** работает | `/opt/etc/init.d/S56dnsmasq status` |
 
 {{< callout type="info" >}}
 Если вы не планируете использовать Web UI или API keen-pbr, рассмотрите установку пакета `keen-pbr-headless`.
@@ -139,3 +138,13 @@ KEEN_PBR_RAW_PREROUTING="disable"
 Перейдите на страницу [Быстрый старт]({{< relref "/docs/getting-started/quick-start" >}}) и используйте вкладку **Web UI** для самой простой первоначальной настройки. Если вы установили версию `headless`, вместо этого откройте вкладку **JSON / CLI**.
 
 {{% /steps %}}
+
+## Обновление с интеграции dnsmasq
+
+Старые версии keen-pbr добавляли в `/opt/etc/dnsmasq.conf` управляемый блок со строкой `conf-script`. Интеграция удалена; при обновлении (и удалении) пакета `/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh` выполняет очистку:
+
+- управляемый блок keen-pbr (и одиночная строка `conf-script`) удаляется из `/opt/etc/dnsmasq.conf`; исходный файл один раз сохраняется как `/opt/etc/dnsmasq.conf.keen-pbr.bak`;
+- если в файле не осталось строк `server=`, в конец добавляется помеченный блок `# BEGIN keen-pbr fallback upstream` с резервными серверами из пакета, чтобы dnsmasq продолжал разрешать имена. **Проверьте его** или замените своим upstream;
+- dnsmasq перезапускается один раз. Повторный запуск скрипта ничего не меняет.
+
+Вместо этого можно удалить Entware dnsmasq и использовать встроенный DNS-прокси Keenetic (ndnproxy): keen-pbr не требует конкретного резолвера.
