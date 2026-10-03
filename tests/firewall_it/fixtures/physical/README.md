@@ -11,3 +11,9 @@ with `iptables-save`, `iptables -S`, `nft -j list table inet KeenPbrTable` and
 hand-made rules with the stock tools to show how the kernel prints them back.
 Because the nft-backed iptables has no `/proc/net/ip_tables_matches`, the
 capture test forces the comment capability on, as it is on legacy iptables.
+
+`*_intercept*` fixtures hold the capture plan plus the DNS hold / L7 sniff rules
+(`iptables_intercept_mangle_v4_foreign.*` has foreign rules inserted in front of
+the pinned jumps). The same scenario also re-applies in place and disables the
+interception for real, and fails the capture if a jump is not first again or a
+chain is left behind.

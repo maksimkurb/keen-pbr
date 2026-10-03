@@ -51,6 +51,51 @@ scenario nftables "$run_case
   nft add rule inet KeenPbrTable prerouting ip daddr 198.51.100.7 drop comment '\"not ours\"'
   nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_foreign.json\""
 
+# DNS hold + L7 sniff on top of the capture plan (mangle layout).  Also
+# exercises the lifecycle for real: a foreign rule pushes our pinned jump down,
+# an in-place re-apply must put it back at position 1, and an apply without the
+# interception rules must remove its chains and jumps (foreign rules stay).
+scenario iptables_intercept "$run_case
+  iptables-save -t mangle >\"\$KPBR_OUT/iptables_intercept_mangle_v4.save\"
+  ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_intercept_mangle_v6.save\"
+  iptables -t mangle -S >\"\$KPBR_OUT/iptables_intercept_mangle_v4.rules\"
+  # Foreign rules: in front of our jumps (position 1) and behind them.
+  iptables -t mangle -I POSTROUTING 1 -j ACCEPT
+  iptables -t mangle -I FORWARD 1 -p icmp -j ACCEPT
+  iptables -t mangle -I OUTPUT 1 -o eth9 -j ACCEPT
+  iptables -t mangle -A POSTROUTING -o eth8 -j ACCEPT
+  iptables-save -t mangle >\"\$KPBR_OUT/iptables_intercept_mangle_v4_foreign.save\"
+  iptables -t mangle -S >\"\$KPBR_OUT/iptables_intercept_mangle_v4_foreign.rules\"
+  # Repair in place: each pinned jump is exactly once, first again.
+  KPBR_CAPTURE_SCENARIO=iptables_intercept_repair \"\$KPBR_TEST_BIN\" -tc=\"physical fixture capture*\" >/dev/null
+  first() { iptables -t mangle -S \"\$1\" | sed -n 2p; }
+  [ \"\$(first POSTROUTING)\" = '-A POSTROUTING -j KeenPbrDnsHold' ]
+  [ \"\$(first FORWARD)\" = '-A FORWARD -j KeenPbrSniff' ]
+  [ \"\$(first OUTPUT)\" = '-A OUTPUT -j KeenPbrSniff' ]
+  [ \"\$(iptables -t mangle -S | grep -c -e '-j KeenPbrDnsHold\$' -e '-j KeenPbrSniff\$')\" = 3 ]
+  iptables -t mangle -S POSTROUTING | grep -qx -e '-A POSTROUTING -j ACCEPT'
+  iptables -t mangle -S POSTROUTING | grep -qx -e '-A POSTROUTING -o eth8 -j ACCEPT'
+  # Interception disabled: chains and jumps go, foreign rules stay.
+  KPBR_CAPTURE_SCENARIO=iptables_plain_repair \"\$KPBR_TEST_BIN\" -tc=\"physical fixture capture*\" >/dev/null
+  for ipt in iptables ip6tables; do
+    if \$ipt -t mangle -S | grep -q -e KeenPbrDnsHold -e KeenPbrSniff; then
+      echo 'interception chains left behind' >&2; exit 1
+    fi
+  done
+  iptables -t mangle -S POSTROUTING | grep -qx -e '-A POSTROUTING -j ACCEPT'
+  iptables -t mangle -S FORWARD | grep -qx -e '-A FORWARD -p icmp -j ACCEPT'"
+
+scenario nft_intercept "$run_case
+  nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_intercept.json\"
+  nft list table inet KeenPbrTable >\"\$KPBR_OUT/nft_intercept.nft\"
+  # In-place re-apply converges to the same table; disabling removes the chains.
+  KPBR_CAPTURE_SCENARIO=nft_intercept_repair \"\$KPBR_TEST_BIN\" -tc=\"physical fixture capture*\" >/dev/null
+  nft list table inet KeenPbrTable | diff - \"\$KPBR_OUT/nft_intercept.nft\"
+  KPBR_CAPTURE_SCENARIO=nft_plain_repair \"\$KPBR_TEST_BIN\" -tc=\"physical fixture capture*\" >/dev/null
+  if nft list table inet KeenPbrTable | grep -q -e dns_hold -e sniff_; then
+    echo 'interception chains left behind' >&2; exit 1
+  fi"
+
 # Representative zoo of kernel spellings (one rule per interesting form), added
 # with the stock tools so the dump shows exactly how iptables-save / nft -j
 # print them back.

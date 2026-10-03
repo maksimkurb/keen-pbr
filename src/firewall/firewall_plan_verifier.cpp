@@ -102,6 +102,13 @@ struct MatchDescriber {
     std::string operator()(const CtDirMatch& m) const {
         return m.original ? "ct-dir=original" : "ct-dir=reply";
     }
+    std::string operator()(const ConnbytesMatch& m) const {
+        const char* dir = m.dir == ConnbytesDir::original
+            ? "original" : (m.dir == ConnbytesDir::reply ? "reply" : "both");
+        const char* mode = m.mode == ConnbytesMode::packets ? "packets" : "bytes";
+        return keen_pbr3::format("connbytes {} {}-{} ({})", dir, m.from, m.to,
+                                 mode);
+    }
     std::string operator()(const UnknownMatch& m) const {
         return "unknown(" + m.text + ")";
     }
@@ -134,6 +141,14 @@ struct StatementDescriber {
         case PhysicalVerdict::return_: return "return";
         }
         return "?";
+    }
+    std::string operator()(const QueueStmt& s) const {
+        return keen_pbr3::format("nfqueue {}{}", s.num,
+                                 s.bypass ? " bypass" : "");
+    }
+    std::string operator()(const LogStmt& s) const {
+        return keen_pbr3::format("nflog group {} snaplen {} threshold {}",
+                                 s.group, s.snaplen, s.threshold);
     }
     std::string operator()(const VmapStmt& s) const {
         std::string entries;
@@ -171,14 +186,22 @@ std::string describe_rule(const PhysicalRule& rule) {
         result += ' ';
         result += describe_statement(statement);
     }
+    if (rule.hook_position.has_value()) {
+        result += keen_pbr3::format(" (position {})", *rule.hook_position);
+    }
     return result;
 }
 
 std::string describe_base(const std::optional<PhysicalBaseChain>& base) {
     if (!base.has_value()) return "none";
-    const char* hook = base->hook == PhysicalBaseChain::Hook::prerouting
-        ? "prerouting"
-        : (base->hook == PhysicalBaseChain::Hook::output ? "output" : "other");
+    const char* hook = "other";
+    switch (base->hook) {
+    case PhysicalBaseChain::Hook::prerouting: hook = "prerouting"; break;
+    case PhysicalBaseChain::Hook::output: hook = "output"; break;
+    case PhysicalBaseChain::Hook::forward: hook = "forward"; break;
+    case PhysicalBaseChain::Hook::postrouting: hook = "postrouting"; break;
+    case PhysicalBaseChain::Hook::other: break;
+    }
     const char* type = base->type == PhysicalBaseChain::Type::filter
         ? "filter"
         : (base->type == PhysicalBaseChain::Type::route ? "route" : "other");
@@ -236,6 +259,8 @@ std::string action_name(const FirewallRuleAction& action) {
     if (std::holds_alternative<SkipMarkedPacketsAction>(action)) {
         return "skip_marked_packets";
     }
+    if (std::holds_alternative<QueueAction>(action)) return "queue";
+    if (std::holds_alternative<LogAction>(action)) return "log";
     return "inbound_interface";
 }
 

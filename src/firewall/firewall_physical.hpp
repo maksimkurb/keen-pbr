@@ -54,9 +54,15 @@ enum class PhysicalChainRole : uint8_t {
   // iptables: classification chain hooked from mangle OUTPUT
   // (KeenPbrOutput, in both raw and mangle modes).
   iptables_output,
+  // iptables: dedicated interception chains in mangle.
+  iptables_dns_hold,
+  iptables_sniff,
   // nft: base chain `prerouting` / `output` of the keen-pbr table.
   nft_prerouting,
   nft_output,
+  nft_dns_hold,
+  nft_sniff_forward,
+  nft_sniff_output,
   // nft: balance/ct-restore setter chain `setmark_XXXXXXXX`.
   nft_setter,
   // Builtin chain of a system table.  Only hook rules (jumps into keen-pbr
@@ -186,6 +192,18 @@ struct CtDirMatch {
   bool operator==(const CtDirMatch &o) const { return original == o.original; }
 };
 
+enum class ConnbytesDir : uint8_t { original, reply, both };
+enum class ConnbytesMode : uint8_t { packets, bytes };
+struct ConnbytesMatch {
+  ConnbytesDir dir{ConnbytesDir::original};
+  ConnbytesMode mode{ConnbytesMode::packets};
+  uint64_t from{0};
+  uint64_t to{0};
+  bool operator==(const ConnbytesMatch &o) const {
+    return dir == o.dir && mode == o.mode && from == o.from && to == o.to;
+  }
+};
+
 // Anything the parser could not translate.  Never equal to a lowered match.
 struct UnknownMatch {
   std::string text;
@@ -194,7 +212,8 @@ struct UnknownMatch {
 
 using PhysicalMatch =
     std::variant<SetMatch, AddrMatch, ProtoMatch, PortMatch, DscpMatch,
-                 IifMatch, MarkMatch, CtStateMatch, CtDirMatch, UnknownMatch>;
+                 IifMatch, MarkMatch, CtStateMatch, CtDirMatch, ConnbytesMatch,
+                 UnknownMatch>;
 
 // ---------------------------------------------------------------------------
 // Statements
@@ -235,6 +254,23 @@ struct VerdictStmt {
   bool operator==(const VerdictStmt &o) const { return verdict == o.verdict; }
 };
 
+struct QueueStmt {
+  uint16_t num{0};
+  bool bypass{false};
+  bool operator==(const QueueStmt &o) const {
+    return num == o.num && bypass == o.bypass;
+  }
+};
+
+struct LogStmt {
+  uint16_t group{0};
+  uint16_t snaplen{0};
+  uint32_t threshold{1};
+  bool operator==(const LogStmt &o) const {
+    return group == o.group && snaplen == o.snaplen && threshold == o.threshold;
+  }
+};
+
 // nft `<key> vmap { k : jump chain, ... }`.
 enum class PhysicalVmapKey : uint8_t {
   numgen_inc,         // numgen inc mod `param`
@@ -263,8 +299,8 @@ struct LateMatchStmt {
 };
 
 using PhysicalStatement =
-    std::variant<SetMarkStmt, CopyMarkStmt, JumpStmt, VerdictStmt, VmapStmt,
-                 UnknownStmt, LateMatchStmt>;
+    std::variant<SetMarkStmt, CopyMarkStmt, JumpStmt, VerdictStmt, QueueStmt,
+                 LogStmt, VmapStmt, UnknownStmt, LateMatchStmt>;
 
 // ---------------------------------------------------------------------------
 // Rules, chains, ruleset
@@ -287,11 +323,19 @@ struct PhysicalRule {
   // physical rule was produced from, so a verifier can attribute a difference
   // without comments.  Diagnostics only, ignored by operator==.
   uint32_t plan_rule{kNoPlanRule};
+  // System-chain jumps into the interception chains only (KeenPbrDnsHold,
+  // KeenPbrSniff): 0-based index of the rule among ALL rules of the builtin
+  // chain, foreign rules included.  Those jumps must be the first rule of the
+  // builtin chain (`-I <CHAIN> 1`), so the expected side carries 0 and the
+  // parser records the observed index.  nullopt for every other rule (the
+  // classification hooks are appended and their position is not tracked).
+  std::optional<uint32_t> hook_position;
 
   // Ignores `key` and `plan_rule`.
   bool operator==(const PhysicalRule &other) const {
     return family == other.family && matches == other.matches &&
-           statements == other.statements;
+           statements == other.statements &&
+           hook_position == other.hook_position;
   }
   bool operator!=(const PhysicalRule &other) const { return !(*this == other); }
 };
@@ -299,7 +343,7 @@ struct PhysicalRule {
 // nft base-chain attributes (the nft equivalent of an iptables hook rule).
 struct PhysicalBaseChain {
   enum class Type : uint8_t { filter, route, other };
-  enum class Hook : uint8_t { prerouting, output, other };
+  enum class Hook : uint8_t { prerouting, output, forward, postrouting, other };
   Type type{Type::filter};
   Hook hook{Hook::prerouting};
   int32_t priority{0};

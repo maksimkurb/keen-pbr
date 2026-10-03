@@ -1,0 +1,93 @@
+table inet KeenPbrTable {
+	set kpbr4_hybrid {
+		type ipv4_addr
+		flags interval
+		auto-merge
+	}
+
+	set kpbr4d_routed {
+		type ipv4_addr
+		timeout 5m
+	}
+
+	set kpbr6_hybrid {
+		type ipv6_addr
+		flags interval
+		auto-merge
+	}
+
+	chain prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+		ct direction original ct mark & 0x00ff0000 != 0x00000000 ct mark & 0x00ff0000 vmap { 0x00010000 : jump setmark_00010000, 0x00020000 : jump setmark_00020000, 0x00040000 : jump setmark_00040000 } ct mark & 0x00ff0000 == { 0x00010000, 0x00020000, 0x00040000 } accept comment "kpbr:v1:prefilter.restore_conntrack_mark:9a8c6f9a29c8dccb68b5fc837b14b28a"
+		ct status dnat counter packets 0 bytes 0 accept comment "kpbr:v1:prefilter.skip_established_or_dnat:5471913d40f7b3f7a06c6bc473b005f9"
+		meta mark != 0x00000000 counter packets 0 bytes 0 accept comment "kpbr:v1:prefilter.skip_marked_packets:1ccccb565711f69789e5aaea40026738"
+		iifname != { "br-guest", "lan0" } counter packets 0 bytes 0 accept comment "kpbr:v1:prefilter.inbound_interface_filter:8162b5ecab9ca5e73deaf622224213dd"
+		ip daddr @kpbr4_hybrid tcp dport 443 counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:f07ef83f847846c4de79471f383975ed"
+		ip6 daddr @kpbr6_hybrid tcp dport 443 counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:a1e906a68b81169ee48b0b7115422956"
+		ip daddr @kpbr4_hybrid ip saddr != 10.0.0.0/8 udp dport 53 counter packets 0 bytes 0 drop comment "kpbr:v1:route.drop:ecc69e963ee0c72b1e6f0c1ac985e8cc"
+		ip daddr { 8.8.8.8, 9.9.9.9 } udp dport 53 counter packets 0 bytes 0 accept comment "kpbr:v1:route.pass:e3f0527ebeac6f9772a69111225cf3a6"
+		th sport 1111 counter packets 0 bytes 0 jump setmark_00020000 comment "kpbr:v1:route.mark:24affc9fd3cdfffe14572779355f1678"
+		ip saddr 192.168.1.0/24 tcp dport != 443 counter packets 0 bytes 0 drop comment "kpbr:v1:route.drop:eb7bbbea566738a6420a41405f3dbcd4"
+		ip6 daddr 2001:db8:53::53 udp dport 53 counter packets 0 bytes 0 jump setmark_00020000 comment "kpbr:v1:route.mark:2d4bc94200ea2daa37bd91553cf71cb8"
+		ip dscp ef tcp dport { 80, 443, 8000-9000 } counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:cad10a85368f136efb032833e20c621f"
+		ip dscp af11 ip saddr 192.0.2.0/24 counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:55a87f5b6839858fabe6dd831888aa90"
+		tcp sport 1024-65535 tcp dport 22 counter packets 0 bytes 0 jump setmark_00020000 comment "kpbr:v1:route.mark:a543d3367252acc316c69ecc567e6bcf"
+		ip daddr != { 10.0.0.0/8, 192.168.0.0/16 } counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:a17f8448a12a7b56b2f456f76a360f00"
+		ip6 daddr != fd00::/8 counter packets 0 bytes 0 jump setmark_00020000 comment "kpbr:v1:route.mark:4f6c6790a5be251a7e19dfd6630031d8"
+		ip daddr @kpbr4_hybrid meta l4proto udp meta mark & 0x00ff0000 == 0x00000000 counter packets 0 bytes 0 numgen inc mod 2 vmap { 0 : jump setmark_00010000, 1 : jump setmark_00020000 } accept comment "kpbr:v1:route.balance:4a7045354776473b80a90771284649fe"
+		meta nfproto ipv6 tcp dport 8443 meta mark & 0x00ff0000 == 0x00000000 counter packets 0 bytes 0 numgen inc mod 3 vmap { 0 : jump setmark_00010000, 1 : jump setmark_00020000, 2 : jump setmark_00040000 } accept comment "kpbr:v1:route.balance:c036194542e5f8e4dda4f573d5cad223"
+	}
+
+	chain output {
+		type route hook output priority mangle; policy accept;
+		ct direction original ct mark & 0x00ff0000 != 0x00000000 ct mark & 0x00ff0000 vmap { 0x00010000 : jump setmark_00010000, 0x00020000 : jump setmark_00020000, 0x00040000 : jump setmark_00040000 } ct mark & 0x00ff0000 == { 0x00010000, 0x00020000, 0x00040000 } accept comment "kpbr:v1:prefilter.restore_conntrack_mark:9a8c6f9a29c8dccb68b5fc837b14b28a"
+		ct status dnat counter packets 0 bytes 0 accept comment "kpbr:v1:prefilter.skip_established_or_dnat:5471913d40f7b3f7a06c6bc473b005f9"
+		meta mark != 0x00000000 counter packets 0 bytes 0 accept comment "kpbr:v1:prefilter.skip_marked_packets:1ccccb565711f69789e5aaea40026738"
+		ip daddr @kpbr4_hybrid tcp dport 443 counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:f07ef83f847846c4de79471f383975ed"
+		ip6 daddr @kpbr6_hybrid tcp dport 443 counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:a1e906a68b81169ee48b0b7115422956"
+		ip daddr @kpbr4_hybrid ip saddr != 10.0.0.0/8 udp dport 53 counter packets 0 bytes 0 drop comment "kpbr:v1:route.drop:ecc69e963ee0c72b1e6f0c1ac985e8cc"
+		ip daddr { 8.8.8.8, 9.9.9.9 } udp dport 53 counter packets 0 bytes 0 accept comment "kpbr:v1:route.pass:e3f0527ebeac6f9772a69111225cf3a6"
+		th sport 1111 counter packets 0 bytes 0 jump setmark_00020000 comment "kpbr:v1:route.mark:24affc9fd3cdfffe14572779355f1678"
+		ip saddr 192.168.1.0/24 tcp dport != 443 counter packets 0 bytes 0 drop comment "kpbr:v1:route.drop:eb7bbbea566738a6420a41405f3dbcd4"
+		ip6 daddr 2001:db8:53::53 udp dport 53 counter packets 0 bytes 0 jump setmark_00020000 comment "kpbr:v1:route.mark:2d4bc94200ea2daa37bd91553cf71cb8"
+		ip dscp ef tcp dport { 80, 443, 8000-9000 } counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:cad10a85368f136efb032833e20c621f"
+		ip dscp af11 ip saddr 192.0.2.0/24 counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:55a87f5b6839858fabe6dd831888aa90"
+		tcp sport 1024-65535 tcp dport 22 counter packets 0 bytes 0 jump setmark_00020000 comment "kpbr:v1:route.mark:a543d3367252acc316c69ecc567e6bcf"
+		ip daddr @kpbr4d_routed counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:cddcb8d7569e0d14efd45c34b081d542"
+		ip daddr @kpbr4_hybrid counter packets 0 bytes 0 drop comment "kpbr:v1:route.drop:47c7580b6e3b5b208ce412ca875c3b1b"
+		ip daddr != { 10.0.0.0/8, 192.168.0.0/16 } counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:a17f8448a12a7b56b2f456f76a360f00"
+		ip6 daddr != fd00::/8 counter packets 0 bytes 0 jump setmark_00020000 comment "kpbr:v1:route.mark:4f6c6790a5be251a7e19dfd6630031d8"
+		ip daddr @kpbr4_hybrid meta l4proto udp meta mark & 0x00ff0000 == 0x00000000 counter packets 0 bytes 0 numgen inc mod 2 vmap { 0 : jump setmark_00010000, 1 : jump setmark_00020000 } accept comment "kpbr:v1:route.balance:4a7045354776473b80a90771284649fe"
+		meta nfproto ipv6 tcp dport 8443 meta mark & 0x00ff0000 == 0x00000000 counter packets 0 bytes 0 numgen inc mod 3 vmap { 0 : jump setmark_00010000, 1 : jump setmark_00020000, 2 : jump setmark_00040000 } accept comment "kpbr:v1:route.balance:c036194542e5f8e4dda4f573d5cad223"
+	}
+
+	chain dns_hold {
+		type filter hook postrouting priority mangle; policy accept;
+		udp sport 53 ct state established ct direction reply counter packets 0 bytes 0 queue flags bypass to 9053 comment "kpbr:v1:dns.intercept_hold:udp"
+		tcp sport 53 ct state established ct direction reply counter packets 0 bytes 0 queue flags bypass to 9053 comment "kpbr:v1:dns.intercept_hold:tcp"
+	}
+
+	chain sniff_fwd {
+		type filter hook forward priority mangle; policy accept;
+		tcp dport { 80, 443 } ct original packets 1-6 counter packets 0 bytes 0 log group 9054 snaplen 2048 comment "kpbr:v1:l7.sniff:tcp.forward"
+		udp dport 443 ct original packets 1-6 counter packets 0 bytes 0 log group 9054 snaplen 2048 comment "kpbr:v1:l7.sniff:udp.forward"
+	}
+
+	chain sniff_out {
+		type filter hook output priority mangle; policy accept;
+		tcp dport { 80, 443 } ct original packets 1-6 counter packets 0 bytes 0 log group 9054 snaplen 2048 comment "kpbr:v1:l7.sniff:tcp.output"
+		udp dport 443 ct original packets 1-6 counter packets 0 bytes 0 log group 9054 snaplen 2048 comment "kpbr:v1:l7.sniff:udp.output"
+	}
+
+	chain setmark_00010000 {
+		meta mark set meta mark & 0xff01ffff | 0x00010000 ct mark set ct mark & 0xff01ffff | 0x00010000 accept
+	}
+
+	chain setmark_00020000 {
+		meta mark set meta mark & 0xff02ffff | 0x00020000 ct mark set ct mark & 0xff02ffff | 0x00020000 accept
+	}
+
+	chain setmark_00040000 {
+		meta mark set meta mark & 0xff04ffff | 0x00040000 ct mark set ct mark & 0xff04ffff | 0x00040000 accept
+	}
+}

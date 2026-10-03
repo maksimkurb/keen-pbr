@@ -16,6 +16,20 @@
 
 namespace keen_pbr3 {
 
+// Optional traffic interception (DNS response hold, L7 sniffing).  Both
+// groups are off unless explicitly enabled.
+struct InterceptFirewallSettings {
+  bool dns_hold{false};
+  uint16_t queue_num{9053};
+  bool l7_sniff{false};
+  uint16_t nflog_group{9054};
+  bool tls{true};
+  bool http{true};
+  bool quic{true};
+  uint8_t max_packets{6};
+  uint16_t snaplen{2048};
+};
+
 // Immutable inputs shared by route rule modules. It deliberately contains
 // data views only; backend mutation happens when the complete plan is applied.
 struct FirewallBuildContext {
@@ -31,6 +45,8 @@ struct FirewallBuildContext {
   const FirewallBalanceCandidates* balance_candidates{nullptr};
   const Config* config{nullptr};
   const OutboundMarkMap* outbound_marks{nullptr};
+  // nullopt: no interception rules are planned.
+  std::optional<InterceptFirewallSettings> intercept;
 };
 
 // One physical route selector target before an action is attached.
@@ -74,6 +90,10 @@ void register_skip_marked_packets_rules(const FirewallBuildContext& context,
                                         FirewallRuleRegistrar& registrar);
 void register_inbound_interface_filter_rules(
     const FirewallBuildContext& context, FirewallRuleRegistrar& registrar);
+void register_intercept_dns_hold_rules(const FirewallBuildContext& context,
+                                       FirewallRuleRegistrar& registrar);
+void register_intercept_l7_sniff_rules(const FirewallBuildContext& context,
+                                       FirewallRuleRegistrar& registrar);
 
 using RouteRuleModuleRegistration =
     void (*)(const FirewallBuildContext&, FirewallRuleRegistrar&);

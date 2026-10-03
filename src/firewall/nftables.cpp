@@ -183,6 +183,36 @@ nlohmann::json NftablesFirewall::build_output_chain_json() {
     }}}}};
 }
 
+nlohmann::json NftablesFirewall::build_base_chain_json(
+    const PhysicalChainId& id, const PhysicalBaseChain& base) {
+    const char* hook = "prerouting";
+    switch (base.hook) {
+    case PhysicalBaseChain::Hook::prerouting: hook = "prerouting"; break;
+    case PhysicalBaseChain::Hook::output: hook = "output"; break;
+    case PhysicalBaseChain::Hook::forward: hook = "forward"; break;
+    case PhysicalBaseChain::Hook::postrouting: hook = "postrouting"; break;
+    case PhysicalBaseChain::Hook::other:
+        throw FirewallError("nft base chain has an unsupported hook");
+    }
+    return {{"add", {{"chain", {
+        {"family", "inet"}, {"table", TABLE_NAME}, {"name", id.name},
+        {"type", base.type == PhysicalBaseChain::Type::route ? "route" : "filter"},
+        {"hook", hook}, {"prio", base.priority},
+        {"policy", base.policy_accept ? "accept" : "drop"}
+    }}}}};
+}
+
+nlohmann::json NftablesFirewall::build_delete_named_chain_json(
+    const std::string& name) {
+    return {{"delete", {{"chain", {
+        {"family", "inet"}, {"table", TABLE_NAME}, {"name", name}
+    }}}}};
+}
+
+bool NftablesFirewall::is_intercept_chain_name(const std::string& name) {
+    return name == "dns_hold" || name == "sniff_fwd" || name == "sniff_out";
+}
+
 nlohmann::json NftablesFirewall::build_delete_chain_json() {
     return {{"delete", {{"chain", {
         {"family", "inet"},
@@ -368,6 +398,19 @@ void append_match_exprs(json& expr, const PhysicalMatch& match,
                                   dir->original ? 0 : 1));
     } else if (const auto* state = std::get_if<CtStateMatch>(&match)) {
         append_ct_state_exprs(expr, *state);
+    } else if (const auto* bytes = std::get_if<ConnbytesMatch>(&match)) {
+        json ct = {{"key", bytes->mode == ConnbytesMode::bytes ? "bytes"
+                                                               : "packets"}};
+        if (bytes->dir != ConnbytesDir::both) {
+            ct["dir"] = bytes->dir == ConnbytesDir::original ? "original"
+                                                             : "reply";
+        }
+        // nft prints `ct original packets 1-6` back as one == against a range.
+        json right = bytes->from == bytes->to
+            ? json(bytes->from)
+            : json{{"range", json::array({bytes->from, bytes->to})}};
+        expr.push_back(match_expr("==", {{"ct", std::move(ct)}},
+                                  std::move(right)));
     } else if (const auto* mark = std::get_if<MarkMatch>(&match)) {
         expr.push_back(mark_match_expr(*mark, late && !mark->negate));
     } else {
@@ -386,6 +429,7 @@ int nft_match_rank(const PhysicalMatch& match) {
     if (std::holds_alternative<PortMatch>(match)) return 4;
     if (std::holds_alternative<IifMatch>(match)) return 5;
     if (std::holds_alternative<CtDirMatch>(match)) return 6;
+    if (std::holds_alternative<CtStateMatch>(match)) return 6;
     if (std::holds_alternative<MarkMatch>(match)) return 7;
     return 8;
 }
@@ -418,6 +462,17 @@ void append_statement_exprs(json& expr, const PhysicalStatement& statement,
         case PhysicalVerdict::drop: expr.push_back({{"drop", nullptr}}); break;
         case PhysicalVerdict::return_: expr.push_back({{"return", nullptr}}); break;
         }
+    } else if (const auto* queue = std::get_if<QueueStmt>(&statement)) {
+        json body = {{"num", queue->num}};
+        if (queue->bypass) body["flags"] = json::array({"bypass"});
+        expr.push_back({{"queue", std::move(body)}});
+    } else if (const auto* log = std::get_if<LogStmt>(&statement)) {
+        // NFLOG form: group, optional snaplen and queue threshold (kernel
+        // default 1 is not written).
+        json body = {{"group", log->group}};
+        if (log->snaplen != 0) body["snaplen"] = log->snaplen;
+        if (log->threshold != 1) body["queue-threshold"] = log->threshold;
+        expr.push_back({{"log", std::move(body)}});
     } else if (const auto* vmap = std::get_if<VmapStmt>(&statement)) {
         json key = vmap->key == PhysicalVmapKey::numgen_inc
             ? json{{"numgen", {{"mode", "inc"}, {"mod", vmap->param}}}}
@@ -556,7 +611,9 @@ NftablesFirewall::LiveTableState NftablesFirewall::read_live_table_state() const
             } else if (chain.value("family", "") == "inet"
                        && chain.value("table", "") == TABLE_NAME) {
                 const std::string name = chain.value("name", "");
-                if (name.rfind("setmark_", 0) == 0) {
+                if (is_intercept_chain_name(name)) {
+                    state.intercept_chains.insert(name);
+                } else if (name.rfind("setmark_", 0) == 0) {
                     try {
                         state.setter_chain_marks.insert(static_cast<uint32_t>(
                             std::stoul(name.substr(8), nullptr, 16)));
@@ -657,8 +714,24 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
         for (const uint32_t mark : live_state.setter_chain_marks) {
             arr.push_back(build_delete_setter_chain_json(mark));
         }
+        // Interception base chains are replaced like the classification
+        // ones; a live one the plan no longer carries is just removed.
+        if (!emit_full_table) {
+            for (const auto& name : live_state.intercept_chains) {
+                arr.push_back(build_delete_named_chain_json(name));
+            }
+        }
         arr.push_back(build_chain_json());
         arr.push_back(build_output_chain_json());
+        for (const auto role : {PhysicalChainRole::nft_dns_hold,
+                                PhysicalChainRole::nft_sniff_forward,
+                                PhysicalChainRole::nft_sniff_output}) {
+            for (const auto& chain : pending_ruleset_.chains) {
+                if (chain.id.role == role && chain.base.has_value()) {
+                    arr.push_back(build_base_chain_json(chain.id, *chain.base));
+                }
+            }
+        }
 
         // Setter chains must exist before the rules that jump to them.
         for (const auto& chain : pending_ruleset_.chains) {
@@ -673,7 +746,10 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
 
         // Rules, in chain order and plan order inside each chain.
         for (const auto role : {PhysicalChainRole::nft_prerouting,
-                                PhysicalChainRole::nft_output}) {
+                                PhysicalChainRole::nft_output,
+                                PhysicalChainRole::nft_dns_hold,
+                                PhysicalChainRole::nft_sniff_forward,
+                                PhysicalChainRole::nft_sniff_output}) {
             for (const auto& chain : pending_ruleset_.chains) {
                 if (chain.id.role != role) {
                     continue;

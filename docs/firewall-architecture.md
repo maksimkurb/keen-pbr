@@ -46,7 +46,7 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   `family`, `criteria`, `action` (a `std::variant` of `MarkAction`,
   `BalanceAction`, `VerdictAction`, `RestoreConntrackMarkAction`,
   `SkipEstablishedOrDnatAction`, `SkipMarkedPacketsAction`,
-  `InboundInterfaceFilterAction`).
+  `InboundInterfaceFilterAction`, `QueueAction`, `LogAction`).
 - **`FirewallPlan`**: ordered rules, `sets` (`FirewallSetDeclaration`),
   `referenced_list_names`, `fwmark_mask`. Built by `build_firewall_plan()`
   (`firewall_runtime.cpp`) by running the module manifest.
@@ -118,6 +118,20 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   referenced. Leftover legacy chains classify as `other_owned` and are reported
   by the verifier until the next apply removes them.
   `Firewall::expected_hook_rules()` returns the expected builtin-chain jumps.
+- **Interception** (`QueueAction` = DNS hold, `LogAction` = L7 sniff; hooks
+  `postrouting` / `forward` + `output`; both groups are off unless
+  `FirewallBuildContext::intercept` enables them) never enters the
+  classification chains and ignores raw mode and the prefilters. iptables:
+  mangle chains `KeenPbrDnsHold` (jumped from POSTROUTING) and `KeenPbrSniff`
+  (one chain for FORWARD and OUTPUT, so the plan's forward and output copies of
+  a sniff rule lower to one physical rule). These jumps are *pinned*: inserted
+  with `-I <CHAIN> 1`, repaired by delete + re-insert, and removed (hook, flush,
+  delete) as soon as the plan no longer carries the chain. The parser records
+  the index of such a jump among ALL rules of the builtin chain
+  (`PhysicalRule::hook_position`, foreign rules counted but never captured);
+  the expected side carries 0, so a jump that is not first is plain drift.
+  nftables: base chains `dns_hold` (postrouting), `sniff_fwd` (forward) and
+  `sniff_out` (output), priority -150, present only when non-empty; no jumps.
 - **nftables** replaces the whole `inet KeenPbrTable` content in one batch;
   balance uses `numgen inc mod N` + `vmap` into `setmark_XXXXXXXX` chains.
   Balancing is nft-only; iptables rejects it at lowering time.

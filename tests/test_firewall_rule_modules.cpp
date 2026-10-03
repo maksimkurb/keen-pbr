@@ -268,6 +268,8 @@ TEST_CASE("route module manifest is iterable without a manual count") {
       register_route_pass_rules,
       register_route_balance_rules,
       register_dns_detour_rules,
+      register_intercept_dns_hold_rules,
+      register_intercept_l7_sniff_rules,
   };
   CHECK(modules == expected);
 }
@@ -782,6 +784,186 @@ TEST_CASE("IPv6 default gateway keeps both list families but emits IPv6 rules") 
     CHECK(rule.criteria.proto == L4Proto::TcpUdp);
     CHECK(rule.criteria.dst_port == PortSpec("443"));
   }
+}
+
+// ---------------------------------------------------------------------------
+// Interception modules (DNS hold, L7 sniff): off unless explicitly enabled
+// ---------------------------------------------------------------------------
+
+namespace {
+
+FirewallPlan intercept_plan(const ModuleFixture& fixture,
+                            RouteRuleModuleRegistration module,
+                            const InterceptFirewallSettings& settings) {
+  auto context = fixture.context();
+  context.intercept = settings;
+  return build_plan_with(module, context);
+}
+
+std::vector<std::string> sniff_instances(const FirewallPlan& plan) {
+  std::vector<std::string> ids;
+  for (const auto& rule : plan.rules) ids.push_back(rule.key.instance_id);
+  return ids;
+}
+
+} // namespace
+
+TEST_CASE("interception modules plan nothing without settings") {
+  const ModuleFixture fixture;
+  CHECK(build_module_plan(register_intercept_dns_hold_rules, fixture).rules.empty());
+  CHECK(build_module_plan(register_intercept_l7_sniff_rules, fixture).rules.empty());
+  // Present but both groups off.
+  CHECK(intercept_plan(fixture, register_intercept_dns_hold_rules, {}).rules.empty());
+  CHECK(intercept_plan(fixture, register_intercept_l7_sniff_rules, {}).rules.empty());
+  // Each module honors only its own switch.
+  InterceptFirewallSettings sniff_only;
+  sniff_only.l7_sniff = true;
+  CHECK(intercept_plan(fixture, register_intercept_dns_hold_rules, sniff_only)
+            .rules.empty());
+  InterceptFirewallSettings dns_only;
+  dns_only.dns_hold = true;
+  CHECK(intercept_plan(fixture, register_intercept_l7_sniff_rules, dns_only)
+            .rules.empty());
+  // The whole manifest adds nothing for a default context.
+  FirewallPlan plan;
+  FirewallRuleRegistrar registrar(plan);
+  const auto context = fixture.context();
+  for (const auto register_module : route_rule_module_manifest()) {
+    register_module(context, registrar);
+  }
+  for (const auto& rule : plan.rules) {
+    CHECK(rule.key.module_id != "dns.intercept_hold");
+    CHECK(rule.key.module_id != "l7.sniff");
+  }
+}
+
+TEST_CASE("dns.intercept_hold queues UDP and TCP responses at postrouting") {
+  const ModuleFixture fixture;
+  InterceptFirewallSettings settings;
+  settings.dns_hold = true;
+  settings.queue_num = 4242;
+  const auto plan =
+      intercept_plan(fixture, register_intercept_dns_hold_rules, settings);
+  REQUIRE(plan.rules.size() == 2);
+  const L4Proto protocols[] = {L4Proto::Udp, L4Proto::Tcp};
+  for (std::size_t i = 0; i < 2; ++i) {
+    const auto& rule = plan.rules[i];
+    CHECK(rule.key.module_id == "dns.intercept_hold");
+    CHECK(rule.stage == FirewallRuleStage::interception);
+    CHECK(rule.hook == FirewallHook::postrouting);
+    CHECK(rule.family == FirewallFamily::any);
+    CHECK(rule.criteria.proto == protocols[i]);
+    CHECK(rule.criteria.src_port == PortSpec("53"));
+    CHECK(rule.criteria.dst_port.empty());
+    CHECK(rule.criteria.ct_established_reply);
+    CHECK_FALSE(rule.criteria.connbytes_original_packets.has_value());
+    CHECK(std::get<QueueAction>(rule.action) == QueueAction{4242, true});
+  }
+  CHECK(plan.rules[0].key != plan.rules[1].key);
+}
+
+TEST_CASE("l7.sniff copies the first packets of new flows at forward and output") {
+  const ModuleFixture fixture;
+  InterceptFirewallSettings settings;
+  settings.l7_sniff = true;
+  settings.nflog_group = 77;
+  settings.snaplen = 1500;
+  settings.max_packets = 4;
+
+  SUBCASE("all protocols") {
+    const auto plan =
+        intercept_plan(fixture, register_intercept_l7_sniff_rules, settings);
+    CHECK(sniff_instances(plan) ==
+          std::vector<std::string>{"tcp.forward", "udp.forward", "tcp.output",
+                                   "udp.output"});
+    for (const auto& rule : plan.rules) {
+      CHECK(rule.key.module_id == "l7.sniff");
+      CHECK(rule.stage == FirewallRuleStage::interception);
+      CHECK(rule.family == FirewallFamily::any);
+      CHECK(rule.criteria.src_port.empty());
+      CHECK_FALSE(rule.criteria.ct_established_reply);
+      CHECK(rule.criteria.connbytes_original_packets->from == 1);
+      CHECK(rule.criteria.connbytes_original_packets->to == 4);
+      CHECK(std::get<LogAction>(rule.action) == LogAction{77, 1500});
+    }
+    CHECK(plan.rules[0].hook == FirewallHook::forward);
+    CHECK(plan.rules[0].criteria.proto == L4Proto::Tcp);
+    CHECK(plan.rules[0].criteria.dst_port == PortSpec("80,443"));
+    CHECK(plan.rules[1].criteria.proto == L4Proto::Udp);
+    CHECK(plan.rules[1].criteria.dst_port == PortSpec("443"));
+    CHECK(plan.rules[2].hook == FirewallHook::output);
+    CHECK(plan.rules[3].hook == FirewallHook::output);
+  }
+  SUBCASE("http disabled drops port 80") {
+    settings.http = false;
+    const auto plan =
+        intercept_plan(fixture, register_intercept_l7_sniff_rules, settings);
+    REQUIRE(plan.rules.size() == 4);
+    CHECK(plan.rules[0].criteria.dst_port == PortSpec("443"));
+  }
+  SUBCASE("tls disabled drops 443/tcp") {
+    settings.tls = false;
+    const auto plan =
+        intercept_plan(fixture, register_intercept_l7_sniff_rules, settings);
+    REQUIRE(plan.rules.size() == 4);
+    CHECK(plan.rules[0].criteria.dst_port == PortSpec("80"));
+    CHECK(plan.rules[1].criteria.proto == L4Proto::Udp);
+  }
+  SUBCASE("quic disabled drops the UDP rule") {
+    settings.quic = false;
+    const auto plan =
+        intercept_plan(fixture, register_intercept_l7_sniff_rules, settings);
+    CHECK(sniff_instances(plan) ==
+          std::vector<std::string>{"tcp.forward", "tcp.output"});
+  }
+  SUBCASE("only quic") {
+    settings.tls = false;
+    settings.http = false;
+    const auto plan =
+        intercept_plan(fixture, register_intercept_l7_sniff_rules, settings);
+    CHECK(sniff_instances(plan) ==
+          std::vector<std::string>{"udp.forward", "udp.output"});
+  }
+  SUBCASE("nothing to sniff") {
+    settings.tls = settings.http = settings.quic = false;
+    CHECK(intercept_plan(fixture, register_intercept_l7_sniff_rules, settings)
+              .rules.empty());
+  }
+}
+
+TEST_CASE("build_firewall_plan carries the interception settings") {
+  const ModuleFixture fixture;
+  const std::map<std::string, ListSetUsage> usage;
+  const std::vector<DumpedRoute> main_routes;
+  const std::vector<DumpedInterface> interfaces;
+  const auto count_of = [](const FirewallPlan& plan, const char* module) {
+    return std::count_if(plan.rules.begin(), plan.rules.end(),
+                         [&](const FirewallRuleInstance& rule) {
+                           return rule.key.module_id == module;
+                         });
+  };
+  FirewallPlanBuildInputs inputs{fixture.config, fixture.marks, usage,
+                                 main_routes,    interfaces,    nullptr,
+                                 true,           0xFFFFFFFFU,   FirewallBackend::nftables};
+  const auto without = build_firewall_plan(inputs);
+  CHECK(count_of(without, "dns.intercept_hold") == 0);
+  CHECK(count_of(without, "l7.sniff") == 0);
+
+  inputs.intercept = InterceptFirewallSettings{};
+  inputs.intercept->dns_hold = true;
+  inputs.intercept->l7_sniff = true;
+  const auto with = build_firewall_plan(inputs);
+  CHECK(count_of(with, "dns.intercept_hold") == 2);
+  CHECK(count_of(with, "l7.sniff") == 4);
+  // Interception rules sort after every classification rule, and the other
+  // rules are exactly the ones planned without them.
+  CHECK(with.rules.size() == without.rules.size() + 6);
+  for (std::size_t i = 0; i < without.rules.size(); ++i) {
+    CHECK(with.rules[i].key == without.rules[i].key);
+  }
+  // Both validate for every backend.
+  CHECK_NOTHROW(validate_firewall_plan_backend(with, FirewallBackend::nftables));
+  CHECK_NOTHROW(validate_firewall_plan_backend(with, FirewallBackend::iptables));
 }
 
 } // namespace keen_pbr3

@@ -27,6 +27,12 @@
 // inbound-interface prefilter and its multi-interface fragments only to
 // PREROUTING; restore-conntrack and DNAT skip need conntrack (not in raw).
 //
+// Interception (QueueAction / LogAction) never enters the classification
+// chains and ignores raw mode: iptables KeenPbrDnsHold (hook postrouting) and
+// KeenPbrSniff (hooks forward and output, one shared chain, equal rules not
+// repeated) in mangle per enabled family; nft base chains dns_hold,
+// sniff_fwd and sniff_out of the keen-pbr table, present only when non-empty.
+//
 // The function is pure: it never inspects the system.
 
 #include "firewall_physical.hpp"
@@ -73,6 +79,12 @@ PhysicalRuleset lower_firewall_plan(const FirewallPlan &plan,
 const char *iptables_prerouting_chain_name(bool raw);
 // KeenPbrOutput (mangle, both modes): the OUTPUT classification chain.
 const char *iptables_output_chain_name();
+// KeenPbrDnsHold (mangle): NFQUEUE of DNS responses, jumped from POSTROUTING
+// position 1.
+const char *iptables_dns_hold_chain_name();
+// KeenPbrSniff (mangle): NFLOG of the first packets of new flows, jumped from
+// FORWARD and OUTPUT position 1.
+const char *iptables_sniff_chain_name();
 
 PhysicalChainId iptables_physical_chain_id(const std::string &name,
                                            PhysicalTable table,

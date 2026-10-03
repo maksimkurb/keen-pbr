@@ -3,6 +3,7 @@
 #include "../src/firewall/firewall_lowering.hpp"
 #include "../src/firewall/iptables.hpp"
 #include "../src/firewall/nftables.hpp"
+#include "firewall_fixtures.hpp"
 
 #include <string>
 #include <utility>
@@ -1018,6 +1019,320 @@ TEST_CASE("lowering: invalid address in firewall rule criteria") {
           plan_of({mark_rule("a", Fam::ipv4, criteria)}),
           ipt_context()),
       FirewallError);
+}
+
+// ===========================================================================
+// Interception: DNS hold (NFQUEUE) and L7 sniff (NFLOG)
+// ===========================================================================
+
+namespace {
+
+FirewallPlan intercept_plan(const InterceptFirewallSettings &settings) {
+  return plan_of(intercept_module_rules(settings));
+}
+
+InterceptFirewallSettings dns_only() {
+  InterceptFirewallSettings settings;
+  settings.dns_hold = true;
+  return settings;
+}
+
+InterceptFirewallSettings sniff_only() {
+  InterceptFirewallSettings settings;
+  settings.l7_sniff = true;
+  return settings;
+}
+
+std::vector<std::string> ipt_lines(const PhysicalRuleset &set,
+                                   const std::string &name, Fam family) {
+  std::vector<std::string> lines;
+  for (const auto &rule :
+       chain_of(set, ipt_chain(name, PhysicalTable::mangle, family)).rules) {
+    lines.push_back(render_iptables_rule(rule, name));
+  }
+  return lines;
+}
+
+bool has_chain_named(const PhysicalRuleset &set, const std::string &name) {
+  for (const auto &chain : set.chains) {
+    if (chain.id.name == name) return true;
+  }
+  return false;
+}
+
+nlohmann::json nft_rule_json(const PhysicalRuleset &set, Role role,
+                             std::size_t index) {
+  const auto &chain = chain_of(set, nft_physical_chain_id(role));
+  REQUIRE(index < chain.rules.size());
+  auto json = render_nft_rule(chain.id, chain.rules[index]);
+  json["add"]["rule"].erase("comment");
+  return json["add"]["rule"]["expr"];
+}
+
+} // namespace
+
+TEST_CASE("lowering interception: nothing is emitted without interception rules") {
+  const auto plan = prefilter_plan(true, {"lan0"});
+  for (const auto &set : {lower_firewall_plan(plan, ipt_context()),
+                          lower_firewall_plan(plan, nft_context())}) {
+    for (const auto &chain : set.chains) {
+      CHECK(chain.id.role != Role::iptables_dns_hold);
+      CHECK(chain.id.role != Role::iptables_sniff);
+      CHECK(chain.id.role != Role::nft_dns_hold);
+      CHECK(chain.id.role != Role::nft_sniff_forward);
+      CHECK(chain.id.role != Role::nft_sniff_output);
+    }
+  }
+  // Both groups disabled: the modules plan nothing at all.
+  CHECK(intercept_module_rules(InterceptFirewallSettings{}).empty());
+}
+
+TEST_CASE("lowering interception: DNS hold") {
+  const auto plan = intercept_plan(dns_only());
+  SUBCASE("iptables emits one chain per family in mangle") {
+    const auto set = lower_firewall_plan(plan, ipt_context());
+    for (const auto family : {Fam::ipv4, Fam::ipv6}) {
+      const auto &chain = chain_of(
+          set, ipt_chain("KeenPbrDnsHold", PhysicalTable::mangle, family));
+      CHECK(chain.id.role == Role::iptables_dns_hold);
+      CHECK_FALSE(chain.base.has_value());
+      const auto lines = ipt_lines(set, "KeenPbrDnsHold", family);
+      REQUIRE(lines.size() == 2);
+      CHECK(lines[0] ==
+            "-A KeenPbrDnsHold -p udp --sport 53 -m conntrack --ctstate "
+            "ESTABLISHED --ctdir REPLY -m comment --comment " +
+                chain.rules[0].key->comment() +
+                " -j NFQUEUE --queue-num 9053 --queue-bypass\n");
+      CHECK(lines[1].find("-p tcp --sport 53 -m conntrack --ctstate "
+                          "ESTABLISHED --ctdir REPLY") != std::string::npos);
+    }
+    CHECK_FALSE(has_chain_named(set, "KeenPbrSniff"));
+    // The classification chains stay empty.
+    CHECK(gen_a(set, Fam::ipv4).rules.empty());
+    CHECK(out_chain(set, Fam::ipv6).rules.empty());
+  }
+  SUBCASE("nftables emits a postrouting base chain") {
+    const auto set = lower_firewall_plan(plan, nft_context());
+    const auto &chain = chain_of(set, nft_physical_chain_id(Role::nft_dns_hold));
+    REQUIRE(chain.base.has_value());
+    CHECK(chain.base->type == PhysicalBaseChain::Type::filter);
+    CHECK(chain.base->hook == PhysicalBaseChain::Hook::postrouting);
+    CHECK(chain.base->priority == -150);
+    CHECK(chain.base->policy_accept);
+    // One family-agnostic rule per protocol.
+    REQUIRE(chain.rules.size() == 2);
+    CHECK(chain.rules[0].family == Fam::any);
+    const auto expr = nft_rule_json(set, Role::nft_dns_hold, 0);
+    CHECK(expr[0]["match"]["right"] == "udp");
+    CHECK(expr[1]["match"]["right"] == 53);
+    CHECK(expr[1]["match"]["left"]["payload"]["protocol"] == "udp");
+    CHECK(expr[1]["match"]["left"]["payload"]["field"] == "sport");
+    CHECK(expr[2]["match"]["left"]["ct"]["key"] == "state");
+    CHECK(expr[2]["match"]["right"] == "established");
+    CHECK(expr[3]["match"]["left"]["ct"]["key"] == "direction");
+    CHECK(expr[3]["match"]["right"] == 1);
+    CHECK(expr.back() == nlohmann::json{{"queue", {{"num", 9053},
+                                                   {"flags", {"bypass"}}}}});
+    CHECK_FALSE(set.find(nft_physical_chain_id(Role::nft_sniff_forward)));
+  }
+  SUBCASE("a custom queue number is carried") {
+    InterceptFirewallSettings settings = dns_only();
+    settings.queue_num = 7;
+    const auto set = lower_firewall_plan(intercept_plan(settings), ipt_context());
+    CHECK(ipt_lines(set, "KeenPbrDnsHold", Fam::ipv4)[0].find(
+              "--queue-num 7 --queue-bypass") != std::string::npos);
+  }
+}
+
+TEST_CASE("lowering interception: L7 sniff") {
+  SUBCASE("iptables: one shared chain serves FORWARD and OUTPUT") {
+    const auto set = lower_firewall_plan(intercept_plan(sniff_only()), ipt_context());
+    for (const auto family : {Fam::ipv4, Fam::ipv6}) {
+      const auto &chain = chain_of(
+          set, ipt_chain("KeenPbrSniff", PhysicalTable::mangle, family));
+      CHECK(chain.id.role == Role::iptables_sniff);
+      const auto lines = ipt_lines(set, "KeenPbrSniff", family);
+      // The forward and output copies are the same physical rule.
+      REQUIRE(lines.size() == 2);
+      CHECK(lines[0].find("-A KeenPbrSniff -p tcp -m multiport --dports 80,443 "
+                          "-m connbytes --connbytes 1:6 --connbytes-dir "
+                          "original --connbytes-mode packets") == 0);
+      CHECK(lines[0].find(" -j NFLOG --nflog-group 9054 --nflog-size 2048\n") !=
+            std::string::npos);
+      CHECK(lines[1].find("-A KeenPbrSniff -p udp --dport 443 -m connbytes "
+                          "--connbytes 1:6 --connbytes-dir original "
+                          "--connbytes-mode packets") == 0);
+    }
+    CHECK_FALSE(has_chain_named(set, "KeenPbrDnsHold"));
+  }
+  SUBCASE("nftables: separate forward and output chains") {
+    const auto set = lower_firewall_plan(intercept_plan(sniff_only()), nft_context());
+    for (const auto role : {Role::nft_sniff_forward, Role::nft_sniff_output}) {
+      const auto &chain = chain_of(set, nft_physical_chain_id(role));
+      REQUIRE(chain.base.has_value());
+      CHECK(chain.base->type == PhysicalBaseChain::Type::filter);
+      CHECK(chain.base->hook == (role == Role::nft_sniff_forward
+                                     ? PhysicalBaseChain::Hook::forward
+                                     : PhysicalBaseChain::Hook::output));
+      CHECK(chain.base->priority == -150);
+      REQUIRE(chain.rules.size() == 2);
+      const auto expr = nft_rule_json(set, role, 0);
+      CHECK(expr[2]["match"]["left"] ==
+            nlohmann::json{{"ct", {{"key", "packets"}, {"dir", "original"}}}});
+      CHECK(expr[2]["match"]["right"] == nlohmann::json{{"range", {1, 6}}});
+      CHECK(expr[3] == nlohmann::json{{"counter", nullptr}});
+      CHECK(expr.back() ==
+            nlohmann::json{{"log", {{"group", 9054}, {"snaplen", 2048}}}});
+    }
+    CHECK_FALSE(set.find(nft_physical_chain_id(Role::nft_dns_hold)));
+  }
+  SUBCASE("protocol toggles") {
+    const auto ports_of = [](bool tls, bool http, bool quic) {
+      InterceptFirewallSettings settings = sniff_only();
+      settings.tls = tls;
+      settings.http = http;
+      settings.quic = quic;
+      const auto set = lower_firewall_plan(intercept_plan(settings), ipt_context());
+      std::string text;
+      if (!has_chain_named(set, "KeenPbrSniff")) return std::string("<none>");
+      for (const auto &line : ipt_lines(set, "KeenPbrSniff", Fam::ipv4)) {
+        text += line.substr(line.find(" -p ") + 1, line.find(" -m connbytes") -
+                                                   line.find(" -p ") - 1) + "|";
+      }
+      return text;
+    };
+    CHECK(ports_of(true, true, true) ==
+          "-p tcp -m multiport --dports 80,443|-p udp --dport 443|");
+    CHECK(ports_of(false, true, true) == "-p tcp --dport 80|-p udp --dport 443|");
+    CHECK(ports_of(true, false, true) == "-p tcp --dport 443|-p udp --dport 443|");
+    CHECK(ports_of(true, true, false) == "-p tcp -m multiport --dports 80,443|");
+    CHECK(ports_of(false, false, true) == "-p udp --dport 443|");
+    CHECK(ports_of(true, false, false) == "-p tcp --dport 443|");
+    CHECK(ports_of(false, false, false) == "<none>");
+  }
+  SUBCASE("group, snaplen and packet window come from the settings") {
+    InterceptFirewallSettings settings = sniff_only();
+    settings.nflog_group = 12;
+    settings.snaplen = 512;
+    settings.max_packets = 3;
+    const auto set = lower_firewall_plan(intercept_plan(settings), ipt_context());
+    const auto line = ipt_lines(set, "KeenPbrSniff", Fam::ipv4)[0];
+    CHECK(line.find("--connbytes 1:3") != std::string::npos);
+    CHECK(line.find("--nflog-group 12 --nflog-size 512") != std::string::npos);
+  }
+}
+
+TEST_CASE("lowering interception: IPv6 disabled drops the IPv6 chains") {
+  InterceptFirewallSettings settings = dns_only();
+  settings.l7_sniff = true;
+  auto context = ipt_context();
+  context.ipv6_enabled = false;
+  const auto set = lower_firewall_plan(intercept_plan(settings), context);
+  for (const auto &chain : set.chains) {
+    CHECK(chain.id.family != Fam::ipv6);
+  }
+  CHECK(set.find(ipt_chain("KeenPbrDnsHold", PhysicalTable::mangle, Fam::ipv4)));
+  CHECK(set.find(ipt_chain("KeenPbrSniff", PhysicalTable::mangle, Fam::ipv4)));
+}
+
+TEST_CASE("lowering interception: raw mode and prefilters do not affect it") {
+  InterceptFirewallSettings settings = dns_only();
+  settings.l7_sniff = true;
+  auto plan = prefilter_plan(true, {"lan0", "wg0"});
+  for (auto &rule : intercept_module_rules(settings)) {
+    plan.rules.push_back(std::move(rule));
+  }
+  plan.rules.push_back(mark_rule("a", Fam::ipv4, for_set("kpbr4_x")));
+  auto raw = ipt_context();
+  raw.raw_prerouting = RawPreroutingMode{true, true};
+  const auto raw_set = lower_firewall_plan(plan, raw);
+  const auto mangle_set = lower_firewall_plan(plan, ipt_context());
+  for (const auto family : {Fam::ipv4, Fam::ipv6}) {
+    for (const char *name : {"KeenPbrDnsHold", "KeenPbrSniff"}) {
+      const auto id = ipt_chain(name, PhysicalTable::mangle, family);
+      CHECK_FALSE(raw_set.find(ipt_chain(name, PhysicalTable::raw, family)));
+      const auto &in_raw = chain_of(raw_set, id);
+      const auto &in_mangle = chain_of(mangle_set, id);
+      CHECK(in_raw == in_mangle);
+      // Only interception rules: no marks, skips or interface guards.
+      for (const auto &rule : in_raw.rules) {
+        REQUIRE(rule.statements.size() == 1);
+        CHECK((std::holds_alternative<QueueStmt>(rule.statements[0]) ||
+               std::holds_alternative<LogStmt>(rule.statements[0])));
+        CHECK_FALSE(find_match<IifMatch>(rule));
+        CHECK_FALSE(find_match<MarkMatch>(rule));
+      }
+    }
+  }
+  // And the classification chains never see interception rules.
+  for (const auto &chain : raw_set.chains) {
+    if (chain.id.role != Role::iptables_prerouting &&
+        chain.id.role != Role::iptables_output) {
+      continue;
+    }
+    for (const auto &rule : chain.rules) {
+      for (const auto &statement : rule.statements) {
+        CHECK_FALSE(std::holds_alternative<QueueStmt>(statement));
+        CHECK_FALSE(std::holds_alternative<LogStmt>(statement));
+      }
+    }
+  }
+  // nft: the same plan yields the classification chains plus the base chains.
+  const auto nft = lower_firewall_plan(plan, nft_context());
+  CHECK(nft.find(nft_physical_chain_id(Role::nft_dns_hold)));
+  CHECK(nft.find(nft_physical_chain_id(Role::nft_sniff_forward)));
+  CHECK(nft.find(nft_physical_chain_id(Role::nft_sniff_output)));
+  for (const auto role : {Role::nft_prerouting, Role::nft_output}) {
+    for (const auto &rule : chain_of(nft, nft_physical_chain_id(role)).rules) {
+      for (const auto &statement : rule.statements) {
+        CHECK_FALSE(std::holds_alternative<QueueStmt>(statement));
+        CHECK_FALSE(std::holds_alternative<LogStmt>(statement));
+      }
+    }
+  }
+}
+
+TEST_CASE("lowering interception: plan rules are attributed and keyed") {
+  InterceptFirewallSettings settings = dns_only();
+  settings.l7_sniff = true;
+  const auto plan = intercept_plan(settings);
+  for (const auto backend : {FirewallBackend::iptables, FirewallBackend::nftables}) {
+    auto context = backend == FirewallBackend::iptables ? ipt_context()
+                                                         : nft_context();
+    const auto set = lower_firewall_plan(plan, context);
+    for (const auto &chain : set.chains) {
+      for (const auto &rule : chain.rules) {
+        REQUIRE(rule.plan_rule < plan.rules.size());
+        REQUIRE(rule.key.has_value());
+        CHECK(*rule.key == plan.rules[rule.plan_rule].key);
+      }
+    }
+  }
+}
+
+TEST_CASE("plan validation: interception actions only on their hooks") {
+  const auto make = [](FirewallRuleAction action, FirewallHook hook) {
+    FirewallPlan plan;
+    plan.fwmark_mask = kMask;
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(make_rule("m", "i", Fam::any, {}, std::move(action),
+                                      hook));
+  };
+  CHECK_NOTHROW(make(QueueAction{1, true}, FirewallHook::postrouting));
+  CHECK_NOTHROW(make(LogAction{1, 0}, FirewallHook::forward));
+  CHECK_NOTHROW(make(LogAction{1, 0}, FirewallHook::output));
+  CHECK_THROWS_AS(make(QueueAction{1, true}, FirewallHook::prerouting),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make(QueueAction{1, true}, FirewallHook::forward),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make(LogAction{1, 0}, FirewallHook::postrouting),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make(LogAction{1, 0}, FirewallHook::prerouting),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make(VerdictAction::drop, FirewallHook::forward),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make(VerdictAction::drop, FirewallHook::postrouting),
+                  std::invalid_argument);
 }
 
 } // namespace keen_pbr3

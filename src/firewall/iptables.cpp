@@ -651,6 +651,8 @@ struct DumpJump {
   std::string target;
   // The rule is exactly `-A <source> -j <target>` (a plain hook).
   bool exact{false};
+  // 0-based index among all `-A <source>` rules of the dump.
+  std::size_t index{0};
 };
 
 // Tokenize one `-S` line on spaces.  `-S` output never needs quote handling
@@ -676,6 +678,7 @@ struct ObservedTable {
 
 ObservedTable parse_observed_table(const std::string &dump) {
   ObservedTable table;
+  std::map<std::string, std::size_t> rules_per_chain;
   std::size_t pos = 0;
   while (pos < dump.size()) {
     std::size_t end = dump.find('\n', pos);
@@ -690,6 +693,7 @@ ObservedTable parse_observed_table(const std::string &dump) {
       table.builtins.emplace(tokens[1]);
     } else if (tokens[0] == "-A") {
       const std::string source(tokens[1]);
+      const std::size_t rule_index = rules_per_chain[source]++;
       for (std::size_t i = 2; i < tokens.size(); ++i) {
         if (tokens[i] == "-j" || tokens[i] == "-g") {
           if (i + 1 < tokens.size()) {
@@ -697,6 +701,7 @@ ObservedTable parse_observed_table(const std::string &dump) {
             jump.source = source;
             jump.target.assign(tokens[i + 1]);
             jump.exact = tokens.size() == 4 && i == 2;
+            jump.index = rule_index;
             table.jumps.push_back(std::move(jump));
           }
           ++i;
@@ -712,7 +717,10 @@ ObservedTable parse_observed_table(const std::string &dump) {
 constexpr const char *kLegacyChains[] = {
     "KeenPbrTable_OUTPUT", "KeenPbrTable_A", "KeenPbrTable_B",
     "KeenPbrRaw_A",        "KeenPbrRaw_B",   "KeenPbrOutput_A",
-    "KeenPbrOutput_B"};
+    "KeenPbrOutput_B",
+    // Interception chains are retired the same way whenever the plan no
+    // longer carries them (they are skipped while declared by the commit).
+    "KeenPbrDnsHold",      "KeenPbrSniff"};
 
 } // namespace
 
@@ -737,6 +745,23 @@ size_t IptablesFirewall::count_exact_jump(const std::string &rules,
     pos = end + 1;
   }
   return count;
+}
+
+bool IptablesFirewall::first_rule_is_jump(const std::string &rules,
+                                          const std::string &source_chain,
+                                          const std::string &target_chain) {
+  const std::string prefix = "-A " + source_chain + " ";
+  std::size_t pos = 0;
+  while (pos < rules.size()) {
+    std::size_t end = rules.find('\n', pos);
+    if (end == std::string::npos) end = rules.size();
+    if (rules.compare(pos, prefix.size(), prefix) == 0) {
+      return rules.compare(pos, end - pos,
+                           "-A " + source_chain + " -j " + target_chain) == 0;
+    }
+    pos = end + 1;
+  }
+  return false;
 }
 
 void IptablesFirewall::remove_all_hooks(const char *command, const char *table,
@@ -770,6 +795,30 @@ void IptablesFirewall::verify_applied_hooks(bool ipv6) const {
                        iptables_output_chain_name()) != 1) {
     throw FirewallError("iptables builtin hook verification failed");
   }
+
+  // Interception chains present in the applied ruleset: exactly one jump,
+  // and it is the first rule of its builtin chain.
+  const auto family = ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
+  const auto has_chain = [&](const char *name) {
+    return pending_ruleset_.find(iptables_physical_chain_id(
+               name, PhysicalTable::mangle, family)) != nullptr;
+  };
+  const auto verify_pinned = [&](const char *builtin, const char *target) {
+    const auto dump = safe_exec_capture(
+        {command, "-t", "mangle", "-S", builtin}, /*suppress_stderr=*/true);
+    if (dump.exit_code != 0 ||
+        count_exact_jump(dump.stdout_output, builtin, target) != 1 ||
+        !first_rule_is_jump(dump.stdout_output, builtin, target)) {
+      throw FirewallError("iptables builtin hook verification failed");
+    }
+  };
+  if (has_chain(iptables_dns_hold_chain_name())) {
+    verify_pinned("POSTROUTING", iptables_dns_hold_chain_name());
+  }
+  if (has_chain(iptables_sniff_chain_name())) {
+    verify_pinned("FORWARD", iptables_sniff_chain_name());
+    verify_pinned("OUTPUT", iptables_sniff_chain_name());
+  }
 }
 
 namespace {
@@ -784,8 +833,9 @@ int iptables_match_rank(const PhysicalMatch &match) {
   if (std::holds_alternative<DscpMatch>(match)) return 3;
   if (std::holds_alternative<ProtoMatch>(match)) return 4;
   if (std::holds_alternative<PortMatch>(match)) return 5;
-  if (std::holds_alternative<CtDirMatch>(match)) return 6;
-  if (std::holds_alternative<CtStateMatch>(match)) return 7;
+  // ctstate before ctdir: the two share one `-m conntrack` when adjacent.
+  if (std::holds_alternative<CtStateMatch>(match)) return 6;
+  if (std::holds_alternative<CtDirMatch>(match)) return 7;
   return 8;
 }
 
@@ -824,7 +874,15 @@ void append_ct_states(std::string &out, uint8_t states) {
   }
 }
 
-void append_iptables_match(std::string &out, const PhysicalMatch &match) {
+bool is_conntrack_match(const PhysicalMatch &match) {
+  return std::holds_alternative<CtStateMatch>(match) ||
+         std::holds_alternative<CtDirMatch>(match);
+}
+
+// `after_conntrack`: the previous rendered match was a conntrack option, so
+// this one continues the same `-m conntrack` instead of opening another.
+void append_iptables_match(std::string &out, const PhysicalMatch &match,
+                           bool after_conntrack = false) {
   if (const auto *set = std::get_if<SetMatch>(&match)) {
     out += set->negate ? " -m set ! --match-set " : " -m set --match-set ";
     out += set->name;
@@ -861,12 +919,22 @@ void append_iptables_match(std::string &out, const PhysicalMatch &match) {
     }
     append_port_ranges(out, port->ranges);
   } else if (const auto *dir = std::get_if<CtDirMatch>(&match)) {
-    out += dir->original ? " -m conntrack --ctdir ORIGINAL"
-                         : " -m conntrack --ctdir REPLY";
+    out += after_conntrack ? "" : " -m conntrack";
+    out += dir->original ? " --ctdir ORIGINAL" : " --ctdir REPLY";
   } else if (const auto *state = std::get_if<CtStateMatch>(&match)) {
-    out += state->negate ? " -m conntrack ! --ctstate "
-                         : " -m conntrack --ctstate ";
+    out += after_conntrack ? "" : " -m conntrack";
+    out += state->negate ? " ! --ctstate " : " --ctstate ";
     append_ct_states(out, state->states);
+  } else if (const auto *bytes = std::get_if<ConnbytesMatch>(&match)) {
+    out += " -m connbytes --connbytes ";
+    out += std::to_string(bytes->from);
+    out += ":";
+    out += std::to_string(bytes->to);
+    out += " --connbytes-dir ";
+    out += bytes->dir == ConnbytesDir::original ? "original"
+        : bytes->dir == ConnbytesDir::reply ? "reply" : "both";
+    out += " --connbytes-mode ";
+    out += bytes->mode == ConnbytesMode::packets ? "packets" : "bytes";
   } else if (const auto *mark = std::get_if<MarkMatch>(&match)) {
     if (mark->values.size() != 1U) {
       throw FirewallError("iptables cannot express a mark list in one rule");
@@ -905,6 +973,21 @@ void append_iptables_target(std::string &out, const PhysicalStatement &stmt) {
   } else if (const auto *jump = std::get_if<JumpStmt>(&stmt)) {
     out += jump->is_goto ? " -g " : " -j ";
     out += jump->target.name;
+  } else if (const auto *queue = std::get_if<QueueStmt>(&stmt)) {
+    out += " -j NFQUEUE --queue-num ";
+    out += std::to_string(queue->num);
+    if (queue->bypass) out += " --queue-bypass";
+  } else if (const auto *log = std::get_if<LogStmt>(&stmt)) {
+    out += " -j NFLOG --nflog-group ";
+    out += std::to_string(log->group);
+    if (log->snaplen != 0) {
+      out += " --nflog-size ";
+      out += std::to_string(log->snaplen);
+    }
+    if (log->threshold != 1) {
+      out += " --nflog-threshold ";
+      out += std::to_string(log->threshold);
+    }
   } else if (const auto *verdict = std::get_if<VerdictStmt>(&stmt)) {
     switch (verdict->verdict) {
     case PhysicalVerdict::accept:
@@ -934,10 +1017,12 @@ std::string render_iptables_rule(const PhysicalRule &rule,
   line += "-A ";
   line += chain;
   // Stable order by emission rank; rules have a handful of matches.
+  bool after_conntrack = false;
   for (int rank = 0; rank <= 8; ++rank) {
     for (const auto &match : rule.matches) {
       if (iptables_match_rank(match) == rank) {
-        append_iptables_match(line, match);
+        append_iptables_match(line, match, after_conntrack);
+        after_conntrack = is_conntrack_match(match);
       }
     }
   }
@@ -967,7 +1052,7 @@ std::string IptablesFirewall::build_table_script(
   }
   std::vector<std::string> legacy;
   for (const char *name : kLegacyChains) {
-    if (observed.chains.count(name) != 0) {
+    if (observed.chains.count(name) != 0 && flushed.count(name) == 0) {
       legacy.emplace_back(name);
       flushed.insert(name);
     }
@@ -1026,19 +1111,35 @@ std::string IptablesFirewall::build_table_script(
   }
   // Exactly one hook per chain: add a missing one, drop duplicates.  The
   // builtin chains are never declared, so foreign rules stay untouched.
+  // Pinned hooks (interception chains) must also be the first rule of their
+  // builtin chain: a misplaced or duplicated jump is deleted and re-inserted
+  // at position 1.
   for (const auto &chain : chains) {
-    std::size_t count = 0;
-    for (const auto &jump : observed.jumps) {
-      if (jump.exact && jump.source == chain.hook_chain &&
-          jump.target == chain.name) {
-        ++count;
+    for (const char *hook_chain : {chain.hook_chain, chain.extra_hook_chain}) {
+      if (hook_chain == nullptr) continue;
+      std::size_t count = 0;
+      std::size_t first_index = 0;
+      for (const auto &jump : observed.jumps) {
+        if (jump.exact && jump.source == hook_chain &&
+            jump.target == chain.name) {
+          if (count == 0 || jump.index < first_index) first_index = jump.index;
+          ++count;
+        }
       }
-    }
-    if (count == 0) {
-      s += std::string("-A ") + chain.hook_chain + " -j " + chain.name + '\n';
-    }
-    for (; count > 1; --count) {
-      s += std::string("-D ") + chain.hook_chain + " -j " + chain.name + '\n';
+      if (chain.pinned) {
+        if (count == 1 && first_index == 0) continue;
+        for (; count > 0; --count) {
+          s += std::string("-D ") + hook_chain + " -j " + chain.name + '\n';
+        }
+        s += std::string("-I ") + hook_chain + " 1 -j " + chain.name + '\n';
+        continue;
+      }
+      if (count == 0) {
+        s += std::string("-A ") + hook_chain + " -j " + chain.name + '\n';
+      }
+      for (; count > 1; --count) {
+        s += std::string("-D ") + hook_chain + " -j " + chain.name + '\n';
+      }
     }
   }
   for (const auto &name : deletable) {
@@ -1094,6 +1195,50 @@ PhysicalRuleset IptablesFirewall::expected_hook_rules() const {
   return result;
 }
 
+namespace {
+
+// Jumps into the interception chains of the lowered ruleset, pinned to the
+// first rule of their builtin chain (so they precede the classification hooks
+// in the expected order).
+void add_intercept_hook_rules(PhysicalRuleset &result) {
+  struct Hook {
+    const char *builtin;
+    FirewallFamily family;
+    PhysicalChainId target;
+  };
+  std::vector<Hook> hooks;
+  for (const auto &chain : result.chains) {
+    if (chain.id.role == PhysicalChainRole::iptables_dns_hold) {
+      hooks.push_back({"POSTROUTING", chain.id.family, chain.id});
+    } else if (chain.id.role == PhysicalChainRole::iptables_sniff) {
+      hooks.push_back({"FORWARD", chain.id.family, chain.id});
+      hooks.push_back({"OUTPUT", chain.id.family, chain.id});
+    }
+  }
+  for (const auto &hook : hooks) {
+    const PhysicalChainId id = iptables_physical_chain_id(
+        hook.builtin, PhysicalTable::mangle, hook.family);
+    PhysicalChain *chain = nullptr;
+    for (auto &candidate : result.chains) {
+      if (candidate.id == id) {
+        chain = &candidate;
+        break;
+      }
+    }
+    if (chain == nullptr) {
+      result.chains.push_back(PhysicalChain{id, std::nullopt, {}});
+      chain = &result.chains.back();
+    }
+    PhysicalRule rule;
+    rule.family = hook.family;
+    rule.statements.push_back(JumpStmt{hook.target, false});
+    rule.hook_position = 0;
+    chain->rules.insert(chain->rules.begin(), std::move(rule));
+  }
+}
+
+} // namespace
+
 PhysicalRuleset
 IptablesFirewall::expected_ruleset(const FirewallPlan &plan) const {
   auto context = lowering_context(plan.fwmark_mask);
@@ -1101,6 +1246,7 @@ IptablesFirewall::expected_ruleset(const FirewallPlan &plan) const {
   context.ipv6_enabled = ipv6_enabled() && ipv6_backend_available();
   PhysicalRuleset result = lower_firewall_plan(plan, context);
   append_physical_ruleset(result, expected_hook_rules());
+  add_intercept_hook_rules(result);
   return result;
 }
 
@@ -1295,6 +1441,20 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
     const char *command = ipv6 ? "ip6tables-restore" : "iptables-restore";
     const auto family = ipv6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
     const OwnedChainSpec output{iptables_output_chain_name(), "OUTPUT"};
+    // Interception chains (always mangle), only when the plan carries them.
+    std::vector<OwnedChainSpec> intercept;
+    const auto planned = [&](const char *name) {
+      return pending_ruleset_.find(iptables_physical_chain_id(
+                 name, PhysicalTable::mangle, family)) != nullptr;
+    };
+    if (planned(iptables_dns_hold_chain_name())) {
+      intercept.push_back(
+          {iptables_dns_hold_chain_name(), "POSTROUTING", true, nullptr});
+    }
+    if (planned(iptables_sniff_chain_name())) {
+      intercept.push_back(
+          {iptables_sniff_chain_name(), "FORWARD", true, "OUTPUT"});
+    }
     const auto run = [&](const char *table,
                          const std::vector<OwnedChainSpec> &chains) {
       pipe_to_cmd({command, "--noflush", "--counters"},
@@ -1304,10 +1464,15 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
     if (uses_raw_prerouting(ipv6)) {
       // Publish local OUTPUT first and the forwarded-traffic PREROUTING path
       // last.
-      run("mangle", {output});
+      std::vector<OwnedChainSpec> mangle{output};
+      mangle.insert(mangle.end(), intercept.begin(), intercept.end());
+      run("mangle", mangle);
       run("raw", {{prerouting_chain_name(ipv6), "PREROUTING"}});
     } else {
-      run("mangle", {{prerouting_chain_name(ipv6), "PREROUTING"}, output});
+      std::vector<OwnedChainSpec> mangle{
+          {prerouting_chain_name(ipv6), "PREROUTING"}, output};
+      mangle.insert(mangle.end(), intercept.begin(), intercept.end());
+      run("mangle", mangle);
     }
   };
 
@@ -1364,8 +1529,15 @@ void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
     }
     remove_all_hooks(command, "mangle", "OUTPUT", "KeenPbrOutput");
     remove_all_hooks(command, "mangle", "OUTPUT", "KeenPbrTable_OUTPUT");
+    // Interception chains: hooks first, then the chains.
+    remove_all_hooks(command, "mangle", "POSTROUTING", "KeenPbrDnsHold");
+    remove_all_hooks(command, "mangle", "FORWARD", "KeenPbrSniff");
+    remove_all_hooks(command, "mangle", "OUTPUT", "KeenPbrSniff");
     if (sweep_live_state || !raw) {
       remove_all_hooks(command, "mangle", "PREROUTING", "KeenPbrTable");
+    }
+    for (const char *chain : {"KeenPbrDnsHold", "KeenPbrSniff"}) {
+      flush_delete(command, "mangle", chain);
     }
     for (const char *chain : {"KeenPbrOutput", "KeenPbrTable_OUTPUT"}) {
       flush_delete(command, "mangle", chain);

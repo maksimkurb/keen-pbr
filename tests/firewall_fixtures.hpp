@@ -7,6 +7,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/firewall/firewall_plan.hpp"
+#include "../src/firewall/firewall_rule_modules.hpp"
 #include "../src/firewall/firewall_runtime.hpp"
 
 #include <filesystem>
@@ -245,6 +246,44 @@ inline FirewallPlan capture_plan(bool nft, bool two_interfaces, bool conntrack) 
     }
   }
   r.finish();
+  return plan;
+}
+
+// The rules of the interception policy modules (DNS hold, L7 sniff) for
+// `settings`, exactly as the production modules plan them.
+inline std::vector<FirewallRuleInstance> intercept_module_rules(
+    const InterceptFirewallSettings& settings) {
+  static const std::vector<RouteRule> route_rules;
+  static const std::vector<Outbound> outbounds;
+  static const std::map<std::string, ListConfig> lists;
+  static const std::map<std::string, ListSetUsage> usage;
+  static const std::vector<DumpedRoute> main_routes;
+  static const std::vector<DumpedInterface> interfaces;
+  FirewallBuildContext context{route_rules, outbounds, lists, usage,
+                               main_routes, interfaces};
+  context.intercept = settings;
+  FirewallPlan plan;
+  plan.fwmark_mask = kCaptureMask;
+  FirewallRuleRegistrar registrar(plan);
+  register_intercept_dns_hold_rules(context, registrar);
+  register_intercept_l7_sniff_rules(context, registrar);
+  registrar.finish();
+  return plan.rules;
+}
+
+// The representative capture plan plus the interception rules (all of them
+// enabled with the default settings).  Their stage sorts after every other
+// rule, so appending keeps the plan order.
+inline FirewallPlan capture_plan_with_intercept(bool nft, bool two_interfaces,
+                                                bool conntrack) {
+  FirewallPlan plan = capture_plan(nft, two_interfaces, conntrack);
+  InterceptFirewallSettings settings;
+  settings.dns_hold = true;
+  settings.l7_sniff = true;
+  for (auto& rule : intercept_module_rules(settings)) {
+    rule.insertion_order = plan.rules.size();
+    plan.rules.push_back(std::move(rule));
+  }
   return plan;
 }
 

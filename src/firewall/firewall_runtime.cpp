@@ -247,7 +247,7 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
       route_rules, all_outbounds, lists_map, inputs.list_usage,
       inputs.main_routes, inputs.interfaces, inputs.backend,
       inputs.ipv6_enabled, inputs.fwmark_mask, inputs.balance_candidates,
-      &inputs.config, &inputs.outbound_marks};
+      &inputs.config, &inputs.outbound_marks, inputs.intercept};
   for (const auto register_module : route_rule_module_manifest()) {
     register_module(context, registrar);
   }
