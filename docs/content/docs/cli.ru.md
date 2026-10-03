@@ -6,7 +6,7 @@ aliases:
   - /docs/advanced/signals/
 ---
 
-`keen-pbr` умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
+`keen-pbr` умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить опциональную конфигурацию резолвера dnsmasq.
 
 ## Использование
 
@@ -88,7 +88,7 @@ ip6tables -t raw -S
 | `service` | Запустить сервис маршрутизации на переднем плане. |
 | `status` | Показать состояние маршрутизации, таблиц маршрутизации, правил и верификации firewall, затем выйти. |
 | `download` | Загрузить все списки с URL в кэш, затем выйти. |
-| `generate-resolver-config <res>` | Вывести сгенерированную конфигурацию резолвера в stdout. Поддерживаемые резолверы: `dnsmasq-ipset`, `dnsmasq-nftset`. |
+| `generate-resolver-config <res>` | Вывести опциональную конфигурацию dnsmasq в stdout. Поддерживаются `dnsmasq-ipset`, `dnsmasq-nftset`; команда используется с `dns.resolver_integration: "dnsmasq"`. |
 | `resolver-config-hash` | Вывести MD5-хеш сгенерированного сопоставления домен-ipset, затем выйти. |
 | `test-routing <ip-or-domain>` | Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. |
 
@@ -166,14 +166,17 @@ keen-pbr generate-resolver-config dnsmasq-ipset
 
 address=/use-application-dns.net/
 
-rebind-domain-ok=keen.pbr
-server=/check.keen.pbr/127.0.0.88#53
-
 server=10.100.100.100
 
 # List: google
 ipset=/google.com/www.google.com/.../kpbr4d_google,kpbr6d_google
 ```
+
+Команда относится к необязательной интеграции с dnsmasq. При значении
+`dns.resolver_integration: "none"` (по умолчанию) DNS-перехватчик сам заполняет
+динамические наборы, поэтому сгенерированный файл не нужен. Если перехват DNS
+недоступен, директивы `ipset=`/`nftset=` могут использоваться dnsmasq как
+резервный путь.
 
 Вывести хеш конфигурации резолвера:
 

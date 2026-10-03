@@ -16,7 +16,7 @@ If you installed the full package, you can usually do your first setup in the We
 - [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — where matching traffic should go
 - [Lists]({{< relref "/docs/configuration/lists" >}}) — the sites or IP ranges you want to match
 - [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) — which lists go through which outbound
-- [DNS]({{< relref "/docs/configuration/dns" >}}) — which DNS server should be used for those lists
+- [DNS]({{< relref "/docs/configuration/dns" >}}) — optional per-list resolver integration and DNS interception
 
 ## Practical Example
 
@@ -45,6 +45,7 @@ This example routes `google.com` through `vpn` and leaves everything else on `wa
     }
   },
   "dns": {
+    "resolver_integration": "dnsmasq",
     "system_resolver": {
       "address": "127.0.0.1"
     },
@@ -83,7 +84,7 @@ This example routes `google.com` through `vpn` and leaves everything else on `wa
 - [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — choose the VPN and normal internet connections
 - [Lists]({{< relref "/docs/configuration/lists" >}}) — define the sites, domains, or IP ranges to match
 - [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) — connect each list to an outbound
-- [DNS]({{< relref "/docs/configuration/dns" >}}) — make sure matching domains are resolved through the right DNS server
+- [DNS]({{< relref "/docs/configuration/dns" >}}) — optional per-list resolver integration and DNS interception
 
 ## Advanced Configuration
 

@@ -38,22 +38,22 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Default: true (also when set to null).
     "skip_marked_packets": true,
 
-    // Clear dnsmasq-managed dynamic sets during a full apply or runtime restart.
-    // Default: true (also when set to null).
+    // Clear interception/resolver-learned dynamic sets during a full apply or
+    // runtime restart. Default: false (also when set to null).
     "clear_dynamic_sets_on_apply": false,
 
     // Optional initial hash table size for ipsets created by the iptables backend.
     // Has no effect with nftables. Minimum: 1; maximum: 2147483648. Omit or set
     // to null to use the ipset default (1024).
     // Changing it while iptables is running recreates owned ipsets and clears
-    // dnsmasq-learned entries.
+    // interception/resolver-learned entries.
     "ipset_hashsize": null,
 
     // Optional maximum element count for ipsets created by the iptables backend.
     // Has no effect with nftables. Minimum: 1; maximum: 4294967295. Omit or set
     // to null to use the ipset default (65536).
     // Changing it while iptables is running recreates owned ipsets and clears
-    // dnsmasq-learned entries.
+    // interception/resolver-learned entries.
     "ipset_maxelem": null,
 
     // Reuse the currently live list sets during safe runtime refreshes.
@@ -433,27 +433,19 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     }
   },
 
-  // DNS configuration.
-  // dns.system_resolver is required for daemon runtime.
+  // DNS configuration. Interception fills dynamic sets without a resolver.
   "dns": {
+    // "none" is the default. This example uses "dnsmasq" for per-list upstreams.
+    "resolver_integration": "dnsmasq",
     // Resolver used for runtime integration and TXT health checks.
-    // Default: no default, required by the running daemon.
+    // Required only when resolver_integration is "dnsmasq".
     "system_resolver": {
       "address": "127.0.0.1"
     },
 
-    // Optional built-in DNS probe server for the Web UI and troubleshooting.
-    // To check that this computer sends DNS queries through keen-pbr, run:
-    // > nslookup check.keen.pbr
-    // The response should contain answer_ipv4 (127.0.0.88).
+    // Deprecated compatibility field. It is accepted but ignored.
     "dns_test_server": {
-      // IPv4 listen address in host:port form.
-      // Default: no default, required when dns_test_server is present.
-      "listen": "127.0.0.88:12153",
-
-      // IPv4 A-record answer returned by the probe server.
-      // Default: the host part of listen.
-      "answer_ipv4": "127.0.0.88"
+      "listen": "127.0.0.88:12153"
     },
 
     // All supported DNS server styles.
@@ -536,6 +528,30 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Default: no upstream servers.
     // WARNING: if you don't provide at least one DNS server here, your Internet connectivity may fail.
     "fallback": ["google_dns", "auto_dns", "keenetic_dns"]
+  },
+
+  // Traffic interception. All fields below have defaults; capability gaps
+  // disable DNS and L7 independently and are reported by health.
+  "intercept": {
+    "enabled": true,
+    "min_ttl_s": 300,
+    "max_ttl_s": 86400,
+    "dns": {
+      "enabled": true,
+      "queue_num": 9053,
+      "hold_timeout_ms": 30,
+      "marker": {
+        "domain": "check.keen.pbr",
+        "answer_ipv4": "127.0.0.88"
+      }
+    },
+    "l7": {
+      "enabled": true,
+      "nflog_group": 9054,
+      "tls": true,
+      "http": true,
+      "quic": true
+    }
   },
 
   // Firewall mark allocation.
