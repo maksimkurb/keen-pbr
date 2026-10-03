@@ -34,8 +34,11 @@ def probe(context, expected, **values):
 RETURN_ROUTE = ("10.10.0.0/24", "via", "10.20.0.1", "dev", "wan_pbr")
 
 
-def router_probe(context, expected, destination_port):
-    """Probe from the router itself (OUTPUT path, no input interface)."""
+def router_probe(context, expected, destination_port, mark=None):
+    """Probe from the router itself (OUTPUT path, no input interface).
+
+    `mark` sets SO_MARK on the probe socket, like a VPN client marking its own
+    encrypted packets."""
     token = uuid.uuid4().hex
     context.wan("pbr", "ip", "route", "replace", *RETURN_ROUTE)
     try:
@@ -44,7 +47,8 @@ def router_probe(context, expected, destination_port):
             "python3", f"{REMOTE_CONTAINER_DIR}/probe.py", "client",
             "--proto", "tcp", "--destination", TEST_IP,
             "--destination-port", str(destination_port), "--token", token,
-            "--timeout", "4", check=False, timeout=10)
+            "--timeout", "4", *(("--mark", hex(mark)) if mark else ()),
+            check=False, timeout=10)
         assert result.returncode == 0, result.stderr
         payload = parse_probe(result.stdout, token)
         assert payload["identity"] == expected, payload
