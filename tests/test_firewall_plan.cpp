@@ -17,11 +17,6 @@ namespace {
 
 class PlanFirewall final : public Firewall {
 public:
-  std::string static_set_name(const std::string& list_name,
-                              int family) const override {
-    return std::string(family == AF_INET6 ? "kpbr6S_" : "kpbr4S_") + list_name;
-  }
-
   void create_ipset(const std::string&, int, uint32_t) override {}
 
   std::unique_ptr<ListEntryVisitor>
@@ -66,11 +61,7 @@ private:
     if (!criteria.dst_set_name.has_value()) {
       return criteria;
     }
-    if (criteria.dst_set_name->rfind("kpbr4_", 0) == 0) {
-      criteria.dst_set_name = "kpbr4S_" + criteria.dst_set_name->substr(6);
-    } else if (criteria.dst_set_name->rfind("kpbr6_", 0) == 0) {
-      criteria.dst_set_name = "kpbr6S_" + criteria.dst_set_name->substr(6);
-    }
+    criteria.dst_set_name = physical_set_name(*criteria.dst_set_name);
     return criteria;
   }
 };
@@ -143,7 +134,7 @@ TEST_CASE("Firewall backend plan entry point preserves actions") {
   firewall.apply(plan);
   CHECK(firewall.seen_mark == 0x100U);
   CHECK(firewall.seen_key == marked.key);
-  CHECK(firewall.seen_criteria.dst_set_name == "kpbr4S_remote");
+  CHECK(firewall.seen_criteria.dst_set_name == "kpbr4_remote");
   CHECK(firewall.fwmark_mask() == 0xFF00U);
 }
 

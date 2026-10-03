@@ -46,7 +46,8 @@ def _logical_state(context) -> tuple[str, ...]:
         if "KeenPbr" not in line and "kpbr" not in line:
             continue
         line = re.sub(r"\[\d+:\d+\]", "[counter]", line)
-        line = re.sub(r"kpbr([46])[sS]_", r"kpbr\1_SLOT_", line)
+        # Every refresh builds a new set with a fresh random hash seed.
+        line = re.sub(r" initval 0x[0-9a-f]+", "", line)
         lines.append(line)
     return tuple(sorted(lines))
 
@@ -90,12 +91,16 @@ def _delete_all_owned_chains(context) -> None:
     _delete_chains(context, OWNED + LEGACY)
 
 
-def _static_slot(context) -> str:
-    """The static ipset generation the live rules reference: 's' or 'S'."""
-    rules = context.run("iptables", "-t", "mangle", "-S", "KeenPbrTable").stdout
-    slots = set(re.findall(r"kpbr4([sS])_routed", rules))
-    assert len(slots) == 1, rules
-    return slots.pop()
+def _rules(context) -> str:
+    """Rules of the owned chains without counters."""
+    state = re.sub(r"\[\d+:\d+\]", "", _mangle(context))
+    return "\n".join(l for l in state.splitlines() if not l.startswith("#"))
+
+
+def _set_names(context) -> set[str]:
+    return {line.split()[1] for line in
+            context.run("ipset", "save").stdout.splitlines()
+            if line.startswith("create ")}
 
 
 def _make_legacy_ab_layout(context) -> None:
@@ -175,9 +180,45 @@ def register(registry):
         _apply(context, config)
         assert _logical_state(context) == first
 
+        # Static sets keep their stable names; no generation sets exist.
+        assert "kpbr4_routed" in _set_names(context)
+        assert not [n for n in _set_names(context)
+                    if re.match(r"kpbr[46][sSt]_", n)], _set_names(context)
+
+        # Upgrade from the generation-named static sets: a leftover legacy
+        # set is destroyed after the rules were restored.
+        context.run("ipset", "create", "kpbr4S_routed", "hash:net", "-exist")
+        context.run("ipset", "create", "kpbr6s_routed", "hash:net", "family",
+                    "inet6", "-exist")
+        _apply(context, config)
+        assert not [n for n in _set_names(context)
+                    if re.match(r"kpbr[46][sSt]_", n)], _set_names(context)
+        assert _logical_state(context) == first
+
+        # List content updates are visible through the same set name while
+        # the rules stay byte-identical (refresh = temp set + swap).
+        rules_before = _rules(context)
+        result = context.run("ipset", "test", "kpbr4_routed", "203.0.113.5",
+                             check=False)
+        assert result.returncode != 0
+        updated = context.api("/api/config")["config"]
+        updated["lists"]["routed"]["ip_cidrs"] = ["198.51.100.0/24",
+                                                  "203.0.113.0/24"]
+        _apply(context, updated)
+        context.run("ipset", "test", "kpbr4_routed", "203.0.113.5")
+        context.run("ipset", "test", "kpbr4_routed", "198.51.100.1")
+        assert _rules(context) == rules_before
+        assert not [n for n in _set_names(context)
+                    if re.match(r"kpbr[46][sSt]_", n)], _set_names(context)
+        # ... and shrinking works the same way.
+        _apply(context, config)
+        result = context.run("ipset", "test", "kpbr4_routed", "203.0.113.5",
+                             check=False)
+        assert result.returncode != 0
+        assert _rules(context) == rules_before
+
         # A failed restore leaves the previous state intact (one atomic
         # commit per table).
-        slot = _static_slot(context)
         failed_restore = "\n".join((
             "*mangle",
             ":KeenPbrTable - [0:0]",
@@ -193,44 +234,14 @@ def register(registry):
             "iptables-restore --noflush --counters",
             check=False)
         assert result.returncode != 0, result.stdout
-        assert _static_slot(context) == slot
         _assert_converged(context)
         assert _logical_state(context) == first
 
-        # Live rules referencing both static ipset generations are ambiguous:
-        # the apply must fail without touching anything.
-        other = "S" if slot == "s" else "s"
-        saved = context.run("ipset", "save").stdout.splitlines()
-        create = next(line for line in saved
-                      if line.startswith(f"create kpbr4{slot}_routed "))
-        context.run("sh", "-c", "printf '%s\\n' " + shlex.quote(
-            create.replace(f"kpbr4{slot}_routed", f"kpbr4{other}_routed", 1)) +
-            " | ipset restore -exist")
-        context.run("iptables", "-t", "mangle", "-A", "KeenPbrTable", "-m",
-                    "set", "--match-set", f"kpbr4{other}_routed", "dst", "-j",
-                    "RETURN")
-        before_ambiguous = _logical_state(context)
-        _expect_apply_failure(context, config)
-        assert _logical_state(context) == before_ambiguous
-        context.run("iptables", "-t", "mangle", "-D", "KeenPbrTable", "-m",
-                    "set", "--match-set", f"kpbr4{other}_routed", "dst", "-j",
-                    "RETURN")
-        rollback = context.api("/api/config/rollback", "POST")
-        assert rollback["status"] == "accepted" and rollback["operation_id"], rollback
-        context.wait_for(
-            "failed config rollback",
-            lambda: ((health := context.api("/api/health/service"))
-                     .get("lifecycle_operation", {}).get("id") ==
-                     rollback["operation_id"] and
-                     health["lifecycle_operation"].get("status") == "succeeded"))
-        _assert_converged(context)
-
-        # A failed ipset restore never changes which static slot is live.
-        slot = _static_slot(context)
-        inactive_set = "kpbr4S_routed" if slot == "s" else "kpbr4s_routed"
+        # A failed ipset restore never touches the live set: the fill goes to
+        # a temp set, so a broken script cannot empty or change the final one.
         failed_ipset = "\n".join((
-            f"flush {inactive_set}",
-            f"add {inactive_set} 203.0.113.77 -exist",
+            "create kpbr4t_routed hash:net family inet -exist",
+            "add kpbr4t_routed 203.0.113.77 -exist",
             "add kpbr4_missing_integration 203.0.113.78 -exist",
             "",
         ))
@@ -239,9 +250,12 @@ def register(registry):
             f"printf %s {shlex.quote(failed_ipset)} | ipset restore -exist",
             check=False)
         assert result.returncode != 0, result.stdout
-        assert _static_slot(context) == slot
+        context.run("ipset", "test", "kpbr4_routed", "198.51.100.1")
+        # The leftover temp set is dropped by the next apply.
         _apply(context, config)
-        context.run("ipset", "test", inactive_set, "198.51.100.1")
-        result = context.run("ipset", "test", inactive_set, "203.0.113.77",
+        assert "kpbr4t_routed" not in _set_names(context)
+        context.run("ipset", "test", "kpbr4_routed", "198.51.100.1")
+        result = context.run("ipset", "test", "kpbr4_routed", "203.0.113.77",
                              check=False)
         assert result.returncode != 0
+        assert _rules(context) == rules_before

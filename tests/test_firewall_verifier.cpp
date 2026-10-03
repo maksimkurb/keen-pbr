@@ -298,9 +298,9 @@ TEST_CASE("verifier iptables: classifier corruptions are attributed to their pla
        first_mark, CheckStatus::mismatch, "0xffff0000"},
       {"wrong set name",
        [](const std::string& t) {
-         return replace_first(t, "kpbr4s_hybrid", "kpbr4S_hybrid");
+         return replace_first(t, "kpbr4_hybrid", "kpbr4_wrong");
        },
-       first_mark, CheckStatus::mismatch, "kpbr4S_hybrid"},
+       first_mark, CheckStatus::mismatch, "kpbr4_wrong"},
       {"missing rule",
        [](const std::string& t) { return without_line(t, "-d 8.8.8.8/32"); },
        pass, CheckStatus::missing, "rule missing"},

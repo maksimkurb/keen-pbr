@@ -121,18 +121,24 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
 - **nftables** replaces the whole `inet KeenPbrTable` content in one batch;
   balance uses `numgen inc mod N` + `vmap` into `setmark_XXXXXXXX` chains.
   Balancing is nft-only; iptables rejects it at lowering time.
-- Sets: logical names are `kpbr4_<list>`, `kpbr6_<list>` (static) and
-  `kpbr4d_<list>`, `kpbr6d_<list>` (dynamic). iptables still maps static sets to
-  generation-specific physical names (`kpbr4s_`/`kpbr4S_`, …); the generation
-  is derived from the static sets referenced by the live chains (the chains
-  themselves have no generations). Physical names are part of the on-router
-  state and must stay byte-identical across versions.
+- Sets: logical and physical names are identical and stable: `kpbr4_<list>`,
+  `kpbr6_<list>` (static) and `kpbr4d_<list>`, `kpbr6d_<list>` (dynamic).
+  iptables apply order: sets, then rules, then cleanup. A missing static set is
+  created directly and filled; an existing one is refreshed through a temp set
+  (`kpbr4t_`/`kpbr6t_`): create + fill, `ipset swap temp final`, destroy temp,
+  so the rules never see an empty set and capacity changes need no rule
+  rewrite. A set failure aborts before any rule is restored. After the rules,
+  owned static sets that are no longer referenced (removed lists, retired
+  `kpbr4s_/kpbr4S_/kpbr6s_/kpbr6S_` generation sets) are destroyed; "in use"
+  is logged, not fatal. Only names matching the strict owned grammar are ever
+  destroyed. Dynamic sets (dnsmasq-owned) are never swapped.
 
 ## Apply modes
 
 `Destructive` (recreate everything), `PreserveSets` (keep set contents,
-rewrite rules), `RulesOnly` (rules only; sets must already match the previous
-`FirewallApplyResult`, otherwise exactly one fallback to `PreserveSets`).
+rewrite rules), `RulesOnly` (rules only; the sets of the previous `FirewallApplyResult` must
+exist under their stable names, otherwise exactly one fallback to
+`PreserveSets`).
 
 ## Adding a policy
 

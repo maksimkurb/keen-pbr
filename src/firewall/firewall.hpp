@@ -137,13 +137,12 @@ enum class FirewallApplyMode : uint8_t {
 };
 
 // What the backend actually realized for one successful apply. Kept apart from
-// FirewallPlan, which is desired intent only and must not change when the
-// backend picks a different A/B set generation.
+// FirewallPlan, which is desired intent only and never carries apply results.
 struct FirewallApplyResult {
   FirewallApplyMode mode{FirewallApplyMode::Destructive};
   // Sorted, unique physical names of the sets declared by the applied plan.
-  // RulesOnly compares the backend's current names against these to detect an
-  // externally changed A/B generation.
+  // RulesOnly checks that every set its plan needs was realized by the
+  // previous apply (set names are stable across applies).
   std::vector<std::string> physical_set_names;
   // The complete ruleset keen-pbr expects in the kernel after this apply
   // (Firewall::expected_ruleset), lowered once at apply time so verification
@@ -152,8 +151,6 @@ struct FirewallApplyResult {
 
   bool has_physical_set(const std::string &name) const;
 };
-
-enum class FirewallSetGeneration : uint8_t { A, B };
 
 // Return the kernel-normalized initial hashsize for an ipset declaration.
 // The result is absent when the normalized value cannot be represented by
@@ -164,51 +161,31 @@ std::optional<uint32_t> normalize_ipset_hashsize(uint32_t requested);
 // Both iptables and nftables backends implement this interface.
 //
 // Usage pattern (transactional rebuild):
-//   prepare_apply() selects physical names → stage plan.sets with
-//   create_ipset() → create_batch_loader() streams entries → apply(plan)
-//   atomically commits everything using the requested apply mode
+//   prepare_apply() → stage plan.sets with create_ipset() →
+//   create_batch_loader() streams entries → apply(plan) commits everything
+//   using the requested apply mode
 class Firewall {
 public:
   virtual ~Firewall() = default;
 
-  // Start a new buffered apply attempt. Backends use this to select any
-  // attempt-scoped physical names before rules and set contents are queued.
+  // Start a new buffered apply attempt. Backends use this to probe
+  // capabilities and discard buffers before rules and set contents are queued.
   virtual void prepare_apply(FirewallApplyMode mode) { (void)mode; }
 
-  virtual std::string static_set_name(const std::string &list_name,
-                                      int family) const {
+  // Physical set names are stable and equal to the logical names:
+  // kpbr4_<list> / kpbr6_<list> (static), kpbr4d_<list> / kpbr6d_<list>
+  // (dynamic).  Both backends use them verbatim.
+  static std::string static_set_name(const std::string &list_name, int family) {
     return std::string(family == AF_INET6 ? "kpbr6_" : "kpbr4_") + list_name;
   }
 
-  // Return every physical static-set name that may represent this logical
-  // list for the backend. Most backends have one stable name; A/B backends
-  // expose both generations so RulesOnly can reject stale realized state
-  // instead of treating the list as empty.
-  virtual std::vector<std::string>
-  static_set_names(const std::string &list_name, int family) const {
-    return {static_set_name(list_name, family)};
-  }
-
-  virtual std::string dynamic_set_name(const std::string &list_name,
-                                       int family) const {
+  static std::string dynamic_set_name(const std::string &list_name,
+                                      int family) {
     return std::string(family == AF_INET6 ? "kpbr6d_" : "kpbr4d_") + list_name;
   }
 
-  // Resolve a canonical logical set reference after prepare_apply() selected
-  // any attempt-scoped physical names.
-  std::string physical_set_name(const std::string &logical_name) const {
-    if (logical_name.rfind("kpbr4d_", 0) == 0) {
-      return dynamic_set_name(logical_name.substr(7), AF_INET);
-    }
-    if (logical_name.rfind("kpbr6d_", 0) == 0) {
-      return dynamic_set_name(logical_name.substr(7), AF_INET6);
-    }
-    if (logical_name.rfind("kpbr4_", 0) == 0) {
-      return static_set_name(logical_name.substr(6), AF_INET);
-    }
-    if (logical_name.rfind("kpbr6_", 0) == 0) {
-      return static_set_name(logical_name.substr(6), AF_INET6);
-    }
+  // Resolve a canonical logical set reference to its physical name.
+  static std::string physical_set_name(const std::string &logical_name) {
     return logical_name;
   }
 

@@ -122,26 +122,6 @@ private:
   };
 
 public:
-  std::string static_set_name(const std::string &list_name,
-                              int family) const override {
-    if (!generation_names &&
-        !(generation_names_ipv6 && family == AF_INET6)) {
-      return Firewall::static_set_name(list_name, family);
-    }
-    return std::string(family == AF_INET6 ? "kpbr6s_" : "kpbr4s_") +
-           list_name;
-  }
-
-  std::vector<std::string>
-  static_set_names(const std::string &list_name, int family) const override {
-    if (!generation_names &&
-        !(generation_names_ipv6 && family == AF_INET6)) {
-      return Firewall::static_set_names(list_name, family);
-    }
-    const std::string prefix = family == AF_INET6 ? "kpbr6" : "kpbr4";
-    return {prefix + "s_" + list_name, prefix + "S_" + list_name};
-  }
-
   void prepare_apply(FirewallApplyMode mode) override {
     prepared_modes.push_back(mode);
     calls.push_back("prepare");
@@ -205,8 +185,6 @@ public:
   FirewallBackend backend_type{FirewallBackend::nftables};
   bool fail_apply{false};
   bool fail_rules_only{false};
-  bool generation_names{false};
-  bool generation_names_ipv6{false};
   int stream_count{0};
   int streamed_entries{0};
   int finished_loaders{0};
@@ -1105,7 +1083,7 @@ TEST_CASE("RulesOnly fallback preserves and materializes a valid list") {
                   "kpbr4_remote") != firewall.referenced_sets.end());
 }
 
-TEST_CASE("RulesOnly rejects an active plan static set from another generation") {
+TEST_CASE("RulesOnly falls back when the previous result lacks a planned set") {
   const Config config = valid_inline_list_config();
   const OutboundMarkMap marks{{"wan", 1}};
   RecordingFirewall previous_firewall;
@@ -1115,9 +1093,10 @@ TEST_CASE("RulesOnly rejects an active plan static set from another generation")
               config, marks, cache, previous_firewall,
               FirewallApplyMode::PreserveSets);
   REQUIRE(previous_plan.rule_states.size() == 1);
+  // The previous apply did not realize the set (e.g. the list is new).
+  previous_plan.result.physical_set_names.clear();
 
   RecordingFirewall firewall;
-  firewall.generation_names = true;
 
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
@@ -1131,10 +1110,10 @@ TEST_CASE("RulesOnly rejects an active plan static set from another generation")
         std::vector<FirewallApplyMode>{FirewallApplyMode::PreserveSets});
   CHECK(firewall.stream_count == 1);
   CHECK(firewall.streamed_entries == 1);
-  CHECK(states.front().set_names == std::vector<std::string>{"kpbr4s_remote"});
+  CHECK(states.front().set_names == std::vector<std::string>{"kpbr4_remote"});
 }
 
-TEST_CASE("RulesOnly validates active plan IPv6 static generation") {
+TEST_CASE("RulesOnly validates the active plan IPv6 static set") {
   if (!system_ipv6_supported()) {
     MESSAGE("IPv6 is unavailable in the test environment; regression skipped");
     return;
@@ -1163,8 +1142,13 @@ TEST_CASE("RulesOnly validates active plan IPv6 static generation") {
               FirewallApplyMode::PreserveSets);
   REQUIRE(previous_plan.rule_states.size() == 1);
 
+  // The previous apply did not realize the IPv6 set.
+  previous_plan.result.physical_set_names.erase(
+      std::remove(previous_plan.result.physical_set_names.begin(),
+                  previous_plan.result.physical_set_names.end(), "kpbr6_remote"),
+      previous_plan.result.physical_set_names.end());
+
   RecordingFirewall firewall;
-  firewall.generation_names_ipv6 = true;
   const auto states = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly,
       &previous_plan).rule_states;
@@ -1177,7 +1161,7 @@ TEST_CASE("RulesOnly validates active plan IPv6 static generation") {
         std::vector<FirewallApplyMode>{FirewallApplyMode::PreserveSets});
   CHECK(firewall.stream_count == 2);
   CHECK(states.front().set_names ==
-        std::vector<std::string>{"kpbr4_remote", "kpbr6s_remote"});
+        std::vector<std::string>{"kpbr4_remote", "kpbr6_remote"});
   std::filesystem::remove_all(sandbox);
 }
 
@@ -1272,26 +1256,6 @@ std::string plan_fingerprint(const FirewallPlan& plan) {
 
 } // namespace
 
-TEST_CASE("desired plan is independent of the backend set generation") {
-  const Config config = valid_inline_list_config();
-  const OutboundMarkMap marks{{"wan", 1}};
-  CacheManager cache("/tmp/keen-pbr-firewall-runtime-plan-gen-test-cache");
-  RecordingFirewall plain;
-  RecordingFirewall generational;
-  generational.generation_names = true;
-
-  const auto first = apply_runtime_firewall(
-      config, marks, cache, plain, FirewallApplyMode::PreserveSets);
-  const auto second = apply_runtime_firewall(
-      config, marks, cache, generational, FirewallApplyMode::PreserveSets);
-
-  CHECK(plan_fingerprint(first.plan) == plan_fingerprint(second.plan));
-  CHECK(first.result.physical_set_names ==
-        std::vector<std::string>{"kpbr4_remote"});
-  CHECK(second.result.physical_set_names ==
-        std::vector<std::string>{"kpbr4s_remote"});
-}
-
 TEST_CASE("successful apply returns consistent plan, result and rule states") {
   const Config config = valid_inline_list_config();
   const OutboundMarkMap marks{{"wan", 1}};
@@ -1308,7 +1272,6 @@ TEST_CASE("successful apply returns consistent plan, result and rule states") {
   REQUIRE(active.plan.sets.size() == 1);
   CHECK(active.plan.sets.front().name == "kpbr4_remote");
   CHECK(active.result.has_physical_set("kpbr4_remote"));
-  CHECK_FALSE(active.result.has_physical_set("kpbr4s_remote"));
 }
 
 TEST_CASE("preparation failure keeps the previous active firewall") {
@@ -1347,12 +1310,10 @@ TEST_CASE("RulesOnly with a matching previous result stays RulesOnly") {
   const OutboundMarkMap marks{{"wan", 1}};
   CacheManager cache("/tmp/keen-pbr-rules-only-match-test-cache");
   RecordingFirewall previous_firewall;
-  previous_firewall.generation_names = true;
   const auto previous = apply_runtime_firewall(
       config, marks, cache, previous_firewall, FirewallApplyMode::PreserveSets);
 
   RecordingFirewall firewall;
-  firewall.generation_names = true;
   const auto active = apply_runtime_firewall(
       config, marks, cache, firewall, FirewallApplyMode::RulesOnly, &previous);
 
@@ -1372,18 +1333,19 @@ TEST_CASE("RulesOnly with a stale previous result falls back exactly once") {
   const auto previous = apply_runtime_firewall(
       config, marks, cache, previous_firewall, FirewallApplyMode::PreserveSets);
 
-  // The backend now selects the other A/B generation.
+  // The previous result no longer lists the set the plan needs.
+  auto stale = previous;
+  stale.result.physical_set_names = {"kpbr4_other"};
   RecordingFirewall firewall;
-  firewall.generation_names = true;
   const auto active = apply_runtime_firewall(
-      config, marks, cache, firewall, FirewallApplyMode::RulesOnly, &previous);
+      config, marks, cache, firewall, FirewallApplyMode::RulesOnly, &stale);
 
   CHECK(firewall.prepared_modes ==
         std::vector<FirewallApplyMode>{FirewallApplyMode::RulesOnly,
                                        FirewallApplyMode::PreserveSets});
   CHECK(active.result.mode == FirewallApplyMode::PreserveSets);
   CHECK(active.result.physical_set_names ==
-        std::vector<std::string>{"kpbr4s_remote"});
+        std::vector<std::string>{"kpbr4_remote"});
 }
 
 TEST_CASE("FirewallState readers get one coherent snapshot across a publish") {
