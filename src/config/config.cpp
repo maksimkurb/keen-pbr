@@ -289,7 +289,7 @@ bool parse_uint_in_range(const std::string& raw, int min_value, int max_value, i
 }
 
 constexpr size_t IPSET_MAX_NAME = 31;
-constexpr size_t IPSET_PREFIX_LEN = 7; // len("kpbr4d_"), "kpbr4s_", or "kpbr4S_"
+constexpr size_t IPSET_PREFIX_LEN = 7; // len("kpbr4d_") == len("kpbr4t_") (dynamic / refresh temp)
 constexpr size_t MAX_TAG_LEN = IPSET_MAX_NAME - IPSET_PREFIX_LEN; // 24
 
 bool is_valid_tag(const std::string& value) {

@@ -396,7 +396,7 @@ TEST_CASE("compute_test_routing includes route rule conditions in diagnostics") 
     std::filesystem::remove_all(temp_dir);
 }
 
-TEST_CASE("compute_test_routing uses realized iptables generation set names") {
+TEST_CASE("compute_test_routing uses realized iptables set names") {
     const auto temp_dir = make_temp_dir();
     const auto bin_dir = temp_dir / "bin";
     const auto invocation_log = temp_dir / "ipset-invocations.txt";
@@ -407,7 +407,7 @@ TEST_CASE("compute_test_routing uses realized iptables generation set names") {
         bin_dir / "ipset",
         "#!/bin/sh\n"
         "echo test >> " + invocation_log.string() + "\n"
-        "if [ \"$1\" = test ] && [ \"$2\" = kpbr4S_remote ] && "
+        "if [ \"$1\" = test ] && [ \"$2\" = kpbr4_remote ] && "
         "[ \"$3\" = 203.0.113.10 ]; then\n"
         "  exit 0\n"
         "fi\n"
@@ -448,7 +448,7 @@ TEST_CASE("compute_test_routing uses realized iptables generation set names") {
     RuleState realized;
     realized.rule_index = 0;
     realized.list_names = {"remote"};
-    realized.set_names = {"kpbr4S_remote"};
+    realized.set_names = {"kpbr4_remote"};
     realized.outbound_tag = "vpn";
     realized.action_type = RuleActionType::Mark;
     const std::vector<RuleState> realized_rules{realized};

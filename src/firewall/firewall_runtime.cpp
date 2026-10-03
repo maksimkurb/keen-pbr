@@ -333,13 +333,16 @@ ActiveFirewall apply_runtime_firewall(
                   *daemon_config.ipset_maxelem)}
             : std::nullopt);
     firewall.prepare_apply(mode);
+    // RulesOnly reuses the sets of the previous apply under their stable
+    // names, so every set the new plan needs must have been realized by it
+    // (a newly added list has no set yet).  The backend verifies that the
+    // sets still exist in the kernel.
     if (mode == FirewallApplyMode::RulesOnly && previous_active != nullptr) {
       for (const auto& declaration : plan.sets) {
-        const std::string physical_name =
-            firewall.physical_set_name(declaration.name);
-        if (!previous_active->result.has_physical_set(physical_name)) {
+        if (!previous_active->result.has_physical_set(
+                firewall.physical_set_name(declaration.name))) {
           throw FirewallRulesOnlyError(
-              "active firewall plan references a stale physical set");
+              "active firewall plan does not contain set " + declaration.name);
         }
       }
     }
@@ -414,9 +417,6 @@ ActiveFirewall apply_runtime_firewall(
 
     firewall.apply(plan, mode);
 
-    // The backend stays the source of truth: physical_set_name() resolves
-    // against the generation prepare_apply() selected for this very apply, so
-    // no extra return channel from the virtual apply() is needed.
     FirewallApplyResult result;
     result.mode = mode;
     result.physical_set_names.reserve(plan.sets.size());

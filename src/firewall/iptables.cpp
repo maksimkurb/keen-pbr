@@ -132,72 +132,32 @@ void IptablesFirewall::prepare_apply(FirewallApplyMode mode) {
           : (!ipv6_enabled() || !ipv6_backend_available() ||
              probe_xt_comment(true));
 
-  // Select the static-set generation of one family from the live rules.  The
-  // chains have no generations any more; only the ipset naming alternates.
-  const auto select_static = [this, mode](bool ipv6) {
-    const char *label = ipv6 ? "IPv6" : "IPv4";
-    StaticSetInspection live;
-    if (mode == FirewallApplyMode::RulesOnly) {
-      // RulesOnly preparation is deliberately inspection-only.
+  // RulesOnly preparation is deliberately inspection-only: it reuses the live
+  // rules and sets, so the live PREROUTING chain must exist for each active
+  // family.
+  if (mode == FirewallApplyMode::RulesOnly) {
+    const auto require_chain = [this](bool ipv6) {
+      const char *label = ipv6 ? "IPv6" : "IPv4";
+      bool present = false;
       try {
-        live = inspect_static_sets(ipv6);
+        present = live_prerouting_chain_present(ipv6);
       } catch (const FirewallError &error) {
         throw FirewallRulesOnlyError(std::string("cannot inspect live ") +
                                      label + " firewall rules: " +
                                      error.what());
       }
-      if (!live.prerouting_chain_present) {
+      if (!present) {
         throw FirewallRulesOnlyError(
             std::string("cannot reuse ") + label +
             " firewall rules: live PREROUTING chain is missing");
       }
-      if (live.generation == LiveGenerationState::Invalid) {
-        throw FirewallRulesOnlyError(
-            std::string("live ") + label +
-            " rules reference static ipsets from multiple generations");
-      }
-    } else if (mode != FirewallApplyMode::Destructive) {
-      live = inspect_static_sets(ipv6);
-      if (live.generation == LiveGenerationState::Invalid) {
-        throw FirewallError(
-            std::string("live ") + label +
-            " rules reference static ipsets from multiple generations");
-      }
+    };
+    require_chain(false);
+    if (ipv6_enabled() && ipv6_backend_available()) {
+      require_chain(true);
     }
-    return static_target_for_mode(mode, live.generation);
-  };
-
-  target_static_v4_generation_ = select_static(false);
-  target_static_v6_generation_ =
-      (!ipv6_enabled() || !ipv6_backend_available())
-          ? FirewallSetGeneration::A
-          : select_static(true);
+  }
   apply_prepared_ = true;
-}
-
-std::string IptablesFirewall::static_set_name(const std::string &list_name,
-                                              int family) const {
-  return static_set_name_for_generation(
-      list_name, family,
-      family == AF_INET6 ? target_static_v6_generation_
-                         : target_static_v4_generation_);
-}
-
-std::string IptablesFirewall::static_set_name_for_generation(
-    const std::string &list_name, int family,
-    FirewallSetGeneration generation) {
-  const char slot = generation == FirewallSetGeneration::A ? 's' : 'S';
-  return keen_pbr3::format("kpbr{}{}_{}", family == AF_INET6 ? 6 : 4, slot,
-                           list_name);
-}
-
-std::vector<std::string>
-IptablesFirewall::static_set_names(const std::string &list_name,
-                                   int family) const {
-  return {static_set_name_for_generation(list_name, family,
-                                         FirewallSetGeneration::A),
-          static_set_name_for_generation(list_name, family,
-                                         FirewallSetGeneration::B)};
 }
 
 void IptablesFirewall::create_ipset(const std::string &set_name, int family,
@@ -357,6 +317,125 @@ bool IptablesFirewall::dynamic_set_schema_compatible(
          live_timeout == expected.timeout;
 }
 
+std::optional<std::set<std::string>> IptablesFirewall::list_live_ipset_names() {
+  const auto names =
+      safe_exec_capture({"ipset", "list", "-n"}, /*suppress_stderr=*/true);
+  if (names.exit_code != 0 || names.truncated || names.timed_out) {
+    return std::nullopt;
+  }
+  std::set<std::string> result;
+  std::size_t pos = 0;
+  const std::string &text = names.stdout_output;
+  while (pos < text.size()) {
+    std::size_t end = text.find('\n', pos);
+    if (end == std::string::npos) end = text.size();
+    if (end > pos) result.emplace(text, pos, end - pos);
+    pos = end + 1;
+  }
+  return result;
+}
+
+IptablesFirewall::OwnedSetKind
+IptablesFirewall::classify_owned_static_set(const std::string &name) {
+  // "kpbr" <4|6> <'' | t | s | S> "_" <tag>
+  if (name.size() < 7 || name.compare(0, 4, "kpbr") != 0 ||
+      (name[4] != '4' && name[4] != '6')) {
+    return OwnedSetKind::None;
+  }
+  OwnedSetKind kind;
+  switch (name[5]) {
+  case '_': kind = OwnedSetKind::Stable; break;
+  case 't': kind = OwnedSetKind::Temp; break;
+  case 's':
+  case 'S': kind = OwnedSetKind::Legacy; break;
+  default: return OwnedSetKind::None;
+  }
+  const std::size_t tag_begin = kind == OwnedSetKind::Stable ? 6 : 7;
+  if (kind != OwnedSetKind::Stable && name[6] != '_') {
+    return OwnedSetKind::None;
+  }
+  const std::size_t tag_len = name.size() - tag_begin;
+  if (tag_len == 0 || tag_len > 24 || name[tag_begin] < 'a' ||
+      name[tag_begin] > 'z') {
+    return OwnedSetKind::None;
+  }
+  for (std::size_t i = tag_begin + 1; i < name.size(); ++i) {
+    const char c = name[i];
+    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
+      return OwnedSetKind::None;
+    }
+  }
+  return kind;
+}
+
+std::optional<std::string>
+IptablesFirewall::temp_set_name(const std::string &stable) {
+  if (classify_owned_static_set(stable) != OwnedSetKind::Stable) {
+    return std::nullopt;
+  }
+  std::string temp = stable;
+  temp.insert(5, 1, 't');
+  return temp;
+}
+
+void IptablesFirewall::append_retargeted_elements(std::string &out,
+                                                  const std::string &elements,
+                                                  const std::string &from,
+                                                  const std::string &to) {
+  const std::string old_prefix = "add " + from + " ";
+  const std::string new_prefix = "add " + to + " ";
+  out.reserve(out.size() + elements.size() + elements.size() / 16U);
+  std::size_t pos = 0;
+  while (pos < elements.size()) {
+    std::size_t end = elements.find('\n', pos);
+    end = end == std::string::npos ? elements.size() : end + 1;
+    if (elements.compare(pos, old_prefix.size(), old_prefix) == 0) {
+      out += new_prefix;
+      out.append(elements, pos + old_prefix.size(),
+                 end - pos - old_prefix.size());
+    } else {
+      out.append(elements, pos, end - pos);
+    }
+    pos = end;
+  }
+}
+
+bool IptablesFirewall::destroy_set_best_effort(const std::string &name) {
+  const auto result = safe_exec_capture({"ipset", "destroy", name},
+                                        /*suppress_stderr=*/false,
+                                        /*max_bytes=*/0,
+                                        /*merge_stderr=*/true);
+  if (result.exit_code == 0 && !result.truncated && !result.timed_out) {
+    return true;
+  }
+  std::string output = result.stdout_output;
+  std::transform(output.begin(), output.end(), output.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  if (output.find("does not exist") != std::string::npos ||
+      output.find("no such") != std::string::npos) {
+    return true;
+  }
+  Logger::instance().warn("ipset destroy {} failed (status {}): {}", name,
+                          result.exit_code, result.stdout_output);
+  return false;
+}
+
+void IptablesFirewall::destroy_unreferenced_static_sets(
+    const std::set<std::string> &live, const std::set<std::string> &keep) {
+  for (const auto &name : live) {
+    const OwnedSetKind kind = classify_owned_static_set(name);
+    if (kind == OwnedSetKind::None ||
+        (kind == OwnedSetKind::Stable && keep.count(name) != 0)) {
+      continue;
+    }
+    Logger::instance().verbose("iptables apply: destroying unreferenced ipset {}",
+                               name);
+    if (destroy_set_best_effort(name)) {
+      created_sets_.erase(name);
+    }
+  }
+}
+
 std::optional<std::string>
 IptablesFirewall::find_incompatible_dynamic_set_schema(
     bool effective_ipv6) const {
@@ -369,25 +448,16 @@ IptablesFirewall::find_incompatible_dynamic_set_schema(
     return std::nullopt;
   }
 
-  const auto names =
-      safe_exec_capture({"ipset", "list", "-n"}, /*suppress_stderr=*/true);
-  if (names.exit_code != 0 || names.truncated || names.timed_out) {
+  const auto live_names = list_live_ipset_names();
+  if (!live_names.has_value()) {
     throw FirewallError("failed to inspect dynamic ipset schemas");
-  }
-  std::set<std::string> live_names;
-  std::istringstream name_lines(names.stdout_output);
-  std::string live_name;
-  while (std::getline(name_lines, live_name)) {
-    if (!live_name.empty()) {
-      live_names.insert(live_name);
-    }
   }
   for (const auto &set : pending_sets_) {
     if (!is_dynamic_set_name(set.name) ||
         (set.family_str == "inet6" && !effective_ipv6)) {
       continue;
     }
-    if (live_names.find(set.name) == live_names.end()) {
+    if (live_names->find(set.name) == live_names->end()) {
       continue;
     }
     const auto schema = safe_exec_capture(
@@ -418,69 +488,10 @@ void IptablesFirewall::preflight_dynamic_set_schemas(
 
 void IptablesFirewall::preflight_reused_set_schemas(
     bool effective_ipv6) const {
-  const auto requires_static = [&](const std::string &family) {
-    return std::any_of(
-        pending_sets_.begin(), pending_sets_.end(), [&](const PendingSet &set) {
-          return !is_dynamic_set_name(set.name) && set.family_str == family;
-        });
-  };
-
-  const auto check_static_references = [&](bool ipv6,
-                                           const std::string &family_str,
-                                           const std::string &family_label,
-                                           FirewallSetGeneration expected) {
-    if (!requires_static(family_str)) {
-      return;
-    }
-
-    StaticSetInspection live;
-    try {
-      live = inspect_static_sets(ipv6);
-    } catch (const FirewallError &error) {
-      throw FirewallRulesOnlyError(
-          "cannot inspect live " + family_label + " static-set references: " +
-          std::string(error.what()));
-    }
-
-    const auto expected_state = expected == FirewallSetGeneration::A
-                                    ? LiveGenerationState::A
-                                    : LiveGenerationState::B;
-    if (live.generation != expected_state) {
-      throw FirewallRulesOnlyError(
-          "live " + family_label +
-          " rules do not consistently reference the expected static-set "
-          "generation");
-    }
-    for (const auto &set : pending_sets_) {
-      if (!is_dynamic_set_name(set.name) && set.family_str == family_str &&
-          live.names.find(set.name) == live.names.end()) {
-        throw FirewallRulesOnlyError(
-            "live " + family_label +
-            " rules do not reference required static ipset " +
-            set.name);
-      }
-    }
-  };
-
-  check_static_references(false, "inet", "IPv4", target_static_v4_generation_);
-  if (effective_ipv6) {
-    check_static_references(true, "inet6", "IPv6", target_static_v6_generation_);
-  }
-
-  const auto names =
-      safe_exec_capture({"ipset", "list", "-n"}, /*suppress_stderr=*/true);
-  if (names.exit_code != 0 || names.truncated || names.timed_out) {
+  const auto live_names = list_live_ipset_names();
+  if (!live_names.has_value()) {
     throw FirewallRulesOnlyError(
         "failed to inspect required reused ipset names");
-  }
-
-  std::set<std::string> live_names;
-  std::istringstream name_lines(names.stdout_output);
-  std::string live_name;
-  while (std::getline(name_lines, live_name)) {
-    if (!live_name.empty()) {
-      live_names.insert(live_name);
-    }
   }
 
   for (const auto &chain : pending_ruleset_.chains) {
@@ -511,7 +522,7 @@ void IptablesFirewall::preflight_reused_set_schemas(
     if (set.family_str == "inet6" && !effective_ipv6) {
       continue;
     }
-    if (live_names.find(set.name) == live_names.end()) {
+    if (live_names->find(set.name) == live_names->end()) {
       throw FirewallRulesOnlyError(
           "required reused ipset " + set.name + " is missing");
     }
@@ -653,10 +664,6 @@ struct ObservedTable {
   std::set<std::string> chains;   // user-defined chains (`-N`)
   std::set<std::string> builtins; // builtin chains (`-P`)
   std::vector<DumpJump> jumps;
-  // Static-set names referenced per chain (`--match-set`), for -S lines of
-  // keen-pbr chains only.
-  std::map<std::string, std::vector<std::string>> sets;
-  bool malformed_set_reference{false};
 };
 
 ObservedTable parse_observed_table(const std::string &dump) {
@@ -675,7 +682,6 @@ ObservedTable parse_observed_table(const std::string &dump) {
       table.builtins.emplace(tokens[1]);
     } else if (tokens[0] == "-A") {
       const std::string source(tokens[1]);
-      const bool owned = tokens[1].rfind("KeenPbr", 0) == 0;
       for (std::size_t i = 2; i < tokens.size(); ++i) {
         if (tokens[i] == "-j" || tokens[i] == "-g") {
           if (i + 1 < tokens.size()) {
@@ -684,13 +690,6 @@ ObservedTable parse_observed_table(const std::string &dump) {
             jump.target.assign(tokens[i + 1]);
             jump.exact = tokens.size() == 4 && i == 2;
             table.jumps.push_back(std::move(jump));
-          }
-          ++i;
-        } else if (owned && tokens[i] == "--match-set") {
-          if (i + 1 >= tokens.size()) {
-            table.malformed_set_reference = true;
-          } else {
-            table.sets[source].emplace_back(tokens[i + 1]);
           }
           ++i;
         }
@@ -709,108 +708,10 @@ constexpr const char *kLegacyChains[] = {
 
 } // namespace
 
-IptablesFirewall::StaticSetInspection
-IptablesFirewall::parse_static_set_references(
-    const std::string &dump, const std::vector<std::string> &roots,
-    bool ipv6) {
-  const std::string prefix_a = keen_pbr3::format("kpbr{}s_", ipv6 ? 6 : 4);
-  const std::string prefix_b = keen_pbr3::format("kpbr{}S_", ipv6 ? 6 : 4);
-
-  StaticSetInspection result;
-  const ObservedTable table = parse_observed_table(dump);
-  if (!roots.empty()) {
-    result.prerouting_chain_present = table.chains.count(roots.front()) != 0;
-  }
-  if (table.malformed_set_reference) {
-    result.generation = LiveGenerationState::Invalid;
-    return result;
-  }
-
-  // Walk the owned chains reachable from the entry chains: the chains of the
-  // current layout, or the active generation behind a retired dispatcher.  A
-  // stale unreachable chain must not influence the selection.
-  std::set<std::string> visited;
-  std::vector<std::string> pending;
-  for (const auto &root : roots) {
-    if (table.chains.count(root) != 0 && visited.insert(root).second) {
-      pending.push_back(root);
-    }
-  }
-  while (!pending.empty()) {
-    const std::string chain = std::move(pending.back());
-    pending.pop_back();
-    for (const auto &jump : table.jumps) {
-      if (jump.source == chain && jump.target.rfind("KeenPbr", 0) == 0 &&
-          visited.insert(jump.target).second) {
-        pending.push_back(jump.target);
-      }
-    }
-    const auto it = table.sets.find(chain);
-    if (it == table.sets.end()) continue;
-    for (const auto &name : it->second) {
-      if (name.rfind(prefix_a, 0) == 0) {
-        result.names.insert(name);
-        result.generation = result.generation == LiveGenerationState::B ||
-                                    result.generation ==
-                                        LiveGenerationState::Invalid
-                                ? LiveGenerationState::Invalid
-                                : LiveGenerationState::A;
-      } else if (name.rfind(prefix_b, 0) == 0) {
-        result.names.insert(name);
-        result.generation = result.generation == LiveGenerationState::A ||
-                                    result.generation ==
-                                        LiveGenerationState::Invalid
-                                ? LiveGenerationState::Invalid
-                                : LiveGenerationState::B;
-      }
-    }
-  }
-  return result;
-}
-
-IptablesFirewall::StaticSetInspection
-IptablesFirewall::inspect_static_sets(bool ipv6) const {
-  const bool raw = uses_raw_prerouting(ipv6);
-  StaticSetInspection result;
-  if (raw) {
-    result = parse_static_set_references(capture_table_dump(ipv6, "raw"),
-                                         {"KeenPbrRaw"}, ipv6);
-  }
-  // Mangle holds OUTPUT in both modes (and PREROUTING when raw is off).  The
-  // retired non-raw OUTPUT dispatcher still reaches live rules on upgrade.
-  const auto mangle = parse_static_set_references(
-      capture_table_dump(ipv6, "mangle"),
-      raw ? std::vector<std::string>{"KeenPbrOutput"}
-          : std::vector<std::string>{"KeenPbrTable", "KeenPbrOutput",
-                                     "KeenPbrTable_OUTPUT"},
-      ipv6);
-  if (!raw) {
-    result.prerouting_chain_present = mangle.prerouting_chain_present;
-  }
-  result.names.insert(mangle.names.begin(), mangle.names.end());
-  if (result.generation == LiveGenerationState::Invalid ||
-      mangle.generation == LiveGenerationState::Invalid ||
-      (result.generation == LiveGenerationState::A &&
-       mangle.generation == LiveGenerationState::B) ||
-      (result.generation == LiveGenerationState::B &&
-       mangle.generation == LiveGenerationState::A)) {
-    result.generation = LiveGenerationState::Invalid;
-  } else if (result.generation == LiveGenerationState::Missing) {
-    result.generation = mangle.generation;
-  }
-  return result;
-}
-
-FirewallSetGeneration IptablesFirewall::static_target_for_mode(
-    FirewallApplyMode mode, LiveGenerationState live_static) {
-  if (mode == FirewallApplyMode::RulesOnly) {
-    return live_static == LiveGenerationState::B ? FirewallSetGeneration::B
-                                                  : FirewallSetGeneration::A;
-  }
-  if (live_static == LiveGenerationState::A) {
-    return FirewallSetGeneration::B;
-  }
-  return FirewallSetGeneration::A;
+bool IptablesFirewall::live_prerouting_chain_present(bool ipv6) const {
+  const auto table = parse_observed_table(
+      capture_table_dump(ipv6, prerouting_table_name(ipv6)));
+  return table.chains.count(prerouting_chain_name(ipv6)) != 0;
 }
 
 size_t IptablesFirewall::count_exact_jump(const std::string &rules,
@@ -1277,15 +1178,36 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
                       /*sweep_live_state=*/true);
   }
 
-  // Phase 1: populate the inactive static generation. Reusing an A/B slot is
-  // safe because every target set is flushed before entries are added; a
-  // failed restore can only leave partial data in an unreachable generation.
+  // Phase 1: create or refresh the sets.  A static set that does not exist is
+  // created under its final name and filled.  One that exists is refreshed
+  // through a temp set (create + fill, `swap`, destroy), so the rules keep
+  // pointing at the final name and never see an empty set.  Any failure aborts
+  // before the rules are touched.  Destructive already destroyed every static
+  // set, so nothing exists there.
+  std::set<std::string> live_names;
+  if (mode != FirewallApplyMode::Destructive &&
+      mode != FirewallApplyMode::RulesOnly) {
+    auto names = list_live_ipset_names();
+    if (!names.has_value()) {
+      throw FirewallError("failed to inspect live ipsets");
+    }
+    live_names = std::move(*names);
+  }
+  std::set<std::string> kept_static_sets;
   if (mode != FirewallApplyMode::RulesOnly) {
+    struct Refresh {
+      std::string final_name;
+      std::string temp_name;
+    };
+    std::vector<Refresh> refreshes;
+    std::map<std::string, std::string> temp_of;
     std::string ipset_script;
     std::set<std::string> disabled_ipv6_sets;
     for (const auto &ps : pending_sets_) {
       if (ps.family_str == "inet6" && !effective_ipv6) {
         disabled_ipv6_sets.insert(ps.name);
+        // Not managed this time, but not retired either.
+        kept_static_sets.insert(ps.name);
         continue;
       }
       if (is_dynamic_set_name(ps.name)) {
@@ -1299,21 +1221,63 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
         }
         continue;
       }
-      ipset_script += build_ipset_create_line(ps);
-      ipset_script += keen_pbr3::format("flush {}\n", ps.name);
+      kept_static_sets.insert(ps.name);
+      PendingSet target = ps;
+      if (live_names.count(ps.name) != 0) {
+        if (auto temp = temp_set_name(ps.name)) {
+          // A stale temp from an interrupted refresh is dropped first.
+          if (live_names.count(*temp) != 0 && destroy_set_best_effort(*temp)) {
+            live_names.erase(*temp);
+          }
+          target.name = *temp;
+          temp_of.emplace(ps.name, *temp);
+          refreshes.push_back({ps.name, std::move(*temp)});
+        }
+      }
+      ipset_script += build_ipset_create_line(target);
+      ipset_script += keen_pbr3::format("flush {}\n", target.name);
     }
     for (auto &[set_name, buf] : pending_elements_) {
       if (disabled_ipv6_sets.find(set_name) != disabled_ipv6_sets.end()) {
         continue;
       }
-      std::string elements = buf.str();
-      if (!elements.empty()) {
+      const std::string elements = buf.str();
+      if (elements.empty()) {
+        continue;
+      }
+      const auto temp = temp_of.find(set_name);
+      if (temp == temp_of.end()) {
         ipset_script += elements;
+      } else {
+        append_retargeted_elements(ipset_script, elements, set_name,
+                                   temp->second);
       }
     }
-    if (!ipset_script.empty()) {
-      pipe_to_cmd({"ipset", "restore", "-exist"}, ipset_script);
+    const auto drop_temps = [&refreshes] {
+      for (const auto &refresh : refreshes) {
+        destroy_set_best_effort(refresh.temp_name);
+      }
+    };
+    try {
+      if (!ipset_script.empty()) {
+        pipe_to_cmd({"ipset", "restore", "-exist"}, ipset_script);
+      }
+      for (const auto &refresh : refreshes) {
+        const int status = safe_exec(
+            {"ipset", "swap", refresh.temp_name, refresh.final_name},
+            /*suppress_output=*/false);
+        if (status != 0) {
+          throw FirewallError(keen_pbr3::format(
+              "ipset swap {} {} exited with status {}", refresh.temp_name,
+              refresh.final_name, status));
+        }
+      }
+    } catch (...) {
+      drop_temps();
+      throw;
     }
+    // The temp sets now hold the previous contents.
+    drop_temps();
   }
 
   // Phase 2: one iptables-restore transaction per table and family.  Each
@@ -1351,6 +1315,15 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
   if (effective_ipv6) {
     verify_applied_hooks(true);
   }
+
+  // Phase 3: the new rules are live; destroy the owned static sets they no
+  // longer reference (removed lists, retired A/B generation sets).  An "in
+  // use" set is reported and left for the next apply.
+  if (mode != FirewallApplyMode::Destructive &&
+      mode != FirewallApplyMode::RulesOnly) {
+    destroy_unreferenced_static_sets(live_names, kept_static_sets);
+  }
+
   // Clear pending buffers
   pending_sets_.clear();
   pending_elements_.clear();
@@ -1445,6 +1418,7 @@ void IptablesFirewall::cleanup_saved_sets(bool preserve_dynamic_sets) {
     const bool dynamic = is_dynamic_set_name(name);
     const bool managed_static =
         name.rfind("kpbr4_", 0) == 0 || name.rfind("kpbr6_", 0) == 0 ||
+        name.rfind("kpbr4t_", 0) == 0 || name.rfind("kpbr6t_", 0) == 0 ||
         name.rfind("kpbr4s_", 0) == 0 || name.rfind("kpbr6s_", 0) == 0 ||
         name.rfind("kpbr4S_", 0) == 0 || name.rfind("kpbr6S_", 0) == 0;
     if (!managed_static && !dynamic) {

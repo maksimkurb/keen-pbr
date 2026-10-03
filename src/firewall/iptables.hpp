@@ -29,10 +29,6 @@ public:
   ~IptablesFirewall() override = default;
 
   void prepare_apply(FirewallApplyMode mode) override;
-  std::string static_set_name(const std::string &list_name,
-                              int family) const override;
-  std::vector<std::string>
-  static_set_names(const std::string &list_name, int family) const override;
 
   // Buffer an ipset create command (hash:net family, optional timeout).
   void create_ipset(const std::string &set_name, int family,
@@ -43,9 +39,10 @@ public:
   std::unique_ptr<ListEntryVisitor>
   create_batch_loader(const std::string &set_name) override;
 
-  // Populate the inactive A/B static-set generation, then replace each
-  // table's KeenPbr chains (and retire legacy A/B chains) with one
-  // iptables-restore transaction per table and family.
+  // Create or refresh the static sets (temp set + swap when the set already
+  // exists), replace each table's KeenPbr chains (and retire legacy A/B
+  // chains) with one iptables-restore transaction per table and family, then
+  // destroy owned sets the new rules no longer reference.
   void apply(const FirewallPlan &plan,
              FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
   // Destroy all buffered ipsets (ipset destroy) and flush/delete the
@@ -101,17 +98,6 @@ private:
     std::optional<uint32_t> maxelem;
   };
 
-  // Which static-set generation (kpbr4s_ = A, kpbr4S_ = B) the live rules
-  // reference.  Set lifecycle only; chains have no generations.
-  enum class LiveGenerationState { A, B, Missing, Invalid };
-
-  struct StaticSetInspection {
-    LiveGenerationState generation{LiveGenerationState::Missing};
-    std::set<std::string> names;
-    // The PREROUTING entry chain exists live (RulesOnly reuses live rules).
-    bool prerouting_chain_present{false};
-  };
-
   void compile_plan(const FirewallPlan &plan, FirewallApplyMode mode);
   void apply_prepared(FirewallApplyMode mode);
   void clear_pending();
@@ -120,6 +106,26 @@ private:
   // line. -exist remains the final token for ipset restore compatibility.
   static std::string build_ipset_create_line(const PendingSet &ps);
   static bool is_dynamic_set_name(const std::string &set_name);
+  // Strict grammar of the static-set names keen-pbr owns.  Stable:
+  // kpbr4_<tag>/kpbr6_<tag>; Temp: kpbr4t_<tag>/kpbr6t_<tag> (refresh
+  // staging); Legacy: kpbr4s_/kpbr4S_/kpbr6s_/kpbr6S_<tag> (retired A/B
+  // generations).  <tag> is a list name (lowercase letters, digits, `_`,
+  // starting with a letter, at most 24 characters).
+  enum class OwnedSetKind { None, Stable, Temp, Legacy };
+  static OwnedSetKind classify_owned_static_set(const std::string &name);
+  // Staging name of a stable static set; nullopt for any other name.
+  static std::optional<std::string> temp_set_name(const std::string &stable);
+  // Rewrites the `add <from> ` prefix of every restore line to `add <to> `.
+  static void append_retargeted_elements(std::string &out,
+                                         const std::string &elements,
+                                         const std::string &from,
+                                         const std::string &to);
+  // `ipset destroy`; reports instead of throwing.  True when the set is gone.
+  static bool destroy_set_best_effort(const std::string &name);
+  // Destroys owned static sets in `live` that the new rules no longer
+  // reference (everything but the stable names in `keep`).
+  void destroy_unreferenced_static_sets(const std::set<std::string> &live,
+                                        const std::set<std::string> &keep);
   static bool dynamic_set_schema_compatible(const std::string &saved_sets,
                                             const PendingSet &expected);
   std::optional<std::string>
@@ -158,15 +164,12 @@ private:
   void validate_raw_prerouting_capability(bool ipv6) const;
   // `iptables -t <table> -S`; throws FirewallError on failure.
   static std::string capture_table_dump(bool ipv6, const char *table);
-  // Static-set references reachable from the owned entry chains of `ipv6`
-  // (current layout and, for upgrades, the retired dispatcher layout).
-  StaticSetInspection inspect_static_sets(bool ipv6) const;
-  static StaticSetInspection
-  parse_static_set_references(const std::string &dump,
-                              const std::vector<std::string> &roots,
-                              bool ipv6);
-  static FirewallSetGeneration static_target_for_mode(
-      FirewallApplyMode mode, LiveGenerationState live_static);
+  // The PREROUTING classification chain of the family exists live
+  // (RulesOnly reuses the live rules).
+  bool live_prerouting_chain_present(bool ipv6) const;
+  // Names of the live ipsets (`ipset list -n`); nullopt when the listing
+  // fails.
+  static std::optional<std::set<std::string>> list_live_ipset_names();
   void verify_applied_hooks(bool ipv6) const;
   static size_t count_exact_jump(const std::string &rules,
                                  const std::string &source_chain,
@@ -192,11 +195,6 @@ private:
   // Track whether chain + jump rule exist for each protocol
   bool chain_v4_created_ = false;
   bool chain_v6_created_ = false;
-  static std::string static_set_name_for_generation(
-      const std::string &list_name, int family,
-      FirewallSetGeneration generation);
-  FirewallSetGeneration target_static_v4_generation_{FirewallSetGeneration::A};
-  FirewallSetGeneration target_static_v6_generation_{FirewallSetGeneration::A};
   FirewallApplyMode prepared_mode_{FirewallApplyMode::Destructive};
   bool apply_prepared_{false};
   bool comment_v4_supported_{true};

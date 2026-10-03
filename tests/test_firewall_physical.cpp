@@ -214,10 +214,10 @@ TEST_CASE("physical: iptables mangle IPv4 dump is parsed rule for rule") {
   }
 
   SUBCASE("route rules: kernel match order is canonicalized") {
-    // `-p tcp -m set --match-set kpbr4s_hybrid dst -m tcp --dport 443`
+    // `-p tcp -m set --match-set kpbr4_hybrid dst -m tcp --dport 443`
     const PhysicalRule mark = make_rule(
         Fam::ipv4,
-        {SetMatch{"kpbr4s_hybrid", PhysicalDir::dst, false},
+        {SetMatch{"kpbr4_hybrid", PhysicalDir::dst, false},
          ProtoMatch{L4Proto::Tcp},
          PortMatch{PhysicalTransport::tcp, PhysicalDir::dst, false, {{443, 443}}}},
         {SetMarkStmt{PhysicalMarkKind::packet, 0x10000u, kMask}});
@@ -233,7 +233,7 @@ TEST_CASE("physical: iptables mangle IPv4 dump is parsed rule for rule") {
     // `! -s 10.0.0.0/8 ... -m udp --dport 53 -j DROP`
     CHECK(chain_a.rules[8] ==
           make_rule(Fam::ipv4,
-                    {SetMatch{"kpbr4s_hybrid", PhysicalDir::dst, false},
+                    {SetMatch{"kpbr4_hybrid", PhysicalDir::dst, false},
                      AddrMatch{PhysicalDir::src, true, {"10.0.0.0/8"}},
                      ProtoMatch{L4Proto::Udp},
                      PortMatch{PhysicalTransport::udp, PhysicalDir::dst, false,
@@ -902,12 +902,12 @@ TEST_CASE("physical: canonical helpers") {
         Fam::ipv4,
         {PortMatch{PhysicalTransport::udp, PhysicalDir::dst, false, {{53, 53}}},
          AddrMatch{PhysicalDir::src, false, {"10.0.0.1"}},
-         SetMatch{"kpbr4s_x", PhysicalDir::dst, false}},
+         SetMatch{"kpbr4_x", PhysicalDir::dst, false}},
         {VerdictStmt{PhysicalVerdict::drop}, VerdictStmt{PhysicalVerdict::accept}});
     canonicalize_physical_rule(rule);
     CHECK(rule.matches ==
           std::vector<PhysicalMatch>{
-              SetMatch{"kpbr4s_x", PhysicalDir::dst, false},
+              SetMatch{"kpbr4_x", PhysicalDir::dst, false},
               AddrMatch{PhysicalDir::src, false, {"10.0.0.1/32"}},
               ProtoMatch{L4Proto::Udp},
               PortMatch{PhysicalTransport::udp, PhysicalDir::dst, false,
@@ -1000,14 +1000,7 @@ FirewallLoweringContext capture_context(FirewallBackend backend,
   context.backend = backend;
   context.raw_prerouting = raw;
   context.fwmark_mask = kCaptureMask;
-  // The A generation names static sets kpbr4s_* / kpbr6s_*.
-  context.physical_set_name = [backend](const std::string &name) {
-    if (backend == FirewallBackend::iptables &&
-        (name.rfind("kpbr4_", 0) == 0 || name.rfind("kpbr6_", 0) == 0)) {
-      return name.substr(0, 5) + "s" + name.substr(5);
-    }
-    return name;
-  };
+  context.physical_set_name = [](const std::string &name) { return name; };
   return context;
 }
 

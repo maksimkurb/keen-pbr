@@ -135,30 +135,6 @@ public:
     return IptablesFirewall::dynamic_set_schema_compatible(saved, set);
   }
 
-  static std::string static_set_name(FirewallSetGeneration generation,
-                                     const std::string &name, int family) {
-    IptablesFirewall firewall;
-    firewall.target_static_v4_generation_ = generation;
-    firewall.target_static_v6_generation_ = generation;
-    return firewall.static_set_name(name, family);
-  }
-
-  // The static-set name selected for a PreserveSets apply over `dump` (the
-  // output of `iptables -t mangle -S`).  Throws like prepare_apply when the
-  // live rules reference both generations.
-  static std::string static_set_name_for_live_rules(const std::string &dump) {
-    IptablesFirewall firewall;
-    const auto live = IptablesFirewall::parse_static_set_references(
-        dump, {"KeenPbrTable", "KeenPbrOutput", "KeenPbrTable_OUTPUT"}, false);
-    if (live.generation == IptablesFirewall::LiveGenerationState::Invalid) {
-      throw FirewallError("static ipsets from multiple generations");
-    }
-    firewall.target_static_v4_generation_ =
-        IptablesFirewall::static_target_for_mode(FirewallApplyMode::PreserveSets,
-                                                 live.generation);
-    return firewall.static_set_name("sample", AF_INET);
-  }
-
   static std::string prerouting_table(RawPreroutingMode mode, bool ipv6) {
     IptablesFirewall firewall;
     firewall.raw_prerouting_ = mode;
@@ -335,61 +311,13 @@ public:
     return firewall.expected_hook_rules();
   }
 
-  static int state_a() {
-    return static_cast<int>(IptablesFirewall::LiveGenerationState::A);
-  }
-  static int state_b() {
-    return static_cast<int>(IptablesFirewall::LiveGenerationState::B);
-  }
-  static int state_missing() {
-    return static_cast<int>(IptablesFirewall::LiveGenerationState::Missing);
-  }
-  static int state_invalid() {
-    return static_cast<int>(IptablesFirewall::LiveGenerationState::Invalid);
+  using OwnedKind = IptablesFirewall::OwnedSetKind;
+  static OwnedKind classify(const std::string &name) {
+    return IptablesFirewall::classify_owned_static_set(name);
   }
 
-  // Static-set references reachable from the owned chain `KeenPbrTable` of a
-  // `-S` dump fragment (the chain declaration is added here).
-  static IptablesFirewall::StaticSetInspection
-  inspect_dump(const std::string &rules, bool ipv6,
-               const std::vector<std::string> &roots) {
-    return IptablesFirewall::parse_static_set_references(rules, roots, ipv6);
-  }
-
-  static int static_set_generation(const std::string &rules, bool ipv6 = false) {
-    return static_cast<int>(
-        inspect_dump("-N KeenPbrTable\n" + rules, ipv6, {"KeenPbrTable"})
-            .generation);
-  }
-
-  static std::set<std::string> static_set_names(const std::string &rules,
-                                                bool ipv6 = false) {
-    return inspect_dump("-N KeenPbrTable\n" + rules, ipv6, {"KeenPbrTable"})
-        .names;
-  }
-
-  static FirewallSetGeneration static_target_for_mode(FirewallApplyMode mode,
-                                                      int live_static) {
-    return IptablesFirewall::static_target_for_mode(
-        mode,
-        static_cast<IptablesFirewall::LiveGenerationState>(live_static));
-  }
-
-  static std::string static_name_for_generation(FirewallSetGeneration generation,
-                                                const std::string &name,
-                                                int family) {
-    return IptablesFirewall::static_set_name_for_generation(name, family,
-                                                             generation);
-  }
-
-  static std::string build_rules_for_set_slot(FirewallSetGeneration set_generation,
-                                              bool ipv6) {
-    IptablesFirewall firewall;
-    firewall.target_static_v4_generation_ = set_generation;
-    firewall.target_static_v6_generation_ = set_generation;
-    RuleDesc rule{firewall.static_set_name("sample", ipv6 ? AF_INET6 : AF_INET),
-                  ipv6, false, RuleDesc::Mark, 42, {}, {}};
-    return build_ipt_script(ipv6, {rule});
+  static std::optional<std::string> temp_set_name(const std::string &name) {
+    return IptablesFirewall::temp_set_name(name);
   }
 
   static size_t count_exact_jump(const std::string &rules,
@@ -556,7 +484,7 @@ TEST_CASE("iptables expected ruleset equals the real kernel dump in both layouts
                     read_fixture("iptables_raw_v6.save")));
 }
 
-TEST_CASE("iptables expected ruleset follows the active generation and IPv6 availability") {
+TEST_CASE("iptables expected ruleset follows IPv6 availability") {
   const auto plan = capture_plan(false, false, true);
   const auto without_v6 = iptables_expected_ruleset(plan, {}, false);
   CHECK(std::none_of(without_v6.chains.begin(), without_v6.chains.end(),
@@ -622,43 +550,8 @@ TEST_CASE("IptablesFirewall cleanup propagates command failure") {
   std::filesystem::remove_all(directory);
 }
 
-TEST_CASE("IPv6 RAW RulesOnly references select one static-set generation") {
-  const auto rules =
-      "-N KeenPbrRaw\n"
-      "-A KeenPbrRaw -m set --match-set kpbr6s_remote dst -j RETURN\n";
-  const auto live = T::inspect_dump(rules, true, {"KeenPbrRaw"});
-  CHECK(static_cast<int>(live.generation) == T::state_a());
-  CHECK(live.names == std::set<std::string>{"kpbr6s_remote"});
-  CHECK(live.prerouting_chain_present);
-}
-
-TEST_CASE("static-set inspection follows a retired dispatcher to its active generation") {
-  // A router upgraded from the A/B layout: only the chain the dispatcher
-  // reaches counts, a stale sibling referencing the other generation does not.
-  const std::string legacy =
-      "-N KeenPbrRaw\n-N KeenPbrRaw_A\n-N KeenPbrRaw_B\n"
-      "-A KeenPbrRaw -j KeenPbrRaw_B\n"
-      "-A KeenPbrRaw_A -m set --match-set kpbr4s_stale dst -j RETURN\n"
-      "-A KeenPbrRaw_B -m set --match-set kpbr4S_live dst -j RETURN\n";
-  const auto live = T::inspect_dump(legacy, false, {"KeenPbrRaw"});
-  CHECK(static_cast<int>(live.generation) == T::state_b());
-  CHECK(live.names == std::set<std::string>{"kpbr4S_live"});
-  // Unreachable-only references are not seen.
-  CHECK(static_cast<int>(
-            T::inspect_dump(legacy, false, {"KeenPbrOutput"}).generation) ==
-        T::state_missing());
-  // Both generations reachable is reported as invalid.
-  CHECK(static_cast<int>(
-            T::inspect_dump("-N KeenPbrRaw\n-N KeenPbrRaw_A\n"
-                            "-A KeenPbrRaw -j KeenPbrRaw_A\n"
-                            "-A KeenPbrRaw -m set --match-set kpbr4S_x dst -j RETURN\n"
-                            "-A KeenPbrRaw_A -m set --match-set kpbr4s_y dst -j RETURN\n",
-                            false, {"KeenPbrRaw"})
-                .generation) == T::state_invalid());
-}
-
 TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
-  Rule rule{"kpbr4s_minecraft", false, false, Rule::Mark, 0x100, {}};
+  Rule rule{"kpbr4_minecraft", false, false, Rule::Mark, 0x100, {}};
   PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xff00;
@@ -677,31 +570,31 @@ TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {
 }
 
 TEST_CASE("IPv6 raw prerouting filters families and keeps no-conntrack semantics") {
-  Rule v4{"kpbr4s_v4", false, false, Rule::Mark, 0x100, {}};
-  Rule v6{"kpbr6s_v6", true, false, Rule::Mark, 0x200, {}};
+  Rule v4{"kpbr4_v4", false, false, Rule::Mark, 0x100, {}};
+  Rule v6{"kpbr6_v6", true, false, Rule::Mark, 0x200, {}};
   PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xff00;
   const auto script = T::build_raw_script_for_family(true, {v4, v6}, prefilter);
   CHECK(script.find("*raw\n") != std::string::npos);
-  CHECK(script.find("kpbr6s_v6") != std::string::npos);
-  CHECK(script.find("kpbr4s_v4") == std::string::npos);
+  CHECK(script.find("kpbr6_v6") != std::string::npos);
+  CHECK(script.find("kpbr4_v4") == std::string::npos);
   CHECK(script.find("--set-xmark 0x200/0xffffffff") != std::string::npos);
   CHECK(script.find("CONNMARK") == std::string::npos);
   CHECK(script.find("-m conntrack") == std::string::npos);
 }
 
 TEST_CASE("IPv6 raw mode keeps OUTPUT in mangle with connmark optimization") {
-  Rule v4{"kpbr4s_v4", false, false, Rule::Mark, 0x100, {}};
-  Rule v6{"kpbr6s_v6", true, false, Rule::Mark, 0x200, {}};
+  Rule v4{"kpbr4_v4", false, false, Rule::Mark, 0x100, {}};
+  Rule v6{"kpbr6_v6", true, false, Rule::Mark, 0x200, {}};
   PrefilterFixture prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0xff00;
   const auto script = T::build_output_script_for_family(true, {v4, v6}, prefilter);
   CHECK(script.find("*mangle\n") != std::string::npos);
   CHECK(script.find(":KeenPbrOutput - [0:0]") != std::string::npos);
-  CHECK(script.find("kpbr6s_v6") != std::string::npos);
-  CHECK(script.find("kpbr4s_v4") == std::string::npos);
+  CHECK(script.find("kpbr6_v6") != std::string::npos);
+  CHECK(script.find("kpbr4_v4") == std::string::npos);
   CHECK(script.find("CONNMARK") != std::string::npos);
   CHECK(script.find("--set-xmark 0x200/0xffffffff") != std::string::npos);
 }
@@ -865,9 +758,9 @@ TEST_CASE("build_ipset_create_line: each capacity option is independently option
 }
 
 TEST_CASE("create_ipset: configured capacity options apply to static and dynamic sets") {
-  CHECK(T::create_ipset_line_from_config("kpbr4s_static", AF_INET, 0, 2048,
+  CHECK(T::create_ipset_line_from_config("kpbr4_static", AF_INET, 0, 2048,
                                          65536) ==
-        "create kpbr4s_static hash:net family inet hashsize 2048 maxelem "
+        "create kpbr4_static hash:net family inet hashsize 2048 maxelem "
         "65536 -exist\n");
   CHECK(T::create_ipset_line_from_config("kpbr4d_dynamic", AF_INET, 300,
                                          2048, 65536) ==
@@ -976,116 +869,65 @@ TEST_CASE("ipset reconcile: dynamic schema rejects malformed or ambiguous XML") 
 
 TEST_CASE("RulesOnly schema helper accepts empty compatible static sets") {
   CHECK(T::dynamic_set_schema_compatible(
-      R"(<ipsets><ipset name="kpbr4s_empty"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)",
-      "kpbr4s_empty", "inet", 0));
+      R"(<ipsets><ipset name="kpbr4_empty"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)",
+      "kpbr4_empty", "inet", 0));
 }
 
 TEST_CASE("RulesOnly schema helper rejects incompatible static set schemas") {
   CHECK_FALSE(T::dynamic_set_schema_compatible(
-      R"(<ipsets><ipset name="kpbr4s_empty"><type>hash:ip</type><header><family>inet</family></header></ipset></ipsets>)",
-      "kpbr4s_empty", "inet", 0));
+      R"(<ipsets><ipset name="kpbr4_empty"><type>hash:ip</type><header><family>inet</family></header></ipset></ipsets>)",
+      "kpbr4_empty", "inet", 0));
   CHECK_FALSE(T::dynamic_set_schema_compatible(
-      R"(<ipsets><ipset name="kpbr4s_empty"><type>hash:net</type><header><family>inet6</family></header></ipset></ipsets>)",
-      "kpbr4s_empty", "inet", 0));
+      R"(<ipsets><ipset name="kpbr4_empty"><type>hash:net</type><header><family>inet6</family></header></ipset></ipsets>)",
+      "kpbr4_empty", "inet", 0));
   CHECK_FALSE(T::dynamic_set_schema_compatible(
-      R"(<ipsets><ipset name="kpbr4s_empty"><type>hash:net</type><header><family>inet</family><timeout>300</timeout></header></ipset></ipsets>)",
-      "kpbr4s_empty", "inet", 0));
+      R"(<ipsets><ipset name="kpbr4_empty"><type>hash:net</type><header><family>inet</family><timeout>300</timeout></header></ipset></ipsets>)",
+      "kpbr4_empty", "inet", 0));
 }
 
-TEST_CASE("ipset reconcile: static A/B names fit the ipset limit") {
+TEST_CASE("ipset names: stable, temp and dynamic names fit the ipset limit") {
   const std::string longest_name(24, 'a');
-  const auto v4a =
-      T::static_set_name(FirewallSetGeneration::A, longest_name, AF_INET);
-  const auto v4b =
-      T::static_set_name(FirewallSetGeneration::B, longest_name, AF_INET);
-  const auto v6a =
-      T::static_set_name(FirewallSetGeneration::A, longest_name, AF_INET6);
-  const auto v6b =
-      T::static_set_name(FirewallSetGeneration::B, longest_name, AF_INET6);
-  CHECK(v4a == "kpbr4s_" + longest_name);
-  CHECK(v4b == "kpbr4S_" + longest_name);
-  CHECK(v6a == "kpbr6s_" + longest_name);
-  CHECK(v6b == "kpbr6S_" + longest_name);
-  CHECK(v4a.size() == 31);
-  CHECK(v4b.size() == 31);
-  CHECK(v6a.size() == 31);
-  CHECK(v6b.size() == 31);
-  CHECK(("kpbr4d_" + longest_name).size() == 31);
-  CHECK(("kpbr6d_" + longest_name).size() == 31);
+  for (const char *family : {"4", "6"}) {
+    const std::string stable = std::string("kpbr") + family + "_" + longest_name;
+    const auto temp = T::temp_set_name(stable);
+    REQUIRE(temp.has_value());
+    CHECK(*temp == std::string("kpbr") + family + "t_" + longest_name);
+    CHECK(stable.size() == 30);
+    CHECK(temp->size() == 31);
+    CHECK((std::string("kpbr") + family + "d_" + longest_name).size() == 31);
+  }
+  CHECK(Firewall::static_set_name(longest_name, AF_INET) ==
+        "kpbr4_" + longest_name);
+  CHECK(Firewall::static_set_name("x", AF_INET6) == "kpbr6_x");
+  CHECK(Firewall::physical_set_name("kpbr4_x") == "kpbr4_x");
 }
 
-TEST_CASE("ipset reconcile: live rules select the inactive static slot") {
-  CHECK(T::static_set_name_for_live_rules("") == "kpbr4s_sample");
-  CHECK(T::static_set_name_for_live_rules(
-            "-N KeenPbrTable\n-A KeenPbrTable -m set --match-set kpbr4s_x dst "
-            "-j MARK\n") == "kpbr4S_sample");
-  CHECK(T::static_set_name_for_live_rules(
-            "-N KeenPbrTable\n-A KeenPbrTable -m set --match-set kpbr4S_x dst "
-            "-j MARK\n") == "kpbr4s_sample");
-  // Legacy dispatcher layout reached through KeenPbrTable_OUTPUT too.
-  CHECK(T::static_set_name_for_live_rules(
-            "-N KeenPbrTable_OUTPUT\n-N KeenPbrTable_B\n"
-            "-A KeenPbrTable_OUTPUT -j KeenPbrTable_B\n"
-            "-A KeenPbrTable -m set --match-set kpbr4S_x dst -j MARK\n") ==
-        "kpbr4s_sample");
-  CHECK_THROWS(T::static_set_name_for_live_rules(
-      "-N KeenPbrTable\n"
-      "-A KeenPbrTable -m set --match-set kpbr4s_x dst -j MARK\n"
-      "-A KeenPbrTable -m set --match-set kpbr4S_y dst -j MARK\n"));
-}
-
-TEST_CASE("RulesOnly derives static slot from live match-set references") {
-  CHECK(T::static_set_generation(
-            "-A KeenPbrTable -m set --match-set kpbr4s_remote dst -j MARK\n") ==
-        T::state_a());
-  CHECK(T::static_set_generation(
-            "-A KeenPbrTable -m set --match-set kpbr4S_remote dst -j MARK\n") ==
-        T::state_b());
-  CHECK(T::static_set_generation(
-            "-A KeenPbrTable -m set --match-set kpbr4s_remote dst -j MARK\n"
-            "-A KeenPbrTable -m set --match-set kpbr4s_other dst -j RETURN\n") ==
-        T::state_a());
-  CHECK(T::static_set_generation(
-            "-A KeenPbrTable -m set --match-set kpbr4s_remote dst -j MARK\n"
-            "-A KeenPbrTable -m set --match-set kpbr4S_other dst -j RETURN\n") ==
-        T::state_invalid());
-  CHECK(T::static_set_generation(
-            "-A KeenPbrTable -m set --match-set kpbr4d_remote dst -j MARK\n") ==
-        T::state_missing());
-  CHECK(T::static_set_generation(
-            "-A KeenPbrTable -m set --match-set kpbr6S_remote dst -j MARK\n",
-            true) == T::state_b());
-  CHECK(T::static_set_names(
-            "-A KeenPbrTable -m set --match-set kpbr4S_remote dst -j MARK\n") ==
-        std::set<std::string>{"kpbr4S_remote"});
-}
-
-TEST_CASE("static generation transition helper covers RulesOnly and refreshes") {
-  CHECK(T::static_target_for_mode(FirewallApplyMode::RulesOnly, T::state_a()) ==
-        FirewallSetGeneration::A);
-  CHECK(T::static_target_for_mode(FirewallApplyMode::RulesOnly, T::state_b()) ==
-        FirewallSetGeneration::B);
-  CHECK(T::static_target_for_mode(FirewallApplyMode::RulesOnly,
-                                  T::state_missing()) ==
-        FirewallSetGeneration::A);
-  CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets,
-                                  T::state_a()) == FirewallSetGeneration::B);
-  CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets,
-                                  T::state_b()) == FirewallSetGeneration::A);
-  CHECK(T::static_target_for_mode(FirewallApplyMode::StaticSetsOnly,
-                                  T::state_a()) == FirewallSetGeneration::B);
-  CHECK(T::static_target_for_mode(FirewallApplyMode::PreserveSets,
-                                  T::state_missing()) ==
-        FirewallSetGeneration::A);
-
-  CHECK(T::static_name_for_generation(FirewallSetGeneration::A, "remote",
-                                      AF_INET) == "kpbr4s_remote");
-  CHECK(T::static_name_for_generation(FirewallSetGeneration::B, "remote",
-                                      AF_INET) == "kpbr4S_remote");
-  CHECK(T::static_name_for_generation(FirewallSetGeneration::A, "remote",
-                                      AF_INET6) == "kpbr6s_remote");
-  CHECK(T::static_name_for_generation(FirewallSetGeneration::B, "remote",
-                                      AF_INET6) == "kpbr6S_remote");
+TEST_CASE("ipset names: owned static grammar is strict") {
+  using Kind = T::OwnedKind;
+  CHECK(T::classify("kpbr4_remote") == Kind::Stable);
+  CHECK(T::classify("kpbr6_a1_b") == Kind::Stable);
+  CHECK(T::classify("kpbr4t_remote") == Kind::Temp);
+  CHECK(T::classify("kpbr6t_remote") == Kind::Temp);
+  CHECK(T::classify("kpbr4s_remote") == Kind::Legacy);
+  CHECK(T::classify("kpbr4S_remote") == Kind::Legacy);
+  CHECK(T::classify("kpbr6s_remote") == Kind::Legacy);
+  CHECK(T::classify("kpbr6S_remote") == Kind::Legacy);
+  // Dynamic sets, foreign names and near misses are not ours to destroy.
+  CHECK(T::classify("kpbr4d_remote") == Kind::None);
+  CHECK(T::classify("kpbr5_remote") == Kind::None);
+  CHECK(T::classify("kpbr4x_remote") == Kind::None);
+  CHECK(T::classify("kpbr4_") == Kind::None);
+  CHECK(T::classify("kpbr4s_") == Kind::None);
+  CHECK(T::classify("kpbr4sremote") == Kind::None);
+  CHECK(T::classify("kpbr4_Remote") == Kind::None);
+  CHECK(T::classify("kpbr4_1abc") == Kind::None);
+  CHECK(T::classify("kpbr4_a-b") == Kind::None);
+  CHECK(T::classify("kpbr4_" + std::string(25, 'a')) == Kind::None);
+  CHECK(T::classify("foo_kpbr4_remote") == Kind::None);
+  CHECK(T::classify("myset") == Kind::None);
+  CHECK_FALSE(T::temp_set_name("kpbr4d_remote").has_value());
+  CHECK_FALSE(T::temp_set_name("kpbr4s_remote").has_value());
+  CHECK_FALSE(T::temp_set_name("myset").has_value());
 }
 
 namespace {
@@ -1296,71 +1138,6 @@ TEST_CASE("an invalid plan fails before any firewall mutation, a valid one commi
   std::filesystem::remove_all(sandbox);
 }
 
-TEST_CASE("RulesOnly reports a static-set generation change as typed and does not restore") {
-  const auto sandbox = std::filesystem::temp_directory_path() /
-                       ("keen-pbr-iptables-rules-only-" +
-                        std::to_string(static_cast<long long>(getpid())));
-  std::filesystem::remove_all(sandbox);
-  std::filesystem::create_directories(sandbox);
-  const auto count_file = sandbox / "iptables-count";
-  const auto restore_log = sandbox / "restore.log";
-
-  // The first table dump (prepare) references static A; every later dump
-  // references static B, as if another process rebuilt the sets in between.
-  write_executable(
-      sandbox / "iptables",
-      "#!/bin/sh\n"
-      "count_file='" + count_file.string() + "'\n"
-      "count=0\n"
-      "if [ -f \"$count_file\" ]; then count=$(/bin/cat \"$count_file\"); fi\n"
-      "last=''\n"
-      "for arg in \"$@\"; do last=\"$arg\"; done\n"
-      "if [ \"$last\" = \"-S\" ]; then\n"
-      "  count=$((count + 1))\n"
-      "  /bin/printf '%s\\n' \"$count\" > \"$count_file\"\n"
-      "  slot=s\n"
-      "  if [ \"$count\" -gt 1 ]; then slot=S; fi\n"
-      "  /bin/printf '%s\\n' '-N KeenPbrTable' \"-A KeenPbrTable -m set --match-set kpbr4${slot}_remote dst -j MARK\"\n"
-      "fi\n");
-  write_executable(
-      sandbox / "ipset",
-      "#!/bin/sh\n"
-      "if [ \"$1\" = \"list\" ] && [ \"$2\" = \"-n\" ]; then\n"
-      "  /bin/printf '%s\\n' kpbr4s_remote\n"
-      "  exit 0\n"
-      "fi\n"
-      "if [ \"$1\" = \"list\" ] && [ \"$2\" = \"-t\" ]; then\n"
-      "  /bin/printf '%s\\n' '<ipsets><ipset name=\"kpbr4s_remote\"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>'\n"
-      "  exit 0\n"
-      "fi\n"
-      "exit 1\n");
-  write_executable(
-      sandbox / "iptables-restore",
-      "#!/bin/sh\n"
-      "if [ \"$1\" = \"--test\" ]; then /bin/cat >/dev/null; exit 0; fi\n"
-      "/bin/printf '%s\\n' invoked >> '" + restore_log.string() + "'\n"
-      "exit 0\n");
-
-  PathGuard path_guard;
-  const char *old_path = std::getenv("PATH");
-  const std::string path = sandbox.string() + ":" +
-                           (old_path == nullptr ? std::string{} : old_path);
-  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
-
-  IptablesFirewall firewall;
-  firewall.set_ipv6_enabled(false);
-  firewall.prepare_apply(FirewallApplyMode::RulesOnly);
-  firewall.create_ipset("kpbr4s_remote", AF_INET);
-  FirewallRuleCriteria criteria;
-  criteria.dst_set_name = "kpbr4s_remote";
-  const auto plan = IptablesBuilderTest::mark_plan(1, criteria);
-
-  CHECK_THROWS_AS(firewall.apply(plan, FirewallApplyMode::RulesOnly),
-                  FirewallRulesOnlyError);
-  CHECK_FALSE(std::filesystem::exists(restore_log));
-  std::filesystem::remove_all(sandbox);
-}
-
 TEST_CASE("RulesOnly without a live PREROUTING chain is a typed fallback") {
   const auto sandbox = std::filesystem::temp_directory_path() /
                        ("keen-pbr-iptables-rules-only-missing-" +
@@ -1382,7 +1159,340 @@ TEST_CASE("RulesOnly without a live PREROUTING chain is a typed fallback") {
   std::filesystem::remove_all(sandbox);
 }
 
-TEST_CASE("consecutive RulesOnly applies rewrite the same chains while reusing static A") {
+namespace {
+
+// Sandbox with fake iptables/ip6tables/iptables-restore/ipset that append every
+// command (and every restore script) to one ordered log.  Files in the sandbox
+// steer the fake ipset: `live-sets` (one name per line) is what `list -n`
+// prints; `fail-swap` / `fail-restore` make that subcommand fail; `inuse` and
+// `missing` list set names whose `destroy` fails with the matching kernel
+// message.
+class IptablesApplyFixture {
+public:
+  IptablesApplyFixture(const std::string &tag,
+                       const std::vector<std::string> &live_sets,
+                       const std::string &table_dump = "") {
+    dir_ = std::filesystem::temp_directory_path() /
+           ("keen-pbr-ipt-apply-" + tag + "-" +
+            std::to_string(static_cast<long long>(getpid())));
+    std::filesystem::remove_all(dir_);
+    std::filesystem::create_directories(dir_);
+    std::string names;
+    for (const auto &name : live_sets) {
+      names += name + "\n";
+    }
+    write_file("live-sets", names);
+    const std::string log = (dir_ / "commands.log").string();
+    const auto iptables =
+        fake_iptables_script(table_dump, (dir_ / "iptables-mutations.log").string());
+    write_executable(dir_ / "iptables", iptables);
+    write_executable(dir_ / "ip6tables", iptables);
+    write_executable(
+        dir_ / "iptables-restore",
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--test\" ]; then /bin/cat >/dev/null; exit 0; fi\n"
+        "/bin/printf 'iptables-restore %s\\n' \"$*\" >> '" + log + "'\n"
+        "/bin/cat >> '" + log + "'\n"
+        "exit 0\n");
+    const std::string d = dir_.string();
+    write_executable(
+        dir_ / "ipset",
+        "#!/bin/sh\n"
+        "d='" + d + "'\n"
+        "/bin/printf 'ipset %s\\n' \"$*\" >> \"$d/commands.log\"\n"
+        "case \"$1\" in\n"
+        "  list)\n"
+        "    if [ \"$2\" = \"-n\" ]; then /bin/cat \"$d/live-sets\"; fi\n"
+        "    exit 0 ;;\n"
+        "  restore)\n"
+        "    /bin/cat >> \"$d/commands.log\"\n"
+        "    if [ -f \"$d/fail-restore\" ]; then exit 1; fi\n"
+        "    exit 0 ;;\n"
+        "  swap)\n"
+        "    if [ -f \"$d/fail-swap\" ]; then\n"
+        "      /bin/printf '%s\\n' 'Sets cannot be swapped: type mismatch'\n"
+        "      exit 1\n"
+        "    fi\n"
+        "    exit 0 ;;\n"
+        "  destroy)\n"
+        "    if [ -f \"$d/inuse\" ] && grep -qx \"$2\" \"$d/inuse\"; then\n"
+        "      /bin/printf '%s\\n' 'Set cannot be destroyed: it is in use by a kernel component'\n"
+        "      exit 1\n"
+        "    fi\n"
+        "    if [ -f \"$d/missing\" ] && grep -qx \"$2\" \"$d/missing\"; then\n"
+        "      /bin/printf '%s\\n' 'The set with the given name does not exist'\n"
+        "      exit 1\n"
+        "    fi\n"
+        "    exit 0 ;;\n"
+        "esac\n"
+        "exit 0\n");
+    const char *old_path = std::getenv("PATH");
+    const std::string path =
+        d + ":" + (old_path == nullptr ? std::string{} : old_path);
+    REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+  }
+
+  ~IptablesApplyFixture() { std::filesystem::remove_all(dir_); }
+  IptablesApplyFixture(const IptablesApplyFixture &) = delete;
+  IptablesApplyFixture &operator=(const IptablesApplyFixture &) = delete;
+
+  void write_file(const std::string &name, const std::string &contents) {
+    std::ofstream output(dir_ / name);
+    REQUIRE(output.good());
+    output << contents;
+  }
+
+  std::string log() const {
+    std::ifstream input(dir_ / "commands.log");
+    std::ostringstream contents;
+    contents << input.rdbuf();
+    return contents.str();
+  }
+
+private:
+  PathGuard path_guard_;
+  std::filesystem::path dir_;
+};
+
+struct StaticApplyOutcome {
+  bool threw{false};
+  bool rules_only_error{false};
+  std::string log;
+};
+
+// Applies one rule matching kpbr4_x (whose content is `entries`) through the
+// real IptablesFirewall against the fake tools of `fixture`.
+StaticApplyOutcome apply_static_x(IptablesApplyFixture &fixture,
+                                  FirewallApplyMode mode,
+                                  const std::vector<std::string> &entries = {
+                                      "192.0.2.1"},
+                                  std::optional<uint32_t> maxelem = std::nullopt,
+                                  bool declare_x = true) {
+  IptablesFirewall firewall;
+  firewall.override_capabilities_for_fixtures(true, std::nullopt, false);
+  firewall.set_ipv6_enabled(false);
+  firewall.set_ipset_maxelem(maxelem);
+  StaticApplyOutcome outcome;
+  try {
+    firewall.prepare_apply(mode);
+    FirewallRuleCriteria criteria;
+    if (declare_x) {
+      firewall.create_ipset("kpbr4_x", AF_INET);
+      criteria.dst_set_name = "kpbr4_x";
+      if (mode != FirewallApplyMode::RulesOnly) {
+        auto loader = firewall.create_batch_loader("kpbr4_x");
+        for (const auto &entry : entries) {
+          loader->on_entry(EntryType::Ip, entry);
+        }
+        loader->finish();
+      }
+    }
+    firewall.apply(IptablesBuilderTest::mark_plan(1, criteria), mode);
+  } catch (const FirewallRulesOnlyError &) {
+    outcome.threw = true;
+    outcome.rules_only_error = true;
+  } catch (const FirewallError &) {
+    outcome.threw = true;
+  }
+  outcome.log = fixture.log();
+  return outcome;
+}
+
+size_t at(const std::string &haystack, const std::string &needle,
+          size_t from = 0) {
+  return haystack.find(needle, from);
+}
+
+} // namespace
+
+TEST_CASE("static sets: a fresh install creates the final set directly") {
+  IptablesApplyFixture fixture("fresh", {});
+  const auto out = apply_static_x(fixture, FirewallApplyMode::PreserveSets);
+  REQUIRE_FALSE(out.threw);
+  const auto &log = out.log;
+  const auto create = at(log, "create kpbr4_x hash:net family inet -exist\n");
+  REQUIRE(create != std::string::npos);
+  CHECK(at(log, "add kpbr4_x 192.0.2.1 -exist\n") > create);
+  CHECK(at(log, "kpbr4t_") == std::string::npos);
+  CHECK(at(log, "ipset swap") == std::string::npos);
+  CHECK(at(log, "ipset destroy") == std::string::npos);
+  // Sets first, then the rules that reference the stable name.
+  const auto restore = at(log, "iptables-restore --noflush");
+  REQUIRE(restore != std::string::npos);
+  CHECK(restore > at(log, "add kpbr4_x"));
+  CHECK(at(log, "--match-set kpbr4_x dst", restore) != std::string::npos);
+}
+
+TEST_CASE("static sets: refresh of an existing set is temp, fill, swap, destroy, then rules") {
+  IptablesApplyFixture fixture("refresh", {"kpbr4_x"});
+  const auto out = apply_static_x(fixture, FirewallApplyMode::PreserveSets);
+  REQUIRE_FALSE(out.threw);
+  const auto &log = out.log;
+  const auto create = at(log, "create kpbr4t_x hash:net family inet -exist\n");
+  const auto flush = at(log, "flush kpbr4t_x\n");
+  const auto add = at(log, "add kpbr4t_x 192.0.2.1 -exist\n");
+  const auto swap = at(log, "ipset swap kpbr4t_x kpbr4_x\n");
+  const auto destroy = at(log, "ipset destroy kpbr4t_x\n");
+  const auto restore = at(log, "iptables-restore --noflush");
+  REQUIRE(create != std::string::npos);
+  REQUIRE(flush != std::string::npos);
+  REQUIRE(add != std::string::npos);
+  REQUIRE(swap != std::string::npos);
+  REQUIRE(destroy != std::string::npos);
+  REQUIRE(restore != std::string::npos);
+  CHECK(create < flush);
+  CHECK(flush < add);
+  CHECK(add < swap);
+  CHECK(swap < destroy);
+  CHECK(destroy < restore);
+  // The final set is never touched directly: no empty window for the rules.
+  CHECK(at(log, "flush kpbr4_x") == std::string::npos);
+  CHECK(at(log, "add kpbr4_x ") == std::string::npos);
+  CHECK(at(log, "create kpbr4_x") == std::string::npos);
+  CHECK(at(log, "ipset destroy kpbr4_x") == std::string::npos);
+  CHECK(at(log, "--match-set kpbr4_x dst", restore) != std::string::npos);
+}
+
+TEST_CASE("static sets: refresh with no entries swaps in an empty set") {
+  IptablesApplyFixture fixture("refresh-empty", {"kpbr4_x"});
+  const auto out =
+      apply_static_x(fixture, FirewallApplyMode::StaticSetsOnly, {});
+  REQUIRE_FALSE(out.threw);
+  CHECK(at(out.log, "ipset swap kpbr4t_x kpbr4_x\n") != std::string::npos);
+  CHECK(at(out.log, "add kpbr4") == std::string::npos);
+}
+
+TEST_CASE("static sets: a capacity change is applied through swap, rules unchanged") {
+  IptablesApplyFixture fixture("capacity", {"kpbr4_x"});
+  const auto out = apply_static_x(fixture, FirewallApplyMode::PreserveSets,
+                                  {"192.0.2.1"}, 131072);
+  REQUIRE_FALSE(out.threw);
+  CHECK(at(out.log, "create kpbr4t_x hash:net family inet maxelem 131072 -exist\n") !=
+        std::string::npos);
+  CHECK(at(out.log, "ipset swap kpbr4t_x kpbr4_x\n") != std::string::npos);
+  // The set is never recreated, so the rules need no Destructive rebuild.
+  CHECK(at(out.log, "ipset destroy kpbr4_x") == std::string::npos);
+  CHECK(at(out.log, "create kpbr4_x") == std::string::npos);
+}
+
+TEST_CASE("static sets: a stale temp set is destroyed before the refresh") {
+  IptablesApplyFixture fixture("stale-temp", {"kpbr4_x", "kpbr4t_x"});
+  const auto out = apply_static_x(fixture, FirewallApplyMode::PreserveSets);
+  REQUIRE_FALSE(out.threw);
+  const auto stale = at(out.log, "ipset destroy kpbr4t_x\n");
+  REQUIRE(stale != std::string::npos);
+  CHECK(stale < at(out.log, "ipset restore"));
+  CHECK(at(out.log, "ipset swap kpbr4t_x kpbr4_x\n") != std::string::npos);
+}
+
+TEST_CASE("static sets: a swap failure aborts before the rules and drops the temp") {
+  IptablesApplyFixture fixture("swap-fail", {"kpbr4_x"});
+  fixture.write_file("fail-swap", "1");
+  const auto out = apply_static_x(fixture, FirewallApplyMode::PreserveSets);
+  CHECK(out.threw);
+  CHECK(at(out.log, "ipset swap kpbr4t_x kpbr4_x") != std::string::npos);
+  CHECK(at(out.log, "iptables-restore") == std::string::npos);
+  CHECK(at(out.log, "ipset destroy kpbr4t_x\n") != std::string::npos);
+  CHECK(at(out.log, "ipset destroy kpbr4_x") == std::string::npos);
+}
+
+TEST_CASE("static sets: a fill failure aborts before the rules and drops the temp") {
+  IptablesApplyFixture fixture("fill-fail", {"kpbr4_x"});
+  fixture.write_file("fail-restore", "1");
+  const auto out = apply_static_x(fixture, FirewallApplyMode::PreserveSets);
+  CHECK(out.threw);
+  CHECK(at(out.log, "ipset swap") == std::string::npos);
+  CHECK(at(out.log, "iptables-restore") == std::string::npos);
+  CHECK(at(out.log, "ipset destroy kpbr4t_x\n") != std::string::npos);
+}
+
+TEST_CASE("static sets: upgrade from the legacy generation names") {
+  // Old rules referenced kpbr4S_x.  The new apply creates kpbr4_x, restores
+  // rules that reference it and only then destroys the legacy sets.  Dynamic
+  // sets, foreign names and near-miss names are never touched.
+  const std::string dump =
+      "-N KeenPbrTable\n"
+      "-A KeenPbrTable -m set --match-set kpbr4S_x dst -j MARK --set-xmark 0x1/0xffffffff";
+  IptablesApplyFixture fixture(
+      "upgrade",
+      {"kpbr4S_x", "kpbr4s_y", "kpbr6S_x", "kpbr4d_x", "kpbr4_Foreign",
+       "myset", "kpbr4x_x"},
+      dump);
+  const auto out = apply_static_x(fixture, FirewallApplyMode::PreserveSets);
+  REQUIRE_FALSE(out.threw);
+  const auto &log = out.log;
+  const auto create = at(log, "create kpbr4_x hash:net family inet -exist\n");
+  const auto restore = at(log, "iptables-restore --noflush");
+  REQUIRE(create != std::string::npos);
+  REQUIRE(restore != std::string::npos);
+  CHECK(create < restore);
+  CHECK(at(log, "--match-set kpbr4_x dst", restore) != std::string::npos);
+  CHECK(at(log, "kpbr4S_x dst", restore) == std::string::npos);
+  for (const char *legacy : {"kpbr4S_x", "kpbr4s_y", "kpbr6S_x"}) {
+    const auto destroy = at(log, std::string("ipset destroy ") + legacy + "\n");
+    CHECK_MESSAGE(destroy != std::string::npos, legacy);
+    CHECK_MESSAGE(destroy > restore, legacy);
+  }
+  CHECK(at(log, "ipset destroy kpbr4d_x") == std::string::npos);
+  CHECK(at(log, "ipset destroy kpbr4_Foreign") == std::string::npos);
+  CHECK(at(log, "ipset destroy myset") == std::string::npos);
+  CHECK(at(log, "ipset destroy kpbr4x_x") == std::string::npos);
+  CHECK(at(log, "ipset destroy kpbr4_x") == std::string::npos);
+}
+
+TEST_CASE("static sets: a removed list's set is destroyed after the rules") {
+  IptablesApplyFixture fixture("removed", {"kpbr4_x", "kpbr4_gone", "kpbr6_gone"});
+  const auto out = apply_static_x(fixture, FirewallApplyMode::PreserveSets);
+  REQUIRE_FALSE(out.threw);
+  const auto restore = at(out.log, "iptables-restore --noflush");
+  REQUIRE(restore != std::string::npos);
+  for (const char *gone : {"kpbr4_gone", "kpbr6_gone"}) {
+    const auto destroy = at(out.log, std::string("ipset destroy ") + gone + "\n");
+    CHECK_MESSAGE(destroy != std::string::npos, gone);
+    CHECK_MESSAGE(destroy > restore, gone);
+  }
+  CHECK(at(out.log, "ipset destroy kpbr4_x\n") == std::string::npos);
+}
+
+TEST_CASE("static sets: an in-use or already missing set is reported, not fatal") {
+  IptablesApplyFixture fixture("inuse", {"kpbr4S_x", "kpbr4S_y", "kpbr4_x"});
+  fixture.write_file("inuse", "kpbr4S_x\n");
+  fixture.write_file("missing", "kpbr4S_y\n");
+  const auto out = apply_static_x(fixture, FirewallApplyMode::PreserveSets);
+  CHECK_FALSE(out.threw);
+  CHECK(at(out.log, "ipset destroy kpbr4S_x\n") != std::string::npos);
+  CHECK(at(out.log, "ipset destroy kpbr4S_y\n") != std::string::npos);
+}
+
+TEST_CASE("static sets: Destructive creates the sets from scratch without swap") {
+  IptablesApplyFixture fixture("destructive", {"kpbr4_x"});
+  const auto out = apply_static_x(fixture, FirewallApplyMode::Destructive);
+  REQUIRE_FALSE(out.threw);
+  CHECK(at(out.log, "create kpbr4_x hash:net family inet -exist\n") !=
+        std::string::npos);
+  CHECK(at(out.log, "kpbr4t_") == std::string::npos);
+  CHECK(at(out.log, "ipset swap") == std::string::npos);
+}
+
+TEST_CASE("static sets: RulesOnly needs the sets under their stable names") {
+  const std::string dump = "-N KeenPbrTable\n-N KeenPbrOutput";
+  {
+    IptablesApplyFixture fixture("rules-only-missing", {}, dump);
+    const auto out = apply_static_x(fixture, FirewallApplyMode::RulesOnly);
+    CHECK(out.rules_only_error);
+    CHECK(at(out.log, "iptables-restore") == std::string::npos);
+    CHECK(at(out.log, "ipset restore") == std::string::npos);
+  }
+  {
+    // Only a legacy generation set exists: not the stable name.
+    IptablesApplyFixture fixture("rules-only-legacy", {"kpbr4S_x"}, dump);
+    const auto out = apply_static_x(fixture, FirewallApplyMode::RulesOnly);
+    CHECK(out.rules_only_error);
+    CHECK(at(out.log, "iptables-restore") == std::string::npos);
+  }
+}
+
+TEST_CASE("consecutive RulesOnly applies rewrite the same chains while reusing the static sets") {
   const auto sandbox = std::filesystem::temp_directory_path() /
                        ("keen-pbr-iptables-rules-only-consecutive-" +
                         std::to_string(static_cast<long long>(getpid())));
@@ -1401,8 +1511,8 @@ TEST_CASE("consecutive RulesOnly applies rewrite the same chains while reusing s
           "-P PREROUTING ACCEPT\n-P OUTPUT ACCEPT\n-N KeenPbrTable\n"
           "-N KeenPbrOutput\n-A PREROUTING -j KeenPbrTable\n"
           "-A OUTPUT -j KeenPbrOutput\n"
-          "-A KeenPbrTable -m set --match-set kpbr4s_remote dst -j MARK\n"
-          "-A KeenPbrOutput -m set --match-set kpbr4s_remote dst -j MARK",
+          "-A KeenPbrTable -m set --match-set kpbr4_remote dst -j MARK\n"
+          "-A KeenPbrOutput -m set --match-set kpbr4_remote dst -j MARK",
           iptables_mutations.string()));
   write_executable(
       sandbox / "ipset",
@@ -1413,11 +1523,11 @@ TEST_CASE("consecutive RulesOnly applies rewrite the same chains while reusing s
       "  exit 42\n"
       "fi\n"
       "if [ \"$1\" = \"list\" ] && [ \"$2\" = \"-n\" ]; then\n"
-      "  /bin/printf '%s\\n' kpbr4s_remote\n"
+      "  /bin/printf '%s\\n' kpbr4_remote\n"
       "  exit 0\n"
       "fi\n"
       "if [ \"$1\" = \"list\" ] && [ \"$2\" = \"-t\" ]; then\n"
-      "  /bin/printf '%s\\n' '<ipsets><ipset name=\"kpbr4s_remote\"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>'\n"
+      "  /bin/printf '%s\\n' '<ipsets><ipset name=\"kpbr4_remote\"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>'\n"
       "  exit 0\n"
       "fi\n"
       "exit 1\n");
@@ -1443,10 +1553,10 @@ TEST_CASE("consecutive RulesOnly applies rewrite the same chains while reusing s
   firewall.set_ipv6_enabled(false);
   const auto apply_rules_only = [&] {
     firewall.prepare_apply(FirewallApplyMode::RulesOnly);
-    CHECK(firewall.static_set_name("remote", AF_INET) == "kpbr4s_remote");
-    firewall.create_ipset("kpbr4s_remote", AF_INET);
+    CHECK(firewall.static_set_name("remote", AF_INET) == "kpbr4_remote");
+    firewall.create_ipset("kpbr4_remote", AF_INET);
     FirewallRuleCriteria criteria;
-    criteria.dst_set_name = "kpbr4s_remote";
+    criteria.dst_set_name = "kpbr4_remote";
     const auto plan = IptablesBuilderTest::mark_plan(1, criteria);
     firewall.apply(plan, FirewallApplyMode::RulesOnly);
   };
@@ -1466,27 +1576,16 @@ TEST_CASE("consecutive RulesOnly applies rewrite the same chains while reusing s
   // Same chains and static sets every time; hooks already present are not
   // added again.
   CHECK(first_rules == second_rules);
-  CHECK(first_rules.find("-A KeenPbrTable -m set --match-set kpbr4s_remote") !=
+  CHECK(first_rules.find("-A KeenPbrTable -m set --match-set kpbr4_remote") !=
         std::string::npos);
-  CHECK(first_rules.find("-A KeenPbrOutput -m set --match-set kpbr4s_remote") !=
+  CHECK(first_rules.find("-A KeenPbrOutput -m set --match-set kpbr4_remote") !=
         std::string::npos);
-  CHECK(first_rules.find("kpbr4S_remote") == std::string::npos);
   CHECK(first_rules.find("-A PREROUTING") == std::string::npos);
   CHECK(first_rules.find("-A OUTPUT") == std::string::npos);
   CHECK(first_rules.find("-X ") == std::string::npos);
   CHECK_FALSE(std::filesystem::exists(iptables_mutations));
 
   std::filesystem::remove_all(sandbox);
-}
-
-TEST_CASE("static slot is independent of the chains the rules are written to") {
-  const auto a_sets = T::build_rules_for_set_slot(FirewallSetGeneration::A, false);
-  CHECK(a_sets.find("-A KeenPbrTable -m set --match-set kpbr4s_sample") !=
-        std::string::npos);
-  const auto b_sets = T::build_rules_for_set_slot(FirewallSetGeneration::B, true);
-  CHECK(b_sets.find("-A KeenPbrTable -m set --match-set kpbr6S_sample") !=
-        std::string::npos);
-  CHECK(b_sets.find("kpbr6s_sample") == std::string::npos);
 }
 
 TEST_CASE("xt_comment registration parser requires an exact token") {
@@ -1665,9 +1764,9 @@ TEST_CASE("unsupported xt_comment omits comments without changing apply") {
   firewall.set_ipv6_enabled(false);
   firewall.set_clear_dynamic_sets_on_apply(false);
   firewall.prepare_apply(FirewallApplyMode::Destructive);
-  firewall.create_ipset("kpbr4s_comment_test", AF_INET);
+  firewall.create_ipset("kpbr4_comment_test", AF_INET);
   FirewallRuleCriteria criteria;
-  criteria.dst_set_name = "kpbr4s_comment_test";
+  criteria.dst_set_name = "kpbr4_comment_test";
   const auto plan = IptablesBuilderTest::mark_plan(
       7, criteria, FirewallRuleKey{"route.mark", "outbound"});
   CHECK_NOTHROW(firewall.apply(plan, FirewallApplyMode::Destructive));
@@ -1688,40 +1787,6 @@ TEST_CASE("unsupported xt_comment omits comments without changing apply") {
           command_text.find("ipset-restore"));
   }
   CHECK(restore.str().find("-m comment") == std::string::npos);
-  std::filesystem::remove_all(sandbox);
-}
-
-TEST_CASE("live rules referencing both static generations fail before PreserveSets mutation") {
-  const auto sandbox = std::filesystem::temp_directory_path() /
-                       ("keen-pbr-iptables-ambiguous-" +
-                        std::to_string(static_cast<long long>(getpid())));
-  std::filesystem::remove_all(sandbox);
-  std::filesystem::create_directories(sandbox);
-  const auto mutation_log = sandbox / "mutation.log";
-  write_executable(
-      sandbox / "iptables",
-      fake_iptables_script(
-          "-N KeenPbrTable\n"
-          "-A KeenPbrTable -m set --match-set kpbr4s_x dst -j MARK\n"
-          "-A KeenPbrTable -m set --match-set kpbr4S_y dst -j MARK",
-          (sandbox / "iptables-mutation.log").string()));
-  write_executable(
-      sandbox / "ipset",
-      "#!/bin/sh\n"
-      "/bin/printf '%s\\n' mutation >> '" + mutation_log.string() + "'\n"
-      "exit 0\n");
-
-  PathGuard path_guard;
-  const char *old_path = std::getenv("PATH");
-  const std::string path = sandbox.string() + ":" +
-                           (old_path == nullptr ? std::string{} : old_path);
-  REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
-
-  IptablesFirewall firewall;
-  firewall.set_ipv6_enabled(false);
-  CHECK_THROWS_AS(firewall.prepare_apply(FirewallApplyMode::PreserveSets),
-                  FirewallError);
-  CHECK_FALSE(std::filesystem::exists(mutation_log));
   std::filesystem::remove_all(sandbox);
 }
 
@@ -1912,14 +1977,14 @@ TEST_CASE("mangle restore: route rules land in both chains, DNS-detour only in O
   FirewallRuleInstance route;
   route.family = FirewallFamily::ipv4;
   route.hook = FirewallHook::prerouting;
-  route.criteria.dst_set_name = "kpbr4s_x";
+  route.criteria.dst_set_name = "kpbr4_x";
   route.action = MarkAction{0x100, 0xFFFFFFFFu};
   plan.rules.push_back(std::move(route));
 
   FirewallRuleInstance detour;
   detour.family = FirewallFamily::ipv4;
   detour.hook = FirewallHook::output;
-  detour.criteria.dst_set_name = "kpbr4s_dns";
+  detour.criteria.dst_set_name = "kpbr4_dns";
   detour.action = MarkAction{0x200, 0xFFFFFFFFu};
   plan.rules.push_back(std::move(detour));
 
@@ -1928,13 +1993,13 @@ TEST_CASE("mangle restore: route rules land in both chains, DNS-detour only in O
                                       {{"KeenPbrTable", "PREROUTING"},
                                        {"KeenPbrOutput", "OUTPUT"}},
                                       ruleset);
-  CHECK(script.find("-A KeenPbrTable -m set --match-set kpbr4s_x dst -j MARK") !=
+  CHECK(script.find("-A KeenPbrTable -m set --match-set kpbr4_x dst -j MARK") !=
         std::string::npos);
-  CHECK(script.find("-A KeenPbrOutput -m set --match-set kpbr4s_x dst -j MARK") !=
+  CHECK(script.find("-A KeenPbrOutput -m set --match-set kpbr4_x dst -j MARK") !=
         std::string::npos);
-  CHECK(script.find("-A KeenPbrTable -m set --match-set kpbr4s_dns") ==
+  CHECK(script.find("-A KeenPbrTable -m set --match-set kpbr4_dns") ==
         std::string::npos);
-  CHECK(script.find("-A KeenPbrOutput -m set --match-set kpbr4s_dns dst -j MARK") !=
+  CHECK(script.find("-A KeenPbrOutput -m set --match-set kpbr4_dns dst -j MARK") !=
         std::string::npos);
   // PREROUTING chain rules come first, then OUTPUT, then the hooks.
   CHECK(script.find("-A KeenPbrTable ") < script.find("-A KeenPbrOutput "));
@@ -2660,9 +2725,9 @@ TEST_CASE(
 // Static / dynamic set split tests
 // =============================================================================
 
-TEST_CASE("static set naming: kpbr4s_ prefix, no timeout") {
-  auto line = T::build_ipset_create_line("kpbr4s_mylist", "inet", 0);
-  CHECK(line == "create kpbr4s_mylist hash:net family inet -exist\n");
+TEST_CASE("static set naming: kpbr4_ prefix, no timeout") {
+  auto line = T::build_ipset_create_line("kpbr4_mylist", "inet", 0);
+  CHECK(line == "create kpbr4_mylist hash:net family inet -exist\n");
 }
 
 TEST_CASE("dynamic set naming: kpbr4d_ prefix, no timeout when ttl_ms=0") {
