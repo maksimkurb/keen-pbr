@@ -362,6 +362,8 @@ set(SOURCES
   src/netfilter/nflog.cpp
   src/netfilter/conntrack.cpp
   src/netfilter/set_writer.cpp
+  src/intercept/intercept_processor.cpp
+  src/intercept/intercept_service.cpp
   src/util/blocking_executor.cpp
   src/util/firewall_backend_utils.cpp
   src/util/ipv6_support.cpp
