@@ -13,17 +13,26 @@ def register(registry):
         # stages of this very apply are skipped and the resolver health fields
         # are reported as disabled.
         config = context.api("/api/config")["config"]
-        config["dns"] = {"resolver_integration": "none"}
+        # Keep the server definitions and per-list rules in the document: the
+        # resolver endpoint is disabled, but detour definitions remain valid
+        # input for DNS interception/ordinary DNS traffic.
+        none_dns = dict(original["dns"])
+        none_dns["resolver_integration"] = "none"
+        config["dns"] = none_dns
         health = context.apply_config(config)
         operation = health["lifecycle_operation"]
         for stage in operation["stages"]:
-            if stage["id"] in ("reload_dnsmasq", "verify_dnsmasq"):
+            if stage["id"] in resolver_stages:
                 assert stage["status"] == "skipped", operation
         assert health["resolver_integration"] == "none", health
         assert health["resolver_config_probe_status"] == "disabled", health
         assert not health.get("resolver_config_hash"), health
         assert not health.get("resolver_config_hash_actual"), health
         assert health.get("resolver_config_sync_state") is None, health
+        persisted = context.api("/api/config")["config"]["dns"]
+        assert persisted.get("resolver_integration") == "none", persisted
+        assert persisted.get("servers") == original["dns"].get("servers"), persisted
+        assert persisted.get("rules") == original["dns"].get("rules"), persisted
 
         # With the integration off lifecycle operations have no resolver stages.
         stopped = context.api("/api/service/stop", "POST")
@@ -56,3 +65,21 @@ def register(registry):
             return True
 
         context.wait_for("resolver convergence", converged)
+
+        # Repeat dnsmasq -> none after a complete round trip.  This catches
+        # stale resolver IPC state that a single transition can hide.
+        second_none = dict(original)
+        second_none["dns"] = dict(none_dns)
+        health = context.apply_config(second_none)
+        operation = health["lifecycle_operation"]
+        for stage in operation["stages"]:
+            if stage["id"] in resolver_stages:
+                assert stage["status"] == "skipped", operation
+        assert health["resolver_integration"] == "none", health
+        assert health["resolver_config_probe_status"] == "disabled", health
+        assert health.get("resolver_config_sync_state") is None, health
+
+        # And return to the managed endpoint once more; both transitions must
+        # leave the runtime converged and the IPC-facing health state stable.
+        context.apply_config(original)
+        context.wait_for("second resolver convergence", converged)

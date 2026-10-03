@@ -73,6 +73,7 @@ def handle_tcp(connection: socket.socket, peer, identity: str,
             first = data.splitlines()[0].decode(errors="replace")
             token = first.split(" ", 2)[1]
             value = response(identity, {"token": token}, peer, "http")
+            value["payload_hex"] = data.hex()
             observations.append(value)
             time.sleep(delay)
             body = json.dumps(value, sort_keys=True).encode()
@@ -82,7 +83,16 @@ def handle_tcp(connection: socket.socket, peer, identity: str,
                 + body
             )
             return
-        request = json.loads(data.decode())
+        try:
+            request = json.loads(data.decode())
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            # L7 cases deliberately send an actual ClientHello/HTTP payload,
+            # not the JSON probe protocol.  Keep an observation and close the
+            # connection; the packet itself is the assertion under test.
+            observations.append({"identity": identity, "proto": "raw-tcp",
+                                 "payload_hex": data.hex(), "peer": peer[0],
+                                 "peer_port": peer[1]})
+            return
         value = response(identity, request, peer, "tcp")
         observations.append(value)
         time.sleep(delay)
@@ -93,7 +103,13 @@ def serve_udp(listener: socket.socket, identity: str, observations: ObservationL
               delay: float = 0) -> None:
     while True:
         data, peer = listener.recvfrom(65536)
-        request = json.loads(data.decode())
+        try:
+            request = json.loads(data.decode())
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            observations.append({"identity": identity, "proto": "raw-udp",
+                                 "payload_hex": data.hex(), "peer": peer[0],
+                                 "peer_port": peer[1]})
+            continue
         value = response(identity, request, peer, "udp")
         observations.append(value)
         time.sleep(delay)
@@ -141,14 +157,21 @@ def one_probe(args: argparse.Namespace) -> dict:
             probe.bind((args.source or ("0.0.0.0" if family == socket.AF_INET else "::"),
                         args.source_port or 0))
         destination = (args.destination, args.destination_port)
-        request = {"token": args.token, "destination_port": args.destination_port}
-        payload = json.dumps(request, sort_keys=True).encode() + b"\n"
+        if args.payload_hex:
+            payload = bytes.fromhex(args.payload_hex)
+        else:
+            request = {"token": args.token, "destination_port": args.destination_port}
+            payload = json.dumps(request, sort_keys=True).encode() + b"\n"
         if socktype == socket.SOCK_STREAM:
             probe.connect(destination)
             probe.sendall(payload)
+            if args.no_receive:
+                return {"sent": len(payload), "proto": args.proto}
             data = probe.recv(65536)
         else:
             probe.sendto(payload, destination)
+            if args.no_receive:
+                return {"sent": len(payload), "proto": args.proto}
             data, _ = probe.recvfrom(65536)
     result = json.loads(data.decode())
     if result.get("token") != args.token:
@@ -187,6 +210,8 @@ def add_client_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--mark", type=lambda value: int(value, 0))
     parser.add_argument("--token", required=True)
     parser.add_argument("--timeout", type=float, default=4)
+    parser.add_argument("--payload-hex")
+    parser.add_argument("--no-receive", action="store_true")
 
 
 def main() -> None:

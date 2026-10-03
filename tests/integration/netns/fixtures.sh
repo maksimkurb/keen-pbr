@@ -29,10 +29,10 @@ start() {
 
   spawn "$NS_DIRECT" fixture-direct-probe python3 "$fixture_dir/probe.py" server \
     --identity wan_direct --log /run/kpbr-wan/direct/observations.jsonl \
-    --ports 18080,19000,19010,19011,19020 --delay-ms 350
+    --ports 80,443,18080,19000,19010,19011,19020 --delay-ms 350
   spawn "$NS_PBR" fixture-pbr-probe python3 "$fixture_dir/probe.py" server \
     --identity wan_pbr --log /run/kpbr-wan/pbr/observations.jsonl \
-    --ports 18080,19000,19010,19011,19020 --delay-ms 5
+    --ports 80,443,18080,19000,19010,19011,19020 --delay-ms 5
 
   spawn "$NS_DIRECT" fixture-direct-dns4 python3 "$fixture_dir/dns-fixture.py" \
     --identity direct-v4 --listen 10.10.0.2 --port 15353 \
@@ -42,10 +42,19 @@ start() {
     --log /run/kpbr-wan/direct/dns-v6.jsonl --a 198.18.0.11 --aaaa 2001:db8:100::11
   spawn "$NS_PBR" fixture-pbr-dns4 python3 "$fixture_dir/dns-fixture.py" \
     --identity pbr-v4 --listen 10.20.0.2 --port 15353 \
-    --log /run/kpbr-wan/pbr/dns-v4.jsonl --a 198.18.0.10 --aaaa 2001:db8:100::10
+    --log /run/kpbr-wan/pbr/dns-v4.jsonl --a 198.18.0.10 --aaaa 2001:db8:100::10 \
+    --cname-domain alias.cname.test --cname-target target.cname.test
+  spawn "$NS_PBR" fixture-pbr-dns4-port53 python3 "$fixture_dir/dns-fixture.py" \
+    --identity pbr-v4 --listen 10.20.0.2 --port 53 \
+    --log /run/kpbr-wan/pbr/dns-v4-port53.jsonl --a 198.18.0.10 --aaaa 2001:db8:100::10 \
+    --cname-domain alias.cname.test --cname-target target.cname.test
   spawn "$NS_PBR" fixture-pbr-dns6 python3 "$fixture_dir/dns-fixture.py" \
     --identity pbr-v6 --listen 2001:db8:20::2 --port 15354 \
     --log /run/kpbr-wan/pbr/dns-v6.jsonl --a 198.18.0.10 --aaaa 2001:db8:100::10
+  spawn "$NS_PBR" fixture-pbr-dns6-port53 python3 "$fixture_dir/dns-fixture.py" \
+    --identity pbr-v6 --listen 2001:db8:20::2 --port 53 \
+    --log /run/kpbr-wan/pbr/dns-v6-port53.jsonl --a 198.18.0.10 --aaaa 2001:db8:100::10 \
+    --cname-domain alias.cname.test --cname-target target.cname.test
 
   local ready=0 _
   for _ in $(seq 1 80); do
