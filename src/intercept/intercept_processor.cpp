@@ -59,9 +59,31 @@ void InterceptProcessor::set_snapshot(std::shared_ptr<const InterceptSnapshot> s
     snapshot_ = std::move(snapshot);
 }
 
+void InterceptProcessor::set_l7_submitter(L7Submitter submitter) {
+    std::lock_guard<std::mutex> lock(snapshot_mutex_);
+    l7_submitter_ = std::move(submitter);
+}
+
+void InterceptProcessor::set_writer_callbacks(WriterAdmission dns_admission,
+                                              WriterRelease dns_release,
+                                              WriterAdmission l7_admission,
+                                              WriterRelease l7_release) {
+    std::lock_guard<std::mutex> lock(snapshot_mutex_);
+    dns_admission_ = std::move(dns_admission);
+    dns_release_ = std::move(dns_release);
+    l7_admission_ = std::move(l7_admission);
+    l7_release_ = std::move(l7_release);
+}
+
 std::shared_ptr<const InterceptSnapshot> InterceptProcessor::snapshot() const {
     std::lock_guard<std::mutex> lock(snapshot_mutex_);
     return snapshot_;
+}
+
+bool InterceptProcessor::snapshot_is_current(
+    const std::shared_ptr<const InterceptSnapshot>& snapshot) const {
+    std::lock_guard<std::mutex> lock(snapshot_mutex_);
+    return snapshot_ == snapshot;
 }
 
 void InterceptProcessor::push_event(InterceptEvent&& event) {
@@ -223,16 +245,81 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
         event.ips.push_back(format_ip(rec.family, rec.addr));
     }
 
+    if (!adds_.empty() && Clock::now() >= deadline) {
+        event.timed_out = true;
+        bump(counters_.dns_hold_timeouts);
+        event.hold_us = static_cast<uint32_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
+        push_event(std::move(event));
+        return decision;
+    }
+
     if (!adds_.empty()) {
         results_.assign(adds_.size(), nfnl::SetAddResult::Error);
-        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
-            deadline - Clock::now() + std::chrono::microseconds(999));
-        const int budget_ms = static_cast<int>(std::max<int64_t>(1, remaining.count()));
+        const auto remaining = deadline - Clock::now();
+        if (remaining <= Clock::duration::zero()) {
+            event.timed_out = true;
+            bump(counters_.dns_hold_timeouts);
+            event.hold_us = static_cast<uint32_t>(
+                std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
+            push_event(std::move(event));
+            return decision;
+        }
         bool ok = false;
-        try {
-            ok = writer_.add(adds_.data(), results_.data(), adds_.size(), budget_ms);
-        } catch (const std::exception& e) {
-            Logger::instance().debug("intercept: set writer failed: {}", e.what());
+        bool write_attempted = false;
+        WriterAdmission dns_admission;
+        WriterRelease dns_release;
+        {
+            std::lock_guard<std::mutex> lock(snapshot_mutex_);
+            dns_admission = dns_admission_;
+            dns_release = dns_release_;
+        }
+        const bool admitted = !dns_admission || dns_admission();
+        if (admitted) {
+            if (Clock::now() >= deadline) {
+                if (dns_release) dns_release();
+                event.timed_out = true;
+                bump(counters_.dns_hold_timeouts);
+                event.hold_us = static_cast<uint32_t>(
+                    std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started)
+                        .count());
+                push_event(std::move(event));
+                return decision;
+            }
+            if (!snapshot_is_current(snap)) {
+                if (dns_release) dns_release();
+                event.errors = static_cast<uint32_t>(adds_.size());
+                bump(counters_.set_errors, event.errors);
+                event.hold_us = static_cast<uint32_t>(
+                    std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started)
+                        .count());
+                push_event(std::move(event));
+                return decision;
+            }
+            const auto write_remaining = deadline - Clock::now();
+            if (write_remaining <= Clock::duration::zero()) {
+                if (dns_release) dns_release();
+                event.timed_out = true;
+                bump(counters_.dns_hold_timeouts);
+                event.hold_us = static_cast<uint32_t>(
+                    std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started)
+                        .count());
+                push_event(std::move(event));
+                return decision;
+            }
+            const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                write_remaining + std::chrono::microseconds(999));
+            const int budget_ms = static_cast<int>(std::max<int64_t>(1, remaining_ms.count()));
+            write_attempted = true;
+            try {
+                ok = writer_.add(adds_.data(), results_.data(), adds_.size(), budget_ms);
+            } catch (const std::exception& e) {
+                Logger::instance().debug("intercept: set writer failed: {}", e.what());
+            } catch (...) {
+                if (dns_release) dns_release();
+                throw;
+            }
+            if (dns_release) dns_release();
         }
         for (nfnl::SetAddResult r : results_) {
             switch (r) {
@@ -244,7 +331,7 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
         bump(counters_.set_added, event.added);
         bump(counters_.set_refreshed, event.refreshed);
         bump(counters_.set_errors, event.errors);
-        if (!ok && event.errors > 0 && writer_.last_errno() == ETIMEDOUT) {
+        if (write_attempted && !ok && event.errors > 0 && writer_.last_errno() == ETIMEDOUT) {
             event.timed_out = true;
             bump(counters_.dns_hold_timeouts);
             // The client may already be connecting: purge stale flows to these IPs.
@@ -335,27 +422,80 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
     event.ips.push_back(format_ip(layout->ip_version, key.dst));
 
     if (!adds_.empty()) {
-        constexpr int kL7BudgetMs = 100;  // packet is already on its way; no hold deadline
-        results_.assign(adds_.size(), nfnl::SetAddResult::Error);
-        try {
-            writer_.add(adds_.data(), results_.data(), adds_.size(), kL7BudgetMs);
-        } catch (const std::exception& e) {
-            Logger::instance().debug("intercept: set writer failed: {}", e.what());
+        InterceptL7Work work;
+        work.snapshot = snap;
+        work.adds = std::move(adds_);
+        work.event = std::move(event);
+        work.family = layout->ip_version;
+        work.destination = key.dst;
+        L7Submitter submitter;
+        {
+            std::lock_guard<std::mutex> lock(snapshot_mutex_);
+            submitter = l7_submitter_;
         }
-        bool any_added = false;
-        for (nfnl::SetAddResult r : results_) {
-            switch (r) {
-            case nfnl::SetAddResult::Added: ++event.added; any_added = true; break;
-            case nfnl::SetAddResult::Refreshed: ++event.refreshed; break;
-            default: ++event.errors; break;
-            }
+        if (submitter) {
+            submitter(std::move(work));
+            return;
         }
-        bump(counters_.set_added, event.added);
-        bump(counters_.set_refreshed, event.refreshed);
-        bump(counters_.set_errors, event.errors);
-        if (any_added) cleanup_.request(layout->ip_version, key.dst);
+        process_l7_work(std::move(work), writer_);
+        return;
     }
     push_event(std::move(event));
+}
+
+void InterceptProcessor::process_l7_work(InterceptL7Work work,
+                                         nfnl::DynamicSetWriter& writer) {
+    record_l7_result(std::move(work), writer);
+}
+
+void InterceptProcessor::reject_l7_work(InterceptL7Work work) {
+    work.event.errors += static_cast<uint32_t>(work.adds.size());
+    bump(counters_.set_errors, work.adds.size());
+    push_event(std::move(work.event));
+}
+
+void InterceptProcessor::record_l7_result(InterceptL7Work work,
+                                          nfnl::DynamicSetWriter& writer) {
+    constexpr int kL7BudgetMs = 100;  // L7 is off the DNS hold thread.
+    std::vector<nfnl::SetAddResult> results(work.adds.size(), nfnl::SetAddResult::Error);
+    WriterAdmission l7_admission;
+    WriterRelease l7_release;
+    {
+        std::lock_guard<std::mutex> lock(snapshot_mutex_);
+        l7_admission = l7_admission_;
+        l7_release = l7_release_;
+    }
+    const bool admitted = !l7_admission || l7_admission();
+    const bool current = admitted && snapshot_is_current(work.snapshot);
+    if (admitted) {
+        if (current) {
+            try {
+                writer.add(work.adds.data(), results.data(), work.adds.size(), kL7BudgetMs);
+            } catch (const std::exception& e) {
+                Logger::instance().debug("intercept: set writer failed: {}", e.what());
+            } catch (...) {
+                Logger::instance().debug("intercept: set writer failed with an unknown exception");
+            }
+        }
+        if (l7_release) l7_release();
+    }
+    bool any_added = false;
+    for (nfnl::SetAddResult result : results) {
+        switch (result) {
+        case nfnl::SetAddResult::Added:
+            ++work.event.added;
+            any_added = true;
+            break;
+        case nfnl::SetAddResult::Refreshed: ++work.event.refreshed; break;
+        default: ++work.event.errors; break;
+        }
+    }
+    bump(counters_.set_added, work.event.added);
+    bump(counters_.set_refreshed, work.event.refreshed);
+    bump(counters_.set_errors, work.event.errors);
+    // Only an address that was actually added needs conntrack cleanup.
+    if (any_added) cleanup_.request(work.family, work.destination);
+    push_event(std::move(work.event));
 }
 
 } // namespace keen_pbr3

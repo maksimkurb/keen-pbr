@@ -70,7 +70,13 @@ void Daemon::start_intercept_service(InterceptEffective& effective) {
     try {
         auto writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer()
                                                            : nfnl::make_ipset_writer();
-        auto service = std::make_shared<InterceptService>(std::move(writer));
+        std::unique_ptr<nfnl::DynamicSetWriter> l7_writer;
+        if (effective.dns_hold && effective.l7) {
+            l7_writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer()
+                                                             : nfnl::make_ipset_writer();
+        }
+        auto service = std::make_shared<InterceptService>(std::move(writer),
+                                                           std::move(l7_writer));
         service->start(options, make_empty_snapshot(effective));
         {
             KPBR_LOCK_GUARD(intercept_mutex_);
@@ -91,21 +97,18 @@ void Daemon::start_intercept_service(InterceptEffective& effective) {
 void Daemon::quiesce_intercept_service(
     const std::vector<DumpedRoute>& main_routes,
     const std::vector<DumpedInterface>& interfaces,
-    const FirewallBalanceCandidates& balance_candidates) {
+    const FirewallBalanceCandidates& balance_candidates,
+    const Config& quiesce_config,
+    const OutboundMarkMap& quiesce_marks) {
     // Packets still queued between the final drain and the unbind would be
     // dropped by the kernel, so the rules that queue must disappear first.
     const auto previous_active = firewall_state_.active_firewall();
     if (previous_active) {
-        try {
-            auto active = apply_runtime_firewall(
-                config_, outbound_marks_, list_service_.cache_manager(), *firewall_,
-                FirewallApplyMode::RulesOnly, previous_active.get(), false, main_routes,
-                interfaces, &balance_candidates, std::nullopt);
-            firewall_state_.publish_active_firewall(std::move(active));
-        } catch (const std::exception& error) {
-            Logger::instance().warn(
-                "Interception: detaching firewall rules before restart failed: {}", error.what());
-        }
+        auto active = apply_runtime_firewall(
+            quiesce_config, quiesce_marks, list_service_.cache_manager(), *firewall_,
+            FirewallApplyMode::RulesOnly, previous_active.get(), false, main_routes,
+            interfaces, &balance_candidates, std::nullopt);
+        firewall_state_.publish_active_firewall(std::move(active));
     }
     stop_intercept_service();
 }
@@ -115,10 +118,10 @@ void Daemon::stop_intercept_service() {
     {
         KPBR_LOCK_GUARD(intercept_mutex_);
         service.swap(intercept_service_);
+        intercept_snapshot_seq_.fetch_add(1, std::memory_order_acq_rel);
+        intercept_service_options_ = InterceptServiceOptions{};
+        intercept_forwarded_seq_ = 0;
     }
-    intercept_snapshot_seq_.fetch_add(1, std::memory_order_acq_rel);
-    intercept_service_options_ = InterceptServiceOptions{};
-    intercept_forwarded_seq_ = 0;
     if (service) {
         service->stop();
         Logger::instance().info("Interception service stopped");
@@ -128,15 +131,17 @@ void Daemon::stop_intercept_service() {
 void Daemon::schedule_intercept_snapshot_update(std::vector<FirewallSetDeclaration> sets,
                                                 const InterceptEffective& effective) {
     std::shared_ptr<InterceptService> service;
+    std::uint64_t seq = 0;
     {
         KPBR_LOCK_GUARD(intercept_mutex_);
         service = intercept_service_;
+        if (service) {
+            seq = intercept_snapshot_seq_.fetch_add(1, std::memory_order_acq_rel) + 1;
+        }
     }
     if (!service) {
         return;
     }
-    const std::uint64_t seq =
-        intercept_snapshot_seq_.fetch_add(1, std::memory_order_acq_rel) + 1;
     const bool ipv6_enabled = firewall_->ipv6_enabled();
     const bool queued = blocking_executor_.try_post(
         "intercept-snapshot",
@@ -146,10 +151,14 @@ void Daemon::schedule_intercept_snapshot_update(std::vector<FirewallSetDeclarati
                 ListStreamer streamer(list_service_.cache_manager());
                 auto snapshot = build_intercept_snapshot(config, sets, ipv6_enabled, effective,
                                                          streamer);
-                if (intercept_snapshot_seq_.load(std::memory_order_acquire) != seq) {
-                    return;  // superseded by a newer apply or a stop
+                {
+                    KPBR_LOCK_GUARD(intercept_mutex_);
+                    if (intercept_snapshot_seq_.load(std::memory_order_acquire) != seq ||
+                        intercept_service_ != service) {
+                        return;  // superseded by a newer apply or a stop
+                    }
+                    service->update_snapshot(snapshot);
                 }
-                service->update_snapshot(snapshot);
                 Logger::instance().info(
                     "Interception snapshot updated: {} list(s), {} domain(s)",
                     snapshot->index->list_names().size(), snapshot->index->domain_count());
@@ -177,8 +186,18 @@ api::InterceptHealthClass Daemon::build_intercept_health() const {
         effective = intercept_effective_;
     }
     const bool running = service && service->running();
-    return make_intercept_health(effective, running, service ? &service->counters() : nullptr,
-                                 service ? service->last_event_seq() : 0);
+    auto health = make_intercept_health(
+        effective, running && (!service || !service->failed()),
+        service ? &service->counters() : nullptr,
+        service ? service->last_event_seq() : 0,
+        service ? service->snapshot_ready() : false);
+    if (service && service->failed()) {
+        health.reasons.push_back("interception service stopped after a fatal listener error");
+    } else if (service && service->l7_degraded()) {
+        health.l7_active = false;
+        health.reasons.push_back("L7 interception degraded after NFLOG receive failure");
+    }
+    return health;
 }
 
 void Daemon::pump_intercept_events() {

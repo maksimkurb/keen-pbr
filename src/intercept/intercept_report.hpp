@@ -14,7 +14,8 @@ namespace keen_pbr3 {
 api::InterceptHealthClass make_intercept_health(const InterceptEffective& effective,
                                                 bool running,
                                                 const InterceptCounters* counters,
-                                                uint64_t events_seq);
+                                                uint64_t events_seq,
+                                                bool snapshot_ready = true);
 
 const char* intercept_source_name(InterceptSource source);
 

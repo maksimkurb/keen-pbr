@@ -177,13 +177,37 @@ void Daemon::reconcile_static_routing(
 
 void Daemon::apply_firewall(FirewallApplyMode mode,
                             bool force_clear_dynamic_sets,
-                            const std::vector<DumpedRoute>* main_routes) {
+                            const std::vector<DumpedRoute>* main_routes,
+                            const Config* quiesce_config,
+                            const OutboundMarkMap* quiesce_marks) {
     invalidate_routing_health_cache();
+    {
+        KPBR_LOCK_GUARD(intercept_mutex_);
+        // Any in-flight build belongs to the previous apply attempt. It must
+        // not publish after this attempt fails or changes the set schema.
+        intercept_snapshot_seq_.fetch_add(1, std::memory_order_acq_rel);
+    }
     const auto owned_main_routes = main_routes != nullptr
         ? *main_routes
         : netlink_.dump_routes_in_table(254);
     const auto interfaces = netlink_.dump_interfaces();
     const auto balance_candidates = build_balance_candidates(owned_main_routes, interfaces);
+    std::shared_ptr<InterceptService> service_for_apply;
+    {
+        KPBR_LOCK_GUARD(intercept_mutex_);
+        service_for_apply = intercept_service_;
+    }
+    // Prevent an already-published snapshot from writing while this apply
+    // creates, replaces, or retargets sets with the same logical names. The
+    // gates drain admitted writes without holding a mutex across the writer's
+    // potentially slow netlink transaction, so stopping a service cannot
+    // deadlock behind the pause.
+    std::optional<InterceptService::WritePause> writer_pause;
+    if (service_for_apply) {
+        writer_pause.emplace(service_for_apply->pause_writes());
+        service_for_apply->discard_l7_pending();
+        service_for_apply->invalidate_snapshot();
+    }
 
     // Interception ordering: a service that must go away or rebind is
     // detached from the rules first (quiesce), a needed service is bound
@@ -197,17 +221,22 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
             options.hold_timeout_ms = intercept.hold_timeout_ms;
             return options;
         }();
+        bool service_present;
         bool service_running;
         {
             KPBR_LOCK_GUARD(intercept_mutex_);
-            service_running = intercept_service_ != nullptr;
+            service_present = intercept_service_ != nullptr;
+            service_running = service_present && intercept_service_->running();
         }
         const bool options_changed =
             wanted.queue_num != intercept_service_options_.queue_num ||
             wanted.nflog_group != intercept_service_options_.nflog_group ||
             wanted.hold_timeout_ms != intercept_service_options_.hold_timeout_ms;
-        if (service_running && (!intercept.active() || options_changed)) {
-            quiesce_intercept_service(owned_main_routes, interfaces, balance_candidates);
+        if (service_present && (!service_running || !intercept.active() || options_changed)) {
+            quiesce_intercept_service(
+                owned_main_routes, interfaces, balance_candidates,
+                quiesce_config != nullptr ? *quiesce_config : config_,
+                quiesce_marks != nullptr ? *quiesce_marks : outbound_marks_);
         }
         if (intercept.active()) {
             bool needs_start;
@@ -925,6 +954,8 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         throw DaemonError("reconcile_prepared_runtime must run on the control/event-loop thread");
     }
 
+    const Config old_config = config_;
+    const OutboundMarkMap old_marks = outbound_marks_;
     const auto firewall_policy = firewall_config_apply_policy(
         firewall_->backend(), config_, prepared.config);
     if (firewall_policy.force_clear_dynamic_sets) {
@@ -969,7 +1000,9 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
     resolver_integration_->prepare_runtime();
     apply_firewall(firewall_policy.mode,
                    firewall_policy.force_clear_dynamic_sets,
-                   &main_routes);
+                   &main_routes,
+                   &old_config,
+                   &old_marks);
     routing_runtime_active_ = true;
     transition_runtime_or_throw(RuntimeState::applying, "config apply");
     begin_resolver_generation();

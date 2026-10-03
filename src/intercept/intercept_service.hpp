@@ -5,6 +5,7 @@
 #include "../netfilter/nfqueue.hpp"
 
 #include <condition_variable>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -22,8 +23,25 @@ struct InterceptServiceOptions {
 
 class InterceptService {
 public:
+    class WritePause {
+    public:
+        WritePause(const WritePause&) = delete;
+        WritePause& operator=(const WritePause&) = delete;
+        WritePause(WritePause&& other) noexcept : service_(other.service_) {
+            other.service_ = nullptr;
+        }
+        WritePause& operator=(WritePause&&) = delete;
+        ~WritePause();
+
+    private:
+        explicit WritePause(InterceptService& service) : service_(&service) {}
+        InterceptService* service_;
+        friend class InterceptService;
+    };
+
     // `writer` is used by the hot thread only.
-    explicit InterceptService(std::unique_ptr<nfnl::DynamicSetWriter> writer);
+    explicit InterceptService(std::unique_ptr<nfnl::DynamicSetWriter> writer,
+                              std::unique_ptr<nfnl::DynamicSetWriter> l7_writer = nullptr);
     ~InterceptService();
     InterceptService(const InterceptService&) = delete;
     InterceptService& operator=(const InterceptService&) = delete;
@@ -35,11 +53,31 @@ public:
     // Hot thread drains the queue, ACCEPTs everything still held, then unbinds.
     void stop();
     bool running() const;
+    bool failed() const { return failed_.load(std::memory_order_acquire); }
+    bool l7_degraded() const { return l7_degraded_.load(std::memory_order_acquire); }
+    bool snapshot_ready() const { return snapshot_ready_.load(std::memory_order_acquire); }
+    WritePause pause_writes();
+    void invalidate_snapshot();
+    void discard_l7_pending();
     const InterceptCounters& counters() const { return counters_; }
     std::vector<InterceptEvent> events_since(uint64_t after_seq, std::size_t max) const;
     uint64_t last_event_seq() const { return processor_.last_event_seq(); }
 
 private:
+    class WriteGate {
+    public:
+        bool enter();
+        void leave();
+        void pause();
+        void resume();
+
+    private:
+        std::mutex mutex_;
+        std::condition_variable cv_;
+        bool paused_{false};
+        std::size_t in_flight_{0};
+    };
+
     // Bounded MPSC queue feeding the cleanup thread.  request() never blocks
     // beyond a short critical section and drops (counting) when full.
     class CleanupQueue : public ConntrackCleanupSink {
@@ -49,6 +87,7 @@ private:
         // Blocks until work arrives or stop; debounces, then returns the batch.
         bool wait_batch(std::vector<std::pair<uint8_t, std::array<uint8_t, 16>>>& out);
         void shutdown();
+        void reset();
 
         static constexpr std::size_t kCapacity = 1024;
 
@@ -61,13 +100,19 @@ private:
     };
 
     void hot_loop();
+    void l7_loop();
     void cleanup_loop();
     void handle_queue_packet(const nfnl::QueuedPacket& packet,
                              std::chrono::steady_clock::time_point deadline);
     void drain_queue();
     void run_cleanup(const std::vector<std::pair<uint8_t, std::array<uint8_t, 16>>>& batch);
+    void submit_l7_work(InterceptL7Work work);
+    void stop_l7_worker();
 
     std::unique_ptr<nfnl::DynamicSetWriter> writer_;
+    std::unique_ptr<nfnl::DynamicSetWriter> l7_writer_;
+    WriteGate dns_writes_;
+    WriteGate l7_writes_;
     InterceptCounters counters_;
     CleanupQueue cleanup_queue_;
     InterceptProcessor processor_;
@@ -75,10 +120,20 @@ private:
     InterceptServiceOptions options_;
     std::unique_ptr<nfnl::NfQueue> queue_;
     std::unique_ptr<nfnl::NfLog> log_;
+    std::mutex l7_mutex_;
+    std::condition_variable l7_cv_;
+    std::deque<InterceptL7Work> l7_pending_;
+    bool l7_stopping_{false};
+    static constexpr std::size_t kL7Capacity = 256;
     int stop_fd_{-1};
+    int epoll_fd_{-1};
     std::thread hot_thread_;
+    std::thread l7_thread_;
     std::thread cleanup_thread_;
     std::atomic<bool> running_{false};
+    std::atomic<bool> failed_{false};
+    std::atomic<bool> l7_degraded_{false};
+    std::atomic<bool> snapshot_ready_{false};
     bool replacement_allowed_{false};
     uint32_t max_packet_id_{0};
     bool have_packet_id_{false};
