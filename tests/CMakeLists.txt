@@ -25,6 +25,9 @@ add_executable(keen-pbr-tests
   test_nfnetlink.cpp
   test_l7_crypto.cpp
   test_l7_quic.cpp
+  test_l7_tls.cpp
+  test_l7_http.cpp
+  test_l7_flow_buffer.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
   test_list_streamer.cpp
@@ -131,6 +134,9 @@ add_executable(keen-pbr-tests
   ../src/l7/crypto/sha256.cpp
   ../src/l7/crypto/aes128.cpp
   ../src/l7/quic_initial.cpp
+  ../src/l7/tls_client_hello.cpp
+  ../src/l7/http_host.cpp
+  ../src/l7/flow_buffer.cpp
   ../src/cache/cache_manager.cpp
   ../src/ipc/control_protocol.cpp
   ../src/ipc/control_client.cpp
