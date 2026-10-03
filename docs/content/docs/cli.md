@@ -6,7 +6,7 @@ aliases:
   - /docs/advanced/signals/
 ---
 
-`keen-pbr` can run the service, inspect live routing state, download list data, and print generated resolver configuration.
+`keen-pbr` can run the service, inspect live routing state, download list data, and print the optional dnsmasq resolver configuration.
 
 ## Usage
 
@@ -93,7 +93,7 @@ ip6tables -t raw -S
 | `service` | Start the routing service in the foreground. |
 | `status` | Show routing, route table, rule, and firewall verification status, then exit. |
 | `download` | Download all URL-backed lists into cache, then exit. |
-| `generate-resolver-config <res>` | Print generated resolver config to stdout. Supported resolvers: `dnsmasq-ipset`, `dnsmasq-nftset`. |
+| `generate-resolver-config <res>` | Print optional dnsmasq resolver config to stdout. Supported resolvers: `dnsmasq-ipset`, `dnsmasq-nftset`; use only with `dns.resolver_integration: "dnsmasq"`. |
 | `resolver-config-hash` | Print the MD5 hash of the generated domain-to-ipset mapping, then exit. |
 | `test-routing <ip-or-domain>` | Compare expected and actual routing for the given IP or domain. |
 
@@ -171,14 +171,17 @@ Example output:
 
 address=/use-application-dns.net/
 
-rebind-domain-ok=keen.pbr
-server=/check.keen.pbr/127.0.0.88#53
-
 server=10.100.100.100
 
 # List: google
 ipset=/google.com/www.google.com/.../kpbr4d_google,kpbr6d_google
 ```
+
+The command is for the optional `dnsmasq` integration. With the default
+`dns.resolver_integration: "none"`, DNS interception populates dynamic sets
+directly and no generated resolver file is required. If interception is
+unavailable, the dnsmasq integration can use these `ipset=`/`nftset=`
+directives as a fallback.
 
 Print the resolver config hash:
 

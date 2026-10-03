@@ -21,7 +21,10 @@ weight: 2
 
 При запуске IP/CIDR-записи загружаются в kernel sets. Бэкенд iptables чередует `kpbr4s_/kpbr4S_` и `kpbr6s_/kpbr6S_`, а nftables сохраняет стабильные имена `kpbr4_`/`kpbr6_`. Время жизни статических записей не ограничено.
 
-Домены превращаются в директивы dnsmasq `ipset=`/`nftset=`: при разрешении домена его IP динамически добавляются в соответствующий набор (`kpbr4d_<list>`, `kpbr6d_<list>`) и хранятся там до истечения `ttl_ms`, заданного для этого списка.
+Домены сопоставляются службой DNS/L7-перехвата, а их IP добавляются в
+соответствующий динамический набор (`kpbr4d_<list>`, `kpbr6d_<list>`) с
+ограниченным TTL. При необязательной интеграции с dnsmasq директивы
+`ipset=`/`nftset=` остаются резервным путём, если DNS-перехват недоступен.
 
 См. [Списки]({{< relref "/docs/configuration/lists" >}}) для полного справочника.
 
@@ -59,11 +62,18 @@ Outbounds типа `interface` и `table` получают fwmark и запис�
 
 ### DNS
 
-Связывает списки доменов с DNS-серверами через директивы dnsmasq `server=`. Когда запрашивается домен из списка, dnsmasq переадресует запрос назначенному серверу. Полученные IP-адреса одновременно добавляются в соответствующий ipset/nftset, чтобы последующие пакеты шли через правильный outbound.
+По умолчанию (`dns.resolver_integration: "none"`) keen-pbr не настраивает
+резолвер: NFQUEUE разбирает DNS-ответы, а NFLOG может извлекать TLS SNI, HTTP
+Host и QUIC Initial. Подходящие IP добавляются в динамический набор, чтобы
+последующие пакеты маршрутизировались правильно.
 
-Интеграция выполняется через `conf-file=` (или `conf-script=`): keen-pbr при запуске записывает файл `/tmp/keen-pbr-dnsmasq.conf`, который dnsmasq читает при следующей перезагрузке.
+Необязательный режим `dnsmasq` сопоставляет списки с директивами `server=` и
+даёт fallback через `ipset=`/`nftset=`. Он генерирует и проверяет конфигурацию
+резолвера, но не заменяет независимый DNS-перехват.
 
 См. [DNS]({{< relref "/docs/configuration/dns" >}}) для полного справочника.
+См. [архитектуру DNS и L7-перехвата](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md) для потока
+пакетов, capability gating и failure behavior.
 
 ---
 
@@ -73,7 +83,9 @@ Outbounds типа `interface` и `table` получают fwmark и запис�
 2. **Заполнение ipsets/nftsets** — IP/CIDR-записи загружаются в неактивные A/B-наборы iptables или стабильные наборы nftables
 3. **Настройка правил firewall** — в таблице `mangle` iptables или в таблице `inet KeenPbrTable` nftables создаются правила сопоставления по спискам и фильтрам, после чего в `PREROUTING` / `prerouting` проставляются нужные fwmark
 4. **Настройка маршрутизации** — под каждый outbound создаются таблица маршрутизации и запись `ip rule` на основе назначенных fwmark
-5. **Генерация конфигурации резолвера** — файл `/tmp/keen-pbr-dnsmasq.conf` с директивами `server=` и `ipset=`/`nftset=` записывается на диск; dnsmasq получает сигнал перезагрузки
+5. **Запуск перехвата** — при наличии capability подключаются DNS NFQUEUE и L7
+   NFLOG, затем публикуются DomainIndex и снимок динамических наборов; dnsmasq
+   настраивается отдельно, только если включена эта интеграция
 6. **Запуск urltest-проверок** — если настроены outbounds типа `urltest`, начинаются периодические замеры задержки
 
 ---
@@ -97,10 +109,11 @@ flowchart TD
         SystemRouting["System routing\n(default path)"]
     end
 
-    Dnsmasq["dnsmasq\n(ipset= / nftset=)"]
+    Interceptor["DNS NFQUEUE + L7 NFLOG\n(DomainIndex → dynamic sets)"]
+    Dnsmasq["необязательный dnsmasq\n(server= / ipset= / nftset=)"]
 
     Lists -->|"IP/CIDR entries"| Ipsets
-    Lists -->|"domain entries"| Dnsmasq
+    Lists -->|"domain entries"| Interceptor
     DNS --> Dnsmasq
     Ipsets --> FwmarkRules
     RouteRules --> FwmarkRules
@@ -109,7 +122,8 @@ flowchart TD
     FwmarkRules --> IpRules
     FwmarkRules --> SystemRouting
     IpRules --> RoutingTables
-    Dnsmasq -->|"resolved IPs → ipset"| Ipsets
+    Interceptor -->|"resolved IPs → dynamic sets"| Ipsets
+    Dnsmasq -->|"fallback IPs → sets"| Ipsets
 ```
 
 ---
@@ -143,16 +157,15 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant Client
-    participant dnsmasq
-    participant VPN_DNS as VPN DNS (10.8.0.1)
+    participant Interceptor as keen-pbr interception
+    participant Resolver as system resolver
     participant Ipset as ipset kpbr4_my_domains
     participant Firewall
 
-    Client->>dnsmasq: запрос example.com
-    dnsmasq->>VPN_DNS: перенаправление (server=/example.com/10.8.0.1)
-    VPN_DNS-->>dnsmasq: 93.184.216.34
-    dnsmasq->>Ipset: добавить 93.184.216.34 (директива nftset=)
-    dnsmasq-->>Client: 93.184.216.34
+    Client->>Resolver: запрос example.com
+    Resolver-->>Client: DNS-ответ
+    Resolver->>Interceptor: ответ наблюдается в NFQUEUE
+    Interceptor->>Ipset: добавить 93.184.216.34 (ограниченный TTL)
 
     Note over Client,Firewall: Следующий пакет на 93.184.216.34
     Client->>Firewall: пакет dest 93.184.216.34

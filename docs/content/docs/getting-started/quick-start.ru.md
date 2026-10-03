@@ -137,8 +137,8 @@ keen-pbr test-routing ifconfig.co
     }
   },
   "dns": {
+    "resolver_integration": "dnsmasq",
     "system_resolver": {
-      "type": "dnsmasq-nftset", // установите в "dnsmasq-ipset" для Keenetic/Netcraze или если используете iptables вместо nftables
       "address": "127.0.0.1"
     },
     "servers": [

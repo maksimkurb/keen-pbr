@@ -160,6 +160,7 @@ Example minimal config:
     }
   },
   "dns": {
+    "resolver_integration": "dnsmasq",
     "system_resolver": {
       "address": "127.0.0.1"
     },

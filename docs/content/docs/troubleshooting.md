@@ -12,7 +12,7 @@ Start with logs and service status, then move to DNS, firewall, routing tables, 
 1. Check the system log for `keen-pbr` and `dnsmasq` errors.
 2. Check that the `keen-pbr` and `dnsmasq` services are running.
 3. If `keen-pbr` crashes during startup, run it manually in foreground mode to see more logs: `keen-pbr --log-level verbose service`.
-4. Check DNS: the user device must use the router DNS, and `dnsmasq` must answer locally.
+4. Check DNS: the user device must use the router DNS; the configured resolver must answer locally.
 5. Check the firewall: `keen-pbr` rules must be present in `KeenPbrTable`.
 6. Check policy routing: the `fwmark` must point to the expected routing table.
 7. Check interfaces and VPN tunnels.
@@ -179,7 +179,7 @@ jq . /etc/keen-pbr/config.json
 ## Sites Are Not Going Through the VPN
 
 1. Make sure the user device is using the router DNS.
-   - Open `http://<router-ip>:12121/` and look at the DNS Check widget. It should say "DNS request from the browser reached dnsmasq".
+   - Open `http://<router-ip>:12121/` and look at the DNS Check widget. The marker request should reach the router resolver and return `127.0.0.88`.
    - Alternatively, run this from your PC: `nslookup check.keen.pbr`. It should return `127.0.0.88`.
 2. Run a routing test:
    - Open `http://<router-ip>:12121/` and enter a domain or IP into the "Where does this traffic go?" widget.
@@ -193,9 +193,14 @@ jq . /etc/keen-pbr/config.json
 
 If the expected and actual outbounds differ, continue through the DNS, firewall, and routing sections below.
 
-## DNS and dnsmasq
+## DNS interception and dnsmasq
 
-DNS must pass the whole chain: the client uses the router DNS, `dnsmasq` is running, the generated `keen-pbr` config is included, domains are placed into `ipset` or `nftset`, and ordinary domains go to `dns.fallback`.
+With the default `dns.resolver_integration: "none"`, DNS responses are held in
+NFQUEUE and matching addresses are written directly to dynamic sets; dnsmasq
+does not need a keen-pbr configuration. The optional `dnsmasq` mode is needed
+for per-list upstreams and supplies `ipset`/`nftset` fallback when DNS
+interception is unavailable. Check [DNS and L7 interception](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)
+for queue, marker, timeout, and capability semantics.
 
 ### Check DNS From the User Device
 
@@ -205,7 +210,7 @@ Open `http://<router-ip>:12121/` and check DNS Check. If Web UI is unavailable, 
 nslookup check.keen.pbr
 ```
 
-Expected response: `127.0.0.88`. If there is no response, the device is not using the router DNS or `dnsmasq` is not answering.
+Expected response: `127.0.0.88`. If there is no response, the device is not using the router DNS, the resolver is not answering, or DNS interception is unavailable.
 
 ### Check dnsmasq on the Router or Server
 
@@ -234,7 +239,9 @@ service dnsmasq status
 nslookup google.com 127.0.0.1
 ```
 
-Domain-based routing needs `dnsmasq-full`. If logs contain errors about unsupported `ipset` / `nftset`, check the installed package:
+The optional dnsmasq fallback needs `dnsmasq-full`. With direct DNS interception
+this package is not required. If logs contain errors about unsupported `ipset`
+/ `nftset`, check the installed package:
 
 ```bash {filename="bash"}
 opkg list-installed | grep dnsmasq
@@ -257,6 +264,10 @@ service dnsmasq status
 Expected result: `nslookup <domain> 127.0.0.1` returns IP addresses. If you see `Connection refused`, `dnsmasq` is not running or is not listening on `127.0.0.1:53`.
 
 ### Check the Generated Resolver Config
+
+This check applies only when `dns.resolver_integration` is `dnsmasq`. With the
+default `none`, inspect `/api/health/service` and the interception counters
+instead.
 
 Choose the backend used on your system.
 
@@ -287,13 +298,13 @@ keen-pbr download
 1. Make sure the list name in `dns.rules` exactly matches the list name in `lists`.
 2. Make sure the DNS rule points to the correct DNS server tag.
 3. If the DNS server uses `detour`, make sure the selected outbound works.
-4. Make sure the `dnsmasq` config includes the generated config through `conf-file=` or `conf-script=`.
+4. In `dnsmasq` mode, make sure the dnsmasq config includes the generated config through `conf-file=` or `conf-script=`.
 5. Restart `keen-pbr` and `dnsmasq`, then check logs again.
 {{% /details %}}
 
 ## Websites Are Not Opening: `DNS_PROBE_FINISHED_NXDOMAIN` / `ERR_NAME_NOT_RESOLVED`
 
-1. Make sure `dns.fallback` is configured and points to at least one working DNS server tag.
+1. If `dns.resolver_integration` is `dnsmasq`, make sure `dns.fallback` is configured and points to at least one working DNS server tag. With `none`, check the resolver used by the clients instead.
 2. Make sure the fallback DNS server is reachable from the router or server. If that DNS server uses `detour`, check the selected outbound.
 3. Make sure the user device is using the router DNS.
 4. Restart `keen-pbr` after changing DNS configuration.
@@ -314,11 +325,14 @@ Example:
 }
 ```
 
-Without `dns.fallback`, domains that do not match any `dns.rules` entry may fail to resolve.
+Without `dns.fallback`, domains that do not match any `dns.rules` entry may fail
+to resolve in `dnsmasq` mode; it is not used by direct interception mode.
 
 ## Websites Are Not Opening: `DNS_PROBE_FINISHED_BAD_CONFIG`
 
-This usually means `dnsmasq` is not running or failed to apply its configuration.
+In `dnsmasq` mode this usually means dnsmasq is not running or failed to apply
+its configuration. In `none` mode, inspect the configured system resolver and
+the `intercept` health capability reasons instead.
 
 1. Check `dnsmasq` logs.
 2. Check `dnsmasq` status.

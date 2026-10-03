@@ -16,7 +16,7 @@ keen-pbr хранит настройки в едином JSON-файле кон�
 - [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — куда должен идти трафик
 - [Списки]({{< relref "/docs/configuration/lists" >}}) — сайты или диапазоны IP для сопоставления
 - [Правила маршрутизации]({{< relref "/docs/configuration/route-rules" >}}) — какие списки через какой outbound
-- [DNS]({{< relref "/docs/configuration/dns" >}}) — какой DNS-сервер использовать для этих списков
+- [DNS]({{< relref "/docs/configuration/dns" >}}) — необязательная интеграция per-list DNS и DNS-перехват
 
 ## Практический пример
 
@@ -45,8 +45,8 @@ keen-pbr хранит настройки в едином JSON-файле кон�
     }
   },
   "dns": {
+    "resolver_integration": "dnsmasq",
     "system_resolver": {
-      "type": "dnsmasq-nftset",
       "address": "127.0.0.1"
     },
     "servers": [
@@ -84,7 +84,7 @@ keen-pbr хранит настройки в едином JSON-файле кон�
 - [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — задайте VPN и обычное интернет-соединение
 - [Списки]({{< relref "/docs/configuration/lists" >}}) — задайте сайты, домены или диапазоны IP для сопоставления
 - [Правила маршрутизации]({{< relref "/docs/configuration/route-rules" >}}) — свяжите каждый список с outbound
-- [DNS]({{< relref "/docs/configuration/dns" >}}) — настройте DNS-сервер для доменов из списков
+- [DNS]({{< relref "/docs/configuration/dns" >}}) — настройте необязательную интеграцию DNS и DNS-перехват
 
 ## Расширенная конфигурация
 

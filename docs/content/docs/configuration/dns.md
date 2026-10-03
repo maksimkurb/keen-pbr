@@ -3,20 +3,16 @@ title: DNS
 weight: 4
 ---
 
-Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
+Domain-based routing works without any DNS configuration: keen-pbr intercepts DNS responses and TLS/HTTP/QUIC traffic itself and fills the sets of your lists (see the [interception architecture](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)). No resolver is touched.
 
-On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
-
-- `system_resolver` (keep the defaults)
-- `servers`
-- `rules`
-- `fallback`
+Use the DNS settings below only when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic. That requires the optional **dnsmasq integration**: set `dns.resolver_integration` to `"dnsmasq"` and keen-pbr manages a dnsmasq configuration for you (per-list upstream DNS, Keenetic static entries, fallback servers, rebind exceptions). dnsmasq is not installed by the keen-pbr package any more; install it yourself when you need this.
 
 ## Configuration
 
 ```json { filename="config.json" }
 {
   "dns": {
+    "resolver_integration": "dnsmasq",
     "system_resolver": {
       "address": "127.0.0.1"
     },
@@ -29,15 +25,29 @@ On package-based router installs, keen-pbr normally takes care of dnsmasq integr
 
 | Field | Type | Description |
 |---|---|---|
-| `system_resolver` | object | How keen-pbr refreshes dnsmasq on the system |
+| `resolver_integration` | string | `none` (default) or `dnsmasq`. With `none` keen-pbr never touches the system resolver; per-list `rules`/`fallback` and `system_resolver` are inactive, while server definitions (including `detour`) remain meaningful for ordinary DNS traffic. |
+| `system_resolver` | object | How keen-pbr refreshes dnsmasq on the system (required for `dnsmasq`) |
 | `servers` | array | DNS server definitions |
 | `rules` | array | Rules mapping lists to DNS servers |
 | `fallback` | array of string | Ordered DNS server tags for queries that match no rule |
-| `dns_test_server` | object | Optional built-in DNS probe listener for advanced troubleshooting |
+| `dns_test_server` | object | Deprecated and ignored (replaced by `intercept.dns.marker`) |
+
+## Resolver Integration
+
+`dns.resolver_integration` selects how keen-pbr works with the system resolver.
+
+| Value | Behaviour |
+|---|---|
+| `none` | Default. The daemon fills the dynamic sets by itself. dnsmasq is neither configured, restarted nor required. |
+| `dnsmasq` | keen-pbr installs a `conf-script` hook into dnsmasq, generates its configuration and verifies it through the `config-hash.keen.pbr` TXT record. When interception is unavailable on the device, dnsmasq also fills the dynamic sets (`ipset=`/`nftset=` directives). |
+
+Configs written before this option existed are migrated automatically: if `resolver_integration` is absent and the config has non-empty `dns.rules` or a `dns.system_resolver`, `dnsmasq` is used (and written explicitly on the next save); otherwise `none`. Defining `dns.rules` with `none` logs a warning because per-list upstream DNS requires `dnsmasq`.
+
+Switching from `dnsmasq` to `none` removes the keen-pbr hook from dnsmasq and restarts it. Make sure dnsmasq (or whatever resolver you use) has upstream servers of its own afterwards.
 
 ## System Resolver
 
-`dns.system_resolver` tells keen-pbr how to check dnsmasq state after configuration changes.
+`dns.system_resolver` tells keen-pbr how to check dnsmasq state after configuration changes. It is only used (and required) with `resolver_integration: "dnsmasq"`.
 
 On normal router package installs, you usually should not change these settings.
 
@@ -45,26 +55,57 @@ On normal router package installs, you usually should not change these settings.
 |---|---|---|---|
 | `address` | string | yes | Resolver address used for integration and TXT health checks, for example `"127.0.0.1"` or `"127.0.0.1:5353"` |
 
-## DNS Test Server
+## DNS Test Server (deprecated)
 
-`dns.dns_test_server` is optional. It is mainly useful when you are troubleshooting DNS and want keen-pbr to expose a simple test DNS listener.
+`dns.dns_test_server` is deprecated: the option is still accepted but ignored
+(a warning is logged). The built-in probe listener was replaced by the
+interceptor marker `intercept.dns.marker` (default `check.keen.pbr`, answered
+with `127.0.0.88`). A UDP `nslookup check.keen.pbr` marker check works only
+when DNS hold and the supported marker replacement capability are active. When
+the HTTP API is enabled, you can inspect the result through the Web UI/SSE
+events.
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `listen` | string | yes | IPv4 listen address in `host:port` form, for example `"127.0.0.88:53"` |
-| `answer_ipv4` | string | no | IPv4 address returned in the DNS probe answer (`nslookup check.keen.pbr`). Defaults to the host part of `listen`. |
+## DNS interception
+
+The `intercept` section is enabled by default when the required kernel
+capabilities are available. DNS uses NFQUEUE (queue `9053`, 30 ms userspace
+processing budget); L7 uses NFLOG (group `9054`) for TLS SNI, HTTP Host and QUIC
+Initial metadata. The effective DNS TTL range is 300–86400 seconds. Configure
+these values only when the defaults do not suit the device:
 
 ```json
 {
-  "dns": {
-    "dns_test_server": {
-      "listen": "127.0.0.88:53"
+  "intercept": {
+    "enabled": true,
+    "min_ttl_s": 300,
+    "max_ttl_s": 86400,
+    "dns": {
+      "enabled": true,
+      "queue_num": 9053,
+      "hold_timeout_ms": 30,
+      "marker": {
+        "domain": "check.keen.pbr",
+        "answer_ipv4": "127.0.0.88"
+      }
+    },
+    "l7": {
+      "enabled": true,
+      "nflog_group": 9054,
+      "tls": true,
+      "http": true,
+      "quic": true
     }
   }
 }
 ```
 
-When the HTTP API is enabled, you can verify if your DNS works or not via Web UI.
+The 30 ms value is a processing budget, not a kernel guarantee. A listener
+that is already bound but stalled can hold queued packets; `queue-bypass` only
+covers an absent listener. During shutdown keen-pbr removes queueing rules
+before stopping the listener, but closing a queue with pending entries can
+drop them. See [DNS and L7 interception](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md) for
+the marker user-namespace requirement, counters, capability health, and other
+failure semantics.
 
 ## DNS Servers
 

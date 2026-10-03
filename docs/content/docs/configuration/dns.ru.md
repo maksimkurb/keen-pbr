@@ -3,22 +3,24 @@ title: DNS
 weight: 4
 ---
 
-Настройки DNS используйте, если хотите, чтобы домены из списка разрешались через определённый DNS-сервер — как правило, тот же VPN, который пропускает соответствующий трафик.
+Маршрутизация по доменам работает и без настроек DNS: keen-pbr сам перехватывает
+DNS-ответы и видимые L7-данные и заполняет динамические наборы списков. См.
+[архитектуру DNS-перехвата](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md).
 
-При установке пакета на роутере keen-pbr обычно сам заботится об интеграции с dnsmasq. Большинству пользователей достаточно задать:
-
-- `system_resolver` (оставьте значения по умолчанию)
-- `servers`
-- `rules`
-- `fallback`
+Настройки ниже нужны только для выбора отдельных upstream DNS-серверов. Это
+необязательная интеграция с **dnsmasq**: установите
+`dns.resolver_integration: "dnsmasq"`, если хотите, чтобы keen-pbr генерировал
+конфигурацию dnsmasq с per-list upstream, fallback и статическими записями.
+При значении `none` (по умолчанию) keen-pbr не настраивает системный
+резолвер.
 
 ## Конфигурация
 
 ```json { filename="config.json" }
 {
   "dns": {
+    "resolver_integration": "dnsmasq",
     "system_resolver": {
-      "type": "dnsmasq-nftset",
       "address": "127.0.0.1"
     },
     "servers": [...],
@@ -30,11 +32,25 @@ weight: 4
 
 | Поле | Тип | Описание |
 |---|---|---|
-| `system_resolver` | object | Как keen-pbr обновляет dnsmasq в системе |
+| `resolver_integration` | string | `none` (по умолчанию) или `dnsmasq`. При `none` keen-pbr не трогает системный резолвер; per-list `rules`/`fallback` и `system_resolver` неактивны, но определения серверов (включая `detour`) остаются значимыми для обычного DNS-трафика. |
+| `system_resolver` | object | Как keen-pbr проверяет dnsmasq (требуется для `dnsmasq`) |
 | `servers` | array | Определения DNS-серверов |
 | `rules` | array | Правила сопоставления списков DNS-серверам |
 | `fallback` | array of string | Упорядоченные теги DNS-серверов для запросов, которые не соответствуют никакому правилу |
-| `dns_test_server` | object | Опциональный встроенный DNS-пробник для расширенного устранения неполадок |
+| `dns_test_server` | object | Устаревшее поле, принимается, но игнорируется; используйте `intercept.dns.marker` |
+
+## Интеграция с резолвером
+
+| Значение | Поведение |
+|---|---|
+| `none` | По умолчанию. dnsmasq не настраивается, а динамические наборы заполняются перехватчиком DNS/L7. |
+| `dnsmasq` | keen-pbr генерирует конфигурацию и проверяет её через TXT-запись. Если DNS-перехват недоступен, включается условный fallback через `ipset=`/`nftset=`. |
+
+Для старых конфигураций без `resolver_integration` автоматически выбирается
+`dnsmasq`, если заданы непустые `dns.rules` или `dns.system_resolver`; во всех
+остальных случаях выбирается `none`, и значение сохраняется явно при следующей
+записи. `dns.rules` при режиме `none` допустимы, но вызывают предупреждение:
+per-list upstream требует dnsmasq.
 
 ## System Resolver
 
@@ -44,29 +60,33 @@ weight: 4
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `type` | string | да | Тип интеграции резолвера: `dnsmasq-ipset` или `dnsmasq-nftset` |
 | `address` | string | да | Адрес резолвера, используемый для интеграции и проверок состояния через TXT, например `"127.0.0.1"` или `"127.0.0.1:5353"` |
 
-## DNS Test Server
+## DNS Test Server (устарел)
 
-`dns.dns_test_server` опционален. Он mainly полезен при устранении неполадок с DNS, когда вы хотите, чтобы keen-pbr предоставил простой тестовый DNS-listener.
+`dns.dns_test_server` больше не запускает listener: поле принимается для
+совместимости и игнорируется с предупреждением. Для проверки пути DNS
+используется marker `check.keen.pbr`, который при включённом перехвате получает
+ответ `127.0.0.88`. События наблюдения доступны через SSE API.
 
-| Поле | Тип | Обязательно | Описание |
+Секция `intercept` управляет перехватом DNS-ответов и L7-наблюдением:
+
+| Поле | Тип | По умолчанию | Описание |
 |---|---|---|---|
-| `listen` | string | да | IPv4-адрес прослушивания в форме `host:port`, например `"127.0.0.88:53"` |
-| `answer_ipv4` | string | нет | IPv4-адрес, возвращаемый в ответе DNS-пробника (`nslookup check.keen.pbr`). По умолчанию — хост-часть из `listen`. |
+| `enabled` | boolean | `true` | Включить перехват при наличии возможностей ядра |
+| `min_ttl_s` / `max_ttl_s` | integer | `300` / `86400` | Границы TTL адресов, добавляемых в динамические наборы |
+| `dns.enabled` | boolean | `true` | NFQUEUE DNS hold; UDP и TCP DNS |
+| `dns.queue_num` | integer | `9053` | Номер NFQUEUE |
+| `dns.hold_timeout_ms` | integer | `30` | Бюджет обработки в userspace, не строгий kernel timeout |
+| `dns.marker` | object | `check.keen.pbr` / `127.0.0.88` | Диагностический DNS marker |
+| `l7.enabled` | boolean | `true` | NFLOG-наблюдение |
+| `l7.nflog_group` | integer | `9054` | Группа NFLOG |
+| `l7.tls` / `http` / `quic` | boolean | `true` | Источники SNI, HTTP Host и QUIC Initial |
 
-```json
-{
-  "dns": {
-    "dns_test_server": {
-      "listen": "127.0.0.88:53"
-    }
-  }
-}
-```
-
-Когда HTTP API включён, вы можете проверить, работает ли ваш DNS, через веб-интерфейс.
+Отсутствующая возможность NFQUEUE/NFLOG отключает только соответствующую
+часть и отражается в health. `queue-bypass` помогает только когда listener
+отсутствует; уже привязанный, но остановившийся listener может удерживать
+пакеты. Полное описание failure semantics приведено на странице архитектуры.
 
 ## DNS-серверы
 
