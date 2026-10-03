@@ -8,6 +8,17 @@ int64_t load(const std::atomic<uint64_t>& value) {
 }
 } // namespace
 
+static api::InterceptProbeFeatureStatus probe_status_to_api(nfnl::ProbeStatus status) {
+    switch (status) {
+    case nfnl::ProbeStatus::ok: return api::InterceptProbeFeatureStatus::OK;
+    case nfnl::ProbeStatus::unsupported: return api::InterceptProbeFeatureStatus::UNSUPPORTED;
+    case nfnl::ProbeStatus::error: return api::InterceptProbeFeatureStatus::ERROR;
+    case nfnl::ProbeStatus::skipped: return api::InterceptProbeFeatureStatus::SKIPPED;
+    case nfnl::ProbeStatus::not_run: break;
+    }
+    return api::InterceptProbeFeatureStatus::NOT_RUN;
+}
+
 const char* intercept_source_name(InterceptSource source) {
     switch (source) {
     case InterceptSource::dns: return "dns";
@@ -32,6 +43,38 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
     health.capabilities.nfqueue = effective.capabilities.nfqueue;
     health.capabilities.nflog = effective.capabilities.nflog;
     health.capabilities.connbytes = effective.capabilities.connbytes;
+    const auto& probe = effective.capabilities.probe;
+    health.capabilities.fail_open = probe.fail_open.status == nfnl::ProbeStatus::not_run
+                                        ? std::nullopt
+                                        : std::optional<bool>(probe.fail_open.is_ok());
+    if (probe.nfqueue.status != nfnl::ProbeStatus::not_run) {
+        switch (probe.replacement) {
+        case nfnl::ReplacementCapability::supported:
+            health.capabilities.payload_replacement = api::PayloadReplacement::SUPPORTED;
+            break;
+        case nfnl::ReplacementCapability::unsupported:
+            health.capabilities.payload_replacement = api::PayloadReplacement::UNSUPPORTED;
+            break;
+        case nfnl::ReplacementCapability::unknown:
+            health.capabilities.payload_replacement = api::PayloadReplacement::UNKNOWN;
+            break;
+        }
+    }
+    if (probe.conntrack.status != nfnl::ProbeStatus::not_run) {
+        health.capabilities.conntrack_cleanup = effective.conntrack_cleanup;
+    }
+    if (!probe.kernel_release.empty()) health.kernel_release = probe.kernel_release;
+    if (probe.ipset_protocol != 0) health.ipset_protocol = probe.ipset_protocol;
+    std::vector<api::InterceptProbeFeatureElement> probes;
+    for (const auto& item : probe.items()) {
+        api::InterceptProbeFeatureElement out;
+        out.feature = item.feature;
+        out.status = probe_status_to_api(item.result.status);
+        if (!item.result.reason.empty()) out.reason = item.result.reason;
+        probes.push_back(std::move(out));
+    }
+    health.probes = std::move(probes);
+    if (!effective.warnings.empty()) health.warnings = effective.warnings;
     health.reasons = effective.reasons;
     if (!effective.config_enabled) {
         health.reasons.insert(health.reasons.begin(), "interception is disabled by config");

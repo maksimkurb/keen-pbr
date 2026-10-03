@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesDhEEk0 data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesA52KmX data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -438,10 +438,15 @@ namespace api {
         CheckStatus status;
     };
 
+    enum class PayloadReplacement : int { SUPPORTED, UNKNOWN, UNSUPPORTED };
+
     struct Capabilities {
         bool connbytes;
+        std::optional<bool> conntrack_cleanup;
+        std::optional<bool> fail_open;
         bool nflog;
         bool nfqueue;
+        std::optional<PayloadReplacement> payload_replacement;
     };
 
     struct Counters {
@@ -463,17 +468,29 @@ namespace api {
         std::optional<int64_t> set_refreshed;
     };
 
+    enum class InterceptProbeFeatureStatus : int { ERROR, NOT_RUN, OK, SKIPPED, UNSUPPORTED };
+
+    struct InterceptProbeFeatureElement {
+        std::string feature;
+        std::optional<std::string> reason;
+        InterceptProbeFeatureStatus status;
+    };
+
     struct InterceptHealthClass {
         Capabilities capabilities;
         std::optional<Counters> counters;
         bool dns_hold_active;
         bool enabled;
         std::optional<int64_t> events_seq;
+        std::optional<int64_t> ipset_protocol;
+        std::optional<std::string> kernel_release;
         bool l7_active;
         std::optional<int64_t> nflog_group;
+        std::optional<std::vector<InterceptProbeFeatureElement>> probes;
         std::optional<int64_t> queue_num;
         std::vector<std::string> reasons;
         bool running;
+        std::optional<std::vector<std::string>> warnings;
     };
 
     enum class LifecycleOperationStageStatus : int { FAILED, PENDING, RUNNING, SKIPPED, SUCCEEDED };
@@ -731,7 +748,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesDhEEk0 {
+    struct KeenPbrTypesA52KmX {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -771,6 +788,7 @@ namespace api {
         std::optional<InterceptHealthClass> intercept_health;
         std::optional<L7> intercept_l7_config;
         std::optional<Marker> intercept_marker_config;
+        std::optional<InterceptProbeFeatureElement> intercept_probe_feature;
         std::optional<Iproute> iproute_config;
         std::optional<LifecycleOperation> lifecycle_operation;
         std::optional<LifecycleOperationAcceptedResponse> lifecycle_operation_accepted_response;
@@ -957,6 +975,9 @@ namespace api {
     void from_json(const json & j, Counters & x);
     void to_json(json & j, const Counters & x);
 
+    void from_json(const json & j, InterceptProbeFeatureElement & x);
+    void to_json(json & j, const InterceptProbeFeatureElement & x);
+
     void from_json(const json & j, InterceptHealthClass & x);
     void to_json(json & j, const InterceptHealthClass & x);
 
@@ -1041,8 +1062,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesDhEEk0 & x);
-    void to_json(json & j, const KeenPbrTypesDhEEk0 & x);
+    void from_json(const json & j, KeenPbrTypesA52KmX & x);
+    void to_json(json & j, const KeenPbrTypesA52KmX & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1079,6 +1100,12 @@ namespace api {
 
     void from_json(const json & j, DnsTestInterceptEventType & x);
     void to_json(json & j, const DnsTestInterceptEventType & x);
+
+    void from_json(const json & j, PayloadReplacement & x);
+    void to_json(json & j, const PayloadReplacement & x);
+
+    void from_json(const json & j, InterceptProbeFeatureStatus & x);
+    void to_json(json & j, const InterceptProbeFeatureStatus & x);
 
     void from_json(const json & j, LifecycleOperationStageStatus & x);
     void to_json(json & j, const LifecycleOperationStageStatus & x);
@@ -1831,15 +1858,21 @@ namespace api {
 
     inline void from_json(const json & j, Capabilities& x) {
         x.connbytes = j.at("connbytes").get<bool>();
+        x.conntrack_cleanup = get_stack_optional<bool>(j, "conntrack_cleanup");
+        x.fail_open = get_stack_optional<bool>(j, "fail_open");
         x.nflog = j.at("nflog").get<bool>();
         x.nfqueue = j.at("nfqueue").get<bool>();
+        x.payload_replacement = get_stack_optional<PayloadReplacement>(j, "payload_replacement");
     }
 
     inline void to_json(json & j, const Capabilities & x) {
         j = json::object();
         j["connbytes"] = x.connbytes;
+        j["conntrack_cleanup"] = x.conntrack_cleanup;
+        j["fail_open"] = x.fail_open;
         j["nflog"] = x.nflog;
         j["nfqueue"] = x.nfqueue;
+        j["payload_replacement"] = x.payload_replacement;
     }
 
     inline void from_json(const json & j, Counters& x) {
@@ -1881,17 +1914,34 @@ namespace api {
         j["set_refreshed"] = x.set_refreshed;
     }
 
+    inline void from_json(const json & j, InterceptProbeFeatureElement& x) {
+        x.feature = j.at("feature").get<std::string>();
+        x.reason = get_stack_optional<std::string>(j, "reason");
+        x.status = j.at("status").get<InterceptProbeFeatureStatus>();
+    }
+
+    inline void to_json(json & j, const InterceptProbeFeatureElement & x) {
+        j = json::object();
+        j["feature"] = x.feature;
+        j["reason"] = x.reason;
+        j["status"] = x.status;
+    }
+
     inline void from_json(const json & j, InterceptHealthClass& x) {
         x.capabilities = j.at("capabilities").get<Capabilities>();
         x.counters = get_stack_optional<Counters>(j, "counters");
         x.dns_hold_active = j.at("dns_hold_active").get<bool>();
         x.enabled = j.at("enabled").get<bool>();
         x.events_seq = get_stack_optional<int64_t>(j, "events_seq");
+        x.ipset_protocol = get_stack_optional<int64_t>(j, "ipset_protocol");
+        x.kernel_release = get_stack_optional<std::string>(j, "kernel_release");
         x.l7_active = j.at("l7_active").get<bool>();
         x.nflog_group = get_stack_optional<int64_t>(j, "nflog_group");
+        x.probes = get_stack_optional<std::vector<InterceptProbeFeatureElement>>(j, "probes");
         x.queue_num = get_stack_optional<int64_t>(j, "queue_num");
         x.reasons = j.at("reasons").get<std::vector<std::string>>();
         x.running = j.at("running").get<bool>();
+        x.warnings = get_stack_optional<std::vector<std::string>>(j, "warnings");
     }
 
     inline void to_json(json & j, const InterceptHealthClass & x) {
@@ -1901,11 +1951,15 @@ namespace api {
         j["dns_hold_active"] = x.dns_hold_active;
         j["enabled"] = x.enabled;
         j["events_seq"] = x.events_seq;
+        j["ipset_protocol"] = x.ipset_protocol;
+        j["kernel_release"] = x.kernel_release;
         j["l7_active"] = x.l7_active;
         j["nflog_group"] = x.nflog_group;
+        j["probes"] = x.probes;
         j["queue_num"] = x.queue_num;
         j["reasons"] = x.reasons;
         j["running"] = x.running;
+        j["warnings"] = x.warnings;
     }
 
     inline void from_json(const json & j, LifecycleOperationStageElement& x) {
@@ -2369,7 +2423,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesDhEEk0& x) {
+    inline void from_json(const json & j, KeenPbrTypesA52KmX& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2409,6 +2463,7 @@ namespace api {
         x.intercept_health = get_stack_optional<InterceptHealthClass>(j, "InterceptHealth");
         x.intercept_l7_config = get_stack_optional<L7>(j, "InterceptL7Config");
         x.intercept_marker_config = get_stack_optional<Marker>(j, "InterceptMarkerConfig");
+        x.intercept_probe_feature = get_stack_optional<InterceptProbeFeatureElement>(j, "InterceptProbeFeature");
         x.iproute_config = get_stack_optional<Iproute>(j, "IprouteConfig");
         x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "LifecycleOperation");
         x.lifecycle_operation_accepted_response = get_stack_optional<LifecycleOperationAcceptedResponse>(j, "LifecycleOperationAcceptedResponse");
@@ -2453,7 +2508,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesDhEEk0 & x) {
+    inline void to_json(json & j, const KeenPbrTypesA52KmX & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2494,6 +2549,7 @@ namespace api {
         j["InterceptHealth"] = x.intercept_health;
         j["InterceptL7Config"] = x.intercept_l7_config;
         j["InterceptMarkerConfig"] = x.intercept_marker_config;
+        j["InterceptProbeFeature"] = x.intercept_probe_feature;
         j["IprouteConfig"] = x.iproute_config;
         j["LifecycleOperation"] = x.lifecycle_operation;
         j["LifecycleOperationAcceptedResponse"] = x.lifecycle_operation_accepted_response;
@@ -2717,6 +2773,42 @@ namespace api {
         switch (x) {
             case DnsTestInterceptEventType::INTERCEPT: j = "INTERCEPT"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"DnsTestInterceptEventType\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, PayloadReplacement & x) {
+        if (j == "supported") x = PayloadReplacement::SUPPORTED;
+        else if (j == "unknown") x = PayloadReplacement::UNKNOWN;
+        else if (j == "unsupported") x = PayloadReplacement::UNSUPPORTED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"PayloadReplacement\""); }
+    }
+
+    inline void to_json(json & j, const PayloadReplacement & x) {
+        switch (x) {
+            case PayloadReplacement::SUPPORTED: j = "supported"; break;
+            case PayloadReplacement::UNKNOWN: j = "unknown"; break;
+            case PayloadReplacement::UNSUPPORTED: j = "unsupported"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"PayloadReplacement\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, InterceptProbeFeatureStatus & x) {
+        if (j == "error") x = InterceptProbeFeatureStatus::ERROR;
+        else if (j == "not_run") x = InterceptProbeFeatureStatus::NOT_RUN;
+        else if (j == "ok") x = InterceptProbeFeatureStatus::OK;
+        else if (j == "skipped") x = InterceptProbeFeatureStatus::SKIPPED;
+        else if (j == "unsupported") x = InterceptProbeFeatureStatus::UNSUPPORTED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"InterceptProbeFeatureStatus\""); }
+    }
+
+    inline void to_json(json & j, const InterceptProbeFeatureStatus & x) {
+        switch (x) {
+            case InterceptProbeFeatureStatus::ERROR: j = "error"; break;
+            case InterceptProbeFeatureStatus::NOT_RUN: j = "not_run"; break;
+            case InterceptProbeFeatureStatus::OK: j = "ok"; break;
+            case InterceptProbeFeatureStatus::SKIPPED: j = "skipped"; break;
+            case InterceptProbeFeatureStatus::UNSUPPORTED: j = "unsupported"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"InterceptProbeFeatureStatus\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

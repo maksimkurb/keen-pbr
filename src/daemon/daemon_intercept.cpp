@@ -31,11 +31,33 @@ InterceptServiceOptions options_for(const InterceptEffective& effective, Firewal
     if (effective.dns_hold) options.queue_num = effective.queue_num;
     if (effective.l7) options.nflog_group = effective.nflog_group;
     options.hold_timeout_ms = effective.hold_timeout_ms;
+    options.conntrack_cleanup = effective.conntrack_cleanup;
     options.nft_backend = backend == FirewallBackend::nftables;
     return options;
 }
 
+void log_intercept_probe(const InterceptCapabilities& capabilities) {
+    const auto& probe = capabilities.probe;
+    Logger::instance().info("Interception kernel probe (kernel {}):", probe.kernel_release);
+    for (const auto& item : probe.items()) {
+        if (item.result.status == nfnl::ProbeStatus::not_run) continue;
+        Logger::instance().info("  {}: {}{}{}", item.feature,
+                                nfnl::probe_status_name(item.result.status),
+                                item.result.reason.empty() ? "" : " - ", item.result.reason);
+    }
+}
+
 } // namespace
+
+void Daemon::record_intercept_set_write_probe(InterceptEffective& effective,
+                                              const nfnl::ProbeResult& set_write) {
+    apply_set_write_probe(effective, set_write);
+    if (intercept_capabilities_.has_value()) {
+        intercept_capabilities_->probe.set_write = set_write;
+    }
+    KPBR_LOCK_GUARD(intercept_mutex_);
+    intercept_effective_ = effective;
+}
 
 InterceptEffective Daemon::resolve_intercept_effective() {
     const FirewallBackend backend = firewall_->backend();
@@ -46,12 +68,16 @@ InterceptEffective Daemon::resolve_intercept_effective() {
             intercept_capabilities_ipv6_ != ipv6_enabled) {
             intercept_capabilities_ = probe_intercept_capabilities(backend, ipv6_enabled);
             intercept_capabilities_ipv6_ = ipv6_enabled;
+            log_intercept_probe(*intercept_capabilities_);
         }
         capabilities = *intercept_capabilities_;
     }
     auto effective = resolve_effective_intercept(config_, backend, capabilities);
     for (const auto& reason : effective.reasons) {
         Logger::instance().warn("Interception: {}", reason);
+    }
+    for (const auto& warning : effective.warnings) {
+        Logger::instance().warn("Interception (degraded): {}", warning);
     }
     // Without the daemon's DNS hold nothing fills the dynamic sets unless the
     // dnsmasq integration (ipset=/nftset= fallback) is enabled.
@@ -67,6 +93,31 @@ InterceptEffective Daemon::resolve_intercept_effective() {
 void Daemon::start_intercept_service(InterceptEffective& effective) {
     const FirewallBackend backend = firewall_->backend();
     const InterceptServiceOptions options = options_for(effective, backend);
+    std::shared_ptr<InterceptService> service;
+    // Fold what the listener binds revealed into the effective settings (before
+    // any rule queues to them) and remember it until the next probe refresh, so
+    // a kernel that rejected a listener is not retried on every apply.
+    const auto fold_listeners = [&] {
+        if (!service) return;
+        const InterceptRuntimeProbe listeners = service->listener_probe();
+        apply_listener_probe(effective, listeners);
+        if (intercept_capabilities_.has_value()) {
+            auto& cached = intercept_capabilities_->probe;
+            if (listeners.nfqueue.status != nfnl::ProbeStatus::not_run) {
+                cached.nfqueue = listeners.nfqueue;
+                cached.fail_open = listeners.fail_open;
+                cached.replacement = listeners.replacement;
+            }
+            if (listeners.nflog.status != nfnl::ProbeStatus::not_run) {
+                cached.nflog = listeners.nflog;
+            }
+        }
+        if (listeners.fail_open.blocks()) {
+            Logger::instance().warn(
+                "NFQUEUE fail-open is unavailable ({}); the DNS queue keeps running without it",
+                listeners.fail_open.reason);
+        }
+    };
     try {
         auto writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer()
                                                            : nfnl::make_ipset_writer();
@@ -75,18 +126,28 @@ void Daemon::start_intercept_service(InterceptEffective& effective) {
             l7_writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer()
                                                              : nfnl::make_ipset_writer();
         }
-        auto service = std::make_shared<InterceptService>(std::move(writer),
-                                                           std::move(l7_writer));
+        service = std::make_shared<InterceptService>(std::move(writer), std::move(l7_writer));
         service->start(options, make_empty_snapshot(effective));
+        const std::size_t reasons_before = effective.reasons.size();
+        fold_listeners();
+        InterceptServiceOptions bound = options;
+        if (!service->dns_bound()) bound.queue_num.reset();
+        if (!service->l7_bound()) bound.nflog_group.reset();
         {
             KPBR_LOCK_GUARD(intercept_mutex_);
             intercept_service_ = std::move(service);
         }
-        intercept_service_options_ = options;
+        // Record what is actually bound so the next apply compares against it
+        // instead of restarting for a part that was disabled by a probe.
+        intercept_service_options_ = bound;
         Logger::instance().info("Interception service started (dns hold: {}, l7 sniff: {})",
                                 effective.dns_hold ? "on" : "off", effective.l7 ? "on" : "off");
+        for (std::size_t i = reasons_before; i < effective.reasons.size(); ++i) {
+            Logger::instance().warn("Interception: {}", effective.reasons[i]);
+        }
     } catch (const std::exception& error) {
         Logger::instance().error("Interception service failed to start: {}", error.what());
+        fold_listeners();
         effective.reasons.push_back(std::string("interception service failed to start: ") +
                                     error.what());
         effective.dns_hold = false;

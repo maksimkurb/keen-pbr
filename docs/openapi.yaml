@@ -1504,6 +1504,47 @@ components:
           type: boolean
         connbytes:
           type: boolean
+        fail_open:
+          type: boolean
+          description: >
+            The kernel accepted NFQA_CFG_F_FAIL_OPEN on the DNS queue. Absent
+            until a queue has been bound. When false the queue still works but
+            packets are not released by the kernel if the daemon stalls.
+        payload_replacement:
+          type: string
+          enum: [unknown, supported, unsupported]
+          description: >
+            Whether the daemon may rewrite queued packets (answer TTL clamping).
+            `unsupported` when the network namespace belongs to a non-initial
+            user namespace, `unknown` when a pre-4.9 kernel cannot tell.
+        conntrack_cleanup:
+          type: boolean
+          description: >
+            ctnetlink answered a dump request, so conntrack entries of
+            re-resolved destinations can be cleaned up. Interception works
+            without it.
+
+    InterceptProbeFeature:
+      type: object
+      description: >
+        Outcome of exercising one kernel primitive for real (not inferred from
+        the kernel version).
+      required: [feature, status]
+      properties:
+        feature:
+          type: string
+          description: >
+            One of `set_backend`, `nfqueue`, `fail_open`, `payload_replacement`,
+            `nflog`, `set_write`, `conntrack`.
+        status:
+          type: string
+          enum: [ok, unsupported, error, skipped, not_run]
+          description: >
+            `ok` accepted by the kernel; `unsupported` rejected (EINVAL /
+            EOPNOTSUPP); `error` failed for another reason (timeout, EPERM,
+            busy); `skipped` nothing to test against; `not_run` not attempted.
+        reason:
+          type: string
 
     InterceptCountersHealth:
       type: object
@@ -1548,6 +1589,22 @@ components:
           items:
             type: string
           description: Why a configured part is not active (missing kernel support, bind failure).
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Degraded but running (no fail-open, conntrack cleanup disabled).
+        kernel_release:
+          type: string
+          description: Kernel release (uname -r). Informational only; no decision is based on it.
+        ipset_protocol:
+          type: integer
+          description: Kernel ipset protocol version (ipset backend; at least 6 is required).
+        probes:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterceptProbeFeature"
+          description: Functional kernel probe results, one entry per feature.
         queue_num:
           type: integer
         nflog_group:

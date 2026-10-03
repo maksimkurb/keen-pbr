@@ -57,6 +57,7 @@ void InterceptService::WriteGate::resume() {
 // ---------------------------------------------------------------- cleanup queue
 
 void InterceptService::CleanupQueue::request(uint8_t family, const std::array<uint8_t, 16>& dst) {
+    if (!enabled_.load(std::memory_order_relaxed)) return;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (stopping_) return;
@@ -181,26 +182,61 @@ void InterceptService::start(const InterceptServiceOptions& options,
         processor_.set_l7_submitter({});
     }
 
-    try {
-        if (options.queue_num) {
+    cleanup_queue_.set_enabled(options.conntrack_cleanup);
+    listener_probe_ = InterceptRuntimeProbe{};
+    dns_bound_.store(false, std::memory_order_release);
+    l7_bound_.store(false, std::memory_order_release);
+    replacement_allowed_ = false;
+    std::string queue_error;
+    std::string log_error;
+    if (options.queue_num) {
+        try {
             nfnl::NfQueueOptions qopt;
             qopt.queue_num = *options.queue_num;
+            qopt.fail_open = options.fail_open;
             queue_ = std::make_unique<nfnl::NfQueue>(qopt);
             replacement_allowed_ = queue_->payload_replacement_supported();
+            listener_probe_.nfqueue = nfnl::make_probe_result(nfnl::ProbeStatus::ok, "queue bound");
+            listener_probe_.fail_open = queue_->fail_open_probe();
+            listener_probe_.replacement = queue_->payload_replacement();
+            dns_bound_.store(true, std::memory_order_release);
+        } catch (const std::exception& e) {
+            queue_.reset();
+            queue_error = e.what();
+            const auto* nl = dynamic_cast<const nfnl::NlSocketError*>(&e);
+            listener_probe_.nfqueue = nfnl::classify_errno(nl != nullptr ? nl->code() : EIO, "NFQUEUE bind");
+            if (!listener_probe_.nfqueue.blocks()) {
+                listener_probe_.nfqueue.status = nfnl::ProbeStatus::error;
+            }
+            listener_probe_.nfqueue.reason = queue_error;
         }
-        if (options.nflog_group) {
+    }
+    if (options.nflog_group) {
+        try {
             nfnl::NfLogOptions lopt;
             lopt.group = *options.nflog_group;
             log_ = std::make_unique<nfnl::NfLog>(lopt);
+            listener_probe_.nflog = nfnl::make_probe_result(nfnl::ProbeStatus::ok, "group bound");
+            l7_bound_.store(true, std::memory_order_release);
+        } catch (const std::exception& e) {
+            log_.reset();
+            log_error = e.what();
+            const auto* nl = dynamic_cast<const nfnl::NlSocketError*>(&e);
+            listener_probe_.nflog = nfnl::classify_errno(nl != nullptr ? nl->code() : EIO, "NFLOG bind");
+            if (!listener_probe_.nflog.blocks()) {
+                listener_probe_.nflog.status = nfnl::ProbeStatus::error;
+            }
+            listener_probe_.nflog.reason = log_error;
         }
-    } catch (const std::exception& e) {
-        queue_.reset();
-        log_.reset();
+    }
+    if ((options.queue_num || options.nflog_group) && !queue_ && !log_) {
+        std::string detail = queue_error;
+        if (!log_error.empty()) detail += (detail.empty() ? "" : "; ") + log_error;
         throw std::runtime_error(std::string("intercept: cannot bind netfilter queue/log (queue=") +
                                  (options.queue_num ? std::to_string(*options.queue_num) : "-") +
                                  " nflog=" +
                                  (options.nflog_group ? std::to_string(*options.nflog_group) : "-") +
-                                 "): " + e.what());
+                                 "): " + detail);
     }
 
     stop_fd_ = ::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);

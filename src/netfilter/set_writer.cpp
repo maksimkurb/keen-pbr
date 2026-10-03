@@ -434,6 +434,10 @@ void build_nft_delsetelem(MsgBuilder& b, uint32_t seq, std::string_view table,
     b.end();
 }
 
+std::unique_ptr<SetWriterTransport> make_netlink_transport(int rcvbuf_bytes) {
+    return std::make_unique<NlSocketTransport>(rcvbuf_bytes);
+}
+
 std::unique_ptr<DynamicSetWriter> make_ipset_writer() {
     return std::make_unique<IpsetWriter>(std::make_unique<NlSocketTransport>(1 << 18));
 }

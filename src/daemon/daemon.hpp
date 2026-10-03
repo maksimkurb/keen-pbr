@@ -230,6 +230,10 @@ private:
   // Traffic interception (DNS hold / L7 sniff), see daemon_intercept.cpp.
   InterceptEffective resolve_intercept_effective();
   void start_intercept_service(InterceptEffective &effective);
+  // Folds the post-apply set write probe into `effective` (published for
+  // health) and caches it so later resolves honor it until the cache resets.
+  void record_intercept_set_write_probe(InterceptEffective &effective,
+                                        const nfnl::ProbeResult &set_write);
   // Applies the firewall without interception rules, then stops the service.
   void quiesce_intercept_service(
       const std::vector<DumpedRoute> &main_routes,

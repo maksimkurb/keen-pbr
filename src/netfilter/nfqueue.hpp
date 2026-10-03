@@ -1,5 +1,6 @@
 #pragma once
 
+#include "kernel_probe.hpp"
 #include "nl_msg.hpp"
 #include "nl_socket.hpp"
 
@@ -56,7 +57,19 @@ public:
     // Linux rejects NFQA_PAYLOAD mangling from a network namespace owned by a
     // non-initial user namespace.  Callers can use this to avoid requesting a
     // replacement that the kernel would turn into NF_DROP.
-    bool payload_replacement_supported() const;
+    bool payload_replacement_supported() const {
+        return replacement_ == ReplacementCapability::supported;
+    }
+    // supported / unsupported (NS_GET_USERNS answered) / unknown (pre-4.9
+    // kernel in a non-initial network namespace).
+    ReplacementCapability payload_replacement() const { return replacement_; }
+
+    // Result of enabling NFQA_CFG_F_FAIL_OPEN on the bound queue.  A kernel
+    // that rejects or silently ignores the flag does not fail the bind: the
+    // queue keeps running without fail-open and this reports why.  not_run when
+    // fail-open was not requested.
+    const ProbeResult& fail_open_probe() const { return fail_open_; }
+    bool fail_open_active() const { return fail_open_.is_ok(); }
 
 #ifdef KEEN_PBR3_TESTING
     // Diagnostic-only ACK path.  Runtime verdicts intentionally remain
@@ -71,6 +84,8 @@ public:
     int last_errno() const { return last_errno_; }
 
 private:
+    void probe_fail_open();
+
     NfQueueOptions opt_;
     NlSocket sock_;
     MsgBuilder tx_;
@@ -78,7 +93,8 @@ private:
     uint64_t overruns_{0};
     int last_errno_{0};
     bool bound_{false};
-    bool replacement_capability_{false};
+    ReplacementCapability replacement_{ReplacementCapability::unknown};
+    ProbeResult fail_open_;
 };
 
 // Exposed for golden tests.
@@ -87,8 +103,11 @@ void build_nfqueue_pf_cmd(MsgBuilder& b, uint32_t seq, uint8_t pf_cmd, uint8_t p
 // Includes a NFQNL_CFG_CMD_BIND message (flags REQUEST|ACK).
 void build_nfqueue_bind(MsgBuilder& b, uint32_t seq, uint16_t queue_num);
 void build_nfqueue_unbind(MsgBuilder& b, uint32_t seq, uint16_t queue_num);
-// NFQA_CFG_PARAMS (copy mode PACKET + range), QUEUE_MAXLEN, FLAGS/MASK (fail-open).
-void build_nfqueue_params(MsgBuilder& b, uint32_t seq, const NfQueueOptions& o);
+// NFQA_CFG_PARAMS (copy mode PACKET + range), QUEUE_MAXLEN, and with include_flags
+// FLAGS/MASK (fail-open).  NfQueue sends the flags separately so a kernel that
+// rejects them cannot fail the bind.
+void build_nfqueue_params(MsgBuilder& b, uint32_t seq, const NfQueueOptions& o,
+                          bool include_flags = true);
 void build_nfqueue_verdict(MsgBuilder& b, uint16_t queue_num, uint32_t id, uint32_t verdict,
                            const uint8_t* payload, std::size_t len);
 void build_nfqueue_verdict_batch(MsgBuilder& b, uint16_t queue_num, uint32_t max_id, uint32_t verdict);
@@ -100,6 +119,8 @@ bool parse_nfqueue_packet(const MsgView& m, QueuedPacket& out);
 // namespace inode is the only permitted legacy fallback.
 bool nfqueue_initial_owner_decision_for_test(int owner_fd, uint64_t owner_inode,
                                              uint64_t netns_inode);
+ReplacementCapability nfqueue_replacement_decision_for_test(int owner_fd, uint64_t owner_inode,
+                                                            uint64_t netns_inode);
 #endif
 
 } // namespace keen_pbr3::nfnl

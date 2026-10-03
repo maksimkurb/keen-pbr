@@ -37,6 +37,7 @@ struct FakeProc {
         env.ip_matches = (dir / "ip_matches").string();
         env.ip6_matches = (dir / "ip6_matches").string();
         env.modprobe = [this](const std::string& module) { modprobed.push_back(module); };
+        env.runtime_probes = false;  // these tests cover the /proc logic only
     }
     ~FakeProc() { std::filesystem::remove_all(dir); }
 

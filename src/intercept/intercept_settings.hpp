@@ -29,9 +29,14 @@ struct InterceptEffective {
     bool tls{true};
     bool http{true};
     bool quic{true};
+    // Conntrack entries of re-resolved destinations are deleted so that new
+    // flows follow the routing set; off when the ctnetlink probe failed.
+    bool conntrack_cleanup{true};
     InterceptCapabilities capabilities;
     // Why a configured part is not active (capability gaps).
     std::vector<std::string> reasons;
+    // Degraded but still running (no fail-open, no conntrack cleanup, ...).
+    std::vector<std::string> warnings;
 
     bool active() const { return dns_hold || l7; }
 
@@ -47,6 +52,18 @@ struct InterceptEffective {
 InterceptEffective resolve_effective_intercept(const Config& config,
                                                FirewallBackend backend,
                                                const InterceptCapabilities& capabilities);
+
+// Folds the results of binding the listeners (NFQUEUE queue, NFLOG group) into
+// `effective`: stores them in `effective.capabilities.probe` and disables the
+// part whose listener could not be bound.  Fail-open / replacement gaps only
+// add warnings.  `listeners` uses the nfqueue, fail_open, replacement and nflog
+// members; not_run members are ignored.
+void apply_listener_probe(InterceptEffective& effective, const InterceptRuntimeProbe& listeners);
+
+// Folds the dynamic-set write test into `effective`: a blocking result disables
+// DNS hold and L7 (the daemon could not fill the sets), `skipped`/`not_run` do
+// not change anything.
+void apply_set_write_probe(InterceptEffective& effective, const nfnl::ProbeResult& set_write);
 
 // Whether the dnsmasq config must omit ipset=/nftset= directives (the daemon
 // fills the dynamic sets itself).

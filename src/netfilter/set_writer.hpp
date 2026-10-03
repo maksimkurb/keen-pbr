@@ -49,6 +49,11 @@ public:
                          const std::function<void(uint32_t, int)>& on_ack) = 0;
 };
 
+// Production transport over a fresh NETLINK_NETFILTER socket (throws
+// NlSocketError on socket failure).  Batch control messages in a request are
+// recognised so nf_tables batches are acknowledged correctly.
+std::unique_ptr<SetWriterTransport> make_netlink_transport(int rcvbuf_bytes = 1 << 18);
+
 // Throw NlSocketError on socket failure.
 std::unique_ptr<DynamicSetWriter> make_ipset_writer();
 std::unique_ptr<DynamicSetWriter> make_nft_writer(std::string table = "KeenPbrTable");  // family inet

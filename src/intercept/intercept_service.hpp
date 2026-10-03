@@ -1,5 +1,6 @@
 #pragma once
 
+#include "intercept_capabilities.hpp"
 #include "intercept_processor.hpp"
 #include "../netfilter/nflog.hpp"
 #include "../netfilter/nfqueue.hpp"
@@ -19,6 +20,11 @@ struct InterceptServiceOptions {
     std::optional<uint16_t> nflog_group;
     int hold_timeout_ms{30};
     bool nft_backend{false};
+    // Delete conntrack entries of re-resolved destinations (needs ctnetlink).
+    bool conntrack_cleanup{true};
+    // Request NFQA_CFG_F_FAIL_OPEN on the DNS queue (kept running without it
+    // when the kernel does not accept the flag).
+    bool fail_open{true};
 };
 
 class InterceptService {
@@ -47,7 +53,10 @@ public:
     InterceptService& operator=(const InterceptService&) = delete;
 
     // Opens NfQueue/NfLog per options and starts the hot and cleanup threads.
-    // Throws std::runtime_error (or nfnl::NlSocketError) if binding fails.
+    // Each requested listener is bound independently: when only one fails the
+    // service runs with the other (check dns_bound()/l7_bound() and
+    // listener_probe()).  Throws std::runtime_error only when listeners were
+    // requested and none could be bound.
     void start(const InterceptServiceOptions& options, std::shared_ptr<const InterceptSnapshot> snapshot);
     void update_snapshot(std::shared_ptr<const InterceptSnapshot> snapshot);
     // Hot thread drains the queue, ACCEPTs everything still held, then unbinds.
@@ -55,6 +64,18 @@ public:
     bool running() const;
     bool failed() const { return failed_.load(std::memory_order_acquire); }
     bool l7_degraded() const { return l7_degraded_.load(std::memory_order_acquire); }
+    // Listener state: bound at start and still serving.
+    bool dns_bound() const {
+        return dns_bound_.load(std::memory_order_acquire) && running_.load(std::memory_order_acquire) &&
+               !failed_.load(std::memory_order_acquire);
+    }
+    bool l7_bound() const {
+        return l7_bound_.load(std::memory_order_acquire) && running_.load(std::memory_order_acquire) &&
+               !l7_degraded_.load(std::memory_order_acquire);
+    }
+    // Outcome of the last start(): nfqueue / fail_open / replacement / nflog.
+    // Valid after start() returned or threw.
+    const InterceptRuntimeProbe& listener_probe() const { return listener_probe_; }
     bool snapshot_ready() const { return snapshot_ready_.load(std::memory_order_acquire); }
     WritePause pause_writes();
     void invalidate_snapshot();
@@ -88,11 +109,13 @@ private:
         bool wait_batch(std::vector<std::pair<uint8_t, std::array<uint8_t, 16>>>& out);
         void shutdown();
         void reset();
+        void set_enabled(bool enabled) { enabled_.store(enabled, std::memory_order_relaxed); }
 
         static constexpr std::size_t kCapacity = 1024;
 
     private:
         InterceptCounters& counters_;
+        std::atomic<bool> enabled_{true};
         std::mutex mutex_;
         std::condition_variable cv_;
         std::vector<std::pair<uint8_t, std::array<uint8_t, 16>>> pending_;
@@ -134,6 +157,9 @@ private:
     std::atomic<bool> failed_{false};
     std::atomic<bool> l7_degraded_{false};
     std::atomic<bool> snapshot_ready_{false};
+    std::atomic<bool> dns_bound_{false};
+    std::atomic<bool> l7_bound_{false};
+    InterceptRuntimeProbe listener_probe_;
     bool replacement_allowed_{false};
     uint32_t max_packet_id_{0};
     bool have_packet_id_{false};

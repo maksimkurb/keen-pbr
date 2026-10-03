@@ -13,7 +13,14 @@
 namespace keen_pbr3::nfnl {
 
 class NlSocketError : public std::runtime_error {
+public:
     using std::runtime_error::runtime_error;
+    // `code` is the errno-style kernel/transport error behind the failure (0 if unknown).
+    NlSocketError(const std::string& what, int code) : std::runtime_error(what), code_(code) {}
+    int code() const { return code_; }
+
+private:
+    int code_{0};
 };
 
 class NlSocket {

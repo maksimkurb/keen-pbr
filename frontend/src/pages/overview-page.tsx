@@ -5,6 +5,7 @@ import { Download, Play, RotateCw, Square } from "lucide-react"
 import type { ApiError } from "@/api/client"
 import type {
   InterceptHealth,
+  InterceptProbeFeatureStatus,
   Outbound,
   RuntimeOutboundState,
 } from "@/api/generated/model"
@@ -489,6 +490,53 @@ function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
           ))}
         </div>
 
+        {health.probes && health.probes.length > 0 ? (
+          <div className="space-y-1 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">
+                {t("overview.intercept.probes.title")}
+              </span>
+              {health.kernel_release ? (
+                <span className="text-muted-foreground">
+                  {t("overview.intercept.probes.kernel", {
+                    release: health.kernel_release,
+                  })}
+                </span>
+              ) : null}
+            </div>
+            <ul className="space-y-0.5" data-testid="intercept-probes">
+              {health.probes.map((probe) => (
+                <li
+                  className="flex flex-wrap items-baseline gap-x-2"
+                  key={probe.feature}
+                >
+                  <span className="text-muted-foreground">{probe.feature}</span>
+                  <span className={probeStatusClass(probe.status)}>
+                    {t(`overview.intercept.probes.status.${probe.status}`)}
+                  </span>
+                  {probe.reason ? (
+                    <span className="text-xs text-muted-foreground">
+                      {probe.reason}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {health.warnings && health.warnings.length > 0 ? (
+          <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
+            <AlertDescription>
+              <ul className="list-disc pl-5">
+                {health.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         {health.reasons.length > 0 ? (
           <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
             <AlertDescription>
@@ -520,6 +568,18 @@ function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
       </div>
     </SectionCard>
   )
+}
+
+function probeStatusClass(status: InterceptProbeFeatureStatus) {
+  switch (status) {
+    case "ok":
+      return "text-emerald-600"
+    case "unsupported":
+    case "error":
+      return "text-destructive"
+    default:
+      return "text-muted-foreground"
+  }
 }
 
 function Counter({ label, value }: { label: string; value?: number }) {
