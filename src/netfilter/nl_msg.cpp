@@ -29,6 +29,7 @@ MsgBuilder::MsgBuilder(std::size_t reserve) {
 void MsgBuilder::clear() {
     buf_.clear();
     msg_start_ = 0;
+    message_end_ = 0;
 }
 
 void MsgBuilder::pad_to_align() {
@@ -52,12 +53,15 @@ void MsgBuilder::begin(uint16_t type, uint16_t flags, uint32_t seq, uint8_t fami
     const auto* b = reinterpret_cast<const uint8_t*>(&nfg);
     buf_.insert(buf_.end(), a, a + sizeof(nlh));
     buf_.insert(buf_.end(), b, b + sizeof(nfg));
+    message_end_ = buf_.size();
 }
 
 void MsgBuilder::end() {
-    pad_to_align();
-    const uint32_t len = static_cast<uint32_t>(buf_.size() - msg_start_);
+    const uint32_t len = static_cast<uint32_t>(message_end_ - msg_start_);
     std::memcpy(buf_.data() + msg_start_, &len, sizeof(len));
+    // nlmsg_len excludes trailing alignment bytes.  The datagram still
+    // carries them, and the next message starts at NLMSG_ALIGN(len).
+    pad_to_align();
 }
 
 void MsgBuilder::batch_begin(uint32_t seq) {
@@ -80,6 +84,7 @@ void MsgBuilder::put(uint16_t type, const void* data, std::size_t len) {
         const auto* p = static_cast<const uint8_t*>(data);
         buf_.insert(buf_.end(), p, p + len);
     }
+    message_end_ = buf_.size();
     pad_to_align();
 }
 
@@ -108,6 +113,7 @@ void MsgBuilder::put_strz(uint16_t type, std::string_view s) {
     std::memcpy(buf_.data() + start + 2, &type, 2);
     buf_.insert(buf_.end(), s.begin(), s.end());
     buf_.push_back(0);
+    message_end_ = buf_.size();
     pad_to_align();
 }
 
@@ -123,6 +129,7 @@ void MsgBuilder::nest_end(std::size_t token) {
     pad_to_align();
     const uint16_t len = static_cast<uint16_t>(buf_.size() - token);
     std::memcpy(buf_.data() + token, &len, 2);
+    message_end_ = buf_.size();
 }
 
 bool for_each_attr(ByteView region, const std::function<bool(const Attr&)>& cb) {
