@@ -33,6 +33,8 @@ add_executable(keen-pbr-tests
   test_intercept_processor.cpp
   test_intercept_live.cpp
   test_intercept_wiring.cpp
+  test_intercept_probe.cpp
+  test_kernel_probe.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
   test_list_streamer.cpp
@@ -178,6 +180,7 @@ add_executable(keen-pbr-tests
   ../src/netfilter/nflog.cpp
   ../src/netfilter/conntrack.cpp
   ../src/netfilter/set_writer.cpp
+  ../src/netfilter/kernel_probe.cpp
   ../src/intercept/intercept_processor.cpp
   ../src/intercept/intercept_service.cpp
   ../src/intercept/intercept_capabilities.cpp

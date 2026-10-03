@@ -7,6 +7,7 @@
  */
 import type { InterceptCapabilitiesHealth } from './interceptCapabilitiesHealth';
 import type { InterceptCountersHealth } from './interceptCountersHealth';
+import type { InterceptProbeFeature } from './interceptProbeFeature';
 
 export interface InterceptHealth {
   /** Whether `intercept.enabled` is set in the applied config. */
@@ -20,6 +21,14 @@ export interface InterceptHealth {
   capabilities: InterceptCapabilitiesHealth;
   /** Why a configured part is not active (missing kernel support, bind failure). */
   reasons: string[];
+  /** Degraded but running (no fail-open, conntrack cleanup disabled). */
+  warnings?: string[];
+  /** Kernel release (uname -r). Informational only; no decision is based on it. */
+  kernel_release?: string;
+  /** Kernel ipset protocol version (ipset backend; at least 6 is required). */
+  ipset_protocol?: number;
+  /** Functional kernel probe results, one entry per feature. */
+  probes?: InterceptProbeFeature[];
   queue_num?: number;
   nflog_group?: number;
   /** Sequence number of the newest interception event (0 if none yet). */

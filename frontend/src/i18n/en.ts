@@ -397,6 +397,17 @@ export const enTranslation = {
         nflog: "NFLOG",
         connbytes: "connbytes",
       },
+      probes: {
+        title: "Kernel probes",
+        kernel: "Kernel {{release}}",
+        status: {
+          ok: "ok",
+          unsupported: "unsupported",
+          error: "error",
+          skipped: "skipped",
+          not_run: "not run",
+        },
+      },
       counters: {
         dnsPackets: "DNS packets",
         dnsParseErrors: "DNS parse errors",

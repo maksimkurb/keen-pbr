@@ -364,6 +364,7 @@ set(SOURCES
   src/netfilter/nflog.cpp
   src/netfilter/conntrack.cpp
   src/netfilter/set_writer.cpp
+  src/netfilter/kernel_probe.cpp
   src/intercept/intercept_processor.cpp
   src/intercept/intercept_service.cpp
   src/intercept/intercept_capabilities.cpp

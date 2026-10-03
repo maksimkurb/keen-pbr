@@ -219,28 +219,35 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
             if (intercept.dns_hold) options.queue_num = intercept.queue_num;
             if (intercept.l7) options.nflog_group = intercept.nflog_group;
             options.hold_timeout_ms = intercept.hold_timeout_ms;
+            options.conntrack_cleanup = intercept.conntrack_cleanup;
             return options;
         }();
         bool service_present;
         bool service_running;
-        bool service_l7_degraded;
+        bool listener_unbound;
         {
             KPBR_LOCK_GUARD(intercept_mutex_);
             service_present = intercept_service_ != nullptr;
             service_running = service_present && intercept_service_->running();
-            service_l7_degraded = service_present && intercept_service_->l7_degraded();
+            // A listener that failed to bind at start or died at runtime (NFLOG
+            // failure leaves the hot loop alive for DNS, so running() alone
+            // cannot trigger recovery).  Only parts that are still wanted
+            // count: a part disabled by a probe verdict is not retried here.
+            listener_unbound =
+                service_present &&
+                ((intercept.dns_hold && !intercept_service_->dns_bound()) ||
+                 (intercept.l7 && !intercept_service_->l7_bound()));
         }
         const bool options_changed =
             wanted.queue_num != intercept_service_options_.queue_num ||
             wanted.nflog_group != intercept_service_options_.nflog_group ||
-            wanted.hold_timeout_ms != intercept_service_options_.hold_timeout_ms;
-        // NFLOG failure leaves the hot loop alive for DNS, so running() alone
-        // cannot trigger recovery. An explicit runtime apply must rebind the
-        // desired L7 listener while preserving the normal quiesce/rollback
-        // ordering and degraded health until the replacement is ready.
-        const bool l7_listener_degraded = intercept.l7 && service_l7_degraded;
+            wanted.hold_timeout_ms != intercept_service_options_.hold_timeout_ms ||
+            wanted.conntrack_cleanup != intercept_service_options_.conntrack_cleanup;
+        // An explicit runtime apply must rebind the desired listener while
+        // preserving the normal quiesce/rollback ordering and degraded health
+        // until the replacement is ready.
         if (service_present &&
-            (!service_running || !intercept.active() || options_changed || l7_listener_degraded)) {
+            (!service_running || !intercept.active() || options_changed || listener_unbound)) {
             quiesce_intercept_service(
                 owned_main_routes, interfaces, balance_candidates,
                 quiesce_config != nullptr ? *quiesce_config : config_,
@@ -285,7 +292,27 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
     (void)conntrack_manager_.reconcile(conntrack_policy);
     // Only after the apply that created the sets succeeded.
     if (intercept.active()) {
-        schedule_intercept_snapshot_update(std::move(applied_sets), intercept);
+        // Functional check that the daemon can really write the dynamic sets
+        // the apply just created.  A failure here must not leave queue/log
+        // rules pointing at a listener that cannot do its job: detach them
+        // (never failing the apply itself) and report why.
+        const auto set_write = probe_intercept_set_write(firewall_->backend(), applied_sets);
+        record_intercept_set_write_probe(intercept, set_write);
+        if (!intercept.active()) {
+            Logger::instance().warn(
+                "Interception disabled: set write probe failed ({}); detaching interception rules",
+                set_write.reason);
+            try {
+                quiesce_intercept_service(owned_main_routes, interfaces, balance_candidates,
+                                          config_, outbound_marks_);
+            } catch (const std::exception& error) {
+                Logger::instance().error(
+                    "Could not detach interception after a failed set write probe: {}",
+                    error.what());
+            }
+        } else {
+            schedule_intercept_snapshot_update(std::move(applied_sets), intercept);
+        }
     }
 }
 

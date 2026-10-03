@@ -401,6 +401,17 @@ export const ruTranslation = {
         nflog: "NFLOG",
         connbytes: "connbytes",
       },
+      probes: {
+        title: "Проверки ядра",
+        kernel: "Ядро {{release}}",
+        status: {
+          ok: "ок",
+          unsupported: "не поддерживается",
+          error: "ошибка",
+          skipped: "пропущено",
+          not_run: "не выполнялась",
+        },
+      },
       counters: {
         dnsPackets: "DNS-пакеты",
         dnsParseErrors: "Ошибки разбора DNS",

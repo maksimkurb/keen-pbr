@@ -92,19 +92,19 @@ NfLog::NfLog(const NfLogOptions& options)
         });
     const std::string prefix = "nflog group " + std::to_string(options_.group) + ": ";
     if (rc != 0) {
-        throw NlSocketError(prefix + "configuration failed: " + std::strerror(rc));
+        throw NlSocketError(prefix + "configuration failed: " + std::strerror(rc), rc);
     }
     if (bind_error != 0) {
         if (bind_error == std::numeric_limits<int>::min()) {
-            throw NlSocketError(prefix + "bind acknowledgement timed out");
+            throw NlSocketError(prefix + "bind acknowledgement timed out", ETIMEDOUT);
         }
-        throw NlSocketError(prefix + "bind failed: " + std::strerror(bind_error));
+        throw NlSocketError(prefix + "bind failed: " + std::strerror(bind_error), bind_error);
     }
     if (config_error != 0) {
         if (config_error == std::numeric_limits<int>::min()) {
-            throw NlSocketError(prefix + "configuration acknowledgement timed out");
+            throw NlSocketError(prefix + "configuration acknowledgement timed out", ETIMEDOUT);
         }
-        throw NlSocketError(prefix + "set mode failed: " + std::strerror(config_error));
+        throw NlSocketError(prefix + "set mode failed: " + std::strerror(config_error), config_error);
     }
     bound_ = true;
     tx_.clear();

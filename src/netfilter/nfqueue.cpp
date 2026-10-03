@@ -83,14 +83,20 @@ bool packet_id_from_attrs(ByteView attrs, uint32_t& id) {
     return found;
 }
 
-bool initial_owner_decision(int owner_fd, ino_t owner_inode, ino_t netns_inode) {
-    if (owner_fd >= 0) return owner_inode == kInitialUserNamespaceInode;
-    return netns_inode == kInitialNetworkNamespaceInode;
+ReplacementCapability initial_owner_decision(int owner_fd, ino_t owner_inode, ino_t netns_inode) {
+    if (owner_fd >= 0) {
+        return owner_inode == kInitialUserNamespaceInode ? ReplacementCapability::supported
+                                                         : ReplacementCapability::unsupported;
+    }
+    // No NS_GET_USERNS (kernel < 4.9): only the initial network namespace is
+    // known to be owned by the initial user namespace.
+    return netns_inode == kInitialNetworkNamespaceInode ? ReplacementCapability::supported
+                                                        : ReplacementCapability::unknown;
 }
 
-bool initial_user_namespace_owner() {
+ReplacementCapability detect_replacement_capability() {
     const int netns = ::open("/proc/self/ns/net", O_RDONLY | O_CLOEXEC);
-    if (netns < 0) return false;
+    if (netns < 0) return ReplacementCapability::unknown;
 
     struct stat netns_stat{};
     const bool have_netns_stat = ::fstat(netns, &netns_stat) == 0;
@@ -111,6 +117,13 @@ bool initial_user_namespace_owner() {
 #ifdef KEEN_PBR3_TESTING
 bool nfqueue_initial_owner_decision_for_test(int owner_fd, uint64_t owner_inode,
                                              uint64_t netns_inode) {
+    return initial_owner_decision(owner_fd, static_cast<ino_t>(owner_inode),
+                                  static_cast<ino_t>(netns_inode)) ==
+           ReplacementCapability::supported;
+}
+
+ReplacementCapability nfqueue_replacement_decision_for_test(int owner_fd, uint64_t owner_inode,
+                                                            uint64_t netns_inode) {
     return initial_owner_decision(owner_fd, static_cast<ino_t>(owner_inode),
                                   static_cast<ino_t>(netns_inode));
 }
@@ -134,7 +147,8 @@ void build_nfqueue_unbind(MsgBuilder& b, uint32_t seq, uint16_t queue_num) {
     b.end();
 }
 
-void build_nfqueue_params(MsgBuilder& b, uint32_t seq, const NfQueueOptions& o) {
+void build_nfqueue_params(MsgBuilder& b, uint32_t seq, const NfQueueOptions& o,
+                          bool include_flags) {
     b.begin(kMsgConfig, kReqAck, seq, AF_UNSPEC, o.queue_num);
     nfqnl_msg_config_params params;
     std::memset(&params, 0, sizeof(params));
@@ -142,8 +156,10 @@ void build_nfqueue_params(MsgBuilder& b, uint32_t seq, const NfQueueOptions& o) 
     params.copy_mode = NFQNL_COPY_PACKET;
     b.put(NFQA_CFG_PARAMS, &params, sizeof(params));
     b.put_u32_be(NFQA_CFG_QUEUE_MAXLEN, o.queue_maxlen);
-    b.put_u32_be(uapi::kNfqaCfgMask, uapi::kNfqaCfgFFailOpen);
-    b.put_u32_be(uapi::kNfqaCfgFlags, o.fail_open ? uapi::kNfqaCfgFFailOpen : 0u);
+    if (include_flags) {
+        b.put_u32_be(uapi::kNfqaCfgMask, uapi::kNfqaCfgFFailOpen);
+        b.put_u32_be(uapi::kNfqaCfgFlags, o.fail_open ? uapi::kNfqaCfgFFailOpen : 0u);
+    }
     b.end();
 }
 
@@ -198,7 +214,7 @@ NfQueue::NfQueue(const NfQueueOptions& opt)
     const uint32_t bind_seq = sock_.next_seq();
     build_nfqueue_bind(tx_, bind_seq, opt_.queue_num);
     const uint32_t params_seq = sock_.next_seq();
-    build_nfqueue_params(tx_, params_seq, opt_);
+    build_nfqueue_params(tx_, params_seq, opt_, /*include_flags=*/false);
 
     int bind_err = std::numeric_limits<int>::min();
     int params_err = std::numeric_limits<int>::min();
@@ -233,7 +249,7 @@ NfQueue::NfQueue(const NfQueueOptions& opt)
 
     const std::string q = "nfqueue " + std::to_string(opt_.queue_num) + ": ";
     if (rc != 0) {
-        throw NlSocketError(q + "configuration failed: " + std::strerror(rc));
+        throw NlSocketError(q + "configuration failed: " + std::strerror(rc), rc);
     }
     if (startup_verdict_err != 0) {
         throw NlSocketError(q + "failed to fail-open a packet received during startup: " +
@@ -241,24 +257,62 @@ NfQueue::NfQueue(const NfQueueOptions& opt)
     }
     if (bind_err != 0) {
         if (bind_err == std::numeric_limits<int>::min())
-            throw NlSocketError(q + "timed out waiting for bind acknowledgement");
+            throw NlSocketError(q + "timed out waiting for bind acknowledgement", ETIMEDOUT);
         std::string msg = q + "bind failed: " + std::strerror(bind_err);
         if (bind_err == EBUSY) msg += " (queue already bound by another process)";
         else if (bind_err == EPERM) msg += " (CAP_NET_ADMIN required)";
         else if (bind_err == EINVAL || bind_err == EOPNOTSUPP)
             msg += " (is nfnetlink_queue available?)";
-        throw NlSocketError(msg);
+        throw NlSocketError(msg, bind_err);
     }
     if (params_err != 0) {
         if (params_err == std::numeric_limits<int>::min())
-            throw NlSocketError(q + "timed out waiting for parameter acknowledgement");
-        throw NlSocketError(q + "set parameters failed: " + std::strerror(params_err));
+            throw NlSocketError(q + "timed out waiting for parameter acknowledgement", ETIMEDOUT);
+        throw NlSocketError(q + "set parameters failed: " + std::strerror(params_err), params_err);
     }
     if (startup_malformed) {
         throw NlSocketError(q + "received a malformed queued packet before startup completed");
     }
     bound_ = true;
-    replacement_capability_ = initial_user_namespace_owner();
+    replacement_ = detect_replacement_capability();
+    tx_.clear();
+    if (opt_.fail_open) probe_fail_open();
+}
+
+void NfQueue::probe_fail_open() {
+    // Two requests in one datagram: the real flag, and a control carrying an
+    // unknown flag bit.  Kernels >= 3.6 reject the control (EOPNOTSUPP); older
+    // ones ignore the whole attribute and ACK both.  Neither request can
+    // disturb the bind that already succeeded.
+    tx_.clear();
+    const uint32_t enable_seq = sock_.next_seq();
+    build_nfqueue_flags(tx_, enable_seq, opt_.queue_num, uapi::kNfqaCfgFFailOpen,
+                        uapi::kNfqaCfgFFailOpen);
+    const uint32_t control_seq = sock_.next_seq();
+    build_nfqueue_flags(tx_, control_seq, opt_.queue_num, 0x80000000u, 0u);
+    int enable_err = ETIMEDOUT;
+    int control_err = ETIMEDOUT;
+    const int rc = sock_.transact(
+        tx_.data(), tx_.size(), enable_seq, control_seq, kConfigTimeoutMs,
+        [&](const MsgView& msg) {
+            // A packet can be delivered while the probe waits; release it.
+            if (msg.type != kMsgPacket) return;
+            uint32_t id = 0;
+            if (!packet_id_from_attrs(msg.attrs, id)) return;
+            MsgBuilder verdict_msg;
+            build_nfqueue_verdict(verdict_msg, opt_.queue_num, id, NF_ACCEPT, nullptr, 0);
+            int err = 0;
+            (void)sock_.send(verdict_msg.data(), verdict_msg.size(), err);
+        },
+        [&](uint32_t seq, int err) {
+            if (seq == enable_seq) enable_err = err;
+            else if (seq == control_seq) control_err = err;
+        });
+    // rc is the first non-zero ACK (expected for the control request); the
+    // per-sequence results above are what classify the outcome, and an ACK that
+    // never arrived keeps its ETIMEDOUT default.
+    (void)rc;
+    fail_open_ = classify_fail_open(enable_err, control_err);
     tx_.clear();
 }
 
@@ -329,10 +383,6 @@ bool NfQueue::verdict(uint32_t packet_id, uint32_t verdict, const uint8_t* repla
         return false;
     }
     return true;
-}
-
-bool NfQueue::payload_replacement_supported() const {
-    return replacement_capability_;
 }
 
 bool NfQueue::verdict_batch_accept(uint32_t max_packet_id) {
