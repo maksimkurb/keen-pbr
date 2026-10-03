@@ -796,7 +796,7 @@ TEST_CASE("ipset reconcile: dynamic schema accepts terse ipset XML") {
 </ipsets>)",
       "kpbr4d_domains", "inet", 300));
   CHECK(T::dynamic_set_schema_compatible(
-      R"(<ipsets><ipset name="kpbr6d_domains"><type>hash:net</type><header><family>inet6</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)",
+      R"(<ipsets><ipset name="kpbr6d_domains"><type>hash:net</type><header><family>inet6</family><hashsize>1024</hashsize><maxelem>65536</maxelem><timeout>0</timeout></header></ipset></ipsets>)",
       "kpbr6d_domains", "inet6", 0));
 }
 
@@ -805,7 +805,8 @@ TEST_CASE("ipset schema capacities: maxelem is exact and hashsize is grown") {
     return "<ipsets><ipset name=\"kpbr4d_domains\"><type>hash:net</type>"
            "<header><family>inet</family><hashsize>" +
            std::to_string(hashsize) + "</hashsize><maxelem>" +
-           std::to_string(maxelem) + "</maxelem></header></ipset></ipsets>";
+           std::to_string(maxelem) +
+           "</maxelem><timeout>0</timeout></header></ipset></ipsets>";
   };
 
   CHECK(T::dynamic_set_schema_compatible(xml(128, 65536), "kpbr4d_domains",
@@ -850,6 +851,17 @@ TEST_CASE("ipset reconcile: dynamic schema rejects incompatible live sets") {
   CHECK_FALSE(T::dynamic_set_schema_compatible(
       R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><timeout>60</timeout></header></ipset></ipsets>)",
       "kpbr4d_domains", "inet", 300));
+}
+
+TEST_CASE("ipset reconcile: dynamic schema requires timeout support") {
+  // A legacy dynamic set created without `timeout` rejects per-element
+  // timeouts and must be recreated.
+  CHECK_FALSE(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 0));
+  CHECK(T::dynamic_set_schema_compatible(
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem><timeout>0</timeout></header></ipset></ipsets>)",
+      "kpbr4d_domains", "inet", 0));
 }
 
 TEST_CASE("ipset reconcile: dynamic schema rejects malformed or ambiguous XML") {
@@ -1053,13 +1065,13 @@ TEST_CASE("Destructive apply preserves compatible dynamic schemas") {
   };
 
   const auto compatible_xml =
-      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)";
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem><timeout>0</timeout></header></ipset></ipsets>)";
   const auto compatible = run_apply(compatible_xml);
   CHECK_FALSE(compatible.threw);
   CHECK(compatible.mutations.empty());
 
   const auto incompatible_xml =
-      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem></header></ipset></ipsets>)";
+      R"(<ipsets><ipset name="kpbr4d_domains"><type>hash:net</type><header><family>inet</family><hashsize>1024</hashsize><maxelem>65536</maxelem><timeout>0</timeout></header></ipset></ipsets>)";
   const auto incompatible = run_apply(incompatible_xml, 0, 0, 131072);
   CHECK_FALSE(incompatible.threw);
   CHECK(incompatible.mutations.find("flush kpbr4d_domains") !=
@@ -2730,9 +2742,9 @@ TEST_CASE("static set naming: kpbr4_ prefix, no timeout") {
   CHECK(line == "create kpbr4_mylist hash:net family inet -exist\n");
 }
 
-TEST_CASE("dynamic set naming: kpbr4d_ prefix, no timeout when ttl_ms=0") {
+TEST_CASE("dynamic set naming: kpbr4d_ prefix, timeout 0 (per-element timeouts) when ttl_ms=0") {
   auto line = T::build_ipset_create_line("kpbr4d_mylist", "inet", 0);
-  CHECK(line == "create kpbr4d_mylist hash:net family inet -exist\n");
+  CHECK(line == "create kpbr4d_mylist hash:net family inet timeout 0 -exist\n");
 }
 
 TEST_CASE("dynamic set naming: kpbr4d_ prefix, with timeout when ttl_ms set") {

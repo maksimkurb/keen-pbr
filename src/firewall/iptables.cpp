@@ -212,7 +212,11 @@ std::string IptablesFirewall::build_ipset_create_line(const PendingSet &ps) {
   if (ps.maxelem.has_value()) {
     line += keen_pbr3::format(" maxelem {}", *ps.maxelem);
   }
-  if (ps.timeout > 0) {
+  // Dynamic sets are filled by the daemon with per-element timeouts, so they
+  // always carry timeout support. `timeout 0` keeps the set-wide default
+  // permanent while still accepting per-element `timeout N` (verified against
+  // the kernel), so the set-wide value may be 0.
+  if (ps.timeout > 0 || is_dynamic_set_name(ps.name)) {
     line += keen_pbr3::format(" timeout {}", ps.timeout);
   }
   return line + " -exist\n";
@@ -279,6 +283,10 @@ bool IptablesFirewall::dynamic_set_schema_compatible(
   const std::string_view live_type(type->value(), type->value_size());
   const std::string_view live_family(family->value(), family->value_size());
   uint32_t live_timeout = 0;
+  if (timeout_node == nullptr && is_dynamic_set_name(expected.name)) {
+    // Dynamic sets must support per-element timeouts (`timeout 0` is enough).
+    return false;
+  }
   if (timeout_node != nullptr) {
     const char *begin = timeout_node->value();
     const char *end = begin + timeout_node->value_size();

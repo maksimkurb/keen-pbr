@@ -16,6 +16,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <vector>
 #include <sys/socket.h>
 
 namespace keen_pbr3 {
@@ -128,11 +129,28 @@ nlohmann::json NftablesFirewall::build_table_json() {
 }
 
 nlohmann::json NftablesFirewall::build_set_json(const PendingSet& ps) {
+    nlohmann::json set;
+    if (is_dynamic_set_name(ps.name)) {
+        // Dynamic sets hold host addresses written by the daemon with a
+        // per-element timeout, so they are plain (non-interval) timeout sets.
+        // The set-level default timeout is only emitted when configured.
+        set = {
+            {"family", "inet"},
+            {"table", TABLE_NAME},
+            {"name", ps.name},
+            {"type", ps.type},
+            {"flags", nlohmann::json::array({"timeout"})}
+        };
+        if (ps.timeout > 0) {
+            set["timeout"] = ps.timeout;
+        }
+        return {{"add", {{"set", set}}}};
+    }
     nlohmann::json flags = nlohmann::json::array({"interval"});
     if (ps.timeout > 0) {
         flags.push_back("timeout");
     }
-    nlohmann::json set = {
+    set = {
         {"family", "inet"},
         {"table", TABLE_NAME},
         {"name", ps.name},
@@ -206,7 +224,12 @@ bool NftablesFirewall::is_dynamic_set_name(const std::string& set_name) {
 }
 
 std::string NftablesFirewall::set_schema_key(const PendingSet& set) {
-    return set.type + ":" + std::to_string(set.timeout);
+    std::string key = set.type + ":" + std::to_string(set.timeout);
+    if (is_dynamic_set_name(set.name)) {
+        // Dynamic sets must be plain per-element-timeout sets (see build_set_json).
+        key += ":timeout";
+    }
+    return key;
 }
 
 // --- PhysicalRule -> nft JSON ---
@@ -554,7 +577,25 @@ NftablesFirewall::LiveTableState NftablesFirewall::read_live_table_state() const
                     state.set_names.insert(name);
                     const std::string type = set.value("type", "");
                     const uint32_t timeout = set.value("timeout", 0U);
-                    state.set_schemas[name] = type + ":" + std::to_string(timeout);
+                    std::string key = type + ":" + std::to_string(timeout);
+                    if (is_dynamic_set_name(name)) {
+                        // Mirror set_schema_key(): record the live flags so a
+                        // legacy interval set is detected as incompatible.
+                        std::vector<std::string> flags;
+                        if (const auto flags_it = set.find("flags");
+                            flags_it != set.end() && flags_it->is_array()) {
+                            for (const auto& flag : *flags_it) {
+                                if (flag.is_string()) {
+                                    flags.push_back(flag.get<std::string>());
+                                }
+                            }
+                        }
+                        std::sort(flags.begin(), flags.end());
+                        for (const auto& flag : flags) {
+                            key += ":" + flag;
+                        }
+                    }
+                    state.set_schemas[name] = std::move(key);
                 }
             }
         }
@@ -585,7 +626,8 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
       for (const auto& ps : pending_sets_) {
         const bool existing = !emit_full_table &&
             live_state.set_names.find(ps.name) != live_state.set_names.end();
-        if (existing && is_dynamic_set_name(ps.name)) {
+        if (existing && is_dynamic_set_name(ps.name) &&
+            live_state.set_schemas.at(ps.name) == set_schema_key(ps)) {
             if (clear_dynamic_sets) {
                 arr.push_back(build_flush_set_json(ps.name));
             }

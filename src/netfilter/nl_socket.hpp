@@ -45,7 +45,8 @@ public:
     int transact(const uint8_t* req, std::size_t len, uint32_t first_seq, uint32_t last_seq,
                  int timeout_ms,
                  const std::function<void(const MsgView&)>& on_msg,
-                 const std::function<void(uint32_t seq, int err)>& on_ack);
+                 const std::function<void(uint32_t seq, int err)>& on_ack,
+                 const std::vector<uint32_t>* extra_error_seqs = nullptr);
 
 private:
     void close_fd();
