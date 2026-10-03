@@ -22,6 +22,7 @@ add_executable(keen-pbr-tests
   test_keenetic_dns.cpp
   test_dns_probe_server.cpp
   test_dns_wire.cpp
+  test_nfnetlink.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
   test_list_streamer.cpp
@@ -150,6 +151,7 @@ add_executable(keen-pbr-tests
   ../src/routing/netlink.cpp
   ../src/routing/interface_monitor.cpp
   ../src/routing/urltest_selection.cpp
+  ../src/netfilter/nl_msg.cpp
   ../src/util/blocking_executor.cpp
   ../src/util/firewall_backend_utils.cpp
   ../src/util/ipv6_support.cpp
