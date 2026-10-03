@@ -1,3 +1,6 @@
+from .firewall_corruption_recovery import reapply
+
+
 def apply_balance(context):
     config = context.api("/api/config")["config"]
     config["outbounds"] = [
@@ -69,10 +72,11 @@ def assert_no_leak(context, source_ports, token_prefix):
     for index, source_port in enumerate(source_ports):
         token = f"{token_prefix}-{index}"
         tokens.add(token)
-        assert context.client_probe(
+        payload = context.client_probe(
             destination="198.18.0.10", destination_port=19000,
             source="192.0.2.2", source_port=source_port,
-            token=token, check=False) is None
+            token=token, check=False)
+        assert payload is None, (token, payload)
 
     for side in ("direct", "pbr"):
         leaked = [item for item in context.observations(side) if item.get("token") in tokens]
@@ -134,6 +138,18 @@ def register(registry):
                 "both balance candidates excluded")
             main_route = context.run("ip", "route", "get", "198.18.0.10").stdout
             assert "dev wan_direct" in main_route, main_route
+
+            # /api/runtime/outbounds reports URL-test health before the
+            # selection callback has necessarily committed the matching
+            # classifier and fallback-unreachable route.  Force the existing
+            # lifecycle refresh and wait for its completion so the first
+            # packet below is checked only after the current empty-candidate
+            # state has been realized in the kernel; this is not a packet
+            # retry or a cached health check.
+            reapply(context)
+            wait_for_balance_status(
+                context, (), ("wan_direct", "wan_pbr"),
+                "empty balance classifier applied")
             assert_no_leak(context, range(22700, 22704), "route-balance-no-leak")
         finally:
             for side in ("direct", "pbr"):
