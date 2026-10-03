@@ -5,6 +5,9 @@
 #include "../firewall/firewall.hpp"
 #include "../health/routing_health.hpp"
 #include "../health/url_tester.hpp"
+#include "../intercept/intercept_capabilities.hpp"
+#include "../intercept/intercept_service.hpp"
+#include "../intercept/intercept_settings.hpp"
 #include "../health/icmp_tester.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/interface_monitor.hpp"
@@ -103,6 +106,9 @@ struct PendingUrltestConntrackCleanup {
 struct ResolverGenerationSnapshot {
   ResolverType resolver_type;
   bool ipv6_enabled{true};
+  // The daemon fills the dynamic sets (DNS hold active): dnsmasq must not
+  // emit ipset=/nftset= directives.
+  bool intercept_dns_hold{false};
   std::uint64_t generation{0};
 };
 
@@ -224,6 +230,22 @@ private:
                       bool force_clear_dynamic_sets = false,
                       const std::vector<DumpedRoute>* main_routes = nullptr);
   void reconcile_lists_only(bool reload_resolver);
+
+  // Traffic interception (DNS hold / L7 sniff), see daemon_intercept.cpp.
+  InterceptEffective resolve_intercept_effective();
+  void start_intercept_service(InterceptEffective &effective);
+  // Applies the firewall without interception rules, then stops the service.
+  void quiesce_intercept_service(
+      const std::vector<DumpedRoute> &main_routes,
+      const std::vector<DumpedInterface> &interfaces,
+      const FirewallBalanceCandidates &balance_candidates);
+  void stop_intercept_service();
+  void schedule_intercept_snapshot_update(
+      std::vector<FirewallSetDeclaration> sets,
+      const InterceptEffective &effective);
+  InterceptEffective intercept_effective_snapshot() const;
+  api::InterceptHealthClass build_intercept_health() const;
+  void pump_intercept_events();
   void register_urltest_outbounds();
   void handle_urltest_selection_change(const std::string &urltest_tag,
                                        const std::string &new_child_tag);
@@ -426,6 +448,19 @@ IcmpTester icmp_tester_;
   std::map<std::string, PendingUrltestConntrackCleanup>
       pending_urltest_conntrack_cleanup_;
   BlockingExecutor blocking_executor_{2, 64};
+  // Interception service and its resolved settings.  The service pointer and
+  // the effective settings are read by API threads; everything else is owned
+  // by the control/event-loop thread.
+  mutable TracedMutex intercept_mutex_;
+  std::shared_ptr<InterceptService> intercept_service_
+      GUARDED_BY(intercept_mutex_);
+  InterceptEffective intercept_effective_ GUARDED_BY(intercept_mutex_);
+  InterceptServiceOptions intercept_service_options_;
+  std::optional<InterceptCapabilities> intercept_capabilities_;
+  bool intercept_capabilities_ipv6_{true};
+  std::atomic<std::uint64_t> intercept_snapshot_seq_{0};
+  std::uint64_t intercept_forwarded_seq_{0};
+  int intercept_event_task_id_{-1};
   // Resolver hooks can synchronously call back into resolver config streaming,
   // so hook execution and resolver I/O must never share a worker.
   BlockingExecutor resolver_hook_executor_{1, 16};

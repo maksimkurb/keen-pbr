@@ -61,7 +61,7 @@ const fallbackDraft: SettingsDraft = {
   deviceName: "",
   strictEnforcement: true,
   skipMarkedPackets: true,
-  clearDynamicSetsOnApply: true,
+  clearDynamicSetsOnApply: false,
   ipv6Enabled: true,
   ipsetHashsize: "",
   ipsetMaxelem: "",

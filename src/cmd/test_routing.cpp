@@ -3,6 +3,7 @@
 #include "../config/routing_state.hpp"
 #include "../dns/dns_server.hpp"
 #include "../dns/legacy_resolver_lock.hpp"
+#include "../lists/domain_index.hpp"
 #include "../lists/ipset.hpp"
 #include "../lists/kernel_set_tester.hpp"
 #include "../lists/list_entry_visitor.hpp"
@@ -70,38 +71,64 @@ std::string lowercase_copy(std::string value) {
     return value;
 }
 
+// Lookup structures for the lists referenced by enabled route rules: IP/CIDR
+// sets per list plus one DomainIndex shared by all of them (the same matcher
+// the interception daemon uses).
 struct ListLookupData {
-    IpSet ip_set;
-    std::set<std::string> domain_set; // normalized lowercase, wildcard prefix stripped
+    std::map<std::string, IpSet> ip_sets;
+    std::map<std::string, DomainIndex::ListId> list_ids;
+    DomainIndex domain_index;
+
+    bool has_list(const std::string& name) const {
+        return ip_sets.find(name) != ip_sets.end();
+    }
+
+    // The broadest list entry (shortest matching suffix) that matches one of
+    // `domain_cands` (most specific candidate first).  DomainIndex answers
+    // "does any suffix match", which is monotone along the candidates.
+    std::optional<std::string> domain_match(const std::string& list_name,
+                                            const std::vector<std::string>& domain_cands) const {
+        const auto id_it = list_ids.find(list_name);
+        if (id_it == list_ids.end()) return std::nullopt;
+        std::optional<std::string> via;
+        std::vector<DomainIndex::ListId> ids;
+        for (const auto& candidate : domain_cands) {
+            domain_index.lookup(candidate, ids);
+            if (!std::binary_search(ids.begin(), ids.end(), id_it->second)) break;
+            via = candidate;
+        }
+        return via;
+    }
 };
 
 class ListLookupBuilder : public ListEntryVisitor {
 public:
-    ListLookupData data;
+    ListLookupBuilder(IpSet& ip_set, DomainIndex::Builder& domains, DomainIndex::ListId id)
+        : ip_set_(ip_set), domains_(domains), id_(id) {}
 
     void on_entry(EntryType type, std::string_view entry) override {
         switch (type) {
             case EntryType::Ip:
-                data.ip_set.add_address(std::string(entry));
+                ip_set_.add_address(std::string(entry));
                 break;
             case EntryType::Cidr:
-                data.ip_set.add_cidr(std::string(entry));
+                ip_set_.add_cidr(std::string(entry));
                 break;
-            case EntryType::Domain: {
-                std::string d(entry);
-                if (has_prefix(d, "*.")) d = d.substr(2);
-                std::transform(d.begin(), d.end(), d.begin(), ::tolower);
-                data.domain_set.insert(std::move(d));
+            case EntryType::Domain:
+                domains_.add_domain(id_, entry);  // lowercases, strips "*."
                 break;
-            }
         }
     }
+
+private:
+    IpSet& ip_set_;
+    DomainIndex::Builder& domains_;
+    DomainIndex::ListId id_;
 };
 
 // Pre-build lookup data for all lists referenced in route rules.
-std::map<std::string, ListLookupData> build_all_lookups(const Config& config,
-                                                          const CacheManager& cache) {
-    std::map<std::string, ListLookupData> result;
+ListLookupData build_all_lookups(const Config& config, const CacheManager& cache) {
+    ListLookupData result;
     const auto& route_rules =
         config.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
     const auto& lists_map =
@@ -118,13 +145,16 @@ std::map<std::string, ListLookupData> build_all_lookups(const Config& config,
         }
     }
 
+    DomainIndex::Builder domains;
     for (const auto& list_name : referenced) {
         auto it = lists_map.find(list_name);
         if (it == lists_map.end()) continue;
-        ListLookupBuilder builder;
+        const DomainIndex::ListId id = domains.add_list(list_name);
+        result.list_ids.emplace(list_name, id);
+        ListLookupBuilder builder(result.ip_sets[list_name], domains, id);
         streamer.stream_list(list_name, it->second, builder);
-        result.emplace(list_name, std::move(builder.data));
     }
+    result.domain_index = std::move(domains).build();
     return result;
 }
 
@@ -353,7 +383,7 @@ std::vector<std::string> resolve_domain_with_system_resolver(const Config& confi
 // Walk route rules in order; return first matching outbound and match info.
 std::pair<std::string, std::optional<ListMatchInfo>>
 find_expected_outbound(const Config& config,
-                        const std::map<std::string, ListLookupData>& lookups,
+                        const ListLookupData& lookups,
                         const std::string& ip,
                         const std::vector<std::string>& domain_cands) {
     const auto& route_rules =
@@ -364,22 +394,16 @@ find_expected_outbound(const Config& config,
             continue;
         }
         for (const auto& list_name : route_rule_lists(rule)) {
-            auto it = lookups.find(list_name);
-            if (it == lookups.end()) continue;
-            const auto& lookup = it->second;
+            if (!lookups.has_list(list_name)) continue;
 
             // IP / CIDR match
-            if (!ip.empty() && lookup.ip_set.contains(ip)) {
+            if (!ip.empty() && lookups.ip_sets.at(list_name).contains(ip)) {
                 return {rule.outbound, ListMatchInfo{list_name, ip}};
             }
 
-            // Domain match (most-specific candidate first)
-            for (const auto& candidate : domain_cands) {
-                std::string lower = candidate;
-                std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-                if (contains(lookup.domain_set, lower)) {
-                    return {rule.outbound, ListMatchInfo{list_name, candidate}};
-                }
+            // Domain match
+            if (auto via = lookups.domain_match(list_name, domain_cands)) {
+                return {rule.outbound, ListMatchInfo{list_name, *via}};
             }
         }
     }
@@ -388,7 +412,7 @@ find_expected_outbound(const Config& config,
 }
 
 std::optional<ListMatchInfo> find_rule_match(const RouteRule& rule,
-                                             const std::map<std::string, ListLookupData>& lookups,
+                                             const ListLookupData& lookups,
                                              const std::string& ip,
                                              const std::vector<std::string>& domain_cands) {
     if (!route_rule_enabled(rule)) {
@@ -396,20 +420,14 @@ std::optional<ListMatchInfo> find_rule_match(const RouteRule& rule,
     }
 
     for (const auto& list_name : route_rule_lists(rule)) {
-        auto it = lookups.find(list_name);
-        if (it == lookups.end()) continue;
-        const auto& lookup = it->second;
+        if (!lookups.has_list(list_name)) continue;
 
-        if (!ip.empty() && lookup.ip_set.contains(ip)) {
+        if (!ip.empty() && lookups.ip_sets.at(list_name).contains(ip)) {
             return ListMatchInfo{list_name, ip};
         }
 
-        for (const auto& candidate : domain_cands) {
-            std::string lower = candidate;
-            std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-            if (contains(lookup.domain_set, lower)) {
-                return ListMatchInfo{list_name, candidate};
-            }
+        if (auto via = lookups.domain_match(list_name, domain_cands)) {
+            return ListMatchInfo{list_name, *via};
         }
     }
     return std::nullopt;

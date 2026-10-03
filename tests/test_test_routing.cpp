@@ -507,3 +507,46 @@ TEST_CASE("daemon test-routing response is rendered as a human-readable table") 
     CHECK(stdout_capture.str().find("domains (via example.com)") != std::string::npos);
     CHECK(stdout_capture.str().find("{\"") == std::string::npos);
 }
+
+TEST_CASE("compute_test_routing matches domains through DomainIndex semantics") {
+    if (!udp_socket_available()) {
+        DOCTEST_INFO("UDP sockets unavailable in current environment");
+        return;
+    }
+
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir);
+    cache.ensure_dir();
+    TestDnsServer server({"10.0.0.53"}, {});
+
+    Config config = build_test_config();
+    api::SystemResolver system_resolver;
+    system_resolver.address = server.address();
+    config.dns->system_resolver = system_resolver;
+
+    ListConfig domains;
+    domains.domains = std::vector<std::string>{"*.Example.COM", "other.test"};
+    ListConfig no_match;
+    no_match.domains = std::vector<std::string>{"badexample.com", "sub.example.com.evil"};
+    config.lists = std::map<std::string, ListConfig>{{"domains", domains}, {"no_match", no_match}};
+    RouteRule rule;
+    rule.outbound = "vpn";
+    rule.list = std::vector<std::string>{"no_match", "domains"};
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{rule};
+    config.route = route;
+
+    // Case-insensitive, wildcard prefix stripped, label-boundary suffix match.
+    const auto result = compute_test_routing(config, cache, "A.B.Example.com");
+    REQUIRE(result.rule_diagnostics.size() == 1);
+    CHECK(result.rule_diagnostics[0].target_in_lists);
+    REQUIRE(result.rule_diagnostics[0].target_match.has_value());
+    CHECK(result.rule_diagnostics[0].target_match->list_name == "domains");
+    CHECK(result.rule_diagnostics[0].target_match->via == "example.com");
+
+    const auto unrelated = compute_test_routing(config, cache, "notexample.com");
+    REQUIRE(unrelated.rule_diagnostics.size() == 1);
+    CHECK_FALSE(unrelated.rule_diagnostics[0].target_in_lists);
+
+    std::filesystem::remove_all(temp_dir);
+}

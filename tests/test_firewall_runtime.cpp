@@ -719,7 +719,7 @@ TEST_CASE("mixed nftables-only plan fails before backend mutation") {
   CHECK(firewall.recorded_rules.empty());
   CHECK(firewall.ipv6_enabled());
   CHECK(firewall.fwmark_mask() == 0xFFFFFFFFU);
-  CHECK(firewall.clear_dynamic_sets_on_apply());
+  CHECK_FALSE(firewall.clear_dynamic_sets_on_apply());
 }
 
 TEST_CASE("RulesOnly validates deferred list-backed actions before preparation") {

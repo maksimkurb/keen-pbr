@@ -492,8 +492,12 @@ paths:
       summary: Stream DNS test queries
       description: >
         Streams DNS query names observed by the built-in `dns.test_server`
-        listener as Server-Sent Events. Each connection receives `HELLO`
-        first, then one event per queried DNS name.
+        listener and the daemon's traffic interception events as
+        Server-Sent Events. Each connection receives `HELLO` first, then one
+        `DNS` event per queried DNS name and one `INTERCEPT` event per
+        intercepted DNS response, TLS SNI, HTTP Host or QUIC Initial (see the
+        `DnsTestInterceptEvent` schema). The `DNS` probe-server events are
+        deprecated and will be removed.
       operationId: getDnsTest
       responses:
         "200":
@@ -508,6 +512,8 @@ paths:
                 data: {"type":"DNS","domain":"example.com","source_ip":"192.168.1.10","ecs":"203.0.113.0/24"}
 
                 data: {"type":"DNS","domain":"connectivity-check.local","source_ip":"192.168.1.11","ecs":null}
+
+                data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
 
 components:
   securitySchemes:
@@ -606,12 +612,14 @@ components:
           type: boolean
           nullable: true
           description: >
-            Whether a full firewall apply should clear dnsmasq-owned dynamic
-            IP sets before recreating runtime rules. Defaults to `true` when
-            omitted or set to `null`. List-only and preserve-set reconciles
-            never clear dynamic entries.
-          default: true
-          example: true
+            Whether a full firewall apply should clear the dynamic (domain
+            learned) IP sets before recreating runtime rules. Defaults to
+            `false` when omitted or set to `null`: the sets are refilled only
+            when clients query DNS again, so clearing them makes domain routes
+            stop working until the next lookup. List-only and preserve-set
+            reconciles never clear dynamic entries.
+          default: false
+          example: false
         ipset_hashsize:
           type: integer
           minimum: 1
@@ -836,6 +844,8 @@ components:
           $ref: "#/components/schemas/IprouteConfig"
         lists_autoupdate:
           $ref: "#/components/schemas/ListsAutoupdateConfig"
+        intercept:
+          $ref: "#/components/schemas/InterceptConfig"
 
     AuthPasswordRequest:
       type: object
@@ -1365,6 +1375,218 @@ components:
             Required when `enabled` is `true`. Validated even when `enabled` is `false`.
           example: "0 4 * * 0"
 
+    InterceptMarkerConfig:
+      type: object
+      properties:
+        domain:
+          type: string
+          description: Domain answered synthetically by the daemon to prove that DNS interception works.
+          default: "check.keen.pbr"
+          example: "check.keen.pbr"
+        answer_ipv4:
+          type: string
+          description: IPv4 address returned in the synthetic marker `A` answer.
+          default: "127.0.0.88"
+          example: "127.0.0.88"
+
+    InterceptDnsConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: >
+            Hold DNS responses in an NFQUEUE and add the resolved addresses to
+            the dynamic sets before the client receives them.
+          default: true
+          example: true
+        queue_num:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          description: NFQUEUE number. 64511 and 65023 are used by Keenetic NDM and are rejected.
+          default: 9053
+          example: 9053
+        hold_timeout_ms:
+          type: integer
+          minimum: 5
+          maximum: 500
+          description: Maximum time a DNS response is held before it is released unchanged.
+          default: 30
+          example: 30
+        marker:
+          $ref: "#/components/schemas/InterceptMarkerConfig"
+
+    InterceptL7Config:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Learn destinations from TLS SNI, HTTP Host and QUIC Initial packets (NFLOG).
+          default: true
+          example: true
+        nflog_group:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          description: NFLOG group. 64511 and 65023 are used by Keenetic NDM and are rejected.
+          default: 9054
+          example: 9054
+        tls:
+          type: boolean
+          description: Inspect TLS ClientHello SNI.
+          default: true
+          example: true
+        http:
+          type: boolean
+          description: Inspect HTTP Host headers.
+          default: true
+          example: true
+        quic:
+          type: boolean
+          description: Inspect QUIC Initial packets.
+          default: true
+          example: true
+
+    InterceptConfig:
+      type: object
+      description: >
+        Daemon-side traffic interception that fills the dynamic (domain
+        learned) sets instead of dnsmasq. Parts that the kernel does not
+        support are disabled automatically and reported in `/api/health/service`.
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          example: true
+        min_ttl_s:
+          type: integer
+          minimum: 1
+          description: Floor for the element timeout when the list has no `ttl_ms`.
+          default: 300
+          example: 300
+        max_ttl_s:
+          type: integer
+          minimum: 1
+          description: Upper bound for the element timeout.
+          default: 86400
+          example: 86400
+        dns:
+          $ref: "#/components/schemas/InterceptDnsConfig"
+        l7:
+          $ref: "#/components/schemas/InterceptL7Config"
+
+    InterceptCapabilitiesHealth:
+      type: object
+      required: [nfqueue, nflog, connbytes]
+      properties:
+        nfqueue:
+          type: boolean
+        nflog:
+          type: boolean
+        connbytes:
+          type: boolean
+
+    InterceptCountersHealth:
+      type: object
+      properties:
+        dns_packets: {type: integer, format: int64}
+        dns_parse_errors: {type: integer, format: int64}
+        dns_matched: {type: integer, format: int64}
+        dns_hold_timeouts: {type: integer, format: int64}
+        dns_tcp_partial: {type: integer, format: int64}
+        marker_hits: {type: integer, format: int64}
+        l7_packets: {type: integer, format: int64}
+        l7_matched: {type: integer, format: int64}
+        set_added: {type: integer, format: int64}
+        set_refreshed: {type: integer, format: int64}
+        set_errors: {type: integer, format: int64}
+        conntrack_requests: {type: integer, format: int64}
+        conntrack_deleted: {type: integer, format: int64}
+        conntrack_errors: {type: integer, format: int64}
+        queue_overruns: {type: integer, format: int64}
+        log_overruns: {type: integer, format: int64}
+
+    InterceptHealth:
+      type: object
+      required: [enabled, dns_hold_active, l7_active, running, capabilities, reasons]
+      properties:
+        enabled:
+          type: boolean
+          description: Whether `intercept.enabled` is set in the applied config.
+        running:
+          type: boolean
+          description: Whether the interception service is bound and processing packets.
+        dns_hold_active:
+          type: boolean
+          description: DNS responses are held and sets are filled by the daemon (dnsmasq set directives are not emitted).
+        l7_active:
+          type: boolean
+          description: TLS SNI / HTTP Host / QUIC sniffing is active.
+        capabilities:
+          $ref: "#/components/schemas/InterceptCapabilitiesHealth"
+        reasons:
+          type: array
+          items:
+            type: string
+          description: Why a configured part is not active (missing kernel support, bind failure).
+        queue_num:
+          type: integer
+        nflog_group:
+          type: integer
+        events_seq:
+          type: integer
+          format: int64
+          description: Sequence number of the newest interception event (0 if none yet).
+        counters:
+          $ref: "#/components/schemas/InterceptCountersHealth"
+
+    DnsTestInterceptEvent:
+      type: object
+      description: >
+        Payload of an `INTERCEPT` event in the `/api/dns/test` stream.
+      required: [type, seq, ts_ms, source, domain, lists, ips, added, refreshed, errors, hold_us, timed_out]
+      properties:
+        type:
+          type: string
+          enum: [INTERCEPT]
+        seq:
+          type: integer
+          format: int64
+          description: Monotonic event sequence number.
+        ts_ms:
+          type: integer
+          format: int64
+          description: Unix timestamp in milliseconds.
+        source:
+          type: string
+          enum: [dns, sni, http, quic, marker]
+        domain:
+          type: string
+        lists:
+          type: array
+          items:
+            type: string
+          description: Names of the lists whose sets received the addresses.
+        ips:
+          type: array
+          items:
+            type: string
+        added:
+          type: integer
+          description: Number of new set elements.
+        refreshed:
+          type: integer
+          description: Number of existing set elements whose timeout was refreshed.
+        errors:
+          type: integer
+          description: Number of failed set writes.
+        hold_us:
+          type: integer
+          description: Time the DNS response was held, in microseconds (0 for L7 events).
+        timed_out:
+          type: boolean
+          description: The hold deadline expired before the sets were written.
+
     ConfigObject:
       type: object
       description: keen-pbr configuration file.
@@ -1397,6 +1619,8 @@ components:
           $ref: "#/components/schemas/IprouteConfig"
         lists_autoupdate:
           $ref: "#/components/schemas/ListsAutoupdateConfig"
+        intercept:
+          $ref: "#/components/schemas/InterceptConfig"
       example:
         daemon:
           pid_file: "/var/run/keen-pbr.pid"
@@ -1404,7 +1628,7 @@ components:
           firewall_backend: auto
           firewall_verify_max_bytes: 262144
           skip_marked_packets: true
-          clear_dynamic_sets_on_apply: true
+          clear_dynamic_sets_on_apply: false
           ipset_hashsize: null
           ipset_maxelem: null
           reuse_static_sets_on_runtime_refresh: true
@@ -1754,6 +1978,8 @@ components:
           example: false
         lifecycle_operation:
           $ref: "#/components/schemas/LifecycleOperation"
+        intercept:
+          $ref: "#/components/schemas/InterceptHealth"
 
     LifecycleOperationAcceptedResponse:
       type: object

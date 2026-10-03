@@ -266,7 +266,8 @@ ActiveFirewall apply_runtime_firewall(
     bool force_clear_dynamic_sets,
     const std::vector<DumpedRoute>& main_routes,
     const std::vector<DumpedInterface>& interfaces,
-    const FirewallBalanceCandidates* balance_candidates) {
+    const FirewallBalanceCandidates* balance_candidates,
+    const std::optional<InterceptFirewallSettings>& intercept) {
   // Success boundary: the returned ActiveFirewall exists only after
   // firewall.apply() returned. A failure while preparing (planning, streaming,
   // RulesOnly preflight) happens before any kernel mutation, so the caller's
@@ -312,13 +313,13 @@ ActiveFirewall apply_runtime_firewall(
     FirewallPlanBuildInputs plan_inputs{
         config, outbound_marks, list_usage_cache, main_routes, interfaces,
         balance_candidates, ipv6_decision.enabled, fwmark_mask,
-        firewall.backend()};
+        firewall.backend(), intercept};
     FirewallPlan plan = build_firewall_plan(plan_inputs);
     validate_firewall_plan_backend(plan, firewall.backend());
 
     firewall.set_ipv6_enabled(ipv6_decision.enabled);
     firewall.set_clear_dynamic_sets_on_apply(
-        config.daemon.value_or(DaemonConfig{}).clear_dynamic_sets_on_apply.value_or(true));
+        config.daemon.value_or(DaemonConfig{}).clear_dynamic_sets_on_apply.value_or(false));
     if (force_clear_dynamic_sets) {
       firewall.set_clear_dynamic_sets_on_apply(true);
     }
@@ -446,7 +447,8 @@ ActiveFirewall apply_runtime_firewall(
                                   /*force_clear_dynamic_sets=*/false,
                                   main_routes,
                                   interfaces,
-                                  balance_candidates);
+                                  balance_candidates,
+                                  intercept);
   }
 }
 

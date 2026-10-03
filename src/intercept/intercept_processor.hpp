@@ -100,6 +100,8 @@ public:
     void on_l7_packet(ByteView l3, std::chrono::steady_clock::time_point now);
 
     std::vector<InterceptEvent> events_since(uint64_t after_seq, std::size_t max) const;
+    // Sequence number of the newest event (0 if none yet).
+    uint64_t last_event_seq() const;
 
     static constexpr std::size_t kEventCapacity = 256;
 

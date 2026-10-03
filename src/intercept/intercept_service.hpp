@@ -37,6 +37,7 @@ public:
     bool running() const;
     const InterceptCounters& counters() const { return counters_; }
     std::vector<InterceptEvent> events_since(uint64_t after_seq, std::size_t max) const;
+    uint64_t last_event_seq() const { return processor_.last_event_seq(); }
 
 private:
     // Bounded MPSC queue feeding the cleanup thread.  request() never blocks

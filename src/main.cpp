@@ -474,7 +474,8 @@ int main(int argc, char *argv[]) {
         keen_pbr3::DnsmasqGenerator generator(
             registry, streamer, route, dns, lists, type,
             KEEN_PBR3_VERSION_FULL_STRING,
-            result.value("ipv6_enabled", true));
+            result.value("ipv6_enabled", true),
+            result.value("intercept_dns_hold", false));
         const std::string generated_hash = generator.generate_with_hash(std::cout);
         std::cout << "txt-record=resolver-state.keen.pbr,"
                   << std::time(nullptr) << "|active|runtime_active\n";
@@ -575,7 +576,8 @@ int main(int argc, char *argv[]) {
           state.value("firewall_backend", "iptables") == "nftables"
               ? keen_pbr3::ResolverType::DNSMASQ_NFTSET
               : keen_pbr3::ResolverType::DNSMASQ_IPSET,
-          KEEN_PBR3_VERSION_FULL_STRING, state.value("ipv6_enabled", true));
+          KEEN_PBR3_VERSION_FULL_STRING, state.value("ipv6_enabled", true),
+          state.value("intercept_dns_hold", false));
       std::cout << generator.compute_config_hash() << '\n';
       return 0;
     }

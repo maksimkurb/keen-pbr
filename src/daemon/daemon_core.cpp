@@ -124,7 +124,7 @@ nlohmann::json control_rule_state_json(const ControlRuntimeSnapshot::Rule &rule)
 
 nlohmann::json control_runtime_state_json(
     const ControlRuntimeSnapshot &snapshot, FirewallBackend backend,
-    bool ipv6_enabled, std::uint64_t generation,
+    bool ipv6_enabled, bool intercept_dns_hold, std::uint64_t generation,
     const std::string &config_path) {
   nlohmann::json rules = nlohmann::json::array();
   for (const auto &rule : snapshot.realized_rules)
@@ -137,6 +137,7 @@ nlohmann::json control_runtime_state_json(
           {"generation", generation},
           {"firewall_backend", firewall_backend_name(backend)},
           {"ipv6_enabled", ipv6_enabled},
+          {"intercept_dns_hold", intercept_dns_hold},
           {"config_path", config_path},
           {"resolver_mode", fallback ? "fallback" : "active"},
           {"resolver_fallback_reason",
@@ -737,8 +738,13 @@ void Daemon::handle_ipc_control_socket() {
                                           : (operation == "status"
                                                  ? true
                                                  : resolve_ipv6_support(config_).enabled);
+            const bool intercept_dns_hold =
+                resolver_generation_snapshot_.has_value()
+                    ? resolver_generation_snapshot_->intercept_dns_hold
+                    : intercept_effective_snapshot().dns_hold;
             auto result = control_runtime_state_json(
                 snapshot, firewall_->backend(), ipv6_enabled,
+                intercept_dns_hold,
                 runtime_generation_.load(std::memory_order_acquire),
                 config_path_);
             if (operation == "status") {
@@ -1545,6 +1551,9 @@ void Daemon::run() {
 
 #ifdef WITH_API
   setup_api();
+  intercept_event_task_id_ = scheduler_->schedule_repeating(
+      std::chrono::milliseconds{250}, [this] { pump_intercept_events(); },
+      "intercept-events");
 #endif
 
   log.info("Daemon control plane running. PID: {}", getpid());
@@ -1615,6 +1624,8 @@ void Daemon::run() {
   policy_rules_.clear();
   route_table_.clear();
   firewall_->cleanup();
+  // Rules first, then unbind the queue (see quiesce_intercept_service).
+  stop_intercept_service();
   firewall_state_.clear_active_firewall();
   remove_pid_file();
 }

@@ -65,6 +65,7 @@ api::HealthResponse build_health_response(const ServiceHealthState& service_heal
                                            .get<api::LifecycleOperation>();
         }
 
+        resp.intercept = service_health.intercept;
         resp.config_is_draft = service_health.config_is_draft;
         resp.rollback_available = service_health.rollback_available;
         return resp;

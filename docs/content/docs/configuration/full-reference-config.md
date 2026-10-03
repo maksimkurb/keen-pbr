@@ -40,7 +40,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
     // Clear dnsmasq-managed dynamic sets during a full apply or runtime restart.
     // Default: true (also when set to null).
-    "clear_dynamic_sets_on_apply": true,
+    "clear_dynamic_sets_on_apply": false,
 
     // Optional initial hash table size for ipsets created by the iptables backend.
     // Has no effect with nftables. Minimum: 1; maximum: 2147483648. Omit or set
