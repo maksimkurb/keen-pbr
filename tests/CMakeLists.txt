@@ -28,6 +28,8 @@ add_executable(keen-pbr-tests
   test_l7_tls.cpp
   test_l7_http.cpp
   test_l7_flow_buffer.cpp
+  test_nfqueue.cpp
+  test_nfnetfilter_wrappers.cpp
   test_set_writer.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
@@ -165,6 +167,9 @@ add_executable(keen-pbr-tests
   ../src/routing/urltest_selection.cpp
   ../src/netfilter/nl_msg.cpp
   ../src/netfilter/nl_socket.cpp
+  ../src/netfilter/nfqueue.cpp
+  ../src/netfilter/nflog.cpp
+  ../src/netfilter/conntrack.cpp
   ../src/netfilter/set_writer.cpp
   ../src/util/blocking_executor.cpp
   ../src/util/firewall_backend_utils.cpp

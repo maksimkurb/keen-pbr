@@ -356,6 +356,9 @@ set(SOURCES
   src/daemon/scheduler.cpp
   src/netfilter/nl_msg.cpp
   src/netfilter/nl_socket.cpp
+  src/netfilter/nfqueue.cpp
+  src/netfilter/nflog.cpp
+  src/netfilter/conntrack.cpp
   src/netfilter/set_writer.cpp
   src/util/blocking_executor.cpp
   src/util/firewall_backend_utils.cpp

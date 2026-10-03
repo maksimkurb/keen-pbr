@@ -46,6 +46,7 @@ private:
 
     std::vector<uint8_t> buf_;
     std::size_t msg_start_{0};
+    std::size_t message_end_{0};
 };
 
 struct Attr {
