@@ -324,6 +324,7 @@ set(SOURCES
   src/dns/keenetic_dns.cpp
   src/dns/dns_txt_client.cpp
   src/dns/dns_probe_server.cpp
+  src/dns/dns_wire.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
   src/ipc/control_protocol.cpp
