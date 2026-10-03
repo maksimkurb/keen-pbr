@@ -3,7 +3,7 @@
 #include "../log/logger.hpp"
 #include "../netfilter/conntrack.hpp"
 
-#include <linux/netfilter.h>
+#include "../netfilter/uapi_compat.hpp"
 #include <poll.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>

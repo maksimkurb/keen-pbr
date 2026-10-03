@@ -1,7 +1,6 @@
 #include "nl_socket.hpp"
+#include "uapi_compat.hpp"
 
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netlink.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -15,15 +14,6 @@
 
 #ifndef SOL_NETLINK
 #define SOL_NETLINK 270
-#endif
-#ifndef NETLINK_NO_ENOBUFS
-#define NETLINK_NO_ENOBUFS 5
-#endif
-#ifndef NETLINK_CAP_ACK
-#define NETLINK_CAP_ACK 10
-#endif
-#ifndef NETLINK_EXT_ACK
-#define NETLINK_EXT_ACK 11
 #endif
 
 namespace keen_pbr3::nfnl {

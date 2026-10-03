@@ -1,9 +1,7 @@
 #include "conntrack.hpp"
+#include "uapi_compat.hpp"
 
 #include <arpa/inet.h>
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netfilter/nfnetlink_conntrack.h>
-#include <linux/netlink.h>
 #include <netinet/in.h>
 #include <poll.h>
 
@@ -116,10 +114,10 @@ bool parse_original_tuple(ByteView attrs, ConntrackTuple& tuple,
     if (!parse_tuple_payload(orig.payload, tuple)) return false;
     uint16_t tuple_zone = 0;
     bool have_tuple_zone = false;
-    if (!parse_zone(tuple_attrs[CTA_TUPLE_ZONE], tuple_zone, have_tuple_zone)) return false;
+    if (!parse_zone(tuple_attrs[uapi::kCtaTupleZone], tuple_zone, have_tuple_zone)) return false;
     uint16_t top_zone = 0;
     bool have_top_zone = false;
-    if (!parse_zone(top[CTA_ZONE], top_zone, have_top_zone)) return false;
+    if (!parse_zone(top[uapi::kCtaZone], top_zone, have_top_zone)) return false;
 
     uint16_t reply_zone = 0;
     bool have_reply_zone = false;
@@ -127,7 +125,7 @@ bool parse_original_tuple(ByteView attrs, ConntrackTuple& tuple,
         Attr reply_attrs[CTA_TUPLE_MAX + 1]{};
         if (!parse_attrs(top[CTA_TUPLE_REPLY].payload, reply_attrs,
                          CTA_TUPLE_MAX + 1)) return false;
-        if (!parse_zone(reply_attrs[CTA_TUPLE_ZONE], reply_zone, have_reply_zone)) {
+        if (!parse_zone(reply_attrs[uapi::kCtaTupleZone], reply_zone, have_reply_zone)) {
             return false;
         }
     }
@@ -186,7 +184,7 @@ void put_tuple(MsgBuilder& builder, uint16_t tuple_type, const ConntrackTuple& t
     // tuple selected by the request.  A both-direction zone is emitted by the
     // caller at CTA_ZONE; never emit both locations.
     if (include_zone && tuple.has_zone) {
-        builder.put_u16_be(CTA_TUPLE_ZONE, tuple.zone);
+        builder.put_u16_be(uapi::kCtaTupleZone, tuple.zone);
     }
     builder.nest_end(orig);
 }
@@ -287,7 +285,7 @@ void build_conntrack_delete(MsgBuilder& builder, uint32_t seq,
         put_tuple(builder, CTA_TUPLE_ORIG, entry.original, nested_zone);
     }
     if (entry.original.has_zone && scope == ConntrackZoneScope::top) {
-        builder.put_u16_be(CTA_ZONE, entry.original.zone);
+        builder.put_u16_be(uapi::kCtaZone, entry.original.zone);
     }
     if (entry.has_id) builder.put_u32_be(CTA_ID, entry.id);
     builder.end();

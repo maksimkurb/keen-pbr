@@ -1,9 +1,8 @@
 #include "nl_msg.hpp"
+#include "uapi_compat.hpp"
 
 #include <arpa/inet.h>
 #include <endian.h>
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netlink.h>
 
 #include <cstring>
 #include <cerrno>
