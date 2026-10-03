@@ -26,6 +26,7 @@ add_executable(keen-pbr-tests
   test_list_parser.cpp
   test_list_streamer.cpp
   test_list_service.cpp
+  test_domain_index.cpp
   test_control_protocol.cpp
   test_resolver_fallback.cpp
   test_resolver_apply_confirmation.cpp
@@ -134,6 +135,7 @@ add_executable(keen-pbr-tests
   ../src/lists/kernel_set_tester.cpp
   ../src/lists/list_streamer.cpp
   ../src/lists/list_set_usage.cpp
+  ../src/lists/domain_index.cpp
   ../src/config/list_parser.cpp
   ../src/cmd/test_routing.cpp
   ../src/daemon/list_service.cpp
