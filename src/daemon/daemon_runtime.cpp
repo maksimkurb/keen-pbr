@@ -223,16 +223,24 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         }();
         bool service_present;
         bool service_running;
+        bool service_l7_degraded;
         {
             KPBR_LOCK_GUARD(intercept_mutex_);
             service_present = intercept_service_ != nullptr;
             service_running = service_present && intercept_service_->running();
+            service_l7_degraded = service_present && intercept_service_->l7_degraded();
         }
         const bool options_changed =
             wanted.queue_num != intercept_service_options_.queue_num ||
             wanted.nflog_group != intercept_service_options_.nflog_group ||
             wanted.hold_timeout_ms != intercept_service_options_.hold_timeout_ms;
-        if (service_present && (!service_running || !intercept.active() || options_changed)) {
+        // NFLOG failure leaves the hot loop alive for DNS, so running() alone
+        // cannot trigger recovery. An explicit runtime apply must rebind the
+        // desired L7 listener while preserving the normal quiesce/rollback
+        // ordering and degraded health until the replacement is ready.
+        const bool l7_listener_degraded = intercept.l7 && service_l7_degraded;
+        if (service_present &&
+            (!service_running || !intercept.active() || options_changed || l7_listener_degraded)) {
             quiesce_intercept_service(
                 owned_main_routes, interfaces, balance_candidates,
                 quiesce_config != nullptr ? *quiesce_config : config_,
