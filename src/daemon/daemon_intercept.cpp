@@ -250,6 +250,9 @@ api::InterceptHealthClass Daemon::build_intercept_health() const {
         service ? &service->counters() : nullptr,
         service ? service->last_event_seq() : 0,
         service ? service->snapshot_ready() : false);
+    if (running && effective.dns_hold && health.counters) {
+        health.kernel_queue = read_kernel_queue(effective.queue_num);
+    }
     if (service && service->failed()) {
         health.reasons.push_back("interception service stopped after a fatal listener error");
     } else if (service && service->l7_degraded()) {
@@ -275,7 +278,14 @@ void Daemon::pump_intercept_events() {
         intercept_forwarded_seq_ = newest;
         return;
     }
-    for (const auto& event : service->events_since(intercept_forwarded_seq_, 128)) {
+    // Drain everything the ring still holds; an overwritten run is reported
+    // explicitly so clients can tell "no event" from "event lost".
+    const auto events =
+        service->events_since(intercept_forwarded_seq_, InterceptProcessor::kEventCapacity);
+    if (const auto gap = detect_event_gap(intercept_forwarded_seq_, events)) {
+        dns_test_broadcaster_->publish(event_gap_to_json(*gap).dump());
+    }
+    for (const auto& event : events) {
         dns_test_broadcaster_->publish(intercept_event_to_json(event).dump());
         intercept_forwarded_seq_ = event.seq;
     }

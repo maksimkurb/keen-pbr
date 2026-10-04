@@ -51,6 +51,8 @@ struct InterceptEvent {
     uint32_t refreshed{0};
     uint32_t errors{0};
     uint32_t hold_us{0};
+    uint32_t parse_us{0};      // DNS response parse time
+    uint32_t set_write_us{0};  // time inside the set writer for this response
     bool timed_out{false};
 };
 
@@ -124,7 +126,7 @@ public:
     // Sequence number of the newest event (0 if none yet).
     uint64_t last_event_seq() const;
 
-    static constexpr std::size_t kEventCapacity = 256;
+    static constexpr std::size_t kEventCapacity = 512;
 
 private:
     DnsDecision handle_dns(ByteView l3, std::chrono::steady_clock::time_point deadline,

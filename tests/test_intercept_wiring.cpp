@@ -402,8 +402,12 @@ TEST_CASE("intercept event JSON carries the documented fields") {
     event.refreshed = 2;
     event.errors = 3;
     event.hold_us = 180;
+    event.parse_us = 12;
+    event.set_write_us = 95;
     event.timed_out = true;
     const auto json = intercept_event_to_json(event);
+    CHECK(json["parse_us"] == 12);
+    CHECK(json["set_write_us"] == 95);
     CHECK(json["type"] == "INTERCEPT");
     CHECK(json["seq"] == 7);
     CHECK(json["ts_ms"] == 1712345678123);
@@ -464,3 +468,42 @@ TEST_CASE("health service JSON contains the intercept object") {
     CHECK(nlohmann::json(build_health_response(ServiceHealthState{}))["intercept"].is_null());
 }
 #endif
+
+TEST_CASE("intercept: event gap detection and notices") {
+    std::vector<InterceptEvent> events(2);
+    events[0].seq = 11;
+    events[1].seq = 12;
+    CHECK_FALSE(detect_event_gap(10, events).has_value());  // contiguous
+    CHECK_FALSE(detect_event_gap(10, {}).has_value());
+    const auto gap = detect_event_gap(4, events);
+    REQUIRE(gap.has_value());
+    CHECK(gap->from_seq == 5);
+    CHECK(gap->to_seq == 10);
+    const auto json = event_gap_to_json(*gap);
+    CHECK(json["type"] == "GAP");
+    CHECK_NOTHROW(json.get<api::DnsTestGapEvent>());
+
+    // Dropped subscriber messages: INTERCEPT events and an earlier GAP.
+    CHECK(nlohmann::json::parse(gap_notice_for_dropped(R"({"type":"INTERCEPT","seq":20})",
+                                                       R"({"type":"INTERCEPT","seq":25})")) ==
+          nlohmann::json::parse(R"({"type":"GAP","from_seq":20,"to_seq":25})"));
+    CHECK(nlohmann::json::parse(gap_notice_for_dropped(R"({"type":"GAP","from_seq":3,"to_seq":9})",
+                                                       R"({"type":"INTERCEPT","seq":30})")) ==
+          nlohmann::json::parse(R"({"type":"GAP","from_seq":3,"to_seq":30})"));
+    CHECK(gap_notice_for_dropped("garbage", "{}").empty());
+}
+
+TEST_CASE("intercept: nfnetlink_queue parsing") {
+    const std::string text =
+        "    0  -4242     1  2  65531     0     0     55  1\n"
+        " 9053   4321     7  2  65535    13     5  98765  1\n";
+    const auto q = parse_nfnetlink_queue(text, 9053);
+    REQUIRE(q.has_value());
+    CHECK(q->queue_total == 7);
+    CHECK(q->queue_dropped == 13);
+    CHECK(q->user_dropped == 5);
+    CHECK(q->id_sequence == 98765);
+    CHECK_FALSE(parse_nfnetlink_queue(text, 9054).has_value());
+    CHECK_FALSE(parse_nfnetlink_queue("", 0).has_value());
+    CHECK_FALSE(parse_nfnetlink_queue("junk line\n", 0).has_value());
+}

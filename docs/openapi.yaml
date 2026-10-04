@@ -1624,6 +1624,34 @@ components:
           description: Sequence number of the newest interception event (0 if none yet).
         counters:
           $ref: "#/components/schemas/InterceptCountersHealth"
+        kernel_queue:
+          $ref: "#/components/schemas/InterceptKernelQueue"
+
+    InterceptKernelQueue:
+      type: object
+      description: >
+        Kernel statistics of the NFQUEUE the daemon is bound to, read from
+        `/proc/net/netfilter/nfnetlink_queue`. Omitted when the file or the
+        queue line is unavailable. `id_sequence` minus `counters.dns_packets`
+        approximates the packets the daemon never processed.
+      required: [queue_total, queue_dropped, user_dropped, id_sequence]
+      properties:
+        queue_total:
+          type: integer
+          format: int64
+          description: Packets currently waiting in the queue.
+        queue_dropped:
+          type: integer
+          format: int64
+          description: Packets dropped because the kernel queue was full.
+        user_dropped:
+          type: integer
+          format: int64
+          description: Packets dropped because netlink to the daemon overflowed.
+        id_sequence:
+          type: integer
+          format: int64
+          description: Id of the newest packet the kernel handed to the queue.
 
     DnsTestInterceptEvent:
       type: object
@@ -1671,6 +1699,30 @@ components:
         timed_out:
           type: boolean
           description: The hold deadline expired before the sets were written.
+        parse_us:
+          type: integer
+          description: Time spent parsing the DNS response, in microseconds (DNS events).
+        set_write_us:
+          type: integer
+          description: Time spent in the set writer for this response, in microseconds (0 when nothing was written).
+
+    DnsTestGapEvent:
+      type: object
+      description: >
+        Emitted in the `/api/dns/test` stream when events with sequence numbers
+        `from_seq`..`to_seq` (inclusive) were lost before delivery, because the
+        daemon's event ring was overwritten or the subscriber's queue was full.
+      required: [type, from_seq, to_seq]
+      properties:
+        type:
+          type: string
+          enum: [GAP]
+        from_seq:
+          type: integer
+          format: int64
+        to_seq:
+          type: integer
+          format: int64
 
     ConfigObject:
       type: object

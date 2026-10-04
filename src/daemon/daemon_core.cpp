@@ -1,3 +1,4 @@
+#include "../intercept/intercept_report.hpp"
 #include "daemon.hpp"
 
 #include "../config/routing_state.hpp"
@@ -226,7 +227,7 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
   list_service_.ensure_dir();
   scheduler_ = std::make_unique<Scheduler>(*this);
 #ifdef WITH_API
-  dns_test_broadcaster_ = std::make_unique<SseBroadcaster>();
+  dns_test_broadcaster_ = std::make_unique<SseBroadcaster>(1024, gap_notice_for_dropped);
 #endif
 }
 
@@ -1420,7 +1421,7 @@ void Daemon::run() {
 #ifdef WITH_API
   setup_api();
   intercept_event_task_id_ = scheduler_->schedule_repeating(
-      std::chrono::milliseconds{250}, [this] { pump_intercept_events(); },
+      std::chrono::milliseconds{100}, [this] { pump_intercept_events(); },
       "intercept-events");
 #endif
 

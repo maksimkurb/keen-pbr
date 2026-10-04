@@ -77,6 +77,25 @@ TEST_CASE("dns test SSE notices a client disconnect without a DNS event") {
     CHECK(body == "data: {\"type\":\"HELLO\"}\n\n");
 }
 
+TEST_CASE("SseBroadcaster with a gap builder drops and reports instead of closing") {
+    SseBroadcaster broadcaster(4, [](const std::string& first, const std::string& last) {
+        return "GAP " + first + ".." + last;
+    });
+    auto sub = broadcaster.subscribe();
+    for (const char* m : {"1", "2", "3", "4", "5", "6"}) broadcaster.publish(m);
+    {
+        KPBR_UNIQUE_LOCK(lock, sub->mutex);
+        CHECK_FALSE(sub->closed);
+        CHECK(sub->messages.size() == 4);
+        sub->messages.clear();  // the reader catches up
+    }
+    broadcaster.publish("7");
+    KPBR_UNIQUE_LOCK(lock, sub->mutex);
+    REQUIRE(sub->messages.size() == 2);
+    CHECK(sub->messages[0] == "GAP 5..6");
+    CHECK(sub->messages[1] == "7");
+}
+
 } // namespace keen_pbr3
 
 #endif

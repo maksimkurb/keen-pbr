@@ -6,8 +6,8 @@
 
 namespace keen_pbr3 {
 
-SseBroadcaster::SseBroadcaster(size_t max_queue_size)
-    : max_queue_size_(max_queue_size) {}
+SseBroadcaster::SseBroadcaster(size_t max_queue_size, GapBuilder gap_builder)
+    : max_queue_size_(max_queue_size), gap_builder_(std::move(gap_builder)) {}
 
 SseBroadcaster::SubscriptionPtr SseBroadcaster::subscribe() {
     return subscribe({});
@@ -66,6 +66,23 @@ void SseBroadcaster::publish(const std::string& message) {
             KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
             if (subscription->closed) {
                 keep = false;
+            } else if (gap_builder_) {
+                // Room for the pending notice plus this message?
+                const size_t need = subscription->dropped > 0 ? 2 : 1;
+                if (subscription->messages.size() + need > max_queue_size_) {
+                    if (subscription->dropped++ == 0) subscription->first_dropped = message;
+                    subscription->last_dropped = message;
+                } else {
+                    if (subscription->dropped > 0) {
+                        std::string notice = gap_builder_(subscription->first_dropped,
+                                                          subscription->last_dropped);
+                        if (!notice.empty()) subscription->messages.push_back(std::move(notice));
+                        subscription->dropped = 0;
+                        subscription->first_dropped.clear();
+                        subscription->last_dropped.clear();
+                    }
+                    subscription->messages.push_back(message);
+                }
             } else if (subscription->messages.size() >= max_queue_size_) {
                 subscription->closed = true;
                 keep = false;

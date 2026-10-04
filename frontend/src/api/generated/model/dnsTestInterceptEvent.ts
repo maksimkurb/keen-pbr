@@ -33,4 +33,8 @@ export interface DnsTestInterceptEvent {
   hold_us: number;
   /** The hold deadline expired before the sets were written. */
   timed_out: boolean;
+  /** Time spent parsing the DNS response, in microseconds (DNS events). */
+  parse_us?: number;
+  /** Time spent in the set writer for this response, in microseconds (0 when nothing was written). */
+  set_write_us?: number;
 }

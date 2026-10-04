@@ -226,6 +226,39 @@ system configuration save
 Older versions managed dnsmasq. The package upgrade removes the keen-pbr `conf-script` hook and restores your upstream servers; see the upgrade notes in [DNS]({{< relref "/docs/configuration/dns" >}}). On Keenetic, a block marked `# BEGIN keen-pbr fallback upstream` may have been added to `/opt/etc/dnsmasq.conf`: review it. If dnsmasq refuses to start, check that no `conf-script=...keen-pbr...` line is left in its configuration.
 {{% /details %}}
 
+### Measuring DNS interception loss
+
+If a first connection to a freshly resolved site sometimes goes outside the VPN, measure how often the held DNS answer is released too early. Run `scripts/dns-bench.py` (Python 3, standard library only) from a LAN device or from the router while keen-pbr runs normally:
+
+```bash {filename="bash"}
+python3 scripts/dns-bench.py --api http://192.168.1.1:12121 --password 'admin-password' \
+  --rates 50,200,1000 --count 1000
+```
+
+The script needs a list that contains the test zone. By default it queries unique names like `a1b2c3d4-198-18-7-9.nip.io`, which resolve to `198.18.7.9` inside the benchmarking range `198.18.0.0/15`, so no real traffic is affected. Add this to the config first (the preflight check prints it if missing):
+
+```json
+"lists": { "dns_bench": { "domains": ["nip.io"] } },
+"route": { "rules": [ { "list": ["dns_bench"], "outbound": "<any outbound tag>" } ] }
+```
+
+Useful options: `--resolver 8.8.8.8` queries a server on the internet through the router, which exercises the forwarded path instead of the router resolver; `--mode file --domains names.txt` uses your own names (all of them must belong to routed lists); `--json out.json` saves every query. Public `nip.io` may rate-limit high query rates, which shows up as `client-timeout`.
+
+Every answer the client received is compared with the `INTERCEPT` events of `/api/dns/test`:
+
+| Outcome | Meaning |
+|---|---|
+| `held-ok` | The answer was held until the addresses were written to the set. |
+| `hold-timeout` | The hold deadline expired first (`timed_out`), so the answer was released before the set write finished and the client's first connection may go the wrong way. Same as the `dns_hold_timeouts` counter in `/api/health/service`. |
+| `set-error` | The set write failed (`errors > 0`, counter `set_errors`). |
+| `no-write` | An event exists but nothing was written. |
+| `bypass` | The client got an answer, but there is no event and the stream had no gap: the packet never reached the interceptor (queue overrun, fail-open, or the name is not in any routed list). Compare with `queue_overruns` and the kernel queue counters. |
+| `unknown` | No event, but the event stream reported a gap (`GAP`) around that time, so the event may have been lost on the way. |
+| `client-timeout` | No answer within `--timeout`. |
+| `nodata` | The answer had no A record, so no event is expected. |
+
+The report also shows client RTT and the daemon's `hold_us`, `set_write_us` and `parse_us` percentiles, plus counter deltas. `kernel_unprocessed` (kernel `id_sequence` delta minus `dns_packets` delta) is the number of queued packets the daemon never processed; `kernel_queue_dropped` and `kernel_user_dropped` count kernel-side drops of the NFQUEUE. Long `set_write_us` points at the set writer or the kernel; long `hold_us` without it points at the daemon being starved of CPU. The exit code is 1 if any `hold-timeout`, `set-error` or `bypass` was seen, and 2 if preflight failed.
+
 ## Websites Are Not Opening: `DNS_PROBE_FINISHED_NXDOMAIN` / `ERR_NAME_NOT_RESOLVED`
 
 keen-pbr does not resolve names for clients, so check the resolver the clients use.

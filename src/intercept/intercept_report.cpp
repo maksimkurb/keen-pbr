@@ -1,5 +1,8 @@
 #include "intercept_report.hpp"
 
+#include <fstream>
+#include <sstream>
+
 namespace keen_pbr3 {
 
 namespace {
@@ -121,8 +124,61 @@ nlohmann::json intercept_event_to_json(const InterceptEvent& event) {
         {"refreshed", event.refreshed},
         {"errors", event.errors},
         {"hold_us", event.hold_us},
+        {"parse_us", event.parse_us},
+        {"set_write_us", event.set_write_us},
         {"timed_out", event.timed_out},
     };
+}
+
+std::optional<EventGap> detect_event_gap(uint64_t forwarded_seq,
+                                         const std::vector<InterceptEvent>& events) {
+    if (events.empty() || events.front().seq <= forwarded_seq + 1) return std::nullopt;
+    return EventGap{forwarded_seq + 1, events.front().seq - 1};
+}
+
+nlohmann::json event_gap_to_json(const EventGap& gap) {
+    return {{"type", "GAP"}, {"from_seq", gap.from_seq}, {"to_seq", gap.to_seq}};
+}
+
+std::string gap_notice_for_dropped(const std::string& first, const std::string& last) {
+    const auto range = [](const std::string& text, bool want_to) -> std::optional<uint64_t> {
+        const auto json = nlohmann::json::parse(text, nullptr, false);
+        if (!json.is_object()) return std::nullopt;
+        const char* key = json.contains("from_seq") ? (want_to ? "to_seq" : "from_seq") : "seq";
+        const auto it = json.find(key);
+        if (it == json.end() || !it->is_number_unsigned()) return std::nullopt;
+        return it->get<uint64_t>();
+    };
+    const auto from = range(first, false);
+    const auto to = range(last, true);
+    if (!from || !to) return {};
+    return event_gap_to_json(EventGap{*from, *to}).dump();
+}
+
+std::optional<api::KernelQueue> parse_nfnetlink_queue(const std::string& text, int queue_num) {
+    std::istringstream lines(text);
+    std::string line;
+    while (std::getline(lines, line)) {
+        std::istringstream cols(line);
+        int64_t number = 0, peer = 0, total = 0, mode = 0, range = 0, dropped = 0, user = 0, seq = 0;
+        if (!(cols >> number >> peer >> total >> mode >> range >> dropped >> user >> seq)) continue;
+        if (number != queue_num) continue;
+        api::KernelQueue out;
+        out.queue_total = total;
+        out.queue_dropped = dropped;
+        out.user_dropped = user;
+        out.id_sequence = seq;
+        return out;
+    }
+    return std::nullopt;
+}
+
+std::optional<api::KernelQueue> read_kernel_queue(int queue_num) {
+    std::ifstream in("/proc/net/netfilter/nfnetlink_queue");
+    if (!in) return std::nullopt;
+    std::ostringstream buf;
+    buf << in.rdbuf();
+    return parse_nfnetlink_queue(buf.str(), queue_num);
 }
 
 } // namespace keen_pbr3

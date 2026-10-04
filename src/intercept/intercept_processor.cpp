@@ -196,6 +196,7 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
         bump(counters_.dns_parse_errors);
         return {};
     }
+    const Clock::time_point parsed_at = Clock::now();
 
     DnsDecision decision;
     if (dns_wire::is_marker_name(response_.qname, snap->marker_domain)) {
@@ -240,6 +241,8 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
     InterceptEvent event;
     event.source = InterceptSource::dns;
     event.domain = response_.qname;
+    event.parse_us = static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(parsed_at - started).count());
     collect_list_names(*snap, event.lists);
     for (const dns_wire::AddressRecord& rec : response_.addresses) {
         event.ips.push_back(format_ip(rec.family, rec.addr));
@@ -311,6 +314,7 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
                 write_remaining + std::chrono::microseconds(999));
             const int budget_ms = static_cast<int>(std::max<int64_t>(1, remaining_ms.count()));
             write_attempted = true;
+            const Clock::time_point write_started = Clock::now();
             try {
                 ok = writer_.add(adds_.data(), results_.data(), adds_.size(), budget_ms);
             } catch (const std::exception& e) {
@@ -319,6 +323,9 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
                 if (dns_release) dns_release();
                 throw;
             }
+            event.set_write_us = static_cast<uint32_t>(
+                std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - write_started)
+                    .count());
             if (dns_release) dns_release();
         }
         for (nfnl::SetAddResult r : results_) {

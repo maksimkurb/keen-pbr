@@ -362,6 +362,7 @@ TEST_CASE("intercept: DNS response adds A and AAAA with clamped timeouts") {
     CHECK(events[0].ips[0] == "93.184.216.34");
     CHECK(events[0].added == 3);
     CHECK_FALSE(events[0].timed_out);
+    CHECK(events[0].hold_us >= events[0].parse_us + events[0].set_write_us);
 }
 
 TEST_CASE("intercept: CNAME target match") {
@@ -685,13 +686,14 @@ TEST_CASE("intercept: L7 toggles disable protocols") {
 TEST_CASE("intercept: events ring is bounded and monotonic") {
     Fixture f;
     const Bytes pkt = dns_packet(dns_response("check.keen.pbr", 3, {}));
-    for (int i = 0; i < 300; ++i) f.proc.on_dns_packet(view(pkt), Fixture::deadline(), false);
+    const int total = static_cast<int>(InterceptProcessor::kEventCapacity) + 44;
+    for (int i = 0; i < total; ++i) f.proc.on_dns_packet(view(pkt), Fixture::deadline(), false);
     const auto all = f.proc.events_since(0, 1000);
-    REQUIRE(all.size() == 256);
+    REQUIRE(all.size() == InterceptProcessor::kEventCapacity);
     CHECK(all.front().seq == 45);
-    CHECK(all.back().seq == 300);
+    CHECK(all.back().seq == static_cast<uint64_t>(total));
     for (std::size_t i = 1; i < all.size(); ++i) CHECK(all[i].seq == all[i - 1].seq + 1);
-    const auto tail = f.proc.events_since(295, 1000);
+    const auto tail = f.proc.events_since(total - 5, 1000);
     CHECK(tail.size() == 5);
     CHECK(f.proc.events_since(0, 10).size() == 10);
 }

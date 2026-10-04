@@ -7,6 +7,7 @@
  */
 import type { InterceptCapabilitiesHealth } from './interceptCapabilitiesHealth';
 import type { InterceptCountersHealth } from './interceptCountersHealth';
+import type { InterceptKernelQueue } from './interceptKernelQueue';
 import type { InterceptProbeFeature } from './interceptProbeFeature';
 
 export interface InterceptHealth {
@@ -34,4 +35,5 @@ export interface InterceptHealth {
   /** Sequence number of the newest interception event (0 if none yet). */
   events_seq?: number;
   counters?: InterceptCountersHealth;
+  kernel_queue?: InterceptKernelQueue;
 }

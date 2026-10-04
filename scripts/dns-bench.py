@@ -1,0 +1,645 @@
+#!/usr/bin/env python3
+"""Measure DNS interception (hold) loss of a running keen-pbr daemon.
+
+Sends DNS queries from a LAN client and classifies EVERY answer the client got
+against the daemon's /api/dns/test INTERCEPT event stream:
+
+  held-ok         event exists, timed_out=false, errors=0, added+refreshed>0
+  hold-timeout    event timed_out=true (answer released before the set write
+                  finished, the first connection may leak)
+  set-error       event errors>0
+  no-write        event exists but nothing was written (e.g. stale snapshot)
+  bypass          client got an A answer, no event, no sequence gap
+                  (queue overrun / fail-open / rule miss)
+  unknown         no event, but the event stream had a gap around that time
+  client-timeout  no answer within --timeout
+  nodata          answer without A records (NXDOMAIN / empty): no event expected
+
+Python 3 stdlib only.  See docs "Measuring DNS interception loss".
+"""
+import argparse
+import json
+import os
+import random
+import select
+import socket
+import struct
+import sys
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+OUTCOMES = ["held-ok", "hold-timeout", "set-error", "no-write", "bypass",
+            "unknown", "client-timeout", "nodata"]
+
+# ---------------------------------------------------------------- DNS wire
+
+
+def encode_name(name):
+    out = bytearray()
+    for label in name.rstrip(".").split("."):
+        raw = label.encode("ascii")
+        if not raw or len(raw) > 63:
+            raise ValueError("bad label in %r" % name)
+        out.append(len(raw))
+        out += raw
+    out.append(0)
+    return bytes(out)
+
+
+def encode_query(name, qid, qtype=1):
+    """Standard recursive query for `name` (RD=1, one question, class IN)."""
+    return struct.pack(">HHHHHH", qid, 0x0100, 1, 0, 0, 0) + encode_name(name) + \
+        struct.pack(">HH", qtype, 1)
+
+
+def _read_name(data, pos):
+    """Returns (name, position after the name in the original stream)."""
+    labels = []
+    end = None
+    hops = 0
+    while True:
+        if pos >= len(data):
+            raise ValueError("truncated name")
+        length = data[pos]
+        if length & 0xC0 == 0xC0:
+            if pos + 1 >= len(data):
+                raise ValueError("truncated pointer")
+            if end is None:
+                end = pos + 2
+            pos = ((length & 0x3F) << 8) | data[pos + 1]
+            hops += 1
+            if hops > 32:
+                raise ValueError("pointer loop")
+            continue
+        if length == 0:
+            pos += 1
+            break
+        pos += 1
+        labels.append(data[pos:pos + length].decode("ascii", "replace"))
+        pos += length
+    return ".".join(labels), (end if end is not None else pos)
+
+
+def decode_response(data):
+    """Returns dict(id, rcode, qname, addresses[A strings]) or None if malformed."""
+    try:
+        if len(data) < 12:
+            return None
+        qid, flags, qd, an, _ns, _ar = struct.unpack(">HHHHHH", data[:12])
+        if not flags & 0x8000:
+            return None
+        pos = 12
+        qname = ""
+        for _ in range(qd):
+            qname, pos = _read_name(data, pos)
+            pos += 4
+        addrs = []
+        for _ in range(an):
+            _n, pos = _read_name(data, pos)
+            rtype, _cls, _ttl, rdlen = struct.unpack(">HHIH", data[pos:pos + 10])
+            pos += 10
+            if rtype == 1 and rdlen == 4:
+                addrs.append(socket.inet_ntoa(data[pos:pos + 4]))
+            pos += rdlen
+        return {"id": qid, "rcode": flags & 0xF, "qname": qname.lower(),
+                "addresses": addrs}
+    except (ValueError, struct.error):
+        return None
+
+
+# ---------------------------------------------------------------- helpers
+
+
+def percentile(sorted_values, pct):
+    """Nearest-rank percentile of an ascending list; None if empty."""
+    if not sorted_values:
+        return None
+    if pct <= 0:
+        return sorted_values[0]
+    rank = int(-(-pct * len(sorted_values) // 100))  # ceil
+    return sorted_values[min(max(rank, 1), len(sorted_values)) - 1]
+
+
+def dist(values):
+    s = sorted(values)
+    return {"count": len(s), "p50": percentile(s, 50), "p95": percentile(s, 95),
+            "p99": percentile(s, 99), "max": s[-1] if s else None}
+
+
+def make_nip_names(count, zone, rng=None):
+    """Unique names <rand8>-198-18-<a>-<b>.<zone>; they resolve (nip.io style)
+    to 198.18.a.b, inside the benchmarking range 198.18.0.0/15."""
+    rng = rng or random.Random()
+    seen = set()
+    names = []
+    while len(names) < count:
+        rand8 = "".join(rng.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(8))
+        name = "%s-198-18-%d-%d.%s" % (rand8, rng.randrange(256), rng.randrange(256), zone)
+        if name not in seen:
+            seen.add(name)
+            names.append(name)
+    return names
+
+
+def load_domains(path, count, rng=None):
+    rng = rng or random.Random()
+    with open(path) as f:
+        domains = [ln.strip().lower() for ln in f
+                   if ln.strip() and not ln.lstrip().startswith("#")]
+    if not domains:
+        raise SystemExit("no domains in %s" % path)
+    out = []
+    while len(out) < count:
+        batch = domains[:]
+        rng.shuffle(batch)
+        out += batch
+    return out[:count]
+
+
+# ---------------------------------------------------------------- classification
+
+
+def classify(queries, events, gaps, stream_closed_at=None, gap_slack=0.2):
+    """Fill q["outcome"] for every query.
+
+    queries: list of dict(name, t_send, t_recv|None, rtt|None, rcode, addresses)
+    events:  list of dict(INTERCEPT event + "_arrival" monotonic time)
+    gaps:    list of dict(from_seq, to_seq, "_arrival", "_prev_arrival")
+             _prev_arrival = arrival of the last event before the gap (or None)
+    stream_closed_at: monotonic time the event stream broke early, if it did.
+    """
+    by_name = {}
+    for ev in sorted(events, key=lambda e: e["seq"]):
+        if ev.get("source") == "dns":
+            by_name.setdefault(ev["domain"].lower(), []).append(ev)
+    used = {}
+    windows = []
+    for g in gaps:
+        start = g.get("_prev_arrival")
+        windows.append(((start if start is not None else float("-inf")) - gap_slack,
+                        g["_arrival"] + gap_slack))
+    if stream_closed_at is not None:
+        windows.append((stream_closed_at - gap_slack, float("inf")))
+
+    for q in sorted(queries, key=lambda x: x["t_send"]):
+        q["event"] = None
+        if q.get("t_recv") is None or q.get("late"):
+            q["outcome"] = "client-timeout"
+            continue
+        if not q.get("addresses"):
+            q["outcome"] = "nodata"
+            continue
+        name = q["name"].lower()
+        idx = used.get(name, 0)
+        evs = by_name.get(name, [])
+        if idx < len(evs):
+            ev = evs[idx]
+            used[name] = idx + 1
+            q["event"] = ev
+            if ev.get("timed_out"):
+                q["outcome"] = "hold-timeout"
+            elif ev.get("errors", 0) > 0:
+                q["outcome"] = "set-error"
+            elif ev.get("added", 0) + ev.get("refreshed", 0) > 0:
+                q["outcome"] = "held-ok"
+            else:
+                q["outcome"] = "no-write"
+            continue
+        covered = any(lo <= q["t_send"] <= hi or lo <= q["t_recv"] <= hi
+                      for lo, hi in windows)
+        q["outcome"] = "unknown" if covered else "bypass"
+    return queries
+
+
+def summarize(queries, events):
+    total = len(queries)
+    counts = {o: 0 for o in OUTCOMES}
+    for q in queries:
+        counts[q["outcome"]] += 1
+    pct = {o: (100.0 * counts[o] / total if total else 0.0) for o in OUTCOMES}
+    rtts = [q["rtt"] * 1000.0 for q in queries if q.get("rtt") is not None and not q.get("late")]
+    matched = [q["event"] for q in queries if q.get("event")]
+    return {
+        "total": total, "counts": counts, "percent": pct,
+        "rtt_ms": dist(rtts),
+        "hold_us": dist([e.get("hold_us", 0) for e in matched]),
+        "set_write_us": dist([e.get("set_write_us", 0) for e in matched]),
+        "parse_us": dist([e.get("parse_us", 0) for e in matched]),
+    }
+
+
+def counter_deltas(before, after):
+    """before/after: the `intercept` object of /api/health/service (or None)."""
+    out = {}
+    bc = (before or {}).get("counters") or {}
+    ac = (after or {}).get("counters") or {}
+    for key in ("dns_packets", "dns_matched", "dns_hold_timeouts", "set_errors",
+                "queue_overruns", "dns_parse_errors"):
+        if key in bc and key in ac:
+            out[key] = ac[key] - bc[key]
+    bk = (before or {}).get("kernel_queue")
+    ak = (after or {}).get("kernel_queue")
+    if bk and ak:
+        for key in ("queue_dropped", "user_dropped", "id_sequence"):
+            out["kernel_" + key] = ak[key] - bk[key]
+        if "dns_packets" in out:
+            out["kernel_unprocessed"] = out["kernel_id_sequence"] - out["dns_packets"]
+    return out
+
+
+# ---------------------------------------------------------------- HTTP / SSE
+
+
+class Api:
+    def __init__(self, base, token=None, timeout=10):
+        self.base = base.rstrip("/")
+        self.token = token
+        self.timeout = timeout
+
+    def _request(self, path, data=None, timeout=None):
+        headers = {}
+        body = None
+        if data is not None:
+            body = json.dumps(data).encode()
+            headers["Content-Type"] = "application/json"
+        if self.token:
+            headers["Authorization"] = "Bearer " + self.token
+        return urllib.request.Request(self.base + path, data=body, headers=headers)
+
+    def get_json(self, path):
+        with urllib.request.urlopen(self._request(path), timeout=self.timeout) as r:
+            return json.loads(r.read().decode())
+
+    def login(self, password):
+        req = self._request("/api/auth/login", {"password": password})
+        with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            self.token = json.loads(r.read().decode())["token"]
+
+    def open_stream(self, path):
+        return urllib.request.urlopen(self._request(path), timeout=2)
+
+
+class EventStream(threading.Thread):
+    """Reads /api/dns/test; keeps INTERCEPT events and GAP notices."""
+
+    def __init__(self, api):
+        super().__init__(daemon=True)
+        self.api = api
+        self.events = []
+        self.gaps = []
+        self.hello = threading.Event()
+        self.stop_flag = threading.Event()
+        self.error = None
+        self.closed_at = None   # set when the stream ended before stop()
+        self._last_arrival = None
+        self._last_seq = None
+
+    def _handle(self, payload, now):
+        try:
+            obj = json.loads(payload)
+        except ValueError:
+            return
+        kind = obj.get("type")
+        if kind == "HELLO":
+            self.hello.set()
+        elif kind == "INTERCEPT":
+            seq = obj.get("seq", 0)
+            if self._last_seq is not None and seq > self._last_seq + 1:
+                # sequence jump without a GAP notice: treat as implicit gap
+                self.gaps.append({"from_seq": self._last_seq + 1, "to_seq": seq - 1,
+                                  "_arrival": now, "_prev_arrival": self._last_arrival,
+                                  "implicit": True})
+            self._last_seq = seq
+            obj["_arrival"] = now
+            self._last_arrival = now
+            self.events.append(obj)
+        elif kind == "GAP":
+            obj["_arrival"] = now
+            obj["_prev_arrival"] = self._last_arrival
+            self.gaps.append(obj)
+            self._last_seq = max(self._last_seq or 0, obj.get("to_seq", 0))
+
+    def run(self):
+        try:
+            resp = self.api.open_stream("/api/dns/test")
+        except (urllib.error.URLError, OSError) as exc:
+            self.error = str(exc)
+            self.hello.set()
+            return
+        buf = b""
+        try:
+            while not self.stop_flag.is_set():
+                try:
+                    chunk = resp.readline()
+                except (socket.timeout, TimeoutError):
+                    continue
+                except (OSError, ValueError) as exc:
+                    self.error = str(exc)
+                    break
+                if chunk == b"":
+                    if not self.stop_flag.is_set():
+                        self.error = "event stream closed by the daemon"
+                    break
+                buf = chunk.strip()
+                if buf.startswith(b"data:"):
+                    self._handle(buf[5:].strip().decode("utf-8", "replace"), time.monotonic())
+        finally:
+            if not self.stop_flag.is_set():
+                self.closed_at = time.monotonic()
+            try:
+                resp.close()
+            except OSError:
+                pass
+            self.hello.set()
+
+    def stop(self):
+        self.stop_flag.set()
+        self.join(timeout=5)
+
+
+# ---------------------------------------------------------------- load
+
+
+def send_queries(sock, dest, names, rate, timeout, rng=None):
+    """Rate-paced sender + receiver. Returns list of query records."""
+    rng = rng or random.Random()
+    records = [{"name": n.lower(), "t_send": None, "t_recv": None, "rtt": None,
+                "rcode": None, "addresses": [], "late": False} for n in names]
+    outstanding = {}
+    state = {"sent_all": False, "last_send": None}
+
+    def sender():
+        t0 = time.monotonic()
+        for i, name in enumerate(names):
+            target = t0 + i / rate
+            while True:
+                delay = target - time.monotonic()
+                if delay <= 0:
+                    break
+                time.sleep(delay if delay > 0.002 else 0)
+            qid = rng.randrange(65536)
+            while qid in outstanding:
+                qid = rng.randrange(65536)
+            outstanding[qid] = i
+            now = time.monotonic()
+            records[i]["t_send"] = now
+            try:
+                sock.sendto(encode_query(name, qid), dest)
+            except OSError:
+                records[i]["send_error"] = True
+            state["last_send"] = now
+        state["sent_all"] = True
+
+    thread = threading.Thread(target=sender, daemon=True)
+    thread.start()
+    answered = 0
+    while True:
+        now = time.monotonic()
+        if state["sent_all"] and (answered == len(records) or now > state["last_send"] + timeout):
+            break
+        ready, _, _ = select.select([sock], [], [], 0.05)
+        if not ready:
+            continue
+        try:
+            data, _addr = sock.recvfrom(4096)
+        except OSError:
+            continue
+        t_recv = time.monotonic()
+        msg = decode_response(data)
+        if msg is None:
+            continue
+        idx = outstanding.pop(msg["id"], None)
+        if idx is None:
+            continue
+        rec = records[idx]
+        rec["t_recv"] = t_recv
+        rec["rtt"] = t_recv - rec["t_send"]
+        rec["rcode"] = msg["rcode"]
+        rec["addresses"] = msg["addresses"]
+        rec["late"] = rec["rtt"] > timeout
+        answered += 1
+    thread.join()
+    return records
+
+
+def run_step(api, dest, names, rate, args, health_fn=None):
+    health_fn = health_fn or (lambda: api.get_json("/api/health/service").get("intercept"))
+    before = health_fn()
+    stream = EventStream(api)
+    stream.start()
+    stream.hello.wait(5)
+    if stream.error:
+        raise SystemExit("cannot open /api/dns/test: %s" % stream.error)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("", 0))
+    try:
+        records = send_queries(sock, dest, names, rate, args.timeout)
+    finally:
+        sock.close()
+    time.sleep(args.settle)
+    stream.stop()
+    after = health_fn()
+    classify(records, stream.events, stream.gaps, stream.closed_at)
+    summary = summarize(records, stream.events)
+    summary["rate"] = rate
+    summary["counter_deltas"] = counter_deltas(before, after)
+    summary["gaps"] = [{"from_seq": g["from_seq"], "to_seq": g["to_seq"]} for g in stream.gaps]
+    summary["stream_error"] = stream.error
+    return summary, records, stream
+
+
+# ---------------------------------------------------------------- preflight
+
+
+def _domain_matches(pattern, name):
+    pattern = pattern.lower().lstrip("*.").rstrip(".")
+    name = name.lower().rstrip(".")
+    return name == pattern or name.endswith("." + pattern)
+
+
+def preflight(config, health, names_or_zone):
+    """Returns (ok, messages). names_or_zone: list of probe names (use the zone
+    itself for nip mode). Lists backed by url/file cannot be verified."""
+    msgs = []
+    intercept = (health or {}).get("intercept") or {}
+    ok = True
+    if not intercept.get("dns_hold_active"):
+        ok = False
+        msgs.append("intercept.dns_hold_active is false (reasons: %s)"
+                    % ("; ".join(intercept.get("reasons", [])) or "none"))
+    lists = config.get("lists") or {}
+    rules = ((config.get("route") or {}).get("rules")) or []
+    active = set()
+    for rule in rules:
+        if rule.get("enabled") is False:
+            continue
+        active.update(rule.get("list") or [])
+    covered = set()
+    unverifiable = False
+    for lname in active:
+        lst = lists.get(lname) or {}
+        domains = lst.get("domains") or []
+        for probe in names_or_zone:
+            if any(_domain_matches(d, probe) for d in domains):
+                covered.add(probe)
+        if lst.get("url") or lst.get("file"):
+            unverifiable = True
+    missing = [n for n in names_or_zone if n not in covered]
+    if missing and not unverifiable:
+        ok = False
+        msgs.append(SNIPPET.format(domain=missing[0]))
+    elif missing:
+        msgs.append("warning: cannot verify that %s is in a routed URL/file list" % missing[0])
+    return ok, msgs
+
+
+SNIPPET = """\
+no enabled route rule references a list containing "{domain}".
+Add to the keen-pbr config (this only routes 198.18.0.0/15 via that outbound):
+
+  "lists": {{ "dns_bench": {{ "domains": ["{domain}"] }} }},
+  "route": {{ "rules": [ {{ "list": ["dns_bench"], "outbound": "<any outbound tag>" }} ] }}
+
+then apply the config and re-run."""
+
+
+# ---------------------------------------------------------------- report
+
+
+def fmt(v, unit=""):
+    return "-" if v is None else ("%.1f%s" % (v, unit) if isinstance(v, float) else "%d%s" % (v, unit))
+
+
+def render(summary):
+    lines = ["== %d queries at %s q/s ==" % (summary["total"], summary["rate"])]
+    for o in OUTCOMES:
+        n = summary["counts"][o]
+        if n or o in ("held-ok", "hold-timeout", "bypass", "client-timeout"):
+            lines.append("  %-15s %6d  %6.2f%%" % (o, n, summary["percent"][o]))
+    for key, label, unit in (("rtt_ms", "client RTT", "ms"), ("hold_us", "hold", "us"),
+                             ("set_write_us", "set write", "us"), ("parse_us", "parse", "us")):
+        d = summary[key]
+        lines.append("  %-11s n=%-6d p50=%s p95=%s p99=%s max=%s" % (
+            label, d["count"], fmt(d["p50"], unit), fmt(d["p95"], unit),
+            fmt(d["p99"], unit), fmt(d["max"], unit)))
+    if summary["counter_deltas"]:
+        lines.append("  daemon counters: " + ", ".join(
+            "%s=%d" % kv for kv in sorted(summary["counter_deltas"].items())))
+    else:
+        lines.append("  daemon counters: unavailable")
+    if summary["gaps"]:
+        lines.append("  event stream gaps: " + ", ".join(
+            "%d-%d" % (g["from_seq"], g["to_seq"]) for g in summary["gaps"]))
+    if summary["stream_error"]:
+        lines.append("  event stream error: " + summary["stream_error"])
+    return "\n".join(lines)
+
+
+def step_line(summary):
+    c = summary["counts"]
+    return "rate %-6s total=%-6d held-ok=%.2f%% hold-timeout=%d set-error=%d bypass=%d unknown=%d timeout=%d p99rtt=%sms" % (
+        summary["rate"], summary["total"], summary["percent"]["held-ok"], c["hold-timeout"],
+        c["set-error"], c["bypass"], c["unknown"], c["client-timeout"],
+        fmt(summary["rtt_ms"]["p99"]))
+
+
+# ---------------------------------------------------------------- main
+
+
+def parse_args(argv):
+    p = argparse.ArgumentParser(description="Measure keen-pbr DNS hold loss.")
+    p.add_argument("--api", required=True, help="http://ROUTER:PORT of the keen-pbr API")
+    p.add_argument("--password", help="API password (POST /api/auth/login)")
+    p.add_argument("--token", help="API bearer token")
+    p.add_argument("--resolver", help="DNS server to query (default: host of --api); "
+                   "use e.g. 8.8.8.8 to test the transit FORWARD path")
+    p.add_argument("--resolver-port", type=int, default=53)
+    p.add_argument("--mode", choices=("nip", "file"), default="nip")
+    p.add_argument("--domains", help="file with domain names (mode file)")
+    p.add_argument("--zone", default="nip.io")
+    p.add_argument("--count", type=int, default=500, help="queries per step")
+    p.add_argument("--rate", type=float, default=50.0, help="queries per second")
+    p.add_argument("--rates", help="comma separated rate steps, e.g. 50,200,1000")
+    p.add_argument("--timeout", type=float, default=2.0)
+    p.add_argument("--settle", type=float, default=3.0)
+    p.add_argument("--json", help="write the full result to this file")
+    p.add_argument("--skip-preflight", action="store_true")
+    args = p.parse_args(argv)
+    if args.mode == "file" and not args.domains:
+        p.error("--mode file needs --domains")
+    return args
+
+
+def main(argv=None):
+    args = parse_args(argv if argv is not None else sys.argv[1:])
+    api = Api(args.api, args.token)
+    try:
+        if args.password and not args.token:
+            api.login(args.password)
+        health = api.get_json("/api/health/service")
+        config = api.get_json("/api/config").get("config", {})
+    except urllib.error.HTTPError as exc:
+        print("API error: %s (use --password/--token if auth is enabled)" % exc, file=sys.stderr)
+        return 2
+    except (urllib.error.URLError, OSError, ValueError, KeyError) as exc:
+        print("cannot reach API: %s" % exc, file=sys.stderr)
+        return 2
+
+    rates = [float(r) for r in args.rates.split(",")] if args.rates else [args.rate]
+    if args.mode == "nip":
+        probe = [args.zone]
+        print("note: public %s may rate-limit high QPS; failures then show as client-timeout"
+              % args.zone, file=sys.stderr)
+    else:
+        with open(args.domains) as f:
+            probe = sorted({ln.strip().lower() for ln in f
+                            if ln.strip() and not ln.lstrip().startswith("#")})[:50]
+    if not args.skip_preflight:
+        ok, msgs = preflight(config, health, probe)
+        for m in msgs:
+            print(m, file=sys.stderr)
+        if not ok:
+            return 2
+
+    host = urllib.parse.urlparse(args.api).hostname
+    dest = (args.resolver or host, args.resolver_port)
+    try:
+        dest = (socket.gethostbyname(dest[0]), dest[1])
+    except OSError as exc:
+        print("cannot resolve resolver address: %s" % exc, file=sys.stderr)
+        return 2
+
+    results = []
+    for rate in rates:
+        count = args.count
+        names = make_nip_names(count, args.zone) if args.mode == "nip" \
+            else load_domains(args.domains, count)
+        summary, records, stream = run_step(api, dest, names, rate, args)
+        print(render(summary))
+        results.append((summary, records, stream))
+    if len(results) > 1:
+        print("\n== summary ==")
+        for summary, _r, _s in results:
+            print(step_line(summary))
+    if args.json:
+        dump = []
+        for summary, records, stream in results:
+            dump.append({
+                "summary": summary,
+                "queries": [{k: v for k, v in q.items() if k != "event"} |
+                            {"event_seq": (q["event"] or {}).get("seq")} for q in records],
+                "events": [{k: v for k, v in e.items() if not k.startswith("_")}
+                           for e in stream.events],
+            })
+        with open(args.json, "w") as f:
+            json.dump(dump, f, indent=1)
+    bad = sum(s["counts"]["hold-timeout"] + s["counts"]["set-error"] + s["counts"]["bypass"]
+              for s, _r, _s in results)
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
