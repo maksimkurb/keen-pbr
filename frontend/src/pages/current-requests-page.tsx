@@ -163,27 +163,29 @@ export function CurrentRequestsPage() {
           className="w-full min-w-max text-xs whitespace-nowrap"
           containerClassName="overflow-visible"
         >
+          {/* Rows are virtualized, so content-sized columns would jump while
+              scrolling; header minimums keep them stable. */}
           <TableHeader className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
             <TableRow className="h-8 hover:bg-transparent">
-              <TableHead className="px-2 py-1 text-xs">
+              <TableHead className="min-w-36 px-2 py-1 text-xs">
                 {t("currentRequests.columns.device")}
               </TableHead>
-              <TableHead className="px-2 py-1 text-xs">
+              <TableHead className="min-w-20 px-2 py-1 text-xs">
                 {t("currentRequests.columns.method")}
               </TableHead>
-              <TableHead className="px-2 py-1 text-xs">
+              <TableHead className="min-w-64 px-2 py-1 text-xs">
                 {t("currentRequests.columns.domain")}
               </TableHead>
-              <TableHead className="px-2 py-1 text-xs">
+              <TableHead className="min-w-32 px-2 py-1 text-xs">
                 {t("currentRequests.columns.lists")}
               </TableHead>
-              <TableHead className="px-2 py-1 text-xs">
+              <TableHead className="min-w-40 px-2 py-1 text-xs">
                 {t("currentRequests.columns.ip")}
               </TableHead>
-              <TableHead className="px-2 py-1 text-xs">
+              <TableHead className="min-w-24 px-2 py-1 text-xs">
                 {t("currentRequests.columns.processingTime")}
               </TableHead>
-              <TableHead className="px-2 py-1 text-xs">
+              <TableHead className="min-w-48 px-2 py-1 text-xs">
                 {t("currentRequests.columns.flags")}
               </TableHead>
             </TableRow>
