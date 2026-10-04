@@ -15,6 +15,18 @@ against the daemon's /api/dns/test INTERCEPT event stream:
   client-timeout  no answer within --timeout
   nodata          answer without A records (NXDOMAIN / empty): no event expected
 
+After ALL rate steps (and their settle time) finished, the answer IPs are
+looked up with POST /api/routing/test {"target": "<ip>"} (never during load) to
+verify that they really are in the live kernel dynamic sets.  This can turn a
+held-ok into:
+
+  not-in-set      the IP is not in any kernel set ("(default)")
+  wrong-set       the IP is in the set of a different outbound
+
+Entries have a timeout, so on long runs an IP may expire between the write and
+the verification; the report prints the oldest answer age at verification.
+Use --no-verify to skip.
+
 Python 3 stdlib only.  See docs "Measuring DNS interception loss".
 """
 import argparse
@@ -32,7 +44,10 @@ import urllib.parse
 import urllib.request
 
 OUTCOMES = ["held-ok", "hold-timeout", "set-error", "no-write", "bypass",
-            "unknown", "client-timeout", "nodata"]
+            "unknown", "client-timeout", "nodata", "not-in-set", "wrong-set"]
+# outcomes whose answers carried A records, i.e. IPs worth verifying in the kernel
+VERIFY_OUTCOMES = ("held-ok", "hold-timeout", "set-error", "no-write", "bypass", "unknown")
+RATE_WARN_FRACTION = 0.9
 
 # ---------------------------------------------------------------- DNS wire
 
@@ -214,6 +229,29 @@ def classify(queries, events, gaps, stream_closed_at=None, gap_slack=0.2):
     return queries
 
 
+def achieved_rates(records):
+    """Achieved send rate and receive rate (queries/s) of one step.
+
+    Rate = intervals / span, i.e. (n-1) / (last - first) over the send (receive)
+    timestamps; None when fewer than two timestamps or a zero span."""
+    def rate(stamps):
+        stamps = sorted(stamps)
+        if len(stamps) < 2 or stamps[-1] <= stamps[0]:
+            return None
+        return (len(stamps) - 1) / (stamps[-1] - stamps[0])
+    return {"send_rate": rate([r["t_send"] for r in records
+                               if r.get("t_send") is not None and not r.get("send_error")]),
+            "recv_rate": rate([r["t_recv"] for r in records if r.get("t_recv") is not None])}
+
+
+def rate_warning(requested, achieved):
+    """Warning text when the client could not reach the requested rate."""
+    if achieved is None or requested <= 0 or achieved >= RATE_WARN_FRACTION * requested:
+        return None
+    return ("client could not reach requested rate (achieved %.0f qps): "
+            "the client, not keen-pbr, is the bottleneck" % achieved)
+
+
 def summarize(queries, events):
     total = len(queries)
     counts = {o: 0 for o in OUTCOMES}
@@ -271,6 +309,11 @@ class Api:
 
     def get_json(self, path):
         with urllib.request.urlopen(self._request(path), timeout=self.timeout) as r:
+            return json.loads(r.read().decode())
+
+    def post_json(self, path, data, timeout=None):
+        with urllib.request.urlopen(self._request(path, data),
+                                    timeout=timeout or self.timeout) as r:
             return json.loads(r.read().decode())
 
     def login(self, password):
@@ -445,6 +488,8 @@ def run_step(api, dest, names, rate, args, health_fn=None):
     classify(records, stream.events, stream.gaps, stream.closed_at)
     summary = summarize(records, stream.events)
     summary["rate"] = rate
+    summary.update(achieved_rates(records))
+    summary["rate_warning"] = rate_warning(rate, summary["send_rate"])
     summary["counter_deltas"] = counter_deltas(before, after)
     summary["gaps"] = [{"from_seq": g["from_seq"], "to_seq": g["to_seq"]} for g in stream.gaps]
     summary["stream_error"] = stream.error
@@ -506,6 +551,130 @@ Add to the keen-pbr config (this only routes 198.18.0.0/15 via that outbound):
 then apply the config and re-run."""
 
 
+# ---------------------------------------------------------------- kernel set verification
+
+
+def expected_outbound(config, probe):
+    """(outbound, rule_index, list_name, candidates) of the first enabled route
+    rule (in order) referencing a list that covers one of `probe` (domain
+    patterns); outbound is None when it cannot be determined (URL/file lists)."""
+    lists = config.get("lists") or {}
+    rules = ((config.get("route") or {}).get("rules")) or []
+    candidates = []
+    for idx, rule in enumerate(rules):
+        if rule.get("enabled") is False:
+            continue
+        for lname in rule.get("list") or []:
+            domains = (lists.get(lname) or {}).get("domains") or []
+            if any(_domain_matches(d, p) for d in domains for p in probe):
+                candidates.append((rule.get("outbound"), idx, lname))
+                break
+    if not candidates:
+        return None, None, None, []
+    return candidates[0] + (candidates,)
+
+
+def verdict_for(actual, expected):
+    """in-set | wrong-set | not-in-set | unverifiable for one IP."""
+    if actual is None or actual == "(unknown)":
+        return "unverifiable"
+    if actual == "(default)":
+        return "not-in-set"
+    if expected is None or actual == expected:
+        return "in-set"
+    return "wrong-set"
+
+
+def check_ip(api, ip, expected):
+    """Returns (verdict, actual_outbound|None)."""
+    try:
+        resp = api.post_json("/api/routing/test", {"target": ip})
+        entries = resp.get("results") or []
+        entry = next((e for e in entries if e.get("ip") == ip), entries[0] if entries else None)
+        actual = entry.get("actual_outbound") if entry else None
+    except (urllib.error.URLError, OSError, ValueError, AttributeError):
+        return "unverifiable", None
+    return verdict_for(actual, expected), actual
+
+
+def collect_ips(records):
+    """{ip: time of the first answer carrying it} for queries worth verifying."""
+    out = {}
+    for q in records:
+        if q.get("outcome") in VERIFY_OUTCOMES:
+            for ip in q.get("addresses") or []:
+                if ip not in out or q["t_recv"] < out[ip]:
+                    out[ip] = q["t_recv"]
+    return out
+
+
+def verify_sets(api, all_records, expected, rate, sleep=time.sleep, clock=time.monotonic):
+    """Verify every unique answer IP, sequentially at <= `rate` req/s, and apply
+    the final outcome overrides to `all_records` (flat list).  Must only be
+    called after the last query of the last step."""
+    ips = collect_ips(all_records)
+    started = clock()
+    interval = 1.0 / rate if rate and rate > 0 else 0.0
+    verdicts, actuals, ages = {}, {}, {}
+    for n, (ip, t_answer) in enumerate(sorted(ips.items(), key=lambda kv: kv[1])):
+        due = started + n * interval
+        if clock() < due:
+            sleep(due - clock())
+        verdicts[ip], actuals[ip] = check_ip(api, ip, expected)
+        ages[ip] = clock() - t_answer
+    duration = clock() - started
+
+    counts = {"in-set": 0, "not-in-set": 0, "wrong-set": 0, "unverifiable": 0}
+    for v in verdicts.values():
+        counts[v] += 1
+    eventually_in_set = eventual_miss = verified_queries = 0
+    for q in all_records:
+        if q.get("outcome") not in VERIFY_OUTCOMES:
+            continue
+        qv = [verdicts[ip] for ip in q.get("addresses") or [] if ip in verdicts]
+        if not qv:
+            continue
+        # worst address wins: the daemon must have written every answer IP
+        for worst in ("not-in-set", "wrong-set", "unverifiable", "in-set"):
+            if worst in qv:
+                q["verified"] = worst
+                break
+        verified_queries += 1
+        if q["verified"] == "not-in-set":
+            eventual_miss += 1
+        if q["outcome"] == "hold-timeout" and q["verified"] == "in-set":
+            eventually_in_set += 1
+        if q["outcome"] == "held-ok" and q["verified"] in ("not-in-set", "wrong-set"):
+            q["outcome"] = q["verified"]
+    return {
+        "checked_ips": len(ips), "in_set": counts["in-set"],
+        "not_in_set": counts["not-in-set"], "wrong_set": counts["wrong-set"],
+        "unverifiable": counts["unverifiable"],
+        "verified_queries": verified_queries, "eventually_in_set": eventually_in_set,
+        "eventual_miss": eventual_miss,
+        "eventual_miss_percent": 100.0 * eventual_miss / verified_queries if verified_queries else 0.0,
+        "duration_s": duration, "max_age_s": max(ages.values()) if ages else 0.0,
+        "expected_outbound": expected,
+        "bad_ips": sorted(ip for ip, v in verdicts.items() if v in ("not-in-set", "wrong-set"))[:20],
+    }
+
+
+def render_verification(v):
+    lines = ["== Kernel set verification (after the run) ==",
+             "  expected outbound: %s" % (v["expected_outbound"] or "(any non-default)"),
+             "  checked IPs: %d  in-set: %d  not-in-set: %d  wrong-set: %d  unverifiable: %d" % (
+                 v["checked_ips"], v["in_set"], v["not_in_set"], v["wrong_set"], v["unverifiable"]),
+             "  eventual-miss: %d/%d queries (%.2f%%)  hold-timeout but eventually in-set: %d" % (
+                 v["eventual_miss"], v["verified_queries"], v["eventual_miss_percent"],
+                 v["eventually_in_set"]),
+             "  verification took %.1fs; oldest answer was %.1fs old when checked "
+             "(set entries expire after their timeout, so on long runs a miss may be an expired entry)" % (
+                 v["duration_s"], v["max_age_s"])]
+    if v["bad_ips"]:
+        lines.append("  e.g. not in the expected set: " + ", ".join(v["bad_ips"][:5]))
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------- report
 
 
@@ -525,6 +694,12 @@ def render(summary):
         lines.append("  %-11s n=%-6d p50=%s p95=%s p99=%s max=%s" % (
             label, d["count"], fmt(d["p50"], unit), fmt(d["p95"], unit),
             fmt(d["p99"], unit), fmt(d["max"], unit)))
+    sr, rr = summary.get("send_rate"), summary.get("recv_rate")
+    if sr is not None or rr is not None:
+        lines.append("  rate: requested=%s achieved send=%s recv=%s qps" % (
+            summary["rate"], "-" if sr is None else "%.1f" % sr, "-" if rr is None else "%.1f" % rr))
+    if summary.get("rate_warning"):
+        lines.append("  WARNING: " + summary["rate_warning"])
     if summary["counter_deltas"]:
         lines.append("  daemon counters: " + ", ".join(
             "%s=%d" % kv for kv in sorted(summary["counter_deltas"].items())))
@@ -540,10 +715,13 @@ def render(summary):
 
 def step_line(summary):
     c = summary["counts"]
-    return "rate %-6s total=%-6d held-ok=%.2f%% hold-timeout=%d set-error=%d bypass=%d unknown=%d timeout=%d p99rtt=%sms" % (
-        summary["rate"], summary["total"], summary["percent"]["held-ok"], c["hold-timeout"],
-        c["set-error"], c["bypass"], c["unknown"], c["client-timeout"],
-        fmt(summary["rtt_ms"]["p99"]))
+    sr = summary.get("send_rate")
+    return ("rate %-6s sent=%-6s total=%-6d held-ok=%.2f%% hold-timeout=%d set-error=%d "
+            "bypass=%d unknown=%d not-in-set=%d wrong-set=%d timeout=%d p99rtt=%sms") % (
+        summary["rate"], "-" if sr is None else "%.0f" % sr, summary["total"],
+        summary["percent"]["held-ok"], c["hold-timeout"],
+        c["set-error"], c["bypass"], c["unknown"], c["not-in-set"], c["wrong-set"],
+        c["client-timeout"], fmt(summary["rtt_ms"]["p99"]))
 
 
 # ---------------------------------------------------------------- main
@@ -567,9 +745,15 @@ def parse_args(argv):
     p.add_argument("--settle", type=float, default=3.0)
     p.add_argument("--json", help="write the full result to this file")
     p.add_argument("--skip-preflight", action="store_true")
+    p.add_argument("--no-verify", action="store_true",
+                   help="skip the post-run kernel set verification (POST /api/routing/test)")
+    p.add_argument("--verify-rate", type=float, default=20.0,
+                   help="routing/test requests per second during verification (default 20)")
     args = p.parse_args(argv)
     if args.mode == "file" and not args.domains:
         p.error("--mode file needs --domains")
+    if args.verify_rate <= 0:
+        p.error("--verify-rate must be > 0")
     return args
 
 
@@ -620,7 +804,28 @@ def main(argv=None):
         summary, records, stream = run_step(api, dest, names, rate, args)
         print(render(summary))
         results.append((summary, records, stream))
-    if len(results) > 1:
+    verification = None
+    if not args.no_verify:
+        exp, rule_idx, lname, cands = expected_outbound(config, probe)
+        if len(cands) > 1:
+            print("note: %d route rules reference the bench domains, using rule #%d (list %s, "
+                  "outbound %s); others: %s" % (
+                      len(cands), rule_idx, lname, exp,
+                      ", ".join("#%d->%s" % (i, o) for o, i, _l in cands[1:])))
+        elif cands:
+            print("note: expected outbound %s (rule #%d, list %s)" % (exp, rule_idx, lname))
+        else:
+            print("note: could not determine the expected outbound from the config; "
+                  "any non-default outbound counts as in-set")
+        flat = [q for _s, records, _st in results for q in records]
+        print("verifying kernel sets for answer IPs (after the run, %.0f req/s)..." % args.verify_rate)
+        verification = verify_sets(api, flat, exp, args.verify_rate)
+        for summary, records, stream in results:
+            fresh = summarize(records, stream.events)
+            for key in ("counts", "percent"):
+                summary[key] = fresh[key]
+        print(render_verification(verification))
+    if len(results) > 1 or verification:
         print("\n== summary ==")
         for summary, _r, _s in results:
             print(step_line(summary))
@@ -633,11 +838,15 @@ def main(argv=None):
                             {"event_seq": (q["event"] or {}).get("seq")} for q in records],
                 "events": [{k: v for k, v in e.items() if not k.startswith("_")}
                            for e in stream.events],
+                "kernel_verification": verification,
             })
         with open(args.json, "w") as f:
             json.dump(dump, f, indent=1)
     bad = sum(s["counts"]["hold-timeout"] + s["counts"]["set-error"] + s["counts"]["bypass"]
+              + s["counts"]["not-in-set"] + s["counts"]["wrong-set"]
               for s, _r, _s in results)
+    if verification and (verification["not_in_set"] or verification["wrong_set"]):
+        bad += 1
     return 1 if bad else 0
 
 
