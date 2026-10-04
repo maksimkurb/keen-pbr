@@ -428,9 +428,10 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
   // DNS configuration. Interception fills dynamic sets without a resolver.
   "dns": {
-    // Removed with the dnsmasq integration: "resolver_integration",
-    // "system_resolver", "rules" and "fallback". They are still accepted so that
-    // old configs load, but they are ignored and a warning is logged.
+    // Optional: enable per-list DNS servers via dnsmasq.
+    // Default: "none" (keen-pbr does not touch the system resolver).
+    // Set to "dnsmasq" to route domains from specific lists through chosen DNS servers.
+    "resolver_integration": "none",
 
     // Deprecated compatibility field. It is accepted but ignored.
     "dns_test_server": {
@@ -478,7 +479,31 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         "tag": "keenetic_dns",
         "type": "keenetic"
       }
-    ]
+    ],
+
+    // Domain-to-DNS-server routing rules (only active when resolver_integration: "dnsmasq").
+    // Maps lists of domains to specific DNS servers for per-list upstream selection.
+    "rules": [
+      {
+        // Whether this DNS rule is active. Default: true when omitted or null.
+        "enabled": true,
+
+        // Lists whose domains should be resolved by this server.
+        "list": ["ai_services"],
+
+        // DNS server tag to use.
+        "server": "vpn_dns",
+
+        // Allow answers that resolve to private/local IP ranges.
+        // Default: false.
+        "allow_domain_rebinding": false
+      }
+    ],
+
+    // Upstream DNS servers used when no DNS rule matches
+    // (only active when resolver_integration: "dnsmasq").
+    // Default: no upstream servers (system/ISP upstreams from resolv.conf are used).
+    "fallback": ["isp_dns"]
   },
 
   // Traffic interception. All fields below have defaults; capability gaps

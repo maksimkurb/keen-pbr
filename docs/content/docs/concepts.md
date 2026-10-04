@@ -66,6 +66,8 @@ DNS proxy or any other keeps working as set up): NFQUEUE parses DNS responses an
 and QUIC Initial names. Matching response IPs are injected into the
 corresponding dynamic set so subsequent packets are routed correctly.
 
+Optional [dnsmasq management]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}) can route domains from specific lists through different DNS servers (useful for CDN region matching).
+
 See [DNS]({{< relref "/docs/configuration/dns" >}}) for the full reference.
 See the [DNS and L7 interception architecture](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)
 for packet flow, capability gating, and failure behavior.

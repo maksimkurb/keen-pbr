@@ -5,11 +5,7 @@ weight: 4
 
 Domain-based routing works without any DNS configuration: keen-pbr intercepts DNS responses and TLS/HTTP/QUIC traffic itself and fills the sets of your lists (see the [interception architecture](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)). keen-pbr does not configure, restart or require any DNS resolver: dnsmasq, the Keenetic DNS proxy, unbound or anything else keeps working as you set it up.
 
-The only DNS option left is `dns.servers`: server definitions that keen-pbr uses to send DNS traffic of the router itself through a chosen outbound (`detour`).
-
-{{% details title="Removed: dnsmasq integration" closed="true" %}}
-Earlier versions could manage a dnsmasq configuration (`dns.resolver_integration`, `dns.system_resolver`, `dns.rules`, `dns.fallback`). This integration has been removed. The fields are still accepted in `config.json` so that old configurations load, but they are **ignored** and a warning is logged. DNS-based sets are filled by interception. See the upgrade notes for [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt" >}}), [Keenetic]({{< relref "/docs/getting-started/installation/keenetic" >}}) and Debian below.
-{{% /details %}}
+Use DNS configuration to define server addresses and optionally route domain-based traffic (from specific lists) through a chosen DNS server, usually the same VPN that will carry the matching traffic.
 
 ## Configuration
 
@@ -21,21 +17,87 @@ Earlier versions could manage a dnsmasq configuration (`dns.resolver_integration
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `servers` | array | DNS server definitions (used for `detour`, see below) |
-| `rules`, `fallback`, `system_resolver`, `resolver_integration` | | Removed with the dnsmasq integration. Accepted but ignored. |
-| `dns_test_server` | object | Deprecated and ignored (replaced by `intercept.dns.marker`) |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `servers` | array | no | DNS server definitions |
+| `resolver_integration` | string | no | `"none"` or `"dnsmasq"`; when omitted, `"dnsmasq"` is assumed if `rules` is non-empty, otherwise `"none"`. |
+| `rules` | array | no | Rules mapping lists to DNS servers (only active when `resolver_integration: "dnsmasq"`). |
+| `fallback` | array of string | no | Upstream DNS server tags for queries that match no rule (only active when `resolver_integration: "dnsmasq"`). |
+| `dns_test_server` | object | no | Deprecated and ignored (replaced by `intercept.dns.marker`) |
 
-## Upgrading from the dnsmasq integration
+## Per-list DNS servers (dnsmasq)
 
-The package upgrade cleans up what the old integration changed; your DNS keeps working.
+When `resolver_integration` is set to `"dnsmasq"`, keen-pbr optionally manages dnsmasq to resolve domains in specific lists through different DNS servers. This is useful when you want CDN answers to match a VPN region or need different upstreams for different services.
 
-- **OpenWrt**: the previous upstream servers are restored automatically from `kpbr_server` into the `server` list of each dnsmasq section, the jail mounts added by keen-pbr are removed, and dnsmasq is restarted once.
-- **Keenetic (Entware)**: the keen-pbr managed block is removed from `/opt/etc/dnsmasq.conf` (a backup is kept as `dnsmasq.conf.keen-pbr.bak`). If the file has no `server=` line left, a marked fallback block (`# BEGIN keen-pbr fallback upstream`) is added so that dnsmasq keeps resolving. Review it, or remove Entware dnsmasq and use the built-in Keenetic DNS proxy (ndnproxy).
-- **Debian/Ubuntu**: the `keen-pbr.conf` drop-in with the `conf-script` line is removed from the dnsmasq configuration directory.
+**Example use case**: resolve AI service domains through a DNS server reached via your VPN so CDN answers match the VPN exit region (otherwise accounts may get banned).
 
-Old dnsmasq configurations that still contain `conf-script=keen-pbr generate-resolver-config ...` keep working during the transition: the hidden deprecated command `generate-resolver-config` is kept as a harmless stub.
+### Configuration example
+
+```json { filename="config.json" }
+{
+  "dns": {
+    "resolver_integration": "dnsmasq",
+    "servers": [
+      {"tag": "vpn_dns", "address": "1.1.1.1", "detour": "vpn"},
+      {"tag": "isp_dns", "address": "192.168.1.1"}
+    ],
+    "rules": [
+      {
+        "list": ["ai_services"],
+        "server": "vpn_dns",
+        "allow_domain_rebinding": false
+      }
+    ],
+    "fallback": ["isp_dns"]
+  }
+}
+```
+
+### Field reference
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `resolver_integration` | string | yes | Set to `"dnsmasq"` to enable dnsmasq integration |
+| `servers` | array | yes | DNS server definitions (each has `tag`, optional `address`, optional `detour`) |
+| `rules` | array | no | Array of DNS rules; each rule maps lists to a DNS server |
+| `fallback` | array | no | Server tags used when no rule matches; if omitted, system/ISP upstreams from resolv.conf are used |
+
+**DNS rule** (`rules[]` element):
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | bool | true | Whether this rule is active |
+| `list` | array of string | required | List names whose domains should use this DNS server |
+| `server` | string | required | DNS server tag to use for domains in these lists |
+| `allow_domain_rebinding` | bool | false | Allow private-IP answers (RFC1918) for these domains → `rebind-domain-ok` in dnsmasq |
+
+### Installation by platform
+
+dnsmasq is not installed by keen-pbr; install it yourself when you need this feature.
+
+**OpenWrt**: install `dnsmasq`. keen-pbr adds UCI jail mounts (`addnmount` entries) to the dnsmasq section so the binary can run the conf-script command. These are removed when you disable the feature.
+
+**Keenetic (Entware)**: install `dnsmasq-full` (replaces the built-in ndnproxy as the LAN resolver). keen-pbr adds a marked block to `/opt/etc/dnsmasq.conf` with `conf-dir=/tmp/keen-pbr/dnsmasq.d,*.conf` once; the init script `S55keen-pbr-dnsmasq` recreates the tmpfs drop-in at boot. Health shows an error if dnsmasq is not installed.
+
+**Debian**: install `dnsmasq`. keen-pbr places a drop-in at `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf` with a one-line `conf-script` command.
+
+### How it works
+
+keen-pbr never writes the generated dnsmasq config to flash. Instead:
+1. keen-pbr generates a config (per-list domain rules, fallback servers, etc.)
+2. keen-pbr places a one-line drop-in (`conf-script=keen-pbr generate-resolver-config dnsmasq`) in a tmpfs directory
+3. dnsmasq runs that command at start and reads the config from its output
+4. dnsmasq is restarted only when the generated config changes (list update, settings change, or once after keen-pbr starts)
+
+### On stop, disable, or uninstall
+
+- **Stopping keen-pbr**: dnsmasq is NOT restarted; the per-list upstreams remain active.
+- **Disabling the feature** (`resolver_integration: "none"`): the drop-in is removed and dnsmasq is restarted (reverts to system/ISP upstreams).
+- **Uninstalling the package**: the drop-in and any persistent changes to dnsmasq config are removed; dnsmasq is restarted.
+
+### Troubleshooting
+
+See [Per-list DNS servers do not work]({{< relref "/docs/troubleshooting#per-list-dns-servers-do-not-work" >}}).
 
 ## DNS Test Server (deprecated)
 

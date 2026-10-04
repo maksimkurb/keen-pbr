@@ -148,3 +148,5 @@ KEEN_PBR_RAW_PREROUTING="disable"
 - dnsmasq перезапускается один раз. Повторный запуск скрипта ничего не меняет.
 
 Вместо этого можно удалить Entware dnsmasq и использовать встроенный DNS-прокси Keenetic (ndnproxy): keen-pbr не требует конкретного резолвера.
+
+Per-list DNS-серверы ([`dns.rules`]({{< relref "/docs/configuration/dns#per-list-dns-servers--маршрутизация-доменов-через-разные-dns" >}})) требуют Entware `dnsmasq-full` в качестве LAN-резолвера; их включение добавляет блок `# BEGIN keen-pbr upstream dns` conf-dir в `/opt/etc/dnsmasq.conf`.

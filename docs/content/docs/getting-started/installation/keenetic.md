@@ -148,3 +148,5 @@ Older keen-pbr versions added a managed block with a `conf-script` line to `/opt
 - dnsmasq is restarted once. Running the script again changes nothing.
 
 Alternatively, remove Entware dnsmasq and use the built-in Keenetic DNS proxy (ndnproxy): keen-pbr does not need a particular resolver.
+
+Per-list DNS servers ([`dns.rules`]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}})) need Entware `dnsmasq-full` as the LAN resolver; enabling them adds the `# BEGIN keen-pbr upstream dns` conf-dir block to `/opt/etc/dnsmasq.conf`.

@@ -66,6 +66,8 @@ Keenetic и любой другой работают как настроено):
 Host и QUIC Initial. Подходящие IP добавляются в динамический набор, чтобы
 последующие пакеты маршрутизировались правильно.
 
+Опциональное [управление dnsmasq]({{< relref "/docs/configuration/dns#per-list-dns-servers--маршрутизация-доменов-через-разные-dns" >}}) может маршрутизировать домены конкретных списков через разные DNS-серверы (полезно для соответствия регионам CDN).
+
 См. [DNS]({{< relref "/docs/configuration/dns" >}}) для полного справочника.
 См. [архитектуру DNS и L7-перехвата](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md) для потока
 пакетов, capability gating и failure behavior.

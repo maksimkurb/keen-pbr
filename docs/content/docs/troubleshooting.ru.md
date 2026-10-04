@@ -238,6 +238,67 @@ keen-pbr не разрешает имена для клиентов, поэто�
 
 Обычно это означает, что резолвер не запущен или не смог применить конфигурацию. Проверьте сервис и журнал резолвера на вашей платформе (например Entware `dnsmasq` на Keenetic, `dnsmasq` на OpenWrt и Debian) и причины capability для `intercept` в `/api/health/service`.
 
+## Per-list DNS servers не работают — разрешение доменов через разные DNS
+
+Когда включена `dns.resolver_integration: "dnsmasq"`, домены из определённых списков должны разрешаться через выбранный DNS-сервер. Если это не происходит:
+
+1. **Проверьте статус dnsmasq в health:**
+   ```bash {filename="bash"}
+   curl http://127.0.0.1:12121/api/health/service | jq .dnsmasq
+   ```
+   Ожидается: `"state": "ok"`, `"rules"` показывает количество, `"domains"` показывает записи доменов. Если `state` - это `error`, проверьте `last_error`.
+
+2. **Проверьте сгенерированный конфиг dnsmasq:**
+   ```bash {filename="bash"}
+   keen-pbr generate-resolver-config dnsmasq
+   ```
+   Ожидается: сопоставления домен-сервер, fallback-серверы, исключения rebind. Если вывод пуст, проверьте, что установлен `resolver_integration: "dnsmasq"` и настроено хотя бы одно правило.
+
+3. **Проверьте файл drop-in dnsmasq:**
+
+   {{< tabs >}}
+   {{< tab name="OpenWrt" selected=true >}}
+   ```bash {filename="bash"}
+   cat /tmp/dnsmasq.d/keen-pbr-upstream-dns.conf
+   # или в dnsmasq-confdir по платформе:
+   cat /tmp/dnsmasq.*/keen-pbr-upstream-dns.conf
+   ```
+   {{< /tab >}}
+   {{< tab name="Keenetic / Entware" >}}
+   ```bash {filename="bash"}
+   grep -A 5 "BEGIN keen-pbr" /opt/etc/dnsmasq.conf
+   ```
+   {{< /tab >}}
+   {{< tab name="Debian" >}}
+   ```bash {filename="bash"}
+   cat /etc/dnsmasq.d/keen-pbr-upstream-dns.conf
+   ```
+   {{< /tab >}}
+   {{< /tabs >}}
+
+   Ожидается: строка `conf-script=keen-pbr generate-resolver-config dnsmasq`.
+
+4. **Убедитесь, что dnsmasq действительно используется как резолвер для клиентов:**
+   - На Keenetic проверьте, является ли ndnproxy или dnsmasq LAN-резолвером:
+     ```bash {filename="bash"}
+     opkg dns-override
+     ```
+   - Тест с клиента:
+     ```bash {filename="bash"}
+     nslookup example.com
+     ```
+
+5. **Проверьте `detour` DNS-сервера:**
+   Если сервер имеет `"detour": "vpn"`, убедитесь, что VPN-интерфейс работает и доступен:
+   ```bash {filename="bash"}
+   curl http://127.0.0.1:12121/api/runtime/outbounds | jq '.[] | select(.tag == "vpn")'
+   ```
+   Ожидается: `"state": "alive"`.
+
+6. **Проверьте, что домены в правильном списке:**
+   - Откройте Web UI на `http://<router-ip>:12121/` и проверьте DNS-правила.
+   - Убедитесь, что нужные домены действительно в списке.
+
 ## Firewall и `KeenPbrTable`
 
 Если DNS работает и домен резолвится, но трафик всё равно идёт мимо VPN, проверьте firewall. `keen-pbr` создаёт изолированную цепочку или таблицу `KeenPbrTable`; трафик должен попадать туда, сопоставляться со списками и получать нужный `fwmark`.

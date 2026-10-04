@@ -239,6 +239,67 @@ keen-pbr does not resolve names for clients, so check the resolver the clients u
 
 This usually means the resolver is not running or failed to apply its configuration. Check the resolver service and log on your platform (for example Entware `dnsmasq` on Keenetic, `dnsmasq` on OpenWrt and Debian), and the `intercept` capability reasons in `/api/health/service`.
 
+## Per-list DNS servers do not work
+
+When `dns.resolver_integration: "dnsmasq"` is enabled, domains from specific lists should be resolved through a chosen DNS server. If this is not happening:
+
+1. **Check dnsmasq status in health:**
+   ```bash {filename="bash"}
+   curl http://127.0.0.1:12121/api/health/service | jq .dnsmasq
+   ```
+   Expected: `"state": "ok"`, `"rules"` shows the count, `"domains"` shows domain entries. If `state` is `error`, check `last_error`.
+
+2. **Verify the generated dnsmasq config:**
+   ```bash {filename="bash"}
+   keen-pbr generate-resolver-config dnsmasq
+   ```
+   Expected: domain-to-server mappings, fallback servers, rebind exceptions. If output is empty, check that `resolver_integration: "dnsmasq"` is set and at least one rule is configured.
+
+3. **Check the dnsmasq drop-in file:**
+
+   {{< tabs >}}
+   {{< tab name="OpenWrt" selected=true >}}
+   ```bash {filename="bash"}
+   cat /tmp/dnsmasq.d/keen-pbr-upstream-dns.conf
+   # or in a dnsmasq-specific confdir:
+   cat /tmp/dnsmasq.*/keen-pbr-upstream-dns.conf
+   ```
+   {{< /tab >}}
+   {{< tab name="Keenetic / Entware" >}}
+   ```bash {filename="bash"}
+   grep -A 5 "BEGIN keen-pbr" /opt/etc/dnsmasq.conf
+   ```
+   {{< /tab >}}
+   {{< tab name="Debian" >}}
+   ```bash {filename="bash"}
+   cat /etc/dnsmasq.d/keen-pbr-upstream-dns.conf
+   ```
+   {{< /tab >}}
+   {{< /tabs >}}
+
+   Expected: a `conf-script=keen-pbr generate-resolver-config dnsmasq` line.
+
+4. **Verify dnsmasq is actually the resolver clients use:**
+   - On Keenetic, check if ndnproxy or dnsmasq is the LAN resolver:
+     ```bash {filename="bash"}
+     opkg dns-override
+     ```
+   - Test from a client:
+     ```bash {filename="bash"}
+     nslookup example.com
+     ```
+
+5. **Check the DNS server's `detour`:**
+   If the server has `"detour": "vpn"`, verify the VPN interface is up and reachable:
+   ```bash {filename="bash"}
+   curl http://127.0.0.1:12121/api/runtime/outbounds | jq '.[] | select(.tag == "vpn")'
+   ```
+   Expected: `"state": "alive"`.
+
+6. **Verify domains are in the right list:**
+   - Open the Web UI at `http://<router-ip>:12121/` and check DNS rules.
+   - Confirm the domains you want are actually in the list.
+
 ## Firewall and `KeenPbrTable`
 
 If DNS works and the domain resolves, but traffic still bypasses the VPN, check the firewall. `keen-pbr` creates an isolated chain or table named `KeenPbrTable`; traffic must enter it, match configured lists, and receive the correct `fwmark`.

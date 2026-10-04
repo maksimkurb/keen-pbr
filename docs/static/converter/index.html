@@ -1068,10 +1068,8 @@
         "lists": {},
         // DNS configuration
         "dns": {
-          // local dnsmasq
-          "system_resolver": { "address": "127.0.0.1" },
-          // DNS probe listener for Web UI (or nslookup) diagnostics
-          "dns_test_server": { "listen": "127.0.0.88:12153" },
+          // Enable per-list DNS servers if needed (requires dnsmasq installed)
+          "resolver_integration": "none",
           "servers":[],
           "rules": [],
           "fallback":[]
@@ -1108,6 +1106,8 @@
               );
             } else {
               config.dns.rules = dnsRules;
+              // Enable dnsmasq integration when DNS rules are present
+              config.dns.resolver_integration = "dnsmasq";
             }
 
             if (dnsFallback.length > 0) {

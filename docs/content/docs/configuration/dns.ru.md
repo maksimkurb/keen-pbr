@@ -9,12 +9,9 @@ DNS-ответы и TLS/HTTP/QUIC-трафик и заполняет набор�
 keen-pbr не настраивает, не перезапускает и не требует DNS-резолвер: dnsmasq,
 DNS-прокси Keenetic, unbound и любой другой продолжают работать так, как вы их настроили.
 
-Единственная оставшаяся DNS-настройка - `dns.servers`: определения серверов, с помощью которых
-keen-pbr отправляет DNS-трафик самого роутера через выбранный outbound (`detour`).
-
-{{% details title="Удалено: интеграция с dnsmasq" closed="true" %}}
-Ранее keen-pbr мог управлять конфигурацией dnsmasq (`dns.resolver_integration`, `dns.system_resolver`, `dns.rules`, `dns.fallback`). Интеграция удалена. Поля по-прежнему принимаются в `config.json`, чтобы старые конфигурации загружались, но **игнорируются**, а в лог пишется предупреждение. Динамические наборы заполняются перехватом. См. заметки об обновлении для [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt" >}}), [Keenetic]({{< relref "/docs/getting-started/installation/keenetic" >}}) и Debian ниже.
-{{% /details %}}
+Используйте настройки DNS для определения адресов серверов и при необходимости маршрутизации трафика,
+основанной на доменах (из определённых списков) через выбранный DNS-сервер, обычно тот же VPN,
+что будет переносить соответствующий трафик.
 
 ## Конфигурация
 
@@ -26,21 +23,96 @@ keen-pbr отправляет DNS-трафик самого роутера че�
 }
 ```
 
-| Поле | Тип | Описание |
-|---|---|---|
-| `servers` | array | Определения DNS-серверов (используются для `detour`, см. ниже) |
-| `rules`, `fallback`, `system_resolver`, `resolver_integration` | | Удалены вместе с интеграцией dnsmasq. Принимаются, но игнорируются. |
-| `dns_test_server` | object | Устаревшее поле, принимается, но игнорируется; используйте `intercept.dns.marker` |
+| Поле | Тип | Обязательное | Описание |
+|---|---|---|---|
+| `servers` | array | нет | Определения DNS-серверов |
+| `resolver_integration` | string | нет | `"none"` или `"dnsmasq"`; если опущено, `"dnsmasq"` используется если `rules` не пусто, иначе `"none"`. |
+| `rules` | array | нет | Правила маршрутизации списков на DNS-серверы (активны только при `resolver_integration: "dnsmasq"`). |
+| `fallback` | array of string | нет | Теги upstream DNS-серверов для запросов, не совпадших с правилом (активны только при `resolver_integration: "dnsmasq"`). |
+| `dns_test_server` | object | нет | Устаревшее поле, принимается, но игнорируется; используйте `intercept.dns.marker` |
 
-## Обновление с интеграции dnsmasq
+## Per-list DNS servers (dnsmasq) — Маршрутизация доменов через разные DNS
 
-При обновлении пакет сам убирает изменения старой интеграции; DNS продолжает работать.
+Когда `resolver_integration` установлен на `"dnsmasq"`, keen-pbr может управлять dnsmasq
+и разрешать домены из определённых списков через разные DNS-серверы. Это полезно, когда вам
+нужны CDN-ответы, соответствующие определённому VPN-региону, или разные upstream-серверы
+для разных сервисов.
 
-- **OpenWrt**: прежние upstream-серверы автоматически восстанавливаются из `kpbr_server` в список `server` каждой секции dnsmasq, монтирования jail, добавленные keen-pbr, удаляются, dnsmasq перезапускается один раз.
-- **Keenetic (Entware)**: управляемый блок keen-pbr удаляется из `/opt/etc/dnsmasq.conf` (резервная копия сохраняется как `dnsmasq.conf.keen-pbr.bak`). Если в файле не осталось строк `server=`, добавляется помеченный резервный блок (`# BEGIN keen-pbr fallback upstream`), чтобы dnsmasq продолжал разрешать имена. Проверьте его либо удалите Entware dnsmasq и используйте встроенный DNS-прокси Keenetic (ndnproxy).
-- **Debian/Ubuntu**: drop-in `keen-pbr.conf` со строкой `conf-script` удаляется из каталога конфигурации dnsmasq.
+**Пример использования**: разрешать домены AI-сервисов через DNS-сервер, доступный через VPN,
+чтобы CDN-ответы соответствовали регионе выхода VPN (иначе может произойти блокировка аккаунта).
 
-Старые конфигурации dnsmasq с `conf-script=keen-pbr generate-resolver-config ...` продолжают работать на время перехода: скрытая устаревшая команда `generate-resolver-config` оставлена как безвредная заглушка.
+### Пример конфигурации
+
+```json { filename="config.json" }
+{
+  "dns": {
+    "resolver_integration": "dnsmasq",
+    "servers": [
+      {"tag": "vpn_dns", "address": "1.1.1.1", "detour": "vpn"},
+      {"tag": "isp_dns", "address": "192.168.1.1"}
+    ],
+    "rules": [
+      {
+        "list": ["ai_services"],
+        "server": "vpn_dns",
+        "allow_domain_rebinding": false
+      }
+    ],
+    "fallback": ["isp_dns"]
+  }
+}
+```
+
+### Справочник полей
+
+| Поле | Тип | Обязательное | Описание |
+|---|---|---|---|
+| `resolver_integration` | string | да | Установите `"dnsmasq"` для включения интеграции |
+| `servers` | array | да | Определения DNS-серверов (каждый имеет `tag`, опциональные `address` и `detour`) |
+| `rules` | array | нет | Массив правил маршрутизации; каждое правило связывает списки с DNS-сервером |
+| `fallback` | array | нет | Теги серверов для использования, когда никакое правило не совпадает; если не указано, используются upstream-серверы из resolv.conf |
+
+**DNS-правило** (элемент `rules[]`):
+
+| Поле | Тип | По умолчанию | Описание |
+|---|---|---|---|
+| `enabled` | bool | true | Включено ли это правило |
+| `list` | array of string | обязательно | Имена списков, домены которых должны использовать этот DNS-сервер |
+| `server` | string | обязательно | Тег DNS-сервера для доменов в этих списках |
+| `allow_domain_rebinding` | bool | false | Разрешить приватные IP-адреса (RFC1918) в ответах → `rebind-domain-ok` в dnsmasq |
+
+### Установка по платформам
+
+dnsmasq не устанавливается keen-pbr; установите его самостоятельно, если нужна эта функция.
+
+**OpenWrt**: установите `dnsmasq`. keen-pbr добавляет UCI jail mounts (`addnmount`-записи)
+в dnsmasq-раздел, чтобы бинарник мог запустить команду conf-script. Они удаляются при отключении функции.
+
+**Keenetic (Entware)**: установите `dnsmasq-full` (заменяет встроенный ndnproxy как LAN-резолвер).
+keen-pbr добавляет помеченный блок в `/opt/etc/dnsmasq.conf` с `conf-dir=/tmp/keen-pbr/dnsmasq.d,*.conf`;
+скрипт инициализации `S55keen-pbr-dnsmasq` пересоздаёт tmpfs drop-in при загрузке.
+Health показывает ошибку, если dnsmasq не установлен.
+
+**Debian**: установите `dnsmasq`. keen-pbr размещает drop-in в `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf`
+с однострочной командой `conf-script`.
+
+### Как это работает
+
+keen-pbr никогда не пишет сгенерированный конфиг dnsmasq на диск. Вместо этого:
+1. keen-pbr генерирует конфиг (правила домен-список, fallback-серверы и т.д.)
+2. keen-pbr размещает однострочный drop-in (`conf-script=keen-pbr generate-resolver-config dnsmasq`) в tmpfs-директорию
+3. dnsmasq запускает эту команду при старте и читает конфиг из её вывода
+4. dnsmasq перезапускается только когда генерируемый конфиг меняется (обновление списка, изменение настроек или один раз после старта keen-pbr)
+
+### При остановке, отключении или удалении
+
+- **Остановка keen-pbr**: dnsmasq НЕ перезапускается; per-list upstream-серверы остаются активными.
+- **Отключение функции** (`resolver_integration: "none"`): drop-in удаляется и dnsmasq перезапускается (возврат к upstream-серверам из resolv.conf).
+- **Удаление пакета**: drop-in и любые постоянные изменения в конфиге dnsmasq удаляются; dnsmasq перезапускается.
+
+### Решение проблем
+
+См. [Per-list DNS servers do not work]({{< relref "/docs/troubleshooting#per-list-dns-servers-do-not-work" >}}).
 
 ## DNS Test Server (устарел)
 
