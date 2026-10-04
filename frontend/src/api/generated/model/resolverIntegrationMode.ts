@@ -7,9 +7,8 @@
  */
 
 /**
- * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq. Accepted only so that old config files keep parsing.
+ * `none` (default) leaves the system resolver untouched. `dnsmasq` makes keen-pbr generate a dnsmasq config with per-list `server=` lines, install it through the platform hook and restart dnsmasq.
 
- * @deprecated
  */
 export type ResolverIntegrationMode = typeof ResolverIntegrationMode[keyof typeof ResolverIntegrationMode];
 

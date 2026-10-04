@@ -106,6 +106,15 @@ void Daemon::complete_running_runtime(const char* reason) {
     schedule_lists_autoupdate();
     transition_runtime_or_throw(RuntimeState::running, reason);
     publish_runtime_state();
+    schedule_dnsmasq_sync();
+}
+
+void Daemon::schedule_dnsmasq_sync() {
+    dnsmasq_manager_.request_sync(
+        config_, list_service_.cache_manager(),
+        [this](std::function<void()> task) {
+            return blocking_executor_.try_post("dnsmasq-sync", std::move(task));
+        });
 }
 
 void Daemon::restart_routing_runtime() {
@@ -736,6 +745,12 @@ ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
         list_service_.refresh_remote_lists(
             config_, outbound_marks_, &relevant_lists, target_lists);
 
+    if (result.refresh_result.any_changed()) {
+        // Domain lists feed the generated dnsmasq config; the content hash
+        // makes this a no-op when no dns.rules list was affected.
+        schedule_dnsmasq_sync();
+    }
+
     if (!result.refresh_result.changed_lists.empty()) {
         log.info("Lists refresh ({}): updated list(s): {}", source,
                  format_list_names(result.refresh_result.changed_lists));
@@ -820,6 +835,9 @@ void Daemon::commit_lists_refresh_async_result(
 
             ListsRefreshExecutionResult result;
             result.refresh_result = std::move(*refresh_result);
+            if (result.refresh_result.any_changed()) {
+                schedule_dnsmasq_sync();
+            }
 
             if (!result.refresh_result.changed_lists.empty()) {
                 Logger::instance().info("Lists refresh (autoupdate): updated list(s): {}",

@@ -22,6 +22,7 @@
 #include "auth/password.hpp"
 #include "cmd/status.hpp"
 #include "cmd/test_routing.hpp"
+#include "dns/dnsmasq_gen.hpp"
 #include "crash/crash_diagnostics.hpp"
 #include "daemon/daemon.hpp"
 #include "dns/dns_router.hpp"
@@ -76,6 +77,7 @@ struct CliOptions {
   bool resolver_config_hash{false};
   bool run_status{false};
   bool run_test_routing{false};
+  bool run_dnsmasq_config{false};
   std::string test_routing_target;
   bool show_help{false};
   bool show_version{false};
@@ -114,6 +116,8 @@ void print_usage(const char *argv0) {
                "lists to cache and exit\n"
             << "  test-routing <ip-or-domain>        Test expected vs actual "
                "routing for an IP or domain\n"
+            << "  dnsmasq-config                     Print the dnsmasq config generated "
+               "from dns.rules/dns.fallback (cached lists only)\n"
             << "  hash-password [--update]           Generate an authentication password hash; --update writes config.json\n";
 }
 
@@ -191,6 +195,8 @@ CliOptions parse_args(int argc, char *argv[]) {
       }
       opts.test_routing_target = argv[++i];
       opts.run_test_routing = true;
+    } else if (std::strcmp(argv[i], "dnsmasq-config") == 0) {
+      opts.run_dnsmasq_config = true;
     } else if (std::strcmp(argv[i], "hash-password") == 0) {
       opts.hash_password = true;
     } else if (std::strcmp(argv[i], "--update") == 0) {
@@ -355,7 +361,8 @@ int main(int argc, char *argv[]) {
 
     if (!opts.download_lists && !opts.generate_resolver_config &&
         !opts.resolver_config_hash && !opts.run_service && !opts.run_status &&
-        !opts.run_test_routing && !opts.hash_password) {
+        !opts.run_test_routing && !opts.hash_password &&
+        !opts.run_dnsmasq_config) {
       print_usage(argv[0]);
       return 0;
     }
@@ -389,6 +396,34 @@ int main(int argc, char *argv[]) {
       keen_pbr3::write_config_atomically(opts.config_path, body);
       std::cout << "Authentication password updated in " << opts.config_path << ".\n"
                 << "Restart the keen-pbr service for authentication changes to take effect.\n";
+      return 0;
+    }
+
+    if (opts.run_dnsmasq_config) {
+      const keen_pbr3::Config config = [&opts] {
+        std::ifstream config_stream(opts.config_path);
+        if (!config_stream.is_open()) {
+          throw std::runtime_error("Cannot open config file: " + opts.config_path);
+        }
+        return keen_pbr3::parse_config(config_stream);
+      }();
+      keen_pbr3::validate_config(config);
+      if (keen_pbr3::effective_resolver_integration(config) ==
+          keen_pbr3::ResolverIntegrationMode::NONE) {
+        std::cerr << "dns.resolver_integration is none: this config is not "
+                     "installed\n";
+      }
+      const auto dns = config.dns.value_or(keen_pbr3::DnsConfig{});
+      const auto lists =
+          config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{});
+      const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
+                                 .cache_dir.value_or("/var/cache/keen-pbr");
+      keen_pbr3::CacheManager cache(cache_dir,
+                                    keen_pbr3::max_file_size_bytes(config));
+      keen_pbr3::ListStreamer streamer(cache);
+      const keen_pbr3::DnsServerRegistry registry(dns);
+      keen_pbr3::DnsmasqGenerator generator(registry, streamer, dns, lists);
+      generator.generate(std::cout);
       return 0;
     }
 

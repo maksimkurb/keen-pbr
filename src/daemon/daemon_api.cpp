@@ -47,6 +47,23 @@ const char* config_operation_state_name(ConfigOperationState state) {
     return "unknown";
 }
 
+api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
+    api::DnsmasqHealth health;
+    health.mode = status.mode;
+    switch (status.state) {
+    case DnsmasqSyncState::Disabled: health.state = api::State::DISABLED; break;
+    case DnsmasqSyncState::Ok: health.state = api::State::OK; break;
+    case DnsmasqSyncState::Applying: health.state = api::State::APPLYING; break;
+    case DnsmasqSyncState::Error: health.state = api::State::ERROR; break;
+    }
+    if (!status.config_hash.empty()) health.config_hash = status.config_hash;
+    health.last_apply_ts = status.last_apply_ts;
+    if (!status.last_error.empty()) health.last_error = status.last_error;
+    health.rules = static_cast<std::int64_t>(status.rules);
+    health.domains = static_cast<std::int64_t>(status.domains);
+    return health;
+}
+
 } // namespace
 
 std::string Daemon::submit_lifecycle_operation(LifecycleRequest request) {
@@ -581,6 +598,7 @@ void Daemon::setup_api() {
                 rollback_available_.load(std::memory_order_acquire);
             service_health.lifecycle_operation = lifecycle_operation_store_.snapshot();
             service_health.intercept = build_intercept_health();
+            service_health.dnsmasq = to_dnsmasq_health(dnsmasq_manager_.status());
             return service_health;
         },
         [this]() {

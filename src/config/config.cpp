@@ -1458,6 +1458,51 @@ void validate_config(const Config& cfg) {
                 "at most one dns.servers entry may use type='keenetic'");
         }
 
+        if (cfg.dns->fallback.has_value()) {
+            std::set<std::string> seen_fallback_tags;
+            for (size_t i = 0; i < cfg.dns->fallback->size(); ++i) {
+                const std::string& fallback_tag = (*cfg.dns->fallback)[i];
+                const std::string path = "dns.fallback." + std::to_string(i);
+
+                if (fallback_tag.empty()) {
+                    add_issue(issues, path,
+                              "dns.fallback[" + std::to_string(i) + "] must not be empty");
+                    continue;
+                }
+
+                if (!seen_fallback_tags.insert(fallback_tag).second) {
+                    add_issue(issues, path,
+                              "dns.fallback[" + std::to_string(i) +
+                                  "] duplicates DNS server tag \"" + fallback_tag + "\"");
+                }
+
+                if (dns_server_tags.find(fallback_tag) == dns_server_tags.end()) {
+                    add_issue(issues, path,
+                              "dns.fallback[" + std::to_string(i) +
+                                  "] references unknown DNS server tag \"" + fallback_tag + "\"");
+                }
+            }
+        }
+
+        const auto dns_rules = cfg.dns->rules.value_or(std::vector<DnsRule>{});
+        for (size_t rule_index = 0; rule_index < dns_rules.size(); ++rule_index) {
+            const auto& rule = dns_rules[rule_index];
+            const std::string rule_path = "dns.rules[" + std::to_string(rule_index) + "]";
+
+            validate_required_reference(issues,
+                                        dns_server_tags,
+                                        rule_path + ".server",
+                                        rule_path,
+                                        rule.server,
+                                        "DNS server tag");
+            if (rule.list.empty()) {
+                add_issue(issues,
+                          rule_path + ".list",
+                          rule_path + ".list must include at least one list name");
+            } else {
+                validate_rule_list_references(issues, list_names, rule_path, rule.list);
+            }
+        }
     }
 
     for (const auto& warning : config_warnings(cfg)) {
@@ -1487,12 +1532,8 @@ FirewallBackendPreference firewall_backend_preference(const Config& config) {
 std::vector<std::string> config_warnings(const Config& config) {
     std::vector<std::string> warnings;
     std::vector<std::string> ignored;
-    if (config.dns.has_value()) {
-        const auto& dns = *config.dns;
-        if (dns.rules.has_value()) ignored.push_back("dns.rules");
-        if (dns.fallback.has_value()) ignored.push_back("dns.fallback");
-        if (dns.system_resolver.has_value()) ignored.push_back("dns.system_resolver");
-        if (dns.resolver_integration.has_value()) ignored.push_back("dns.resolver_integration");
+    if (config.dns.has_value() && config.dns->system_resolver.has_value()) {
+        ignored.push_back("dns.system_resolver");
     }
     if (config.daemon.has_value() &&
         config.daemon->resolver_ready_timeout_seconds.has_value()) {
@@ -1504,9 +1545,14 @@ std::vector<std::string> config_warnings(const Config& config) {
             if (!list.empty()) list += ", ";
             list += name;
         }
+        warnings.push_back(list + " ignored: deprecated since 3.0.0");
+    }
+    if (config.dns.has_value() &&
+        effective_resolver_integration(config) == ResolverIntegrationMode::NONE &&
+        (!config.dns->rules.value_or(std::vector<DnsRule>{}).empty() ||
+         !config.dns->fallback.value_or(std::vector<std::string>{}).empty())) {
         warnings.push_back(
-            list + " ignored: keen-pbr no longer manages dnsmasq; "
-            "DNS-based sets are filled by interception");
+            "dns.rules/dns.fallback ignored: dns.resolver_integration is \"none\"");
     }
     if (config.dns.has_value() && config.dns->dns_test_server.has_value()) {
         warnings.push_back(

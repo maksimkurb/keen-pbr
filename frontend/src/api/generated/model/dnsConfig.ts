@@ -13,24 +13,18 @@ import type { ResolverIntegrationMode } from './resolverIntegrationMode';
 
 export interface DnsConfig {
   servers?: DnsServer[];
-  /**
-     * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
-     * @deprecated
-     */
+  /** Per-list DNS upstream selection. Used only when `resolver_integration` is `dnsmasq`.
+   */
   rules?: DnsRule[];
-  /**
-     * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
-     * @deprecated
-     */
+  /** DNS server tags used as dnsmasq's default upstreams. When set, the generated config adds `no-resolv` and unscoped `server=` lines. Used only when `resolver_integration` is `dnsmasq`.
+   */
   fallback?: string[];
-  /**
-     * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
-     * @deprecated
-     */
+  /** `none` (default) | `dnsmasq`. With `dnsmasq`, keen-pbr generates a dnsmasq config with per-list `server=` lines, installs it via the platform hook and restarts dnsmasq. If absent and `dns.rules` is non-empty, `dnsmasq` is assumed (upgrade compatibility).
+   */
   resolver_integration?: ResolverIntegrationMode;
   dns_test_server?: DnsTestServer;
   /**
-     * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
+     * Ignored since 3.0.0.
      * @deprecated
      */
   system_resolver?: DnsSystemResolver;

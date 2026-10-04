@@ -20,6 +20,7 @@
 #include "../util/blocking_executor.hpp"
 #include "../util/traced_mutex.hpp"
 #include "config_store.hpp"
+#include "dnsmasq_manager.hpp"
 #include "list_service.hpp"
 #include "pid_file.hpp"
 #include "runtime_state_store.hpp"
@@ -269,6 +270,9 @@ private:
   // Marks the start of a runtime apply and refreshes the control snapshot.
   void begin_runtime_generation();
   void schedule_lists_autoupdate();
+  // Queues a (coalesced) regeneration of the dnsmasq config for the current
+  // configuration on a blocking worker.
+  void schedule_dnsmasq_sync();
   ListsRefreshExecutionResult execute_remote_list_refresh(
       const std::set<std::string> *target_lists = nullptr,
       std::string_view source = "service");
@@ -399,6 +403,9 @@ IcmpTester icmp_tester_;
   // generation and are cleared whenever the configured groups are rebuilt.
   std::map<std::string, PendingUrltestConntrackCleanup>
       pending_urltest_conntrack_cleanup_;
+  // Declared before the executor: queued sync jobs reference it, so the
+  // executor must be torn down first.
+  DnsmasqManager dnsmasq_manager_;
   BlockingExecutor blocking_executor_{2, 64};
   // Interception service and its resolved settings.  The service pointer and
   // the effective settings are read by API threads; everything else is owned

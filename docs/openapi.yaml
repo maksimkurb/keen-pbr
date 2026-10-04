@@ -1160,9 +1160,10 @@ components:
 
     DnsRule:
       type: object
-      deprecated: true
       description: >
-        Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
+        Routes DNS queries for the domains of the referenced lists to a specific
+        upstream. Applied through the generated dnsmasq config, so it takes
+        effect only when `dns.resolver_integration` is `dnsmasq`.
       required: [list, server]
       properties:
         enabled:
@@ -1213,9 +1214,10 @@ components:
       type: string
       enum: [none, dnsmasq]
       default: none
-      deprecated: true
       description: >
-        Ignored since 3.0.0: keen-pbr no longer manages dnsmasq. Accepted only so that old config files keep parsing.
+        `none` (default) leaves the system resolver untouched. `dnsmasq` makes
+        keen-pbr generate a dnsmasq config with per-list `server=` lines,
+        install it through the platform hook and restart dnsmasq.
 
     DnsSystemResolver:
       type: object
@@ -1242,26 +1244,32 @@ components:
             $ref: "#/components/schemas/DnsServer"
         rules:
           type: array
-          deprecated: true
-          description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception."
+          description: >
+            Per-list DNS upstream selection. Used only when
+            `resolver_integration` is `dnsmasq`.
           items:
             $ref: "#/components/schemas/DnsRule"
         fallback:
           type: array
-          deprecated: true
-          description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception."
+          description: >
+            DNS server tags used as dnsmasq's default upstreams. When set, the
+            generated config adds `no-resolv` and unscoped `server=` lines.
+            Used only when `resolver_integration` is `dnsmasq`.
           items:
             type: string
         resolver_integration:
-          deprecated: true
-          description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception."
+          description: >
+            `none` (default) | `dnsmasq`. With `dnsmasq`, keen-pbr generates a
+            dnsmasq config with per-list `server=` lines, installs it via the
+            platform hook and restarts dnsmasq. If absent and `dns.rules` is
+            non-empty, `dnsmasq` is assumed (upgrade compatibility).
           allOf:
             - $ref: "#/components/schemas/ResolverIntegrationMode"
         dns_test_server:
           $ref: "#/components/schemas/DnsTestServer"
         system_resolver:
           deprecated: true
-          description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception."
+          description: "Ignored since 3.0.0."
           allOf:
             - $ref: "#/components/schemas/DnsSystemResolver"
 
@@ -2022,6 +2030,45 @@ components:
           $ref: "#/components/schemas/LifecycleOperation"
         intercept:
           $ref: "#/components/schemas/InterceptHealth"
+        dnsmasq:
+          $ref: "#/components/schemas/DnsmasqHealth"
+
+    DnsmasqHealth:
+      type: object
+      required: [mode, state, rules, domains]
+      description: Status of the generated dnsmasq config (`dns.resolver_integration`).
+      properties:
+        mode:
+          type: string
+          enum: [none, dnsmasq]
+          description: Effective resolver integration mode.
+        state:
+          type: string
+          enum: [disabled, ok, applying, error]
+          description: >
+            - disabled: resolver integration is `none`
+            - ok: the current config is installed
+            - applying: the platform hook is running
+            - error: generating or installing the config failed
+        config_hash:
+          type: string
+          nullable: true
+          description: MD5 of the config last installed successfully.
+        last_apply_ts:
+          type: integer
+          format: int64
+          nullable: true
+          description: Unix timestamp (seconds) of the last successful install.
+        last_error:
+          type: string
+          nullable: true
+          description: Failure reason of the last sync, null when the last sync succeeded.
+        rules:
+          type: integer
+          description: Number of enabled `dns.rules` in the generated config.
+        domains:
+          type: integer
+          description: Number of domains written to the generated config.
 
     LifecycleOperationAcceptedResponse:
       type: object

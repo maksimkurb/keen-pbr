@@ -5,6 +5,7 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { DnsmasqHealth } from './dnsmasqHealth';
 import type { HealthResponseRuntimeState } from './healthResponseRuntimeState';
 import type { HealthResponseStatus } from './healthResponseStatus';
 import type { InterceptHealth } from './interceptHealth';
@@ -38,4 +39,5 @@ export interface HealthResponse {
   rollback_available: boolean;
   lifecycle_operation?: LifecycleOperation;
   intercept?: InterceptHealth;
+  dnsmasq?: DnsmasqHealth;
 }

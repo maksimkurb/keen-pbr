@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesE3Y34A data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesA7SoEl data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -413,6 +413,18 @@ namespace api {
         DnsTestInterceptEventType type;
     };
 
+    enum class State : int { APPLYING, DISABLED, ERROR, OK };
+
+    struct DnsmasqHealth {
+        std::optional<std::string> config_hash;
+        int64_t domains;
+        std::optional<int64_t> last_apply_ts;
+        std::optional<std::string> last_error;
+        ResolverIntegration mode;
+        int64_t rules;
+        State state;
+    };
+
     struct ValidationErrorElement {
         std::string message;
         std::optional<std::string> path;
@@ -525,6 +537,7 @@ namespace api {
         std::string build;
         std::string build_variant;
         bool config_is_draft;
+        std::optional<DnsmasqHealth> dnsmasq;
         std::optional<InterceptHealthClass> intercept;
         std::optional<LifecycleOperation> lifecycle_operation;
         std::string os_type;
@@ -736,7 +749,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesE3Y34A {
+    struct KeenPbrTypesA7SoEl {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -757,6 +770,7 @@ namespace api {
         std::optional<Daemon> daemon_config;
         std::optional<DefaultGateway> default_gateway;
         std::optional<DnsConfigClass> dns_config;
+        std::optional<DnsmasqHealth> dnsmasq_health;
         std::optional<DnsRuleElement> dns_rule;
         std::optional<DnsServerElement> dns_server;
         std::optional<SystemResolver> dns_system_resolver;
@@ -943,6 +957,9 @@ namespace api {
     void from_json(const json & j, DnsTestInterceptEvent & x);
     void to_json(json & j, const DnsTestInterceptEvent & x);
 
+    void from_json(const json & j, DnsmasqHealth & x);
+    void to_json(json & j, const DnsmasqHealth & x);
+
     void from_json(const json & j, ValidationErrorElement & x);
     void to_json(json & j, const ValidationErrorElement & x);
 
@@ -1048,8 +1065,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesE3Y34A & x);
-    void to_json(json & j, const KeenPbrTypesE3Y34A & x);
+    void from_json(const json & j, KeenPbrTypesA7SoEl & x);
+    void to_json(json & j, const KeenPbrTypesA7SoEl & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1086,6 +1103,9 @@ namespace api {
 
     void from_json(const json & j, DnsTestInterceptEventType & x);
     void to_json(json & j, const DnsTestInterceptEventType & x);
+
+    void from_json(const json & j, State & x);
+    void to_json(json & j, const State & x);
 
     void from_json(const json & j, PayloadReplacement & x);
     void to_json(json & j, const PayloadReplacement & x);
@@ -1782,6 +1802,27 @@ namespace api {
         j["type"] = x.type;
     }
 
+    inline void from_json(const json & j, DnsmasqHealth& x) {
+        x.config_hash = get_stack_optional<std::string>(j, "config_hash");
+        x.domains = j.at("domains").get<int64_t>();
+        x.last_apply_ts = get_stack_optional<int64_t>(j, "last_apply_ts");
+        x.last_error = get_stack_optional<std::string>(j, "last_error");
+        x.mode = j.at("mode").get<ResolverIntegration>();
+        x.rules = j.at("rules").get<int64_t>();
+        x.state = j.at("state").get<State>();
+    }
+
+    inline void to_json(json & j, const DnsmasqHealth & x) {
+        j = json::object();
+        j["config_hash"] = x.config_hash;
+        j["domains"] = x.domains;
+        j["last_apply_ts"] = x.last_apply_ts;
+        j["last_error"] = x.last_error;
+        j["mode"] = x.mode;
+        j["rules"] = x.rules;
+        j["state"] = x.state;
+    }
+
     inline void from_json(const json & j, ValidationErrorElement& x) {
         x.message = j.at("message").get<std::string>();
         x.path = get_stack_optional<std::string>(j, "path");
@@ -1983,6 +2024,7 @@ namespace api {
         x.build = j.at("build").get<std::string>();
         x.build_variant = j.at("build_variant").get<std::string>();
         x.config_is_draft = j.at("config_is_draft").get<bool>();
+        x.dnsmasq = get_stack_optional<DnsmasqHealth>(j, "dnsmasq");
         x.intercept = get_stack_optional<InterceptHealthClass>(j, "intercept");
         x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "lifecycle_operation");
         x.os_type = j.at("os_type").get<std::string>();
@@ -2000,6 +2042,7 @@ namespace api {
         j["build"] = x.build;
         j["build_variant"] = x.build_variant;
         j["config_is_draft"] = x.config_is_draft;
+        j["dnsmasq"] = x.dnsmasq;
         j["intercept"] = x.intercept;
         j["lifecycle_operation"] = x.lifecycle_operation;
         j["os_type"] = x.os_type;
@@ -2387,7 +2430,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesE3Y34A& x) {
+    inline void from_json(const json & j, KeenPbrTypesA7SoEl& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2408,6 +2451,7 @@ namespace api {
         x.daemon_config = get_stack_optional<Daemon>(j, "DaemonConfig");
         x.default_gateway = get_stack_optional<DefaultGateway>(j, "DefaultGateway");
         x.dns_config = get_stack_optional<DnsConfigClass>(j, "DnsConfig");
+        x.dnsmasq_health = get_stack_optional<DnsmasqHealth>(j, "DnsmasqHealth");
         x.dns_rule = get_stack_optional<DnsRuleElement>(j, "DnsRule");
         x.dns_server = get_stack_optional<DnsServerElement>(j, "DnsServer");
         x.dns_system_resolver = get_stack_optional<SystemResolver>(j, "DnsSystemResolver");
@@ -2470,7 +2514,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesE3Y34A & x) {
+    inline void to_json(json & j, const KeenPbrTypesA7SoEl & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2492,6 +2536,7 @@ namespace api {
         j["DaemonConfig"] = x.daemon_config;
         j["DefaultGateway"] = x.default_gateway;
         j["DnsConfig"] = x.dns_config;
+        j["DnsmasqHealth"] = x.dnsmasq_health;
         j["DnsRule"] = x.dns_rule;
         j["DnsServer"] = x.dns_server;
         j["DnsSystemResolver"] = x.dns_system_resolver;
@@ -2733,6 +2778,24 @@ namespace api {
         switch (x) {
             case DnsTestInterceptEventType::INTERCEPT: j = "INTERCEPT"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"DnsTestInterceptEventType\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, State & x) {
+        if (j == "applying") x = State::APPLYING;
+        else if (j == "disabled") x = State::DISABLED;
+        else if (j == "error") x = State::ERROR;
+        else if (j == "ok") x = State::OK;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"State\""); }
+    }
+
+    inline void to_json(json & j, const State & x) {
+        switch (x) {
+            case State::APPLYING: j = "applying"; break;
+            case State::DISABLED: j = "disabled"; break;
+            case State::ERROR: j = "error"; break;
+            case State::OK: j = "ok"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"State\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

@@ -59,6 +59,7 @@ api::HealthResponse build_health_response(const ServiceHealthState& service_heal
         }
 
         resp.intercept = service_health.intercept;
+        resp.dnsmasq = service_health.dnsmasq;
         resp.config_is_draft = service_health.config_is_draft;
         resp.rollback_available = service_health.rollback_available;
         return resp;

@@ -7,9 +7,8 @@
  */
 
 /**
- * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
+ * Routes DNS queries for the domains of the referenced lists to a specific upstream. Applied through the generated dnsmasq config, so it takes effect only when `dns.resolver_integration` is `dnsmasq`.
 
- * @deprecated
  */
 export interface DnsRule {
   /** Whether this DNS rule is active. `false` disables the rule. `true`, omitted, or `null` all mean the rule is active.

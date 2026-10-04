@@ -8,6 +8,7 @@
 #include <string>
 #include <fstream>
 #include <algorithm>
+#include <cstdio>
 
 using namespace keen_pbr3;
 
@@ -1447,13 +1448,13 @@ TEST_CASE("config warnings: deprecated resolver fields are reported in one warni
     CHECK_NOTHROW(validate_config(cfg));
     const auto warnings = config_warnings(cfg);
     REQUIRE(warnings.size() == 1);
-    for (const char* field : {"dns.rules", "dns.fallback", "dns.system_resolver",
-                              "dns.resolver_integration",
+    for (const char* field : {"dns.system_resolver",
                               "daemon.resolver_ready_timeout_seconds"}) {
         CAPTURE(field);
         CHECK(warnings.front().find(field) != std::string::npos);
     }
-    CHECK(warnings.front().find("no longer manages dnsmasq") != std::string::npos);
+    CHECK(warnings.front().find("dns.rules") == std::string::npos);
+    CHECK(warnings.front().find("ignored: deprecated since 3.0.0") != std::string::npos);
 }
 
 TEST_CASE("config warnings: no deprecation warning without deprecated fields") {
@@ -1462,6 +1463,75 @@ TEST_CASE("config warnings: no deprecation warning without deprecated fields") {
     })");
     CHECK(config_warnings(cfg).empty());
     CHECK(config_warnings(parse_config("{}")).empty());
+}
+
+TEST_CASE("config warnings: rules and fallback are ignored when integration is none") {
+    const char* base = R"({
+        "lists": {"l": {"domains": ["example.com"]}},
+        "dns": {
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "resolver_integration": "none",
+            %s
+        }
+    })";
+    auto render = [&](const char* body) {
+        char buf[1024];
+        std::snprintf(buf, sizeof(buf), base, body);
+        return parse_config(buf);
+    };
+    for (const char* body : {R"("rules": [{"list":["l"],"server":"plain_dns"}])",
+                             R"("fallback": ["plain_dns"])"}) {
+        const auto warnings = config_warnings(render(body));
+        REQUIRE(warnings.size() == 1);
+        CHECK(warnings.front() ==
+              "dns.rules/dns.fallback ignored: dns.resolver_integration is \"none\"");
+    }
+    CHECK(config_warnings(render(R"("rules": [], "fallback": [])")).empty());
+}
+
+TEST_CASE("effective resolver integration: explicit value wins, absent follows dns.rules") {
+    auto mode = [](const char* json) {
+        return effective_resolver_integration(parse_config(json));
+    };
+    CHECK(mode(R"({})") == ResolverIntegrationMode::NONE);
+    CHECK(mode(R"({"dns":{"resolver_integration":"none",
+        "rules":[{"list":["l"],"server":"s"}]}})") == ResolverIntegrationMode::NONE);
+    CHECK(mode(R"({"dns":{"resolver_integration":"dnsmasq"}})") ==
+          ResolverIntegrationMode::DNSMASQ);
+    CHECK(mode(R"({"dns":{"rules":[{"list":["l"],"server":"s"}]}})") ==
+          ResolverIntegrationMode::DNSMASQ);
+    CHECK(mode(R"({"dns":{"rules":[]}})") == ResolverIntegrationMode::NONE);
+    CHECK(mode(R"({"dns":{"system_resolver":{"address":"127.0.0.1"}}})") ==
+          ResolverIntegrationMode::NONE);
+    CHECK(std::string(resolver_integration_name(ResolverIntegrationMode::DNSMASQ)) == "dnsmasq");
+    CHECK(std::string(resolver_integration_name(ResolverIntegrationMode::NONE)) == "none");
+}
+
+TEST_CASE("dns rules validation: unknown server, list and fallback tags are rejected") {
+    const std::string lists = R"("lists":{"l":{"domains":["example.com"]}},)";
+    const auto ok = validate_issues("{" + lists +
+        R"("dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
+        "rules":[{"list":["l"],"server":"s"}],"fallback":["s"]}})");
+    CHECK(ok.empty());
+
+    const auto bad_server = validate_issues("{" + lists +
+        R"("dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
+        "rules":[{"list":["l"],"server":"nope"}]}})");
+    REQUIRE(bad_server.size() == 1);
+    CHECK(bad_server[0].path == "dns.rules[0].server");
+    CHECK(bad_server[0].message.find("unknown DNS server tag 'nope'") != std::string::npos);
+
+    const auto bad_list = validate_issues("{" + lists +
+        R"("dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
+        "rules":[{"list":["missing"],"server":"s"}]}})");
+    REQUIRE(bad_list.size() == 1);
+    CHECK(bad_list[0].path == "dns.rules[0].list[0]");
+
+    const auto bad_fallback = validate_issues(
+        R"({"dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],"fallback":["nope"]}})");
+    REQUIRE(bad_fallback.size() == 1);
+    CHECK(bad_fallback[0].path == "dns.fallback.0");
+    CHECK(bad_fallback[0].message.find("unknown DNS server tag") != std::string::npos);
 }
 
 TEST_CASE("shipped example configs validate and include default local_networks rule") {
