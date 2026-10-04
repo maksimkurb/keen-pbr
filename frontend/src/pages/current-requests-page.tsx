@@ -295,7 +295,7 @@ function RequestTableRow({
               render={
                 <button
                   aria-label={t("currentRequests.copyIps", { value: ips })}
-                  className="block max-w-full text-left font-mono underline decoration-dotted underline-offset-2"
+                  className="block max-w-56 truncate text-left font-mono underline decoration-dotted underline-offset-2"
                   onClick={() => void copyIps(row.ips)}
                   type="button"
                 />
