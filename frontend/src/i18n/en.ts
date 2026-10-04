@@ -485,6 +485,24 @@ export const enTranslation = {
     empty: "No requests observed yet.",
     gap: "Events {{from}}–{{to}} were lost before delivery.",
     copyIps: "Copy IP addresses: {{value}}",
+    filters: {
+      count: "{{shown}} of {{total}}",
+      clear: "Clear filters",
+      noMatches: "No requests match the filters.",
+      invalidIp: "Invalid CIDR subnet; the IP filter is ignored.",
+      placeholder: {
+        device: "192.168.1.*",
+        domain: "*.example.com",
+        ip: "10.0.0.0/8, 192.168.*",
+      },
+      hint: {
+        device:
+          "Wildcards: * any text, ? one character. Without wildcards, matches a substring.",
+        domain:
+          "Wildcards: * any text, ? one character. Without wildcards, matches a substring.",
+        ip: "Exact IP, wildcard (10.0.*, *::1) or CIDR subnet (10.0.0.0/8, 2001:db8::/32). Matches any resolved address.",
+      },
+    },
     columns: {
       device: "Device",
       method: "Method",
