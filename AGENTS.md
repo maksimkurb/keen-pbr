@@ -10,6 +10,24 @@ make
 
 This runs `cmake -S . -B cmake-build ...` followed by `cmake --build cmake-build`.
 
+### Leave CPUs free
+
+Never compile on all CPUs: a full-width build freezes the user's machine,
+especially when it runs in the background. Keep 1 CPU free on machines with
+6 or fewer CPUs, and 2 CPUs free on machines with more:
+
+```sh
+JOBS=$(n=$(nproc); if [ "$n" -le 6 ]; then echo $((n > 1 ? n - 1 : 1)); else echo $((n - 2)); fi)
+make -j"$JOBS" BUILD_JOBS="$JOBS" <target>
+```
+
+- Always pass both `-j` (make's own jobs) and `BUILD_JOBS` (forwarded to
+  `cmake --build --parallel`; it defaults to all CPUs).
+- When calling CMake directly, always give an explicit count:
+  `cmake --build <dir> --parallel "$JOBS"`. A bare `--parallel` (or `-j`
+  without a number) means unlimited jobs.
+- The same limit applies to subagents; include it in their instructions.
+
 ## C++
 
 When a multiplication produces a size or count for a wider integer type, make
