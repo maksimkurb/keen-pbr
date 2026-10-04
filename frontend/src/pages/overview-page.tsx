@@ -42,8 +42,6 @@ import { PageHeader } from "@/components/shared/page-header"
 import { RuntimeOutboundDetails } from "@/components/shared/runtime-outbound-state"
 import { SectionCard } from "@/components/shared/section-card"
 import {
-  CompactDiagnosticRow,
-  InlineMeta,
   RoutingHealthCard,
 } from "@/components/overview/routing-health-card"
 import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
@@ -52,7 +50,7 @@ import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
 import {
   collectInterceptDiagnosticErrors,
-  getVisibleInterceptDiagnosticEntries,
+  mapKernelDiagnosticEntries,
 } from "@/lib/intercept-diagnostics"
 import { useAuth } from "@/auth/auth-context"
 import { Link } from "wouter"
@@ -160,6 +158,31 @@ export function OverviewPage() {
       return [tagCell]
     })
   }, [loadedConfig, runtimeInterfaceByName, runtimeOutboundByTag, t])
+
+  const requestedInterceptDns =
+    Boolean(loadedConfig) &&
+    loadedConfig?.intercept?.enabled !== false &&
+    loadedConfig?.intercept?.dns?.enabled !== false
+  const requestedInterceptL7 =
+    Boolean(loadedConfig) &&
+    loadedConfig?.intercept?.enabled !== false &&
+    loadedConfig?.intercept?.l7?.enabled !== false
+  const interceptHealth = serviceHealth?.intercept
+  const kernelDiagnostics = useMemo(
+    () =>
+      interceptHealth
+        ? {
+            release: interceptHealth.kernel_release || undefined,
+            entries: mapKernelDiagnosticEntries(
+              interceptHealth.capabilities,
+              interceptHealth.probes ?? [],
+              requestedInterceptDns,
+              requestedInterceptL7
+            ),
+          }
+        : undefined,
+    [interceptHealth, requestedInterceptDns, requestedInterceptL7]
+  )
 
   const routingHealthErrorMessage = routingHealthQuery.isError
     ? getRoutingHealthErrorMessage(routingHealthQuery.error, t)
@@ -337,20 +360,13 @@ export function OverviewPage() {
               <span>{t("overview.routing.showHealthyEntries")}</span>
             </label>
           </div>
-          <InterceptHealthCard
-            health={serviceHealth?.intercept}
-            requestedDns={
-              Boolean(loadedConfig) &&
-              loadedConfig?.intercept?.enabled !== false &&
-              loadedConfig?.intercept?.dns?.enabled !== false
-            }
-            requestedL7={
-              Boolean(loadedConfig) &&
-              loadedConfig?.intercept?.enabled !== false &&
-              loadedConfig?.intercept?.l7?.enabled !== false
-            }
-            showHealthyEntries={showHealthyDiagnostics}
-          />
+          {routingHealth || kernelDiagnostics ? (
+            <RoutingHealthCard
+              kernel={kernelDiagnostics}
+              routingHealth={routingHealth}
+              showHealthyEntries={showHealthyDiagnostics}
+            />
+          ) : null}
           {routingHealthQuery.isLoading ? <TableSkeleton /> : null}
           {routingHealthQuery.isError ? (
             <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
@@ -359,12 +375,11 @@ export function OverviewPage() {
               </AlertDescription>
             </Alert>
           ) : null}
-          {routingHealth ? (
-            <RoutingHealthCard
-              routingHealth={routingHealth}
-              showHealthyEntries={showHealthyDiagnostics}
-            />
-          ) : null}
+          <InterceptHealthCard
+            health={serviceHealth?.intercept}
+            requestedDns={requestedInterceptDns}
+            requestedL7={requestedInterceptL7}
+          />
         </SectionCard>
       </div>
 
@@ -756,12 +771,10 @@ function InterceptHealthCard({
   health,
   requestedDns,
   requestedL7,
-  showHealthyEntries,
 }: {
   health?: InterceptHealth
   requestedDns: boolean
   requestedL7: boolean
-  showHealthyEntries: boolean
 }) {
   const { t } = useTranslation()
 
@@ -769,51 +782,6 @@ function InterceptHealthCard({
     return null
   }
 
-  const capabilities = [
-    ["nfqueue", health.capabilities.nfqueue, requestedDns],
-    ["nflog", health.capabilities.nflog, requestedL7],
-    ["connbytes", health.capabilities.connbytes, requestedL7],
-  ] as const
-  const capabilityRows = getVisibleInterceptDiagnosticEntries(
-    capabilities.map(([name, supported, relevant]) => ({
-      key: name,
-      primary: (
-        <span className="font-medium">
-          {t(`overview.intercept.capabilities.${name}`)}
-        </span>
-      ),
-      relevant,
-      status: supported ? "ok" : "unsupported",
-      statusLabel: supported
-        ? t("overview.intercept.supported")
-        : t("overview.intercept.unsupported"),
-    })),
-    showHealthyEntries
-  )
-  const probeRows = getVisibleInterceptDiagnosticEntries(
-    (health.probes ?? []).map((probe) => {
-      const relevant =
-        (probe.feature === "nfqueue" && requestedDns) ||
-        ((probe.feature === "nflog" || probe.feature === "connbytes") &&
-          requestedL7) ||
-        ((requestedDns || requestedL7) &&
-          !["nfqueue", "nflog", "connbytes"].includes(probe.feature))
-      return {
-        key: probe.feature,
-        primary: (
-          <>
-            <span className="font-medium">{probe.feature}</span>
-            {probe.reason ? <InlineMeta>{probe.reason}</InlineMeta> : null}
-          </>
-        ),
-        status: probe.status,
-        statusLabel: t(`overview.intercept.probes.status.${probe.status}`),
-        relevant,
-      }
-    }),
-    showHealthyEntries
-  )
-  const rows = [...capabilityRows, ...probeRows]
   const errors = collectInterceptDiagnosticErrors(
     health.capabilities,
     health.probes ?? [],
@@ -822,7 +790,6 @@ function InterceptHealthCard({
   )
 
   if (
-    rows.length === 0 &&
     errors.length === 0 &&
     (health.warnings?.length ?? 0) === 0 &&
     health.reasons.length === 0
@@ -831,34 +798,7 @@ function InterceptHealthCard({
   }
 
   return (
-    <div className="space-y-4 border-b pb-4">
-      {rows.length > 0 ? (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">
-              {t("overview.intercept.checksTitle")}
-            </h3>
-            {health.kernel_release ? (
-              <span className="text-xs text-muted-foreground">
-                {t("overview.intercept.probes.kernel", {
-                  release: health.kernel_release,
-                })}
-              </span>
-            ) : null}
-          </div>
-          <div className="space-y-2" data-testid="intercept-probes">
-            {rows.map((row) => (
-              <CompactDiagnosticRow
-                key={row.key}
-                primary={row.primary}
-                status={row.status}
-                statusLabel={row.statusLabel}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
+    <div className="space-y-4">
       {errors.length > 0 ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
           <AlertDescription>

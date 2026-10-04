@@ -8,6 +8,11 @@ import type {
 } from "@/api/generated/model"
 import { Badge } from "@/components/ui/badge"
 import {
+  getKernelBadgeState,
+  getVisibleInterceptDiagnosticEntries,
+  type KernelDiagnosticEntry,
+} from "@/lib/intercept-diagnostics"
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -15,36 +20,55 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 
-type StatusTone = "healthy" | "warning" | "degraded"
+type StatusTone = "healthy" | "warning" | "degraded" | "neutral"
+
+export type KernelDiagnostics = {
+  release?: string
+  entries: KernelDiagnosticEntry[]
+}
 
 export function RoutingHealthCard({
   routingHealth,
+  kernel,
   showHealthyEntries = false,
 }: {
-  routingHealth: RoutingHealthResponse
+  routingHealth?: RoutingHealthResponse
+  kernel?: KernelDiagnostics
   showHealthyEntries?: boolean
 }) {
   const { t } = useTranslation()
 
   const firewallRules = useMemo(
     () =>
-      filterByHealth(routingHealth.firewall_rules ?? [], showHealthyEntries),
-    [routingHealth.firewall_rules, showHealthyEntries]
+      filterByHealth(routingHealth?.firewall_rules ?? [], showHealthyEntries),
+    [routingHealth?.firewall_rules, showHealthyEntries]
   )
   const routeTables = useMemo(
-    () => filterByHealth(routingHealth.route_tables ?? [], showHealthyEntries),
-    [routingHealth.route_tables, showHealthyEntries]
+    () => filterByHealth(routingHealth?.route_tables ?? [], showHealthyEntries),
+    [routingHealth?.route_tables, showHealthyEntries]
   )
   const policyRules = useMemo(
-    () => filterByHealth(routingHealth.policy_rules ?? [], showHealthyEntries),
-    [routingHealth.policy_rules, showHealthyEntries]
+    () => filterByHealth(routingHealth?.policy_rules ?? [], showHealthyEntries),
+    [routingHealth?.policy_rules, showHealthyEntries]
   )
+  const kernelEntries = useMemo(
+    () =>
+      getVisibleInterceptDiagnosticEntries(
+        kernel?.entries ?? [],
+        showHealthyEntries
+      ),
+    [kernel?.entries, showHealthyEntries]
+  )
+  const kernelBadgeState = kernel
+    ? getKernelBadgeState(kernel.entries)
+    : undefined
 
   const groupedRoutes = useMemo(
     () => groupRouteTables(routeTables),
     [routeTables]
   )
   const hasVisibleEntries =
+    kernelEntries.length > 0 ||
     firewallRules.length > 0 ||
     groupedRoutes.length > 0 ||
     policyRules.length > 0
@@ -52,23 +76,44 @@ export function RoutingHealthCard({
   return (
     <div className="flex flex-1 flex-col space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge tone={mapCheckTone(routingHealth.overall)}>
-          {routingHealth.overall}
-        </StatusBadge>
-        <Badge size="xs" variant="outline">
-          {routingHealth.firewall_backend}
-        </Badge>
-        <ChainStateBadge isHealthy={routingHealth.firewall.chain_present}>
-          {t("overview.routing.chain")}
-        </ChainStateBadge>
-        <ChainStateBadge
-          isHealthy={routingHealth.firewall.prerouting_hook_present}
-        >
-          {t("overview.routing.prerouting")}
-        </ChainStateBadge>
+        {routingHealth ? (
+          <>
+            <StatusBadge tone={mapCheckTone(routingHealth.overall)}>
+              {routingHealth.overall}
+            </StatusBadge>
+            <Badge size="xs" variant="outline">
+              {routingHealth.firewall_backend}
+            </Badge>
+            <ChainStateBadge isHealthy={routingHealth.firewall.chain_present}>
+              {t("overview.routing.chain")}
+            </ChainStateBadge>
+            <ChainStateBadge
+              isHealthy={routingHealth.firewall.prerouting_hook_present}
+            >
+              {t("overview.routing.prerouting")}
+            </ChainStateBadge>
+          </>
+        ) : null}
+        {kernelBadgeState ? (
+          <span
+            data-testid="kernel-badge"
+            data-state={kernelBadgeState}
+            title={
+              kernel?.release
+                ? t("overview.intercept.probes.kernel", {
+                    release: kernel.release,
+                  })
+                : undefined
+            }
+          >
+            <StatusBadge tone={kernelBadgeState}>
+              {t("overview.routing.kernel")}
+            </StatusBadge>
+          </span>
+        ) : null}
       </div>
 
-      {!hasVisibleEntries ? (
+      {!hasVisibleEntries && routingHealth ? (
         <Empty className="min-h-0 flex-1 rounded-lg border border-dashed px-4 py-6">
           <EmptyHeader>
             {!showHealthyEntries ? (
@@ -91,6 +136,47 @@ export function RoutingHealthCard({
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
+      ) : null}
+
+      {kernelEntries.length > 0 ? (
+        <CompactSection
+          title={t("overview.intercept.checksTitle")}
+          suffix={
+            kernel?.release
+              ? t("overview.intercept.probes.kernel", {
+                  release: kernel.release,
+                })
+              : undefined
+          }
+          items={kernelEntries}
+          renderItem={(entry) => (
+            <CompactDiagnosticRow
+              key={entry.key}
+              primary={
+                entry.kind === "capability" ? (
+                  <span className="font-medium">
+                    {t(`overview.intercept.capabilities.${entry.feature}`)}
+                  </span>
+                ) : (
+                  <>
+                    <span className="font-medium">{entry.feature}</span>
+                    {entry.reason ? (
+                      <InlineMeta>{entry.reason}</InlineMeta>
+                    ) : null}
+                  </>
+                )
+              }
+              status={entry.status}
+              statusLabel={
+                entry.kind === "capability"
+                  ? entry.status === "ok"
+                    ? t("overview.intercept.supported")
+                    : t("overview.intercept.unsupported")
+                  : t(`overview.intercept.probes.status.${entry.status}`)
+              }
+            />
+          )}
+        />
       ) : null}
 
       {firewallRules.length > 0 ? (
@@ -209,10 +295,12 @@ export function RoutingHealthCard({
 
 function CompactSection<T>({
   title,
+  suffix,
   items,
   renderItem,
 }: {
   title: string
+  suffix?: string
   items: T[]
   renderItem: (item: T, index: number) => ReactNode
 }) {
@@ -220,7 +308,10 @@ function CompactSection<T>({
     <section className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">{title}</h3>
-        <span className="text-xs text-muted-foreground">{items.length}</span>
+        <span className="text-xs text-muted-foreground">
+          {suffix ? `${suffix} · ` : ""}
+          {items.length}
+        </span>
       </div>
       <div className="space-y-2">{items.map(renderItem)}</div>
     </section>
@@ -451,6 +542,10 @@ function mapCheckTone(status: string): StatusTone {
     return "warning"
   }
 
+  if (status === "not_run" || status === "skipped") {
+    return "neutral"
+  }
+
   return "degraded"
 }
 
@@ -469,7 +564,9 @@ function StatusBadge({
           ? "warning"
           : tone === "degraded"
             ? "destructive"
-            : "success"
+            : tone === "neutral"
+              ? "secondary"
+              : "success"
       }
     >
       {children}

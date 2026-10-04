@@ -258,6 +258,7 @@ export const ruTranslation = {
       },
       chain: "chain",
       prerouting: "prerouting",
+      kernel: "ядро",
       defaultRoute: "default",
       ipv4: "IPv4",
       ipv6: "IPv6",

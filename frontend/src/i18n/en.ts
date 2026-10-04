@@ -254,6 +254,7 @@ export const enTranslation = {
       },
       chain: "chain",
       prerouting: "prerouting",
+      kernel: "kernel",
       defaultRoute: "default",
       ipv4: "IPv4",
       ipv6: "IPv6",

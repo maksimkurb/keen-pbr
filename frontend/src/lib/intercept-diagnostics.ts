@@ -1,11 +1,91 @@
 import type { InterceptProbeFeatureStatus } from "@/api/generated/model"
 
+export type KernelEntryKind = "capability" | "probe"
+
+export type KernelDiagnosticEntry = {
+  key: string
+  kind: KernelEntryKind
+  feature: string
+  status: string
+  relevant: boolean
+  reason?: string
+}
+
+export type KernelBadgeState = "healthy" | "neutral" | "degraded"
+
+/** ok and skipped need no attention; not_run is unknown and stays visible. */
+export function isHealthyInterceptStatus(status: string): boolean {
+  return status === "ok" || status === "skipped"
+}
+
 export function getVisibleInterceptDiagnosticEntries<
   T extends { relevant: boolean; status: string },
 >(entries: ReadonlyArray<T>, showHealthyEntries: boolean): T[] {
   return entries.filter(
-    (entry) => entry.relevant && (showHealthyEntries || entry.status !== "ok")
+    (entry) =>
+      entry.relevant &&
+      (showHealthyEntries || !isHealthyInterceptStatus(entry.status))
   )
+}
+
+/** Maps capabilities and probes into the entry shape of the kernel group. */
+export function mapKernelDiagnosticEntries(
+  capabilities: { nfqueue: boolean; nflog: boolean; connbytes: boolean },
+  probes: ReadonlyArray<{
+    feature: string
+    status: InterceptProbeFeatureStatus
+    reason?: string
+  }>,
+  requestedDns: boolean,
+  requestedL7: boolean
+): KernelDiagnosticEntry[] {
+  const capabilityEntries: KernelDiagnosticEntry[] = [
+    ["nfqueue", capabilities.nfqueue, requestedDns],
+    ["nflog", capabilities.nflog, requestedL7],
+    ["connbytes", capabilities.connbytes, requestedL7],
+  ].map(([name, supported, relevant]) => ({
+    key: `capability:${name as string}`,
+    kind: "capability",
+    feature: name as string,
+    status: supported ? "ok" : "unsupported",
+    relevant: relevant as boolean,
+  }))
+  const probeEntries: KernelDiagnosticEntry[] = probes.map((probe) => ({
+    key: `probe:${probe.feature}`,
+    kind: "probe",
+    feature: probe.feature,
+    status: probe.status,
+    relevant:
+      (probe.feature === "nfqueue" && requestedDns) ||
+      ((probe.feature === "nflog" || probe.feature === "connbytes") &&
+        requestedL7) ||
+      ((requestedDns || requestedL7) &&
+        !["nfqueue", "nflog", "connbytes"].includes(probe.feature)),
+    reason: probe.reason,
+  }))
+  return [...capabilityEntries, ...probeEntries]
+}
+
+/**
+ * Kernel badge: red on any relevant error/unsupported (the same entries
+ * collectInterceptDiagnosticErrors reports as errors), grey while some checks
+ * have not run, green when everything is ok or skipped.
+ */
+export function getKernelBadgeState(
+  entries: ReadonlyArray<{ relevant: boolean; status: string }>
+): KernelBadgeState {
+  const relevant = entries.filter((entry) => entry.relevant)
+  if (
+    relevant.some(
+      (entry) => entry.status === "error" || entry.status === "unsupported"
+    )
+  ) {
+    return "degraded"
+  }
+  if (relevant.some((entry) => !isHealthyInterceptStatus(entry.status))) {
+    return "neutral"
+  }
+  return "healthy"
 }
 
 export function collectInterceptDiagnosticErrors(
