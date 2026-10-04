@@ -348,6 +348,7 @@ export const ruTranslation = {
       },
     },
     dnsRules: {
+      server: "DNS-сервер",
       title: "Правила DNS",
       state: {
         ok: "Синхронизирован",

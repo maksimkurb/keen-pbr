@@ -430,9 +430,6 @@ function DnsRulesSection({ health }: { health?: DnsmasqHealth }) {
           {t("overview.dnsRules.title")}
         </h3>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Badge size="xs" variant="outline">
-            dnsmasq
-          </Badge>
           <StatusBadge tone={tone}>
             {t(`overview.dnsRules.state.${state}`)}
           </StatusBadge>
@@ -440,6 +437,10 @@ function DnsRulesSection({ health }: { health?: DnsmasqHealth }) {
       </div>
       <div className="space-y-3">
         <div className="space-y-1 text-sm">
+          <StatusValue
+            label={t("overview.dnsRules.server")}
+            value="dnsmasq"
+          />
           <StatusValue
             label={t("overview.dnsRules.rules")}
             value={String(health?.rules ?? 0)}

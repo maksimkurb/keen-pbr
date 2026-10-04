@@ -343,6 +343,7 @@ export const enTranslation = {
       },
     },
     dnsRules: {
+      server: "DNS server",
       title: "DNS Rules",
       state: {
         ok: "In sync",
