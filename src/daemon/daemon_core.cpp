@@ -186,9 +186,7 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
       outbound_marks_(allocate_outbound_marks(
           config_.fwmark.value_or(FwmarkConfig{}),
           config_.outbounds.value_or(std::vector<Outbound>{}))),
-      dnsmasq_manager_(KEEN_PBR_DNSMASQ_HOOK,
-                       config_.daemon.value_or(DaemonConfig{})
-                           .cache_dir.value_or("/var/cache/keen-pbr")),
+      dnsmasq_manager_(KEEN_PBR_DNSMASQ_HOOK),
       routing_runtime_active_(true) {
   if (opts_.use_raw_prerouting || opts_.use_raw6_prerouting) {
     const auto raw_mode = firewall_->raw_prerouting_mode();

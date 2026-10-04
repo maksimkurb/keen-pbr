@@ -40,15 +40,15 @@ using DnsmasqExecFn = std::function<ExecCaptureResult(const std::vector<std::str
 // Queues a task on a blocking worker; returns false if it was not accepted.
 using DnsmasqPostFn = std::function<bool(std::function<void()>)>;
 
-// Generates the dnsmasq config for dns.resolver_integration=dnsmasq, installs
-// it through the OS-specific hook script (which restarts dnsmasq) and removes
-// it again when the integration is switched off.  All work is blocking and is
+// Computes the hash of the dnsmasq config for dns.resolver_integration=dnsmasq
+// entirely in memory (nothing is written to disk) and, when it changes, runs
+// the OS-specific hook `apply`, which makes dnsmasq call `keen-pbr
+// dnsmasq-config` and restarts it.  `remove` undoes that when the integration
+// is switched off.  All work is blocking and is
 // meant to run on a BlockingExecutor worker.
 class DnsmasqManager {
 public:
-    DnsmasqManager(std::string hook_path,
-                   std::filesystem::path cache_dir,
-                   DnsmasqExecFn exec = {});
+    explicit DnsmasqManager(std::string hook_path, DnsmasqExecFn exec = {});
 
     // Blocking and serialized; never throws, failures end up in status().
     void sync(const Config& config,
@@ -66,8 +66,6 @@ public:
 
     DnsmasqStatus status() const;
 
-    const std::filesystem::path& config_file() const { return config_file_; }
-
 private:
     void sync_dnsmasq(const Config& config,
                       const DnsServerRegistry& registry,
@@ -79,7 +77,6 @@ private:
     void update_status(const std::function<void(DnsmasqStatus&)>& update);
 
     std::string hook_path_;
-    std::filesystem::path config_file_;
     DnsmasqExecFn exec_;
 
     TracedMutex sync_mutex_;

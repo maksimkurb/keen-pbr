@@ -89,10 +89,8 @@ set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CAC
   "Default frontend static root served by API (SPA assets)")
 set(KEEN_PBR_CONTROL_SOCKET "/run/keen-pbr/control.sock" CACHE STRING
   "Unix SOCK_STREAM control socket used by operational CLI commands")
-set(KEEN_PBR_DNSMASQ_FALLBACK_CONFIG "" CACHE STRING
-  "Optional file printed by the deprecated 'generate-resolver-config' CLI stub (legacy dnsmasq conf-script compatibility); empty prints nothing")
 set(KEEN_PBR_DNSMASQ_HOOK "" CACHE STRING
-  "Path of the platform dnsmasq hook script (apply <file>|remove|status); empty disables dnsmasq management")
+  "Path of the platform dnsmasq hook script (apply|remove|status); empty disables dnsmasq management")
 set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
   "Compile-time target OS identity exposed via /api/health/service (for example: openwrt, keenetic, debian)")
 set(KEEN_PBR_TARGET_VERSION "unknown" CACHE STRING "Target firmware/distribution version")
@@ -416,7 +414,6 @@ target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"
   KEEN_PBR_CONTROL_SOCKET="${KEEN_PBR_CONTROL_SOCKET}"
-  KEEN_PBR_DNSMASQ_FALLBACK_CONFIG="${KEEN_PBR_DNSMASQ_FALLBACK_CONFIG}"
   KEEN_PBR_DNSMASQ_HOOK="${KEEN_PBR_DNSMASQ_HOOK}"
   KEEN_PBR_TARGET_OS="${KEEN_PBR_TARGET_OS}"
   KEEN_PBR_TARGET_VERSION="${KEEN_PBR_TARGET_VERSION}"

@@ -6,7 +6,8 @@
 #include <algorithm>
 #include <cctype>
 #include <ctime>
-#include <fstream>
+#include <ostream>
+#include <streambuf>
 #include <system_error>
 
 namespace keen_pbr3 {
@@ -14,7 +15,14 @@ namespace keen_pbr3 {
 namespace {
 
 constexpr std::size_t kMaxHookOutputBytes = 2048;
-constexpr const char* kConfigFileName = "keen-pbr-dns.conf";
+
+// Discards everything written to it: the generator hashes the bytes itself,
+// so nothing is ever stored (lists may hold 100k+ domains).
+class NullStreamBuf : public std::streambuf {
+protected:
+    int_type overflow(int_type c) override { return traits_type::not_eof(c); }
+    std::streamsize xsputn(const char*, std::streamsize n) override { return n; }
+};
 
 std::string trim_copy(std::string value) {
     const auto not_space = [](unsigned char c) { return !std::isspace(c); };
@@ -30,11 +38,8 @@ ExecCaptureResult default_exec(const std::vector<std::string>& args) {
 
 } // namespace
 
-DnsmasqManager::DnsmasqManager(std::string hook_path,
-                               std::filesystem::path cache_dir,
-                               DnsmasqExecFn exec)
+DnsmasqManager::DnsmasqManager(std::string hook_path, DnsmasqExecFn exec)
     : hook_path_(std::move(hook_path)),
-      config_file_(std::move(cache_dir) / "dnsmasq" / kConfigFileName),
       exec_(exec ? std::move(exec) : DnsmasqExecFn(default_exec)) {}
 
 DnsmasqStatus DnsmasqManager::status() const {
@@ -122,37 +127,15 @@ void DnsmasqManager::sync_dnsmasq(const Config& config,
         return;
     }
 
-    std::error_code ec;
-    std::filesystem::create_directories(config_file_.parent_path(), ec);
-    if (ec) {
-        throw std::runtime_error("cannot create " + config_file_.parent_path().string() +
-                                 ": " + ec.message());
-    }
-
-    const std::filesystem::path tmp_file = config_file_.string() + ".tmp";
     std::string hash;
     DnsmasqGenStats stats;
-    try {
-        std::ofstream out(tmp_file, std::ios::trunc | std::ios::binary);
-        if (!out) {
-            throw std::runtime_error("cannot write " + tmp_file.string());
-        }
+    {
+        NullStreamBuf null_buf;
+        std::ostream null_out(&null_buf);
         const DnsConfig dns = config.dns.value_or(DnsConfig{});
         const auto lists = config.lists.value_or(std::map<std::string, ListConfig>{});
         DnsmasqGenerator generator(registry, streamer, dns, lists);
-        hash = generator.generate(out, &stats);
-        out.close();
-        if (!out) {
-            throw std::runtime_error("cannot write " + tmp_file.string());
-        }
-    } catch (...) {
-        std::filesystem::remove(tmp_file, ec);
-        throw;
-    }
-    std::filesystem::rename(tmp_file, config_file_, ec);
-    if (ec) {
-        std::filesystem::remove(tmp_file, ec);
-        throw std::runtime_error("cannot install " + config_file_.string() + ": " + ec.message());
+        hash = generator.generate(null_out, &stats);
     }
 
     if (hash == last_applied_hash_) {
@@ -175,7 +158,7 @@ void DnsmasqManager::sync_dnsmasq(const Config& config,
     });
     log.info("Installing dnsmasq config ({} rule(s), {} domain(s), hash {})",
              stats.rules, stats.domains, hash);
-    const std::string failure = run_hook({"apply", config_file_.string()});
+    const std::string failure = run_hook({"apply"});
     if (!failure.empty()) {
         log.error("dnsmasq hook apply failed: {}", failure);
         update_status([&](DnsmasqStatus& status) {
@@ -196,10 +179,9 @@ void DnsmasqManager::sync_dnsmasq(const Config& config,
 }
 
 void DnsmasqManager::sync_disabled() {
-    std::error_code ec;
-    const bool file_present = std::filesystem::exists(config_file_, ec);
-    const bool needs_remove =
-        previous_mode_ == ResolverIntegrationMode::DNSMASQ || (first_sync_ && file_present);
+    // remove is idempotent: always run it on the first sync (a previous run
+    // may have left the hook installed), afterwards only on dnsmasq -> none.
+    const bool needs_remove = first_sync_ || previous_mode_ == ResolverIntegrationMode::DNSMASQ;
 
     std::string failure;
     if (needs_remove) {
@@ -209,7 +191,6 @@ void DnsmasqManager::sync_disabled() {
                 Logger::instance().error("dnsmasq hook remove failed: {}", failure);
             }
         }
-        std::filesystem::remove(config_file_, ec);
         last_applied_hash_.clear();
     }
 
