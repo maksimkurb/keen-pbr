@@ -7,7 +7,8 @@ for the harness dnsmasq, restarts it and logs every call.
 import os
 import uuid
 
-from .dns_common import (HOOK_DROPIN, HOOK_FAIL_FLAG, assert_query_seen,
+from .dns_common import (HOOK_DROPIN, HOOK_FAIL_FLAG, HOOK_NODROPIN_FLAG,
+                         assert_query_seen,
                          dnsmasq_health, dnsmasq_rules_config, hook_calls,
                          set_resolver_upstreams, wait_dnsmasq_state,
                          wait_hook_calls)
@@ -34,6 +35,10 @@ def _rules_case(context, server, default_upstream, kind, identity):
     assert health["mode"] == "dnsmasq", health
     assert health["rules"] == 1 and health["domains"] >= 1, health
     assert os.path.exists(HOOK_DROPIN)
+    # `ok` means dnsmasq itself confirmed it serves this config (TXT stamp).
+    assert health["probe_status"] == "ok", health
+    assert health["loaded_hash"] == health["config_hash"], health
+    assert health["loaded_boottime_ms"] > 0 and health["loaded_ts"] > 0, health
 
     context.resolve(listed, "198.18.0.10", "A")
     context.resolve(listed, "2001:db8:100::10", "AAAA")
@@ -97,6 +102,33 @@ def register(registry):
         assert health["domains"] >= 2 and not health.get("last_error"), health
         context.resolve(later, "198.18.0.10", "A")
         assert_query_seen(context, "pbr", "dns4", later, "pbr-v4")
+
+    @registry.case("dnsmasq_missing_dropin")
+    def dnsmasq_missing_dropin(context):
+        # The hook exits 0 and restarts dnsmasq but never installs the
+        # conf-script drop-in: dnsmasq runs without our config, so the TXT
+        # stamp is missing and the state must be `error`, not `ok`.
+        listed = f"nodropin-{uuid.uuid4().hex}.fixture.test"
+        set_resolver_upstreams(context, "10.10.0.2#15353")
+        open(HOOK_NODROPIN_FLAG, "w", encoding="utf-8").close()
+        config = dnsmasq_rules_config(
+            context, [SELECTED4],
+            [{"list": ["scoped"], "server": "selected4"}],
+            {"scoped": {"domains": [listed]}})
+        try:
+            context.apply_config(config)
+            wait_hook_calls(context, STARTUP + ["apply"])
+            # The daemon polls the stamp for ~15 s before giving up.
+            health = wait_dnsmasq_state(context, "error", timeout=40)
+            # dnsmasq forwards the unknown name upstream, so depending on the
+            # fixture the probe sees NOERROR/NXDOMAIN (missing) or a timeout.
+            assert health["probe_status"] in ("missing", "query_failed"), health
+            assert health["last_error"], health
+            if health["probe_status"] == "missing":
+                assert "drop-in" in health["last_error"], health
+            context.health_running()
+        finally:
+            os.unlink(HOOK_NODROPIN_FLAG)
 
     @registry.case("dnsmasq_disable")
     def dnsmasq_disable(context):

@@ -57,6 +57,18 @@ api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
     case DnsmasqSyncState::Error: health.state = api::State::ERROR; break;
     }
     if (!status.config_hash.empty()) health.config_hash = status.config_hash;
+    switch (status.probe_state) {
+    case DnsmasqProbeState::NotChecked: health.probe_status = api::ProbeStatus::NOT_CHECKED; break;
+    case DnsmasqProbeState::Ok: health.probe_status = api::ProbeStatus::OK; break;
+    case DnsmasqProbeState::Missing: health.probe_status = api::ProbeStatus::MISSING; break;
+    case DnsmasqProbeState::Invalid: health.probe_status = api::ProbeStatus::INVALID; break;
+    case DnsmasqProbeState::QueryFailed: health.probe_status = api::ProbeStatus::QUERY_FAILED; break;
+    }
+    if (!status.loaded_hash.empty()) health.loaded_hash = status.loaded_hash;
+    health.loaded_boottime_ms = status.loaded_boottime_ms;
+    health.loaded_ts = status.loaded_ts;
+    health.last_check_ts = status.last_check_ts;
+    health.last_external_reload_ts = status.last_external_reload_ts;
     health.last_apply_ts = status.last_apply_ts;
     if (!status.last_error.empty()) health.last_error = status.last_error;
     health.rules = static_cast<std::int64_t>(status.rules);

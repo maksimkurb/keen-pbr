@@ -8,6 +8,9 @@
 # into options, since dnsmasq refuses foreign-uid config files in the sandbox).
 # Every invocation is appended to $KPBR_RUNTIME/dnsmasq-hook.log.
 # If $KPBR_RUNTIME/dnsmasq-hook.fail exists, apply fails.
+# If $KPBR_RUNTIME/dnsmasq-hook.nodropin exists, apply "succeeds" and restarts
+# dnsmasq but installs no drop-in (like a hook writing to a directory dnsmasq
+# does not read), so keen-pbr must notice the missing config-hash TXT stamp.
 set -euo pipefail
 
 : "${KPBR_REPO_ROOT:=/mnt/repo}"
@@ -20,6 +23,7 @@ conf_dir="$KPBR_RUNTIME/dnsmasq.d"
 conf_file="$conf_dir/keen-pbr-upstream-dns.conf"
 call_log="$KPBR_RUNTIME/dnsmasq-hook.log"
 fail_flag="$KPBR_RUNTIME/dnsmasq-hook.fail"
+nodropin_flag="$KPBR_RUNTIME/dnsmasq-hook.nodropin"
 
 mkdir -p "$KPBR_RUNTIME"
 printf '%s\n' "${1:-}" >>"$call_log"
@@ -29,6 +33,11 @@ case "${1:-}" in
     if [[ -e "$fail_flag" ]]; then
       echo "simulated hook failure" >&2
       exit 1
+    fi
+    if [[ -e "$nodropin_flag" ]]; then
+      rm -f "$conf_file"
+      bash "$service" restart-dnsmasq
+      exit 0
     fi
     mkdir -p "$conf_dir"
     printf 'conf-script=%s --config %s generate-resolver-config dnsmasq\n' \

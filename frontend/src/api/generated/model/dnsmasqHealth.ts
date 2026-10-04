@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { DnsmasqHealthMode } from './dnsmasqHealthMode';
+import type { DnsmasqHealthProbeStatus } from './dnsmasqHealthProbeStatus';
 import type { DnsmasqHealthState } from './dnsmasqHealthState';
 
 /**
@@ -14,11 +15,26 @@ import type { DnsmasqHealthState } from './dnsmasqHealthState';
 export interface DnsmasqHealth {
   /** Effective resolver integration mode. */
   mode: DnsmasqHealthMode;
-  /** - disabled: resolver integration is `none` - ok: the current config is installed - applying: the platform hook is running - error: generating or installing the config failed
+  /** - disabled: resolver integration is `none` - ok: dnsmasq confirmed (config-hash.keen.pbr TXT stamp) that it serves the current config - applying: the platform hook is running or dnsmasq has not yet confirmed the new config - error: generating or installing the config failed, or dnsmasq does not serve it
    */
   state: DnsmasqHealthState;
-  /** MD5 of the config last installed successfully. */
+  /** MD5 of the config keen-pbr generated and expects dnsmasq to serve. */
   config_hash?: string | null;
+  /** Result of the last `config-hash.keen.pbr` TXT query to dnsmasq. - not_checked: no query has been made yet - ok: dnsmasq returned a keen-pbr stamp - missing: dnsmasq answered without the stamp (the keen-pbr config is not loaded) - invalid: the TXT record is not a valid keen-pbr stamp - query_failed: dnsmasq did not answer (timeout, refused, malformed reply)
+   */
+  probe_status?: DnsmasqHealthProbeStatus;
+  /** Config hash dnsmasq reported in the TXT stamp. */
+  loaded_hash?: string | null;
+  /** CLOCK_BOOTTIME (milliseconds) when dnsmasq generated the loaded config. */
+  loaded_boottime_ms?: number | null;
+  /** Router unix time (seconds) when dnsmasq generated the loaded config. Diagnostics only; the router clock may be wrong.
+   */
+  loaded_ts?: number | null;
+  /** Unix timestamp (seconds) of the last TXT query. */
+  last_check_ts?: number | null;
+  /** Unix timestamp (seconds) of the last dnsmasq reload that keen-pbr did not cause (restart by the user, the OS or LuCI).
+   */
+  last_external_reload_ts?: number | null;
   /** Unix timestamp (seconds) of the last successful install. */
   last_apply_ts?: number | null;
   /** Failure reason of the last sync, null when the last sync succeeded. */

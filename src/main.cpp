@@ -31,6 +31,7 @@
 #include "log/logger.hpp"
 #include "lists/list_streamer.hpp"
 #include "util/daemon_signals.hpp"
+#include "util/time_utils.hpp"
 
 #ifndef KEEN_PBR_DEFAULT_CONFIG_PATH
 #define KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json"
@@ -434,7 +435,12 @@ int main(int argc, char *argv[]) {
         keen_pbr3::ListStreamer streamer(cache);
         const keen_pbr3::DnsServerRegistry registry(dns);
         keen_pbr3::DnsmasqGenerator generator(registry, streamer, dns, lists);
-        generator.generate(std::cout);
+        const std::string hash = generator.generate(std::cout);
+        // The stamp is written after (and not covered by) the hash, so the
+        // daemon can compute the same hash in memory.
+        keen_pbr3::write_dnsmasq_config_stamp(
+            std::cout, {hash, keen_pbr3::boottime_now_ms(),
+                        keen_pbr3::unix_timestamp_now_seconds()});
         std::cout.flush();
       } catch (...) {
         std::string message;

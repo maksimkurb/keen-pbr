@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesWj19Ex data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesY1QwMk data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -427,14 +427,22 @@ namespace api {
         DnsTestInterceptEventType type;
     };
 
+    enum class ProbeStatus : int { INVALID, MISSING, NOT_CHECKED, OK, QUERY_FAILED };
+
     enum class State : int { APPLYING, DISABLED, ERROR, OK };
 
     struct DnsmasqHealth {
         std::optional<std::string> config_hash;
         int64_t domains;
         std::optional<int64_t> last_apply_ts;
+        std::optional<int64_t> last_check_ts;
         std::optional<std::string> last_error;
+        std::optional<int64_t> last_external_reload_ts;
+        std::optional<int64_t> loaded_boottime_ms;
+        std::optional<std::string> loaded_hash;
+        std::optional<int64_t> loaded_ts;
         ResolverIntegration mode;
+        std::optional<ProbeStatus> probe_status;
         int64_t rules;
         State state;
     };
@@ -780,7 +788,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesWj19Ex {
+    struct KeenPbrTypesY1QwMk {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1104,8 +1112,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesWj19Ex & x);
-    void to_json(json & j, const KeenPbrTypesWj19Ex & x);
+    void from_json(const json & j, KeenPbrTypesY1QwMk & x);
+    void to_json(json & j, const KeenPbrTypesY1QwMk & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1145,6 +1153,9 @@ namespace api {
 
     void from_json(const json & j, DnsTestInterceptEventType & x);
     void to_json(json & j, const DnsTestInterceptEventType & x);
+
+    void from_json(const json & j, ProbeStatus & x);
+    void to_json(json & j, const ProbeStatus & x);
 
     void from_json(const json & j, State & x);
     void to_json(json & j, const State & x);
@@ -1873,8 +1884,14 @@ namespace api {
         x.config_hash = get_stack_optional<std::string>(j, "config_hash");
         x.domains = j.at("domains").get<int64_t>();
         x.last_apply_ts = get_stack_optional<int64_t>(j, "last_apply_ts");
+        x.last_check_ts = get_stack_optional<int64_t>(j, "last_check_ts");
         x.last_error = get_stack_optional<std::string>(j, "last_error");
+        x.last_external_reload_ts = get_stack_optional<int64_t>(j, "last_external_reload_ts");
+        x.loaded_boottime_ms = get_stack_optional<int64_t>(j, "loaded_boottime_ms");
+        x.loaded_hash = get_stack_optional<std::string>(j, "loaded_hash");
+        x.loaded_ts = get_stack_optional<int64_t>(j, "loaded_ts");
         x.mode = j.at("mode").get<ResolverIntegration>();
+        x.probe_status = get_stack_optional<ProbeStatus>(j, "probe_status");
         x.rules = j.at("rules").get<int64_t>();
         x.state = j.at("state").get<State>();
     }
@@ -1884,8 +1901,14 @@ namespace api {
         j["config_hash"] = x.config_hash;
         j["domains"] = x.domains;
         j["last_apply_ts"] = x.last_apply_ts;
+        j["last_check_ts"] = x.last_check_ts;
         j["last_error"] = x.last_error;
+        j["last_external_reload_ts"] = x.last_external_reload_ts;
+        j["loaded_boottime_ms"] = x.loaded_boottime_ms;
+        j["loaded_hash"] = x.loaded_hash;
+        j["loaded_ts"] = x.loaded_ts;
         j["mode"] = x.mode;
+        j["probe_status"] = x.probe_status;
         j["rules"] = x.rules;
         j["state"] = x.state;
     }
@@ -2532,7 +2555,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesWj19Ex& x) {
+    inline void from_json(const json & j, KeenPbrTypesY1QwMk& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2618,7 +2641,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesWj19Ex & x) {
+    inline void to_json(json & j, const KeenPbrTypesY1QwMk & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2896,6 +2919,26 @@ namespace api {
         switch (x) {
             case DnsTestInterceptEventType::INTERCEPT: j = "INTERCEPT"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"DnsTestInterceptEventType\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, ProbeStatus & x) {
+        if (j == "invalid") x = ProbeStatus::INVALID;
+        else if (j == "missing") x = ProbeStatus::MISSING;
+        else if (j == "not_checked") x = ProbeStatus::NOT_CHECKED;
+        else if (j == "ok") x = ProbeStatus::OK;
+        else if (j == "query_failed") x = ProbeStatus::QUERY_FAILED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"ProbeStatus\""); }
+    }
+
+    inline void to_json(json & j, const ProbeStatus & x) {
+        switch (x) {
+            case ProbeStatus::INVALID: j = "invalid"; break;
+            case ProbeStatus::MISSING: j = "missing"; break;
+            case ProbeStatus::NOT_CHECKED: j = "not_checked"; break;
+            case ProbeStatus::OK: j = "ok"; break;
+            case ProbeStatus::QUERY_FAILED: j = "query_failed"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"ProbeStatus\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

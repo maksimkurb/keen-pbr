@@ -325,7 +325,13 @@ When `dns.resolver_integration: "dnsmasq"` is enabled, domains from specific lis
 
    Expected: a `conf-script=keen-pbr generate-resolver-config dnsmasq` line.
 
-4. **Verify dnsmasq is actually the resolver clients use:**
+4. **Check that dnsmasq really loaded the keen-pbr config:**
+   ```bash {filename="bash"}
+   nslookup -type=txt config-hash.keen.pbr 127.0.0.1
+   ```
+   Expected: a TXT answer `<hash>|<boottime_ms>|<unix_ts>`; the hash must match `config_hash` from step 1. No answer means dnsmasq did not load the keen-pbr config (for example, the drop-in is in a directory dnsmasq does not read, or dnsmasq was not restarted).
+
+5. **Verify dnsmasq is actually the resolver clients use:**
    - On Keenetic, check if ndnproxy or dnsmasq is the LAN resolver:
      ```bash {filename="bash"}
      opkg dns-override
@@ -335,14 +341,14 @@ When `dns.resolver_integration: "dnsmasq"` is enabled, domains from specific lis
      nslookup example.com
      ```
 
-5. **Check the DNS server's `detour`:**
+6. **Check the DNS server's `detour`:**
    If the server has `"detour": "vpn"`, verify the VPN interface is up and reachable:
    ```bash {filename="bash"}
    curl http://127.0.0.1:12121/api/runtime/outbounds | jq '.[] | select(.tag == "vpn")'
    ```
    Expected: `"state": "alive"`.
 
-6. **Verify domains are in the right list:**
+7. **Verify domains are in the right list:**
    - Open the Web UI at `http://<router-ip>:12121/` and check DNS rules.
    - Confirm the domains you want are actually in the list.
 

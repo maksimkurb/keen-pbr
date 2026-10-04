@@ -316,6 +316,7 @@ def setup_case(context: SystemContext, _case) -> None:
     (runtime / "dnsmasq.d" / "keen-pbr-upstream-dns.conf").unlink(missing_ok=True)
     (runtime / "dnsmasq-hook.log").unlink(missing_ok=True)
     (runtime / "dnsmasq-hook.fail").unlink(missing_ok=True)
+    (runtime / "dnsmasq-hook.nodropin").unlink(missing_ok=True)
     context.run("systemctl", "reset-failed", "dnsmasq.service", "keen-pbr.service",
                 check=False)
     context.run("systemctl", "restart", "dnsmasq.service")

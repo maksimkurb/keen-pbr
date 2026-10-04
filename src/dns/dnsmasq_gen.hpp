@@ -5,9 +5,12 @@
 #include "dns_router.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
+#include <optional>
 #include <ostream>
 #include <string>
+#include <string_view>
 
 namespace keen_pbr3 {
 
@@ -15,6 +18,23 @@ struct DnsmasqGenStats {
     size_t rules = 0;    // enabled dns.rules entries
     size_t domains = 0;  // domains written into server= rows
 };
+
+// Domain of the stamp TXT record the conf-script appends after the generated
+// config.  dnsmasq answers it from its own memory, so a successful query proves
+// it loaded the keen-pbr config and tells which one.
+constexpr std::string_view kDnsmasqStampDomain = "config-hash.keen.pbr";
+
+struct DnsmasqConfigStamp {
+    std::string hash;          // lowercase hex MD5 returned by generate()
+    std::int64_t boottime_ms;  // CLOCK_BOOTTIME when the conf-script ran (ordering)
+    std::int64_t unix_ts;      // wall clock seconds (diagnostics only)
+};
+
+// Writes `txt-record=config-hash.keen.pbr,<hash>|<boottime_ms>|<unix_ts>\n`.
+void write_dnsmasq_config_stamp(std::ostream& out, const DnsmasqConfigStamp& stamp);
+
+// Strict parser of the TXT value `<hash>|<boottime_ms>|<unix_ts>`.
+std::optional<DnsmasqConfigStamp> parse_dnsmasq_config_stamp(std::string_view txt);
 
 // Generates the dnsmasq config used for per-list upstream selection
 // (dns.resolver_integration = dnsmasq): scoped server= rows for the domains

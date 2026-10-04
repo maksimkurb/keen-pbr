@@ -42,6 +42,7 @@ def assert_query_seen(context, side, kind, name, identity):
 
 HOOK_LOG = f"{RUNTIME}/dnsmasq-hook.log"
 HOOK_FAIL_FLAG = f"{RUNTIME}/dnsmasq-hook.fail"
+HOOK_NODROPIN_FLAG = f"{RUNTIME}/dnsmasq-hook.nodropin"
 HOOK_DROPIN = f"{RUNTIME}/dnsmasq.d/keen-pbr-upstream-dns.conf"
 
 

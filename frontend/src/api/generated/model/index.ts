@@ -35,6 +35,7 @@ export * from './defaultGateway';
 export * from './dnsConfig';
 export * from './dnsmasqHealth';
 export * from './dnsmasqHealthMode';
+export * from './dnsmasqHealthProbeStatus';
 export * from './dnsmasqHealthState';
 export * from './dnsRule';
 export * from './dnsServer';

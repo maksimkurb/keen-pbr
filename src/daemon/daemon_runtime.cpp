@@ -22,6 +22,11 @@
 
 namespace keen_pbr3 {
 
+namespace {
+// How often the daemon verifies that dnsmasq still serves the keen-pbr config.
+constexpr auto kDnsmasqCheckInterval = std::chrono::seconds{30};
+} // namespace
+
 bool Daemon::routing_runtime_active() const {
     return runtime_state_store_.snapshot().routing_runtime_active;
 }
@@ -44,6 +49,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
         return;
     }
 
+    stop_dnsmasq_check();
     invalidate_routing_health_cache();
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
 
@@ -106,15 +112,39 @@ void Daemon::complete_running_runtime(const char* reason) {
     schedule_lists_autoupdate();
     transition_runtime_or_throw(RuntimeState::running, reason);
     publish_runtime_state();
-    schedule_dnsmasq_sync();
+    // Lifecycle operations are explicit user/boot actions: retry dnsmasq even
+    // if an earlier apply of the same config is backing off.
+    schedule_dnsmasq_sync(/*bypass_backoff=*/true);
+    start_dnsmasq_check();
 }
 
-void Daemon::schedule_dnsmasq_sync() {
+void Daemon::start_dnsmasq_check() {
+    stop_dnsmasq_check();
+    dnsmasq_check_task_id_ = scheduler_->schedule_repeating(
+        kDnsmasqCheckInterval,
+        [this] {
+            dnsmasq_manager_.request_check(
+                [this](std::function<void()> task) {
+                    return blocking_executor_.try_post("dnsmasq-check", std::move(task));
+                });
+        },
+        "dnsmasq-check");
+}
+
+void Daemon::stop_dnsmasq_check() {
+    if (dnsmasq_check_task_id_ >= 0) {
+        scheduler_->cancel(dnsmasq_check_task_id_);
+        dnsmasq_check_task_id_ = -1;
+    }
+}
+
+void Daemon::schedule_dnsmasq_sync(bool bypass_backoff) {
     dnsmasq_manager_.request_sync(
         config_, list_service_.cache_manager(),
         [this](std::function<void()> task) {
             return blocking_executor_.try_post("dnsmasq-sync", std::move(task));
-        });
+        },
+        bypass_backoff);
 }
 
 void Daemon::restart_routing_runtime() {

@@ -13,6 +13,7 @@
 #include <map>
 #include <set>
 #include <sstream>
+#include <streambuf>
 #include <string>
 #include <vector>
 
@@ -395,4 +396,71 @@ TEST_CASE("dnsmasq gen: cached content is merged with file and inline entries") 
         cleanup();
         throw;
     }
+}
+
+TEST_CASE("dnsmasq stamp: write and parse round trip") {
+    const DnsmasqConfigStamp stamp{"0123456789abcdef0123456789abcdef", 123456789, 1700000000};
+    std::ostringstream out;
+    write_dnsmasq_config_stamp(out, stamp);
+    CHECK(out.str() ==
+          "txt-record=config-hash.keen.pbr,0123456789abcdef0123456789abcdef|123456789|1700000000\n");
+
+    const std::string line = out.str();
+    const std::string value = line.substr(line.find(',') + 1, line.size() - line.find(',') - 2);
+    const auto parsed = parse_dnsmasq_config_stamp(value);
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->hash == stamp.hash);
+    CHECK(parsed->boottime_ms == stamp.boottime_ms);
+    CHECK(parsed->unix_ts == stamp.unix_ts);
+}
+
+TEST_CASE("dnsmasq stamp: strict parser rejects malformed values") {
+    const std::string hash = "0123456789abcdef0123456789abcdef";
+    CHECK(parse_dnsmasq_config_stamp(hash + "|1|2").has_value());
+    CHECK(parse_dnsmasq_config_stamp(hash + "|0|0").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp("").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash).has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|1").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|1|").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "||2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|1|2|3").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|a|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|-1|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|1 |2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|99999999999999999999|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp("0123456789ABCDEF0123456789abcdef|1|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp("0123456789abcdef0123456789abcde|1|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp("0123456789abcdef0123456789abcdefg|1|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|1|2\n").has_value());
+}
+
+namespace {
+class DiscardStreamBuf : public std::streambuf {
+protected:
+    int_type overflow(int_type c) override { return traits_type::not_eof(c); }
+    std::streamsize xsputn(const char*, std::streamsize n) override { return n; }
+};
+} // namespace
+
+TEST_CASE("dnsmasq stamp: appended stamp line is not part of the hash") {
+    const DnsConfig dns = make_dns_cfg("mylist", "dns1", "1.1.1.1");
+    const std::map<std::string, ListConfig> lists{{"mylist", make_list_cfg({"example.com"})}};
+
+    // conf-script path: generate() then the stamp, straight to the stream.
+    auto script = run_generate(dns, lists);
+    std::ostringstream script_out;
+    script_out << script.output;
+    write_dnsmasq_config_stamp(script_out, {script.hash, 1, 2});
+
+    // Daemon path: hash computed with nothing stored.
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+    const DnsServerRegistry registry(dns);
+    DnsmasqGenerator gen(registry, streamer, dns, lists);
+    DiscardStreamBuf discard;
+    std::ostream null_out(&discard);
+    CHECK(gen.generate(null_out) == script.hash);
+
+    CHECK(script_out.str().size() > script.output.size());
+    CHECK(script_out.str().rfind(script.output, 0) == 0);
 }

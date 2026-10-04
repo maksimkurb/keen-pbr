@@ -422,6 +422,8 @@ function DnsRulesSection({ health }: { health?: DnsmasqHealth }) {
           ? "warning"
           : "degraded"
   const lastApplyTs = health?.last_apply_ts ?? null
+  const loadedTs = health?.loaded_ts ?? null
+  const externalReloadTs = health?.last_external_reload_ts ?? null
 
   return (
     <section className="min-w-0 space-y-3 p-4 lg:p-5">
@@ -465,6 +467,24 @@ function DnsRulesSection({ health }: { health?: DnsmasqHealth }) {
               </span>
             }
           />
+          {loadedTs ? (
+            <StatusValue
+              label={t("overview.dnsRules.loadedAt")}
+              value={
+                <span>{new Date(loadedTs * 1000).toLocaleString(i18n.language)}</span>
+              }
+            />
+          ) : null}
+          {externalReloadTs ? (
+            <StatusValue
+              label={t("overview.dnsRules.externalReload")}
+              value={
+                <span>
+                  {new Date(externalReloadTs * 1000).toLocaleString(i18n.language)}
+                </span>
+              }
+            />
+          ) : null}
         </div>
         {state === "disabled" ? (
           <Alert className="border-border bg-muted/20">

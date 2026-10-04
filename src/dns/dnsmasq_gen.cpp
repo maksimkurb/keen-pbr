@@ -2,6 +2,7 @@
 #include "../crypto/md5.hpp"
 #include "../log/logger.hpp"
 
+#include <charconv>
 #include <functional>
 #include <streambuf>
 #include <vector>
@@ -226,6 +227,44 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
         *stats = local_stats;
     }
     return hashing.hex_digest();
+}
+
+void write_dnsmasq_config_stamp(std::ostream& out, const DnsmasqConfigStamp& stamp) {
+    out << "txt-record=" << kDnsmasqStampDomain << ',' << stamp.hash << '|'
+        << stamp.boottime_ms << '|' << stamp.unix_ts << '\n';
+}
+
+std::optional<DnsmasqConfigStamp> parse_dnsmasq_config_stamp(std::string_view txt) {
+    constexpr size_t kHashLen = 32;
+    if (txt.size() < kHashLen + 1 || txt[kHashLen] != '|') {
+        return std::nullopt;
+    }
+    for (size_t i = 0; i < kHashLen; ++i) {
+        const char c = txt[i];
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) {
+            return std::nullopt;
+        }
+    }
+    DnsmasqConfigStamp stamp;
+    stamp.hash = std::string(txt.substr(0, kHashLen));
+
+    const std::string_view rest = txt.substr(kHashLen + 1);
+    const size_t bar = rest.find('|');
+    if (bar == std::string_view::npos) {
+        return std::nullopt;
+    }
+    const auto parse_int = [](std::string_view text, std::int64_t& value) {
+        if (text.empty() || text.front() == '+') {
+            return false;
+        }
+        const auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
+        return ec == std::errc{} && end == text.data() + text.size() && value >= 0;
+    };
+    if (!parse_int(rest.substr(0, bar), stamp.boottime_ms) ||
+        !parse_int(rest.substr(bar + 1), stamp.unix_ts)) {
+        return std::nullopt;
+    }
+    return stamp;
 }
 
 std::string DnsmasqGenerator::strip_wildcard(const std::string& domain) {

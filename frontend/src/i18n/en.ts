@@ -355,6 +355,8 @@ export const enTranslation = {
       domains: "Domains",
       lastSync: "Last sync",
       neverSynced: "Not synced yet",
+      loadedAt: "dnsmasq loaded the config at",
+      externalReload: "dnsmasq restarted outside keen-pbr at",
       disabledDescription: "DNS rules integration is disabled.",
       lastError: "Last error",
     },

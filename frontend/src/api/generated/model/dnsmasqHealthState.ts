@@ -7,7 +7,7 @@
  */
 
 /**
- * - disabled: resolver integration is `none` - ok: the current config is installed - applying: the platform hook is running - error: generating or installing the config failed
+ * - disabled: resolver integration is `none` - ok: dnsmasq confirmed (config-hash.keen.pbr TXT stamp) that it serves the current config - applying: the platform hook is running or dnsmasq has not yet confirmed the new config - error: generating or installing the config failed, or dnsmasq does not serve it
 
  */
 export type DnsmasqHealthState = typeof DnsmasqHealthState[keyof typeof DnsmasqHealthState];

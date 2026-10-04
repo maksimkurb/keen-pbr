@@ -360,6 +360,8 @@ export const ruTranslation = {
       domains: "Домены",
       lastSync: "Последняя синхронизация",
       neverSynced: "Ещё не синхронизировано",
+      loadedAt: "dnsmasq загрузил конфигурацию",
+      externalReload: "dnsmasq перезапущен вне keen-pbr",
       disabledDescription: "Интеграция правил DNS отключена.",
       lastError: "Последняя ошибка",
     },

@@ -91,6 +91,8 @@ set(KEEN_PBR_CONTROL_SOCKET "/run/keen-pbr/control.sock" CACHE STRING
   "Unix SOCK_STREAM control socket used by operational CLI commands")
 set(KEEN_PBR_DNSMASQ_HOOK "" CACHE STRING
   "Path of the platform dnsmasq hook script (apply|remove|status); empty disables dnsmasq management")
+set(KEEN_PBR_DNSMASQ_PROBE_ADDRESS "127.0.0.1:53" CACHE STRING
+  "ip[:port] where the local dnsmasq answers the config-hash.keen.pbr TXT check")
 set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
   "Compile-time target OS identity exposed via /api/health/service (for example: openwrt, keenetic, debian)")
 set(KEEN_PBR_TARGET_VERSION "unknown" CACHE STRING "Target firmware/distribution version")
@@ -325,6 +327,7 @@ set(SOURCES
   src/dns/dns_server.cpp
   src/dns/keenetic_dns.cpp
   src/dns/dns_wire.cpp
+  src/dns/dns_txt_probe.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
   src/l7/crypto/sha256.cpp
@@ -417,6 +420,7 @@ target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"
   KEEN_PBR_CONTROL_SOCKET="${KEEN_PBR_CONTROL_SOCKET}"
   KEEN_PBR_DNSMASQ_HOOK="${KEEN_PBR_DNSMASQ_HOOK}"
+  KEEN_PBR_DNSMASQ_PROBE_ADDRESS="${KEEN_PBR_DNSMASQ_PROBE_ADDRESS}"
   KEEN_PBR_TARGET_OS="${KEEN_PBR_TARGET_OS}"
   KEEN_PBR_TARGET_VERSION="${KEEN_PBR_TARGET_VERSION}"
   KEEN_PBR_TARGET_ARCH="${KEEN_PBR_TARGET_ARCH}"

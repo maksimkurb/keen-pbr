@@ -273,7 +273,11 @@ private:
   void schedule_lists_autoupdate();
   // Queues a (coalesced) regeneration of the dnsmasq config for the current
   // configuration on a blocking worker.
-  void schedule_dnsmasq_sync();
+  void schedule_dnsmasq_sync(bool bypass_backoff = false);
+  // Starts the repeating dnsmasq TXT check (replacing a previous one) /
+  // cancels it.  Control-thread only.
+  void start_dnsmasq_check();
+  void stop_dnsmasq_check();
   ListsRefreshExecutionResult execute_remote_list_refresh(
       const std::set<std::string> *target_lists = nullptr,
       std::string_view source = "service");
@@ -425,6 +429,7 @@ IcmpTester icmp_tester_;
   std::atomic<std::uint64_t> intercept_snapshot_seq_{0};
   std::uint64_t intercept_forwarded_seq_{0};
   int intercept_event_task_id_{-1};
+  int dnsmasq_check_task_id_{-1};
   BlockingExecutor lifecycle_executor_{1, 16};
   // An open descriptor pins the pre-apply inode without retaining another
   // parsed or serialized configuration in RAM.

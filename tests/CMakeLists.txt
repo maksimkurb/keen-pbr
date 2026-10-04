@@ -21,6 +21,7 @@ add_executable(keen-pbr-tests
   test_test_routing.cpp
   test_keenetic_dns.cpp
   test_dns_wire.cpp
+  test_dns_txt_probe.cpp
   test_nfnetlink.cpp
   test_l7_crypto.cpp
   test_l7_quic.cpp
@@ -134,6 +135,7 @@ add_executable(keen-pbr-tests
   ../src/dns/dns_server.cpp
   ../src/dns/keenetic_dns.cpp
   ../src/dns/dns_wire.cpp
+  ../src/dns/dns_txt_probe.cpp
   ../src/l7/crypto/sha256.cpp
   ../src/l7/crypto/aes128.cpp
   ../src/l7/quic_initial.cpp
