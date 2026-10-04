@@ -130,6 +130,7 @@ export const enTranslation = {
     },
     items: {
       systemMonitor: "Dashboard",
+      currentRequests: "Current requests",
       settings: "Settings",
       security: "Security",
       outbounds: "Outbounds",
@@ -341,20 +342,6 @@ export const enTranslation = {
         manualWaiting: "Waiting for your manual nslookup command...",
         manualIncomplete: "Manual device test has not completed yet.",
       },
-      monitor: {
-        connecting: "Connecting to live interception events...",
-        connected: "Live interception monitor connected.",
-        error: "Live interception monitor disconnected.",
-      },
-      event: {
-        title: "Latest interception event",
-        source: "Source",
-        domain: "Domain",
-        lists: "Lists",
-        ips: "IPs",
-        hold_us: "Hold (µs)",
-        timed_out: "Timed out",
-      },
     },
     dnsmasq: {
       title: "dnsmasq",
@@ -386,6 +373,7 @@ export const enTranslation = {
       supported: "supported",
       unsupported: "unsupported",
       unsupportedWarning: "Some interception features are unavailable",
+      diagnosticErrors: "Kernel checks reported errors",
       capabilities: {
         nfqueue: "NFQUEUE",
         nflog: "NFLOG",
@@ -401,6 +389,12 @@ export const enTranslation = {
           skipped: "skipped",
           not_run: "not run",
         },
+      },
+      kernelQueue: {
+        queueTotal: "Queued",
+        queueDropped: "Kernel dropped",
+        userDropped: "User dropped",
+        idSequence: "Kernel sequence",
       },
       counters: {
         dnsPackets: "DNS packets",
@@ -462,6 +456,29 @@ export const enTranslation = {
       notInIpsetAndNotInLists: "Not in IPSet and not in lists",
       inIpsetButShouldNotBe: "In IPSet but should not be",
       notInIpsetButShouldBe: "Not in IPSet but should be",
+    },
+  },
+  currentRequests: {
+    description:
+      "Live DNS and application requests observed by the interceptor. Device shows the observed client IP when packet attribution is available; LAN inventory names are not exposed here.",
+    empty: "No requests observed yet.",
+    gap: "Events {{from}}–{{to}} were lost before delivery.",
+    copyIps: "Copy IP addresses: {{value}}",
+    columns: {
+      device: "Device",
+      method: "Method",
+      domain: "Domain",
+      lists: "Lists",
+      ip: "IP",
+      processingTime: "Processing time",
+      flags: "Flags",
+    },
+    methods: {
+      dns: "DNS",
+      http: "HTTP Host",
+      sni: "HTTPS SNI",
+      quic: "QUIC",
+      marker: "DNS marker",
     },
   },
   pages: {

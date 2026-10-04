@@ -269,10 +269,13 @@ NFQUEUE/NFLOG overruns, set additions/errors, and conntrack requests/deletes.
 capability probe before reapplying the runtime state, so newly available kernel
 facilities are rechecked.
 
-`GET /api/dns/test` is an SSE stream, not the removed probe listener. It emits
-`HELLO` and `INTERCEPT` events with `source` (`dns`, `marker`, `sni`, `http`, or
-`quic`), `domain`, matched `lists`, learned `ips`, `hold_us`, and
-`timed_out`, plus add/refresh/error counts.
+`GET /api/dns/test` is an SSE stream, not the removed probe listener. Its
+default `show=keen-pbr` view delivers marker events and closes after a matching
+marker. Use `show=all` (or `show=full`) for the continuous observation stream;
+it includes parsed nonmatches and emits `GAP` notices when events are lost.
+Events include `source` (`dns`, `marker`, `sni`, `http`, or `quic`), the captured
+`client_ip`, `domain`, matched `lists`, learned `ips`, `hold_us`, and
+`timed_out`, plus add/refresh/error and parse/write timing counts.
 
 ## Platform limits
 

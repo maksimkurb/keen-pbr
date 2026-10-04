@@ -11,6 +11,7 @@ import threading
 import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit
 
 _SPEC = importlib.util.spec_from_file_location(
     "dns_bench", os.path.join(os.path.dirname(__file__), "..", "scripts", "dns-bench.py"))
@@ -247,7 +248,7 @@ class FakeRouter:
                                              "id_sequence": router.dns_packets}}})
                 if self.path == "/api/config":
                     return self._json({"config": router.config, "is_draft": False})
-                if self.path == "/api/dns/test":
+                if urlsplit(self.path).path == "/api/dns/test":
                     self.send_response(200)
                     self.send_header("Content-Type", "text/event-stream")
                     self.end_headers()

@@ -14,8 +14,11 @@ SseBroadcaster::SubscriptionPtr SseBroadcaster::subscribe() {
 }
 
 SseBroadcaster::SubscriptionPtr SseBroadcaster::subscribe(
-    std::vector<std::string> initial_messages) {
+    std::vector<std::string> initial_messages, MessageFilter filter,
+    bool close_after_filtered_message) {
     auto subscription = std::make_shared<Subscription>();
+    subscription->filter = std::move(filter);
+    subscription->close_after_filtered_message = close_after_filtered_message;
     {
         KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
         subscription->messages.insert(subscription->messages.end(),
@@ -66,6 +69,10 @@ void SseBroadcaster::publish(const std::string& message) {
             KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
             if (subscription->closed) {
                 keep = false;
+            } else if (subscription->filter && !subscription->filter(message)) {
+                // The subscriber remains active; this mode simply ignores
+                // events outside its view.
+                keep = true;
             } else if (gap_builder_) {
                 // Room for the pending notice plus this message?
                 const size_t need = subscription->dropped > 0 ? 2 : 1;
@@ -82,12 +89,20 @@ void SseBroadcaster::publish(const std::string& message) {
                         subscription->last_dropped.clear();
                     }
                     subscription->messages.push_back(message);
+                    if (subscription->close_after_filtered_message) {
+                        subscription->closed = true;
+                        keep = false;
+                    }
                 }
             } else if (subscription->messages.size() >= max_queue_size_) {
                 subscription->closed = true;
                 keep = false;
             } else {
                 subscription->messages.push_back(message);
+                if (subscription->close_after_filtered_message) {
+                    subscription->closed = true;
+                    keep = false;
+                }
             }
         }
         subscription->cv.notify_all();

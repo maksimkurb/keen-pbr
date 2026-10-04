@@ -52,6 +52,8 @@ export * from './errorResponse';
 export * from './firewallChain';
 export * from './firewallRuleCheck';
 export * from './fwmarkConfig';
+export * from './getDnsTestParams';
+export * from './getDnsTestShow';
 export * from './healthResponse';
 export * from './healthResponseRuntimeState';
 export * from './healthResponseStatus';

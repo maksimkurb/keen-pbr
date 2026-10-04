@@ -395,6 +395,7 @@ TEST_CASE("intercept event JSON carries the documented fields") {
     event.seq = 7;
     event.ts_ms = 1712345678123;
     event.source = InterceptSource::sni;
+    event.client_ip = "192.168.1.10";
     event.domain = "example.com";
     event.lists = {"streaming"};
     event.ips = {"203.0.113.7"};
@@ -412,6 +413,7 @@ TEST_CASE("intercept event JSON carries the documented fields") {
     CHECK(json["seq"] == 7);
     CHECK(json["ts_ms"] == 1712345678123);
     CHECK(json["source"] == "sni");
+    CHECK(json["client_ip"] == "192.168.1.10");
     CHECK(json["domain"] == "example.com");
     CHECK(json["lists"] == nlohmann::json::array({"streaming"}));
     CHECK(json["ips"] == nlohmann::json::array({"203.0.113.7"}));

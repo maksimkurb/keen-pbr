@@ -117,6 +117,7 @@ nlohmann::json intercept_event_to_json(const InterceptEvent& event) {
         {"seq", event.seq},
         {"ts_ms", event.ts_ms},
         {"source", intercept_source_name(event.source)},
+        {"client_ip", event.client_ip},
         {"domain", event.domain},
         {"lists", event.lists},
         {"ips", event.ips},

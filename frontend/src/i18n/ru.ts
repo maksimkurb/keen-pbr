@@ -131,6 +131,7 @@ export const ruTranslation = {
     },
     items: {
       systemMonitor: "Обзор системы",
+      currentRequests: "Текущие запросы",
       settings: "Настройки",
       security: "Безопасность",
       outbounds: "Outbounds (выходы)",
@@ -344,20 +345,6 @@ export const ruTranslation = {
         manualWaiting: "Ожидание вашей ручной команды nslookup...",
         manualIncomplete: "Ручной тест устройства ещё не завершён.",
       },
-      monitor: {
-        connecting: "Подключаемся к событиям перехвата в реальном времени...",
-        connected: "Монитор событий перехвата подключён.",
-        error: "Монитор событий перехвата отключён.",
-      },
-      event: {
-        title: "Последнее событие перехвата",
-        source: "Источник",
-        domain: "Домен",
-        lists: "Списки",
-        ips: "IP-адреса",
-        hold_us: "Удержание (мкс)",
-        timed_out: "Истёк тайм-аут",
-      },
     },
     dnsmasq: {
       title: "dnsmasq",
@@ -389,6 +376,7 @@ export const ruTranslation = {
       supported: "доступно",
       unsupported: "недоступно",
       unsupportedWarning: "Некоторые функции перехвата недоступны",
+      diagnosticErrors: "Проверки ядра сообщили об ошибках",
       capabilities: {
         nfqueue: "NFQUEUE",
         nflog: "NFLOG",
@@ -404,6 +392,12 @@ export const ruTranslation = {
           skipped: "пропущено",
           not_run: "не выполнялась",
         },
+      },
+      kernelQueue: {
+        queueTotal: "В очереди",
+        queueDropped: "Отброшено ядром",
+        userDropped: "Отброшено пользователем",
+        idSequence: "Счётчик ядра",
       },
       counters: {
         dnsPackets: "DNS-пакеты",
@@ -466,6 +460,29 @@ export const ruTranslation = {
       notInIpsetAndNotInLists: "Нет в IPSet и нет в списках",
       inIpsetButShouldNotBe: "Есть в IPSet, хотя не должно быть",
       notInIpsetButShouldBe: "Нет в IPSet, хотя должно быть",
+    },
+  },
+  currentRequests: {
+    description:
+      "Запросы DNS и приложений в реальном времени, замеченные перехватчиком. В поле устройства показывается IP клиента при наличии атрибуции по пакету; имена из LAN-инвентаризации здесь недоступны.",
+    empty: "Запросов пока нет.",
+    gap: "События {{from}}–{{to}} потеряны до доставки.",
+    copyIps: "Скопировать IP-адреса: {{value}}",
+    columns: {
+      device: "Устройство",
+      method: "Метод",
+      domain: "Домен",
+      lists: "Списки",
+      ip: "IP",
+      processingTime: "Время обработки",
+      flags: "Флаги",
+    },
+    methods: {
+      dns: "DNS",
+      http: "HTTP Host",
+      sni: "HTTPS SNI",
+      quic: "QUIC",
+      marker: "Маркер DNS",
     },
   },
   pages: {

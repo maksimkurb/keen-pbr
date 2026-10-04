@@ -405,10 +405,17 @@ curl http://127.0.0.1:12121/api/health/routing
 
 ## GET /api/dns/test
 
-Streams the daemon's traffic interception events as Server-Sent Events. Each event payload is a JSON object. The connection receives a `HELLO` event immediately, then one `INTERCEPT` event per intercepted DNS response, TLS SNI, HTTP Host or QUIC Initial while the connection is open. The legacy `DNS` events of the removed `dns.dns_test_server` probe are no longer emitted; the marker domain (`intercept.dns.marker`) is reported as an `INTERCEPT` event with `source` `marker`.
+Streams the daemon's traffic interception events as Server-Sent Events. Each
+connection receives `HELLO` first. The default `show=keen-pbr` view delivers
+only marker events and closes after the matching marker; `show=all` (or the
+compatibility alias `show=full`) stays open and delivers DNS, TLS SNI, HTTP
+Host, QUIC Initial, and marker observations, including domains that did not
+match a configured list. The legacy `DNS` events of the removed
+`dns.dns_test_server` probe are no longer emitted. Pass `domain=<generated
+marker>` with the default view to keep unrelated checks from closing it.
 
 ```bash {filename="bash"}
-curl -N http://127.0.0.1:12121/api/dns/test
+curl -N 'http://127.0.0.1:12121/api/dns/test?show=all'
 ```
 
 ### Stream Example
@@ -416,6 +423,6 @@ curl -N http://127.0.0.1:12121/api/dns/test
 ```text
 data: {"type":"HELLO"}
 
-data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
+data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","client_ip":"192.168.1.10","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
 
 ```

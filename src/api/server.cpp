@@ -777,6 +777,11 @@ void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) 
         try {
             h(req, res);
             log_request_end(req, "stream", res.status == 0 ? 200 : res.status, started_at);
+        } catch (const ApiError& e) {
+            res.status = e.status();
+            res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
+            log_request_error(req, "stream", e.what(), started_at);
+            log_request_end(req, "stream", res.status, started_at);
         } catch (const std::exception& e) {
             if (!res.status) {
                 res.status = 500;

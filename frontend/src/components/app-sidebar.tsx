@@ -40,6 +40,10 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
             url: "/",
           },
           {
+            title: t("nav.items.currentRequests"),
+            url: "/current-requests",
+          },
+          {
             title: t("nav.items.settings"),
             url: "/general",
           },

@@ -489,13 +489,34 @@ paths:
       summary: Stream DNS test queries
       description: >
         Streams the daemon's traffic interception events as Server-Sent
-        Events. Each connection receives `HELLO` first, then one `INTERCEPT`
-        event per intercepted DNS response, TLS SNI, HTTP Host or QUIC Initial
-        (see the `DnsTestInterceptEvent` schema). The legacy `DNS` events of
-        the removed built-in probe server are no longer emitted; the DNS
-        marker domain (`intercept.dns.marker`) is answered by the interceptor
-        and reported as an `INTERCEPT` event with `source` `marker`.
+        Events. Each connection receives `HELLO` first. By default only DNS
+        marker events used by the dashboard self-check are delivered. Set
+        `show=all` (or the compatibility alias `show=full`) to receive every
+        observed DNS, TLS SNI, HTTP Host, QUIC Initial, and marker event,
+        including parsed DNS responses that did not match a configured list.
+        The DNS marker domain (`intercept.dns.marker`) is answered by the
+        interceptor and reported as an `INTERCEPT` event with `source` `marker`.
       operationId: getDnsTest
+      parameters:
+        - name: show
+          in: query
+          required: false
+          description: >
+            Event view: `keen-pbr` (default, marker events only) or `all`
+            (all observed events). `full` is accepted as an alias for `all`.
+          schema:
+            type: string
+            enum: [keen-pbr, all, full]
+            default: keen-pbr
+        - name: domain
+          in: query
+          required: false
+          description: >
+            Optional generated marker domain to observe for the default
+            `keen-pbr` view. When present, only that marker closes the stream.
+          schema:
+            type: string
+            minLength: 1
       responses:
         "200":
           description: Live DNS query stream
@@ -507,6 +528,12 @@ paths:
                 data: {"type":"HELLO"}
 
                 data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
+        "400":
+          description: Invalid `show` or marker-domain query parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
   securitySchemes:
@@ -1673,6 +1700,12 @@ components:
         source:
           type: string
           enum: [dns, sni, http, quic, marker]
+        client_ip:
+          type: string
+          description: >
+            Source attribution from the captured packet. For DNS replies this
+            is the reply destination; for L7 requests this is the request
+            source. Empty when packet metadata is unavailable.
         domain:
           type: string
         lists:
@@ -1701,10 +1734,10 @@ components:
           description: The hold deadline expired before the sets were written.
         parse_us:
           type: integer
-          description: Time spent parsing the DNS response, in microseconds (DNS events).
+          description: Time spent parsing the captured request or response, in microseconds.
         set_write_us:
           type: integer
-          description: Time spent in the set writer for this response, in microseconds (0 when nothing was written).
+          description: Time spent in the set writer for this observation, in microseconds (0 when nothing was written).
 
     DnsTestGapEvent:
       type: object

@@ -19,6 +19,9 @@ export interface DnsTestInterceptEvent {
   /** Unix timestamp in milliseconds. */
   ts_ms: number;
   source: DnsTestInterceptEventSource;
+  /** Source attribution from the captured packet. For DNS replies this is the reply destination; for L7 requests this is the request source. Empty when packet metadata is unavailable.
+   */
+  client_ip?: string;
   domain: string;
   /** Names of the lists whose sets received the addresses. */
   lists: string[];
@@ -33,8 +36,8 @@ export interface DnsTestInterceptEvent {
   hold_us: number;
   /** The hold deadline expired before the sets were written. */
   timed_out: boolean;
-  /** Time spent parsing the DNS response, in microseconds (DNS events). */
+  /** Time spent parsing the captured request or response, in microseconds. */
   parse_us?: number;
-  /** Time spent in the set writer for this response, in microseconds (0 when nothing was written). */
+  /** Time spent in the set writer for this observation, in microseconds (0 when nothing was written). */
   set_write_us?: number;
 }

@@ -13,7 +13,6 @@ import type {
 import {
   DNS_CHECK_DOMAIN_SUFFIX,
   type DnsCheckStatus,
-  useInterceptEventMonitor,
 } from "@/hooks/use-dns-check"
 import {
   useGetConfig,
@@ -47,6 +46,7 @@ import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
 import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-download-dialog"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
+import { collectInterceptDiagnosticErrors } from "@/lib/intercept-diagnostics"
 import { useAuth } from "@/auth/auth-context"
 import { Link } from "wouter"
 
@@ -122,9 +122,6 @@ export function OverviewPage() {
     serviceHealth.intercept.dns_hold_active === true
   const dnsCheckEnabled = dnsCheckConfigEnabled && dnsCheckRuntimeEnabled
   const dnsCheckDisabledReason = !dnsCheckConfigEnabled ? "config" : "runtime"
-  const interceptMonitor = useInterceptEventMonitor(
-    serviceHealth?.intercept?.running === true
-  )
   const outboundRows = useMemo(() => {
     const configuredOutbounds = loadedConfig?.outbounds ?? []
     if (configuredOutbounds.length === 0) {
@@ -275,14 +272,10 @@ export function OverviewPage() {
         <DnsCheckWidget
           disabledReason={dnsCheckDisabledReason}
           dnsProbeEnabled={dnsCheckEnabled}
-          liveEvent={interceptMonitor.lastEvent}
-          liveMonitorStatus={interceptMonitor.status}
           markerDomain={markerConfig?.domain ?? DNS_CHECK_DOMAIN_SUFFIX}
           onStatusChange={setDnsCheckStatus}
         />
       </div>
-
-      <InterceptHealthCard health={serviceHealth?.intercept} />
 
       <DnsmasqHealthCard health={serviceHealth?.dnsmasq} />
 
@@ -330,6 +323,19 @@ export function OverviewPage() {
             </Button>
           }
         >
+          <InterceptHealthCard
+            health={serviceHealth?.intercept}
+            requestedDns={
+              Boolean(loadedConfig) &&
+              loadedConfig?.intercept?.enabled !== false &&
+              loadedConfig?.intercept?.dns?.enabled !== false
+            }
+            requestedL7={
+              Boolean(loadedConfig) &&
+              loadedConfig?.intercept?.enabled !== false &&
+              loadedConfig?.intercept?.l7?.enabled !== false
+            }
+          />
           {routingHealthQuery.isLoading ? <TableSkeleton /> : null}
           {routingHealthQuery.isError ? (
             <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
@@ -488,7 +494,15 @@ function formatRelativeTime(timestampMs: number, locale: string) {
   return formatter.format(Math.round(diffSeconds / 86400), "day")
 }
 
-function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
+function InterceptHealthCard({
+  health,
+  requestedDns,
+  requestedL7,
+}: {
+  health?: InterceptHealth
+  requestedDns: boolean
+  requestedL7: boolean
+}) {
   const { t } = useTranslation()
 
   if (!health) {
@@ -507,9 +521,9 @@ function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
       : "degraded"
   const counters = health.counters
   const capabilities = [
-    ["nfqueue", health.capabilities.nfqueue],
-    ["nflog", health.capabilities.nflog],
-    ["connbytes", health.capabilities.connbytes],
+    ["nfqueue", health.capabilities.nfqueue, requestedDns],
+    ["nflog", health.capabilities.nflog, requestedL7],
+    ["connbytes", health.capabilities.connbytes, requestedL7],
   ] as const
   const counterEntries = counters
     ? ([
@@ -533,11 +547,13 @@ function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
     : []
 
   return (
-    <SectionCard
-      description={t("overview.intercept.description")}
-      title={t("overview.intercept.title")}
-    >
-      <div className="space-y-4">
+      <div className="space-y-4 border-b pb-4">
+        <div>
+          <h3 className="font-semibold">{t("overview.intercept.title")}</h3>
+          <p className="text-xs text-muted-foreground">
+            {t("overview.intercept.description")}
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge tone={statusTone}>{status}</StatusBadge>
           <StatusBadge tone={health.dns_hold_active ? "healthy" : "warning"}>
@@ -553,13 +569,19 @@ function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
         </div>
 
         <div className="grid gap-3 text-sm sm:grid-cols-3">
-          {capabilities.map(([name, supported]) => (
+          {capabilities.map(([name, supported, relevant]) => (
             <div className="flex items-center justify-between gap-2" key={name}>
               <span className="text-muted-foreground">
                 {t(`overview.intercept.capabilities.${name}`)}
               </span>
               <span
-                className={supported ? "text-emerald-600" : "text-destructive"}
+                className={
+                  supported
+                    ? "text-emerald-600"
+                    : relevant
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+                }
               >
                 {supported
                   ? t("overview.intercept.supported")
@@ -590,7 +612,14 @@ function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
                   key={probe.feature}
                 >
                   <span className="text-muted-foreground">{probe.feature}</span>
-                  <span className={probeStatusClass(probe.status)}>
+                  <span
+                    className={probeStatusClass(
+                      probe.status,
+                      probe.feature,
+                      requestedDns,
+                      requestedL7
+                    )}
+                  >
                     {t(`overview.intercept.probes.status.${probe.status}`)}
                   </span>
                   {probe.reason ? (
@@ -603,6 +632,29 @@ function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
             </ul>
           </div>
         ) : null}
+
+        {(() => {
+          const errors = collectInterceptDiagnosticErrors(
+            health.capabilities,
+            health.probes ?? [],
+            requestedDns,
+            requestedL7
+          )
+          return errors.length > 0 ? (
+            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+              <AlertDescription>
+                <div className="font-medium">
+                  {t("overview.intercept.diagnosticErrors")}
+                </div>
+                <ul className="list-disc pl-5">
+                  {errors.map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          ) : null
+        })()}
 
         {health.warnings && health.warnings.length > 0 ? (
           <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
@@ -633,6 +685,25 @@ function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
           </Alert>
         ) : null}
 
+        {health.kernel_queue ? (
+          <div className="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+            {(
+              [
+                ["queueTotal", health.kernel_queue.queue_total],
+                ["queueDropped", health.kernel_queue.queue_dropped],
+                ["userDropped", health.kernel_queue.user_dropped],
+                ["idSequence", health.kernel_queue.id_sequence],
+              ] as const
+            ).map(([name, value]) => (
+              <Counter
+                key={name}
+                label={t(`overview.intercept.kernelQueue.${name}`)}
+                value={value}
+              />
+            ))}
+          </div>
+        ) : null}
+
         {counterEntries.length > 0 ? (
           <div className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
             {counterEntries.map(([name, value]) => (
@@ -645,11 +716,21 @@ function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
           </div>
         ) : null}
       </div>
-    </SectionCard>
   )
 }
 
-function probeStatusClass(status: InterceptProbeFeatureStatus) {
+function probeStatusClass(
+  status: InterceptProbeFeatureStatus,
+  feature: string,
+  requestedDns: boolean,
+  requestedL7: boolean
+) {
+  const relevant =
+    (feature === "nfqueue" && requestedDns) ||
+    ((feature === "nflog" || feature === "connbytes") && requestedL7) ||
+    (requestedDns || requestedL7) &&
+      !["nfqueue", "nflog", "connbytes"].includes(feature)
+  if (!relevant) return "text-muted-foreground"
   switch (status) {
     case "ok":
       return "text-emerald-600"

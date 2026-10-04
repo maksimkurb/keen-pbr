@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesRPs3R1 data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesSW6Rnk data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -408,6 +408,7 @@ namespace api {
 
     struct DnsTestInterceptEvent {
         int64_t added;
+        std::optional<std::string> client_ip;
         std::string domain;
         int64_t errors;
         int64_t hold_us;
@@ -767,7 +768,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesRPs3R1 {
+    struct KeenPbrTypesSW6Rnk {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1091,8 +1092,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesRPs3R1 & x);
-    void to_json(json & j, const KeenPbrTypesRPs3R1 & x);
+    void from_json(const json & j, KeenPbrTypesSW6Rnk & x);
+    void to_json(json & j, const KeenPbrTypesSW6Rnk & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1815,6 +1816,7 @@ namespace api {
 
     inline void from_json(const json & j, DnsTestInterceptEvent& x) {
         x.added = j.at("added").get<int64_t>();
+        x.client_ip = get_stack_optional<std::string>(j, "client_ip");
         x.domain = j.at("domain").get<std::string>();
         x.errors = j.at("errors").get<int64_t>();
         x.hold_us = j.at("hold_us").get<int64_t>();
@@ -1833,6 +1835,7 @@ namespace api {
     inline void to_json(json & j, const DnsTestInterceptEvent & x) {
         j = json::object();
         j["added"] = x.added;
+        j["client_ip"] = x.client_ip;
         j["domain"] = x.domain;
         j["errors"] = x.errors;
         j["hold_us"] = x.hold_us;
@@ -2493,7 +2496,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesRPs3R1& x) {
+    inline void from_json(const json & j, KeenPbrTypesSW6Rnk& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2579,7 +2582,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesRPs3R1 & x) {
+    inline void to_json(json & j, const KeenPbrTypesSW6Rnk & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

@@ -211,6 +211,13 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
         }
         InterceptEvent event;
         event.source = InterceptSource::marker;
+        const std::size_t client_offset = layout->ip_version == 6 ? 24 : 16;
+        const std::size_t client_length = layout->ip_version == 6 ? 16 : 4;
+        if (client_offset + client_length <= l3.size()) {
+            std::array<uint8_t, 16> client{};
+            std::memcpy(client.data(), l3.data() + client_offset, client_length);
+            event.client_ip = format_ip(layout->ip_version, client);
+        }
         event.domain = response_.qname;
         event.hold_us = static_cast<uint32_t>(
             std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
@@ -218,7 +225,29 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
         return decision;
     }
 
-    if (response_.rcode != 0 || response_.addresses.empty()) return {};
+    const auto add_dns_observation = [&](InterceptEvent& event) {
+        const std::size_t client_offset = layout->ip_version == 6 ? 24 : 16;
+        const std::size_t client_length = layout->ip_version == 6 ? 16 : 4;
+        if (client_offset + client_length <= l3.size()) {
+            std::array<uint8_t, 16> client{};
+            std::memcpy(client.data(), l3.data() + client_offset, client_length);
+            event.client_ip = format_ip(layout->ip_version, client);
+        }
+        event.domain = response_.qname;
+        event.parse_us = static_cast<uint32_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(parsed_at - started).count());
+        for (const dns_wire::AddressRecord& rec : response_.addresses) {
+            event.ips.push_back(format_ip(rec.family, rec.addr));
+        }
+    };
+
+    if (response_.rcode != 0 || response_.addresses.empty()) {
+        InterceptEvent event;
+        event.source = InterceptSource::dns;
+        add_dns_observation(event);
+        push_event(std::move(event));
+        return {};
+    }
 
     snap->index->lookup(response_.qname, ids_);
     for (const std::string& name : response_.cname_chain) {
@@ -227,7 +256,13 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
         if (ids_tmp_.empty()) continue;
         ids_.insert(ids_.end(), ids_tmp_.begin(), ids_tmp_.end());
     }
-    if (ids_.empty()) return {};
+    if (ids_.empty()) {
+        InterceptEvent event;
+        event.source = InterceptSource::dns;
+        add_dns_observation(event);
+        push_event(std::move(event));
+        return {};
+    }
     std::sort(ids_.begin(), ids_.end());
     ids_.erase(std::unique(ids_.begin(), ids_.end()), ids_.end());
 
@@ -240,13 +275,8 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
 
     InterceptEvent event;
     event.source = InterceptSource::dns;
-    event.domain = response_.qname;
-    event.parse_us = static_cast<uint32_t>(
-        std::chrono::duration_cast<std::chrono::microseconds>(parsed_at - started).count());
+    add_dns_observation(event);
     collect_list_names(*snap, event.lists);
-    for (const dns_wire::AddressRecord& rec : response_.addresses) {
-        event.ips.push_back(format_ip(rec.family, rec.addr));
-    }
 
     if (!adds_.empty() && Clock::now() >= deadline) {
         event.timed_out = true;
@@ -354,6 +384,7 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
 }
 
 void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
+    const Clock::time_point started = Clock::now();
     const auto snap = snapshot();
     if (!snap || !snap->index) return;
 
@@ -416,7 +447,21 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
     if (status != l7::ParseStatus::Found || sni_.empty()) return;
 
     snap->index->lookup(sni_, ids_);
-    if (ids_.empty()) return;
+    if (ids_.empty()) {
+        // The full observation stream includes parsed application requests
+        // even when no configured list matched them.  There is no set work
+        // for these events, but the packet metadata is still useful to the
+        // current-requests view.
+        InterceptEvent event;
+        event.source = source;
+        event.client_ip = format_ip(layout->ip_version, key.src);
+        event.domain = sni_;
+        event.parse_us = static_cast<uint32_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
+        event.ips.push_back(format_ip(layout->ip_version, key.dst));
+        push_event(std::move(event));
+        return;
+    }
     bump(counters_.l7_matched);
 
     adds_.clear();
@@ -424,7 +469,10 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
 
     InterceptEvent event;
     event.source = source;
+    event.client_ip = format_ip(layout->ip_version, key.src);
     event.domain = sni_;
+    event.parse_us = static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
     collect_list_names(*snap, event.lists);
     event.ips.push_back(format_ip(layout->ip_version, key.dst));
 
@@ -476,6 +524,7 @@ void InterceptProcessor::record_l7_result(InterceptL7Work work,
     const bool current = admitted && snapshot_is_current(work.snapshot);
     if (admitted) {
         if (current) {
+            const Clock::time_point write_started = Clock::now();
             try {
                 writer.add(work.adds.data(), results.data(), work.adds.size(), kL7BudgetMs);
             } catch (const std::exception& e) {
@@ -483,6 +532,9 @@ void InterceptProcessor::record_l7_result(InterceptL7Work work,
             } catch (...) {
                 Logger::instance().debug("intercept: set writer failed with an unknown exception");
             }
+            work.event.set_write_us = static_cast<uint32_t>(
+                std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - write_started)
+                    .count());
         }
         if (l7_release) l7_release();
     }

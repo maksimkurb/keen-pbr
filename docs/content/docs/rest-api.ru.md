@@ -407,12 +407,16 @@ curl http://127.0.0.1:12121/api/health/routing
 ## GET /api/dns/test
 
 Транслирует события перехвата как Server-Sent Events. Соединение получает
-`HELLO`, затем события `INTERCEPT` для DNS-ответов, marker, TLS SNI, HTTP Host
-или QUIC Initial. Старые события `DNS` от удалённого
-`dns.dns_test_server` больше не выдаются.
+`HELLO`. По умолчанию `show=keen-pbr` выдаёт только marker-события и закрывается
+после подходящего marker; `show=all` (или совместимый псевдоним `show=full`)
+остаётся открытым и выдаёт наблюдения DNS, TLS SNI, HTTP Host, QUIC Initial и
+marker, включая домены без совпадения со списками. Старые события `DNS` от
+удалённого `dns.dns_test_server` больше не выдаются. Параметр
+`domain=<сгенерированный marker>` в представлении по умолчанию изолирует
+проверки друг от друга.
 
 ```bash {filename="bash"}
-curl -N http://127.0.0.1:12121/api/dns/test
+curl -N 'http://127.0.0.1:12121/api/dns/test?show=all'
 ```
 
 ### Пример потока
@@ -420,5 +424,5 @@ curl -N http://127.0.0.1:12121/api/dns/test
 ```text
 data: {"type":"HELLO"}
 
-data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
+data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","client_ip":"192.168.1.10","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
 ```

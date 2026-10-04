@@ -36,6 +36,7 @@ import type {
   ConfigUpdateResponse,
   DraftConfig,
   ErrorResponse,
+  GetDnsTestParams,
   HealthResponse,
   LifecycleOperationAcceptedResponse,
   ListRefreshRequest,
@@ -2405,7 +2406,7 @@ export function useGetStatusEvents<TData = Awaited<ReturnType<typeof getStatusEv
 
 
 /**
- * Streams the daemon's traffic interception events as Server-Sent Events. Each connection receives `HELLO` first, then one `INTERCEPT` event per intercepted DNS response, TLS SNI, HTTP Host or QUIC Initial (see the `DnsTestInterceptEvent` schema). The legacy `DNS` events of the removed built-in probe server are no longer emitted; the DNS marker domain (`intercept.dns.marker`) is answered by the interceptor and reported as an `INTERCEPT` event with `source` `marker`.
+ * Streams the daemon's traffic interception events as Server-Sent Events. Each connection receives `HELLO` first. By default only DNS marker events used by the dashboard self-check are delivered. Set `show=all` (or the compatibility alias `show=full`) to receive every observed DNS, TLS SNI, HTTP Host, QUIC Initial, and marker event, including parsed DNS responses that did not match a configured list. The DNS marker domain (`intercept.dns.marker`) is answered by the interceptor and reported as an `INTERCEPT` event with `source` `marker`.
 
  * @summary Stream DNS test queries
  */
@@ -2414,24 +2415,38 @@ export type getDnsTestResponse200 = {
   status: 200
 }
 
+export type getDnsTestResponse400 = {
+  data: ErrorResponse
+  status: 400
+}
+
 export type getDnsTestResponseSuccess = (getDnsTestResponse200) & {
   headers: Headers;
 };
-;
+export type getDnsTestResponseError = (getDnsTestResponse400) & {
+  headers: Headers;
+};
 
-export type getDnsTestResponse = (getDnsTestResponseSuccess)
+export type getDnsTestResponse = (getDnsTestResponseSuccess | getDnsTestResponseError)
 
-export const getGetDnsTestUrl = () => {
+export const getGetDnsTestUrl = (params?: GetDnsTestParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/dns/test`
+  return stringifiedParams.length > 0 ? `/api/dns/test?${stringifiedParams}` : `/api/dns/test`
 }
 
-export const getDnsTest = async ( options?: RequestInit): Promise<getDnsTestResponse> => {
+export const getDnsTest = async (params?: GetDnsTestParams, options?: RequestInit): Promise<getDnsTestResponse> => {
 
-  return apiFetch<getDnsTestResponse>(getGetDnsTestUrl(),
+  return apiFetch<getDnsTestResponse>(getGetDnsTestUrl(params),
   {
     ...options,
     method: 'GET'
@@ -2444,23 +2459,23 @@ export const getDnsTest = async ( options?: RequestInit): Promise<getDnsTestResp
 
 
 
-export const getGetDnsTestQueryKey = () => {
+export const getGetDnsTestQueryKey = (params?: GetDnsTestParams,) => {
     return [
-    `/api/dns/test`
+    `/api/dns/test`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetDnsTestQueryOptions = <TData = Awaited<ReturnType<typeof getDnsTest>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+export const getGetDnsTestQueryOptions = <TData = Awaited<ReturnType<typeof getDnsTest>>, TError = ErrorResponse>(params?: GetDnsTestParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetDnsTestQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetDnsTestQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDnsTest>>> = ({ signal }) => getDnsTest({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDnsTest>>> = ({ signal }) => getDnsTest(params, { signal, ...requestOptions });
 
 
 
@@ -2470,11 +2485,11 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetDnsTestQueryResult = NonNullable<Awaited<ReturnType<typeof getDnsTest>>>
-export type GetDnsTestQueryError = unknown
+export type GetDnsTestQueryError = ErrorResponse
 
 
-export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>> & Pick<
+export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = ErrorResponse>(
+ params: undefined |  GetDnsTestParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getDnsTest>>,
           TError,
@@ -2483,8 +2498,8 @@ export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TE
       >, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>> & Pick<
+export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = ErrorResponse>(
+ params?: GetDnsTestParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getDnsTest>>,
           TError,
@@ -2493,20 +2508,20 @@ export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TE
       >, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = ErrorResponse>(
+ params?: GetDnsTestParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Stream DNS test queries
  */
 
-export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = ErrorResponse>(
+ params?: GetDnsTestParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetDnsTestQueryOptions(options)
+  const queryOptions = getGetDnsTestQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

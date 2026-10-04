@@ -44,6 +44,9 @@ struct InterceptEvent {
     uint64_t seq{0};
     int64_t ts_ms{0};
     InterceptSource source{InterceptSource::dns};
+    // Client address observed in the captured packet. DNS replies use the
+    // reply destination; L7 requests use the request source.
+    std::string client_ip;
     std::string domain;
     std::vector<std::string> lists;
     std::vector<std::string> ips;
@@ -51,8 +54,8 @@ struct InterceptEvent {
     uint32_t refreshed{0};
     uint32_t errors{0};
     uint32_t hold_us{0};
-    uint32_t parse_us{0};      // DNS response parse time
-    uint32_t set_write_us{0};  // time inside the set writer for this response
+    uint32_t parse_us{0};      // captured request/response parse time
+    uint32_t set_write_us{0};  // time inside the set writer for this observation
     bool timed_out{false};
 };
 

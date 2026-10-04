@@ -6,7 +6,6 @@ import {
   parseDnsCheckEvent,
   type DnsEventFailure,
 } from "@/api/dns-event-hub"
-import type { DnsTestInterceptEvent } from "@/api/generated/model"
 
 export { parseDnsCheckEvent }
 export type { DnsEventFailure }
@@ -19,12 +18,6 @@ export type DnsCheckStatus =
   | "sse-fail"
   | "pc-success"
 
-export type InterceptMonitorStatus =
-  | "disabled"
-  | "connecting"
-  | "connected"
-  | "error"
-
 type DnsCheckState = {
   randomString: string
   waiting: boolean
@@ -34,15 +27,9 @@ type DnsCheckState = {
 type UseDnsCheckReturn = {
   status: DnsCheckStatus
   checkState: DnsCheckState
-  lastEvent: DnsTestInterceptEvent | null
   failure: DnsEventFailure | null
   startCheck: (performBrowserRequest: boolean) => void
   reset: () => void
-}
-
-type UseInterceptEventMonitorReturn = {
-  lastEvent: DnsTestInterceptEvent | null
-  status: InterceptMonitorStatus
 }
 
 export const DNS_CHECK_DOMAIN_SUFFIX = "check.keen.pbr"
@@ -63,7 +50,6 @@ export function useDnsCheck(
 
   const [status, setStatus] = useState<DnsCheckStatus>("idle")
   const [failure, setFailure] = useState<DnsEventFailure | null>(null)
-  const [lastEvent, setLastEvent] = useState<DnsTestInterceptEvent | null>(null)
   const [checkState, setCheckState] = useState<DnsCheckState>({
     randomString: "",
     waiting: false,
@@ -112,7 +98,6 @@ export function useDnsCheck(
       })
       setStatus("checking")
       setFailure(null)
-      setLastEvent(null)
 
       if (!performBrowserRequest) {
         warningTimeoutRef.current = window.setTimeout(() => {
@@ -123,16 +108,15 @@ export function useDnsCheck(
         }, pcWarningTimeoutMs)
       }
 
-      // One shared /api/dns/test stream per tab: hold a lease for the whole
-      // check and listen to the hub instead of opening our own connection.
-      const hub = getDnsEventHub()
+      // Keep this check on a marker-domain-scoped stream. A different tab may
+      // run a check at the same time; its marker must not close this stream
+      // before this check's own generated domain is observed.
+      const hub = getDnsEventHub("keen-pbr", domain)
       const releaseLease = hub.acquireLease()
       const unsubscribe = hub.subscribe((payload) => {
         if (generation !== checkGenerationRef.current) {
           return
         }
-
-        setLastEvent(payload)
 
         if (
           payload.source !== "marker" ||
@@ -142,6 +126,9 @@ export function useDnsCheck(
         }
 
         cleanup()
+        // A successful marker is terminal for this filtered stream. Release
+        // both refs and abort the request without the normal idle grace period.
+        hub.disconnectNow()
         setCheckState((current) => ({
           ...current,
           waiting: false,
@@ -227,7 +214,6 @@ export function useDnsCheck(
     cleanup()
     setStatus("idle")
     setFailure(null)
-    setLastEvent(null)
     setCheckState({
       randomString: "",
       waiting: false,
@@ -238,7 +224,6 @@ export function useDnsCheck(
   return {
     status,
     checkState,
-    lastEvent,
     failure,
     startCheck,
     reset,
@@ -251,56 +236,6 @@ export function describeSseFailure(failure: DnsEventFailure | null) {
   if (failure?.kind === "http")
     return { key: "sseHttp", params: { status: failure.status ?? 0 } }
   return { key: null }
-}
-
-export function useInterceptEventMonitor(
-  enabled: boolean
-): UseInterceptEventMonitorReturn {
-  const [status, setStatus] = useState<InterceptMonitorStatus>(
-    enabled ? "connecting" : "disabled"
-  )
-  const [lastEvent, setLastEvent] = useState<DnsTestInterceptEvent | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    queueMicrotask(() => {
-      if (cancelled) return
-      setLastEvent(null)
-      setStatus(
-        enabled ? mapHubStatus(getDnsEventHub().getStatus()) : "disabled"
-      )
-    })
-
-    if (!enabled) {
-      return
-    }
-
-    const hub = getDnsEventHub()
-    const offStatus = hub.onStatus(() => {
-      if (!cancelled) setStatus(mapHubStatus(hub.getStatus()))
-    })
-    const unsubscribe = hub.subscribe((event) => {
-      if (!cancelled) setLastEvent(event)
-    })
-
-    return () => {
-      cancelled = true
-      offStatus()
-      unsubscribe()
-    }
-  }, [enabled])
-
-  return { lastEvent, status }
-}
-
-function mapHubStatus(
-  status: ReturnType<ReturnType<typeof getDnsEventHub>["getStatus"]>
-): InterceptMonitorStatus {
-  return status === "connected"
-    ? "connected"
-    : status === "error"
-      ? "error"
-      : "connecting"
 }
 
 export function normalizeDnsMarkerDomain(value: string) {

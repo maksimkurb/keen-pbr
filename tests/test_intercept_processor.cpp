@@ -378,17 +378,21 @@ TEST_CASE("intercept: CNAME target match") {
     CHECK(f.writer.recorded[0].timeout_s == 300);
 }
 
-TEST_CASE("intercept: no match, NXDOMAIN and malformed produce no adds") {
+TEST_CASE("intercept: no match and NXDOMAIN produce observations without adds") {
     Fixture f;
     const Bytes other = dns_packet(dns_response("other.org", 0, {a_rr(1, 1, 1, 1, 60)}));
     f.proc.on_dns_packet(view(other), Fixture::deadline(), true);
     CHECK(f.writer.calls == 0);
-    CHECK(f.proc.events_since(0, 10).empty());
+    const auto observed = f.proc.events_since(0, 10);
+    REQUIRE(observed.size() == 1);
+    CHECK(observed[0].domain == "other.org");
+    CHECK(observed[0].client_ip == "192.168.1.10");
+    CHECK(observed[0].ips == std::vector<std::string>{"1.1.1.1"});
 
     const Bytes nx = dns_packet(dns_response("www.example.com", 3, {}));
     f.proc.on_dns_packet(view(nx), Fixture::deadline(), true);
     CHECK(f.writer.calls == 0);
-    CHECK(f.proc.events_since(0, 10).empty());
+    CHECK(f.proc.events_since(0, 10).size() == 2);
 
     Bytes garbage = dns_packet(Bytes{1, 2, 3, 4, 5});
     f.proc.on_dns_packet(view(garbage), Fixture::deadline(), true);
@@ -656,7 +660,25 @@ TEST_CASE("intercept: L7 HTTP Host") {
     const auto events = f.proc.events_since(0, 10);
     REQUIRE(events.size() == 1);
     CHECK(events[0].source == InterceptSource::http);
+    CHECK(events[0].client_ip == "192.168.1.10");
     CHECK(f.cleanup.requests.size() == 1);
+}
+
+TEST_CASE("intercept: unmatched L7 Host is observed without set work") {
+    Fixture f;
+    const std::string req = "GET / HTTP/1.1\r\nHost: other.org\r\n\r\n";
+    const Bytes pkt = tcp_packet(Bytes(req.begin(), req.end()), 1, 80);
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+
+    CHECK(f.writer.calls == 0);
+    CHECK(f.cleanup.requests.empty());
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].source == InterceptSource::http);
+    CHECK(events[0].client_ip == "192.168.1.10");
+    CHECK(events[0].domain == "other.org");
+    CHECK(events[0].lists.empty());
+    CHECK(events[0].ips == std::vector<std::string>{"203.0.113.7"});
 }
 
 TEST_CASE("intercept: L7 QUIC Initial") {

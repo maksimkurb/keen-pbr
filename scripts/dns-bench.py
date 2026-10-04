@@ -367,7 +367,9 @@ class EventStream(threading.Thread):
 
     def run(self):
         try:
-            resp = self.api.open_stream("/api/dns/test")
+            # The API defaults to the one-shot marker view. The benchmark
+            # needs the continuous observation stream explicitly.
+            resp = self.api.open_stream("/api/dns/test?show=all")
         except (urllib.error.URLError, OSError) as exc:
             self.error = str(exc)
             self.hello.set()

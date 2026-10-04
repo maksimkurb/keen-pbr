@@ -39,11 +39,23 @@ export const DNS_EVENT_RECONNECT_MS = 3_000
 export const DNS_EVENT_HIDDEN_DISCONNECT_MS = 60_000
 
 export type DnsEventHub = ReturnType<typeof createDnsEventHub>
+export type DnsEventStreamMode = "keen-pbr" | "all" | "full"
+
+export type DnsTestGapEvent = {
+  type: "GAP"
+  from_seq: number
+  to_seq: number
+}
+
+export type DnsTestStreamEvent =
+  | { type: "HELLO" }
+  | DnsTestInterceptEvent
+  | DnsTestGapEvent
 
 /**
  * Browsers allow only ~6 HTTP/1.1 connections per host across all tabs, so
- * every tab must hold at most one /api/dns/test stream. The hub owns that
- * stream and fans events out to ref-counted subscribers and check leases.
+ * every tab must hold at most one /api/dns/test stream per view. The hub owns
+ * that stream and fans events out to ref-counted subscribers and check leases.
  */
 export function createDnsEventHub(options: DnsEventHubOptions = {}) {
   const consume = options.consume ?? consumeAuthenticatedSse
@@ -55,6 +67,7 @@ export function createDnsEventHub(options: DnsEventHubOptions = {}) {
   const url = options.url ?? "/api/dns/test"
 
   const listeners = new Set<(event: DnsTestInterceptEvent) => void>()
+  const streamListeners = new Set<(event: DnsTestStreamEvent) => void>()
   const statusListeners = new Set<() => void>()
   let leases = 0
   let status: DnsEventHubStatus = "idle"
@@ -67,7 +80,7 @@ export function createDnsEventHub(options: DnsEventHubOptions = {}) {
   let idleTimer: unknown = null
   let hiddenTimer: unknown = null
 
-  const refs = () => listeners.size + leases
+  const refs = () => listeners.size + streamListeners.size + leases
 
   const clear = (handle: unknown) => {
     if (handle !== null) timers.clearTimeout(handle)
@@ -129,8 +142,11 @@ export function createDnsEventHub(options: DnsEventHubOptions = {}) {
       ({ data }) => {
         if (controller !== current) return
         const payload = parseDnsCheckEvent(data)
-        if (payload?.type !== "INTERCEPT") return
-        for (const listener of [...listeners]) listener(payload)
+        if (!payload) return
+        if (payload.type === "INTERCEPT") {
+          for (const listener of [...listeners]) listener(payload)
+        }
+        for (const listener of [...streamListeners]) listener(payload)
       },
       () => {
         if (controller !== current || current.signal.aborted) return
@@ -166,6 +182,11 @@ export function createDnsEventHub(options: DnsEventHubOptions = {}) {
     }, DNS_EVENT_IDLE_DISCONNECT_MS)
   }
 
+  const disconnectNow = () => {
+    idleTimer = clear(idleTimer)
+    if (refs() === 0) disconnect()
+  }
+
   return {
     subscribe(listener: (event: DnsTestInterceptEvent) => void) {
       listeners.add(listener)
@@ -175,6 +196,17 @@ export function createDnsEventHub(options: DnsEventHubOptions = {}) {
         if (!active) return
         active = false
         listeners.delete(listener)
+        refRemoved()
+      }
+    },
+    subscribeStream(listener: (event: DnsTestStreamEvent) => void) {
+      streamListeners.add(listener)
+      refAdded()
+      let active = true
+      return () => {
+        if (!active) return
+        active = false
+        streamListeners.delete(listener)
         refRemoved()
       }
     },
@@ -197,6 +229,7 @@ export function createDnsEventHub(options: DnsEventHubOptions = {}) {
     },
     getStatus: () => status,
     failure: () => failureState,
+    disconnectNow,
     onStatus(cb: () => void) {
       statusListeners.add(cb)
       return () => {
@@ -229,13 +262,41 @@ export function createDnsEventHub(options: DnsEventHubOptions = {}) {
   }
 }
 
-let sharedHub: DnsEventHub | null = null
+const sharedHubs = new Map<string, DnsEventHub>()
+
+export function dnsEventStreamUrl(
+  mode: DnsEventStreamMode,
+  markerDomain?: string
+) {
+  const normalizedDomain = markerDomain?.trim().replace(/\.+$/, "").toLowerCase()
+  const params = new URLSearchParams({ show: mode })
+  if (normalizedDomain) params.set("domain", normalizedDomain)
+  return `/api/dns/test?${params.toString()}`
+}
 
 /** Per-tab singleton. */
-export function getDnsEventHub(): DnsEventHub {
-  if (sharedHub) return sharedHub
-  const hub = createDnsEventHub()
-  sharedHub = hub
+export function getDnsEventHub(
+  mode: DnsEventStreamMode = "keen-pbr",
+  markerDomain?: string
+): DnsEventHub {
+  const normalizedDomain = markerDomain?.trim().replace(/\.+$/, "").toLowerCase()
+
+  // Generated check domains are unbounded. Keep their hubs transient so a
+  // completed check can be collected instead of growing the singleton map
+  // and retaining one visibility listener per check.
+  if (normalizedDomain) {
+    return createDnsEventHub({
+      url: dnsEventStreamUrl(mode, normalizedDomain),
+    })
+  }
+
+  const key = mode
+  const existing = sharedHubs.get(key)
+  if (existing) return existing
+  const hub = createDnsEventHub({
+    url: dnsEventStreamUrl(mode),
+  })
+  sharedHubs.set(key, hub)
   if (typeof document !== "undefined") {
     const sync = () => hub.setHidden(document.visibilityState === "hidden")
     document.addEventListener("visibilitychange", sync)
@@ -246,7 +307,7 @@ export function getDnsEventHub(): DnsEventHub {
 
 export function parseDnsCheckEvent(
   data: string
-): ({ type: "HELLO" } | DnsTestInterceptEvent) | null {
+): DnsTestStreamEvent | null {
   if (!data.trim()) {
     return null
   }
@@ -264,6 +325,17 @@ export function parseDnsCheckEvent(
       return { type: "HELLO" }
     }
     if (
+      parsed.type === "GAP" &&
+      typeof parsed.from_seq === "number" &&
+      typeof parsed.to_seq === "number"
+    ) {
+      return {
+        type: "GAP",
+        from_seq: parsed.from_seq,
+        to_seq: parsed.to_seq,
+      }
+    }
+    if (
       parsed.type !== "INTERCEPT" ||
       typeof parsed.domain !== "string" ||
       typeof parsed.source !== "string" ||
@@ -278,6 +350,8 @@ export function parseDnsCheckEvent(
       seq: typeof parsed.seq === "number" ? parsed.seq : 0,
       ts_ms: typeof parsed.ts_ms === "number" ? parsed.ts_ms : 0,
       source: parsed.source as DnsTestInterceptEvent["source"],
+      client_ip:
+        typeof parsed.client_ip === "string" ? parsed.client_ip : undefined,
       domain: parsed.domain,
       lists: Array.isArray(parsed.lists)
         ? parsed.lists.filter(
@@ -292,6 +366,9 @@ export function parseDnsCheckEvent(
       errors: typeof parsed.errors === "number" ? parsed.errors : 0,
       hold_us: typeof parsed.hold_us === "number" ? parsed.hold_us : 0,
       timed_out: parsed.timed_out === true,
+      parse_us: typeof parsed.parse_us === "number" ? parsed.parse_us : undefined,
+      set_write_us:
+        typeof parsed.set_write_us === "number" ? parsed.set_write_us : undefined,
     }
   } catch {
     return null
