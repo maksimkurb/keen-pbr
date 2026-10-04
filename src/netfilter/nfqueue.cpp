@@ -25,7 +25,7 @@ constexpr uint16_t kMsgVerdictBatch = (NFNL_SUBSYS_QUEUE << 8) | NFQNL_MSG_VERDI
 constexpr uint16_t kMsgPacket = (NFNL_SUBSYS_QUEUE << 8) | NFQNL_MSG_PACKET;
 
 constexpr uint16_t kReqAck = NLM_F_REQUEST | NLM_F_ACK;
-constexpr std::size_t kRxBufSize = 128 * 1024;  // > max netlink skb for a 64 KiB copy range
+constexpr std::size_t kRxBufSize = std::size_t{128} * 1024U;  // > max netlink skb for a 64 KiB copy range
 constexpr int kMaxDatagramsPerReceive = 256;
 constexpr int kConfigTimeoutMs = 2000;
 constexpr ino_t kInitialUserNamespaceInode = static_cast<ino_t>(0xEFFFFFFDU);

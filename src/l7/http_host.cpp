@@ -15,7 +15,7 @@ bool is_http_method_start(ByteView payload) {
         if (payload.size() >= len) {
             bool match = true;
             for (std::size_t i = 0; i < len; ++i) {
-                if (payload.data()[i] != method[i]) {
+                if (payload.data()[i] != static_cast<unsigned char>(method[i])) {
                     match = false;
                     break;
                 }
@@ -86,7 +86,7 @@ ParseStatus http_host(ByteView payload, std::string& host_out) {
                 std::string prefix;
                 for (int j = 0; j < 4; ++j) {
                     if (i + j < max_search) {
-                        prefix += std::tolower(static_cast<unsigned char>(data[i + j]));
+                        prefix += static_cast<char>(std::tolower(static_cast<unsigned char>(data[i + j])));
                     }
                 }
 
@@ -156,7 +156,7 @@ ParseStatus http_host(ByteView payload, std::string& host_out) {
                         // Lowercase and strip trailing dot
                         for (auto& c : host) {
                             if (c >= 'A' && c <= 'Z') {
-                                c = c - 'A' + 'a';
+                                c = static_cast<char>(c - 'A' + 'a');
                             }
                         }
 

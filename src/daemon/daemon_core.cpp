@@ -32,7 +32,6 @@
 #include "../util/daemon_signals.hpp"
 #include "../util/ipv6_support.hpp"
 #include "../util/safe_exec.hpp"
-#include "../util/time_utils.hpp"
 #include "scheduler.hpp"
 
 #ifdef WITH_API

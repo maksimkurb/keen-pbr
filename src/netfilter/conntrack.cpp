@@ -21,7 +21,7 @@ constexpr uint16_t kCtDelete = static_cast<uint16_t>((NFNL_SUBSYS_CTNETLINK << 8
 constexpr uint16_t kCtNew = static_cast<uint16_t>((NFNL_SUBSYS_CTNETLINK << 8) |
                                                   IPCTNL_MSG_CT_NEW);
 constexpr uint16_t kAckFlags = NLM_F_REQUEST | NLM_F_ACK;
-constexpr std::size_t kRxBufSize = 256 * 1024;
+constexpr std::size_t kRxBufSize = std::size_t{256} * 1024U;
 
 uint8_t netlink_family(ConntrackFamily family) {
     return family == ConntrackFamily::ipv4 ? AF_INET : AF_INET6;
@@ -233,11 +233,11 @@ bool parse_conntrack_entry(const MsgView& message, ConntrackEntry& entry) {
     if (parsed.original.zone_scope == ConntrackZoneScope::reply) {
         ConntrackTuple reply;
         if (table[CTA_TUPLE_REPLY].payload.size() == 0 ||
-            !parse_tuple_payload(table[CTA_TUPLE_REPLY].payload, reply)) {
+            !parse_tuple_payload(table[CTA_TUPLE_REPLY].payload, reply) ||
+            reply.family != parsed.original.family) {
             // Keep the original tuple in the stream, but do not expose an
-            // unsafe deletion candidate when the reply key is incomplete.
-            parsed.deletion_safe = false;
-        } else if (reply.family != parsed.original.family) {
+            // unsafe deletion candidate when the reply key is incomplete or
+            // belongs to a different family than the original tuple.
             parsed.deletion_safe = false;
         } else {
             reply.zone = parsed.original.zone;

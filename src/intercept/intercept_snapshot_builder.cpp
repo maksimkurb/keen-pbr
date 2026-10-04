@@ -3,7 +3,6 @@
 #include "../firewall/firewall.hpp"
 #include "../lists/domain_index.hpp"
 
-#include <algorithm>
 #include <set>
 
 namespace keen_pbr3 {

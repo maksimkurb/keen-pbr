@@ -3,7 +3,7 @@
 #include "../log/logger.hpp"
 #include "../netfilter/conntrack.hpp"
 
-#include "../netfilter/uapi_compat.hpp"
+#include "../netfilter/uapi_compat.hpp"  // IWYU pragma: keep (macro compat shims)
 #include <poll.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>

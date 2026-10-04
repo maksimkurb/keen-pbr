@@ -12,9 +12,7 @@
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <cctype>
-#include <iomanip>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <vector>
 #include <sys/socket.h>
@@ -636,7 +634,7 @@ NftablesFirewall::LiveTableState NftablesFirewall::read_live_table_state() const
                     try {
                         state.setter_chain_marks.insert(static_cast<uint32_t>(
                             std::stoul(name.substr(8), nullptr, 16)));
-                    } catch (const std::exception&) {
+                    } catch (const std::exception&) {  // NOLINT(bugprone-empty-catch): non-numeric suffix, ignore entry
                     }
                 }
             }

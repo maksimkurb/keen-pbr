@@ -3,7 +3,6 @@
 #include "nl_msg.hpp"
 #include "nl_socket.hpp"
 
-#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <vector>

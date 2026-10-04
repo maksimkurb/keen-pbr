@@ -17,7 +17,7 @@ constexpr uint16_t kConfig =
 constexpr uint16_t kPacket =
     static_cast<uint16_t>((NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET);
 constexpr uint16_t kAckFlags = NLM_F_REQUEST | NLM_F_ACK;
-constexpr std::size_t kRxBufSize = 128 * 1024;
+constexpr std::size_t kRxBufSize = std::size_t{128} * 1024U;
 constexpr int kConfigTimeoutMs = 2000;
 constexpr int kMaxDatagramsPerReceive = 256;
 

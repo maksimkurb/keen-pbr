@@ -3,7 +3,6 @@
 #include "firewall_rule_modules.hpp"
 
 #include "../config/list_parser.hpp"
-#include "../config/routing_state.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_set_usage.hpp"
 #include "../lists/list_streamer.hpp"

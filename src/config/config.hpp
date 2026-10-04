@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <chrono>
 #include <map>
 #include <istream>
 #include <stdexcept>

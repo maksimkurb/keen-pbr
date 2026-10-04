@@ -1,5 +1,5 @@
 #include "nl_msg.hpp"
-#include "uapi_compat.hpp"
+#include "uapi_compat.hpp"  // IWYU pragma: keep (macro compat shims)
 
 #include <arpa/inet.h>
 #include <endian.h>

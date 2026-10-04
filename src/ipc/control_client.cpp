@@ -11,7 +11,6 @@
 #include <chrono>
 #include <cstring>
 #include <fcntl.h>
-#include <ostream>
 
 namespace keen_pbr3::ipc {
 namespace {

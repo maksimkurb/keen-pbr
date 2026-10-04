@@ -1,7 +1,6 @@
 #include "tls_client_hello.hpp"
 
 #include <algorithm>
-#include <cctype>
 
 namespace keen_pbr3::l7 {
 
@@ -20,7 +19,7 @@ bool validate_and_lowercase(std::string& name) {
 
     for (auto& c : name) {
         if (c >= 'A' && c <= 'Z') {
-            c = c - 'A' + 'a';
+            c = static_cast<char>(c - 'A' + 'a');
         } else if (!is_valid_domain_char(c)) {
             return false;
         }

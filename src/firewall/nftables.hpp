@@ -3,7 +3,6 @@
 #include "firewall.hpp"
 #include "firewall_lowering.hpp"
 #include "firewall_physical.hpp"
-#include "firewall_rule.hpp"
 
 #include <cstdint>
 #include <map>

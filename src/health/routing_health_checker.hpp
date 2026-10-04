@@ -4,8 +4,6 @@
 #include "../firewall/firewall_verifier.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
-#include "../routing/policy_rule.hpp"
-#include "../routing/route_table.hpp"
 #include "routing_health.hpp"
 
 #include <nlohmann/json.hpp>

@@ -1,6 +1,5 @@
 #include "set_element_cache.hpp"
 
-#include <algorithm>
 #include <cstring>
 
 namespace keen_pbr3 {

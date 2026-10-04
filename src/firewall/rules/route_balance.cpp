@@ -1,7 +1,6 @@
 #include "../firewall_rule_modules.hpp"
 
 #include "../../routing/target.hpp"
-#include "../../util/format_compat.hpp"
 
 #include <algorithm>
 #include <string>

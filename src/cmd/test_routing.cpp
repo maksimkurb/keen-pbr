@@ -1,7 +1,6 @@
 #include "test_routing.hpp"
 
 #include "../config/routing_state.hpp"
-#include "../dns/dns_server.hpp"
 #include "../lists/domain_index.hpp"
 #include "../lists/ipset.hpp"
 #include "../lists/kernel_set_tester.hpp"
@@ -16,7 +15,6 @@
 #include <arpa/nameser.h>
 #include <array>
 #include <atomic>
-#include <cerrno>
 #include <cctype>
 #include <cstring>
 #include <functional>

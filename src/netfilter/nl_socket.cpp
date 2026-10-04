@@ -1,5 +1,5 @@
 #include "nl_socket.hpp"
-#include "uapi_compat.hpp"
+#include "uapi_compat.hpp"  // IWYU pragma: keep (macro compat shims)
 
 #include <poll.h>
 #include <sys/socket.h>

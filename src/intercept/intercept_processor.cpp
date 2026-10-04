@@ -341,7 +341,7 @@ InterceptProcessor::DnsDecision InterceptProcessor::on_dns_packet(
         return handle_dns(l3, round, replacement_allowed);
     } catch (const std::exception& e) {
         Logger::instance().debug("intercept: DNS packet handling failed: {}", e.what());
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch): packet handling must never throw into the netfilter loop
     }
     return {};
 }
@@ -351,7 +351,7 @@ void InterceptProcessor::on_l7_packet(ByteView l3, Clock::time_point now) {
         handle_l7(l3, now);
     } catch (const std::exception& e) {
         Logger::instance().debug("intercept: L7 packet handling failed: {}", e.what());
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch): packet handling must never throw into the netfilter loop
     }
 }
 
@@ -759,7 +759,7 @@ void InterceptProcessor::flush_late_writes() {
         }
     } catch (const std::exception& e) {
         Logger::instance().debug("intercept: late DNS write handling failed: {}", e.what());
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch): packet handling must never throw into the netfilter loop
     }
     late_adds_.clear();
     late_slots_.clear();
@@ -844,7 +844,7 @@ void InterceptProcessor::flush_refreshes() {
         if (admitted && dns_release) dns_release();
     } catch (const std::exception& e) {
         Logger::instance().debug("intercept: post-verdict refresh handling failed: {}", e.what());
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch): packet handling must never throw into the netfilter loop
     }
     refresh_adds_.clear();
     refresh_slots_.clear();

@@ -2,7 +2,6 @@
 
 #include "../ip_family.hpp"
 #include "../../dns/dns_router.hpp"
-#include "../../routing/target.hpp"
 
 #include <algorithm>
 #include <map>

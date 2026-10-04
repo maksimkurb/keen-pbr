@@ -44,7 +44,9 @@ bool is_valid_marker_domain(const std::string& domain) {
             label_len = 0;
         } else {
             const bool ok = std::isalnum(static_cast<unsigned char>(ch)) || ch == '-' || ch == '_';
-            if (!ok || (label_len == 0 && ch == '-') || ++label_len > 63) return false;
+            if (!ok || (label_len == 0 && ch == '-')) return false;
+            ++label_len;
+            if (label_len > 63) return false;
         }
         prev = ch;
     }

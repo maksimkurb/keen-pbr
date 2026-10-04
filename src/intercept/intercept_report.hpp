@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../config/config.hpp"
 #include "intercept_processor.hpp"
 #include "intercept_settings.hpp"
 

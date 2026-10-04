@@ -1,6 +1,7 @@
 #include "sha256.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <vector>
 
@@ -33,7 +34,7 @@ Sha256::Sha256()
 
 void Sha256::process_block_(const uint8_t* block) {
     uint32_t w[64];
-    for (int i = 0; i < 16; ++i) {
+    for (std::ptrdiff_t i = 0; i < 16; ++i) {
         w[i] = (static_cast<uint32_t>(block[i * 4]) << 24) | (static_cast<uint32_t>(block[i * 4 + 1]) << 16) |
                (static_cast<uint32_t>(block[i * 4 + 2]) << 8) | static_cast<uint32_t>(block[i * 4 + 3]);
     }
@@ -100,7 +101,7 @@ Sha256Digest Sha256::final() {
     update(len_bytes, 8);
 
     Sha256Digest out{};
-    for (int i = 0; i < 8; ++i) {
+    for (std::size_t i = 0; i < 8; ++i) {
         out[i * 4] = static_cast<uint8_t>(state_[i] >> 24);
         out[i * 4 + 1] = static_cast<uint8_t>(state_[i] >> 16);
         out[i * 4 + 2] = static_cast<uint8_t>(state_[i] >> 8);
@@ -145,7 +146,7 @@ Sha256Digest hkdf_extract(ByteView salt, ByteView ikm) {
 }
 
 bool hkdf_expand(ByteView prk, ByteView info, uint8_t* out, std::size_t out_len) {
-    if (out_len > 255 * 32) {
+    if (out_len > std::size_t{255} * 32U) {
         return false;
     }
     Sha256Digest t{};

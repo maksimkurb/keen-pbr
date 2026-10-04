@@ -1,5 +1,6 @@
 #include "aes128.hpp"
 
+#include <cstddef>
 #include <cstring>
 
 namespace keen_pbr3::l7::crypto {
@@ -70,7 +71,7 @@ void aes128_encrypt_block(const Aes128KeySchedule& ks, const uint8_t in[16], uin
             }
         }
         if (round != 10) {
-            for (int c = 0; c < 4; ++c) {
+            for (std::ptrdiff_t c = 0; c < 4; ++c) {
                 const uint8_t* col = t + c * 4;
                 const uint8_t all = static_cast<uint8_t>(col[0] ^ col[1] ^ col[2] ^ col[3]);
                 s[c * 4 + 0] = static_cast<uint8_t>(col[0] ^ all ^ xtime(static_cast<uint8_t>(col[0] ^ col[1])));
@@ -81,7 +82,7 @@ void aes128_encrypt_block(const Aes128KeySchedule& ks, const uint8_t in[16], uin
         } else {
             std::memcpy(s, t, 16);
         }
-        add_round_key(s, ks.round_keys + round * 16);
+        add_round_key(s, ks.round_keys + std::ptrdiff_t{round} * 16);
     }
     std::memcpy(out, s, 16);
 }

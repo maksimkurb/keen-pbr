@@ -10,7 +10,6 @@
 #include <ctime>
 #include <ostream>
 #include <streambuf>
-#include <system_error>
 #include <thread>
 
 #ifndef KEEN_PBR_DNSMASQ_PROBE_ADDRESS
