@@ -477,7 +477,7 @@ TEST_CASE("kernel probe: live ipset, ctnetlink, queue and log probes (isolated n
     {
         NfLogOptions options;
         options.group = 9154;
-        CHECK_NOTHROW(NfLog(options));
+        CHECK_NOTHROW((NfLog(options)));
     }
 }
 

@@ -1544,7 +1544,9 @@ TEST_CASE("shipped example configs validate and include default local_networks r
         {"packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.headless.example.json", "packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.headless.example.json"}
     };
 
-    for (const auto& [label, path] : example_configs) {
+    for (const auto& entry : example_configs) {
+        const std::string& label = entry.first;
+        const std::string& path = entry.second;
         CAPTURE(label);
 
         // Read the JSON file

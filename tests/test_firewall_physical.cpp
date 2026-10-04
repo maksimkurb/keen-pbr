@@ -1222,7 +1222,7 @@ TEST_CASE("physical: nft queue, log, ct counters and new base chain hooks") {
     CHECK(last_match(ct(original, R"({"range":[1,5000000000]})")) ==
           PhysicalMatch{ConnbytesMatch{ConnbytesDir::original,
                                        ConnbytesMode::packets, 1, 5000000000ULL}});
-    for (const auto &[left, right, op] :
+    for (const auto &entry :
          std::vector<std::tuple<std::string, std::string, const char *>>{
              {original, R"({"range":[1,6]})", "!="},
              {original, "4", ">"},
@@ -1235,6 +1235,9 @@ TEST_CASE("physical: nft queue, log, ct counters and new base chain hooks") {
              {R"({"ct":{"key":"packets","dir":"original","family":"ip"}})", "4",
               "=="},
              {R"({"ct":{"key":"avgpkt"}})", "4", "=="}}) {
+      const std::string &left = std::get<0>(entry);
+      const std::string &right = std::get<1>(entry);
+      const char *op = std::get<2>(entry);
       CAPTURE(left);
       CAPTURE(right);
       CAPTURE(op);

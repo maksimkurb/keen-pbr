@@ -104,7 +104,9 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
         }
     }
 
-    for (const auto& [list_name, server_tag] : dns_list_servers) {
+    for (const auto& entry : dns_list_servers) {
+        const std::string& list_name = entry.first;
+        const std::string& server_tag = entry.second;
         auto list_cfg_it = lists_.find(list_name);
         if (list_cfg_it == lists_.end()) {
             continue;
