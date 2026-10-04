@@ -131,59 +131,175 @@ std::string format_cidr(const Cidr &cidr) {
   return text;
 }
 
-bool cidr_less(const Cidr &a, const Cidr &b) {
-  if (a.v6 != b.v6) return !a.v6;
-  const int cmp = std::memcmp(a.addr.data(), b.addr.data(), 16);
-  if (cmp != 0) return cmp < 0;
-  return a.len < b.len;
+// Unsigned 128-bit value (no __int128: 32-bit router toolchains lack it).
+// IPv4 addresses live in `lo`.
+struct U128 {
+  uint64_t hi{0};
+  uint64_t lo{0};
+};
+
+bool operator==(const U128 &a, const U128 &b) {
+  return a.hi == b.hi && a.lo == b.lo;
+}
+bool operator!=(const U128 &a, const U128 &b) { return !(a == b); }
+bool operator<(const U128 &a, const U128 &b) {
+  return a.hi != b.hi ? a.hi < b.hi : a.lo < b.lo;
+}
+bool operator<=(const U128 &a, const U128 &b) { return !(b < a); }
+
+U128 u128_add1(U128 v) {
+  if (++v.lo == 0) ++v.hi;
+  return v;
 }
 
-bool cidr_covers(const Cidr &outer, const Cidr &inner) {
-  if (outer.v6 != inner.v6 || outer.len > inner.len) return false;
-  const unsigned full = outer.len / 8U;
-  if (std::memcmp(outer.addr.data(), inner.addr.data(), full) != 0) return false;
-  const unsigned rest = outer.len % 8U;
-  if (rest == 0) return true;
-  const uint8_t mask = static_cast<uint8_t>(0xFFU << (8U - rest));
-  return (outer.addr[full] & mask) == (inner.addr[full] & mask);
+U128 u128_sub(const U128 &a, const U128 &b) {
+  U128 r;
+  r.lo = a.lo - b.lo;
+  r.hi = a.hi - b.hi - (a.lo < b.lo ? 1U : 0U);
+  return r;
 }
 
-bool cidr_bit(const Cidr &cidr, unsigned bit) {
-  return (cidr.addr[bit / 8U] & (0x80U >> (bit % 8U))) != 0;
-}
-
-// True when `a` and `b` (same length, both > 0) are the two halves of one
-// shorter prefix.
-bool cidr_siblings(const Cidr &a, const Cidr &b) {
-  if (a.v6 != b.v6 || a.len != b.len || a.len == 0) return false;
-  for (unsigned bit = 0; bit + 1U < a.len; ++bit) {
-    if (cidr_bit(a, bit) != cidr_bit(b, bit)) return false;
+// 2^k - 1 (k in [0,128]).
+U128 u128_low_mask(unsigned k) {
+  U128 r;
+  if (k >= 128U) {
+    r.hi = r.lo = ~uint64_t{0};
+  } else if (k >= 64U) {
+    r.lo = ~uint64_t{0};
+    r.hi = k == 64U ? 0 : (uint64_t{1} << (k - 64U)) - 1U;
+  } else {
+    r.lo = k == 0 ? 0 : (uint64_t{1} << k) - 1U;
   }
-  return cidr_bit(a, a.len - 1U) != cidr_bit(b, a.len - 1U);
+  return r;
 }
 
-// Canonical (sorted, non-overlapping) entries of one family whose union is
-// the whole address space.
-bool parsed_cidrs_cover_family(const std::vector<std::string> &canonical) {
-  if (canonical.empty()) return false;
-  std::vector<Cidr> stack;
-  stack.reserve(canonical.size());
-  for (const auto &text : canonical) {
-    Cidr cidr;
-    if (!parse_cidr(text, cidr)) return false;
-    if (!stack.empty() && stack.back().v6 != cidr.v6) return false;
-    stack.push_back(cidr);
-    while (stack.size() >= 2U &&
-           cidr_siblings(stack[stack.size() - 2U], stack.back())) {
-      stack.pop_back();
-      Cidr &parent = stack.back();
-      --parent.len;
-      for (unsigned bit = parent.len; bit < (parent.v6 ? 128U : 32U); ++bit) {
-        parent.addr[bit / 8U] &= static_cast<uint8_t>(~(0x80U >> (bit % 8U)));
-      }
+U128 u128_or(const U128 &a, const U128 &b) { return {a.hi | b.hi, a.lo | b.lo}; }
+
+unsigned u128_bit_length(const U128 &v) {
+  unsigned n = 0;
+  uint64_t x = v.hi != 0 ? v.hi : v.lo;
+  if (v.hi != 0) n = 64;
+  while (x != 0) {
+    ++n;
+    x >>= 1U;
+  }
+  return n;
+}
+
+unsigned u128_trailing_zeros(const U128 &v, unsigned bits) {
+  if (v.lo == 0 && v.hi == 0) return bits;
+  unsigned n = 0;
+  uint64_t x = v.lo != 0 ? v.lo : v.hi;
+  if (v.lo == 0) n = 64;
+  while ((x & 1U) == 0) {
+    ++n;
+    x >>= 1U;
+  }
+  return n;
+}
+
+// All-ones below the highest set bit, i.e. 2^n - 1 for some n.
+bool u128_is_low_mask(const U128 &v) {
+  const U128 next = u128_add1(v);
+  return (v.hi & next.hi) == 0 && (v.lo & next.lo) == 0;
+}
+
+U128 cidr_value(const Cidr &c) {
+  U128 v;
+  if (c.v6) {
+    for (unsigned i = 0; i < 8U; ++i) v.hi = (v.hi << 8U) | c.addr[i];
+    for (unsigned i = 8; i < 16U; ++i) v.lo = (v.lo << 8U) | c.addr[i];
+  } else {
+    for (unsigned i = 0; i < 4U; ++i) v.lo = (v.lo << 8U) | c.addr[i];
+  }
+  return v;
+}
+
+Cidr cidr_from_value(U128 v, bool v6, unsigned len) {
+  Cidr c;
+  c.v6 = v6;
+  c.len = static_cast<uint8_t>(len);
+  if (v6) {
+    for (int i = 7; i >= 0; --i) {
+      c.addr[static_cast<unsigned>(i)] = static_cast<uint8_t>(v.hi & 0xFFU);
+      v.hi >>= 8U;
+    }
+    for (int i = 15; i >= 8; --i) {
+      c.addr[static_cast<unsigned>(i)] = static_cast<uint8_t>(v.lo & 0xFFU);
+      v.lo >>= 8U;
+    }
+  } else {
+    for (int i = 3; i >= 0; --i) {
+      c.addr[static_cast<unsigned>(i)] = static_cast<uint8_t>(v.lo & 0xFFU);
+      v.lo >>= 8U;
     }
   }
-  return stack.size() == 1U && stack.front().len == 0;
+  return c;
+}
+
+// Closed interval of addresses of one family.
+struct AddrInterval {
+  bool v6{false};
+  U128 start;
+  U128 end;
+};
+
+AddrInterval cidr_interval(const Cidr &c) {
+  const unsigned bits = c.v6 ? 128U : 32U;
+  AddrInterval iv;
+  iv.v6 = c.v6;
+  iv.start = cidr_value(c);
+  iv.end = u128_or(iv.start, u128_low_mask(bits - c.len));
+  return iv;
+}
+
+U128 family_max(bool v6) { return u128_low_mask(v6 ? 128U : 32U); }
+
+// Minimal CIDR decomposition of [start, end] (unique for the interval).
+void interval_to_cidrs(const AddrInterval &iv, std::vector<Cidr> &out) {
+  const unsigned bits = iv.v6 ? 128U : 32U;
+  U128 start = iv.start;
+  while (true) {
+    const U128 span = u128_sub(iv.end, start); // size - 1
+    const unsigned length = u128_bit_length(span);
+    unsigned fit = u128_is_low_mask(span) ? length : (length == 0 ? 0 : length - 1U);
+    fit = std::min(fit, u128_trailing_zeros(start, bits));
+    out.push_back(cidr_from_value(start, iv.v6, bits - fit));
+    const U128 last = u128_or(start, u128_low_mask(fit));
+    if (iv.end == last) return;
+    start = u128_add1(last);
+  }
+}
+
+// Sorted, disjoint, non-adjacent intervals covering the same addresses.
+void merge_intervals(std::vector<AddrInterval> &ivs) {
+  std::sort(ivs.begin(), ivs.end(),
+            [](const AddrInterval &a, const AddrInterval &b) {
+              if (a.v6 != b.v6) return !a.v6;
+              return a.start != b.start ? a.start < b.start : a.end < b.end;
+            });
+  std::vector<AddrInterval> merged;
+  for (const auto &iv : ivs) {
+    if (!merged.empty() && merged.back().v6 == iv.v6) {
+      AddrInterval &cur = merged.back();
+      const bool touches = iv.start <= cur.end ||
+                           (!(cur.end == family_max(cur.v6)) &&
+                            iv.start == u128_add1(cur.end));
+      if (touches) {
+        if (cur.end < iv.end) cur.end = iv.end;
+        continue;
+      }
+    }
+    merged.push_back(iv);
+  }
+  ivs = std::move(merged);
+}
+
+// Canonical entries: the whole address space of one family.
+bool parsed_cidrs_cover_family(const std::vector<std::string> &canonical) {
+  Cidr cidr;
+  return canonical.size() == 1U && parse_cidr(canonical.front(), cidr) &&
+         cidr.len == 0;
 }
 
 template <typename T> void sort_unique(std::vector<T> &values) {
@@ -212,35 +328,50 @@ std::optional<std::string> canonical_cidr(std::string_view text) {
 }
 
 void canonicalize_cidr_list(std::vector<std::string> &cidrs) {
-  struct Entry {
-    bool parsed;
-    Cidr cidr;
-    std::string text;
-  };
-  std::vector<Entry> entries;
-  entries.reserve(cidrs.size());
+  // The list is a set of addresses: reduce it to sorted, disjoint,
+  // non-adjacent intervals and print those as their minimal CIDR
+  // decomposition, so the result does not depend on how a producer (or an
+  // nft version that merges interval sets) spelled the same set.
+  std::vector<AddrInterval> intervals;
+  std::vector<std::string> unparsed;
+  intervals.reserve(cidrs.size());
   for (auto &text : cidrs) {
-    Entry entry{false, {}, std::move(text)};
-    entry.parsed = parse_cidr(entry.text, entry.cidr);
-    entries.push_back(std::move(entry));
-  }
-  // Unparseable text sorts last and is kept verbatim so it can never match.
-  std::stable_sort(entries.begin(), entries.end(),
-                   [](const Entry &a, const Entry &b) {
-                     if (a.parsed != b.parsed) return a.parsed;
-                     return a.parsed ? cidr_less(a.cidr, b.cidr) : a.text < b.text;
-                   });
-  cidrs.clear();
-  const Cidr *last = nullptr;
-  for (const auto &entry : entries) {
-    if (!entry.parsed) {
-      if (cidrs.empty() || cidrs.back() != entry.text) cidrs.push_back(entry.text);
-      continue;
+    Cidr cidr;
+    if (parse_cidr(text, cidr)) {
+      intervals.push_back(cidr_interval(cidr));
+    } else {
+      unparsed.push_back(std::move(text));
     }
-    if (last != nullptr && cidr_covers(*last, entry.cidr)) continue;
-    last = &entry.cidr;
-    cidrs.push_back(format_cidr(entry.cidr));
   }
+  merge_intervals(intervals);
+  std::vector<Cidr> blocks;
+  for (const auto &iv : intervals) interval_to_cidrs(iv, blocks);
+  // Unparseable text sorts last and is kept verbatim so it can never match.
+  std::sort(unparsed.begin(), unparsed.end());
+  unparsed.erase(std::unique(unparsed.begin(), unparsed.end()), unparsed.end());
+  cidrs.clear();
+  for (const auto &block : blocks) cidrs.push_back(format_cidr(block));
+  for (auto &text : unparsed) cidrs.push_back(std::move(text));
+}
+
+std::vector<std::string> cidrs_from_range(std::string_view first,
+                                          std::string_view last) {
+  Cidr a, b;
+  if (first.find('/') != std::string_view::npos ||
+      last.find('/') != std::string_view::npos || !parse_cidr(first, a) ||
+      !parse_cidr(last, b) || a.v6 != b.v6) {
+    return {};
+  }
+  AddrInterval iv;
+  iv.v6 = a.v6;
+  iv.start = cidr_value(a);
+  iv.end = cidr_value(b);
+  if (iv.end < iv.start) return {};
+  std::vector<Cidr> blocks;
+  interval_to_cidrs(iv, blocks);
+  std::vector<std::string> out;
+  for (const auto &block : blocks) out.push_back(format_cidr(block));
+  return out;
 }
 
 bool cidrs_cover_address_family(const std::vector<std::string> &cidrs) {
@@ -1172,6 +1303,17 @@ struct NftRuleParser {
           prefix["len"].is_number_integer()) {
         out.push_back(prefix["addr"].get<std::string>() + "/" +
                       std::to_string(prefix["len"].get<int>()));
+        return true;
+      }
+    }
+    if (value.is_object() && value.size() == 1 && value.contains("range")) {
+      const auto &range = value["range"];
+      if (range.is_array() && range.size() == 2 && range[0].is_string() &&
+          range[1].is_string()) {
+        auto blocks =
+            cidrs_from_range(range[0].get<std::string>(), range[1].get<std::string>());
+        if (blocks.empty()) return false;
+        for (auto &block : blocks) out.push_back(std::move(block));
         return true;
       }
     }

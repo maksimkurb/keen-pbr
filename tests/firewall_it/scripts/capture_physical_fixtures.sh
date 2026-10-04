@@ -173,3 +173,17 @@ return
 EOF_RULES
   nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_misc.json\"
   nft list table inet KeenPbrTable >\"\$KPBR_OUT/nft_misc.nft\""
+
+# nft stores anonymous address sets as interval sets and merges adjacent /
+# overlapping elements, printing them back as prefixes, single addresses or
+# `range` objects.  keen-pbr compares address lists as address SETS.
+scenario nft_interval "ip link set lo up
+  nft add table inet KeenPbrTable
+  nft add chain inet KeenPbrTable prerouting '{ type filter hook prerouting priority -150; policy accept; }'
+  while IFS= read -r rule; do nft add rule inet KeenPbrTable prerouting \$rule; done <<'EOF_RULES'
+ip daddr != { 0.0.0.0/8, 10.0.0.0/24, 10.0.1.0/24, 10.0.2.0/23, 77.74.65.225, 77.74.65.226, 192.168.40.0/23, 192.168.42.0/24, 192.168.43.0/24, 192.168.44.0/24, 192.168.45.0/24, 192.168.54.0/24, 192.168.55.0/24 } accept
+ip saddr { 198.51.100.0/25, 198.51.100.128/25, 203.0.113.9, 203.0.113.10, 203.0.113.0/28 } accept
+ip6 daddr != { 2001:db8::/33, 2001:db8:8000::/33, 2001:db8:1::1, 2001:db8:1::2 } accept
+EOF_RULES
+  nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_interval.json\"
+  nft list table inet KeenPbrTable >\"\$KPBR_OUT/nft_interval.nft\""

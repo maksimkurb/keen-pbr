@@ -1576,5 +1576,168 @@ TEST_CASE("lowering round trip: nftables catch-all equals the kernel dump") {
   CHECK(v6);
 }
 
+TEST_CASE("address lists compare as address sets") {
+  using Strs = std::vector<std::string>;
+  const auto canon = [](Strs list) {
+    canonicalize_cidr_list(list);
+    return list;
+  };
+  SUBCASE("overlap, containment, duplicates, unsorted input") {
+    CHECK(canon({"10.0.1.0/24", "10.0.0.0/16", "10.0.1.5", "10.0.0.0/16"}) ==
+          Strs{"10.0.0.0/16"});
+    CHECK(canon({"10.0.0.128/25", "10.0.0.0/25"}) == Strs{"10.0.0.0/24"});
+    CHECK(canon({"9.0.0.0/8", "8.0.0.0/8"}) == Strs{"8.0.0.0/7"});
+  }
+  SUBCASE("adjacency merges, a gap does not") {
+    CHECK(canon({"10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/23"}) ==
+          Strs{"10.0.0.0/22"});
+    CHECK(canon({"10.0.0.0/24", "10.0.2.0/24"}) ==
+          Strs{"10.0.0.0/24", "10.0.2.0/24"});
+    // Adjacent but not aligned to a single block.
+    CHECK(canon({"10.0.1.0/24", "10.0.2.0/24"}) ==
+          Strs{"10.0.1.0/24", "10.0.2.0/24"});
+  }
+  SUBCASE("/32 singles") {
+    CHECK(canon({"77.74.65.226", "77.74.65.225"}) ==
+          Strs{"77.74.65.225/32", "77.74.65.226/32"});
+    CHECK(canon({"1.1.1.2", "1.1.1.3", "1.1.1.0/31"}) == Strs{"1.1.1.0/30"});
+    CHECK(canon({"255.255.255.255", "255.255.255.254"}) ==
+          Strs{"255.255.255.254/31"});
+    CHECK(canon({"0.0.0.0", "0.0.0.1"}) == Strs{"0.0.0.0/31"});
+  }
+  SUBCASE("whole family and family boundaries") {
+    CHECK(canon({"0.0.0.0/1", "128.0.0.0/1"}) == Strs{"0.0.0.0/0"});
+    CHECK(canon({"::/1", "8000::/1"}) == Strs{"::/0"});
+    CHECK(canon({"255.255.255.255", "0.0.0.0/0"}) == Strs{"0.0.0.0/0"});
+  }
+  SUBCASE("ipv6") {
+    CHECK(canon({"2001:db8:8000::/33", "2001:db8::/33"}) ==
+          Strs{"2001:db8::/32"});
+    CHECK(canon({"2001:db8:1::2", "2001:db8:1::1"}) ==
+          Strs{"2001:db8:1::1/128", "2001:db8:1::2/128"});
+    CHECK(canon({"2001:db8::1", "2001:db8::/64", "2001:db8:0:1::/64"}) ==
+          Strs{"2001:db8::/63"});
+    CHECK(canon({"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+                 "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe"}) ==
+          Strs{"ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe/127"});
+    CHECK(canon({"::/65", "::8000:0:0:0/65"}) == Strs{"::/64"});
+  }
+  SUBCASE("families stay separate, v4 first") {
+    CHECK(canon({"::1", "1.2.3.4"}) == Strs{"1.2.3.4/32", "::1/128"});
+  }
+  SUBCASE("range to CIDR decomposition") {
+    CHECK(cidrs_from_range("192.168.40.0", "192.168.45.255") ==
+          Strs{"192.168.40.0/22", "192.168.44.0/23"});
+    CHECK(cidrs_from_range("77.74.65.225", "77.74.65.226") ==
+          Strs{"77.74.65.225/32", "77.74.65.226/32"});
+    CHECK(cidrs_from_range("10.0.0.0", "10.0.0.0") == Strs{"10.0.0.0/32"});
+    CHECK(cidrs_from_range("0.0.0.0", "255.255.255.255") == Strs{"0.0.0.0/0"});
+    CHECK(cidrs_from_range("0.0.0.1", "0.0.0.6") ==
+          Strs{"0.0.0.1/32", "0.0.0.2/31", "0.0.0.4/31", "0.0.0.6/32"});
+    CHECK(cidrs_from_range("2001:db8::", "2001:db8::ffff") ==
+          Strs{"2001:db8::/112"});
+    CHECK(cidrs_from_range("::", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff") ==
+          Strs{"::/0"});
+    CHECK(cidrs_from_range("10.0.0.5", "10.0.0.1").empty());
+    CHECK(cidrs_from_range("10.0.0.1", "::1").empty());
+    CHECK(cidrs_from_range("10.0.0.0/8", "10.0.0.9").empty());
+  }
+}
+
+TEST_CASE("nft interval-set spellings parse to the same address set") {
+  const auto parse_dst = [](const std::string &expr) {
+    const auto set = parse_nft_json(
+        R"({"nftables":[{"chain":{"family":"inet","table":"KeenPbrTable","name":"prerouting","handle":1}},
+{"rule":{"family":"inet","table":"KeenPbrTable","chain":"prerouting","handle":2,"expr":[)" +
+        expr + R"(,{"accept":null}]}}]})");
+    REQUIRE(set.chains.size() == 1);
+    REQUIRE(set.chains[0].rules.size() == 1);
+    return set.chains[0].rules[0];
+  };
+  const auto match = [](const std::string &right, const char *op = "!=") {
+    return std::string(R"({"match":{"op":")") + op +
+           R"(","left":{"payload":{"protocol":"ip","field":"daddr"}},"right":)" +
+           right + "}}";
+  };
+  const auto expected = [](bool negate, std::vector<std::string> cidrs) {
+    PhysicalRule rule = make_rule(
+        Fam::ipv4, {AddrMatch{PhysicalDir::dst, negate, std::move(cidrs)}},
+        {VerdictStmt{PhysicalVerdict::accept}});
+    canonicalize_physical_rule(rule);
+    return rule;
+  };
+  SUBCASE("field case: prefixes and ranges versus the lowered CIDR list") {
+    const PhysicalRule observed = parse_dst(match(
+        R"({"set":[{"prefix":{"addr":"0.0.0.0","len":8}},
+{"range":["77.74.65.225","77.74.65.226"]},
+{"range":["192.168.40.0","192.168.45.255"]},
+{"prefix":{"addr":"192.168.54.0","len":23}}]})"));
+    const PhysicalRule want = expected(
+        true, {"0.0.0.0/8", "77.74.65.225/32", "77.74.65.226/32",
+               "192.168.40.0/23", "192.168.42.0/24", "192.168.43.0/24",
+               "192.168.44.0/24", "192.168.45.0/24", "192.168.54.0/24",
+               "192.168.55.0/24"});
+    CHECK(observed == want);
+    const auto *addr = std::get_if<AddrMatch>(&want.matches.at(0));
+    REQUIRE(addr != nullptr);
+    CHECK(addr->cidrs ==
+          std::vector<std::string>{"0.0.0.0/8", "77.74.65.225/32",
+                                   "77.74.65.226/32", "192.168.40.0/22",
+                                   "192.168.44.0/23", "192.168.54.0/23"});
+  }
+  SUBCASE("single operands: string, prefix and range") {
+    CHECK(parse_dst(match(R"("10.1.2.3")")) == expected(true, {"10.1.2.3"}));
+    CHECK(parse_dst(match(R"({"prefix":{"addr":"10.0.0.0","len":8}})", "==")) ==
+          expected(false, {"10.0.0.0/8"}));
+    CHECK(parse_dst(match(R"({"range":["10.0.0.0","10.0.1.255"]})", "==")) ==
+          expected(false, {"10.0.0.0/24", "10.0.1.0/24"}));
+  }
+  SUBCASE("a different address set still differs") {
+    const PhysicalRule observed = parse_dst(match(
+        R"({"set":[{"range":["192.168.40.0","192.168.45.255"]}]})"));
+    CHECK_FALSE(observed == expected(true, {"192.168.40.0/22", "192.168.44.0/24"}));
+    CHECK_FALSE(observed == expected(true, {"192.168.40.0/22", "192.168.44.0/23",
+                                            "192.168.46.0/32"}));
+    CHECK_FALSE(observed == expected(false, {"192.168.40.0/22", "192.168.44.0/23"}));
+    CHECK(observed == expected(true, {"192.168.40.0/22", "192.168.44.0/23"}));
+  }
+  SUBCASE("malformed range is an unknown match") {
+    const PhysicalRule observed =
+        parse_dst(match(R"({"set":[{"range":["10.0.0.9","10.0.0.1"]}]})"));
+    CHECK(std::holds_alternative<UnknownMatch>(observed.matches.at(0)));
+  }
+}
+
+TEST_CASE("real nft interval dump equals the lowered address lists") {
+  const auto set = parse_nft_json(read_fixture("nft_interval.json"));
+  const auto &chain = set.chains.at(0);
+  REQUIRE(chain.rules.size() == 3);
+  const auto lowered = [](Fam family, PhysicalDir dir, bool negate,
+                          std::vector<std::string> cidrs) {
+    PhysicalRule rule = make_rule(family, {AddrMatch{dir, negate, std::move(cidrs)}},
+                                  {VerdictStmt{PhysicalVerdict::accept}});
+    canonicalize_physical_rule(rule);
+    return rule;
+  };
+  CHECK(chain.rules[0] ==
+        lowered(Fam::ipv4, PhysicalDir::dst, true,
+                {"0.0.0.0/8", "10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/23",
+                 "77.74.65.225/32", "77.74.65.226/32", "192.168.40.0/23",
+                 "192.168.42.0/24", "192.168.43.0/24", "192.168.44.0/24",
+                 "192.168.45.0/24", "192.168.54.0/24", "192.168.55.0/24"}));
+  CHECK(chain.rules[1] ==
+        lowered(Fam::ipv4, PhysicalDir::src, false,
+                {"198.51.100.0/25", "198.51.100.128/25", "203.0.113.9",
+                 "203.0.113.10", "203.0.113.0/28"}));
+  CHECK(chain.rules[2] ==
+        lowered(Fam::ipv6, PhysicalDir::dst, true,
+                {"2001:db8::/33", "2001:db8:8000::/33", "2001:db8:1::1",
+                 "2001:db8:1::2"}));
+  CHECK_FALSE(chain.rules[0] ==
+              lowered(Fam::ipv4, PhysicalDir::dst, true,
+                      {"0.0.0.0/8", "10.0.0.0/22", "77.74.65.225/32",
+                       "192.168.40.0/22", "192.168.44.0/23", "192.168.54.0/23"}));
+}
+
 } // namespace
 } // namespace keen_pbr3

@@ -1,0 +1,8 @@
+table inet KeenPbrTable {
+	chain prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+		ip daddr != { 0.0.0.0/8, 10.0.0.0/22, 77.74.65.225-77.74.65.226, 192.168.40.0-192.168.45.255, 192.168.54.0/23 } accept
+		ip saddr { 198.51.100.0/24, 203.0.113.0/28 } accept
+		ip6 daddr != { 2001:db8::/32 } accept
+	}
+}

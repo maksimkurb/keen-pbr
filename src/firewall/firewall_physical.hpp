@@ -394,9 +394,10 @@ PhysicalRuleset parse_nft_json(std::string_view json);
 
 // Canonical form shared by parsers and lowering.  A rule is canonical when
 //   * set-valued matches are sorted and deduplicated: port ranges are merged
-//     when overlapping or adjacent, CIDR lists are masked to their network,
-//     sorted and stripped of covered entries, interface and mark values are
-//     sorted (the kernel stores them as sets: nft lists them sorted/merged);
+//     when overlapping or adjacent, CIDR lists are reduced to the minimal CIDR
+//     decomposition of the address set they cover (nft merges adjacent and
+//     overlapping elements of anonymous sets and prints ranges), interface and
+//     mark values are sorted (the kernel stores them as sets: nft lists them sorted/merged);
 //   * a positive AddrMatch covering its whole family (`-d 0.0.0.0/0`, or the
 //     halves nft merges into it) is dropped: it matches everything, and
 //     iptables-save omits it.  The rule keeps the family it implied (`family`
@@ -414,7 +415,13 @@ void canonicalize_physical_rule(PhysicalRule &rule);
 // text is not an address.  A bare address gets /32 or /128 and host bits are
 // cleared, as both backends do.
 std::optional<std::string> canonical_cidr(std::string_view text);
+// Reduces the list to the minimal CIDR decomposition of the union of its
+// addresses (overlapping and adjacent entries merge), sorted by address.
 void canonicalize_cidr_list(std::vector<std::string> &cidrs);
+// Minimal CIDR decomposition of the inclusive range [first, last]; empty when
+// either end is not a bare address, the families differ or first > last.
+std::vector<std::string> cidrs_from_range(std::string_view first,
+                                          std::string_view last);
 // True when the union of the prefixes is the whole address space of their
 // (single) family, e.g. `0.0.0.0/0` or `0.0.0.0/1` + `128.0.0.0/1`.
 bool cidrs_cover_address_family(const std::vector<std::string> &cidrs);
