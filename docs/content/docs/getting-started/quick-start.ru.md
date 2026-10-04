@@ -105,9 +105,20 @@ keen-pbr test-routing ifconfig.co
       "tag": "out",
       "type": "table",  // outbound типа "table" может маршрутизировать трафик в таблицу маршрутизации ядра iproute
       "table": 254      // ядру routing table Linux "main" имеет ID 254. См. файл /etc/iproute2/rt_tables для дополнительной информации.
+    },
+    {
+      "tag": "direct_local",
+      "type": "ignore"  // предотвращает маршрутизацию локальных и специальных сетей в туннели
     }
   ],
   "lists": {
+    "local_networks": { // список по умолчанию, который предотвращает маршрутизацию локального трафика в туннель
+      "ip_cidrs": [
+        "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
+        "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16",
+        "224.0.0.0/4", "240.0.0.0/4", "::1/128", "fc00::/7", "fe80::/10", "ff00::/8"
+      ]
+    },
     "my_sites": {   // список с доменами inline
       "domains": ["ifconfig.co"],
       "ttl_ms": 3600000 // как долго разрешённый IP добавляется в routing ipsets после появления в DNS-ответе, в миллисекундах
@@ -117,7 +128,7 @@ keen-pbr test-routing ifconfig.co
     },
     "my_remote_list": { // удалённый список
       "url": "https://example.com/my-list.lst",
-      "ttl_ms": 0 // если ttl равен 0, то IP будет добавлен в ipset навсегда (直到 перезапуска keen-pbr)
+      "ttl_ms": 0 // если ttl равен 0, то IP будет добавлен в ipset навсегда (до перезапуска keen-pbr)
     },
     "my_local_file_list": { // локальный файл списка
       "file": "/etc/keen-pbr/local.lst"
@@ -125,6 +136,10 @@ keen-pbr test-routing ifconfig.co
   },
   "route": {
     "rules": [
+      { // Правило по умолчанию: держите локальные и специальные сети локальными, никогда не отправляйте их в туннель
+        "list": ["local_networks"],
+        "outbound": "direct_local"
+      },
       { // Все IP и домены из списка "my_sites" будут маршрутизироваться на outbound "vpn"
         "list": ["my_sites"],
         "outbound": "vpn"

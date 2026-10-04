@@ -128,9 +128,20 @@ Example minimal config:
       "tag": "out",
       "type": "table",  // "table" outbound can route your traffic to the iproute kernel table
       "table": 254      // kernel routing table named "main" has the ID 254. See /etc/iproute2/rt_tables file for more info.
+    },
+    {
+      "tag": "direct_local",
+      "type": "ignore"  // prevents local and special networks from being routed into tunnels
     }
   ],
   "lists": {
+    "local_networks": { // default list that prevents local traffic from tunneling
+      "ip_cidrs": [
+        "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
+        "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16",
+        "224.0.0.0/4", "240.0.0.0/4", "::1/128", "fc00::/7", "fe80::/10", "ff00::/8"
+      ]
+    },
     "my_sites": {   // list with inline domains
       "domains": ["ifconfig.co"],
       "ttl_ms": 3600000 // for how long resolved IP should be added into routing ipsets after it was seen in a DNS response, in milliseconds
@@ -148,6 +159,10 @@ Example minimal config:
   },
   "route": {
     "rules": [
+      { // Default rule: keep local and special networks local, never tunnel them
+        "list": ["local_networks"],
+        "outbound": "direct_local"
+      },
       { // All IPs and domains from list "my_sites" will be routed to the "vpn" outbound
         "list": ["my_sites"],
         "outbound": "vpn"

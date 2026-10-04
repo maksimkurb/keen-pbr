@@ -22,6 +22,56 @@ Most users only need one simple rule for each list, for example:
 
 Rules are checked from top to bottom. The first match wins. Traffic that matches no rule is left unmarked and follows normal system routing.
 
+## Default local networks rule
+
+All shipped example configurations include a default rule at the top of the rules list that prevents local and special networks from being routed into tunnels:
+
+```json { filename="config.json" }
+{
+  "route": {
+    "rules": [
+      {
+        "list": ["local_networks"],
+        "outbound": "direct_local"
+      },
+      // ... your custom rules go here
+    ]
+  }
+}
+```
+
+The `local_networks` list contains RFC-reserved IP ranges that should always use local routing:
+- Link-local addresses: `169.254.0.0/16`, `fe80::/10`
+- Loopback: `127.0.0.0/8`, `::1/128`
+- Private networks: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
+- Unique local addresses: `fc00::/7`
+- Special use ranges: `0.0.0.0/8`, `100.64.0.0/10`, `224.0.0.0/4`, `240.0.0.0/4`, `ff00::/8`
+
+The `direct_local` outbound is an `ignore` type that prevents these networks from being processed by keen-pbr's firewall marking and routing tables.
+
+**Why this matters:** Without this rule, a catch-all rule (such as `"default_gateway": "ipv4"`) would send LAN, link-local, multicast, and control traffic through your tunnel. This breaks local communication and wastes tunnel bandwidth.
+
+**If your private network should go through a tunnel:** If you have a corporate 10.x or 172.16.x network that should be routed via tunnel (e.g., to a VPN), add a rule for it *above* the default local_networks rule:
+
+```json { filename="config.json" }
+{
+  "route": {
+    "rules": [
+      {
+        "list": ["corporate_vpn"],
+        "dest_addr": "10.0.0.0/8",
+        "outbound": "vpn"
+      },
+      {
+        "list": ["local_networks"],
+        "outbound": "direct_local"
+      },
+      // ... rest of your rules
+    ]
+  }
+}
+```
+
 ## Configuration
 
 ```json { filename="config.json" }

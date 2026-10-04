@@ -6,6 +6,8 @@
 
 #include <nlohmann/json.hpp>
 #include <string>
+#include <fstream>
+#include <algorithm>
 
 using namespace keen_pbr3;
 
@@ -1460,4 +1462,72 @@ TEST_CASE("config warnings: no deprecation warning without deprecated fields") {
     })");
     CHECK(config_warnings(cfg).empty());
     CHECK(config_warnings(parse_config("{}")).empty());
+}
+
+TEST_CASE("shipped example configs validate and include default local_networks rule") {
+    // Read and parse each shipped example config file
+    std::vector<std::pair<std::string, std::string>> example_configs = {
+        {"config.example.json", "config.example.json"},
+        {"packages/common/config.full.example.json", "packages/common/config.full.example.json"},
+        {"packages/common/config.headless.example.json", "packages/common/config.headless.example.json"},
+        {"packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.full.example.json", "packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.full.example.json"},
+        {"packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.headless.example.json", "packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.headless.example.json"}
+    };
+
+    for (const auto& [label, path] : example_configs) {
+        CAPTURE(label);
+
+        // Read the JSON file
+        std::ifstream file(path);
+        REQUIRE(file.is_open());
+        nlohmann::json json;
+        REQUIRE_NOTHROW(json = nlohmann::json::parse(file));
+
+        // Verify lists contains local_networks
+        REQUIRE(json.contains("lists"));
+        REQUIRE(json["lists"].contains("local_networks"));
+        const auto& local_nets = json["lists"]["local_networks"];
+        REQUIRE(local_nets.contains("ip_cidrs"));
+        REQUIRE(local_nets["ip_cidrs"].is_array());
+        // Check that it contains at least the core local ranges
+        auto cidrs_json = local_nets["ip_cidrs"];
+        std::vector<std::string> cidrs;
+        for (const auto& cidr : cidrs_json) {
+            cidrs.push_back(cidr);
+        }
+        CHECK(std::find(cidrs.begin(), cidrs.end(), "127.0.0.0/8") != cidrs.end());
+        CHECK(std::find(cidrs.begin(), cidrs.end(), "10.0.0.0/8") != cidrs.end());
+        CHECK(std::find(cidrs.begin(), cidrs.end(), "192.168.0.0/16") != cidrs.end());
+
+        // Verify outbounds contains an ignore type with tag direct_local
+        REQUIRE(json.contains("outbounds"));
+        REQUIRE(json["outbounds"].is_array());
+        bool found_direct_local = false;
+        for (const auto& ob : json["outbounds"]) {
+            if (ob.contains("tag") && ob["tag"] == "direct_local") {
+                REQUIRE(ob.contains("type"));
+                CHECK(ob["type"] == "ignore");
+                found_direct_local = true;
+                break;
+            }
+        }
+        CHECK(found_direct_local);
+
+        // Verify route.rules exists and first rule targets local_networks to direct_local
+        REQUIRE(json.contains("route"));
+        REQUIRE(json["route"].contains("rules"));
+        REQUIRE(json["route"]["rules"].is_array());
+        REQUIRE(json["route"]["rules"].size() > 0);
+
+        const auto& first_rule = json["route"]["rules"][0];
+        REQUIRE(first_rule.contains("list"));
+        REQUIRE(first_rule["list"].is_array());
+        CHECK(first_rule["list"][0] == "local_networks");
+        REQUIRE(first_rule.contains("outbound"));
+        CHECK(first_rule["outbound"] == "direct_local");
+
+        // Parse as config and validate it
+        Config cfg = parse_test_config(json.dump());
+        CHECK_NOTHROW(validate_config(cfg));
+    }
 }
