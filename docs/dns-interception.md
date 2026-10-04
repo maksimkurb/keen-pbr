@@ -177,7 +177,18 @@ vanished in the meantime is created by the same message, so a successful
 refresh is always reported as refreshed (it cannot be told apart from an
 update). On older kernels, which silently keep the old expiration, and for
 permanent elements (timeout 0) the refresh stays a delete plus add of the
-element in one batch. The ipset backend is not affected.
+element in one batch.
+
+The ipset backend needs no probe and no fallback: a post-verdict refresh is one
+non-exclusive `IPSET_CMD_ADD` per element (no `NLM_F_EXCL`, the equivalent of
+`ipset add -exist`) with `IPSET_ATTR_TIMEOUT`, all sent in a single netlink
+request, and never an exclusive probe first. The kernel maps the missing
+`NLM_F_EXCL` to `IPSET_FLAG_EXIST`, and `mtype_add()` in
+`net/netfilter/ipset/ip_set_hash_gen.h` then overwrites the extensions of an
+existing element, including its timeout (`ip_set_timeout_set()`), or creates a
+missing one. This works on every supported ipset protocol (6 and up) because the
+dynamic sets are created with timeout support (`timeout 0` default,
+per-element timeouts). As with nft, a refresh is always reported as refreshed.
 
 `set_write_slow` counts set writes (on-time, late and L7) that took 20 ms or
 more. Each such write is also logged at info, at most once per 10 s, as

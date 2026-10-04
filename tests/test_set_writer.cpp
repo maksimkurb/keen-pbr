@@ -320,6 +320,58 @@ TEST_CASE("set_writer: ipset refresh() is one non-exclusive request") {
     CHECK((fake->calls[0].flags[0] & NLM_F_EXCL) == 0);
 }
 
+TEST_CASE("set_writer: ipset refresh() of N elements is one transact, no probe") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{0, 0, 0}, 0, 0}};
+    auto writer = make_ipset_writer_for_test(std::move(transport));
+    const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2), fake_v4("set", 3)};
+    SetAddResult results[3]{};
+    REQUIRE(writer->refresh(adds, results, 3, 100));
+    for (auto r : results) CHECK(r == SetAddResult::Refreshed);
+    REQUIRE(fake->calls.size() == 1);
+    REQUIRE(fake->calls[0].types.size() == 3);  // no batch begin/end for ipset
+    for (std::size_t i = 0; i < 3; ++i) {
+        CHECK(fake->calls[0].types[i] == ((NFNL_SUBSYS_IPSET << 8) | 9 /* IPSET_CMD_ADD */));
+        CHECK((fake->calls[0].flags[i] & NLM_F_EXCL) == 0);
+    }
+}
+
+TEST_CASE("set_writer: ipset refresh() error is per element, still one transact") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{0, ENOENT}, 0, 0}};
+    auto writer = make_ipset_writer_for_test(std::move(transport));
+    const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2)};
+    SetAddResult results[2]{};
+    CHECK_FALSE(writer->refresh(adds, results, 2, 100));
+    CHECK(results[0] == SetAddResult::Refreshed);
+    CHECK(results[1] == SetAddResult::Error);
+    CHECK(writer->last_errno() == ENOENT);
+    CHECK(fake->calls.size() == 1);
+}
+
+TEST_CASE("set_writer: ipset refresh request golden bytes (EXIST = no NLM_F_EXCL)") {
+    // The kernel derives IPSET_FLAG_EXIST from the ABSENCE of NLM_F_EXCL in
+    // the netlink header (ip_set_core.c flag_exist()), not from
+    // IPSET_ATTR_CADT_FLAGS; the timeout is IPSET_ATTR_TIMEOUT.  So the
+    // refresh request is exactly the non-exclusive add: REQ|ACK, no CADT_FLAGS.
+    MsgBuilder b;
+    build_ipset_add(b, 1, v4_add(300), false);
+    const std::vector<uint8_t> expected = {
+        0x3c, 0x00, 0x00, 0x00, 0x09, 0x06, 0x05, 0x00,  // len 60, IPSET<<8|ADD, REQ|ACK
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x02, 0x00, 0x00, 0x00,
+        0x05, 0x00, 0x01, 0x00, 0x06, 0x00, 0x00, 0x00,
+        0x06, 0x00, 0x02, 0x00, 's',  0x00, 0x00, 0x00,
+        0x18, 0x00, 0x07, 0x80,
+        0x0c, 0x00, 0x01, 0x80,
+        0x08, 0x00, 0x01, 0x40, 0x01, 0x02, 0x03, 0x04,
+        0x08, 0x00, 0x06, 0x40, 0x00, 0x00, 0x01, 0x2c,  // TIMEOUT 300 (BE)
+    };
+    CHECK(to_vec(b) == expected);
+}
+
 TEST_CASE("set_writer: nft partial batch ACK never reports unacknowledged Added") {
     auto transport = std::make_unique<FakeTransport>();
     auto* fake = transport.get();
@@ -796,6 +848,34 @@ TEST_CASE("set_writer: live ipset/nft (isolated netns only)") {
         CHECK_FALSE(w->add(&bad, &bres, 1, 2000));
         CHECK(bres == SetAddResult::Error);
         CHECK(w->last_errno() != 0);
+
+        // refresh() extends a short timeout of an existing element in one
+        // request and creates a missing element (EXIST semantics).
+        {
+            SetAdd short_lease = adds[0];
+            short_lease.addr = {11, 22, 33, 44};
+            short_lease.timeout_s = 5;
+            SetAddResult sres;
+            REQUIRE(w->add_new(&short_lease, &sres, 1, 2000));
+            CHECK(sres == SetAddResult::Added);
+            SetAdd rf[2] = {short_lease, short_lease};
+            rf[0].timeout_s = 300;
+            rf[1].addr = {55, 66, 77, 88};
+            rf[1].timeout_s = 300;
+            SetAddResult rres[2];
+            REQUIRE(w->refresh(rf, rres, 2, 2000));
+            CHECK(rres[0] == SetAddResult::Refreshed);
+            CHECK(rres[1] == SetAddResult::Refreshed);
+            const std::string rl = run_capture("ipset list kpbr4d_wt");
+            MESSAGE("ipset after refresh: " << rl);
+            CHECK(contains(rl, "11.22.33.44 timeout 29"));
+            CHECK(contains(rl, "55.66.77.88 timeout 29"));
+            // Unknown set -> Error.
+            SetAdd nob = rf[0];
+            nob.set_name = "kpbr4d_nope";
+            CHECK_FALSE(w->refresh(&nob, rres, 1, 2000));
+            CHECK(rres[0] == SetAddResult::Error);
+        }
 
         const std::string l4 = run_capture("ipset list kpbr4d_wt");
         const std::string l6 = run_capture("ipset list kpbr6d_wt");

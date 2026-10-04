@@ -444,6 +444,14 @@ private:
     std::vector<uint8_t> ack_seen_;
 };
 
+// ipset refresh() needs no special message: a non-exclusive IPSET_CMD_ADD
+// (no NLM_F_EXCL) is what userspace calls `ipset add -exist`.  The kernel maps
+// the missing NLM_F_EXCL to IPSET_FLAG_EXIST (ip_set_core.c flag_exist()), and
+// hash mtype_add() then overwrites the extensions of an existing element,
+// including ip_set_timeout_set(), or creates a missing one - all in one
+// request.  IPSET_ATTR_CADT_FLAGS is NOT involved (it carries the type flags
+// such as nomatch/before).  WriterBase::refresh() therefore sends exactly one
+// non-exclusive request per element in one transact and never probes first.
 class IpsetWriter final : public WriterBase {
 public:
     explicit IpsetWriter(std::unique_ptr<SetWriterTransport> transport)
