@@ -7,10 +7,13 @@ import {
   selectVisibleIds,
   toggleSelectedId,
 } from "../src/hooks/use-row-selection"
-import { buildUpdatedConfigForDnsServersDelete } from "../src/pages/dns-servers-utils"
+import {
+  buildUpdatedConfigForDnsServersDelete,
+  getDnsServerDeleteReferenceInfo,
+} from "../src/pages/dns-servers-utils"
 import {
   buildUpdatedConfigForListsDelete,
-  listDeletesAltersRoutingRefs,
+  listDeletesAltersRoutingOrDnsRefs,
 } from "../src/pages/lists-utils"
 
 describe("row selection helpers", () => {
@@ -48,23 +51,51 @@ describe("config mutation pending helper", () => {
 })
 
 describe("bulk DNS server delete helpers", () => {
-  test("deletes the selected servers and keeps the rest", () => {
+  test("reports rule and fallback references", () => {
     const config: ConfigObject = {
       dns: {
+        fallback: ["wan_dns"],
         servers: [{ tag: "wan_dns" }, { tag: "vpn_dns" }],
+        rules: [
+          { server: "wan_dns", list: ["ads"] },
+          { server: "vpn_dns", list: ["work"] },
+        ],
       },
     }
 
-    expect(buildUpdatedConfigForDnsServersDelete(config, ["wan_dns"])).toEqual({
+    expect(getDnsServerDeleteReferenceInfo(config, ["wan_dns"])).toEqual({
+      matchingRuleIndexes: [0],
+      matchingRulesCount: 1,
+      usesFallback: true,
+    })
+  })
+
+  test("deletes servers and cleans refs when requested", () => {
+    const config: ConfigObject = {
       dns: {
+        fallback: ["wan_dns", "vpn_dns"],
+        servers: [{ tag: "wan_dns" }, { tag: "vpn_dns" }],
+        rules: [
+          { server: "wan_dns", list: ["ads"] },
+          { server: "vpn_dns", list: ["work"] },
+        ],
+      },
+    }
+
+    expect(
+      buildUpdatedConfigForDnsServersDelete(config, ["wan_dns"], true)
+    ).toEqual({
+      dns: {
+        fallback: ["vpn_dns"],
         servers: [{ tag: "vpn_dns" }],
+        rules: [{ server: "vpn_dns", list: ["work"] }],
       },
     })
   })
 })
 
 describe("bulk list delete helpers", () => {
-  test("deletes lists and reports changed routing refs", () => {
+  test("deletes lists and reports changed routing or DNS refs", () => {
     const config: ConfigObject = {
       lists: {
         ads: { domains: ["ads.example"] },
@@ -76,6 +107,12 @@ describe("bulk list delete helpers", () => {
           { list: ["ads"], outbound: "wan" },
         ],
       },
+      dns: {
+        rules: [
+          { server: "dns", list: ["ads"] },
+          { server: "dns", list: ["work"] },
+        ],
+      },
     }
 
     const nextConfig = buildUpdatedConfigForListsDelete(config, ["ads"])
@@ -84,6 +121,7 @@ describe("bulk list delete helpers", () => {
     expect(nextConfig.route?.rules).toEqual([
       { list: ["work"], outbound: "vpn" },
     ])
-    expect(listDeletesAltersRoutingRefs(config, nextConfig)).toBe(true)
+    expect(nextConfig.dns?.rules).toEqual([{ server: "dns", list: ["work"] }])
+    expect(listDeletesAltersRoutingOrDnsRefs(config, nextConfig)).toBe(true)
   })
 })

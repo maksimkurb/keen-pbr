@@ -2,6 +2,8 @@ import { Redirect, Route, Switch } from "wouter"
 
 import { AppShell } from "@/components/layout/app-shell"
 import { ScrollToTopOnRouteChange } from "@/components/layout/scroll-route"
+import { DnsRuleUpsertPage } from "@/pages/dns-rule-upsert-page"
+import { DnsRulesPage } from "@/pages/dns-rules-page"
 import { DnsServersPage } from "@/pages/dns-servers-page"
 import { DnsServerUpsertPage } from "@/pages/dns-servers-upsert-page"
 import { GeneralConfigPage } from "@/pages/general-config-page"
@@ -50,6 +52,15 @@ function App() {
           )}
         </Route>
         <Route component={DnsServersPage} path="/dns-servers" />
+        <Route path="/dns-rules/create">
+          <DnsRuleUpsertPage mode="create" />
+        </Route>
+        <Route path="/dns-rules/:ruleIndex/edit">
+          {(params) => (
+            <DnsRuleUpsertPage mode="edit" ruleIndex={params.ruleIndex} />
+          )}
+        </Route>
+        <Route component={DnsRulesPage} path="/dns-rules" />
         <Route path="/routing-rules/create">
           <RoutingRuleUpsertPage mode="create" />
         </Route>

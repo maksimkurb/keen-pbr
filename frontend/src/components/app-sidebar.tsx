@@ -77,6 +77,10 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
             title: t("nav.items.routingRules"),
             url: "/routing-rules",
           },
+          {
+            title: t("nav.items.dnsRules"),
+            url: "/dns-rules",
+          },
         ],
       },
     ],

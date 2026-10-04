@@ -136,6 +136,7 @@ export const enTranslation = {
       dnsServers: "DNS Servers",
       lists: "Lists",
       routingRules: "Routing rules",
+      dnsRules: "DNS Rules",
     },
   },
   brand: {
@@ -351,6 +352,21 @@ export const enTranslation = {
         timed_out: "Timed out",
       },
     },
+    dnsmasq: {
+      title: "dnsmasq",
+      description: "Per-list DNS servers served through dnsmasq.",
+      state: {
+        ok: "In sync",
+        applying: "Applying",
+        error: "Error",
+        disabled: "Disabled",
+      },
+      rules: "DNS rules",
+      domains: "Domains",
+      lastApply: "Last applied",
+      neverApplied: "Not applied yet",
+      lastError: "Last error",
+    },
     intercept: {
       title: "Traffic interception",
       description: "Daemon-side DNS and L7 interception health.",
@@ -501,7 +517,8 @@ export const enTranslation = {
         description:
           "Fill dynamic domain sets from DNS responses and TLS, HTTP, or QUIC traffic.",
         enabledLabel: "Enable traffic interception",
-        enabledHint: "When enabled, keen-pbr learns destinations.",
+        enabledHint:
+          "When enabled, keen-pbr learns destinations.",
         minTtlLabel: "Minimum TTL (seconds)",
         minTtlHint: "Floor for learned set entry timeouts.",
         maxTtlLabel: "Maximum TTL (seconds)",
@@ -594,6 +611,8 @@ export const enTranslation = {
         items: {
           serverPrefix: "DNS server",
           serverSuffix: "will be deleted.",
+          dnsRule: "DNS rule #{{number}} will be deleted.",
+          fallback: "Fallback DNS will be changed.",
         },
       },
       bulk: {
@@ -985,9 +1004,108 @@ export const enTranslation = {
           'Outbound "{{outbound}}" references missing outbound tag "{{referenced}}".',
       },
     },
-    dnsRuleUpsert: {
+    dnsRules: {
+      title: "DNS Rules",
+      description:
+        "Control which DNS server is used for domains in your lists.",
+      actions: {
+        add: "Add DNS rule",
+        enableRule: "Enable rule",
+        disableRule: "Disable rule",
+      },
+      bulk: {
+        selected: "{{count}} selected",
+        enable: "Enable selected",
+        disable: "Disable selected",
+        delete: "Delete selected",
+        confirmDelete: "Delete {{count}} DNS rule(s)?",
+      },
+      messages: {
+        saved: "DNS configuration staged. Apply new config to persist it.",
+      },
       validation: {
+        invalidFallback:
+          "Primary DNS servers must reference existing server tags.",
+        invalidFallbackChange:
+          "Cannot change fallback while DNS rules are invalid.",
+        invalidResult: "Cannot save because resulting DNS rules are invalid.",
+      },
+      fallback: {
+        title: "Fallback DNS servers",
+        description:
+          "The ordered DNS servers dnsmasq should use when no DNS rule matches. When set, dnsmasq ignores the system upstreams (no-resolv).",
+        add: "Add fallback DNS server",
+        placeholderTitle: "No fallback DNS servers selected",
+        placeholderDescription:
+          "Optional. Leave empty to keep the system upstreams for domains not matched by any rule.",
+        noneDefined: "No DNS servers defined on the DNS Servers page.",
+        noneAvailable: "All DNS servers are already selected.",
+      },
+      integration: {
+        title: "Manage dnsmasq (per-list DNS servers)",
+        description:
+          "When enabled, keen-pbr generates the dnsmasq config so domains from your lists are resolved through the chosen DNS servers.",
+        effectiveHint:
+          "The mode is not set explicitly; it is enabled automatically because DNS rules exist.",
+        inactiveTitle: "DNS rules are inactive",
+        inactiveDescription:
+          "dnsmasq management is off, so the rules below are saved but not applied. Turn it on above to use them.",
+      },
+      empty: {
+        title: "No DNS rules yet",
+        description:
+          "No rules yet - add a rule to route DNS lookups for specific lists through a chosen server.",
+      },
+      headers: {
+        criteria: "Match",
+        serverTag: "DNS server",
+        allowDomainRebinding: "Domain rebinding",
+        actions: "Actions",
+      },
+      criteriaLabels: {
+        lists: "Lists",
+      },
+      rebinding: {
+        enabled: "Allowed",
+        disabled: "Blocked",
+      },
+    },
+    dnsRuleUpsert: {
+      createTitle: "Create DNS rule",
+      editTitle: "Edit DNS rule",
+      description:
+        "This rule defines which DNS server to use for domains in a specific list.",
+      cardDescription: "Set the list names and DNS server for this rule.",
+      messages: { saved: "DNS rule staged. Apply new config to persist it." },
+      validation: {
+        notFound: "The requested DNS rule was not found.",
         fixErrors: "Fix validation errors before saving.",
+        serverRequired: "Rule must reference an existing DNS server.",
+        listsRequired: "Rule must include at least one list.",
+        unknownLists: "Unknown lists: {{lists}}",
+        duplicate: "Duplicate rule entry.",
+      },
+      missing: {
+        cardDescription: "The requested DNS rule could not be found.",
+        cardTitle: "Missing DNS rule",
+        description: "Return to DNS Rules and choose a valid entry.",
+        back: "Back to DNS rules",
+      },
+      actions: { create: "Create rule", save: "Save rule" },
+      fields: {
+        serverTag: "DNS server",
+        selectServer: "Select DNS server",
+        dnsServers: "DNS servers",
+        noServers: "No DNS servers defined on the DNS Servers page.",
+        listNames: "Domain lists",
+        allowDomainRebinding: "Allow domain rebinding for these domains",
+        allowDomainRebindingHint:
+          "Enable this only when you know this domain list points to internal services. Responses for matched domains will be allowed to contain internal/private IPs (for example 192.168.0.0/16, 10.0.0.0/8, and other local network ranges).",
+        listPlaceholderDescription:
+          "Choose which lists this rule applies to. Matching domains will use this DNS server.",
+        noListsSelected: "No lists selected",
+        noLists:
+          "No lists found. Please, create first filter on the Lists page.",
       },
     },
     lists: {
@@ -1026,6 +1144,8 @@ export const enTranslation = {
           listSuffix: "will be deleted.",
           routeRuleRemoved: "Routing rule #{{number}} will be deleted.",
           routeRuleUpdated: "Routing rule #{{number}} will be changed.",
+          dnsRuleRemoved: "DNS rule #{{number}} will be deleted.",
+          dnsRuleUpdated: "DNS rule #{{number}} will be changed.",
         },
       },
       bulk: {

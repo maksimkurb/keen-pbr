@@ -1,10 +1,12 @@
-import { Pencil, Plus, Trash2 } from "lucide-react"
+import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react"
+import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { getConfigResponse } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
+import type { DnsRule } from "@/api/generated/model/dnsRule"
 import { DnsServerType } from "@/api/generated/model/dnsServerType"
 import {
   useConfigMutationPending,
@@ -27,6 +29,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   buildUpdatedConfigForDnsServersDelete,
+  getDnsServerDeleteImpact,
+  type DnsServerDeleteImpact,
 } from "@/pages/dns-servers-utils"
 
 export function DnsServersPage() {
@@ -34,6 +38,7 @@ export function DnsServersPage() {
   const [, navigate] = useLocation()
   const [deleteRequest, setDeleteRequest] = useState<{
     tags: string[]
+    impact: DnsServerDeleteImpact
     config: ConfigObject
     clearSelectionOnSuccess: boolean
   } | null>(null)
@@ -55,6 +60,7 @@ export function DnsServersPage() {
 
     const request = {
       tags: [serverTag],
+      impact: getDnsServerDeleteImpact(config, [serverTag]),
       config,
       clearSelectionOnSuccess: false,
     }
@@ -71,6 +77,7 @@ export function DnsServersPage() {
 
     const request = {
       tags: selectedTags,
+      impact: getDnsServerDeleteImpact(config, selectedTags),
       config,
       clearSelectionOnSuccess: true,
     }
@@ -85,7 +92,8 @@ export function DnsServersPage() {
 
     const updatedConfig = buildUpdatedConfigForDnsServersDelete(
       config,
-      deleteRequest.tags
+      deleteRequest.tags,
+      true
     )
 
     postConfigMutation.mutate(
@@ -218,7 +226,9 @@ export function DnsServersPage() {
         impactItems={
           visibleDeleteRequest
             ? getDnsServerDeleteImpactItems(
+                visibleDeleteRequest.config,
                 visibleDeleteRequest.tags,
+                visibleDeleteRequest.impact,
                 t
               )
             : []
@@ -238,7 +248,9 @@ export function DnsServersPage() {
 }
 
 function getDnsServerDeleteImpactItems(
+  config: ConfigObject | undefined,
   serverTags: string[],
+  impact: DnsServerDeleteImpact,
   t: (key: string, options?: Record<string, unknown>) => string
 ) {
   const items: DeleteImpactItem[] = []
@@ -255,7 +267,77 @@ function getDnsServerDeleteImpactItems(
     })
   }
 
+  for (const index of impact.matchingRuleIndexes) {
+    items.push({
+      label: t("pages.dnsServers.deleteDialog.items.dnsRule", {
+        number: index + 1,
+      }),
+      details: getDnsRuleDetails(config?.dns?.rules?.[index], t),
+    })
+  }
+
+  if (impact.usesFallback) {
+    const fallback = config?.dns?.fallback ?? []
+    items.push({
+      label: t("pages.dnsServers.deleteDialog.items.fallback"),
+      details: [
+        formatDetail(
+          t("pages.dnsRules.fallback.title"),
+          <ChangeValue
+            after={formatListValue(
+              fallback.filter((tag) => !serverTags.includes(tag)),
+              t
+            )}
+            before={formatListValue(fallback, t)}
+          />
+        ),
+      ],
+    })
+  }
+
   return items
+}
+
+function getDnsRuleDetails(
+  rule: DnsRule | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
+  if (!rule) {
+    return []
+  }
+
+  return [
+    formatDetail(
+      t("pages.dnsRules.criteriaLabels.lists"),
+      formatListValue(rule.list, t)
+    ),
+    formatDetail(t("pages.dnsRules.headers.serverTag"), rule.server),
+  ]
+}
+
+function formatDetail(label: string, value: ReactNode) {
+  return (
+    <>
+      {label}: {value}
+    </>
+  )
+}
+
+function formatListValue(
+  values: string[],
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
+  return values.length > 0 ? values.join(", ") : t("common.noneShort")
+}
+
+function ChangeValue({ after, before }: { after: string; before: string }) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1 leading-4">
+      <span className="min-w-0 truncate">{before}</span>
+      <ArrowRight className="mt-px size-3 shrink-0" />
+      <span className="min-w-0 truncate">{after}</span>
+    </span>
+  )
 }
 
 function getConfigData(response: getConfigResponse | undefined) {

@@ -20,6 +20,13 @@ const config: ConfigObject = {
       { outbound: "drop", list: ["removed"] },
     ],
   },
+  dns: {
+    rules: [
+      { server: "dns", list: ["retained"] },
+      { server: "dns", list: ["removed", "retained"] },
+      { server: "dns", list: ["removed"] },
+    ],
+  },
 }
 
 describe("list deletion draft transformation", () => {
@@ -35,12 +42,18 @@ describe("list deletion draft transformation", () => {
       { outbound: "vpn", list: ["retained"] },
       { outbound: "direct", list: [], dest_port: "443" },
     ])
+    expect(updated.dns?.rules).toEqual([
+      { server: "dns", list: ["retained"] },
+      { server: "dns", list: ["retained"] },
+    ])
     expect(config.route?.rules?.[2]?.list).toEqual(["removed"])
   })
 
   test("reports only rules that lose their final condition", () => {
     expect(getListDeleteImpact(config, ["removed"])).toEqual({
+      dnsRuleIndexes: [1, 2],
       routeRuleIndexes: [1, 2, 3],
+      removedDnsRuleIndexes: [2],
       removedRouteRuleIndexes: [3],
     })
   })

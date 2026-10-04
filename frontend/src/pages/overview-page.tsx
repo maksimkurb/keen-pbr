@@ -4,6 +4,7 @@ import { Download, Play, RotateCw, Square } from "lucide-react"
 
 import type { ApiError } from "@/api/client"
 import type {
+  DnsmasqHealth,
   InterceptHealth,
   InterceptProbeFeatureStatus,
   Outbound,
@@ -283,6 +284,8 @@ export function OverviewPage() {
 
       <InterceptHealthCard health={serviceHealth?.intercept} />
 
+      <DnsmasqHealthCard health={serviceHealth?.dnsmasq} />
+
       <RoutingTestPanel />
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -397,6 +400,92 @@ function TableSkeleton() {
       <Skeleton className="h-10 w-full" />
     </div>
   )
+}
+
+function DnsmasqHealthCard({ health }: { health?: DnsmasqHealth }) {
+  const { t, i18n } = useTranslation()
+
+  if (!health || health.mode !== "dnsmasq") {
+    return null
+  }
+
+  const tone =
+    health.state === "ok"
+      ? "healthy"
+      : health.state === "applying"
+        ? "warning"
+        : "degraded"
+  const lastApplyTs = health.last_apply_ts ?? null
+
+  return (
+    <SectionCard
+      description={t("overview.dnsmasq.description")}
+      title={t("overview.dnsmasq.title")}
+    >
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone={tone}>
+            {t(`overview.dnsmasq.state.${health.state}`)}
+          </StatusBadge>
+        </div>
+        <div className="grid gap-3 text-sm sm:grid-cols-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">
+              {t("overview.dnsmasq.rules")}
+            </span>
+            <span className="font-medium">{health.rules}</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">
+              {t("overview.dnsmasq.domains")}
+            </span>
+            <span className="font-medium">{health.domains}</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">
+              {t("overview.dnsmasq.lastApply")}
+            </span>
+            <span
+              className="font-medium"
+              title={
+                lastApplyTs
+                  ? new Date(lastApplyTs * 1000).toLocaleString(i18n.language)
+                  : undefined
+              }
+            >
+              {lastApplyTs
+                ? formatRelativeTime(lastApplyTs * 1000, i18n.language)
+                : t("overview.dnsmasq.neverApplied")}
+            </span>
+          </div>
+        </div>
+        {health.state === "error" && health.last_error ? (
+          <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+            <AlertDescription>
+              {t("overview.dnsmasq.lastError")}: {health.last_error}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+      </div>
+    </SectionCard>
+  )
+}
+
+function formatRelativeTime(timestampMs: number, locale: string) {
+  const diffSeconds = Math.round((timestampMs - Date.now()) / 1000)
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" })
+  const abs = Math.abs(diffSeconds)
+
+  if (abs < 60) {
+    return formatter.format(diffSeconds, "second")
+  }
+  if (abs < 3600) {
+    return formatter.format(Math.round(diffSeconds / 60), "minute")
+  }
+  if (abs < 86400) {
+    return formatter.format(Math.round(diffSeconds / 3600), "hour")
+  }
+  return formatter.format(Math.round(diffSeconds / 86400), "day")
 }
 
 function InterceptHealthCard({ health }: { health?: InterceptHealth }) {
