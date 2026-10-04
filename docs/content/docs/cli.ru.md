@@ -37,7 +37,7 @@ Commands:
 |---|---|
 | `--config <path>` | Путь к JSON файлу конфигурации. |
 | `--log-level <lvl>` | Детализация логов: `error`, `warn`, `info`, `verbose` или `debug`. |
-| `--log-target <target>` | Назначение логов: `stderr`, `syslog` или `both`. По умолчанию используется `syslog` для `service` и `stderr` для интерактивных команд. |
+| `--log-target <target>` | Назначение логов: `stderr`, `syslog` или `both`. По умолчанию для всех команд используется `both`. Пакетные сервисные файлы (systemd, OpenWrt procd, init-скрипт Keenetic) передают `--log-target syslog`, чтобы логи не дублировались, когда stdout/stderr дополнительно перехватываются системой инициализации. |
 | `--no-api` | Отключить REST API, даже если он включён в конфиге. |
 | `--use-raw-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv4-трафика; доступно только с iptables. |
 | `--use-raw6-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика; доступно только с iptables. |

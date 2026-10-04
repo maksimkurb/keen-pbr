@@ -91,7 +91,7 @@ void print_usage(const char *argv0) {
             << "  --log-level <lvl>  Log level: error, warn, info, verbose, "
                "debug (default: info)\n"
             << "  --log-target <target>  Log destination: stderr, syslog, or "
-               "both (default: syslog for service, stderr otherwise)\n"
+               "both (default: both)\n"
             << "  --pid-file <path>  Override daemon.pid_file when running the "
                "service command\n"
             << "  --crash-report <path>  Last-crash report path (default: "
@@ -361,11 +361,7 @@ int main(int argc, char *argv[]) {
     // Initialize logger
     auto &logger = keen_pbr3::Logger::instance();
     logger.set_level(keen_pbr3::parse_log_level(opts.log_level));
-    logger.set_target(opts.log_target.empty()
-                          ? (opts.run_service
-                                 ? keen_pbr3::LogTarget::syslog_only
-                                 : keen_pbr3::LogTarget::stderr_only)
-                          : keen_pbr3::parse_log_target(opts.log_target));
+    logger.set_target(keen_pbr3::resolve_log_target(opts.log_target));
 
     if (opts.hash_password) {
       const auto password = read_secret("Password: ");

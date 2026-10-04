@@ -15,6 +15,9 @@ enum class LogTarget { stderr_only, syslog_only, both };
 
 LogLevel parse_log_level(std::string_view s);
 LogTarget parse_log_target(std::string_view s);
+// Resolve the --log-target option: an empty value selects the default (both),
+// regardless of the command being run. Services pass "syslog" explicitly.
+LogTarget resolve_log_target(std::string_view cli_value);
 
 class Logger {
 public:

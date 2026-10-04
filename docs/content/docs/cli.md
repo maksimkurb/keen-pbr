@@ -37,7 +37,7 @@ The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, an
 |---|---|
 | `--config <path>` | Path to the JSON config file. |
 | `--log-level <lvl>` | Log verbosity: `error`, `warn`, `info`, `verbose`, or `debug`. |
-| `--log-target <target>` | External log destination: `stderr`, `syslog`, or `both`. Defaults to `syslog` for `service` and `stderr` for interactive commands. |
+| `--log-target <target>` | External log destination: `stderr`, `syslog`, or `both`. Defaults to `both` for every command. The packaged service files (systemd, OpenWrt procd, Keenetic init script) pass `--log-target syslog` so logs are not duplicated when stdout/stderr are also captured by the init system. |
 | `--no-api` | Disable the REST API even if enabled in config. |
 | `--use-raw-prerouting` | Opt in to raw-table IPv4 forwarded-traffic classification; available only with iptables. |
 | `--use-raw6-prerouting` | Opt in to raw-table IPv6 forwarded-traffic classification; available only with iptables. |
