@@ -69,11 +69,18 @@ InterceptEffective Daemon::resolve_intercept_effective() {
     const bool ipv6_enabled = resolve_ipv6_support(config_).enabled;
     InterceptCapabilities capabilities;
     if (config_.intercept.value_or(InterceptConfig{}).enabled.value_or(true)) {
-        if (!intercept_capabilities_.has_value() ||
+        if (!intercept_capabilities_.has_value() || intercept_capabilities_stale_ ||
             intercept_capabilities_ipv6_ != ipv6_enabled) {
-            intercept_capabilities_ = probe_intercept_capabilities(backend, ipv6_enabled);
+            auto fresh = probe_intercept_capabilities(backend, ipv6_enabled);
+            // Log only what this probe measured, before older verdicts are
+            // carried forward.
+            log_intercept_probe(fresh);
+            if (intercept_capabilities_.has_value()) {
+                fresh.probe.carry_forward(intercept_capabilities_->probe);
+            }
+            intercept_capabilities_ = std::move(fresh);
             intercept_capabilities_ipv6_ = ipv6_enabled;
-            log_intercept_probe(*intercept_capabilities_);
+            intercept_capabilities_stale_ = false;
         }
         capabilities = *intercept_capabilities_;
     }
@@ -93,32 +100,38 @@ InterceptEffective Daemon::resolve_intercept_effective() {
     return effective;
 }
 
+void Daemon::fold_intercept_listener_probe(InterceptEffective& effective,
+                                           const InterceptService& service) {
+    // Fold what the listener binds revealed into the effective settings (before
+    // any rule queues to them) and remember it until the next probe refresh, so
+    // a kernel that rejected a listener is not retried on every apply.
+    const InterceptRuntimeProbe& listeners = service.listener_probe();
+    apply_listener_probe(effective, listeners);
+    if (intercept_capabilities_.has_value()) {
+        auto& cached = intercept_capabilities_->probe;
+        if (listeners.nfqueue.status != nfnl::ProbeStatus::not_run) {
+            cached.nfqueue = listeners.nfqueue;
+            cached.fail_open = listeners.fail_open;
+            cached.replacement = listeners.replacement;
+        }
+        if (listeners.nflog.status != nfnl::ProbeStatus::not_run) {
+            cached.nflog = listeners.nflog;
+        }
+    }
+}
+
 void Daemon::start_intercept_service(InterceptEffective& effective) {
     const FirewallBackend backend = firewall_->backend();
     const InterceptServiceOptions options = options_for(effective, backend);
     std::shared_ptr<InterceptService> service;
-    // Fold what the listener binds revealed into the effective settings (before
-    // any rule queues to them) and remember it until the next probe refresh, so
-    // a kernel that rejected a listener is not retried on every apply.
     const auto fold_listeners = [&] {
         if (!service) return;
-        const InterceptRuntimeProbe listeners = service->listener_probe();
-        apply_listener_probe(effective, listeners);
-        if (intercept_capabilities_.has_value()) {
-            auto& cached = intercept_capabilities_->probe;
-            if (listeners.nfqueue.status != nfnl::ProbeStatus::not_run) {
-                cached.nfqueue = listeners.nfqueue;
-                cached.fail_open = listeners.fail_open;
-                cached.replacement = listeners.replacement;
-            }
-            if (listeners.nflog.status != nfnl::ProbeStatus::not_run) {
-                cached.nflog = listeners.nflog;
-            }
-        }
-        if (listeners.fail_open.blocks()) {
+        fold_intercept_listener_probe(effective, *service);
+        const nfnl::ProbeResult& fail_open = service->listener_probe().fail_open;
+        if (fail_open.blocks()) {
             Logger::instance().warn(
                 "NFQUEUE fail-open is unavailable ({}); the DNS queue keeps running without it",
-                listeners.fail_open.reason);
+                fail_open.reason);
         }
     };
     try {

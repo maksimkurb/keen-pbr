@@ -35,6 +35,15 @@ struct InterceptRuntimeProbe {
 
     // Every probed feature in a stable order (for health output and logs).
     std::vector<Item> items() const;
+
+    // Keeps `previous` results for every check this probe did not run (its
+    // stage has not happened yet in this round), so a re-probe does not turn a
+    // known kernel verdict back into `not_run`.  Results this probe produced
+    // always win.  Blocking verdicts are not carried: they disable the stage
+    // that would re-run the check, so a refresh must retry them.  fail_open
+    // and replacement travel with a non-blocking nfqueue (same bind; a
+    // blocking fail_open only warns).
+    void carry_forward(const InterceptRuntimeProbe& previous);
 };
 
 // What the kernel offers for traffic interception.  `nfqueue` includes the

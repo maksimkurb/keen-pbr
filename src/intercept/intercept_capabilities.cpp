@@ -175,6 +175,26 @@ std::vector<InterceptRuntimeProbe::Item> InterceptRuntimeProbe::items() const {
     };
 }
 
+void InterceptRuntimeProbe::carry_forward(const InterceptRuntimeProbe& previous) {
+    using nfnl::ProbeStatus;
+    const auto keep = [](nfnl::ProbeResult& current, const nfnl::ProbeResult& old) {
+        if (current.status == ProbeStatus::not_run && !old.blocks()) current = old;
+    };
+    if (kernel_release.empty()) kernel_release = previous.kernel_release;
+    if (ipset_protocol == 0) ipset_protocol = previous.ipset_protocol;
+    keep(set_backend, previous.set_backend);
+    // fail_open and replacement come from the same queue bind as nfqueue.
+    if (nfqueue.status == ProbeStatus::not_run && !previous.nfqueue.blocks()) {
+        nfqueue = previous.nfqueue;
+        fail_open = previous.fail_open;
+        replacement = previous.replacement;
+    }
+    keep(nflog, previous.nflog);
+    keep(set_write, previous.set_write);
+    keep(conntrack, previous.conntrack);
+    keep(timeout_update, previous.timeout_update);
+}
+
 namespace {
 // Prefers an IPv4 dynamic set; the element is a reserved documentation address.
 const FirewallSetDeclaration* choose_probe_set(const std::vector<FirewallSetDeclaration>& sets) {

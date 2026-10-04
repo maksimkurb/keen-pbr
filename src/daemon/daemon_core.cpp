@@ -1107,7 +1107,7 @@ void Daemon::refresh_iproute_and_firewall_runtime(StatusPublishScope scope) {
   try {
     // A runtime refresh is also the explicit capability-cache refresh hook;
     // kernels/modules may have changed since startup.
-    intercept_capabilities_.reset();
+    intercept_capabilities_stale_ = true;
     const auto main_routes = netlink_.dump_routes_in_table(254);
     reconcile_static_routing(nullptr, &main_routes);
     apply_firewall(runtime_refresh_firewall_mode(), false, &main_routes);

@@ -225,8 +225,12 @@ private:
   // Traffic interception (DNS hold / L7 sniff), see daemon_intercept.cpp.
   InterceptEffective resolve_intercept_effective();
   void start_intercept_service(InterceptEffective &effective);
+  // Folds what `service`'s listener binds revealed (nfqueue, fail-open,
+  // payload replacement, nflog) into `effective` and the capability cache.
+  void fold_intercept_listener_probe(InterceptEffective &effective,
+                                     const InterceptService &service);
   // Folds the post-apply set write probe into `effective` (published for
-  // health) and caches it so later resolves honor it until the cache resets.
+  // health) and caches it so later resolves honor it until it is re-measured.
   void record_intercept_set_write_probe(InterceptEffective &effective,
                                         const nfnl::ProbeResult &set_write,
                                         const nfnl::ProbeResult &timeout_update);
@@ -429,6 +433,9 @@ IcmpTester icmp_tester_;
   std::shared_ptr<std::atomic<bool>> nft_timeout_update_ =
       std::make_shared<std::atomic<bool>>(false);
   bool intercept_capabilities_ipv6_{true};
+  // Set by config applies and runtime refreshes: the next resolve re-probes,
+  // carrying forward checks whose stage does not run again.
+  bool intercept_capabilities_stale_{false};
   std::atomic<std::uint64_t> intercept_snapshot_seq_{0};
   std::uint64_t intercept_forwarded_seq_{0};
   int intercept_event_task_id_{-1};

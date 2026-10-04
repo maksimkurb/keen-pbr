@@ -485,3 +485,81 @@ TEST_CASE("health JSON before any probe leaves optional fields out of the pictur
     for (const auto& probe : after["probes"]) by_feature[probe["feature"]] = probe;
     CHECK(by_feature["payload_replacement"]["status"] == "skipped");
 }
+
+TEST_CASE("intercept probe: a re-probe carries forward checks it did not run") {
+    using nfnl::ProbeStatus;
+    InterceptRuntimeProbe previous;
+    previous.kernel_release = "6.12.94";
+    previous.set_backend = nfnl::make_probe_result(ProbeStatus::ok, "old");
+    previous.nfqueue = nfnl::make_probe_result(ProbeStatus::ok, "bound");
+    previous.fail_open = nfnl::make_probe_result(ProbeStatus::ok, "accepted");
+    previous.replacement = nfnl::ReplacementCapability::supported;
+    previous.nflog = nfnl::make_probe_result(ProbeStatus::ok, "bound");
+    previous.set_write = nfnl::make_probe_result(ProbeStatus::ok, "written");
+    previous.timeout_update = nfnl::make_probe_result(ProbeStatus::ok, "extended");
+
+    // A fresh capability probe only fills its own stage.
+    InterceptRuntimeProbe fresh;
+    fresh.kernel_release = "6.12.94";
+    fresh.set_backend = nfnl::make_probe_result(ProbeStatus::ok, "new");
+    fresh.conntrack = nfnl::make_probe_result(ProbeStatus::ok, "dumped");
+    fresh.carry_forward(previous);
+
+    CHECK(fresh.set_backend.reason == "new");  // fresh results win
+    CHECK(fresh.nfqueue.status == ProbeStatus::ok);
+    CHECK(fresh.fail_open.status == ProbeStatus::ok);
+    CHECK(fresh.replacement == nfnl::ReplacementCapability::supported);
+    CHECK(fresh.nflog.status == ProbeStatus::ok);
+    CHECK(fresh.set_write.status == ProbeStatus::ok);
+    CHECK(fresh.timeout_update.status == ProbeStatus::ok);
+    for (const auto& item : fresh.items()) {
+        CAPTURE(item.feature);
+        CHECK(item.result.status != ProbeStatus::not_run);
+    }
+}
+
+TEST_CASE("intercept probe: blocking verdicts are not carried forward") {
+    using nfnl::ProbeStatus;
+    InterceptRuntimeProbe previous;
+    previous.nfqueue = nfnl::make_probe_result(ProbeStatus::error, "bind failed");
+    previous.fail_open = nfnl::make_probe_result(ProbeStatus::ok, "accepted");
+    previous.nflog = nfnl::make_probe_result(ProbeStatus::error, "bind failed");
+    previous.set_write = nfnl::make_probe_result(ProbeStatus::error, "refused");
+    REQUIRE(previous.nfqueue.blocks());
+
+    InterceptRuntimeProbe fresh;
+    fresh.carry_forward(previous);
+    // Retried by the stage that a carried failure would have disabled.
+    CHECK(fresh.nfqueue.status == ProbeStatus::not_run);
+    CHECK(fresh.fail_open.status == ProbeStatus::not_run);
+    CHECK(fresh.nflog.status == ProbeStatus::not_run);
+    CHECK(fresh.set_write.status == ProbeStatus::not_run);
+}
+
+TEST_CASE("intercept probe: carry_forward edge cases") {
+    using nfnl::ProbeStatus;
+    InterceptRuntimeProbe previous;
+    previous.kernel_release = "6.12.94";
+    previous.ipset_protocol = 7;
+    previous.nfqueue = nfnl::make_probe_result(ProbeStatus::ok, "bound");
+    previous.fail_open = nfnl::make_probe_result(ProbeStatus::unsupported, "old kernel");
+    previous.nflog = nfnl::make_probe_result(ProbeStatus::ok, "old bind");
+    previous.timeout_update = nfnl::make_probe_result(ProbeStatus::error, "refused");
+    REQUIRE(previous.fail_open.blocks());
+    REQUIRE(previous.timeout_update.blocks());
+
+    InterceptRuntimeProbe fresh;
+    fresh.nflog = nfnl::make_probe_result(ProbeStatus::error, "new bind failed");
+    fresh.carry_forward(previous);
+
+    CHECK(fresh.kernel_release == "6.12.94");
+    CHECK(fresh.ipset_protocol == 7);
+    // fail_open travels with its non-blocking nfqueue, even when it blocks.
+    CHECK(fresh.nfqueue.status == ProbeStatus::ok);
+    CHECK(fresh.fail_open.status == ProbeStatus::unsupported);
+    // A fresh result wins, even a failure over an old success.
+    CHECK(fresh.nflog.reason == "new bind failed");
+    CHECK(fresh.timeout_update.status == ProbeStatus::not_run);
+    // Never measured stays never measured.
+    CHECK(fresh.set_write.status == ProbeStatus::not_run);
+}

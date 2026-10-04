@@ -309,13 +309,18 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
                 quiesce_marks != nullptr ? *quiesce_marks : outbound_marks_);
         }
         if (intercept.active()) {
-            bool needs_start;
+            std::shared_ptr<InterceptService> kept_service;
             {
                 KPBR_LOCK_GUARD(intercept_mutex_);
-                needs_start = intercept_service_ == nullptr;
+                kept_service = intercept_service_;
             }
-            if (needs_start) {
+            if (!kept_service) {
                 start_intercept_service(intercept);
+            } else {
+                // The capability re-probe cannot measure listeners (that
+                // takes a bind); the running service's own results are the
+                // authoritative ones, carry_forward is only the fallback.
+                fold_intercept_listener_probe(intercept, *kept_service);
             }
             if (intercept.l7 && firewall_->backend() == FirewallBackend::nftables) {
                 (void)enable_conntrack_accounting();
@@ -1072,7 +1077,7 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
 
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
     // A config change may alter the interception setup: probe again.
-    intercept_capabilities_.reset();
+    intercept_capabilities_stale_ = true;
 
     if (lists_autoupdate_task_id_ >= 0) {
         scheduler_->cancel(lists_autoupdate_task_id_);
