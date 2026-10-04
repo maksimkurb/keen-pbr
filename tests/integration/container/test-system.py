@@ -18,7 +18,7 @@ from cases import (dns_no_leak, dns_routing_save, dns_upstream_ipv4,
                    service_lifecycle, sigusr1_no_packet_leak, table_interface,
                    test_group_table, urltest_rebuild, iptables_chain_convergence,
                    prefilter_skip_marked, inbound_interface_filter, restore_conntrack_mark,
-                   skip_established_or_dnat, local_reply_skip, forwarded_reply_skip,
+                   skip_established_or_dnat, local_reply_skip, forwarded_reply_skip, output_lan_skip,
                    firewall_corruption_recovery, dnsmasq_mgmt,
                    loop_safety_marked_socket)
 
@@ -36,6 +36,7 @@ CASE_MODULES = (
     skip_established_or_dnat,
     local_reply_skip,
     forwarded_reply_skip,
+    output_lan_skip,
     firewall_corruption_recovery,
     loop_safety_marked_socket,
     rule_shapes,

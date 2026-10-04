@@ -108,6 +108,25 @@ struct InboundInterfaceFilterAction {
   }
 };
 
+// Router-originated traffic that policy routing must never touch (OUTPUT
+// only):
+//  * lan_oif: the main table already sends the packet out through one of
+//    `interfaces` (the inbound/LAN interfaces), e.g. a DHCP reply;
+//  * broadcast / multicast: link-local by nature (DHCP, RA/NDP, mDNS, SSDP).
+// Needs no conntrack.
+struct SkipLanOutputAction {
+  enum class Kind : uint8_t { lan_oif, broadcast, multicast };
+  Kind kind{Kind::lan_oif};
+  std::vector<std::string> interfaces; // lan_oif only
+
+  bool operator==(const SkipLanOutputAction& other) const {
+    return kind == other.kind && interfaces == other.interfaces;
+  }
+  bool operator!=(const SkipLanOutputAction& other) const {
+    return !(*this == other);
+  }
+};
+
 enum class VerdictAction : uint8_t { drop, pass };
 
 // Hand the packet to a netfilter queue (NFQUEUE).  `bypass` accepts the packet
@@ -139,6 +158,7 @@ using FirewallRuleAction = std::variant<MarkAction, BalanceAction, VerdictAction
                                         SkipLocalRepliesAction,
                                         SkipMarkedPacketsAction,
                                         InboundInterfaceFilterAction,
+                                        SkipLanOutputAction,
                                         QueueAction, LogAction>;
 
 enum class FirewallRuleStage : uint16_t {

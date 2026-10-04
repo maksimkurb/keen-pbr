@@ -46,7 +46,8 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   `family`, `criteria`, `action` (a `std::variant` of `MarkAction`,
   `BalanceAction`, `VerdictAction`, `RestoreConntrackMarkAction`,
   `SkipEstablishedOrDnatAction`, `SkipMarkedPacketsAction`,
-  `InboundInterfaceFilterAction`, `QueueAction`, `LogAction`).
+  `InboundInterfaceFilterAction`, `SkipLanOutputAction`, `QueueAction`,
+  `LogAction`).
 - **`FirewallPlan`**: ordered rules, `sets` (`FirewallSetDeclaration`),
   `referenced_list_names`, `fwmark_mask`. Built by `build_firewall_plan()`
   (`firewall_runtime.cpp`) by running the module manifest.
@@ -125,6 +126,25 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   raw PREROUTING runs before conntrack, so the rule is absent there (as are
   restore and the DNAT skip); in raw mode forwarded replies are protected only
   by `route.inbound_interfaces`.
+  The `prefilter.skip_lan_output` prefilter (hook=output, OUTPUT only, never
+  PREROUTING) comes right after `skip_local_replies` (same stage and priority,
+  registered after it): `restore_conntrack_mark`, `skip_local_replies`,
+  `skip_lan_output`, then the other bypasses.  Router-originated packets that
+  start a new conntrack entry are not replies, yet some already leave through
+  a LAN interface (a DHCP reply to a client without an address, RA/NDP, mDNS,
+  SSDP, unicast to a LAN host); a catch-all rule such as
+  `{"dest_addr":"0.0.0.0/0","proto":"udp"}` would re-mark and reroute them into
+  a policy table.  The kernel picks the output device before mangle OUTPUT, so
+  `oifname` there equals "the main table already sends it to the LAN".  Rules
+  (keys `lan_oif`, `bcast`, `mcast`): (a) when `route.inbound_interfaces` is
+  non-empty, `OifMatch` on those interfaces (nft `meta oifname { ... }`,
+  iptables one `-o <if> -j RETURN` per interface); (b) always, destination
+  address type broadcast and multicast (`AddrTypeMatch`: nft
+  `fib daddr type broadcast|multicast`, iptables `-m addrtype --dst-type
+  BROADCAST|MULTICAST`, one type per rule; the IPv6 iptables chain has no
+  broadcast rule).  `OifMatch` is a physical match (canonicalized sorted and
+  deduplicated, parsed back from `-o` and nft `oifname`) and lowering throws a
+  `FirewallError` if one ever lands in a PREROUTING chain.
   A positive address match covering a whole family (`0.0.0.0/0`, `::/0`, or
   prefixes whose union is the family, which nft merges into `/0`) is dropped by
   canonicalization on both sides, because iptables-save omits it while nft

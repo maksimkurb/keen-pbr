@@ -393,6 +393,23 @@ void append_match_exprs(json& expr, const PhysicalMatch& match,
         }
         expr.push_back(match_expr(iif->negate ? "!=" : "==", meta_key("iifname"),
                                   std::move(right)));
+    } else if (const auto* oif = std::get_if<OifMatch>(&match)) {
+        json right;
+        if (oif->names.size() == 1) {
+            right = oif->names.front();
+        } else {
+            right = {{"set", json(oif->names)}};
+        }
+        expr.push_back(match_expr(oif->negate ? "!=" : "==", meta_key("oifname"),
+                                  std::move(right)));
+    } else if (const auto* type = std::get_if<AddrTypeMatch>(&match)) {
+        json names = json::array();
+        if ((type->types & addr_broadcast) != 0) names.push_back("broadcast");
+        if ((type->types & addr_multicast) != 0) names.push_back("multicast");
+        json right = names.size() == 1 ? names.front() : json{{"set", names}};
+        expr.push_back(match_expr(
+            "==", {{"fib", {{"result", "type"}, {"flags", json::array({"daddr"})}}}},
+            std::move(right)));
     } else if (const auto* dir = std::get_if<CtDirMatch>(&match)) {
         expr.push_back(match_expr("==", {{"ct", {{"key", "direction"}}}},
                                   dir->original ? 0 : 1));
@@ -428,6 +445,8 @@ int nft_match_rank(const PhysicalMatch& match) {
     if (std::holds_alternative<ProtoMatch>(match)) return 3;
     if (std::holds_alternative<PortMatch>(match)) return 4;
     if (std::holds_alternative<IifMatch>(match)) return 5;
+    if (std::holds_alternative<OifMatch>(match)) return 5;
+    if (std::holds_alternative<AddrTypeMatch>(match)) return 5;
     if (std::holds_alternative<CtDirMatch>(match)) return 6;
     if (std::holds_alternative<CtStateMatch>(match)) return 6;
     if (std::holds_alternative<MarkMatch>(match)) return 7;

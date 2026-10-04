@@ -90,6 +90,19 @@ struct MatchDescriber {
         return keen_pbr3::format("iif{}={}", neg(m.negate),
                                  join_strings(m.names));
     }
+    std::string operator()(const OifMatch& m) const {
+        return keen_pbr3::format("oif{}={}", neg(m.negate),
+                                 join_strings(m.names));
+    }
+    std::string operator()(const AddrTypeMatch& m) const {
+        std::string names;
+        if ((m.types & addr_broadcast) != 0) names += "broadcast";
+        if ((m.types & addr_multicast) != 0) {
+            if (!names.empty()) names += ',';
+            names += "multicast";
+        }
+        return "dst-type=" + names;
+    }
     std::string operator()(const MarkMatch& m) const {
         return keen_pbr3::format("{}&{:#x}{}={}", mark_kind_name(m.kind),
                                  m.mask, m.negate ? "!" : "",
@@ -261,6 +274,13 @@ std::string action_name(const FirewallRuleAction& action) {
     }
     if (std::holds_alternative<SkipMarkedPacketsAction>(action)) {
         return "skip_marked_packets";
+    }
+    if (const auto* skip = std::get_if<SkipLanOutputAction>(&action)) {
+        switch (skip->kind) {
+        case SkipLanOutputAction::Kind::lan_oif: return "skip_lan_output_oif";
+        case SkipLanOutputAction::Kind::broadcast: return "skip_lan_output_bcast";
+        case SkipLanOutputAction::Kind::multicast: return "skip_lan_output_mcast";
+        }
     }
     if (std::holds_alternative<QueueAction>(action)) return "queue";
     if (std::holds_alternative<LogAction>(action)) return "log";

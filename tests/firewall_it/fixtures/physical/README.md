@@ -17,3 +17,7 @@ capture test forces the comment capability on, as it is on legacy iptables.
 the pinned jumps). The same scenario also re-applies in place and disables the
 interception for real, and fails the capture if a jump is not first again or a
 chain is left behind.
+
+`*_lan_output*` fixtures (PLAN O): inbound interfaces, a positive UDP catch-all and the
+`prefilter.skip_lan_output` rules (OUTPUT-only `oif`, broadcast and multicast skips; the
+IPv6 iptables dump has no broadcast rule).

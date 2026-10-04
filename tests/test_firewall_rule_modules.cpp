@@ -261,6 +261,7 @@ TEST_CASE("route module manifest is iterable without a manual count") {
   const std::vector<RouteRuleModuleRegistration> expected = {
       register_restore_conntrack_mark_rules,
       register_skip_local_replies_rules,
+      register_skip_lan_output_rules,
       register_skip_established_or_dnat_rules,
       register_skip_marked_packets_rules,
       register_inbound_interface_filter_rules,
@@ -285,21 +286,25 @@ TEST_CASE("route module manifest has explicit deterministic order") {
   }
   registrar.finish();
 
-  REQUIRE(plan.rules.size() == 11);
+  REQUIRE(plan.rules.size() == 13);
   CHECK(plan.rules[0].key.module_id == "prefilter.restore_conntrack_mark");
   CHECK(plan.rules[1].key.module_id == "prefilter.skip_local_replies");
-  CHECK(plan.rules[2].key.module_id == "prefilter.skip_established_or_dnat");
-  CHECK(plan.rules[3].key.module_id == "prefilter.skip_marked_packets");
-  CHECK(plan.rules[4].source_rule_index == 0);
-  CHECK(plan.rules[5].source_rule_index == 1);
-  CHECK(plan.rules[6].source_rule_index == 2);
-  CHECK(plan.rules[7].source_rule_index == 3);
-  CHECK(plan.rules[8].source_rule_index == 3);
+  CHECK(plan.rules[2].key == FirewallRuleKey::compact(
+                                 "prefilter.skip_lan_output", "bcast"));
+  CHECK(plan.rules[3].key == FirewallRuleKey::compact(
+                                 "prefilter.skip_lan_output", "mcast"));
+  CHECK(plan.rules[4].key.module_id == "prefilter.skip_established_or_dnat");
+  CHECK(plan.rules[5].key.module_id == "prefilter.skip_marked_packets");
+  CHECK(plan.rules[6].source_rule_index == 0);
+  CHECK(plan.rules[7].source_rule_index == 1);
+  CHECK(plan.rules[8].source_rule_index == 2);
   CHECK(plan.rules[9].source_rule_index == 3);
   CHECK(plan.rules[10].source_rule_index == 3);
-  CHECK(plan.rules[4].key.module_id == "route.mark");
-  CHECK(plan.rules[5].key.module_id == "route.drop");
-  CHECK(plan.rules[6].key.module_id == "route.pass");
+  CHECK(plan.rules[11].source_rule_index == 3);
+  CHECK(plan.rules[12].source_rule_index == 3);
+  CHECK(plan.rules[6].key.module_id == "route.mark");
+  CHECK(plan.rules[7].key.module_id == "route.drop");
+  CHECK(plan.rules[8].key.module_id == "route.pass");
 }
 
 FirewallPlan build_plan_with(RouteRuleModuleRegistration module,
@@ -359,6 +364,62 @@ TEST_CASE("prefilter modules emit canonical operations and honor inputs") {
         "prefilter.inbound_interface");
   CHECK(inbound.rules.front().key == FirewallRuleKey::compact(
       "prefilter.inbound_interface", "br-lan;wg0;"));
+}
+
+TEST_CASE("skip_lan_output: oif rule only with inbound interfaces, bcast/mcast always") {
+  const ModuleFixture fixture;
+  Config config = fixture.config;
+  auto context = fixture.context();
+  context.config = &config;
+
+  const auto skip_kinds = [&] {
+    std::vector<SkipLanOutputAction::Kind> kinds;
+    for (const auto& rule :
+         build_plan_with(register_skip_lan_output_rules, context).rules) {
+      CHECK(rule.stage == FirewallRuleStage::global_bypass);
+      CHECK(rule.hook == FirewallHook::output);
+      CHECK(rule.family == FirewallFamily::any);
+      CHECK(rule.priority == -1);
+      kinds.push_back(std::get<SkipLanOutputAction>(rule.action).kind);
+    }
+    return kinds;
+  };
+  using Kind = SkipLanOutputAction::Kind;
+
+  // Empty or missing inbound_interfaces: only the link-local classes.
+  CHECK(skip_kinds() == std::vector<Kind>{Kind::broadcast, Kind::multicast});
+  config.route->inbound_interfaces = std::vector<std::string>{};
+  CHECK(skip_kinds() == std::vector<Kind>{Kind::broadcast, Kind::multicast});
+
+  config.route->inbound_interfaces = std::vector<std::string>{"br-lan", "wg0"};
+  CHECK(skip_kinds() ==
+        std::vector<Kind>{Kind::lan_oif, Kind::broadcast, Kind::multicast});
+  const auto plan = build_plan_with(register_skip_lan_output_rules, context);
+  CHECK(std::get<SkipLanOutputAction>(plan.rules[0].action).interfaces ==
+        std::vector<std::string>{"br-lan", "wg0"});
+  CHECK(plan.rules[0].key ==
+        FirewallRuleKey::compact("prefilter.skip_lan_output", "lan_oif"));
+}
+
+TEST_CASE("skip_lan_output sorts right after skip_local_replies") {
+  const ModuleFixture fixture;
+  Config config = fixture.config;
+  config.route->inbound_interfaces = std::vector<std::string>{"br-lan"};
+  auto context = fixture.context();
+  context.config = &config;
+  FirewallPlan plan;
+  FirewallRuleRegistrar registrar(plan);
+  for (const auto register_module : route_rule_module_manifest()) {
+    register_module(context, registrar);
+  }
+  registrar.finish();
+  REQUIRE(plan.rules.size() >= 6);
+  CHECK(plan.rules[0].key.module_id == "prefilter.restore_conntrack_mark");
+  CHECK(plan.rules[1].key.module_id == "prefilter.skip_local_replies");
+  CHECK(plan.rules[2].key.module_id == "prefilter.skip_lan_output");
+  CHECK(plan.rules[3].key.module_id == "prefilter.skip_lan_output");
+  CHECK(plan.rules[4].key.module_id == "prefilter.skip_lan_output");
+  CHECK(plan.rules[5].key.module_id == "prefilter.skip_established_or_dnat");
 }
 
 TEST_CASE("skip_marked_packets and inbound interface conditions follow config") {
@@ -538,9 +599,9 @@ TEST_CASE("route balance module is included in the explicit manifest") {
   }
   registrar.finish();
 
-  REQUIRE(plan.rules.size() == 5);
+  REQUIRE(plan.rules.size() == 7);
   CHECK(plan.rules[0].key.module_id == "prefilter.restore_conntrack_mark");
-  CHECK(plan.rules[4].key.module_id == "route.balance");
+  CHECK(plan.rules[6].key.module_id == "route.balance");
 }
 
 TEST_CASE("config builds ordered DNS detour rules in the firewall plan") {
@@ -719,13 +780,13 @@ TEST_CASE("route module manifest keeps reordered config rules in priority order"
   }
   registrar.finish();
 
-  REQUIRE(plan.rules.size() == 7);
-  CHECK(plan.rules[4].source_rule_index == 0);
-  CHECK(plan.rules[5].source_rule_index == 1);
-  CHECK(plan.rules[6].source_rule_index == 2);
-  CHECK(std::holds_alternative<VerdictAction>(plan.rules[4].action));
-  CHECK(std::holds_alternative<MarkAction>(plan.rules[5].action));
+  REQUIRE(plan.rules.size() == 9);
+  CHECK(plan.rules[6].source_rule_index == 0);
+  CHECK(plan.rules[7].source_rule_index == 1);
+  CHECK(plan.rules[8].source_rule_index == 2);
   CHECK(std::holds_alternative<VerdictAction>(plan.rules[6].action));
+  CHECK(std::holds_alternative<MarkAction>(plan.rules[7].action));
+  CHECK(std::holds_alternative<VerdictAction>(plan.rules[8].action));
 }
 
 namespace {
@@ -765,10 +826,10 @@ TEST_CASE("IPv4 default gateway keeps both list families but emits IPv4 rules") 
   CHECK(plan.sets[1].name == "kpbr4d_remote");
   CHECK(plan.sets[2].name == "kpbr6_remote");
   CHECK(plan.sets[3].name == "kpbr6d_remote");
-  REQUIRE(plan.rules.size() == 6);
-  CHECK(plan.rules[4].criteria.dst_set_name == "kpbr4_remote");
-  CHECK(plan.rules[5].criteria.dst_set_name == "kpbr4d_remote");
-  for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[4], plan.rules[5]}) {
+  REQUIRE(plan.rules.size() == 8);
+  CHECK(plan.rules[6].criteria.dst_set_name == "kpbr4_remote");
+  CHECK(plan.rules[7].criteria.dst_set_name == "kpbr4d_remote");
+  for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[6], plan.rules[7]}) {
     CHECK(rule.family == FirewallFamily::ipv4);
     CHECK(rule.hook == FirewallHook::prerouting);
     CHECK(rule.criteria.default_gateway == DefaultGatewayFamily::Ipv4);
@@ -785,10 +846,10 @@ TEST_CASE("IPv6 default gateway keeps both list families but emits IPv6 rules") 
   CHECK(plan.sets[1].name == "kpbr4d_remote");
   CHECK(plan.sets[2].name == "kpbr6_remote");
   CHECK(plan.sets[3].name == "kpbr6d_remote");
-  REQUIRE(plan.rules.size() == 6);
-  CHECK(plan.rules[4].criteria.dst_set_name == "kpbr6_remote");
-  CHECK(plan.rules[5].criteria.dst_set_name == "kpbr6d_remote");
-  for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[4], plan.rules[5]}) {
+  REQUIRE(plan.rules.size() == 8);
+  CHECK(plan.rules[6].criteria.dst_set_name == "kpbr6_remote");
+  CHECK(plan.rules[7].criteria.dst_set_name == "kpbr6d_remote");
+  for (const auto& rule : std::vector<FirewallRuleInstance>{plan.rules[6], plan.rules[7]}) {
     CHECK(rule.family == FirewallFamily::ipv6);
     CHECK(rule.hook == FirewallHook::prerouting);
     CHECK(rule.criteria.default_gateway == DefaultGatewayFamily::Ipv6);

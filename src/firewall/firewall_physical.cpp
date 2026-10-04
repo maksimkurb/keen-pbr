@@ -314,6 +314,8 @@ void canonicalize_match(PhysicalMatch &match) {
     canonicalize_port_ranges(port->ranges);
   } else if (auto *iif = std::get_if<IifMatch>(&match)) {
     sort_unique(iif->names);
+  } else if (auto *oif = std::get_if<OifMatch>(&match)) {
+    sort_unique(oif->names);
   } else if (auto *mark = std::get_if<MarkMatch>(&match)) {
     sort_unique(mark->values);
   }
@@ -746,9 +748,9 @@ struct IptablesRuleParser {
 
       if (token == "-m" && i + 1 < size) {
         module = tokens[i + 1];
-        static constexpr std::array<std::string_view, 10> kKnownModules{
-            "tcp",  "udp",  "multiport", "comment", "set",
-            "dscp", "mark", "connmark",  "conntrack", "connbytes"};
+        static constexpr std::array<std::string_view, 11> kKnownModules{
+            "tcp",  "udp",  "multiport", "comment",   "set",      "dscp",
+            "mark", "connmark", "conntrack", "connbytes", "addrtype"};
         if (std::find(kKnownModules.begin(), kKnownModules.end(), module) ==
             kKnownModules.end()) {
           // Never drop a module silently, even when none of its options is
@@ -764,6 +766,11 @@ struct IptablesRuleParser {
       }
       if (token == "-i" && i + 1 < size) {
         r.rule.matches.push_back(IifMatch{neg, {std::string(tokens[i + 1])}});
+        i += 2;
+        continue;
+      }
+      if (token == "-o" && i + 1 < size) {
+        r.rule.matches.push_back(OifMatch{neg, {std::string(tokens[i + 1])}});
         i += 2;
         continue;
       }
@@ -914,6 +921,26 @@ struct IptablesRuleParser {
           r.connbytes_mode = true;
           return at + 2;
         }
+      }
+      return at;
+    }
+    if (module == "addrtype" && option == "--dst-type" && at + 1 < size &&
+        !neg) {
+      AddrTypeMatch match;
+      std::string_view list = tokens[at + 1];
+      bool ok = true;
+      while (!list.empty()) {
+        const auto comma = list.find(',');
+        const std::string_view name = list.substr(0, comma);
+        if (name == "BROADCAST") match.types |= addr_broadcast;
+        else if (name == "MULTICAST") match.types |= addr_multicast;
+        else ok = false;
+        list = comma == std::string_view::npos ? std::string_view{}
+                                               : list.substr(comma + 1);
+      }
+      if (ok && match.types != 0) {
+        r.rule.matches.push_back(match);
+        return at + 2;
       }
       return at;
     }
@@ -1421,6 +1448,36 @@ struct NftRuleParser {
       return;
     }
 
+    if (left.is_object() && left.size() == 1 && left.contains("fib")) {
+      // `fib daddr type {broadcast, multicast}`; only the destination
+      // address type result is understood.
+      const auto &fib = left["fib"];
+      if (!negate && fib.is_object() && fib.value("result", "") == "type" &&
+          fib.contains("flags") && fib["flags"] == json::array({"daddr"})) {
+        AddrTypeMatch match;
+        bool ok = true;
+        const auto add = [&](const json &item) {
+          const std::string name = item.is_string() ? item.get<std::string>()
+                                                    : std::string();
+          if (name == "broadcast") match.types |= addr_broadcast;
+          else if (name == "multicast") match.types |= addr_multicast;
+          else ok = false;
+        };
+        if (right.is_object() && right.contains("set") &&
+            right["set"].is_array()) {
+          for (const auto &item : right["set"]) add(item);
+        } else {
+          add(right);
+        }
+        if (ok && match.types != 0) {
+          add_match(match);
+          return;
+        }
+      }
+      add_unknown_match(expr);
+      return;
+    }
+
     if (left.is_object() && left.size() == 1 && left.contains("meta")) {
       const std::string key = left["meta"].value("key", "");
       if (key == "nfproto" && !negate && right.is_string()) {
@@ -1436,11 +1493,11 @@ struct NftRuleParser {
           add_match(ProtoMatch{value == "tcp" ? L4Proto::Tcp : L4Proto::Udp});
           return;
         }
-      } else if (key == "iifname") {
-        IifMatch match;
-        match.negate = negate;
+      } else if (key == "iifname" || key == "oifname") {
+        const bool output = key == "oifname";
+        std::vector<std::string> names;
         if (right.is_string()) {
-          match.names.push_back(right.get<std::string>());
+          names.push_back(right.get<std::string>());
         } else if (right.is_object() && right.contains("set") &&
                    right["set"].is_array()) {
           for (const auto &item : right["set"]) {
@@ -1448,13 +1505,17 @@ struct NftRuleParser {
               add_unknown_match(expr);
               return;
             }
-            match.names.push_back(item.get<std::string>());
+            names.push_back(item.get<std::string>());
           }
         } else {
           add_unknown_match(expr);
           return;
         }
-        add_match(std::move(match));
+        if (output) {
+          add_match(OifMatch{negate, std::move(names)});
+        } else {
+          add_match(IifMatch{negate, std::move(names)});
+        }
         return;
       }
       add_unknown_match(expr);

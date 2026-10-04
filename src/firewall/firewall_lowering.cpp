@@ -556,6 +556,33 @@ void lower_iptables_prefilter(const FirewallRuleInstance &rule,
     }
     rules.push_back(build_rule(family, {CtDirMatch{false}},
                                {verdict(PhysicalVerdict::return_)}, key));
+  } else if (const auto *skip = std::get_if<SkipLanOutputAction>(&rule.action)) {
+    // OUTPUT only.  The output device is chosen before mangle OUTPUT, so
+    // `-o <lan>` means the main table already routes the packet to the LAN.
+    if (target.hook != FirewallHook::output) {
+      return;
+    }
+    const auto skip_return = [&](Matches matches) {
+      rules.push_back(build_rule(family, std::move(matches),
+                                 {verdict(PhysicalVerdict::return_)}, key));
+    };
+    switch (skip->kind) {
+    case SkipLanOutputAction::Kind::lan_oif:
+      // iptables has no multi-interface -o: one rule per interface.
+      for (const auto &interface : skip->interfaces) {
+        skip_return({OifMatch{false, {interface}}});
+      }
+      break;
+    case SkipLanOutputAction::Kind::broadcast:
+      // IPv6 has no broadcast.
+      if (family != FirewallFamily::ipv6) {
+        skip_return({AddrTypeMatch{addr_broadcast}});
+      }
+      break;
+    case SkipLanOutputAction::Kind::multicast:
+      skip_return({AddrTypeMatch{addr_multicast}});
+      break;
+    }
   } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
     rules.push_back(
         build_rule(family, {mark_is_not_zero(PhysicalMarkKind::packet, kFullMask)},
@@ -978,6 +1005,22 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
                                           {verdict(PhysicalVerdict::accept)},
                                           key));
       }
+    } else if (const auto *skip =
+                   std::get_if<SkipLanOutputAction>(&rule.action)) {
+      Matches matches;
+      switch (skip->kind) {
+      case SkipLanOutputAction::Kind::lan_oif:
+        matches.push_back(OifMatch{false, skip->interfaces});
+        break;
+      case SkipLanOutputAction::Kind::broadcast:
+        matches.push_back(AddrTypeMatch{addr_broadcast});
+        break;
+      case SkipLanOutputAction::Kind::multicast:
+        matches.push_back(AddrTypeMatch{addr_multicast});
+        break;
+      }
+      output.rules.push_back(build_rule(
+          any, std::move(matches), {verdict(PhysicalVerdict::accept)}, key));
     } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
       for (auto *chain : {&prerouting, &output}) {
         chain->rules.push_back(build_rule(
@@ -1081,9 +1124,26 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
 
 PhysicalRuleset lower_firewall_plan(const FirewallPlan &plan,
                                     const FirewallLoweringContext &context) {
-  return context.backend == FirewallBackend::nftables
-             ? lower_nftables(plan, context)
-             : lower_iptables(plan, context);
+  PhysicalRuleset ruleset = context.backend == FirewallBackend::nftables
+                                ? lower_nftables(plan, context)
+                                : lower_iptables(plan, context);
+  // The output device is unknown before the routing decision: an `oif`
+  // match in PREROUTING would silently never (or wrongly) match.
+  for (const auto &chain : ruleset.chains) {
+    if (chain.id.role != PhysicalChainRole::iptables_prerouting &&
+        chain.id.role != PhysicalChainRole::nft_prerouting) {
+      continue;
+    }
+    for (const auto &rule : chain.rules) {
+      for (const auto &match : rule.matches) {
+        if (std::holds_alternative<OifMatch>(match)) {
+          throw FirewallError(
+              "an output interface match cannot be used in PREROUTING");
+        }
+      }
+    }
+  }
+  return ruleset;
 }
 
 } // namespace keen_pbr3

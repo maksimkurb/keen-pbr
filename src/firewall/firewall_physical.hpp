@@ -155,6 +155,27 @@ struct IifMatch {
   }
 };
 
+// Output interface name list.  Only meaningful where the output device is
+// already known: OUTPUT (after the routing decision), FORWARD, POSTROUTING.
+struct OifMatch {
+  bool negate{false};
+  std::vector<std::string> names;
+  bool operator==(const OifMatch &o) const {
+    return negate == o.negate && names == o.names;
+  }
+};
+
+// Destination address class as decided by the routing tables (nft
+// `fib daddr type`, iptables `-m addrtype --dst-type`).
+enum PhysicalAddrType : uint8_t {
+  addr_broadcast = 1U << 0,
+  addr_multicast = 1U << 1,
+};
+struct AddrTypeMatch {
+  uint8_t types{0}; // PhysicalAddrType bits; the packet matches any of them
+  bool operator==(const AddrTypeMatch &o) const { return types == o.types; }
+};
+
 // (mark & mask) == value  (or != when negate).  `values` has several entries
 // for nft `mark & mask == { a, b }`.
 struct MarkMatch {
@@ -212,7 +233,7 @@ struct UnknownMatch {
 
 using PhysicalMatch =
     std::variant<SetMatch, AddrMatch, ProtoMatch, PortMatch, DscpMatch,
-                 IifMatch, MarkMatch, CtStateMatch, CtDirMatch, ConnbytesMatch,
+                 IifMatch, OifMatch, AddrTypeMatch, MarkMatch, CtStateMatch, CtDirMatch, ConnbytesMatch,
                  UnknownMatch>;
 
 // ---------------------------------------------------------------------------

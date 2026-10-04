@@ -158,18 +158,18 @@ TEST_CASE("build_firewall_plan keeps route config order in canonical output") {
       0x00FF0000U};
   const auto plan = build_firewall_plan(inputs);
 
-  REQUIRE(plan.rules.size() == 7);
+  REQUIRE(plan.rules.size() == 9);
   CHECK(std::holds_alternative<RestoreConntrackMarkAction>(plan.rules[0].action));
   CHECK(std::holds_alternative<SkipLocalRepliesAction>(plan.rules[1].action));
   CHECK(plan.rules[1].hook == FirewallHook::prerouting);
-  CHECK(std::holds_alternative<SkipEstablishedOrDnatAction>(plan.rules[2].action));
-  CHECK(std::holds_alternative<SkipMarkedPacketsAction>(plan.rules[3].action));
-  CHECK(plan.rules[4].source_rule_index == 0);
-  CHECK(plan.rules[5].source_rule_index == 1);
-  CHECK(plan.rules[6].source_rule_index == 2);
-  CHECK(std::holds_alternative<MarkAction>(plan.rules[4].action));
-  CHECK(std::get<VerdictAction>(plan.rules[5].action) == VerdictAction::drop);
-  CHECK(std::get<VerdictAction>(plan.rules[6].action) == VerdictAction::pass);
+  CHECK(std::holds_alternative<SkipEstablishedOrDnatAction>(plan.rules[4].action));
+  CHECK(std::holds_alternative<SkipMarkedPacketsAction>(plan.rules[5].action));
+  CHECK(plan.rules[6].source_rule_index == 0);
+  CHECK(plan.rules[7].source_rule_index == 1);
+  CHECK(plan.rules[8].source_rule_index == 2);
+  CHECK(std::holds_alternative<MarkAction>(plan.rules[6].action));
+  CHECK(std::get<VerdictAction>(plan.rules[7].action) == VerdictAction::drop);
+  CHECK(std::get<VerdictAction>(plan.rules[8].action) == VerdictAction::pass);
 }
 
 TEST_CASE("empty nft mark ownership omits restore while iptables preserves it") {
@@ -217,25 +217,25 @@ TEST_CASE("backend plan order keeps routes before DNS detours") {
       0x00FF0000U};
   const auto plan = build_firewall_plan(inputs);
 
-  REQUIRE(plan.rules.size() == 7);
+  REQUIRE(plan.rules.size() == 9);
   CHECK(plan.rules[0].source_rule_index ==
         std::numeric_limits<std::size_t>::max());
-  CHECK(plan.rules[2].source_rule_index ==
+  CHECK(plan.rules[4].source_rule_index ==
         std::numeric_limits<std::size_t>::max());
-  CHECK(plan.rules[3].source_rule_index ==
-        std::numeric_limits<std::size_t>::max());
-  CHECK(plan.rules[4].source_rule_index == 0);
   CHECK(plan.rules[5].source_rule_index ==
         std::numeric_limits<std::size_t>::max());
-  CHECK(plan.rules[6].source_rule_index ==
+  CHECK(plan.rules[6].source_rule_index == 0);
+  CHECK(plan.rules[7].source_rule_index ==
         std::numeric_limits<std::size_t>::max());
-  CHECK(plan.rules[4].stage == FirewallRuleStage::route_classification);
-  CHECK(plan.rules[5].stage == FirewallRuleStage::route_classification);
+  CHECK(plan.rules[8].source_rule_index ==
+        std::numeric_limits<std::size_t>::max());
   CHECK(plan.rules[6].stage == FirewallRuleStage::route_classification);
-  CHECK(plan.rules[4].priority < plan.rules[5].priority);
-  CHECK(plan.rules[5].priority < plan.rules[6].priority);
-  CHECK(plan.rules[5].criteria.proto == L4Proto::Tcp);
-  CHECK(plan.rules[6].criteria.proto == L4Proto::Udp);
+  CHECK(plan.rules[7].stage == FirewallRuleStage::route_classification);
+  CHECK(plan.rules[8].stage == FirewallRuleStage::route_classification);
+  CHECK(plan.rules[6].priority < plan.rules[7].priority);
+  CHECK(plan.rules[7].priority < plan.rules[8].priority);
+  CHECK(plan.rules[7].criteria.proto == L4Proto::Tcp);
+  CHECK(plan.rules[8].criteria.proto == L4Proto::Udp);
 
   PlanFirewall firewall;
   firewall.apply(plan);
@@ -267,31 +267,31 @@ TEST_CASE("DNS detour plan preserves configured order for equivalent IPv6 endpoi
   };
 
   const auto first = build(config);
-  REQUIRE(first.rules.size() == 8);
-  CHECK(first.rules[4].criteria.dst_addr ==
-        std::vector<std::string>{"2001:db8::53"});
-  CHECK(first.rules[4].criteria.proto == L4Proto::Tcp);
-  CHECK(std::get<MarkAction>(first.rules[4].action).value == 0x300U);
-  CHECK(first.rules[5].criteria.proto == L4Proto::Udp);
+  REQUIRE(first.rules.size() == 10);
   CHECK(first.rules[6].criteria.dst_addr ==
-        std::vector<std::string>{"2001:0db8::53"});
+        std::vector<std::string>{"2001:db8::53"});
   CHECK(first.rules[6].criteria.proto == L4Proto::Tcp);
-  CHECK(std::get<MarkAction>(first.rules[6].action).value == 0x200U);
+  CHECK(std::get<MarkAction>(first.rules[6].action).value == 0x300U);
   CHECK(first.rules[7].criteria.proto == L4Proto::Udp);
+  CHECK(first.rules[8].criteria.dst_addr ==
+        std::vector<std::string>{"2001:0db8::53"});
+  CHECK(first.rules[8].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(first.rules[8].action).value == 0x200U);
+  CHECK(first.rules[9].criteria.proto == L4Proto::Udp);
 
   std::reverse(config.dns->servers->begin(), config.dns->servers->end());
   const auto reversed = build(config);
   REQUIRE(reversed.rules.size() == first.rules.size());
-  CHECK(reversed.rules[4].criteria.dst_addr ==
-        std::vector<std::string>{"2001:0db8::53"});
-  CHECK(reversed.rules[4].criteria.proto == L4Proto::Tcp);
-  CHECK(std::get<MarkAction>(reversed.rules[4].action).value == 0x200U);
-  CHECK(reversed.rules[5].criteria.proto == L4Proto::Udp);
   CHECK(reversed.rules[6].criteria.dst_addr ==
-        std::vector<std::string>{"2001:db8::53"});
+        std::vector<std::string>{"2001:0db8::53"});
   CHECK(reversed.rules[6].criteria.proto == L4Proto::Tcp);
-  CHECK(std::get<MarkAction>(reversed.rules[6].action).value == 0x300U);
+  CHECK(std::get<MarkAction>(reversed.rules[6].action).value == 0x200U);
   CHECK(reversed.rules[7].criteria.proto == L4Proto::Udp);
+  CHECK(reversed.rules[8].criteria.dst_addr ==
+        std::vector<std::string>{"2001:db8::53"});
+  CHECK(reversed.rules[8].criteria.proto == L4Proto::Tcp);
+  CHECK(std::get<MarkAction>(reversed.rules[8].action).value == 0x300U);
+  CHECK(reversed.rules[9].criteria.proto == L4Proto::Udp);
 }
 
 TEST_CASE("build_firewall_plan preserves truthful rule families") {
@@ -310,10 +310,10 @@ TEST_CASE("build_firewall_plan preserves truthful rule families") {
       0x00FF0000U};
   const auto plan = build_firewall_plan(inputs);
 
-  REQUIRE(plan.rules.size() == 7);
-  CHECK(plan.rules[4].family == FirewallFamily::any);
-  CHECK(plan.rules[5].family == FirewallFamily::ipv4);
-  CHECK(plan.rules[6].family == FirewallFamily::ipv6);
+  REQUIRE(plan.rules.size() == 9);
+  CHECK(plan.rules[6].family == FirewallFamily::any);
+  CHECK(plan.rules[7].family == FirewallFamily::ipv4);
+  CHECK(plan.rules[8].family == FirewallFamily::ipv6);
 }
 
 TEST_CASE("balance action keeps complete candidate availability") {

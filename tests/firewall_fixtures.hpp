@@ -303,6 +303,47 @@ inline FirewallPlan capture_plan_catch_all() {
   return plan;
 }
 
+// PLAN O: inbound interfaces plus a positive UDP catch-all route rule, behind
+// the restore/reply-skip prefilters and the skip_lan_output rules (OUTPUT
+// only: LAN oif, broadcast, multicast).
+inline FirewallPlan capture_plan_lan_output() {
+  FirewallPlan plan;
+  plan.fwmark_mask = kCaptureMask;
+  FirewallRuleRegistrar r(plan);
+  using S = FirewallRuleStage;
+  r.register_rule(capture_rule("prefilter.restore_conntrack_mark", "mask",
+                               S::restore_conntrack, 0, FirewallFamily::any,
+                               {}, RestoreConntrackMarkAction{kCaptureMask}));
+  r.register_rule(capture_rule("prefilter.skip_local_replies", "reply",
+                               S::global_bypass, -1, FirewallFamily::any, {},
+                               SkipLocalRepliesAction{}));
+  const auto skip = [&](std::string_view instance,
+                        SkipLanOutputAction action) {
+    r.register_rule(capture_rule("prefilter.skip_lan_output", instance,
+                                 S::global_bypass, -1, FirewallFamily::any, {},
+                                 std::move(action), FirewallHook::output));
+  };
+  skip("lan_oif", SkipLanOutputAction{SkipLanOutputAction::Kind::lan_oif,
+                                      {"lan0", "br-guest"}});
+  skip("bcast",
+       SkipLanOutputAction{SkipLanOutputAction::Kind::broadcast, {}});
+  skip("mcast",
+       SkipLanOutputAction{SkipLanOutputAction::Kind::multicast, {}});
+  InboundInterfaceFilterAction inbound;
+  inbound.interfaces = {"lan0", "br-guest"};
+  r.register_rule(capture_rule("prefilter.inbound_interface_filter", "lan",
+                               S::global_bypass, 2, FirewallFamily::any, {},
+                               inbound));
+  FirewallRuleCriteria c;
+  c.proto = L4Proto::Udp;
+  c.dst_addr = {"0.0.0.0/0"};
+  r.register_rule(capture_rule("route.mark", "r0", S::route_classification, 0,
+                               FirewallFamily::ipv4, std::move(c),
+                               MarkAction{0x10000u, kCaptureMask}));
+  r.finish();
+  return plan;
+}
+
 // The rules of the interception policy modules (DNS hold, L7 sniff) for
 // `settings`, exactly as the production modules plan them.
 inline std::vector<FirewallRuleInstance> intercept_module_rules(

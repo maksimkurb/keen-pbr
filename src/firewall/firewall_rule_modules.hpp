@@ -88,6 +88,8 @@ void register_skip_established_or_dnat_rules(
     const FirewallBuildContext& context, FirewallRuleRegistrar& registrar);
 void register_skip_local_replies_rules(const FirewallBuildContext& context,
                                        FirewallRuleRegistrar& registrar);
+void register_skip_lan_output_rules(const FirewallBuildContext& context,
+                                    FirewallRuleRegistrar& registrar);
 void register_skip_marked_packets_rules(const FirewallBuildContext& context,
                                         FirewallRuleRegistrar& registrar);
 void register_inbound_interface_filter_rules(

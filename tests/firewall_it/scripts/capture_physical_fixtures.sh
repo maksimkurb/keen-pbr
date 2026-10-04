@@ -57,6 +57,16 @@ scenario iptables_catchall "$run_case
   iptables-save -t mangle >\"\$KPBR_OUT/iptables_catchall_v4.save\"
   ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_catchall_v6.save\""
 
+# PLAN O: inbound interfaces + positive UDP catch-all + skip_lan_output
+# (OUTPUT-only oif / broadcast / multicast skips).
+scenario iptables_lan_output "$run_case
+  iptables-save -t mangle >\"\$KPBR_OUT/iptables_lan_output_v4.save\"
+  ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_lan_output_v6.save\""
+
+scenario nft_lan_output "$run_case
+  nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_lan_output.json\"
+  nft list table inet KeenPbrTable >\"\$KPBR_OUT/nft_lan_output.nft\""
+
 scenario nft_catchall "$run_case
   nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_catchall.json\"
   nft list table inet KeenPbrTable >\"\$KPBR_OUT/nft_catchall.nft\""

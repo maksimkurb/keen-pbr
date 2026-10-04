@@ -46,11 +46,13 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
   const FirewallApplyMode apply_mode =
       repair ? FirewallApplyMode::PreserveSets : FirewallApplyMode::Destructive;
   if (name == "nftables" || name.rfind("nft_intercept", 0) == 0 ||
-      name == "nft_plain_repair" || name == "nft_catchall") {
+      name == "nft_plain_repair" || name == "nft_catchall" ||
+      name == "nft_lan_output") {
     auto firewall = create_nftables_firewall();
     firewall->prepare_apply(apply_mode);
     firewall->apply(name == "nft_catchall"
                         ? capture_plan_catch_all()
+                    : name == "nft_lan_output" ? capture_plan_lan_output()
                     : intercept ? capture_plan_with_intercept(true, true, true)
                                 : capture_plan(true, true, true),
                     apply_mode);
@@ -67,6 +69,7 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
   firewall.prepare_apply(apply_mode);
   firewall.apply(
       name == "iptables_catchall" ? capture_plan_catch_all()
+      : name == "iptables_lan_output" ? capture_plan_lan_output()
       : intercept ? capture_plan_with_intercept(false, false, true)
                 : capture_plan(false, name != "iptables_mangle" &&
                                           name != "iptables_plain_repair",
@@ -407,7 +410,7 @@ TEST_CASE("physical: iptables foreign rules, unknown matches, stray hooks") {
     const PhysicalRule &log = chain.rules.back();
     REQUIRE(log.statements.size() == 1);
     CHECK(std::get<UnknownStmt>(log.statements[0]).text == "-j LOG");
-    CHECK(std::get<UnknownMatch>(log.matches.at(0)).text == "-o eth9");
+    CHECK(std::get<OifMatch>(log.matches.at(0)) == OifMatch{false, {"eth9"}});
     // Comment of a foreign rule is not ours -> no key (and no exception).
     CHECK_FALSE(log.key.has_value());
   }
@@ -1576,6 +1579,61 @@ TEST_CASE("lowering round trip: nftables catch-all equals the kernel dump") {
   CHECK(v6);
 }
 
+namespace {
+bool has_oif_or_type(const PhysicalChain &chain) {
+  std::size_t oif = 0;
+  std::size_t type = 0;
+  for (const auto &rule : chain.rules) {
+    for (const auto &match : rule.matches) {
+      oif += std::holds_alternative<OifMatch>(match) ? 1U : 0U;
+      type += std::holds_alternative<AddrTypeMatch>(match) ? 1U : 0U;
+    }
+  }
+  return oif == 1 && type == 2;
+}
+} // namespace
+
+TEST_CASE("lowering round trip: iptables LAN-output skip equals the kernel dump") {
+  const auto lowered = lower_firewall_plan(
+      capture_plan_lan_output(), capture_context(FirewallBackend::iptables, {}));
+  PhysicalRuleset v4;
+  PhysicalRuleset v6;
+  for (const auto &chain : lowered.chains) {
+    (chain.id.family == Fam::ipv4 ? v4 : v6).chains.push_back(chain);
+  }
+  const auto kernel_v4 = parse_iptables_save(
+      read_fixture("iptables_lan_output_v4.save"), Fam::ipv4);
+  const auto kernel_v6 = parse_iptables_save(
+      read_fixture("iptables_lan_output_v6.save"), Fam::ipv6);
+  check_lowered_equals_parsed(v4, kernel_v4);
+  check_lowered_equals_parsed(v6, kernel_v6);
+  // OUTPUT: restore pair, reply skip, 2 oif rules, bcast, mcast (v4); no bcast for v6.
+  const auto out4 = require_chain(
+      kernel_v4, ipt_id(Role::iptables_output, Table::mangle, Fam::ipv4));
+  const auto out6 = require_chain(
+      kernel_v6, ipt_id(Role::iptables_output, Table::mangle, Fam::ipv6));
+  CHECK(out4.rules.size() == 10); // + 3 catch-all mark rules
+  CHECK(out6.rules.size() == 6);
+  // PREROUTING never sees the new rules.
+  const auto pre4 = require_chain(
+      kernel_v4, ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv4));
+  for (const auto &rule : pre4.rules) {
+    for (const auto &match : rule.matches) {
+      CHECK_FALSE(std::holds_alternative<OifMatch>(match));
+      CHECK_FALSE(std::holds_alternative<AddrTypeMatch>(match));
+    }
+  }
+}
+
+TEST_CASE("lowering round trip: nftables LAN-output skip equals the kernel dump") {
+  const auto lowered = lower_firewall_plan(
+      capture_plan_lan_output(), capture_context(FirewallBackend::nftables, {}));
+  const auto parsed = parse_nft_json(read_fixture("nft_lan_output.json"));
+  check_lowered_equals_parsed(lowered, parsed);
+  const auto &out = require_chain(parsed, nft_id(Role::nft_output));
+  CHECK(has_oif_or_type(out));
+}
+
 TEST_CASE("address lists compare as address sets") {
   using Strs = std::vector<std::string>;
   const auto canon = [](Strs list) {
@@ -1737,6 +1795,57 @@ TEST_CASE("real nft interval dump equals the lowered address lists") {
               lowered(Fam::ipv4, PhysicalDir::dst, true,
                       {"0.0.0.0/8", "10.0.0.0/22", "77.74.65.225/32",
                        "192.168.40.0/22", "192.168.44.0/23", "192.168.54.0/23"}));
+}
+
+TEST_CASE("physical: output interface and destination address type matches") {
+  SUBCASE("iptables -o and addrtype") {
+    const auto oif = parse_sniff_rule("-o br-lan -j RETURN");
+    REQUIRE(oif.matches.size() == 1);
+    CHECK(oif.matches[0] == PhysicalMatch{OifMatch{false, {"br-lan"}}});
+    const auto noif = parse_sniff_rule("! -o br-lan -j RETURN");
+    CHECK(noif.matches[0] == PhysicalMatch{OifMatch{true, {"br-lan"}}});
+
+    const auto bcast =
+        parse_sniff_rule("-m addrtype --dst-type BROADCAST -j RETURN");
+    REQUIRE(bcast.matches.size() == 1);
+    CHECK(bcast.matches[0] == PhysicalMatch{AddrTypeMatch{addr_broadcast}});
+    const auto mcast =
+        parse_sniff_rule("-m addrtype --dst-type MULTICAST -j RETURN");
+    CHECK(mcast.matches[0] == PhysicalMatch{AddrTypeMatch{addr_multicast}});
+    // Unsupported address types stay explicit unknowns, never dropped.
+    const auto local =
+        parse_sniff_rule("-m addrtype --dst-type LOCAL -j RETURN");
+    CHECK(std::holds_alternative<UnknownMatch>(local.matches.at(0)));
+  }
+
+  SUBCASE("nft oifname and fib daddr type") {
+    const auto single = parse_nft_expr(
+        R"([{"match":{"op":"==","left":{"meta":{"key":"oifname"}},"right":"br-lan"}},{"accept":null}])",
+        "output");
+    CHECK(single.matches.at(0) == PhysicalMatch{OifMatch{false, {"br-lan"}}});
+    const auto many = parse_nft_expr(
+        R"([{"match":{"op":"==","left":{"meta":{"key":"oifname"}},"right":{"set":["wg0","br-lan"]}}},{"accept":null}])",
+        "output");
+    PhysicalRule canonical = many;
+    canonicalize_physical_rule(canonical);
+    CHECK(canonical.matches.at(0) ==
+          PhysicalMatch{OifMatch{false, {"br-lan", "wg0"}}});
+
+    const auto both = parse_nft_expr(
+        R"([{"match":{"op":"==","left":{"fib":{"result":"type","flags":["daddr"]}},"right":{"set":["broadcast","multicast"]}}},{"accept":null}])",
+        "output");
+    CHECK(both.matches.at(0) ==
+          PhysicalMatch{AddrTypeMatch{addr_broadcast | addr_multicast}});
+    const auto mcast = parse_nft_expr(
+        R"([{"match":{"op":"==","left":{"fib":{"result":"type","flags":["daddr"]}},"right":"multicast"}},{"accept":null}])",
+        "output");
+    CHECK(mcast.matches.at(0) == PhysicalMatch{AddrTypeMatch{addr_multicast}});
+    // Anything else about fib stays an explicit unknown.
+    const auto saddr = parse_nft_expr(
+        R"([{"match":{"op":"==","left":{"fib":{"result":"type","flags":["saddr"]}},"right":"multicast"}},{"accept":null}])",
+        "output");
+    CHECK(std::holds_alternative<UnknownMatch>(saddr.matches.at(0)));
+  }
 }
 
 } // namespace

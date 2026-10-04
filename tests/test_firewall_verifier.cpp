@@ -1115,6 +1115,23 @@ TEST_CASE("verifier nftables interception: drift") {
   }
 }
 
+TEST_CASE("verifier: LAN-output skip rules are not drift on either backend") {
+  const auto plan = capture_plan_lan_output();
+  SUBCASE("iptables") {
+    const auto expected = iptables_expected(plan, {});
+    const IptTexts texts{read_fixture("iptables_lan_output_v4.save"),
+                         read_fixture("iptables_lan_output_v6.save"), {}, {}};
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  }
+  SUBCASE("nftables") {
+    const auto expected = nft_expected(plan);
+    const auto checks = verify_nft(
+        plan, expected, Json::parse(read_fixture("nft_lan_output.json")));
+    CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  }
+}
+
 TEST_CASE("verifier: catch-all destinations are not drift on either backend") {
   const auto plan = capture_plan_catch_all();
   SUBCASE("iptables") {

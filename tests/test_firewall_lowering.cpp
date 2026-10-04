@@ -1400,6 +1400,147 @@ TEST_CASE("lowering interception: plan rules are attributed and keyed") {
   }
 }
 
+namespace {
+
+FirewallPlan skip_lan_plan(std::vector<std::string> lan) {
+  auto plan = plan_of({});
+  plan.rules.push_back(make_rule("prefilter.skip_local_replies", "reply",
+                                 Fam::any, {}, SkipLocalRepliesAction{}));
+  if (!lan.empty()) {
+    plan.rules.push_back(make_rule(
+        "prefilter.skip_lan_output", "lan_oif", Fam::any, {},
+        SkipLanOutputAction{SkipLanOutputAction::Kind::lan_oif, std::move(lan)},
+        FirewallHook::output));
+  }
+  plan.rules.push_back(make_rule(
+      "prefilter.skip_lan_output", "bcast", Fam::any, {},
+      SkipLanOutputAction{SkipLanOutputAction::Kind::broadcast, {}},
+      FirewallHook::output));
+  plan.rules.push_back(make_rule(
+      "prefilter.skip_lan_output", "mcast", Fam::any, {},
+      SkipLanOutputAction{SkipLanOutputAction::Kind::multicast, {}},
+      FirewallHook::output));
+  return plan;
+}
+
+} // namespace
+
+TEST_CASE("lowering nftables: skip_lan_output only in OUTPUT, after the reply skip") {
+  const auto set =
+      lower_firewall_plan(skip_lan_plan({"wg0", "br-lan"}), nft_context());
+  // PREROUTING only has the reply skip.
+  REQUIRE(nft_pre(set).rules.size() == 1);
+  CHECK(has_match(nft_pre(set).rules[0], CtDirMatch{false}));
+  for (const auto &rule : nft_pre(set).rules) {
+    CHECK(find_match<OifMatch>(rule) == nullptr);
+    CHECK(find_match<AddrTypeMatch>(rule) == nullptr);
+  }
+  const auto &out = nft_out(set).rules;
+  REQUIRE(out.size() == 4);
+  CHECK(has_match(out[0], CtDirMatch{false}));
+  CHECK(has_match(out[1], OifMatch{false, {"br-lan", "wg0"}}));
+  CHECK(has_match(out[2], AddrTypeMatch{addr_broadcast}));
+  CHECK(has_match(out[3], AddrTypeMatch{addr_multicast}));
+  for (std::size_t i = 1; i < out.size(); ++i) {
+    CHECK(verdict_of(out[i]) == PhysicalVerdict::accept);
+  }
+  CHECK(out[1].key->module_id == "prefilter.skip_lan_output");
+
+  const auto json =
+      render_nft_rule(nft_out(set).id, out[1])["add"]["rule"]["expr"].dump();
+  CHECK(json.find(R"("key":"oifname")") != std::string::npos);
+  const auto mcast =
+      render_nft_rule(nft_out(set).id, out[3])["add"]["rule"]["expr"].dump();
+  CHECK(mcast.find(R"("fib":{"flags":["daddr"],"result":"type"})") !=
+        std::string::npos);
+}
+
+TEST_CASE("lowering nftables: empty inbound interfaces keep bcast/mcast only") {
+  const auto set = lower_firewall_plan(skip_lan_plan({}), nft_context());
+  const auto &out = nft_out(set).rules;
+  REQUIRE(out.size() == 3);
+  CHECK(find_match<OifMatch>(out[1]) == nullptr);
+  CHECK(has_match(out[1], AddrTypeMatch{addr_broadcast}));
+  CHECK(has_match(out[2], AddrTypeMatch{addr_multicast}));
+}
+
+TEST_CASE("lowering iptables: skip_lan_output only in OUTPUT, one oif rule per interface") {
+  const auto set =
+      lower_firewall_plan(skip_lan_plan({"wg0", "br-lan"}), ipt_context());
+  for (const Fam family : {Fam::ipv4, Fam::ipv6}) {
+    // PREROUTING: only the reply skip.
+    REQUIRE(gen_a(set, family).rules.size() == 1);
+    const auto &out = out_chain(set, family).rules;
+    CHECK(has_match(out[0], CtDirMatch{false}));
+    CHECK(has_match(out[1], OifMatch{false, {"wg0"}}));
+    CHECK(has_match(out[2], OifMatch{false, {"br-lan"}}));
+    for (std::size_t i = 1; i < out.size(); ++i) {
+      CHECK(verdict_of(out[i]) == PhysicalVerdict::return_);
+    }
+    if (family == Fam::ipv4) {
+      REQUIRE(out.size() == 5);
+      CHECK(has_match(out[3], AddrTypeMatch{addr_broadcast}));
+      CHECK(has_match(out[4], AddrTypeMatch{addr_multicast}));
+    } else {
+      // IPv6 has no broadcast.
+      REQUIRE(out.size() == 4);
+      CHECK(has_match(out[3], AddrTypeMatch{addr_multicast}));
+    }
+  }
+  CHECK(render_iptables_rule(out_chain(set, Fam::ipv4).rules[1], "KeenPbrOutput") ==
+        "-A KeenPbrOutput -o wg0 -m comment --comment "
+        "kpbr:v1:prefilter.skip_lan_output:lan_oif -j RETURN\n");
+  CHECK(render_iptables_rule(out_chain(set, Fam::ipv4).rules[4], "KeenPbrOutput") ==
+        "-A KeenPbrOutput -m addrtype --dst-type MULTICAST -m comment --comment "
+        "kpbr:v1:prefilter.skip_lan_output:mcast -j RETURN\n");
+}
+
+TEST_CASE("lowering iptables: skip_lan_output also applies in raw PREROUTING mode") {
+  auto context = ipt_context();
+  context.raw_prerouting = RawPreroutingMode{true, true};
+  const auto set = lower_firewall_plan(skip_lan_plan({"br-lan"}), context);
+  CHECK(chain_of(set, ipt_chain("KeenPbrRaw", PhysicalTable::raw, Fam::ipv4))
+            .rules.empty());
+  CHECK(out_chain(set, Fam::ipv4).rules.size() == 4);
+}
+
+TEST_CASE("renderers: output interface and destination type") {
+  const auto accept = std::vector<PhysicalStatement>{
+      VerdictStmt{PhysicalVerdict::accept}};
+  CHECK(render_iptables_rule(
+            rule_of(Fam::ipv4, {OifMatch{true, {"lan0"}}}, accept), "C") ==
+        "-A C ! -o lan0 -j ACCEPT\n");
+  CHECK_THROWS_AS(render_iptables_rule(
+                      rule_of(Fam::ipv4, {OifMatch{false, {"a", "b"}}}, accept),
+                      "C"),
+                  FirewallError);
+  CHECK_THROWS_AS(
+      render_iptables_rule(
+          rule_of(Fam::ipv4, {AddrTypeMatch{addr_broadcast | addr_multicast}},
+                  accept),
+          "C"),
+      FirewallError);
+}
+
+TEST_CASE("plan validation: skip_lan_output is OUTPUT only with a valid list") {
+  const auto make = [](SkipLanOutputAction action, FirewallHook hook) {
+    FirewallPlan plan;
+    plan.fwmark_mask = kMask;
+    FirewallRuleRegistrar registrar(plan);
+    registrar.register_rule(
+        make_rule("m", "i", Fam::any, {}, std::move(action), hook));
+  };
+  using Kind = SkipLanOutputAction::Kind;
+  CHECK_NOTHROW(make({Kind::lan_oif, {"br-lan"}}, FirewallHook::output));
+  CHECK_NOTHROW(make({Kind::broadcast, {}}, FirewallHook::output));
+  CHECK_THROWS_AS(make({Kind::lan_oif, {"br-lan"}}, FirewallHook::prerouting),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make({Kind::lan_oif, {}}, FirewallHook::output),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(make({Kind::multicast, {"br-lan"}}, FirewallHook::output),
+                  std::invalid_argument);
+}
+
 TEST_CASE("plan validation: interception actions only on their hooks") {
   const auto make = [](FirewallRuleAction action, FirewallHook hook) {
     FirewallPlan plan;

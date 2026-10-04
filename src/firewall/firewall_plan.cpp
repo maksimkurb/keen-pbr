@@ -54,6 +54,20 @@ void validate_firewall_rule(const FirewallRuleInstance& rule,
     throw std::invalid_argument("firewall rule has an invalid packet window");
   }
 
+  if (const auto* skip = std::get_if<SkipLanOutputAction>(&rule.action)) {
+    if (rule.hook != FirewallHook::output) {
+      throw std::invalid_argument(
+          "firewall rule skip_lan_output is only valid in the output hook");
+    }
+    const bool lan_oif = skip->kind == SkipLanOutputAction::Kind::lan_oif;
+    if (lan_oif == skip->interfaces.empty() ||
+        std::any_of(skip->interfaces.begin(), skip->interfaces.end(),
+                    [](const std::string& interface) { return interface.empty(); })) {
+      throw std::invalid_argument(
+          "firewall rule has an invalid skip_lan_output interface list");
+    }
+  }
+
   if (const auto* mark = std::get_if<MarkAction>(&rule.action)) {
     if (mark->value == 0 || mark->mask == 0 || mark->mask != fwmark_mask) {
       throw std::invalid_argument("firewall rule has an invalid mark or mask");

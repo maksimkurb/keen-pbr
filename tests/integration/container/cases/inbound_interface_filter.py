@@ -21,7 +21,10 @@ def register(registry):
         # Router traffic has no input interface, so the filter never applies
         # to it (guards `! -i <iface> RETURN` leaking into OUTPUT).
         config = routing_config(context, RULES)
-        config["route"]["inbound_interfaces"] = ["wan_direct"]
+        # The allowed interface must not be the router's own egress
+        # (wan_direct): router packets that already leave through an inbound
+        # interface are never policy-routed (see output_lan_skip).
+        config["route"]["inbound_interfaces"] = ["wan_pbr"]
         context.apply_config(config)
         probe(context, "wan_direct", destination_port=19020)
         router_probe(context, "wan_pbr", 19011)

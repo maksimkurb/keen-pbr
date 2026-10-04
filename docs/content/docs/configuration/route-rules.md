@@ -88,6 +88,8 @@ The `direct_local` outbound is an `ignore` type that prevents these networks fro
 | `inbound_interfaces` | array of string | no | Optional ingress-interface filter. If omitted or empty, all interfaces are eligible. If non-empty, only packets entering via listed interfaces are processed by KeenPbrTable. |
 | `rules` | array | yes | Ordered list of route rules |
 
+Router-originated packets whose route already leaves through one of the `inbound_interfaces` (for example a DHCP reply to a LAN client), and all broadcast and multicast packets the router sends, are never policy-routed: route rules, including catch-all ones, do not apply to them. Therefore do not list the interface that carries your upstream traffic in `inbound_interfaces`.
+
 ## Route Rule Fields
 
 | Field | Type | Required | Description |

@@ -29,7 +29,7 @@ class IntegrationModulesTest(unittest.TestCase):
             "service_lifecycle", "dns_routing_save", "dns_interception",
             "l7_interception", "urltest_rebuild",
             "route_balance", "route_balance_failover", "route_balance_no_leak",
-            "iptables_chain_convergence", "prefilter_skip_marked", "inbound_interface_filter", "restore_conntrack_mark", "skip_established_or_dnat", "local_reply_skip", "forwarded_reply_skip", "firewall_corruption_recovery", "loop_safety_marked_socket", "rule_shapes",
+            "iptables_chain_convergence", "prefilter_skip_marked", "inbound_interface_filter", "restore_conntrack_mark", "skip_established_or_dnat", "local_reply_skip", "forwarded_reply_skip", "output_lan_skip", "firewall_corruption_recovery", "loop_safety_marked_socket", "rule_shapes",
             "route_pass", "route_drop",
             "table_interface", "test_group_table", "multiport_validation",
             "route_list", "route_proto",

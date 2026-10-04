@@ -829,6 +829,7 @@ namespace {
 int iptables_match_rank(const PhysicalMatch &match) {
   if (std::holds_alternative<SetMatch>(match)) return 0;
   if (std::holds_alternative<IifMatch>(match)) return 1;
+  if (std::holds_alternative<OifMatch>(match)) return 1;
   if (std::holds_alternative<AddrMatch>(match)) return 2;
   if (std::holds_alternative<DscpMatch>(match)) return 3;
   if (std::holds_alternative<ProtoMatch>(match)) return 4;
@@ -894,6 +895,22 @@ void append_iptables_match(std::string &out, const PhysicalMatch &match,
     }
     out += iif->negate ? " ! -i " : " -i ";
     out += iif->names.front();
+  } else if (const auto *oif = std::get_if<OifMatch>(&match)) {
+    if (oif->names.size() != 1U) {
+      throw FirewallError(
+          "iptables cannot express an interface list in one rule");
+    }
+    out += oif->negate ? " ! -o " : " -o ";
+    out += oif->names.front();
+  } else if (const auto *type = std::get_if<AddrTypeMatch>(&match)) {
+    // One type per rule keeps old xt_addrtype revisions happy.
+    if (type->types != addr_broadcast && type->types != addr_multicast) {
+      throw FirewallError(
+          "iptables cannot express a destination type list in one rule");
+    }
+    out += type->types == addr_broadcast
+               ? " -m addrtype --dst-type BROADCAST"
+               : " -m addrtype --dst-type MULTICAST";
   } else if (const auto *addr = std::get_if<AddrMatch>(&match)) {
     out += addr->negate ? " ! " : " ";
     out += addr->dir == PhysicalDir::src ? "-s " : "-d ";
