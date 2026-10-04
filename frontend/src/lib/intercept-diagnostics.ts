@@ -1,5 +1,13 @@
 import type { InterceptProbeFeatureStatus } from "@/api/generated/model"
 
+export function getVisibleInterceptDiagnosticEntries<
+  T extends { relevant: boolean; status: string },
+>(entries: ReadonlyArray<T>, showHealthyEntries: boolean): T[] {
+  return entries.filter(
+    (entry) => entry.relevant && (showHealthyEntries || entry.status !== "ok")
+  )
+}
+
 export function collectInterceptDiagnosticErrors(
   capabilities: {
     nfqueue: boolean

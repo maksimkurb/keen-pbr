@@ -208,11 +208,11 @@ export const ruTranslation = {
       "Обзор состояния маршрутизации, конфигурации и активных outbounds",
     runtime: {
       title: "Маршрутизация",
-      description: "Управление policy-based routing.",
       loadError: "Не удалось загрузить состояние маршрутизации.",
       version: "Версия",
+      build: "Сборка",
       router: "Роутер",
-      status: "Статус маршрутизации",
+      routingStatus: "Статус маршрутизации",
       actions: {
         start: "Запустить",
         stop: "Остановить",
@@ -300,7 +300,7 @@ export const ruTranslation = {
     },
     dnsCheck: {
       card: {
-        title: "Проверка DNS",
+        title: "Перехват DNS",
         description:
           "Наблюдает DNS-трафик через keen-pbr из этого браузера или с другого устройства; замена синтетического ответа отдельно не проверяется.",
         disabledDescription:
@@ -312,7 +312,7 @@ export const ruTranslation = {
           "На странице DNS-серверов не определено ни одного DNS-сервера.",
         via: "через {{detour}}",
         checking: "Проверка...",
-        runAgain: "Запустить снова",
+        checkAgain: "Проверить снова",
         testFromPc: "Проверить с другого устройства",
       },
       modal: {
@@ -326,7 +326,8 @@ export const ruTranslation = {
       },
       status: {
         disabled: "Перехват DNS отключён в конфигурации.",
-        browserSuccess: "Перехватчик увидел DNS-запрос из браузера.",
+        browserSuccess:
+          "Перехват DNS-запросов из этого браузера работает",
         manualProbeSuccess: "Перехватчик увидел DNS-запрос от устройства.",
         browserProbeFail:
           "Запрос браузера завершился, но перехватчик не увидел lookup маркера.",
@@ -346,9 +347,8 @@ export const ruTranslation = {
         manualIncomplete: "Ручной тест устройства ещё не завершён.",
       },
     },
-    dnsmasq: {
-      title: "dnsmasq",
-      description: "DNS-серверы для списков через dnsmasq.",
+    dnsRules: {
+      title: "Правила DNS",
       state: {
         ok: "Синхронизирован",
         applying: "Применяется",
@@ -357,8 +357,9 @@ export const ruTranslation = {
       },
       rules: "DNS-правила",
       domains: "Домены",
-      lastApply: "Последнее применение",
-      neverApplied: "Ещё не применялось",
+      lastSync: "Последняя синхронизация",
+      neverSynced: "Ещё не синхронизировано",
+      disabledDescription: "Интеграция правил DNS отключена.",
       lastError: "Последняя ошибка",
     },
     intercept: {
@@ -373,6 +374,16 @@ export const ruTranslation = {
       dnsHoldInactive: "Удержание DNS выключено",
       l7Active: "L7 включён",
       l7Inactive: "L7 выключен",
+      summary: {
+        processor: "Обработчик DNS/DPI",
+        dnsHold: "Удержание DNS",
+        dpi: "DPI (SNI/Host)",
+        enabled: "Включено",
+        disabled: "Отключено",
+      },
+      checksTitle: "Проверки ядра",
+      countersTitle: "Счётчики перехвата",
+      moreCounters: "Показать подробные счётчики",
       supported: "доступно",
       unsupported: "недоступно",
       unsupportedWarning: "Некоторые функции перехвата недоступны",

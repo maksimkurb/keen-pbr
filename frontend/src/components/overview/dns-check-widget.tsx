@@ -25,16 +25,19 @@ export function DnsCheckWidget({
   dnsProbeEnabled,
   markerDomain,
   onStatusChange,
+  embedded = false,
+  summary,
 }: {
   disabledReason?: "config" | "runtime"
   dnsProbeEnabled: boolean
   markerDomain?: string
   onStatusChange?: (status: DnsCheckStatus) => void
+  embedded?: boolean
+  summary?: React.ReactNode
 }) {
   const { t } = useTranslation()
   const [showPcCheckDialog, setShowPcCheckDialog] = useState(false)
-  const { status, failure, startCheck, reset } =
-    useDnsCheck(markerDomain)
+  const { status, failure, startCheck, reset } = useDnsCheck(markerDomain)
 
   useEffect(() => {
     onStatusChange?.(status)
@@ -65,58 +68,85 @@ export function DnsCheckWidget({
     }
   }, [isDisabled, status])
 
+  const runCheck = () => {
+    reset()
+    startCheck(true)
+  }
+  const checkAgainAction = (
+    <Button
+      aria-label={t("overview.dnsCheck.card.checkAgain")}
+      className="h-auto min-h-7 max-w-full shrink-0 px-2 py-1 text-xs whitespace-normal"
+      disabled={isChecking || isDisabled}
+      onClick={runCheck}
+      size="sm"
+      variant="ghost"
+    >
+      <RefreshCw className="h-3.5 w-3.5 shrink-0" />
+      <span className="min-w-0 break-words">
+        {isChecking
+          ? t("overview.dnsCheck.card.checking")
+          : t("overview.dnsCheck.card.checkAgain")}
+      </span>
+    </Button>
+  )
+
+  const content = (
+    <div className="flex h-full min-w-0 flex-1 flex-col space-y-4">
+      {embedded ? (
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <h3 className="min-w-0 font-semibold break-words">
+            {t("overview.dnsCheck.card.title")}
+          </h3>
+          {checkAgainAction}
+        </div>
+      ) : null}
+      {embedded ? summary : null}
+      <div className="flex min-h-20 min-w-0 items-center rounded-lg border border-border/60 bg-background/60 px-4 py-3">
+        <DnsStatusSummary
+          disabled={isDisabled}
+          failure={failure}
+          status={status}
+        />
+      </div>
+
+      <div className="mt-auto flex flex-col gap-2">
+        <Button
+          className="w-full justify-start text-left whitespace-normal"
+          disabled={isDisabled}
+          onClick={() => setShowPcCheckDialog(true)}
+          size="sm"
+          variant="outline"
+        >
+          <SquareTerminal className="h-4 w-4 shrink-0" />
+          {t("overview.dnsCheck.card.testFromPc")}
+        </Button>
+      </div>
+    </div>
+  )
+
   return (
     <>
-      <SectionCard
-        className={cardClassName}
-        contentClassName="flex flex-1 flex-col"
-        description={
-          isDisabled
-            ? t(
-                disabledReason === "runtime"
-                  ? "overview.dnsCheck.card.runtimeDisabledDescription"
-                  : "overview.dnsCheck.card.disabledDescription"
-              )
-            : t("overview.dnsCheck.card.description")
-        }
-        title={t("overview.dnsCheck.card.title")}
-      >
-        <div className="flex h-full flex-1 flex-col space-y-4">
-          <div className="flex min-h-20 items-center rounded-lg border border-border/60 bg-background/60 px-4 py-3">
-            <DnsStatusSummary
-              disabled={isDisabled}
-              failure={failure}
-              status={status}
-            />
-          </div>
-
-          <div className="mt-auto grid gap-2 sm:grid-cols-2">
-            <Button
-              disabled={isChecking || isDisabled}
-              onClick={() => {
-                reset()
-                startCheck(true)
-              }}
-              size="sm"
-              variant="outline"
-            >
-              <RefreshCw className="h-4 w-4" />
-              {isChecking
-                ? t("overview.dnsCheck.card.checking")
-                : t("overview.dnsCheck.card.runAgain")}
-            </Button>
-            <Button
-              disabled={isDisabled}
-              onClick={() => setShowPcCheckDialog(true)}
-              size="sm"
-              variant="outline"
-            >
-              <SquareTerminal className="h-4 w-4" />
-              {t("overview.dnsCheck.card.testFromPc")}
-            </Button>
-          </div>
-        </div>
-      </SectionCard>
+      {embedded ? (
+        <div className={cardClassName}>{content}</div>
+      ) : (
+        <SectionCard
+          className={cardClassName}
+          contentClassName="flex flex-1 flex-col"
+          description={
+            isDisabled
+              ? t(
+                  disabledReason === "runtime"
+                    ? "overview.dnsCheck.card.runtimeDisabledDescription"
+                    : "overview.dnsCheck.card.disabledDescription"
+                )
+              : t("overview.dnsCheck.card.description")
+          }
+          action={checkAgainAction}
+          title={t("overview.dnsCheck.card.title")}
+        >
+          {content}
+        </SectionCard>
+      )}
 
       <DnsCheckModal
         browserFailure={failure}
@@ -216,14 +246,14 @@ function DnsStatusMessage({
     <div
       className={
         tone === "success"
-          ? "flex w-full items-center gap-2 text-emerald-700 dark:text-emerald-300"
+          ? "flex w-full min-w-0 items-center gap-2 text-emerald-700 dark:text-emerald-300"
           : tone === "error"
-            ? "flex w-full items-center gap-2 text-destructive"
-            : "flex w-full items-center gap-2 text-muted-foreground"
+            ? "flex w-full min-w-0 items-center gap-2 text-destructive"
+            : "flex w-full min-w-0 items-center gap-2 text-muted-foreground"
       }
     >
       {icon}
-      <span>{text}</span>
+      <span className="min-w-0 break-words">{text}</span>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react"
+import { type ReactNode, useMemo } from "react"
 import { HeartPlus } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
@@ -7,7 +7,6 @@ import type {
   RoutingHealthResponse,
 } from "@/api/generated/model"
 import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Empty,
   EmptyDescription,
@@ -20,11 +19,12 @@ type StatusTone = "healthy" | "warning" | "degraded"
 
 export function RoutingHealthCard({
   routingHealth,
+  showHealthyEntries = false,
 }: {
   routingHealth: RoutingHealthResponse
+  showHealthyEntries?: boolean
 }) {
   const { t } = useTranslation()
-  const [showHealthyEntries, setShowHealthyEntries] = useState(false)
 
   const firewallRules = useMemo(
     () =>
@@ -66,15 +66,6 @@ export function RoutingHealthCard({
         >
           {t("overview.routing.prerouting")}
         </ChainStateBadge>
-        <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-          <Checkbox
-            checked={showHealthyEntries}
-            onCheckedChange={(checked) =>
-              setShowHealthyEntries(checked === true)
-            }
-          />
-          <span>{t("overview.routing.showHealthyEntries")}</span>
-        </label>
       </div>
 
       {!hasVisibleEntries ? (
@@ -236,12 +227,14 @@ function CompactSection<T>({
   )
 }
 
-function CompactDiagnosticRow({
+export function CompactDiagnosticRow({
   primary,
   status,
+  statusLabel,
 }: {
   primary: ReactNode
   status: string
+  statusLabel?: ReactNode
 }) {
   return (
     <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-1.5">
@@ -249,13 +242,15 @@ function CompactDiagnosticRow({
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           {primary}
         </div>
-        <StatusBadge tone={mapCheckTone(status)}>{status}</StatusBadge>
+        <StatusBadge tone={mapCheckTone(status)}>
+          {statusLabel ?? status}
+        </StatusBadge>
       </div>
     </div>
   )
 }
 
-function InlineMeta({ children }: { children: ReactNode }) {
+export function InlineMeta({ children }: { children: ReactNode }) {
   return <span className="text-xs text-muted-foreground">{children}</span>
 }
 
@@ -464,7 +459,7 @@ function StatusBadge({
   children,
 }: {
   tone: StatusTone
-  children: string
+  children: ReactNode
 }) {
   return (
     <Badge

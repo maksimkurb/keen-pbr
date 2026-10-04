@@ -436,6 +436,8 @@ IcmpTester icmp_tester_;
       GUARDED_BY(routing_health_mutex_);
   std::uint64_t routing_health_cache_revision_
       GUARDED_BY(routing_health_mutex_){0};
+  std::uint64_t routing_health_cache_generation_
+      GUARDED_BY(routing_health_mutex_){0};
   RuntimeState routing_health_cache_state_
       GUARDED_BY(routing_health_mutex_){RuntimeState::starting};
   std::chrono::steady_clock::time_point routing_health_cache_time_

@@ -560,16 +560,28 @@ RoutingHealthReport Daemon::cached_routing_health() {
 
   const auto health_revision =
       routing_health_revision_.load(std::memory_order_acquire);
+  const auto runtime_generation =
+      runtime_generation_.load(std::memory_order_acquire);
   {
     KPBR_LOCK_GUARD(routing_health_mutex_);
     const auto now = std::chrono::steady_clock::now();
-    if (routing_health_cache_.has_value() &&
-        routing_health_cache_revision_ == health_revision &&
-        routing_health_cache_state_ == runtime_snapshot.runtime_state &&
+    const bool cache_matches_current_runtime =
+        routing_health_cache_.has_value() &&
+        routing_health_cache_revision_ ==
+            routing_health_revision_.load(std::memory_order_acquire) &&
+        routing_health_cache_generation_ ==
+            runtime_generation_.load(std::memory_order_acquire) &&
+        routing_health_cache_state_ == runtime_snapshot.runtime_state;
+    if (cache_matches_current_runtime &&
         now - routing_health_cache_time_ <= kRoutingHealthCacheLifetime) {
       return *routing_health_cache_;
     }
     if (routing_health_check_inflight_) {
+      // A report from the same revision and runtime generation remains a
+      // valid view while its replacement is being computed off-loop.
+      if (cache_matches_current_runtime) {
+        return *routing_health_cache_;
+      }
       return unavailable_routing_health(
           backend, "canonical routing health refresh is pending");
     }
@@ -581,7 +593,8 @@ RoutingHealthReport Daemon::cached_routing_health() {
   try {
     queued = routing_test_executor_.try_post(
         "routing-health",
-        [this, runtime_snapshot, backend, raw_prerouting, health_revision] {
+        [this, runtime_snapshot, backend, raw_prerouting, health_revision,
+         runtime_generation] {
           try {
             RoutingHealthReport health;
             try {
@@ -599,15 +612,17 @@ RoutingHealthReport Daemon::cached_routing_health() {
                   backend, "canonical routing health check failed: unknown error");
             }
 
-            const bool revision_current =
-                health_revision ==
-                routing_health_revision_.load(std::memory_order_acquire);
+            const auto current_runtime_snapshot = runtime_state_store_.snapshot();
             KPBR_LOCK_GUARD(routing_health_mutex_);
-            if (revision_current &&
-                health_revision ==
-                    routing_health_revision_.load(std::memory_order_acquire)) {
+            if (health_revision ==
+                    routing_health_revision_.load(std::memory_order_acquire) &&
+                runtime_generation ==
+                    runtime_generation_.load(std::memory_order_acquire) &&
+                runtime_snapshot.runtime_state ==
+                    current_runtime_snapshot.runtime_state) {
               routing_health_cache_ = std::move(health);
               routing_health_cache_revision_ = health_revision;
+              routing_health_cache_generation_ = runtime_generation;
               routing_health_cache_state_ = runtime_snapshot.runtime_state;
               routing_health_cache_time_ = std::chrono::steady_clock::now();
             }
@@ -618,18 +633,48 @@ RoutingHealthReport Daemon::cached_routing_health() {
           }
         });
   } catch (...) {
+    const auto current_runtime_snapshot = runtime_state_store_.snapshot();
     KPBR_LOCK_GUARD(routing_health_mutex_);
     routing_health_check_inflight_ = false;
+    if (routing_health_cache_.has_value() &&
+        routing_health_cache_revision_ ==
+            routing_health_revision_.load(std::memory_order_acquire) &&
+        routing_health_cache_generation_ ==
+            runtime_generation_.load(std::memory_order_acquire) &&
+        routing_health_cache_state_ == current_runtime_snapshot.runtime_state) {
+      return *routing_health_cache_;
+    }
     return unavailable_routing_health(
         backend, "canonical routing health worker is unavailable");
   }
   if (queued) {
+    const auto current_runtime_snapshot = runtime_state_store_.snapshot();
+    KPBR_LOCK_GUARD(routing_health_mutex_);
+    // Keep serving the same-generation report while the worker refreshes it;
+    // never leak a report across an invalidation or runtime generation change.
+    if (routing_health_cache_.has_value() &&
+        routing_health_cache_revision_ ==
+            routing_health_revision_.load(std::memory_order_acquire) &&
+        routing_health_cache_generation_ ==
+            runtime_generation_.load(std::memory_order_acquire) &&
+        routing_health_cache_state_ == current_runtime_snapshot.runtime_state) {
+      return *routing_health_cache_;
+    }
     return unavailable_routing_health(
         backend, "canonical routing health refresh is pending");
   }
 
+  const auto current_runtime_snapshot = runtime_state_store_.snapshot();
   KPBR_LOCK_GUARD(routing_health_mutex_);
   routing_health_check_inflight_ = false;
+  if (routing_health_cache_.has_value() &&
+      routing_health_cache_revision_ ==
+          routing_health_revision_.load(std::memory_order_acquire) &&
+      routing_health_cache_generation_ ==
+          runtime_generation_.load(std::memory_order_acquire) &&
+      routing_health_cache_state_ == current_runtime_snapshot.runtime_state) {
+    return *routing_health_cache_;
+  }
   return unavailable_routing_health(
       backend, "canonical routing health worker is unavailable");
 }
@@ -639,6 +684,7 @@ void Daemon::invalidate_routing_health_cache() {
   KPBR_LOCK_GUARD(routing_health_mutex_);
   routing_health_cache_.reset();
   routing_health_cache_revision_ = 0;
+  routing_health_cache_generation_ = 0;
 }
 
 void Daemon::handle_ipc_control_socket() {

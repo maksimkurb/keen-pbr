@@ -206,11 +206,11 @@ export const enTranslation = {
       "Overview of routing runtime, config state, and active outbounds",
     runtime: {
       title: "Routing runtime",
-      description: "Control policy-based routing.",
       loadError: "Failed to load routing runtime state.",
       version: "Version",
+      build: "Build",
       router: "Router",
-      status: "Routing status",
+      routingStatus: "Routing status",
       actions: {
         start: "Start",
         stop: "Stop",
@@ -294,7 +294,7 @@ export const enTranslation = {
     },
     dnsCheck: {
       card: {
-        title: "DNS check",
+        title: "DNS interception",
         description:
           "Observes DNS traffic through keen-pbr from this browser or another device; it does not verify synthetic response replacement.",
         disabledDescription:
@@ -306,7 +306,7 @@ export const enTranslation = {
           "No upstream DNS servers are configured on the DNS Servers page.",
         via: "via {{detour}}",
         checking: "Checking...",
-        runAgain: "Run again",
+        checkAgain: "Check again",
         testFromPc: "Test from another device",
       },
       modal: {
@@ -320,8 +320,7 @@ export const enTranslation = {
       },
       status: {
         disabled: "DNS interception is disabled in config.",
-        browserSuccess:
-          "DNS request from the browser was observed by the interceptor.",
+        browserSuccess: "DNS interception from this browser is working",
         manualProbeSuccess:
           "DNS request from the device was observed by the interceptor.",
         browserProbeFail:
@@ -343,9 +342,8 @@ export const enTranslation = {
         manualIncomplete: "Manual device test has not completed yet.",
       },
     },
-    dnsmasq: {
-      title: "dnsmasq",
-      description: "Per-list DNS servers served through dnsmasq.",
+    dnsRules: {
+      title: "DNS Rules",
       state: {
         ok: "In sync",
         applying: "Applying",
@@ -354,8 +352,9 @@ export const enTranslation = {
       },
       rules: "DNS rules",
       domains: "Domains",
-      lastApply: "Last applied",
-      neverApplied: "Not applied yet",
+      lastSync: "Last sync",
+      neverSynced: "Not synced yet",
+      disabledDescription: "DNS rules integration is disabled.",
       lastError: "Last error",
     },
     intercept: {
@@ -370,6 +369,16 @@ export const enTranslation = {
       dnsHoldInactive: "DNS hold inactive",
       l7Active: "L7 active",
       l7Inactive: "L7 inactive",
+      summary: {
+        processor: "DNS/DPI processor",
+        dnsHold: "DNS hold",
+        dpi: "DPI (SNI/Host)",
+        enabled: "Enabled",
+        disabled: "Disabled",
+      },
+      checksTitle: "Kernel checks",
+      countersTitle: "Interception counters",
+      moreCounters: "Show detailed counters",
       supported: "supported",
       unsupported: "unsupported",
       unsupportedWarning: "Some interception features are unavailable",

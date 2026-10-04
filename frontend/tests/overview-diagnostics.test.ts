@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
-import { collectInterceptDiagnosticErrors } from "../src/lib/intercept-diagnostics"
+import {
+  collectInterceptDiagnosticErrors,
+  getVisibleInterceptDiagnosticEntries,
+} from "../src/lib/intercept-diagnostics"
 
 describe("intercept diagnostics", () => {
   test("reports missing requested capabilities and failed probes", () => {
@@ -29,5 +32,24 @@ describe("intercept diagnostics", () => {
         false
       )
     ).toEqual([])
+  })
+
+  test("hides healthy relevant checks while retaining failures and unknown states", () => {
+    const entries = [
+      { name: "nfqueue", relevant: true, status: "ok" },
+      { name: "nflog", relevant: true, status: "unsupported" },
+      { name: "set_write", relevant: true, status: "not_run" },
+      { name: "connbytes", relevant: false, status: "unsupported" },
+    ]
+
+    expect(getVisibleInterceptDiagnosticEntries(entries, false)).toEqual([
+      entries[1],
+      entries[2],
+    ])
+    expect(getVisibleInterceptDiagnosticEntries(entries, true)).toEqual([
+      entries[0],
+      entries[1],
+      entries[2],
+    ])
   })
 })

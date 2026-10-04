@@ -6,7 +6,6 @@ import type { ApiError } from "@/api/client"
 import type {
   DnsmasqHealth,
   InterceptHealth,
-  InterceptProbeFeatureStatus,
   Outbound,
   RuntimeOutboundState,
 } from "@/api/generated/model"
@@ -28,7 +27,8 @@ import {
 import { selectConfig } from "@/api/selectors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ButtonGroup } from "@/components/ui/button-group"
+import { Card } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Empty,
@@ -41,12 +41,19 @@ import { DataTable } from "@/components/shared/data-table"
 import { PageHeader } from "@/components/shared/page-header"
 import { RuntimeOutboundDetails } from "@/components/shared/runtime-outbound-state"
 import { SectionCard } from "@/components/shared/section-card"
-import { RoutingHealthCard } from "@/components/overview/routing-health-card"
+import {
+  CompactDiagnosticRow,
+  InlineMeta,
+  RoutingHealthCard,
+} from "@/components/overview/routing-health-card"
 import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
 import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-download-dialog"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
-import { collectInterceptDiagnosticErrors } from "@/lib/intercept-diagnostics"
+import {
+  collectInterceptDiagnosticErrors,
+  getVisibleInterceptDiagnosticEntries,
+} from "@/lib/intercept-diagnostics"
 import { useAuth } from "@/auth/auth-context"
 import { Link } from "wouter"
 
@@ -55,10 +62,12 @@ export function OverviewPage() {
   const auth = useAuth()
   const [dnsCheckStatus, setDnsCheckStatus] = useState<DnsCheckStatus>("idle")
   const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false)
+  const [showHealthyDiagnostics, setShowHealthyDiagnostics] = useState(false)
   const serviceHealthQuery = useGetHealthService()
   const configQuery = useGetConfig()
   const routingHealthQuery = useGetHealthRouting({
     query: {
+      refetchOnMount: "always",
       refetchInterval: 45_000,
       refetchIntervalInBackground: false,
     },
@@ -80,9 +89,6 @@ export function OverviewPage() {
     routingHealthQuery.data?.status === 200
       ? routingHealthQuery.data.data
       : undefined
-  const routingFirewallRules = routingHealth?.firewall_rules ?? []
-  const routingRouteTables = routingHealth?.route_tables ?? []
-  const routingPolicyRules = routingHealth?.policy_rules ?? []
   const runtimeOutbounds = useMemo(
     () =>
       runtimeOutboundsQuery.data?.status === 200
@@ -110,7 +116,6 @@ export function OverviewPage() {
       ),
     [runtimeInterfacesQuery.data]
   )
-  const hasServiceHealth = Boolean(serviceHealth)
   const isServiceRunning = serviceHealth?.status === "running"
   const markerConfig = loadedConfig?.intercept?.dns?.marker
   const dnsCheckConfigEnabled =
@@ -178,106 +183,104 @@ export function OverviewPage() {
         title={t("nav.items.systemMonitor")}
       />
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <SectionCard
-          className="h-full"
-          contentClassName="flex flex-1 flex-col"
-          title={t("overview.runtime.title")}
-          description={t("overview.runtime.description")}
-        >
-          {serviceHealthQuery.isLoading ? <ServiceSummarySkeleton /> : null}
+      <Card className="gap-0 py-0">
+        <div className="grid min-w-0 grid-cols-1 divide-y lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+          <div className="flex min-w-0 flex-col gap-4 p-4 lg:p-5">
+            <h3 className="font-semibold">{t("overview.runtime.title")}</h3>
+            {serviceHealthQuery.isLoading ? <ServiceSummarySkeleton /> : null}
 
-          {serviceHealthQuery.isError ? (
-            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-              <AlertDescription>
-                {t("overview.runtime.loadError")}
-              </AlertDescription>
-            </Alert>
-          ) : null}
+            {serviceHealthQuery.isError ? (
+              <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+                <AlertDescription>
+                  {t("overview.runtime.loadError")}
+                </AlertDescription>
+              </Alert>
+            ) : null}
 
-          {serviceHealth ? (
-            <div className="flex h-full flex-1 flex-col">
-              <div className="mb-2 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <div className="mb-1 text-sm text-muted-foreground">
-                    {t("overview.runtime.version")}
-                  </div>
-                  <div className="text-lg font-semibold">
-                    {serviceHealth.version}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    build {serviceHealth.build}
-                  </div>
+            {serviceHealth ? (
+              <>
+                <div className="min-w-0 space-y-2">
+                  <RuntimeValue
+                    label={t("overview.runtime.version")}
+                    value={serviceHealth.version}
+                  />
+                  <RuntimeValue
+                    label={t("overview.runtime.build")}
+                    value={serviceHealth.build}
+                    valueWeight="normal"
+                  />
+                  <RuntimeValue
+                    label={t("overview.runtime.router")}
+                    value={`${serviceHealth.os_type} ${serviceHealth.os_version}`}
+                  />
+                  <StatusValue
+                    label={t("overview.runtime.routingStatus")}
+                    value={
+                      <StatusBadge
+                        tone={mapServiceStatusTone(serviceHealth.status)}
+                      >
+                        {serviceHealth.status}
+                      </StatusBadge>
+                    }
+                  />
                 </div>
-                <div>
-                  <div className="mb-1 text-sm text-muted-foreground">
-                    {t("overview.runtime.router")}
-                  </div>
-                  <div className="text-lg font-semibold">
-                    {`${serviceHealth.os_type} ${serviceHealth.os_version}`}
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-1 text-sm text-muted-foreground">
-                    {t("overview.runtime.status")}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge
-                      tone={mapServiceStatusTone(serviceHealth.status)}
+                <div
+                  className={`mt-auto grid gap-2 ${isServiceRunning ? "grid-cols-2" : "grid-cols-1"}`}
+                  role="group"
+                >
+                  {isServiceRunning ? (
+                    <>
+                      <Button
+                        className="flex aspect-square min-h-20 w-full min-w-0 flex-col gap-1 px-1.5 py-2 text-center text-xs leading-tight whitespace-normal"
+                        variant="outline"
+                        disabled={actionPending}
+                        onClick={() => postServiceStopMutation.mutate()}
+                      >
+                        <Square className="size-6 shrink-0" />
+                        {t("overview.runtime.actions.stop")}
+                      </Button>
+                      <Button
+                        className="flex aspect-square min-h-20 w-full min-w-0 flex-col gap-1 px-1.5 py-2 text-center text-xs leading-tight whitespace-normal"
+                        variant="outline"
+                        disabled={actionPending}
+                        onClick={() => postServiceRestartMutation.mutate()}
+                      >
+                        <RotateCw className="size-6 shrink-0" />
+                        {t("overview.runtime.actions.restart")}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      className="flex aspect-square min-h-20 w-full min-w-0 flex-col gap-1 px-1.5 py-2 text-center text-xs leading-tight whitespace-normal"
+                      variant="outline"
+                      disabled={actionPending}
+                      onClick={() => postServiceStartMutation.mutate()}
                     >
-                      {serviceHealth.status}
-                    </StatusBadge>
-                  </div>
+                      <Play className="size-6 shrink-0" />
+                      {t("overview.runtime.actions.start")}
+                    </Button>
+                  )}
                 </div>
-              </div>
-              <ButtonGroup className="mt-auto w-full [&>[data-slot=button]]:flex-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={
-                    actionPending || !hasServiceHealth || isServiceRunning
-                  }
-                  onClick={() => postServiceStartMutation.mutate()}
-                >
-                  <Play className="mr-1 h-3 w-3" />
-                  {t("overview.runtime.actions.start")}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={
-                    actionPending || !hasServiceHealth || !isServiceRunning
-                  }
-                  onClick={() => postServiceStopMutation.mutate()}
-                >
-                  <Square className="mr-1 h-3 w-3" />
-                  {t("overview.runtime.actions.stop")}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={
-                    actionPending || !hasServiceHealth || !isServiceRunning
-                  }
-                  onClick={() => postServiceRestartMutation.mutate()}
-                >
-                  <RotateCw className="mr-1 h-3 w-3" />
-                  {t("overview.runtime.actions.restart")}
-                </Button>
-              </ButtonGroup>
-            </div>
-          ) : null}
-        </SectionCard>
+              </>
+            ) : null}
+          </div>
 
-        <DnsCheckWidget
-          disabledReason={dnsCheckDisabledReason}
-          dnsProbeEnabled={dnsCheckEnabled}
-          markerDomain={markerConfig?.domain ?? DNS_CHECK_DOMAIN_SUFFIX}
-          onStatusChange={setDnsCheckStatus}
-        />
-      </div>
+          <div className="flex min-w-0 flex-col gap-4 p-4 lg:p-5">
+            <DnsCheckWidget
+              summary={<InterceptStatusSummary health={serviceHealth?.intercept} />}
+              disabledReason={dnsCheckDisabledReason}
+              dnsProbeEnabled={dnsCheckEnabled}
+              markerDomain={markerConfig?.domain ?? DNS_CHECK_DOMAIN_SUFFIX}
+              onStatusChange={setDnsCheckStatus}
+              embedded
+            />
+          </div>
 
-      <DnsmasqHealthCard health={serviceHealth?.dnsmasq} />
+          <DnsRulesSection health={serviceHealth?.dnsmasq} />
+        </div>
+      </Card>
+
+      <InterceptCountersCard health={serviceHealth?.intercept} />
 
       <RoutingTestPanel />
 
@@ -323,6 +326,17 @@ export function OverviewPage() {
             </Button>
           }
         >
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={showHealthyDiagnostics}
+                onCheckedChange={(checked) =>
+                  setShowHealthyDiagnostics(checked === true)
+                }
+              />
+              <span>{t("overview.routing.showHealthyEntries")}</span>
+            </label>
+          </div>
           <InterceptHealthCard
             health={serviceHealth?.intercept}
             requestedDns={
@@ -335,6 +349,7 @@ export function OverviewPage() {
               loadedConfig?.intercept?.enabled !== false &&
               loadedConfig?.intercept?.l7?.enabled !== false
             }
+            showHealthyEntries={showHealthyDiagnostics}
           />
           {routingHealthQuery.isLoading ? <TableSkeleton /> : null}
           {routingHealthQuery.isError ? (
@@ -344,24 +359,11 @@ export function OverviewPage() {
               </AlertDescription>
             </Alert>
           ) : null}
-          {routingHealth &&
-          routingFirewallRules.length === 0 &&
-          routingRouteTables.length === 0 &&
-          routingPolicyRules.length === 0 ? (
-            <Empty className="border">
-              <EmptyHeader>
-                <EmptyTitle>{t("overview.routing.emptyTitle")}</EmptyTitle>
-                <EmptyDescription>
-                  {t("overview.routing.emptyDescription")}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : null}
-          {routingHealth &&
-          (routingFirewallRules.length > 0 ||
-            routingRouteTables.length > 0 ||
-            routingPolicyRules.length > 0) ? (
-            <RoutingHealthCard routingHealth={routingHealth} />
+          {routingHealth ? (
+            <RoutingHealthCard
+              routingHealth={routingHealth}
+              showHealthyEntries={showHealthyDiagnostics}
+            />
           ) : null}
         </SectionCard>
       </div>
@@ -408,72 +410,77 @@ function TableSkeleton() {
   )
 }
 
-function DnsmasqHealthCard({ health }: { health?: DnsmasqHealth }) {
+function DnsRulesSection({ health }: { health?: DnsmasqHealth }) {
   const { t, i18n } = useTranslation()
-
-  if (!health || health.mode !== "dnsmasq") {
-    return null
-  }
-
+  const state = health?.mode === "dnsmasq" ? health.state : "disabled"
   const tone =
-    health.state === "ok"
+    state === "ok"
       ? "healthy"
-      : health.state === "applying"
+      : state === "applying"
         ? "warning"
-        : "degraded"
-  const lastApplyTs = health.last_apply_ts ?? null
+        : state === "disabled"
+          ? "warning"
+          : "degraded"
+  const lastApplyTs = health?.last_apply_ts ?? null
 
   return (
-    <SectionCard
-      description={t("overview.dnsmasq.description")}
-      title={t("overview.dnsmasq.title")}
-    >
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
+    <section className="min-w-0 space-y-3 p-4 lg:p-5">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <h3 className="min-w-0 flex-1 basis-40 font-semibold break-words">
+          {t("overview.dnsRules.title")}
+        </h3>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Badge size="xs" variant="outline">
+            dnsmasq
+          </Badge>
           <StatusBadge tone={tone}>
-            {t(`overview.dnsmasq.state.${health.state}`)}
+            {t(`overview.dnsRules.state.${state}`)}
           </StatusBadge>
         </div>
-        <div className="grid gap-3 text-sm sm:grid-cols-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-muted-foreground">
-              {t("overview.dnsmasq.rules")}
-            </span>
-            <span className="font-medium">{health.rules}</span>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-muted-foreground">
-              {t("overview.dnsmasq.domains")}
-            </span>
-            <span className="font-medium">{health.domains}</span>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-muted-foreground">
-              {t("overview.dnsmasq.lastApply")}
-            </span>
-            <span
-              className="font-medium"
-              title={
-                lastApplyTs
-                  ? new Date(lastApplyTs * 1000).toLocaleString(i18n.language)
-                  : undefined
-              }
-            >
-              {lastApplyTs
-                ? formatRelativeTime(lastApplyTs * 1000, i18n.language)
-                : t("overview.dnsmasq.neverApplied")}
-            </span>
-          </div>
+      </div>
+      <div className="space-y-3">
+        <div className="space-y-1 text-sm">
+          <StatusValue
+            label={t("overview.dnsRules.rules")}
+            value={String(health?.rules ?? 0)}
+          />
+          <StatusValue
+            label={t("overview.dnsRules.domains")}
+            value={String(health?.domains ?? 0)}
+          />
+          <StatusValue
+            label={t("overview.dnsRules.lastSync")}
+            value={
+              <span
+                title={
+                  lastApplyTs
+                    ? new Date(lastApplyTs * 1000).toLocaleString(i18n.language)
+                    : undefined
+                }
+              >
+                {lastApplyTs
+                  ? formatRelativeTime(lastApplyTs * 1000, i18n.language)
+                  : t("overview.dnsRules.neverSynced")}
+              </span>
+            }
+          />
         </div>
-        {health.state === "error" && health.last_error ? (
+        {state === "disabled" ? (
+          <Alert className="border-border bg-muted/20">
+            <AlertDescription>
+              {t("overview.dnsRules.disabledDescription")}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {state === "error" && health?.last_error ? (
           <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
             <AlertDescription>
-              {t("overview.dnsmasq.lastError")}: {health.last_error}
+              {t("overview.dnsRules.lastError")}: {health.last_error}
             </AlertDescription>
           </Alert>
         ) : null}
       </div>
-    </SectionCard>
+    </section>
   )
 }
 
@@ -494,15 +501,30 @@ function formatRelativeTime(timestampMs: number, locale: string) {
   return formatter.format(Math.round(diffSeconds / 86400), "day")
 }
 
-function InterceptHealthCard({
-  health,
-  requestedDns,
-  requestedL7,
+function RuntimeValue({
+  label,
+  value,
+  valueWeight = "strong",
 }: {
-  health?: InterceptHealth
-  requestedDns: boolean
-  requestedL7: boolean
+  label: string
+  value: string
+  valueWeight?: "normal" | "strong"
 }) {
+  return (
+    <StatusValue
+      label={label}
+      value={
+        <div
+          className={valueWeight === "normal" ? "font-normal" : "font-semibold"}
+        >
+          {value}
+        </div>
+      }
+    />
+  )
+}
+
+function InterceptStatusSummary({ health }: { health?: InterceptHealth }) {
   const { t } = useTranslation()
 
   if (!health) {
@@ -519,22 +541,75 @@ function InterceptHealthCard({
     : health.running
       ? "healthy"
       : "degraded"
-  const counters = health.counters
-  const capabilities = [
-    ["nfqueue", health.capabilities.nfqueue, requestedDns],
-    ["nflog", health.capabilities.nflog, requestedL7],
-    ["connbytes", health.capabilities.connbytes, requestedL7],
-  ] as const
-  const counterEntries = counters
+
+  return (
+    <div className="space-y-1 text-sm">
+      <StatusValue
+        label={t("overview.intercept.summary.processor")}
+        value={<StatusBadge tone={statusTone}>{status}</StatusBadge>}
+      />
+      <StatusValue
+        label={t("overview.intercept.summary.dnsHold")}
+        value={
+          <StatusBadge tone={health.dns_hold_active ? "healthy" : "warning"}>
+            {health.dns_hold_active
+              ? t("overview.intercept.summary.enabled")
+              : t("overview.intercept.summary.disabled")}
+          </StatusBadge>
+        }
+      />
+      <StatusValue
+        label={t("overview.intercept.summary.dpi")}
+        value={
+          <StatusBadge tone={health.l7_active ? "healthy" : "warning"}>
+            {health.l7_active
+              ? t("overview.intercept.summary.enabled")
+              : t("overview.intercept.summary.disabled")}
+          </StatusBadge>
+        }
+      />
+    </div>
+  )
+}
+
+function StatusValue({
+  label,
+  value,
+}: {
+  label: string
+  value: React.ReactNode
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,auto)] items-start gap-x-3 gap-y-1">
+      <div className="min-w-0 break-words text-muted-foreground">{label}</div>
+      <div className="min-w-0 text-right break-words">{value}</div>
+    </div>
+  )
+}
+
+function InterceptCountersCard({ health }: { health?: InterceptHealth }) {
+  const { t } = useTranslation()
+  const counters = health?.counters
+  const kernelQueue = health?.kernel_queue
+
+  if (!counters && !kernelQueue) {
+    return null
+  }
+
+  const primaryEntries = counters
     ? ([
         ["dnsPackets", counters.dns_packets],
-        ["dnsParseErrors", counters.dns_parse_errors],
         ["dnsMatched", counters.dns_matched],
+        ["l7Packets", counters.l7_packets],
+        ["l7Matched", counters.l7_matched],
+      ] as const)
+    : []
+  const detailEntries = counters
+    ? ([
+        ["dnsParseErrors", counters.dns_parse_errors],
         ["dnsHoldTimeouts", counters.dns_hold_timeouts],
         ["dnsTcpPartial", counters.dns_tcp_partial],
         ["markerHits", counters.marker_hits],
-        ["l7Packets", counters.l7_packets],
-        ["l7Matched", counters.l7_matched],
         ["setAdded", counters.set_added],
         ["setRefreshed", counters.set_refreshed],
         ["setErrors", counters.set_errors],
@@ -547,206 +622,216 @@ function InterceptHealthCard({
     : []
 
   return (
-      <div className="space-y-4 border-b pb-4">
-        <div>
-          <h3 className="font-semibold">{t("overview.intercept.title")}</h3>
-          <p className="text-xs text-muted-foreground">
-            {t("overview.intercept.description")}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge tone={statusTone}>{status}</StatusBadge>
-          <StatusBadge tone={health.dns_hold_active ? "healthy" : "warning"}>
-            {health.dns_hold_active
-              ? t("overview.intercept.dnsHoldActive")
-              : t("overview.intercept.dnsHoldInactive")}
-          </StatusBadge>
-          <StatusBadge tone={health.l7_active ? "healthy" : "warning"}>
-            {health.l7_active
-              ? t("overview.intercept.l7Active")
-              : t("overview.intercept.l7Inactive")}
-          </StatusBadge>
-        </div>
-
-        <div className="grid gap-3 text-sm sm:grid-cols-3">
-          {capabilities.map(([name, supported, relevant]) => (
-            <div className="flex items-center justify-between gap-2" key={name}>
-              <span className="text-muted-foreground">
-                {t(`overview.intercept.capabilities.${name}`)}
-              </span>
-              <span
-                className={
-                  supported
-                    ? "text-emerald-600"
-                    : relevant
-                      ? "text-destructive"
-                      : "text-muted-foreground"
-                }
-              >
-                {supported
-                  ? t("overview.intercept.supported")
-                  : t("overview.intercept.unsupported")}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {health.probes && health.probes.length > 0 ? (
-          <div className="space-y-1 text-sm">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-medium">
-                {t("overview.intercept.probes.title")}
-              </span>
-              {health.kernel_release ? (
-                <span className="text-muted-foreground">
-                  {t("overview.intercept.probes.kernel", {
-                    release: health.kernel_release,
-                  })}
-                </span>
-              ) : null}
-            </div>
-            <ul className="space-y-0.5" data-testid="intercept-probes">
-              {health.probes.map((probe) => (
-                <li
-                  className="flex flex-wrap items-baseline gap-x-2"
-                  key={probe.feature}
-                >
-                  <span className="text-muted-foreground">{probe.feature}</span>
-                  <span
-                    className={probeStatusClass(
-                      probe.status,
-                      probe.feature,
-                      requestedDns,
-                      requestedL7
-                    )}
-                  >
-                    {t(`overview.intercept.probes.status.${probe.status}`)}
-                  </span>
-                  {probe.reason ? (
-                    <span className="text-xs text-muted-foreground">
-                      {probe.reason}
-                    </span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {(() => {
-          const errors = collectInterceptDiagnosticErrors(
-            health.capabilities,
-            health.probes ?? [],
-            requestedDns,
-            requestedL7
-          )
-          return errors.length > 0 ? (
-            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-              <AlertDescription>
-                <div className="font-medium">
-                  {t("overview.intercept.diagnosticErrors")}
-                </div>
-                <ul className="list-disc pl-5">
-                  {errors.map((error) => (
-                    <li key={error}>{error}</li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          ) : null
-        })()}
-
-        {health.warnings && health.warnings.length > 0 ? (
-          <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
-            <AlertDescription>
-              <ul className="list-disc pl-5">
-                {health.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {health.reasons.length > 0 ? (
-          <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
-            <AlertDescription>
-              <div className="space-y-1">
-                <div className="font-medium">
-                  {t("overview.intercept.unsupportedWarning")}
-                </div>
-                <ul className="list-disc pl-5">
-                  {health.reasons.map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
-                </ul>
-              </div>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {health.kernel_queue ? (
-          <div className="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-            {(
-              [
-                ["queueTotal", health.kernel_queue.queue_total],
-                ["queueDropped", health.kernel_queue.queue_dropped],
-                ["userDropped", health.kernel_queue.user_dropped],
-                ["idSequence", health.kernel_queue.id_sequence],
-              ] as const
-            ).map(([name, value]) => (
-              <Counter
-                key={name}
-                label={t(`overview.intercept.kernelQueue.${name}`)}
-                value={value}
+    <SectionCard title={t("overview.intercept.countersTitle")}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {primaryEntries.map(([name, value]) => (
+          <StackedCounter
+            key={name}
+            label={t(`overview.intercept.counters.${name}`)}
+            value={value}
+          />
+        ))}
+      </div>
+      {detailEntries.length > 0 || kernelQueue ? (
+        <details className="group">
+          <summary className="inline-flex cursor-pointer text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+            {t("overview.intercept.moreCounters")}
+          </summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {kernelQueue ? (
+              <StackedCounter
+                label={t("overview.intercept.kernelQueue.queueTotal")}
+                value={kernelQueue.queue_total}
               />
-            ))}
-          </div>
-        ) : null}
-
-        {counterEntries.length > 0 ? (
-          <div className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-            {counterEntries.map(([name, value]) => (
-              <Counter
+            ) : null}
+            {detailEntries.map(([name, value]) => (
+              <StackedCounter
                 key={name}
                 label={t(`overview.intercept.counters.${name}`)}
                 value={value}
               />
             ))}
+            {kernelQueue
+              ? (
+                  [
+                    ["queueDropped", kernelQueue.queue_dropped],
+                    ["userDropped", kernelQueue.user_dropped],
+                    ["idSequence", kernelQueue.id_sequence],
+                  ] as const
+                ).map(([name, value]) => (
+                  <StackedCounter
+                    key={name}
+                    label={t(`overview.intercept.kernelQueue.${name}`)}
+                    value={value}
+                  />
+                ))
+              : null}
           </div>
-        ) : null}
-      </div>
+        </details>
+      ) : null}
+    </SectionCard>
   )
 }
 
-function probeStatusClass(
-  status: InterceptProbeFeatureStatus,
-  feature: string,
-  requestedDns: boolean,
-  requestedL7: boolean
-) {
-  const relevant =
-    (feature === "nfqueue" && requestedDns) ||
-    ((feature === "nflog" || feature === "connbytes") && requestedL7) ||
-    (requestedDns || requestedL7) &&
-      !["nfqueue", "nflog", "connbytes"].includes(feature)
-  if (!relevant) return "text-muted-foreground"
-  switch (status) {
-    case "ok":
-      return "text-emerald-600"
-    case "unsupported":
-    case "error":
-      return "text-destructive"
-    default:
-      return "text-muted-foreground"
-  }
+function StackedCounter({ label, value }: { label: string; value?: number }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-xl font-semibold tabular-nums">{value ?? 0}</div>
+    </div>
+  )
 }
 
-function Counter({ label, value }: { label: string; value?: number }) {
+function InterceptHealthCard({
+  health,
+  requestedDns,
+  requestedL7,
+  showHealthyEntries,
+}: {
+  health?: InterceptHealth
+  requestedDns: boolean
+  requestedL7: boolean
+  showHealthyEntries: boolean
+}) {
+  const { t } = useTranslation()
+
+  if (!health) {
+    return null
+  }
+
+  const capabilities = [
+    ["nfqueue", health.capabilities.nfqueue, requestedDns],
+    ["nflog", health.capabilities.nflog, requestedL7],
+    ["connbytes", health.capabilities.connbytes, requestedL7],
+  ] as const
+  const capabilityRows = getVisibleInterceptDiagnosticEntries(
+    capabilities.map(([name, supported, relevant]) => ({
+      key: name,
+      primary: (
+        <span className="font-medium">
+          {t(`overview.intercept.capabilities.${name}`)}
+        </span>
+      ),
+      relevant,
+      status: supported ? "ok" : "unsupported",
+      statusLabel: supported
+        ? t("overview.intercept.supported")
+        : t("overview.intercept.unsupported"),
+    })),
+    showHealthyEntries
+  )
+  const probeRows = getVisibleInterceptDiagnosticEntries(
+    (health.probes ?? []).map((probe) => {
+      const relevant =
+        (probe.feature === "nfqueue" && requestedDns) ||
+        ((probe.feature === "nflog" || probe.feature === "connbytes") &&
+          requestedL7) ||
+        ((requestedDns || requestedL7) &&
+          !["nfqueue", "nflog", "connbytes"].includes(probe.feature))
+      return {
+        key: probe.feature,
+        primary: (
+          <>
+            <span className="font-medium">{probe.feature}</span>
+            {probe.reason ? <InlineMeta>{probe.reason}</InlineMeta> : null}
+          </>
+        ),
+        status: probe.status,
+        statusLabel: t(`overview.intercept.probes.status.${probe.status}`),
+        relevant,
+      }
+    }),
+    showHealthyEntries
+  )
+  const rows = [...capabilityRows, ...probeRows]
+  const errors = collectInterceptDiagnosticErrors(
+    health.capabilities,
+    health.probes ?? [],
+    requestedDns,
+    requestedL7
+  )
+
+  if (
+    rows.length === 0 &&
+    errors.length === 0 &&
+    (health.warnings?.length ?? 0) === 0 &&
+    health.reasons.length === 0
+  ) {
+    return null
+  }
+
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium tabular-nums">{value ?? 0}</span>
+    <div className="space-y-4 border-b pb-4">
+      {rows.length > 0 ? (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">
+              {t("overview.intercept.checksTitle")}
+            </h3>
+            {health.kernel_release ? (
+              <span className="text-xs text-muted-foreground">
+                {t("overview.intercept.probes.kernel", {
+                  release: health.kernel_release,
+                })}
+              </span>
+            ) : null}
+          </div>
+          <div className="space-y-2" data-testid="intercept-probes">
+            {rows.map((row) => (
+              <CompactDiagnosticRow
+                key={row.key}
+                primary={row.primary}
+                status={row.status}
+                statusLabel={row.statusLabel}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {errors.length > 0 ? (
+        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+          <AlertDescription>
+            <div className="font-medium">
+              {t("overview.intercept.diagnosticErrors")}
+            </div>
+            <ul className="list-disc pl-5">
+              {errors.map((error) => (
+                <li key={error}>{error}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {health.warnings && health.warnings.length > 0 ? (
+        <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
+          <AlertDescription>
+            <ul className="list-disc pl-5">
+              {health.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {health.reasons.length > 0 ? (
+        <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
+          <AlertDescription>
+            <div className="space-y-1">
+              <div className="font-medium">
+                {t("overview.intercept.unsupportedWarning")}
+              </div>
+              <ul className="list-disc pl-5">
+                {health.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
     </div>
   )
 }

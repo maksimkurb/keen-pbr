@@ -15,7 +15,8 @@ RULES = [{"outbound": "wan_pbr", "dest_addr": f"{TEST_IP}/32"},
 LISTS = {"routed": {"domains": ["routed.test"]}}
 FOREIGN_SOURCE = "203.0.113.1"
 FOREIGN_NFT_TABLE = "kpbr_it_foreign"
-# keen-pbr only re-verifies the kernel when its cached report is older than this
+# After this interval the next request queues a refresh, but it must still
+# return the previous same-generation report while that refresh is in flight
 # (src/daemon/daemon_core.cpp kRoutingHealthCacheLifetime).
 HEALTH_CACHE_SECONDS = 5.5
 
@@ -48,9 +49,12 @@ def wait_healthy(context):
 
 
 def fresh_healthy(context):
-    """Health ok from a report computed after the last kernel change."""
+    """The first stale-cache request keeps returning a real health verdict."""
     time.sleep(HEALTH_CACHE_SECONDS)
-    return wait_healthy(context)
+    report = context.api("/api/health/routing")
+    assert (report.get("overall") == "ok" and report.get("firewall_rules")
+            and not firewall_problems(report)), report
+    return report
 
 
 # ---- recovery trigger -----------------------------------------------------
