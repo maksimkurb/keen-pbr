@@ -12,7 +12,7 @@ import type { InterceptProbeFeatureStatus } from './interceptProbeFeatureStatus'
 
  */
 export interface InterceptProbeFeature {
-  /** One of `set_backend`, `nfqueue`, `fail_open`, `payload_replacement`, `nflog`, `set_write`, `conntrack`.
+  /** One of `set_backend`, `nfqueue`, `fail_open`, `payload_replacement`, `nflog`, `set_write`, `conntrack`, `nft_timeout_update`.
    */
   feature: string;
   /** `ok` accepted by the kernel; `unsupported` rejected (EINVAL / EOPNOTSUPP); `error` failed for another reason (timeout, EPERM, busy); `skipped` nothing to test against; `not_run` not attempted.

@@ -31,6 +31,7 @@ struct InterceptRuntimeProbe {
     nfnl::ProbeResult nflog;         // NFLOG group bind
     nfnl::ProbeResult set_write;     // test add+del on a dynamic set
     nfnl::ProbeResult conntrack;     // ctnetlink dump
+    nfnl::ProbeResult timeout_update;  // nft: non-exclusive NEWSETELEM extends an existing timeout
 
     // Every probed feature in a stable order (for health output and logs).
     std::vector<Item> items() const;
@@ -86,6 +87,16 @@ InterceptCapabilities probe_intercept_capabilities(FirewallBackend backend,
 nfnl::ProbeResult probe_intercept_set_write(FirewallBackend backend,
                                             const std::vector<FirewallSetDeclaration>& sets,
                                             const InterceptProbeEnv& env = {});
+
+// nftables only: whether the kernel extends the timeout of an existing element
+// in place (feature "nft_timeout_update", see nfnl::probe_nft_timeout_update).
+// Uses a reserved documentation address (192.0.2.254 / 2001:db8::fffe) on one
+// dynamic set and always removes it again.  `not_run` for other backends or
+// when runtime probes are off, `skipped` when no dynamic set exists.  Never
+// blocks interception: anything but `ok` just keeps the delete+add refresh.
+nfnl::ProbeResult probe_intercept_nft_timeout_update(
+    FirewallBackend backend, const std::vector<FirewallSetDeclaration>& sets,
+    const InterceptProbeEnv& env = {});
 
 // `ct original packets` (nftables sniff) needs conntrack accounting; iptables
 // connbytes enables it itself.  Returns false (and logs) on failure.

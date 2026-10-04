@@ -152,6 +152,11 @@ void apply_listener_probe(InterceptEffective& effective, const InterceptRuntimeP
     refresh_warnings(effective);
 }
 
+void apply_timeout_update_probe(InterceptEffective& effective,
+                                const nfnl::ProbeResult& timeout_update) {
+    effective.capabilities.probe.timeout_update = timeout_update;
+}
+
 void apply_set_write_probe(InterceptEffective& effective, const nfnl::ProbeResult& set_write) {
     effective.capabilities.probe.set_write = set_write;
     if (set_write.blocks()) {

@@ -22,6 +22,7 @@ inline constexpr uint16_t kIpsetAddMsg = (NFNL_SUBSYS_IPSET << 8) | IPSET_CMD_AD
 inline constexpr uint16_t kIpsetDelMsg = (NFNL_SUBSYS_IPSET << 8) | IPSET_CMD_DEL;
 inline constexpr uint16_t kNftNewElem = (NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_NEWSETELEM;
 inline constexpr uint16_t kNftDelElem = (NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM;
+inline constexpr uint16_t kNftGetElem = (NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_GETSETELEM;
 inline constexpr uint16_t kCtGet = (NFNL_SUBSYS_CTNETLINK << 8) | IPCTNL_MSG_CT_GET;
 
 // What the fake kernel does with one request message.
@@ -29,6 +30,7 @@ struct Reply {
     int err{0};             // ACK errno; ETIMEDOUT = no ACK at all
     int protocol{0};        // ipset protocol reply attribute (0 = none)
     bool dump_data{false};  // a dump reply message arrives before the outcome
+    int64_t expiration_ms{-1};  // GETSETELEM: remaining expiration in the reply (-1 = none)
 };
 
 // Scripted transport: no kernel involved.
@@ -57,6 +59,23 @@ public:
                 MsgBuilder builder;
                 builder.begin(kIpsetProtocolMsg, 0, message.seq, AF_UNSPEC, 0);
                 builder.put_u8(IPSET_ATTR_PROTOCOL, static_cast<uint8_t>(reply.protocol));
+                builder.end();
+                (void)for_each_msg(ByteView(builder.data(), builder.size()),
+                                   [&](const MsgView& view) {
+                                       on_message(view);
+                                       return true;
+                                   });
+            }
+            if (message.type == kNftGetElem && reply.expiration_ms >= 0 && on_message) {
+                MsgBuilder builder;
+                builder.begin(kNftNewElem, 0, message.seq, NFPROTO_INET, 0);
+                builder.put_strz(NFTA_SET_ELEM_LIST_TABLE, "KeenPbrTable");
+                const std::size_t elems = builder.nest_begin(NFTA_SET_ELEM_LIST_ELEMENTS);
+                const std::size_t elem = builder.nest_begin(NFTA_LIST_ELEM);
+                builder.put_u64_be(NFTA_SET_ELEM_EXPIRATION,
+                                   static_cast<uint64_t>(reply.expiration_ms));
+                builder.nest_end(elem);
+                builder.nest_end(elems);
                 builder.end();
                 (void)for_each_msg(ByteView(builder.data(), builder.size()),
                                    [&](const MsgView& view) {

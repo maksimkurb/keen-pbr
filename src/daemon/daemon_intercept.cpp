@@ -50,10 +50,15 @@ void log_intercept_probe(const InterceptCapabilities& capabilities) {
 } // namespace
 
 void Daemon::record_intercept_set_write_probe(InterceptEffective& effective,
-                                              const nfnl::ProbeResult& set_write) {
+                                              const nfnl::ProbeResult& set_write,
+                                              const nfnl::ProbeResult& timeout_update) {
     apply_set_write_probe(effective, set_write);
+    apply_timeout_update_probe(effective, timeout_update);
+    // Only a positive, current answer enables the in-place refresh.
+    nft_timeout_update_->store(timeout_update.is_ok(), std::memory_order_relaxed);
     if (intercept_capabilities_.has_value()) {
         intercept_capabilities_->probe.set_write = set_write;
+        intercept_capabilities_->probe.timeout_update = timeout_update;
     }
     KPBR_LOCK_GUARD(intercept_mutex_);
     intercept_effective_ = effective;
@@ -119,10 +124,12 @@ void Daemon::start_intercept_service(InterceptEffective& effective) {
     try {
         auto writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer()
                                                            : nfnl::make_ipset_writer();
+        writer->set_timeout_update_flag(nft_timeout_update_);
         std::unique_ptr<nfnl::DynamicSetWriter> l7_writer;
         if (effective.dns_hold && effective.l7) {
             l7_writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer()
                                                              : nfnl::make_ipset_writer();
+            l7_writer->set_timeout_update_flag(nft_timeout_update_);
         }
         service = std::make_shared<InterceptService>(std::move(writer), std::move(l7_writer));
         service->start(options, make_empty_snapshot(effective));

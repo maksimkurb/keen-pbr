@@ -1571,7 +1571,7 @@ components:
           type: string
           description: >
             One of `set_backend`, `nfqueue`, `fail_open`, `payload_replacement`,
-            `nflog`, `set_write`, `conntrack`.
+            `nflog`, `set_write`, `conntrack`, `nft_timeout_update`.
         status:
           type: string
           enum: [ok, unsupported, error, skipped, not_run]

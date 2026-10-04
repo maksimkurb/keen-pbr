@@ -74,6 +74,13 @@ void build_ipset_del(MsgBuilder& b, uint32_t seq, const SetAdd& element);
 void build_nfqueue_flags(MsgBuilder& b, uint32_t seq, uint16_t queue_num, uint32_t flags,
                          uint32_t mask);
 
+// NFT_MSG_GETSETELEM of one element (non-dump; the kernel answers with a
+// NEWSETELEM message describing it).
+void build_nft_getsetelem(MsgBuilder& b, uint32_t seq, std::string_view table, const SetAdd& element);
+// NFTA_SET_ELEM_EXPIRATION (remaining ms) of the first element in a NEWSETELEM
+// reply, or -1 when the message carries none.
+int64_t parse_nft_setelem_expiration_ms(const MsgView& message);
+
 // --- probes ---------------------------------------------------------------------
 constexpr int kDefaultProbeTimeoutMs = 500;
 
@@ -96,6 +103,18 @@ ProbeResult probe_nft_tables(SetWriterTransport& transport, std::string_view tab
 ProbeResult probe_set_write(SetWriterTransport& transport, bool nft_backend,
                             std::string_view nft_table, const SetAdd& element,
                             int timeout_ms = kDefaultProbeTimeoutMs);
+
+// Whether the kernel extends the timeout of an EXISTING nft set element when a
+// non-exclusive NEWSETELEM carries a new timeout (mainline 4201f3938914, Linux
+// 6.12).  Uses `element` (its address, family and set; timeout_s is ignored) in
+// a real timeout-capable set: removes any leftover, adds it with a 5 s timeout,
+// refreshes it to 300 s with build_nft_refresh_setelem(), reads the expiration
+// back with GETSETELEM and removes it again.  ok iff the remaining expiration
+// is > 10 s; unsupported when the old expiration was kept; error when the
+// answer is inconclusive.  The element is always deleted at the end.
+ProbeResult probe_nft_timeout_update(SetWriterTransport& transport, std::string_view nft_table,
+                                     const SetAdd& element,
+                                     int timeout_ms = kDefaultProbeTimeoutMs);
 
 // Starts a ctnetlink dump and abandons it after the first reply.
 ProbeResult probe_ctnetlink(SetWriterTransport& transport,

@@ -228,7 +228,8 @@ private:
   // Folds the post-apply set write probe into `effective` (published for
   // health) and caches it so later resolves honor it until the cache resets.
   void record_intercept_set_write_probe(InterceptEffective &effective,
-                                        const nfnl::ProbeResult &set_write);
+                                        const nfnl::ProbeResult &set_write,
+                                        const nfnl::ProbeResult &timeout_update);
   // Applies the firewall without interception rules, then stops the service.
   void quiesce_intercept_service(
       const std::vector<DumpedRoute> &main_routes,
@@ -416,6 +417,10 @@ IcmpTester icmp_tester_;
   InterceptEffective intercept_effective_ GUARDED_BY(intercept_mutex_);
   InterceptServiceOptions intercept_service_options_;
   std::optional<InterceptCapabilities> intercept_capabilities_;
+  // Shared with the nft set writers: true while the nft_timeout_update probe
+  // proved the kernel extends an existing element's timeout in place.
+  std::shared_ptr<std::atomic<bool>> nft_timeout_update_ =
+      std::make_shared<std::atomic<bool>>(false);
   bool intercept_capabilities_ipv6_{true};
   std::atomic<std::uint64_t> intercept_snapshot_seq_{0};
   std::uint64_t intercept_forwarded_seq_{0};

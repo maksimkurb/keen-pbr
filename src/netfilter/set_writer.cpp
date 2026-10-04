@@ -85,6 +85,9 @@ protected:
     virtual void build(MsgBuilder& b, uint32_t seq, const SetAdd& a, bool exclusive) = 0;
     virtual bool supports_refresh() const { return false; }
     virtual void build_refresh(MsgBuilder&, uint32_t, uint32_t, const SetAdd&) {}
+    // True when refresh() may extend timeouts in place (one NEWSETELEM each).
+    virtual bool in_place_refresh() const { return false; }
+    virtual void build_in_place(MsgBuilder&, uint32_t, const SetAdd&) {}
 
 private:
     // Full: exclusive add, then resend/refresh of what existed (add()).
@@ -152,7 +155,8 @@ private:
 
     // Sends adds[sel[0..m)] in one datagram and stores each ack's errno in errs[sel[i]].
     int run_pass(const SetAdd* adds, const std::size_t* sel, std::size_t m, bool exclusive,
-                 int* errs, std::chrono::steady_clock::time_point deadline) {
+                 int* errs, std::chrono::steady_clock::time_point deadline,
+                 bool in_place = false) {
         b_.clear();
         if (remaining_ms(deadline) == 0) {
             for (std::size_t i = 0; i < m; ++i) errs[sel[i]] = ETIMEDOUT;
@@ -161,10 +165,15 @@ private:
         }
         if (batched_) b_.batch_begin(transport_->next_seq());
         const uint32_t first_seq = transport_->next_seq();
-        build(b_, first_seq, adds[sel[0]], exclusive);
-        for (std::size_t i = 1; i < m; ++i) {
-            build(b_, transport_->next_seq(), adds[sel[i]], exclusive);
-        }
+        const auto emit = [&](uint32_t seq, const SetAdd& a) {
+            if (in_place) {
+                build_in_place(b_, seq, a);
+            } else {
+                build(b_, seq, a, exclusive);
+            }
+        };
+        emit(first_seq, adds[sel[0]]);
+        for (std::size_t i = 1; i < m; ++i) emit(transport_->next_seq(), adds[sel[i]]);
         const uint32_t last_seq = first_seq + static_cast<uint32_t>(m) - 1;
         if (batched_) b_.batch_end(transport_->next_seq());
 
@@ -257,8 +266,41 @@ private:
         return rc;
     }
 
+    // refresh() with kernel support: one non-exclusive NEWSETELEM transaction
+    // restarts the timeout of every element (an element that vanished is simply
+    // created by the same message, which cannot be told apart from an update).
+    // A transaction error rolls the whole batch back, so every element then
+    // carries that error.
+    bool refresh_in_place(const SetAdd* adds, SetAddResult* out, std::size_t n,
+                          std::chrono::steady_clock::time_point deadline) {
+        all_.resize(n);
+        for (std::size_t i = 0; i < n; ++i) all_[i] = i;
+        errs_.assign(n, kPending);
+        transport_errno_ = ETIMEDOUT;
+        const int rc = run_pass(adds, all_.data(), n, /*exclusive=*/false, errs_.data(), deadline,
+                                /*in_place=*/true);
+        bool ok = true;
+        for (std::size_t i = 0; i < n; ++i) {
+            int err = errs_[i];
+            if (rc != 0) err = rc;
+            if (err == kPending) err = ETIMEDOUT;
+            if (err == 0) {
+                out[i] = SetAddResult::Refreshed;
+            } else {
+                out[i] = SetAddResult::Error;
+                last_errno_ = err;
+                ok = false;
+            }
+        }
+        return ok;
+    }
+
     bool add_chunk(Mode mode, const SetAdd* adds, SetAddResult* out, std::size_t n,
                    std::chrono::steady_clock::time_point deadline) {
+        if (mode == Mode::Existing && in_place_refresh() &&
+            std::all_of(adds, adds + n, [](const SetAdd& a) { return a.timeout_s != 0; })) {
+            return refresh_in_place(adds, out, n, deadline);
+        }
         all_.resize(n);
         for (std::size_t i = 0; i < n; ++i) all_[i] = i;
         errs_.assign(n, kPending);
@@ -425,6 +467,16 @@ protected:
 
     bool supports_refresh() const override { return true; }
 
+    void set_timeout_update_flag(std::shared_ptr<const std::atomic<bool>> flag) override {
+        timeout_update_ = std::move(flag);
+    }
+    bool in_place_refresh() const override {
+        return timeout_update_ != nullptr && timeout_update_->load(std::memory_order_relaxed);
+    }
+    void build_in_place(MsgBuilder& b, uint32_t seq, const SetAdd& a) override {
+        build_nft_refresh_setelem(b, seq, table_, a);
+    }
+
     void build_refresh(MsgBuilder& b, uint32_t del_seq, uint32_t add_seq,
                        const SetAdd& a) override {
         build_nft_delsetelem(b, del_seq, table_, a);
@@ -433,6 +485,7 @@ protected:
 
 private:
     std::string table_;
+    std::shared_ptr<const std::atomic<bool>> timeout_update_;
 };
 
 } // namespace
@@ -459,8 +512,9 @@ void build_ipset_add(MsgBuilder& b, uint32_t seq, const SetAdd& a, bool exclusiv
     b.end();
 }
 
-void build_nft_newsetelem(MsgBuilder& b, uint32_t seq, std::string_view table, const SetAdd& a,
-                          bool exclusive) {
+namespace {
+void build_nft_newsetelem_impl(MsgBuilder& b, uint32_t seq, std::string_view table,
+                               const SetAdd& a, bool exclusive, bool with_expiration) {
     const uint16_t flags = static_cast<uint16_t>(
         NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK | (exclusive ? NLM_F_EXCL : 0));
     b.begin(static_cast<uint16_t>((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_NEWSETELEM), flags, seq,
@@ -471,6 +525,9 @@ void build_nft_newsetelem(MsgBuilder& b, uint32_t seq, std::string_view table, c
     const std::size_t elem = b.nest_begin(NFTA_LIST_ELEM);
     if (a.timeout_s != 0) {
         b.put_u64_be(NFTA_SET_ELEM_TIMEOUT, static_cast<uint64_t>(a.timeout_s) * 1000u);
+        if (with_expiration) {
+            b.put_u64_be(NFTA_SET_ELEM_EXPIRATION, static_cast<uint64_t>(a.timeout_s) * 1000u);
+        }
     }
     const std::size_t key = b.nest_begin(NFTA_SET_ELEM_KEY);
     b.put(NFTA_DATA_VALUE, a.addr.data(), a.family == 6 ? 16 : 4);
@@ -478,6 +535,17 @@ void build_nft_newsetelem(MsgBuilder& b, uint32_t seq, std::string_view table, c
     b.nest_end(elem);
     b.nest_end(elems);
     b.end();
+}
+} // namespace
+
+void build_nft_newsetelem(MsgBuilder& b, uint32_t seq, std::string_view table, const SetAdd& a,
+                          bool exclusive) {
+    build_nft_newsetelem_impl(b, seq, table, a, exclusive, /*with_expiration=*/false);
+}
+
+void build_nft_refresh_setelem(MsgBuilder& b, uint32_t seq, std::string_view table,
+                               const SetAdd& a) {
+    build_nft_newsetelem_impl(b, seq, table, a, /*exclusive=*/false, /*with_expiration=*/true);
 }
 
 void build_nft_delsetelem(MsgBuilder& b, uint32_t seq, std::string_view table,

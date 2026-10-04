@@ -50,6 +50,15 @@ public:
         return add(adds, out, count, timeout_ms);
     }
 
+    // nft only: when *flag is true, refresh() extends the timeout of existing
+    // elements in place with ONE non-exclusive NEWSETELEM transaction (kernel
+    // support is established by probe_nft_timeout_update(); the daemon owns and
+    // updates the flag).  Without it (or for permanent elements) refresh() keeps
+    // the delete+add path.  Other backends ignore it.
+    virtual void set_timeout_update_flag(std::shared_ptr<const std::atomic<bool>> flag) {
+        (void)flag;
+    }
+
     // errno of the most recent Error, for logging.
     virtual int last_errno() const = 0;
 
@@ -96,6 +105,12 @@ make_nft_writer_for_test(std::string table, std::unique_ptr<SetWriterTransport> 
 void build_ipset_add(MsgBuilder& b, uint32_t seq, const SetAdd& a, bool exclusive);
 void build_nft_newsetelem(MsgBuilder& b, uint32_t seq, std::string_view table, const SetAdd& a,
                           bool exclusive);
+// In-place timeout refresh of an existing element: non-exclusive NEWSETELEM
+// carrying BOTH NFTA_SET_ELEM_TIMEOUT and NFTA_SET_ELEM_EXPIRATION (ms).  The
+// kernel (>= 6.12) only restarts the expiration when the timeout value changes
+// or an explicit expiration is given, so the expiration is always sent.
+void build_nft_refresh_setelem(MsgBuilder& b, uint32_t seq, std::string_view table,
+                               const SetAdd& a);
 void build_nft_delsetelem(MsgBuilder& b, uint32_t seq, std::string_view table,
                           const SetAdd& a);
 

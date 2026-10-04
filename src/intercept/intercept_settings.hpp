@@ -64,6 +64,9 @@ void apply_listener_probe(InterceptEffective& effective, const InterceptRuntimeP
 // DNS hold and L7 (the daemon could not fill the sets), `skipped`/`not_run` do
 // not change anything.
 void apply_set_write_probe(InterceptEffective& effective, const nfnl::ProbeResult& set_write);
+// Records the nft_timeout_update probe for health; never blocks anything.
+void apply_timeout_update_probe(InterceptEffective& effective,
+                                const nfnl::ProbeResult& timeout_update);
 
 
 } // namespace keen_pbr3

@@ -272,6 +272,80 @@ TEST_CASE("probe: set write outcomes for both backends") {
     }
 }
 
+// --- nft timeout update ---------------------------------------------------------------
+
+TEST_CASE("probe: nft timeout update message sequence and outcomes") {
+    const auto element = test_element("kpbr4d_a");
+    FakeTransport transport;
+    transport.handler = [](const MsgView& m) {
+        return m.type == kNftGetElem ? Reply{0, 0, false, 299000} : Reply{};
+    };
+    const auto ok = probe_nft_timeout_update(transport, "KeenPbrTable", element);
+    CHECK(ok.status == ProbeStatus::ok);
+    // leftover delete, add 5 s, refresh 300 s, get, final delete
+    REQUIRE(transport.types.size() == 5);
+    CHECK(transport.types[0] == kNftDelElem);
+    CHECK(transport.types[1] == kNftNewElem);
+    CHECK(transport.types[2] == kNftNewElem);
+    CHECK(transport.types[3] == kNftGetElem);
+    CHECK(transport.types[4] == kNftDelElem);
+    // The refresh is the in-place layout with a 300 s timeout and expiration.
+    MsgBuilder expected;
+    SetAdd refreshed = element;
+    refreshed.timeout_s = 300;
+    build_nft_refresh_setelem(expected, 0, "KeenPbrTable", refreshed);
+    REQUIRE(transport.raw[2].size() == expected.size());
+    // seq is the only difference
+    CHECK(std::vector<uint8_t>(transport.raw[2].begin() + 16, transport.raw[2].end()) ==
+          std::vector<uint8_t>(expected.data() + 16, expected.data() + expected.size()));
+
+    // Old kernel: the 5 s expiration stays.
+    FakeTransport old_kernel;
+    old_kernel.handler = [](const MsgView& m) {
+        return m.type == kNftGetElem ? Reply{0, 0, false, 4200} : Reply{};
+    };
+    const auto unsupported = probe_nft_timeout_update(old_kernel, "KeenPbrTable", element);
+    CHECK(unsupported.status == ProbeStatus::unsupported);
+    CHECK(old_kernel.types.back() == kNftDelElem);  // always cleaned up
+
+    // No expiration in the reply, or GET failing: inconclusive, never "ok".
+    FakeTransport no_exp;
+    CHECK(probe_nft_timeout_update(no_exp, "KeenPbrTable", element).status == ProbeStatus::error);
+    for (const int err : {EOPNOTSUPP, EINVAL, ENOENT, ETIMEDOUT}) {
+        FakeTransport failing;
+        failing.handler = [&](const MsgView& m) {
+            return m.type == kNftGetElem ? Reply{err, 0, false} : Reply{};
+        };
+        CHECK(probe_nft_timeout_update(failing, "KeenPbrTable", element).status ==
+              ProbeStatus::error);
+        CHECK(failing.types.back() == kNftDelElem);
+    }
+    // The kernel refusing the add or the refresh attributes.
+    FakeTransport add_fail;
+    add_fail.handler = [](const MsgView& m) {
+        return m.type == kNftNewElem ? Reply{EOPNOTSUPP, 0, false} : Reply{};
+    };
+    CHECK(probe_nft_timeout_update(add_fail, "KeenPbrTable", element).blocks());
+}
+
+TEST_CASE("probe: nft timeout update reads the expiration out of a NEWSETELEM reply") {
+    MsgBuilder b;
+    b.begin(kNftNewElem, 0, 1, NFPROTO_INET, 0);
+    const std::size_t elems = b.nest_begin(NFTA_SET_ELEM_LIST_ELEMENTS);
+    const std::size_t elem = b.nest_begin(NFTA_LIST_ELEM);
+    b.put_u64_be(NFTA_SET_ELEM_TIMEOUT, 300000);
+    b.put_u64_be(NFTA_SET_ELEM_EXPIRATION, 123456);
+    b.nest_end(elem);
+    b.nest_end(elems);
+    b.end();
+    int64_t value = -2;
+    REQUIRE(for_each_msg(keen_pbr3::ByteView(b.data(), b.size()), [&](const MsgView& m) {
+        value = parse_nft_setelem_expiration_ms(m);
+        return true;
+    }));
+    CHECK(value == 123456);
+}
+
 // --- ctnetlink --------------------------------------------------------------------
 
 TEST_CASE("probe: ctnetlink dump outcomes") {
@@ -444,6 +518,24 @@ TEST_CASE("kernel probe: live nf_tables probes (isolated netns only)") {
         CHECK(probe_set_write(*missing, true, "KeenPbrTable", test_element("kpbr4d_absent"))
                   .status == ProbeStatus::error);
     }
+    shell("nft delete table inet KeenPbrTable");
+}
+
+TEST_CASE("kernel probe: live nft timeout update probe (isolated netns only)") {
+    if (!live_probes_enabled()) return;
+
+    REQUIRE(shell("nft add table inet KeenPbrTable") == 0);
+    REQUIRE(shell("nft add set inet KeenPbrTable kpbr4d_probe '{ type ipv4_addr; flags timeout; }'") ==
+            0);
+    auto transport = make_probe_transport();
+    SetAdd element = test_element("kpbr4d_probe");
+    element.addr = {192, 0, 2, 254};
+    const auto result = probe_nft_timeout_update(*transport, "KeenPbrTable", element);
+    MESSAGE("live nft_timeout_update probe: " << probe_status_name(result.status) << " - "
+                                              << result.reason);
+    // Linux >= 6.12 supports it; older kernels must report "unsupported", not error.
+    CHECK((result.status == ProbeStatus::ok || result.status == ProbeStatus::unsupported));
+    CHECK(shell("nft list set inet KeenPbrTable kpbr4d_probe | grep -q 192.0.2.254") != 0);
     shell("nft delete table inet KeenPbrTable");
 }
 

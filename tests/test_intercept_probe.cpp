@@ -267,6 +267,40 @@ TEST_CASE("intercept probe: failed set write blocks and is reported with its rea
     }
 }
 
+TEST_CASE("intercept probe: nft timeout update runs only for nftables on a dynamic set") {
+    const std::vector<FirewallSetDeclaration> sets{{"kpbr4d_a", FirewallFamily::ipv4, 0}};
+    {
+        Script script;
+        CHECK(probe_intercept_nft_timeout_update(FirewallBackend::iptables, sets, script.env())
+                  .status == ProbeStatus::not_run);
+        CHECK(script.transports == 0);
+        CHECK(probe_intercept_nft_timeout_update(FirewallBackend::nftables, {}, script.env())
+                  .status == ProbeStatus::skipped);
+    }
+    {
+        Script script;
+        script.answer = [](const MsgView& m) {
+            return m.type == kNftGetElem ? Reply{0, 0, false, 299000} : Reply{};
+        };
+        const auto result =
+            probe_intercept_nft_timeout_update(FirewallBackend::nftables, sets, script.env());
+        CHECK(result.status == ProbeStatus::ok);
+        REQUIRE(script.seen.size() == 5);
+        // Reserved documentation address 192.0.2.254, distinct from the set_write probe's .255.
+        CHECK(bytes_contain(script.raw[1], {192, 0, 2, 254}));
+    }
+    {
+        Script script;  // old kernel keeps the 5 s expiration
+        script.answer = [](const MsgView& m) {
+            return m.type == kNftGetElem ? Reply{0, 0, false, 3000} : Reply{};
+        };
+        const auto result =
+            probe_intercept_nft_timeout_update(FirewallBackend::nftables, sets, script.env());
+        CHECK(result.status == ProbeStatus::unsupported);
+        CHECK_FALSE(result.is_ok());
+    }
+}
+
 // --- effective settings follow the probes ---------------------------------------------
 
 TEST_CASE("effective intercept: a cached listener failure disables only that part") {
@@ -415,7 +449,7 @@ TEST_CASE("health JSON reports probes, warnings and capability extras") {
 
     std::map<std::string, nlohmann::json> by_feature;
     for (const auto& probe : health["probes"]) by_feature[probe["feature"]] = probe;
-    REQUIRE(by_feature.size() == 7);
+    REQUIRE(by_feature.size() == 8);
     CHECK(by_feature["set_backend"]["status"] == "ok");
     CHECK(by_feature["set_backend"]["reason"] == "ipset protocol 7");
     CHECK(by_feature["nfqueue"]["status"] == "ok");
@@ -434,7 +468,7 @@ TEST_CASE("health JSON before any probe leaves optional fields out of the pictur
     CHECK(health["capabilities"]["fail_open"].is_null());
     CHECK(health["capabilities"]["payload_replacement"].is_null());
     CHECK(health["capabilities"]["conntrack_cleanup"].is_null());
-    REQUIRE(health["probes"].size() == 7);
+    REQUIRE(health["probes"].size() == 8);
     for (const auto& probe : health["probes"]) CHECK(probe["status"] == "not_run");
 
     // Unknown replacement (pre-4.9, non-initial netns) is its own value.

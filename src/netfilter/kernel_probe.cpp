@@ -147,6 +147,43 @@ void build_nfqueue_flags(MsgBuilder& b, uint32_t seq, uint16_t queue_num, uint32
     b.end();
 }
 
+void build_nft_getsetelem(MsgBuilder& b, uint32_t seq, std::string_view table,
+                          const SetAdd& element) {
+    b.begin(static_cast<uint16_t>((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_GETSETELEM), kReqAck, seq,
+            NFPROTO_INET, 0);
+    b.put_strz(NFTA_SET_ELEM_LIST_TABLE, table);
+    b.put_strz(NFTA_SET_ELEM_LIST_SET, element.set_name);
+    const std::size_t elems = b.nest_begin(NFTA_SET_ELEM_LIST_ELEMENTS);
+    const std::size_t elem = b.nest_begin(NFTA_LIST_ELEM);
+    const std::size_t key = b.nest_begin(NFTA_SET_ELEM_KEY);
+    b.put(NFTA_DATA_VALUE, element.addr.data(), element.family == 6 ? 16 : 4);
+    b.nest_end(key);
+    b.nest_end(elem);
+    b.nest_end(elems);
+    b.end();
+}
+
+int64_t parse_nft_setelem_expiration_ms(const MsgView& message) {
+    int64_t result = -1;
+    if (message.type != ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_NEWSETELEM)) return result;
+    (void)for_each_attr(message.attrs, [&](const Attr& list_attr) {
+        if ((list_attr.type & NLA_TYPE_MASK) != NFTA_SET_ELEM_LIST_ELEMENTS) return true;
+        return for_each_attr(list_attr.payload, [&](const Attr& elem_attr) {
+            if ((elem_attr.type & NLA_TYPE_MASK) != NFTA_LIST_ELEM) return true;
+            (void)for_each_attr(elem_attr.payload, [&](const Attr& field) {
+                if ((field.type & NLA_TYPE_MASK) == NFTA_SET_ELEM_EXPIRATION &&
+                    field.payload.size() >= 8) {
+                    result = static_cast<int64_t>(attr_u64_be(field));
+                    return false;
+                }
+                return true;
+            });
+            return false;  // only the first element matters
+        });
+    });
+    return result;
+}
+
 IpsetProtocolProbe probe_ipset_protocol(SetWriterTransport& transport, int timeout_ms) {
     IpsetProtocolProbe out;
     MsgBuilder request(256);
@@ -250,6 +287,83 @@ ProbeResult probe_set_write(SetWriterTransport& transport, bool nft_backend,
                                      "s");
     }
     return make_probe_result(ProbeStatus::ok, "element add/delete accepted");
+}
+
+ProbeResult probe_nft_timeout_update(SetWriterTransport& transport, std::string_view nft_table,
+                                     const SetAdd& element, int timeout_ms) {
+    const std::string what = "nft timeout update in set '" + std::string(element.set_name) + "'";
+    const auto batched = [&](const std::function<void(MsgBuilder&, uint32_t)>& build) {
+        MsgBuilder request(512);
+        request.batch_begin(transport.next_seq());
+        const uint32_t seq = transport.next_seq();
+        build(request, seq);
+        request.batch_end(transport.next_seq());
+        return run_single(transport, request, seq, timeout_ms, nullptr);
+    };
+    const auto remove = [&] {
+        return batched([&](MsgBuilder& b, uint32_t seq) {
+            build_nft_delsetelem(b, seq, nft_table, element);
+        });
+    };
+
+    // A leftover with a long timeout would make an old kernel look capable.
+    (void)remove();
+
+    SetAdd probe = element;
+    probe.timeout_s = 5;
+    int rc = batched([&](MsgBuilder& b, uint32_t seq) {
+        build_nft_newsetelem(b, seq, nft_table, probe, /*exclusive=*/false);
+    });
+    if (rc != 0) {
+        ProbeResult result = classify_errno(rc, what + ": add");
+        if (result.status == ProbeStatus::ok) result.status = ProbeStatus::error;
+        return result;
+    }
+
+    ProbeResult result;
+    probe.timeout_s = 300;
+    rc = batched([&](MsgBuilder& b, uint32_t seq) {
+        build_nft_refresh_setelem(b, seq, nft_table, probe);
+    });
+    if (rc != 0) {
+        result = classify_errno(rc, what + ": refresh");
+        if (result.status == ProbeStatus::ok) result.status = ProbeStatus::error;
+    } else {
+        MsgBuilder request(512);
+        const uint32_t seq = transport.next_seq();
+        build_nft_getsetelem(request, seq, nft_table, probe);
+        int64_t expiration_ms = -1;
+        rc = run_single(transport, request, seq, timeout_ms, [&](const MsgView& m) {
+            const int64_t value = parse_nft_setelem_expiration_ms(m);
+            if (value >= 0) expiration_ms = value;
+        });
+        if (rc != 0) {
+            result = classify_errno(rc, what + ": read back");
+            if (result.status == ProbeStatus::ok) result.status = ProbeStatus::error;
+            // The kernel not knowing GETSETELEM says nothing about the update.
+            if (result.status == ProbeStatus::unsupported) result.status = ProbeStatus::error;
+        } else if (expiration_ms < 0) {
+            result = make_probe_result(ProbeStatus::error,
+                                       what + ": read back carried no expiration");
+        } else if (expiration_ms > 10000) {
+            result = make_probe_result(ProbeStatus::ok,
+                                       "existing element timeout extended in place (remaining " +
+                                           std::to_string(expiration_ms) + " ms)");
+        } else {
+            result = make_probe_result(
+                ProbeStatus::unsupported,
+                "kernel keeps the old expiration of an existing element (remaining " +
+                    std::to_string(expiration_ms) +
+                    " ms after refresh to 300 s); using delete+add refresh");
+        }
+    }
+
+    const int del_rc = remove();
+    if (del_rc != 0 && del_rc != ENOENT && result.status == ProbeStatus::ok) {
+        result.reason += "; cleanup delete failed (" + std::string(std::strerror(del_rc)) +
+                         "), probe element expires on its own";
+    }
+    return result;
 }
 
 ProbeResult probe_ctnetlink(SetWriterTransport& transport, int timeout_ms) {

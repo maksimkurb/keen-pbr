@@ -309,7 +309,11 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         // rules pointing at a listener that cannot do its job: detach them
         // (never failing the apply itself) and report why.
         const auto set_write = probe_intercept_set_write(firewall_->backend(), applied_sets);
-        record_intercept_set_write_probe(intercept, set_write);
+        nfnl::ProbeResult timeout_update;
+        if (!set_write.blocks()) {
+            timeout_update = probe_intercept_nft_timeout_update(firewall_->backend(), applied_sets);
+        }
+        record_intercept_set_write_probe(intercept, set_write, timeout_update);
         if (!intercept.active()) {
             Logger::instance().warn(
                 "Interception disabled: set write probe failed ({}); detaching interception rules",

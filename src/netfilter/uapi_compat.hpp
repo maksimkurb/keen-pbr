@@ -53,6 +53,7 @@
 // Only the subset used by set_writer.cpp, with upstream values.
 enum nf_tables_msg_types {
     NFT_MSG_NEWSETELEM = 12,
+    NFT_MSG_GETSETELEM = 13,
     NFT_MSG_DELSETELEM = 14,
 };
 enum nft_set_elem_list_attributes {
@@ -66,6 +67,7 @@ enum nft_list_attributes {
 enum nft_set_elem_attributes {
     NFTA_SET_ELEM_KEY = 1,
     NFTA_SET_ELEM_TIMEOUT = 4,
+    NFTA_SET_ELEM_EXPIRATION = 5,
 };
 enum nft_data_attributes {
     NFTA_DATA_VALUE = 1,

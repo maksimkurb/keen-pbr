@@ -165,6 +165,20 @@ show how well the cache works. An element refreshed after the verdict is not
 counted again in `set_refreshed`; `set_refreshed` counts elements found already
 present when they were first written.
 
+How an element's timeout is extended depends on the kernel. With nftables,
+Linux 6.12 and newer extend the timeout of an existing element in place when a
+non-exclusive `NEWSETELEM` carries a new `NFTA_SET_ELEM_TIMEOUT` and
+`NFTA_SET_ELEM_EXPIRATION` (mainline commit
+[`4201f3938914`](https://github.com/torvalds/linux/commit/4201f3938914d8df3c761754b9726770c4225d66)
+"netfilter: nf_tables: set element timeout update support", first in v6.12).
+When the `nft_timeout_update` [probe](#runtime-probes) proves that, a post-verdict
+refresh of any number of elements is one nf_tables transaction. An element that
+vanished in the meantime is created by the same message, so a successful
+refresh is always reported as refreshed (it cannot be told apart from an
+update). On older kernels, which silently keep the old expiration, and for
+permanent elements (timeout 0) the refresh stays a delete plus add of the
+element in one batch. The ipset backend is not affected.
+
 `set_write_slow` counts set writes (on-time, late and L7) that took 20 ms or
 more. Each such write is also logged at info, at most once per 10 s, as
 `intercept: slow set write <us> (send <us>, ack <us>, batch <n> elems, set <name>)`:
@@ -264,6 +278,7 @@ features, so keen-pbr does not trust these numbers at runtime: see
 | nf_tables: batch (`NFNL_MSG_BATCH_BEGIN`), `NFT_MSG_NEWSETELEM`/`DELSETELEM` | 3.13 | `nfnetlink.h`, `nf_tables.h`, `nf_tables_api.c` | set writes, nft | required |
 | nf_tables `inet` family (`NFPROTO_INET`) | 3.14 | `include/uapi/linux/netfilter.h` | nft | required |
 | nf_tables set element timeout (`NFT_SET_TIMEOUT`, `NFTA_SET_ELEM_TIMEOUT`) | 4.1 | `nf_tables.h` | set writes, nft | required |
+| nf_tables update of an existing element's timeout by a non-exclusive `NEWSETELEM` (`NFT_TRANS_UPD_TIMEOUT`/`_EXPIRATION`) | 6.12 | `net/netfilter/nf_tables_api.c`, commit `4201f3938914` | one-transaction timeout refresh, nft | optional: refresh uses delete+add (`nft_timeout_update` probe) |
 | ctnetlink dump and delete | 2.6.16 | `net/netfilter/nf_conntrack_netlink.c` | conntrack cleanup | optional: cleanup disabled |
 | ctnetlink `CTA_ZONE` | 2.6.34 | `nfnetlink_conntrack.h` | conntrack cleanup | optional (zones are only read when present) |
 | ctnetlink `CTA_TUPLE_ZONE` | 4.3 | `nfnetlink_conntrack.h` | conntrack cleanup | optional |
@@ -321,6 +336,7 @@ traffic and a probe never fails a configuration apply.
 | `payload_replacement` | `NS_GET_USERNS` owner of the network namespace | `supported`, `unsupported` or `unknown`; informational |
 | `nflog` | bind of the configured group, done by the service itself | failure disables L7 only |
 | `set_write` | after the firewall created the sets: add and delete of `192.0.2.255` / `2001:db8::ffff` with a 1 s timeout on one `kpbr4d_*`/`kpbr6d_*` set (ipset `ADD`/`DEL`, nft `NEWSETELEM`/`DELSETELEM`) | failure removes the interception rules again and disables DNS hold and L7; `skipped` when no dynamic set exists |
+| `nft_timeout_update` | nftables only, after `set_write` succeeded: on one dynamic set, delete any leftover of `192.0.2.254` / `2001:db8::fffe`, add it with a 5 s timeout, send the in-place refresh (non-exclusive `NEWSETELEM`, timeout and expiration 300 s), read the expiration back with `GETSETELEM` and delete the element again. `ok` only when the remaining expiration is above 10 s | `unsupported`/`error`: the writer keeps the delete+add refresh; never disables anything; `skipped` without a dynamic set, `not_run` for ipset |
 | `conntrack` | a ctnetlink dump request, abandoned after the first reply | failure disables conntrack cleanup only (warning) |
 
 `kernel_release` (`uname -r`) is reported for information and is never used to

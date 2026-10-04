@@ -1,8 +1,10 @@
 #include <doctest/doctest.h>
 
+#include "../src/netfilter/kernel_probe.hpp"
 #include "../src/netfilter/set_writer.hpp"
 
 #include <atomic>
+#include <memory>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -222,6 +224,87 @@ TEST_CASE("set_writer: refresh() starts without an exclusive probe") {
     REQUIRE(fake->calls.size() == 2);
     CHECK((fake->calls[0].flags[1] & NLM_F_EXCL) == 0);  // no exclusive pass at all
     CHECK(fake->calls[1].types[1] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM));
+}
+
+TEST_CASE("set_writer: nft refresh with kernel support is one non-exclusive transaction") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{0, 0, 0}, 0, 0}};
+    auto writer = make_nft_writer_for_test("table", std::move(transport));
+    writer->set_timeout_update_flag(std::make_shared<std::atomic<bool>>(true));
+    const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2), fake_v4("set", 3)};
+    SetAddResult results[3]{};
+
+    REQUIRE(writer->refresh(adds, results, 3, 100));
+    for (const auto r : results) CHECK(r == SetAddResult::Refreshed);
+    REQUIRE(fake->calls.size() == 1);  // the only transaction
+    const auto& call = fake->calls[0];
+    REQUIRE(call.types.size() == 5);   // batch begin, 3 x NEWSETELEM, batch end
+    for (int i = 1; i <= 3; ++i) {
+        CHECK(call.types[i] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_NEWSETELEM));
+        CHECK((call.flags[i] & NLM_F_EXCL) == 0);
+    }
+}
+
+TEST_CASE("set_writer: nft in-place refresh failure marks every element and does not fall back") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{0, ENOENT}, ENOENT, 0}};  // batch aborted: first ack is rolled back too
+    auto writer = make_nft_writer_for_test("table", std::move(transport));
+    writer->set_timeout_update_flag(std::make_shared<std::atomic<bool>>(true));
+    const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2)};
+    SetAddResult results[2]{};
+
+    CHECK_FALSE(writer->refresh(adds, results, 2, 100));
+    CHECK(results[0] == SetAddResult::Error);
+    CHECK(results[1] == SetAddResult::Error);
+    CHECK(writer->last_errno() == ENOENT);
+    CHECK(fake->calls.size() == 1);
+}
+
+TEST_CASE("set_writer: nft refresh without kernel support or flag keeps delete+add") {
+    for (const bool use_flag : {false, true}) {
+        CAPTURE(use_flag);
+        auto transport = std::make_unique<FakeTransport>();
+        auto* fake = transport.get();
+        fake->replies = {{{0}, 0, 0}, {{0, 0}, 0, 0}};
+        auto writer = make_nft_writer_for_test("table", std::move(transport));
+        if (use_flag) writer->set_timeout_update_flag(std::make_shared<std::atomic<bool>>(false));
+        const SetAdd adds[] = {fake_v4("set", 1)};
+        SetAddResult results[1]{};
+        REQUIRE(writer->refresh(adds, results, 1, 100));
+        CHECK(results[0] == SetAddResult::Refreshed);
+        REQUIRE(fake->calls.size() == 2);
+        CHECK(fake->calls[1].types[1] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM));
+    }
+}
+
+TEST_CASE("set_writer: nft in-place refresh is not used for permanent elements") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{0}, 0, 0}, {{0, 0}, 0, 0}};
+    auto writer = make_nft_writer_for_test("table", std::move(transport));
+    writer->set_timeout_update_flag(std::make_shared<std::atomic<bool>>(true));
+    SetAdd add = fake_v4("set", 1);
+    add.timeout_s = 0;
+    SetAddResult result{};
+    REQUIRE(writer->refresh(&add, &result, 1, 100));
+    REQUIRE(fake->calls.size() == 2);
+    CHECK(fake->calls[1].types[1] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM));
+}
+
+TEST_CASE("set_writer: the in-place flag does not change add() or add_new()") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{0}, 0, 0}};
+    auto writer = make_nft_writer_for_test("table", std::move(transport));
+    writer->set_timeout_update_flag(std::make_shared<std::atomic<bool>>(true));
+    const SetAdd add = fake_v4("set", 1);
+    SetAddResult result{};
+    REQUIRE(writer->add_new(&add, &result, 1, 100));
+    CHECK(result == SetAddResult::Added);
+    REQUIRE(fake->calls.size() == 1);
+    CHECK((fake->calls[0].flags[1] & NLM_F_EXCL) != 0);
 }
 
 TEST_CASE("set_writer: ipset refresh() is one non-exclusive request") {
@@ -458,6 +541,27 @@ TEST_CASE("set_writer: nft newsetelem v4 with timeout 30s, exclusive") {
     CHECK(to_vec(b) == expected);
 }
 
+TEST_CASE("set_writer: nft in-place refresh message carries timeout and expiration") {
+    MsgBuilder b;
+    build_nft_refresh_setelem(b, 1, "t", v4_add(30));
+    const std::vector<uint8_t> expected = {
+        0x50, 0x00, 0x00, 0x00, 0x0c, 0x0a, 0x05, 0x04,  // len 80, NEWSETELEM, REQ|CREATE|ACK (no EXCL)
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x01, 0x00, 0x00, 0x00,                          // NFPROTO_INET, v0, res_id 0
+        0x06, 0x00, 0x01, 0x00, 't',  0x00, 0x00, 0x00,  // LIST_TABLE "t"
+        0x06, 0x00, 0x02, 0x00, 's',  0x00, 0x00, 0x00,  // LIST_SET "s"
+        0x2c, 0x00, 0x03, 0x80,                          // LIST_ELEMENTS | NESTED
+        0x28, 0x00, 0x01, 0x80,                          // LIST_ELEM | NESTED
+        0x0c, 0x00, 0x04, 0x00,                          // ELEM_TIMEOUT
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x75, 0x30,  // 30000 ms (BE)
+        0x0c, 0x00, 0x05, 0x00,                          // ELEM_EXPIRATION
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x75, 0x30,  // 30000 ms (BE)
+        0x0c, 0x00, 0x01, 0x80,                          // ELEM_KEY | NESTED
+        0x08, 0x00, 0x01, 0x00, 0x01, 0x02, 0x03, 0x04,  // DATA_VALUE
+    };
+    CHECK(to_vec(b) == expected);
+}
+
 TEST_CASE("set_writer: nft newsetelem v6 without timeout, non-exclusive") {
     MsgBuilder b;
     build_nft_newsetelem(b, 1, "t", v6_add(0), false);
@@ -554,6 +658,100 @@ double time_batches(DynamicSetWriter& w, std::string_view set, int total, int ba
 }
 
 } // namespace
+
+namespace {
+
+// Remaining expiration of one IPv4 element read back with GETSETELEM; -1 when absent.
+int64_t live_expiration_ms(const std::string& table, std::string_view set, const SetAdd& element) {
+    auto transport = make_probe_transport();
+    SetAdd probe = element;
+    probe.set_name = set;
+    MsgBuilder request(512);
+    const uint32_t seq = transport->next_seq();
+    build_nft_getsetelem(request, seq, table, probe);
+    int64_t value = -1;
+    const int rc = transport->transact(request.data(), request.size(), seq, seq, 1000,
+                                       [&](const MsgView& m) {
+                                           const int64_t v = parse_nft_setelem_expiration_ms(m);
+                                           if (v >= 0) value = v;
+                                       },
+                                       [](uint32_t, int) {});
+    return rc == 0 ? value : -1;
+}
+
+} // namespace
+
+TEST_CASE("set_writer: live nft in-place timeout refresh (isolated netns only)") {
+    if (!isolated_netns_guard()) return;
+    const std::string table = "KeenPbrTable";
+    REQUIRE(sh("nft add table inet " + table) == 0);
+    REQUIRE(sh("nft add set inet " + table + " kpbr4d_up '{ type ipv4_addr; flags timeout; }'") ==
+            0);
+
+    auto transport = make_probe_transport();
+    SetAdd probe_element = v4_add(1);
+    probe_element.set_name = "kpbr4d_up";
+    probe_element.addr = {192, 0, 2, 254};
+    const auto probe = probe_nft_timeout_update(*transport, table, probe_element);
+    MESSAGE("nft_timeout_update probe on this kernel: " << probe_status_name(probe.status) << " - "
+                                                        << probe.reason);
+    const bool supported = probe.status == ProbeStatus::ok;
+    CHECK((supported || probe.status == ProbeStatus::unsupported));
+
+    auto flag = std::make_shared<std::atomic<bool>>(supported);
+    auto w = make_nft_writer(table);
+    w->set_timeout_update_flag(flag);
+
+    SetAdd a = v4_add(30);
+    a.set_name = "kpbr4d_up";
+    a.addr = {10, 0, 0, 1};
+    SetAddResult r{};
+    REQUIRE(w->add(&a, &r, 1, 2000));
+    REQUIRE(r == SetAddResult::Added);
+
+    if (supported) {
+        // Same timeout again: only an explicit NFTA_SET_ELEM_EXPIRATION restarts it.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        const int64_t before = live_expiration_ms(table, "kpbr4d_up", a);
+        REQUIRE(before > 0);
+        REQUIRE(w->refresh(&a, &r, 1, 2000));
+        CHECK(r == SetAddResult::Refreshed);
+        const int64_t after = live_expiration_ms(table, "kpbr4d_up", a);
+        MESSAGE("same-timeout refresh: " << before << " ms -> " << after << " ms");
+        CHECK(after > before + 1000);
+
+        // Changed timeout, several elements, one of them absent (created by the same message).
+        std::vector<SetAdd> batch = bulk_v4("kpbr4d_up", 100, 3, 300);
+        SetAdd short_lived = batch[0];
+        short_lived.timeout_s = 5;
+        SetAddResult tmp{};
+        REQUIRE(w->add(&short_lived, &tmp, 1, 2000));
+        std::vector<SetAddResult> res(3);
+        REQUIRE(w->refresh(batch.data(), res.data(), 3, 2000));
+        for (const auto x : res) CHECK(x == SetAddResult::Refreshed);
+        for (const auto& e : batch) {
+            const int64_t ms = live_expiration_ms(table, "kpbr4d_up", e);
+            MESSAGE("batch refresh: expiration " << ms << " ms");
+            CHECK(ms > 10000);
+        }
+
+        // A vanished set fails the whole transaction.
+        SetAdd bad = a;
+        bad.set_name = "kpbr4d_nope";
+        CHECK_FALSE(w->refresh(&bad, &r, 1, 2000));
+        CHECK(r == SetAddResult::Error);
+    }
+
+    // Flag off: the delete+add path still extends the timeout.
+    flag->store(false);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1200));
+    const int64_t before_legacy = live_expiration_ms(table, "kpbr4d_up", a);
+    REQUIRE(w->refresh(&a, &r, 1, 2000));
+    CHECK(r == SetAddResult::Refreshed);
+    CHECK(live_expiration_ms(table, "kpbr4d_up", a) > before_legacy + 800);
+
+    sh("nft delete table inet " + table);
+}
 
 TEST_CASE("set_writer: live ipset/nft (isolated netns only)") {
     // KPBR_NETLINK_IT alone is deliberately insufficient: these operations

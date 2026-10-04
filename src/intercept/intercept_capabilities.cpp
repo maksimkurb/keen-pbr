@@ -171,13 +171,13 @@ std::vector<InterceptRuntimeProbe::Item> InterceptRuntimeProbe::items() const {
         {"nflog", nflog},
         {"set_write", set_write},
         {"conntrack", conntrack},
+        {"nft_timeout_update", timeout_update},
     };
 }
 
-nfnl::ProbeResult probe_intercept_set_write(FirewallBackend backend,
-                                            const std::vector<FirewallSetDeclaration>& sets,
-                                            const InterceptProbeEnv& env) {
-    if (!env.runtime_probes) return {};
+namespace {
+// Prefers an IPv4 dynamic set; the element is a reserved documentation address.
+const FirewallSetDeclaration* choose_probe_set(const std::vector<FirewallSetDeclaration>& sets) {
     const FirewallSetDeclaration* chosen = nullptr;
     for (const auto& set : sets) {
         const bool v4 = set.name.rfind("kpbr4d_", 0) == 0;
@@ -185,20 +185,49 @@ nfnl::ProbeResult probe_intercept_set_write(FirewallBackend backend,
         if (!v4 && !v6) continue;
         if (chosen == nullptr || (v4 && chosen->name.rfind("kpbr4d_", 0) != 0)) chosen = &set;
     }
+    return chosen;
+}
+
+nfnl::SetAdd probe_element(const FirewallSetDeclaration& set, uint8_t last_octet) {
+    nfnl::SetAdd element;
+    element.set_name = set.name;
+    element.timeout_s = 1;
+    if (set.name.rfind("kpbr6d_", 0) == 0) {
+        element.family = 6;
+        element.addr = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, last_octet};
+    } else {
+        element.family = 4;
+        element.addr = {192, 0, 2, last_octet};
+    }
+    return element;
+}
+} // namespace
+
+nfnl::ProbeResult probe_intercept_nft_timeout_update(
+    FirewallBackend backend, const std::vector<FirewallSetDeclaration>& sets,
+    const InterceptProbeEnv& env) {
+    if (!env.runtime_probes || backend != FirewallBackend::nftables) return {};
+    const FirewallSetDeclaration* chosen = choose_probe_set(sets);
     if (chosen == nullptr) {
         return nfnl::make_probe_result(nfnl::ProbeStatus::skipped,
                                        "no dynamic set exists to test against");
     }
-    nfnl::SetAdd element;
-    element.set_name = chosen->name;
-    element.timeout_s = 1;
-    if (chosen->name.rfind("kpbr6d_", 0) == 0) {
-        element.family = 6;
-        element.addr = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff};
-    } else {
-        element.family = 4;
-        element.addr = {192, 0, 2, 255};
+    const nfnl::SetAdd element = probe_element(*chosen, 0xfe);
+    return with_transport(env, "nft timeout update", [&](nfnl::SetWriterTransport& t) {
+        return nfnl::probe_nft_timeout_update(t, env.nft_table, element, env.probe_timeout_ms);
+    });
+}
+
+nfnl::ProbeResult probe_intercept_set_write(FirewallBackend backend,
+                                            const std::vector<FirewallSetDeclaration>& sets,
+                                            const InterceptProbeEnv& env) {
+    if (!env.runtime_probes) return {};
+    const FirewallSetDeclaration* chosen = choose_probe_set(sets);
+    if (chosen == nullptr) {
+        return nfnl::make_probe_result(nfnl::ProbeStatus::skipped,
+                                       "no dynamic set exists to test against");
     }
+    const nfnl::SetAdd element = probe_element(*chosen, 0xff);
     const bool nft = backend == FirewallBackend::nftables;
     auto result = with_transport(env, "set write", [&](nfnl::SetWriterTransport& t) {
         return nfnl::probe_set_write(t, nft, env.nft_table, element, env.probe_timeout_ms);
