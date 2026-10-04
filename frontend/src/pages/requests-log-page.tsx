@@ -26,7 +26,8 @@ import {
   formatProcessingTime,
   processingTimeToneClass,
 } from "@/lib/processing-time"
-import { timeoutBadge, timingBreakdown } from "@/lib/timeout-cause"
+import { buildRequestFlags, methodBadge } from "@/lib/request-flags"
+import { timingBreakdown } from "@/lib/timeout-cause"
 import { cn } from "@/lib/utils"
 
 const maxRows = 2_000
@@ -37,8 +38,8 @@ type RequestRow = (DnsTestInterceptEvent | DnsTestGapEvent) & {
   uiKey: string
 }
 
-export function CurrentRequestsPage() {
-  const { t } = useTranslation()
+export function RequestsLogPage() {
+  const { t, i18n } = useTranslation()
   const [rows, setRows] = useState<RequestRow[]>([])
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle")
   const [scrollTop, setScrollTop] = useState(0)
@@ -139,7 +140,7 @@ export function CurrentRequestsPage() {
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <PageHeader
         className="mb-0 md:mb-0"
-        title={t("nav.items.currentRequests")}
+        title={t("nav.items.requestsLog")}
       />
       {copyStatus !== "idle" ? (
         <div
@@ -169,25 +170,25 @@ export function CurrentRequestsPage() {
           <TableHeader className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
             <TableRow className="h-8 hover:bg-transparent">
               <TableHead className="min-w-36 px-2 py-1 text-xs">
-                {t("currentRequests.columns.device")}
+                {t("requestsLog.columns.device")}
               </TableHead>
               <TableHead className="min-w-20 px-2 py-1 text-xs">
-                {t("currentRequests.columns.method")}
+                {t("requestsLog.columns.method")}
               </TableHead>
               <TableHead className="min-w-64 px-2 py-1 text-xs">
-                {t("currentRequests.columns.domain")}
+                {t("requestsLog.columns.domain")}
               </TableHead>
               <TableHead className="min-w-32 px-2 py-1 text-xs">
-                {t("currentRequests.columns.lists")}
+                {t("requestsLog.columns.lists")}
               </TableHead>
               <TableHead className="min-w-40 px-2 py-1 text-xs">
-                {t("currentRequests.columns.ip")}
+                {t("requestsLog.columns.ip")}
               </TableHead>
               <TableHead className="min-w-24 px-2 py-1 text-xs">
-                {t("currentRequests.columns.processingTime")}
+                {t("requestsLog.columns.processingTime")}
               </TableHead>
               <TableHead className="min-w-48 px-2 py-1 text-xs">
-                {t("currentRequests.columns.flags")}
+                {t("requestsLog.columns.flags")}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -200,6 +201,7 @@ export function CurrentRequestsPage() {
                 copyIps={copyIps}
                 index={visible.start + index}
                 key={row.uiKey}
+                language={i18n.language}
                 row={row}
                 t={t}
               />
@@ -214,7 +216,7 @@ export function CurrentRequestsPage() {
         </Table>
         {rows.length === 0 ? (
           <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-            {t("currentRequests.empty")}
+            {t("requestsLog.empty")}
           </div>
         ) : null}
       </div>
@@ -227,17 +229,19 @@ function RequestTableRow({
   index,
   copyIps,
   t,
+  language,
 }: {
   row: RequestRow
   index: number
   copyIps: (ips: string[]) => Promise<void>
   t: (key: string, options?: Record<string, unknown>) => string
+  language: string
 }) {
   if (row.type === "GAP") {
     return (
       <TableRow className="h-8 bg-amber-500/10 hover:bg-amber-500/10">
         <TableCell className="px-2 py-1 font-medium" colSpan={7}>
-          {t("currentRequests.gap", {
+          {t("requestsLog.gap", {
             from: row.from_seq,
             to: row.to_seq,
           })}
@@ -246,13 +250,7 @@ function RequestTableRow({
     )
   }
 
-  const method = {
-    dns: t("currentRequests.methods.dns"),
-    http: t("currentRequests.methods.http"),
-    sni: t("currentRequests.methods.sni"),
-    quic: t("currentRequests.methods.quic"),
-    marker: t("currentRequests.methods.marker"),
-  }[row.source]
+  const method = methodBadge(row.source, t)
   const ips = row.ips.join(", ")
   const processingUs =
     row.hold_us > 0 ? row.hold_us : (row.parse_us ?? 0) + (row.set_write_us ?? 0)
@@ -265,31 +263,29 @@ function RequestTableRow({
   ]
     .filter((value): value is string => value !== null)
     .join(", ")
-  const timeout = timeoutBadge(row)
-  const timeoutLabel = timeout
-    ? t(`currentRequests.timeout.${timeout.cause}.label`)
-    : null
-  const timeoutTooltip = timeout
-    ? t(`currentRequests.timeout.${timeout.cause}.tooltip`)
-    : null
-  const flags = [
-    row.added > 0 ? `+${row.added}` : null,
-    row.refreshed > 0 ? `↻${row.refreshed}` : null,
-    row.errors > 0 ? `!${row.errors}` : null,
-    timeoutLabel,
-    row.parse_us !== undefined ? `parse:${row.parse_us}µs` : null,
-    row.set_write_us !== undefined ? `set:${row.set_write_us}µs` : null,
-    row.seq > 0 ? `#${row.seq}` : null,
-    row.ts_ms > 0 ? `@${new Date(row.ts_ms).toISOString().slice(11, 23)}` : null,
-  ].filter((flag): flag is string => flag !== null)
+  const flags = buildRequestFlags(row, t, language)
 
   return (
     <TableRow className="h-8" data-row-index={index}>
       <TableCell className="border-r px-2 py-1 font-mono" title={row.client_ip ?? ""}>
         {row.client_ip || "—"}
       </TableCell>
-      <TableCell className="border-r px-2 py-1" title={method}>
-        {method}
+      <TableCell className="border-r px-2 py-1">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Badge
+                className={method.className}
+                size="xs"
+                tabIndex={0}
+                variant={method.variant}
+              />
+            }
+          >
+            {method.label}
+          </TooltipTrigger>
+          <TooltipContent>{method.tooltip}</TooltipContent>
+        </Tooltip>
       </TableCell>
       <TableCell className="border-r px-2 py-1 font-mono" title={row.domain}>
         {row.domain || "—"}
@@ -303,7 +299,7 @@ function RequestTableRow({
             <TooltipTrigger
               render={
                 <button
-                  aria-label={t("currentRequests.copyIps", { value: ips })}
+                  aria-label={t("requestsLog.copyIps", { value: ips })}
                   className="block max-w-56 truncate text-left font-mono underline decoration-dotted underline-offset-2"
                   onClick={() => void copyIps(row.ips)}
                   type="button"
@@ -327,35 +323,28 @@ function RequestTableRow({
         {processing.text}
       </TableCell>
       <TableCell className="px-2 py-1">
-        <Tooltip>
-          <TooltipTrigger
-            className="block"
-            render={<div className="flex w-max gap-1" />}
-          >
-            {flags.length > 0 ? (
-              flags.map((flag) => (
-                <Badge
-                  key={flag}
-                  size="xs"
-                  variant={
-                    flag.startsWith("!") ||
-                    (flag === timeoutLabel && timeout?.tone === "danger")
-                      ? "destructive"
-                      : "outline"
+        {flags.length > 0 ? (
+          <div className="flex w-max gap-1">
+            {flags.map((flag) => (
+              <Tooltip key={flag.key}>
+                <TooltipTrigger
+                  render={
+                    <Badge
+                      size="xs"
+                      tabIndex={0}
+                      variant={flag.tone === "danger" ? "destructive" : "outline"}
+                    />
                   }
                 >
-                  {flag}
-                </Badge>
-              ))
-            ) : (
-              <span className="text-muted-foreground">—</span>
-            )}
-          </TooltipTrigger>
-          <TooltipContent>
-            {flags.join(", ") || "—"}
-            {timeoutTooltip ? ` — ${timeoutTooltip}` : ""}
-          </TooltipContent>
-        </Tooltip>
+                  {flag.label}
+                </TooltipTrigger>
+                <TooltipContent>{flag.tooltip}</TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
       </TableCell>
     </TableRow>
   )

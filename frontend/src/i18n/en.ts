@@ -130,7 +130,7 @@ export const enTranslation = {
     },
     items: {
       systemMonitor: "Dashboard",
-      currentRequests: "Current requests",
+      requestsLog: "Requests log",
       settings: "Settings",
       security: "Security",
       outbounds: "Outbounds",
@@ -481,7 +481,7 @@ export const enTranslation = {
       notInIpsetButShouldBe: "Not in IPSet but should be",
     },
   },
-  currentRequests: {
+  requestsLog: {
     empty: "No requests observed yet.",
     gap: "Events {{from}}–{{to}} were lost before delivery.",
     copyIps: "Copy IP addresses: {{value}}",
@@ -525,6 +525,29 @@ export const enTranslation = {
       sni: "HTTPS SNI",
       quic: "QUIC",
       marker: "DNS marker",
+    },
+    methodTooltips: {
+      dns: "DNS response",
+      http: "HTTP request (Host header)",
+      sni: "HTTPS connection (TLS SNI)",
+      quic: "QUIC connection (Initial SNI)",
+      marker: "DNS check marker",
+    },
+    decimalSeparator: ".",
+    units: { us: "µs", ms: "ms", s: "s" },
+    flags: {
+      added_one: "{{count}} new address added to the routing set",
+      added_other: "{{count}} new addresses added to the routing set",
+      refreshed_one:
+        "{{count}} address was already in the set; its timeout was refreshed",
+      refreshed_other:
+        "{{count}} addresses were already in the set; their timeout was refreshed",
+      errors_one: "{{count}} address failed to be written to the set",
+      errors_other: "{{count}} addresses failed to be written to the set",
+      seq: "Request #{{seq}} (event sequence number)",
+      time: "Seen at {{time}} ({{date}})",
+      parse: "Response parsed in {{value}}",
+      setWrite: "Set write took {{value}}",
     },
   },
   pages: {

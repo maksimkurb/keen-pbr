@@ -3,7 +3,7 @@ import type { DnsTestInterceptEvent } from "@/api/generated/model"
 export type TimeoutBadgeTone = "danger" | "neutral"
 
 export type TimeoutBadge = {
-  /** i18n key suffix under `currentRequests.timeout`. */
+  /** i18n key suffix under `requestsLog.timeout`. */
   cause: "budget_spent_by_batch" | "admission_blocked" | "own_write_slow" | "late_batch_full" | "other"
   tone: TimeoutBadgeTone
 }

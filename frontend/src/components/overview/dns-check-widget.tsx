@@ -59,14 +59,10 @@ export function DnsCheckWidget({
       return "border-border bg-muted/20"
     }
 
-    switch (status) {
-      case "browser-fail":
-      case "sse-fail":
-        return "border-destructive/40 bg-destructive/5"
-      default:
-        return undefined
-    }
-  }, [isDisabled, status])
+    // Failures are conveyed by the red icon and text in the status message,
+    // not by filling the whole card.
+    return undefined
+  }, [isDisabled])
 
   const runCheck = () => {
     reset()

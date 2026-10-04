@@ -7,7 +7,7 @@ import { DnsRulesPage } from "@/pages/dns-rules-page"
 import { DnsServersPage } from "@/pages/dns-servers-page"
 import { DnsServerUpsertPage } from "@/pages/dns-servers-upsert-page"
 import { GeneralConfigPage } from "@/pages/general-config-page"
-import { CurrentRequestsPage } from "@/pages/current-requests-page"
+import { RequestsLogPage } from "@/pages/requests-log-page"
 import { ListUpsertPage } from "@/pages/list-upsert-page"
 import { ListsPage } from "@/pages/lists-page"
 import { OutboundUpsertPage } from "@/pages/outbound-upsert-page"
@@ -23,7 +23,10 @@ function App() {
       <ScrollToTopOnRouteChange />
       <Switch>
         <Route component={OverviewPage} path="/" />
-        <Route component={CurrentRequestsPage} path="/current-requests" />
+        <Route component={RequestsLogPage} path="/requests-log" />
+        <Route path="/current-requests">
+          <Redirect replace to="/requests-log" />
+        </Route>
         <Route component={GeneralConfigPage} path="/general" />
         <Route component={SecurityPage} path="/security" />
         <Route path="/lists/create">
