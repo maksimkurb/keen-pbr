@@ -73,6 +73,7 @@ endif
 CMAKE_OPTIONS += \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/etc/keen-pbr/config.json \
 	-DKEEN_PBR_CONTROL_SOCKET:STRING=/var/run/keen-pbr/control.sock \
+	-DKEEN_PBR_DNSMASQ_HOOK:STRING=/usr/lib/keen-pbr/dnsmasq-hook.sh \
 	-DKEEN_PBR_TARGET_OS:STRING=openwrt \
 	-DKEEN_PBR_TARGET_VERSION:STRING=$(KEEN_PBR_TARGET_VERSION) \
 	-DKEEN_PBR_TARGET_ARCH:STRING=$(KEEN_PBR_TARGET_ARCH) \
@@ -126,6 +127,7 @@ define Package/keen-pbr/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/firewall/70-keen-pbr $(1)/etc/hotplug.d/firewall/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/firewall.sh $(1)/usr/lib/keen-pbr/firewall.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/uci.sh $(1)/usr/lib/keen-pbr/uci.sh
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/dnsmasq-hook.sh $(1)/usr/lib/keen-pbr/dnsmasq-hook.sh
 	$(CP) $(PKG_BUILD_DIR)/frontend/dist/. $(1)/usr/share/keen-pbr/frontend/
 	chmod -R a=rX,u+w $(1)/usr/share/keen-pbr/frontend
 	$(INSTALL_CONF) $(KEEN_PBR_FULL_CONFIG) $(1)/etc/keen-pbr/config.json
@@ -174,6 +176,7 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/firewall/70-keen-pbr $(1)/etc/hotplug.d/firewall/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/firewall.sh $(1)/usr/lib/keen-pbr/firewall.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/uci.sh $(1)/usr/lib/keen-pbr/uci.sh
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/dnsmasq-hook.sh $(1)/usr/lib/keen-pbr/dnsmasq-hook.sh
 	$(INSTALL_CONF) $(KEEN_PBR_HEADLESS_CONFIG) $(1)/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
 	$(call KeenPbr/EmitDebugSymbol,$(1)/usr/sbin/keen-pbr)

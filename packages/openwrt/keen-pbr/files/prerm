@@ -5,6 +5,9 @@
 
 /etc/init.d/keen-pbr disable >/dev/null 2>&1 || true
 
+# Package removal: drop the dnsmasq integration (conf-script drop-in, jail mounts).
+/usr/lib/keen-pbr/dnsmasq-hook.sh remove >/dev/null 2>&1 || true
+
 # If migrating away from keen-pbr, restore dnsmasq configuration for any remaining integration.
 # This is the same idempotent migration as in postinst.
 /usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr >/dev/null 2>&1 || true

@@ -10,7 +10,7 @@ Homepage: https://github.com/maksimkurb/keen-pbr
 Package: keen-pbr-headless
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, conntrack
-Suggests: xtables-addons-dkms
+Suggests: xtables-addons-dkms, dnsmasq
 Description: Policy-based routing daemon without REST API and Web UI
  keen-pbr routes traffic selectively by IPs, CIDRs, and domains.
  This package installs the daemon and helper scripts without the REST API or frontend assets.

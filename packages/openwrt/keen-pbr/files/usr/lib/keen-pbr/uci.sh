@@ -66,6 +66,16 @@ dnsmasq_migrate_from_keen_pbr() {
     conf_line="conf-script=${KEEN_PBR_BIN} generate-resolver-config dnsmasq"
 
     for section in $(dnsmasq_sections); do
+        confdir="$(uci -q get "dhcp.${section}.confdir" || true)"
+        conf_path="${confdir:-/tmp/dnsmasq.${section}.d}/keen-pbr.conf"
+        # The old integration is recognised by kpbr_server or its keen-pbr.conf
+        # drop-in.  Without either, the addnmount entries belong to the current
+        # dnsmasq-hook.sh and must be left alone.
+        legacy=1
+        if uci_option_exists dhcp "$section" kpbr_server || [ -f "$conf_path" ]; then
+            legacy=0
+        fi
+
         if uci_option_exists dhcp "$section" kpbr_server; then
             kpbr_servers="$(uci -q get "dhcp.${section}.kpbr_server" || true)"
             current_servers="$(uci -q get "dhcp.${section}.server" || true)"
@@ -82,20 +92,20 @@ dnsmasq_migrate_from_keen_pbr() {
             changed=0
         fi
 
-        # Remove only the jail mounts that the integration added.
-        for mount_item in $(uci -q get "dhcp.${section}.addnmount" || true); do
-            case "$mount_item" in
-                /usr/sbin/keen-pbr|/etc/keen-pbr|/var/cache/keen-pbr|/var/run/keen-pbr)
-                    uci -q del_list "dhcp.${section}.addnmount=${mount_item}" || true
-                    log_info "Removed dhcp.${section}.addnmount=${mount_item}"
-                    changed=0
-                    ;;
-            esac
-        done
+        # Remove only the jail mounts that the old integration added.
+        if [ "$legacy" -eq 0 ]; then
+            for mount_item in $(uci -q get "dhcp.${section}.addnmount" || true); do
+                case "$mount_item" in
+                    /usr/sbin/keen-pbr|/etc/keen-pbr|/var/cache/keen-pbr|/var/run/keen-pbr)
+                        uci -q del_list "dhcp.${section}.addnmount=${mount_item}" || true
+                        log_info "Removed dhcp.${section}.addnmount=${mount_item}"
+                        changed=0
+                        ;;
+                esac
+            done
+        fi
 
         # Delete the drop-in only if it holds nothing but our conf-script line.
-        confdir="$(uci -q get "dhcp.${section}.confdir" || true)"
-        conf_path="${confdir:-/tmp/dnsmasq.${section}.d}/keen-pbr.conf"
         if [ -f "$conf_path" ] && grep -qxF "$conf_line" "$conf_path" &&
            ! grep -vxF "$conf_line" "$conf_path" | grep -q '[^[:space:]]'; then
             rm -f "$conf_path"

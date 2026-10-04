@@ -1,1 +1,2 @@
 packages/debian/files/lib/systemd/system/keen-pbr.service lib/systemd/system/
+packages/debian/files/usr/lib/keen-pbr/dnsmasq-hook.sh usr/lib/keen-pbr/

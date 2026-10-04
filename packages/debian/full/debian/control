@@ -10,7 +10,7 @@ Homepage: https://github.com/maksimkurb/keen-pbr
 Package: keen-pbr
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, conntrack
-Suggests: xtables-addons-dkms
+Suggests: xtables-addons-dkms, dnsmasq
 Description: Policy-based routing daemon with REST API and Web UI
  keen-pbr routes traffic selectively by IPs, CIDRs, and domains.
  This package includes the daemon, REST API, and bundled frontend assets.

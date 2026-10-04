@@ -2,6 +2,15 @@
 
 set -e
 
+# Remove the dnsmasq integration on package removal, not on upgrade.
+case "$1" in
+    remove|purge)
+        if [ -x /usr/lib/keen-pbr/dnsmasq-hook.sh ]; then
+            /usr/lib/keen-pbr/dnsmasq-hook.sh remove >/dev/null 2>&1 || true
+        fi
+        ;;
+esac
+
 if command -v systemctl >/dev/null 2>&1; then
     systemctl stop keen-pbr >/dev/null 2>&1 || true
     systemctl disable keen-pbr >/dev/null 2>&1 || true
