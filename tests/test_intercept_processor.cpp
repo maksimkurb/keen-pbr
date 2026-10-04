@@ -1032,14 +1032,15 @@ TEST_CASE("intercept cache: a due refresh waits for the verdict and goes through
     CHECK(f.proc.pending_refreshes() == 0);
 }
 
-TEST_CASE("intercept cache: a clearly later expiry is refreshed after the verdict") {
+TEST_CASE("intercept cache: remaining within 40% of TTL still skips refresh") {
     CacheFixture f;
-    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 1000)}));
-    f.dns(pkt);  // expires at +1000 s
-    f.advance_ms(70000);
-    f.dns(pkt);  // would now expire at +1070 s: 70 s later than cached > 60 s slack
-    CHECK(f.proc.pending_refreshes() == 1);
-    CHECK(f.writer.calls == 1);
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.dns(pkt);  // expires at +100 s (half TTL = 50 s)
+    REQUIRE(f.writer.calls == 1);
+    f.advance_ms(50000);  // Now at 50 s: remaining = 50 s == half TTL → no refresh yet
+    f.dns(pkt);
+    CHECK(f.proc.pending_refreshes() == 0);  // remaining == half TTL, not <, so no refresh
+    CHECK(f.counters.refresh_skipped == 1);
 }
 
 TEST_CASE("intercept cache: new snapshot and invalidate_set_cache force pre-verdict writes") {
@@ -1234,4 +1235,29 @@ TEST_CASE("intercept cache: L7 record from before an invalidation is discarded")
     f.proc.invalidate_set_cache();  // sets recreated while the work waited in the queue
     f.proc.process_l7_work(std::move(queued[0]), f.writer);
     CHECK(f.counters.set_cache_entries == 0);
+}
+
+TEST_CASE("intercept cache: three identical responses within half TTL yield one total write") {
+    CacheFixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    // First response: writes before verdict (Unknown).
+    f.dns(pkt);
+    REQUIRE(f.writer.calls == 1);
+    REQUIRE(f.counters.dns_refresh_deferred == 0);
+    REQUIRE(f.counters.refresh_skipped == 0);
+    // 30 s later (half TTL = 50 s): remaining 70 s > 50 s, no refresh needed.
+    f.advance_ms(30000);
+    f.dns(pkt);
+    CHECK(f.writer.calls == 1);  // no new write
+    CHECK(f.counters.dns_refresh_deferred == 0);
+    CHECK(f.counters.refresh_skipped == 1);
+    // 40 s later (total 70 s): remaining 30 s < 50 s, refresh is skipped too.
+    f.advance_ms(10000);
+    f.dns(pkt);
+    CHECK(f.writer.calls == 1);  // still no new write
+    CHECK(f.counters.dns_refresh_deferred == 0);
+    CHECK(f.counters.refresh_skipped == 2);
+    // After flushing, there's nothing to do.
+    f.proc.flush_late_writes();
+    CHECK(f.writer.calls == 1);
 }

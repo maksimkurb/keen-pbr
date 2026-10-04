@@ -126,12 +126,18 @@ void InterceptProcessor::classify_adds(const std::shared_ptr<const InterceptSnap
         ++hits;
         if (!queue_refreshes) continue;
         bool wants = found.state == SetElementCache::State::Stale;
-        if (!wants && found.expires_at_ms != SetElementCache::kPermanent) {
-            // A permanent element needs nothing; otherwise refresh only when the
-            // new expiry is meaningfully later than the cached one.
-            wants = add.timeout_s == 0 ||
-                    now_ms + static_cast<int64_t>(add.timeout_s) * 1000 - found.expires_at_ms >
-                        kRefreshSlackMs;
+        if (!wants) {
+            // Fresh entry: refresh only if remaining lifetime < half of the desired timeout,
+            // or if desired timeout is permanent (0) while cached is finite.
+            const int64_t remaining_ms = found.expires_at_ms - now_ms;
+            const bool cached_permanent = found.expires_at_ms == SetElementCache::kPermanent;
+            const bool desired_permanent = add.timeout_s == 0;
+            if (SetElementCache::needs_refresh(remaining_ms, add.timeout_s, cached_permanent, desired_permanent)) {
+                wants = true;
+            } else {
+                ++event.refresh_skipped;
+                bump(counters_.refresh_skipped);
+            }
         }
         if (wants && queue_refresh(snap, add, add_slots_[i])) ++event.deferred_refresh;
     }

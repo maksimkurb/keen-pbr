@@ -1615,6 +1615,10 @@ components:
           type: integer
           format: int64
           description: Timeout refreshes queued to run after the DNS verdict.
+        refresh_skipped:
+          type: integer
+          format: int64
+          description: Cached Fresh entries that did not need refresh yet (remaining lifetime > half timeout).
         refresh_dropped:
           type: integer
           format: int64

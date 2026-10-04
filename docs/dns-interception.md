@@ -136,9 +136,11 @@ response the addresses are classified before anything is written:
   exclusive add. If the kernel reports that the element already exists, it is
   not an error: the element moves to the post-verdict refresh list.
 * Cached and trusted: nothing is written before the verdict. A timeout refresh
-  is queued for after the verdict only when the new expiry would be more than
-  60 s later than the cached one (counted in `dns_refresh_deferred`, event field
-  `deferred_refresh`).
+  is queued for after the verdict only when the remaining lifetime is less than
+  half of the desired timeout (i.e., remaining_ms < desired_timeout_s * 500).
+  Elements not needing refresh are counted in `refresh_skipped` (event field
+  `refresh_skipped`). Elements queued for refresh are counted in
+  `dns_refresh_deferred` (event field `deferred_refresh`).
 * Cached but older than 5 minutes (trust bound): the element is rewritten after
   the verdict, which also recreates an element removed behind the daemon's back.
 

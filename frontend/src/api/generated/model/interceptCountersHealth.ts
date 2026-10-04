@@ -29,6 +29,8 @@ export interface InterceptCountersHealth {
   set_cache_entries?: number;
   /** Timeout refreshes queued to run after the DNS verdict. */
   dns_refresh_deferred?: number;
+  /** Cached Fresh entries that did not need refresh yet (remaining lifetime > half timeout). */
+  refresh_skipped?: number;
   /** Post-verdict refreshes dropped because the pending batch was full (not an error). */
   refresh_dropped?: number;
   conntrack_requests?: number;

@@ -61,6 +61,22 @@ public:
     uint64_t epoch() const;
     std::size_t size() const;
 
+    // Decides whether a cached Fresh element needs a post-verdict refresh.
+    // Returns true if: remaining lifetime < half of the desired timeout,
+    // OR desired_timeout is permanent (0) while cached is finite.
+    // Stale entries (outside the trust age) are always refreshed by the caller.
+    // remaining_ms = cached.expires_at - now (in milliseconds).
+    static bool needs_refresh(int64_t remaining_ms, uint32_t desired_timeout_s,
+                              bool cached_permanent, bool desired_permanent) {
+        // If the new timeout is permanent but cached is finite, refresh.
+        if (desired_permanent && !cached_permanent) return true;
+        // If cached is already permanent and desired is finite, no refresh needed.
+        if (cached_permanent) return false;
+        // Both finite: refresh if less than half of the desired timeout remains.
+        const int64_t half_timeout_ms = static_cast<int64_t>(desired_timeout_s) * 500;
+        return remaining_ms < half_timeout_ms;
+    }
+
 private:
     struct Entry {
         int64_t expires_at_ms;

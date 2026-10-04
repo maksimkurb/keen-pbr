@@ -61,6 +61,7 @@ struct InterceptEvent {
     bool late_write{false};    // set write finished after the verdict was released
     uint32_t cache_hits{0};         // adds skipped before the verdict: element already cached
     uint32_t deferred_refresh{0};   // timeout refreshes queued for after the verdict
+    uint32_t refresh_skipped{0};    // cached Fresh elements not needing refresh yet
 };
 
 // A matched L7 packet is handed to the service's bounded worker when DNS
@@ -96,6 +97,7 @@ struct InterceptCounters {
     std::atomic<uint64_t> set_cache_misses{0};
     std::atomic<uint64_t> set_cache_entries{0};  // gauge
     std::atomic<uint64_t> dns_refresh_deferred{0};
+    std::atomic<uint64_t> refresh_skipped{0};
     std::atomic<uint64_t> refresh_dropped{0};
     std::atomic<uint64_t> conntrack_requests{0};
     std::atomic<uint64_t> conntrack_deleted{0};

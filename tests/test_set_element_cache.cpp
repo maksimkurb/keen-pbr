@@ -141,3 +141,38 @@ TEST_CASE("set cache: eviction picks the smallest expiry inside the window") {
     CHECK(cache.lookup(7, 4, v4(100, 0, 0, 1), 1).state == State::Fresh);
     CHECK(cache.lookup(7, 4, v4(100, 0, 0, 2), 1).state == State::Unknown);
 }
+
+TEST_CASE("needs_refresh: permanent timeout over permanent cache") {
+    // Both permanent: no refresh needed.
+    CHECK_FALSE(SetElementCache::needs_refresh(1000, 0, true, true));
+}
+
+TEST_CASE("needs_refresh: finite timeout over permanent cache") {
+    // Cached is permanent (infinite expiry), desired is finite: no refresh.
+    CHECK_FALSE(SetElementCache::needs_refresh(50000, 100, true, false));
+}
+
+TEST_CASE("needs_refresh: permanent timeout over finite cache") {
+    // Cached is finite, desired is permanent (timeout 0): always refresh.
+    CHECK(SetElementCache::needs_refresh(50000, 0, false, true));
+}
+
+TEST_CASE("needs_refresh: finite timeout with remaining at various thresholds") {
+    // Both finite. Test remaining at boundaries of half-timeout.
+    const uint32_t timeout_s = 100;
+    const int64_t half_timeout_ms = 50000;  // 100 * 500
+
+    // remaining < half: refresh needed
+    CHECK(SetElementCache::needs_refresh(0, timeout_s, false, false));
+    CHECK(SetElementCache::needs_refresh(49999, timeout_s, false, false));
+    // remaining == half: no refresh (boundary: we want <, not <=)
+    CHECK_FALSE(SetElementCache::needs_refresh(50000, timeout_s, false, false));
+    // remaining > half: no refresh
+    CHECK_FALSE(SetElementCache::needs_refresh(50001, timeout_s, false, false));
+    CHECK_FALSE(SetElementCache::needs_refresh(100000, timeout_s, false, false));
+}
+
+TEST_CASE("needs_refresh: zero timeout (permanent) over finite cache") {
+    // Covers the special case: timeout_s==0 with finite cache.
+    CHECK(SetElementCache::needs_refresh(10000, 0, false, true));
+}

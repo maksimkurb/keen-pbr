@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesMhNQiq data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesZivAmf data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -493,6 +493,7 @@ namespace api {
         std::optional<int64_t> marker_hits;
         std::optional<int64_t> queue_overruns;
         std::optional<int64_t> refresh_dropped;
+        std::optional<int64_t> refresh_skipped;
         std::optional<int64_t> set_added;
         std::optional<int64_t> set_cache_entries;
         std::optional<int64_t> set_cache_hits;
@@ -779,7 +780,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesMhNQiq {
+    struct KeenPbrTypesZivAmf {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1103,8 +1104,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesMhNQiq & x);
-    void to_json(json & j, const KeenPbrTypesMhNQiq & x);
+    void from_json(const json & j, KeenPbrTypesZivAmf & x);
+    void to_json(json & j, const KeenPbrTypesZivAmf & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1980,6 +1981,7 @@ namespace api {
         x.marker_hits = get_stack_optional<int64_t>(j, "marker_hits");
         x.queue_overruns = get_stack_optional<int64_t>(j, "queue_overruns");
         x.refresh_dropped = get_stack_optional<int64_t>(j, "refresh_dropped");
+        x.refresh_skipped = get_stack_optional<int64_t>(j, "refresh_skipped");
         x.set_added = get_stack_optional<int64_t>(j, "set_added");
         x.set_cache_entries = get_stack_optional<int64_t>(j, "set_cache_entries");
         x.set_cache_hits = get_stack_optional<int64_t>(j, "set_cache_hits");
@@ -2008,6 +2010,7 @@ namespace api {
         j["marker_hits"] = x.marker_hits;
         j["queue_overruns"] = x.queue_overruns;
         j["refresh_dropped"] = x.refresh_dropped;
+        j["refresh_skipped"] = x.refresh_skipped;
         j["set_added"] = x.set_added;
         j["set_cache_entries"] = x.set_cache_entries;
         j["set_cache_hits"] = x.set_cache_hits;
@@ -2529,7 +2532,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesMhNQiq& x) {
+    inline void from_json(const json & j, KeenPbrTypesZivAmf& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2615,7 +2618,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesMhNQiq & x) {
+    inline void to_json(json & j, const KeenPbrTypesZivAmf & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
