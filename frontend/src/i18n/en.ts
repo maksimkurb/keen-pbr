@@ -482,8 +482,6 @@ export const enTranslation = {
     },
   },
   currentRequests: {
-    description:
-      "Live DNS and application requests observed by the interceptor. Device shows the observed client IP when packet attribution is available; LAN inventory names are not exposed here.",
     empty: "No requests observed yet.",
     gap: "Events {{from}}–{{to}} were lost before delivery.",
     copyIps: "Copy IP addresses: {{value}}",

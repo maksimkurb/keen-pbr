@@ -22,10 +22,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { PageHeader } from "@/components/shared/page-header"
+import {
+  formatProcessingTime,
+  processingTimeToneClass,
+} from "@/lib/processing-time"
+import { cn } from "@/lib/utils"
 
 const maxRows = 2_000
 const rowHeight = 32
-const viewportHeight = 560
+const defaultViewportHeight = 560
 
 type RequestRow = (DnsTestInterceptEvent | DnsTestGapEvent) & {
   uiKey: string
@@ -36,6 +41,7 @@ export function CurrentRequestsPage() {
   const [rows, setRows] = useState<RequestRow[]>([])
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle")
   const [scrollTop, setScrollTop] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(defaultViewportHeight)
   const viewportRef = useRef<HTMLDivElement>(null)
   const rowsRef = useRef<RequestRow[]>([])
   const pendingRef = useRef<DnsTestStreamEvent[]>([])
@@ -85,11 +91,21 @@ export function CurrentRequestsPage() {
     }
   }, [flush])
 
+  useEffect(() => {
+    const element = viewportRef.current
+    if (!element) return
+    const update = () => setViewportHeight(element.clientHeight)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
   const visible = useMemo(() => {
     const start = Math.max(0, Math.floor(scrollTop / rowHeight) - 5)
     const count = Math.ceil(viewportHeight / rowHeight) + 10
     return { start, end: Math.min(rows.length, start + count) }
-  }, [rows.length, scrollTop])
+  }, [rows.length, scrollTop, viewportHeight])
 
   const copyIps = useCallback(async (ips: string[]) => {
     const text = ips.join(", ")
@@ -119,9 +135,9 @@ export function CurrentRequestsPage() {
   }, [])
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <PageHeader
-        description={t("currentRequests.description")}
+        className="mb-0 md:mb-0"
         title={t("nav.items.currentRequests")}
       />
       {copyStatus !== "idle" ? (
@@ -139,36 +155,35 @@ export function CurrentRequestsPage() {
         </div>
       ) : null}
       <div
-        className="overflow-x-auto rounded-md border"
+        className="min-h-0 flex-1 overflow-auto rounded-md border"
         onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
         ref={viewportRef}
-        style={{ maxHeight: viewportHeight, overflowY: "auto" }}
       >
         <Table
-          className="min-w-[980px] table-fixed text-xs"
+          className="w-full min-w-max text-xs whitespace-nowrap"
           containerClassName="overflow-visible"
         >
           <TableHeader className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
             <TableRow className="h-8 hover:bg-transparent">
-              <TableHead className="w-[13%] px-2 py-1 text-xs">
+              <TableHead className="px-2 py-1 text-xs">
                 {t("currentRequests.columns.device")}
               </TableHead>
-              <TableHead className="w-[13%] px-2 py-1 text-xs">
+              <TableHead className="px-2 py-1 text-xs">
                 {t("currentRequests.columns.method")}
               </TableHead>
-              <TableHead className="w-[24%] px-2 py-1 text-xs">
+              <TableHead className="px-2 py-1 text-xs">
                 {t("currentRequests.columns.domain")}
               </TableHead>
-              <TableHead className="w-[17%] px-2 py-1 text-xs">
+              <TableHead className="px-2 py-1 text-xs">
                 {t("currentRequests.columns.lists")}
               </TableHead>
-              <TableHead className="w-[18%] px-2 py-1 text-xs">
+              <TableHead className="px-2 py-1 text-xs">
                 {t("currentRequests.columns.ip")}
               </TableHead>
-              <TableHead className="w-[10%] px-2 py-1 text-xs">
+              <TableHead className="px-2 py-1 text-xs">
                 {t("currentRequests.columns.processingTime")}
               </TableHead>
-              <TableHead className="w-[15%] px-2 py-1 text-xs">
+              <TableHead className="px-2 py-1 text-xs">
                 {t("currentRequests.columns.flags")}
               </TableHead>
             </TableRow>
@@ -238,7 +253,7 @@ function RequestTableRow({
   const ips = row.ips.join(", ")
   const processingUs =
     row.hold_us > 0 ? row.hold_us : (row.parse_us ?? 0) + (row.set_write_us ?? 0)
-  const processing = `${processingUs} µs`
+  const processing = formatProcessingTime(processingUs)
   const processingDetail = [
     row.hold_us > 0 ? `hold ${row.hold_us} µs` : null,
     row.parse_us !== undefined ? `parse ${row.parse_us} µs` : null,
@@ -251,7 +266,6 @@ function RequestTableRow({
     row.refreshed > 0 ? `↻${row.refreshed}` : null,
     row.errors > 0 ? `!${row.errors}` : null,
     row.timed_out ? "timeout" : null,
-    row.hold_us > 0 ? `hold:${row.hold_us}µs` : null,
     row.parse_us !== undefined ? `parse:${row.parse_us}µs` : null,
     row.set_write_us !== undefined ? `set:${row.set_write_us}µs` : null,
     row.seq > 0 ? `#${row.seq}` : null,
@@ -260,16 +274,16 @@ function RequestTableRow({
 
   return (
     <TableRow className="h-8" data-row-index={index}>
-      <TableCell className="truncate border-r px-2 py-1 font-mono" title={row.client_ip ?? ""}>
+      <TableCell className="border-r px-2 py-1 font-mono" title={row.client_ip ?? ""}>
         {row.client_ip || "—"}
       </TableCell>
-      <TableCell className="truncate border-r px-2 py-1" title={method}>
+      <TableCell className="border-r px-2 py-1" title={method}>
         {method}
       </TableCell>
-      <TableCell className="truncate border-r px-2 py-1 font-mono" title={row.domain}>
+      <TableCell className="border-r px-2 py-1 font-mono" title={row.domain}>
         {row.domain || "—"}
       </TableCell>
-      <TableCell className="truncate border-r px-2 py-1" title={row.lists.join(", ")}>
+      <TableCell className="border-r px-2 py-1" title={row.lists.join(", ")}>
         {row.lists.join(", ") || "—"}
       </TableCell>
       <TableCell className="border-r px-2 py-1">
@@ -279,7 +293,7 @@ function RequestTableRow({
               render={
                 <button
                   aria-label={t("currentRequests.copyIps", { value: ips })}
-                  className="block max-w-full truncate text-left font-mono underline decoration-dotted underline-offset-2"
+                  className="block max-w-full text-left font-mono underline decoration-dotted underline-offset-2"
                   onClick={() => void copyIps(row.ips)}
                   type="button"
                 />
@@ -293,14 +307,19 @@ function RequestTableRow({
           "—"
         )}
       </TableCell>
-      <TableCell className="truncate border-r px-2 py-1 font-mono" title={processingDetail}>
-        {processing}
+      <TableCell className={cn(
+          "border-r px-2 py-1 font-mono",
+          processingTimeToneClass(processing.tone)
+        )}
+        title={processingDetail}
+      >
+        {processing.text}
       </TableCell>
       <TableCell className="px-2 py-1">
         <Tooltip>
           <TooltipTrigger
-            className="block max-w-full"
-            render={<div className="flex min-w-0 gap-1 overflow-hidden" />}
+            className="block"
+            render={<div className="flex w-max gap-1" />}
           >
             {flags.length > 0 ? (
               flags.map((flag) => (
