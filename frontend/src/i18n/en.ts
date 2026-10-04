@@ -348,6 +348,7 @@ export const enTranslation = {
       state: {
         ok: "In sync",
         applying: "Applying",
+        reconciling: "Reconciling",
         error: "Error",
         disabled: "Disabled",
       },
@@ -358,6 +359,15 @@ export const enTranslation = {
       loadedAt: "dnsmasq loaded the config at",
       externalReload: "dnsmasq restarted outside keen-pbr at",
       disabledDescription: "DNS rules integration is disabled.",
+      alive: {
+        label: "dnsmasq service",
+        dead: "Dead",
+        unknown: "Unknown",
+      },
+      repairScheduled: "Repair attempt {{n}}/{{max}} at {{time}}.",
+      repairRestarting: "Restarting dnsmasq (attempt {{n}}/{{max}}).",
+      repairPaused: "Automatic repair paused after {{max}} attempts.",
+      repairPausedHint: "Apply or Restart re-arms automatic repair.",
       lastError: "Last error",
     },
     intercept: {

@@ -2169,12 +2169,15 @@ components:
           description: Effective resolver integration mode.
         state:
           type: string
-          enum: [disabled, ok, applying, error]
+          enum: [disabled, ok, applying, reconciling, error]
           description: >
-            - disabled: resolver integration is `none`
+            - disabled: resolver integration is `none`; keen-pbr does not touch dnsmasq
             - ok: dnsmasq confirmed (config-hash.keen.pbr TXT stamp) that it serves the current config
-            - applying: the platform hook is running or dnsmasq has not yet confirmed the new config
-            - error: generating or installing the config failed, or dnsmasq does not serve it
+            - applying: the platform hook is running or dnsmasq has not yet confirmed the config
+              (an explicit apply or an automatic repair attempt, see `repair_attempt`)
+            - reconciling: dnsmasq lost the config and the next automatic repair is scheduled (`next_repair_ts`)
+            - error: an explicit apply failed, automatic repairs are paused (`repair_paused`),
+              dnsmasq is running (or may be) but does not answer the config check, or there is no hook
         config_hash:
           type: string
           nullable: true
@@ -2227,6 +2230,39 @@ components:
           type: string
           nullable: true
           description: Failure reason of the last sync, null when the last sync succeeded.
+        repair_attempt:
+          type: integer
+          nullable: true
+          description: >
+            Automatic repair attempts (restarts because dnsmasq lost the config while the config
+            did not change) used in the current budget; 0 when none. Explicit applies are not counted.
+        repair_max_attempts:
+          type: integer
+          nullable: true
+          description: Maximum number of automatic repair attempts per budget.
+        repair_reason:
+          type: string
+          nullable: true
+          description: Why the last or current automatic repair was needed (human-readable sentence).
+        next_repair_ts:
+          type: integer
+          format: int64
+          nullable: true
+          description: Unix timestamp (seconds) when the next automatic repair may run; set only while `reconciling`.
+        repair_paused:
+          type: boolean
+          nullable: true
+          description: >
+            True when the repair attempts ran out while the problem persisted. No further automatic
+            restarts happen until the next config apply or runtime restart refills the budget, or
+            dnsmasq stays in sync for an hour.
+        dnsmasq_alive:
+          type: string
+          enum: [alive, dead, unknown]
+          nullable: true
+          description: >
+            Last answer of the platform hook `alive` (whether the service manager says dnsmasq is
+            running); asked only when dnsmasq does not answer the config check. Null if never asked.
         rules:
           type: integer
           description: Number of enabled `dns.rules` in the generated config.

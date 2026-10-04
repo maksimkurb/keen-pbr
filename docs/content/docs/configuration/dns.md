@@ -92,7 +92,8 @@ keen-pbr never writes the generated dnsmasq config to flash. Instead:
 ### On stop, disable, or uninstall
 
 - **Stopping keen-pbr**: dnsmasq is NOT restarted; the per-list upstreams remain active.
-- **Disabling the feature** (`resolver_integration: "none"`): the drop-in is removed and dnsmasq is restarted (reverts to system/ISP upstreams).
+- **Disabling the feature** (`resolver_integration: "none"`): when you switch it off while keen-pbr runs, the drop-in is removed and dnsmasq is restarted (reverts to system/ISP upstreams). While the feature is off keen-pbr never touches dnsmasq, not even at startup.
+- **dnsmasq loses the config** (restarted by something else, drop-in gone): keen-pbr restarts it at most 3 times (immediately, then after 5 and 10 minutes) and then pauses automatic repair; `state` in `/api/health/service` shows `reconciling` or `error` with the reason. Applying the configuration or restarting keen-pbr re-arms it. A dnsmasq that is running but does not answer the config check is never restarted.
 - **Uninstalling the package**: the drop-in and any persistent changes to dnsmasq config are removed; dnsmasq is restarted.
 
 ### Troubleshooting

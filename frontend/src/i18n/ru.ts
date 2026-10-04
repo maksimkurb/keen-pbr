@@ -353,6 +353,7 @@ export const ruTranslation = {
       state: {
         ok: "Синхронизирован",
         applying: "Применяется",
+        reconciling: "Восстановление",
         error: "Ошибка",
         disabled: "Отключён",
       },
@@ -363,6 +364,15 @@ export const ruTranslation = {
       loadedAt: "dnsmasq загрузил конфигурацию",
       externalReload: "dnsmasq перезапущен вне keen-pbr",
       disabledDescription: "Интеграция правил DNS отключена.",
+      alive: {
+        label: "Служба dnsmasq",
+        dead: "не запущен",
+        unknown: "неизвестно",
+      },
+      repairScheduled: "Попытка восстановления {{n}}/{{max}} в {{time}}.",
+      repairRestarting: "Перезапуск dnsmasq (попытка {{n}}/{{max}}).",
+      repairPaused: "Автоматическое восстановление остановлено после {{max}} попыток.",
+      repairPausedHint: "Кнопка «Применить» или «Перезапустить» включит его снова.",
       lastError: "Последняя ошибка",
     },
     intercept: {

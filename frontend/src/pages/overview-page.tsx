@@ -416,7 +416,7 @@ function DnsRulesSection({ health }: { health?: DnsmasqHealth }) {
   const tone =
     state === "ok"
       ? "healthy"
-      : state === "applying"
+      : state === "applying" || state === "reconciling"
         ? "warning"
         : state === "disabled"
           ? "warning"
@@ -424,6 +424,12 @@ function DnsRulesSection({ health }: { health?: DnsmasqHealth }) {
   const lastApplyTs = health?.last_apply_ts ?? null
   const loadedTs = health?.loaded_ts ?? null
   const externalReloadTs = health?.last_external_reload_ts ?? null
+  const repairAttempt = health?.repair_attempt ?? 0
+  const repairMax = health?.repair_max_attempts ?? 0
+  const nextRepairTs = health?.next_repair_ts ?? null
+  const repairPaused = health?.repair_paused === true && state === "error"
+  const alive = health?.dnsmasq_alive
+  const showAlive = alive === "dead" || alive === "unknown"
 
   return (
     <section className="min-w-0 space-y-3 p-4 lg:p-5">
@@ -493,10 +499,53 @@ function DnsRulesSection({ health }: { health?: DnsmasqHealth }) {
             </AlertDescription>
           </Alert>
         ) : null}
-        {state === "error" && health?.last_error ? (
+        {showAlive && state !== "ok" ? (
+          <StatusValue
+            label={t("overview.dnsRules.alive.label")}
+            value={t(`overview.dnsRules.alive.${alive}`)}
+          />
+        ) : null}
+        {state === "reconciling" ? (
+          <Alert className="border-border bg-muted/20">
+            <AlertDescription>
+              {nextRepairTs
+                ? t("overview.dnsRules.repairScheduled", {
+                    n: repairAttempt + 1,
+                    max: repairMax,
+                    time: new Date(nextRepairTs * 1000).toLocaleTimeString(
+                      i18n.language,
+                    ),
+                  })
+                : null}
+              {health?.repair_reason ? ` ${health.repair_reason}` : null}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {state === "applying" && repairAttempt > 0 ? (
+          <Alert className="border-border bg-muted/20">
+            <AlertDescription>
+              {t("overview.dnsRules.repairRestarting", {
+                n: repairAttempt,
+                max: repairMax,
+              })}
+              {health?.repair_reason ? ` ${health.repair_reason}` : null}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {state === "error" && (health?.last_error || repairPaused) ? (
           <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
             <AlertDescription>
-              {t("overview.dnsRules.lastError")}: {health.last_error}
+              {repairPaused ? (
+                <>
+                  {t("overview.dnsRules.repairPaused", { max: repairMax })}
+                  <br />
+                  {t("overview.dnsRules.repairPausedHint")}
+                  <br />
+                </>
+              ) : null}
+              {health?.last_error
+                ? `${t("overview.dnsRules.lastError")}: ${health.last_error}`
+                : null}
             </AlertDescription>
           </Alert>
         ) : null}

@@ -54,6 +54,7 @@ api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
     case DnsmasqSyncState::Disabled: health.state = api::State::DISABLED; break;
     case DnsmasqSyncState::Ok: health.state = api::State::OK; break;
     case DnsmasqSyncState::Applying: health.state = api::State::APPLYING; break;
+    case DnsmasqSyncState::Reconciling: health.state = api::State::RECONCILING; break;
     case DnsmasqSyncState::Error: health.state = api::State::ERROR; break;
     }
     if (!status.config_hash.empty()) health.config_hash = status.config_hash;
@@ -71,6 +72,20 @@ api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
     health.last_external_reload_ts = status.last_external_reload_ts;
     health.last_apply_ts = status.last_apply_ts;
     if (!status.last_error.empty()) health.last_error = status.last_error;
+    if (status.state != DnsmasqSyncState::Disabled) {
+        health.repair_attempt = status.repair_attempt;
+        health.repair_max_attempts = status.repair_max_attempts;
+        health.repair_paused = status.repair_paused;
+    }
+    if (!status.repair_reason.empty()) health.repair_reason = status.repair_reason;
+    health.next_repair_ts = status.next_repair_ts;
+    if (status.dnsmasq_alive) {
+        switch (*status.dnsmasq_alive) {
+        case DnsmasqLiveness::Alive: health.dnsmasq_alive = api::DnsmasqAlive::ALIVE; break;
+        case DnsmasqLiveness::Dead: health.dnsmasq_alive = api::DnsmasqAlive::DEAD; break;
+        case DnsmasqLiveness::Unknown: health.dnsmasq_alive = api::DnsmasqAlive::UNKNOWN; break;
+        }
+    }
     health.rules = static_cast<std::int64_t>(status.rules);
     health.domains = static_cast<std::int64_t>(status.domains);
     return health;

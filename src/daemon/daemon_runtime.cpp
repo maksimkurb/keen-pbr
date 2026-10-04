@@ -25,6 +25,25 @@ namespace keen_pbr3 {
 namespace {
 // How often the daemon verifies that dnsmasq still serves the keen-pbr config.
 constexpr auto kDnsmasqCheckInterval = std::chrono::seconds{30};
+
+// Maps a runtime lifecycle reason to the wording used when dnsmasq is
+// restarted because of it.
+std::string dnsmasq_apply_reason(std::string_view lifecycle_reason) {
+    if (lifecycle_reason == "startup complete" || lifecycle_reason == "runtime started") {
+        return "keen-pbr runtime started";
+    }
+    if (lifecycle_reason == "config apply verified" || lifecycle_reason == "config apply complete") {
+        return "config applied";
+    }
+    if (lifecycle_reason == "configuration rollback verified") {
+        return "rollback";
+    }
+    if (lifecycle_reason == "runtime restarted" ||
+        lifecycle_reason == "lifecycle operation complete") {
+        return "runtime restarted";
+    }
+    return std::string(lifecycle_reason);
+}
 } // namespace
 
 bool Daemon::routing_runtime_active() const {
@@ -112,10 +131,16 @@ void Daemon::complete_running_runtime(const char* reason) {
     schedule_lists_autoupdate();
     transition_runtime_or_throw(RuntimeState::running, reason);
     publish_runtime_state();
-    // Lifecycle operations are explicit user/boot actions: retry dnsmasq even
-    // if an earlier apply of the same config is backing off.
-    schedule_dnsmasq_sync(/*bypass_backoff=*/true);
-    start_dnsmasq_check();
+    // Lifecycle operations are explicit user/boot actions: install the config
+    // (not counted against the automatic repair budget, which they refill).
+    // The sync also handles a switch to dns.resolver_integration=none.
+    schedule_dnsmasq_sync(dnsmasq_apply_reason(reason), /*explicit_apply=*/true);
+    // While the DNS rules module is off dnsmasq is never probed: no check task.
+    if (dnsmasq_integration_enabled(config_)) {
+        start_dnsmasq_check();
+    } else {
+        stop_dnsmasq_check();
+    }
 }
 
 void Daemon::start_dnsmasq_check() {
@@ -138,13 +163,13 @@ void Daemon::stop_dnsmasq_check() {
     }
 }
 
-void Daemon::schedule_dnsmasq_sync(bool bypass_backoff) {
+void Daemon::schedule_dnsmasq_sync(std::string reason, bool explicit_apply) {
     dnsmasq_manager_.request_sync(
         config_, list_service_.cache_manager(),
         [this](std::function<void()> task) {
             return blocking_executor_.try_post("dnsmasq-sync", std::move(task));
         },
-        bypass_backoff);
+        explicit_apply, std::move(reason));
 }
 
 void Daemon::restart_routing_runtime() {

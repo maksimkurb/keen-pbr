@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Test KEEN_PBR_DNSMASQ_HOOK for the rootless netns harness:
-#   dnsmasq-hook.sh apply|remove|status
+#   dnsmasq-hook.sh apply|remove|status|alive
 #
 # Mirrors the platform hooks: apply installs a drop-in with
 # `conf-script=<keen-pbr> --config <cfg> generate-resolver-config dnsmasq`
 # and restarts the harness dnsmasq (service-control.sh translates the drop-in
 # into options, since dnsmasq refuses foreign-uid config files in the sandbox).
-# Every invocation is appended to $KPBR_RUNTIME/dnsmasq-hook.log.
+# Every invocation except `alive` is appended to $KPBR_RUNTIME/dnsmasq-hook.log.
+# `alive` exits 0 while the harness dnsmasq runs and 1 when it does not.
 # If $KPBR_RUNTIME/dnsmasq-hook.fail exists, apply fails.
 # If $KPBR_RUNTIME/dnsmasq-hook.nodropin exists, apply "succeeds" and restarts
 # dnsmasq but installs no drop-in (like a hook writing to a directory dnsmasq
@@ -26,7 +27,8 @@ fail_flag="$KPBR_RUNTIME/dnsmasq-hook.fail"
 nodropin_flag="$KPBR_RUNTIME/dnsmasq-hook.nodropin"
 
 mkdir -p "$KPBR_RUNTIME"
-printf '%s\n' "${1:-}" >>"$call_log"
+# `alive` is a query the daemon may repeat while dnsmasq is silent; it is not logged.
+[[ "${1:-}" == alive ]] || printf '%s\n' "${1:-}" >>"$call_log"
 
 case "${1:-}" in
   apply)
@@ -52,8 +54,12 @@ case "${1:-}" in
   status)
     if [[ -f "$conf_file" ]]; then echo installed; else echo not-installed; fi
     ;;
+  alive)
+    # service-control.sh `status` exits 0 for a running unit, 3 otherwise.
+    if bash "$service" status dnsmasq >/dev/null 2>&1; then exit 0; else exit 1; fi
+    ;;
   *)
-    echo "usage: $0 apply|remove|status" >&2
+    echo "usage: $0 apply|remove|status|alive" >&2
     exit 64
     ;;
 esac

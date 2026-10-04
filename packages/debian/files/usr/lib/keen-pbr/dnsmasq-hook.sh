@@ -1,12 +1,17 @@
 #!/bin/sh
-# keen-pbr dnsmasq hook (Debian): dnsmasq-hook.sh apply|remove|status
+# keen-pbr dnsmasq hook (Debian): dnsmasq-hook.sh apply|remove|status|alive
 #
 # Installs /etc/dnsmasq.d/keen-pbr-upstream-dns.conf (written only when its
 # content differs) and restarts dnsmasq.
+#
+# `alive` exits 0 when dnsmasq is active, 1 when it is not and 2 when that
+# cannot be told (no systemctl).
 
 KEEN_PBR_BIN="${KEEN_PBR_BIN:-/usr/sbin/keen-pbr}"
 DNSMASQ_CONF_DIR="${DNSMASQ_CONF_DIR:-/etc/dnsmasq.d}"
 RESTART_CMD="${RESTART_CMD:-systemctl restart dnsmasq}"
+# Overridable for tests; unset means `systemctl is-active --quiet dnsmasq`.
+ALIVE_CMD="${ALIVE_CMD:-}"
 CONF_FILE="$DNSMASQ_CONF_DIR/keen-pbr-upstream-dns.conf"
 
 log() {
@@ -23,6 +28,20 @@ die() {
 
 do_restart() {
     eval "$RESTART_CMD" >/dev/null 2>&1 || die 1 "failed to restart dnsmasq"
+}
+
+do_alive() {
+    cmd="$ALIVE_CMD"
+    if [ -z "$cmd" ]; then
+        command -v systemctl >/dev/null 2>&1 || return 2
+        cmd="systemctl is-active --quiet dnsmasq"
+    fi
+    eval "$cmd" >/dev/null 2>&1
+    case "$?" in
+        0) return 0 ;;
+        1|3) return 1 ;;  # `systemctl is-active` exits 3 for inactive/failed
+        *) return 2 ;;
+    esac
 }
 
 case "$1" in
@@ -47,8 +66,12 @@ case "$1" in
     status)
         if [ -f "$CONF_FILE" ]; then echo installed; else echo not-installed; fi
         ;;
+    alive)
+        do_alive
+        exit $?
+        ;;
     *)
-        echo "usage: $0 apply|remove|status" >&2
+        echo "usage: $0 apply|remove|status|alive" >&2
         exit 64
         ;;
 esac

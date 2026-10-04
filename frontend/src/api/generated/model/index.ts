@@ -34,6 +34,7 @@ export * from './daemonConfigStrictEnforcementAction';
 export * from './defaultGateway';
 export * from './dnsConfig';
 export * from './dnsmasqHealth';
+export * from './dnsmasqHealthDnsmasqAlive';
 export * from './dnsmasqHealthMode';
 export * from './dnsmasqHealthProbeStatus';
 export * from './dnsmasqHealthState';

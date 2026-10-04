@@ -5,6 +5,7 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { DnsmasqHealthDnsmasqAlive } from './dnsmasqHealthDnsmasqAlive';
 import type { DnsmasqHealthMode } from './dnsmasqHealthMode';
 import type { DnsmasqHealthProbeStatus } from './dnsmasqHealthProbeStatus';
 import type { DnsmasqHealthState } from './dnsmasqHealthState';
@@ -15,7 +16,10 @@ import type { DnsmasqHealthState } from './dnsmasqHealthState';
 export interface DnsmasqHealth {
   /** Effective resolver integration mode. */
   mode: DnsmasqHealthMode;
-  /** - disabled: resolver integration is `none` - ok: dnsmasq confirmed (config-hash.keen.pbr TXT stamp) that it serves the current config - applying: the platform hook is running or dnsmasq has not yet confirmed the new config - error: generating or installing the config failed, or dnsmasq does not serve it
+  /** - disabled: resolver integration is `none`; keen-pbr does not touch dnsmasq - ok: dnsmasq confirmed (config-hash.keen.pbr TXT stamp) that it serves the current config - applying: the platform hook is running or dnsmasq has not yet confirmed the config
+    (an explicit apply or an automatic repair attempt, see `repair_attempt`)
+  - reconciling: dnsmasq lost the config and the next automatic repair is scheduled (`next_repair_ts`) - error: an explicit apply failed, automatic repairs are paused (`repair_paused`),
+    dnsmasq is running (or may be) but does not answer the config check, or there is no hook
    */
   state: DnsmasqHealthState;
   /** MD5 of the config keen-pbr generated and expects dnsmasq to serve. */
@@ -39,6 +43,21 @@ export interface DnsmasqHealth {
   last_apply_ts?: number | null;
   /** Failure reason of the last sync, null when the last sync succeeded. */
   last_error?: string | null;
+  /** Automatic repair attempts (restarts because dnsmasq lost the config while the config did not change) used in the current budget; 0 when none. Explicit applies are not counted.
+   */
+  repair_attempt?: number | null;
+  /** Maximum number of automatic repair attempts per budget. */
+  repair_max_attempts?: number | null;
+  /** Why the last or current automatic repair was needed (human-readable sentence). */
+  repair_reason?: string | null;
+  /** Unix timestamp (seconds) when the next automatic repair may run; set only while `reconciling`. */
+  next_repair_ts?: number | null;
+  /** True when the repair attempts ran out while the problem persisted. No further automatic restarts happen until the next config apply or runtime restart refills the budget, or dnsmasq stays in sync for an hour.
+   */
+  repair_paused?: boolean | null;
+  /** Last answer of the platform hook `alive` (whether the service manager says dnsmasq is running); asked only when dnsmasq does not answer the config check. Null if never asked.
+   */
+  dnsmasq_alive?: DnsmasqHealthDnsmasqAlive;
   /** Number of enabled `dns.rules` in the generated config. */
   rules: number;
   /** Number of domains written to the generated config. */

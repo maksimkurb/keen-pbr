@@ -1,16 +1,22 @@
 #!/bin/ash
-# keen-pbr dnsmasq hook (OpenWrt): dnsmasq-hook.sh apply|remove|status
+# keen-pbr dnsmasq hook (OpenWrt): dnsmasq-hook.sh apply|remove|status|alive
 #
 # Makes dnsmasq run "keen-pbr generate-resolver-config dnsmasq" through a
 # conf-script drop-in.  The drop-in lives in the (tmpfs) dnsmasq confdir; the
 # only persistent change is the UCI addnmount list that exposes keen-pbr to
 # the dnsmasq procd jail, and it is written only when an entry is missing.
+#
+# `alive` exits 0 when dnsmasq runs, 1 when it definitely does not and 2 when
+# that cannot be told.
 
 KEEN_PBR_BIN="${KEEN_PBR_BIN:-/usr/sbin/keen-pbr}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/keen-pbr}"
 CACHE_DIR="${CACHE_DIR:-/var/cache/keen-pbr}"
 UCI="${UCI:-uci}"
 RESTART_CMD="${RESTART_CMD:-/etc/init.d/dnsmasq restart}"
+INIT_SCRIPT="${INIT_SCRIPT:-/etc/init.d/dnsmasq}"
+# Overridable for tests; unset means "ask procd, then look for the process".
+ALIVE_CMD="${ALIVE_CMD:-}"
 TMP_ROOT="${TMP_ROOT:-/tmp}"
 CONF_NAME="keen-pbr-upstream-dns.conf"
 JAIL_MOUNTS="$KEEN_PBR_BIN $CONFIG_DIR $CACHE_DIR"
@@ -126,6 +132,28 @@ do_remove() {
     log "removed"
 }
 
+# Exit 0: dnsmasq runs, 1: it does not, 2: unknown.
+# procd's rc.common provides `<init script> running` (exit 0 while an instance
+# of the service is registered with procd).  Older/odd rc.common builds lack
+# it, so a non-zero answer is double-checked with pidof: only when neither
+# says dnsmasq is up is it reported dead.
+do_alive() {
+    if [ -n "$ALIVE_CMD" ]; then
+        eval "$ALIVE_CMD" >/dev/null 2>&1
+        case "$?" in
+            0) return 0 ;;
+            1) return 1 ;;
+            *) return 2 ;;
+        esac
+    fi
+    if [ -x "$INIT_SCRIPT" ] && "$INIT_SCRIPT" running >/dev/null 2>&1; then
+        return 0
+    fi
+    command -v pidof >/dev/null 2>&1 || return 2
+    pidof dnsmasq >/dev/null 2>&1 && return 0
+    return 1
+}
+
 do_status() {
     for _p in $(all_conf_paths); do
         if [ -f "$_p" ]; then
@@ -140,8 +168,9 @@ case "$1" in
     apply) do_apply ;;
     remove) do_remove ;;
     status) do_status ;;
+    alive) do_alive ;;
     *)
-        echo "usage: $0 apply|remove|status" >&2
+        echo "usage: $0 apply|remove|status|alive" >&2
         exit 64
         ;;
 esac

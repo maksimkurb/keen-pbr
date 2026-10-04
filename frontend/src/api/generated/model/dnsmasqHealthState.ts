@@ -7,7 +7,10 @@
  */
 
 /**
- * - disabled: resolver integration is `none` - ok: dnsmasq confirmed (config-hash.keen.pbr TXT stamp) that it serves the current config - applying: the platform hook is running or dnsmasq has not yet confirmed the new config - error: generating or installing the config failed, or dnsmasq does not serve it
+ * - disabled: resolver integration is `none`; keen-pbr does not touch dnsmasq - ok: dnsmasq confirmed (config-hash.keen.pbr TXT stamp) that it serves the current config - applying: the platform hook is running or dnsmasq has not yet confirmed the config
+  (an explicit apply or an automatic repair attempt, see `repair_attempt`)
+- reconciling: dnsmasq lost the config and the next automatic repair is scheduled (`next_repair_ts`) - error: an explicit apply failed, automatic repairs are paused (`repair_paused`),
+  dnsmasq is running (or may be) but does not answer the config check, or there is no hook
 
  */
 export type DnsmasqHealthState = typeof DnsmasqHealthState[keyof typeof DnsmasqHealthState];
@@ -17,5 +20,6 @@ export const DnsmasqHealthState = {
   disabled: 'disabled',
   ok: 'ok',
   applying: 'applying',
+  reconciling: 'reconciling',
   error: 'error',
 } as const;

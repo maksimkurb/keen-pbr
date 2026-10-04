@@ -75,7 +75,6 @@ struct CliOptions {
   bool resolver_config_hash{false};
   bool run_status{false};
   bool run_test_routing{false};
-  bool run_dnsmasq_config{false};
   std::string test_routing_target;
   bool show_help{false};
   bool show_version{false};
@@ -117,7 +116,6 @@ void print_usage(const char *argv0) {
             << "  generate-resolver-config dnsmasq   Print the dnsmasq config generated "
                "from dns.rules/dns.fallback (cached lists only; used as "
                "dnsmasq conf-script, always exits 0)\n"
-            << "  dnsmasq-config                     Alias of generate-resolver-config dnsmasq\n"
             << "  hash-password [--update]           Generate an authentication password hash; --update writes config.json\n";
 }
 
@@ -176,7 +174,6 @@ CliOptions parse_args(int argc, char *argv[]) {
       // reported as a comment line later.
       if (i + 1 < argc) opts.resolver_type = argv[++i];
       opts.generate_resolver_config = true;
-      opts.run_dnsmasq_config = true;
     } else if (std::strcmp(argv[i], "download") == 0) {
       opts.download_lists = true;
     } else if (std::strcmp(argv[i], "--reload") == 0) {
@@ -192,10 +189,6 @@ CliOptions parse_args(int argc, char *argv[]) {
       }
       opts.test_routing_target = argv[++i];
       opts.run_test_routing = true;
-    } else if (std::strcmp(argv[i], "dnsmasq-config") == 0) {
-      // Alias of `generate-resolver-config dnsmasq`.
-      opts.run_dnsmasq_config = true;
-      opts.resolver_type = "dnsmasq";
     } else if (std::strcmp(argv[i], "hash-password") == 0) {
       opts.hash_password = true;
     } else if (std::strcmp(argv[i], "--update") == 0) {
@@ -360,8 +353,7 @@ int main(int argc, char *argv[]) {
 
     if (!opts.download_lists && !opts.generate_resolver_config &&
         !opts.resolver_config_hash && !opts.run_service && !opts.run_status &&
-        !opts.run_test_routing && !opts.hash_password &&
-        !opts.run_dnsmasq_config) {
+        !opts.run_test_routing && !opts.hash_password) {
       print_usage(argv[0]);
       return 0;
     }
@@ -398,7 +390,7 @@ int main(int argc, char *argv[]) {
       return 0;
     }
 
-    if (opts.run_dnsmasq_config) {
+    if (opts.generate_resolver_config) {
       // Runs inside dnsmasq's startup (conf-script): stdout is parsed by
       // dnsmasq, a failing script would stop DNS for the whole LAN, so always
       // exit 0 and report problems as a comment line (details go to stderr).
@@ -456,11 +448,11 @@ int main(int argc, char *argv[]) {
         } catch (...) {
           message = "unknown error";
         }
-        std::cerr << "keen-pbr dnsmasq-config failed: " << message << '\n';
+        std::cerr << "keen-pbr generate-resolver-config failed: " << message << '\n';
         for (char &c : message) {
           if (c == '\n' || c == '\r') c = ' ';
         }
-        std::cout << "# keen-pbr: dnsmasq-config failed: " << message << '\n';
+        std::cout << "# keen-pbr: generate-resolver-config failed: " << message << '\n';
         std::cout.flush();
       }
       return 0;

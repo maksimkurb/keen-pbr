@@ -273,7 +273,10 @@ private:
   void schedule_lists_autoupdate();
   // Queues a (coalesced) regeneration of the dnsmasq config for the current
   // configuration on a blocking worker.
-  void schedule_dnsmasq_sync(bool bypass_backoff = false);
+  // `explicit_apply` (lifecycle operations) installs it even if dnsmasq looks
+  // unchanged and refills the repair budget; `reason` is logged.
+  void schedule_dnsmasq_sync(std::string reason = "lists updated",
+                             bool explicit_apply = false);
   // Starts the repeating dnsmasq TXT check (replacing a previous one) /
   // cancels it.  Control-thread only.
   void start_dnsmasq_check();

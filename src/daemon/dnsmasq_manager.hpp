@@ -24,8 +24,24 @@ enum class DnsmasqSyncState {
     Disabled,
     Ok,
     Applying,
+    // Out of sync; an automatic repair is scheduled (DnsmasqStatus::next_repair_ts).
+    Reconciling,
     Error,
 };
+
+// Answer of the hook `alive` (service manager view, independent of DNS).
+enum class DnsmasqLiveness {
+    Alive,
+    Dead,
+    Unknown,
+};
+
+// The single gate for every dnsmasq interaction (hook calls, probes, the
+// periodic check): keen-pbr touches dnsmasq only while the DNS rules module is
+// switched to dnsmasq.
+inline bool dnsmasq_integration_enabled(const Config& config) {
+    return effective_resolver_integration(config) == ResolverIntegrationMode::DNSMASQ;
+}
 
 // What the last config-hash.keen.pbr TXT probe showed.
 enum class DnsmasqProbeState {
@@ -53,6 +69,17 @@ struct DnsmasqStatus {
     std::optional<std::int64_t> last_external_reload_ts;
     std::optional<std::int64_t> last_apply_ts;
     std::string last_error;
+    // Automatic repairs used in the current budget (0 when none) and the limit.
+    int repair_attempt{0};
+    int repair_max_attempts{0};
+    // Why the last/current repair was needed (human sentence).
+    std::string repair_reason;
+    // Unix seconds when the next automatic repair may run (only Reconciling).
+    std::optional<std::int64_t> next_repair_ts;
+    // Attempts exhausted: no more automatic restarts until an explicit apply.
+    bool repair_paused{false};
+    // Last answer of the hook `alive` (unset if never asked).
+    std::optional<DnsmasqLiveness> dnsmasq_alive;
     std::size_t rules{0};
     std::size_t domains{0};
 };
@@ -71,10 +98,14 @@ struct DnsmasqTiming {
     // How long to wait for dnsmasq to serve the new config after `apply`.
     std::chrono::milliseconds confirm_timeout{15000};
     std::chrono::milliseconds confirm_interval{500};
-    // After a failed apply for a hash, `apply` is not repeated for that hash
-    // until the backoff expires; it doubles on every failure up to the maximum.
-    std::chrono::milliseconds retry_backoff_initial{std::chrono::minutes(5)};
-    std::chrono::milliseconds retry_backoff_max{std::chrono::minutes(30)};
+    // Automatic repairs (apply because dnsmasq lost the config while the hash
+    // did not change) are limited to `max_repair_attempts` per budget.  Attempt
+    // N+1 starts no earlier than repair_delay * 2^(N-1) after attempt N started.
+    // The budget refills after an explicit apply or after dnsmasq stayed in
+    // sync for `stable_reset`.
+    int max_repair_attempts{3};
+    std::chrono::milliseconds repair_delay{std::chrono::minutes(5)};
+    std::chrono::milliseconds stable_reset{std::chrono::hours(1)};
     // Defaults to std::this_thread::sleep_for.
     std::function<void(std::chrono::milliseconds)> sleep;
 };
@@ -82,10 +113,11 @@ struct DnsmasqTiming {
 // Computes the hash of the dnsmasq config for dns.resolver_integration=dnsmasq
 // entirely in memory (nothing is written to disk) and, when it changes, runs
 // the OS-specific hook `apply`, which makes dnsmasq call `keen-pbr
-// dnsmasq-config` and restarts it.  The generated config carries a TXT stamp
-// (config-hash.keen.pbr) that is queried to confirm dnsmasq really loaded it.  `remove` undoes that when the integration
-// is switched off.  All work is blocking and is
-// meant to run on a BlockingExecutor worker.
+// generate-resolver-config dnsmasq` and restarts it.  The generated config
+// carries a TXT stamp (config-hash.keen.pbr) that is queried to confirm dnsmasq
+// really loaded it.  `remove` undoes that when the integration is switched off
+// inside the running daemon; while it is off dnsmasq is not touched at all.
+// All work is blocking and is meant to run on a BlockingExecutor worker.
 class DnsmasqManager {
 public:
     explicit DnsmasqManager(std::string hook_path,
@@ -95,27 +127,34 @@ public:
                             DnsmasqTiming timing = {});
 
     // Blocking and serialized; never throws, failures end up in status().
-    // `bypass_backoff` (lifecycle operations the user asked for) re-applies
-    // even while a previous failure for the same hash is backing off.
+    // `explicit_apply` (lifecycle operations the user asked for) installs the
+    // config even when dnsmasq looks unchanged and refills the repair budget;
+    // a changed hash does the same.  Otherwise a dnsmasq found out of sync
+    // is an automatic repair that consumes the budget.  `reason` is only used
+    // in logs of explicit applies.
     void sync(const Config& config,
               const DnsServerRegistry& registry,
               ListStreamer& streamer,
-              bool bypass_backoff = false);
+              bool explicit_apply = false,
+              const std::string& reason = "config changed");
 
     // Same as sync(), but builds the registry and list streamer itself.
     void sync_from_config(const Config& config, const CacheManager& cache,
-                          bool bypass_backoff = false);
+                          bool explicit_apply = false,
+                          const std::string& reason = "config changed");
 
     // Coalescing entry point: remembers the latest config and runs
     // sync_from_config() through `post` unless a run is already queued or
     // active (that run then picks up the latest config).  `cache` must outlive
     // the posted work.
     void request_sync(Config config, const CacheManager& cache, const DnsmasqPostFn& post,
-                      bool bypass_backoff = false);
+                      bool explicit_apply = false,
+                      std::string reason = "config changed");
 
     // Coalesced with request_sync(): a cheap periodic probe that compares what
     // dnsmasq serves with the hash of the last full sync (no lists are
-    // streamed) and re-applies when it diverged.  A pending sync supersedes it.
+    // streamed) and repairs dnsmasq within the repair budget when it diverged.
+    // A pending sync supersedes it.  Does nothing while the integration is off.
     void request_check(const DnsmasqPostFn& post);
 
     DnsmasqStatus status() const;
@@ -127,18 +166,36 @@ private:
         std::optional<DnsmasqConfigStamp> stamp;
     };
 
+    // How an apply was triggered (selects the log line and the budget use).
+    struct ApplyContext {
+        bool repair{false};
+        // Explicit: why ("config changed", ...); repair: the problem sentence.
+        std::string reason;
+    };
+
     void post_worker(const DnsmasqPostFn& post);
     void run_check();
     void check_locked() REQUIRES(sync_mutex_);
+    // Compares what dnsmasq serves with `hash`: marks it in sync, or decides
+    // between a repair, a scheduled repair and doing nothing.  Used by the
+    // periodic check and by full syncs whose hash did not change.
+    void evaluate_locked(const std::string& hash, ProbeObservation observed) REQUIRES(sync_mutex_);
     ProbeObservation probe_once();
+    DnsmasqLiveness query_liveness();
     void mark_in_sync(const DnsmasqConfigStamp& stamp, bool external) REQUIRES(sync_mutex_);
-    // Runs the hook `apply` and waits for dnsmasq to serve `hash` (subject to
-    // the retry backoff).  Updates the status.
-    void apply_and_confirm(const std::string& hash,
-                           const ProbeObservation& current,
-                           const std::string& reason) REQUIRES(sync_mutex_);
-    void record_apply_failure(const std::string& hash) REQUIRES(sync_mutex_);
-    void reset_backoff() REQUIRES(sync_mutex_);
+    // Handles a diverged dnsmasq: runs the next repair attempt, or schedules it
+    // or pauses repairs, according to the budget.
+    void repair_locked(const std::string& hash, const std::string& problem)
+        REQUIRES(sync_mutex_);
+    void reset_repair_budget() REQUIRES(sync_mutex_);
+    void publish_state(DnsmasqSyncState state,
+                       const std::optional<std::string>& error = std::nullopt,
+                       std::optional<std::int64_t> next_repair_ts = std::nullopt)
+        REQUIRES(sync_mutex_);
+    // Runs the hook `apply` and waits for dnsmasq to serve `hash`.  Updates the
+    // status.
+    void apply_and_confirm(const std::string& hash, const ApplyContext& context)
+        REQUIRES(sync_mutex_);
     std::string failure_message(const ProbeObservation& obs,
                                 const std::string& expected_hash,
                                 std::int64_t apply_started_ms) const;
@@ -146,7 +203,8 @@ private:
     void sync_dnsmasq(const Config& config,
                       const DnsServerRegistry& registry,
                       ListStreamer& streamer,
-                      bool bypass_backoff) REQUIRES(sync_mutex_);
+                      bool explicit_apply,
+                      const std::string& reason) REQUIRES(sync_mutex_);
     void sync_disabled() REQUIRES(sync_mutex_);
     void run_pending_requests();
     // Returns an empty string on success, otherwise the failure description.
@@ -166,13 +224,19 @@ private:
     std::optional<DnsmasqConfigStamp> loaded_stamp_ GUARDED_BY(sync_mutex_);
     // CLOCK_BOOTTIME of the most recent `apply` we started (-1: none yet).
     std::int64_t apply_started_ms_ GUARDED_BY(sync_mutex_){-1};
-    std::string backoff_hash_ GUARDED_BY(sync_mutex_);
-    std::int64_t backoff_until_ms_ GUARDED_BY(sync_mutex_){0};
-    std::chrono::milliseconds backoff_delay_ GUARDED_BY(sync_mutex_){0};
-    // Consecutive periodic checks dnsmasq did not answer; a single lost UDP
-    // query must not restart it.
-    int check_query_failures_ GUARDED_BY(sync_mutex_){0};
-    bool first_sync_ GUARDED_BY(sync_mutex_){true};
+    // Repair budget: attempts used, when the last one started (-1: none) and
+    // whether the attempts ran out while the problem persisted.
+    int repair_attempts_ GUARDED_BY(sync_mutex_){0};
+    std::int64_t last_repair_started_ms_ GUARDED_BY(sync_mutex_){-1};
+    bool repair_paused_ GUARDED_BY(sync_mutex_){false};
+    std::string repair_reason_ GUARDED_BY(sync_mutex_);
+    // Since when dnsmasq has been seen in sync without interruption (-1: not).
+    std::int64_t in_sync_since_ms_ GUARDED_BY(sync_mutex_){-1};
+    // Log de-duplication: the periodic check must stay silent while nothing
+    // changes.
+    int scheduled_logged_attempt_ GUARDED_BY(sync_mutex_){0};
+    bool pause_logged_ GUARDED_BY(sync_mutex_){false};
+    std::string not_answering_logged_ GUARDED_BY(sync_mutex_);
     ResolverIntegrationMode previous_mode_ GUARDED_BY(sync_mutex_){ResolverIntegrationMode::NONE};
 
     mutable TracedMutex status_mutex_;
@@ -182,7 +246,8 @@ private:
     std::optional<Config> pending_config_ GUARDED_BY(request_mutex_);
     const CacheManager* pending_cache_ GUARDED_BY(request_mutex_){nullptr};
     bool pending_check_ GUARDED_BY(request_mutex_){false};
-    bool pending_bypass_backoff_ GUARDED_BY(request_mutex_){false};
+    bool pending_explicit_apply_ GUARDED_BY(request_mutex_){false};
+    std::string pending_reason_ GUARDED_BY(request_mutex_);
     bool worker_active_ GUARDED_BY(request_mutex_){false};
 };
 

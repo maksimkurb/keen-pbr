@@ -91,7 +91,7 @@ ip6tables -t raw -S
 | `service` | Start the routing service in the foreground. |
 | `status` | Show routing, route table, rule, and firewall verification status, then exit. |
 | `download` | Download all URL-backed lists into cache, then exit. |
-| `generate-resolver-config dnsmasq` | Print dnsmasq configuration for per-list DNS servers to stdout. Alias: `dnsmasq-config`. |
+| `generate-resolver-config dnsmasq` | Print dnsmasq configuration for per-list DNS servers to stdout. |
 | `test-routing <ip-or-domain>` | Compare expected and actual routing for the given IP or domain. |
 
 ### `generate-resolver-config dnsmasq`
@@ -102,7 +102,6 @@ When `dns.resolver_integration: "dnsmasq"` is enabled, this command prints the g
 
 ```bash
 keen-pbr generate-resolver-config dnsmasq
-keen-pbr dnsmasq-config  # alias
 ```
 
 **Output:** Dnsmasq configuration directives.

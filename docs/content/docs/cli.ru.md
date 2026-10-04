@@ -86,7 +86,7 @@ ip6tables -t raw -S
 | `service` | Запустить сервис маршрутизации на переднем плане. |
 | `status` | Показать состояние маршрутизации, таблиц маршрутизации, правил и верификации firewall, затем выйти. |
 | `download` | Загрузить все списки с URL в кэш, затем выйти. |
-| `generate-resolver-config dnsmasq` | Вывести конфигурацию dnsmasq для per-list DNS-серверов в stdout. Синоним: `dnsmasq-config`. |
+| `generate-resolver-config dnsmasq` | Вывести конфигурацию dnsmasq для per-list DNS-серверов в stdout. |
 | `test-routing <ip-or-domain>` | Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. |
 
 ### `generate-resolver-config dnsmasq`
@@ -97,7 +97,6 @@ ip6tables -t raw -S
 
 ```bash
 keen-pbr generate-resolver-config dnsmasq
-keen-pbr dnsmasq-config  # синоним
 ```
 
 **Вывод:** Директивы конфигурации dnsmasq.

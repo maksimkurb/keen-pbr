@@ -5,6 +5,7 @@
 
 #include <unistd.h>
 
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <streambuf>
@@ -38,6 +39,11 @@ struct FakeDnsmasq {
     DnsTxtProbeResult served;
     std::string target_hash;
     std::function<void(FakeDnsmasq&)> on_apply;
+    // Answers handed out before `served` (one per probe).
+    std::deque<DnsTxtProbeResult> probe_script;
+    // Exit code of the hook `alive` (0 alive, 1 dead, anything else unknown).
+    int alive_exit = 0;
+    int alives = 0;
     int probes = 0;
     int sleeps = 0;
     std::vector<std::vector<std::string>> calls;
@@ -66,6 +72,12 @@ struct FakeDnsmasq {
         served.status = DnsTxtProbeStatus::QueryFailed;
         served.error = error;
     }
+    static DnsTxtProbeResult failed_result(const std::string& error) {
+        DnsTxtProbeResult result;
+        result.status = DnsTxtProbeStatus::QueryFailed;
+        result.error = error;
+        return result;
+    }
     void serve_stamp(const std::string& hash, std::int64_t boottime_ms, std::int64_t ts) {
         served = {};
         served.status = DnsTxtProbeStatus::Ok;
@@ -81,6 +93,12 @@ struct FakeDnsmasq {
     DnsmasqExecFn exec() {
         return [this](const std::vector<std::string>& args) {
             calls.push_back(args);
+            if (args.size() > 1 && args[1] == "alive") {
+                ++alives;
+                ExecCaptureResult result;
+                result.exit_code = alive_exit;
+                return result;
+            }
             if (hook_result.exit_code == 0 && args.size() > 1) {
                 if (args[1] == "apply") {
                     if (on_apply) {
@@ -99,6 +117,11 @@ struct FakeDnsmasq {
     DnsmasqProbeFn probe() {
         return [this] {
             ++probes;
+            if (!probe_script.empty()) {
+                DnsTxtProbeResult next = probe_script.front();
+                probe_script.pop_front();
+                return next;
+            }
             return served;
         };
     }
@@ -162,13 +185,13 @@ void run_sync(Rig& rig, const Config& config) {
     rig.manager.sync(config, registry, streamer);
 }
 
-// Runs one blocking sync the way lifecycle operations do (bypassing backoff).
+// Runs one blocking sync the way lifecycle operations do (explicit apply).
 void run_lifecycle_sync(Rig& rig, const Config& config) {
     rig.fake.target_hash = config_hash(config);
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer(cache);
     const DnsServerRegistry registry(config.dns.value_or(DnsConfig{}));
-    rig.manager.sync(config, registry, streamer, /*bypass_backoff=*/true);
+    rig.manager.sync(config, registry, streamer, /*explicit_apply=*/true, "config applied");
 }
 
 // Runs the periodic check inline.
@@ -185,7 +208,18 @@ bool dir_is_empty(const std::filesystem::path& dir) {
     return std::filesystem::directory_iterator(dir) == std::filesystem::directory_iterator();
 }
 
-constexpr std::int64_t kBackoffInitialMs = 5 * 60 * 1000;
+constexpr std::int64_t kRepairDelayMs = 5 * 60 * 1000;
+
+// No dns.rules and no explicit resolver_integration: the DNS rules module is off.
+Config make_config_without_dns_rules() {
+    return parse_config(R"({
+        "lists": {"l": {"domains": ["example.com"]}},
+        "dns": {"servers": [{"tag":"up","address":"1.1.1.1"}]}
+    })");
+}
+
+// dnsmasq lost the keen-pbr config (e.g. restarted without the drop-in).
+void lose_config(Rig& rig) { rig.fake.serve_missing(); }
 
 } // namespace
 
@@ -244,7 +278,7 @@ TEST_CASE("dnsmasq manager: changed rule applies again") {
     CHECK(manager.status().config_hash != first_hash);
 }
 
-TEST_CASE("dnsmasq manager: hook failure is reported and retried after the backoff") {
+TEST_CASE("dnsmasq manager: failed explicit apply does not use the repair budget") {
     TempDir dir;
     Rig rig;
     auto& manager = rig.manager;
@@ -259,16 +293,21 @@ TEST_CASE("dnsmasq manager: hook failure is reported and retried after the backo
     CHECK(status.last_error == "hook exited 3: dnsmasq restart failed");
     CHECK(status.config_hash == config_hash(config));
     CHECK_FALSE(status.last_apply_ts.has_value());
+    CHECK(status.repair_attempt == 0);
+    CHECK(status.repair_max_attempts == 3);
 
+    // The next sync with the same hash finds dnsmasq out of sync: repair 1/3.
     hook.hook_result.exit_code = 0;
     hook.hook_result.stdout_output.clear();
-    hook.now_ms += kBackoffInitialMs + 1;
     run_sync(rig, config);
     CHECK(hook.applies() == 2);
     status = manager.status();
     CHECK(status.state == DnsmasqSyncState::Ok);
     CHECK(status.last_error.empty());
     CHECK(status.last_apply_ts.has_value());
+    CHECK(status.repair_attempt == 1);
+    CHECK(status.repair_reason ==
+          "the keen-pbr config is missing from dnsmasq (TXT config-hash.keen.pbr not found)");
 }
 
 TEST_CASE("dnsmasq manager: switching to none removes the config") {
@@ -294,19 +333,62 @@ TEST_CASE("dnsmasq manager: switching to none removes the config") {
     CHECK(hook.calls[2][1] == "apply");
 }
 
-TEST_CASE("dnsmasq manager: none removes on first sync only") {
+TEST_CASE("dnsmasq manager: none never touches dnsmasq on the first sync") {
     TempDir dir;
     Rig rig;
     auto& manager = rig.manager;
     auto& hook = rig.fake;
     run_sync(rig, make_config("none", "example.com"));
-    REQUIRE(hook.calls.size() == 1);
-    CHECK(hook.calls[0] == std::vector<std::string>{"/hook", "remove"});
+    CHECK(hook.calls.empty());
+    CHECK(hook.probes == 0);
     CHECK(manager.status().state == DnsmasqSyncState::Disabled);
 
     run_sync(rig, make_config("none", "example.com"));
-    CHECK(hook.calls.size() == 1);
+    CHECK(hook.calls.empty());
     CHECK(dir_is_empty(dir.path));
+}
+
+TEST_CASE("dnsmasq manager: module off (none or no dns.rules) makes no hook calls or probes") {
+    for (const Config& config : {make_config("none", "example.com"),
+                                 make_config_without_dns_rules()}) {
+        Rig rig;
+        CHECK_FALSE(dnsmasq_integration_enabled(config));
+        run_sync(rig, config);
+        run_lifecycle_sync(rig, config);
+        for (int i = 0; i < 5; ++i) {
+            rig.fake.now_ms += 10 * 60 * 1000;
+            run_check(rig);
+        }
+        run_sync(rig, config);
+        CHECK(rig.fake.calls.empty());
+        CHECK(rig.fake.probes == 0);
+        CHECK(rig.fake.alives == 0);
+        const auto status = rig.manager.status();
+        CHECK(status.state == DnsmasqSyncState::Disabled);
+        CHECK(status.mode == ResolverIntegrationMode::NONE);
+    }
+}
+
+TEST_CASE("dnsmasq manager: switching the module off removes once and stops probing") {
+    Rig rig;
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    REQUIRE(rig.fake.applies() == 1);
+
+    run_sync(rig, make_config_without_dns_rules());
+    int removes = 0;
+    for (const auto& call : rig.fake.calls) {
+        if (call.size() > 1 && call[1] == "remove") ++removes;
+    }
+    CHECK(removes == 1);
+    run_sync(rig, make_config("none", "example.com"));
+
+    const int probes = rig.fake.probes;
+    const std::size_t calls = rig.fake.calls.size();
+    run_check(rig);
+    run_check(rig);
+    CHECK(rig.fake.probes == probes);
+    CHECK(rig.fake.calls.size() == calls);
+    CHECK(rig.manager.status().state == DnsmasqSyncState::Disabled);
 }
 
 TEST_CASE("dnsmasq manager: none with empty hook path calls nothing") {
@@ -461,64 +543,11 @@ TEST_CASE("dnsmasq manager: unparsable TXT is reported as invalid") {
     CHECK(status.last_error == "invalid config-hash.keen.pbr TXT record: hello");
 }
 
-TEST_CASE("dnsmasq manager: failed confirmation backs off repeated applies") {
-    Rig rig;
-    const Config config = make_config("dnsmasq", "example.com");
-    rig.fake.on_apply = [](FakeDnsmasq& f) {
-        f.now_ms += 1000;
-        f.serve_missing();
-    };
-    run_sync(rig, config);
-    REQUIRE(rig.fake.applies() == 1);
-
-    // Repeated syncs and checks within the backoff do not restart dnsmasq.
-    run_sync(rig, config);
-    run_check(rig);
-    rig.fake.now_ms += kBackoffInitialMs - 10'000;
-    run_sync(rig, config);
-    run_check(rig);
-    CHECK(rig.fake.applies() == 1);
-    CHECK(rig.manager.status().state == DnsmasqSyncState::Error);
-    CHECK(rig.manager.status().probe_state == DnsmasqProbeState::Missing);
-
-    // Past the backoff exactly one retry runs, and the next backoff doubles.
-    rig.fake.now_ms += 20'000;
-    run_check(rig);
-    CHECK(rig.fake.applies() == 2);
-    rig.fake.now_ms += kBackoffInitialMs + 1000;
-    run_check(rig);
-    CHECK(rig.fake.applies() == 2);
-    rig.fake.now_ms += kBackoffInitialMs;
-    run_check(rig);
-    CHECK(rig.fake.applies() == 3);
-
-    // A changed hash resets the backoff.
-    const Config changed = make_config("dnsmasq", "changed.example");
-    run_sync(rig, changed);
-    CHECK(rig.fake.applies() == 4);
-
-    // So does a successful confirmation.
-    rig.fake.on_apply = nullptr;
-    rig.fake.now_ms += 100 * 60 * 1000;
-    run_sync(rig, changed);
-    CHECK(rig.fake.applies() == 5);
-    CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
-    rig.fake.serve_missing();
-    run_check(rig);
-    CHECK(rig.fake.applies() == 6);
-    CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
-}
-
-TEST_CASE("dnsmasq manager: check does nothing before a full sync or without dnsmasq mode") {
+TEST_CASE("dnsmasq manager: check does nothing before a full sync") {
     Rig rig;
     run_check(rig);
     CHECK(rig.fake.probes == 0);
     CHECK(rig.fake.calls.empty());
-
-    run_sync(rig, make_config("none", "example.com"));
-    const int probes = rig.fake.probes;
-    run_check(rig);
-    CHECK(rig.fake.probes == probes);
 }
 
 TEST_CASE("dnsmasq manager: check with an unchanged stamp only records the time") {
@@ -575,7 +604,242 @@ TEST_CASE("dnsmasq manager: check re-applies after an external restart with anot
     CHECK(status.loaded_hash == config_hash(config));
 }
 
-TEST_CASE("dnsmasq manager: lifecycle sync re-applies despite the backoff") {
+TEST_CASE("dnsmasq manager: a lost probe answered on the retry changes nothing") {
+    Rig rig;
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    REQUIRE(rig.fake.applies() == 1);
+    const auto loaded = rig.fake.served;
+
+    rig.fake.probe_script.push_back(FakeDnsmasq::failed_result("timed out"));
+    rig.fake.probe_script.push_back(loaded);
+    run_check(rig);
+    CHECK(rig.fake.alives == 0);
+    CHECK(rig.fake.applies() == 1);
+    CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
+}
+
+TEST_CASE("dnsmasq manager: dnsmasq that is alive or unknown but silent is not restarted") {
+    for (const int alive_exit : {0, 2, 5}) {
+        Rig rig;
+        run_sync(rig, make_config("dnsmasq", "example.com"));
+        REQUIRE(rig.fake.applies() == 1);
+
+        rig.fake.serve_failed("timed out");
+        rig.fake.alive_exit = alive_exit;
+        for (int i = 0; i < 4; ++i) {
+            rig.fake.now_ms += 30'000;
+            run_check(rig);
+        }
+        CHECK(rig.fake.applies() == 1);
+        CHECK(rig.fake.alives == 4);
+        const auto status = rig.manager.status();
+        CHECK(status.state == DnsmasqSyncState::Error);
+        CHECK(status.probe_state == DnsmasqProbeState::QueryFailed);
+        CHECK(status.repair_attempt == 0);
+        CHECK(status.dnsmasq_alive == (alive_exit == 0 ? DnsmasqLiveness::Alive
+                                                      : DnsmasqLiveness::Unknown));
+        CHECK(status.last_error.find("; not restarting it") != std::string::npos);
+        if (alive_exit == 0) {
+            CHECK(status.last_error ==
+                  "dnsmasq is running but does not answer the config check on 127.0.0.1:53: "
+                  "timed out; not restarting it");
+        } else {
+            CHECK(status.last_error.find("could not tell whether dnsmasq is running") !=
+                  std::string::npos);
+        }
+
+        // It answers again with our config: back to ok without any restart.
+        rig.fake.restart_with(config_hash(make_config("dnsmasq", "example.com")));
+        run_check(rig);
+        CHECK(rig.fake.applies() == 1);
+        CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
+    }
+}
+
+TEST_CASE("dnsmasq manager: dead dnsmasq is repaired immediately") {
+    Rig rig;
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    REQUIRE(rig.fake.applies() == 1);
+
+    rig.fake.serve_failed("connection refused");
+    rig.fake.alive_exit = 1;
+    // `apply` brings dnsmasq back (default fake behaviour).
+    run_check(rig);
+    CHECK(rig.fake.applies() == 2);
+    const auto status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Ok);
+    CHECK(status.repair_attempt == 1);
+    CHECK(status.repair_reason == "dnsmasq is not running");
+    CHECK(status.dnsmasq_alive == DnsmasqLiveness::Dead);
+}
+
+TEST_CASE("dnsmasq manager: flapping dnsmasq is repaired with growing waits, then paused") {
+    Rig rig;
+    const Config config = make_config("dnsmasq", "example.com");
+    run_sync(rig, config);
+    REQUIRE(rig.fake.applies() == 1);
+
+    // Attempt 1 runs immediately and is confirmed (not a budget reset).
+    lose_config(rig);
+    std::int64_t t1 = rig.fake.now_ms;
+    run_check(rig);
+    CHECK(rig.fake.applies() == 2);
+    auto status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Ok);
+    CHECK(status.repair_attempt == 1);
+    CHECK_FALSE(status.next_repair_ts.has_value());
+
+    // Lost again: reconciling until 5 min after attempt 1 started.
+    lose_config(rig);
+    rig.fake.now_ms += 30'000;
+    run_check(rig);
+    status = rig.manager.status();
+    CHECK(rig.fake.applies() == 2);
+    CHECK(status.state == DnsmasqSyncState::Reconciling);
+    CHECK(status.repair_attempt == 1);
+    CHECK(status.next_repair_ts.has_value());
+    CHECK(status.repair_reason ==
+          "the keen-pbr config is missing from dnsmasq (TXT config-hash.keen.pbr not found)");
+    rig.fake.now_ms = t1 + kRepairDelayMs - 1;
+    run_check(rig);
+    CHECK(rig.fake.applies() == 2);
+    CHECK(rig.manager.status().state == DnsmasqSyncState::Reconciling);
+
+    // Attempt 2.
+    rig.fake.now_ms = t1 + kRepairDelayMs;
+    const std::int64_t t2 = rig.fake.now_ms;
+    run_check(rig);
+    CHECK(rig.fake.applies() == 3);
+    CHECK(rig.manager.status().repair_attempt == 2);
+    CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
+
+    // Attempt 3 waits twice as long.
+    lose_config(rig);
+    rig.fake.now_ms = t2 + 2 * kRepairDelayMs - 1;
+    run_check(rig);
+    CHECK(rig.fake.applies() == 3);
+    CHECK(rig.manager.status().state == DnsmasqSyncState::Reconciling);
+    rig.fake.now_ms = t2 + 2 * kRepairDelayMs;
+    run_check(rig);
+    CHECK(rig.fake.applies() == 4);
+    CHECK(rig.manager.status().repair_attempt == 3);
+    CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
+
+    // The next loss exhausts the budget: error + paused, no more applies.
+    lose_config(rig);
+    for (int i = 0; i < 400; ++i) {
+        rig.fake.now_ms += 30'000;  // ~3.3 hours of periodic checks
+        run_check(rig);
+    }
+    CHECK(rig.fake.applies() == 4);
+    status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Error);
+    CHECK(status.repair_paused);
+    CHECK(status.repair_attempt == 3);
+    CHECK(status.probe_state == DnsmasqProbeState::Missing);
+    CHECK(status.last_error.find("after 3 repair attempts; automatic repair is paused until "
+                                 "the next config apply or runtime restart (last problem: ") !=
+          std::string::npos);
+
+    // dnsmasq recovers by itself: ok again, but still paused until a reset.
+    rig.fake.restart_with(config_hash(config));
+    run_check(rig);
+    status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Ok);
+    CHECK(status.repair_paused);
+    CHECK(status.repair_attempt == 3);
+    CHECK(rig.fake.applies() == 4);
+}
+
+TEST_CASE("dnsmasq manager: an explicit lifecycle sync re-arms paused repairs") {
+    Rig rig;
+    const Config config = make_config("dnsmasq", "example.com");
+    run_sync(rig, config);
+    // Exhaust the budget: three repairs, then pause.
+    for (int i = 0; i < 3; ++i) {
+        lose_config(rig);
+        rig.fake.now_ms += 3 * 60 * 60 * 1000;
+        run_check(rig);
+    }
+    lose_config(rig);
+    run_check(rig);
+    REQUIRE(rig.fake.applies() == 4);
+    REQUIRE(rig.manager.status().repair_paused);
+
+    run_lifecycle_sync(rig, config);
+    CHECK(rig.fake.applies() == 5);
+    auto status = rig.manager.status();
+    CHECK_FALSE(status.repair_paused);
+    CHECK(status.repair_attempt == 0);
+    CHECK(status.state == DnsmasqSyncState::Ok);
+
+    // A fresh budget: the next loss repairs immediately as attempt 1.
+    lose_config(rig);
+    run_check(rig);
+    CHECK(rig.fake.applies() == 6);
+    CHECK(rig.manager.status().repair_attempt == 1);
+}
+
+TEST_CASE("dnsmasq manager: a changed config re-arms paused repairs") {
+    Rig rig;
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    for (int i = 0; i < 3; ++i) {
+        lose_config(rig);
+        rig.fake.now_ms += 3 * 60 * 60 * 1000;
+        run_check(rig);
+    }
+    lose_config(rig);
+    run_check(rig);
+    REQUIRE(rig.fake.applies() == 4);
+    REQUIRE(rig.manager.status().repair_paused);
+
+    run_sync(rig, make_config("dnsmasq", "changed.example"));
+    CHECK(rig.fake.applies() == 5);
+    const auto status = rig.manager.status();
+    CHECK_FALSE(status.repair_paused);
+    CHECK(status.repair_attempt == 0);
+    CHECK(status.state == DnsmasqSyncState::Ok);
+}
+
+TEST_CASE("dnsmasq manager: staying in sync for an hour refills the repair budget") {
+    Rig rig;
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    lose_config(rig);
+    run_check(rig);
+    REQUIRE(rig.fake.applies() == 2);
+    REQUIRE(rig.manager.status().repair_attempt == 1);
+
+    for (int i = 0; i < 100; ++i) {  // 50 minutes
+        rig.fake.now_ms += 30'000;
+        run_check(rig);
+    }
+    CHECK(rig.manager.status().repair_attempt == 1);
+    for (int i = 0; i < 40; ++i) {  // past one hour
+        rig.fake.now_ms += 30'000;
+        run_check(rig);
+    }
+    CHECK(rig.manager.status().repair_attempt == 0);
+    CHECK_FALSE(rig.manager.status().repair_paused);
+
+    lose_config(rig);
+    run_check(rig);
+    CHECK(rig.fake.applies() == 3);
+    CHECK(rig.manager.status().repair_attempt == 1);
+}
+
+TEST_CASE("dnsmasq manager: unchanged-hash sync that finds dnsmasq out of sync is a repair") {
+    Rig rig;
+    const Config config = make_config("dnsmasq", "example.com");
+    run_sync(rig, config);
+    REQUIRE(rig.fake.applies() == 1);
+
+    lose_config(rig);
+    run_sync(rig, config);  // e.g. lists autoupdate with the same resulting hash
+    CHECK(rig.fake.applies() == 2);
+    CHECK(rig.manager.status().repair_attempt == 1);
+}
+
+TEST_CASE("dnsmasq manager: unconfirmed explicit apply leaves the budget untouched") {
     Rig rig;
     const Config config = make_config("dnsmasq", "example.com");
     rig.fake.on_apply = [](FakeDnsmasq& f) {
@@ -584,39 +848,18 @@ TEST_CASE("dnsmasq manager: lifecycle sync re-applies despite the backoff") {
     };
     run_sync(rig, config);
     REQUIRE(rig.fake.applies() == 1);
-    run_sync(rig, config);
-    CHECK(rig.fake.applies() == 1);  // automatic sync honors the backoff
+    auto status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Error);
+    CHECK(status.repair_attempt == 0);
 
+    // The periodic check that still finds the problem runs repair attempt 1.
     rig.fake.on_apply = nullptr;
-    run_lifecycle_sync(rig, config);
-    CHECK(rig.fake.applies() == 2);
-    CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
-}
-
-TEST_CASE("dnsmasq manager: check tolerates a few unanswered probes") {
-    Rig rig;
-    const Config config = make_config("dnsmasq", "example.com");
-    run_sync(rig, config);
-    REQUIRE(rig.fake.applies() == 1);
-    const std::string hash = config_hash(config);
-    const auto loaded = rig.fake.served;
-
-    // Two lost queries, then an answer: no restart, counter resets.
-    rig.fake.serve_failed("timed out");
-    run_check(rig);
-    run_check(rig);
-    rig.fake.served = loaded;
-    run_check(rig);
-    rig.fake.serve_failed("timed out");
-    run_check(rig);
-    run_check(rig);
-    CHECK(rig.fake.applies() == 1);
-    CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
-
-    // The third unanswered check in a row re-applies.
+    rig.fake.target_hash = config_hash(config);
     run_check(rig);
     CHECK(rig.fake.applies() == 2);
-    CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
+    status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Ok);
+    CHECK(status.repair_attempt == 1);
 }
 
 TEST_CASE("dnsmasq manager: check re-applies when the TXT disappears") {

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Functional tests for the per-platform dnsmasq hooks (apply|remove|status).
+# Functional tests for the per-platform dnsmasq hooks (apply|remove|status|alive).
 
 set -eu
 
@@ -98,6 +98,21 @@ esac
 FAKE
 chmod +x "$fake_bin/uci"
 
+# Exit status of a command (the tests run with set -e).
+rc_of() {
+    _rc=0
+    "$@" >/dev/null 2>&1 || _rc=$?
+    echo "$_rc"
+}
+
+# Fake pidof: finds a process only when FAKE_PIDOF=1.
+cat > "$fake_bin/pidof" <<'FAKE'
+#!/bin/sh
+[ "${FAKE_PIDOF:-0}" = 1 ] && { echo 1234; exit 0; }
+exit 1
+FAKE
+chmod +x "$fake_bin/pidof"
+
 # --- OpenWrt -----------------------------------------------------------------
 
 test_openwrt() {
@@ -166,6 +181,20 @@ EOF
     [ "$(restarts)" = 3 ] && [ "$(commits)" = 2 ] || fail "owrt: idempotent remove restarted/committed"
     cmp -s "$FAKE_UCI_DB" "$tmp_root/uci.before" || fail "owrt: idempotent remove changed uci"
     [ "$(run status)" = not-installed ] || fail "owrt: status after remove"
+
+    # alive: ALIVE_CMD override maps 0 -> 0, 1 -> 1, anything else -> 2.
+    [ "$(ALIVE_CMD=true rc_of run alive)" = 0 ] || fail "owrt: alive (ALIVE_CMD ok)"
+    [ "$(ALIVE_CMD=false rc_of run alive)" = 1 ] || fail "owrt: dead (ALIVE_CMD 1)"
+    [ "$(ALIVE_CMD="sh -c 'exit 7'" rc_of run alive)" = 2 ] || fail "owrt: unknown (ALIVE_CMD 7)"
+    # Default: `<init script> running`, then pidof as the second opinion.
+    printf '#!/bin/sh\n[ "$1" = running ] && exit "${FAKE_RUNNING:-1}"\nexit 1\n' > "$tmp_root/owrt-init"
+    chmod +x "$tmp_root/owrt-init"
+    [ "$(INIT_SCRIPT="$tmp_root/owrt-init" FAKE_RUNNING=0 rc_of run alive)" = 0 ] ||
+        fail "owrt: alive (init script running)"
+    [ "$(INIT_SCRIPT="$tmp_root/owrt-init" FAKE_RUNNING=1 FAKE_PIDOF=0 rc_of run alive)" = 1 ] ||
+        fail "owrt: dead (init script + pidof)"
+    [ "$(INIT_SCRIPT="$tmp_root/owrt-init" FAKE_RUNNING=1 FAKE_PIDOF=1 rc_of run alive)" = 0 ] ||
+        fail "owrt: alive (pidof fallback)"
 }
 
 # --- Keenetic ------------------------------------------------------------------
@@ -250,6 +279,20 @@ test_keenetic() {
     rm -rf "$kroot/tmp"
     sh "$keen_s55" start
     [ ! -e "$f" ] || fail "keenetic: S55 start created the file without the block"
+
+    # alive: Entware's rc.func `check` prints "alive."/"dead."; unknown without
+    # the init script.
+    alive_init="$kroot/S56alive"
+    printf '#!/bin/sh\n[ "$1" = check ] || exit 64\ncase "${FAKE_STATE:-}" in\n  alive) echo " Checking dnsmasq... alive."; exit 0 ;;\n  dead) echo " Checking dnsmasq... dead."; exit 1 ;;\n  *) exit "${FAKE_RC:-5}" ;;\nesac\n' > "$alive_init"
+    chmod +x "$alive_init"
+    [ "$(INIT_SCRIPT="$alive_init" FAKE_STATE=alive rc_of run alive)" = 0 ] || fail "keenetic: alive"
+    [ "$(INIT_SCRIPT="$alive_init" FAKE_STATE=dead rc_of run alive)" = 1 ] || fail "keenetic: dead"
+    [ "$(INIT_SCRIPT="$alive_init" FAKE_STATE= FAKE_RC=5 rc_of run alive)" = 2 ] || fail "keenetic: unknown (odd output)"
+    [ "$(INIT_SCRIPT="$kroot/missing" rc_of run alive)" = 2 ] || fail "keenetic: unknown (no init script)"
+    [ "$(INIT_SCRIPT="$alive_init" ALIVE_CMD=false rc_of run alive)" = 1 ] || fail "keenetic: dead (ALIVE_CMD)"
+    # A bare pidof must not be what decides (firmware dnsmasq).
+    [ "$(PATH="$fake_bin:$PATH" FAKE_PIDOF=1 INIT_SCRIPT="$alive_init" FAKE_STATE=dead rc_of run alive)" = 1 ] ||
+        fail "keenetic: pidof must not override the init script"
 }
 
 # --- Debian --------------------------------------------------------------------
@@ -287,6 +330,21 @@ test_debian() {
     [ ! -e "$f" ] || fail "debian: file not removed"
     [ "$(restarts)" = 3 ] || fail "debian: remove should restart once"
     [ "$(run status)" = not-installed ] || fail "debian: status after remove"
+
+    # alive: 0 active, 1 inactive/failed, 2 unknown.
+    [ "$(ALIVE_CMD=true rc_of run alive)" = 0 ] || fail "debian: alive (ALIVE_CMD ok)"
+    [ "$(ALIVE_CMD=false rc_of run alive)" = 1 ] || fail "debian: dead (ALIVE_CMD 1)"
+    [ "$(ALIVE_CMD="sh -c 'exit 7'" rc_of run alive)" = 2 ] || fail "debian: unknown (ALIVE_CMD 7)"
+    # Default: systemctl is-active (fake systemctl), exit 3 means inactive.
+    printf '#!/bin/sh\n[ "$1 $2 $3" = "is-active --quiet dnsmasq" ] && exit "${FAKE_ACTIVE:-3}"\nexit 9\n' > "$droot/bin/systemctl"
+    chmod +x "$droot/bin/systemctl"
+    [ "$(FAKE_ACTIVE=0 rc_of run alive)" = 0 ] || fail "debian: alive (systemctl active)"
+    [ "$(FAKE_ACTIVE=3 rc_of run alive)" = 1 ] || fail "debian: dead (systemctl inactive)"
+    rm -f "$droot/bin/systemctl"
+    # Without systemctl the state is unknown (only checkable when the host has none).
+    if ! command -v systemctl >/dev/null 2>&1; then
+        [ "$(rc_of run alive)" = 2 ] || fail "debian: unknown (no systemctl)"
+    fi
 }
 
 echo "Testing OpenWrt dnsmasq hook..."

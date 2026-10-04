@@ -1,14 +1,18 @@
 #!/bin/sh
-# keen-pbr dnsmasq hook (Keenetic/Entware): dnsmasq-hook.sh apply|remove|status
+# keen-pbr dnsmasq hook (Keenetic/Entware): dnsmasq-hook.sh apply|remove|status|alive
 #
 # The conf-script drop-in lives in tmpfs (/tmp); the only persistent change is
 # a managed block in /opt/etc/dnsmasq.conf that includes that directory, and it
 # is written once (only when missing).
+#
+# `alive` exits 0 when the Entware dnsmasq runs, 1 when it definitely does not
+# and 2 when that cannot be told.
 
 KEEN_PBR_BIN="${KEEN_PBR_BIN:-/opt/usr/bin/keen-pbr}"
 DNSMASQ_CONF="${DNSMASQ_CONF:-/opt/etc/dnsmasq.conf}"
 INIT_SCRIPT="${INIT_SCRIPT:-/opt/etc/init.d/S56dnsmasq}"
 RESTART_CMD="${RESTART_CMD:-$INIT_SCRIPT restart}"
+ALIVE_CMD="${ALIVE_CMD:-$INIT_SCRIPT check}"
 TMP_CONF_DIR="${TMP_CONF_DIR:-/tmp/keen-pbr/dnsmasq.d}"
 CONF_NAME="keen-pbr-upstream-dns.conf"
 BEGIN_MARK="# BEGIN keen-pbr upstream dns"
@@ -86,6 +90,27 @@ do_remove() {
     log "removed"
 }
 
+# Exit 0: the Entware dnsmasq runs, 1: it does not, 2: unknown.
+# Entware's rc.func (sourced by S56dnsmasq) implements `check`, which prints
+# "alive." or "dead." (exit status 0/1).  The init script is used instead of a
+# bare `pidof dnsmasq` because the Keenetic firmware may run its own dnsmasq
+# that must not count.  The printed word is trusted first, the exit status only
+# when the output says neither.
+do_alive() {
+    [ -f "$INIT_SCRIPT" ] || return 2
+    out="$(eval "$ALIVE_CMD" 2>/dev/null)"
+    rc=$?
+    case "$out" in
+        *alive*) return 0 ;;
+        *dead*) return 1 ;;
+    esac
+    case "$rc" in
+        0) return 0 ;;
+        1) return 1 ;;
+        *) return 2 ;;
+    esac
+}
+
 case "$1" in
     apply) do_apply ;;
     remove) do_remove ;;
@@ -96,8 +121,9 @@ case "$1" in
             echo not-installed
         fi
         ;;
+    alive) do_alive ;;
     *)
-        echo "usage: $0 apply|remove|status" >&2
+        echo "usage: $0 apply|remove|status|alive" >&2
         exit 64
         ;;
 esac

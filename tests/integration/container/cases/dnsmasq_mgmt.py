@@ -14,8 +14,9 @@ from .dns_common import (HOOK_DROPIN, HOOK_FAIL_FLAG, HOOK_NODROPIN_FLAG,
                          wait_hook_calls)
 
 SELECTED4 = {"tag": "selected4", "address": "10.20.0.2:15353", "detour": "wan_pbr"}
-# On start with mode none the daemon calls `remove` once to clean up leftovers.
-STARTUP = ["remove"]
+# While the DNS rules module is off the daemon never calls the hook, not even
+# `remove` on start; only an explicit apply (and later `remove`) shows up.
+STARTUP = []
 SELECTED6 = {"tag": "selected6", "address": "[2001:db8:20::2]:15354", "detour": "wan_pbr"}
 
 

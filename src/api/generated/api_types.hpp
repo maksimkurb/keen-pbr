@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesY1QwMk data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes2QLaIj data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -427,12 +427,15 @@ namespace api {
         DnsTestInterceptEventType type;
     };
 
+    enum class DnsmasqAlive : int { ALIVE, DEAD, UNKNOWN };
+
     enum class ProbeStatus : int { INVALID, MISSING, NOT_CHECKED, OK, QUERY_FAILED };
 
-    enum class State : int { APPLYING, DISABLED, ERROR, OK };
+    enum class State : int { APPLYING, DISABLED, ERROR, OK, RECONCILING };
 
     struct DnsmasqHealth {
         std::optional<std::string> config_hash;
+        std::optional<DnsmasqAlive> dnsmasq_alive;
         int64_t domains;
         std::optional<int64_t> last_apply_ts;
         std::optional<int64_t> last_check_ts;
@@ -442,7 +445,12 @@ namespace api {
         std::optional<std::string> loaded_hash;
         std::optional<int64_t> loaded_ts;
         ResolverIntegration mode;
+        std::optional<int64_t> next_repair_ts;
         std::optional<ProbeStatus> probe_status;
+        std::optional<int64_t> repair_attempt;
+        std::optional<int64_t> repair_max_attempts;
+        std::optional<bool> repair_paused;
+        std::optional<std::string> repair_reason;
         int64_t rules;
         State state;
     };
@@ -788,7 +796,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesY1QwMk {
+    struct KeenPbrTypes2QLaIj {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1112,8 +1120,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesY1QwMk & x);
-    void to_json(json & j, const KeenPbrTypesY1QwMk & x);
+    void from_json(const json & j, KeenPbrTypes2QLaIj & x);
+    void to_json(json & j, const KeenPbrTypes2QLaIj & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1153,6 +1161,9 @@ namespace api {
 
     void from_json(const json & j, DnsTestInterceptEventType & x);
     void to_json(json & j, const DnsTestInterceptEventType & x);
+
+    void from_json(const json & j, DnsmasqAlive & x);
+    void to_json(json & j, const DnsmasqAlive & x);
 
     void from_json(const json & j, ProbeStatus & x);
     void to_json(json & j, const ProbeStatus & x);
@@ -1882,6 +1893,7 @@ namespace api {
 
     inline void from_json(const json & j, DnsmasqHealth& x) {
         x.config_hash = get_stack_optional<std::string>(j, "config_hash");
+        x.dnsmasq_alive = get_stack_optional<DnsmasqAlive>(j, "dnsmasq_alive");
         x.domains = j.at("domains").get<int64_t>();
         x.last_apply_ts = get_stack_optional<int64_t>(j, "last_apply_ts");
         x.last_check_ts = get_stack_optional<int64_t>(j, "last_check_ts");
@@ -1891,7 +1903,12 @@ namespace api {
         x.loaded_hash = get_stack_optional<std::string>(j, "loaded_hash");
         x.loaded_ts = get_stack_optional<int64_t>(j, "loaded_ts");
         x.mode = j.at("mode").get<ResolverIntegration>();
+        x.next_repair_ts = get_stack_optional<int64_t>(j, "next_repair_ts");
         x.probe_status = get_stack_optional<ProbeStatus>(j, "probe_status");
+        x.repair_attempt = get_stack_optional<int64_t>(j, "repair_attempt");
+        x.repair_max_attempts = get_stack_optional<int64_t>(j, "repair_max_attempts");
+        x.repair_paused = get_stack_optional<bool>(j, "repair_paused");
+        x.repair_reason = get_stack_optional<std::string>(j, "repair_reason");
         x.rules = j.at("rules").get<int64_t>();
         x.state = j.at("state").get<State>();
     }
@@ -1899,6 +1916,7 @@ namespace api {
     inline void to_json(json & j, const DnsmasqHealth & x) {
         j = json::object();
         j["config_hash"] = x.config_hash;
+        j["dnsmasq_alive"] = x.dnsmasq_alive;
         j["domains"] = x.domains;
         j["last_apply_ts"] = x.last_apply_ts;
         j["last_check_ts"] = x.last_check_ts;
@@ -1908,7 +1926,12 @@ namespace api {
         j["loaded_hash"] = x.loaded_hash;
         j["loaded_ts"] = x.loaded_ts;
         j["mode"] = x.mode;
+        j["next_repair_ts"] = x.next_repair_ts;
         j["probe_status"] = x.probe_status;
+        j["repair_attempt"] = x.repair_attempt;
+        j["repair_max_attempts"] = x.repair_max_attempts;
+        j["repair_paused"] = x.repair_paused;
+        j["repair_reason"] = x.repair_reason;
         j["rules"] = x.rules;
         j["state"] = x.state;
     }
@@ -2555,7 +2578,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesY1QwMk& x) {
+    inline void from_json(const json & j, KeenPbrTypes2QLaIj& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2641,7 +2664,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesY1QwMk & x) {
+    inline void to_json(json & j, const KeenPbrTypes2QLaIj & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2922,6 +2945,22 @@ namespace api {
         }
     }
 
+    inline void from_json(const json & j, DnsmasqAlive & x) {
+        if (j == "alive") x = DnsmasqAlive::ALIVE;
+        else if (j == "dead") x = DnsmasqAlive::DEAD;
+        else if (j == "unknown") x = DnsmasqAlive::UNKNOWN;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"DnsmasqAlive\""); }
+    }
+
+    inline void to_json(json & j, const DnsmasqAlive & x) {
+        switch (x) {
+            case DnsmasqAlive::ALIVE: j = "alive"; break;
+            case DnsmasqAlive::DEAD: j = "dead"; break;
+            case DnsmasqAlive::UNKNOWN: j = "unknown"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"DnsmasqAlive\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
     inline void from_json(const json & j, ProbeStatus & x) {
         if (j == "invalid") x = ProbeStatus::INVALID;
         else if (j == "missing") x = ProbeStatus::MISSING;
@@ -2947,6 +2986,7 @@ namespace api {
         else if (j == "disabled") x = State::DISABLED;
         else if (j == "error") x = State::ERROR;
         else if (j == "ok") x = State::OK;
+        else if (j == "reconciling") x = State::RECONCILING;
         else { throw std::runtime_error("Cannot deserialize to enumeration \"State\""); }
     }
 
@@ -2956,6 +2996,7 @@ namespace api {
             case State::DISABLED: j = "disabled"; break;
             case State::ERROR: j = "error"; break;
             case State::OK: j = "ok"; break;
+            case State::RECONCILING: j = "reconciling"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"State\": " + std::to_string(static_cast<int>(x)));
         }
     }
