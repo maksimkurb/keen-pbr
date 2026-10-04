@@ -25,17 +25,22 @@ held-ok into:
 
 Entries have a timeout, so on long runs an IP may expire between the write and
 the verification; the report prints the oldest answer age at verification.
-Use --no-verify to skip.
+Use --no-verify to skip.  With --verify-ssh root@ROUTER the same verification
+reads the dynamic sets (kpbr4d_<list>/kpbr6d_<list>) of the bench list over one
+key-based ssh call (nft -j or ipset save) instead of calling the API.
 
 Python 3 stdlib only.  See docs "Measuring DNS interception loss".
 """
 import argparse
+import ipaddress
 import json
 import os
 import random
 import select
+import shlex
 import socket
 import struct
+import subprocess
 import sys
 import threading
 import time
@@ -626,6 +631,12 @@ def verify_sets(api, all_records, expected, rate, sleep=time.sleep, clock=time.m
         ages[ip] = clock() - t_answer
     duration = clock() - started
 
+    return finalize_verification(all_records, ips, verdicts, ages, duration, expected)
+
+
+def finalize_verification(all_records, ips, verdicts, ages, duration, expected, method="api"):
+    """Apply the verdicts to `all_records` (outcome overrides) and build the
+    verification summary shared by the API and the SSH method."""
     counts = {"in-set": 0, "not-in-set": 0, "wrong-set": 0, "unverifiable": 0}
     for v in verdicts.values():
         counts[v] += 1
@@ -656,14 +667,210 @@ def verify_sets(api, all_records, expected, rate, sleep=time.sleep, clock=time.m
         "eventual_miss": eventual_miss,
         "eventual_miss_percent": 100.0 * eventual_miss / verified_queries if verified_queries else 0.0,
         "duration_s": duration, "max_age_s": max(ages.values()) if ages else 0.0,
-        "expected_outbound": expected,
+        "expected_outbound": expected, "method": method,
         "bad_ips": sorted(ip for ip, v in verdicts.items() if v in ("not-in-set", "wrong-set"))[:20],
     }
 
 
+# ---------------------------------------------------------------- kernel set verification via SSH
+
+
+SSH_SCRIPT = """\
+# POSIX sh (busybox ok): dump the dynamic kernel sets of the bench list(s).
+if nft list table inet KeenPbrTable >/dev/null 2>&1; then
+  echo "@@BACKEND nft"
+  for s in {sets}; do
+    echo "@@SET $s"
+    nft -j list set inet KeenPbrTable "$s" 2>/dev/null || echo "@@MISSING $s"
+  done
+elif command -v ipset >/dev/null 2>&1; then
+  echo "@@BACKEND ipset"
+  for s in {sets}; do
+    echo "@@SET $s"
+    ipset save "$s" 2>/dev/null || echo "@@MISSING $s"
+  done
+else
+  echo "@@BACKEND none"
+fi
+echo "@@END"
+"""
+
+
+def dynamic_set_names(lists):
+    out = []
+    for lname in lists:
+        for prefix in ("kpbr4d_", "kpbr6d_"):
+            if prefix + lname not in out:
+                out.append(prefix + lname)
+    return out
+
+
+def ssh_command(args):
+    cmd = shlex.split(args.ssh_bin) + ["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
+    for opt in args.ssh_opt or []:
+        cmd += ["-o", opt]
+    return cmd + [args.verify_ssh, "sh", "-s"]
+
+
+class SshError(Exception):
+    pass
+
+
+def fetch_sets_over_ssh(args, set_names, run=subprocess.run):
+    """ONE ssh call; returns (backend, {set_name: output text | None if missing})."""
+    script = SSH_SCRIPT.format(sets=" ".join(shlex.quote(n) for n in set_names))
+    try:
+        proc = run(ssh_command(args), input=script, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise SshError("cannot run ssh: %s" % exc)
+    if proc.returncode != 0:
+        raise SshError("ssh failed (exit %d): %s" % (proc.returncode, proc.stderr.strip()))
+    backend, sets, current, ended = None, {}, None, False
+    for line in proc.stdout.splitlines():
+        if line.startswith("@@BACKEND "):
+            backend = line.split(None, 1)[1].strip()
+        elif line.startswith("@@SET "):
+            current = line.split(None, 1)[1].strip()
+            sets[current] = []
+        elif line.startswith("@@MISSING "):
+            sets[line.split(None, 1)[1].strip()] = None
+            current = None
+        elif line.startswith("@@END"):
+            ended = True
+        elif current is not None and sets.get(current) is not None:
+            sets[current].append(line)
+    if not ended or backend is None:
+        raise SshError("incomplete reply from the router (stderr: %s)" % proc.stderr.strip())
+    if backend == "none":
+        raise SshError("neither the nft table inet KeenPbrTable nor ipset was found on the router")
+    return backend, {k: (None if v is None else "\n".join(v)) for k, v in sets.items()}
+
+
+def _addr_range(text):
+    """(version, lo, hi) of an address, CIDR prefix or 'a-b' range."""
+    text = text.strip()
+    if "-" in text:
+        a, b = (ipaddress.ip_address(x.strip()) for x in text.split("-", 1))
+        return a.version, int(a), int(b)
+    net = ipaddress.ip_network(text, strict=False)
+    return net.version, int(net.network_address), int(net.broadcast_address)
+
+
+def _nft_value(val):
+    if isinstance(val, str):
+        return _addr_range(val)
+    if isinstance(val, dict) and "prefix" in val:
+        return _addr_range("%s/%s" % (val["prefix"]["addr"], val["prefix"]["len"]))
+    if isinstance(val, dict) and "range" in val:
+        a, b = (ipaddress.ip_address(x) for x in val["range"])
+        return a.version, int(a), int(b)
+    raise ValueError("unsupported nft element %r" % (val,))
+
+
+def parse_nft_set(text):
+    """[(version, lo, hi, expires_s|None)] from `nft -j list set` output."""
+    out = []
+    doc = json.loads(text)
+    for item in doc.get("nftables", []):
+        st = item.get("set")
+        if not st:
+            continue
+        for el in st.get("elem") or []:
+            expires = None
+            if isinstance(el, dict) and "elem" in el:
+                expires = el["elem"].get("expires")
+                el = el["elem"]["val"]
+            out.append(_nft_value(el) + (expires,))
+    return out
+
+
+def parse_ipset_save(text):
+    """[(version, lo, hi, timeout_s|None)] from `ipset save <set>` output."""
+    out = []
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) < 3 or parts[0] != "add":
+            continue
+        expires = None
+        if "timeout" in parts[3:]:
+            try:
+                expires = int(parts[parts.index("timeout", 3) + 1])
+            except (ValueError, IndexError):
+                pass
+        try:
+            out.append(_addr_range(parts[2]) + (expires,))
+        except ValueError:
+            continue
+    return out
+
+
+class SetIndex:
+    def __init__(self, entries):
+        self.exact, self.ranges = {}, []
+        for ver, lo, hi, exp in entries:
+            if lo == hi:
+                self.exact[(ver, lo)] = exp
+            else:
+                self.ranges.append((ver, lo, hi, exp))
+
+    def lookup(self, ip):
+        """(found, expires_s|None)"""
+        addr = ipaddress.ip_address(ip)
+        key = (addr.version, int(addr))
+        if key in self.exact:
+            return True, self.exact[key]
+        for ver, lo, hi, exp in self.ranges:
+            if ver == key[0] and lo <= key[1] <= hi:
+                return True, exp
+        return False, None
+
+
+def verify_ssh(args, all_records, lists, run=subprocess.run, clock=time.monotonic):
+    """Post-run verification through ONE ssh call.  Returns the same summary
+    dict as verify_sets (method 'ssh nft' / 'ssh ipset')."""
+    ips = collect_ips(all_records)
+    names = dynamic_set_names(lists)
+    started = clock()
+    backend, raw = fetch_sets_over_ssh(args, names, run=run)
+    parse = parse_nft_set if backend == "nft" else parse_ipset_save
+    indexes = {}
+    for name, text in raw.items():
+        if text is not None:
+            try:
+                indexes[name] = SetIndex(parse(text))
+            except (ValueError, KeyError, TypeError) as exc:
+                raise SshError("cannot parse %s output for %s: %s" % (backend, name, exc))
+    verdicts, ttls, ages = {}, [], {}
+    now = clock()
+    for ip, t_answer in ips.items():
+        ver = ipaddress.ip_address(ip).version
+        cands = [n for n in names if n.startswith("kpbr%dd_" % ver)]
+        have = [indexes[n] for n in cands if n in indexes]
+        if not have:
+            verdicts[ip] = "unverifiable"  # set missing
+        else:
+            hits = [h for h in (ix.lookup(ip) for ix in have) if h[0]]
+            if hits:
+                verdicts[ip] = "in-set"
+                exp = [e for _f, e in hits if e is not None]
+                if exp:
+                    ttls.append(max(exp))
+            else:
+                verdicts[ip] = "not-in-set"
+        ages[ip] = now - t_answer
+    v = finalize_verification(all_records, ips, verdicts, ages, clock() - started, None,
+                              method="ssh " + backend)
+    v["sets"] = names
+    v["missing_sets"] = sorted(n for n, t in raw.items() if t is None)
+    v["ttl_min_s"] = min(ttls) if ttls else None
+    v["ttl_max_s"] = max(ttls) if ttls else None
+    return v
+
+
 def render_verification(v):
-    lines = ["== Kernel set verification (after the run) ==",
-             "  expected outbound: %s" % (v["expected_outbound"] or "(any non-default)"),
+    lines = ["== Kernel set verification (after the run, method: %s) ==" % v.get("method", "api"),
+             "  sets: %s" % ", ".join(v["sets"]) if v.get("sets")
+             else "  expected outbound: %s" % (v["expected_outbound"] or "(any non-default)"),
              "  checked IPs: %d  in-set: %d  not-in-set: %d  wrong-set: %d  unverifiable: %d" % (
                  v["checked_ips"], v["in_set"], v["not_in_set"], v["wrong_set"], v["unverifiable"]),
              "  eventual-miss: %d/%d queries (%.2f%%)  hold-timeout but eventually in-set: %d" % (
@@ -672,6 +879,9 @@ def render_verification(v):
              "  verification took %.1fs; oldest answer was %.1fs old when checked "
              "(set entries expire after their timeout, so on long runs a miss may be an expired entry)" % (
                  v["duration_s"], v["max_age_s"])]
+    if v.get("ttl_min_s") is not None:
+        lines.append("  remaining entry TTL of verified IPs: min %.0fs, max %.0fs"
+                     % (v["ttl_min_s"], v["ttl_max_s"]))
     if v["bad_ips"]:
         lines.append("  e.g. not in the expected set: " + ", ".join(v["bad_ips"][:5]))
     return "\n".join(lines)
@@ -751,6 +961,12 @@ def parse_args(argv):
                    help="skip the post-run kernel set verification (POST /api/routing/test)")
     p.add_argument("--verify-rate", type=float, default=20.0,
                    help="routing/test requests per second during verification (default 20)")
+    p.add_argument("--verify-ssh", metavar="TARGET",
+                   help="verify via ONE ssh call (e.g. root@192.168.1.1, key login) by reading the "
+                   "kernel sets directly (nft/ipset) instead of POST /api/routing/test")
+    p.add_argument("--ssh-opt", action="append", default=[], metavar="OPT",
+                   help="extra ssh -o option, repeatable (e.g. IdentityFile=~/.ssh/id_router)")
+    p.add_argument("--ssh-bin", default="ssh", help="ssh executable (default: ssh)")
     args = p.parse_args(argv)
     if args.mode == "file" and not args.domains:
         p.error("--mode file needs --domains")
@@ -820,8 +1036,25 @@ def main(argv=None):
             print("note: could not determine the expected outbound from the config; "
                   "any non-default outbound counts as in-set")
         flat = [q for _s, records, _st in results for q in records]
-        print("verifying kernel sets for answer IPs (after the run, %.0f req/s)..." % args.verify_rate)
-        verification = verify_sets(api, flat, exp, args.verify_rate)
+        if args.verify_ssh:
+            lists = []
+            for _o, _i, ln in cands:
+                if ln not in lists:
+                    lists.append(ln)
+            if not lists:
+                print("--verify-ssh: cannot determine the bench list from the config", file=sys.stderr)
+                return 2
+            print("verifying kernel sets over ssh %s (after the run)..." % args.verify_ssh)
+            try:
+                verification = verify_ssh(args, flat, lists)
+            except SshError as exc:
+                print("ssh verification failed: %s" % exc, file=sys.stderr)
+                return 2
+            for name in verification["missing_sets"]:
+                print("warning: kernel set %s does not exist on the router" % name, file=sys.stderr)
+        else:
+            print("verifying kernel sets for answer IPs (after the run, %.0f req/s)..." % args.verify_rate)
+            verification = verify_sets(api, flat, exp, args.verify_rate)
         for summary, records, stream in results:
             fresh = summarize(records, stream.events)
             for key in ("counts", "percent"):

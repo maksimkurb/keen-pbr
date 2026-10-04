@@ -7,6 +7,8 @@ import queue
 import random
 import socket
 import struct
+import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -181,6 +183,7 @@ class FakeRouter:
         # membership(ip) -> actual_outbound reported by /api/routing/test; a value
         # of None makes the endpoint fail with HTTP 500.
         self.membership = membership or (lambda ip: "o")
+        self.last_dns = 0.0
         self.log = []  # ordered ("dns"|"verify", detail)
         self.password = password
         self.dns_hold_active = dns_hold_active
@@ -310,6 +313,7 @@ class FakeRouter:
             action = self.behavior(name)
             with self.lock:
                 self.log.append(("dns", name))
+                self.last_dns = time.time()
                 self.dns_packets += 1
                 if action not in ("drop", "bypass"):
                     self.seq += 1  # only queries that produce an event consume a seq
@@ -592,6 +596,173 @@ class VerifyEndToEndTests(unittest.TestCase):
         self.addCleanup(router.close)
         self.assertEqual(self.run_main(router, ["--no-verify"]), 0)
         self.assertEqual([e for e in router.log if e[0] == "verify"], [])
+
+
+NFT_ALL = {"nftables": [{"metainfo": {}}, {"set": {"family": "inet", "name": "s", "elem": [
+    {"prefix": {"addr": "198.18.0.0", "len": 16}}]}}]}
+NFT_HALF = {"nftables": [{"set": {"name": "s", "elem": [
+    {"elem": {"val": {"range": ["198.18.0.0", "198.18.127.255"]}, "timeout": 300, "expires": 120}},
+    "198.18.200.5"]}}]}
+
+
+class FakeSsh:
+    """A python script standing in for ssh: records argv, stdin and a timestamp
+    in a log file and prints canned stdout."""
+
+    def __init__(self, test, stdout, rc=0, stderr=""):
+        self.dir = tempfile.mkdtemp(prefix="fake-ssh-")
+        test.addCleanup(lambda: __import__("shutil").rmtree(self.dir, ignore_errors=True))
+        self.log = os.path.join(self.dir, "log.jsonl")
+        self.path = os.path.join(self.dir, "ssh")
+        with open(self.path, "w") as f:
+            f.write("#!%s\nimport json, sys, time\n"
+                    "with open(%r, 'a') as l:\n"
+                    "    l.write(json.dumps({'argv': sys.argv[1:], 'stdin': sys.stdin.read(), "
+                    "'t': time.time()}) + '\\n')\n"
+                    "sys.stderr.write(%r)\nsys.stdout.write(%r)\nsys.exit(%d)\n"
+                    % (sys.executable, self.log, stderr, stdout, rc))
+        os.chmod(self.path, 0o755)
+
+    def calls(self):
+        if not os.path.exists(self.log):
+            return []
+        with open(self.log) as f:
+            return [json.loads(ln) for ln in f]
+
+
+def nft_reply(doc, backend="nft", sets=("kpbr4d_dns_bench",), missing=("kpbr6d_dns_bench",)):
+    out = "@@BACKEND %s\n" % backend
+    for n in sets:
+        out += "@@SET %s\n%s\n" % (n, doc if isinstance(doc, str) else json.dumps(doc))
+    for n in missing:
+        out += "@@SET %s\n@@MISSING %s\n" % (n, n)
+    return out + "@@END\n"
+
+
+class SshParseTests(unittest.TestCase):
+    def test_parse_nft_forms(self):
+        doc = {"nftables": [{"set": {"elem": [
+            "1.2.3.4", {"prefix": {"addr": "10.0.0.0", "len": 8}},
+            {"range": ["192.168.0.1", "192.168.0.9"]},
+            {"elem": {"val": "5.6.7.8", "timeout": 60, "expires": 33}},
+            {"elem": {"val": {"prefix": {"addr": "2001:db8::", "len": 32}}, "expires": 5}}]}}]}
+        ix = bench.SetIndex(bench.parse_nft_set(json.dumps(doc)))
+        self.assertEqual(ix.lookup("1.2.3.4"), (True, None))
+        self.assertEqual(ix.lookup("10.9.9.9"), (True, None))
+        self.assertTrue(ix.lookup("192.168.0.5")[0])
+        self.assertFalse(ix.lookup("192.168.0.10")[0])
+        self.assertEqual(ix.lookup("5.6.7.8"), (True, 33))
+        self.assertEqual(ix.lookup("2001:db8::1"), (True, 5))
+        self.assertFalse(ix.lookup("1.2.3.5")[0])
+
+    def test_parse_ipset_save(self):
+        text = ("create kpbr4d_x hash:ip family inet timeout 300\n"
+                "add kpbr4d_x 198.18.1.2 timeout 250\nadd kpbr4d_x 198.19.0.0/16\n")
+        ix = bench.SetIndex(bench.parse_ipset_save(text))
+        self.assertEqual(ix.lookup("198.18.1.2"), (True, 250))
+        self.assertTrue(ix.lookup("198.19.5.5")[0])
+        self.assertFalse(ix.lookup("198.18.1.3")[0])
+
+    def test_remote_script_is_posix_and_lists_both_families(self):
+        names = bench.dynamic_set_names(["dns_bench"])
+        self.assertEqual(names, ["kpbr4d_dns_bench", "kpbr6d_dns_bench"])
+        script = bench.SSH_SCRIPT.format(sets=" ".join(names))
+        for bashism in ("[[", "jq", "<<<", "function "):
+            self.assertNotIn(bashism, script)
+        self.assertIn("nft -j list set inet KeenPbrTable", script)
+        self.assertIn("ipset save", script)
+
+
+class VerifySshEndToEndTests(unittest.TestCase):
+    def run_main(self, router, ssh, extra=()):
+        argv = ["--api", router.api_url, "--password", "secret", "--resolver", "127.0.0.1",
+                "--resolver-port", str(router.dns_port), "--settle", "0.3", "--timeout", "0.5",
+                "--count", "30", "--rate", "200", "--verify-ssh", "root@192.0.2.1",
+                "--ssh-bin", ssh.path, *extra]
+        return bench.main(argv)
+
+    def router(self, **kw):
+        r = FakeRouter(lambda name: "held", **kw)
+        self.addCleanup(r.close)
+        return r
+
+    def json_out(self, name):
+        out = os.path.join(tempfile.gettempdir(), "dns-bench-ssh-%s-%d.json" % (name, os.getpid()))
+        self.addCleanup(lambda: os.path.exists(out) and os.remove(out))
+        return out
+
+    def test_nft_all_in_set_single_call_after_queries(self):
+        router = self.router(membership=lambda ip: "(default)")  # API must not be used
+        ssh = FakeSsh(self, nft_reply(NFT_ALL))
+        out = self.json_out("nft")
+        self.assertEqual(self.run_main(router, ssh, ["--json", out, "--ssh-opt", "IdentityFile=/k"]), 0)
+        calls = ssh.calls()
+        self.assertEqual(len(calls), 1)
+        argv = calls[0]["argv"]
+        self.assertIn("BatchMode=yes", argv)
+        self.assertIn("IdentityFile=/k", argv)
+        self.assertEqual(argv[-3:], ["root@192.0.2.1", "sh", "-s"])
+        self.assertIn("kpbr4d_dns_bench", calls[0]["stdin"])
+        self.assertIn("kpbr6d_dns_bench", calls[0]["stdin"])
+        self.assertGreater(calls[0]["t"], router.last_dns)
+        self.assertEqual([e for e in router.log if e[0] == "verify"], [])
+        with open(out) as f:
+            ver = json.load(f)[0]["kernel_verification"]
+        self.assertEqual(ver["method"], "ssh nft")
+        self.assertEqual(ver["not_in_set"], 0)
+        self.assertEqual(ver["in_set"], ver["checked_ips"])
+        self.assertEqual(ver["missing_sets"], ["kpbr6d_dns_bench"])
+
+    def test_nft_partial_not_in_set_exit_1_and_ttl(self):
+        router = self.router()
+        ssh = FakeSsh(self, nft_reply(NFT_HALF))
+        out = self.json_out("half")
+        self.assertEqual(self.run_main(router, ssh, ["--json", out]), 1)
+        with open(out) as f:
+            data = json.load(f)[0]
+        ver = data["kernel_verification"]
+        self.assertGreater(ver["not_in_set"], 0)
+        self.assertGreater(ver["in_set"], 0)
+        self.assertEqual(ver["ttl_min_s"], 120)
+        self.assertGreater(data["summary"]["counts"]["not-in-set"], 0)
+
+    def test_ipset_path(self):
+        text = "create kpbr4d_dns_bench hash:ip timeout 300\nadd kpbr4d_dns_bench 198.18.0.0/16 timeout 77\n"
+        router = self.router()
+        ssh = FakeSsh(self, nft_reply(text, backend="ipset"))
+        out = self.json_out("ipset")
+        self.assertEqual(self.run_main(router, ssh, ["--json", out]), 0)
+        with open(out) as f:
+            ver = json.load(f)[0]["kernel_verification"]
+        self.assertEqual(ver["method"], "ssh ipset")
+        self.assertEqual(ver["ttl_min_s"], 77)
+
+    def test_missing_set_is_unverifiable(self):
+        router = self.router()
+        ssh = FakeSsh(self, nft_reply(NFT_ALL, sets=(), missing=("kpbr4d_dns_bench", "kpbr6d_dns_bench")))
+        out = self.json_out("missing")
+        self.assertEqual(self.run_main(router, ssh, ["--json", out]), 0)
+        with open(out) as f:
+            ver = json.load(f)[0]["kernel_verification"]
+        self.assertEqual(ver["unverifiable"], ver["checked_ips"])
+        self.assertEqual(len(ver["missing_sets"]), 2)
+
+    def test_ssh_failure_exit_2(self):
+        router = self.router()
+        ssh = FakeSsh(self, "", rc=255, stderr="Permission denied (publickey)")
+        self.assertEqual(self.run_main(router, ssh), 2)
+        self.assertEqual(len(ssh.calls()), 1)
+
+    def test_no_backend_exit_2(self):
+        router = self.router()
+        ssh = FakeSsh(self, "@@BACKEND none\n@@END\n")
+        self.assertEqual(self.run_main(router, ssh), 2)
+
+    def test_no_verify_skips_ssh(self):
+        router = self.router()
+        ssh = FakeSsh(self, nft_reply(NFT_ALL))
+        self.assertEqual(self.run_main(router, ssh, ["--no-verify"]), 0)
+        self.assertEqual(ssh.calls(), [])
 
 
 if __name__ == "__main__":
