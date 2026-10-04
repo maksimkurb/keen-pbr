@@ -52,7 +52,12 @@ void bump(std::atomic<uint64_t>& counter, uint64_t by = 1) {
 
 InterceptProcessor::InterceptProcessor(nfnl::DynamicSetWriter& writer, ConntrackCleanupSink& cleanup,
                                        InterceptCounters& counters)
-    : writer_(writer), cleanup_(cleanup), counters_(counters) {}
+    : writer_(writer), cleanup_(cleanup), counters_(counters) {
+    late_adds_.reserve(kLateBatchCapacity);
+    late_events_.reserve(kLateBatchCapacity);
+    flush_adds_.reserve(kLateBatchCapacity);
+    flush_results_.reserve(kLateBatchCapacity);
+}
 
 void InterceptProcessor::set_snapshot(std::shared_ptr<const InterceptSnapshot> snapshot) {
     std::lock_guard<std::mutex> lock(snapshot_mutex_);
@@ -278,28 +283,139 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
     add_dns_observation(event);
     collect_list_names(*snap, event.lists);
 
-    if (!adds_.empty() && Clock::now() >= deadline) {
-        event.timed_out = true;
-        bump(counters_.dns_hold_timeouts);
-        event.hold_us = static_cast<uint32_t>(
-            std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
-        push_event(std::move(event));
-        return decision;
-    }
-
     if (!adds_.empty()) {
         results_.assign(adds_.size(), nfnl::SetAddResult::Error);
-        const auto remaining = deadline - Clock::now();
-        if (remaining <= Clock::duration::zero()) {
-            event.timed_out = true;
-            bump(counters_.dns_hold_timeouts);
-            event.hold_us = static_cast<uint32_t>(
-                std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
-            push_event(std::move(event));
-            return decision;
-        }
+        // The write is deferred (verdict first) when the deadline has passed.
+        bool defer = Clock::now() >= deadline;
+        bool after_timeout = false;
         bool ok = false;
         bool write_attempted = false;
+        if (!defer) {
+            WriterAdmission dns_admission;
+            WriterRelease dns_release;
+            {
+                std::lock_guard<std::mutex> lock(snapshot_mutex_);
+                dns_admission = dns_admission_;
+                dns_release = dns_release_;
+            }
+            const bool admitted = !dns_admission || dns_admission();
+            if (admitted) {
+                if (Clock::now() >= deadline) {
+                    if (dns_release) dns_release();
+                    defer = true;
+                } else if (!snapshot_is_current(snap)) {
+                    if (dns_release) dns_release();
+                    event.errors = static_cast<uint32_t>(adds_.size());
+                    bump(counters_.set_errors, event.errors);
+                    event.hold_us = static_cast<uint32_t>(
+                        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started)
+                            .count());
+                    push_event(std::move(event));
+                    return decision;
+                } else {
+                    const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        (deadline - Clock::now()) + std::chrono::microseconds(999));
+                    const int budget_ms = static_cast<int>(std::max<int64_t>(1, remaining_ms.count()));
+                    write_attempted = true;
+                    const Clock::time_point write_started = Clock::now();
+                    try {
+                        ok = writer_.add(adds_.data(), results_.data(), adds_.size(), budget_ms);
+                    } catch (const std::exception& e) {
+                        Logger::instance().debug("intercept: set writer failed: {}", e.what());
+                    } catch (...) {
+                        if (dns_release) dns_release();
+                        throw;
+                    }
+                    event.set_write_us = static_cast<uint32_t>(
+                        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() -
+                                                                              write_started)
+                            .count());
+                    if (dns_release) dns_release();
+                }
+            }
+        }
+        if (!defer && write_attempted && !ok && writer_.last_errno() == ETIMEDOUT) {
+            // ETIMEDOUT means "unknown": the kernel may still apply the batch.
+            // Keep what was confirmed, retry only the unconfirmed entries late.
+            defer = true;
+            after_timeout = true;
+        }
+        if (defer) {
+            std::size_t kept = 0;
+            for (std::size_t i = 0; i < adds_.size(); ++i) {
+                switch (results_[i]) {
+                case nfnl::SetAddResult::Added: ++event.added; break;
+                case nfnl::SetAddResult::Refreshed: ++event.refreshed; break;
+                default:
+                    if (kept != i) adds_[kept] = adds_[i];
+                    ++kept;
+                    break;
+                }
+            }
+            adds_.resize(kept);
+            bump(counters_.set_added, event.added);
+            bump(counters_.set_refreshed, event.refreshed);
+            if (kept > 0) {
+                decision.late_write =
+                    defer_late_write(snap, std::move(event), started, after_timeout);
+                return decision;
+            }
+            // Everything was confirmed in time despite the late ETIMEDOUT mark.
+        } else {
+            for (nfnl::SetAddResult r : results_) {
+                switch (r) {
+                case nfnl::SetAddResult::Added: ++event.added; break;
+                case nfnl::SetAddResult::Refreshed: ++event.refreshed; break;
+                default: ++event.errors; break;
+                }
+            }
+            bump(counters_.set_added, event.added);
+            bump(counters_.set_refreshed, event.refreshed);
+            bump(counters_.set_errors, event.errors);
+        }
+    }
+    event.hold_us = static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
+    push_event(std::move(event));
+    return decision;
+}
+
+bool InterceptProcessor::defer_late_write(const std::shared_ptr<const InterceptSnapshot>& snap,
+                                          InterceptEvent&& event, Clock::time_point started,
+                                          bool after_timeout) {
+    event.timed_out = true;
+    event.late_write = true;
+    event.hold_us = static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
+    bump(counters_.dns_hold_timeouts);
+    const std::size_t n = adds_.size();
+    if (late_events_.size() >= kLateBatchCapacity ||
+        late_adds_.size() + n > kLateBatchCapacity) {
+        // Pending batch full: drop these adds, never grow the batch.
+        event.errors += static_cast<uint32_t>(n);
+        bump(counters_.set_errors, n);
+        bump(counters_.dns_late_write_errors, n);
+        push_event(std::move(event));
+        return false;
+    }
+    LateEvent le;
+    le.event = std::move(event);
+    le.snapshot = snap;  // adds hold string_views into this snapshot
+    le.addresses = response_.addresses;
+    le.first = late_adds_.size();
+    le.count = n;
+    le.after_timeout = after_timeout;
+    late_adds_.insert(late_adds_.end(), adds_.begin(), adds_.end());  // within reserved capacity
+    late_events_.push_back(std::move(le));
+    return true;
+}
+
+void InterceptProcessor::flush_late_writes() {
+    if (late_events_.empty()) return;
+    try {
+        const Clock::time_point now = Clock::now();
+        const int budget_ms = now < late_backoff_until_ ? kLateBackoffBudgetMs : kLateWriteBudgetMs;
+
         WriterAdmission dns_admission;
         WriterRelease dns_release;
         {
@@ -308,79 +424,83 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
             dns_release = dns_release_;
         }
         const bool admitted = !dns_admission || dns_admission();
-        if (admitted) {
-            if (Clock::now() >= deadline) {
-                if (dns_release) dns_release();
-                event.timed_out = true;
-                bump(counters_.dns_hold_timeouts);
-                event.hold_us = static_cast<uint32_t>(
-                    std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started)
-                        .count());
-                push_event(std::move(event));
-                return decision;
+
+        // Per-flush snapshot check: stale events are dropped as errors.
+        flush_adds_.clear();
+        for (LateEvent& le : late_events_) {
+            le.snapshot_ok = admitted && snapshot_is_current(le.snapshot);
+            if (le.snapshot_ok) {
+                flush_adds_.insert(flush_adds_.end(), late_adds_.begin() + static_cast<std::ptrdiff_t>(le.first),
+                                   late_adds_.begin() + static_cast<std::ptrdiff_t>(le.first + le.count));
             }
-            if (!snapshot_is_current(snap)) {
-                if (dns_release) dns_release();
-                event.errors = static_cast<uint32_t>(adds_.size());
-                bump(counters_.set_errors, event.errors);
-                event.hold_us = static_cast<uint32_t>(
-                    std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started)
-                        .count());
-                push_event(std::move(event));
-                return decision;
-            }
-            const auto write_remaining = deadline - Clock::now();
-            if (write_remaining <= Clock::duration::zero()) {
-                if (dns_release) dns_release();
-                event.timed_out = true;
-                bump(counters_.dns_hold_timeouts);
-                event.hold_us = static_cast<uint32_t>(
-                    std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started)
-                        .count());
-                push_event(std::move(event));
-                return decision;
-            }
-            const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                write_remaining + std::chrono::microseconds(999));
-            const int budget_ms = static_cast<int>(std::max<int64_t>(1, remaining_ms.count()));
-            write_attempted = true;
+        }
+        flush_results_.assign(flush_adds_.size(), nfnl::SetAddResult::Error);
+        int err = 0;
+        uint32_t write_us = 0;
+        if (!flush_adds_.empty()) {
             const Clock::time_point write_started = Clock::now();
             try {
-                ok = writer_.add(adds_.data(), results_.data(), adds_.size(), budget_ms);
+                writer_.add(flush_adds_.data(), flush_results_.data(), flush_adds_.size(), budget_ms);
+                err = writer_.last_errno();
             } catch (const std::exception& e) {
-                Logger::instance().debug("intercept: set writer failed: {}", e.what());
+                Logger::instance().debug("intercept: late set write failed: {}", e.what());
             } catch (...) {
-                if (dns_release) dns_release();
+                if (admitted && dns_release) dns_release();
+                late_adds_.clear();
+                late_events_.clear();
                 throw;
             }
-            event.set_write_us = static_cast<uint32_t>(
+            write_us = static_cast<uint32_t>(
                 std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - write_started)
                     .count());
-            if (dns_release) dns_release();
         }
-        for (nfnl::SetAddResult r : results_) {
-            switch (r) {
-            case nfnl::SetAddResult::Added: ++event.added; break;
-            case nfnl::SetAddResult::Refreshed: ++event.refreshed; break;
-            default: ++event.errors; break;
+        if (admitted && dns_release) dns_release();
+        if (err == ETIMEDOUT) {
+            late_backoff_until_ = Clock::now() + std::chrono::milliseconds(kLateBackoffWindowMs);
+        }
+
+        std::size_t pos = 0;
+        for (LateEvent& le : late_events_) {
+            InterceptEvent event = std::move(le.event);
+            uint32_t added = 0, refreshed = 0, errors = 0;
+            if (le.snapshot_ok) {
+                for (std::size_t i = 0; i < le.count; ++i) {
+                    switch (flush_results_[pos + i]) {
+                    case nfnl::SetAddResult::Added: ++added; break;
+                    case nfnl::SetAddResult::Refreshed: ++refreshed; break;
+                    default: ++errors; break;
+                    }
+                }
+                pos += le.count;
+                bump(counters_.dns_late_writes);
+                event.set_write_us += write_us;
+            } else {
+                errors = static_cast<uint32_t>(le.count);
             }
-        }
-        bump(counters_.set_added, event.added);
-        bump(counters_.set_refreshed, event.refreshed);
-        bump(counters_.set_errors, event.errors);
-        if (write_attempted && !ok && event.errors > 0 && writer_.last_errno() == ETIMEDOUT) {
-            event.timed_out = true;
-            bump(counters_.dns_hold_timeouts);
-            // The client may already be connecting: purge stale flows to these IPs.
-            for (const dns_wire::AddressRecord& rec : response_.addresses) {
-                cleanup_.request(rec.family, rec.addr);
+            event.added += added;
+            event.refreshed += refreshed;
+            event.errors += errors;
+            bump(counters_.set_added, added);
+            bump(counters_.set_refreshed, refreshed);
+            bump(counters_.set_errors, errors);
+            bump(counters_.dns_late_write_errors, errors);
+            // The client may already be connecting: purge stale flows to these
+            // IPs.  After an ETIMEDOUT first attempt an "existing" element may
+            // have been added by it, so any success there also warrants a purge.
+            if (le.snapshot_ok &&
+                (added > 0 || (le.after_timeout && (refreshed > 0 || (errors > 0 && err == ETIMEDOUT))))) {
+                for (const dns_wire::AddressRecord& rec : le.addresses) {
+                    cleanup_.request(rec.family, rec.addr);
+                }
             }
+            push_event(std::move(event));
         }
+    } catch (const std::exception& e) {
+        Logger::instance().debug("intercept: late DNS write handling failed: {}", e.what());
+    } catch (...) {
     }
-    event.hold_us = static_cast<uint32_t>(
-        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
-    push_event(std::move(event));
-    return decision;
+    late_adds_.clear();
+    late_events_.clear();
 }
 
 void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {

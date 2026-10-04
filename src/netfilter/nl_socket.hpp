@@ -35,6 +35,8 @@ public:
     int fd() const { return fd_; }
     uint32_t port_id() const { return port_id_; }
     uint32_t next_seq() { return ++seq_; }
+    // Microseconds spent inside sendto() by transact() since the last call.
+    uint64_t take_send_us() { const uint64_t v = send_us_; send_us_ = 0; return v; }
 
     // Sends to the kernel (nl_pid=0). On failure returns false and sets err (errno value).
     bool send(const uint8_t* data, std::size_t len, int& err);
@@ -61,6 +63,7 @@ private:
     int fd_{-1};
     uint32_t port_id_{0};
     uint32_t seq_{0};
+    uint64_t send_us_{0};
     std::vector<uint8_t> rx_;
 };
 

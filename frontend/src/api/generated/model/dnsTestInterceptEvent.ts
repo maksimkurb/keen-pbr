@@ -36,6 +36,9 @@ export interface DnsTestInterceptEvent {
   hold_us: number;
   /** The hold deadline expired before the sets were written. */
   timed_out: boolean;
+  /** The set write was completed after the response was released (it missed the hold deadline); added/refreshed/errors describe that late write.
+   */
+  late_write?: boolean;
   /** Time spent parsing the captured request or response, in microseconds. */
   parse_us?: number;
   /** Time spent in the set writer for this observation, in microseconds (0 when nothing was written). */

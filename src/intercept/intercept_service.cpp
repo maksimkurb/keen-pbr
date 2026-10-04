@@ -104,6 +104,8 @@ InterceptService::InterceptService(std::unique_ptr<nfnl::DynamicSetWriter> write
       l7_writer_(std::move(l7_writer)),
       cleanup_queue_(counters_),
       processor_(*writer_, cleanup_queue_, counters_) {
+    writer_->set_slow_write_counter(&counters_.set_write_slow);
+    if (l7_writer_) l7_writer_->set_slow_write_counter(&counters_.set_write_slow);
     processor_.set_writer_callbacks(
         [this] { return dns_writes_.enter(); },
         [this] { dns_writes_.leave(); },
@@ -415,6 +417,9 @@ void InterceptService::hot_loop() {
                 handle_queue_packet(packet, deadline);
             });
             counters_.queue_overruns.store(queue_->overruns(), std::memory_order_relaxed);
+            // Every verdict of this round is out: now write, once, whatever
+            // missed the hold deadline (bounded combined budget, with backoff).
+            processor_.flush_late_writes();
             if (rc < 0) {
                 Logger::instance().error("intercept: NFQUEUE receive failed (errno={}); stopping hot thread",
                                          queue_->last_errno());

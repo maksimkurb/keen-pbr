@@ -2,6 +2,7 @@
 
 #include "../src/netfilter/set_writer.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -255,6 +256,39 @@ TEST_CASE("set_writer: deadline stops before the next datagram") {
     CHECK(fake->calls.size() == 1);
     CHECK(std::all_of(results.begin(), results.end(),
                       [](SetAddResult result) { return result == SetAddResult::Error; }));
+}
+
+TEST_CASE("set_writer: writes slower than 20 ms bump the slow-write counter") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{0}, 0, 0}, {{0}, 0, 30}};
+    auto writer = make_ipset_writer_for_test(std::move(transport));
+    std::atomic<uint64_t> slow{0};
+    writer->set_slow_write_counter(&slow);
+    const SetAdd add = fake_v4("set", 1);
+    SetAddResult result = SetAddResult::Error;
+
+    REQUIRE(writer->add(&add, &result, 1, 500));
+    CHECK(slow.load() == 0);
+    REQUIRE(writer->add(&add, &result, 1, 500));
+    CHECK(slow.load() == 1);
+}
+
+TEST_CASE("set_writer: re-adding after ETIMEDOUT is idempotent (Refreshed, not Error)") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    // First attempt: ACK lost (batch may still have been applied).
+    // Retry: exclusive add says EEXIST, the non-exclusive resend succeeds.
+    fake->replies = {{{}, ETIMEDOUT, 0}, {{EEXIST}, 0, 0}, {{0}, 0, 0}};
+    auto writer = make_ipset_writer_for_test(std::move(transport));
+    const SetAdd add = fake_v4("set", 1);
+    SetAddResult result = SetAddResult::Added;
+
+    CHECK_FALSE(writer->add(&add, &result, 1, 100));
+    CHECK(writer->last_errno() == ETIMEDOUT);
+    CHECK(result == SetAddResult::Error);
+    REQUIRE(writer->add(&add, &result, 1, 500));
+    CHECK(result == SetAddResult::Refreshed);
 }
 
 TEST_CASE("set_writer: zero deadline performs no transport operation") {

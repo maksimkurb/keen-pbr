@@ -249,7 +249,7 @@ Every answer the client received is compared with the `INTERCEPT` events of `/ap
 | Outcome | Meaning |
 |---|---|
 | `held-ok` | The answer was held until the addresses were written to the set. |
-| `hold-timeout` | The hold deadline expired first (`timed_out`), so the answer was released before the set write finished and the client's first connection may go the wrong way. Same as the `dns_hold_timeouts` counter in `/api/health/service`. |
+| `hold-timeout` | The hold deadline expired first (`timed_out`): the answer was released at the deadline and its set adds were queued (`late_write`). Once per loop iteration the daemon writes all queued adds in one combined late write (500 ms budget; only 50 ms for 1 s after a flush that timed out; queue of 512 elements, overflow is counted in `dns_late_write_errors`) and resets stale flows to the address, but the client's very first packets may still go the wrong way. The report shows how many were `hold-timeout (late write ok)`. Same as the `dns_hold_timeouts` counter in `/api/health/service`, next to `dns_late_writes`, `dns_late_write_errors` and `set_write_slow` (set writes that took 20 ms or more; the info log line `slow set write <us> (send <us>, ack <us>, ...)` shows how much of it was waiting for the kernel's acknowledgement, at most one line per 10 s). |
 | `set-error` | The set write failed (`errors > 0`, counter `set_errors`). |
 | `no-write` | An event exists but nothing was written. |
 | `bypass` | The client got an answer, but there is no event and the stream had no gap: the packet never reached the interceptor (queue overrun, fail-open, or the name is not in any routed list). Compare with `queue_overruns` and the kernel queue counters. |

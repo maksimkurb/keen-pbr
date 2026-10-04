@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesSW6Rnk data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesPz9DBw data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -413,6 +413,7 @@ namespace api {
         int64_t errors;
         int64_t hold_us;
         std::vector<std::string> ips;
+        std::optional<bool> late_write;
         std::vector<std::string> lists;
         std::optional<int64_t> parse_us;
         int64_t refreshed;
@@ -477,6 +478,8 @@ namespace api {
         std::optional<int64_t> conntrack_errors;
         std::optional<int64_t> conntrack_requests;
         std::optional<int64_t> dns_hold_timeouts;
+        std::optional<int64_t> dns_late_write_errors;
+        std::optional<int64_t> dns_late_writes;
         std::optional<int64_t> dns_matched;
         std::optional<int64_t> dns_packets;
         std::optional<int64_t> dns_parse_errors;
@@ -489,6 +492,7 @@ namespace api {
         std::optional<int64_t> set_added;
         std::optional<int64_t> set_errors;
         std::optional<int64_t> set_refreshed;
+        std::optional<int64_t> set_write_slow;
     };
 
     struct KernelQueue {
@@ -768,7 +772,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesSW6Rnk {
+    struct KeenPbrTypesPz9DBw {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1092,8 +1096,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesSW6Rnk & x);
-    void to_json(json & j, const KeenPbrTypesSW6Rnk & x);
+    void from_json(const json & j, KeenPbrTypesPz9DBw & x);
+    void to_json(json & j, const KeenPbrTypesPz9DBw & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1821,6 +1825,7 @@ namespace api {
         x.errors = j.at("errors").get<int64_t>();
         x.hold_us = j.at("hold_us").get<int64_t>();
         x.ips = j.at("ips").get<std::vector<std::string>>();
+        x.late_write = get_stack_optional<bool>(j, "late_write");
         x.lists = j.at("lists").get<std::vector<std::string>>();
         x.parse_us = get_stack_optional<int64_t>(j, "parse_us");
         x.refreshed = j.at("refreshed").get<int64_t>();
@@ -1840,6 +1845,7 @@ namespace api {
         j["errors"] = x.errors;
         j["hold_us"] = x.hold_us;
         j["ips"] = x.ips;
+        j["late_write"] = x.late_write;
         j["lists"] = x.lists;
         j["parse_us"] = x.parse_us;
         j["refreshed"] = x.refreshed;
@@ -1950,6 +1956,8 @@ namespace api {
         x.conntrack_errors = get_stack_optional<int64_t>(j, "conntrack_errors");
         x.conntrack_requests = get_stack_optional<int64_t>(j, "conntrack_requests");
         x.dns_hold_timeouts = get_stack_optional<int64_t>(j, "dns_hold_timeouts");
+        x.dns_late_write_errors = get_stack_optional<int64_t>(j, "dns_late_write_errors");
+        x.dns_late_writes = get_stack_optional<int64_t>(j, "dns_late_writes");
         x.dns_matched = get_stack_optional<int64_t>(j, "dns_matched");
         x.dns_packets = get_stack_optional<int64_t>(j, "dns_packets");
         x.dns_parse_errors = get_stack_optional<int64_t>(j, "dns_parse_errors");
@@ -1962,6 +1970,7 @@ namespace api {
         x.set_added = get_stack_optional<int64_t>(j, "set_added");
         x.set_errors = get_stack_optional<int64_t>(j, "set_errors");
         x.set_refreshed = get_stack_optional<int64_t>(j, "set_refreshed");
+        x.set_write_slow = get_stack_optional<int64_t>(j, "set_write_slow");
     }
 
     inline void to_json(json & j, const Counters & x) {
@@ -1970,6 +1979,8 @@ namespace api {
         j["conntrack_errors"] = x.conntrack_errors;
         j["conntrack_requests"] = x.conntrack_requests;
         j["dns_hold_timeouts"] = x.dns_hold_timeouts;
+        j["dns_late_write_errors"] = x.dns_late_write_errors;
+        j["dns_late_writes"] = x.dns_late_writes;
         j["dns_matched"] = x.dns_matched;
         j["dns_packets"] = x.dns_packets;
         j["dns_parse_errors"] = x.dns_parse_errors;
@@ -1982,6 +1993,7 @@ namespace api {
         j["set_added"] = x.set_added;
         j["set_errors"] = x.set_errors;
         j["set_refreshed"] = x.set_refreshed;
+        j["set_write_slow"] = x.set_write_slow;
     }
 
     inline void from_json(const json & j, KernelQueue& x) {
@@ -2496,7 +2508,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesSW6Rnk& x) {
+    inline void from_json(const json & j, KeenPbrTypesPz9DBw& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2582,7 +2594,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesSW6Rnk & x) {
+    inline void to_json(json & j, const KeenPbrTypesPz9DBw & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

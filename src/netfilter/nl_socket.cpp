@@ -128,7 +128,12 @@ int NlSocket::transact(const uint8_t* req, std::size_t len, uint32_t first_seq, 
                        const std::vector<uint32_t>* extra_error_seqs) {
     if (timeout_ms <= 0) return ETIMEDOUT;
     int err = 0;
-    if (!send(req, len, err)) return err;
+    const auto send_started = std::chrono::steady_clock::now();
+    const bool sent = send(req, len, err);
+    send_us_ += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+                                          std::chrono::steady_clock::now() - send_started)
+                                          .count());
+    if (!sent) return err;
 
     const uint32_t count = last_seq - first_seq + 1;  // wrap-safe
     std::vector<bool> acked(count, false);

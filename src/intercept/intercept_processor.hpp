@@ -57,6 +57,7 @@ struct InterceptEvent {
     uint32_t parse_us{0};      // captured request/response parse time
     uint32_t set_write_us{0};  // time inside the set writer for this observation
     bool timed_out{false};
+    bool late_write{false};    // set write finished after the verdict was released
 };
 
 // A matched L7 packet is handed to the service's bounded worker when DNS
@@ -75,6 +76,9 @@ struct InterceptCounters {
     std::atomic<uint64_t> dns_parse_errors{0};
     std::atomic<uint64_t> dns_matched{0};
     std::atomic<uint64_t> dns_hold_timeouts{0};
+    std::atomic<uint64_t> dns_late_writes{0};
+    std::atomic<uint64_t> dns_late_write_errors{0};
+    std::atomic<uint64_t> set_write_slow{0};
     std::atomic<uint64_t> dns_tcp_partial{0};
     std::atomic<uint64_t> marker_hits{0};
     std::atomic<uint64_t> l7_packets{0};
@@ -118,7 +122,26 @@ public:
     struct DnsDecision {
         bool replace{false};
         const std::vector<uint8_t>* replacement{nullptr};  // valid until the next on_dns_packet()
+        // The hold deadline passed (or the on-time write timed out); the
+        // unwritten adds were queued in the pending-late batch.  The verdict
+        // must be sent now; the service calls flush_late_writes() once per
+        // loop iteration after the queue was drained.
+        bool late_write{false};
     };
+
+    // Budget for one whole post-verdict flush, and the reduced budget used for
+    // 1 s after a flush ended in ETIMEDOUT (stuck-kernel backoff).
+    static constexpr int kLateWriteBudgetMs = 500;
+    static constexpr int kLateBackoffBudgetMs = 50;
+    static constexpr int kLateBackoffWindowMs = 1000;
+    // Fixed capacity of the pending-late batch (elements and deferred events).
+    static constexpr std::size_t kLateBatchCapacity = 512;
+
+    // Writes ALL pending-late adds with one writer call, requests conntrack
+    // cleanup for Added elements and publishes the deferred events.  No-op when
+    // nothing is pending.  Never throws.  Same thread as on_dns_packet().
+    void flush_late_writes();
+    std::size_t pending_late_events() const { return late_events_.size(); }
 
     // l3 = full IP packet from NFQUEUE.  Never throws.
     DnsDecision on_dns_packet(ByteView l3, std::chrono::steady_clock::time_point deadline,
@@ -134,6 +157,8 @@ public:
 private:
     DnsDecision handle_dns(ByteView l3, std::chrono::steady_clock::time_point deadline,
                            bool replacement_allowed);
+    bool defer_late_write(const std::shared_ptr<const InterceptSnapshot>& snap, InterceptEvent&& event,
+                          std::chrono::steady_clock::time_point started, bool after_timeout);
     void handle_l7(ByteView l3, std::chrono::steady_clock::time_point now);
     std::shared_ptr<const InterceptSnapshot> snapshot() const;
     void push_event(InterceptEvent&& event);
@@ -166,6 +191,22 @@ private:
     std::vector<DomainIndex::ListId> ids_tmp_;
     std::vector<nfnl::SetAdd> adds_;
     std::vector<nfnl::SetAddResult> results_;
+    // Pending-late batch (hot thread only).  Capacity is reserved once in the
+    // constructor, so queuing never reallocates.
+    struct LateEvent {
+        InterceptEvent event;
+        std::shared_ptr<const InterceptSnapshot> snapshot;  // keeps SetAdd string_views alive
+        std::vector<dns_wire::AddressRecord> addresses;     // for conntrack cleanup
+        std::size_t first{0};
+        std::size_t count{0};
+        bool snapshot_ok{false};    // set by the flush
+        bool after_timeout{false};  // first attempt timed out: outcome unknown
+    };
+    std::vector<nfnl::SetAdd> late_adds_;
+    std::vector<LateEvent> late_events_;
+    std::vector<nfnl::SetAdd> flush_adds_;
+    std::vector<nfnl::SetAddResult> flush_results_;
+    std::chrono::steady_clock::time_point late_backoff_until_{};
     l7::FlowBuffers flows_;
     l7::QuicCryptoAssembler quic_;
     std::vector<uint8_t> tls_scratch_;

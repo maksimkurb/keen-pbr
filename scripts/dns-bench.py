@@ -6,7 +6,10 @@ against the daemon's /api/dns/test INTERCEPT event stream:
 
   held-ok         event exists, timed_out=false, errors=0, added+refreshed>0
   hold-timeout    event timed_out=true (answer released before the set write
-                  finished, the first connection may leak)
+                  finished, the first connection may leak).  Events with
+                  late_write=true whose write then succeeded are counted in the
+                  "hold-timeout (late write ok)" sub-count: the IP is in the set
+                  and stale flows were reset, only the first packets were unrouted.
   set-error       event errors>0
   no-write        event exists but nothing was written (e.g. stale snapshot)
   bypass          client got an A answer, no event, no sequence gap
@@ -265,8 +268,15 @@ def summarize(queries, events):
     pct = {o: (100.0 * counts[o] / total if total else 0.0) for o in OUTCOMES}
     rtts = [q["rtt"] * 1000.0 for q in queries if q.get("rtt") is not None and not q.get("late")]
     matched = [q["event"] for q in queries if q.get("event")]
+    late_writes = sum(1 for e in matched if e.get("late_write"))
+    late_ok = sum(1 for q in queries
+                  if q["outcome"] == "hold-timeout" and q.get("event")
+                  and q["event"].get("late_write")
+                  and q["event"].get("errors", 0) == 0
+                  and q["event"].get("added", 0) + q["event"].get("refreshed", 0) > 0)
     return {
         "total": total, "counts": counts, "percent": pct,
+        "late_writes": late_writes, "hold_timeout_late_ok": late_ok,
         "rtt_ms": dist(rtts),
         "hold_us": dist([e.get("hold_us", 0) for e in matched]),
         "set_write_us": dist([e.get("set_write_us", 0) for e in matched]),
@@ -279,7 +289,8 @@ def counter_deltas(before, after):
     out = {}
     bc = (before or {}).get("counters") or {}
     ac = (after or {}).get("counters") or {}
-    for key in ("dns_packets", "dns_matched", "dns_hold_timeouts", "set_errors",
+    for key in ("dns_packets", "dns_matched", "dns_hold_timeouts", "dns_late_writes",
+                "dns_late_write_errors", "set_write_slow", "set_errors",
                 "queue_overruns", "dns_parse_errors"):
         if key in bc and key in ac:
             out[key] = ac[key] - bc[key]
@@ -900,6 +911,9 @@ def render(summary):
         n = summary["counts"][o]
         if n or o in ("held-ok", "hold-timeout", "bypass", "client-timeout"):
             lines.append("  %-15s %6d  %6.2f%%" % (o, n, summary["percent"][o]))
+            if o == "hold-timeout" and n:
+                lines.append("    hold-timeout (late write ok): %d of %d  (late_write events: %d)" % (
+                    summary.get("hold_timeout_late_ok", 0), n, summary.get("late_writes", 0)))
     for key, label, unit in (("rtt_ms", "client RTT", "ms"), ("hold_us", "hold", "us"),
                              ("set_write_us", "set write", "us"), ("parse_us", "parse", "us")):
         d = summary[key]

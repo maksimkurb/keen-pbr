@@ -3,6 +3,7 @@
 #include "nl_msg.hpp"
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -34,6 +35,12 @@ public:
 
     // errno of the most recent Error, for logging.
     virtual int last_errno() const = 0;
+
+    // Optional: count writes slower than kSlowWriteMs into *counter (may be
+    // null).  The counter must outlive the writer.
+    virtual void set_slow_write_counter(std::atomic<uint64_t>* counter) { (void)counter; }
+
+    static constexpr int kSlowWriteMs = 20;
 };
 
 // Narrow transport seam used by the writer.  The production implementation
@@ -47,6 +54,9 @@ public:
                          uint32_t first_seq, uint32_t last_seq, int timeout_ms,
                          const std::function<void(const MsgView&)>& on_message,
                          const std::function<void(uint32_t, int)>& on_ack) = 0;
+    // Microseconds spent in sendto() by transact() calls since the last call
+    // (diagnostics only; 0 when the transport does not measure it).
+    virtual uint64_t take_send_us() { return 0; }
 };
 
 // Production transport over a fresh NETLINK_NETFILTER socket (throws

@@ -4,6 +4,8 @@
 #include "uapi_compat.hpp"
 
 
+#include "../log/logger.hpp"
+
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
@@ -37,6 +39,7 @@ public:
     explicit NlSocketTransport(int rcvbuf) : socket_(rcvbuf) {}
 
     uint32_t next_seq() override { return socket_.next_seq(); }
+    uint64_t take_send_us() override { return socket_.take_send_us(); }
 
     int transact(const uint8_t* request, std::size_t length, uint32_t first_seq,
                  uint32_t last_seq, int timeout_ms,
@@ -66,8 +69,43 @@ public:
 
     int last_errno() const override { return last_errno_; }
 
+    void set_slow_write_counter(std::atomic<uint64_t>* counter) override { slow_counter_ = counter; }
+
     bool add(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
         if (count == 0) return true;
+        (void)transport_->take_send_us();
+        const auto started = std::chrono::steady_clock::now();
+        const bool ok = add_impl(adds, out, count, timeout_ms);
+        const auto total_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                                  std::chrono::steady_clock::now() - started)
+                                  .count();
+        if (total_us >= static_cast<long long>(kSlowWriteMs) * 1000) {
+            note_slow_write(static_cast<uint64_t>(total_us), transport_->take_send_us(), count,
+                            adds != nullptr ? adds[0].set_name : std::string_view());
+        }
+        return ok;
+    }
+
+protected:
+    virtual void build(MsgBuilder& b, uint32_t seq, const SetAdd& a, bool exclusive) = 0;
+    virtual bool supports_refresh() const { return false; }
+    virtual void build_refresh(MsgBuilder&, uint32_t, uint32_t, const SetAdd&) {}
+
+private:
+    void note_slow_write(uint64_t total_us, uint64_t send_us, std::size_t batch,
+                         std::string_view set_name) {
+        if (slow_counter_ != nullptr) slow_counter_->fetch_add(1, std::memory_order_relaxed);
+        const auto now = std::chrono::steady_clock::now();
+        if (logged_slow_ && now - last_slow_log_ < std::chrono::seconds(10)) return;
+        logged_slow_ = true;
+        last_slow_log_ = now;
+        const uint64_t ack_us = total_us > send_us ? total_us - send_us : 0;
+        Logger::instance().info(
+            "intercept: slow set write {} us (send {} us, ack {} us, batch {} elems, set {})",
+            total_us, send_us, ack_us, batch, set_name);
+    }
+
+    bool add_impl(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) {
         if (adds == nullptr || out == nullptr) {
             last_errno_ = EINVAL;
             if (out != nullptr) std::fill(out, out + count, SetAddResult::Error);
@@ -95,12 +133,6 @@ public:
         return ok;
     }
 
-protected:
-    virtual void build(MsgBuilder& b, uint32_t seq, const SetAdd& a, bool exclusive) = 0;
-    virtual bool supports_refresh() const { return false; }
-    virtual void build_refresh(MsgBuilder&, uint32_t, uint32_t, const SetAdd&) {}
-
-private:
     // Sends adds[sel[0..m)] in one datagram and stores each ack's errno in errs[sel[i]].
     int run_pass(const SetAdd* adds, const std::size_t* sel, std::size_t m, bool exclusive,
                  int* errs, std::chrono::steady_clock::time_point deadline) {
@@ -331,6 +363,9 @@ private:
     std::unique_ptr<SetWriterTransport> transport_;
     int last_errno_{0};
     int transport_errno_{0};
+    std::atomic<uint64_t>* slow_counter_{nullptr};
+    bool logged_slow_{false};
+    std::chrono::steady_clock::time_point last_slow_log_{};
     std::vector<std::size_t> all_, resend_;
     std::vector<int> errs_, first_;
     std::vector<std::size_t> refresh_;

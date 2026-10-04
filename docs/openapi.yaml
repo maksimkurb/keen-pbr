@@ -1589,6 +1589,9 @@ components:
         dns_parse_errors: {type: integer, format: int64}
         dns_matched: {type: integer, format: int64}
         dns_hold_timeouts: {type: integer, format: int64}
+        dns_late_writes: {type: integer, format: int64}
+        dns_late_write_errors: {type: integer, format: int64}
+        set_write_slow: {type: integer, format: int64}
         dns_tcp_partial: {type: integer, format: int64}
         marker_hits: {type: integer, format: int64}
         l7_packets: {type: integer, format: int64}
@@ -1732,6 +1735,11 @@ components:
         timed_out:
           type: boolean
           description: The hold deadline expired before the sets were written.
+        late_write:
+          type: boolean
+          description: >
+            The set write was completed after the response was released (it
+            missed the hold deadline); added/refreshed/errors describe that late write.
         parse_us:
           type: integer
           description: Time spent parsing the captured request or response, in microseconds.

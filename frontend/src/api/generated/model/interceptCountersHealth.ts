@@ -11,6 +11,9 @@ export interface InterceptCountersHealth {
   dns_parse_errors?: number;
   dns_matched?: number;
   dns_hold_timeouts?: number;
+  dns_late_writes?: number;
+  dns_late_write_errors?: number;
+  set_write_slow?: number;
   dns_tcp_partial?: number;
   marker_hits?: number;
   l7_packets?: number;

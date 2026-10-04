@@ -36,18 +36,24 @@ public:
         if (delay_ms > 0) std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
         last_timeout_ms = timeout_ms;
         ++calls;
+        timeouts_ms.push_back(timeout_ms);
+        const bool timeout_now = simulate_timeout || timeout_calls > 0;
+        if (timeout_calls > 0) --timeout_calls;
         bool ok = true;
         for (std::size_t i = 0; i < count; ++i) {
             recorded.push_back({std::string(adds[i].set_name), adds[i].family, adds[i].addr,
                                 adds[i].timeout_s});
-            if (simulate_timeout) {
+            if (timeout_now) {
+                out[i] = SetAddResult::Error;
+                ok = false;
+            } else if (real_error) {
                 out[i] = SetAddResult::Error;
                 ok = false;
             } else {
                 out[i] = result;
             }
         }
-        errno_ = simulate_timeout ? ETIMEDOUT : 0;
+        errno_ = timeout_now ? ETIMEDOUT : (real_error ? EPERM : 0);
         return ok;
     }
     int last_errno() const override { return errno_; }
@@ -55,6 +61,9 @@ public:
     std::vector<RecordedAdd> recorded;
     SetAddResult result{SetAddResult::Added};
     bool simulate_timeout{false};
+    int timeout_calls{0};  // the next N calls time out, later ones succeed
+    bool real_error{false};
+    std::vector<int> timeouts_ms;
     int delay_ms{0};
     std::function<void()> on_enter;
     int last_timeout_ms{0};
@@ -440,33 +449,201 @@ TEST_CASE("intercept: domain in two lists adds to both sets, deduped") {
     CHECK(f.writer.recorded[1].set == "kpbr4d_both");
 }
 
-TEST_CASE("intercept: writer timeout counts and requests conntrack cleanup") {
+TEST_CASE("intercept: persistent writer timeout is retried late, then counted as errors") {
     Fixture f;
     f.writer.simulate_timeout = true;
     const Bytes pkt = dns_packet(
         dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100), aaaa_rr(9, 100)}));
-    f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    CHECK(d.late_write);
     CHECK(f.counters.dns_hold_timeouts == 1);
+    CHECK(f.counters.set_errors == 0);  // unknown, not an error yet
+    CHECK(f.proc.events_since(0, 10).empty());
+    f.proc.flush_late_writes();
+    CHECK(f.writer.calls == 2);
+    CHECK(f.writer.timeouts_ms[1] == InterceptProcessor::kLateWriteBudgetMs);
+    CHECK(f.counters.dns_late_writes == 1);
+    CHECK(f.counters.dns_late_write_errors == 2);
     CHECK(f.counters.set_errors == 2);
+    // Outcome unknown after ETIMEDOUT: purge flows anyway.
     REQUIRE(f.cleanup.requests.size() == 2);
     CHECK(f.cleanup.requests[0].first == 4);
     CHECK(f.cleanup.requests[1].first == 6);
     const auto events = f.proc.events_since(0, 10);
     REQUIRE(events.size() == 1);
     CHECK(events[0].timed_out);
+    CHECK(events[0].late_write);
+    CHECK(events[0].errors == 2);
 }
 
-TEST_CASE("intercept: expired DNS deadline accepts without a set write") {
+TEST_CASE("intercept: ETIMEDOUT then late success is Refreshed/Added, not an error") {
+    Fixture f;
+    f.writer.timeout_calls = 1;
+    f.writer.result = SetAddResult::Refreshed;  // first attempt landed in the kernel
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    CHECK(d.late_write);
+    f.proc.flush_late_writes();
+    CHECK(f.counters.set_errors == 0);
+    CHECK(f.counters.dns_late_write_errors == 0);
+    CHECK(f.counters.set_refreshed == 1);
+    CHECK(f.counters.dns_late_writes == 1);
+    CHECK(f.cleanup.requests.size() == 1);
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].late_write);
+    CHECK(events[0].refreshed == 1);
+    CHECK(events[0].errors == 0);
+
+    Fixture g;
+    g.writer.timeout_calls = 1;
+    g.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    g.proc.flush_late_writes();
+    CHECK(g.counters.set_added == 1);
+    CHECK(g.counters.set_errors == 0);
+    CHECK(g.cleanup.requests.size() == 1);
+}
+
+TEST_CASE("intercept: real writer error on time is a set error without late write") {
+    Fixture f;
+    f.writer.real_error = true;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    CHECK_FALSE(d.late_write);
+    CHECK(f.counters.set_errors == 1);
+    CHECK(f.counters.dns_hold_timeouts == 0);
+    CHECK(f.cleanup.requests.empty());
+    f.proc.flush_late_writes();  // no-op
+    CHECK(f.writer.calls == 1);
+}
+
+TEST_CASE("intercept: expired DNS deadline accepts first, writes late with its own budget") {
     Fixture f;
     const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
-    f.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(1), true);
-    CHECK(f.writer.calls == 0);
+    const auto d = f.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(1), true);
+    CHECK(d.late_write);
+    CHECK(f.writer.calls == 0);  // verdict can go out before any write
     CHECK(f.counters.dns_hold_timeouts == 1);
     CHECK(f.counters.set_errors == 0);
-    CHECK(f.cleanup.requests.empty());
+    CHECK(f.proc.events_since(0, 10).empty());
+    f.proc.flush_late_writes();
+    REQUIRE(f.writer.calls == 1);
+    CHECK(f.writer.last_timeout_ms == InterceptProcessor::kLateWriteBudgetMs);
+    CHECK(f.writer.recorded[0].set == "kpbr4d_ex");
+    CHECK(f.counters.set_added == 1);
+    CHECK(f.counters.dns_late_writes == 1);
+    REQUIRE(f.cleanup.requests.size() == 1);  // Added late => reset stale flows
     const auto events = f.proc.events_since(0, 10);
     REQUIRE(events.size() == 1);
     CHECK(events[0].timed_out);
+    CHECK(events[0].late_write);
+    CHECK(events[0].added == 1);
+}
+
+TEST_CASE("intercept: late write refreshing an existing element does not purge flows") {
+    Fixture f;
+    f.writer.result = SetAddResult::Refreshed;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(1), true);
+    f.proc.flush_late_writes();
+    CHECK(f.counters.set_refreshed == 1);
+    CHECK(f.cleanup.requests.empty());
+}
+
+TEST_CASE("intercept: late write is skipped when the snapshot changed") {
+    Fixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    const auto d = f.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(1), true);
+    REQUIRE(d.late_write);
+    f.proc.set_snapshot(nullptr);  // reload replaced the sets
+    f.proc.flush_late_writes();
+    CHECK(f.writer.calls == 0);
+    CHECK(f.counters.dns_late_writes == 0);
+    CHECK(f.counters.set_errors == 1);
+    CHECK(f.counters.dns_late_write_errors == 1);
+    CHECK(f.cleanup.requests.empty());
+}
+
+TEST_CASE("intercept: late write honours writer admission") {
+    Fixture f;
+    int released = 0;
+    f.proc.set_writer_callbacks([] { return true; }, [&released] { ++released; }, {}, {});
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(1), true);
+    CHECK(released == 0);  // nothing admitted before the verdict
+    f.proc.flush_late_writes();
+    CHECK(released == 1);
+    CHECK(f.writer.calls == 1);
+
+    Fixture g;
+    g.proc.set_writer_callbacks([] { return false; }, [] {}, {}, {});
+    g.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(1), true);
+    g.proc.flush_late_writes();
+    CHECK(g.writer.calls == 0);
+    CHECK(g.counters.set_errors == 1);
+}
+
+TEST_CASE("intercept: back-to-back deadline misses release all verdicts before one combined write") {
+    Fixture f;
+    std::vector<std::string> order;
+    f.writer.on_enter = [&order] { order.push_back("write"); };
+    const Bytes p1 = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    const Bytes p2 = dns_packet(dns_response("example.com", 0, {a_rr(5, 6, 7, 8, 100)}));
+    const auto past = Clock::now() - std::chrono::milliseconds(70);
+    for (const Bytes* p : {&p1, &p2}) {
+        const auto d = f.proc.on_dns_packet(view(*p), past, true);
+        CHECK(d.late_write);
+        order.push_back("verdict");  // the service sends the verdict right here
+    }
+    CHECK(f.writer.calls == 0);
+    CHECK(f.proc.pending_late_events() == 2);
+    f.proc.flush_late_writes();
+    REQUIRE(order.size() == 3);
+    CHECK(order[0] == "verdict");
+    CHECK(order[1] == "verdict");
+    CHECK(order[2] == "write");
+    CHECK(f.writer.calls == 1);  // one combined writer call
+    CHECK(f.writer.recorded.size() == 2);
+    CHECK(f.writer.last_timeout_ms == InterceptProcessor::kLateWriteBudgetMs);
+    CHECK(f.counters.dns_hold_timeouts == 2);
+    CHECK(f.counters.set_added == 2);
+    CHECK(f.cleanup.requests.size() == 2);
+    CHECK(f.proc.events_since(0, 10).size() == 2);
+    CHECK(f.proc.pending_late_events() == 0);
+    f.proc.flush_late_writes();  // nothing pending: no second write
+    CHECK(f.writer.calls == 1);
+}
+
+TEST_CASE("intercept: a flush that timed out backs the next flush off to 50 ms") {
+    Fixture f;
+    f.writer.simulate_timeout = true;
+    const Bytes p = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    const auto past = Clock::now() - std::chrono::milliseconds(70);
+    f.proc.on_dns_packet(view(p), past, true);
+    f.proc.flush_late_writes();
+    CHECK(f.writer.last_timeout_ms == InterceptProcessor::kLateWriteBudgetMs);
+    f.proc.on_dns_packet(view(p), past, true);
+    f.proc.flush_late_writes();
+    CHECK(f.writer.last_timeout_ms == InterceptProcessor::kLateBackoffBudgetMs);
+    CHECK(f.counters.dns_late_write_errors == 2);
+    CHECK(f.counters.set_errors == 2);
+}
+
+TEST_CASE("intercept: pending-late batch overflow is counted and dropped") {
+    Fixture f;
+    const Bytes p = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    const auto past = Clock::now() - std::chrono::milliseconds(70);
+    for (std::size_t i = 0; i < InterceptProcessor::kLateBatchCapacity; ++i) {
+        CHECK(f.proc.on_dns_packet(view(p), past, true).late_write);
+    }
+    const auto d = f.proc.on_dns_packet(view(p), past, true);
+    CHECK_FALSE(d.late_write);
+    CHECK(f.counters.dns_late_write_errors == 1);
+    CHECK(f.counters.set_errors == 1);
+    CHECK(f.proc.pending_late_events() == InterceptProcessor::kLateBatchCapacity);
+    f.proc.flush_late_writes();
+    CHECK(f.writer.calls == 1);
+    CHECK(f.writer.recorded.size() == InterceptProcessor::kLateBatchCapacity);
 }
 
 TEST_CASE("intercept: DNS deadline is checked again after writer admission") {

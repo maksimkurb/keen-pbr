@@ -98,6 +98,38 @@ This path does not request `SO_TIMESTAMP` or another enqueue timestamp, so the
 deadline starts when userspace wakes for the queue; it cannot account for time
 already spent waiting in the kernel queue.
 
+The deadline bounds only how long the answer is held, never whether the set
+write happens. When it passes (for example because the answer queued behind a
+slow set write) or the on-time write times out, the verdict (ACCEPT) is sent
+immediately, so the answer is released at the deadline, and the unwritten adds
+are queued in a fixed pending-late batch of 512 elements (reserved once, no
+per-packet allocation for the elements). Once per hot-loop iteration, after the
+NFQUEUE socket was read, the daemon flushes that batch with one combined set
+write and a 500 ms budget for the whole flush, then requests conntrack cleanup
+(stale flows to the answer addresses are reset) for added elements and
+publishes the deferred events. If a flush ends with a timeout, flushes during
+the next 1 s use a reduced 50 ms budget, so a stuck kernel cannot add 500 ms to
+every loop iteration; the elements that fail then are counted in
+`dns_late_write_errors`. If the batch is full, the overflowing adds are dropped
+and counted in `dns_late_write_errors` (and `set_errors`). Admission and the
+snapshot are checked per flush: adds for a replaced snapshot are dropped as
+errors.
+
+A timeout (`ETIMEDOUT`) is treated as "unknown", not as an error: the kernel
+may still have applied the batch, so the unconfirmed elements are written again
+in the late flush (an existing element is reported as refreshed) and only a
+real kernel error counts as `set_errors`. Affected events have
+`timed_out: true` and `late_write: true`, and the counters `dns_hold_timeouts`,
+`dns_late_writes` and `dns_late_write_errors` are updated. The flush runs on the
+hot thread, so packets read after it wait for it (at most 500 ms, normally far
+less).
+
+`set_write_slow` counts set writes (on-time, late and L7) that took 20 ms or
+more. Each such write is also logged at info, at most once per 10 s, as
+`intercept: slow set write <us> (send <us>, ack <us>, batch <n> elems, set <name>)`:
+`send` is the time in `sendto`, `ack` the rest, i.e. waiting for the kernel to
+acknowledge. A large `ack` points at a kernel-side stall in the set update.
+
 ## Marker and payload replacement
 
 The marker domain (`check.keen.pbr` by default) is answered with `127.0.0.88`

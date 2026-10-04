@@ -169,6 +169,26 @@ class ClassifyTests(unittest.TestCase):
         self.assertEqual(s["hold_us"]["count"], 2)
         self.assertEqual(s["set_write_us"]["max"], 40)
 
+    def test_late_write_sub_count(self):
+        queries = [Q("a.x", 1), Q("b.x", 2), Q("c.x", 3)]
+        events = [EV(1, "a.x", timed_out=True, late_write=True),
+                  EV(2, "b.x", timed_out=True, late_write=True, errors=1, added=0),
+                  EV(3, "c.x", timed_out=True)]
+        bench.classify(queries, events, [])
+        s = bench.summarize(queries, events)
+        self.assertEqual(s["counts"]["hold-timeout"], 3)
+        self.assertEqual(s["late_writes"], 2)
+        self.assertEqual(s["hold_timeout_late_ok"], 1)
+        text = bench.render(dict(s, rate=10, counter_deltas={}, gaps=[], stream_error=None))
+        self.assertIn("hold-timeout (late write ok): 1 of 3", text)
+
+    def test_counter_deltas_late_write_counters(self):
+        c = {"dns_late_writes": 1, "dns_late_write_errors": 0, "set_write_slow": 2}
+        a = {"dns_late_writes": 4, "dns_late_write_errors": 1, "set_write_slow": 5}
+        d = bench.counter_deltas({"counters": c}, {"counters": a})
+        self.assertEqual((d["dns_late_writes"], d["dns_late_write_errors"], d["set_write_slow"]),
+                         (3, 1, 3))
+
 
 # ----------------------------------------------------------------- fake router
 
