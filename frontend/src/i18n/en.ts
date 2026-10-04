@@ -494,6 +494,31 @@ export const enTranslation = {
       processingTime: "Processing time",
       flags: "Flags",
     },
+    timeout: {
+      budget_spent_by_batch: {
+        label: "late: batch",
+        tooltip:
+          "Earlier packets in the same wakeup used up the shared hold budget, so the answer was released before this one's set write.",
+      },
+      admission_blocked: {
+        label: "late: apply",
+        tooltip:
+          "The hold deadline passed while the set write waited for a firewall apply to finish.",
+      },
+      own_write_slow: {
+        label: "late: write",
+        tooltip: "The set write itself took longer than the hold deadline.",
+      },
+      late_batch_full: {
+        label: "dropped: batch full",
+        tooltip:
+          "The pending late-write queue was full, so these set elements were dropped.",
+      },
+      other: {
+        label: "late: other",
+        tooltip: "The hold deadline passed for another reason.",
+      },
+    },
     methods: {
       dns: "DNS",
       http: "HTTP Host",

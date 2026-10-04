@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { DnsTestInterceptEventSource } from './dnsTestInterceptEventSource';
+import type { DnsTestInterceptEventTimeoutCause } from './dnsTestInterceptEventTimeoutCause';
 import type { DnsTestInterceptEventType } from './dnsTestInterceptEventType';
 
 /**
@@ -46,6 +47,27 @@ export interface DnsTestInterceptEvent {
   late_write?: boolean;
   /** Time spent parsing the captured request or response, in microseconds. */
   parse_us?: number;
-  /** Time spent in the set writer for this observation, in microseconds (0 when nothing was written). */
+  /** Time spent in the set writer for this observation, in microseconds (0 when nothing was written). For a late write (`late_write`) this is the wall time of the whole combined late batch, added to any on-time attempt, so it can be larger than this packet's own share (see `late_batch_elements`).
+   */
   set_write_us?: number;
+  /** 0-based position of this DNS packet among the packets received in the same wakeup round. */
+  batch_pos?: number;
+  /** Packets received in the same wakeup round. Filled in after the round ends, so a streamed event may arrive without it.
+   */
+  batch_size?: number;
+  /** Microseconds between the wakeup and the start of processing this packet (time spent on earlier packets of the round). */
+  queue_wait_us?: number;
+  /** Hold deadline minus processing start, in microseconds; negative means the deadline had already passed. */
+  budget_left_us?: number;
+  /** Microseconds spent waiting for the firewall-apply write pause before writing. */
+  admission_wait_us?: number;
+  /** Number of set elements in this packet's synchronous write attempt. */
+  write_elements?: number;
+  /** Number of set elements in the combined late write that covered this event. */
+  late_batch_elements?: number;
+  /** errno of the last failed set write for this event (absent on success). */
+  write_errno?: number;
+  /** Why the hold timed out (only with `timed_out`). `budget_spent_by_batch`: the deadline had already passed when the packet started (earlier packets of the round used the shared budget). `admission_blocked`: the deadline passed while waiting for the firewall-apply write pause. `own_write_slow`: the packet's own write ran past the deadline. `late_batch_full`: the adds were dropped because the pending late-write batch was full.
+   */
+  timeout_cause?: DnsTestInterceptEventTimeoutCause;
 }

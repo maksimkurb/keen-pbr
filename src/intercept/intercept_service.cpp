@@ -342,14 +342,15 @@ void InterceptService::stop() {
     running_.store(false);
 }
 
-void InterceptService::handle_queue_packet(const nfnl::QueuedPacket& packet, Clock::time_point deadline) {
+void InterceptService::handle_queue_packet(const nfnl::QueuedPacket& packet,
+                                           const DnsRound& round) {
     if (!have_packet_id_ || static_cast<int32_t>(packet.packet_id - max_packet_id_) > 0) {
         max_packet_id_ = packet.packet_id;
         have_packet_id_ = true;
     }
     InterceptProcessor::DnsDecision decision;
     try {
-        decision = processor_.on_dns_packet(packet.payload, deadline, replacement_allowed_);
+        decision = processor_.on_dns_packet(packet.payload, round, replacement_allowed_);
     } catch (...) {
         decision = {};
     }
@@ -413,13 +414,16 @@ void InterceptService::hot_loop() {
             else if (log_ && fd == log_->fd()) log_ready = true;
         }
         if (queue_ready) {
-            const int rc = queue_->receive([this, deadline](const nfnl::QueuedPacket& packet) {
-                handle_queue_packet(packet, deadline);
+            const uint64_t round_first_seq = processor_.last_event_seq() + 1;
+            uint32_t batch_pos = 0;
+            const int rc = queue_->receive([this, woke, deadline, &batch_pos](const nfnl::QueuedPacket& packet) {
+                handle_queue_packet(packet, DnsRound(woke, deadline, batch_pos++));
             });
             counters_.queue_overruns.store(queue_->overruns(), std::memory_order_relaxed);
             // Every verdict of this round is out: now write, once, whatever
             // missed the hold deadline (bounded combined budget, with backoff).
             processor_.flush_late_writes();
+            if (batch_pos > 0) processor_.set_round_batch_size(round_first_seq, batch_pos);
             if (rc < 0) {
                 Logger::instance().error("intercept: NFQUEUE receive failed (errno={}); stopping hot thread",
                                          queue_->last_errno());

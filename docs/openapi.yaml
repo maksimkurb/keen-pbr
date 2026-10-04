@@ -1582,6 +1582,27 @@ components:
         reason:
           type: string
 
+    InterceptWriteLatency:
+      type: object
+      description: >
+        Set-write latency histogram. Each write falls into exactly one bucket
+        (bucket names are upper bounds, exclusive).
+      properties:
+        lt_1ms: {type: integer, format: int64}
+        lt_5ms: {type: integer, format: int64}
+        lt_10ms: {type: integer, format: int64}
+        lt_30ms: {type: integer, format: int64}
+        lt_100ms: {type: integer, format: int64}
+        ge_100ms: {type: integer, format: int64}
+        max_us:
+          type: integer
+          format: int64
+          description: Slowest write seen since start, in microseconds.
+        max_elements:
+          type: integer
+          format: int64
+          description: Number of elements in the slowest write.
+
     InterceptCountersHealth:
       type: object
       properties:
@@ -1623,6 +1644,36 @@ components:
           type: integer
           format: int64
           description: Post-verdict refreshes dropped because the pending batch was full (not an error).
+        dns_timeout_budget_spent_by_batch:
+          type: integer
+          format: int64
+          description: >
+            `dns_hold_timeouts` whose deadline had already passed when the packet started
+            processing (the shared per-wakeup budget was spent by earlier packets).
+        dns_timeout_admission_blocked:
+          type: integer
+          format: int64
+          description: >
+            `dns_hold_timeouts` where the deadline passed while waiting for the
+            firewall-apply write pause.
+        dns_timeout_own_write_slow:
+          type: integer
+          format: int64
+          description: '`dns_hold_timeouts` where the packet''s own synchronous set write ran past the deadline (ETIMEDOUT).'
+        dns_timeout_late_batch_full:
+          type: integer
+          format: int64
+          description: '`dns_hold_timeouts` whose adds were dropped because the pending late-write batch was full.'
+        dns_timeout_other:
+          type: integer
+          format: int64
+          description: '`dns_hold_timeouts` with no more specific cause.'
+        dns_write_latency:
+          $ref: "#/components/schemas/InterceptWriteLatency"
+        late_write_latency:
+          $ref: "#/components/schemas/InterceptWriteLatency"
+        l7_write_latency:
+          $ref: "#/components/schemas/InterceptWriteLatency"
         conntrack_requests: {type: integer, format: int64}
         conntrack_deleted: {type: integer, format: int64}
         conntrack_errors: {type: integer, format: int64}
@@ -1777,7 +1828,50 @@ components:
           description: Time spent parsing the captured request or response, in microseconds.
         set_write_us:
           type: integer
-          description: Time spent in the set writer for this observation, in microseconds (0 when nothing was written).
+          description: >
+            Time spent in the set writer for this observation, in microseconds
+            (0 when nothing was written). For a late write (`late_write`) this
+            is the wall time of the whole combined late batch, added to any
+            on-time attempt, so it can be larger than this packet's own share
+            (see `late_batch_elements`).
+        batch_pos:
+          type: integer
+          description: 0-based position of this DNS packet among the packets received in the same wakeup round.
+        batch_size:
+          type: integer
+          description: >
+            Packets received in the same wakeup round. Filled in after the round
+            ends, so a streamed event may arrive without it.
+        queue_wait_us:
+          type: integer
+          format: int64
+          description: Microseconds between the wakeup and the start of processing this packet (time spent on earlier packets of the round).
+        budget_left_us:
+          type: integer
+          format: int64
+          description: Hold deadline minus processing start, in microseconds; negative means the deadline had already passed.
+        admission_wait_us:
+          type: integer
+          description: Microseconds spent waiting for the firewall-apply write pause before writing.
+        write_elements:
+          type: integer
+          description: Number of set elements in this packet's synchronous write attempt.
+        late_batch_elements:
+          type: integer
+          description: Number of set elements in the combined late write that covered this event.
+        write_errno:
+          type: integer
+          description: errno of the last failed set write for this event (absent on success).
+        timeout_cause:
+          type: string
+          enum: [budget_spent_by_batch, admission_blocked, own_write_slow, late_batch_full, other]
+          description: >
+            Why the hold timed out (only with `timed_out`). `budget_spent_by_batch`:
+            the deadline had already passed when the packet started (earlier packets
+            of the round used the shared budget). `admission_blocked`: the deadline
+            passed while waiting for the firewall-apply write pause. `own_write_slow`:
+            the packet's own write ran past the deadline. `late_batch_full`: the adds
+            were dropped because the pending late-write batch was full.
 
     DnsTestGapEvent:
       type: object

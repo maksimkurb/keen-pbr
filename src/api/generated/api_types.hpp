@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes2QLaIj data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes92L8FR data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -404,10 +404,16 @@ namespace api {
 
     enum class Source : int { DNS, HTTP, MARKER, QUIC, SNI };
 
+    enum class TimeoutCause : int { ADMISSION_BLOCKED, BUDGET_SPENT_BY_BATCH, LATE_BATCH_FULL, OTHER, OWN_WRITE_SLOW };
+
     enum class DnsTestInterceptEventType : int { INTERCEPT };
 
     struct DnsTestInterceptEvent {
         int64_t added;
+        std::optional<int64_t> admission_wait_us;
+        std::optional<int64_t> batch_pos;
+        std::optional<int64_t> batch_size;
+        std::optional<int64_t> budget_left_us;
         std::optional<int64_t> cache_hits;
         std::optional<std::string> client_ip;
         std::optional<int64_t> deferred_refresh;
@@ -415,16 +421,21 @@ namespace api {
         int64_t errors;
         int64_t hold_us;
         std::vector<std::string> ips;
+        std::optional<int64_t> late_batch_elements;
         std::optional<bool> late_write;
         std::vector<std::string> lists;
         std::optional<int64_t> parse_us;
+        std::optional<int64_t> queue_wait_us;
         int64_t refreshed;
         int64_t seq;
         std::optional<int64_t> set_write_us;
         Source source;
         bool timed_out;
+        std::optional<TimeoutCause> timeout_cause;
         int64_t ts_ms;
         DnsTestInterceptEventType type;
+        std::optional<int64_t> write_elements;
+        std::optional<int64_t> write_errno;
     };
 
     enum class DnsmasqAlive : int { ALIVE, DEAD, UNKNOWN };
@@ -491,6 +502,17 @@ namespace api {
         std::optional<PayloadReplacement> payload_replacement;
     };
 
+    struct DnsWriteLatency {
+        std::optional<int64_t> ge_100_ms;
+        std::optional<int64_t> lt_100_ms;
+        std::optional<int64_t> lt_10_ms;
+        std::optional<int64_t> lt_1_ms;
+        std::optional<int64_t> lt_30_ms;
+        std::optional<int64_t> lt_5_ms;
+        std::optional<int64_t> max_elements;
+        std::optional<int64_t> max_us;
+    };
+
     struct Counters {
         std::optional<int64_t> conntrack_deleted;
         std::optional<int64_t> conntrack_errors;
@@ -503,8 +525,16 @@ namespace api {
         std::optional<int64_t> dns_parse_errors;
         std::optional<int64_t> dns_refresh_deferred;
         std::optional<int64_t> dns_tcp_partial;
+        std::optional<int64_t> dns_timeout_admission_blocked;
+        std::optional<int64_t> dns_timeout_budget_spent_by_batch;
+        std::optional<int64_t> dns_timeout_late_batch_full;
+        std::optional<int64_t> dns_timeout_other;
+        std::optional<int64_t> dns_timeout_own_write_slow;
+        std::optional<DnsWriteLatency> dns_write_latency;
         std::optional<int64_t> l7_matched;
         std::optional<int64_t> l7_packets;
+        std::optional<DnsWriteLatency> l7_write_latency;
+        std::optional<DnsWriteLatency> late_write_latency;
         std::optional<int64_t> log_overruns;
         std::optional<int64_t> marker_hits;
         std::optional<int64_t> queue_overruns;
@@ -796,7 +826,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypes2QLaIj {
+    struct KeenPbrTypes92L8FR {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -840,6 +870,7 @@ namespace api {
         std::optional<L7> intercept_l7_config;
         std::optional<Marker> intercept_marker_config;
         std::optional<InterceptProbeFeatureElement> intercept_probe_feature;
+        std::optional<DnsWriteLatency> intercept_write_latency;
         std::optional<Iproute> iproute_config;
         std::optional<LifecycleOperation> lifecycle_operation;
         std::optional<LifecycleOperationAcceptedResponse> lifecycle_operation_accepted_response;
@@ -1027,6 +1058,9 @@ namespace api {
     void from_json(const json & j, Capabilities & x);
     void to_json(json & j, const Capabilities & x);
 
+    void from_json(const json & j, DnsWriteLatency & x);
+    void to_json(json & j, const DnsWriteLatency & x);
+
     void from_json(const json & j, Counters & x);
     void to_json(json & j, const Counters & x);
 
@@ -1120,8 +1154,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypes2QLaIj & x);
-    void to_json(json & j, const KeenPbrTypes2QLaIj & x);
+    void from_json(const json & j, KeenPbrTypes92L8FR & x);
+    void to_json(json & j, const KeenPbrTypes92L8FR & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1158,6 +1192,9 @@ namespace api {
 
     void from_json(const json & j, Source & x);
     void to_json(json & j, const Source & x);
+
+    void from_json(const json & j, TimeoutCause & x);
+    void to_json(json & j, const TimeoutCause & x);
 
     void from_json(const json & j, DnsTestInterceptEventType & x);
     void to_json(json & j, const DnsTestInterceptEventType & x);
@@ -1850,6 +1887,10 @@ namespace api {
 
     inline void from_json(const json & j, DnsTestInterceptEvent& x) {
         x.added = j.at("added").get<int64_t>();
+        x.admission_wait_us = get_stack_optional<int64_t>(j, "admission_wait_us");
+        x.batch_pos = get_stack_optional<int64_t>(j, "batch_pos");
+        x.batch_size = get_stack_optional<int64_t>(j, "batch_size");
+        x.budget_left_us = get_stack_optional<int64_t>(j, "budget_left_us");
         x.cache_hits = get_stack_optional<int64_t>(j, "cache_hits");
         x.client_ip = get_stack_optional<std::string>(j, "client_ip");
         x.deferred_refresh = get_stack_optional<int64_t>(j, "deferred_refresh");
@@ -1857,21 +1898,30 @@ namespace api {
         x.errors = j.at("errors").get<int64_t>();
         x.hold_us = j.at("hold_us").get<int64_t>();
         x.ips = j.at("ips").get<std::vector<std::string>>();
+        x.late_batch_elements = get_stack_optional<int64_t>(j, "late_batch_elements");
         x.late_write = get_stack_optional<bool>(j, "late_write");
         x.lists = j.at("lists").get<std::vector<std::string>>();
         x.parse_us = get_stack_optional<int64_t>(j, "parse_us");
+        x.queue_wait_us = get_stack_optional<int64_t>(j, "queue_wait_us");
         x.refreshed = j.at("refreshed").get<int64_t>();
         x.seq = j.at("seq").get<int64_t>();
         x.set_write_us = get_stack_optional<int64_t>(j, "set_write_us");
         x.source = j.at("source").get<Source>();
         x.timed_out = j.at("timed_out").get<bool>();
+        x.timeout_cause = get_stack_optional<TimeoutCause>(j, "timeout_cause");
         x.ts_ms = j.at("ts_ms").get<int64_t>();
         x.type = j.at("type").get<DnsTestInterceptEventType>();
+        x.write_elements = get_stack_optional<int64_t>(j, "write_elements");
+        x.write_errno = get_stack_optional<int64_t>(j, "write_errno");
     }
 
     inline void to_json(json & j, const DnsTestInterceptEvent & x) {
         j = json::object();
         j["added"] = x.added;
+        j["admission_wait_us"] = x.admission_wait_us;
+        j["batch_pos"] = x.batch_pos;
+        j["batch_size"] = x.batch_size;
+        j["budget_left_us"] = x.budget_left_us;
         j["cache_hits"] = x.cache_hits;
         j["client_ip"] = x.client_ip;
         j["deferred_refresh"] = x.deferred_refresh;
@@ -1879,16 +1929,21 @@ namespace api {
         j["errors"] = x.errors;
         j["hold_us"] = x.hold_us;
         j["ips"] = x.ips;
+        j["late_batch_elements"] = x.late_batch_elements;
         j["late_write"] = x.late_write;
         j["lists"] = x.lists;
         j["parse_us"] = x.parse_us;
+        j["queue_wait_us"] = x.queue_wait_us;
         j["refreshed"] = x.refreshed;
         j["seq"] = x.seq;
         j["set_write_us"] = x.set_write_us;
         j["source"] = x.source;
         j["timed_out"] = x.timed_out;
+        j["timeout_cause"] = x.timeout_cause;
         j["ts_ms"] = x.ts_ms;
         j["type"] = x.type;
+        j["write_elements"] = x.write_elements;
+        j["write_errno"] = x.write_errno;
     }
 
     inline void from_json(const json & j, DnsmasqHealth& x) {
@@ -2009,6 +2064,29 @@ namespace api {
         j["payload_replacement"] = x.payload_replacement;
     }
 
+    inline void from_json(const json & j, DnsWriteLatency& x) {
+        x.ge_100_ms = get_stack_optional<int64_t>(j, "ge_100ms");
+        x.lt_100_ms = get_stack_optional<int64_t>(j, "lt_100ms");
+        x.lt_10_ms = get_stack_optional<int64_t>(j, "lt_10ms");
+        x.lt_1_ms = get_stack_optional<int64_t>(j, "lt_1ms");
+        x.lt_30_ms = get_stack_optional<int64_t>(j, "lt_30ms");
+        x.lt_5_ms = get_stack_optional<int64_t>(j, "lt_5ms");
+        x.max_elements = get_stack_optional<int64_t>(j, "max_elements");
+        x.max_us = get_stack_optional<int64_t>(j, "max_us");
+    }
+
+    inline void to_json(json & j, const DnsWriteLatency & x) {
+        j = json::object();
+        j["ge_100ms"] = x.ge_100_ms;
+        j["lt_100ms"] = x.lt_100_ms;
+        j["lt_10ms"] = x.lt_10_ms;
+        j["lt_1ms"] = x.lt_1_ms;
+        j["lt_30ms"] = x.lt_30_ms;
+        j["lt_5ms"] = x.lt_5_ms;
+        j["max_elements"] = x.max_elements;
+        j["max_us"] = x.max_us;
+    }
+
     inline void from_json(const json & j, Counters& x) {
         x.conntrack_deleted = get_stack_optional<int64_t>(j, "conntrack_deleted");
         x.conntrack_errors = get_stack_optional<int64_t>(j, "conntrack_errors");
@@ -2021,8 +2099,16 @@ namespace api {
         x.dns_parse_errors = get_stack_optional<int64_t>(j, "dns_parse_errors");
         x.dns_refresh_deferred = get_stack_optional<int64_t>(j, "dns_refresh_deferred");
         x.dns_tcp_partial = get_stack_optional<int64_t>(j, "dns_tcp_partial");
+        x.dns_timeout_admission_blocked = get_stack_optional<int64_t>(j, "dns_timeout_admission_blocked");
+        x.dns_timeout_budget_spent_by_batch = get_stack_optional<int64_t>(j, "dns_timeout_budget_spent_by_batch");
+        x.dns_timeout_late_batch_full = get_stack_optional<int64_t>(j, "dns_timeout_late_batch_full");
+        x.dns_timeout_other = get_stack_optional<int64_t>(j, "dns_timeout_other");
+        x.dns_timeout_own_write_slow = get_stack_optional<int64_t>(j, "dns_timeout_own_write_slow");
+        x.dns_write_latency = get_stack_optional<DnsWriteLatency>(j, "dns_write_latency");
         x.l7_matched = get_stack_optional<int64_t>(j, "l7_matched");
         x.l7_packets = get_stack_optional<int64_t>(j, "l7_packets");
+        x.l7_write_latency = get_stack_optional<DnsWriteLatency>(j, "l7_write_latency");
+        x.late_write_latency = get_stack_optional<DnsWriteLatency>(j, "late_write_latency");
         x.log_overruns = get_stack_optional<int64_t>(j, "log_overruns");
         x.marker_hits = get_stack_optional<int64_t>(j, "marker_hits");
         x.queue_overruns = get_stack_optional<int64_t>(j, "queue_overruns");
@@ -2050,8 +2136,16 @@ namespace api {
         j["dns_parse_errors"] = x.dns_parse_errors;
         j["dns_refresh_deferred"] = x.dns_refresh_deferred;
         j["dns_tcp_partial"] = x.dns_tcp_partial;
+        j["dns_timeout_admission_blocked"] = x.dns_timeout_admission_blocked;
+        j["dns_timeout_budget_spent_by_batch"] = x.dns_timeout_budget_spent_by_batch;
+        j["dns_timeout_late_batch_full"] = x.dns_timeout_late_batch_full;
+        j["dns_timeout_other"] = x.dns_timeout_other;
+        j["dns_timeout_own_write_slow"] = x.dns_timeout_own_write_slow;
+        j["dns_write_latency"] = x.dns_write_latency;
         j["l7_matched"] = x.l7_matched;
         j["l7_packets"] = x.l7_packets;
+        j["l7_write_latency"] = x.l7_write_latency;
+        j["late_write_latency"] = x.late_write_latency;
         j["log_overruns"] = x.log_overruns;
         j["marker_hits"] = x.marker_hits;
         j["queue_overruns"] = x.queue_overruns;
@@ -2578,7 +2672,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes2QLaIj& x) {
+    inline void from_json(const json & j, KeenPbrTypes92L8FR& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2622,6 +2716,7 @@ namespace api {
         x.intercept_l7_config = get_stack_optional<L7>(j, "InterceptL7Config");
         x.intercept_marker_config = get_stack_optional<Marker>(j, "InterceptMarkerConfig");
         x.intercept_probe_feature = get_stack_optional<InterceptProbeFeatureElement>(j, "InterceptProbeFeature");
+        x.intercept_write_latency = get_stack_optional<DnsWriteLatency>(j, "InterceptWriteLatency");
         x.iproute_config = get_stack_optional<Iproute>(j, "IprouteConfig");
         x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "LifecycleOperation");
         x.lifecycle_operation_accepted_response = get_stack_optional<LifecycleOperationAcceptedResponse>(j, "LifecycleOperationAcceptedResponse");
@@ -2664,7 +2759,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes2QLaIj & x) {
+    inline void to_json(json & j, const KeenPbrTypes92L8FR & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2709,6 +2804,7 @@ namespace api {
         j["InterceptL7Config"] = x.intercept_l7_config;
         j["InterceptMarkerConfig"] = x.intercept_marker_config;
         j["InterceptProbeFeature"] = x.intercept_probe_feature;
+        j["InterceptWriteLatency"] = x.intercept_write_latency;
         j["IprouteConfig"] = x.iproute_config;
         j["LifecycleOperation"] = x.lifecycle_operation;
         j["LifecycleOperationAcceptedResponse"] = x.lifecycle_operation_accepted_response;
@@ -2930,6 +3026,26 @@ namespace api {
             case Source::QUIC: j = "quic"; break;
             case Source::SNI: j = "sni"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"Source\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, TimeoutCause & x) {
+        if (j == "admission_blocked") x = TimeoutCause::ADMISSION_BLOCKED;
+        else if (j == "budget_spent_by_batch") x = TimeoutCause::BUDGET_SPENT_BY_BATCH;
+        else if (j == "late_batch_full") x = TimeoutCause::LATE_BATCH_FULL;
+        else if (j == "other") x = TimeoutCause::OTHER;
+        else if (j == "own_write_slow") x = TimeoutCause::OWN_WRITE_SLOW;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"TimeoutCause\""); }
+    }
+
+    inline void to_json(json & j, const TimeoutCause & x) {
+        switch (x) {
+            case TimeoutCause::ADMISSION_BLOCKED: j = "admission_blocked"; break;
+            case TimeoutCause::BUDGET_SPENT_BY_BATCH: j = "budget_spent_by_batch"; break;
+            case TimeoutCause::LATE_BATCH_FULL: j = "late_batch_full"; break;
+            case TimeoutCause::OTHER: j = "other"; break;
+            case TimeoutCause::OWN_WRITE_SLOW: j = "own_write_slow"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"TimeoutCause\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

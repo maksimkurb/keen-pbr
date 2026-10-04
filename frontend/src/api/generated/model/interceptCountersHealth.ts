@@ -5,6 +5,7 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { InterceptWriteLatency } from './interceptWriteLatency';
 
 export interface InterceptCountersHealth {
   dns_packets?: number;
@@ -33,6 +34,21 @@ export interface InterceptCountersHealth {
   refresh_skipped?: number;
   /** Post-verdict refreshes dropped because the pending batch was full (not an error). */
   refresh_dropped?: number;
+  /** `dns_hold_timeouts` whose deadline had already passed when the packet started processing (the shared per-wakeup budget was spent by earlier packets).
+   */
+  dns_timeout_budget_spent_by_batch?: number;
+  /** `dns_hold_timeouts` where the deadline passed while waiting for the firewall-apply write pause.
+   */
+  dns_timeout_admission_blocked?: number;
+  /** `dns_hold_timeouts` where the packet's own synchronous set write ran past the deadline (ETIMEDOUT). */
+  dns_timeout_own_write_slow?: number;
+  /** `dns_hold_timeouts` whose adds were dropped because the pending late-write batch was full. */
+  dns_timeout_late_batch_full?: number;
+  /** `dns_hold_timeouts` with no more specific cause. */
+  dns_timeout_other?: number;
+  dns_write_latency?: InterceptWriteLatency;
+  late_write_latency?: InterceptWriteLatency;
+  l7_write_latency?: InterceptWriteLatency;
   conntrack_requests?: number;
   conntrack_deleted?: number;
   conntrack_errors?: number;

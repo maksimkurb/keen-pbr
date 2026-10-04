@@ -41,6 +41,18 @@ struct InterceptSnapshot {
 
 enum class InterceptSource : uint8_t { dns, sni, http, quic, marker };
 
+// Why a DNS hold ended in `timed_out` (diagnostics only; never drives behaviour).
+enum class TimeoutCause : uint8_t {
+    none,
+    budget_spent_by_batch,  // deadline had already passed when this packet started
+    admission_blocked,      // deadline passed while waiting for the firewall-apply write gate
+    own_write_slow,         // this packet's own write ran past the deadline (ETIMEDOUT)
+    late_batch_full,        // deferred adds dropped: the pending-late batch was full
+    other,
+};
+
+const char* timeout_cause_name(TimeoutCause cause);
+
 struct InterceptEvent {
     uint64_t seq{0};
     int64_t ts_ms{0};
@@ -62,6 +74,31 @@ struct InterceptEvent {
     uint32_t cache_hits{0};         // adds skipped before the verdict: element already cached
     uint32_t deferred_refresh{0};   // timeout refreshes queued for after the verdict
     uint32_t refresh_skipped{0};    // cached Fresh elements not needing refresh yet
+    // DNS hold timing breakdown (batch_pos < 0: not a timed DNS event).
+    int32_t batch_pos{-1};          // 0-based position of the packet in its wakeup round
+    uint32_t batch_size{0};         // packets in the round; 0 until the round ended
+    int64_t queue_wait_us{0};       // wakeup -> start of processing (earlier packets' time)
+    int64_t budget_left_us{0};      // deadline - processing start; negative: already over
+    uint32_t admission_wait_us{0};  // time inside dns_admission() (firewall-apply write pause)
+    uint32_t write_elements{0};     // adds in this packet's synchronous write attempt
+    uint32_t late_batch_elements{0};  // adds in the combined late write that covered this event
+    int32_t write_errno{0};         // errno of the last failed write for this event
+    TimeoutCause timeout_cause{TimeoutCause::none};  // set only when timed_out
+};
+
+// Per-round timing handed to on_dns_packet(): the wakeup time, the shared hold
+// deadline and the packet's position in the round.  Implicitly built from a
+// bare deadline (woke = now) for callers without batching.
+struct DnsRound {
+    std::chrono::steady_clock::time_point woke;
+    std::chrono::steady_clock::time_point deadline;
+    uint32_t batch_pos{0};
+
+    DnsRound(std::chrono::steady_clock::time_point woke_at,
+             std::chrono::steady_clock::time_point deadline_at, uint32_t pos)
+        : woke(woke_at), deadline(deadline_at), batch_pos(pos) {}
+    DnsRound(std::chrono::steady_clock::time_point deadline_at)  // NOLINT(google-explicit-constructor)
+        : woke(std::chrono::steady_clock::now()), deadline(deadline_at) {}
 };
 
 // A matched L7 packet is handed to the service's bounded worker when DNS
@@ -78,6 +115,34 @@ struct InterceptL7Work {
     std::array<uint8_t, 16> destination{};
 };
 
+// Set-write latency histogram (buckets <1, <5, <10, <30, <100, >=100 ms), the
+// slowest write and the element count of that write.
+struct WriteLatencyCounters {
+    static constexpr std::size_t kBuckets = 6;
+    std::array<std::atomic<uint64_t>, kBuckets> buckets{};
+    std::atomic<uint64_t> max_us{0};
+    std::atomic<uint64_t> max_elements{0};
+
+    static std::size_t bucket_for(uint64_t us) {
+        if (us < 1000) return 0;
+        if (us < 5000) return 1;
+        if (us < 10000) return 2;
+        if (us < 30000) return 3;
+        if (us < 100000) return 4;
+        return 5;
+    }
+    void record(uint64_t us, uint64_t elements) {
+        buckets[bucket_for(us)].fetch_add(1, std::memory_order_relaxed);
+        uint64_t seen = max_us.load(std::memory_order_relaxed);
+        while (us > seen) {
+            if (max_us.compare_exchange_weak(seen, us, std::memory_order_relaxed)) {
+                max_elements.store(elements, std::memory_order_relaxed);
+                break;
+            }
+        }
+    }
+};
+
 struct InterceptCounters {
     std::atomic<uint64_t> dns_packets{0};
     std::atomic<uint64_t> dns_parse_errors{0};
@@ -86,6 +151,15 @@ struct InterceptCounters {
     std::atomic<uint64_t> dns_late_writes{0};
     std::atomic<uint64_t> dns_late_write_errors{0};
     std::atomic<uint64_t> set_write_slow{0};
+    // dns_hold_timeouts split by TimeoutCause.
+    std::atomic<uint64_t> dns_timeout_budget_spent_by_batch{0};
+    std::atomic<uint64_t> dns_timeout_admission_blocked{0};
+    std::atomic<uint64_t> dns_timeout_own_write_slow{0};
+    std::atomic<uint64_t> dns_timeout_late_batch_full{0};
+    std::atomic<uint64_t> dns_timeout_other{0};
+    WriteLatencyCounters dns_write_latency;   // synchronous (pre-verdict) DNS writes
+    WriteLatencyCounters late_write_latency;  // combined post-verdict late writes
+    WriteLatencyCounters l7_write_latency;    // L7 worker writes
     std::atomic<uint64_t> dns_tcp_partial{0};
     std::atomic<uint64_t> marker_hits{0};
     std::atomic<uint64_t> l7_packets{0};
@@ -167,8 +241,10 @@ public:
     SetElementCache& set_cache() { return cache_; }
 
     // l3 = full IP packet from NFQUEUE.  Never throws.
-    DnsDecision on_dns_packet(ByteView l3, std::chrono::steady_clock::time_point deadline,
-                              bool replacement_allowed);
+    DnsDecision on_dns_packet(ByteView l3, const DnsRound& round, bool replacement_allowed);
+    // Records the size of the wakeup round on its events (seq >= first_seq)
+    // once the round is over.  Metadata only.
+    void set_round_batch_size(uint64_t first_seq, uint32_t batch_size);
     void on_l7_packet(ByteView l3, std::chrono::steady_clock::time_point now);
 
     std::vector<InterceptEvent> events_since(uint64_t after_seq, std::size_t max) const;
@@ -178,10 +254,10 @@ public:
     static constexpr std::size_t kEventCapacity = 512;
 
 private:
-    DnsDecision handle_dns(ByteView l3, std::chrono::steady_clock::time_point deadline,
-                           bool replacement_allowed);
+    DnsDecision handle_dns(ByteView l3, const DnsRound& round, bool replacement_allowed);
     bool defer_late_write(const std::shared_ptr<const InterceptSnapshot>& snap, InterceptEvent&& event,
-                          std::chrono::steady_clock::time_point started, bool after_timeout);
+                          std::chrono::steady_clock::time_point started, bool after_timeout,
+                          TimeoutCause cause);
     void handle_l7(ByteView l3, std::chrono::steady_clock::time_point now);
     std::shared_ptr<const InterceptSnapshot> snapshot() const;
     struct SlotTable {
@@ -201,6 +277,7 @@ private:
     void classify_adds(const std::shared_ptr<const InterceptSnapshot>& snap, int64_t now_ms,
                        bool queue_refreshes, InterceptEvent& event);
     void flush_refreshes();
+    void bump_timeout_cause(TimeoutCause cause);
     void push_event(InterceptEvent&& event);
     void append_add(const InterceptSnapshot& snap, const SlotTable& slots, DomainIndex::ListId id,
                     uint8_t family,

@@ -26,6 +26,7 @@ import {
   formatProcessingTime,
   processingTimeToneClass,
 } from "@/lib/processing-time"
+import { timeoutBadge, timingBreakdown } from "@/lib/timeout-cause"
 import { cn } from "@/lib/utils"
 
 const maxRows = 2_000
@@ -260,14 +261,22 @@ function RequestTableRow({
     row.hold_us > 0 ? `hold ${row.hold_us} µs` : null,
     row.parse_us !== undefined ? `parse ${row.parse_us} µs` : null,
     row.set_write_us !== undefined ? `set ${row.set_write_us} µs` : null,
+    ...timingBreakdown(row),
   ]
     .filter((value): value is string => value !== null)
     .join(", ")
+  const timeout = timeoutBadge(row)
+  const timeoutLabel = timeout
+    ? t(`currentRequests.timeout.${timeout.cause}.label`)
+    : null
+  const timeoutTooltip = timeout
+    ? t(`currentRequests.timeout.${timeout.cause}.tooltip`)
+    : null
   const flags = [
     row.added > 0 ? `+${row.added}` : null,
     row.refreshed > 0 ? `↻${row.refreshed}` : null,
     row.errors > 0 ? `!${row.errors}` : null,
-    row.timed_out ? "timeout" : null,
+    timeoutLabel,
     row.parse_us !== undefined ? `parse:${row.parse_us}µs` : null,
     row.set_write_us !== undefined ? `set:${row.set_write_us}µs` : null,
     row.seq > 0 ? `#${row.seq}` : null,
@@ -329,7 +338,8 @@ function RequestTableRow({
                   key={flag}
                   size="xs"
                   variant={
-                    flag.startsWith("!") || flag === "timeout"
+                    flag.startsWith("!") ||
+                    (flag === timeoutLabel && timeout?.tone === "danger")
                       ? "destructive"
                       : "outline"
                   }
@@ -341,7 +351,10 @@ function RequestTableRow({
               <span className="text-muted-foreground">—</span>
             )}
           </TooltipTrigger>
-          <TooltipContent>{flags.join(", ") || "—"}</TooltipContent>
+          <TooltipContent>
+            {flags.join(", ") || "—"}
+            {timeoutTooltip ? ` — ${timeoutTooltip}` : ""}
+          </TooltipContent>
         </Tooltip>
       </TableCell>
     </TableRow>

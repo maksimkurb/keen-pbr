@@ -431,6 +431,53 @@ TEST_CASE("intercept event JSON carries the documented fields") {
     }
 }
 
+TEST_CASE("intercept event JSON carries the timeout diagnostics") {
+    InterceptEvent plain;
+    CHECK_FALSE(intercept_event_to_json(plain).contains("batch_pos"));
+    CHECK_FALSE(intercept_event_to_json(plain).contains("timeout_cause"));
+
+    InterceptEvent event;
+    event.batch_pos = 3;
+    event.batch_size = 7;
+    event.queue_wait_us = 58210;
+    event.budget_left_us = -28210;
+    event.admission_wait_us = 12;
+    event.write_elements = 2;
+    event.late_batch_elements = 5;
+    event.write_errno = 110;
+    event.timed_out = true;
+    event.timeout_cause = TimeoutCause::budget_spent_by_batch;
+    const auto json = intercept_event_to_json(event);
+    CHECK(json["batch_pos"] == 3);
+    CHECK(json["batch_size"] == 7);
+    CHECK(json["queue_wait_us"] == 58210);
+    CHECK(json["budget_left_us"] == -28210);
+    CHECK(json["admission_wait_us"] == 12);
+    CHECK(json["write_elements"] == 2);
+    CHECK(json["late_batch_elements"] == 5);
+    CHECK(json["write_errno"] == 110);
+    CHECK(json["timeout_cause"] == "budget_spent_by_batch");
+    CHECK_NOTHROW(json.get<api::DnsTestInterceptEvent>());
+    CHECK(std::string(timeout_cause_name(TimeoutCause::late_batch_full)) == "late_batch_full");
+    CHECK(std::string(timeout_cause_name(TimeoutCause::admission_blocked)) == "admission_blocked");
+    CHECK(std::string(timeout_cause_name(TimeoutCause::own_write_slow)) == "own_write_slow");
+    CHECK(std::string(timeout_cause_name(TimeoutCause::other)) == "other");
+}
+
+TEST_CASE("intercept health JSON exposes timeout causes and write latency histograms") {
+    InterceptCounters counters;
+    counters.dns_timeout_own_write_slow = 4;
+    counters.dns_write_latency.record(7000, 9);
+    const auto health = make_intercept_health(InterceptEffective{}, true, &counters, 0, true);
+    REQUIRE(health.counters);
+    CHECK(health.counters->dns_timeout_own_write_slow == 4);
+    REQUIRE(health.counters->dns_write_latency);
+    CHECK(health.counters->dns_write_latency->lt_10_ms == 1);
+    CHECK(health.counters->dns_write_latency->max_us == 7000);
+    CHECK(health.counters->dns_write_latency->max_elements == 9);
+    CHECK(health.counters->late_write_latency->max_us == 0);
+}
+
 #ifdef WITH_API
 TEST_CASE("health service JSON contains the intercept object") {
     InterceptCounters counters;

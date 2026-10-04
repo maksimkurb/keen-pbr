@@ -9,6 +9,19 @@ namespace {
 int64_t load(const std::atomic<uint64_t>& value) {
     return static_cast<int64_t>(value.load(std::memory_order_relaxed));
 }
+
+api::DnsWriteLatency make_write_latency(const WriteLatencyCounters& hist) {
+    api::DnsWriteLatency out;
+    out.lt_1_ms = load(hist.buckets[0]);
+    out.lt_5_ms = load(hist.buckets[1]);
+    out.lt_10_ms = load(hist.buckets[2]);
+    out.lt_30_ms = load(hist.buckets[3]);
+    out.lt_100_ms = load(hist.buckets[4]);
+    out.ge_100_ms = load(hist.buckets[5]);
+    out.max_us = load(hist.max_us);
+    out.max_elements = load(hist.max_elements);
+    return out;
+}
 } // namespace
 
 static api::InterceptProbeFeatureStatus probe_status_to_api(nfnl::ProbeStatus status) {
@@ -114,13 +127,21 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
         out.conntrack_errors = load(counters->conntrack_errors);
         out.queue_overruns = load(counters->queue_overruns);
         out.log_overruns = load(counters->log_overruns);
+        out.dns_timeout_budget_spent_by_batch = load(counters->dns_timeout_budget_spent_by_batch);
+        out.dns_timeout_admission_blocked = load(counters->dns_timeout_admission_blocked);
+        out.dns_timeout_own_write_slow = load(counters->dns_timeout_own_write_slow);
+        out.dns_timeout_late_batch_full = load(counters->dns_timeout_late_batch_full);
+        out.dns_timeout_other = load(counters->dns_timeout_other);
+        out.dns_write_latency = make_write_latency(counters->dns_write_latency);
+        out.late_write_latency = make_write_latency(counters->late_write_latency);
+        out.l7_write_latency = make_write_latency(counters->l7_write_latency);
         health.counters = out;
     }
     return health;
 }
 
 nlohmann::json intercept_event_to_json(const InterceptEvent& event) {
-    return {
+    nlohmann::json json = {
         {"type", "INTERCEPT"},
         {"seq", event.seq},
         {"ts_ms", event.ts_ms},
@@ -140,6 +161,20 @@ nlohmann::json intercept_event_to_json(const InterceptEvent& event) {
         {"timed_out", event.timed_out},
         {"late_write", event.late_write},
     };
+    if (event.batch_pos >= 0) {
+        json["batch_pos"] = event.batch_pos;
+        if (event.batch_size > 0) json["batch_size"] = event.batch_size;
+        json["queue_wait_us"] = event.queue_wait_us;
+        json["budget_left_us"] = event.budget_left_us;
+        json["admission_wait_us"] = event.admission_wait_us;
+    }
+    if (event.write_elements > 0) json["write_elements"] = event.write_elements;
+    if (event.late_batch_elements > 0) json["late_batch_elements"] = event.late_batch_elements;
+    if (event.write_errno != 0) json["write_errno"] = event.write_errno;
+    if (event.timed_out && event.timeout_cause != TimeoutCause::none) {
+        json["timeout_cause"] = timeout_cause_name(event.timeout_cause);
+    }
+    return json;
 }
 
 std::optional<EventGap> detect_event_gap(uint64_t forwarded_seq,

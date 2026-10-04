@@ -1261,3 +1261,129 @@ TEST_CASE("intercept cache: three identical responses within half TTL yield one 
     f.proc.flush_late_writes();
     CHECK(f.writer.calls == 1);
 }
+
+// ---- timeout diagnostics (timing breakdown, cause, histograms) ----
+
+TEST_CASE("intercept diag: deadline already passed is budget_spent_by_batch") {
+    Fixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    const auto woke = Clock::now() - std::chrono::milliseconds(60);
+    const auto deadline = woke + std::chrono::milliseconds(30);
+    const auto d = f.proc.on_dns_packet(view(pkt), DnsRound(woke, deadline, 3), true);
+    REQUIRE(d.late_write);
+    f.proc.flush_late_writes();
+    f.proc.set_round_batch_size(1, 7);
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    const InterceptEvent& e = events[0];
+    CHECK(e.timed_out);
+    CHECK(e.timeout_cause == TimeoutCause::budget_spent_by_batch);
+    CHECK(e.batch_pos == 3);
+    CHECK(e.batch_size == 7);
+    CHECK(e.queue_wait_us >= 60000);
+    CHECK(e.budget_left_us <= -30000);
+    CHECK(e.queue_wait_us + e.budget_left_us == doctest::Approx(30000).epsilon(0.01));  // = hold
+    CHECK(e.write_elements == 0);  // never attempted before the verdict
+    CHECK(e.late_batch_elements == 1);
+    CHECK(f.counters.dns_timeout_budget_spent_by_batch == 1);
+    CHECK(f.counters.dns_timeout_admission_blocked == 0);
+    CHECK(f.counters.late_write_latency.buckets[0] == 1);
+    CHECK(f.counters.late_write_latency.max_elements == 1);
+    CHECK(f.counters.dns_write_latency.buckets[0] == 0);
+}
+
+TEST_CASE("intercept diag: admission blocking past the deadline is admission_blocked") {
+    Fixture f;
+    f.proc.set_writer_callbacks(
+        [] { std::this_thread::sleep_for(std::chrono::milliseconds(15)); return true; }, [] {}, {}, {});
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    const auto woke = Clock::now();
+    const auto d = f.proc.on_dns_packet(
+        view(pkt), DnsRound(woke, woke + std::chrono::milliseconds(5), 0), true);
+    REQUIRE(d.late_write);
+    f.proc.flush_late_writes();
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].timeout_cause == TimeoutCause::admission_blocked);
+    CHECK(events[0].admission_wait_us >= 10000);
+    CHECK(events[0].budget_left_us > 0);  // started in time, lost it waiting
+    CHECK(f.counters.dns_timeout_admission_blocked == 1);
+}
+
+TEST_CASE("intercept diag: own write ETIMEDOUT is own_write_slow") {
+    Fixture f;
+    f.writer.timeout_calls = 1;
+    f.writer.delay_ms = 2;
+    const Bytes pkt = dns_packet(
+        dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100), aaaa_rr(9, 100)}));
+    const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    REQUIRE(d.late_write);
+    f.proc.flush_late_writes();
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].timeout_cause == TimeoutCause::own_write_slow);
+    CHECK(events[0].write_elements == 2);
+    CHECK(events[0].late_batch_elements == 2);
+    CHECK(events[0].write_errno == ETIMEDOUT);  // the on-time attempt's errno; the late retry succeeded
+    CHECK(f.counters.dns_timeout_own_write_slow == 1);
+    CHECK(f.counters.dns_write_latency.buckets[1] == 1);  // 2 ms sync write
+    CHECK(f.counters.dns_write_latency.max_elements == 2);
+    CHECK(f.counters.dns_write_latency.max_us >= 2000);
+
+    Fixture g;
+    g.writer.simulate_timeout = true;
+    g.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    g.proc.flush_late_writes();
+    const auto ge = g.proc.events_since(0, 10);
+    REQUIRE(ge.size() == 1);
+    CHECK(ge[0].write_errno == ETIMEDOUT);
+}
+
+TEST_CASE("intercept diag: full late batch is late_batch_full") {
+    Fixture f;
+    const Bytes p = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    const auto past = Clock::now() - std::chrono::milliseconds(70);
+    for (std::size_t i = 0; i < InterceptProcessor::kLateBatchCapacity; ++i) {
+        f.proc.on_dns_packet(view(p), past, true);
+    }
+    f.proc.on_dns_packet(view(p), past, true);
+    CHECK(f.counters.dns_timeout_budget_spent_by_batch == InterceptProcessor::kLateBatchCapacity);
+    CHECK(f.counters.dns_timeout_late_batch_full == 1);
+    CHECK(f.counters.dns_hold_timeouts == InterceptProcessor::kLateBatchCapacity + 1);
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);  // only the dropped one is published immediately
+    CHECK(events[0].timeout_cause == TimeoutCause::late_batch_full);
+    CHECK(events[0].errors == 1);
+}
+
+TEST_CASE("intercept diag: on-time write fills the timing fields without a timeout") {
+    Fixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.proc.on_dns_packet(view(pkt), DnsRound(Clock::now(), Clock::now() + std::chrono::seconds(5), 0), true);
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK_FALSE(events[0].timed_out);
+    CHECK(events[0].timeout_cause == TimeoutCause::none);
+    CHECK(events[0].batch_pos == 0);
+    CHECK(events[0].write_elements == 1);
+    CHECK(events[0].write_errno == 0);
+    CHECK(events[0].budget_left_us > 4000000);
+    CHECK(f.counters.dns_write_latency.buckets[0] == 1);
+    CHECK(f.counters.dns_hold_timeouts == 0);
+}
+
+TEST_CASE("intercept diag: write latency buckets and max") {
+    WriteLatencyCounters h;
+    h.record(999, 1);
+    h.record(1000, 2);
+    h.record(5000, 3);
+    h.record(10000, 4);
+    h.record(30000, 5);
+    h.record(100000, 6);
+    h.record(50, 99);
+    for (std::size_t i = 0; i < WriteLatencyCounters::kBuckets; ++i) {
+        CHECK(h.buckets[i] == (i == 0 ? 2u : 1u));
+    }
+    CHECK(h.max_us == 100000);
+    CHECK(h.max_elements == 6);
+}

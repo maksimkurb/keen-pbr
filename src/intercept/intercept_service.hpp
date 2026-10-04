@@ -129,7 +129,7 @@ private:
     void l7_loop();
     void cleanup_loop();
     void handle_queue_packet(const nfnl::QueuedPacket& packet,
-                             std::chrono::steady_clock::time_point deadline);
+                             const DnsRound& round);
     void drain_queue();
     void run_cleanup(const std::vector<std::pair<uint8_t, std::array<uint8_t, 16>>>& batch);
     void submit_l7_work(InterceptL7Work work);
