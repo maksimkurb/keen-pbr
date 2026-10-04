@@ -48,11 +48,36 @@ mkdir -p "$fake_bin"
 cat > "$fake_bin/uci" <<'FAKE'
 #!/bin/sh
 db="$FAKE_UCI_DB"
-[ "$1" = "-q" ] && shift
+# Like real uci, "show" prints anonymous (cfg*) sections as @type[N] unless -X.
+extended=0
+while :; do
+    case "$1" in
+        -q) shift ;;
+        -X) extended=1; shift ;;
+        *) break ;;
+    esac
+done
 cmd="$1"
 arg="$2"
 case "$cmd" in
-    show) grep "^${arg}\." "$db" || true ;;
+    show)
+        if [ "$extended" = 1 ]; then
+            grep "^${arg}\." "$db" || true
+        else
+            awk -v pkg="$arg" '
+                index($0, pkg ".") != 1 { next }
+                {
+                    rest = substr($0, length(pkg) + 2)
+                    sec = rest; sub(/[.=].*/, "", sec)
+                    if (rest == sec "=" substr(rest, length(sec) + 2) && !(sec in name) && sec ~ /^cfg/) {
+                        type = substr(rest, length(sec) + 2)
+                        name[sec] = "@" type "[" (n[type]++ + 0) "]"
+                    }
+                    if (sec in name) rest = name[sec] substr(rest, length(sec) + 1)
+                    print pkg "." rest
+                }' "$db"
+        fi
+        ;;
     get)
         grep "^${arg}=" "$db" | sed "s/^${arg}=//" | tr '\n' ' ' | sed 's/ $//' > "$db.get"
         [ -s "$db.get" ] || exit 1

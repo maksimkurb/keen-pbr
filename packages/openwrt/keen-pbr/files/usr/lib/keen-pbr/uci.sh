@@ -25,7 +25,7 @@ uci_option_exists() {
 }
 
 dnsmasq_sections() {
-    uci -q show dhcp | sed -n "s/^dhcp\\.\\([^.=]*\\)=dnsmasq$/\\1/p"
+    uci -q -X show dhcp | sed -n "s/^dhcp\\.\\([^.=]*\\)=dnsmasq$/\\1/p"
 }
 
 commit_if_changed() {

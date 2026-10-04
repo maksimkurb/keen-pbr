@@ -30,7 +30,7 @@ die() {
 }
 
 dnsmasq_sections() {
-    "$UCI" -q show dhcp | sed -n 's/^dhcp\.\([^.=]*\)=dnsmasq$/\1/p'
+    "$UCI" -q -X show dhcp | sed -n 's/^dhcp\.\([^.=]*\)=dnsmasq$/\1/p'
 }
 
 section_confdir() {
