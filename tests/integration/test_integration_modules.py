@@ -36,6 +36,8 @@ class IntegrationModulesTest(unittest.TestCase):
             "route_dscp", "route_src_port", "route_dest_port", "route_src_addr",
             "route_dest_addr", "route_all_criteria", "dns_upstream_ipv4",
             "dns_upstream_ipv6", "sigusr1_no_packet_leak", "dns_no_leak",
+            "dnsmasq_rules_ipv4", "dnsmasq_rules_ipv6", "dnsmasq_fallback",
+            "dnsmasq_hook_failure", "dnsmasq_disable",
         )
         registry = module.build_registry()
         self.assertEqual(registry.names, expected)

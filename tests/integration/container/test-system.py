@@ -19,7 +19,7 @@ from cases import (dns_no_leak, dns_routing_save, dns_upstream_ipv4,
                    test_group_table, urltest_rebuild, iptables_chain_convergence,
                    prefilter_skip_marked, inbound_interface_filter, restore_conntrack_mark,
                    skip_established_or_dnat, local_reply_skip, forwarded_reply_skip,
-                   firewall_corruption_recovery,
+                   firewall_corruption_recovery, dnsmasq_mgmt,
                    loop_safety_marked_socket)
 
 CASE_MODULES = (
@@ -56,6 +56,7 @@ CASE_MODULES = (
     dns_upstream_ipv6,
     sigusr1_no_packet_leak,
     dns_no_leak,
+    dnsmasq_mgmt,
 )
 
 

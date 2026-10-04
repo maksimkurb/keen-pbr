@@ -38,3 +38,42 @@ def assert_query_seen(context, side, kind, name, identity):
     matches = [item for item in context.observations(side, kind)
                if item.get("qname") == name and item.get("identity") == identity]
     assert matches, (side, kind, name, context.observations(side, kind))
+
+
+HOOK_LOG = f"{RUNTIME}/dnsmasq-hook.log"
+HOOK_FAIL_FLAG = f"{RUNTIME}/dnsmasq-hook.fail"
+HOOK_DROPIN = f"{RUNTIME}/dnsmasq.d/keen-pbr-upstream-dns.conf"
+
+
+def hook_calls():
+    """Actions the test KEEN_PBR_DNSMASQ_HOOK was invoked with, in order."""
+    try:
+        with open(HOOK_LOG, encoding="utf-8") as handle:
+            return [line.strip() for line in handle if line.strip()]
+    except FileNotFoundError:
+        return []
+
+
+def wait_hook_calls(context, expected, timeout=10):
+    """Wait until the hook call log equals `expected` (async hook execution)."""
+    return context.wait_for(f"dnsmasq hook calls {expected} (got {hook_calls()})",
+                            lambda: hook_calls() == expected or False,
+                            timeout=timeout)
+
+
+def dnsmasq_health(context):
+    return context.api("/api/health/service")["dnsmasq"]
+
+
+def wait_dnsmasq_state(context, state, timeout=10):
+    def reached():
+        health = dnsmasq_health(context)
+        return health if health["state"] == state else False
+
+    return context.wait_for(f"dnsmasq health state {state}", reached, timeout=timeout)
+
+
+def dnsmasq_rules_config(context, servers, rules, lists, **dns_extra):
+    config = dns_config(context, servers, lists)
+    config["dns"].update({"rules": rules, **dns_extra})
+    return config

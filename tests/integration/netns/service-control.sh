@@ -9,6 +9,9 @@ dns_pid="$KPBR_RUNTIME/dnsmasq.pid"
 keen_log="$KPBR_RUNTIME/keen-pbr.log"
 dns_log="$KPBR_RUNTIME/dnsmasq.log"
 upstream_conf="$KPBR_RUNTIME/dnsmasq-upstream.conf"
+# Drop-in installed by tests/integration/netns/dnsmasq-hook.sh (the test
+# KEEN_PBR_DNSMASQ_HOOK); it carries the conf-script line.
+hook_conf="$KPBR_RUNTIME/dnsmasq.d/keen-pbr-upstream-dns.conf"
 
 # dnsmasq is an unmanaged, plain forwarding resolver in this harness; keen-pbr
 # no longer configures it.  Cases that need a different upstream rewrite the
@@ -25,14 +28,15 @@ EOF_UPSTREAM
 
 # dnsmasq refuses to read config files owned by foreign uids inside the
 # rootless user namespace, so the upstream file is translated to options.
-upstream_options() {
-  local line
+conf_options() {
+  local file=$1 line
+  [[ -f "$file" ]] || return 0
   while IFS= read -r line || [[ -n "$line" ]]; do
     case "$line" in
       ''|'#'*) continue ;;
       *) resolver_options+=("--$line") ;;
     esac
-  done <"$upstream_conf"
+  done <"$file"
 }
 
 start_dnsmasq() {
@@ -41,13 +45,19 @@ start_dnsmasq() {
   rm -f "$dns_pid"
   ensure_dns_files
   resolver_options=()
-  upstream_options
+  conf_options "$upstream_conf"
+  conf_options "$hook_conf"
   : >>"$dns_log"
+  # Run dnsmasq from a private copy: a host AppArmor profile attached to
+  # /usr/{bin,sbin}/dnsmasq (e.g. Ubuntu/Arch apparmor.d) denies the exec of
+  # the keen-pbr conf-script from the real path, even inside the sandbox.
+  dnsmasq_bin="/tmp/kpbr-it-dnsmasq"
+  cp -f "$(command -v dnsmasq)" "$dnsmasq_bin"
   # --no-daemon keeps dnsmasq in debug mode, which also avoids its privileged
   # user/group drop.  A rootless user namespace cannot call setgroups(2)
   # unless it is given broader group mappings; retaining namespace-root here
   # keeps the harness single-mapped and fail-closed.
-  setsid dnsmasq --no-daemon \
+  setsid "$dnsmasq_bin" --no-daemon \
     --port=53 --listen-address=192.0.2.1 --bind-interfaces \
     --no-resolv --no-hosts --conf-file= --log-facility=- \
     "${resolver_options[@]}" </dev/null >>"$dns_log" 2>&1 &

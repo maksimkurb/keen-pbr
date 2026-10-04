@@ -73,7 +73,8 @@ NETNS_INTEGRATION_CMAKE_FLAGS := \
 	-DKEEN_PBR_BUILD_VARIANT:STRING=full \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/run/keen-pbr-it/config.json \
 	-DKEEN_PBR_CONTROL_SOCKET:STRING=/run/keen-pbr/control.sock \
-	-DKEEN_PBR_FRONTEND_ROOT:STRING=/mnt/repo/frontend/dist
+	-DKEEN_PBR_FRONTEND_ROOT:STRING=/mnt/repo/frontend/dist \
+	-DKEEN_PBR_DNSMASQ_HOOK:STRING=/mnt/repo/tests/integration/netns/dnsmasq-hook.sh
 
 integration-netns-build: ## Build the native Debian-flavoured binary for rootless netns integration tests
 	cmake -S . -B $(NETNS_INTEGRATION_BUILD_DIR) $(GCC_CMAKE_FLAGS) $(NETNS_INTEGRATION_CMAKE_FLAGS)
