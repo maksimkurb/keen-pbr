@@ -32,6 +32,36 @@ struct RecordedAdd {
 class FakeSetWriter : public DynamicSetWriter {
 public:
     bool add(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
+        kinds.push_back("add");
+        return do_add(adds, out, count, timeout_ms);
+    }
+    bool add_new(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
+        kinds.push_back("add_new");
+        if (exists_on_new) {
+            ++calls;
+            for (std::size_t i = 0; i < count; ++i) {
+                recorded.push_back({std::string(adds[i].set_name), adds[i].family, adds[i].addr,
+                                    adds[i].timeout_s});
+                out[i] = SetAddResult::Exists;
+            }
+            errno_ = 0;
+            return true;
+        }
+        return do_add(adds, out, count, timeout_ms);
+    }
+    bool refresh(const SetAdd* adds, SetAddResult* out, std::size_t count, int) override {
+        kinds.push_back("refresh");
+        ++refresh_calls;
+        for (std::size_t i = 0; i < count; ++i) {
+            refreshed.push_back({std::string(adds[i].set_name), adds[i].family, adds[i].addr,
+                                 adds[i].timeout_s});
+            out[i] = refresh_result;
+        }
+        errno_ = 0;
+        return refresh_result != SetAddResult::Error;
+    }
+
+    bool do_add(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) {
         if (on_enter) on_enter();
         if (delay_ms > 0) std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
         last_timeout_ms = timeout_ms;
@@ -53,12 +83,18 @@ public:
                 out[i] = result;
             }
         }
-        errno_ = timeout_now ? ETIMEDOUT : (real_error ? EPERM : 0);
+        errno_ = timeout_now ? ETIMEDOUT : (real_error ? error_errno : 0);
         return ok;
     }
     int last_errno() const override { return errno_; }
 
     std::vector<RecordedAdd> recorded;
+    std::vector<RecordedAdd> refreshed;
+    std::vector<std::string> kinds;  // "add" / "add_new" / "refresh" in call order
+    bool exists_on_new{false};
+    SetAddResult refresh_result{SetAddResult::Refreshed};
+    int refresh_calls{0};
+    int error_errno{EPERM};
     SetAddResult result{SetAddResult::Added};
     bool simulate_timeout{false};
     int timeout_calls{0};  // the next N calls time out, later ones succeed
@@ -721,7 +757,8 @@ TEST_CASE("intercept: L7 TLS SNI split across two segments") {
     CHECK(events[0].source == InterceptSource::sni);
     CHECK(events[0].domain == "video.example.com");
 
-    // Refreshed: no cleanup.
+    // Refreshed: no cleanup.  (A cached element would skip the write entirely.)
+    f.proc.invalidate_set_cache();
     f.writer.result = SetAddResult::Refreshed;
     const Bytes q1 = tcp_packet(first, 5000, 443);
     const Bytes q2 = tcp_packet(second, 5000 + static_cast<uint32_t>(cut), 443);
@@ -895,4 +932,306 @@ TEST_CASE("intercept: events ring is bounded and monotonic") {
     const auto tail = f.proc.events_since(total - 5, 1000);
     CHECK(tail.size() == 5);
     CHECK(f.proc.events_since(0, 10).size() == 10);
+}
+
+// ---------------------------------------------------------------- set cache
+
+namespace {
+
+struct CacheFixture : Fixture {
+    Clock::time_point fake_now{std::chrono::hours(1)};
+    CacheFixture() {
+        proc.set_clock([this] { return fake_now; });
+    }
+    void advance_ms(int64_t ms) { fake_now += std::chrono::milliseconds(ms); }
+    void dns(const Bytes& pkt) { proc.on_dns_packet(view(pkt), deadline(), true); }
+    std::vector<InterceptEvent> events() const { return proc.events_since(0, 1000); }
+};
+
+} // namespace
+
+TEST_CASE("intercept cache: first response writes before the verdict and fills the cache") {
+    CacheFixture f;
+    f.dns(dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)})));
+    REQUIRE(f.writer.kinds.size() == 1);
+    CHECK(f.writer.kinds[0] == "add_new");  // pre-verdict probe, not the full add()
+    CHECK(f.counters.set_cache_misses == 1);
+    CHECK(f.counters.set_cache_hits == 0);
+    CHECK(f.counters.set_cache_entries == 1);
+    CHECK(f.proc.pending_refreshes() == 0);
+    const auto events = f.events();
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].added == 1);
+    CHECK(events[0].cache_hits == 0);
+}
+
+TEST_CASE("intercept cache: identical second response has zero writer calls before the verdict") {
+    CacheFixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.dns(pkt);
+    REQUIRE(f.writer.calls == 1);
+    f.advance_ms(10000);
+    // An already-expired hold deadline must not matter: nothing needs a write.
+    const auto d = f.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(5), true);
+    CHECK_FALSE(d.late_write);
+    CHECK(f.writer.calls == 1);
+    CHECK(f.proc.pending_refreshes() == 0);  // within the 60 s refresh slack
+    CHECK(f.counters.dns_hold_timeouts == 0);
+    CHECK(f.counters.set_cache_hits == 1);
+    CHECK(f.counters.dns_refresh_deferred == 0);
+    const auto events = f.events();
+    REQUIRE(events.size() == 2);
+    CHECK(events[1].cache_hits == 1);
+    CHECK(events[1].deferred_refresh == 0);
+    CHECK(events[1].added == 0);
+    CHECK_FALSE(events[1].timed_out);
+    f.proc.flush_late_writes();
+    CHECK(f.writer.calls == 1);
+}
+
+TEST_CASE("intercept cache: mixed response writes only the new address before the verdict") {
+    CacheFixture f;
+    std::vector<Rr> seven;
+    for (uint8_t i = 1; i <= 7; ++i) seven.push_back(a_rr(10, 0, 0, i, 100));
+    f.dns(dns_packet(dns_response("example.com", 0, seven)));
+    REQUIRE(f.writer.recorded.size() == 7);
+    f.writer.recorded.clear();
+    f.writer.kinds.clear();
+    std::vector<Rr> eight = seven;
+    eight.push_back(a_rr(10, 0, 0, 99, 100));
+    f.dns(dns_packet(dns_response("example.com", 0, eight)));
+    REQUIRE(f.writer.recorded.size() == 1);
+    CHECK(f.writer.recorded[0].addr[3] == 99);
+    CHECK(f.writer.kinds == std::vector<std::string>{"add_new"});
+    const auto events = f.events();
+    CHECK(events.back().cache_hits == 7);
+    CHECK(events.back().added == 1);
+}
+
+TEST_CASE("intercept cache: a due refresh waits for the verdict and goes through refresh()") {
+    CacheFixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 86400)}));
+    f.dns(pkt);
+    f.writer.kinds.clear();
+    // Past the trust bound (300 s) the entry is Stale: verdict is immediate,
+    // the rewrite happens afterwards.
+    f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+    f.dns(pkt);
+    CHECK(f.writer.kinds.empty());
+    CHECK(f.proc.pending_refreshes() == 1);
+    CHECK(f.counters.dns_refresh_deferred == 1);
+    CHECK(f.events().back().deferred_refresh == 1);
+    f.proc.flush_late_writes();
+    CHECK(f.writer.kinds == std::vector<std::string>{"refresh"});
+    REQUIRE(f.writer.refreshed.size() == 1);
+    CHECK(f.writer.refreshed[0].set == "kpbr4d_ex");
+    CHECK(f.proc.pending_refreshes() == 0);
+    CHECK(f.counters.set_errors == 0);
+    // The refresh renewed the cache entry: the next answer is a plain hit.
+    f.dns(pkt);
+    CHECK(f.proc.pending_refreshes() == 0);
+}
+
+TEST_CASE("intercept cache: a clearly later expiry is refreshed after the verdict") {
+    CacheFixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 1000)}));
+    f.dns(pkt);  // expires at +1000 s
+    f.advance_ms(70000);
+    f.dns(pkt);  // would now expire at +1070 s: 70 s later than cached > 60 s slack
+    CHECK(f.proc.pending_refreshes() == 1);
+    CHECK(f.writer.calls == 1);
+}
+
+TEST_CASE("intercept cache: new snapshot and invalidate_set_cache force pre-verdict writes") {
+    CacheFixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.dns(pkt);
+    f.dns(pkt);
+    CHECK(f.writer.calls == 1);
+    f.proc.invalidate_set_cache();
+    CHECK(f.counters.set_cache_entries == 0);
+    f.dns(pkt);
+    CHECK(f.writer.calls == 2);
+    f.dns(pkt);
+    CHECK(f.writer.calls == 2);
+    f.publish();  // new snapshot installed
+    f.dns(pkt);
+    CHECK(f.writer.calls == 3);
+}
+
+TEST_CASE("intercept cache: ENOENT from a write clears the cache") {
+    CacheFixture f;
+    const Bytes known = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.dns(known);
+    f.writer.real_error = true;
+    f.writer.error_errno = ENOENT;
+    f.dns(dns_packet(dns_response("example.com", 0, {a_rr(5, 6, 7, 8, 100)})));
+    CHECK(f.counters.set_errors == 1);
+    CHECK(f.counters.set_cache_entries == 0);
+    f.writer.real_error = false;
+    const int calls = f.writer.calls;
+    f.dns(known);  // forgotten: written again before the verdict
+    CHECK(f.writer.calls == calls + 1);
+}
+
+TEST_CASE("intercept cache: a failed write is never cached") {
+    CacheFixture f;
+    f.writer.real_error = true;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.dns(pkt);
+    CHECK(f.counters.set_cache_entries == 0);
+    f.writer.real_error = false;
+    f.dns(pkt);
+    CHECK(f.writer.calls == 2);
+}
+
+TEST_CASE("intercept cache: EEXIST on a pre-verdict add moves the element to the refresh list") {
+    CacheFixture f;
+    f.writer.exists_on_new = true;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.dns(pkt);
+    CHECK(f.writer.kinds == std::vector<std::string>{"add_new"});
+    CHECK(f.counters.set_errors == 0);
+    CHECK(f.proc.pending_refreshes() == 1);
+    const auto events = f.events();
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].errors == 0);
+    CHECK(events[0].added == 0);
+    CHECK(events[0].refreshed == 1);
+    CHECK(events[0].deferred_refresh == 1);
+    CHECK(f.cleanup.requests.empty());
+    f.proc.flush_late_writes();
+    CHECK(f.writer.kinds == (std::vector<std::string>{"add_new", "refresh"}));
+    // After the refresh the element is cached.
+    f.writer.exists_on_new = false;
+    f.dns(pkt);
+    CHECK(f.writer.calls == 1);
+}
+
+TEST_CASE("intercept cache: Exists after a missed deadline is not retried as a late add") {
+    CacheFixture f;
+    f.writer.exists_on_new = true;
+    f.writer.simulate_timeout = false;
+    // Two addresses: both exist, none unconfirmed => no late write, only a refresh.
+    const Bytes pkt = dns_packet(
+        dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100), a_rr(5, 6, 7, 8, 100)}));
+    const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    CHECK_FALSE(d.late_write);
+    CHECK(f.proc.pending_refreshes() == 2);
+    CHECK(f.proc.pending_late_events() == 0);
+}
+
+TEST_CASE("intercept cache: refresh overflow is dropped and counted, not an error") {
+    CacheFixture f;
+    constexpr int kPackets = 6;
+    constexpr int kPerPacket = 100;
+    std::vector<Bytes> packets;
+    for (int p = 0; p < kPackets; ++p) {
+        std::vector<Rr> rrs;
+        for (int i = 0; i < kPerPacket; ++i) {
+            rrs.push_back(a_rr(10, static_cast<uint8_t>(p), static_cast<uint8_t>(i), 1, 86400));
+        }
+        packets.push_back(dns_packet(dns_response("example.com", 0, rrs)));
+    }
+    for (const Bytes& p : packets) f.dns(p);
+    CHECK(f.counters.set_cache_entries == kPackets * kPerPacket);
+    f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+    for (const Bytes& p : packets) f.dns(p);
+    const int total = kPackets * kPerPacket;
+    CHECK(f.proc.pending_refreshes() == InterceptProcessor::kLateBatchCapacity);
+    CHECK(f.counters.refresh_dropped == static_cast<uint64_t>(total) - InterceptProcessor::kLateBatchCapacity);
+    CHECK(f.counters.set_errors == 0);
+    f.proc.flush_late_writes();
+    CHECK(f.writer.refresh_calls == 1);
+    CHECK(f.writer.refreshed.size() == InterceptProcessor::kLateBatchCapacity);
+    CHECK(f.counters.set_errors == 0);
+}
+
+TEST_CASE("intercept cache: refresh of a vanished element counts as Added and purges flows") {
+    CacheFixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 86400)}));
+    f.dns(pkt);
+    f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+    f.dns(pkt);
+    f.writer.refresh_result = SetAddResult::Added;
+    f.proc.flush_late_writes();
+    CHECK(f.cleanup.requests.size() == 1);
+    CHECK(f.counters.set_added == 2);
+}
+
+TEST_CASE("intercept cache: failed refresh counts a set error") {
+    CacheFixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 86400)}));
+    f.dns(pkt);
+    f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+    f.dns(pkt);
+    f.writer.refresh_result = SetAddResult::Error;
+    f.proc.flush_late_writes();
+    CHECK(f.counters.set_errors == 1);
+}
+
+TEST_CASE("intercept cache: queued refresh is dropped when the snapshot changed") {
+    CacheFixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 86400)}));
+    f.dns(pkt);
+    f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+    f.dns(pkt);
+    REQUIRE(f.proc.pending_refreshes() == 1);
+    f.proc.set_snapshot(nullptr);
+    f.proc.flush_late_writes();
+    CHECK(f.writer.refresh_calls == 0);
+    CHECK(f.proc.pending_refreshes() == 0);
+    CHECK(f.counters.set_errors == 0);
+}
+
+TEST_CASE("intercept cache: late write feeds the cache") {
+    CacheFixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    const auto d = f.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(1), true);
+    REQUIRE(d.late_write);
+    f.proc.flush_late_writes();
+    CHECK(f.writer.kinds == std::vector<std::string>{"add"});  // late path keeps the full add()
+    CHECK(f.counters.set_cache_entries == 1);
+    f.dns(pkt);
+    CHECK(f.writer.calls == 1);
+}
+
+TEST_CASE("intercept cache: L7 skips the write and the conntrack cleanup for a cached element") {
+    CacheFixture f;
+    std::vector<InterceptL7Work> queued;
+    f.proc.set_l7_submitter([&](InterceptL7Work work) { queued.push_back(std::move(work)); });
+    const Bytes pkt = tcp_packet(tls_stream("video.example.com"), 1, 443);
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    REQUIRE(queued.size() == 1);
+    f.proc.process_l7_work(std::move(queued[0]), f.writer);
+    queued.clear();
+    CHECK(f.writer.calls == 1);
+    CHECK(f.cleanup.requests.size() == 1);
+
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    CHECK(queued.empty());  // nothing to write
+    CHECK(f.writer.calls == 1);
+    CHECK(f.cleanup.requests.size() == 1);
+    const auto events = f.events();
+    REQUIRE_FALSE(events.empty());
+    CHECK(events.back().cache_hits == 2);
+    CHECK(events.back().added == 0);
+
+    // After a trust-age expiry the L7 path rewrites like before.
+    f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+    f.proc.invalidate_set_cache();
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    CHECK(queued.size() == 1);
+}
+
+TEST_CASE("intercept cache: L7 record from before an invalidation is discarded") {
+    CacheFixture f;
+    std::vector<InterceptL7Work> queued;
+    f.proc.set_l7_submitter([&](InterceptL7Work work) { queued.push_back(std::move(work)); });
+    const Bytes pkt = tcp_packet(tls_stream("video.example.com"), 1, 443);
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    REQUIRE(queued.size() == 1);
+    f.proc.invalidate_set_cache();  // sets recreated while the work waited in the queue
+    f.proc.process_l7_work(std::move(queued[0]), f.writer);
+    CHECK(f.counters.set_cache_entries == 0);
 }

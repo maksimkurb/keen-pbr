@@ -77,3 +77,22 @@ def dnsmasq_rules_config(context, servers, rules, lists, **dns_extra):
     config = dns_config(context, servers, lists)
     config["dns"].update({"rules": rules, **dns_extra})
     return config
+
+
+def forget_cached_set_elements(context):
+    """Make the daemon forget which dynamic-set elements it wrote.
+
+    The interception cache assumes only the daemon removes elements.  A case
+    that deletes an element behind its back (to prove it is learned again)
+    must re-apply the firewall afterwards, which drops the cache and rebuilds
+    the interception snapshot.
+    """
+    from .firewall_corruption_recovery import reapply
+
+    reapply(context)
+
+    def snapshot_ready():
+        reasons = context.intercept_health().get("reasons") or []
+        return not any("initializing" in reason for reason in reasons)
+
+    context.wait_for("interception snapshot after reapply", snapshot_ready)

@@ -1,10 +1,12 @@
 """End-to-end DNS hold, CNAME learning, reapply, and bypass checks."""
 
 import json
+import threading
+import urllib.request
 
-from .dns_common import dns_config
+from .dns_common import dns_config, forget_cached_set_elements
 from .firewall_corruption_recovery import reapply, wait_degraded, wait_healthy
-from integration_context import TEST_IP6
+from integration_context import API, TEST_IP6
 
 
 def _config(context):
@@ -35,6 +37,46 @@ def _query(context, qtype, server="192.0.2.1", port=53):
     lines = [line for line in result.stdout.splitlines() if line.strip()]
     assert lines, result.stdout
     return json.loads(lines[-1])
+
+
+class _EventReader(threading.Thread):
+    """Collects INTERCEPT events from /api/dns/test?show=all in the background."""
+
+    def __init__(self):
+        super().__init__(daemon=True)
+        self.events = []
+        self.ready = threading.Event()
+        self.stop_flag = threading.Event()
+
+    def run(self):
+        try:
+            response = urllib.request.urlopen(
+                urllib.request.Request(API + "/api/dns/test?show=all"), timeout=2)
+        except OSError:
+            self.ready.set()
+            return
+        try:
+            while not self.stop_flag.is_set():
+                try:
+                    line = response.readline()
+                except OSError:
+                    continue
+                if line == b"":
+                    break
+                line = line.strip()
+                if not line.startswith(b"data:"):
+                    continue
+                try:
+                    obj = json.loads(line[5:].strip())
+                except ValueError:
+                    continue
+                if obj.get("type") == "HELLO":
+                    self.ready.set()
+                elif obj.get("type") == "INTERCEPT":
+                    self.events.append(obj)
+        finally:
+            self.ready.set()
+            response.close()
 
 
 def _kill_without_cleanup(context):
@@ -77,6 +119,33 @@ def register(registry):
         context.wait_for("CNAME address publication",
                          lambda: context.dynamic_set_contains(list_name="learned"))
 
+        # Hold cache: the same answer again must not wait for any set write (the
+        # element is already cached) and the address must stay in the set.
+        reader = _EventReader()
+        reader.start()
+        assert reader.ready.wait(5), "event stream did not start"
+        try:
+            before = context.intercept_health()["counters"]
+            again = _query(context, 1)
+            assert "c612000a" in again["packet_hex"], again
+
+            def second_event():
+                return [e for e in reader.events
+                        if e.get("domain") == "alias.cname.test"
+                        and "198.18.0.10" in e.get("ips", []) and e.get("cache_hits", 0) > 0]
+
+            context.wait_for("second answer event with a cache hit", second_event)
+            event = second_event()[-1]
+            assert event["added"] == 0 and event["errors"] == 0, event
+            assert not event["timed_out"], event
+            assert event["hold_us"] < 5000, event
+            after = context.intercept_health()["counters"]
+            assert after["set_cache_hits"] > before["set_cache_hits"], (before, after)
+            assert after["dns_hold_timeouts"] == before["dns_hold_timeouts"], (before, after)
+            assert context.dynamic_set_contains(list_name="learned")
+        finally:
+            reader.stop_flag.set()
+
         result6 = _query(context, 28)
         assert result6["qtype"] == 28, result6
         assert "20010db8010000000000000000000010" in result6["packet_hex"], result6
@@ -90,6 +159,7 @@ def register(registry):
         context.dynamic_set_delete(list_name="learned")
         context.wait_for("forwarded IPv4 set clear", lambda: not context.dynamic_set_present(
             list_name="learned"))
+        forget_cached_set_elements(context)  # the cache must not hide the deleted element
         forwarded = _query(context, 1, "10.20.0.2")
         assert "c612000a" in forwarded["packet_hex"], forwarded
         context.wait_for("forwarded IPv4 DNS learning",
@@ -98,6 +168,7 @@ def register(registry):
         context.dynamic_set_delete(TEST_IP6, list_name="learned")
         context.wait_for("forwarded IPv6 set clear", lambda: not context.dynamic_set_present(
             TEST_IP6, list_name="learned"))
+        forget_cached_set_elements(context)
         forwarded6 = _query(context, 28, "2001:db8:20::2")
         assert "20010db8010000000000000000000010" in forwarded6["packet_hex"], forwarded6
         context.wait_for("forwarded IPv6 DNS learning", lambda: (

@@ -104,6 +104,11 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
         out.set_added = load(counters->set_added);
         out.set_refreshed = load(counters->set_refreshed);
         out.set_errors = load(counters->set_errors);
+        out.set_cache_hits = load(counters->set_cache_hits);
+        out.set_cache_misses = load(counters->set_cache_misses);
+        out.set_cache_entries = load(counters->set_cache_entries);
+        out.dns_refresh_deferred = load(counters->dns_refresh_deferred);
+        out.refresh_dropped = load(counters->refresh_dropped);
         out.conntrack_requests = load(counters->conntrack_requests);
         out.conntrack_deleted = load(counters->conntrack_deleted);
         out.conntrack_errors = load(counters->conntrack_errors);
@@ -127,6 +132,8 @@ nlohmann::json intercept_event_to_json(const InterceptEvent& event) {
         {"added", event.added},
         {"refreshed", event.refreshed},
         {"errors", event.errors},
+        {"cache_hits", event.cache_hits},
+        {"deferred_refresh", event.deferred_refresh},
         {"hold_us", event.hold_us},
         {"parse_us", event.parse_us},
         {"set_write_us", event.set_write_us},

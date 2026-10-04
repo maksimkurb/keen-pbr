@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesPz9DBw data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesMhNQiq data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -408,7 +408,9 @@ namespace api {
 
     struct DnsTestInterceptEvent {
         int64_t added;
+        std::optional<int64_t> cache_hits;
         std::optional<std::string> client_ip;
+        std::optional<int64_t> deferred_refresh;
         std::string domain;
         int64_t errors;
         int64_t hold_us;
@@ -483,13 +485,18 @@ namespace api {
         std::optional<int64_t> dns_matched;
         std::optional<int64_t> dns_packets;
         std::optional<int64_t> dns_parse_errors;
+        std::optional<int64_t> dns_refresh_deferred;
         std::optional<int64_t> dns_tcp_partial;
         std::optional<int64_t> l7_matched;
         std::optional<int64_t> l7_packets;
         std::optional<int64_t> log_overruns;
         std::optional<int64_t> marker_hits;
         std::optional<int64_t> queue_overruns;
+        std::optional<int64_t> refresh_dropped;
         std::optional<int64_t> set_added;
+        std::optional<int64_t> set_cache_entries;
+        std::optional<int64_t> set_cache_hits;
+        std::optional<int64_t> set_cache_misses;
         std::optional<int64_t> set_errors;
         std::optional<int64_t> set_refreshed;
         std::optional<int64_t> set_write_slow;
@@ -772,7 +779,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesPz9DBw {
+    struct KeenPbrTypesMhNQiq {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1096,8 +1103,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesPz9DBw & x);
-    void to_json(json & j, const KeenPbrTypesPz9DBw & x);
+    void from_json(const json & j, KeenPbrTypesMhNQiq & x);
+    void to_json(json & j, const KeenPbrTypesMhNQiq & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1820,7 +1827,9 @@ namespace api {
 
     inline void from_json(const json & j, DnsTestInterceptEvent& x) {
         x.added = j.at("added").get<int64_t>();
+        x.cache_hits = get_stack_optional<int64_t>(j, "cache_hits");
         x.client_ip = get_stack_optional<std::string>(j, "client_ip");
+        x.deferred_refresh = get_stack_optional<int64_t>(j, "deferred_refresh");
         x.domain = j.at("domain").get<std::string>();
         x.errors = j.at("errors").get<int64_t>();
         x.hold_us = j.at("hold_us").get<int64_t>();
@@ -1840,7 +1849,9 @@ namespace api {
     inline void to_json(json & j, const DnsTestInterceptEvent & x) {
         j = json::object();
         j["added"] = x.added;
+        j["cache_hits"] = x.cache_hits;
         j["client_ip"] = x.client_ip;
+        j["deferred_refresh"] = x.deferred_refresh;
         j["domain"] = x.domain;
         j["errors"] = x.errors;
         j["hold_us"] = x.hold_us;
@@ -1961,13 +1972,18 @@ namespace api {
         x.dns_matched = get_stack_optional<int64_t>(j, "dns_matched");
         x.dns_packets = get_stack_optional<int64_t>(j, "dns_packets");
         x.dns_parse_errors = get_stack_optional<int64_t>(j, "dns_parse_errors");
+        x.dns_refresh_deferred = get_stack_optional<int64_t>(j, "dns_refresh_deferred");
         x.dns_tcp_partial = get_stack_optional<int64_t>(j, "dns_tcp_partial");
         x.l7_matched = get_stack_optional<int64_t>(j, "l7_matched");
         x.l7_packets = get_stack_optional<int64_t>(j, "l7_packets");
         x.log_overruns = get_stack_optional<int64_t>(j, "log_overruns");
         x.marker_hits = get_stack_optional<int64_t>(j, "marker_hits");
         x.queue_overruns = get_stack_optional<int64_t>(j, "queue_overruns");
+        x.refresh_dropped = get_stack_optional<int64_t>(j, "refresh_dropped");
         x.set_added = get_stack_optional<int64_t>(j, "set_added");
+        x.set_cache_entries = get_stack_optional<int64_t>(j, "set_cache_entries");
+        x.set_cache_hits = get_stack_optional<int64_t>(j, "set_cache_hits");
+        x.set_cache_misses = get_stack_optional<int64_t>(j, "set_cache_misses");
         x.set_errors = get_stack_optional<int64_t>(j, "set_errors");
         x.set_refreshed = get_stack_optional<int64_t>(j, "set_refreshed");
         x.set_write_slow = get_stack_optional<int64_t>(j, "set_write_slow");
@@ -1984,13 +2000,18 @@ namespace api {
         j["dns_matched"] = x.dns_matched;
         j["dns_packets"] = x.dns_packets;
         j["dns_parse_errors"] = x.dns_parse_errors;
+        j["dns_refresh_deferred"] = x.dns_refresh_deferred;
         j["dns_tcp_partial"] = x.dns_tcp_partial;
         j["l7_matched"] = x.l7_matched;
         j["l7_packets"] = x.l7_packets;
         j["log_overruns"] = x.log_overruns;
         j["marker_hits"] = x.marker_hits;
         j["queue_overruns"] = x.queue_overruns;
+        j["refresh_dropped"] = x.refresh_dropped;
         j["set_added"] = x.set_added;
+        j["set_cache_entries"] = x.set_cache_entries;
+        j["set_cache_hits"] = x.set_cache_hits;
+        j["set_cache_misses"] = x.set_cache_misses;
         j["set_errors"] = x.set_errors;
         j["set_refreshed"] = x.set_refreshed;
         j["set_write_slow"] = x.set_write_slow;
@@ -2508,7 +2529,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesPz9DBw& x) {
+    inline void from_json(const json & j, KeenPbrTypesMhNQiq& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2594,7 +2615,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesPz9DBw & x) {
+    inline void to_json(json & j, const KeenPbrTypesMhNQiq & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

@@ -57,11 +57,129 @@ InterceptProcessor::InterceptProcessor(nfnl::DynamicSetWriter& writer, Conntrack
     late_events_.reserve(kLateBatchCapacity);
     flush_adds_.reserve(kLateBatchCapacity);
     flush_results_.reserve(kLateBatchCapacity);
+    late_slots_.reserve(kLateBatchCapacity);
+    flush_slots_.reserve(kLateBatchCapacity);
+    refresh_adds_.reserve(kLateBatchCapacity);
+    refresh_slots_.reserve(kLateBatchCapacity);
+    refresh_snaps_.reserve(kLateBatchCapacity);
+}
+
+Clock::time_point InterceptProcessor::clock_now() const {
+    return clock_ ? clock_() : Clock::now();
+}
+
+int64_t InterceptProcessor::to_ms(Clock::time_point t) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch()).count();
+}
+
+void InterceptProcessor::set_clock(std::function<Clock::time_point()> clock) {
+    clock_ = std::move(clock);
+}
+
+void InterceptProcessor::invalidate_set_cache() {
+    cache_.clear();
+    sync_cache_gauge();
+}
+
+void InterceptProcessor::sync_cache_gauge() {
+    counters_.set_cache_entries.store(cache_.size(), std::memory_order_relaxed);
+}
+
+void InterceptProcessor::note_written(uint16_t slot, const nfnl::SetAdd& add, int64_t at_ms,
+                                      uint64_t epoch) {
+    cache_.record(slot, add.family, add.addr, add.timeout_s, at_ms, epoch);
+}
+
+bool InterceptProcessor::queue_refresh(const std::shared_ptr<const InterceptSnapshot>& snap,
+                                       const nfnl::SetAdd& add, uint16_t slot) {
+    if (refresh_adds_.size() >= kLateBatchCapacity) {
+        // The element is still present; a later query refreshes it.
+        bump(counters_.refresh_dropped);
+        return false;
+    }
+    refresh_adds_.push_back(add);  // within reserved capacity
+    refresh_slots_.push_back(slot);
+    refresh_snaps_.push_back(snap);
+    bump(counters_.dns_refresh_deferred);
+    return true;
+}
+
+void InterceptProcessor::classify_adds(const std::shared_ptr<const InterceptSnapshot>& snap,
+                                       int64_t now_ms, bool queue_refreshes,
+                                       InterceptEvent& event) {
+    std::size_t kept = 0;
+    uint64_t hits = 0;
+    for (std::size_t i = 0; i < adds_.size(); ++i) {
+        const nfnl::SetAdd& add = adds_[i];
+        const SetElementCache::Lookup found = cache_.lookup(add_slots_[i], add.family, add.addr, now_ms);
+        // L7 (queue_refreshes == false) only skips trusted entries; a Stale one is rewritten.
+        const bool hit = found.state == SetElementCache::State::Fresh ||
+                         (queue_refreshes && found.state == SetElementCache::State::Stale);
+        if (!hit) {
+            if (kept != i) {
+                adds_[kept] = adds_[i];
+                add_slots_[kept] = add_slots_[i];
+            }
+            ++kept;
+            continue;
+        }
+        ++hits;
+        if (!queue_refreshes) continue;
+        bool wants = found.state == SetElementCache::State::Stale;
+        if (!wants && found.expires_at_ms != SetElementCache::kPermanent) {
+            // A permanent element needs nothing; otherwise refresh only when the
+            // new expiry is meaningfully later than the cached one.
+            wants = add.timeout_s == 0 ||
+                    now_ms + static_cast<int64_t>(add.timeout_s) * 1000 - found.expires_at_ms >
+                        kRefreshSlackMs;
+        }
+        if (wants && queue_refresh(snap, add, add_slots_[i])) ++event.deferred_refresh;
+    }
+    const uint64_t misses = kept;
+    adds_.resize(kept);
+    add_slots_.resize(kept);
+    event.cache_hits = static_cast<uint32_t>(hits);
+    bump(counters_.set_cache_hits, hits);
+    bump(counters_.set_cache_misses, misses);
 }
 
 void InterceptProcessor::set_snapshot(std::shared_ptr<const InterceptSnapshot> snapshot) {
-    std::lock_guard<std::mutex> lock(snapshot_mutex_);
-    snapshot_ = std::move(snapshot);
+    // One slot per distinct dynamic-set name; built once per snapshot so the
+    // hot path resolves a slot with an index, never a string lookup.
+    std::shared_ptr<const SlotTable> slots;
+    if (snapshot) {
+        std::vector<std::string_view> names;
+        for (const InterceptListTarget& target : snapshot->targets) {
+            if (!target.set_v4.empty()) names.emplace_back(target.set_v4);
+            if (!target.set_v6.empty()) names.emplace_back(target.set_v6);
+        }
+        std::sort(names.begin(), names.end());
+        names.erase(std::unique(names.begin(), names.end()), names.end());
+        const auto slot_of = [&names](const std::string& name) -> uint16_t {
+            if (name.empty()) return SetElementCache::kNoSlot;
+            const auto it = std::lower_bound(names.begin(), names.end(), std::string_view(name));
+            const std::size_t idx = static_cast<std::size_t>(it - names.begin());
+            return idx < SetElementCache::kNoSlot ? static_cast<uint16_t>(idx)
+                                                  : SetElementCache::kNoSlot;
+        };
+        auto table = std::make_shared<SlotTable>();
+        table->by_target.reserve(snapshot->targets.size());
+        for (const InterceptListTarget& target : snapshot->targets) {
+            table->by_target.push_back({slot_of(target.set_v4), slot_of(target.set_v6)});
+        }
+        slots = std::move(table);
+    }
+    {
+        std::lock_guard<std::mutex> lock(snapshot_mutex_);
+        snapshot_ = std::move(snapshot);
+        slots_ = std::move(slots);
+        // A snapshot change means the sets may have been recreated: nothing
+        // cached about the old ones can be trusted.  Cleared under the snapshot
+        // lock so a reader that captured the epoch first can never record
+        // against the new snapshot.
+        cache_.clear();
+    }
+    sync_cache_gauge();
 }
 
 void InterceptProcessor::set_l7_submitter(L7Submitter submitter) {
@@ -82,6 +200,13 @@ void InterceptProcessor::set_writer_callbacks(WriterAdmission dns_admission,
 
 std::shared_ptr<const InterceptSnapshot> InterceptProcessor::snapshot() const {
     std::lock_guard<std::mutex> lock(snapshot_mutex_);
+    return snapshot_;
+}
+
+std::shared_ptr<const InterceptSnapshot> InterceptProcessor::snapshot_and_slots(
+    std::shared_ptr<const SlotTable>& slots) const {
+    std::lock_guard<std::mutex> lock(snapshot_mutex_);
+    slots = slots_;
     return snapshot_;
 }
 
@@ -124,8 +249,9 @@ void InterceptProcessor::collect_list_names(const InterceptSnapshot& snap,
     }
 }
 
-void InterceptProcessor::append_add(const InterceptSnapshot& snap, DomainIndex::ListId id,
-                                    uint8_t family, const std::array<uint8_t, 16>& addr,
+void InterceptProcessor::append_add(const InterceptSnapshot& snap, const SlotTable& slots,
+                                    DomainIndex::ListId id, uint8_t family,
+                                    const std::array<uint8_t, 16>& addr,
                                     uint32_t record_ttl_s, bool use_record_ttl) {
     if (id >= snap.targets.size()) return;
     const InterceptListTarget& target = snap.targets[id];
@@ -148,6 +274,8 @@ void InterceptProcessor::append_add(const InterceptSnapshot& snap, DomainIndex::
     add.addr = addr;
     add.timeout_s = timeout;
     adds_.push_back(add);
+    add_slots_.push_back(id < slots.by_target.size() ? slots.by_target[id][family == 6 ? 1 : 0]
+                                                     : SetElementCache::kNoSlot);
 }
 
 InterceptProcessor::DnsDecision InterceptProcessor::on_dns_packet(
@@ -173,8 +301,11 @@ void InterceptProcessor::on_l7_packet(ByteView l3, Clock::time_point now) {
 InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Clock::time_point deadline,
                                                                bool replacement_allowed) {
     const Clock::time_point started = Clock::now();
-    const auto snap = snapshot();
-    if (!snap || !snap->index) return {};
+    // Epoch BEFORE the snapshot: a clear in between only makes records fail.
+    const uint64_t cache_epoch = cache_.epoch();
+    std::shared_ptr<const SlotTable> slots;
+    const auto snap = snapshot_and_slots(slots);
+    if (!snap || !snap->index || !slots) return {};
 
     const auto layout = dns_wire::parse_packet_layout(l3);
     if (!layout || (layout->l4_proto != IPPROTO_UDP && layout->l4_proto != IPPROTO_TCP)) return {};
@@ -274,14 +405,21 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
     bump(counters_.dns_matched);
 
     adds_.clear();
+    add_slots_.clear();
     for (const dns_wire::AddressRecord& rec : response_.addresses) {
-        for (DomainIndex::ListId id : ids_) append_add(*snap, id, rec.family, rec.addr, rec.ttl, true);
+        for (DomainIndex::ListId id : ids_) {
+            append_add(*snap, *slots, id, rec.family, rec.addr, rec.ttl, true);
+        }
     }
 
     InterceptEvent event;
     event.source = InterceptSource::dns;
     add_dns_observation(event);
     collect_list_names(*snap, event.lists);
+
+    // Only addresses the cache does not know block the verdict.  Cached ones
+    // are already routed; their timeout refresh (if due) runs after the verdict.
+    if (!adds_.empty()) classify_adds(snap, to_ms(clock_now()), /*queue_refreshes=*/true, event);
 
     if (!adds_.empty()) {
         results_.assign(adds_.size(), nfnl::SetAddResult::Error);
@@ -290,6 +428,7 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
         bool after_timeout = false;
         bool ok = false;
         bool write_attempted = false;
+        int64_t write_started_ms = 0;
         if (!defer) {
             WriterAdmission dns_admission;
             WriterRelease dns_release;
@@ -318,8 +457,10 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
                     const int budget_ms = static_cast<int>(std::max<int64_t>(1, remaining_ms.count()));
                     write_attempted = true;
                     const Clock::time_point write_started = Clock::now();
+                    write_started_ms = to_ms(clock_now());
                     try {
-                        ok = writer_.add(adds_.data(), results_.data(), adds_.size(), budget_ms);
+                        // One exclusive add: existing elements come back as Exists.
+                        ok = writer_.add_new(adds_.data(), results_.data(), adds_.size(), budget_ms);
                     } catch (const std::exception& e) {
                         Logger::instance().debug("intercept: set writer failed: {}", e.what());
                     } catch (...) {
@@ -334,6 +475,26 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
                 }
             }
         }
+        if (write_attempted && !ok && writer_.last_errno() == ENOENT) {
+            invalidate_set_cache();  // a set is missing: everything cached is suspect
+        }
+        // Confirmed results feed the cache; an element that already existed
+        // (Exists) is refreshed after the verdict.
+        if (write_attempted) {
+            for (std::size_t i = 0; i < adds_.size(); ++i) {
+                switch (results_[i]) {
+                case nfnl::SetAddResult::Added:
+                case nfnl::SetAddResult::Refreshed:
+                    note_written(add_slots_[i], adds_[i], write_started_ms, cache_epoch);
+                    break;
+                case nfnl::SetAddResult::Exists:
+                    if (queue_refresh(snap, adds_[i], add_slots_[i])) ++event.deferred_refresh;
+                    break;
+                default: break;
+                }
+            }
+            sync_cache_gauge();
+        }
         if (!defer && write_attempted && !ok && writer_.last_errno() == ETIMEDOUT) {
             // ETIMEDOUT means "unknown": the kernel may still apply the batch.
             // Keep what was confirmed, retry only the unconfirmed entries late.
@@ -345,14 +506,19 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
             for (std::size_t i = 0; i < adds_.size(); ++i) {
                 switch (results_[i]) {
                 case nfnl::SetAddResult::Added: ++event.added; break;
-                case nfnl::SetAddResult::Refreshed: ++event.refreshed; break;
+                case nfnl::SetAddResult::Refreshed:
+                case nfnl::SetAddResult::Exists: ++event.refreshed; break;
                 default:
-                    if (kept != i) adds_[kept] = adds_[i];
+                    if (kept != i) {
+                        adds_[kept] = adds_[i];
+                        add_slots_[kept] = add_slots_[i];
+                    }
                     ++kept;
                     break;
                 }
             }
             adds_.resize(kept);
+            add_slots_.resize(kept);
             bump(counters_.set_added, event.added);
             bump(counters_.set_refreshed, event.refreshed);
             if (kept > 0) {
@@ -365,7 +531,8 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, Cloc
             for (nfnl::SetAddResult r : results_) {
                 switch (r) {
                 case nfnl::SetAddResult::Added: ++event.added; break;
-                case nfnl::SetAddResult::Refreshed: ++event.refreshed; break;
+                case nfnl::SetAddResult::Refreshed:
+                case nfnl::SetAddResult::Exists: ++event.refreshed; break;
                 default: ++event.errors; break;
                 }
             }
@@ -406,12 +573,16 @@ bool InterceptProcessor::defer_late_write(const std::shared_ptr<const InterceptS
     le.count = n;
     le.after_timeout = after_timeout;
     late_adds_.insert(late_adds_.end(), adds_.begin(), adds_.end());  // within reserved capacity
+    late_slots_.insert(late_slots_.end(), add_slots_.begin(), add_slots_.end());
     late_events_.push_back(std::move(le));
     return true;
 }
 
 void InterceptProcessor::flush_late_writes() {
-    if (late_events_.empty()) return;
+    if (late_events_.empty()) {
+        flush_refreshes();
+        return;
+    }
     try {
         const Clock::time_point now = Clock::now();
         const int budget_ms = now < late_backoff_until_ ? kLateBackoffBudgetMs : kLateWriteBudgetMs;
@@ -427,16 +598,22 @@ void InterceptProcessor::flush_late_writes() {
 
         // Per-flush snapshot check: stale events are dropped as errors.
         flush_adds_.clear();
+        flush_slots_.clear();
         for (LateEvent& le : late_events_) {
             le.snapshot_ok = admitted && snapshot_is_current(le.snapshot);
             if (le.snapshot_ok) {
                 flush_adds_.insert(flush_adds_.end(), late_adds_.begin() + static_cast<std::ptrdiff_t>(le.first),
                                    late_adds_.begin() + static_cast<std::ptrdiff_t>(le.first + le.count));
+                flush_slots_.insert(flush_slots_.end(),
+                                    late_slots_.begin() + static_cast<std::ptrdiff_t>(le.first),
+                                    late_slots_.begin() + static_cast<std::ptrdiff_t>(le.first + le.count));
             }
         }
         flush_results_.assign(flush_adds_.size(), nfnl::SetAddResult::Error);
         int err = 0;
         uint32_t write_us = 0;
+        const uint64_t cache_epoch = cache_.epoch();  // before the write begins
+        const int64_t write_started_ms = to_ms(clock_now());
         if (!flush_adds_.empty()) {
             const Clock::time_point write_started = Clock::now();
             try {
@@ -447,6 +624,7 @@ void InterceptProcessor::flush_late_writes() {
             } catch (...) {
                 if (admitted && dns_release) dns_release();
                 late_adds_.clear();
+                late_slots_.clear();
                 late_events_.clear();
                 throw;
             }
@@ -458,6 +636,14 @@ void InterceptProcessor::flush_late_writes() {
         if (err == ETIMEDOUT) {
             late_backoff_until_ = Clock::now() + std::chrono::milliseconds(kLateBackoffWindowMs);
         }
+        if (err == ENOENT) invalidate_set_cache();
+        for (std::size_t i = 0; i < flush_adds_.size(); ++i) {
+            if (flush_results_[i] == nfnl::SetAddResult::Added ||
+                flush_results_[i] == nfnl::SetAddResult::Refreshed) {
+                note_written(flush_slots_[i], flush_adds_[i], write_started_ms, cache_epoch);
+            }
+        }
+        sync_cache_gauge();
 
         std::size_t pos = 0;
         for (LateEvent& le : late_events_) {
@@ -500,13 +686,101 @@ void InterceptProcessor::flush_late_writes() {
     } catch (...) {
     }
     late_adds_.clear();
+    late_slots_.clear();
     late_events_.clear();
+    flush_refreshes();
+}
+
+void InterceptProcessor::flush_refreshes() {
+    if (refresh_adds_.empty()) return;
+    try {
+        const int budget_ms =
+            clock_now() < late_backoff_until_ ? kLateBackoffBudgetMs : kLateWriteBudgetMs;
+        WriterAdmission dns_admission;
+        WriterRelease dns_release;
+        {
+            std::lock_guard<std::mutex> lock(snapshot_mutex_);
+            dns_admission = dns_admission_;
+            dns_release = dns_release_;
+        }
+        const bool admitted = !dns_admission || dns_admission();
+
+        // Entries of a replaced snapshot are dropped: the element is not lost,
+        // the next query for the domain handles it.
+        flush_adds_.clear();
+        flush_slots_.clear();
+        const InterceptSnapshot* checked = nullptr;
+        bool checked_ok = false;
+        for (std::size_t i = 0; admitted && i < refresh_adds_.size(); ++i) {
+            if (refresh_snaps_[i].get() != checked) {
+                checked = refresh_snaps_[i].get();
+                checked_ok = snapshot_is_current(refresh_snaps_[i]);
+            }
+            if (!checked_ok) continue;
+            flush_adds_.push_back(refresh_adds_[i]);
+            flush_slots_.push_back(refresh_slots_[i]);
+        }
+        if (!flush_adds_.empty()) {
+            flush_results_.assign(flush_adds_.size(), nfnl::SetAddResult::Error);
+            const uint64_t cache_epoch = cache_.epoch();
+            const int64_t write_started_ms = to_ms(clock_now());
+            int err = 0;
+            try {
+                writer_.refresh(flush_adds_.data(), flush_results_.data(), flush_adds_.size(),
+                                budget_ms);
+                err = writer_.last_errno();
+            } catch (const std::exception& e) {
+                Logger::instance().debug("intercept: set refresh failed: {}", e.what());
+            } catch (...) {
+                if (admitted && dns_release) dns_release();
+                refresh_adds_.clear();
+                refresh_slots_.clear();
+                refresh_snaps_.clear();
+                throw;
+            }
+            if (err == ETIMEDOUT) {
+                late_backoff_until_ = Clock::now() + std::chrono::milliseconds(kLateBackoffWindowMs);
+            }
+            if (err == ENOENT) invalidate_set_cache();
+            uint64_t added = 0, errors = 0;
+            for (std::size_t i = 0; i < flush_adds_.size(); ++i) {
+                switch (flush_results_[i]) {
+                case nfnl::SetAddResult::Added:
+                    // The element had vanished and was recreated: flows that
+                    // were routed without it must be reset.
+                    ++added;
+                    note_written(flush_slots_[i], flush_adds_[i], write_started_ms, cache_epoch);
+                    cleanup_.request(flush_adds_[i].family, flush_adds_[i].addr);
+                    break;
+                case nfnl::SetAddResult::Refreshed:
+                case nfnl::SetAddResult::Exists:
+                    note_written(flush_slots_[i], flush_adds_[i], write_started_ms, cache_epoch);
+                    break;
+                default: ++errors; break;
+                }
+            }
+            // Successful refreshes were already counted (or deliberately not)
+            // when they were queued; only recreations and failures are news.
+            bump(counters_.set_added, added);
+            bump(counters_.set_errors, errors);
+            sync_cache_gauge();
+        }
+        if (admitted && dns_release) dns_release();
+    } catch (const std::exception& e) {
+        Logger::instance().debug("intercept: post-verdict refresh handling failed: {}", e.what());
+    } catch (...) {
+    }
+    refresh_adds_.clear();
+    refresh_slots_.clear();
+    refresh_snaps_.clear();
 }
 
 void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
     const Clock::time_point started = Clock::now();
-    const auto snap = snapshot();
-    if (!snap || !snap->index) return;
+    const uint64_t cache_epoch = cache_.epoch();
+    std::shared_ptr<const SlotTable> slots;
+    const auto snap = snapshot_and_slots(slots);
+    if (!snap || !snap->index || !slots) return;
 
     const auto layout = dns_wire::parse_packet_layout(l3);
     if (!layout) return;
@@ -585,7 +859,10 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
     bump(counters_.l7_matched);
 
     adds_.clear();
-    for (DomainIndex::ListId id : ids_) append_add(*snap, id, layout->ip_version, key.dst, 0, false);
+    add_slots_.clear();
+    for (DomainIndex::ListId id : ids_) {
+        append_add(*snap, *slots, id, layout->ip_version, key.dst, 0, false);
+    }
 
     InterceptEvent event;
     event.source = source;
@@ -596,10 +873,17 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
     collect_list_names(*snap, event.lists);
     event.ips.push_back(format_ip(layout->ip_version, key.dst));
 
+    // A trusted cached element needs no write at all (and no conntrack cleanup).
+    const int64_t cache_now_ms = to_ms(clock_now());
+    if (!adds_.empty()) classify_adds(snap, cache_now_ms, /*queue_refreshes=*/false, event);
+
     if (!adds_.empty()) {
         InterceptL7Work work;
         work.snapshot = snap;
         work.adds = std::move(adds_);
+        work.slots = std::move(add_slots_);
+        work.cache_epoch = cache_epoch;
+        work.cache_now_ms = cache_now_ms;
         work.event = std::move(event);
         work.family = layout->ip_version;
         work.destination = key.dst;
@@ -659,16 +943,25 @@ void InterceptProcessor::record_l7_result(InterceptL7Work work,
         if (l7_release) l7_release();
     }
     bool any_added = false;
-    for (nfnl::SetAddResult result : results) {
-        switch (result) {
+    for (std::size_t i = 0; i < results.size(); ++i) {
+        const bool known = i < work.slots.size();
+        switch (results[i]) {
         case nfnl::SetAddResult::Added:
             ++work.event.added;
             any_added = true;
+            if (known) note_written(work.slots[i], work.adds[i], work.cache_now_ms, work.cache_epoch);
             break;
-        case nfnl::SetAddResult::Refreshed: ++work.event.refreshed; break;
+        case nfnl::SetAddResult::Refreshed:
+            ++work.event.refreshed;
+            if (known) note_written(work.slots[i], work.adds[i], work.cache_now_ms, work.cache_epoch);
+            break;
         default: ++work.event.errors; break;
         }
     }
+    if (admitted && current && work.event.errors > 0 && writer.last_errno() == ENOENT) {
+        invalidate_set_cache();
+    }
+    sync_cache_gauge();
     bump(counters_.set_added, work.event.added);
     bump(counters_.set_refreshed, work.event.refreshed);
     bump(counters_.set_errors, work.event.errors);

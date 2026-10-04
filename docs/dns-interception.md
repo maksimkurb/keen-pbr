@@ -124,6 +124,45 @@ real kernel error counts as `set_errors`. Affected events have
 hot thread, so packets read after it wait for it (at most 500 ms, normally far
 less).
 
+### What blocks the verdict: the set element cache
+
+The verdict only waits for addresses that are not in the set yet. The daemon
+remembers every element it wrote (set, address family, address, expiry and write
+time) in a fixed-size in-memory cache (16384 entries, about 640 KiB, allocated
+once; one mutex shared by the DNS thread and the L7 worker). For each matched
+response the addresses are classified before anything is written:
+
+* Not cached (or expiring within 2 s): written before the verdict with a single
+  exclusive add. If the kernel reports that the element already exists, it is
+  not an error: the element moves to the post-verdict refresh list.
+* Cached and trusted: nothing is written before the verdict. A timeout refresh
+  is queued for after the verdict only when the new expiry would be more than
+  60 s later than the cached one (counted in `dns_refresh_deferred`, event field
+  `deferred_refresh`).
+* Cached but older than 5 minutes (trust bound): the element is rewritten after
+  the verdict, which also recreates an element removed behind the daemon's back.
+
+When nothing is left to write before the verdict, it is sent immediately and
+`hold_us` is just the parse time (event field `cache_hits` counts the skipped
+addresses). Post-verdict refreshes ride on the same pending batch as late writes
+(capacity 512, flushed once per loop iteration). If that batch is full the
+refresh is dropped and counted in `refresh_dropped`; this is not an error, the
+element is still present and a later answer refreshes it. L7 sniffing uses the
+same cache: a trusted cached element is not written at all and does not trigger
+a conntrack cleanup.
+
+The cache is cleared whenever the sets may have changed: a new interception
+snapshot is installed, every firewall apply (runtime refresh, `SIGUSR1`,
+Keenetic `netfilter.d` re-apply, `clear_dynamic_sets_on_apply`), and any set
+write that fails with `ENOENT`. A write that was already in flight when the
+cache was cleared is not recorded. An element deleted outside keen-pbr (for
+example with `nft delete element`) is only noticed after the trust bound, a
+re-apply, or when the element's own timeout runs out. `set_cache_hits`,
+`set_cache_misses` and the gauge `set_cache_entries` in `/api/health/service`
+show how well the cache works. An element refreshed after the verdict is not
+counted again in `set_refreshed`; `set_refreshed` counts elements found already
+present when they were first written.
+
 `set_write_slow` counts set writes (on-time, late and L7) that took 20 ms or
 more. Each such write is also logged at info, at most once per 10 s, as
 `intercept: slow set write <us> (send <us>, ack <us>, batch <n> elems, set <name>)`:
@@ -296,7 +335,8 @@ interception health separates `dns_hold_active` and `l7_active`, reports
 lists the functional [probe results](#runtime-probes) in `probes`
 (`feature`, `status`, `reason`), degraded-but-running conditions in `warnings`,
 and the kernel release and ipset protocol, and exposes counters such as DNS packets/parse errors/hold timeouts, partial TCP,
-NFQUEUE/NFLOG overruns, set additions/errors, and conntrack requests/deletes.
+NFQUEUE/NFLOG overruns, set additions/errors, set cache hits/misses/entries,
+deferred and dropped refreshes, and conntrack requests/deletes.
 `SIGUSR1` schedules a runtime refresh and clears the cached interception
 capability probe before reapplying the runtime state, so newly available kernel
 facilities are rechecked.
@@ -307,7 +347,8 @@ marker. Use `show=all` (or `show=full`) for the continuous observation stream;
 it includes parsed nonmatches and emits `GAP` notices when events are lost.
 Events include `source` (`dns`, `marker`, `sni`, `http`, or `quic`), the captured
 `client_ip`, `domain`, matched `lists`, learned `ips`, `hold_us`, and
-`timed_out`, plus add/refresh/error and parse/write timing counts.
+`timed_out`, plus add/refresh/error, `cache_hits`, `deferred_refresh` and
+parse/write timing counts.
 
 ## Platform limits
 

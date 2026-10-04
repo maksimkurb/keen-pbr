@@ -5,6 +5,7 @@
 #include "../l7/quic_initial.hpp"
 #include "../lists/domain_index.hpp"
 #include "../netfilter/set_writer.hpp"
+#include "set_element_cache.hpp"
 #include "../util/byte_view.hpp"
 
 #include <array>
@@ -58,6 +59,8 @@ struct InterceptEvent {
     uint32_t set_write_us{0};  // time inside the set writer for this observation
     bool timed_out{false};
     bool late_write{false};    // set write finished after the verdict was released
+    uint32_t cache_hits{0};         // adds skipped before the verdict: element already cached
+    uint32_t deferred_refresh{0};   // timeout refreshes queued for after the verdict
 };
 
 // A matched L7 packet is handed to the service's bounded worker when DNS
@@ -66,6 +69,9 @@ struct InterceptEvent {
 struct InterceptL7Work {
     std::shared_ptr<const InterceptSnapshot> snapshot;
     std::vector<nfnl::SetAdd> adds;
+    std::vector<uint16_t> slots;  // set-cache slot per add (parallel to `adds`)
+    uint64_t cache_epoch{0};      // SetElementCache epoch captured before the lookups
+    int64_t cache_now_ms{0};      // steady ms used for the lookups / expiry estimate
     InterceptEvent event;
     uint8_t family{0};
     std::array<uint8_t, 16> destination{};
@@ -86,6 +92,11 @@ struct InterceptCounters {
     std::atomic<uint64_t> set_added{0};
     std::atomic<uint64_t> set_refreshed{0};
     std::atomic<uint64_t> set_errors{0};
+    std::atomic<uint64_t> set_cache_hits{0};
+    std::atomic<uint64_t> set_cache_misses{0};
+    std::atomic<uint64_t> set_cache_entries{0};  // gauge
+    std::atomic<uint64_t> dns_refresh_deferred{0};
+    std::atomic<uint64_t> refresh_dropped{0};
     std::atomic<uint64_t> conntrack_requests{0};
     std::atomic<uint64_t> conntrack_deleted{0};
     std::atomic<uint64_t> conntrack_errors{0};
@@ -136,12 +147,22 @@ public:
     static constexpr int kLateBackoffWindowMs = 1000;
     // Fixed capacity of the pending-late batch (elements and deferred events).
     static constexpr std::size_t kLateBatchCapacity = 512;
+    // A cached element is only refreshed after the verdict when the new expiry
+    // would exceed the cached one by more than this.
+    static constexpr int64_t kRefreshSlackMs = 60000;
 
     // Writes ALL pending-late adds with one writer call, requests conntrack
     // cleanup for Added elements and publishes the deferred events.  No-op when
     // nothing is pending.  Never throws.  Same thread as on_dns_packet().
     void flush_late_writes();
     std::size_t pending_late_events() const { return late_events_.size(); }
+    std::size_t pending_refreshes() const { return refresh_adds_.size(); }
+
+    // Forgets every cached element (sets were recreated / flushed).  Thread-safe.
+    void invalidate_set_cache();
+    // Test seam: replaces the steady clock used for cache timestamps.
+    void set_clock(std::function<std::chrono::steady_clock::time_point()> clock);
+    SetElementCache& set_cache() { return cache_; }
 
     // l3 = full IP packet from NFQUEUE.  Never throws.
     DnsDecision on_dns_packet(ByteView l3, std::chrono::steady_clock::time_point deadline,
@@ -161,8 +182,26 @@ private:
                           std::chrono::steady_clock::time_point started, bool after_timeout);
     void handle_l7(ByteView l3, std::chrono::steady_clock::time_point now);
     std::shared_ptr<const InterceptSnapshot> snapshot() const;
+    struct SlotTable {
+        // [0] = v4 set slot, [1] = v6 set slot, per InterceptListTarget.
+        std::vector<std::array<uint16_t, 2>> by_target;
+    };
+    std::shared_ptr<const InterceptSnapshot> snapshot_and_slots(
+        std::shared_ptr<const SlotTable>& slots) const;
+    std::chrono::steady_clock::time_point clock_now() const;
+    static int64_t to_ms(std::chrono::steady_clock::time_point t);
+    void note_written(uint16_t slot, const nfnl::SetAdd& add, int64_t at_ms, uint64_t epoch);
+    void sync_cache_gauge();
+    bool queue_refresh(const std::shared_ptr<const InterceptSnapshot>& snap,
+                       const nfnl::SetAdd& add, uint16_t slot);
+    // Splits adds_ (in place) into the pre-verdict part (cache miss, kept) and
+    // the cached part (dropped, or queued for a post-verdict refresh).
+    void classify_adds(const std::shared_ptr<const InterceptSnapshot>& snap, int64_t now_ms,
+                       bool queue_refreshes, InterceptEvent& event);
+    void flush_refreshes();
     void push_event(InterceptEvent&& event);
-    void append_add(const InterceptSnapshot& snap, DomainIndex::ListId id, uint8_t family,
+    void append_add(const InterceptSnapshot& snap, const SlotTable& slots, DomainIndex::ListId id,
+                    uint8_t family,
                     const std::array<uint8_t, 16>& addr, uint32_t record_ttl_s, bool use_record_ttl);
     void collect_list_names(const InterceptSnapshot& snap, std::vector<std::string>& out) const;
     bool snapshot_is_current(const std::shared_ptr<const InterceptSnapshot>& snapshot) const;
@@ -174,6 +213,7 @@ private:
 
     mutable std::mutex snapshot_mutex_;
     std::shared_ptr<const InterceptSnapshot> snapshot_;
+    std::shared_ptr<const SlotTable> slots_;
     L7Submitter l7_submitter_;
     WriterAdmission dns_admission_;
     WriterRelease dns_release_;
@@ -190,6 +230,7 @@ private:
     std::vector<DomainIndex::ListId> ids_;
     std::vector<DomainIndex::ListId> ids_tmp_;
     std::vector<nfnl::SetAdd> adds_;
+    std::vector<uint16_t> add_slots_;  // parallel to adds_
     std::vector<nfnl::SetAddResult> results_;
     // Pending-late batch (hot thread only).  Capacity is reserved once in the
     // constructor, so queuing never reallocates.
@@ -203,9 +244,18 @@ private:
         bool after_timeout{false};  // first attempt timed out: outcome unknown
     };
     std::vector<nfnl::SetAdd> late_adds_;
+    std::vector<uint16_t> late_slots_;  // parallel to late_adds_
     std::vector<LateEvent> late_events_;
     std::vector<nfnl::SetAdd> flush_adds_;
+    std::vector<uint16_t> flush_slots_;
     std::vector<nfnl::SetAddResult> flush_results_;
+    // Post-verdict timeout refreshes of elements believed to exist (hot thread
+    // only, fixed capacity kLateBatchCapacity; overflow is dropped, not an error).
+    std::vector<nfnl::SetAdd> refresh_adds_;
+    std::vector<uint16_t> refresh_slots_;
+    std::vector<std::shared_ptr<const InterceptSnapshot>> refresh_snaps_;  // keep set names alive
+    SetElementCache cache_;
+    std::function<std::chrono::steady_clock::time_point()> clock_;
     std::chrono::steady_clock::time_point late_backoff_until_{};
     l7::FlowBuffers flows_;
     l7::QuicCryptoAssembler quic_;

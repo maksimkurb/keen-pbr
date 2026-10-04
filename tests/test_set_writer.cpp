@@ -160,6 +160,83 @@ TEST_CASE("set_writer: injected nft refresh is delete plus add") {
           ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_NEWSETELEM));
 }
 
+TEST_CASE("set_writer: add_new reports an existing ipset element as Exists without a resend") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{EEXIST, 0}, 0, 0}};
+    auto writer = make_ipset_writer_for_test(std::move(transport));
+    const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2)};
+    SetAddResult results[2]{};
+
+    REQUIRE(writer->add_new(adds, results, 2, 100));
+    CHECK(results[0] == SetAddResult::Exists);
+    CHECK(results[1] == SetAddResult::Added);
+    REQUIRE(fake->calls.size() == 1);  // single exclusive transaction
+    CHECK((fake->calls[0].flags[0] & NLM_F_EXCL) != 0);
+}
+
+TEST_CASE("set_writer: nft add_new retries only rolled-back new elements, leaves existing ones") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {
+        {{EEXIST, 0}, EEXIST, 0},  // element 1 exists, element 2 acked then rolled back
+        {{0}, 0, 0},               // non-exclusive resend of element 2 only
+    };
+    auto writer = make_nft_writer_for_test("table", std::move(transport));
+    const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2)};
+    SetAddResult results[2]{};
+
+    REQUIRE(writer->add_new(adds, results, 2, 100));
+    CHECK(results[0] == SetAddResult::Exists);
+    CHECK(results[1] == SetAddResult::Added);
+    REQUIRE(fake->calls.size() == 2);
+    CHECK(fake->calls[1].types.size() == 3);  // batch begin, NEW (element 2), batch end
+}
+
+TEST_CASE("set_writer: nft add_new of only new elements is one transaction") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{0, 0}, 0, 0}};
+    auto writer = make_nft_writer_for_test("table", std::move(transport));
+    const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2)};
+    SetAddResult results[2]{};
+    REQUIRE(writer->add_new(adds, results, 2, 100));
+    CHECK(results[0] == SetAddResult::Added);
+    CHECK(results[1] == SetAddResult::Added);
+    CHECK(fake->calls.size() == 1);
+}
+
+TEST_CASE("set_writer: refresh() starts without an exclusive probe") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {
+        {{0}, 0, 0},     // non-exclusive add
+        {{0, 0}, 0, 0},  // delete + add
+    };
+    auto writer = make_nft_writer_for_test("table", std::move(transport));
+    const SetAdd adds[] = {fake_v4("set", 1)};
+    SetAddResult results[1]{};
+
+    REQUIRE(writer->refresh(adds, results, 1, 100));
+    CHECK(results[0] == SetAddResult::Refreshed);
+    REQUIRE(fake->calls.size() == 2);
+    CHECK((fake->calls[0].flags[1] & NLM_F_EXCL) == 0);  // no exclusive pass at all
+    CHECK(fake->calls[1].types[1] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM));
+}
+
+TEST_CASE("set_writer: ipset refresh() is one non-exclusive request") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{0}, 0, 0}};
+    auto writer = make_ipset_writer_for_test(std::move(transport));
+    const SetAdd adds[] = {fake_v4("set", 1)};
+    SetAddResult results[1]{};
+    REQUIRE(writer->refresh(adds, results, 1, 100));
+    CHECK(results[0] == SetAddResult::Refreshed);
+    REQUIRE(fake->calls.size() == 1);
+    CHECK((fake->calls[0].flags[0] & NLM_F_EXCL) == 0);
+}
+
 TEST_CASE("set_writer: nft partial batch ACK never reports unacknowledged Added") {
     auto transport = std::make_unique<FakeTransport>();
     auto* fake = transport.get();

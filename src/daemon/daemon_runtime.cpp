@@ -285,6 +285,18 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         interfaces,
         &balance_candidates,
         intercept.firewall_settings());
+    // The apply may have recreated or flushed the dynamic sets: whatever the
+    // interception cache remembered about their elements is no longer true.
+    // (The snapshot was invalidated before the apply; this also covers a
+    // service that was started during it.)
+    {
+        std::shared_ptr<InterceptService> service_after_apply;
+        {
+            KPBR_LOCK_GUARD(intercept_mutex_);
+            service_after_apply = intercept_service_;
+        }
+        if (service_after_apply) service_after_apply->invalidate_set_cache();
+    }
     // Derived from the plan that was actually applied, never recomputed.
     const ConntrackPolicy conntrack_policy = conntrack_policy_for_plan(active.plan);
     auto applied_sets = active.plan.sets;

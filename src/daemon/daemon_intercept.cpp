@@ -169,6 +169,16 @@ void Daemon::quiesce_intercept_service(
             interfaces, &balance_candidates, std::nullopt);
         firewall_state_.publish_active_firewall(std::move(active));
     }
+    {
+        // The rules apply above may have rebuilt sets; the service stops next,
+        // but never leave a window where its cache outlives the sets.
+        std::shared_ptr<InterceptService> service;
+        {
+            KPBR_LOCK_GUARD(intercept_mutex_);
+            service = intercept_service_;
+        }
+        if (service) service->invalidate_set_cache();
+    }
     stop_intercept_service();
 }
 

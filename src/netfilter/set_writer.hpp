@@ -20,7 +20,9 @@ struct SetAdd {
     uint32_t timeout_s{0};          // 0 = permanent element
 };
 
-enum class SetAddResult : uint8_t { Added, Refreshed, Error };
+// Exists is only produced by add_new(): the element was already in the set and
+// its timeout was NOT extended.
+enum class SetAddResult : uint8_t { Added, Refreshed, Error, Exists };
 
 // Adds host addresses to dynamic firewall sets over nfnetlink (no exec).
 // Not thread-safe; use one writer per thread.
@@ -32,6 +34,21 @@ public:
     // Must complete within timeout_ms or marks the remaining ones Error.
     // Returns false if any element is Error.
     virtual bool add(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) = 0;
+
+    // Cheap "is it new?" write for the pre-verdict path: a single exclusive add.
+    // Elements that already exist are reported as Exists and are left untouched
+    // (no resend, no timeout refresh); everything else behaves as in add().
+    // The default falls back to the full add().
+    virtual bool add_new(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) {
+        return add(adds, out, count, timeout_ms);
+    }
+
+    // Extends the timeout of elements believed to exist (post-verdict path); an
+    // element that vanished is recreated and reported Added.  Never reports
+    // Exists.  Starts with no exclusive probe.  The default falls back to add().
+    virtual bool refresh(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) {
+        return add(adds, out, count, timeout_ms);
+    }
 
     // errno of the most recent Error, for logging.
     virtual int last_errno() const = 0;

@@ -1599,6 +1599,26 @@ components:
         set_added: {type: integer, format: int64}
         set_refreshed: {type: integer, format: int64}
         set_errors: {type: integer, format: int64}
+        set_cache_hits:
+          type: integer
+          format: int64
+          description: Addresses skipped before the DNS verdict because the set element was already cached.
+        set_cache_misses:
+          type: integer
+          format: int64
+          description: Addresses that had to be written before the DNS verdict (not cached).
+        set_cache_entries:
+          type: integer
+          format: int64
+          description: Gauge. Elements currently remembered by the set element cache.
+        dns_refresh_deferred:
+          type: integer
+          format: int64
+          description: Timeout refreshes queued to run after the DNS verdict.
+        refresh_dropped:
+          type: integer
+          format: int64
+          description: Post-verdict refreshes dropped because the pending batch was full (not an error).
         conntrack_requests: {type: integer, format: int64}
         conntrack_deleted: {type: integer, format: int64}
         conntrack_errors: {type: integer, format: int64}
@@ -1729,6 +1749,14 @@ components:
         errors:
           type: integer
           description: Number of failed set writes.
+        cache_hits:
+          type: integer
+          description: >
+            Addresses whose set element was already cached, so the verdict did
+            not wait for them.
+        deferred_refresh:
+          type: integer
+          description: Timeout refreshes queued to run after the verdict was released.
         hold_us:
           type: integer
           description: Time the DNS response was held, in microseconds (0 for L7 events).

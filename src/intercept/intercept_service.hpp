@@ -79,6 +79,9 @@ public:
     bool snapshot_ready() const { return snapshot_ready_.load(std::memory_order_acquire); }
     WritePause pause_writes();
     void invalidate_snapshot();
+    // Forgets which set elements were written (the sets were recreated or
+    // flushed).  Safe from any thread; called after every firewall apply.
+    void invalidate_set_cache() { processor_.invalidate_set_cache(); }
     void discard_l7_pending();
     const InterceptCounters& counters() const { return counters_; }
     std::vector<InterceptEvent> events_since(uint64_t after_seq, std::size_t max) const;

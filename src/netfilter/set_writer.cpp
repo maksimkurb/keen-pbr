@@ -72,10 +72,32 @@ public:
     void set_slow_write_counter(std::atomic<uint64_t>* counter) override { slow_counter_ = counter; }
 
     bool add(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
+        return timed_add(Mode::Full, adds, out, count, timeout_ms);
+    }
+    bool add_new(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
+        return timed_add(Mode::NewOnly, adds, out, count, timeout_ms);
+    }
+    bool refresh(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
+        return timed_add(Mode::Existing, adds, out, count, timeout_ms);
+    }
+
+protected:
+    virtual void build(MsgBuilder& b, uint32_t seq, const SetAdd& a, bool exclusive) = 0;
+    virtual bool supports_refresh() const { return false; }
+    virtual void build_refresh(MsgBuilder&, uint32_t, uint32_t, const SetAdd&) {}
+
+private:
+    // Full: exclusive add, then resend/refresh of what existed (add()).
+    // NewOnly: exclusive add only; existing elements -> Exists (add_new()).
+    // Existing: skip the exclusive probe, treat every element as existing (refresh()).
+    enum class Mode : uint8_t { Full, NewOnly, Existing };
+
+    bool timed_add(Mode mode, const SetAdd* adds, SetAddResult* out, std::size_t count,
+                   int timeout_ms) {
         if (count == 0) return true;
         (void)transport_->take_send_us();
         const auto started = std::chrono::steady_clock::now();
-        const bool ok = add_impl(adds, out, count, timeout_ms);
+        const bool ok = add_impl(mode, adds, out, count, timeout_ms);
         const auto total_us = std::chrono::duration_cast<std::chrono::microseconds>(
                                   std::chrono::steady_clock::now() - started)
                                   .count();
@@ -86,12 +108,6 @@ public:
         return ok;
     }
 
-protected:
-    virtual void build(MsgBuilder& b, uint32_t seq, const SetAdd& a, bool exclusive) = 0;
-    virtual bool supports_refresh() const { return false; }
-    virtual void build_refresh(MsgBuilder&, uint32_t, uint32_t, const SetAdd&) {}
-
-private:
     void note_slow_write(uint64_t total_us, uint64_t send_us, std::size_t batch,
                          std::string_view set_name) {
         if (slow_counter_ != nullptr) slow_counter_->fetch_add(1, std::memory_order_relaxed);
@@ -105,7 +121,8 @@ private:
             total_us, send_us, ack_us, batch, set_name);
     }
 
-    bool add_impl(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) {
+    bool add_impl(Mode mode, const SetAdd* adds, SetAddResult* out, std::size_t count,
+                  int timeout_ms) {
         if (adds == nullptr || out == nullptr) {
             last_errno_ = EINVAL;
             if (out != nullptr) std::fill(out, out + count, SetAddResult::Error);
@@ -128,7 +145,7 @@ private:
                 ok = false;
                 continue;
             }
-            ok = add_chunk(adds + base, out + base, n, deadline) && ok;
+            ok = add_chunk(mode, adds + base, out + base, n, deadline) && ok;
         }
         return ok;
     }
@@ -240,7 +257,7 @@ private:
         return rc;
     }
 
-    bool add_chunk(const SetAdd* adds, SetAddResult* out, std::size_t n,
+    bool add_chunk(Mode mode, const SetAdd* adds, SetAddResult* out, std::size_t n,
                    std::chrono::steady_clock::time_point deadline) {
         all_.resize(n);
         for (std::size_t i = 0; i < n; ++i) all_[i] = i;
@@ -248,8 +265,15 @@ private:
         transport_errno_ = ETIMEDOUT;
         recreated_.clear();
 
-        const int first_rc =
-            run_pass(adds, all_.data(), n, /*exclusive=*/true, errs_.data(), deadline);
+        int first_rc = 0;
+        if (mode == Mode::Existing) {
+            // refresh(): the caller believes every element exists, so there is
+            // no exclusive probe; go straight to the non-exclusive resend.
+            errs_.assign(n, EEXIST);
+            ack_seen_.assign(n, 0);
+        } else {
+            first_rc = run_pass(adds, all_.data(), n, /*exclusive=*/true, errs_.data(), deadline);
+        }
 
         // Existing elements are refreshed by a non-exclusive resend. An nft
         // batch is one transaction: any error aborts it and rolls back its
@@ -259,7 +283,9 @@ private:
         for (std::size_t i = 0; i < n; ++i) any_error = any_error || errs_[i] != 0;
         resend_.clear();
         for (std::size_t i = 0; i < n; ++i) {
-            if (is_exist(errs_[i]) ||
+            // add_new() leaves existing elements alone (reported Exists); it
+            // only re-sends elements an aborted nft batch rolled back.
+            if ((mode != Mode::NewOnly && is_exist(errs_[i])) ||
                 (batched_ && any_error && errs_[i] == 0 && ack_seen_[i])) {
                 resend_.push_back(i);
             }
@@ -283,7 +309,7 @@ private:
         }
 
         refresh_.clear();
-        if (supports_refresh()) {
+        if (mode != Mode::NewOnly && supports_refresh()) {
             for (const std::size_t i : resend_) {
                 if (second_rc == 0 && is_exist(first_[i]) && errs_[i] == 0) {
                     refresh_.push_back(i);
@@ -341,7 +367,9 @@ private:
             const bool recreated = std::find(recreated_.begin(), recreated_.end(), i) !=
                                    recreated_.end();
             if (!resent) {
-                res = e1 == 0 ? SetAddResult::Added : SetAddResult::Error;
+                res = e1 == 0 ? SetAddResult::Added
+                              : (mode == Mode::NewOnly && is_exist(e1) ? SetAddResult::Exists
+                                                                       : SetAddResult::Error);
             } else if (err == 0) {
                 res = e1 == 0 || recreated ? SetAddResult::Added
                                            : SetAddResult::Refreshed;

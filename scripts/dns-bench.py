@@ -291,7 +291,8 @@ def counter_deltas(before, after):
     ac = (after or {}).get("counters") or {}
     for key in ("dns_packets", "dns_matched", "dns_hold_timeouts", "dns_late_writes",
                 "dns_late_write_errors", "set_write_slow", "set_errors",
-                "queue_overruns", "dns_parse_errors"):
+                "set_cache_hits", "set_cache_misses", "dns_refresh_deferred",
+                "refresh_dropped", "queue_overruns", "dns_parse_errors"):
         if key in bc and key in ac:
             out[key] = ac[key] - bc[key]
     bk = (before or {}).get("kernel_queue")

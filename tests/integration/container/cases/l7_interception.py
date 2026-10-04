@@ -1,6 +1,6 @@
 """Actual TLS, HTTP, and QUIC payloads through the NFLOG path."""
 
-from .dns_common import dns_config
+from .dns_common import dns_config, forget_cached_set_elements
 from .l7_payloads import QUIC_INITIAL, http_request, tls_client_hello
 from integration_context import TEST_IP, TEST_IP6
 
@@ -47,6 +47,7 @@ def register(registry):
             context.wait_for(f"{proto}/{port} dynamic address clear",
                              lambda: not context.dynamic_set_present(destination,
                                                                        list_name="l7"))
+            forget_cached_set_elements(context)  # the cache must not hide the deleted element
             direct_before = len(_matching_observations(context, "direct",
                                                         observation_proto, payload))
             pbr_before = len(_matching_observations(context, "pbr",

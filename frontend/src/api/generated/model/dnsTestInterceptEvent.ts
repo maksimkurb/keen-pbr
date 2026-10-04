@@ -32,6 +32,11 @@ export interface DnsTestInterceptEvent {
   refreshed: number;
   /** Number of failed set writes. */
   errors: number;
+  /** Addresses whose set element was already cached, so the verdict did not wait for them.
+   */
+  cache_hits?: number;
+  /** Timeout refreshes queued to run after the verdict was released. */
+  deferred_refresh?: number;
   /** Time the DNS response was held, in microseconds (0 for L7 events). */
   hold_us: number;
   /** The hold deadline expired before the sets were written. */

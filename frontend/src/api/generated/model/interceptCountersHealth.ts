@@ -21,6 +21,16 @@ export interface InterceptCountersHealth {
   set_added?: number;
   set_refreshed?: number;
   set_errors?: number;
+  /** Addresses skipped before the DNS verdict because the set element was already cached. */
+  set_cache_hits?: number;
+  /** Addresses that had to be written before the DNS verdict (not cached). */
+  set_cache_misses?: number;
+  /** Gauge. Elements currently remembered by the set element cache. */
+  set_cache_entries?: number;
+  /** Timeout refreshes queued to run after the DNS verdict. */
+  dns_refresh_deferred?: number;
+  /** Post-verdict refreshes dropped because the pending batch was full (not an error). */
+  refresh_dropped?: number;
   conntrack_requests?: number;
   conntrack_deleted?: number;
   conntrack_errors?: number;
