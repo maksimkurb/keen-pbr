@@ -262,8 +262,10 @@ void InterceptProcessor::set_round_batch_size(uint64_t first_seq, uint32_t batch
 }
 
 void InterceptProcessor::push_event(InterceptEvent&& event) {
-    if (event.timed_out && Logger::instance().is_enabled(LogLevel::debug)) {
-        Logger::instance().debug(
+    // Every hold timeout may have let a client connect before its address was
+    // routed, so it is worth a warning (timeouts only, never per packet).
+    if (event.timed_out && Logger::instance().is_enabled(LogLevel::warn)) {
+        Logger::instance().warn(
             "intercept: dns hold timeout cause={} domain={} batch_pos={} queue_wait={}us "
             "budget_left={}us parse={}us admission_wait={}us write={}us elements={} "
             "late_elements={} errno={}",
