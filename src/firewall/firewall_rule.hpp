@@ -80,8 +80,9 @@ struct SkipEstablishedOrDnatAction {
   }
 };
 
-// OUTPUT only: replies of local services to inbound connections (conntrack
-// direction REPLY) are never classified by route rules.
+// Reply-direction packets (conntrack direction REPLY) are never classified by
+// route rules: answers of local services in OUTPUT and forwarded replies in
+// PREROUTING.  Needs conntrack (absent from raw PREROUTING).
 struct SkipLocalRepliesAction {
   bool operator==(const SkipLocalRepliesAction&) const { return true; }
   bool operator!=(const SkipLocalRepliesAction& other) const {

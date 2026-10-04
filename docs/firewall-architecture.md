@@ -109,19 +109,28 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   (hook=output) only to OUTPUT, and the inbound-interface prefilter (and its
   multi-interface fragments) only to PREROUTING, since router-originated
   packets have no input interface.
-  The `prefilter.skip_local_replies` prefilter (hook=output) is lowered to
-  OUTPUT only (`-m conntrack --ctdir REPLY -j RETURN` on iptables,
-  `ct direction reply accept` in the nft `output` chain), ahead of the
-  DNAT/marked-packet bypasses and all route classification: route rules apply
-  to router-originated traffic, but the answers local services (dnsmasq,
-  uhttpd, sshd, the API) send to inbound connections must follow the main
-  routing table, not a policy table.  PREROUTING does not get it: forwarded
-  replies are handled by `route.inbound_interfaces` (reply packets arrive on
-  the WAN/tunnel interface, which the filter skips).  Known gap: when
-  `inbound_interfaces` is empty, a forwarded REPLY-direction packet (e.g. a WAN
-  server answering a LAN client) is not restored (`restore_conntrack_mark` is
-  ORIGINAL-only) and can be re-marked by a catch-all rule; the analogous
-  prerouting `ct direction reply` skip is a possible follow-up.
+  The `prefilter.skip_local_replies` prefilter is lowered to both PREROUTING
+  and OUTPUT (`-m conntrack --ctdir REPLY -j RETURN` on iptables,
+  `ct direction reply accept` in the nft `prerouting` and `output` chains),
+  right after `restore_conntrack_mark` and ahead of the DNAT/marked-packet
+  bypasses and all route classification.  In OUTPUT it keeps the answers local
+  services (dnsmasq, uhttpd, sshd, the API) send to inbound connections on the
+  main routing table.  In PREROUTING it keeps forwarded reply-direction packets
+  (a WAN server answering a LAN client) from being re-marked by a catch-all
+  rule when `route.inbound_interfaces` is empty (`restore_conntrack_mark` is
+  ORIGINAL-only, `skip_established_or_dnat` skips DNAT only).  Balance
+  (`numgen`, only unmarked packets) and the DNS-detour rules (hook=output) sit
+  after it in stage order, so they never see reply-direction packets either;
+  the interception chains are separate and unaffected.  Raw-mode limitation:
+  raw PREROUTING runs before conntrack, so the rule is absent there (as are
+  restore and the DNAT skip); in raw mode forwarded replies are protected only
+  by `route.inbound_interfaces`.
+  A positive address match covering a whole family (`0.0.0.0/0`, `::/0`, or
+  prefixes whose union is the family, which nft merges into `/0`) is dropped by
+  canonicalization on both sides, because iptables-save omits it while nft
+  prints it back; the rule keeps its family (`meta nfproto` guard on nft).
+  Lowering does not split such a list per address on iptables.  A negated
+  catch-all can never match and is rejected at lowering time.
   Apply is one `iptables-restore --noflush` transaction per table and family:
   it declares (flushes) our chains, appends the rules, ensures exactly one hook
   per chain in the builtin chains (the builtin chains are never declared, so

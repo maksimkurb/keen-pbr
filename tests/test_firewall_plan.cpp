@@ -161,7 +161,7 @@ TEST_CASE("build_firewall_plan keeps route config order in canonical output") {
   REQUIRE(plan.rules.size() == 7);
   CHECK(std::holds_alternative<RestoreConntrackMarkAction>(plan.rules[0].action));
   CHECK(std::holds_alternative<SkipLocalRepliesAction>(plan.rules[1].action));
-  CHECK(plan.rules[1].hook == FirewallHook::output);
+  CHECK(plan.rules[1].hook == FirewallHook::prerouting);
   CHECK(std::holds_alternative<SkipEstablishedOrDnatAction>(plan.rules[2].action));
   CHECK(std::holds_alternative<SkipMarkedPacketsAction>(plan.rules[3].action));
   CHECK(plan.rules[4].source_rule_index == 0);

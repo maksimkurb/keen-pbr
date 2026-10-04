@@ -51,6 +51,16 @@ scenario nftables "$run_case
   nft add rule inet KeenPbrTable prerouting ip daddr 198.51.100.7 drop comment '\"not ours\"'
   nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_foreign.json\""
 
+# Catch-all destinations/sources (`0.0.0.0/0`, `::/0`, and the halves that nft
+# merges into them): iptables-save omits the match, nft prints it back.
+scenario iptables_catchall "$run_case
+  iptables-save -t mangle >\"\$KPBR_OUT/iptables_catchall_v4.save\"
+  ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_catchall_v6.save\""
+
+scenario nft_catchall "$run_case
+  nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_catchall.json\"
+  nft list table inet KeenPbrTable >\"\$KPBR_OUT/nft_catchall.nft\""
+
 # DNS hold + L7 sniff on top of the capture plan (mangle layout).  Also
 # exercises the lifecycle for real: a foreign rule pushes our pinned jump down,
 # an in-place re-apply must put it back at position 1, and an apply without the

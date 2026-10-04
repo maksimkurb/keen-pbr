@@ -397,6 +397,12 @@ PhysicalRuleset parse_nft_json(std::string_view json);
 //     when overlapping or adjacent, CIDR lists are masked to their network,
 //     sorted and stripped of covered entries, interface and mark values are
 //     sorted (the kernel stores them as sets: nft lists them sorted/merged);
+//   * a positive AddrMatch covering its whole family (`-d 0.0.0.0/0`, or the
+//     halves nft merges into it) is dropped: it matches everything, and
+//     iptables-save omits it.  The rule keeps the family it implied (`family`
+//     is set from the dropped prefixes when it was `any`, so nft still gets a
+//     `meta nfproto` guard).  A negated one is never dropped (lowering rejects
+//     it: it would match nothing);
 //   * a tcp/udp PortMatch is accompanied by the matching ProtoMatch (nft drops
 //     the redundant `meta l4proto`; iptables always prints `-p`);
 //   * `matches` are ordered by kind (iptables-save groups -i/-s/-d/-p before
@@ -409,6 +415,9 @@ void canonicalize_physical_rule(PhysicalRule &rule);
 // cleared, as both backends do.
 std::optional<std::string> canonical_cidr(std::string_view text);
 void canonicalize_cidr_list(std::vector<std::string> &cidrs);
+// True when the union of the prefixes is the whole address space of their
+// (single) family, e.g. `0.0.0.0/0` or `0.0.0.0/1` + `128.0.0.0/1`.
+bool cidrs_cover_address_family(const std::vector<std::string> &cidrs);
 void canonicalize_port_ranges(std::vector<PortRange> &ranges);
 
 // Merge `from` into `into` (used to combine per-table iptables-save outputs).

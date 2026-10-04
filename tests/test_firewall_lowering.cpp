@@ -756,35 +756,94 @@ TEST_CASE("nftables lowering: DNAT skip in both chains") {
   CHECK(has_match(nft_out(set).rules[0], CtStateMatch{ct_dnat, false}));
 }
 
-TEST_CASE("nftables lowering: local-reply skip only in output") {
+TEST_CASE("nftables lowering: reply skip in prerouting and output") {
   auto plan = plan_of({});
   plan.rules.push_back(make_rule("prefilter.skip_local_replies", "reply",
-                                 Fam::any, {}, SkipLocalRepliesAction{},
-                                 FirewallHook::output));
+                                 Fam::any, {}, SkipLocalRepliesAction{}));
   const auto set = lower_firewall_plan(plan, nft_context());
-  CHECK(nft_pre(set).rules.empty());
-  REQUIRE(nft_out(set).rules.size() == 1);
-  CHECK(has_match(nft_out(set).rules[0], CtDirMatch{false}));
-  CHECK(verdict_of(nft_out(set).rules[0]) == PhysicalVerdict::accept);
+  for (const auto *chain : {&nft_pre(set), &nft_out(set)}) {
+    REQUIRE(chain->rules.size() == 1);
+    CHECK(has_match(chain->rules[0], CtDirMatch{false}));
+    CHECK(verdict_of(chain->rules[0]) == PhysicalVerdict::accept);
+  }
 }
 
-TEST_CASE("iptables lowering: local-reply skip only in OUTPUT") {
+TEST_CASE("iptables lowering: reply skip in PREROUTING (mangle) and OUTPUT") {
   auto plan = plan_of({});
   plan.rules.push_back(make_rule("prefilter.skip_local_replies", "reply",
-                                 Fam::any, {}, SkipLocalRepliesAction{},
-                                 FirewallHook::output));
+                                 Fam::any, {}, SkipLocalRepliesAction{}));
   const auto set = lower_firewall_plan(plan, ipt_context());
   for (const Fam family : {Fam::ipv4, Fam::ipv6}) {
-    CHECK(gen_a(set, family).rules.empty());
-    REQUIRE(out_chain(set, family).rules.size() == 1);
-    const auto &rule = out_chain(set, family).rules[0];
-    CHECK(has_match(rule, CtDirMatch{false}));
-    CHECK(verdict_of(rule) == PhysicalVerdict::return_);
+    for (const auto *chain : {&gen_a(set, family), &out_chain(set, family)}) {
+      REQUIRE(chain->rules.size() == 1);
+      const auto &rule = chain->rules[0];
+      CHECK(has_match(rule, CtDirMatch{false}));
+      CHECK(verdict_of(rule) == PhysicalVerdict::return_);
+    }
   }
   const auto rendered = render_iptables_rule(out_chain(set, Fam::ipv4).rules[0],
                                              "KeenPbrOutput");
   CHECK(rendered == "-A KeenPbrOutput -m conntrack --ctdir REPLY -m comment --comment "
                   "kpbr:v1:prefilter.skip_local_replies:reply -j RETURN\n");
+}
+
+TEST_CASE("lowering: catch-all destinations are not emitted") {
+  FirewallRuleCriteria v4;
+  v4.proto = L4Proto::Udp;
+  v4.dst_addr = {"0.0.0.0/0"};
+  FirewallRuleCriteria halves = v4;
+  halves.dst_addr = {"0.0.0.0/1", "128.0.0.0/1"};
+  FirewallRuleCriteria v6;
+  v6.dst_addr = {"::/0"};
+  const auto plan = plan_of({mark_rule("a", Fam::ipv4, v4, kMark1),
+                             mark_rule("b", Fam::ipv4, halves, kMark1),
+                             mark_rule("c", Fam::ipv6, v6, kMark1)});
+  SUBCASE("iptables") {
+    const auto set = lower_firewall_plan(plan, ipt_context());
+    for (const auto &rule : gen_a(set, Fam::ipv4).rules) {
+      CHECK(find_match<AddrMatch>(rule) == nullptr);
+    }
+    for (const auto &rule : gen_a(set, Fam::ipv6).rules) {
+      CHECK(find_match<AddrMatch>(rule) == nullptr);
+    }
+    const auto text =
+        render_iptables_rule(gen_a(set, Fam::ipv4).rules[0], "KeenPbrTable");
+    CHECK(text.find("-d ") == std::string::npos);
+  }
+  SUBCASE("nftables keeps the family as an nfproto guard") {
+    const auto set = lower_firewall_plan(plan, nft_context());
+    const auto &rules = nft_pre(set).rules;
+    REQUIRE(rules.size() >= 3);
+    for (const auto &rule : rules) {
+      CHECK(find_match<AddrMatch>(rule) == nullptr);
+    }
+    CHECK(rules[0].family == Fam::ipv4);
+    CHECK(rules[1].family == Fam::ipv4);
+    CHECK(rules[2].family == Fam::ipv6);
+    const auto json = render_nft_rule(nft_pre(set).id, rules[0]).dump();
+    CHECK(json.find("nfproto") != std::string::npos);
+    CHECK(json.find("daddr") == std::string::npos);
+  }
+  SUBCASE("a negated catch-all is rejected") {
+    FirewallRuleCriteria never = v4;
+    never.negate_dst_addr = true;
+    CHECK_THROWS_AS(lower_firewall_plan(
+                        plan_of({mark_rule("n", Fam::ipv4, never, kMark1)}),
+                        ipt_context()),
+                    FirewallError);
+  }
+}
+
+TEST_CASE("lowering: reply skip is absent from raw PREROUTING") {
+  auto plan = plan_of({});
+  plan.rules.push_back(make_rule("prefilter.skip_local_replies", "reply",
+                                 Fam::any, {}, SkipLocalRepliesAction{}));
+  auto context = ipt_context();
+  context.raw_prerouting = RawPreroutingMode{true, true};
+  const auto set = lower_firewall_plan(plan, context);
+  CHECK(chain_of(set, ipt_chain("KeenPbrRaw", PhysicalTable::raw, Fam::ipv4))
+            .rules.empty());
+  CHECK(out_chain(set, Fam::ipv4).rules.size() == 1);
 }
 
 TEST_CASE("nftables lowering: default_gateway route rule in both prerouting and output") {

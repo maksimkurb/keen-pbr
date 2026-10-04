@@ -105,8 +105,7 @@ inline FirewallPlan capture_plan(bool nft, bool two_interfaces, bool conntrack) 
                                  {}, RestoreConntrackMarkAction{kCaptureMask}));
     r.register_rule(capture_rule("prefilter.skip_local_replies", "reply",
                                  S::global_bypass, -1, FirewallFamily::any, {},
-                                 SkipLocalRepliesAction{},
-                                 FirewallHook::output));
+                                 SkipLocalRepliesAction{}));
     r.register_rule(capture_rule("prefilter.skip_established_or_dnat", "dnat",
                                  S::global_bypass, 0, FirewallFamily::any, {},
                                  SkipEstablishedOrDnatAction{}));
@@ -248,6 +247,57 @@ inline FirewallPlan capture_plan(bool nft, bool two_interfaces, bool conntrack) 
                                      {0x20000u, false, true},
                                      {0x40000u, false, true}}});
     }
+  }
+  r.finish();
+  return plan;
+}
+
+// Catch-all address spellings (`0.0.0.0/0`, `::/0`, and the halves nft merges
+// into them) on route rules, behind the restore/reply-skip prefilters.
+inline FirewallPlan capture_plan_catch_all() {
+  FirewallPlan plan;
+  plan.fwmark_mask = kCaptureMask;
+  FirewallRuleRegistrar r(plan);
+  using S = FirewallRuleStage;
+  r.register_rule(capture_rule("prefilter.restore_conntrack_mark", "mask",
+                               S::restore_conntrack, 0, FirewallFamily::any,
+                               {}, RestoreConntrackMarkAction{kCaptureMask}));
+  r.register_rule(capture_rule("prefilter.skip_local_replies", "reply",
+                               S::global_bypass, -1, FirewallFamily::any, {},
+                               SkipLocalRepliesAction{}));
+  int index = 0;
+  const auto route = [&](FirewallFamily family, FirewallRuleCriteria criteria) {
+    r.register_rule(capture_rule("route.mark", "r" + std::to_string(index),
+                                 S::route_classification, index, family,
+                                 std::move(criteria),
+                                 MarkAction{0x10000u, kCaptureMask}));
+    ++index;
+  };
+  const std::vector<std::vector<std::string>> v4 = {
+      {"0.0.0.0/0"}, {"0.0.0.0/1", "128.0.0.0/1"}, {"10.0.0.0/8"}};
+  for (const auto& dst : v4) {
+    FirewallRuleCriteria c;
+    c.proto = L4Proto::Udp;
+    c.dst_addr = dst;
+    route(FirewallFamily::ipv4, c);
+  }
+  {
+    FirewallRuleCriteria c;
+    c.proto = L4Proto::Tcp;
+    c.src_addr = {"0.0.0.0/0"};
+    c.dst_port = "443";
+    route(FirewallFamily::ipv4, c);
+  }
+  {
+    FirewallRuleCriteria c;
+    c.proto = L4Proto::Udp;
+    c.dst_addr = {"::/0"};
+    route(FirewallFamily::ipv6, c);
+  }
+  {
+    FirewallRuleCriteria c;
+    c.dst_addr = {"::/1", "8000::/1"};
+    route(FirewallFamily::ipv6, c);
   }
   r.finish();
   return plan;

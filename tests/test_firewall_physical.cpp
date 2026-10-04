@@ -46,11 +46,13 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
   const FirewallApplyMode apply_mode =
       repair ? FirewallApplyMode::PreserveSets : FirewallApplyMode::Destructive;
   if (name == "nftables" || name.rfind("nft_intercept", 0) == 0 ||
-      name == "nft_plain_repair") {
+      name == "nft_plain_repair" || name == "nft_catchall") {
     auto firewall = create_nftables_firewall();
     firewall->prepare_apply(apply_mode);
-    firewall->apply(intercept ? capture_plan_with_intercept(true, true, true)
-                              : capture_plan(true, true, true),
+    firewall->apply(name == "nft_catchall"
+                        ? capture_plan_catch_all()
+                    : intercept ? capture_plan_with_intercept(true, true, true)
+                                : capture_plan(true, true, true),
                     apply_mode);
     // The nft backend deletes its table on destruction; the dump needs it.
     (void)firewall.release();
@@ -64,7 +66,8 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
   firewall.override_capabilities_for_fixtures(true, mode);
   firewall.prepare_apply(apply_mode);
   firewall.apply(
-      intercept ? capture_plan_with_intercept(false, false, true)
+      name == "iptables_catchall" ? capture_plan_catch_all()
+      : intercept ? capture_plan_with_intercept(false, false, true)
                 : capture_plan(false, name != "iptables_mangle" &&
                                           name != "iptables_plain_repair",
                                true),
@@ -154,7 +157,7 @@ TEST_CASE("physical: iptables mangle IPv4 dump is parsed rule for rule") {
   const auto &chain_a = require_chain(set, a);
   CHECK(chain_a.rules.size() ==
         count_lines_with_prefix(text, "-A KeenPbrTable "));
-  CHECK(chain_a.rules.size() == 27);
+  CHECK(chain_a.rules.size() == 28);
   for (const auto &rule : chain_a.rules) {
     CHECK_FALSE(has_unknown(rule));
     CHECK(rule.key.has_value());
@@ -217,15 +220,20 @@ TEST_CASE("physical: iptables mangle IPv4 dump is parsed rule for rule") {
                     {MarkMatch{PhysicalMarkKind::packet, kMask, true, {0}},
                      CtDirMatch{true}},
                     {VerdictStmt{PhysicalVerdict::return_}}));
+    // Forwarded replies are never classified: `-m conntrack --ctdir REPLY`.
     CHECK(chain_a.rules[2] ==
+          make_rule(Fam::ipv4, {CtDirMatch{false}},
+                    {VerdictStmt{PhysicalVerdict::return_}}));
+    CHECK(chain_a.rules[2].key->module_id == "prefilter.skip_local_replies");
+    CHECK(chain_a.rules[3] ==
           make_rule(Fam::ipv4, {CtStateMatch{ct_dnat, false}},
                     {VerdictStmt{PhysicalVerdict::return_}}));
     // `-m mark ! --mark 0x0`: iptables-save drops the /0xffffffff mask.
-    CHECK(chain_a.rules[3] ==
+    CHECK(chain_a.rules[4] ==
           make_rule(Fam::ipv4,
                     {MarkMatch{PhysicalMarkKind::packet, 0xFFFFFFFFu, true, {0}}},
                     {VerdictStmt{PhysicalVerdict::accept}}));
-    CHECK(chain_a.rules[4] ==
+    CHECK(chain_a.rules[5] ==
           make_rule(Fam::ipv4, {IifMatch{true, {"lan0"}}},
                     {VerdictStmt{PhysicalVerdict::return_}}));
   }
@@ -238,17 +246,17 @@ TEST_CASE("physical: iptables mangle IPv4 dump is parsed rule for rule") {
          ProtoMatch{L4Proto::Tcp},
          PortMatch{PhysicalTransport::tcp, PhysicalDir::dst, false, {{443, 443}}}},
         {SetMarkStmt{PhysicalMarkKind::packet, 0x10000u, kMask}});
-    CHECK(chain_a.rules[5] == mark);
-    CHECK(chain_a.rules[5].key->module_id == "route.mark");
+    CHECK(chain_a.rules[6] == mark);
+    CHECK(chain_a.rules[6].key->module_id == "route.mark");
     // The CONNMARK --save-mark and RETURN rules follow in order.
-    CHECK(chain_a.rules[6].statements ==
-          std::vector<PhysicalStatement>{CopyMarkStmt{true, kMask, kMask}});
     CHECK(chain_a.rules[7].statements ==
+          std::vector<PhysicalStatement>{CopyMarkStmt{true, kMask, kMask}});
+    CHECK(chain_a.rules[8].statements ==
           std::vector<PhysicalStatement>{
               VerdictStmt{PhysicalVerdict::return_}});
-    CHECK(chain_a.rules[6].matches == chain_a.rules[5].matches);
+    CHECK(chain_a.rules[7].matches == chain_a.rules[6].matches);
     // `! -s 10.0.0.0/8 ... -m udp --dport 53 -j DROP`
-    CHECK(chain_a.rules[8] ==
+    CHECK(chain_a.rules[9] ==
           make_rule(Fam::ipv4,
                     {SetMatch{"kpbr4_hybrid", PhysicalDir::dst, false},
                      AddrMatch{PhysicalDir::src, true, {"10.0.0.0/8"}},
@@ -257,7 +265,7 @@ TEST_CASE("physical: iptables mangle IPv4 dump is parsed rule for rule") {
                                {{53, 53}}}},
                     {VerdictStmt{PhysicalVerdict::drop}}));
     // `-d 8.8.8.8/32 -p udp -m udp --dport 53 -j RETURN`
-    CHECK(chain_a.rules[9].matches[0] ==
+    CHECK(chain_a.rules[10].matches[0] ==
           PhysicalMatch{AddrMatch{PhysicalDir::dst, false, {"8.8.8.8/32"}}});
   }
 
@@ -632,7 +640,7 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
   }
 
   const auto &p = require_chain(set, pre);
-  REQUIRE(p.rules.size() == 18);
+  REQUIRE(p.rules.size() == 19);
   for (const auto &rule : p.rules) {
     CHECK_FALSE(has_unknown(rule));
     CHECK(rule.key.has_value());
@@ -659,15 +667,15 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
 
   SUBCASE("prefilters") {
     // `ct status dnat` (op "in"), `meta mark != 0`, counters dropped.
-    CHECK(p.rules[1] ==
+    CHECK(p.rules[2] ==
           make_rule(Fam::any, {CtStateMatch{ct_dnat, false}},
                     {VerdictStmt{PhysicalVerdict::accept}}));
-    CHECK(p.rules[2] ==
+    CHECK(p.rules[3] ==
           make_rule(Fam::any,
                     {MarkMatch{PhysicalMarkKind::packet, 0xFFFFFFFFu, true, {0}}},
                     {VerdictStmt{PhysicalVerdict::accept}}));
     // iifname set is listed sorted although emitted as lan0, br-guest.
-    CHECK(p.rules[3] ==
+    CHECK(p.rules[4] ==
           make_rule(Fam::any, {IifMatch{true, {"br-guest", "lan0"}}},
                     {VerdictStmt{PhysicalVerdict::accept}}));
   }
@@ -675,36 +683,36 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
   SUBCASE("route rules") {
     // family comes from the `ip` / `ip6` payload protocol; nft drops the
     // redundant `meta l4proto tcp`, the parser adds it back canonically.
-    CHECK(p.rules[4] ==
+    CHECK(p.rules[5] ==
           make_rule(Fam::ipv4,
                     {SetMatch{"kpbr4_hybrid", PhysicalDir::dst, false},
                      ProtoMatch{L4Proto::Tcp},
                      PortMatch{PhysicalTransport::tcp, PhysicalDir::dst, false,
                                {{443, 443}}}},
                     {JumpStmt{setter(0x10000u), false}}));
-    CHECK(p.rules[5].family == Fam::ipv6);
+    CHECK(p.rules[6].family == Fam::ipv6);
     // single address is a bare string (no /len): canonical /128.
-    CHECK(p.rules[10].matches[0] ==
+    CHECK(p.rules[11].matches[0] ==
           PhysicalMatch{AddrMatch{PhysicalDir::dst, false, {"2001:db8:53::53/128"}}});
     // `!= 10.0.0.0/8` prefix object.
-    CHECK(p.rules[6].matches[1] ==
+    CHECK(p.rules[7].matches[1] ==
           PhysicalMatch{AddrMatch{PhysicalDir::src, true, {"10.0.0.0/8"}}});
     // address set; both entries are single addresses.
-    CHECK(p.rules[7].matches[0] ==
+    CHECK(p.rules[8].matches[0] ==
           PhysicalMatch{AddrMatch{PhysicalDir::dst, false,
                                   {"8.8.8.8/32", "9.9.9.9/32"}}});
     // `th sport 1111`: no protocol, so no ProtoMatch.
-    CHECK(p.rules[8] ==
+    CHECK(p.rules[9] ==
           make_rule(Fam::any,
                     {PortMatch{PhysicalTransport::any, PhysicalDir::src, false,
                                {{1111, 1111}}}},
                     {JumpStmt{setter(0x20000u), false}}));
     // `tcp dport != 443`
-    CHECK(p.rules[9].matches[2] ==
+    CHECK(p.rules[10].matches[2] ==
           PhysicalMatch{PortMatch{PhysicalTransport::tcp, PhysicalDir::dst, true,
                                   {{443, 443}}}});
     // `ip dscp ef` -> 46 and port set with range.
-    CHECK(p.rules[11] ==
+    CHECK(p.rules[12] ==
           make_rule(Fam::ipv4,
                     {ProtoMatch{L4Proto::Tcp},
                      PortMatch{PhysicalTransport::tcp, PhysicalDir::dst, false,
@@ -712,15 +720,15 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
                      DscpMatch{46}},
                     {JumpStmt{setter(0x10000u), false}}));
     // `ip dscp af11` -> 10
-    CHECK(std::get<DscpMatch>(p.rules[12].matches[1]).value == 10);
+    CHECK(std::get<DscpMatch>(p.rules[13].matches[1]).value == 10);
     // sport range
-    CHECK(std::get<PortMatch>(p.rules[13].matches[1]).ranges ==
+    CHECK(std::get<PortMatch>(p.rules[14].matches[1]).ranges ==
           std::vector<PortRange>{{1024, 65535}});
     // default-gateway bypass is a negated address list, sorted
-    CHECK(p.rules[14].matches ==
+    CHECK(p.rules[15].matches ==
           std::vector<PhysicalMatch>{
               AddrMatch{PhysicalDir::dst, true, {"10.0.0.0/8", "192.168.0.0/16"}}});
-    CHECK(p.rules[15].family == Fam::ipv6);
+    CHECK(p.rules[16].family == Fam::ipv6);
   }
 
   SUBCASE("balance: numgen inc vmap after a mark guard") {
@@ -728,14 +736,14 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
     vmap.key = PhysicalVmapKey::numgen_inc;
     vmap.param = 2;
     vmap.entries = {{0, setter(0x10000u)}, {1, setter(0x20000u)}};
-    CHECK(p.rules[16] ==
+    CHECK(p.rules[17] ==
           make_rule(Fam::ipv4,
                     {SetMatch{"kpbr4_hybrid", PhysicalDir::dst, false},
                      ProtoMatch{L4Proto::Udp},
                      MarkMatch{PhysicalMarkKind::packet, kMask, false, {0}}},
                     {vmap, VerdictStmt{PhysicalVerdict::accept}}));
     // `meta nfproto ipv6` is the family guard, not a match.
-    const auto &v6 = p.rules[17];
+    const auto &v6 = p.rules[18];
     CHECK(v6.family == Fam::ipv6);
     CHECK(v6.matches ==
           std::vector<PhysicalMatch>{
@@ -752,21 +760,21 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
   SUBCASE("output chain mirrors prerouting except inbound filter and output-only rules") {
     const auto &p = require_chain(set, pre);
     const auto &o = require_chain(set, out);
-    REQUIRE(p.rules.size() == 18);
+    REQUIRE(p.rules.size() == 19);
     REQUIRE(o.rules.size() == 20);
-    // Prerouting rule 3 is the inbound-interface filter, which never applies
-    // to router-originated traffic; output rule 1 is the local-reply skip and
-    // output rules 14 and 15 come from plan rules with hook=output.
+    // Prerouting rule 4 is the inbound-interface filter, which never applies
+    // to router-originated traffic; output rules 14 and 15 come from plan
+    // rules with hook=output.  The reply skip (rule 1) is in both chains.
     std::vector<PhysicalRule> shared;
     for (std::size_t i = 0; i < p.rules.size(); ++i) {
-      if (i != 3) shared.push_back(p.rules[i]);
+      if (i != 4) shared.push_back(p.rules[i]);
     }
     std::vector<PhysicalRule> output_shared;
     for (std::size_t i = 0; i < o.rules.size(); ++i) {
-      if (i != 1 && i != 14 && i != 15) output_shared.push_back(o.rules[i]);
+      if (i != 14 && i != 15) output_shared.push_back(o.rules[i]);
     }
     CHECK(output_shared == shared);
-    CHECK(std::holds_alternative<IifMatch>(p.rules[3].matches.front()));
+    CHECK(std::holds_alternative<IifMatch>(p.rules[4].matches.front()));
     CHECK(std::get<SetMatch>(o.rules[14].matches.front()).name == "kpbr4d_routed");
     CHECK(std::get<SetMatch>(o.rules[15].matches.front()).name == "kpbr4_hybrid");
   }
@@ -775,21 +783,21 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
 TEST_CASE("physical: nft foreign and unknown expressions") {
   const auto set = parse_nft_json(read_fixture("nft_foreign.json"));
   const auto &p = require_chain(set, nft_id(Role::nft_prerouting));
-  REQUIRE(p.rules.size() == 21);
+  REQUIRE(p.rules.size() == 22);
   // The three rules appended with the stock nft tool sit at the end.
-  const auto &foreign = p.rules[18];
+  const auto &foreign = p.rules[19];
   CHECK(foreign == make_rule(Fam::ipv4,
                              {AddrMatch{PhysicalDir::src, false, {"203.0.113.9/32"}}},
                              {VerdictStmt{PhysicalVerdict::accept}}));
   CHECK_FALSE(foreign.key.has_value());
   // `limit rate 1/second` is not understood: explicit unknown statement.
-  REQUIRE(p.rules[19].statements.size() == 2);
-  CHECK(std::holds_alternative<UnknownStmt>(p.rules[19].statements[0]));
-  CHECK(p.rules[19] != p.rules[19]);
+  REQUIRE(p.rules[20].statements.size() == 2);
+  CHECK(std::holds_alternative<UnknownStmt>(p.rules[20].statements[0]));
+  CHECK(p.rules[20] != p.rules[20]);
   // Malformed comment -> keyless, still parsed.
-  CHECK(p.rules[20].family == Fam::ipv4);
-  CHECK_FALSE(p.rules[20].key.has_value());
-  CHECK(p.rules[20].statements ==
+  CHECK(p.rules[21].family == Fam::ipv4);
+  CHECK_FALSE(p.rules[21].key.has_value());
+  CHECK(p.rules[21].statements ==
         std::vector<PhysicalStatement>{VerdictStmt{PhysicalVerdict::drop}});
 }
 
@@ -1476,6 +1484,96 @@ TEST_CASE("lowering round trip: nftables interception equals the kernel dump") {
                           Role::nft_sniff_output}) {
     CHECK(lowered.find(nft_id(role)) != nullptr);
   }
+}
+
+TEST_CASE("physical: catch-all address matches have one canonical form") {
+  SUBCASE("cover detection") {
+    CHECK(cidrs_cover_address_family({"0.0.0.0/0"}));
+    CHECK(cidrs_cover_address_family({"::/0"}));
+    CHECK(cidrs_cover_address_family({"0.0.0.0/1", "128.0.0.0/1"}));
+    CHECK(cidrs_cover_address_family(
+        {"128.0.0.0/2", "0.0.0.0/1", "192.0.0.0/2", "10.0.0.0/8"}));
+    CHECK(cidrs_cover_address_family({"::/1", "8000::/1"}));
+    CHECK_FALSE(cidrs_cover_address_family({"0.0.0.0/1"}));
+    CHECK_FALSE(cidrs_cover_address_family({"0.0.0.0/1", "128.0.0.0/2"}));
+    CHECK_FALSE(cidrs_cover_address_family({"10.0.0.0/8"}));
+    CHECK_FALSE(cidrs_cover_address_family({"0.0.0.0/1", "::/1"}));
+    CHECK_FALSE(cidrs_cover_address_family({}));
+  }
+  SUBCASE("dropped, family kept") {
+    for (const auto &cidrs : std::vector<std::vector<std::string>>{
+             {"0.0.0.0/0"}, {"0.0.0.0/1", "128.0.0.0/1"}}) {
+      PhysicalRule rule = make_rule(
+          Fam::any,
+          {AddrMatch{PhysicalDir::dst, false, cidrs},
+           ProtoMatch{L4Proto::Udp}},
+          {VerdictStmt{PhysicalVerdict::accept}});
+      canonicalize_physical_rule(rule);
+      CHECK(rule.family == Fam::ipv4);
+      CHECK(rule.matches == std::vector<PhysicalMatch>{ProtoMatch{L4Proto::Udp}});
+    }
+    PhysicalRule v6 = make_rule(
+        Fam::any, {AddrMatch{PhysicalDir::src, false, {"::/0"}}},
+        {VerdictStmt{PhysicalVerdict::accept}});
+    canonicalize_physical_rule(v6);
+    CHECK(v6.family == Fam::ipv6);
+    CHECK(v6.matches.empty());
+  }
+  SUBCASE("a negated catch-all is kept (lowering rejects it)") {
+    PhysicalRule rule = make_rule(
+        Fam::ipv4, {AddrMatch{PhysicalDir::dst, true, {"0.0.0.0/0"}}}, {});
+    canonicalize_physical_rule(rule);
+    CHECK(rule.matches.size() == 1);
+  }
+}
+
+TEST_CASE("lowering round trip: iptables catch-all equals the kernel dump") {
+  const auto lowered = lower_firewall_plan(
+      capture_plan_catch_all(), capture_context(FirewallBackend::iptables, {}));
+  PhysicalRuleset v4;
+  PhysicalRuleset v6;
+  for (const auto &chain : lowered.chains) {
+    (chain.id.family == Fam::ipv4 ? v4 : v6).chains.push_back(chain);
+  }
+  const auto kernel_v4 = parse_iptables_save(
+      read_fixture("iptables_catchall_v4.save"), Fam::ipv4);
+  const auto kernel_v6 = parse_iptables_save(
+      read_fixture("iptables_catchall_v6.save"), Fam::ipv6);
+  check_lowered_equals_parsed(v4, kernel_v4);
+  check_lowered_equals_parsed(v6, kernel_v6);
+  // The catch-all rules carry no address match at all.
+  const auto &chain = require_chain(
+      v4, ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv4));
+  std::size_t addr_free = 0;
+  for (const auto &rule : chain.rules) {
+    bool has_addr = false;
+    for (const auto &match : rule.matches) {
+      has_addr = has_addr || std::holds_alternative<AddrMatch>(match);
+    }
+    if (!has_addr) ++addr_free;
+  }
+  CHECK(addr_free >= 4); // restore pair, reply skip, catch-all rules
+}
+
+TEST_CASE("lowering round trip: nftables catch-all equals the kernel dump") {
+  const auto lowered = lower_firewall_plan(
+      capture_plan_catch_all(), capture_context(FirewallBackend::nftables, {}));
+  const auto parsed = parse_nft_json(read_fixture("nft_catchall.json"));
+  check_lowered_equals_parsed(lowered, parsed);
+  // The family of a dropped catch-all survives as an nfproto guard.
+  const auto &pre = require_chain(lowered, nft_id(Role::nft_prerouting));
+  bool v4 = false;
+  bool v6 = false;
+  for (const auto &rule : pre.rules) {
+    bool has_addr = false;
+    for (const auto &match : rule.matches) {
+      has_addr = has_addr || std::holds_alternative<AddrMatch>(match);
+    }
+    if (!has_addr && rule.family == Fam::ipv4) v4 = true;
+    if (!has_addr && rule.family == Fam::ipv6) v6 = true;
+  }
+  CHECK(v4);
+  CHECK(v6);
 }
 
 } // namespace

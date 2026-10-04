@@ -133,10 +133,19 @@ std::vector<FirewallPhysicalClassifier> materialize_firewall_classifiers(
     const auto action = action_for_family(rule.action, family, fwmark_mask);
     if (!action.has_value()) continue;
     const auto protocols = materialization_protocols(rule.criteria, backend);
-    const std::size_t src_count = backend == FirewallBackend::iptables
-        ? std::max<std::size_t>(1U, src.size()) : 1U;
-    const std::size_t dst_count = backend == FirewallBackend::iptables
-        ? std::max<std::size_t>(1U, dst.size()) : 1U;
+    // iptables gets one rule per address; a positive list that covers the
+    // whole family (`0.0.0.0/0`, or its halves) constrains nothing, so it
+    // stays whole and canonicalization drops it from the single rule.
+    const bool src_whole = !rule.criteria.negate_src_addr &&
+                           cidrs_cover_address_family(src);
+    const bool dst_whole = !rule.criteria.negate_dst_addr &&
+                           cidrs_cover_address_family(dst);
+    const std::size_t src_count =
+        backend == FirewallBackend::iptables && !src_whole
+            ? std::max<std::size_t>(1U, src.size()) : 1U;
+    const std::size_t dst_count =
+        backend == FirewallBackend::iptables && !dst_whole
+            ? std::max<std::size_t>(1U, dst.size()) : 1U;
     for (const auto proto : protocols) {
       for (std::size_t src_index = 0; src_index < src_count; ++src_index) {
         for (std::size_t dst_index = 0; dst_index < dst_count; ++dst_index) {
@@ -147,12 +156,14 @@ std::vector<FirewallPhysicalClassifier> materialize_firewall_classifiers(
           physical.criteria = rule.criteria;
           physical.criteria.proto = proto;
           if (!rule.criteria.src_addr.empty()) {
-            physical.criteria.src_addr = backend == FirewallBackend::iptables
-                ? std::vector<std::string>{src[src_index]} : src;
+            physical.criteria.src_addr =
+                backend == FirewallBackend::iptables && !src_whole
+                    ? std::vector<std::string>{src[src_index]} : src;
           }
           if (!rule.criteria.dst_addr.empty()) {
-            physical.criteria.dst_addr = backend == FirewallBackend::iptables
-                ? std::vector<std::string>{dst[dst_index]} : dst;
+            physical.criteria.dst_addr =
+                backend == FirewallBackend::iptables && !dst_whole
+                    ? std::vector<std::string>{dst[dst_index]} : dst;
           }
 
           result.push_back(physical);
@@ -316,6 +327,16 @@ PhysicalRule build_rule(FirewallFamily family, Matches matches,
   rule.matches = std::move(matches);
   rule.statements = std::move(statements);
   rule.key = key;
+  for (const auto &match : rule.matches) {
+    const auto *addr = std::get_if<AddrMatch>(&match);
+    if (addr != nullptr && addr->negate &&
+        cidrs_cover_address_family(addr->cidrs)) {
+      // iptables rejects `! -d 0.0.0.0/0` and the rule could never match.
+      throw FirewallError(
+          "a negated address match covering the whole address family "
+          "matches no packet");
+    }
+  }
   canonicalize_physical_rule(rule);
   return rule;
 }
@@ -525,9 +546,12 @@ void lower_iptables_prefilter(const FirewallRuleInstance &rule,
     rules.push_back(build_rule(family, {CtStateMatch{ct_dnat, false}},
                                {verdict(PhysicalVerdict::return_)}, key));
   } else if (std::holds_alternative<SkipLocalRepliesAction>(rule.action)) {
-    // Answers of local services to inbound connections must follow the main
-    // routing table, never a route rule's policy table.
-    if (!target.conntrack || target.hook != FirewallHook::output) {
+    // Reply-direction packets (answers of local services in OUTPUT, answers
+    // of remote servers to forwarded flows in PREROUTING) must follow the main
+    // routing table, never a route rule's policy table.  raw PREROUTING runs
+    // before conntrack and has no direction to match: in raw mode forwarded
+    // replies are only protected by route.inbound_interfaces.
+    if (!target.conntrack) {
       return;
     }
     rules.push_back(build_rule(family, {CtDirMatch{false}},
@@ -949,9 +973,11 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
             {verdict(PhysicalVerdict::accept)}, key));
       }
     } else if (std::holds_alternative<SkipLocalRepliesAction>(rule.action)) {
-      output.rules.push_back(build_rule(any, {CtDirMatch{false}},
-                                        {verdict(PhysicalVerdict::accept)},
-                                        key));
+      for (auto *chain : {&prerouting, &output}) {
+        chain->rules.push_back(build_rule(any, {CtDirMatch{false}},
+                                          {verdict(PhysicalVerdict::accept)},
+                                          key));
+      }
     } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
       for (auto *chain : {&prerouting, &output}) {
         chain->rules.push_back(build_rule(

@@ -9,6 +9,7 @@ import json
 import os
 import selectors
 import socket
+import struct
 import threading
 import time
 import uuid
@@ -116,14 +117,43 @@ def serve_udp(listener: socket.socket, identity: str, observations: ObservationL
         listener.sendto(json.dumps(value, sort_keys=True).encode(), peer)
 
 
+def serve_udp_from_destination(listener: socket.socket, identity: str,
+                               observations: ObservationLog,
+                               delay: float = 0) -> None:
+    """IPv4 UDP server that answers from the address the request was sent to,
+    like a real multi-homed server (a wildcard socket would answer from the
+    egress interface address, which is a different conntrack flow)."""
+    listener.setsockopt(socket.IPPROTO_IP, socket.IP_PKTINFO, 1)
+    while True:
+        data, ancillary, _, peer = listener.recvmsg(65536, 1024)
+        local = b"\0\0\0\0"
+        for level, kind, value in ancillary:
+            if level == socket.IPPROTO_IP and kind == socket.IP_PKTINFO:
+                local = value[8:12]  # ipi_addr: destination of the request
+        try:
+            request = json.loads(data.decode())
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        value = response(identity, request, peer, "udp")
+        observations.append(value)
+        time.sleep(delay)
+        pktinfo = struct.pack("i4s4s", 0, local, b"\0\0\0\0")
+        listener.sendmsg([json.dumps(value, sort_keys=True).encode()],
+                         [(socket.IPPROTO_IP, socket.IP_PKTINFO, pktinfo)],
+                         0, peer)
+
+
 def server(args: argparse.Namespace) -> None:
     observations = ObservationLog(args.log)
     threads = []
     for family in (socket.AF_INET, socket.AF_INET6):
         host = "0.0.0.0" if family == socket.AF_INET else "::"
         for port in ports(args.ports):
+            udp_target = (serve_udp_from_destination
+                          if args.reply_from_destination
+                          and family == socket.AF_INET else serve_udp)
             for socktype, target in ((socket.SOCK_STREAM, serve_tcp),
-                                     (socket.SOCK_DGRAM, serve_udp)):
+                                     (socket.SOCK_DGRAM, udp_target)):
                 listener = socket.socket(family, socktype)
                 listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 if family == socket.AF_INET6:
@@ -222,6 +252,7 @@ def main() -> None:
     server_parser.add_argument("--log", required=True)
     server_parser.add_argument("--ports", required=True)
     server_parser.add_argument("--delay-ms", type=int, default=0)
+    server_parser.add_argument("--reply-from-destination", action="store_true")
     server_parser.set_defaults(handler=server)
     client_parser = commands.add_parser("client")
     add_client_arguments(client_parser)

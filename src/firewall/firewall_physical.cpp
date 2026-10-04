@@ -148,6 +148,44 @@ bool cidr_covers(const Cidr &outer, const Cidr &inner) {
   return (outer.addr[full] & mask) == (inner.addr[full] & mask);
 }
 
+bool cidr_bit(const Cidr &cidr, unsigned bit) {
+  return (cidr.addr[bit / 8U] & (0x80U >> (bit % 8U))) != 0;
+}
+
+// True when `a` and `b` (same length, both > 0) are the two halves of one
+// shorter prefix.
+bool cidr_siblings(const Cidr &a, const Cidr &b) {
+  if (a.v6 != b.v6 || a.len != b.len || a.len == 0) return false;
+  for (unsigned bit = 0; bit + 1U < a.len; ++bit) {
+    if (cidr_bit(a, bit) != cidr_bit(b, bit)) return false;
+  }
+  return cidr_bit(a, a.len - 1U) != cidr_bit(b, a.len - 1U);
+}
+
+// Canonical (sorted, non-overlapping) entries of one family whose union is
+// the whole address space.
+bool parsed_cidrs_cover_family(const std::vector<std::string> &canonical) {
+  if (canonical.empty()) return false;
+  std::vector<Cidr> stack;
+  stack.reserve(canonical.size());
+  for (const auto &text : canonical) {
+    Cidr cidr;
+    if (!parse_cidr(text, cidr)) return false;
+    if (!stack.empty() && stack.back().v6 != cidr.v6) return false;
+    stack.push_back(cidr);
+    while (stack.size() >= 2U &&
+           cidr_siblings(stack[stack.size() - 2U], stack.back())) {
+      stack.pop_back();
+      Cidr &parent = stack.back();
+      --parent.len;
+      for (unsigned bit = parent.len; bit < (parent.v6 ? 128U : 32U); ++bit) {
+        parent.addr[bit / 8U] &= static_cast<uint8_t>(~(0x80U >> (bit % 8U)));
+      }
+    }
+  }
+  return stack.size() == 1U && stack.front().len == 0;
+}
+
 template <typename T> void sort_unique(std::vector<T> &values) {
   std::sort(values.begin(), values.end());
   values.erase(std::unique(values.begin(), values.end()), values.end());
@@ -205,6 +243,12 @@ void canonicalize_cidr_list(std::vector<std::string> &cidrs) {
   }
 }
 
+bool cidrs_cover_address_family(const std::vector<std::string> &cidrs) {
+  std::vector<std::string> canonical = cidrs;
+  canonicalize_cidr_list(canonical);
+  return parsed_cidrs_cover_family(canonical);
+}
+
 void canonicalize_port_ranges(std::vector<PortRange> &ranges) {
   std::sort(ranges.begin(), ranges.end(),
             [](const PortRange &a, const PortRange &b) {
@@ -227,6 +271,25 @@ void canonicalize_port_ranges(std::vector<PortRange> &ranges) {
 void canonicalize_physical_rule(PhysicalRule &rule) {
   for (auto &match : rule.matches) {
     canonicalize_match(match);
+  }
+  // A positive address match covering its whole family (`0.0.0.0/0`, or the
+  // halves nft merges into it) matches every packet of that family:
+  // iptables-save omits it and nft keeps it, so the canonical form drops it
+  // and keeps only the family it implied.
+  for (auto it = rule.matches.begin(); it != rule.matches.end();) {
+    const auto *addr = std::get_if<AddrMatch>(&*it);
+    if (addr == nullptr || addr->negate ||
+        !parsed_cidrs_cover_family(addr->cidrs)) {
+      ++it;
+      continue;
+    }
+    if (rule.family == FirewallFamily::any) {
+      Cidr first;
+      if (parse_cidr(addr->cidrs.front(), first)) {
+        rule.family = first.v6 ? FirewallFamily::ipv6 : FirewallFamily::ipv4;
+      }
+    }
+    it = rule.matches.erase(it);
   }
   for (auto &statement : rule.statements) {
     if (auto *late = std::get_if<LateMatchStmt>(&statement)) {

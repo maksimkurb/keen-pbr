@@ -339,7 +339,7 @@ TEST_CASE("prefilter modules emit canonical operations and honor inputs") {
   REQUIRE(replies.rules.size() == 1);
   CHECK(replies.rules.front().stage == FirewallRuleStage::global_bypass);
   CHECK(replies.rules.front().priority < dnat.rules.front().priority);
-  CHECK(replies.rules.front().hook == FirewallHook::output);
+  CHECK(replies.rules.front().hook == FirewallHook::prerouting);
   CHECK(replies.rules.front().family == FirewallFamily::any);
   CHECK(std::holds_alternative<SkipLocalRepliesAction>(
       replies.rules.front().action));
