@@ -330,6 +330,10 @@ export const enTranslation = {
         browserFail:
           "Browser request ran, but the interceptor did not observe the marker lookup.",
         sseFail: "Live DNS event stream is not connected.",
+        sseStalled:
+          "The browser could not open the live DNS event stream. Too many keen-pbr tabs may be open (browsers allow 6 connections per site) — close other keen-pbr tabs and retry.",
+        sseHttp:
+          "The live DNS event stream request failed (HTTP {{status}}).",
         browserChecking: "Checking browser DNS path...",
         browserUnknown: "Browser DNS status is not known yet.",
         manualSuccess:

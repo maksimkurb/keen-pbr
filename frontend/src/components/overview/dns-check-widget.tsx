@@ -6,11 +6,14 @@ import {
   SquareTerminal,
 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import type { TFunction } from "i18next"
 import { useTranslation } from "react-i18next"
 
 import {
   type DnsCheckStatus,
+  type DnsEventFailure,
   type InterceptMonitorStatus,
+  describeSseFailure,
   useDnsCheck,
 } from "@/hooks/use-dns-check"
 import type { DnsTestInterceptEvent } from "@/api/generated/model"
@@ -36,7 +39,8 @@ export function DnsCheckWidget({
 }) {
   const { t } = useTranslation()
   const [showPcCheckDialog, setShowPcCheckDialog] = useState(false)
-  const { lastEvent, status, startCheck, reset } = useDnsCheck(markerDomain)
+  const { lastEvent, status, failure, startCheck, reset } =
+    useDnsCheck(markerDomain)
 
   useEffect(() => {
     onStatusChange?.(status)
@@ -87,7 +91,11 @@ export function DnsCheckWidget({
       >
         <div className="flex h-full flex-1 flex-col space-y-4">
           <div className="flex min-h-20 items-center rounded-lg border border-border/60 bg-background/60 px-4 py-3">
-            <DnsStatusSummary disabled={isDisabled} status={status} />
+            <DnsStatusSummary
+              disabled={isDisabled}
+              failure={failure}
+              status={status}
+            />
           </div>
 
           {liveMonitorStatus && liveMonitorStatus !== "disabled" ? (
@@ -127,6 +135,7 @@ export function DnsCheckWidget({
       </SectionCard>
 
       <DnsCheckModal
+        browserFailure={failure}
         browserStatus={status}
         markerDomain={markerDomain}
         onOpenChange={setShowPcCheckDialog}
@@ -185,9 +194,11 @@ function InterceptEventSummary({ event }: { event: DnsTestInterceptEvent }) {
 
 function DnsStatusSummary({
   disabled,
+  failure,
   status,
 }: {
   disabled: boolean
+  failure: DnsEventFailure | null
   status: ReturnType<typeof useDnsCheck>["status"]
 }) {
   const { t } = useTranslation()
@@ -230,7 +241,7 @@ function DnsStatusSummary({
       return (
         <DnsStatusMessage
           icon={<AlertCircle className="h-5 w-5 text-destructive" />}
-          text={t("overview.dnsCheck.status.sseUnavailable")}
+          text={sseFailureText(t, "sseUnavailable", failure)}
           tone="error"
         />
       )
@@ -242,6 +253,17 @@ function DnsStatusSummary({
         </div>
       )
   }
+}
+
+function sseFailureText(
+  t: TFunction,
+  fallbackKey: string,
+  failure: DnsEventFailure | null
+) {
+  const { key, params } = describeSseFailure(failure)
+  return key
+    ? t(`overview.dnsCheck.status.${key}`, params)
+    : t(`overview.dnsCheck.status.${fallbackKey}`)
 }
 
 function DnsStatusMessage({

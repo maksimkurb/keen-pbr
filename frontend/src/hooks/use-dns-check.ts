@@ -1,11 +1,15 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { consumeAuthenticatedSse } from "@/api/authenticated-sse"
 import {
-  DnsTestInterceptEventSource,
-  type DnsTestInterceptEvent,
-} from "@/api/generated/model"
+  getDnsEventHub,
+  parseDnsCheckEvent,
+  type DnsEventFailure,
+} from "@/api/dns-event-hub"
+import type { DnsTestInterceptEvent } from "@/api/generated/model"
+
+export { parseDnsCheckEvent }
+export type { DnsEventFailure }
 
 export type DnsCheckStatus =
   | "idle"
@@ -27,12 +31,11 @@ type DnsCheckState = {
   showWarning: boolean
 }
 
-type DnsCheckEvent = { type: "HELLO" } | DnsTestInterceptEvent
-
 type UseDnsCheckReturn = {
   status: DnsCheckStatus
   checkState: DnsCheckState
   lastEvent: DnsTestInterceptEvent | null
+  failure: DnsEventFailure | null
   startCheck: (performBrowserRequest: boolean) => void
   reset: () => void
 }
@@ -44,6 +47,7 @@ type UseInterceptEventMonitorReturn = {
 
 export const DNS_CHECK_DOMAIN_SUFFIX = "check.keen.pbr"
 
+const sseConnectTimeoutMs = 5_000
 const browserCheckTimeoutMs = 5_000
 const pcCheckTimeoutMs = 300_000
 const pcWarningTimeoutMs = 30_000
@@ -51,13 +55,14 @@ const pcWarningTimeoutMs = 30_000
 export function useDnsCheck(
   markerDomain = DNS_CHECK_DOMAIN_SUFFIX
 ): UseDnsCheckReturn {
-  const eventSourceRef = useRef<AbortController | null>(null)
+  const releaseRef = useRef<(() => void) | null>(null)
   const fetchControllerRef = useRef<AbortController | null>(null)
   const checkTimeoutRef = useRef<number | null>(null)
   const warningTimeoutRef = useRef<number | null>(null)
   const checkGenerationRef = useRef(0)
 
   const [status, setStatus] = useState<DnsCheckStatus>("idle")
+  const [failure, setFailure] = useState<DnsEventFailure | null>(null)
   const [lastEvent, setLastEvent] = useState<DnsTestInterceptEvent | null>(null)
   const [checkState, setCheckState] = useState<DnsCheckState>({
     randomString: "",
@@ -67,9 +72,9 @@ export function useDnsCheck(
 
   const cleanup = useCallback(() => {
     checkGenerationRef.current += 1
-    if (eventSourceRef.current) {
-      eventSourceRef.current.abort()
-      eventSourceRef.current = null
+    if (releaseRef.current) {
+      releaseRef.current()
+      releaseRef.current = null
     }
 
     if (fetchControllerRef.current) {
@@ -106,6 +111,7 @@ export function useDnsCheck(
         showWarning: false,
       })
       setStatus("checking")
+      setFailure(null)
       setLastEvent(null)
 
       if (!performBrowserRequest) {
@@ -117,96 +123,102 @@ export function useDnsCheck(
         }, pcWarningTimeoutMs)
       }
 
-      const eventSource = new AbortController()
-      eventSourceRef.current = eventSource
-
-      let sseConnected = false
-
-      void consumeAuthenticatedSse(
-        "/api/dns/test",
-        eventSource.signal,
-        ({ data }) => {
-          if (generation !== checkGenerationRef.current) {
-            return
-          }
-
-          const payload = parseDnsCheckEvent(data)
-          if (!payload) {
-            return
-          }
-
-          if (payload.type !== "INTERCEPT") {
-            return
-          }
-
-          setLastEvent(payload)
-
-          if (
-            payload.source !== "marker" ||
-            payload.domain.toLowerCase() !== domain
-          ) {
-            return
-          }
-
-          cleanup()
-          setCheckState((current) => ({
-            ...current,
-            waiting: false,
-            showWarning: false,
-          }))
-          setStatus(performBrowserRequest ? "success" : "pc-success")
-        },
-        () => {
-          if (generation !== checkGenerationRef.current) {
-            return
-          }
-          // The stream is open: the connection itself works. Start the
-          // browser lookup now; the marker INTERCEPT event proves the path.
-          sseConnected = true
-
-          if (performBrowserRequest) {
-            fetchControllerRef.current = new AbortController()
-            fetch(`https://${domain}`, {
-              signal: fetchControllerRef.current.signal,
-              mode: "no-cors",
-            }).catch(() => {
-              /* Only the observed INTERCEPT event matters. */
-            })
-          }
-        }
-      ).catch(() => {
+      // One shared /api/dns/test stream per tab: hold a lease for the whole
+      // check and listen to the hub instead of opening our own connection.
+      const hub = getDnsEventHub()
+      const releaseLease = hub.acquireLease()
+      const unsubscribe = hub.subscribe((payload) => {
         if (generation !== checkGenerationRef.current) {
           return
         }
+
+        setLastEvent(payload)
+
+        if (
+          payload.source !== "marker" ||
+          payload.domain.toLowerCase() !== domain
+        ) {
+          return
+        }
+
         cleanup()
-        setStatus("sse-fail")
+        setCheckState((current) => ({
+          ...current,
+          waiting: false,
+          showWarning: false,
+        }))
+        setStatus(performBrowserRequest ? "success" : "pc-success")
       })
+      let offStatus: (() => void) | null = null
+      releaseRef.current = () => {
+        offStatus?.()
+        unsubscribe()
+        releaseLease()
+      }
 
-      checkTimeoutRef.current = window.setTimeout(
-        () => {
-          if (generation !== checkGenerationRef.current) {
-            return
-          }
-          cleanup()
+      const onConnected = () => {
+        if (generation !== checkGenerationRef.current) {
+          return
+        }
+        if (checkTimeoutRef.current !== null) {
+          window.clearTimeout(checkTimeoutRef.current)
+          checkTimeoutRef.current = null
+        }
+        offStatus?.()
+        offStatus = null
 
-          if (!sseConnected) {
-            setStatus("sse-fail")
-            return
-          }
+        // The stream is open: the connection itself works. Start the
+        // browser lookup now; the marker INTERCEPT event proves the path.
+        if (performBrowserRequest) {
+          fetchControllerRef.current = new AbortController()
+          fetch(`https://${domain}`, {
+            signal: fetchControllerRef.current.signal,
+            mode: "no-cors",
+          }).catch(() => {
+            /* Only the observed INTERCEPT event matters. */
+          })
+        }
 
-          if (performBrowserRequest) {
-            setStatus("browser-fail")
-            return
-          }
+        checkTimeoutRef.current = window.setTimeout(
+          () => {
+            if (generation !== checkGenerationRef.current) {
+              return
+            }
+            cleanup()
 
-          setCheckState((current) => ({
-            ...current,
-            waiting: false,
-            showWarning: true,
-          }))
-        },
-        performBrowserRequest ? browserCheckTimeoutMs : pcCheckTimeoutMs
-      )
+            if (performBrowserRequest) {
+              setStatus("browser-fail")
+              return
+            }
+
+            setCheckState((current) => ({
+              ...current,
+              waiting: false,
+              showWarning: true,
+            }))
+          },
+          performBrowserRequest ? browserCheckTimeoutMs : pcCheckTimeoutMs
+        )
+      }
+
+      if (hub.getStatus() === "connected") {
+        onConnected()
+        return
+      }
+
+      offStatus = hub.onStatus(() => {
+        if (hub.getStatus() === "connected") onConnected()
+      })
+      checkTimeoutRef.current = window.setTimeout(() => {
+        checkTimeoutRef.current = null
+        if (generation !== checkGenerationRef.current) {
+          return
+        }
+        const hubFailure = hub.failure()
+        cleanup()
+        setFailure(hubFailure ?? { kind: "network" })
+        setStatus("sse-fail")
+      }, sseConnectTimeoutMs)
     },
     [cleanup, markerDomain]
   )
@@ -214,6 +226,7 @@ export function useDnsCheck(
   const reset = useCallback(() => {
     cleanup()
     setStatus("idle")
+    setFailure(null)
     setLastEvent(null)
     setCheckState({
       randomString: "",
@@ -226,147 +239,68 @@ export function useDnsCheck(
     status,
     checkState,
     lastEvent,
+    failure,
     startCheck,
     reset,
   }
 }
 
-export function parseDnsCheckEvent(data: string): DnsCheckEvent | null {
-  if (!data.trim()) {
-    return null
-  }
-
-  try {
-    const parsed = JSON.parse(data) as Record<string, unknown>
-    if (
-      !parsed ||
-      typeof parsed !== "object" ||
-      typeof parsed.type !== "string"
-    ) {
-      return null
-    }
-    if (parsed.type === "HELLO") {
-      return { type: "HELLO" }
-    }
-    if (
-      parsed.type !== "INTERCEPT" ||
-      typeof parsed.domain !== "string" ||
-      typeof parsed.source !== "string" ||
-      !Object.values(DnsTestInterceptEventSource).includes(
-        parsed.source as DnsTestInterceptEventSource
-      )
-    ) {
-      return null
-    }
-    return {
-      type: "INTERCEPT",
-      seq: typeof parsed.seq === "number" ? parsed.seq : 0,
-      ts_ms: typeof parsed.ts_ms === "number" ? parsed.ts_ms : 0,
-      source: parsed.source as DnsTestInterceptEvent["source"],
-      domain: parsed.domain,
-      lists: Array.isArray(parsed.lists)
-        ? parsed.lists.filter(
-            (list): list is string => typeof list === "string"
-          )
-        : [],
-      ips: Array.isArray(parsed.ips)
-        ? parsed.ips.filter((ip): ip is string => typeof ip === "string")
-        : [],
-      added: typeof parsed.added === "number" ? parsed.added : 0,
-      refreshed: typeof parsed.refreshed === "number" ? parsed.refreshed : 0,
-      errors: typeof parsed.errors === "number" ? parsed.errors : 0,
-      hold_us: typeof parsed.hold_us === "number" ? parsed.hold_us : 0,
-      timed_out: parsed.timed_out === true,
-    }
-  } catch {
-    return null
-  }
+/** Translation key suffix + params for an sse-fail status. */
+export function describeSseFailure(failure: DnsEventFailure | null) {
+  if (failure?.kind === "stalled") return { key: "sseStalled" }
+  if (failure?.kind === "http")
+    return { key: "sseHttp", params: { status: failure.status ?? 0 } }
+  return { key: null }
 }
 
 export function useInterceptEventMonitor(
   enabled: boolean
 ): UseInterceptEventMonitorReturn {
-  const controllerRef = useRef<AbortController | null>(null)
-  const generationRef = useRef(0)
   const [status, setStatus] = useState<InterceptMonitorStatus>(
     enabled ? "connecting" : "disabled"
   )
   const [lastEvent, setLastEvent] = useState<DnsTestInterceptEvent | null>(null)
 
   useEffect(() => {
-    const generation = generationRef.current + 1
-    generationRef.current = generation
-    controllerRef.current?.abort()
-    controllerRef.current = null
+    let cancelled = false
     queueMicrotask(() => {
-      if (generation !== generationRef.current) {
-        return
-      }
+      if (cancelled) return
       setLastEvent(null)
-      setStatus(enabled ? "connecting" : "disabled")
+      setStatus(
+        enabled ? mapHubStatus(getDnsEventHub().getStatus()) : "disabled"
+      )
     })
 
     if (!enabled) {
       return
     }
 
-    const controller = new AbortController()
-    controllerRef.current = controller
-
-    void consumeAuthenticatedSse(
-      "/api/dns/test",
-      controller.signal,
-      ({ data }) => {
-        if (generation !== generationRef.current || controller.signal.aborted) {
-          return
-        }
-
-        const payload = parseDnsCheckEvent(data)
-        if (!payload) {
-          return
-        }
-
-        if (payload.type === "INTERCEPT") {
-          setStatus("connected")
-          setLastEvent(payload)
-        }
-      },
-      () => {
-        if (
-          generation === generationRef.current &&
-          !controller.signal.aborted
-        ) {
-          setStatus("connected")
-        }
-      }
-    )
-      .then(() => {
-        if (
-          generation === generationRef.current &&
-          !controller.signal.aborted
-        ) {
-          setStatus("error")
-        }
-      })
-      .catch(() => {
-        if (
-          generation === generationRef.current &&
-          !controller.signal.aborted
-        ) {
-          setStatus("error")
-        }
-      })
+    const hub = getDnsEventHub()
+    const offStatus = hub.onStatus(() => {
+      if (!cancelled) setStatus(mapHubStatus(hub.getStatus()))
+    })
+    const unsubscribe = hub.subscribe((event) => {
+      if (!cancelled) setLastEvent(event)
+    })
 
     return () => {
-      generationRef.current += 1
-      controller.abort()
-      if (controllerRef.current === controller) {
-        controllerRef.current = null
-      }
+      cancelled = true
+      offStatus()
+      unsubscribe()
     }
   }, [enabled])
 
   return { lastEvent, status }
+}
+
+function mapHubStatus(
+  status: ReturnType<ReturnType<typeof getDnsEventHub>["getStatus"]>
+): InterceptMonitorStatus {
+  return status === "connected"
+    ? "connected"
+    : status === "error"
+      ? "error"
+      : "connecting"
 }
 
 export function normalizeDnsMarkerDomain(value: string) {

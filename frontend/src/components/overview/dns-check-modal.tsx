@@ -9,10 +9,11 @@ import {
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import type { DnsCheckStatus } from "@/hooks/use-dns-check"
+import type { DnsCheckStatus, DnsEventFailure } from "@/hooks/use-dns-check"
 import {
   DNS_CHECK_DOMAIN_SUFFIX,
   normalizeDnsMarkerDomain,
+  describeSseFailure,
   useDnsCheck,
 } from "@/hooks/use-dns-check"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -40,11 +41,13 @@ import {
 export function DnsCheckModal({
   open,
   onOpenChange,
+  browserFailure,
   browserStatus,
   markerDomain,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  browserFailure?: DnsEventFailure | null
   browserStatus: DnsCheckStatus
   markerDomain?: string
 }) {
@@ -102,7 +105,11 @@ export function DnsCheckModal({
                   <AlertCircle className="h-4 w-4 text-destructive" />
                 )
               }
-              text={getBrowserStatusText(browserStatus, t)}
+              text={getBrowserStatusText(
+                browserStatus,
+                browserFailure ?? null,
+                t
+              )}
             />
             <StatusLine
               icon={
@@ -227,15 +234,18 @@ function CommandCopyField({ command }: { command: string }) {
 
 function getBrowserStatusText(
   status: DnsCheckStatus,
-  t: (key: string) => string
+  failure: DnsEventFailure | null,
+  t: (key: string, params?: Record<string, unknown>) => string
 ) {
   switch (status) {
     case "success":
       return t("overview.dnsCheck.status.browserSuccess")
     case "browser-fail":
       return t("overview.dnsCheck.status.browserFail")
-    case "sse-fail":
-      return t("overview.dnsCheck.status.sseFail")
+    case "sse-fail": {
+      const { key, params } = describeSseFailure(failure)
+      return t(`overview.dnsCheck.status.${key ?? "sseFail"}`, params)
+    }
     case "checking":
       return t("overview.dnsCheck.status.browserChecking")
     default:
