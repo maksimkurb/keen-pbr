@@ -1411,6 +1411,14 @@ TEST_CASE("intercept diag: write latency buckets and max") {
     CHECK(h.max_elements == 6);
 }
 
+TEST_CASE("intercept diag: a 0 us write still records its element count") {
+    WriteLatencyCounters h;
+    h.record(0, 3);
+    CHECK(h.buckets[0] == 1);
+    CHECK(h.max_us == 0);
+    CHECK(h.max_elements == 3);
+}
+
 namespace {
 
 // Snapshot-rebind scenario: the previous apply published a full snapshot; the

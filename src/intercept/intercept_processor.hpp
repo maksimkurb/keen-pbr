@@ -189,8 +189,9 @@ struct WriteLatencyCounters {
     }
     void record(uint64_t us, uint64_t elements) {
         buckets[bucket_for(us)].fetch_add(1, std::memory_order_relaxed);
+        // >= so the first write counts even when it took 0 us (fast CPUs).
         uint64_t seen = max_us.load(std::memory_order_relaxed);
-        while (us > seen) {
+        while (us >= seen) {
             if (max_us.compare_exchange_weak(seen, us, std::memory_order_relaxed)) {
                 max_elements.store(elements, std::memory_order_relaxed);
                 break;
