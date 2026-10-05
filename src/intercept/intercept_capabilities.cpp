@@ -167,7 +167,7 @@ std::vector<InterceptRuntimeProbe::Item> InterceptRuntimeProbe::items() const {
         }
         break;
     }
-    return {
+    std::vector<Item> result{
         {"set_backend", set_backend},
         {"nfqueue", nfqueue},
         {"fail_open", fail_open},
@@ -175,8 +175,13 @@ std::vector<InterceptRuntimeProbe::Item> InterceptRuntimeProbe::items() const {
         {"nflog", nflog},
         {"set_write", set_write},
         {"conntrack", conntrack},
-        {"nft_timeout_update", timeout_update},
     };
+    // nft-only: an iptables/ipset backend never runs it, so listing it as
+    // not_run would only suggest a probe that is missing.
+    if (timeout_update.status != ProbeStatus::not_run) {
+        result.push_back({"nft_timeout_update", timeout_update});
+    }
+    return result;
 }
 
 void InterceptRuntimeProbe::carry_forward(const InterceptRuntimeProbe& previous) {

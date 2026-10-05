@@ -485,7 +485,7 @@ TEST_CASE("health JSON reports probes, warnings and capability extras") {
 
     std::map<std::string, nlohmann::json> by_feature;
     for (const auto& probe : health["probes"]) by_feature[probe["feature"]] = probe;
-    REQUIRE(by_feature.size() == 8);
+    REQUIRE(by_feature.size() == 7);  // nft_timeout_update is nft-only
     CHECK(by_feature["set_backend"]["status"] == "ok");
     CHECK(by_feature["set_backend"]["reason"] == "ipset protocol 7");
     CHECK(by_feature["nfqueue"]["status"] == "ok");
@@ -504,7 +504,7 @@ TEST_CASE("health JSON before any probe leaves optional fields out of the pictur
     CHECK(health["capabilities"]["fail_open"].is_null());
     CHECK(health["capabilities"]["payload_replacement"].is_null());
     CHECK(health["capabilities"]["conntrack_cleanup"].is_null());
-    REQUIRE(health["probes"].size() == 8);
+    REQUIRE(health["probes"].size() == 7);
     for (const auto& probe : health["probes"]) CHECK(probe["status"] == "not_run");
 
     // Unknown replacement (pre-4.9, non-initial netns) is its own value.
@@ -552,6 +552,20 @@ TEST_CASE("intercept probe: a re-probe carries forward checks it did not run") {
         CAPTURE(item.feature);
         CHECK(item.result.status != ProbeStatus::not_run);
     }
+}
+
+TEST_CASE("intercept probe: the nft-only timeout probe is listed only when it ran") {
+    using nfnl::ProbeStatus;
+    const auto has_timeout_update = [](const InterceptRuntimeProbe& probe) {
+        for (const auto& item : probe.items()) {
+            if (item.feature == "nft_timeout_update") return true;
+        }
+        return false;
+    };
+    InterceptRuntimeProbe probe;  // iptables: the probe never ran
+    CHECK_FALSE(has_timeout_update(probe));
+    probe.timeout_update = nfnl::make_probe_result(ProbeStatus::ok, "extended");
+    CHECK(has_timeout_update(probe));
 }
 
 TEST_CASE("intercept probe: blocking verdicts are not carried forward") {
