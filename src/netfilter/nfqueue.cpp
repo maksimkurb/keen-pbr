@@ -85,15 +85,35 @@ bool packet_id_from_attrs(ByteView attrs, uint32_t& id) {
     return found;
 }
 
-ReplacementCapability initial_owner_decision(int owner_fd, ino_t owner_inode, ino_t netns_inode) {
+// Extra evidence for kernels where NS_GET_USERNS is unavailable.
+struct LegacyNamespaceFacts {
+    bool user_ns_absent = false;     // /proc/self/ns/user does not exist
+    ino_t self_user_inode = 0;       // 0 when unreadable
+    ino_t init_netns_inode = 0;      // /proc/1/ns/net, 0 when unreadable
+};
+
+ReplacementCapability initial_owner_decision(int owner_fd, ino_t owner_inode, ino_t netns_inode,
+                                             const LegacyNamespaceFacts& legacy = {}) {
     if (owner_fd >= 0) {
         return owner_inode == kInitialUserNamespaceInode ? ReplacementCapability::supported
                                                          : ReplacementCapability::unsupported;
     }
-    // No NS_GET_USERNS (kernel < 4.9): only the initial network namespace is
-    // known to be owned by the initial user namespace.
-    return netns_inode == kInitialNetworkNamespaceInode ? ReplacementCapability::supported
-                                                        : ReplacementCapability::unknown;
+    // No NS_GET_USERNS (kernel < 4.9, or a vendor kernel without it): only a
+    // network namespace known to be owned by the initial user namespace is good.
+    if (netns_inode == kInitialNetworkNamespaceInode) return ReplacementCapability::supported;
+    // Kernels before 4.11 allocate the initial netns inode dynamically, so the
+    // constant above never matches (Keenetic 4.9).  A kernel without user
+    // namespaces has only the initial one, so every netns is owned by it.
+    if (legacy.user_ns_absent) return ReplacementCapability::supported;
+    // Otherwise require both that this process is in the initial user
+    // namespace and that its netns is the one PID 1 lives in.  A netns owned by
+    // a child user namespace is reachable only through setns(), which a daemon
+    // started by init does not do.
+    if (legacy.self_user_inode == kInitialUserNamespaceInode && netns_inode != 0 &&
+        netns_inode == legacy.init_netns_inode) {
+        return ReplacementCapability::supported;
+    }
+    return ReplacementCapability::unknown;
 }
 
 ReplacementCapability detect_replacement_capability() {
@@ -111,23 +131,41 @@ ReplacementCapability detect_replacement_capability() {
         return initial_owner_decision(0, have_owner_stat ? owner_stat.st_ino : 0, 0);
     }
     ::close(netns);
-    return initial_owner_decision(-1, 0, have_netns_stat ? netns_stat.st_ino : 0);
+
+    LegacyNamespaceFacts legacy;
+    struct stat st{};
+    if (::stat("/proc/self/ns/user", &st) == 0) {
+        legacy.self_user_inode = st.st_ino;
+    } else if (errno == ENOENT) {
+        legacy.user_ns_absent = true;
+    }
+    if (::stat("/proc/1/ns/net", &st) == 0) legacy.init_netns_inode = st.st_ino;
+    return initial_owner_decision(-1, 0, have_netns_stat ? netns_stat.st_ino : 0, legacy);
 }
 
 } // namespace
 
 #ifdef KEEN_PBR3_TESTING
 bool nfqueue_initial_owner_decision_for_test(int owner_fd, uint64_t owner_inode,
-                                             uint64_t netns_inode) {
+                                             uint64_t netns_inode, bool user_ns_absent,
+                                             uint64_t self_user_inode,
+                                             uint64_t init_netns_inode) {
     return initial_owner_decision(owner_fd, static_cast<ino_t>(owner_inode),
-                                  static_cast<ino_t>(netns_inode)) ==
+                                  static_cast<ino_t>(netns_inode),
+                                  {user_ns_absent, static_cast<ino_t>(self_user_inode),
+                                   static_cast<ino_t>(init_netns_inode)}) ==
            ReplacementCapability::supported;
 }
 
 ReplacementCapability nfqueue_replacement_decision_for_test(int owner_fd, uint64_t owner_inode,
-                                                            uint64_t netns_inode) {
+                                                            uint64_t netns_inode,
+                                                            bool user_ns_absent,
+                                                            uint64_t self_user_inode,
+                                                            uint64_t init_netns_inode) {
     return initial_owner_decision(owner_fd, static_cast<ino_t>(owner_inode),
-                                  static_cast<ino_t>(netns_inode));
+                                  static_cast<ino_t>(netns_inode),
+                                  {user_ns_absent, static_cast<ino_t>(self_user_inode),
+                                   static_cast<ino_t>(init_netns_inode)});
 }
 #endif
 

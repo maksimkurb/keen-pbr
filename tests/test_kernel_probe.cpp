@@ -107,6 +107,25 @@ TEST_CASE("probe: payload replacement capability has three outcomes") {
     CHECK(std::string(replacement_capability_name(ReplacementCapability::unknown)) == "unknown");
 }
 
+TEST_CASE("probe: payload replacement on a 4.9 kernel without NS_GET_USERNS") {
+    constexpr uint64_t initial_user = 0xEFFFFFFDU;
+    constexpr uint64_t dynamic_net = 0xF0000074U;  // pre-4.11 initial netns inode
+    // Keenetic 4.9: no ioctl, dynamic netns inode, same netns as PID 1.
+    CHECK(nfqueue_replacement_decision_for_test(-1, 0, dynamic_net, false, initial_user,
+                                                dynamic_net) == ReplacementCapability::supported);
+    // Kernel without user namespaces: every netns belongs to the initial one.
+    CHECK(nfqueue_replacement_decision_for_test(-1, 0, dynamic_net, true, 0, 0) ==
+          ReplacementCapability::supported);
+    // In a child user namespace, or a netns different from PID 1's: stay unknown.
+    CHECK(nfqueue_replacement_decision_for_test(-1, 0, dynamic_net, false, 123, dynamic_net) ==
+          ReplacementCapability::unknown);
+    CHECK(nfqueue_replacement_decision_for_test(-1, 0, dynamic_net, false, initial_user,
+                                                dynamic_net + 1) == ReplacementCapability::unknown);
+    // Nothing readable: never guess.
+    CHECK(nfqueue_replacement_decision_for_test(-1, 0, 0, false, 0, 0) ==
+          ReplacementCapability::unknown);
+}
+
 // --- ipset protocol ---------------------------------------------------------------
 
 TEST_CASE("probe: ipset protocol request and outcomes") {

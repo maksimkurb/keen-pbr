@@ -156,9 +156,14 @@ bool parse_nfqueue_packet(const MsgView& m, QueuedPacket& out);
 // is non-negative when NS_GET_USERNS succeeded; otherwise the network
 // namespace inode is the only permitted legacy fallback.
 bool nfqueue_initial_owner_decision_for_test(int owner_fd, uint64_t owner_inode,
-                                             uint64_t netns_inode);
+                                             uint64_t netns_inode, bool user_ns_absent = false,
+                                             uint64_t self_user_inode = 0,
+                                             uint64_t init_netns_inode = 0);
 ReplacementCapability nfqueue_replacement_decision_for_test(int owner_fd, uint64_t owner_inode,
-                                                            uint64_t netns_inode);
+                                                            uint64_t netns_inode,
+                                                            bool user_ns_absent = false,
+                                                            uint64_t self_user_inode = 0,
+                                                            uint64_t init_netns_inode = 0);
 // Test-only helper for injecting datagrams into NfQueue.receive()
 NfQueue nfqueue_for_test(int rcvbuf_bytes = 2 << 20);
 #endif
