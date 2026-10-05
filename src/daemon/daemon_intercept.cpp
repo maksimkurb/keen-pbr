@@ -453,12 +453,16 @@ void Daemon::tick_intercept_rebind() {
 }
 
 void Daemon::pump_intercept_events() {
-#ifdef WITH_API
     std::shared_ptr<InterceptService> service;
     {
         KPBR_LOCK_GUARD(intercept_mutex_);
         service = intercept_service_;
     }
+    if (service) {
+        // The hot thread only records; the timeout warnings are logged here.
+        service->log_hold_timeouts();
+    }
+#ifdef WITH_API
     if (!service || !dns_test_broadcaster_) {
         return;
     }

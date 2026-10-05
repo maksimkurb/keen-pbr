@@ -5,6 +5,7 @@
 #include "../l7/quic_initial.hpp"
 #include "../lists/domain_index.hpp"
 #include "../netfilter/set_writer.hpp"
+#include "seqlock_ring.hpp"
 #include "set_element_cache.hpp"
 #include "../util/byte_view.hpp"
 
@@ -90,6 +91,55 @@ struct InterceptEvent {
     TimeoutCause timeout_cause{TimeoutCause::none};  // set only when timed_out
 };
 
+// What the hot path records per observation: fixed size, trivially copyable,
+// no heap.  Addresses are raw bytes and lists are ids; events_since() turns a
+// record into an InterceptEvent (inet_ntop, list names) on the reading side.
+// `seq` must stay the first member (SeqlockRing).  Anything that does not fit
+// is counted (`*_overflow`) rather than stored.
+struct EventRecord {
+    static constexpr std::size_t kMaxIps = 8;
+    static constexpr std::size_t kMaxLists = 32;
+    static constexpr std::size_t kMaxDomain = 254;
+
+    uint64_t seq{0};
+    uint64_t generation{0};   // snapshot generation `list_ids` belong to
+    int64_t ts_steady_us{0};  // steady-clock time of the observation
+    int64_t queue_wait_us{0};
+    int64_t budget_left_us{0};
+    uint32_t added{0};
+    uint32_t refreshed{0};
+    uint32_t errors{0};
+    uint32_t hold_us{0};
+    uint32_t parse_us{0};
+    uint32_t set_write_us{0};
+    uint32_t cache_hits{0};
+    uint32_t deferred_refresh{0};
+    uint32_t refresh_skipped{0};
+    uint32_t batch_size{0};
+    uint32_t admission_wait_us{0};
+    uint32_t write_elements{0};
+    uint32_t late_batch_elements{0};
+    int32_t write_errno{0};
+    int32_t batch_pos{-1};  // < 0: not a timed DNS event
+    InterceptSource source{InterceptSource::dns};
+    TimeoutCause timeout_cause{TimeoutCause::none};
+    bool timed_out{false};
+    bool late_write{false};
+    uint8_t client_family{0};  // 4 / 6; 0: no client address
+    uint8_t domain_len{0};
+    uint8_t ip_count{0};
+    uint8_t ips_overflow{0};   // answer addresses beyond kMaxIps (saturating)
+    uint8_t list_count{0};
+    uint8_t lists_overflow{0};  // matched lists beyond kMaxLists (saturating)
+    uint8_t client[16]{};
+    uint8_t ip_family[kMaxIps]{};
+    uint8_t ips[kMaxIps][16]{};
+    uint16_t list_ids[kMaxLists]{};
+    char domain[kMaxDomain]{};
+};
+
+using EventRing = SeqlockRing<EventRecord, 512>;
+
 // Per-round timing handed to on_dns_packet(): the wakeup time, the shared hold
 // deadline and the packet's position in the round.  Implicitly built from a
 // bare deadline (woke = now) for callers without batching.
@@ -114,7 +164,7 @@ struct InterceptL7Work {
     std::vector<uint16_t> slots;  // set-cache slot per add (parallel to `adds`)
     uint64_t cache_epoch{0};      // SetElementCache epoch captured before the lookups
     int64_t cache_now_ms{0};      // steady ms used for the lookups / expiry estimate
-    InterceptEvent event;
+    EventRecord event;
     uint8_t family{0};
     std::array<uint8_t, 16> destination{};
     std::array<uint8_t, 16> client{};  // source of the captured request
@@ -199,6 +249,12 @@ public:
 // Pure packet-processing core.  on_dns_packet()/on_l7_packet() must be called
 // from a single thread (they reuse member buffers); set_snapshot(),
 // events_since() and counters are thread-safe.
+//
+// Event store: a preallocated lock-free ring of EventRecords.  Producers are
+// the hot thread (DNS, marker, late-flush and, without a submitter, L7 events)
+// and the L7 worker (record_l7_result / reject_l7_work); the ring tolerates
+// both without a mutex.  The only consumer is the control thread's 100 ms pump
+// (events_since(), log_hold_timeouts()).
 class InterceptProcessor {
 public:
     using L7Submitter = std::function<void(InterceptL7Work)>;
@@ -251,22 +307,37 @@ public:
     void set_clock(std::function<std::chrono::steady_clock::time_point()> clock);
     SetElementCache& set_cache() { return cache_; }
 
-    // l3 = full IP packet from NFQUEUE.  Never throws.
+    // l3 = full IP packet from NFQUEUE.  Never throws.  The observation is only
+    // staged: the caller sends the verdict, then calls commit_dns_event(), so
+    // recording never adds to the hold latency.
+    DnsDecision process_dns_packet(ByteView l3, const DnsRound& round, bool replacement_allowed);
+    // Publishes the event staged by the last process_dns_packet() (if any).
+    void commit_dns_event();
+    // process_dns_packet() + commit_dns_event() for callers without a verdict.
     DnsDecision on_dns_packet(ByteView l3, const DnsRound& round, bool replacement_allowed);
     // Records the size of the wakeup round on its events (seq >= first_seq)
     // once the round is over.  Metadata only.
     void set_round_batch_size(uint64_t first_seq, uint32_t batch_size);
     void on_l7_packet(ByteView l3, std::chrono::steady_clock::time_point now);
 
+    // Formats up to `max` events newer than `after_seq` (oldest first).  Events
+    // overwritten in the meantime are missing at the front (the caller detects
+    // the gap from the sequence numbers).
     std::vector<InterceptEvent> events_since(uint64_t after_seq, std::size_t max) const;
     // Sequence number of the newest event (0 if none yet).
-    uint64_t last_event_seq() const;
+    uint64_t last_event_seq() const { return ring_.last_seq(); }
+    // Drain side: logs one warning per not yet logged DNS hold timeout.  Called
+    // by the same single thread that drains events (never the hot thread).
+    void log_hold_timeouts();
 
     static constexpr std::size_t kEventCapacity = 512;
+    // Lists remembered by generation for formatting old events: the current and
+    // the previous snapshot.
+    static constexpr std::size_t kNameGenerations = 2;
 
 private:
     DnsDecision handle_dns(ByteView l3, const DnsRound& round, bool replacement_allowed);
-    bool defer_late_write(const std::shared_ptr<const InterceptSnapshot>& snap, InterceptEvent&& event,
+    bool defer_late_write(const std::shared_ptr<const InterceptSnapshot>& snap,
                           std::chrono::steady_clock::time_point started, bool after_timeout,
                           TimeoutCause cause);
     void handle_l7(ByteView l3, std::chrono::steady_clock::time_point now);
@@ -274,6 +345,7 @@ private:
     struct SlotTable {
         // [0] = v4 set slot, [1] = v6 set slot, per InterceptListTarget.
         std::vector<std::array<uint16_t, 2>> by_target;
+        uint64_t generation{0};  // identifies the snapshot in EventRecord::generation
     };
     std::shared_ptr<const InterceptSnapshot> snapshot_and_slots(
         std::shared_ptr<const SlotTable>& slots) const;
@@ -286,14 +358,17 @@ private:
     // Splits adds_ (in place) into the pre-verdict part (cache miss, kept) and
     // the cached part (dropped, or queued for a post-verdict refresh).
     void classify_adds(const std::shared_ptr<const InterceptSnapshot>& snap, int64_t now_ms,
-                       bool queue_refreshes, InterceptEvent& event);
+                       bool queue_refreshes, EventRecord& event);
     void flush_refreshes();
     void bump_timeout_cause(TimeoutCause cause);
-    void push_event(InterceptEvent&& event);
+    void push_event(EventRecord& event);
+    // Starts the DNS event staged for the verdict (see commit_dns_event()).
+    EventRecord& stage_event(InterceptSource source);
+    InterceptEvent format_event(const EventRecord& record) const;
     void append_add(const InterceptSnapshot& snap, const SlotTable& slots, DomainIndex::ListId id,
                     uint8_t family,
                     const std::array<uint8_t, 16>& addr, uint32_t record_ttl_s, bool use_record_ttl);
-    void collect_list_names(const InterceptSnapshot& snap, std::vector<std::string>& out) const;
+    void record_list_ids(const SlotTable& slots, EventRecord& event) const;
     bool snapshot_is_current(const std::shared_ptr<const InterceptSnapshot>& snapshot) const;
     void record_l7_result(InterceptL7Work work, nfnl::DynamicSetWriter& writer);
 
@@ -310,9 +385,20 @@ private:
     WriterAdmission l7_admission_;
     WriterRelease l7_release_;
 
-    mutable std::mutex events_mutex_;
-    std::deque<InterceptEvent> events_;
-    uint64_t next_seq_{1};
+    EventRing ring_;
+    uint64_t logged_seq_{0};  // drain side: newest event already checked for timeouts
+    uint64_t next_generation_{1};  // guarded by snapshot_mutex_
+    // List names of the last kNameGenerations snapshots, oldest first.
+    mutable std::mutex names_mutex_;
+    struct NameTable {
+        uint64_t generation{0};
+        std::vector<std::string> names;
+    };
+    std::deque<NameTable> name_tables_;
+    // Staged DNS observation (hot thread only): written by process_dns_packet(),
+    // published by commit_dns_event() after the verdict.
+    EventRecord pending_;
+    bool pending_valid_{false};
 
     // Hot-thread-only scratch state.
     dns_wire::ParsedResponse response_;
@@ -325,7 +411,7 @@ private:
     // Pending-late batch (hot thread only).  Capacity is reserved once in the
     // constructor, so queuing never reallocates.
     struct LateEvent {
-        InterceptEvent event;
+        EventRecord event;
         std::shared_ptr<const InterceptSnapshot> snapshot;  // keeps SetAdd string_views alive
         std::vector<dns_wire::AddressRecord> addresses;     // for conntrack cleanup
         std::array<uint8_t, 16> client{};                   // asker, scopes the cleanup

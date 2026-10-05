@@ -351,7 +351,7 @@ void InterceptService::handle_queue_packet(const nfnl::QueuedPacket& packet,
     }
     InterceptProcessor::DnsDecision decision;
     try {
-        decision = processor_.on_dns_packet(packet.payload, round, replacement_allowed_);
+        decision = processor_.process_dns_packet(packet.payload, round, replacement_allowed_);
     } catch (...) {
         decision = {};
     }
@@ -362,6 +362,8 @@ void InterceptService::handle_queue_packet(const nfnl::QueuedPacket& packet,
     if (!ok) {
         Logger::instance().warn("intercept: NFQUEUE verdict send failed (errno={})", queue_->last_errno());
     }
+    // Verdict first: recording the observation never adds to the hold latency.
+    processor_.commit_dns_event();
 }
 
 void InterceptService::drain_queue() {

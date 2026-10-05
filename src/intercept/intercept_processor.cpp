@@ -23,12 +23,39 @@ int64_t wall_ms() {
         .count();
 }
 
-std::string format_ip(uint8_t family, const std::array<uint8_t, 16>& addr) {
+std::string format_ip(uint8_t family, const uint8_t* addr) {
     char buf[INET6_ADDRSTRLEN] = {};
-    if (::inet_ntop(family == 6 ? AF_INET6 : AF_INET, addr.data(), buf, sizeof(buf)) == nullptr) {
+    if (::inet_ntop(family == 6 ? AF_INET6 : AF_INET, addr, buf, sizeof(buf)) == nullptr) {
         return {};
     }
     return buf;
+}
+
+int64_t steady_us(std::chrono::steady_clock::time_point t) {
+    return std::chrono::duration_cast<std::chrono::microseconds>(t.time_since_epoch()).count();
+}
+
+const EventRecord kEmptyRecord{};
+
+void set_domain(EventRecord& event, std::string_view domain) {
+    const std::size_t n = std::min(domain.size(), EventRecord::kMaxDomain);
+    std::memcpy(event.domain, domain.data(), n);
+    event.domain_len = static_cast<uint8_t>(n);
+}
+
+void set_client(EventRecord& event, uint8_t family, const uint8_t* addr) {
+    event.client_family = family;
+    std::memcpy(event.client, addr, family == 6 ? 16 : 4);
+}
+
+void add_ip(EventRecord& event, uint8_t family, const uint8_t* addr) {
+    if (event.ip_count >= EventRecord::kMaxIps) {
+        if (event.ips_overflow < UINT8_MAX) ++event.ips_overflow;
+        return;
+    }
+    event.ip_family[event.ip_count] = family;
+    std::memcpy(event.ips[event.ip_count], addr, family == 6 ? 16 : 4);
+    ++event.ip_count;
 }
 
 uint16_t be16(const uint8_t* p) { return static_cast<uint16_t>((p[0] << 8) | p[1]); }
@@ -58,6 +85,8 @@ int64_t signed_micros(Clock::time_point from, Clock::time_point to) {
 }
 
 } // namespace
+
+static_assert(InterceptProcessor::kEventCapacity == 512, "EventRing capacity");
 
 const char* timeout_cause_name(TimeoutCause cause) {
     switch (cause) {
@@ -132,7 +161,7 @@ bool InterceptProcessor::queue_refresh(const std::shared_ptr<const InterceptSnap
 
 void InterceptProcessor::classify_adds(const std::shared_ptr<const InterceptSnapshot>& snap,
                                        int64_t now_ms, bool queue_refreshes,
-                                       InterceptEvent& event) {
+                                       EventRecord& event) {
     std::size_t kept = 0;
     uint64_t hits = 0;
     for (std::size_t i = 0; i < adds_.size(); ++i) {
@@ -178,7 +207,7 @@ void InterceptProcessor::classify_adds(const std::shared_ptr<const InterceptSnap
 void InterceptProcessor::set_snapshot(std::shared_ptr<const InterceptSnapshot> snapshot) {
     // One slot per distinct dynamic-set name; built once per snapshot so the
     // hot path resolves a slot with an index, never a string lookup.
-    std::shared_ptr<const SlotTable> slots;
+    std::shared_ptr<SlotTable> table;
     if (snapshot) {
         std::vector<std::string_view> names;
         for (const InterceptListTarget& target : snapshot->targets) {
@@ -194,17 +223,24 @@ void InterceptProcessor::set_snapshot(std::shared_ptr<const InterceptSnapshot> s
             return idx < SetElementCache::kNoSlot ? static_cast<uint16_t>(idx)
                                                   : SetElementCache::kNoSlot;
         };
-        auto table = std::make_shared<SlotTable>();
+        table = std::make_shared<SlotTable>();
         table->by_target.reserve(snapshot->targets.size());
         for (const InterceptListTarget& target : snapshot->targets) {
             table->by_target.push_back({slot_of(target.set_v4), slot_of(target.set_v6)});
         }
-        slots = std::move(table);
     }
     {
         std::lock_guard<std::mutex> lock(snapshot_mutex_);
+        if (table) {
+            // Events carry this generation; events_since() resolves their list
+            // ids with the name table registered under it.
+            table->generation = next_generation_++;
+            std::lock_guard<std::mutex> names_lock(names_mutex_);
+            name_tables_.push_back({table->generation, snapshot->index->list_names()});
+            while (name_tables_.size() > kNameGenerations) name_tables_.pop_front();
+        }
         snapshot_ = std::move(snapshot);
-        slots_ = std::move(slots);
+        slots_ = std::move(table);
         // A snapshot change means the sets may have been recreated: nothing
         // cached about the old ones can be trusted.  Cleared under the snapshot
         // lock so a reader that captured the epoch first can never record
@@ -260,54 +296,136 @@ void InterceptProcessor::bump_timeout_cause(TimeoutCause cause) {
 }
 
 void InterceptProcessor::set_round_batch_size(uint64_t first_seq, uint32_t batch_size) {
-    std::lock_guard<std::mutex> lock(events_mutex_);
-    for (auto it = events_.rbegin(); it != events_.rend() && it->seq >= first_seq; ++it) {
-        if (it->batch_pos >= 0) it->batch_size = batch_size;
+    // Runs on the producer thread: rewrites its own slots in place (seqlock
+    // update); events already overwritten or not timed are left alone.
+    const uint64_t last = ring_.last_seq();
+    for (uint64_t seq = first_seq; seq <= last; ++seq) {
+        EventRecord rec;
+        if (ring_.peek(seq, rec) != EventRing::Peek::Ok || rec.batch_pos < 0 ||
+            rec.batch_size == batch_size) {
+            continue;
+        }
+        ring_.update(seq, [batch_size](EventRecord& r) {
+            if (r.batch_pos < 0) return false;
+            r.batch_size = batch_size;
+            return true;
+        });
     }
 }
 
-void InterceptProcessor::push_event(InterceptEvent&& event) {
-    // Every hold timeout may have let a client connect before its address was
-    // routed, so it is worth a warning (timeouts only, never per packet).
-    if (event.timed_out && Logger::instance().is_enabled(LogLevel::warn)) {
-        Logger::instance().warn(
-            "intercept: dns hold timeout cause={} domain={} batch_pos={} queue_wait={}us "
-            "budget_left={}us parse={}us admission_wait={}us write={}us elements={} "
-            "late_elements={} errno={}",
-            timeout_cause_name(event.timeout_cause), log_escape(event.domain), event.batch_pos,
-            event.queue_wait_us, event.budget_left_us, event.parse_us, event.admission_wait_us,
-            event.set_write_us, event.write_elements, event.late_batch_elements,
-            event.write_errno);
+void InterceptProcessor::push_event(EventRecord& event) {
+    if (event.ts_steady_us == 0) event.ts_steady_us = steady_us(Clock::now());
+    ring_.push(event);
+}
+
+EventRecord& InterceptProcessor::stage_event(InterceptSource source) {
+    pending_ = kEmptyRecord;
+    pending_.source = source;
+    pending_valid_ = true;
+    return pending_;
+}
+
+void InterceptProcessor::commit_dns_event() {
+    if (!pending_valid_) return;
+    pending_valid_ = false;
+    push_event(pending_);
+}
+
+InterceptEvent InterceptProcessor::format_event(const EventRecord& record) const {
+    InterceptEvent event;
+    event.seq = record.seq;
+    // The record keeps a steady timestamp; the wall time is derived from the
+    // event's age so the hot path never reads the wall clock.
+    event.ts_ms = wall_ms() - (steady_us(Clock::now()) - record.ts_steady_us) / 1000;
+    event.source = record.source;
+    if (record.client_family != 0) event.client_ip = format_ip(record.client_family, record.client);
+    event.domain.assign(record.domain, record.domain_len);
+    event.ips.reserve(record.ip_count);
+    for (std::size_t i = 0; i < record.ip_count; ++i) {
+        event.ips.push_back(format_ip(record.ip_family[i], record.ips[i]));
     }
-    std::lock_guard<std::mutex> lock(events_mutex_);
-    event.seq = next_seq_++;
-    event.ts_ms = wall_ms();
-    events_.push_back(std::move(event));
-    while (events_.size() > kEventCapacity) events_.pop_front();
+    event.lists.reserve(record.list_count);
+    {
+        // Names of generations no longer kept are shown as "?".
+        std::lock_guard<std::mutex> lock(names_mutex_);
+        const NameTable* table = nullptr;
+        for (const NameTable& candidate : name_tables_) {
+            if (candidate.generation == record.generation) table = &candidate;
+        }
+        for (std::size_t i = 0; i < record.list_count; ++i) {
+            const uint16_t id = record.list_ids[i];
+            if (table != nullptr && id < table->names.size()) {
+                event.lists.push_back(table->names[id]);
+            } else {
+                event.lists.emplace_back("?");
+            }
+        }
+    }
+    event.added = record.added;
+    event.refreshed = record.refreshed;
+    event.errors = record.errors;
+    event.hold_us = record.hold_us;
+    event.parse_us = record.parse_us;
+    event.set_write_us = record.set_write_us;
+    event.timed_out = record.timed_out;
+    event.late_write = record.late_write;
+    event.cache_hits = record.cache_hits;
+    event.deferred_refresh = record.deferred_refresh;
+    event.refresh_skipped = record.refresh_skipped;
+    event.batch_pos = record.batch_pos;
+    event.batch_size = record.batch_size;
+    event.queue_wait_us = record.queue_wait_us;
+    event.budget_left_us = record.budget_left_us;
+    event.admission_wait_us = record.admission_wait_us;
+    event.write_elements = record.write_elements;
+    event.late_batch_elements = record.late_batch_elements;
+    event.write_errno = record.write_errno;
+    event.timeout_cause = record.timeout_cause;
+    return event;
 }
 
 std::vector<InterceptEvent> InterceptProcessor::events_since(uint64_t after_seq,
                                                              std::size_t max) const {
+    std::vector<EventRecord> records;
+    ring_.read(after_seq, max, records);
     std::vector<InterceptEvent> out;
-    std::lock_guard<std::mutex> lock(events_mutex_);
-    for (const InterceptEvent& event : events_) {
-        if (event.seq <= after_seq) continue;
-        if (out.size() >= max) break;
-        out.push_back(event);
-    }
+    out.reserve(records.size());
+    for (const EventRecord& record : records) out.push_back(format_event(record));
     return out;
 }
 
-uint64_t InterceptProcessor::last_event_seq() const {
-    std::lock_guard<std::mutex> lock(events_mutex_);
-    return next_seq_ - 1;
+void InterceptProcessor::log_hold_timeouts() {
+    // Every hold timeout may have let a client connect before its address was
+    // routed, so it is worth a warning (timeouts only, never per packet).
+    if (!Logger::instance().is_enabled(LogLevel::warn)) {
+        logged_seq_ = std::max(logged_seq_, ring_.last_seq());
+        return;
+    }
+    std::vector<EventRecord> records;
+    ring_.read(logged_seq_, kEventCapacity, records);
+    for (const EventRecord& event : records) {
+        logged_seq_ = event.seq;
+        if (!event.timed_out) continue;
+        Logger::instance().warn(
+            "intercept: dns hold timeout cause={} domain={} batch_pos={} queue_wait={}us "
+            "budget_left={}us parse={}us admission_wait={}us write={}us elements={} "
+            "late_elements={} errno={}",
+            timeout_cause_name(event.timeout_cause),
+            log_escape(std::string_view(event.domain, event.domain_len)), event.batch_pos,
+            event.queue_wait_us, event.budget_left_us, event.parse_us, event.admission_wait_us,
+            event.set_write_us, event.write_elements, event.late_batch_elements,
+            event.write_errno);
+    }
 }
 
-void InterceptProcessor::collect_list_names(const InterceptSnapshot& snap,
-                                            std::vector<std::string>& out) const {
-    const auto& names = snap.index->list_names();
+void InterceptProcessor::record_list_ids(const SlotTable& slots, EventRecord& event) const {
+    event.generation = slots.generation;
     for (DomainIndex::ListId id : ids_) {
-        if (id < names.size()) out.push_back(names[id]);
+        if (event.list_count < EventRecord::kMaxLists) {
+            event.list_ids[event.list_count++] = id;
+        } else if (event.lists_overflow < UINT8_MAX) {
+            ++event.lists_overflow;
+        }
     }
 }
 
@@ -340,15 +458,24 @@ void InterceptProcessor::append_add(const InterceptSnapshot& snap, const SlotTab
                                                      : SetElementCache::kNoSlot);
 }
 
-InterceptProcessor::DnsDecision InterceptProcessor::on_dns_packet(
+InterceptProcessor::DnsDecision InterceptProcessor::process_dns_packet(
     ByteView l3, const DnsRound& round, bool replacement_allowed) {
+    pending_valid_ = false;
     try {
         return handle_dns(l3, round, replacement_allowed);
     } catch (const std::exception& e) {
         Logger::instance().debug("intercept: DNS packet handling failed: {}", e.what());
     } catch (...) {  // NOLINT(bugprone-empty-catch): packet handling must never throw into the netfilter loop
     }
+    pending_valid_ = false;
     return {};
+}
+
+InterceptProcessor::DnsDecision InterceptProcessor::on_dns_packet(
+    ByteView l3, const DnsRound& round, bool replacement_allowed) {
+    const DnsDecision decision = process_dns_packet(l3, round, replacement_allowed);
+    commit_dns_event();
+    return decision;
 }
 
 void InterceptProcessor::on_l7_packet(ByteView l3, Clock::time_point now) {
@@ -416,46 +543,29 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
                 decision.replacement = &replacement_;
             }
         }
-        InterceptEvent event;
-        event.source = InterceptSource::marker;
-        const std::size_t client_offset = layout->ip_version == 6 ? 24 : 16;
-        const std::size_t client_length = layout->ip_version == 6 ? 16 : 4;
-        if (client_offset + client_length <= l3.size()) {
-            std::array<uint8_t, 16> client{};
-            std::memcpy(client.data(), l3.data() + client_offset, client_length);
-            event.client_ip = format_ip(layout->ip_version, client);
-        }
-        event.domain = response_.qname;
-        event.hold_us = static_cast<uint32_t>(
-            std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
-        push_event(std::move(event));
+        EventRecord& event = stage_event(InterceptSource::marker);
+        event.ts_steady_us = steady_us(started);
+        if (dns_client_valid_) set_client(event, layout->ip_version, dns_client_.data());
+        set_domain(event, response_.qname);
+        event.hold_us = micros_since(started, Clock::now());
         return decision;
     }
 
-    const auto add_dns_observation = [&](InterceptEvent& event) {
-        const std::size_t client_offset = layout->ip_version == 6 ? 24 : 16;
-        const std::size_t client_length = layout->ip_version == 6 ? 16 : 4;
-        if (client_offset + client_length <= l3.size()) {
-            std::array<uint8_t, 16> client{};
-            std::memcpy(client.data(), l3.data() + client_offset, client_length);
-            event.client_ip = format_ip(layout->ip_version, client);
-        }
-        event.domain = response_.qname;
-        event.parse_us = static_cast<uint32_t>(
-            std::chrono::duration_cast<std::chrono::microseconds>(parsed_at - started).count());
+    const auto add_dns_observation = [&](EventRecord& event) {
+        event.ts_steady_us = steady_us(started);
+        if (dns_client_valid_) set_client(event, layout->ip_version, dns_client_.data());
+        set_domain(event, response_.qname);
+        event.parse_us = micros_since(started, parsed_at);
         event.batch_pos = static_cast<int32_t>(round.batch_pos);
         event.queue_wait_us = signed_micros(round.woke, started);
         event.budget_left_us = signed_micros(started, deadline);
         for (const dns_wire::AddressRecord& rec : response_.addresses) {
-            event.ips.push_back(format_ip(rec.family, rec.addr));
+            add_ip(event, rec.family, rec.addr.data());
         }
     };
 
     if (response_.rcode != 0 || response_.addresses.empty()) {
-        InterceptEvent event;
-        event.source = InterceptSource::dns;
-        add_dns_observation(event);
-        push_event(std::move(event));
+        add_dns_observation(stage_event(InterceptSource::dns));
         return {};
     }
 
@@ -467,10 +577,7 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
         ids_.insert(ids_.end(), ids_tmp_.begin(), ids_tmp_.end());
     }
     if (ids_.empty()) {
-        InterceptEvent event;
-        event.source = InterceptSource::dns;
-        add_dns_observation(event);
-        push_event(std::move(event));
+        add_dns_observation(stage_event(InterceptSource::dns));
         return {};
     }
     std::sort(ids_.begin(), ids_.end());
@@ -486,10 +593,9 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
         }
     }
 
-    InterceptEvent event;
-    event.source = InterceptSource::dns;
+    EventRecord& event = stage_event(InterceptSource::dns);
     add_dns_observation(event);
-    collect_list_names(*snap, event.lists);
+    record_list_ids(*slots, event);
 
     // Only addresses the cache does not know block the verdict.  Cached ones
     // are already routed; their timeout refresh (if due) runs after the verdict.
@@ -498,7 +604,11 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
     if (!adds_.empty()) {
         results_.assign(adds_.size(), nfnl::SetAddResult::Error);
         // The write is deferred (verdict first) when the deadline has passed.
-        bool defer = Clock::now() >= deadline;
+        // This read doubles as the start of the admission wait, the next one
+        // as its end and the start of the write: no clock read is spent on
+        // timing a path that did not run.
+        const Clock::time_point checked_at = Clock::now();
+        bool defer = checked_at >= deadline;
         TimeoutCause cause = defer ? TimeoutCause::budget_spent_by_batch : TimeoutCause::other;
         bool after_timeout = false;
         bool ok = false;
@@ -512,11 +622,11 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
                 dns_admission = dns_admission_;
                 dns_release = dns_release_;
             }
-            const Clock::time_point admission_started = Clock::now();
             const bool admitted = !dns_admission || dns_admission();
-            event.admission_wait_us = micros_since(admission_started, Clock::now());
+            const Clock::time_point admitted_at = Clock::now();
+            event.admission_wait_us = micros_since(checked_at, admitted_at);
             if (admitted) {
-                if (Clock::now() >= deadline) {
+                if (admitted_at >= deadline) {
                     if (dns_release) dns_release();
                     defer = true;
                     cause = TimeoutCause::admission_blocked;
@@ -524,18 +634,14 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
                     if (dns_release) dns_release();
                     event.errors = static_cast<uint32_t>(adds_.size());
                     bump(counters_.set_errors, event.errors);
-                    event.hold_us = static_cast<uint32_t>(
-                        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started)
-                            .count());
-                    push_event(std::move(event));
+                    event.hold_us = micros_since(started, Clock::now());
                     return decision;
                 } else {
                     const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        (deadline - Clock::now()) + std::chrono::microseconds(999));
+                        (deadline - admitted_at) + std::chrono::microseconds(999));
                     const int budget_ms = static_cast<int>(std::max<int64_t>(1, remaining_ms.count()));
                     write_attempted = true;
                     event.write_elements = static_cast<uint32_t>(adds_.size());
-                    const Clock::time_point write_started = Clock::now();
                     write_started_ms = to_ms(clock_now());
                     try {
                         // One exclusive add: existing elements come back as Exists.
@@ -546,10 +652,7 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
                         if (dns_release) dns_release();
                         throw;
                     }
-                    event.set_write_us = static_cast<uint32_t>(
-                        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() -
-                                                                              write_started)
-                            .count());
+                    event.set_write_us = micros_since(admitted_at, Clock::now());
                     counters_.dns_write_latency.record(event.set_write_us, event.write_elements);
                     if (!ok) event.write_errno = writer_.last_errno();
                     if (dns_release) dns_release();
@@ -604,8 +707,7 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
             bump(counters_.set_added, event.added);
             bump(counters_.set_refreshed, event.refreshed);
             if (kept > 0) {
-                decision.late_write =
-                    defer_late_write(snap, std::move(event), started, after_timeout, cause);
+                decision.late_write = defer_late_write(snap, started, after_timeout, cause);
                 return decision;
             }
             // Everything was confirmed in time despite the late ETIMEDOUT mark.
@@ -623,15 +725,14 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
             bump(counters_.set_errors, event.errors);
         }
     }
-    event.hold_us = static_cast<uint32_t>(
-        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
-    push_event(std::move(event));
+    event.hold_us = micros_since(started, Clock::now());
     return decision;
 }
 
 bool InterceptProcessor::defer_late_write(const std::shared_ptr<const InterceptSnapshot>& snap,
-                                          InterceptEvent&& event, Clock::time_point started,
-                                          bool after_timeout, TimeoutCause cause) {
+                                          Clock::time_point started, bool after_timeout,
+                                          TimeoutCause cause) {
+    EventRecord& event = pending_;  // the staged event of the packet being handled
     event.timed_out = true;
     event.late_write = true;
     event.timeout_cause = cause;
@@ -647,11 +748,11 @@ bool InterceptProcessor::defer_late_write(const std::shared_ptr<const InterceptS
         bump(counters_.dns_late_write_errors, n);
         event.timeout_cause = TimeoutCause::late_batch_full;
         bump_timeout_cause(event.timeout_cause);
-        push_event(std::move(event));
-        return false;
+        return false;  // stays staged: published after the verdict
     }
     LateEvent le;
-    le.event = std::move(event);
+    le.event = event;
+    pending_valid_ = false;  // published by flush_late_writes() instead
     le.snapshot = snap;  // adds hold string_views into this snapshot
     le.addresses = response_.addresses;
     le.client = dns_client_;
@@ -736,7 +837,7 @@ void InterceptProcessor::flush_late_writes() {
 
         std::size_t pos = 0;
         for (LateEvent& le : late_events_) {
-            InterceptEvent event = std::move(le.event);
+            EventRecord& event = le.event;
             uint32_t added = 0, refreshed = 0, errors = 0;
             if (le.snapshot_ok) {
                 for (std::size_t i = 0; i < le.count; ++i) {
@@ -770,7 +871,7 @@ void InterceptProcessor::flush_late_writes() {
                     cleanup_.request(rec.family, le.client, rec.addr);
                 }
             }
-            push_event(std::move(event));
+            push_event(event);
         }
     } catch (const std::exception& e) {
         Logger::instance().debug("intercept: late DNS write handling failed: {}", e.what());
@@ -948,14 +1049,13 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
         // even when no configured list matched them.  There is no set work
         // for these events, but the packet metadata is still useful to the
         // current-requests view.
-        InterceptEvent event;
+        EventRecord event;
         event.source = source;
-        event.client_ip = format_ip(layout->ip_version, key.src);
-        event.domain = sni_;
-        event.parse_us = static_cast<uint32_t>(
-            std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
-        event.ips.push_back(format_ip(layout->ip_version, key.dst));
-        push_event(std::move(event));
+        set_client(event, layout->ip_version, key.src.data());
+        set_domain(event, sni_);
+        event.parse_us = micros_since(started, Clock::now());
+        add_ip(event, layout->ip_version, key.dst.data());
+        push_event(event);
         return;
     }
     bump(counters_.l7_matched);
@@ -966,14 +1066,13 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
         append_add(*snap, *slots, id, layout->ip_version, key.dst, 0, false);
     }
 
-    InterceptEvent event;
+    EventRecord event;
     event.source = source;
-    event.client_ip = format_ip(layout->ip_version, key.src);
-    event.domain = sni_;
-    event.parse_us = static_cast<uint32_t>(
-        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - started).count());
-    collect_list_names(*snap, event.lists);
-    event.ips.push_back(format_ip(layout->ip_version, key.dst));
+    set_client(event, layout->ip_version, key.src.data());
+    set_domain(event, sni_);
+    event.parse_us = micros_since(started, Clock::now());
+    record_list_ids(*slots, event);
+    add_ip(event, layout->ip_version, key.dst.data());
 
     // A trusted cached element needs no write at all (and no conntrack cleanup).
     const int64_t cache_now_ms = to_ms(clock_now());
@@ -986,7 +1085,7 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
         work.slots = std::move(add_slots_);
         work.cache_epoch = cache_epoch;
         work.cache_now_ms = cache_now_ms;
-        work.event = std::move(event);
+        work.event = event;
         work.family = layout->ip_version;
         work.destination = key.dst;
         work.client = key.src;
@@ -1002,7 +1101,7 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
         process_l7_work(std::move(work), writer_);
         return;
     }
-    push_event(std::move(event));
+    push_event(event);
 }
 
 void InterceptProcessor::process_l7_work(InterceptL7Work work,
@@ -1013,7 +1112,7 @@ void InterceptProcessor::process_l7_work(InterceptL7Work work,
 void InterceptProcessor::reject_l7_work(InterceptL7Work work) {
     work.event.errors += static_cast<uint32_t>(work.adds.size());
     bump(counters_.set_errors, work.adds.size());
-    push_event(std::move(work.event));
+    push_event(work.event);
 }
 
 void InterceptProcessor::record_l7_result(InterceptL7Work work,
@@ -1071,7 +1170,7 @@ void InterceptProcessor::record_l7_result(InterceptL7Work work,
     bump(counters_.set_errors, work.event.errors);
     // Only an address that was actually added needs conntrack cleanup.
     if (any_added) cleanup_.request(work.family, work.client, work.destination);
-    push_event(std::move(work.event));
+    push_event(work.event);
 }
 
 } // namespace keen_pbr3

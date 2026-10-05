@@ -1509,10 +1509,11 @@ void Daemon::run() {
 
 #ifdef WITH_API
   setup_api();
+#endif
+  // Also without the API: the pump logs the DNS hold timeouts.
   intercept_event_task_id_ = scheduler_->schedule_repeating(
       std::chrono::milliseconds{100}, [this] { pump_intercept_events(); },
       "intercept-events");
-#endif
 
   intercept_rebind_task_id_ = scheduler_->schedule_repeating(
       std::chrono::seconds{1}, [this] { tick_intercept_rebind(); },

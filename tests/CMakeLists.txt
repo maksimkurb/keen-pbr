@@ -32,6 +32,7 @@ add_executable(keen-pbr-tests
   test_nfnetfilter_wrappers.cpp
   test_set_writer.cpp
   test_intercept_processor.cpp
+  test_seqlock_ring.cpp
   test_set_element_cache.cpp
   test_intercept_live.cpp
   test_intercept_wiring.cpp

@@ -90,6 +90,8 @@ public:
     const InterceptCounters& counters() const { return counters_; }
     std::vector<InterceptEvent> events_since(uint64_t after_seq, std::size_t max) const;
     uint64_t last_event_seq() const { return processor_.last_event_seq(); }
+    // Logs the DNS hold timeouts not logged yet; called by the event pump only.
+    void log_hold_timeouts() { processor_.log_hold_timeouts(); }
 
 private:
     class WriteGate {

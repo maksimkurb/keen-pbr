@@ -11,7 +11,11 @@
 
 #include <netinet/in.h>
 
+#include <atomic>
 #include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <new>
 #include <condition_variable>
 #include <cstring>
 #include <functional>
@@ -1512,4 +1516,147 @@ TEST_CASE("intercept rebind: a failed background build keeps the published snaps
     f.answer("a.example");
     REQUIRE(f.writer.recorded.size() == 1);
     CHECK(f.writer.recorded[0].set == "kpbr4d_a");
+}
+
+// ---------------------------------------------------------------- benchmark
+//
+// Test-only allocation counter: every global operator new in this binary bumps
+// it while counting is enabled.  Used by the [bench] test to prove the steady
+// DNS-hold path does not touch the heap.
+
+namespace {
+std::atomic<bool> g_count_allocs{false};
+std::atomic<uint64_t> g_allocs{0};
+} // namespace
+
+void* operator new(std::size_t size) {
+    if (g_count_allocs.load(std::memory_order_relaxed)) g_allocs.fetch_add(1, std::memory_order_relaxed);
+    if (void* p = std::malloc(size == 0 ? 1 : size)) return p;
+    throw std::bad_alloc();
+}
+void operator delete(void* p) noexcept { std::free(p); }
+void operator delete(void* p, std::size_t) noexcept { std::free(p); }
+
+namespace {
+
+// Writer that records nothing: the benchmark must not measure the fake.
+class NullSetWriter : public DynamicSetWriter {
+public:
+    bool add(const SetAdd*, SetAddResult* out, std::size_t count, int) override { return fill(out, count); }
+    bool add_new(const SetAdd*, SetAddResult* out, std::size_t count, int) override {
+        return fill(out, count);
+    }
+    bool refresh(const SetAdd*, SetAddResult* out, std::size_t count, int) override {
+        return fill(out, count);
+    }
+    int last_errno() const override { return 0; }
+
+private:
+    static bool fill(SetAddResult* out, std::size_t count) {
+        for (std::size_t i = 0; i < count; ++i) out[i] = SetAddResult::Added;
+        return true;
+    }
+};
+
+struct BenchResult {
+    double ns_per_packet;
+    double allocs_per_packet;
+};
+
+BenchResult run_bench(InterceptProcessor& proc, const Bytes& pkt, int iterations,
+                      const std::function<void()>& before_each = {}) {
+    const ByteView v = view(pkt);
+    const DnsRound round(Clock::now() + std::chrono::hours(1));
+    for (int i = 0; i < 2000; ++i) proc.on_dns_packet(v, round, false);  // warm scratch capacity
+    uint64_t total_ns = 0;
+    g_allocs.store(0);
+    g_count_allocs.store(true);
+    for (int i = 0; i < iterations; ++i) {
+        if (before_each) before_each();
+        const auto t0 = Clock::now();
+        proc.on_dns_packet(v, round, false);
+        total_ns += static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - t0).count());
+    }
+    g_count_allocs.store(false);
+    return {static_cast<double>(total_ns) / iterations,
+            static_cast<double>(g_allocs.load()) / iterations};
+}
+
+} // namespace
+
+TEST_CASE("intercept bench: DNS hold recording cost per packet [bench]") {
+    NullSetWriter writer;
+    FakeCleanup cleanup;
+    InterceptCounters counters;
+    InterceptProcessor proc(writer, cleanup, counters);
+    DomainIndex::Builder b;
+    const auto ex = b.add_list("ex");
+    b.add_domain(ex, "example.com");
+    auto snap = std::make_shared<InterceptSnapshot>();
+    snap->index = std::make_shared<DomainIndex>(std::move(b).build());
+    snap->targets.resize(1);
+    snap->targets[0] = {"kpbr4d_ex", "kpbr6d_ex", 300};
+    proc.set_snapshot(snap);
+
+    const Bytes unmatched = dns_packet(dns_response("other.org", 0, {a_rr(1, 1, 1, 1, 60)}));
+    const Bytes matched = dns_packet(dns_response("www.example.com", 0,
+                                                  {a_rr(93, 184, 216, 34, 600), aaaa_rr(1, 600)}));
+    constexpr int kIterations = 200000;
+    const BenchResult un = run_bench(proc, unmatched, kIterations);
+    const BenchResult hit = run_bench(proc, matched, kIterations);  // cache hit after the first write
+    const BenchResult miss =
+        run_bench(proc, matched, kIterations, [&proc] { proc.invalidate_set_cache(); });
+    std::fprintf(stderr,
+                 "BENCH unmatched: %.0f ns/packet, %.3f allocs/packet\n"
+                 "BENCH matched (cache hit): %.0f ns/packet, %.3f allocs/packet\n"
+                 "BENCH matched (write via fake writer): %.0f ns/packet, %.3f allocs/packet\n",
+                 un.ns_per_packet, un.allocs_per_packet, hit.ns_per_packet, hit.allocs_per_packet,
+                 miss.ns_per_packet, miss.allocs_per_packet);
+    // The steady path (verdict, recording included) must not touch the heap.
+    CHECK(un.allocs_per_packet == 0.0);
+    CHECK(hit.allocs_per_packet == 0.0);
+    CHECK(miss.allocs_per_packet == 0.0);
+}
+
+TEST_CASE("intercept events: list names resolve by snapshot generation") {
+    Fixture f;
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
+    f.proc.on_dns_packet(view(pkt), Fixture::deadline(), false);
+    f.publish();  // generation 2: the first event's names are still kept
+    f.proc.on_dns_packet(view(pkt), Fixture::deadline(), false);
+    auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 2);
+    CHECK(events[0].lists == std::vector<std::string>{"ex", "both"});
+    CHECK(events[1].lists == std::vector<std::string>{"ex", "both"});
+    f.publish();  // generation 3: generation 1 is gone
+    events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 2);
+    CHECK(events[0].lists == std::vector<std::string>{"?", "?"});
+    CHECK(events[1].lists == std::vector<std::string>{"ex", "both"});
+}
+
+TEST_CASE("intercept events: answer addresses beyond the record limit are not stored but still written") {
+    Fixture f;
+    std::vector<Rr> answers;
+    for (uint8_t i = 1; i <= 10; ++i) answers.push_back(a_rr(10, 0, 0, i, 100));
+    const Bytes pkt = dns_packet(dns_response("example.com", 0, answers));
+    f.proc.on_dns_packet(view(pkt), Fixture::deadline(), false);
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].ips.size() == EventRecord::kMaxIps);
+    CHECK(events[0].ips[0] == "10.0.0.1");
+    CHECK(f.writer.recorded.size() == 10);  // every address is still written
+}
+
+TEST_CASE("intercept events: staged event is published after commit only") {
+    Fixture f;
+    const Bytes pkt = dns_packet(dns_response("other.org", 0, {a_rr(1, 1, 1, 1, 60)}));
+    f.proc.process_dns_packet(view(pkt), Fixture::deadline(), false);
+    CHECK(f.proc.events_since(0, 10).empty());
+    f.proc.commit_dns_event();
+    CHECK(f.proc.events_since(0, 10).size() == 1);
+    f.proc.commit_dns_event();  // nothing staged any more
+    CHECK(f.proc.events_since(0, 10).size() == 1);
+    f.proc.log_hold_timeouts();  // drain side: nothing to log, must not throw
 }
