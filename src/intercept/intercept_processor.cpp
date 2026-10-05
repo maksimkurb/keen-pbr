@@ -370,6 +370,7 @@ InterceptEvent InterceptProcessor::format_event(const EventRecord& record) const
     event.cache_hits = record.cache_hits;
     event.deferred_refresh = record.deferred_refresh;
     event.refresh_skipped = record.refresh_skipped;
+    event.not_learned = record.not_learned;
     event.batch_pos = record.batch_pos;
     event.batch_size = record.batch_size;
     event.queue_wait_us = record.queue_wait_us;
@@ -434,6 +435,8 @@ void InterceptProcessor::append_add(const InterceptSnapshot& snap, const SlotTab
                                     const std::array<uint8_t, 16>& addr,
                                     uint32_t record_ttl_s, bool use_record_ttl) {
     if (id >= snap.targets.size()) return;
+    // Skip non-learnable addresses: 0.0.0.0, ::, 127.0.0.0/8, ::1
+    if (!dns_wire::is_learnable_address(family, addr.data())) return;
     const InterceptListTarget& target = snap.targets[id];
     const std::string& set = family == 6 ? target.set_v6 : target.set_v4;
     if (set.empty()) return;
@@ -581,6 +584,21 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns_message(
     const dns_wire::PacketLayout* layout = &layoutref;
 
     response_.clear();
+    // Quick check: if IPv6 is disabled and this is an AAAA query, parse just the question
+    // and accept immediately without learning. This avoids answer parsing and event recording.
+    if (!snap->ipv6_enabled) {
+        if (!dns_wire::parse_question_only(message, response_)) {
+            bump(counters_.dns_parse_errors);
+            return {};
+        }
+        if (response_.qtype == 28) {  // AAAA query type
+            bump(counters_.dns_aaaa_ignored);
+            return {};
+        }
+        // Not an AAAA query, reset and do full parse
+        response_.clear();
+    }
+
     if (!dns_wire::parse_response(message, response_)) {
         bump(counters_.dns_parse_errors);
         return {};
@@ -644,13 +662,19 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns_message(
 
     adds_.clear();
     add_slots_.clear();
+    uint32_t not_learned_count = 0;
     for (const dns_wire::AddressRecord& rec : response_.addresses) {
-        for (DomainIndex::ListId id : ids_) {
-            append_add(*snap, *slots, id, rec.family, rec.addr, rec.ttl, true);
+        if (!dns_wire::is_learnable_address(rec.family, rec.addr.data())) {
+            ++not_learned_count;
+        } else {
+            for (DomainIndex::ListId id : ids_) {
+                append_add(*snap, *slots, id, rec.family, rec.addr, rec.ttl, true);
+            }
         }
     }
 
     EventRecord& event = stage_event(InterceptSource::dns);
+    event.not_learned = static_cast<uint8_t>(std::min(not_learned_count, 255u));
     add_dns_observation(event);
     record_list_ids(*slots, event);
 

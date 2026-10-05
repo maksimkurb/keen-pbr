@@ -11,6 +11,8 @@ export interface InterceptCountersHealth {
   dns_packets?: number;
   dns_parse_errors?: number;
   dns_matched?: number;
+  /** AAAA query replies ignored when IPv6 is disabled (no learning, no event). */
+  dns_aaaa_ignored?: number;
   dns_hold_timeouts?: number;
   dns_late_writes?: number;
   dns_late_write_errors?: number;

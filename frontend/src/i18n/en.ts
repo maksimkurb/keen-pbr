@@ -579,6 +579,10 @@ export const enTranslation = {
         "{{count}} addresses were already in the set; their timeout was refreshed",
       errors_one: "{{count}} address failed to be written to the set",
       errors_other: "{{count}} addresses failed to be written to the set",
+      not_learned_one: "{{count}} blocking or unroutable address not learned",
+      not_learned_other: "{{count}} blocking or unroutable addresses not learned",
+      not_learned_tooltip:
+        "Blocking or unroutable answer (0.0.0.0, ::, loopback) — not added to sets",
       seq: "Request #{{seq}} (event sequence number)",
       time: "Seen at {{time}} ({{date}})",
       parse: "Response parsed in {{value}}",

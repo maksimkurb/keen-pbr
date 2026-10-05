@@ -204,6 +204,41 @@ void ParsedResponse::clear() {
     addresses.clear();
 }
 
+bool parse_question_only(ByteView dns_message, ParsedResponse& out) {
+    out.clear();
+    const uint8_t* m = dns_message.data();
+    const std::size_t size = dns_message.size();
+    if (size < 12) {
+        return false;
+    }
+    out.id = load_be16(m);
+    out.flags = load_be16(m + 2);
+    if ((out.flags & 0x8000) == 0) {
+        return false;
+    }
+    out.rcode = static_cast<uint8_t>(out.flags & 0x0F);
+    out.truncated = (out.flags & 0x0200) != 0;
+    if (load_be16(m + 4) != 1) {
+        return false;
+    }
+
+    std::size_t pos = 12;
+    if (!read_name(m, size, pos, out.qname, pos)) {
+        return false;
+    }
+    if (!is_valid_dns_name(out.qname)) {
+        return false;
+    }
+    if (pos + 4 > size) {
+        return false;
+    }
+    out.qtype = load_be16(m + pos);
+    out.qclass = load_be16(m + pos + 2);
+    pos += 4;
+    out.question_end = pos;
+    return true;
+}
+
 bool parse_response(ByteView dns_message, ParsedResponse& out) {
     out.clear();
     const uint8_t* m = dns_message.data();
@@ -279,6 +314,32 @@ bool parse_response(ByteView dns_message, ParsedResponse& out) {
             out.addresses.push_back(rec);
         }
         pos += rdlen;
+    }
+    return true;
+}
+
+bool is_learnable_address(uint8_t family, const uint8_t* addr) {
+    if (family == 4) {
+        // Check for 0.0.0.0 and 127.0.0.0/8 (loopback)
+        if (addr[0] == 0 && addr[1] == 0 && addr[2] == 0 && addr[3] == 0) return false;  // 0.0.0.0
+        if (addr[0] == 127) return false;  // 127.x.x.x (loopback)
+        return true;
+    } else if (family == 6) {
+        // Check for :: (unspecified)
+        if (addr[0] == 0 && addr[1] == 0 && addr[2] == 0 && addr[3] == 0 &&
+            addr[4] == 0 && addr[5] == 0 && addr[6] == 0 && addr[7] == 0 &&
+            addr[8] == 0 && addr[9] == 0 && addr[10] == 0 && addr[11] == 0 &&
+            addr[12] == 0 && addr[13] == 0 && addr[14] == 0 && addr[15] == 0) {
+            return false;  // ::
+        }
+        // Check for ::1 (loopback)
+        if (addr[0] == 0 && addr[1] == 0 && addr[2] == 0 && addr[3] == 0 &&
+            addr[4] == 0 && addr[5] == 0 && addr[6] == 0 && addr[7] == 0 &&
+            addr[8] == 0 && addr[9] == 0 && addr[10] == 0 && addr[11] == 0 &&
+            addr[12] == 0 && addr[13] == 0 && addr[14] == 0 && addr[15] == 1) {
+            return false;  // ::1
+        }
+        return true;
     }
     return true;
 }

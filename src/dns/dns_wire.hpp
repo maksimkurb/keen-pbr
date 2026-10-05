@@ -48,10 +48,19 @@ struct ParsedResponse {
 // Parses a DNS response message (no TCP length prefix). Requires QR=1, QDCOUNT==1.
 bool parse_response(ByteView dns_message, ParsedResponse& out);
 
+// Parses only the question portion of a DNS response (header + question section).
+// Returns true if successful; extracts qname, qtype, and rcode without parsing answers.
+// Useful for quick early-exit decisions like IPv6-disabled AAAA checks.
+bool parse_question_only(ByteView dns_message, ParsedResponse& out);
+
 // TCP payload begins with a 2-byte length; returns the message only if fully contained.
 std::optional<ByteView> tcp_single_message(ByteView tcp_payload);
 
 bool is_marker_name(std::string_view qname, std::string_view marker);
+
+// Checks if an address is learnable (not 0.0.0.0, ::, 127.0.0.0/8, or ::1).
+// `addr` is 4 bytes for IPv4 (family=4) or 16 bytes for IPv6 (family=6).
+bool is_learnable_address(uint8_t family, const uint8_t* addr);
 
 // Builds a replacement L3 packet (UDP only; IPv6 without extension headers only).
 // The question is copied byte-for-byte so 0x20 case randomization still matches.

@@ -128,6 +128,7 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
         out.dns_packets = load(counters->dns_packets);
         out.dns_parse_errors = load(counters->dns_parse_errors);
         out.dns_matched = load(counters->dns_matched);
+        out.dns_aaaa_ignored = load(counters->dns_aaaa_ignored);
         out.dns_hold_timeouts = load(counters->dns_hold_timeouts);
         out.dns_late_writes = load(counters->dns_late_writes);
         out.dns_late_write_errors = load(counters->dns_late_write_errors);
@@ -198,6 +199,7 @@ nlohmann::json intercept_event_to_json(const InterceptEvent& event) {
     }
     if (event.qtype != 0) json["qtype"] = event.qtype;
     if (event.rcode != 0) json["rcode"] = event.rcode;
+    if (event.not_learned != 0) json["not_learned"] = event.not_learned;
     return json;
 }
 

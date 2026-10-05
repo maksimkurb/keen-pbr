@@ -39,7 +39,8 @@ std::vector<InterceptListBinding> build_intercept_bindings(
 std::shared_ptr<const InterceptSnapshot> rebind_intercept_snapshot(
     const InterceptSnapshot* previous,
     const std::vector<InterceptListBinding>& bindings,
-    const InterceptEffective& effective);
+    const InterceptEffective& effective,
+    bool ipv6_enabled);
 
 // Builds the interception snapshot for an applied configuration: every list
 // referenced by an enabled route rule whose dynamic sets were declared by

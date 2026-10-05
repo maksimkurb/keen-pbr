@@ -38,6 +38,9 @@ export interface DnsTestInterceptEvent {
   cache_hits?: number;
   /** Timeout refreshes queued to run after the verdict was released. */
   deferred_refresh?: number;
+  /** Non-learnable answer addresses (blocking/unroutable: 0.0.0.0, ::, 127.0.0.0/8 loopback, ::1 loopback) that appear in the answer but were not added to sets. Only present if non-zero.
+   */
+  not_learned?: number;
   /** Time the DNS response was held, in microseconds (0 for L7 events). */
   hold_us: number;
   /** The hold deadline expired before the sets were written. */

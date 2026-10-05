@@ -587,3 +587,88 @@ TEST_CASE("dns_wire: CNAME duplicates collapse within cap") {
     REQUIRE(r.addresses.size() == 1);
     CHECK(r.addresses[0].addr[0] == 1);
 }
+
+TEST_CASE("dns_wire: parse_question_only extracts qname and qtype without parsing answers") {
+    // Build a DNS response with a truncated/garbage answer section.
+    Bytes m = header(0x1234, 0x8180, 1, 1);
+    append(m, question("example.com", 1));  // A query
+    // Add garbage answer section that would fail full parse
+    append(m, Bytes{0xFF, 0xFF, 0xFF});
+
+    ParsedResponse r;
+    // parse_question_only should succeed even with garbage answers
+    REQUIRE(parse_question_only(view(m), r));
+    CHECK(r.qname == "example.com");
+    CHECK(r.qtype == 1);  // A query
+    CHECK(r.addresses.empty());  // Answers not parsed
+}
+
+TEST_CASE("dns_wire: parse_question_only handles AAAA queries") {
+    Bytes m = header(0x1234, 0x8180, 1, 1);
+    append(m, question("example.com", 28));  // AAAA query (type 28)
+    append(m, rr(kPtrQname, 28, 300, {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}));
+
+    ParsedResponse r;
+    REQUIRE(parse_question_only(view(m), r));
+    CHECK(r.qname == "example.com");
+    CHECK(r.qtype == 28);  // AAAA
+    CHECK(r.addresses.empty());  // Answers not parsed
+}
+
+TEST_CASE("dns_wire: is_learnable_address filters non-routable addresses") {
+    std::array<uint8_t, 16> addr{};
+
+    // Test IPv4 addresses
+    // 0.0.0.0: not learnable
+    addr = {};
+    CHECK_FALSE(is_learnable_address(4, addr.data()));
+
+    // 127.0.0.1 (loopback): not learnable
+    addr = {};
+    addr[0] = 127;
+    addr[3] = 1;
+    CHECK_FALSE(is_learnable_address(4, addr.data()));
+
+    // 127.255.255.255 (loopback): not learnable
+    addr = {};
+    addr[0] = 127;
+    addr[1] = 255;
+    addr[2] = 255;
+    addr[3] = 255;
+    CHECK_FALSE(is_learnable_address(4, addr.data()));
+
+    // 1.2.3.4: learnable
+    addr = {};
+    addr[0] = 1;
+    addr[1] = 2;
+    addr[2] = 3;
+    addr[3] = 4;
+    CHECK(is_learnable_address(4, addr.data()));
+
+    // 8.8.8.8: learnable
+    addr = {};
+    addr[0] = 8;
+    addr[1] = 8;
+    addr[2] = 8;
+    addr[3] = 8;
+    CHECK(is_learnable_address(4, addr.data()));
+
+    // Test IPv6 addresses
+    // :: (all zeros / unspecified): not learnable
+    addr = {};
+    CHECK_FALSE(is_learnable_address(6, addr.data()));
+
+    // ::1 (loopback): not learnable
+    addr = {};
+    addr[15] = 1;
+    CHECK_FALSE(is_learnable_address(6, addr.data()));
+
+    // 2001:db8::1: learnable
+    addr = {};
+    addr[0] = 0x20;
+    addr[1] = 0x01;
+    addr[2] = 0x0d;
+    addr[3] = 0xb8;
+    addr[15] = 1;
+    CHECK(is_learnable_address(6, addr.data()));
+}

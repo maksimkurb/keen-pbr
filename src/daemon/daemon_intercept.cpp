@@ -292,7 +292,7 @@ void Daemon::schedule_intercept_snapshot_update(std::vector<FirewallSetDeclarati
     try {
         const auto bindings = build_intercept_bindings(config_, sets, ipv6_enabled, effective);
         const auto previous = service->current_snapshot();
-        if (auto rebound = rebind_intercept_snapshot(previous.get(), bindings, effective)) {
+        if (auto rebound = rebind_intercept_snapshot(previous.get(), bindings, effective, ipv6_enabled)) {
             KPBR_LOCK_GUARD(intercept_mutex_);
             if (intercept_service_ == service) service->update_snapshot(std::move(rebound));
         }

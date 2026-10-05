@@ -1619,6 +1619,10 @@ components:
         dns_packets: {type: integer, format: int64}
         dns_parse_errors: {type: integer, format: int64}
         dns_matched: {type: integer, format: int64}
+        dns_aaaa_ignored:
+          type: integer
+          format: int64
+          description: AAAA query replies ignored when IPv6 is disabled (no learning, no event).
         dns_hold_timeouts: {type: integer, format: int64}
         dns_late_writes: {type: integer, format: int64}
         dns_late_write_errors: {type: integer, format: int64}
@@ -1822,6 +1826,12 @@ components:
         deferred_refresh:
           type: integer
           description: Timeout refreshes queued to run after the verdict was released.
+        not_learned:
+          type: integer
+          description: >
+            Non-learnable answer addresses (blocking/unroutable: 0.0.0.0, ::,
+            127.0.0.0/8 loopback, ::1 loopback) that appear in the answer but
+            were not added to sets. Only present if non-zero.
         hold_us:
           type: integer
           description: Time the DNS response was held, in microseconds (0 for L7 events).

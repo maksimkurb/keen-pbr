@@ -61,10 +61,12 @@ std::vector<InterceptListBinding> build_intercept_bindings(
 
 namespace {
 
-void apply_effective_settings(InterceptSnapshot& snapshot, const InterceptEffective& effective) {
+void apply_effective_settings(InterceptSnapshot& snapshot, const InterceptEffective& effective,
+                              bool ipv6_enabled) {
     snapshot.max_ttl_s = effective.max_ttl_s;
     snapshot.marker_domain = effective.marker_domain;
     snapshot.marker_ipv4 = effective.marker_ipv4;
+    snapshot.ipv6_enabled = ipv6_enabled;
     snapshot.tls = effective.tls;
     snapshot.http = effective.http;
     snapshot.quic = effective.quic;
@@ -75,7 +77,8 @@ void apply_effective_settings(InterceptSnapshot& snapshot, const InterceptEffect
 std::shared_ptr<const InterceptSnapshot> rebind_intercept_snapshot(
     const InterceptSnapshot* previous,
     const std::vector<InterceptListBinding>& bindings,
-    const InterceptEffective& effective) {
+    const InterceptEffective& effective,
+    bool ipv6_enabled) {
     if (previous == nullptr || !previous->index || previous->index->list_names().empty()) {
         return nullptr;
     }
@@ -93,7 +96,7 @@ std::shared_ptr<const InterceptSnapshot> rebind_intercept_snapshot(
             }
         }
     }
-    apply_effective_settings(*snapshot, effective);
+    apply_effective_settings(*snapshot, effective, ipv6_enabled);
     return snapshot;
 }
 
@@ -130,7 +133,7 @@ std::shared_ptr<const InterceptSnapshot> build_intercept_snapshot(
     }
 
     snapshot->index = std::make_shared<const DomainIndex>(std::move(builder).build());
-    apply_effective_settings(*snapshot, effective);
+    apply_effective_settings(*snapshot, effective, ipv6_enabled);
     return snapshot;
 }
 

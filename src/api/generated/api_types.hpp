@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesSqlxgN data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesVKfpSt data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -425,6 +425,7 @@ namespace api {
         std::optional<int64_t> late_batch_elements;
         std::optional<bool> late_write;
         std::vector<std::string> lists;
+        std::optional<int64_t> not_learned;
         std::optional<int64_t> parse_us;
         std::optional<int64_t> qtype;
         std::optional<int64_t> queue_wait_us;
@@ -523,6 +524,7 @@ namespace api {
         std::optional<int64_t> conntrack_deleted;
         std::optional<int64_t> conntrack_errors;
         std::optional<int64_t> conntrack_requests;
+        std::optional<int64_t> dns_aaaa_ignored;
         std::optional<int64_t> dns_hold_timeouts;
         std::optional<int64_t> dns_late_write_errors;
         std::optional<int64_t> dns_late_writes;
@@ -832,7 +834,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesSqlxgN {
+    struct KeenPbrTypesVKfpSt {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1160,8 +1162,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesSqlxgN & x);
-    void to_json(json & j, const KeenPbrTypesSqlxgN & x);
+    void from_json(const json & j, KeenPbrTypesVKfpSt & x);
+    void to_json(json & j, const KeenPbrTypesVKfpSt & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1912,6 +1914,7 @@ namespace api {
         x.late_batch_elements = get_stack_optional<int64_t>(j, "late_batch_elements");
         x.late_write = get_stack_optional<bool>(j, "late_write");
         x.lists = j.at("lists").get<std::vector<std::string>>();
+        x.not_learned = get_stack_optional<int64_t>(j, "not_learned");
         x.parse_us = get_stack_optional<int64_t>(j, "parse_us");
         x.qtype = get_stack_optional<int64_t>(j, "qtype");
         x.queue_wait_us = get_stack_optional<int64_t>(j, "queue_wait_us");
@@ -1945,6 +1948,7 @@ namespace api {
         j["late_batch_elements"] = x.late_batch_elements;
         j["late_write"] = x.late_write;
         j["lists"] = x.lists;
+        j["not_learned"] = x.not_learned;
         j["parse_us"] = x.parse_us;
         j["qtype"] = x.qtype;
         j["queue_wait_us"] = x.queue_wait_us;
@@ -2108,6 +2112,7 @@ namespace api {
         x.conntrack_deleted = get_stack_optional<int64_t>(j, "conntrack_deleted");
         x.conntrack_errors = get_stack_optional<int64_t>(j, "conntrack_errors");
         x.conntrack_requests = get_stack_optional<int64_t>(j, "conntrack_requests");
+        x.dns_aaaa_ignored = get_stack_optional<int64_t>(j, "dns_aaaa_ignored");
         x.dns_hold_timeouts = get_stack_optional<int64_t>(j, "dns_hold_timeouts");
         x.dns_late_write_errors = get_stack_optional<int64_t>(j, "dns_late_write_errors");
         x.dns_late_writes = get_stack_optional<int64_t>(j, "dns_late_writes");
@@ -2145,6 +2150,7 @@ namespace api {
         j["conntrack_deleted"] = x.conntrack_deleted;
         j["conntrack_errors"] = x.conntrack_errors;
         j["conntrack_requests"] = x.conntrack_requests;
+        j["dns_aaaa_ignored"] = x.dns_aaaa_ignored;
         j["dns_hold_timeouts"] = x.dns_hold_timeouts;
         j["dns_late_write_errors"] = x.dns_late_write_errors;
         j["dns_late_writes"] = x.dns_late_writes;
@@ -2689,7 +2695,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesSqlxgN& x) {
+    inline void from_json(const json & j, KeenPbrTypesVKfpSt& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2776,7 +2782,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesSqlxgN & x) {
+    inline void to_json(json & j, const KeenPbrTypesVKfpSt & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

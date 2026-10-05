@@ -381,6 +381,7 @@ struct Fixture {
         snap->targets[0] = {"kpbr4d_ex", "kpbr6d_ex", min_ttl};
         snap->targets[1] = {"kpbr4d_vid", "", min_ttl};
         snap->targets[2] = {"", "", min_ttl};
+        snap->ipv6_enabled = true;  // Enable IPv6 by default for tests
         proc.set_snapshot(snap);
     }
     void publish() { proc.set_snapshot(snap); }
@@ -1466,7 +1467,7 @@ struct RebindFixture {
                                                     const std::vector<std::string>& declared) {
         const auto previous = proc.current_snapshot();
         const auto bindings = build_intercept_bindings(config, sets_for(declared), false, effective);
-        return rebind_intercept_snapshot(previous.get(), bindings, effective);
+        return rebind_intercept_snapshot(previous.get(), bindings, effective, false);
     }
     void answer(const std::string& name) {
         const Bytes pkt = dns_packet(dns_response(name, 0, {a_rr(1, 2, 3, 4, 100)}));
@@ -1624,26 +1625,60 @@ TEST_CASE("intercept bench: DNS hold recording cost per packet [bench]") {
     snap->index = std::make_shared<DomainIndex>(std::move(b).build());
     snap->targets.resize(1);
     snap->targets[0] = {"kpbr4d_ex", "kpbr6d_ex", 300};
+    snap->ipv6_enabled = true;
     proc.set_snapshot(snap);
 
     const Bytes unmatched = dns_packet(dns_response("other.org", 0, {a_rr(1, 1, 1, 1, 60)}));
     const Bytes matched = dns_packet(dns_response("www.example.com", 0,
                                                   {a_rr(93, 184, 216, 34, 600), aaaa_rr(1, 600)}));
+
+    // Build AAAA response with qtype=28 for IPv6-disabled benchmark
+    Bytes aaaa_resp;
+    put16(aaaa_resp, 0x1234);
+    put16(aaaa_resp, 0x8180);
+    put16(aaaa_resp, 1);
+    put16(aaaa_resp, 1);
+    put16(aaaa_resp, 0);
+    put16(aaaa_resp, 0);
+    append(aaaa_resp, enc("www.example.com"));
+    put16(aaaa_resp, 28);      // QTYPE = AAAA
+    put16(aaaa_resp, 1);
+    aaaa_resp.push_back(0xC0);
+    aaaa_resp.push_back(0x0C);
+    put16(aaaa_resp, 28);
+    put16(aaaa_resp, 1);
+    put32(aaaa_resp, 600);
+    put16(aaaa_resp, 16);
+    Bytes addr(16, 0);
+    addr[0] = 0x20;
+    addr[1] = 0x01;
+    addr[15] = 1;
+    append(aaaa_resp, addr);
+    const Bytes aaaa_pkt = dns_packet(aaaa_resp);
+
     constexpr int kIterations = 200000;
     const BenchResult un = run_bench(proc, unmatched, kIterations);
     const BenchResult hit = run_bench(proc, matched, kIterations);  // cache hit after the first write
     const BenchResult miss =
         run_bench(proc, matched, kIterations, [&proc] { proc.invalidate_set_cache(); });
+
+    // Benchmark AAAA ignored with IPv6 disabled
+    snap->ipv6_enabled = false;
+    proc.set_snapshot(snap);
+    const BenchResult aaaa_ignored = run_bench(proc, aaaa_pkt, kIterations);
+
     std::fprintf(stderr,
                  "BENCH unmatched: %.0f ns/packet, %.3f allocs/packet\n"
                  "BENCH matched (cache hit): %.0f ns/packet, %.3f allocs/packet\n"
-                 "BENCH matched (write via fake writer): %.0f ns/packet, %.3f allocs/packet\n",
+                 "BENCH matched (write via fake writer): %.0f ns/packet, %.3f allocs/packet\n"
+                 "BENCH aaaa ignored (ipv6 off): %.0f ns/packet, %.3f allocs/packet\n",
                  un.ns_per_packet, un.allocs_per_packet, hit.ns_per_packet, hit.allocs_per_packet,
-                 miss.ns_per_packet, miss.allocs_per_packet);
+                 miss.ns_per_packet, miss.allocs_per_packet, aaaa_ignored.ns_per_packet, aaaa_ignored.allocs_per_packet);
     // The steady path (verdict, recording included) must not touch the heap.
     CHECK(un.allocs_per_packet == 0.0);
     CHECK(hit.allocs_per_packet == 0.0);
     CHECK(miss.allocs_per_packet == 0.0);
+    CHECK(aaaa_ignored.allocs_per_packet == 0.0);
 }
 
 TEST_CASE("intercept events: list names resolve by snapshot generation") {
@@ -1809,6 +1844,145 @@ TEST_CASE("intercept tcp: the completing segment past the deadline is accepted, 
     CHECK(f.writer.recorded.empty());
     f.proc.flush_late_writes();
     CHECK(f.writer.recorded.size() == 10);
+}
+
+TEST_CASE("intercept: IPv6 disabled + AAAA query → accept, no writer calls, no event, counter incremented") {
+    Fixture f;
+    f.snap->ipv6_enabled = false;
+    f.proc.set_snapshot(f.snap);
+
+    // Manually build AAAA response with qtype=28
+    Bytes m;
+    put16(m, 0x1234);  // ID
+    put16(m, 0x8180);  // Flags
+    put16(m, 1);       // QDCOUNT
+    put16(m, 1);       // ANCOUNT
+    put16(m, 0);
+    put16(m, 0);
+    append(m, enc("example.com"));
+    put16(m, 28);      // QTYPE = AAAA
+    put16(m, 1);
+    m.push_back(0xC0);
+    m.push_back(0x0C);
+    put16(m, 28);
+    put16(m, 1);
+    put32(m, 300);
+    put16(m, 16);
+    Bytes addr(16, 0);
+    addr[0] = 0x20;
+    addr[1] = 0x01;
+    addr[15] = 1;
+    append(m, addr);
+
+    const Bytes pkt = dns_packet(m);
+    const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+
+    CHECK_FALSE(d.replace);
+    CHECK_FALSE(d.late_write);
+    CHECK(f.writer.recorded.empty());
+    CHECK(f.writer.kinds.empty());
+    CHECK(f.counters.dns_aaaa_ignored == 1);
+    CHECK(f.counters.dns_packets == 1);
+    CHECK(f.counters.dns_matched == 0);
+    const auto events = f.proc.events_since(0, 10);
+    CHECK(events.empty());
+}
+
+TEST_CASE("intercept: IPv6 enabled + AAAA query → learned to IPv6 sets") {
+    Fixture f;
+    CHECK(f.snap->ipv6_enabled);
+
+    Bytes m;
+    put16(m, 0x1234);
+    put16(m, 0x8180);
+    put16(m, 1);
+    put16(m, 1);
+    put16(m, 0);
+    put16(m, 0);
+    append(m, enc("example.com"));
+    put16(m, 28);      // AAAA qtype
+    put16(m, 1);
+    m.push_back(0xC0);
+    m.push_back(0x0C);
+    put16(m, 28);
+    put16(m, 1);
+    put32(m, 300);
+    put16(m, 16);
+    Bytes addr(16, 0);
+    addr[0] = 0x20;
+    addr[1] = 0x01;
+    addr[15] = 1;
+    append(m, addr);
+
+    const Bytes pkt = dns_packet(m);
+    const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    CHECK_FALSE(d.replace);
+
+    REQUIRE(f.writer.recorded.size() == 1);
+    CHECK(f.writer.recorded[0].set == "kpbr6d_ex");
+    CHECK(f.writer.recorded[0].family == 6);
+    CHECK(f.counters.dns_aaaa_ignored == 0);
+    CHECK(f.counters.dns_matched == 1);
+
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].qtype == 28);
+}
+
+TEST_CASE("intercept: IPv6 disabled + A query → still learned (not AAAA-only optimization)") {
+    Fixture f;
+    f.snap->ipv6_enabled = false;
+    f.proc.set_snapshot(f.snap);
+
+    const Bytes resp = dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 300)});
+    const Bytes pkt = dns_packet(resp);
+    const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    CHECK_FALSE(d.replace);
+
+    REQUIRE(f.writer.recorded.size() == 1);
+    CHECK(f.writer.recorded[0].set == "kpbr4d_ex");
+    CHECK(f.writer.recorded[0].family == 4);
+    CHECK(f.counters.dns_aaaa_ignored == 0);
+    CHECK(f.counters.dns_matched == 1);
+}
+
+TEST_CASE("intercept: non-learnable addresses (0.0.0.0, 127/8 loopback) not added to sets") {
+    Fixture f;
+
+    // Build response with mix of learnable and non-learnable addresses
+    const Bytes resp = dns_response("example.com", 0,
+        {a_rr(0, 0, 0, 0, 300),           // 0.0.0.0: not learnable
+         a_rr(1, 2, 3, 4, 300),           // 1.2.3.4: learnable
+         a_rr(127, 0, 0, 1, 300),         // 127.0.0.1: loopback, not learnable
+         a_rr(8, 8, 8, 8, 300),           // 8.8.8.8: learnable
+         a_rr(127, 255, 255, 255, 300)});  // 127.255.255.255: not learnable
+
+    const Bytes pkt = dns_packet(resp);
+    const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+    CHECK_FALSE(d.replace);
+
+    // Only 2 learnable addresses should be written to sets
+    REQUIRE(f.writer.recorded.size() == 2);
+    CHECK(f.writer.recorded[0].addr[0] == 1);
+    CHECK(f.writer.recorded[0].addr[1] == 2);
+    CHECK(f.writer.recorded[0].addr[2] == 3);
+    CHECK(f.writer.recorded[0].addr[3] == 4);
+    CHECK(f.writer.recorded[1].addr[0] == 8);
+    CHECK(f.writer.recorded[1].addr[1] == 8);
+
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+
+    // All 5 addresses should appear in the event's IP list
+    CHECK(events[0].ips.size() == 5);
+    CHECK(events[0].ips[0] == "0.0.0.0");
+    CHECK(events[0].ips[1] == "1.2.3.4");
+    CHECK(events[0].ips[2] == "127.0.0.1");
+    CHECK(events[0].ips[3] == "8.8.8.8");
+    CHECK(events[0].ips[4] == "127.255.255.255");
+
+    // not_learned field should count the 3 non-learnable addresses
+    CHECK(events[0].not_learned == 3);
 }
 
 TEST_CASE("intercept tcp: DNS TCP bench, UDP paths stay allocation free [bench]") {

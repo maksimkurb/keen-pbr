@@ -40,6 +40,7 @@ struct InterceptSnapshot {
     uint32_t max_ttl_s{86400};
     std::string marker_domain{"check.keen.pbr"};
     std::array<uint8_t, 4> marker_ipv4{127, 0, 0, 88};
+    bool ipv6_enabled{true};  // whether IPv6 sets are available; defaults to true (fail-open)
     bool tls{true};
     bool http{true};
     bool quic{true};
@@ -80,6 +81,7 @@ struct InterceptEvent {
     uint32_t cache_hits{0};         // adds skipped before the verdict: element already cached
     uint32_t deferred_refresh{0};   // timeout refreshes queued for after the verdict
     uint32_t refresh_skipped{0};    // cached Fresh elements not needing refresh yet
+    uint32_t not_learned{0};        // non-learnable answer addresses (0.0.0.0, ::, loopback)
     // DNS hold timing breakdown (batch_pos < 0: not a timed DNS event).
     int32_t batch_pos{-1};          // 0-based position of the packet in its wakeup round
     uint32_t batch_size{0};         // packets in the round; 0 until the round ended
@@ -135,6 +137,7 @@ struct EventRecord {
     uint8_t list_count{0};
     uint8_t lists_overflow{0};  // matched lists beyond kMaxLists (saturating)
     uint8_t rcode{0};  // DNS response code (0 for non-DNS)
+    uint8_t not_learned{0};  // non-learnable answer addresses (0.0.0.0, ::, loopback, unspecified)
     uint8_t client[16]{};
     uint8_t ip_family[kMaxIps]{};
     uint8_t ips[kMaxIps][16]{};
@@ -208,6 +211,7 @@ struct InterceptCounters {
     std::atomic<uint64_t> dns_packets{0};
     std::atomic<uint64_t> dns_parse_errors{0};
     std::atomic<uint64_t> dns_matched{0};
+    std::atomic<uint64_t> dns_aaaa_ignored{0};  // AAAA replies ignored when IPv6 is disabled
     std::atomic<uint64_t> dns_hold_timeouts{0};
     std::atomic<uint64_t> dns_late_writes{0};
     std::atomic<uint64_t> dns_late_write_errors{0};

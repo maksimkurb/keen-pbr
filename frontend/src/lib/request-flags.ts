@@ -16,6 +16,7 @@ export type RequestFlagKey =
   | "added"
   | "refreshed"
   | "errors"
+  | "not_learned"
   | "timeout"
   | "parse"
   | "set"
@@ -34,6 +35,7 @@ export type RequestFlagRow = Pick<
   | "added"
   | "refreshed"
   | "errors"
+  | "not_learned"
   | "seq"
   | "ts_ms"
   | "timed_out"
@@ -93,6 +95,14 @@ export function buildRequestFlags(
       label: `!${row.errors}`,
       tooltip: t("requestsLog.flags.errors", { count: row.errors }),
       tone: "danger",
+    })
+  }
+  if ((row.not_learned ?? 0) > 0) {
+    flags.push({
+      key: "not_learned",
+      label: `⊘${row.not_learned}`,
+      tooltip: `${t("requestsLog.flags.not_learned", { count: row.not_learned })} — ${t("requestsLog.flags.not_learned_tooltip")}`,
+      tone: "neutral",
     })
   }
   const timeout = timeoutBadge(row)
