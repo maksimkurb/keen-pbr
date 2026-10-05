@@ -75,6 +75,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
         urltest_manager_->clear();
     }
     pending_urltest_conntrack_cleanup_.clear();
+    balance_classifier_cache_.clear();
     const uint32_t mark_mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
     std::set<uint32_t> owned_marks;
     for (const auto& [tag, mark] : outbound_marks_) {
@@ -537,17 +538,42 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
             const bool delete_on_healthy_switch =
                 configured->conntrack_on_switch.value_or(api::ConntrackOnSwitch::PRESERVE) ==
                 api::ConntrackOnSwitch::DELETE;
+            // Probe results arrive every cycle; rebuild only when the inputs
+            // of the classifier change, and flush a failed child's
+            // connections once, when it fails.
+            const auto owned_main_routes = netlink_.dump_routes_in_table(254);
+            const auto interfaces = netlink_.dump_interfaces();
+            const auto all_candidates = build_balance_candidates(owned_main_routes, interfaces);
+            BalanceClassifierState classifier;
+            classifier.selected_child = new_child_tag;
+            if (const auto it = all_candidates.find(urltest_tag); it != all_candidates.end()) {
+                classifier.candidates = it->second;
+            }
+            for (const auto& group : configured->outbound_groups.value_or(
+                     std::vector<OutboundGroup>{})) {
+                for (const auto& child_tag : outbound_group_tags(group)) {
+                    if (child_failed(child_tag)) classifier.failed_children.insert(child_tag);
+                }
+            }
+            const auto applied_it = balance_classifier_cache_.find(urltest_tag);
+            const BalanceClassifierState* applied =
+                applied_it == balance_classifier_cache_.end() ? nullptr : &applied_it->second;
+            const auto newly_failed = newly_failed_children(applied, classifier.failed_children);
             for (const auto& group : configured->outbound_groups.value_or(
                      std::vector<OutboundGroup>{})) {
                 for (const auto& child_tag : outbound_group_tags(group)) {
                     const auto mark = outbound_marks_.find(child_tag);
                     if (mark == outbound_marks_.end()) continue;
-                    if (child_failed(child_tag) ||
+                    if (newly_failed.count(child_tag) != 0 ||
                         (delete_on_healthy_switch && !old_child_tag.empty() &&
                          old_child_tag != new_child_tag)) {
                         cleanup_marks.insert(mark->second);
                     }
                 }
+            }
+            if (applied != nullptr && *applied == classifier && cleanup_marks.empty()) {
+                log.trace("urltest_selection_skip", "tag={} reason=unchanged", urltest_tag);
+                return;
             }
 
             auto proposed_selections = applied_selections;
@@ -575,6 +601,8 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
                     }
                 }
                 publish_runtime_state(StatusPublishScope::Outbounds);
+
+                balance_classifier_cache_[urltest_tag] = std::move(classifier);
                 log.info("Updated nft balance classifier for test-group '{}' ({} child marks cleaned)",
                          urltest_tag, cleanup_marks.size());
             } catch (const std::exception& e) {
@@ -1116,6 +1144,7 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         urltest_manager_->clear();
     }
     pending_urltest_conntrack_cleanup_.clear();
+    balance_classifier_cache_.clear();
     const auto main_routes = netlink_.dump_routes_in_table(254);
     reconcile_static_routing(nullptr, &main_routes);
     apply_firewall(firewall_policy.mode,

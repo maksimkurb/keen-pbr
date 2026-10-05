@@ -8,6 +8,7 @@
 #include "../intercept/intercept_service.hpp"
 #include "../intercept/intercept_settings.hpp"
 #include "../health/icmp_tester.hpp"
+#include "../routing/balance_classifier_state.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/interface_monitor.hpp"
 #include "../routing/netlink.hpp"
@@ -428,6 +429,10 @@ IcmpTester icmp_tester_;
   // generation and are cleared whenever the configured groups are rebuilt.
   std::map<std::string, PendingUrltestConntrackCleanup>
       pending_urltest_conntrack_cleanup_;
+  // Last successfully applied balance classifier inputs per test group, so
+  // probe cycles that change nothing skip the firewall rebuild. Cleared
+  // whenever the configured groups are rebuilt.
+  std::map<std::string, BalanceClassifierState> balance_classifier_cache_;
   // Declared before the executor: queued sync jobs reference it, so the
   // executor must be torn down first.
   DnsmasqManager dnsmasq_manager_;
