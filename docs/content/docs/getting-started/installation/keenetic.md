@@ -144,7 +144,7 @@ Go to the [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) page
 Older keen-pbr versions added a managed block with a `conf-script` line to `/opt/etc/dnsmasq.conf`. This integration was removed; on package upgrade (and removal) `/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh` cleans up:
 
 - the keen-pbr managed block (and a bare `conf-script` line) is removed from `/opt/etc/dnsmasq.conf`; the original file is saved once as `/opt/etc/dnsmasq.conf.keen-pbr.bak`;
-- if the file has no `server=` line left, a marked block `# BEGIN keen-pbr fallback upstream` with the packaged fallback servers is appended so that dnsmasq keeps resolving. **Review it**, or replace it with your own upstream;
+- a `# BEGIN keen-pbr fallback upstream` block added by an earlier upgrade is removed when it still matches the packaged fallback servers exactly (a modified block is kept). With the dnsmasq upstream integration the fallback servers are used only while keen-pbr is not running (they are never added to `dnsmasq.conf`). If dnsmasq would be left with no upstream at all (no `server=`/`resolv-file=` line and no integration), that marked block is kept or written instead. **Review it**, or replace it with your own upstream; enabling the integration removes it;
 - dnsmasq is restarted once. Running the script again changes nothing.
 
 Alternatively, remove Entware dnsmasq and use the built-in Keenetic DNS proxy (ndnproxy): keen-pbr does not need a particular resolver.

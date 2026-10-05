@@ -72,6 +72,90 @@ EOF
         "$repo_root/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh"
 
     [ "$(cat "$dnsmasq_conf")" = "$before" ] || fail "Test 4: Second migration changed the file"
+
+    migrate() {
+        DNSMASQ_CONF="$dnsmasq_conf" FALLBACK_CONF="$fallback_conf" RESTART_CMD="true" \
+            "$repo_root/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh" 2>/dev/null
+    }
+    fb_begin='# BEGIN keen-pbr fallback upstream (added on upgrade; replace or remove)'
+    fb_end='# END keen-pbr fallback upstream'
+
+    # Test 5: old managed block with the dnsmasq integration installed → no
+    # permanent servers (the conf-script supplies the upstreams).
+    cat > "$dnsmasq_conf" <<'EOF'
+user=dnsmasq
+# BEGIN keen-pbr managed block
+conf-script=/opt/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry
+# END keen-pbr managed block
+# BEGIN keen-pbr upstream dns
+conf-dir=/tmp/keen-pbr/dnsmasq.d,*.conf
+# END keen-pbr upstream dns
+EOF
+    migrate
+    ! grep -q 'server=' "$dnsmasq_conf" || fail "Test 5: permanent server= lines were added"
+    ! grep -q 'fallback upstream' "$dnsmasq_conf" || fail "Test 5: fallback block was added"
+    grep -q 'conf-dir=/tmp/keen-pbr' "$dnsmasq_conf" || fail "Test 5: integration block was lost"
+
+    # Test 6: fallback block from an earlier upgrade + another upstream → removed.
+    cat > "$dnsmasq_conf" <<EOF
+user=dnsmasq
+server=192.168.1.1
+$fb_begin
+server=8.8.8.8
+server=8.8.4.4
+$fb_end
+cache-size=1000
+EOF
+    migrate
+    ! grep -q 'fallback upstream' "$dnsmasq_conf" || fail "Test 6: fallback block was not removed"
+    ! grep -q '8.8.8.8' "$dnsmasq_conf" || fail "Test 6: fallback servers were not removed"
+    grep -q 'server=192.168.1.1' "$dnsmasq_conf" && grep -q 'cache-size=1000' "$dnsmasq_conf" ||
+        fail "Test 6: user config was lost"
+
+    # Test 7: user-modified fallback block → kept untouched.
+    cat > "$dnsmasq_conf" <<EOF
+server=192.168.1.1
+$fb_begin
+server=8.8.8.8
+server=9.9.9.9
+$fb_end
+EOF
+    before=$(cat "$dnsmasq_conf")
+    migrate
+    [ "$(cat "$dnsmasq_conf")" = "$before" ] || fail "Test 7: modified fallback block was changed"
+
+    # Test 8: fallback block from an earlier upgrade is the only upstream
+    # (integration none) → kept, and a second run changes nothing.
+    cat > "$dnsmasq_conf" <<EOF
+user=dnsmasq
+$fb_begin
+server=8.8.8.8
+server=8.8.4.4
+$fb_end
+EOF
+    before=$(cat "$dnsmasq_conf")
+    migrate
+    [ "$(cat "$dnsmasq_conf")" = "$before" ] || fail "Test 8: sole-upstream fallback block was changed"
+
+    # Test 9: managed block removed, no upstream, no integration → exactly one
+    # marked fallback block; a second run does not duplicate it.
+    cat > "$dnsmasq_conf" <<'EOF'
+no-resolv
+# BEGIN keen-pbr managed block
+conf-script=/opt/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry
+# END keen-pbr managed block
+EOF
+    migrate
+    [ "$(grep -c "^$fb_begin\$" "$dnsmasq_conf")" = 1 ] || fail "Test 9: fallback block missing"
+    migrate
+    [ "$(grep -c "^$fb_begin\$" "$dnsmasq_conf")" = 1 ] || fail "Test 9: fallback block duplicated"
+    [ "$(grep -c '^server=' "$dnsmasq_conf")" = 2 ] || fail "Test 9: wrong number of server lines"
+
+    # Test 10: dnsmasq.conf without keen-pbr leftovers is left alone.
+    printf 'user=dnsmasq\nno-resolv\n' > "$dnsmasq_conf"
+    before=$(cat "$dnsmasq_conf")
+    migrate
+    [ "$(cat "$dnsmasq_conf")" = "$before" ] || fail "Test 10: unrelated config was changed"
 }
 
 # --- OpenWrt: functional test with a fake uci -------------------------------

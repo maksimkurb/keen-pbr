@@ -4,7 +4,7 @@
 # keen-pbr's dnsmasq integration so per-list DNS works from boot.  Writes to
 # /tmp only.
 
-KEEN_PBR_BIN="${KEEN_PBR_BIN:-/opt/usr/bin/keen-pbr}"
+DNSMASQ_SH="${DNSMASQ_SH:-/opt/usr/lib/keen-pbr/dnsmasq.sh}"
 DNSMASQ_CONF="${DNSMASQ_CONF:-/opt/etc/dnsmasq.conf}"
 TMP_CONF_DIR="${TMP_CONF_DIR:-/tmp/keen-pbr/dnsmasq.d}"
 CONF_NAME="keen-pbr-upstream-dns.conf"
@@ -13,7 +13,7 @@ BEGIN_MARK="# BEGIN keen-pbr upstream dns"
 start() {
     [ -f "$DNSMASQ_CONF" ] && grep -qxF "$BEGIN_MARK" "$DNSMASQ_CONF" || return 0
     mkdir -p "$TMP_CONF_DIR" || return 0
-    printf 'conf-script=%s generate-resolver-config dnsmasq\n' "$KEEN_PBR_BIN" > "$TMP_CONF_DIR/$CONF_NAME"
+    printf 'conf-script=%s dnsmasq-config-entry\n' "$DNSMASQ_SH" > "$TMP_CONF_DIR/$CONF_NAME"
 }
 
 case "$1" in

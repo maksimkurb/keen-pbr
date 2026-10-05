@@ -204,9 +204,9 @@ test_keenetic() {
     mkdir -p "$kroot"
     export DNSMASQ_CONF="$kroot/dnsmasq.conf" INIT_SCRIPT="$kroot/S56dnsmasq"
     export TMP_CONF_DIR="$kroot/tmp/keen-pbr/dnsmasq.d"
-    export KEEN_PBR_BIN=/opt/usr/bin/keen-pbr
+    export DNSMASQ_SH=/opt/usr/lib/keen-pbr/dnsmasq.sh
     f="$TMP_CONF_DIR/keen-pbr-upstream-dns.conf"
-    want='conf-script=/opt/usr/bin/keen-pbr generate-resolver-config dnsmasq'
+    want='conf-script=/opt/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry'
     run() { sh "$keen_hook" "$@"; }
 
     # No dnsmasq installed.
@@ -242,6 +242,29 @@ test_keenetic() {
     [ "$(touched "$f" "$DNSMASQ_CONF")" = 0 ] || fail "keenetic: second apply rewrote files"
     [ "$(grep -c 'BEGIN keen-pbr upstream dns' "$DNSMASQ_CONF")" = 1 ] || fail "keenetic: block duplicated"
     [ "$(restarts)" = 2 ] || fail "keenetic: second apply should restart again"
+
+    # apply drops a fallback block written by the migration (exact match only).
+    cp "$DNSMASQ_CONF" "$kroot/conf.before"
+    printf 'server=8.8.8.8\nserver=8.8.4.4\n' > "$kroot/fallback.conf"
+    export FALLBACK_CONF="$kroot/fallback.conf"
+    fb_begin='# BEGIN keen-pbr fallback upstream (added on upgrade; replace or remove)'
+    {
+        cat "$kroot/conf.before"
+        printf '%s\nserver=8.8.8.8\nserver=8.8.4.4\n# END keen-pbr fallback upstream\n' "$fb_begin"
+    } > "$DNSMASQ_CONF"
+    run apply || fail "keenetic: apply with fallback block failed"
+    ! grep -q 'keen-pbr fallback upstream' "$DNSMASQ_CONF" || fail "keenetic: apply kept the fallback block"
+    ! grep -q '8\.8\.8\.8' "$DNSMASQ_CONF" || fail "keenetic: apply left fallback servers"
+    cmp -s "$DNSMASQ_CONF" "$kroot/conf.before" || fail "keenetic: apply changed other config"
+    {
+        cat "$kroot/conf.before"
+        printf '%s\nserver=8.8.8.8\nserver=9.9.9.9\n# END keen-pbr fallback upstream\n' "$fb_begin"
+    } > "$DNSMASQ_CONF"
+    run apply || fail "keenetic: apply with modified fallback block failed"
+    grep -qxF 'server=9.9.9.9' "$DNSMASQ_CONF" || fail "keenetic: apply removed a user-modified block"
+    cp "$kroot/conf.before" "$DNSMASQ_CONF"
+    unset FALLBACK_CONF
+    reset_restarts
 
     # Legacy migration keeps the new block.
     cp "$DNSMASQ_CONF" "$kroot/conf.before"
@@ -279,6 +302,29 @@ test_keenetic() {
     rm -rf "$kroot/tmp"
     sh "$keen_s55" start
     [ ! -e "$f" ] || fail "keenetic: S55 start created the file without the block"
+
+    # dnsmasq.sh dnsmasq-config-entry: fallback servers unless keen-pbr runs.
+    keen_sh="$keen_dir/usr/lib/keen-pbr/dnsmasq.sh"
+    sh -n "$keen_sh" || fail "keenetic: syntax error in dnsmasq.sh"
+    printf 'server=8.8.8.8\nserver=8.8.4.4\n' > "$kroot/fallback.conf"
+    printf '#!/bin/sh\ncase "${FAKE_BIN:-ok}" in\n  ok) echo "server=/example.org/10.0.0.1"; echo "# stamp" ;;\n  fail) echo "# keen-pbr: generate-resolver-config failed: Cannot open config file" ;;\n  empty) ;;\nesac\n' > "$kroot/keen-pbr"
+    chmod +x "$kroot/keen-pbr"
+    entry() {
+        FALLBACK_CONF="$kroot/fallback.conf" KEEN_PBR_BIN="$kroot/keen-pbr" \
+        PIDFILE="$kroot/keen-pbr.pid" WORK_DIR="$kroot/work" sh "$keen_sh" dnsmasq-config-entry 2>/dev/null
+    }
+    fb='server=8.8.8.8
+server=8.8.4.4'
+    rm -f "$kroot/keen-pbr.pid"
+    [ "$(entry)" = "$fb" ] || fail "keenetic: entry without pid file should print the fallback"
+    echo 999999 > "$kroot/keen-pbr.pid"
+    [ "$(entry)" = "$fb" ] || fail "keenetic: entry with a stale pid should print the fallback"
+    echo $$ > "$kroot/keen-pbr.pid"
+    [ "$(entry)" = 'server=/example.org/10.0.0.1
+# stamp' ] || fail "keenetic: entry while active should print only keen-pbr's config"
+    [ "$(FAKE_BIN=fail entry)" = "$fb" ] || fail "keenetic: entry with a failing generator should print the fallback"
+    [ "$(FAKE_BIN=empty entry)" = "$fb" ] || fail "keenetic: entry with an empty generator should print the fallback"
+    [ ! -e "$kroot/work/dnsmasq-config-entry.$$" ] || fail "keenetic: entry left a temp file"
 
     # alive: Entware's rc.func `check` prints "alive."/"dead."; unknown without
     # the init script.

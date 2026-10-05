@@ -3,13 +3,16 @@
 #
 # The conf-script drop-in lives in tmpfs (/tmp); the only persistent change is
 # a managed block in /opt/etc/dnsmasq.conf that includes that directory, and it
-# is written once (only when missing).
+# is written once (only when missing).  The conf-script is dnsmasq.sh, which
+# prints keen-pbr's config while the daemon runs and the fallback upstreams
+# otherwise.
 #
 # `alive` exits 0 when the Entware dnsmasq runs, 1 when it definitely does not
 # and 2 when that cannot be told.
 
-KEEN_PBR_BIN="${KEEN_PBR_BIN:-/opt/usr/bin/keen-pbr}"
+DNSMASQ_SH="${DNSMASQ_SH:-/opt/usr/lib/keen-pbr/dnsmasq.sh}"
 DNSMASQ_CONF="${DNSMASQ_CONF:-/opt/etc/dnsmasq.conf}"
+FALLBACK_CONF="${FALLBACK_CONF:-/opt/etc/keen-pbr/dnsmasq-fallback.conf}"
 INIT_SCRIPT="${INIT_SCRIPT:-/opt/etc/init.d/S56dnsmasq}"
 RESTART_CMD="${RESTART_CMD:-$INIT_SCRIPT restart}"
 ALIVE_CMD="${ALIVE_CMD:-$INIT_SCRIPT check}"
@@ -35,13 +38,50 @@ block_present() {
 }
 
 write_conf() {
-    want="conf-script=$KEEN_PBR_BIN generate-resolver-config dnsmasq"
+    want="conf-script=$DNSMASQ_SH dnsmasq-config-entry"
     f="$TMP_CONF_DIR/$CONF_NAME"
     if [ -f "$f" ] && [ "$(cat "$f" 2>/dev/null)" = "$want" ]; then
         return 0
     fi
     mkdir -p "$TMP_CONF_DIR" || return 1
     printf '%s\n' "$want" > "$f"
+}
+
+# migrate-dnsmasq.sh may have written a marked fallback upstream block (when
+# dnsmasq had no other upstream).  The conf-script supplies the fallback servers
+# while keen-pbr is down, so the permanent block would only bypass the per-list
+# upstreams: drop it when it is exactly what the migration wrote.
+drop_fallback_block() {
+    [ -f "$FALLBACK_CONF" ] || return 0
+    tmp="$DNSMASQ_CONF.keen-pbr.tmp"
+    rc=0
+    awk -v begin="# BEGIN keen-pbr fallback upstream (added on upgrade; replace or remove)" \
+        -v end="# END keen-pbr fallback upstream" '
+        NR == FNR { if ($0 ~ /^[ \t]*server=/) allowed[$0] = 1; next }
+        $0 == begin {
+            if (inside) printf "%s", buffered
+            inside = 1; keep = 0; buffered = $0 ORS; next
+        }
+        inside {
+            buffered = buffered $0 ORS
+            if ($0 ~ /^# BEGIN /) keep = 1
+            else if ($0 != end && !($0 in allowed)) keep = 1
+            if ($0 == end) {
+                if (keep) printf "%s", buffered
+                else removed = 1
+                inside = 0; buffered = ""
+            }
+            next
+        }
+        { print }
+        END { if (inside) printf "%s", buffered; exit(removed ? 10 : 0) }
+    ' "$FALLBACK_CONF" "$DNSMASQ_CONF" > "$tmp" || rc=$?
+    if [ "$rc" = 10 ]; then
+        cat "$tmp" > "$DNSMASQ_CONF"
+        log "removed the fallback upstream block from $DNSMASQ_CONF"
+    fi
+    rm -f "$tmp"
+    return 0
 }
 
 do_restart() {
@@ -61,6 +101,7 @@ do_apply() {
         } >> "$DNSMASQ_CONF" || die 1 "cannot update $DNSMASQ_CONF"
         log "added managed block to $DNSMASQ_CONF"
     fi
+    drop_fallback_block
     do_restart
     log "applied"
 }
