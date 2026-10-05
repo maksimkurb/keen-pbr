@@ -27,11 +27,11 @@ def _config(context):
     return config
 
 
-def _query(context, qtype, server="192.0.2.1", port=53):
+def _query(context, qtype, server="192.0.2.1", port=53, name="alias.cname.test", tcp=False):
     result = context.client(
         "python3", "/mnt/payload/tests/integration/container/dns-fixture.py",
         "query", "--server", server, "--port", str(port),
-        "--name", "alias.cname.test", "--qtype", str(qtype),
+        "--name", name, "--qtype", str(qtype), *(("--tcp",) if tcp else ()),
         check=False, timeout=12)
     assert result.returncode == 0, result.stderr
     lines = [line for line in result.stdout.splitlines() if line.strip()]
@@ -173,6 +173,21 @@ def register(registry):
         assert "20010db8010000000000000000000010" in forwarded6["packet_hex"], forwarded6
         context.wait_for("forwarded IPv6 DNS learning", lambda: (
             context.dynamic_set_contains(TEST_IP6, list_name="learned")))
+
+        # A large answer over TCP spans several segments (600 A records); the
+        # reply is reassembled and every address is learned.
+        bulk = json.loads(json.dumps(config))
+        bulk["lists"]["learned"]["domains"].append("bulk.cname.test")
+        context.apply_config(bulk)
+        context.wait_intercept(dns_hold=True, l7=False)
+        forget_cached_set_elements(context)
+        tcp_result = _query(context, 1, "10.20.0.2", name="bulk.cname.test", tcp=True)
+        assert tcp_result["bytes"] > 4000, tcp_result
+        for address in ("10.99.0.1", "10.99.1.1", "10.99.2.100"):
+            context.wait_for(
+                "multi-segment TCP DNS learning of " + address,
+                lambda address=address: context.dynamic_set_contains(
+                    address, list_name="learned"))
 
         # The router-local resolver path: replies to router-local processes
         # leave through loopback and are not held when

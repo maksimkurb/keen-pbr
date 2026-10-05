@@ -504,6 +504,23 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
     }
     const bool udp = layout->l4_proto == IPPROTO_UDP;
     const ByteView payload(l3.data() + layout->payload_offset, layout->payload_len);
+    if (!udp) {
+        // FIN, RST or SYN ends (or restarts) the stream: drop its reassembly state.
+        const std::size_t l4_offset = layout->l3_header_len;
+        const std::size_t alen = layout->ip_version == 6 ? 16 : 4;
+        const std::size_t src_off = layout->ip_version == 6 ? 8 : 12;
+        const std::size_t dst_off = layout->ip_version == 6 ? 24 : 16;
+        if (layout->l4_header_len >= 20 && l4_offset + 20 <= l3.size() &&
+            dst_off + alen <= l3.size() && (l3.data()[l4_offset + 13] & 0x07) != 0) {
+            l7::FlowKey key;
+            key.family = layout->ip_version;
+            std::memcpy(key.src.data(), l3.data() + src_off, alen);
+            std::memcpy(key.dst.data(), l3.data() + dst_off, alen);
+            key.sport = be16(l3.data() + l4_offset);
+            key.dport = be16(l3.data() + l4_offset + 2);
+            tcp_reassembly_.close(key);
+        }
+    }
     if (!udp && payload.size() == 0) return {};  // bare ACK/FIN
     {
         // The reply's destination is the asker; conntrack cleanup is scoped to it.
@@ -515,15 +532,53 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
     }
     bump(counters_.dns_packets);
 
-    ByteView message = payload;
-    if (!udp) {
-        const auto single = dns_wire::tcp_single_message(payload);
-        if (!single) {
-            bump(counters_.dns_tcp_partial);
-            return {};
-        }
-        message = *single;
+    if (udp) {
+        return handle_dns_message(l3, *layout, payload, /*udp=*/true, round, started, cache_epoch,
+                                  snap, slots, replacement_allowed);
     }
+
+    // TCP: feed the segment to the per-flow reassembler.  A segment that does
+    // not complete a message (first of several, duplicate, out of order) gets
+    // no work and is accepted at once; only the segment that completes a message
+    // is held while the set write runs.
+    const std::size_t l4_offset = layout->l3_header_len;
+    if (layout->l4_header_len < 20 || l4_offset + 20 > l3.size()) return {};
+    const uint8_t* l4 = l3.data() + l4_offset;
+    const std::size_t alen = layout->ip_version == 6 ? 16 : 4;
+    const std::size_t src_off = layout->ip_version == 6 ? 8 : 12;
+    const std::size_t dst_off = layout->ip_version == 6 ? 24 : 16;
+    if (dst_off + alen > l3.size()) return {};
+    l7::FlowKey key;
+    key.family = layout->ip_version;
+    std::memcpy(key.src.data(), l3.data() + src_off, alen);
+    std::memcpy(key.dst.data(), l3.data() + dst_off, alen);
+    key.sport = be16(l4);
+    key.dport = be16(l4 + 2);
+    tcp_reassembly_.feed(key, be32(l4 + 4), payload, started, tcp_messages_);
+    if (tcp_messages_.count == 0) {
+        bump(counters_.dns_tcp_partial);
+        return {};
+    }
+    DnsDecision decision;
+    for (std::size_t i = 0; i < tcp_messages_.count; ++i) {
+        // Earlier messages of the segment publish their event now; the last
+        // one is published by the caller after the verdict.
+        if (i > 0) commit_dns_event();
+        const DnsDecision one = handle_dns_message(
+            l3, *layout, tcp_messages_.view[i], /*udp=*/false, round,
+            i == 0 ? started : Clock::now(), cache_epoch, snap, slots, false);
+        decision.late_write = decision.late_write || one.late_write;
+    }
+    return decision;
+}
+
+InterceptProcessor::DnsDecision InterceptProcessor::handle_dns_message(
+    ByteView l3, const dns_wire::PacketLayout& layoutref, ByteView message, bool udp,
+    const DnsRound& round, Clock::time_point started, uint64_t cache_epoch,
+    const std::shared_ptr<const InterceptSnapshot>& snap,
+    const std::shared_ptr<const SlotTable>& slots, bool replacement_allowed) {
+    const Clock::time_point deadline = round.deadline;
+    const dns_wire::PacketLayout* layout = &layoutref;
 
     response_.clear();
     if (!dns_wire::parse_response(message, response_)) {

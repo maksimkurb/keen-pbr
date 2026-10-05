@@ -82,6 +82,31 @@ TEST_CASE("nfqueue: parse packet attributes and cap length") {
     CHECK_FALSE(packet.truncated);
 }
 
+TEST_CASE("nfqueue: SKB info flags mark GSO and not-ready checksums") {
+    MsgBuilder builder;
+    builder.begin(static_cast<uint16_t>((NFNL_SUBSYS_QUEUE << 8) | NFQNL_MSG_PACKET),
+                  NLM_F_REQUEST, 1, AF_UNSPEC, 9053);
+    nfqnl_msg_packet_hdr header{};
+    header.packet_id = htonl(5);
+    header.hw_protocol = htons(ETH_P_IP);
+    builder.put(NFQA_PACKET_HDR, &header, sizeof(header));
+    builder.put_u32_be(14, 3);  // NFQA_SKB_INFO: CSUMNOTREADY | GSO
+    const std::vector<uint8_t> payload(20, 0);
+    builder.put(NFQA_PAYLOAD, payload.data(), payload.size());
+    builder.end();
+    const auto message = one_message(builder);
+    QueuedPacket packet;
+    REQUIRE(parse_nfqueue_packet(message, packet));
+    CHECK(packet.gso);
+    CHECK(packet.csum_not_ready);
+
+    const auto plain = packet_message(1, 20, 20);
+    QueuedPacket other;
+    REQUIRE(parse_nfqueue_packet(one_message(plain), other));
+    CHECK_FALSE(other.gso);
+    CHECK_FALSE(other.csum_not_ready);
+}
+
 TEST_CASE("nfqueue: truncated payload is reported without changing bytes") {
     const auto builder = packet_message(7, 12, 40);
     const auto message = one_message(builder);

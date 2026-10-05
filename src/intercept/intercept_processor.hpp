@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../dns/dns_wire.hpp"
+#include "dns_tcp_reassembly.hpp"
 #include "../l7/flow_buffer.hpp"
 #include "../l7/quic_initial.hpp"
 #include "../lists/domain_index.hpp"
@@ -337,6 +338,14 @@ public:
 
 private:
     DnsDecision handle_dns(ByteView l3, const DnsRound& round, bool replacement_allowed);
+    struct SlotTable;
+    DnsDecision handle_dns_message(ByteView l3, const dns_wire::PacketLayout& layout,
+                                   ByteView message, bool udp, const DnsRound& round,
+                                   std::chrono::steady_clock::time_point started,
+                                   uint64_t cache_epoch,
+                                   const std::shared_ptr<const InterceptSnapshot>& snap,
+                                   const std::shared_ptr<const SlotTable>& slots,
+                                   bool replacement_allowed);
     bool defer_late_write(const std::shared_ptr<const InterceptSnapshot>& snap,
                           std::chrono::steady_clock::time_point started, bool after_timeout,
                           TimeoutCause cause);
@@ -443,6 +452,8 @@ private:
     std::function<std::chrono::steady_clock::time_point()> clock_;
     std::chrono::steady_clock::time_point late_backoff_until_{};
     l7::FlowBuffers flows_;
+    DnsTcpReassembler tcp_reassembly_;  // DNS-over-TCP replies (hot thread only)
+    DnsTcpReassembler::Messages tcp_messages_;
     l7::QuicCryptoAssembler quic_;
     std::vector<uint8_t> tls_scratch_;
     std::string sni_;

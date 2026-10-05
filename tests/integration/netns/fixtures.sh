@@ -47,7 +47,8 @@ start() {
   spawn "$NS_PBR" fixture-pbr-dns4-port53 python3 "$fixture_dir/dns-fixture.py" \
     --identity pbr-v4 --listen 10.20.0.2 --port 53 \
     --log /run/kpbr-wan/pbr/dns-v4-port53.jsonl --a 198.18.0.10 --aaaa 2001:db8:100::10 \
-    --cname-domain alias.cname.test --cname-target target.cname.test
+    --cname-domain alias.cname.test --cname-target target.cname.test \
+    --bulk-domain bulk.cname.test --bulk-count 600
   spawn "$NS_PBR" fixture-pbr-dns6 python3 "$fixture_dir/dns-fixture.py" \
     --identity pbr-v6 --listen 2001:db8:20::2 --port 15354 \
     --log /run/kpbr-wan/pbr/dns-v6.jsonl --a 198.18.0.10 --aaaa 2001:db8:100::10

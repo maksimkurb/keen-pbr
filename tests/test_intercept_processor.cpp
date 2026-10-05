@@ -1660,3 +1660,174 @@ TEST_CASE("intercept events: staged event is published after commit only") {
     CHECK(f.proc.events_since(0, 10).size() == 1);
     f.proc.log_hold_timeouts();  // drain side: nothing to log, must not throw
 }
+
+// --- DNS over TCP: multi-segment replies --------------------------------------------------
+
+namespace {
+
+// Server (port 53) -> client TCP segment carrying `payload`.
+Bytes dns_tcp_segment(const Bytes& payload, uint32_t seq, uint8_t flags = 0x18,
+                      uint16_t client_port = 40000) {
+    const uint8_t src[4] = {8, 8, 8, 8};
+    const uint8_t dst[4] = {192, 168, 1, 10};
+    Bytes p = ipv4_header(IPPROTO_TCP, 20 + payload.size(), src, dst);
+    put16(p, 53);
+    put16(p, client_port);
+    put32(p, seq);
+    put32(p, 0);
+    p.push_back(0x50);
+    p.push_back(flags);
+    put16(p, 65535);
+    put16(p, 0);
+    put16(p, 0);
+    append(p, payload);
+    return p;
+}
+
+Bytes tcp_framed(const Bytes& msg) {
+    Bytes b;
+    put16(b, static_cast<uint16_t>(msg.size()));
+    append(b, msg);
+    return b;
+}
+
+Bytes slice_of(const Bytes& b, std::size_t from, std::size_t to) {
+    return Bytes(b.begin() + static_cast<std::ptrdiff_t>(from), b.begin() + static_cast<std::ptrdiff_t>(to));
+}
+
+// Large answer: many A records so the reply is several segments long.
+Bytes big_answer(const std::string& name, int records) {
+    std::vector<Rr> rrs;
+    for (int i = 0; i < records; ++i) {
+        rrs.push_back(a_rr(10, 1, static_cast<uint8_t>(i / 250), static_cast<uint8_t>(1 + i % 250), 300));
+    }
+    return dns_response(name, 0, rrs);
+}
+
+}  // namespace
+
+TEST_CASE("intercept tcp: a reply split over three segments is learned once, by the last segment") {
+    Fixture f;
+    const Bytes stream = tcp_framed(big_answer("www.example.com", 40));
+    REQUIRE(stream.size() > 400);
+    const std::size_t c1 = 100;
+    const std::size_t c2 = 300;
+    const Bytes s1 = dns_tcp_segment(slice_of(stream, 0, c1), 7000);
+    const Bytes s2 = dns_tcp_segment(slice_of(stream, c1, c2), 7000 + static_cast<uint32_t>(c1));
+    const Bytes s3 = dns_tcp_segment(slice_of(stream, c2, stream.size()), 7000 + static_cast<uint32_t>(c2));
+    f.proc.on_dns_packet(view(s1), Fixture::deadline(), false);
+    f.proc.on_dns_packet(view(s2), Fixture::deadline(), false);
+    CHECK(f.writer.recorded.empty());  // earlier segments do no set work
+    CHECK(f.counters.dns_tcp_partial == 2);
+    const auto d = f.proc.on_dns_packet(view(s3), Fixture::deadline(), false);
+    CHECK_FALSE(d.replace);
+    CHECK(f.writer.recorded.size() == 40);
+    CHECK(f.counters.dns_matched == 1);
+    CHECK(f.proc.events_since(0, 10).size() == 1);
+    // A retransmission of the last segment learns nothing more.
+    f.proc.on_dns_packet(view(s3), Fixture::deadline(), false);
+    CHECK(f.writer.recorded.size() == 40);
+}
+
+TEST_CASE("intercept tcp: two pipelined replies in one segment are both learned") {
+    Fixture f;
+    const Bytes a = tcp_framed(dns_response("www.example.com", 0, {a_rr(1, 1, 1, 1, 60)}));
+    const Bytes b = tcp_framed(dns_response("api.example.com", 0, {a_rr(2, 2, 2, 2, 60)}));
+    Bytes both = a;
+    append(both, b);
+    const Bytes seg = dns_tcp_segment(both, 100);
+    f.proc.on_dns_packet(view(seg), Fixture::deadline(), false);
+    REQUIRE(f.writer.recorded.size() == 2);
+    CHECK(f.writer.recorded[0].addr[0] == 1);
+    CHECK(f.writer.recorded[1].addr[0] == 2);
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 2);
+    CHECK(events[0].domain == "www.example.com");
+    CHECK(events[1].domain == "api.example.com");
+}
+
+TEST_CASE("intercept tcp: an out-of-order segment drops the flow, nothing wrong is learned") {
+    Fixture f;
+    const Bytes stream = tcp_framed(big_answer("www.example.com", 40));
+    const Bytes s1 = dns_tcp_segment(slice_of(stream, 0, 100), 1);
+    const Bytes s3 = dns_tcp_segment(slice_of(stream, 200, stream.size()), 201);
+    const Bytes s2 = dns_tcp_segment(slice_of(stream, 100, 200), 101);
+    f.proc.on_dns_packet(view(s1), Fixture::deadline(), false);
+    f.proc.on_dns_packet(view(s3), Fixture::deadline(), false);
+    f.proc.on_dns_packet(view(s2), Fixture::deadline(), false);
+    CHECK(f.writer.recorded.empty());
+    CHECK(f.counters.dns_parse_errors == 0);
+}
+
+TEST_CASE("intercept tcp: FIN drops a half-received reply") {
+    Fixture f;
+    const Bytes stream = tcp_framed(big_answer("www.example.com", 40));
+    const Bytes s1 = dns_tcp_segment(slice_of(stream, 0, 100), 1);
+    const Bytes fin = dns_tcp_segment({}, 101, 0x11);
+    const Bytes s2 = dns_tcp_segment(slice_of(stream, 100, stream.size()), 101);
+    f.proc.on_dns_packet(view(s1), Fixture::deadline(), false);
+    f.proc.on_dns_packet(view(fin), Fixture::deadline(), false);
+    f.proc.on_dns_packet(view(s2), Fixture::deadline(), false);
+    CHECK(f.writer.recorded.empty());
+}
+
+TEST_CASE("intercept tcp: the completing segment past the deadline is accepted, its write is late") {
+    Fixture f;
+    const Bytes stream = tcp_framed(big_answer("www.example.com", 10));
+    const Bytes s1 = dns_tcp_segment(slice_of(stream, 0, 100), 1);
+    const Bytes s2 = dns_tcp_segment(slice_of(stream, 100, stream.size()), 101);
+    f.proc.on_dns_packet(view(s1), Clock::now() - std::chrono::milliseconds(5), false);
+    const auto d = f.proc.on_dns_packet(view(s2), Clock::now() - std::chrono::milliseconds(5), false);
+    CHECK(d.late_write);
+    CHECK(f.writer.recorded.empty());
+    f.proc.flush_late_writes();
+    CHECK(f.writer.recorded.size() == 10);
+}
+
+TEST_CASE("intercept tcp: DNS TCP bench, UDP paths stay allocation free [bench]") {
+    NullSetWriter writer;
+    FakeCleanup cleanup;
+    InterceptCounters counters;
+    InterceptProcessor proc(writer, cleanup, counters);
+    DomainIndex::Builder b;
+    const auto ex = b.add_list("ex");
+    b.add_domain(ex, "example.com");
+    auto snap = std::make_shared<InterceptSnapshot>();
+    snap->index = std::make_shared<DomainIndex>(std::move(b).build());
+    snap->targets.resize(1);
+    snap->targets[0] = {"kpbr4d_ex", "kpbr6d_ex", 300};
+    proc.set_snapshot(snap);
+
+    const Bytes single = dns_tcp_segment(
+        tcp_framed(dns_response("www.example.com", 0, {a_rr(93, 184, 216, 34, 600)})), 1);
+    const Bytes stream = tcp_framed(big_answer("www.example.com", 40));
+    uint32_t seq = 1;
+    const Bytes udp = dns_packet(dns_response("www.example.com", 0, {a_rr(93, 184, 216, 34, 600)}));
+    const DnsRound round(Clock::now() + std::chrono::hours(1));
+    // Warm every path (the first multi-segment message allocates its buffer).
+    for (int i = 0; i < 50; ++i) {
+        const Bytes s1 = dns_tcp_segment(slice_of(stream, 0, 150), seq);
+        const Bytes s2 = dns_tcp_segment(slice_of(stream, 150, stream.size()),
+                                         seq + 150);
+        seq += static_cast<uint32_t>(stream.size());
+        proc.on_dns_packet(view(s1), round, false);
+        proc.on_dns_packet(view(s2), round, false);
+    }
+    const BenchResult un = run_bench(proc, udp, 20000);
+    const BenchResult one = run_bench(proc, single, 20000);  // zero-copy TCP (same seq: retransmit)
+    std::fprintf(stderr,
+                 "BENCH udp matched: %.0f ns/packet, %.3f allocs/packet\n"
+                 "BENCH tcp retransmitted single segment: %.0f ns/packet, %.3f allocs/packet\n",
+                 un.ns_per_packet, un.allocs_per_packet, one.ns_per_packet, one.allocs_per_packet);
+    CHECK(un.allocs_per_packet == 0.0);
+    // Steady multi-segment replies reuse their buffers.
+    const Bytes s1 = dns_tcp_segment(slice_of(stream, 0, 150), seq);
+    const Bytes s2 = dns_tcp_segment(slice_of(stream, 150, stream.size()), seq + 150);
+    g_allocs.store(0);
+    g_count_allocs.store(true);
+    proc.on_dns_packet(view(s1), round, false);
+    proc.on_dns_packet(view(s2), round, false);
+    g_count_allocs.store(false);
+    std::fprintf(stderr, "BENCH tcp multi-segment reply: %llu allocs for 2 segments\n",
+                 static_cast<unsigned long long>(g_allocs.load()));
+}

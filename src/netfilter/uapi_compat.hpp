@@ -15,6 +15,7 @@
 #include <linux/netfilter/nfnetlink_queue.h>
 #include <linux/netlink.h>
 
+#include <cstddef>
 #include <cstdint>
 
 // --- Macros that old headers lack (safe to test with #ifndef) -----------------------------
@@ -81,7 +82,13 @@ namespace keen_pbr3::nfnl::uapi {
 inline constexpr uint16_t kNfqaCfgMask = 4;        // NFQA_CFG_MASK
 inline constexpr uint16_t kNfqaCfgFlags = 5;       // NFQA_CFG_FLAGS
 inline constexpr uint32_t kNfqaCfgFFailOpen = 1;   // NFQA_CFG_F_FAIL_OPEN (1 << 0)
+inline constexpr uint32_t kNfqaCfgFGso = 4;        // NFQA_CFG_F_GSO (1 << 2), Linux 3.10
 inline constexpr uint16_t kNfqaCapLen = 13;        // NFQA_CAP_LEN
+inline constexpr uint16_t kNfqaSkbInfo = 14;       // NFQA_SKB_INFO
+inline constexpr uint32_t kNfqaSkbCsumNotReady = 1;  // NFQA_SKB_CSUMNOTREADY (1 << 0)
+inline constexpr uint32_t kNfqaSkbGso = 2;         // NFQA_SKB_GSO (1 << 1)
+// Attribute table size covering every NFQA_* type above, whatever NFQA_MAX the headers say.
+inline constexpr std::size_t kNfqaAttrCount = 16;
 inline constexpr uint16_t kNfulaCt = 18;           // NFULA_CT
 inline constexpr uint16_t kCtaTupleZone = 3;       // CTA_TUPLE_ZONE
 inline constexpr uint16_t kCtaZone = 18;           // CTA_ZONE
@@ -94,6 +101,11 @@ inline constexpr uint32_t kCtaFilterFlagIpSrc = 1; // CTA_FILTER_FLAG_CTA_IP_SRC
 static_assert(kNfqaCfgMask == NFQA_CFG_MASK, "NFQA_CFG_MASK mismatch");
 static_assert(kNfqaCfgFlags == NFQA_CFG_FLAGS, "NFQA_CFG_FLAGS mismatch");
 static_assert(kNfqaCfgFFailOpen == NFQA_CFG_F_FAIL_OPEN, "NFQA_CFG_F_FAIL_OPEN mismatch");
+static_assert(kNfqaCfgFGso == NFQA_CFG_F_GSO, "NFQA_CFG_F_GSO mismatch");
+static_assert(kNfqaCapLen == NFQA_CAP_LEN, "NFQA_CAP_LEN mismatch");
+static_assert(kNfqaSkbInfo == NFQA_SKB_INFO, "NFQA_SKB_INFO mismatch");
+static_assert(kNfqaSkbCsumNotReady == NFQA_SKB_CSUMNOTREADY, "NFQA_SKB_CSUMNOTREADY mismatch");
+static_assert(kNfqaSkbGso == NFQA_SKB_GSO, "NFQA_SKB_GSO mismatch");
 static_assert(kNfulaCt == NFULA_CT, "NFULA_CT mismatch");
 static_assert(kCtaTupleZone == CTA_TUPLE_ZONE, "CTA_TUPLE_ZONE mismatch");
 static_assert(kCtaZone == CTA_ZONE, "CTA_ZONE mismatch");

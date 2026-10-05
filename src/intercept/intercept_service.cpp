@@ -351,7 +351,9 @@ void InterceptService::handle_queue_packet(const nfnl::QueuedPacket& packet,
     }
     InterceptProcessor::DnsDecision decision;
     try {
-        decision = processor_.process_dns_packet(packet.payload, round, replacement_allowed_);
+        // A GSO super-packet is never rewritten: its payload spans several wire segments.
+        decision = processor_.process_dns_packet(packet.payload, round,
+                                                 replacement_allowed_ && !packet.gso);
     } catch (...) {
         decision = {};
     }

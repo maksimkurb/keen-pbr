@@ -361,6 +361,7 @@ set(SOURCES
   src/netfilter/set_writer.cpp
   src/netfilter/kernel_probe.cpp
   src/intercept/intercept_processor.cpp
+  src/intercept/dns_tcp_reassembly.cpp
   src/intercept/set_element_cache.cpp
   src/intercept/intercept_service.cpp
   src/intercept/intercept_capabilities.cpp

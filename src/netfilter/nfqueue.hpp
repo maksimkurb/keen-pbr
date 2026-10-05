@@ -18,6 +18,11 @@ struct QueuedPacket {
     uint32_t mark{0};         // NFQA_MARK, 0 if absent
     ByteView payload;         // NFQA_PAYLOAD: full L3 packet; valid until next receive call
     bool truncated{false};    // captured payload is shorter than the original packet
+    // NFQA_SKB_INFO.  gso: the packet is a GSO/GRO super-packet (queue GSO flag), possibly
+    // larger than the MTU; its payload must never be replaced.  csum_not_ready: checksums
+    // are not filled in yet (offload); read-only consumers do not care.
+    bool gso{false};
+    bool csum_not_ready{false};
 };
 
 struct NfQueueOptions {
@@ -25,6 +30,9 @@ struct NfQueueOptions {
     uint32_t copy_range{0xFFFF};
     uint32_t queue_maxlen{1024};
     bool fail_open{true};     // NFQA_CFG_F_FAIL_OPEN
+    // NFQA_CFG_F_GSO: queue GSO/GRO super-packets whole instead of letting the kernel
+    // segment them first.  Best effort; a kernel without it keeps segmenting.
+    bool gso{true};
     int rcvbuf_bytes{2 << 20};
 };
 
@@ -77,6 +85,11 @@ public:
     const ProbeResult& fail_open_probe() const { return fail_open_; }
     bool fail_open_active() const { return fail_open_.is_ok(); }
 
+    // Result of enabling NFQA_CFG_F_GSO (Linux 3.10).  A kernel that rejects
+    // the flag does not fail the bind; the queue then receives segmented packets.
+    const ProbeResult& gso_probe() const { return gso_; }
+    bool gso_active() const { return gso_.is_ok(); }
+
 #ifdef KEEN_PBR3_TESTING
     // Diagnostic-only ACK path.  Runtime verdicts intentionally remain
     // fire-and-forget so a packet hold is never extended by a netlink round
@@ -95,6 +108,7 @@ public:
 
 private:
     void probe_fail_open();
+    void enable_gso();
 
     NfQueueOptions opt_;
     NlSocket sock_;
@@ -105,6 +119,7 @@ private:
     bool bound_{false};
     ReplacementCapability replacement_{ReplacementCapability::unknown};
     ProbeResult fail_open_;
+    ProbeResult gso_;
 };
 
 // Exposed for golden tests.

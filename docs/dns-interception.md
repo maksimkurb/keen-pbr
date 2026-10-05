@@ -124,9 +124,36 @@ ignored as well.
 3. The packet is accepted. DNS is not proxied and the answer is not changed,
    except for the marker response described below.
 
-TCP DNS is parsed when the complete DNS message is present in one segment. A
-partial TCP message is accepted and counted as `dns_tcp_partial`; it is not
-silently treated as a complete answer. Malformed packets are accepted with a
+TCP DNS replies are reassembled per flow (reply source/destination address
+and port, family) from the 2-byte length prefix and the TCP sequence numbers.
+A message inside one segment is parsed in place; a message spread over several
+segments is buffered until it is complete, and several messages in one segment
+(pipelined replies) are all parsed. Only the segment that completes a message
+is held while its set writes run, exactly like a UDP reply and under the same
+deadline; every earlier segment of the message is accepted immediately and
+counted as `dns_tcp_partial` (as is any segment that completes nothing). The
+reassembler is deliberately simple and bounded:
+
+* Segments are taken in order. A retransmission is ignored (an overlap keeps
+  only its new bytes). A gap, an out-of-order segment or an impossible length
+  (below the 12-byte DNS header) makes the flow ignored until it idles out, ends
+  or is evicted: nothing wrong is ever learned, but that reply is lost. FIN, RST
+  and SYN drop the flow state. The first payload segment seen is assumed to
+  start on a message boundary.
+* At most 256 tracked flows (least recently fed evicted first), idle flows
+  expire after 2 s, at most 32 flows buffer a partial message at once, each
+  at most 65535 bytes: below 2.1 MiB in all, plus two recycled spare buffers.
+* Single-segment messages need no memory. A multi-segment message allocates its
+  buffer when it starts unless a recycled one is large enough, so the UDP path
+  and the steady state stay allocation free.
+* TCP replies are never rewritten (marker replacement is UDP only).
+
+The queue sets `NFQA_CFG_F_GSO`, so GSO/GRO super-packets (up to 64 KiB, with
+checksums possibly not filled in) are queued whole instead of being
+segmented by the kernel first; a large DNS-over-TCP reply then often arrives
+as one packet. These packets are only read and accepted, and a packet flagged
+`NFQA_SKB_GSO` is never payload-replaced. The copy range and receive buffer
+already cover 64 KiB. Malformed packets are accepted with a
 parse-error counter so interception cannot become a packet-drop policy.
 
 The hold timeout is a userspace processing budget. It is not a kernel promise
@@ -317,6 +344,7 @@ features, so keen-pbr does not trust these numbers at runtime: see
 | `xt_NFQUEUE --queue-bypass` (`xt_NFQ_info_v2`) | 2.6.39 | `xt_NFQUEUE.h` | DNS hold, iptables | required (rule fails to load) |
 | nft `queue ... bypass` (`NFT_QUEUE_FLAG_BYPASS`, `nft_queue.c`) | 3.14 | `nf_tables.h`, `nft_queue.c` | DNS hold, nft | required |
 | `NFQA_CFG_FLAGS`/`NFQA_CFG_MASK` + `NFQA_CFG_F_FAIL_OPEN` | 3.6 | `nfnetlink_queue.h` | DNS hold | optional: runs without fail-open, `fail_open=false` + warning |
+| `NFQA_CFG_F_GSO` (queue GSO/GRO super-packets whole instead of segmenting them first) | 3.10 | `nfnetlink_queue.h` | DNS hold | optional: sent as its own request so a rejection cannot take fail-open down; the kernel then segments before queueing |
 | `NFQA_CAP_LEN` (detects truncated captures) | 3.7 | `nfnetlink_queue.h` | DNS hold | optional: the IP header length check still catches truncation |
 | `NFQNL_MSG_VERDICT_BATCH` (batch accept on shutdown) | 3.1 | `nfnetlink_queue.h` | shutdown drain | optional: packets are released one by one |
 | Verdict payload replacement in the initial user namespace | 2.6.14 (same as `NFQA_PAYLOAD`) | project live test, see [Marker and payload replacement](#marker-and-payload-replacement); no upstream commit identified for the user-namespace limit | marker rewrite | optional: marker is accepted unchanged |
@@ -389,6 +417,7 @@ traffic and a probe never fails a configuration apply.
 | `set_backend` | ipset: `IPSET_CMD_PROTOCOL` (needs a reply of at least protocol 6). nftables: a batched `NEWSETELEM` against a set that does not exist (`ENOENT` proves nf_tables answers; `EOPNOTSUPP`/`EINVAL` means it does not) | `unsupported`/`error` disables DNS hold and L7 |
 | `nfqueue` | bind of the configured queue number plus `NFQA_CFG_PARAMS`, done by the service itself | failure disables DNS hold only |
 | `fail_open` | `NFQA_CFG_FLAGS(FAIL_OPEN)` on the bound queue, plus a control request with an unknown flag bit. Kernels before 3.6 ignore the attribute and ACK both, so a control that is accepted means the flag was never parsed | `unsupported`: queue runs without fail-open, `capabilities.fail_open=false`, warning |
+| `gso` | `NFQA_CFG_FLAGS(GSO)` in a separate request after the bind | failure (`EOPNOTSUPP` on 3.6-3.9) is ignored; never disables anything |
 | `payload_replacement` | `NS_GET_USERNS` owner of the network namespace | `supported`, `unsupported` or `unknown`; informational |
 | `nflog` | bind of the configured group, done by the service itself | failure disables L7 only |
 | `set_write` | after the firewall created the sets: add and delete of `192.0.2.255` / `2001:db8::ffff` with a 1 s timeout on one `kpbr4d_*`/`kpbr6d_*` set (ipset `ADD`/`DEL`, nft `NEWSETELEM`/`DELSETELEM`) | failure removes the interception rules again and disables DNS hold and L7; `skipped` when no dynamic set exists |

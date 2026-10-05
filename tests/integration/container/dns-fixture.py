@@ -49,6 +49,15 @@ class Fixture:
                                      "qtype": qtype, "peer": peer[0],
                                      "observed_at": time.time()}, sort_keys=True) + "\n")
         flags = 0x8180
+        if (self.args.bulk_domain and name == self.args.bulk_domain.lower() and qtype == 1):
+            # Large answer: bulk_count A records 10.99.<n / 250>.<1 + n % 250>, a reply
+            # that needs several TCP segments.
+            records = b"".join(
+                b"\xc0\x0c" + struct.pack("!HHIH", 1, 1, 30, 4) +
+                bytes((10, 99, n // 250, 1 + n % 250))
+                for n in range(self.args.bulk_count))
+            return (packet[:2] + struct.pack("!HHHHH", flags, 1, self.args.bulk_count, 0, 0) +
+                    packet[12:end] + records)
         cname = (self.args.cname_target
                  if self.args.cname_domain and name == self.args.cname_domain.lower()
                  else None)
@@ -89,17 +98,36 @@ def tcp_loop(sock: socket.socket, fixture: Fixture) -> None:
             connection.sendall(struct.pack("!H", len(answer)) + answer)
 
 
+def read_exactly(sock: socket.socket, size: int) -> bytes:
+    data = b""
+    while len(data) < size:
+        chunk = sock.recv(size - len(data))
+        if not chunk:
+            raise ConnectionError("connection closed before the full message arrived")
+        data += chunk
+    return data
+
+
 def query(args: argparse.Namespace) -> None:
-    """Issue one UDP query and print the received wire packet."""
+    """Issue one UDP (or, with --tcp, TCP) query and print the received wire packet."""
     packet = (struct.pack("!HHHHHH", uuid.uuid4().int & 0xffff, 0x0100, 1, 0, 0, 0) +
               encoded_name(args.name.rstrip(".")) + struct.pack("!HH", args.qtype, 1))
     family = socket.AF_INET6 if ipaddress.ip_address(args.server).version == 6 else socket.AF_INET
     address = ((args.server, args.port, 0, 0) if family == socket.AF_INET6
                else (args.server, args.port))
-    with socket.socket(family, socket.SOCK_DGRAM) as sock:
-        sock.settimeout(args.timeout)
-        sock.sendto(packet, address)
-        response, peer = sock.recvfrom(65536)
+    if args.tcp:
+        with socket.socket(family, socket.SOCK_STREAM) as sock:
+            sock.settimeout(args.timeout)
+            sock.connect(address)
+            sock.sendall(struct.pack("!H", len(packet)) + packet)
+            size = struct.unpack("!H", read_exactly(sock, 2))[0]
+            response = read_exactly(sock, size)
+            peer = sock.getpeername()
+    else:
+        with socket.socket(family, socket.SOCK_DGRAM) as sock:
+            sock.settimeout(args.timeout)
+            sock.sendto(packet, address)
+            response, peer = sock.recvfrom(65536)
     print(json.dumps({"bytes": len(response), "peer": peer[0],
                       "qname": qname(response), "qtype": args.qtype,
                       "packet_hex": response.hex()}, sort_keys=True))
@@ -113,6 +141,7 @@ def main() -> None:
         parser.add_argument("--name", required=True)
         parser.add_argument("--qtype", type=int, default=1)
         parser.add_argument("--timeout", type=float, default=8)
+        parser.add_argument("--tcp", action="store_true")
         query(parser.parse_args(sys.argv[2:]))
         return
     parser = argparse.ArgumentParser()
@@ -124,6 +153,8 @@ def main() -> None:
     parser.add_argument("--aaaa", required=True)
     parser.add_argument("--cname-domain")
     parser.add_argument("--cname-target")
+    parser.add_argument("--bulk-domain")
+    parser.add_argument("--bulk-count", type=int, default=0)
     args = parser.parse_args()
     open(args.log, "a", encoding="utf-8").close()
     fixture = Fixture(args)

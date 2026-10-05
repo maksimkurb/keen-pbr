@@ -177,8 +177,8 @@ void build_nfqueue_verdict_batch(MsgBuilder& b, uint16_t queue_num, uint32_t max
 
 bool parse_nfqueue_packet(const MsgView& m, QueuedPacket& out) {
     if (m.type != kMsgPacket) return false;
-    Attr table[NFQA_MAX + 1];
-    if (!parse_attrs(m.attrs, table, NFQA_MAX + 1)) return false;
+    Attr table[uapi::kNfqaAttrCount];
+    if (!parse_attrs(m.attrs, table, uapi::kNfqaAttrCount)) return false;
 
     const Attr& hdr = table[NFQA_PACKET_HDR];
     if (hdr.payload.size() < sizeof(nfqnl_msg_packet_hdr)) return false;
@@ -201,6 +201,9 @@ bool parse_nfqueue_packet(const MsgView& m, QueuedPacket& out) {
     if (cap.payload.size() >= 4 && attr_u32_be(cap) > pl.payload.size()) truncated = true;
     if (ip_declared_len(pl.payload) > pl.payload.size()) truncated = true;
     out.truncated = truncated;
+    const uint32_t info = attr_u32_be(table[uapi::kNfqaSkbInfo]);
+    out.gso = (info & uapi::kNfqaSkbGso) != 0;
+    out.csum_not_ready = (info & uapi::kNfqaSkbCsumNotReady) != 0;
     return true;
 }
 
@@ -277,6 +280,35 @@ NfQueue::NfQueue(const NfQueueOptions& opt)
     replacement_ = detect_replacement_capability();
     tx_.clear();
     if (opt_.fail_open) probe_fail_open();
+    if (opt_.gso) enable_gso();
+}
+
+void NfQueue::enable_gso() {
+    // A separate request: an unknown flag bit rejects the whole attribute
+    // (EOPNOTSUPP on 3.6..3.9), which must not take fail-open down with it.
+    // Kernels before 3.6 ignore the attribute and ACK; that is harmless too.
+    // Whatever the answer, the bind stays: GSO only changes how big the queued
+    // packets are.  The receive buffer and copy range already cover 64 KiB.
+    tx_.clear();
+    const uint32_t seq = sock_.next_seq();
+    build_nfqueue_flags(tx_, seq, opt_.queue_num, uapi::kNfqaCfgFGso, uapi::kNfqaCfgFGso);
+    int err = ETIMEDOUT;
+    (void)sock_.transact(
+        tx_.data(), tx_.size(), seq, seq, kConfigTimeoutMs,
+        [&](const MsgView& msg) {
+            if (msg.type != kMsgPacket) return;
+            uint32_t id = 0;
+            if (!packet_id_from_attrs(msg.attrs, id)) return;
+            MsgBuilder verdict_msg;
+            build_nfqueue_verdict(verdict_msg, opt_.queue_num, id, NF_ACCEPT, nullptr, 0);
+            int send_err = 0;
+            (void)sock_.send(verdict_msg.data(), verdict_msg.size(), send_err);
+        },
+        [&](uint32_t ack_seq, int ack_err) {
+            if (ack_seq == seq) err = ack_err;
+        });
+    gso_ = classify_errno(err, "NFQA_CFG_F_GSO");
+    tx_.clear();
 }
 
 void NfQueue::probe_fail_open() {

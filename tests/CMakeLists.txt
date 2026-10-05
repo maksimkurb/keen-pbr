@@ -32,6 +32,7 @@ add_executable(keen-pbr-tests
   test_nfnetfilter_wrappers.cpp
   test_set_writer.cpp
   test_intercept_processor.cpp
+  test_dns_tcp_reassembly.cpp
   test_seqlock_ring.cpp
   test_set_element_cache.cpp
   test_intercept_live.cpp
@@ -177,6 +178,7 @@ add_executable(keen-pbr-tests
   ../src/netfilter/set_writer.cpp
   ../src/netfilter/kernel_probe.cpp
   ../src/intercept/intercept_processor.cpp
+  ../src/intercept/dns_tcp_reassembly.cpp
   ../src/intercept/set_element_cache.cpp
   ../src/intercept/intercept_service.cpp
   ../src/intercept/intercept_capabilities.cpp
