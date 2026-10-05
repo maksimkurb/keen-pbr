@@ -150,30 +150,114 @@ public:
     return firewall.prerouting_chain_name(ipv6);
   }
 
-  static std::string cleanup_sweep_log(RawPreroutingMode mode) {
+  static void set_proc_net_dir(IptablesFirewall &firewall,
+                               const std::string &dir) {
+    firewall.proc_net_dir_ = dir;
+  }
+
+  struct FakeCleanup {
+    std::string log;
+    bool threw{false};
+  };
+
+  // Runs a cleanup against fake iptables/ip6tables/ipset scripts.  `-S`
+  // prints `dump`, `ipset list -n` prints `sets`; a command whose arguments
+  // contain `fail_on` fails with a localized message and, when `vanish` is
+  // set, empties both listings (the object disappeared concurrently).
+  // `registry` is the content of the kernel table registry, if any.
+  static FakeCleanup fake_cleanup(
+      RawPreroutingMode mode, const std::string &dump, const std::string &sets,
+      const std::string &fail_on = "", bool vanish = false,
+      const std::string &registry = "mangle\nraw\n", bool preserve_dynamic = false,
+      const std::string &list_failure = "") {
     const auto directory = std::filesystem::temp_directory_path() /
                            ("keen-pbr-raw-cleanup-" +
                             std::to_string(static_cast<long long>(getpid())));
+    std::filesystem::remove_all(directory);
     std::filesystem::create_directories(directory);
     const auto log_path = directory / "commands.log";
+    const auto dump_path = directory / "dump";
+    const auto sets_path = directory / "sets";
+    const auto list_fail_path = directory / "list_failure";
+    for (const auto &[path, text] :
+         {std::pair{dump_path, dump}, std::pair{sets_path, sets},
+          std::pair{directory / "ip_tables_names", registry},
+          std::pair{directory / "ip6_tables_names", registry},
+          std::pair{list_fail_path, list_failure}}) {
+      std::ofstream(path) << text;
+    }
     const std::string script =
-        "#!/bin/sh\nprintf '%s %s\\n' \"$0\" \"$*\" >> \"$KEEN_TEST_LOG\"\n";
-    write_executable(directory / "iptables", script);
-    write_executable(directory / "ip6tables", script);
+        "#!/bin/sh\n"
+        "printf '%s %s\\n' \"$(basename \"$0\")\" \"$*\" >> \"$KEEN_TEST_LOG\"\n"
+        "case \"$*\" in\n"
+        "  \"-t \"*\" -S\")\n"
+        "    if [ -s \"$KEEN_TEST_LIST_FAILURE\" ]; then\n"
+        "      echo 'Tabla no existe / 表不存在' >&2; exit 3; fi\n"
+        "    cat \"$KEEN_TEST_DUMP\"; exit 0;;\n"
+        "  \"list -n\") cat \"$KEEN_TEST_SETS\"; exit 0;;\n"
+        "esac\n"
+        "if [ -n \"$KEEN_TEST_FAIL_ON\" ]; then\n"
+        "  case \"$*\" in *\"$KEEN_TEST_FAIL_ON\"*)\n"
+        "    echo 'La cadena no existe / 链不存在' >&2\n"
+        "    if [ -n \"$KEEN_TEST_VANISH\" ]; then\n"
+        "      : > \"$KEEN_TEST_DUMP\"; : > \"$KEEN_TEST_SETS\"; fi\n"
+        "    exit 1;;\n"
+        "  esac\n"
+        "fi\n"
+        "exit 0\n";
+    for (const char *tool : {"iptables", "ip6tables", "ipset"}) {
+      write_executable(directory / tool, script);
+    }
     PathGuard path_guard;
     const auto path = directory.string() + ":/usr/bin:/bin";
     REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
     REQUIRE(setenv("KEEN_TEST_LOG", log_path.c_str(), 1) == 0);
-    IptablesFirewall firewall;
-    firewall.raw_prerouting_ = mode;
-    firewall.cleanup_rules_impl(true);
-    unsetenv("KEEN_TEST_LOG");
+    REQUIRE(setenv("KEEN_TEST_DUMP", dump_path.c_str(), 1) == 0);
+    REQUIRE(setenv("KEEN_TEST_SETS", sets_path.c_str(), 1) == 0);
+    REQUIRE(setenv("KEEN_TEST_LIST_FAILURE", list_fail_path.c_str(), 1) == 0);
+    REQUIRE(setenv("KEEN_TEST_FAIL_ON", fail_on.c_str(), 1) == 0);
+    REQUIRE(setenv("KEEN_TEST_VANISH", vanish ? "1" : "", 1) == 0);
+    FakeCleanup out;
+    {
+      IptablesFirewall firewall;
+      firewall.raw_prerouting_ = mode;
+      firewall.proc_net_dir_ = directory.string();
+      try {
+        firewall.cleanup_live_impl(preserve_dynamic, /*sweep_live_state=*/true);
+      } catch (const FirewallError &) {
+        out.threw = true;
+      }
+    }
+    for (const char *name :
+         {"KEEN_TEST_LOG", "KEEN_TEST_DUMP", "KEEN_TEST_SETS",
+          "KEEN_TEST_LIST_FAILURE", "KEEN_TEST_FAIL_ON", "KEEN_TEST_VANISH"}) {
+      unsetenv(name);
+    }
     std::ifstream input(log_path);
     std::ostringstream contents;
     contents << input.rdbuf();
+    out.log = contents.str();
     std::filesystem::remove_all(directory);
-    return contents.str();
+    return out;
   }
+
+  static std::string cleanup_sweep_log(RawPreroutingMode mode) {
+    return fake_cleanup(mode, kOwnedDump, "").log;
+  }
+
+  static constexpr const char *kOwnedDump =
+      "-P PREROUTING ACCEPT\n"
+      "-N KeenPbrRaw\n"
+      "-N KeenPbrTable\n"
+      "-N KeenPbrOutput\n"
+      "-N KeenPbrDnsHold\n"
+      "-N KeenPbrSniff\n"
+      "-N UnrelatedChain\n"
+      "-A PREROUTING -j KeenPbrRaw\n"
+      "-A PREROUTING -j KeenPbrTable\n"
+      "-A OUTPUT -j KeenPbrOutput\n"
+      "-A POSTROUTING -j KeenPbrDnsHold\n"
+      "-A FORWARD -j KeenPbrSniff\n";
 
   // Legacy fixture vocabulary (rule descriptors + a prefilter struct) mapped
   // onto a FirewallPlan; the backend itself only sees the plan.
@@ -724,15 +808,17 @@ TEST_CASE("live-state cleanup removes the interception hooks and chains") {
   const auto log = T::cleanup_sweep_log(RawPreroutingMode{});
   for (const char *command : {"iptables", "ip6tables"}) {
     const std::string prefix = std::string(command) + " -t mangle ";
-    CHECK(log.find(prefix + "-S POSTROUTING") != std::string::npos);
-    CHECK(log.find(prefix + "-S FORWARD") != std::string::npos);
+    CHECK(log.find(prefix + "-D POSTROUTING -j KeenPbrDnsHold") !=
+          std::string::npos);
+    CHECK(log.find(prefix + "-D FORWARD -j KeenPbrSniff") !=
+          std::string::npos);
     CHECK(log.find(prefix + "-F KeenPbrDnsHold") != std::string::npos);
     CHECK(log.find(prefix + "-X KeenPbrDnsHold") != std::string::npos);
     CHECK(log.find(prefix + "-F KeenPbrSniff") != std::string::npos);
     CHECK(log.find(prefix + "-X KeenPbrSniff") != std::string::npos);
   }
   // Hooks are removed before their chains.
-  CHECK(log.find("-S FORWARD") < log.find("-F KeenPbrSniff"));
+  CHECK(log.find("-D FORWARD") < log.find("-F KeenPbrSniff"));
 }
 
 TEST_CASE("iptables expected ruleset follows IPv6 availability") {
@@ -769,12 +855,14 @@ TEST_CASE("family layout helpers cover all four RAW/mangle combinations") {
 
 TEST_CASE("live-state cleanup sweeps RAW and mangle layouts per family") {
   const auto log = T::cleanup_sweep_log(RawPreroutingMode{true, false});
-  CHECK(log.find("-t raw -S PREROUTING") != std::string::npos);
+  CHECK(log.find("-t raw -D PREROUTING -j KeenPbrRaw") != std::string::npos);
   CHECK(log.find("-t raw -F KeenPbrRaw") != std::string::npos);
   CHECK(log.find("-t mangle -F KeenPbrTable") != std::string::npos);
   CHECK(log.find("-t mangle -F KeenPbrOutput") != std::string::npos);
-  CHECK(log.find("ip6tables -t raw -S PREROUTING") != std::string::npos);
-  CHECK(log.find("-t mangle -S PREROUTING") != std::string::npos);
+  CHECK(log.find("ip6tables -t raw -D PREROUTING -j KeenPbrRaw") !=
+        std::string::npos);
+  CHECK(log.find("-t mangle -D PREROUTING -j KeenPbrTable") !=
+        std::string::npos);
   CHECK(log.find("ip6tables -t mangle -F KeenPbrTable") != std::string::npos);
 }
 
@@ -788,6 +876,7 @@ TEST_CASE("IptablesFirewall cleanup propagates command failure") {
                    "#!/bin/sh\n"
                    "echo 'permission denied' >&2\n"
                    "exit 7\n");
+  std::ofstream(directory / "ip_tables_names") << "mangle\nraw\n";
 
   {
     PathGuard path_guard;
@@ -796,9 +885,106 @@ TEST_CASE("IptablesFirewall cleanup propagates command failure") {
                              (old_path == nullptr ? std::string{} : old_path);
     REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
     IptablesFirewall firewall;
+    T::set_proc_net_dir(firewall, directory.string());
     CHECK_THROWS_AS(firewall.cleanup(), FirewallError);
   }
   std::filesystem::remove_all(directory);
+}
+
+namespace {
+const auto count_of = [](const std::string &log, const std::string &needle) {
+  std::size_t count = 0;
+  for (auto pos = log.find(needle); pos != std::string::npos;
+       pos = log.find(needle, pos + 1)) {
+    ++count;
+  }
+  return count;
+};
+} // namespace
+
+TEST_CASE("cleanup of absent objects issues no deletes and succeeds") {
+  const auto result = T::fake_cleanup(RawPreroutingMode{},
+                                      "-P PREROUTING ACCEPT\n-N Other\n", "");
+  CHECK_FALSE(result.threw);
+  CHECK(result.log.find(" -D ") == std::string::npos);
+  CHECK(result.log.find(" -F ") == std::string::npos);
+  CHECK(result.log.find(" -X ") == std::string::npos);
+  CHECK(result.log.find("flush") == std::string::npos);
+  CHECK(result.log.find("destroy") == std::string::npos);
+}
+
+TEST_CASE("cleanup inspects each table once per family and sets once") {
+  const auto result = T::fake_cleanup(RawPreroutingMode{}, T::kOwnedDump,
+                                      "kpbr4_a\nkpbr6d_b\nforeign\n");
+  CHECK_FALSE(result.threw);
+  // raw + mangle per family; legacy numbered-chain sweep reuses the mangle one.
+  CHECK(count_of(result.log, " -S\n") == 4);
+  CHECK(count_of(result.log, "ipset list -n") == 1);
+  CHECK(result.log.find("flush kpbr4_a") != std::string::npos);
+  CHECK(result.log.find("destroy kpbr4_a") != std::string::npos);
+  CHECK(result.log.find("ipset destroy kpbr6d_b") != std::string::npos);
+  CHECK(result.log.find("foreign") == std::string::npos);
+  CHECK(result.log.find("UnrelatedChain") == std::string::npos);
+}
+
+TEST_CASE("cleanup of present objects deletes only the owned ones") {
+  const auto result = T::fake_cleanup(RawPreroutingMode{}, T::kOwnedDump, "");
+  CHECK_FALSE(result.threw);
+  CHECK(result.log.find("iptables -t mangle -F KeenPbrOutput") !=
+        std::string::npos);
+  CHECK(result.log.find("iptables -t mangle -X KeenPbrOutput") !=
+        std::string::npos);
+  // Absent retired chains are never touched.
+  CHECK(result.log.find("KeenPbrOutput_A") == std::string::npos);
+  CHECK(result.log.find("KeenPbrTable_B") == std::string::npos);
+}
+
+TEST_CASE("a failed chain delete is a failure while the chain still exists") {
+  const auto result =
+      T::fake_cleanup(RawPreroutingMode{}, T::kOwnedDump, "", "-X KeenPbrOutput");
+  CHECK(result.threw);
+  const auto hook = T::fake_cleanup(RawPreroutingMode{}, T::kOwnedDump, "",
+                                    "-D OUTPUT -j KeenPbrOutput");
+  CHECK(hook.threw);
+}
+
+TEST_CASE("a failed delete of a concurrently vanished object succeeds") {
+  CHECK_FALSE(T::fake_cleanup(RawPreroutingMode{}, T::kOwnedDump, "",
+                              "-X KeenPbrOutput", /*vanish=*/true)
+                  .threw);
+  CHECK_FALSE(T::fake_cleanup(RawPreroutingMode{}, T::kOwnedDump, "",
+                              "-F KeenPbrSniff", /*vanish=*/true)
+                  .threw);
+  CHECK_FALSE(T::fake_cleanup(RawPreroutingMode{}, T::kOwnedDump, "",
+                              "-D OUTPUT -j KeenPbrOutput", /*vanish=*/true)
+                  .threw);
+}
+
+TEST_CASE("ipset destroy outcome comes from the live listing, not the text") {
+  CHECK(T::fake_cleanup(RawPreroutingMode{}, "", "kpbr4_a\n",
+                        "destroy kpbr4_a")
+            .threw);
+  CHECK_FALSE(T::fake_cleanup(RawPreroutingMode{}, "", "kpbr4_a\n",
+                              "destroy kpbr4_a", /*vanish=*/true)
+                  .threw);
+  CHECK(T::fake_cleanup(RawPreroutingMode{}, "", "kpbr4_a\n",
+                        "flush kpbr4_a")
+            .threw);
+  CHECK_FALSE(T::fake_cleanup(RawPreroutingMode{}, "", "kpbr4_a\n",
+                              "flush kpbr4_a", /*vanish=*/true)
+                  .threw);
+}
+
+TEST_CASE("a table the kernel does not provide is absent, other listing "
+          "failures are not") {
+  // Listing fails (localized text); raw is not registered -> skipped.
+  const auto absent = T::fake_cleanup(RawPreroutingMode{}, "", "", "", false,
+                                      "mangle\n", false, "fail");
+  CHECK(absent.threw);  // mangle is registered but its listing fails
+  const auto none = T::fake_cleanup(RawPreroutingMode{}, "", "", "", false,
+                                    "", false, "fail");
+  CHECK_FALSE(none.threw);  // nothing registered -> nothing to clean
+  CHECK(none.log.find(" -D ") == std::string::npos);
 }
 
 TEST_CASE("raw prerouting rules use an isolated raw chain without conntrack") {

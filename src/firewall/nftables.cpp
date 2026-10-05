@@ -21,31 +21,8 @@ namespace keen_pbr3 {
 
 namespace {
 
-bool cleanup_command_reports_absence(const ExecCaptureResult& result) {
-    if (result.exit_code == 0 && !result.truncated && !result.timed_out) {
-        return true;
-    }
-    if (result.truncated || result.timed_out) {
-        return false;
-    }
-    std::string output = result.stdout_output;
-    std::transform(output.begin(), output.end(), output.begin(),
-                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    return output.find("no such") != std::string::npos ||
-           output.find("does not exist") != std::string::npos ||
-           output.find("cannot be found") != std::string::npos;
-}
-
-ExecCaptureResult run_cleanup_command(const std::vector<std::string>& args) {
-    const auto result = safe_exec_capture(args, /*suppress_stderr=*/false,
-                                          /*max_bytes=*/0,
-                                          /*merge_stderr=*/true);
-    if (!cleanup_command_reports_absence(result)) {
-        throw FirewallError(keen_pbr3::format(
-            "firewall cleanup command failed: {} (status {})",
-            safe_exec_command_string(args), result.exit_code));
-    }
-    return result;
+bool command_succeeded(const ExecCaptureResult& result) {
+    return result.exit_code == 0 && !result.truncated && !result.timed_out;
 }
 
 nlohmann::json family_match_expr(int family) {
@@ -572,9 +549,36 @@ nlohmann::json NftablesFirewall::build_elements_json(const std::string& set_name
 // --- apply / cleanup ---
 
 bool NftablesFirewall::table_exists() const {
-    return run_cleanup_command({"nft", "list", "table", "inet",
-                                std::string(TABLE_NAME)})
-               .exit_code == 0;
+    // `nft -j list tables` succeeds with an empty list when there is no
+    // table, so a failure here is a real failure and absence is read from
+    // the parsed document.
+    const std::vector<std::string> args{"nft", "-j", "list", "tables"};
+    const auto result = safe_exec_capture(args, /*suppress_stderr=*/true);
+    if (!command_succeeded(result)) {
+        throw FirewallError(keen_pbr3::format(
+            "firewall cleanup command failed: {} (status {})",
+            safe_exec_command_string(args), result.exit_code));
+    }
+    nlohmann::json doc;
+    try {
+        doc = nlohmann::json::parse(result.stdout_output);
+    } catch (const nlohmann::json::parse_error& e) {
+        throw FirewallError(keen_pbr3::format(
+            "cannot parse nft table listing: {}", e.what()));
+    }
+    const auto nftables_it = doc.find("nftables");
+    if (nftables_it == doc.end() || !nftables_it->is_array()) {
+        return false;
+    }
+    for (const auto& item : *nftables_it) {
+        const auto table_it = item.find("table");
+        if (table_it != item.end() && table_it->is_object()
+            && table_it->value("family", "") == "inet"
+            && table_it->value("name", "") == TABLE_NAME) {
+            return true;
+        }
+    }
+    return false;
 }
 
 NftablesFirewall::LiveTableState NftablesFirewall::read_live_table_state() const {
@@ -947,12 +951,22 @@ void NftablesFirewall::apply_prepared(FirewallApplyMode mode) {
 }
 
 void NftablesFirewall::cleanup_live_impl() {
-    if (table_created_ || table_exists()) {
+    if (table_exists()) {
         Logger::instance().verbose("nft delete table inet {}", TABLE_NAME);
-        run_cleanup_command({"nft", "delete", "table", "inet",
-                             std::string(TABLE_NAME)});
-        table_created_ = false;
+        const std::vector<std::string> args{"nft", "delete", "table", "inet",
+                                            std::string(TABLE_NAME)};
+        const auto result = safe_exec_capture(args, /*suppress_stderr=*/false,
+                                              /*max_bytes=*/0,
+                                              /*merge_stderr=*/true);
+        // A table removed by someone else between the listing and the delete
+        // is fine; anything else is a failure.
+        if (!command_succeeded(result) && table_exists()) {
+            throw FirewallError(keen_pbr3::format(
+                "firewall cleanup command failed: {} (status {})",
+                safe_exec_command_string(args), result.exit_code));
+        }
     }
+    table_created_ = false;
 }
 
 void NftablesFirewall::cleanup_impl() {

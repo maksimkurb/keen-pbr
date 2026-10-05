@@ -90,8 +90,37 @@ private:
                          bool sweep_live_state = false);
   void cleanup_impl();
   void cleanup_rules_impl(bool sweep_live_state = false);
-  void cleanup_saved_sets(bool preserve_dynamic_sets);
-  static void cleanup_legacy_numbered_chains(const char *command);
+  static void cleanup_saved_sets(std::set<std::string> &live,
+                                 bool preserve_dynamic_sets);
+
+  // One `<iptables> -t <table> -S` inspection: the chains and rules that
+  // exist, so cleanup deletes only what is there instead of interpreting
+  // the error text of a failed delete.
+  struct TableSnapshot {
+    const char *command{""};
+    const char *table{""};
+    bool ipv6{false};
+    // False when the kernel does not provide the table at all.
+    bool present{false};
+    std::string rules;
+    std::set<std::string> chains;
+  };
+  // Throws FirewallError when the table is registered but cannot be listed.
+  TableSnapshot inspect_table(const char *command, const char *table,
+                              bool ipv6) const;
+  // Whether the kernel registry lists `table`; nullopt when unreadable.
+  std::optional<bool> table_registered(bool ipv6, const char *table) const;
+  // Flush + delete `chain` when the snapshot has it.  A failed command is
+  // re-checked against a fresh inspection: success only if the chain is gone.
+  void delete_chain_if_present(TableSnapshot &snapshot,
+                               const std::string &chain) const;
+  void cleanup_legacy_numbered_chains(const TableSnapshot &mangle) const;
+  // Destroys `name` when listed in `live` (and drops it from there); a failed command is re-checked
+  // against a fresh `ipset list -n`.
+  static void destroy_listed_set(std::set<std::string> &live,
+                                 const std::string &name);
+  // Directory holding ip_tables_names / ip6_tables_names.
+  std::string proc_net_dir_{"/proc/net"};
 
   // Describes a set to be created via 'ipset restore'.
   struct PendingSet {
@@ -187,9 +216,8 @@ private:
   static size_t count_exact_jump(const std::string &rules,
                                  const std::string &source_chain,
                                  const std::string &target_chain);
-  static void remove_all_hooks(const char *command, const char *table,
-                               const char *builtin_chain,
-                               const char *target_chain);
+  void remove_all_hooks(TableSnapshot &snapshot, const char *builtin_chain,
+                        const char *target_chain) const;
   const char *prerouting_table_name(bool ipv6) const;
   bool uses_raw_prerouting(bool ipv6) const {
     return raw_prerouting_.uses(ipv6);

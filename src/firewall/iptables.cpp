@@ -28,27 +28,15 @@ namespace keen_pbr3 {
 
 namespace {
 
-bool cleanup_command_reports_absence(const ExecCaptureResult &result) {
-  if (result.exit_code == 0 && !result.truncated && !result.timed_out) {
-    return true;
-  }
-  if (result.truncated || result.timed_out) {
-    return false;
-  }
-  std::string output = result.stdout_output;
-  std::transform(output.begin(), output.end(), output.begin(),
-                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-  return output.find("no chain") != std::string::npos ||
-         output.find("no such") != std::string::npos ||
-         output.find("does not exist") != std::string::npos ||
-         output.find("cannot be found") != std::string::npos;
+bool command_succeeded(const ExecCaptureResult &result) {
+  return result.exit_code == 0 && !result.truncated && !result.timed_out;
 }
 
 ExecCaptureResult run_cleanup_command(const std::vector<std::string> &args) {
   const auto result = safe_exec_capture(args, /*suppress_stderr=*/false,
                                         /*max_bytes=*/0,
                                         /*merge_stderr=*/true);
-  if (!cleanup_command_reports_absence(result)) {
+  if (!command_succeeded(result)) {
     throw FirewallError(keen_pbr3::format(
         "firewall cleanup command failed: {} (status {})",
         safe_exec_command_string(args), result.exit_code));
@@ -414,14 +402,13 @@ bool IptablesFirewall::destroy_set_best_effort(const std::string &name) {
                                         /*suppress_stderr=*/false,
                                         /*max_bytes=*/0,
                                         /*merge_stderr=*/true);
-  if (result.exit_code == 0 && !result.truncated && !result.timed_out) {
+  if (command_succeeded(result)) {
     return true;
   }
-  std::string output = result.stdout_output;
-  std::transform(output.begin(), output.end(), output.begin(),
-                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-  if (output.find("does not exist") != std::string::npos ||
-      output.find("no such") != std::string::npos) {
+  // Whether the set is gone is decided by the live listing, not by the
+  // tool's wording.
+  const auto live = list_live_ipset_names();
+  if (live.has_value() && live->count(name) == 0) {
     return true;
   }
   Logger::instance().warn("ipset destroy {} failed (status {}): {}", name,
@@ -765,19 +752,38 @@ bool IptablesFirewall::first_rule_is_jump(const std::string &rules,
   return false;
 }
 
-void IptablesFirewall::remove_all_hooks(const char *command, const char *table,
+void IptablesFirewall::remove_all_hooks(TableSnapshot &snapshot,
                                         const char *builtin_chain,
-                                        const char *target_chain) {
-  const auto result = run_cleanup_command(
-      {command, "-t", table, "-S", builtin_chain});
-  if (result.truncated || result.timed_out) {
+                                        const char *target_chain) const {
+  if (!snapshot.present) {
     return;
   }
-  const size_t observed =
-      count_exact_jump(result.stdout_output, builtin_chain, target_chain);
-  for (size_t i = 0; i < observed; ++i) {
-    run_cleanup_command(
-        {command, "-t", table, "-D", builtin_chain, "-j", target_chain});
+  size_t remaining =
+      count_exact_jump(snapshot.rules, builtin_chain, target_chain);
+  while (remaining > 0) {
+    const auto result = safe_exec_capture(
+        {snapshot.command, "-t", snapshot.table, "-D", builtin_chain, "-j",
+         target_chain},
+        /*suppress_stderr=*/false, /*max_bytes=*/0, /*merge_stderr=*/true);
+    if (command_succeeded(result)) {
+      --remaining;
+      continue;
+    }
+    // Someone else may have removed a hook meanwhile; any failure must be
+    // explained by the jump count having dropped.
+    snapshot = inspect_table(snapshot.command, snapshot.table, snapshot.ipv6);
+    const size_t now =
+        snapshot.present
+            ? count_exact_jump(snapshot.rules, builtin_chain, target_chain)
+            : 0;
+    if (now >= remaining) {
+      throw FirewallError(keen_pbr3::format(
+          "firewall cleanup command failed: {} (status {})",
+          safe_exec_command_string({snapshot.command, "-t", snapshot.table,
+                                    "-D", builtin_chain, "-j", target_chain}),
+          result.exit_code));
+    }
+    remaining = now;
   }
 }
 
@@ -1608,12 +1614,82 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
   pending_ruleset_ = {};
 }
 
+std::optional<bool> IptablesFirewall::table_registered(bool ipv6,
+                                                       const char *table) const {
+  std::ifstream registry(proc_net_dir_ + (ipv6 ? "/ip6_tables_names"
+                                               : "/ip_tables_names"));
+  if (!registry.is_open()) {
+    return std::nullopt;
+  }
+  std::string name;
+  while (std::getline(registry, name)) {
+    if (name == table) {
+      return true;
+    }
+  }
+  return false;
+}
+
+IptablesFirewall::TableSnapshot
+IptablesFirewall::inspect_table(const char *command, const char *table,
+                                bool ipv6) const {
+  TableSnapshot snapshot;
+  snapshot.command = command;
+  snapshot.table = table;
+  snapshot.ipv6 = ipv6;
+  const auto result = safe_exec_capture({command, "-t", table, "-S"},
+                                        /*suppress_stderr=*/true);
+  if (!command_succeeded(result)) {
+    // A table the kernel does not provide cannot hold our chains; any other
+    // listing failure is real.
+    if (table_registered(ipv6, table) == std::optional<bool>(false)) {
+      return snapshot;
+    }
+    throw FirewallError(keen_pbr3::format(
+        "firewall cleanup command failed: {} (status {})",
+        safe_exec_command_string({command, "-t", table, "-S"}),
+        result.exit_code));
+  }
+  snapshot.present = true;
+  snapshot.rules = result.stdout_output;
+  std::istringstream input(snapshot.rules);
+  std::string line;
+  constexpr std::string_view prefix = "-N ";
+  while (std::getline(input, line)) {
+    if (line.rfind(prefix, 0) == 0 && line.size() > prefix.size()) {
+      snapshot.chains.insert(line.substr(prefix.size()));
+    }
+  }
+  return snapshot;
+}
+
+void IptablesFirewall::delete_chain_if_present(TableSnapshot &snapshot,
+                                               const std::string &chain) const {
+  if (!snapshot.present || snapshot.chains.count(chain) == 0) {
+    return;
+  }
+  for (const char *flag : {"-F", "-X"}) {
+    const std::vector<std::string> args{snapshot.command, "-t", snapshot.table,
+                                        flag, chain};
+    const auto result = safe_exec_capture(args, /*suppress_stderr=*/false,
+                                          /*max_bytes=*/0,
+                                          /*merge_stderr=*/true);
+    if (command_succeeded(result)) {
+      continue;
+    }
+    snapshot = inspect_table(snapshot.command, snapshot.table, snapshot.ipv6);
+    if (!snapshot.present || snapshot.chains.count(chain) == 0) {
+      return;
+    }
+    throw FirewallError(keen_pbr3::format(
+        "firewall cleanup command failed: {} (status {})",
+        safe_exec_command_string(args), result.exit_code));
+  }
+  snapshot.chains.erase(chain);
+}
+
 void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
-  const auto flush_delete = [](const char *command, const char *table,
-                               const std::string &chain) {
-    run_cleanup_command({command, "-t", table, "-F", chain});
-    run_cleanup_command({command, "-t", table, "-X", chain});
-  };
+  std::map<bool, TableSnapshot> mangle_snapshots;
   const auto cleanup_family = [&](bool ipv6, bool owned) {
     if (!owned && !sweep_live_state) {
       return;
@@ -1621,40 +1697,48 @@ void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
     const char *command = ipv6 ? "ip6tables" : "iptables";
     const bool raw = uses_raw_prerouting(ipv6);
 
+    // One inspection per table: what exists decides what is deleted.
+    TableSnapshot raw_table;
+    if (sweep_live_state || raw) {
+      raw_table = inspect_table(command, "raw", ipv6);
+    }
+    TableSnapshot &mangle =
+        mangle_snapshots[ipv6] = inspect_table(command, "mangle", ipv6);
+
     // A live-state sweep deliberately handles the current and the retired
     // layouts.  This is limited to named keen-pbr chains and hooks; no table
     // is flushed.  Hooks go first so no chain is referenced when deleted, and
     // retired dispatchers go before the generation chains they reference.
     if (sweep_live_state || raw) {
-      remove_all_hooks(command, "raw", "PREROUTING", "KeenPbrRaw");
+      remove_all_hooks(raw_table, "PREROUTING", "KeenPbrRaw");
       for (const char *chain :
            {"KeenPbrRaw", "KeenPbrRaw_A", "KeenPbrRaw_B"}) {
-        flush_delete(command, "raw", chain);
+        delete_chain_if_present(raw_table, chain);
       }
     }
-    remove_all_hooks(command, "mangle", "OUTPUT", "KeenPbrOutput");
-    remove_all_hooks(command, "mangle", "OUTPUT", "KeenPbrTable_OUTPUT");
+    remove_all_hooks(mangle, "OUTPUT", "KeenPbrOutput");
+    remove_all_hooks(mangle, "OUTPUT", "KeenPbrTable_OUTPUT");
     // Interception chains: hooks first, then the chains.
-    remove_all_hooks(command, "mangle", "POSTROUTING", "KeenPbrDnsHold");
-    remove_all_hooks(command, "mangle", "FORWARD", "KeenPbrSniff");
-    remove_all_hooks(command, "mangle", "OUTPUT", "KeenPbrSniff");
-    remove_all_hooks(command, "mangle", "OUTPUT", "KeenPbrSniffOut");
+    remove_all_hooks(mangle, "POSTROUTING", "KeenPbrDnsHold");
+    remove_all_hooks(mangle, "FORWARD", "KeenPbrSniff");
+    remove_all_hooks(mangle, "OUTPUT", "KeenPbrSniff");
+    remove_all_hooks(mangle, "OUTPUT", "KeenPbrSniffOut");
     if (sweep_live_state || !raw) {
-      remove_all_hooks(command, "mangle", "PREROUTING", "KeenPbrTable");
+      remove_all_hooks(mangle, "PREROUTING", "KeenPbrTable");
     }
     for (const char *chain :
          {"KeenPbrDnsHold", "KeenPbrSniff", "KeenPbrSniffOut"}) {
-      flush_delete(command, "mangle", chain);
+      delete_chain_if_present(mangle, chain);
     }
     for (const char *chain : {"KeenPbrOutput", "KeenPbrTable_OUTPUT"}) {
-      flush_delete(command, "mangle", chain);
+      delete_chain_if_present(mangle, chain);
     }
     if (sweep_live_state || !raw) {
-      flush_delete(command, "mangle", "KeenPbrTable");
+      delete_chain_if_present(mangle, "KeenPbrTable");
     }
     for (const char *chain : {"KeenPbrOutput_A", "KeenPbrOutput_B",
                               "KeenPbrTable_A", "KeenPbrTable_B"}) {
-      flush_delete(command, "mangle", chain);
+      delete_chain_if_present(mangle, chain);
     }
   };
 
@@ -1664,44 +1748,62 @@ void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
   chain_v6_created_ = false;
 
   if (sweep_live_state) {
-    cleanup_legacy_numbered_chains("iptables");
-    cleanup_legacy_numbered_chains("ip6tables");
+    // The sweep inspected the mangle table of both families above.
+    for (const auto &entry : mangle_snapshots) {
+      cleanup_legacy_numbered_chains(entry.second);
+    }
   }
 }
 
-void IptablesFirewall::cleanup_legacy_numbered_chains(const char *command) {
-  const auto result = run_cleanup_command({command, "-t", "mangle", "-S"});
-
-  std::istringstream input(result.stdout_output);
-  std::string line;
-  constexpr std::string_view prefix = "-N KeenPbrTable_";
-  while (std::getline(input, line)) {
-    if (line.rfind(prefix, 0) != 0) {
+void IptablesFirewall::cleanup_legacy_numbered_chains(
+    const TableSnapshot &mangle) const {
+  // Work on a copy: delete_chain_if_present() keeps its snapshot current.
+  TableSnapshot snapshot = mangle;
+  constexpr std::string_view prefix = "KeenPbrTable_";
+  const std::set<std::string> chains = mangle.chains;
+  for (const auto &name : chains) {
+    if (name.rfind(prefix, 0) != 0) {
       continue;
     }
-    const std::string chain = line.substr(prefix.size());
-    if (chain.empty() ||
-        !std::all_of(chain.begin(), chain.end(),
+    const std::string suffix = name.substr(prefix.size());
+    if (suffix.empty() ||
+        !std::all_of(suffix.begin(), suffix.end(),
                      [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
       continue;
     }
-    run_cleanup_command({command, "-t", "mangle", "-F", chain});
-    run_cleanup_command({command, "-t", "mangle", "-X", chain});
+    delete_chain_if_present(snapshot, name);
   }
 }
 
-void IptablesFirewall::cleanup_saved_sets(bool preserve_dynamic_sets) {
-  const auto result = run_cleanup_command({"ipset", "save"});
-
-  std::istringstream input(result.stdout_output);
-  std::string verb;
-  std::string name;
-  std::string rest;
-  while (input >> verb >> name) {
-    std::getline(input, rest);
-    if (verb != "create") {
+void IptablesFirewall::destroy_listed_set(std::set<std::string> &live,
+                                          const std::string &name) {
+  if (live.count(name) == 0) {
+    return;
+  }
+  for (const char *verb : {"flush", "destroy"}) {
+    const std::vector<std::string> args{"ipset", verb, name};
+    const auto result = safe_exec_capture(args, /*suppress_stderr=*/false,
+                                          /*max_bytes=*/0,
+                                          /*merge_stderr=*/true);
+    if (command_succeeded(result)) {
       continue;
     }
+    const auto now = list_live_ipset_names();
+    if (now.has_value() && now->count(name) == 0) {
+      live.erase(name);
+      return;
+    }
+    throw FirewallError(keen_pbr3::format(
+        "firewall cleanup command failed: {} (status {})",
+        safe_exec_command_string(args), result.exit_code));
+  }
+  live.erase(name);
+}
+
+void IptablesFirewall::cleanup_saved_sets(std::set<std::string> &live,
+                                          bool preserve_dynamic_sets) {
+  const std::set<std::string> names = live;
+  for (const auto &name : names) {
     const bool dynamic = is_dynamic_set_name(name);
     const bool managed_static =
         name.rfind("kpbr4_", 0) == 0 || name.rfind("kpbr6_", 0) == 0 ||
@@ -1714,8 +1816,7 @@ void IptablesFirewall::cleanup_saved_sets(bool preserve_dynamic_sets) {
     if (dynamic && preserve_dynamic_sets) {
       continue;
     }
-    run_cleanup_command({"ipset", "flush", name});
-    run_cleanup_command({"ipset", "destroy", name});
+    destroy_listed_set(live, name);
   }
 }
 
@@ -1725,17 +1826,31 @@ void IptablesFirewall::cleanup_live_impl(bool preserve_dynamic_sets,
 
   cleanup_rules_impl(sweep_live_state);
 
+  // One `ipset list -n` decides which sets exist, for both the sets this
+  // instance created and the live sweep.
+  const bool destroys_created = std::any_of(
+      created_sets_.begin(), created_sets_.end(), [&](const auto &entry) {
+        return !(preserve_dynamic_sets && is_dynamic_set_name(entry.first));
+      });
+  if (!destroys_created && !sweep_live_state) {
+    return;
+  }
+  auto live = list_live_ipset_names();
+  if (!live.has_value()) {
+    throw FirewallError("firewall cleanup failed: cannot list ipsets");
+  }
   // Destroy all created ipsets
   for (const auto &[name, _] : created_sets_) {
     if (preserve_dynamic_sets && is_dynamic_set_name(name)) {
       continue;
     }
-    log.verbose("iptables cleanup: destroying ipset {}", name);
-    run_cleanup_command({"ipset", "flush", name});
-    run_cleanup_command({"ipset", "destroy", name});
+    if (live->count(name) != 0) {
+      log.verbose("iptables cleanup: destroying ipset {}", name);
+      destroy_listed_set(*live, name);
+    }
   }
   if (sweep_live_state) {
-    cleanup_saved_sets(preserve_dynamic_sets);
+    cleanup_saved_sets(*live, preserve_dynamic_sets);
   }
 }
 
