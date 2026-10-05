@@ -49,6 +49,9 @@ struct KernelCapabilities {
     // iptables ownership comments (xt_comment registration + restore grammar).
     bool xt_comment_v4{false};
     bool xt_comment_v6{false};
+    // iptables `-j NFLOG --nflog-size` (iptables >= 1.6.0).
+    bool nflog_size_v4{false};
+    bool nflog_size_v6{false};
     // iptables `-m statistic --mode random` (load balancing).  One module
     // serves IPv4 and IPv6.
     bool xt_statistic{false};

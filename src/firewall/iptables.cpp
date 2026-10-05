@@ -114,11 +114,15 @@ void IptablesFirewall::prepare_apply(FirewallApplyMode mode) {
   // supported when it is unused.  Unsupported frontends simply omit comments.
   if (comments_override_.has_value()) {
     comment_v4_supported_ = comment_v6_supported_ = *comments_override_;
+    nflog_size_v4_supported_ = nflog_size_v6_supported_ = true;
   } else {
     const auto capabilities = kernel_capabilities();
     comment_v4_supported_ = capabilities->xt_comment_v4;
     comment_v6_supported_ = !ipv6_enabled() || !ipv6_backend_available() ||
                             capabilities->xt_comment_v6;
+    nflog_size_v4_supported_ = capabilities->nflog_size_v4;
+    nflog_size_v6_supported_ = !ipv6_enabled() || !ipv6_backend_available() ||
+                               capabilities->nflog_size_v6;
   }
 
   // RulesOnly preparation is deliberately inspection-only: it reuses the live
@@ -616,6 +620,27 @@ bool IptablesFirewall::probe_xt_comment_from_registration(
   Logger::instance().warn(
       "{} failed the read-only xt_comment restore grammar preflight; "
       "omitting ownership comments for {} rules",
+      command, ipv6 ? "IPv6" : "IPv4");
+  return false;
+}
+
+bool IptablesFirewall::probe_nflog_size_support(bool ipv6) {
+  // `--nflog-size` exists since iptables 1.6.0.  Older restore binaries reject
+  // it as an unknown option; the userspace grammar check is enough (the kernel
+  // side only needs xt_NFLOG, which the plain NFLOG rule needs anyway).  The
+  // failing modprobe keeps the check free of side effects.
+  const char *command = ipv6 ? "ip6tables-restore" : "iptables-restore";
+  const std::string probe_script =
+      "*mangle\n"
+      ":KpbrNflogProbe - [0:0]\n"
+      "-A KpbrNflogProbe -j NFLOG --nflog-group 1 --nflog-size 64\n"
+      "COMMIT\n";
+  const int status = safe_exec_pipe_stdin(
+      {command, "--test", "--noflush", "--modprobe=/bin/false"}, probe_script);
+  if (status == 0) return true;
+  Logger::instance().info(
+      "{} does not accept --nflog-size; NFLOG rules for {} omit it and rely "
+      "on the group copy range",
       command, ipv6 ? "IPv6" : "IPv4");
   return false;
 }
@@ -1214,6 +1239,8 @@ IptablesFirewall::lowering_context(uint32_t fwmark_mask) const {
   context.ipv6_enabled = ipv6_enabled();
   context.comments_ipv4_supported = comment_v4_supported_;
   context.comments_ipv6_supported = comment_v6_supported_;
+  context.nflog_size_ipv4_supported = nflog_size_v4_supported_;
+  context.nflog_size_ipv6_supported = nflog_size_v6_supported_;
   context.fwmark_mask = fwmark_mask;
   context.physical_set_name = [this](const std::string &name) {
     return physical_set_name(name);

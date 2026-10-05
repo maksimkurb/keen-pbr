@@ -1057,6 +1057,9 @@ TEST_CASE("physical: iptables connbytes, NFQUEUE, NFLOG and ctdir") {
   SUBCASE("NFLOG") {
     CHECK(parse_sniff_rule("-j NFLOG --nflog-group 5 --nflog-size 100")
               .statements[0] == PhysicalStatement{LogStmt{5, 100, 1}});
+    // iptables 1.4.21 has no --nflog-size and prints none.
+    CHECK(parse_sniff_rule("-j NFLOG --nflog-group 5").statements[0] ==
+          PhysicalStatement{LogStmt{5, 0, 1}});
     CHECK(parse_sniff_rule("-j NFLOG --nflog-group 5 --nflog-threshold 7")
               .statements[0] == PhysicalStatement{LogStmt{5, 0, 7}});
     // An explicit default threshold is the same rule (iptables-nft prints it).

@@ -5,6 +5,9 @@
 #include "../src/firewall/nftables.hpp"
 #include "firewall_fixtures.hpp"
 
+#include <set>
+#include <sstream>
+#include <cctype>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1849,5 +1852,85 @@ TEST_CASE("iptables balance lowers to a guarded statistic cascade") {
   }
 }
 #endif
+
+// --nflog-size exists only since iptables 1.6.0.  Without it (Keenetic ships
+// 1.4.21) the rule carries no snaplen and the NFLOG group's copy range bounds
+// the payload instead.
+TEST_CASE("lowering interception: --nflog-size follows the iptables capability") {
+  InterceptFirewallSettings settings;
+  settings.dns_hold = true;
+  settings.l7_sniff = true;
+  const auto plan = plan_of(intercept_module_rules(settings, {"br0"}, {}));
+
+  auto context = ipt_context();
+  const auto modern = lower_firewall_plan(plan, context);
+  for (const auto &line : ipt_lines(modern, "KeenPbrSniff", Fam::ipv4)) {
+    CHECK(line.find(" -j NFLOG --nflog-group 9054 --nflog-size 2048\n") !=
+          std::string::npos);
+  }
+
+  context.nflog_size_ipv4_supported = false;
+  context.nflog_size_ipv6_supported = false;
+  const auto legacy = lower_firewall_plan(plan, context);
+  for (const auto family : {Fam::ipv4, Fam::ipv6}) {
+    const auto lines = ipt_lines(legacy, "KeenPbrSniff", family);
+    REQUIRE_FALSE(lines.empty());
+    for (const auto &line : lines) {
+      CHECK(line.find("--nflog-size") == std::string::npos);
+      CHECK(line.find(" -j NFLOG --nflog-group 9054\n") != std::string::npos);
+    }
+  }
+  // One family can lack it while the other has it.
+  context.nflog_size_ipv6_supported = true;
+  const auto mixed = lower_firewall_plan(plan, context);
+  CHECK(ipt_lines(mixed, "KeenPbrSniff", Fam::ipv4)[0].find("--nflog-size") ==
+        std::string::npos);
+  CHECK(ipt_lines(mixed, "KeenPbrSniff", Fam::ipv6)[0].find("--nflog-size") !=
+        std::string::npos);
+}
+
+// Every option the interception lowering can emit must exist in iptables
+// 1.4.21 (Keenetic) when the optional capabilities are off.
+TEST_CASE("lowering interception: only iptables 1.4.21 options without optional capabilities") {
+  static const std::set<std::string> kAllowed = {
+      "-A", "-i", "-o", "-p", "-s", "-d", "-j", "-g", "-m", "!",
+      "--sport", "--dport", "--sports", "--dports",
+      "--ctstate", "--ctdir", "--connbytes", "--connbytes-dir",
+      "--connbytes-mode", "--dst-type", "--dscp", "--mark",
+      "--match-set", "--comment", "--set-xmark", "--save-mark",
+      "--restore-mark", "--mask", "--nfmask", "--ctmask",
+      "--queue-num", "--queue-bypass", "--nflog-group",
+      "--nflog-threshold"};
+  InterceptFirewallSettings settings;
+  settings.dns_hold = true;
+  settings.l7_sniff = true;
+  auto context = ipt_context();
+  context.comments_ipv4_supported = false;
+  context.comments_ipv6_supported = false;
+  context.nflog_size_ipv4_supported = false;
+  context.nflog_size_ipv6_supported = false;
+  for (const auto &inbound : {std::vector<std::string>{"br0"},
+                              std::vector<std::string>{"br0", "br1"},
+                              std::vector<std::string>{}}) {
+    const auto set = lower_firewall_plan(
+        plan_of(intercept_module_rules(settings, inbound, {"wan0", "wan1"})),
+        context);
+    std::size_t checked = 0;
+    for (const auto &chain : set.chains) {
+      for (const auto &rule : chain.rules) {
+        std::istringstream words(render_iptables_rule(rule, chain.id.name));
+        std::string word;
+        while (words >> word) {
+          if (word[0] != '-' && word != "!") continue;
+          if (word.size() > 1 && std::isdigit(static_cast<unsigned char>(word[1]))) continue;
+          CAPTURE(word);
+          CHECK(kAllowed.count(word) == 1);
+          ++checked;
+        }
+      }
+    }
+    CHECK(checked > 0);
+  }
+}
 
 } // namespace keen_pbr3

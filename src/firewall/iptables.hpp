@@ -68,6 +68,8 @@ public:
   // grammar check.  Run once at service start (probe_kernel_capabilities);
   // prepare_apply only reads that answer.
   static bool probe_xt_comment_support(bool ipv6);
+  // Whether the restore binary accepts `-j NFLOG --nflog-size` (>= 1.6.0).
+  static bool probe_nflog_size_support(bool ipv6);
 
   void override_capabilities_for_fixtures(
       std::optional<bool> comments_supported,
@@ -240,6 +242,8 @@ private:
   bool apply_prepared_{false};
   bool comment_v4_supported_{true};
   bool comment_v6_supported_{true};
+  bool nflog_size_v4_supported_{true};
+  bool nflog_size_v6_supported_{true};
   RawPreroutingMode raw_prerouting_{};
 
 #ifdef KEEN_PBR3_TESTING

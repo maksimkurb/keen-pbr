@@ -99,10 +99,14 @@ KernelCapabilities probe_kernel_capabilities(const HostTools& tools) {
         caps.xt_statistic = probe_iptables_statistic();
 #endif
         caps.xt_comment_v4 = IptablesFirewall::probe_xt_comment_support(false);
+        caps.nflog_size_v4 = IptablesFirewall::probe_nflog_size_support(false);
     }
     if (tools.ip6tables && tools.ip6tables_restore && caps.system_ipv6) {
         caps.iptables_ipv6 = iptables_ipv6_supported();
-        if (caps.iptables_ipv6) caps.xt_comment_v6 = IptablesFirewall::probe_xt_comment_support(true);
+        if (caps.iptables_ipv6) {
+            caps.xt_comment_v6 = IptablesFirewall::probe_xt_comment_support(true);
+            caps.nflog_size_v6 = IptablesFirewall::probe_nflog_size_support(true);
+        }
     }
 #ifndef KEEN_PBR_PLATFORM_KEENETIC
     if (tools.nft && caps.system_ipv6) {
@@ -112,9 +116,9 @@ KernelCapabilities probe_kernel_capabilities(const HostTools& tools) {
 
     Logger::instance().info(
         "Kernel capabilities (probed once): ipv6 system={} iptables={} nftables={}; "
-        "xt_comment v4={} v6={}; xt_statistic={}",
+        "xt_comment v4={} v6={}; nflog_size v4={} v6={}; xt_statistic={}",
         caps.system_ipv6, caps.iptables_ipv6, caps.nftables_ipv6, caps.xt_comment_v4,
-        caps.xt_comment_v6, caps.xt_statistic);
+        caps.xt_comment_v6, caps.nflog_size_v4, caps.nflog_size_v6, caps.xt_statistic);
     return caps;
 }
 

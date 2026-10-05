@@ -319,12 +319,15 @@ void append_intercept_matches(const FirewallRuleCriteria &criteria,
   }
 }
 
-PhysicalStatement intercept_statement(const FirewallRuleAction &action) {
+// `nflog_size` is false for an iptables that lacks `--nflog-size` (before
+// 1.6.0); the NFLOG group's own copy range then bounds the payload.
+PhysicalStatement intercept_statement(const FirewallRuleAction &action,
+                                      bool nflog_size = true) {
   if (const auto *queue = std::get_if<QueueAction>(&action)) {
     return QueueStmt{queue->num, queue->bypass};
   }
   const auto &log = std::get<LogAction>(action);
-  return LogStmt{log.group, log.snaplen, 1};
+  return LogStmt{log.group, nflog_size ? log.snaplen : uint16_t{0}, 1};
 }
 
 std::optional<FirewallRuleKey> physical_key(const FirewallRuleKey &key,
@@ -459,6 +462,8 @@ struct IptablesChain {
   // not in raw PREROUTING.
   bool conntrack{true};
   bool comments{true};
+  // Whether `-j NFLOG --nflog-size` can be emitted.
+  bool nflog_size{true};
   // The interception chains hold only interception rules; the classification
   // chains never receive them.
   bool intercept{false};
@@ -839,7 +844,7 @@ void lower_iptables_intercept(const FirewallRuleInstance &rule,
       matches.insert(matches.end(), ports.begin(), ports.end());
       matches.insert(matches.end(), interfaces.begin(), interfaces.end());
       add_unique(build_rule(target.family, std::move(matches),
-                            {intercept_statement(classifier.action)}, key));
+                            {intercept_statement(classifier.action, target.nflog_size)}, key));
     }
   }
 }
@@ -882,6 +887,8 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
     const bool ipv6 = family == FirewallFamily::ipv6;
     const bool comments = ipv6 ? context.comments_ipv6_supported
                                : context.comments_ipv4_supported;
+    const bool nflog_size = ipv6 ? context.nflog_size_ipv6_supported
+                                 : context.nflog_size_ipv4_supported;
     const bool raw = context.raw_prerouting.uses(ipv6);
     IptablesChain prerouting;
     prerouting.chain.id = iptables_physical_chain_id(
@@ -914,6 +921,7 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
       chain.hook = hook;
       chain.conntrack = true;
       chain.comments = comments;
+      chain.nflog_size = nflog_size;
       chain.intercept = true;
       chains.push_back(std::move(chain));
     };

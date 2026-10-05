@@ -58,6 +58,11 @@ struct FirewallLoweringContext {
   // supports comments.
   bool comments_ipv4_supported{true};
   bool comments_ipv6_supported{true};
+  // iptables: whether `-j NFLOG --nflog-size` is accepted (iptables >= 1.6.0).
+  // Without it the rule carries no snaplen; the daemon's NFLOG group copy
+  // range bounds the payload instead.  nft always supports snaplen.
+  bool nflog_size_ipv4_supported{true};
+  bool nflog_size_ipv6_supported{true};
   uint32_t fwmark_mask{0xFFFFFFFFu};
   // nft: marks that always get a setter chain (marks allocated to this daemon
   // instance), in addition to the marks used by the plan.
