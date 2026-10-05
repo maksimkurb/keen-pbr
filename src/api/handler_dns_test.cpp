@@ -48,17 +48,10 @@ DnsTestView view_for(const httplib::Request& request) {
         }
     }
 
-    const auto marker_filter = [marker_domain](const std::string& message) {
-        const auto payload = nlohmann::json::parse(message, nullptr, false);
-        if (!payload.is_object()) return false;
-        const auto source = payload.find("source");
-        if (source == payload.end() || !source->is_string() || *source != "marker") {
-            return false;
-        }
+    const auto marker_filter = [marker_domain](const std::string&, const SseMessageMeta& meta) {
+        if (meta.source != "marker") return false;
         if (!marker_domain) return true;
-        const auto domain = payload.find("domain");
-        return domain != payload.end() && domain->is_string() &&
-               normalize_marker_domain(domain->get<std::string>()) == *marker_domain;
+        return normalize_marker_domain(meta.domain) == *marker_domain;
     };
     if (!request.has_param("show")) {
         // The dashboard/check view is intentionally the safe default: it does

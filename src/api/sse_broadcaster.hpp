@@ -13,6 +13,11 @@
 
 namespace keen_pbr3 {
 
+struct SseMessageMeta {
+    std::string source;
+    std::string domain;
+};
+
 class SseBroadcaster {
 public:
     struct Subscription {
@@ -24,7 +29,7 @@ public:
         size_t dropped GUARDED_BY(mutex){0};
         std::string first_dropped GUARDED_BY(mutex);
         std::string last_dropped GUARDED_BY(mutex);
-        std::function<bool(const std::string&)> filter;
+        std::function<bool(const std::string&, const SseMessageMeta&)> filter;
         bool close_after_filtered_message{false};
     };
 
@@ -33,7 +38,7 @@ public:
     // Builds the notice delivered in place of dropped messages (given the first
     // and last dropped message); an empty result means "no notice".
     using GapBuilder = std::function<std::string(const std::string& first, const std::string& last)>;
-    using MessageFilter = std::function<bool(const std::string&)>;
+    using MessageFilter = std::function<bool(const std::string&, const SseMessageMeta&)>;
 
     // Without `gap_builder` a subscriber whose queue is full is closed.  With
     // it, messages are dropped instead and the next delivery is preceded by
@@ -46,7 +51,7 @@ public:
                               bool close_after_filtered_message = false);
     void unsubscribe(const SubscriptionPtr& subscription);
     bool has_subscribers();
-    void publish(const std::string& message);
+    void publish(const std::string& message, const SseMessageMeta& meta = {});
     void close_all();
 
 private:

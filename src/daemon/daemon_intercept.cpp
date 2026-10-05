@@ -480,7 +480,10 @@ void Daemon::pump_intercept_events() {
         dns_test_broadcaster_->publish(safe_dump(event_gap_to_json(*gap)));
     }
     for (const auto& event : events) {
-        dns_test_broadcaster_->publish(safe_dump(intercept_event_to_json(event)));
+        SseMessageMeta meta;
+        meta.source = intercept_source_name(event.source);
+        meta.domain = event.domain;
+        dns_test_broadcaster_->publish(safe_dump(intercept_event_to_json(event)), meta);
         intercept_forwarded_seq_ = event.seq;
     }
 #endif

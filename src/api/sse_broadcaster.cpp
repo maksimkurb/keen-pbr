@@ -53,7 +53,7 @@ bool SseBroadcaster::has_subscribers() {
     return !subscriptions_.empty();
 }
 
-void SseBroadcaster::publish(const std::string& message) {
+void SseBroadcaster::publish(const std::string& message, const SseMessageMeta& meta) {
     KPBR_LOCK_GUARD(mutex_);
     Logger::instance().trace("sse_publish", "subscriptions={} bytes={}", subscriptions_.size(), message.size());
 
@@ -69,7 +69,7 @@ void SseBroadcaster::publish(const std::string& message) {
             KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
             if (subscription->closed) {
                 keep = false;
-            } else if (subscription->filter && !subscription->filter(message)) {
+            } else if (subscription->filter && !subscription->filter(message, meta)) {
                 // The subscriber remains active; this mode simply ignores
                 // events outside its view.
                 keep = true;
