@@ -75,7 +75,7 @@ bool parse_nflog_packet(const MsgView& message, LoggedPacket& packet) {
 }
 
 NfLog::NfLog(const NfLogOptions& options)
-    : options_(options), socket_(options.rcvbuf_bytes, false), tx_(4096) {
+    : options_(options), socket_(options.rcvbuf_bytes, true), tx_(4096) {
     rx_.resize(kRxBufSize);
     const uint32_t bind_seq = socket_.next_seq();
     build_nflog_bind(tx_, bind_seq, options_.group);
@@ -125,6 +125,15 @@ int NfLog::receive(const std::function<void(const LoggedPacket&)>& on_packet) {
         const ssize_t length = socket_.recv(rx_, error);
         if (length < 0) {
             if (error == EAGAIN || error == EWOULDBLOCK) break;
+            // NFLOG is passive, so lost records only cost learning: ENOBUFS
+            // (kernel dropped records; NETLINK_NO_ENOBUFS should already
+            // suppress it) and EMSGSIZE (recv() grew the buffer) are counted
+            // as overruns and the listener keeps going.
+            if (error == ENOBUFS || error == EMSGSIZE) {
+                ++overruns_;
+                last_errno_ = error;
+                continue;
+            }
             ++overruns_;
             last_errno_ = error;
             return -1;
@@ -152,5 +161,17 @@ int NfLog::receive(const std::function<void(const LoggedPacket&)>& on_packet) {
     }
     return delivered;
 }
+
+#ifdef KEEN_PBR3_TESTING
+NfLog::NfLog(ForTest, int rcvbuf_bytes)
+    : options_(), socket_(rcvbuf_bytes, true), tx_(4096) {
+    rx_.resize(std::size_t{128} * 1024U);
+    bound_ = false;
+}
+
+NfLog nflog_for_test(int rcvbuf_bytes) {
+    return NfLog(NfLog::ForTest::tag, rcvbuf_bytes);
+}
+#endif
 
 } // namespace keen_pbr3::nfnl

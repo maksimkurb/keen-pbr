@@ -10,6 +10,10 @@
 #include <stdexcept>
 #include <vector>
 
+#ifdef KEEN_PBR3_TESTING
+#include <deque>
+#endif
+
 namespace keen_pbr3::nfnl {
 
 class NlSocketError : public std::runtime_error {
@@ -38,6 +42,18 @@ public:
     // Microseconds spent inside sendto() by transact() since the last call.
     uint64_t take_send_us() { const uint64_t v = send_us_; send_us_ = 0; return v; }
 
+#ifdef KEEN_PBR3_TESTING
+    // Test-only: inject a sequence of recv() results. Each entry is either
+    // {data, datagram bytes} or {nullptr, negative errno} for error injection.
+    struct RecvInjection {
+        const uint8_t* data{nullptr};
+        ssize_t size{0};  // >= 0 for valid datagram, < 0 for negated errno
+    };
+    void inject_recv_results_for_test(const std::deque<RecvInjection>& results) {
+        injected_recv_ = results;
+    }
+#endif
+
     // Sends to the kernel (nl_pid=0). On failure returns false and sets err (errno value).
     bool send(const uint8_t* data, std::size_t len, int& err);
 
@@ -65,6 +81,9 @@ private:
     uint32_t seq_{0};
     uint64_t send_us_{0};
     std::vector<uint8_t> rx_;
+#ifdef KEEN_PBR3_TESTING
+    std::deque<RecvInjection> injected_recv_;
+#endif
 };
 
 } // namespace keen_pbr3::nfnl

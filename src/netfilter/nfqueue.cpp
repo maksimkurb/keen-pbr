@@ -205,7 +205,7 @@ bool parse_nfqueue_packet(const MsgView& m, QueuedPacket& out) {
 }
 
 NfQueue::NfQueue(const NfQueueOptions& opt)
-    : opt_(opt), sock_(opt.rcvbuf_bytes, false), tx_(kRxBufSize + 512) {
+    : opt_(opt), sock_(opt.rcvbuf_bytes, true), tx_(kRxBufSize + 512) {
     rx_.resize(kRxBufSize);
 
     // Do not issue PF_UNBIND/PF_BIND here: those commands are global to the
@@ -332,8 +332,15 @@ int NfQueue::receive(const std::function<void(const QueuedPacket&)>& on_packet) 
         const ssize_t n = sock_.recv(rx_, err);
         if (n < 0) {
             if (err == EAGAIN || err == EWOULDBLOCK) break;
-            // MSG_TRUNC consumes the datagram, so its packet ID cannot be
-            // recovered safely.  Stop the listener and expose the loss.
+            // ENOBUFS: the kernel dropped queued messages (NETLINK_NO_ENOBUFS
+            // should already suppress it); count it and keep the listener.
+            if (err == ENOBUFS) {
+                ++overruns_;
+                last_errno_ = err;
+                continue;
+            }
+            // EMSGSIZE: MSG_TRUNC consumed the datagram, so its packet ID
+            // cannot be recovered safely.  Stop the listener and expose the loss.
             ++overruns_;
             last_errno_ = err;
             return -1;
@@ -424,6 +431,16 @@ bool NfQueue::verdict_checked_for_test(uint32_t packet_id, uint32_t verdict,
     kernel_errno = ack_errno;
     if (ack_errno != 0) last_errno_ = ack_errno;
     return ack_errno == 0;
+}
+
+NfQueue::NfQueue(ForTest, int rcvbuf_bytes)
+    : opt_(), sock_(rcvbuf_bytes, true), tx_(kRxBufSize + 512) {
+    rx_.resize(kRxBufSize);
+    bound_ = false;
+}
+
+NfQueue nfqueue_for_test(int rcvbuf_bytes) {
+    return NfQueue(NfQueue::ForTest::tag, rcvbuf_bytes);
 }
 #endif
 

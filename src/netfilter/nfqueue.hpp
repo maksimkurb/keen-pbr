@@ -38,6 +38,12 @@ public:
     NfQueue(const NfQueue&) = delete;
     NfQueue& operator=(const NfQueue&) = delete;
 
+#ifdef KEEN_PBR3_TESTING
+    // Test-only: for initialization by nfqueue_for_test()
+    enum class ForTest { tag };
+    explicit NfQueue(ForTest, int rcvbuf_bytes);
+#endif
+
     int fd() const { return sock_.fd(); }
 
     // Non-blocking: drains available datagrams, calling on_packet for each
@@ -83,6 +89,10 @@ public:
     uint64_t overruns() const { return overruns_; }
     int last_errno() const { return last_errno_; }
 
+#ifdef KEEN_PBR3_TESTING
+    NlSocket& socket_for_test() { return sock_; }
+#endif
+
 private:
     void probe_fail_open();
 
@@ -121,6 +131,8 @@ bool nfqueue_initial_owner_decision_for_test(int owner_fd, uint64_t owner_inode,
                                              uint64_t netns_inode);
 ReplacementCapability nfqueue_replacement_decision_for_test(int owner_fd, uint64_t owner_inode,
                                                             uint64_t netns_inode);
+// Test-only helper for injecting datagrams into NfQueue.receive()
+NfQueue nfqueue_for_test(int rcvbuf_bytes = 2 << 20);
 #endif
 
 } // namespace keen_pbr3::nfnl

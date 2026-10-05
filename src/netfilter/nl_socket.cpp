@@ -104,6 +104,24 @@ bool NlSocket::send(const uint8_t* data, std::size_t len, int& err) {
 
 ssize_t NlSocket::recv(std::vector<uint8_t>& buf, int& err) {
     if (buf.size() < kMinRxBuf) buf.resize(kMinRxBuf);
+#ifdef KEEN_PBR3_TESTING
+    if (!injected_recv_.empty()) {
+        const RecvInjection inj = injected_recv_.front();
+        injected_recv_.pop_front();
+        if (inj.size < 0) {
+            err = -static_cast<int>(inj.size);
+            return -1;
+        }
+        if (inj.data != nullptr && static_cast<std::size_t>(inj.size) > buf.size()) {
+            buf.resize(static_cast<std::size_t>(inj.size));
+        }
+        if (inj.data != nullptr) {
+            std::memcpy(buf.data(), inj.data, static_cast<std::size_t>(inj.size));
+        }
+        err = 0;
+        return inj.size;
+    }
+#endif
     for (;;) {
         const ssize_t n = ::recv(fd_, buf.data(), buf.size(), MSG_TRUNC);
         if (n < 0) {

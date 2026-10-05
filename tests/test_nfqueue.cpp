@@ -1,12 +1,14 @@
 #include <doctest/doctest.h>
 
 #include "../src/netfilter/nfqueue.hpp"
+#include "../src/netfilter/nflog.hpp"
 
 #include <arpa/inet.h>
 #include <linux/if_ether.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_queue.h>
+#include <linux/netfilter/nfnetlink_log.h>
 #include <linux/netlink.h>
 
 #include <array>
@@ -25,6 +27,21 @@ MsgView one_message(const MsgBuilder& builder) {
         return false;
     }));
     return result;
+}
+
+MsgBuilder nflog_packet_message() {
+    MsgBuilder builder;
+    builder.begin(static_cast<uint16_t>((NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET),
+                  NLM_F_REQUEST, 1, AF_UNSPEC, 9054);
+    nfulnl_msg_packet_hdr header{};
+    header.hw_protocol = htons(ETH_P_IP);
+    header.hook = NF_INET_FORWARD;
+    builder.put(NFULA_PACKET_HDR, &header, sizeof(header));
+    builder.put_u32_be(NFULA_MARK, 0x12345678);
+    std::vector<uint8_t> payload(20, 0);
+    builder.put(NFULA_PAYLOAD, payload.data(), payload.size());
+    builder.end();
+    return builder;
 }
 
 MsgBuilder packet_message(uint32_t id, std::size_t captured_payload,
@@ -138,4 +155,73 @@ TEST_CASE("nfqueue: replacement capability owner decision is conservative") {
     CHECK(nfqueue_initial_owner_decision_for_test(-1, 0, initial_net));
     CHECK_FALSE(nfqueue_initial_owner_decision_for_test(-1, 0, 123));
     CHECK_FALSE(nfqueue_initial_owner_decision_for_test(-1, 0, 0));
+}
+
+TEST_CASE("nfqueue: ENOBUFS non-fatal, continues to next datagram") {
+    auto queue = nfqueue_for_test();
+    auto builder = packet_message(0x12345678, 20, 20);
+    std::deque<NlSocket::RecvInjection> inj;
+    inj.push_back({nullptr, -ENOBUFS});  // First: ENOBUFS error
+    inj.push_back({builder.data(), static_cast<ssize_t>(builder.size())});  // Then: valid datagram
+    inj.push_back({nullptr, -EAGAIN});  // Finally: EAGAIN to stop receive loop
+    queue.socket_for_test().inject_recv_results_for_test(inj);
+
+    int delivered = 0;
+    const int rc = queue.receive([&](const QueuedPacket& pkt) {
+        ++delivered;
+        CHECK(pkt.packet_id == 0x12345678);
+    });
+    CHECK(rc >= 0);  // Non-fatal
+    CHECK(delivered == 1);
+    CHECK(queue.overruns() == 1);
+}
+
+TEST_CASE("nfqueue: EMSGSIZE fatal") {
+    auto queue = nfqueue_for_test();
+    std::deque<NlSocket::RecvInjection> inj;
+    inj.push_back({nullptr, -EMSGSIZE});
+    queue.socket_for_test().inject_recv_results_for_test(inj);
+
+    const int rc = queue.receive([](const QueuedPacket&) {});
+    CHECK(rc == -1);
+    CHECK(queue.overruns() == 1);
+    CHECK(queue.last_errno() == EMSGSIZE);
+}
+
+TEST_CASE("nflog: ENOBUFS non-fatal, continues to next datagram") {
+    auto log = nflog_for_test();
+    auto builder = nflog_packet_message();
+    std::deque<NlSocket::RecvInjection> inj;
+    inj.push_back({nullptr, -ENOBUFS});  // First: ENOBUFS error
+    inj.push_back({builder.data(), static_cast<ssize_t>(builder.size())});  // Then: valid datagram
+    inj.push_back({nullptr, -EAGAIN});  // Finally: EAGAIN to stop receive loop
+    log.socket_for_test().inject_recv_results_for_test(inj);
+
+    int delivered = 0;
+    const int rc = log.receive([&](const LoggedPacket& pkt) {
+        ++delivered;
+        CHECK(pkt.mark == 0x12345678);
+    });
+    CHECK(rc >= 0);  // Non-fatal
+    CHECK(delivered == 1);
+    CHECK(log.overruns() == 1);
+}
+
+TEST_CASE("nflog: EMSGSIZE non-fatal, continues to next datagram") {
+    auto log = nflog_for_test();
+    auto builder = nflog_packet_message();
+    std::deque<NlSocket::RecvInjection> inj;
+    inj.push_back({nullptr, -EMSGSIZE});  // First: EMSGSIZE error
+    inj.push_back({builder.data(), static_cast<ssize_t>(builder.size())});  // Then: valid datagram
+    inj.push_back({nullptr, -EAGAIN});  // Finally: EAGAIN to stop receive loop
+    log.socket_for_test().inject_recv_results_for_test(inj);
+
+    int delivered = 0;
+    const int rc = log.receive([&](const LoggedPacket& pkt) {
+        ++delivered;
+        CHECK(pkt.mark == 0x12345678);
+    });
+    CHECK(rc >= 0);  // Non-fatal for NFLOG
+    CHECK(delivered == 1);
+    CHECK(log.overruns() == 1);
 }

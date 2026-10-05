@@ -39,11 +39,21 @@ public:
     NfLog(const NfLog&) = delete;
     NfLog& operator=(const NfLog&) = delete;
 
+#ifdef KEEN_PBR3_TESTING
+    // Test-only: for initialization by nflog_for_test()
+    enum class ForTest { tag };
+    explicit NfLog(ForTest, int rcvbuf_bytes);
+#endif
+
     int fd() const { return socket_.fd(); }
     int receive(const std::function<void(const LoggedPacket&)>& on_packet);
     uint64_t overruns() const { return overruns_; }
     uint64_t malformed_packets() const { return malformed_packets_; }
     int last_errno() const { return last_errno_; }
+
+#ifdef KEEN_PBR3_TESTING
+    NlSocket& socket_for_test() { return socket_; }
+#endif
 
 private:
     NfLogOptions options_;
@@ -55,5 +65,10 @@ private:
     int last_errno_{0};
     bool bound_{false};
 };
+
+#ifdef KEEN_PBR3_TESTING
+// Test-only helpers for injecting datagrams into NfLog.receive()
+NfLog nflog_for_test(int rcvbuf_bytes = 2 << 20);
+#endif
 
 } // namespace keen_pbr3::nfnl
