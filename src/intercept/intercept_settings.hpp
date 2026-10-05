@@ -18,6 +18,7 @@ namespace keen_pbr3 {
 struct InterceptEffective {
     bool config_enabled{false};     // intercept.enabled
     bool dns_hold{false};           // DNS hold rules + set filling are active
+    bool dns_requested{false};      // intercept.dns.enabled (dns_hold stays off when unusable)
     bool l7{false};                 // SNI/Host/QUIC sniffing is active
     uint16_t queue_num{9053};
     uint16_t nflog_group{9054};
@@ -39,6 +40,11 @@ struct InterceptEffective {
     std::vector<std::string> warnings;
 
     bool active() const { return dns_hold || l7; }
+
+    // Interception is enabled in config but the DNS hold cannot run (kernel
+    // capability missing, NFQUEUE bind or set write failed): domain-based
+    // routing sets are not filled.
+    bool dns_hold_unavailable() const { return config_enabled && dns_requested && !dns_hold; }
 
     // nullopt when nothing is active, i.e. no interception rules are planned.
     std::optional<InterceptFirewallSettings> firewall_settings() const;

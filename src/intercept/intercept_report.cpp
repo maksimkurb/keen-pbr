@@ -35,6 +35,14 @@ static api::InterceptProbeFeatureStatus probe_status_to_api(nfnl::ProbeStatus st
     return api::InterceptProbeFeatureStatus::NOT_RUN;
 }
 
+api::HealthResponseStatus aggregate_service_status(api::HealthResponseStatus base,
+                                                   const InterceptEffective& effective) {
+    if (base == api::HealthResponseStatus::RUNNING && effective.dns_hold_unavailable()) {
+        return api::HealthResponseStatus::DEGRADED;
+    }
+    return base;
+}
+
 const char* intercept_source_name(InterceptSource source) {
     switch (source) {
     case InterceptSource::dns: return "dns";
@@ -97,6 +105,20 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
     }
     if (running && !snapshot_ready) {
         health.reasons.push_back("interception snapshot is still initializing");
+    }
+    if (effective.dns_hold_unavailable()) {
+        // The cause is the first "dns hold disabled: ..." reason, which names
+        // the missing kernel module or failed probe.
+        static const std::string kPrefix = "dns hold disabled: ";
+        std::string cause = "reason unknown";
+        for (const auto& reason : effective.reasons) {
+            if (reason.rfind(kPrefix, 0) == 0) {
+                cause = reason.substr(kPrefix.size());
+                break;
+            }
+        }
+        health.reasons.push_back("DNS interception unavailable: " + cause +
+                                 " \xE2\x80\x94 domain-based routing is not filled");
     }
     health.queue_num = effective.queue_num;
     health.nflog_group = effective.nflog_group;

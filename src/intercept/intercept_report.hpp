@@ -19,6 +19,11 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
                                                 uint64_t events_seq,
                                                 bool snapshot_ready = true);
 
+// Overall service status: `running` becomes `degraded` while interception is
+// enabled in config but the DNS hold is unavailable.  `stopped` stays as is.
+api::HealthResponseStatus aggregate_service_status(api::HealthResponseStatus base,
+                                                   const InterceptEffective& effective);
+
 const char* intercept_source_name(InterceptSource source);
 
 // One `INTERCEPT` event of the /api/dns/test stream.

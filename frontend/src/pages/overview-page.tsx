@@ -114,7 +114,8 @@ export function OverviewPage() {
       ),
     [runtimeInterfacesQuery.data]
   )
-  const isServiceRunning = serviceHealth?.status === "running"
+  const isServiceRunning =
+    serviceHealth?.status === "running" || serviceHealth?.status === "degraded"
   const markerConfig = loadedConfig?.intercept?.dns?.marker
   const dnsCheckConfigEnabled =
     Boolean(loadedConfig) &&
@@ -653,6 +654,15 @@ function InterceptStatusSummary({ health }: { health?: InterceptHealth }) {
           </StatusBadge>
         }
       />
+      {health.enabled && health.reasons?.length ? (
+        <ul className="list-disc space-y-0.5 pl-4 text-xs text-amber-600 dark:text-amber-400">
+          {health.reasons.map((reason) => (
+            <li key={reason} className="break-words">
+              {reason}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }
@@ -870,7 +880,7 @@ function mapServiceStatusTone(
     return "healthy"
   }
 
-  if (status === "starting" || status === "reloading") {
+  if (status === "degraded" || status === "starting" || status === "reloading") {
     return "warning"
   }
 

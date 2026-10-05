@@ -2209,7 +2209,13 @@ components:
           example: "20260424231043"
         status:
           type: string
-          enum: [running, stopped]
+          description: >
+            - running: routing runtime is active
+            - degraded: routing runtime is active but DNS interception is
+              enabled in config and the DNS hold is unavailable (see
+              `intercept.reasons`); domain-based routing is not filled
+            - stopped: routing runtime is not active
+          enum: [running, degraded, stopped]
           example: "running"
         runtime_state:
           type: string

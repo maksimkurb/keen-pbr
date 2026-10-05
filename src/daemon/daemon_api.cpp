@@ -19,6 +19,7 @@
 #include "../api/status_stream.hpp"
 #include "../config/routing_state.hpp"
 #include "../health/runtime_interface_inventory.hpp"
+#include "../intercept/intercept_report.hpp"
 #include "../health/runtime_outbound_state.hpp"
 #include "../keenetic/interface_descriptions.hpp"
 #include "../log/logger.hpp"
@@ -615,6 +616,8 @@ void Daemon::setup_api() {
             service_health.status = runtime_snapshot.routing_runtime_active
                 ? api::HealthResponseStatus::RUNNING
                 : api::HealthResponseStatus::STOPPED;
+            service_health.status = aggregate_service_status(
+                service_health.status, intercept_effective_snapshot());
             service_health.runtime_state = runtime_state_name(runtime_snapshot.runtime_state);
             service_health.runtime_state_reason = runtime_snapshot.runtime_state_reason;
             service_health.os_type = system_info.os_type;

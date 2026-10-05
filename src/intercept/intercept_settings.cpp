@@ -45,6 +45,7 @@ std::optional<InterceptFirewallSettings> InterceptEffective::firewall_settings()
 
 bool InterceptEffective::operator==(const InterceptEffective& other) const {
     return config_enabled == other.config_enabled && dns_hold == other.dns_hold &&
+           dns_requested == other.dns_requested &&
            l7 == other.l7 && queue_num == other.queue_num &&
            nflog_group == other.nflog_group && hold_timeout_ms == other.hold_timeout_ms &&
            min_ttl_s == other.min_ttl_s && max_ttl_s == other.max_ttl_s &&
@@ -65,6 +66,7 @@ InterceptEffective resolve_effective_intercept(const Config& config,
     const auto marker = dns.marker.value_or(api::Marker{});
 
     eff.config_enabled = ic.enabled.value_or(true);
+    eff.dns_requested = dns.enabled.value_or(true);
     eff.queue_num = static_cast<uint16_t>(dns.queue_num.value_or(9053));
     eff.nflog_group = static_cast<uint16_t>(l7.nflog_group.value_or(9054));
     eff.hold_timeout_ms = static_cast<int>(dns.hold_timeout_ms.value_or(30));

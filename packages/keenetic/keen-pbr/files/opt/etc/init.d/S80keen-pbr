@@ -86,22 +86,26 @@ ipset_hash_net_available() {
 }
 
 check_netfilter_addons_component() {
-    local components
+    local components component
 
     if ! components="$(wget -O - localhost:79/rci/show/version/ndw/components 2>/dev/null)"; then
         log_error "Failed to fetch installed Keenetic components"
         return 0
     fi
 
-    case ",$components," in
-        *,opkg-kmod-netfilter-addons,*)
-            return 0
-            ;;
-        *)
-            log_error "Missing Keenetic component opkg-kmod-netfilter-addons"
-            return 0
-            ;;
-    esac
+    # opkg-kmod-netfilter: Netfilter Subsystem Kernel Modules (nfnetlink_queue,
+    # xt_NFQUEUE, xt_NFLOG, xt_connbytes, ...).  opkg-kmod-netfilter-addons:
+    # Xtables-addons Extension Package for Netfilter.
+    for component in opkg-kmod-netfilter opkg-kmod-netfilter-addons; do
+        case ",$components," in
+            *,"$component",*)
+                ;;
+            *)
+                log_error "Missing Keenetic component $component"
+                ;;
+        esac
+    done
+    return 0
 }
 
 wait_for_keenetic_rci() {
@@ -168,11 +172,25 @@ ensure_xt_dscp_loaded() {
         "Failed to load xt_dscp from $module_path"
 }
 
+# DNS hold (NFQUEUE) and L7 capture (NFLOG, connbytes).  Loaded only here, at
+# service start; best effort, a missing module degrades interception (the
+# daemon reports it in /api/health/service) but never stops the service.
+ensure_intercept_modules_loaded() {
+    local module
+
+    for module in nfnetlink_queue xt_NFQUEUE nfnetlink_log xt_NFLOG xt_connbytes; do
+        if ! try_kernel_module_loaded "$module" >/dev/null 2>&1; then
+            log "WARNING: kernel module $module is not loaded and was not found at $(module_path_for "$module"); ignore this if it is built into the firmware, otherwise DNS/L7 interception is unavailable. Install the Keenetic component opkg-kmod-netfilter (Netfilter Subsystem Kernel Modules)"
+        fi
+    done
+}
+
 check_runtime_dependencies() {
     check_netfilter_addons_component
     ensure_ipset_modules_loaded
     ensure_xt_multiport_loaded
     ensure_xt_dscp_loaded
+    ensure_intercept_modules_loaded
 }
 
 remove_daemon_arg() {

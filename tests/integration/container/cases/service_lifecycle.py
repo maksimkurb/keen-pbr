@@ -19,7 +19,7 @@ def register(registry):
         assert started["status"] == "accepted" and started["operation_id"], started
         context.wait_for(
             "restarted runtime",
-            lambda: ((health := context.api("/api/health/service"))["status"] == "running" and
+            lambda: ((health := context.api("/api/health/service"))["status"] in ("running", "degraded") and
                      health.get("lifecycle_operation", {}).get("id") == started["operation_id"] and
                      health["lifecycle_operation"].get("status") == "succeeded"))
         restarted_routing = context.routing_health_running()

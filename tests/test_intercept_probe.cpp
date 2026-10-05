@@ -593,3 +593,45 @@ TEST_CASE("intercept probe: carry_forward edge cases") {
     // Never measured stays never measured.
     CHECK(fresh.set_write.status == ProbeStatus::not_run);
 }
+
+TEST_CASE("service health is degraded while the enabled DNS hold is unavailable") {
+    using api::HealthResponseStatus;
+    InterceptCapabilities caps = all_caps();
+    caps.nfqueue = false;
+    caps.reason = "kernel module nfnetlink_queue missing";
+
+    // Enabled in config, capability missing: degraded, with the reason.
+    const auto eff = resolve_effective_intercept(default_config(), FirewallBackend::iptables, caps);
+    CHECK(eff.dns_hold_unavailable());
+    CHECK(aggregate_service_status(HealthResponseStatus::RUNNING, eff) ==
+          HealthResponseStatus::DEGRADED);
+    CHECK(aggregate_service_status(HealthResponseStatus::STOPPED, eff) ==
+          HealthResponseStatus::STOPPED);
+    const auto health = make_intercept_health(eff, true, nullptr, 0);
+    CHECK(contains(health.reasons, "DNS interception unavailable"));
+    CHECK(contains(health.reasons, "nfnetlink_queue"));
+    CHECK(contains(health.reasons, "domain-based routing is not filled"));
+
+    // A failed NFQUEUE bind after the capability check degrades as well.
+    auto bind_failed =
+        resolve_effective_intercept(default_config(), FirewallBackend::iptables, all_caps());
+    CHECK(aggregate_service_status(HealthResponseStatus::RUNNING, bind_failed) ==
+          HealthResponseStatus::RUNNING);
+    InterceptRuntimeProbe listeners;
+    listeners.nfqueue = nfnl::classify_errno(EINVAL, "NFQUEUE bind");
+    apply_listener_probe(bind_failed, listeners);
+    CHECK(aggregate_service_status(HealthResponseStatus::RUNNING, bind_failed) ==
+          HealthResponseStatus::DEGRADED);
+
+    // Interception or the DNS part disabled in config: nothing to report.
+    for (const char* json : {R"({"intercept":{"enabled":false}})",
+                             R"({"intercept":{"dns":{"enabled":false}}})"}) {
+        const auto off =
+            resolve_effective_intercept(parse_config(json), FirewallBackend::iptables, caps);
+        CHECK_FALSE(off.dns_hold_unavailable());
+        CHECK(aggregate_service_status(HealthResponseStatus::RUNNING, off) ==
+              HealthResponseStatus::RUNNING);
+        CHECK_FALSE(contains(make_intercept_health(off, true, nullptr, 0).reasons,
+                             "DNS interception unavailable"));
+    }
+}

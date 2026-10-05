@@ -16,6 +16,11 @@ export interface HealthResponse {
   version: string;
   /** Daemon build string (git commit UTC timestamp). */
   build: string;
+  /** - running: routing runtime is active - degraded: routing runtime is active but DNS interception is
+    enabled in config and the DNS hold is unavailable (see
+    `intercept.reasons`); domain-based routing is not filled
+  - stopped: routing runtime is not active
+   */
   status: HealthResponseStatus;
   /** Detailed runtime lifecycle state used to gate mutations. */
   runtime_state?: HealthResponseRuntimeState;
