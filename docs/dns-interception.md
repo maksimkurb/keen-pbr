@@ -105,15 +105,23 @@ are not affected. L7-derived addresses have no DNS record TTL, so they use the
 same list/global floor and maximum. The list-level `ttl_ms` also remains
 relevant to the sets filled by interception.
 
-## Removed: dnsmasq integration
+## Optional: dnsmasq integration for per-list upstream selection
 
-Earlier versions could manage dnsmasq (`dns.resolver_integration`,
-`dns.system_resolver`, `dns.rules`, `dns.fallback`, `ipset=`/`nftset=`
-fallback). That integration has been removed. The fields are still accepted in
-`config.json` but ignored, with a warning in the log; the package upgrade
-cleans up the dnsmasq configuration it used to touch (see the upgrade notes in
-the user documentation). The old `dns.dns_test_server` option is deprecated and
-ignored as well.
+keen-pbr can delegate DNS resolution to dnsmasq for per-list upstream
+server selection via `dns.resolver_integration: dnsmasq`. When enabled:
+
+* `dns.rules` entries are converted to dnsmasq `server=` configuration that
+  routes those domains to the specified resolvers.
+* `dns.fallback` provides optional default upstream servers for domains not
+  listed in `dns.rules`.
+* keen-pbr generates the dnsmasq configuration, packages it with a hash stamp,
+  and monitors whether dnsmasq has loaded it via a `config-hash.keen.pbr` TXT
+  query.
+* The integration is disabled by default (`dns.resolver_integration: none`);
+  when absent, `dns.rules` and `dns.fallback` are ignored.
+
+The old `dns.system_resolver` and `dns.dns_test_server` options are deprecated
+and ignored.
 
 ## DNS packet flow
 

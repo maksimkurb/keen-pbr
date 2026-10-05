@@ -4,10 +4,13 @@
 #include <cstddef>
 #include <cstring>
 #include <vector>
+#include "../../util/byte_view.hpp"
 
 namespace keen_pbr3::l7::crypto {
 
 namespace {
+
+using keen_pbr3::load_be32;
 
 const uint32_t kK[64] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
@@ -35,8 +38,7 @@ Sha256::Sha256()
 void Sha256::process_block_(const uint8_t* block) {
     uint32_t w[64];
     for (std::ptrdiff_t i = 0; i < 16; ++i) {
-        w[i] = (static_cast<uint32_t>(block[i * 4]) << 24) | (static_cast<uint32_t>(block[i * 4 + 1]) << 16) |
-               (static_cast<uint32_t>(block[i * 4 + 2]) << 8) | static_cast<uint32_t>(block[i * 4 + 3]);
+        w[i] = load_be32(block + i * 4);
     }
     for (int i = 16; i < 64; ++i) {
         const uint32_t s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);

@@ -1,6 +1,7 @@
 #include "dns_wire.hpp"
 
 #include "../util/hostname_validation.hpp"
+#include "../util/byte_view.hpp"
 
 #include <algorithm>
 #include <netinet/in.h>
@@ -14,14 +15,8 @@ constexpr std::size_t kMaxLabel = 63;
 constexpr int kMaxJumps = 32;
 constexpr std::size_t kMaxCnameChain = 32;
 
-uint16_t rd16(const uint8_t* p) {
-    return static_cast<uint16_t>((p[0] << 8) | p[1]);
-}
-
-uint32_t rd32(const uint8_t* p) {
-    return (static_cast<uint32_t>(p[0]) << 24) | (static_cast<uint32_t>(p[1]) << 16) |
-           (static_cast<uint32_t>(p[2]) << 8) | p[3];
-}
+using keen_pbr3::load_be16;
+using keen_pbr3::load_be32;
 
 void wr16(uint8_t* p, uint16_t v) {
     p[0] = static_cast<uint8_t>(v >> 8);
@@ -94,7 +89,7 @@ void add_unique(std::vector<std::string>& v, const std::string& s) {
 uint32_t sum_words(const uint8_t* data, std::size_t len, uint32_t sum) {
     std::size_t i = 0;
     for (; i + 1 < len; i += 2) {
-        sum += rd16(data + i);
+        sum += load_be16(data + i);
     }
     if (i < len) {
         sum += static_cast<uint32_t>(data[i]) << 8;
@@ -133,11 +128,11 @@ std::optional<PacketLayout> parse_packet_layout(ByteView pkt) {
         if (ihl < 20 || ihl > size) {
             return std::nullopt;
         }
-        const uint16_t frag = rd16(d + 6);
+        const uint16_t frag = load_be16(d + 6);
         if ((frag & 0x2000) != 0 || (frag & 0x1FFF) != 0) {
             return std::nullopt;
         }
-        const std::size_t total = rd16(d + 2);
+        const std::size_t total = load_be16(d + 2);
         if (total < ihl || total > size) {
             return std::nullopt;
         }
@@ -149,7 +144,7 @@ std::optional<PacketLayout> parse_packet_layout(ByteView pkt) {
         if (size < 40) {
             return std::nullopt;
         }
-        end = 40 + static_cast<std::size_t>(rd16(d + 4));
+        end = 40 + static_cast<std::size_t>(load_be16(d + 4));
         if (end > size) {
             return std::nullopt;
         }
@@ -216,17 +211,17 @@ bool parse_response(ByteView dns_message, ParsedResponse& out) {
     if (size < 12) {
         return false;
     }
-    out.id = rd16(m);
-    out.flags = rd16(m + 2);
+    out.id = load_be16(m);
+    out.flags = load_be16(m + 2);
     if ((out.flags & 0x8000) == 0) {
         return false;
     }
     out.rcode = static_cast<uint8_t>(out.flags & 0x0F);
     out.truncated = (out.flags & 0x0200) != 0;
-    if (rd16(m + 4) != 1) {
+    if (load_be16(m + 4) != 1) {
         return false;
     }
-    const uint16_t ancount = rd16(m + 6);
+    const uint16_t ancount = load_be16(m + 6);
 
     std::size_t pos = 12;
     if (!read_name(m, size, pos, out.qname, pos)) {
@@ -238,8 +233,8 @@ bool parse_response(ByteView dns_message, ParsedResponse& out) {
     if (pos + 4 > size) {
         return false;
     }
-    out.qtype = rd16(m + pos);
-    out.qclass = rd16(m + pos + 2);
+    out.qtype = load_be16(m + pos);
+    out.qclass = load_be16(m + pos + 2);
     pos += 4;
     out.question_end = pos;
 
@@ -252,10 +247,10 @@ bool parse_response(ByteView dns_message, ParsedResponse& out) {
         if (pos + 10 > size) {
             return false;
         }
-        const uint16_t type = rd16(m + pos);
-        const uint16_t cls = rd16(m + pos + 2);
-        const uint32_t ttl = rd32(m + pos + 4);
-        const std::size_t rdlen = rd16(m + pos + 8);
+        const uint16_t type = load_be16(m + pos);
+        const uint16_t cls = load_be16(m + pos + 2);
+        const uint32_t ttl = load_be32(m + pos + 4);
+        const std::size_t rdlen = load_be16(m + pos + 8);
         pos += 10;
         if (pos + rdlen > size) {
             return false;
@@ -292,7 +287,7 @@ std::optional<ByteView> tcp_single_message(ByteView tcp_payload) {
     if (tcp_payload.size() < 2) {
         return std::nullopt;
     }
-    const std::size_t len = rd16(tcp_payload.data());
+    const std::size_t len = load_be16(tcp_payload.data());
     if (len + 2 > tcp_payload.size()) {
         return std::nullopt;
     }

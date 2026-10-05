@@ -3,6 +3,7 @@
 #include "../l7/http_host.hpp"
 #include "../l7/tls_client_hello.hpp"
 #include "../log/logger.hpp"
+#include "../util/byte_view.hpp"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -58,11 +59,8 @@ void add_ip(EventRecord& event, uint8_t family, const uint8_t* addr) {
     ++event.ip_count;
 }
 
-uint16_t be16(const uint8_t* p) { return static_cast<uint16_t>((p[0] << 8) | p[1]); }
-uint32_t be32(const uint8_t* p) {
-    return (static_cast<uint32_t>(p[0]) << 24) | (static_cast<uint32_t>(p[1]) << 16) |
-           (static_cast<uint32_t>(p[2]) << 8) | p[3];
-}
+using keen_pbr3::load_be16;
+using keen_pbr3::load_be32;
 
 uint32_t timeout_for(const InterceptSnapshot& snap, const InterceptListTarget& target,
                      uint32_t record_ttl_s, bool use_record_ttl) {
@@ -516,8 +514,8 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
             key.family = layout->ip_version;
             std::memcpy(key.src.data(), l3.data() + src_off, alen);
             std::memcpy(key.dst.data(), l3.data() + dst_off, alen);
-            key.sport = be16(l3.data() + l4_offset);
-            key.dport = be16(l3.data() + l4_offset + 2);
+            key.sport = load_be16(l3.data() + l4_offset);
+            key.dport = load_be16(l3.data() + l4_offset + 2);
             tcp_reassembly_.close(key);
         }
     }
@@ -552,9 +550,9 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
     key.family = layout->ip_version;
     std::memcpy(key.src.data(), l3.data() + src_off, alen);
     std::memcpy(key.dst.data(), l3.data() + dst_off, alen);
-    key.sport = be16(l4);
-    key.dport = be16(l4 + 2);
-    tcp_reassembly_.feed(key, be32(l4 + 4), payload, started, tcp_messages_);
+    key.sport = load_be16(l4);
+    key.dport = load_be16(l4 + 2);
+    tcp_reassembly_.feed(key, load_be32(l4 + 4), payload, started, tcp_messages_);
     if (tcp_messages_.count == 0) {
         bump(counters_.dns_tcp_partial);
         return {};
@@ -1054,7 +1052,7 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
         return;
     }
     const uint8_t* l4 = l3.data() + layout->l3_header_len;
-    const uint16_t dport = be16(l4 + 2);
+    const uint16_t dport = load_be16(l4 + 2);
 
     InterceptSource source;
     if (tcp && dport == 443 && snap->tls) {
@@ -1077,7 +1075,7 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
     if (dst_off + alen > l3.size()) return;
     std::memcpy(key.src.data(), l3.data() + src_off, alen);
     std::memcpy(key.dst.data(), l3.data() + dst_off, alen);
-    key.sport = be16(l4);
+    key.sport = load_be16(l4);
     key.dport = dport;
 
     l7::ParseStatus status = l7::ParseStatus::NotMatched;
@@ -1089,7 +1087,7 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
         if (status == l7::ParseStatus::NeedMore) return;
         quic_.erase_last();
     } else {
-        const ByteView stream = flows_.feed(key, be32(l4 + 4), payload, now);
+        const ByteView stream = flows_.feed(key, load_be32(l4 + 4), payload, now);
         if (stream.size() == 0) return;
         status = source == InterceptSource::sni ? l7::tls_stream_sni(stream, sni_, tls_scratch_)
                                                 : l7::http_host(stream, sni_);

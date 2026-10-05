@@ -570,12 +570,7 @@ RoutingHealthReport Daemon::cached_routing_health() {
     KPBR_LOCK_GUARD(routing_health_mutex_);
     const auto now = std::chrono::steady_clock::now();
     const bool cache_matches_current_runtime =
-        routing_health_cache_.has_value() &&
-        routing_health_cache_revision_ ==
-            routing_health_revision_.load(std::memory_order_acquire) &&
-        routing_health_cache_generation_ ==
-            runtime_generation_.load(std::memory_order_acquire) &&
-        routing_health_cache_state_ == runtime_snapshot.runtime_state;
+        is_routing_health_cache_valid(runtime_snapshot);
     if (cache_matches_current_runtime &&
         now - routing_health_cache_time_ <= kRoutingHealthCacheLifetime) {
       return *routing_health_cache_;
@@ -642,12 +637,7 @@ RoutingHealthReport Daemon::cached_routing_health() {
     const auto current_runtime_snapshot = runtime_state_store_.snapshot();
     KPBR_LOCK_GUARD(routing_health_mutex_);
     routing_health_check_inflight_ = false;
-    if (routing_health_cache_.has_value() &&
-        routing_health_cache_revision_ ==
-            routing_health_revision_.load(std::memory_order_acquire) &&
-        routing_health_cache_generation_ ==
-            runtime_generation_.load(std::memory_order_acquire) &&
-        routing_health_cache_state_ == current_runtime_snapshot.runtime_state) {
+    if (is_routing_health_cache_valid(current_runtime_snapshot)) {
       return *routing_health_cache_;
     }
     return unavailable_routing_health(
@@ -658,12 +648,7 @@ RoutingHealthReport Daemon::cached_routing_health() {
     KPBR_LOCK_GUARD(routing_health_mutex_);
     // Keep serving the same-generation report while the worker refreshes it;
     // never leak a report across an invalidation or runtime generation change.
-    if (routing_health_cache_.has_value() &&
-        routing_health_cache_revision_ ==
-            routing_health_revision_.load(std::memory_order_acquire) &&
-        routing_health_cache_generation_ ==
-            runtime_generation_.load(std::memory_order_acquire) &&
-        routing_health_cache_state_ == current_runtime_snapshot.runtime_state) {
+    if (is_routing_health_cache_valid(current_runtime_snapshot)) {
       return *routing_health_cache_;
     }
     return unavailable_routing_health(
@@ -673,12 +658,7 @@ RoutingHealthReport Daemon::cached_routing_health() {
   const auto current_runtime_snapshot = runtime_state_store_.snapshot();
   KPBR_LOCK_GUARD(routing_health_mutex_);
   routing_health_check_inflight_ = false;
-  if (routing_health_cache_.has_value() &&
-      routing_health_cache_revision_ ==
-          routing_health_revision_.load(std::memory_order_acquire) &&
-      routing_health_cache_generation_ ==
-          runtime_generation_.load(std::memory_order_acquire) &&
-      routing_health_cache_state_ == current_runtime_snapshot.runtime_state) {
+  if (is_routing_health_cache_valid(current_runtime_snapshot)) {
     return *routing_health_cache_;
   }
   return unavailable_routing_health(
@@ -691,6 +671,15 @@ void Daemon::invalidate_routing_health_cache() {
   routing_health_cache_.reset();
   routing_health_cache_revision_ = 0;
   routing_health_cache_generation_ = 0;
+}
+
+bool Daemon::is_routing_health_cache_valid(const RuntimeStateSnapshot& snapshot) const {
+  return routing_health_cache_.has_value() &&
+         routing_health_cache_revision_ ==
+             routing_health_revision_.load(std::memory_order_acquire) &&
+         routing_health_cache_generation_ ==
+             runtime_generation_.load(std::memory_order_acquire) &&
+         routing_health_cache_state_ == snapshot.runtime_state;
 }
 
 void Daemon::handle_ipc_control_socket() {

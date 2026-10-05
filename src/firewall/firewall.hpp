@@ -320,6 +320,11 @@ protected:
 // Return the stable config/CLI label for a concrete backend.
 const char *firewall_backend_name(FirewallBackend backend);
 
+// Check if the firewall backend supports default_gateway rules.
+inline bool firewall_backend_supports_default_gateway(FirewallBackend backend) {
+    return backend == FirewallBackend::nftables;
+}
+
 // Factory function to create the appropriate firewall backend.
 // backend_pref: auto-detect, iptables, or nftables.
 // raw_prerouting: independent IPv4/IPv6 RAW PREROUTING placement.

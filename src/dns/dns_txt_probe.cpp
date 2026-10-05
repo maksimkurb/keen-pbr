@@ -1,6 +1,7 @@
 #include "dns_txt_probe.hpp"
 
 #include "dns_wire.hpp"
+#include "../util/byte_view.hpp"
 
 #include <arpa/inet.h>
 #include <algorithm>
@@ -27,9 +28,7 @@ DnsTxtProbeResult failed(std::string error) {
     return result;
 }
 
-std::uint16_t rd16(const std::uint8_t* p) {
-    return static_cast<std::uint16_t>((p[0] << 8) | p[1]);
-}
+using keen_pbr3::load_be16;
 
 std::string lowercase(std::string_view text) {
     std::string out(text);
@@ -126,15 +125,15 @@ DnsTxtProbeResult parse_dns_txt_response(const std::uint8_t* data,
     }
 
     // parse_response() validated the structure; walk the answers for TXT.
-    const std::uint16_t ancount = rd16(data + 6);
+    const std::uint16_t ancount = load_be16(data + 6);
     std::size_t pos = response.question_end;
     for (std::uint16_t i = 0; i < ancount; ++i) {
         if (!skip_name(data, size, pos) || pos + 10 > size) {
             return failed("malformed DNS response");
         }
-        const std::uint16_t type = rd16(data + pos);
-        const std::uint16_t cls = rd16(data + pos + 2);
-        const std::size_t rdlen = rd16(data + pos + 8);
+        const std::uint16_t type = load_be16(data + pos);
+        const std::uint16_t cls = load_be16(data + pos + 2);
+        const std::size_t rdlen = load_be16(data + pos + 8);
         pos += 10;
         if (pos + rdlen > size) {
             return failed("malformed DNS response");

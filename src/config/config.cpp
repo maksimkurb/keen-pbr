@@ -1377,7 +1377,8 @@ void validate_config(const Config& cfg) {
     if (effective_backend == FirewallBackend::iptables) {
         for (size_t i = 0; i < route_rules.size(); ++i) {
             const auto& rule = route_rules[i];
-            if (rule.default_gateway.has_value()) {
+            if (rule.default_gateway.has_value() &&
+                !firewall_backend_supports_default_gateway(effective_backend)) {
                 add_issue(issues, "route.rules[" + std::to_string(i) + "].default_gateway",
                           "default_gateway requires the nftables firewall backend" +
                               backend_note);

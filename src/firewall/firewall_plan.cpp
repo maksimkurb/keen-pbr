@@ -200,7 +200,7 @@ void validate_firewall_plan_backend(const FirewallPlan& plan,
 
   for (const auto& rule : plan.rules) {
     if (rule.criteria.default_gateway != DefaultGatewayFamily::None &&
-        backend != FirewallBackend::nftables) {
+        !firewall_backend_supports_default_gateway(backend)) {
       reject(rule, "default_gateway");
     }
   }

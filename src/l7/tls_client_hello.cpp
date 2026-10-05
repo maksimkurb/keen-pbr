@@ -1,12 +1,16 @@
 #include "tls_client_hello.hpp"
 
 #include "../util/hostname_validation.hpp"
+#include "../util/byte_view.hpp"
 
 #include <algorithm>
 
 namespace keen_pbr3::l7 {
 
 namespace {
+
+using keen_pbr3::load_be16;
+using keen_pbr3::load_be32;
 
 // Lowercases and validates a domain name
 bool validate_and_lowercase(std::string& name) {
@@ -44,8 +48,8 @@ ParseStatus client_hello_sni(ByteView handshake, std::string& sni_out) {
         return ParseStatus::NotMatched;
     }
 
-    // Parse 3-byte length
-    uint32_t msg_len = (static_cast<uint32_t>(data[1]) << 16) | (static_cast<uint32_t>(data[2]) << 8) | data[3];
+    // Parse 3-byte length (note: TLS uses 3-byte lengths)
+    uint32_t msg_len = (static_cast<uint32_t>(data[1]) << 16) | load_be16(data + 2);
 
     // Total needed is 4 (header) + msg_len
     std::size_t total_needed = 4 + msg_len;
@@ -94,7 +98,7 @@ ParseStatus client_hello_sni(ByteView handshake, std::string& sni_out) {
     if (body_size < 2) {
         return ParseStatus::NeedMore;
     }
-    uint16_t cipher_suites_len = (static_cast<uint16_t>(data[offset]) << 8) | data[offset + 1];
+    uint16_t cipher_suites_len = load_be16(data + offset);
     offset += 2;
     body_size -= 2;
 
@@ -130,7 +134,7 @@ ParseStatus client_hello_sni(ByteView handshake, std::string& sni_out) {
     if (body_size < 2) {
         return ParseStatus::NeedMore;
     }
-    uint16_t extensions_len = (static_cast<uint16_t>(data[offset]) << 8) | data[offset + 1];
+    uint16_t extensions_len = load_be16(data + offset);
     offset += 2;
     body_size -= 2;
 
@@ -139,8 +143,8 @@ ParseStatus client_hello_sni(ByteView handshake, std::string& sni_out) {
     std::size_t ext_remaining = std::min(static_cast<std::size_t>(extensions_len), body_size);
 
     while (ext_remaining >= 4) {  // Need at least type(2) + len(2)
-        uint16_t ext_type = (static_cast<uint16_t>(data[ext_offset]) << 8) | data[ext_offset + 1];
-        uint16_t ext_len = (static_cast<uint16_t>(data[ext_offset + 2]) << 8) | data[ext_offset + 3];
+        uint16_t ext_type = load_be16(data + ext_offset);
+        uint16_t ext_len = load_be16(data + ext_offset + 2);
         ext_offset += 4;
         ext_remaining -= 4;
 
@@ -160,8 +164,7 @@ ParseStatus client_hello_sni(ByteView handshake, std::string& sni_out) {
                 return ParseStatus::NotMatched;
             }
 
-            uint16_t server_name_list_len = (static_cast<uint16_t>(data[ext_offset]) << 8) |
-                                           data[ext_offset + 1];
+            uint16_t server_name_list_len = load_be16(data + ext_offset);
             ext_offset += 2;
 
             if (server_name_list_len > ext_len - 2) {
@@ -174,8 +177,7 @@ ParseStatus client_hello_sni(ByteView handshake, std::string& sni_out) {
 
             while (sn_remaining >= 3) {  // Need at least name_type(1) + name_len(2)
                 uint8_t name_type = data[sn_offset];
-                uint16_t name_len = (static_cast<uint16_t>(data[sn_offset + 1]) << 8) |
-                                   data[sn_offset + 2];
+                uint16_t name_len = load_be16(data + sn_offset + 1);
                 sn_offset += 3;
                 sn_remaining -= 3;
 
@@ -257,7 +259,7 @@ ParseStatus tls_stream_sni(ByteView stream, std::string& sni_out, std::vector<ui
             break;
         }
 
-        uint16_t record_length = (static_cast<uint16_t>(data[offset + 3]) << 8) | data[offset + 4];
+        uint16_t record_length = load_be16(data + offset + 3);
 
         // Validate record length
         if (record_length > 16384 + 256) {

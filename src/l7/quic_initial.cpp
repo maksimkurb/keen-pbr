@@ -5,10 +5,13 @@
 
 #include "crypto/aes128.hpp"
 #include "crypto/sha256.hpp"
+#include "../util/byte_view.hpp"
 
 namespace keen_pbr3::l7 {
 
 namespace {
+
+using keen_pbr3::load_be32;
 
 const uint8_t kSaltV1[20] = {0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17,
                              0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a};
@@ -141,8 +144,7 @@ bool decrypt_initial_datagram(ByteView udp_payload, QuicInitialPacketInfo& info,
         if (pkt.size() < 7 || (pkt.data()[0] & 0x80) == 0) {
             return !first;
         }
-        const uint32_t ver = (static_cast<uint32_t>(pkt.data()[1]) << 24) | (static_cast<uint32_t>(pkt.data()[2]) << 16) |
-                             (static_cast<uint32_t>(pkt.data()[3]) << 8) | pkt.data()[4];
+        const uint32_t ver = load_be32(pkt.data() + 1);
         QuicVersion version{};
         if (!supported_version(ver, version)) {
             return !first;

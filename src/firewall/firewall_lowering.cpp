@@ -847,7 +847,8 @@ void lower_iptables_intercept(const FirewallRuleInstance &rule,
 PhysicalRuleset lower_iptables(const FirewallPlan &plan,
                                const FirewallLoweringContext &context) {
   for (const auto &rule : plan.rules) {
-    if (rule.criteria.default_gateway != DefaultGatewayFamily::None) {
+    if (rule.criteria.default_gateway != DefaultGatewayFamily::None &&
+        !firewall_backend_supports_default_gateway(FirewallBackend::iptables)) {
       throw FirewallError(
           "default_gateway requires the nftables firewall backend");
     }

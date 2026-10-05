@@ -182,6 +182,8 @@ private:
   void finish_routing_test();
   RoutingHealthReport cached_routing_health();
   void invalidate_routing_health_cache();
+  bool is_routing_health_cache_valid(const RuntimeStateSnapshot& snapshot) const
+      REQUIRES(routing_health_mutex_);
   void remove_ipc_control_socket() noexcept;
   void wake_control_loop();
   bool is_event_loop_thread() const;
