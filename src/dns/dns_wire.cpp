@@ -12,6 +12,7 @@ namespace {
 constexpr std::size_t kMaxNameWire = 255;
 constexpr std::size_t kMaxLabel = 63;
 constexpr int kMaxJumps = 32;
+constexpr std::size_t kMaxCnameChain = 32;
 
 uint16_t rd16(const uint8_t* p) {
     return static_cast<uint16_t>((p[0] << 8) | p[1]);
@@ -265,10 +266,10 @@ bool parse_response(ByteView dns_message, ParsedResponse& out) {
                 return false;
             }
             // A name with non-hostname bytes is never learnable.
-            if (is_valid_dns_name(owner)) {
+            if (out.cname_chain.size() < kMaxCnameChain && is_valid_dns_name(owner)) {
                 add_unique(out.cname_chain, owner);
             }
-            if (is_valid_dns_name(target)) {
+            if (out.cname_chain.size() < kMaxCnameChain && is_valid_dns_name(target)) {
                 add_unique(out.cname_chain, target);
             }
         } else if ((type == 1 || type == 28) && cls == 1) {

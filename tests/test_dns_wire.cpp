@@ -532,3 +532,58 @@ TEST_CASE("dns_wire: inet_checksum RFC 1071 vector") {
     const uint8_t data[] = {0x00, 0x01, 0xf2, 0x03, 0xf4, 0xf5, 0xf6, 0xf7};
     CHECK(inet_checksum(data, sizeof(data)) == 0x220d);
 }
+
+TEST_CASE("dns_wire: CNAME chain capped at 32, addresses still parsed") {
+    // Build a DNS response with many CNAME records to exceed the cap.
+    // Use format: qname -> target0 -> target1 -> ... -> targetN -> A records
+    Bytes m = header(0x1234, 0x8180, 1, 200 + 2);
+    append(m, question("www.example.com", 1));
+
+    // Add 200 distinct CNAME records.
+    for (int i = 0; i < 200; ++i) {
+        std::string target_name = "cname" + std::to_string(i) + ".example.com";
+        if (i == 0) {
+            append(m, rr(kPtrQname, 5, 60, enc(target_name)));
+        } else {
+            std::string prev_name = "cname" + std::to_string(i - 1) + ".example.com";
+            append(m, rr(enc(prev_name), 5, 60, enc(target_name)));
+        }
+    }
+
+    // Add two A records to verify they are still parsed.
+    append(m, rr(enc("cname199.example.com"), 1, 30, {1, 2, 3, 4}));
+    append(m, rr(enc("cname199.example.com"), 1, 30, {5, 6, 7, 8}));
+
+    ParsedResponse r;
+    REQUIRE(parse_response(view(m), r));
+    // CNAME chain should be capped at 32.
+    CHECK(r.cname_chain.size() == 32);
+    // Addresses should still be parsed.
+    REQUIRE(r.addresses.size() == 2);
+    CHECK(r.addresses[0].addr[0] == 1);
+    CHECK(r.addresses[1].addr[0] == 5);
+}
+
+TEST_CASE("dns_wire: CNAME duplicates collapse within cap") {
+    // Build a DNS response with duplicate CNAME records.
+    Bytes m = header(0x1234, 0x8180, 1, 5);
+    append(m, question("www.example.com", 1));
+
+    // Chain: www.example.com -> a.com -> b.com -> a.com (duplicate) -> c.com -> A record
+    append(m, rr(kPtrQname, 5, 60, enc("a.com")));
+    append(m, rr(enc("a.com"), 5, 60, enc("b.com")));
+    append(m, rr(enc("b.com"), 5, 60, enc("a.com")));  // duplicate
+    append(m, rr(enc("a.com"), 5, 60, enc("c.com")));
+    append(m, rr(enc("c.com"), 1, 30, {1, 2, 3, 4}));
+
+    ParsedResponse r;
+    REQUIRE(parse_response(view(m), r));
+    // Should contain: www.example.com, a.com, b.com, c.com (without duplicate a.com from third CNAME)
+    CHECK(r.cname_chain.size() == 4);
+    CHECK(r.cname_chain[0] == "www.example.com");
+    CHECK(r.cname_chain[1] == "a.com");
+    CHECK(r.cname_chain[2] == "b.com");
+    CHECK(r.cname_chain[3] == "c.com");
+    REQUIRE(r.addresses.size() == 1);
+    CHECK(r.addresses[0].addr[0] == 1);
+}
