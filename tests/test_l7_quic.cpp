@@ -477,7 +477,7 @@ TEST_CASE("l7 quic: assembler accepts new connection after dropping one") {
     // Feed a packet with 200 fragments for dcid1 (will be dropped).
     std::vector<Crypto> many_frames;
     for (int i = 0; i < 200; ++i) {
-        many_frames.push_back({{static_cast<uint64_t>(i) * 2}, {static_cast<uint8_t>(i)}});
+        many_frames.push_back({static_cast<uint64_t>(i) * 2, {static_cast<uint8_t>(i)}});
     }
     auto d1 = protect(QuicVersion::V1, dcid1, 1, many_frames);
     CHECK(asmb.feed(view(d1), now).size() == 0);
