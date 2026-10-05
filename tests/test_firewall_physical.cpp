@@ -76,7 +76,8 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
   firewall.override_capabilities_for_fixtures(true, mode);
   firewall.prepare_apply(apply_mode);
   firewall.apply(
-      name == "iptables_catchall" ? capture_plan_catch_all()
+      name == "iptables_balance" ? capture_plan_iptables_balance()
+      : name == "iptables_catchall" ? capture_plan_catch_all()
       : name == "iptables_lan_output" ? capture_plan_lan_output()
       : intercept ? capture_plan_with_intercept(false, false, true,
                                                  inbound_interfaces)
@@ -1600,6 +1601,70 @@ TEST_CASE("lowering round trip: iptables catch-all equals the kernel dump") {
     if (!has_addr) ++addr_free;
   }
   CHECK(addr_free >= 4); // restore pair, reply skip, catch-all rules
+}
+
+TEST_CASE("lowering round trip: iptables balance equals the kernel dump") {
+  const auto lowered = lower_firewall_plan(
+      capture_plan_iptables_balance(),
+      capture_context(FirewallBackend::iptables, {}));
+  PhysicalRuleset v4;
+  PhysicalRuleset v6;
+  for (const auto &chain : lowered.chains) {
+    (chain.id.family == Fam::ipv4 ? v4 : v6).chains.push_back(chain);
+  }
+  const auto kernel_v4 = parse_iptables_save(
+      read_fixture("iptables_balance_v4.save"), Fam::ipv4);
+  const auto kernel_v6 = parse_iptables_save(
+      read_fixture("iptables_balance_v6.save"), Fam::ipv6);
+  check_lowered_equals_parsed(v4, kernel_v4);
+  check_lowered_equals_parsed(v6, kernel_v6);
+
+  // Probabilities are the kernel's p * 2^31 fixed point: the three-way split
+  // is 1/3 then 1/2 (then unconditional), whatever the decimal text says.
+  const auto &chain = require_chain(
+      v6, ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv6));
+  std::vector<uint32_t> probabilities;
+  for (const auto &rule : chain.rules) {
+    if (rule.key.has_value() && rule.key->module_id != "route.balance") continue;
+    for (const auto &match : rule.matches) {
+      if (const auto *stat = std::get_if<StatisticMatch>(&match)) {
+        const bool on_port = std::any_of(
+            rule.matches.begin(), rule.matches.end(),
+            [](const PhysicalMatch &m) {
+              return std::holds_alternative<PortMatch>(m);
+            });
+        if (on_port) probabilities.push_back(stat->probability);
+      }
+    }
+  }
+  CHECK(probabilities == std::vector<uint32_t>{0x2AAAAAABu, 0x40000000u});
+}
+
+TEST_CASE("physical: statistic match parsing is strict") {
+  const auto parse_one = [](const std::string &options) {
+    const auto set = parse_iptables_save(
+        "*mangle\n:KeenPbrTable - [0:0]\n-A KeenPbrTable " + options +
+            " -j RETURN\nCOMMIT\n",
+        Fam::ipv4);
+    const auto &chain = require_chain(
+        set, ipt_id(Role::iptables_prerouting, Table::mangle, Fam::ipv4));
+    REQUIRE(chain.rules.size() == 1);
+    return chain.rules.front();
+  };
+  const auto ok = parse_one(
+      "-m statistic --mode random --probability 0.50000000000");
+  CHECK(ok.matches ==
+        std::vector<PhysicalMatch>{StatisticMatch{0x40000000u}});
+  // The decimal text maps to the same integer the lowering produces.
+  CHECK(parse_one("-m statistic --mode random --probability 0.16666666651")
+            .matches ==
+        std::vector<PhysicalMatch>{StatisticMatch{357913941u}});
+  // nth mode, a missing mode or probability, and a negation are not ours.
+  CHECK(has_unknown(parse_one("-m statistic --mode nth --every 2 --packet 0")));
+  CHECK(has_unknown(parse_one("-m statistic --mode random")));
+  CHECK(has_unknown(parse_one("-m statistic --probability 0.5")));
+  CHECK(has_unknown(
+      parse_one("-m statistic --mode random ! --probability 0.5")));
 }
 
 TEST_CASE("lowering round trip: nftables catch-all equals the kernel dump") {

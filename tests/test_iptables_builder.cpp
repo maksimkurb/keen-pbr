@@ -434,6 +434,27 @@ public:
   }
 };
 
+TEST_CASE("balance support gate reads the startup answer and never probes") {
+  reset_iptables_statistic_capability_for_tests();
+  // Not probed at start: balance on iptables asks for a restart.
+  CHECK_THROWS_WITH_AS(
+      require_iptables_balance_support(FirewallBackend::iptables, true),
+      doctest::Contains("restart"), FirewallError);
+  record_iptables_statistic_capability(false);
+  CHECK_THROWS_WITH_AS(
+      require_iptables_balance_support(FirewallBackend::iptables, true),
+      doctest::Contains("xt_statistic"), FirewallError);
+  // No balance or another backend: never rejected.
+  CHECK_NOTHROW(
+      require_iptables_balance_support(FirewallBackend::iptables, false));
+  CHECK_NOTHROW(
+      require_iptables_balance_support(FirewallBackend::nftables, true));
+  record_iptables_statistic_capability(true);
+  CHECK_NOTHROW(
+      require_iptables_balance_support(FirewallBackend::iptables, true));
+  reset_iptables_statistic_capability_for_tests();
+}
+
 } // namespace keen_pbr3
 
 using namespace keen_pbr3;
@@ -1333,10 +1354,12 @@ TEST_CASE("an invalid plan fails before any firewall mutation, a valid one commi
   firewall.prepare_apply(FirewallApplyMode::PreserveSets);
 
   FirewallPlan invalid;
-  FirewallRuleInstance balance;
-  balance.key = {"route.balance", "invalid"};
-  balance.action = BalanceAction{1U, {{2U, true, true}}};
-  invalid.rules.push_back(std::move(balance));
+  FirewallRuleInstance gateway;
+  gateway.key = {"route.mark", "invalid"};
+  gateway.family = FirewallFamily::ipv4;
+  gateway.criteria.default_gateway = DefaultGatewayFamily::Ipv4;
+  gateway.action = MarkAction{1U};
+  invalid.rules.push_back(std::move(gateway));
   CHECK_THROWS_AS(firewall.apply(invalid, FirewallApplyMode::PreserveSets),
                   FirewallError);
 

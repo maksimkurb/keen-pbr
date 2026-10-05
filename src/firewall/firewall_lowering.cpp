@@ -110,8 +110,8 @@ std::optional<FirewallRuleAction> action_for_family(
     return FirewallRuleAction{
         MarkAction{filtered.candidates.front().fwmark, fwmark_mask}};
   }
-  // The specialized nft balance compiler owns multi-candidate forms; retain
-  // the family-filtered action for the verifier's physical expectation.
+  // Multi-candidate forms are lowered by the backend (numgen vmap on nft, a
+  // statistic cascade on iptables); retain the family-filtered action.
   filtered.fallback_mark = 0;
   return FirewallRuleAction{std::move(filtered)};
 }
@@ -661,9 +661,18 @@ void lower_iptables_classifier(const FirewallRuleInstance &rule,
   }
 
   const auto *mark = std::get_if<MarkAction>(&classifier.action);
+  const auto *balance = std::get_if<BalanceAction>(&classifier.action);
   const auto *verdict_action = std::get_if<VerdictAction>(&classifier.action);
   const bool save_conntrack =
-      mark != nullptr && target.conntrack && facts.restore_mask != 0;
+      (mark != nullptr || balance != nullptr) && target.conntrack &&
+      facts.restore_mask != 0;
+  if (balance != nullptr && !save_conntrack) {
+    // Without a connection mark every packet would pick a candidate again and
+    // break the flow.
+    throw FirewallError(
+        "connection balancing needs conntrack mark restore/save, which is not "
+        "available in raw PREROUTING");
+  }
 
   auto &rules = target.chain.rules;
   for (const auto &ports :
@@ -685,6 +694,36 @@ void lower_iptables_classifier(const FirewallRuleInstance &rule,
               {CopyMarkStmt{true, facts.restore_mask, facts.restore_mask}},
               key));
         }
+        rules.push_back(build_rule(target.family, std::move(matches),
+                                   {verdict(PhysicalVerdict::return_)}, key));
+      } else if (balance != nullptr) {
+        // mwan3-style cascade over the usable candidates.  Only packets that
+        // are not marked yet take part (the guard also ends the cascade once a
+        // rule has marked the packet); established flows were restored from
+        // the connection mark before and never get here.  Candidate i of n is
+        // picked with probability 1/(n-i), the last one unconditionally, so
+        // all of them end up equally likely.  The mark is then saved to the
+        // connection, which keeps the rest of the flow on that candidate.
+        const std::size_t count = balance->candidates.size();
+        for (std::size_t index = 0; index < count; ++index) {
+          Matches picked = matches;
+          picked.push_back(
+              MarkMatch{PhysicalMarkKind::packet, fwmark_mask, false, {0}});
+          if (index + 1U < count) {
+            const uint32_t remaining = static_cast<uint32_t>(count - index);
+            picked.push_back(StatisticMatch{
+                (kStatisticProbabilityOne + remaining / 2U) / remaining});
+          }
+          rules.push_back(build_rule(
+              target.family, std::move(picked),
+              {set_mark(PhysicalMarkKind::packet,
+                        balance->candidates[index].fwmark, fwmark_mask)},
+              key));
+        }
+        rules.push_back(build_rule(
+            target.family, matches,
+            {CopyMarkStmt{true, facts.restore_mask, facts.restore_mask}},
+            key));
         rules.push_back(build_rule(target.family, std::move(matches),
                                    {verdict(PhysicalVerdict::return_)}, key));
       } else {
@@ -799,10 +838,6 @@ void lower_iptables_intercept(const FirewallRuleInstance &rule,
 PhysicalRuleset lower_iptables(const FirewallPlan &plan,
                                const FirewallLoweringContext &context) {
   for (const auto &rule : plan.rules) {
-    if (std::holds_alternative<BalanceAction>(rule.action)) {
-      throw FirewallError(
-          "connection balancing requires the nftables firewall backend");
-    }
     if (rule.criteria.default_gateway != DefaultGatewayFamily::None) {
       throw FirewallError(
           "default_gateway requires the nftables firewall backend");

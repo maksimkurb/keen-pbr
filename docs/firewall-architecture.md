@@ -158,7 +158,7 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   (a WAN server answering a LAN client) from being re-marked by a catch-all
   rule when `route.inbound_interfaces` is empty (`restore_conntrack_mark` is
   ORIGINAL-only, `skip_established_or_dnat` skips DNAT only).  Balance
-  (`numgen`, only unmarked packets) and the DNS-detour rules (hook=output) sit
+  (`numgen` / `statistic`, only unmarked packets) and the DNS-detour rules (hook=output) sit
   after it in stage order, so they never see reply-direction packets either;
   the interception chains are separate and unaffected.  Raw-mode limitation:
   raw PREROUTING runs before conntrack, so the rule is absent there (as are
@@ -214,7 +214,29 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   `sniff_out` (output), priority -150, present only when non-empty; no jumps.
 - **nftables** replaces the whole `inet KeenPbrTable` content in one batch;
   balance uses `numgen inc mod N` + `vmap` into `setmark_XXXXXXXX` chains.
-  Balancing is nft-only; iptables rejects it at lowering time.
+  Balancing also lowers on iptables (below); only `default_gateway` is nft-only.
+- **iptables balance** needs no extra chain.  A `BalanceAction` with n >= 2
+  usable candidates (per family: `FirewallBalanceCandidate::ipv4/ipv6`; zero
+  usable is the fallback `MarkAction`, one is a plain `MarkAction`, exactly as
+  on nft) becomes, for each expanded classifier match set M, in the same
+  classification chain:
+  `M -m mark --mark 0/<mask> -m statistic --mode random --probability p_i -j MARK --set-xmark c_i/<mask>`
+  for i = 1..n-1 (the last without `statistic`), then `M -j CONNMARK
+  --save-mark` and `M -j RETURN` like a `MarkAction`.  The mark guard is what
+  ends the cascade once a candidate was chosen, and equals the nft rule's
+  "only unmarked packets are balanced"; `p_i = 1/(n-i)` since candidates are
+  equal (weight is only a group priority).  Stickiness is the existing
+  restore/save machinery: `restore_conntrack_mark` restores the connection
+  mark of ESTABLISHED flows and returns before any classifier, and the save
+  rule stores the new choice, so the cascade only decides new connections.
+  Without conntrack (raw PREROUTING) lowering throws, since every packet would
+  be balanced again.  The probability is a `StatisticMatch` holding the kernel's
+  `p * 2^31` fixed point (what xt_statistic stores; iptables-save prints it as
+  `%.11f`, iptables-restore reads it back with `lround`), computed with integer
+  arithmetic in lowering and parsed back from the decimal text, so the
+  verifier compares integers.  Before the first restore `IptablesFirewall`
+  runs an `iptables-restore --test` with a statistic rule and fails the apply
+  with a message naming `xt_statistic` when the kernel cannot use it.
 - Sets: logical and physical names are identical and stable: `kpbr4_<list>`,
   `kpbr6_<list>` (static) and `kpbr4d_<list>`, `kpbr6d_<list>` (dynamic).
   iptables apply order: sets, then rules, then cleanup. A missing static set is
@@ -256,6 +278,11 @@ exist under their stable names, otherwise exactly one fallback to
 | Thread-safety | `make clang-check` | for changes touching shared state |
 | netns integration | `make integration-tests-iptables INTEGRATION_CASES=a,b` / `make integration-tests-nftables INTEGRATION_CASES=a,b` | rootless; comma-separated case list |
 | Real fixtures | `tests/firewall_it/scripts/capture_physical_fixtures.sh` | see `tests/firewall_it/fixtures/physical/README.md` |
+
+Balance on iptables (`route_balance*` cases) needs `xt_statistic`; the preflight
+reports it as the optional capability `balance_statistic`.  Probe bursts that
+must hit both candidates use 24 source ports: the choice is random there
+(missing one of two candidates has probability 2^-23).
 
 Known issue: in the full nftables suite, every case after
 `route_balance_failover` fails at `topology.sh reset` ("RTNETLINK answers: No

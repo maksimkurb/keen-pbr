@@ -150,7 +150,7 @@ With the default `priority` strategy, firewall rules keep the `urltest`
 outbound's stable mark. Its policy rule points at the selected child's routing
 table, including an existing table used by a `table` outbound; firewall rules
 are not rebuilt on selection changes. `balance` keeps that stable mark for
-internal detours, but refreshes its nftables classifier after each probe sweep.
+internal detours, but refreshes its balance classifier after each probe sweep.
 
 keen-pbr always appends terminal IPv4 and IPv6 `unreachable` default routes to
 the generated `urltest` fallback table. This table is selected when no child is
@@ -165,7 +165,7 @@ falling through to normal routing.
 | `interval_ms` | integer | no (default: `180000`) | Interval between probes in milliseconds |
 | `probe_timeout_ms` | integer | no (default: `5000`) | Timeout for each individual probe attempt in milliseconds |
 | `tolerance_ms` | integer | no (default: `100`) | Latency tolerance in ms; prevent outbound switching if the latency difference between the current and new best outbound is less than this tolerance |
-| `strategy` | string | no (default: `"priority"`) | `"priority"` selects one child as before. nftables-only `"balance"` distributes new connections equally over usable children in the first healthy lowest-weight group. |
+| `strategy` | string | no (default: `"priority"`) | `"priority"` selects one child as before. `"balance"` (nftables, or iptables with `xt_statistic`; not on Keenetic) distributes new connections equally over usable children in the first healthy lowest-weight group. |
 | `outbound_groups` | array | yes | Ordered list of outbound groups (see below) |
 | `retry` | object | no | Retry configuration (see below) |
 | `circuit_breaker` | object | no | Circuit breaker configuration (see below) |
@@ -189,6 +189,20 @@ applies only to `priority` selection. For balance groups, `conntrack_on_switch`
 is ignored; only a failed child's conntrack flows are removed when it becomes
 unhealthy. When no candidate is usable, the test group's existing terminal
 fallback blocks marked traffic rather than leaking to the main table.
+
+Balancing works on both firewall backends. nftables alternates new connections
+with `numgen inc` and a verdict map. iptables has no counter match that can be
+reloaded cheaply, so it picks a candidate at random: a cascade of
+`-m statistic --mode random --probability 1/n`, `1/(n-1)`, ... rules (the last
+candidate unconditional) in the mangle classification chain, which makes every
+usable candidate equally likely. Over a few connections the split is therefore
+only statistical on iptables, while nftables is exactly round robin. On both
+backends the chosen mark is saved to the connection (`CONNMARK`) and restored
+for the rest of the flow, so only new connections are balanced. iptables
+balancing needs the `xt_statistic` kernel module; if it cannot be used, applying
+the firewall fails with an error naming the module. It is not available with
+`--use-raw-prerouting` (raw runs before conntrack, so a choice could not be
+kept per connection).
 
 ### Retry Configuration
 
@@ -216,7 +230,7 @@ fallback blocks marked traffic rather than leaking to the main table.
 `icmptest` selects candidates like `urltest`, but sends ICMP Echo packets through
 each candidate's fwmark. Every candidate needs one explicit literal IPv4 or IPv6
 destination in its group entry. It supports the same `priority` (default) and
-nftables-only `balance` strategies.
+`balance` strategies.
 
 ```json { filename="config.json" }
 {

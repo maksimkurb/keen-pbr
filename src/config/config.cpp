@@ -1372,15 +1372,6 @@ void validate_config(const Config& cfg) {
 #endif
 
     if (effective_backend == FirewallBackend::iptables) {
-        for (const auto& outbound : outbounds) {
-            if ((outbound.type == OutboundType::URLTEST ||
-                 outbound.type == OutboundType::ICMPTEST) &&
-                outbound_uses_balance(outbound)) {
-                add_issue(issues, "outbounds." + outbound.tag + ".strategy",
-                          "balance strategy requires the nftables firewall backend" +
-                              backend_note);
-            }
-        }
         for (size_t i = 0; i < route_rules.size(); ++i) {
             const auto& rule = route_rules[i];
             if (rule.default_gateway.has_value()) {

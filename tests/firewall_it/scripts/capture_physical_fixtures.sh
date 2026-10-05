@@ -57,6 +57,12 @@ scenario iptables_catchall "$run_case
   iptables-save -t mangle >\"\$KPBR_OUT/iptables_catchall_v4.save\"
   ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_catchall_v6.save\""
 
+# Balance cascades on iptables (xt_statistic): the probability is printed as a
+# decimal (`--probability 0.50000000000`) of the kernel's p * 2^31 fixed point.
+scenario iptables_balance "$run_case
+  iptables-save -t mangle >\"\$KPBR_OUT/iptables_balance_v4.save\"
+  ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_balance_v6.save\""
+
 # PLAN O: inbound interfaces + positive UDP catch-all + skip_lan_output
 # (OUTPUT-only oif / broadcast / multicast skips).
 scenario iptables_lan_output "$run_case

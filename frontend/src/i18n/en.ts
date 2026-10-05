@@ -977,7 +977,7 @@ export const enTranslation = {
       },
       strategy: {
         label: "Selection strategy",
-        hint: "Priority keeps one selected outbound; balance distributes new connections across healthy outbounds (nftables only).",
+        hint: "Priority keeps one selected outbound; balance distributes new connections across healthy outbounds (not available on Keenetic).",
         hintKeenetic: "Load balancing is disabled on Keenetic; use the router's multipath features.",
         options: {
           priority: "Priority",

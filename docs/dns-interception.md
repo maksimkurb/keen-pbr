@@ -353,6 +353,7 @@ features, so keen-pbr does not trust these numbers at runtime: see
 | nft `log group ... snaplen ... queue-threshold` (`NFTA_LOG_GROUP`, `_SNAPLEN`, `_QTHRESHOLD`) | 3.13 | `nf_tables.h`, `nft_log.c` | L7, nft | required |
 | `NFULA_CT` (conntrack attributes in NFLOG records) | 4.4 | `nfnetlink_log.h` | not used | not required |
 | `xt_connbytes` (`--connbytes ... packets`) | 2.6.16 | `net/netfilter/xt_connbytes.c` | L7, iptables | required |
+| `xt_statistic` (`--mode random --probability`) | 2.6.16 | `net/netfilter/xt_statistic.c` | load balancing (not interception), iptables | required for `strategy: balance`; the firewall apply fails naming it |
 | Runtime conntrack accounting switch (`nf_conntrack_acct`) | 2.6.27 | `net/netfilter/nf_conntrack_acct.c` | L7 | required (keen-pbr enables it) |
 | `xt_conntrack` `--ctdir` (`XT_CONNTRACK_DIRECTION`) | 2.6.25 | `xt_conntrack.h` | DNS hold, iptables | required |
 | nft `ct original packets` (`NFT_CT_PKTS`) | 4.5 | `nf_tables.h`, `nft_ct.c` | L7, nft | required |

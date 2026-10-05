@@ -237,7 +237,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       "tolerance_ms": 100,
 
       // Selection strategy: "priority" (default) keeps one selected child.
-      // nftables-only "balance" spreads new connections equally over usable
+      // "balance" (not on Keenetic) spreads new connections equally over usable
       // children in the first healthy lowest-weight group.
       "strategy": "priority",
 

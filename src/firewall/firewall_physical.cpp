@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <nlohmann/json.hpp>
 
@@ -649,6 +651,27 @@ std::string join_tokens(const std::vector<std::string_view> &tokens,
   return text;
 }
 
+// `--probability 0.50000000000` -> the kernel's `p * 2^31` fixed point, the
+// way iptables computes it (lround).  Strict: digits with one dot, 0 < p < 1.
+std::optional<uint32_t> parse_statistic_probability(std::string_view text) {
+  if (text.empty() || text.size() > 24) return std::nullopt;
+  bool dot = false;
+  for (const char c : text) {
+    if (c == '.' && !dot) {
+      dot = true;
+    } else if (c < '0' || c > '9') {
+      return std::nullopt;
+    }
+  }
+  const double value = std::strtod(std::string(text).c_str(), nullptr);
+  const long scaled =
+      std::lround(value * static_cast<double>(kStatisticProbabilityOne));
+  if (scaled <= 0 || scaled >= static_cast<long>(kStatisticProbabilityOne)) {
+    return std::nullopt;
+  }
+  return static_cast<uint32_t>(scaled);
+}
+
 bool is_iptables_option(std::string_view token) {
   return token.size() >= 2 && token[0] == '-' && token != "!" &&
          !(token[1] >= '0' && token[1] <= '9');
@@ -667,6 +690,11 @@ struct IptablesRuleParser {
     std::optional<std::size_t> connbytes_index;
     bool connbytes_dir{false};
     bool connbytes_mode{false};
+    // statistic needs --mode random and --probability; a partial one is not
+    // trusted.
+    std::optional<std::size_t> statistic_index;
+    bool statistic_seen{false};
+    bool statistic_mode{false};
   };
 
   void unknown_match(Result &r, std::size_t from, std::size_t to) const {
@@ -728,6 +756,16 @@ struct IptablesRuleParser {
                            std::to_string(bytes.from) + ":" +
                            std::to_string(bytes.to) + " (incomplete)"};
     }
+    if (r.statistic_seen && !r.statistic_index.has_value()) {
+      r.rule.matches.push_back(UnknownMatch{"-m statistic (incomplete)"});
+    }
+    if (r.statistic_index.has_value() &&
+        !(r.statistic_mode && std::get<StatisticMatch>(
+                                  r.rule.matches[*r.statistic_index])
+                                      .probability != 0)) {
+      r.rule.matches[*r.statistic_index] =
+          UnknownMatch{"-m statistic (incomplete)"};
+    }
     return r;
   }
 
@@ -752,9 +790,11 @@ struct IptablesRuleParser {
 
       if (token == "-m" && i + 1 < size) {
         module = tokens[i + 1];
-        static constexpr std::array<std::string_view, 11> kKnownModules{
+        if (module == "statistic") r.statistic_seen = true;
+        static constexpr std::array<std::string_view, 12> kKnownModules{
             "tcp",  "udp",  "multiport", "comment",   "set",      "dscp",
-            "mark", "connmark", "conntrack", "connbytes", "addrtype"};
+            "mark", "connmark", "conntrack", "connbytes", "addrtype",
+            "statistic"};
         if (std::find(kKnownModules.begin(), kKnownModules.end(), module) ==
             kKnownModules.end()) {
           // Never drop a module silently, even when none of its options is
@@ -923,6 +963,23 @@ struct IptablesRuleParser {
           else if (value == "bytes") bytes.mode = ConnbytesMode::bytes;
           else return at;
           r.connbytes_mode = true;
+          return at + 2;
+        }
+      }
+      return at;
+    }
+    if (module == "statistic" && !neg) {
+      if (option == "--mode" && at + 1 < size && tokens[at + 1] == "random" &&
+          !r.statistic_mode) {
+        r.statistic_mode = true;
+        return at + 2;
+      }
+      if (option == "--probability" && at + 1 < size &&
+          !r.statistic_index.has_value()) {
+        const auto probability = parse_statistic_probability(tokens[at + 1]);
+        if (probability.has_value()) {
+          r.statistic_index = r.rule.matches.size();
+          r.rule.matches.push_back(StatisticMatch{*probability});
           return at + 2;
         }
       }

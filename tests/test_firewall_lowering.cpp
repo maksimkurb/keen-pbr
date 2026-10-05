@@ -266,13 +266,7 @@ TEST_CASE("lowering iptables: mark, drop and pass shapes") {
     CHECK(std::get<SetMarkStmt>(gen_a(wide, Fam::ipv4).rules[0].statements[0])
               .mask == (kMask | 0x1000001u));
   }
-  SUBCASE("balance and default gateway are nft only") {
-    CHECK_THROWS_AS(
-        lower_firewall_plan(
-            plan_of({make_rule("route.balance", "b", Fam::ipv4, {},
-                               BalanceAction{kMark1, {}})}),
-            ipt_context()),
-        FirewallError);
+  SUBCASE("default gateway is nft only") {
     FirewallRuleCriteria gateway;
     gateway.default_gateway = DefaultGatewayFamily::Ipv4;
     CHECK_THROWS_AS(lower_firewall_plan(
@@ -1766,6 +1760,44 @@ TEST_CASE("plan validation: interception actions only on their hooks") {
                   std::invalid_argument);
   CHECK_THROWS_AS(make(VerdictAction::drop, FirewallHook::postrouting),
                   std::invalid_argument);
+}
+
+TEST_CASE("iptables balance lowers to a guarded statistic cascade") {
+  const auto restore = make_rule("prefilter.restore_conntrack_mark", "m",
+                                 Fam::any, {}, RestoreConntrackMarkAction{kMask});
+  const auto balance = make_rule(
+      "route.balance", "b", Fam::ipv4, for_set("kpbr4_x"),
+      BalanceAction{kMark1, {{kMark1, true, true},
+                             {kMark2, true, true},
+                             {kMark3, true, false}}});
+  const auto lowered = lower_firewall_plan(plan_of({restore, balance}),
+                                           ipt_context());
+  const auto &rules = gen_a(lowered, Fam::ipv4).rules;
+  // restore pair, then 3 picks + save + return
+  REQUIRE(rules.size() == 7);
+  const auto probability = [&](std::size_t index) {
+    const auto *stat = find_match<StatisticMatch>(rules[index]);
+    return stat == nullptr ? 0U : stat->probability;
+  };
+  // 1/3, 1/2, then unconditional; every pick only sees unmarked packets.
+  CHECK(probability(2) == 0x2AAAAAABu);
+  CHECK(probability(3) == 0x40000000u);
+  CHECK(find_match<StatisticMatch>(rules[4]) == nullptr);
+  for (std::size_t i = 2; i < 5; ++i) {
+    CHECK(has_match(rules[i],
+                    MarkMatch{PhysicalMarkKind::packet, kMask, false, {0}}));
+  }
+  CHECK(std::get<SetMarkStmt>(rules[4].statements[0]).value == kMark3);
+  CHECK(std::get<CopyMarkStmt>(rules[5].statements[0]).to_conntrack);
+  CHECK(verdict_of(rules[6]) == PhysicalVerdict::return_);
+  // IPv6 has no usable candidate: the fallback mark, no cascade.
+  const auto &v6 = gen_a(lowered, Fam::ipv6).rules;
+  for (const auto &rule : v6) CHECK(find_match<StatisticMatch>(rule) == nullptr);
+
+  SUBCASE("a balance rule without the connection mark cannot be sticky") {
+    CHECK_THROWS_AS(lower_firewall_plan(plan_of({balance}), ipt_context()),
+                    FirewallError);
+  }
 }
 
 } // namespace keen_pbr3

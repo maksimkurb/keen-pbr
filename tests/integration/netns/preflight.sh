@@ -127,6 +127,9 @@ if [[ $backend == all || $backend == iptables ]]; then
   probe_capability iptables connbytes WARN iptables -t mangle -A KPBR_PREFLIGHT \
     -p tcp -m connbytes --connbytes 1:6 --connbytes-mode packets \
     --connbytes-dir original -j RETURN
+  # Load balancing on iptables is a random statistic cascade (xt_statistic).
+  probe_capability iptables balance_statistic WARN iptables -t mangle -A KPBR_PREFLIGHT \
+    -m statistic --mode random --probability 0.50000000000 -j RETURN
 fi
 
 if [[ $backend == all || $backend == nftables ]]; then

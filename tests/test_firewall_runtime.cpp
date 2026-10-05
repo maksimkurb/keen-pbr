@@ -746,41 +746,6 @@ TEST_CASE("RulesOnly validates deferred list-backed actions before preparation")
   CHECK(firewall.calls.empty());
 }
 
-TEST_CASE("RulesOnly rejects list-backed balance with an empty active plan") {
-  const Config previous_config = empty_inline_list_config();
-  const Config config = parse_config(R"({
-    "daemon": {"ipv6_enabled":false},
-    "outbounds": [
-      {"type":"table","tag":"wan","table":254},
-      {"type":"urltest","tag":"auto","strategy":"balance",
-       "outbound_groups":[{"outbounds":["wan"]}]}
-    ],
-    "lists": {"remote": {"ip_cidrs":[]}},
-    "route": {"rules": [{"list":["remote"],"outbound":"auto"}]}
-  })");
-  const OutboundMarkMap marks{{"auto", 1}, {"wan", 2}};
-  const FirewallBalanceCandidates candidates = {
-      {"auto", {{2, true, false}}}};
-  CacheManager cache("/tmp/keen-pbr-firewall-runtime-empty-plan-balance-test-cache");
-  RecordingFirewall previous_firewall;
-  ActiveFirewall previous_plan;
-  previous_plan = apply_runtime_firewall(
-              previous_config, {{"wan", 1}}, cache, previous_firewall,
-              FirewallApplyMode::PreserveSets);
-  REQUIRE(previous_plan.rule_states.size() == 1);
-  REQUIRE(previous_plan.plan.sets.empty());
-
-  RecordingFirewall firewall;
-  firewall.backend_type = FirewallBackend::iptables;
-  CHECK_THROWS_AS(apply_runtime_firewall(
-                      config, marks, cache, firewall,
-                      FirewallApplyMode::RulesOnly, &previous_plan, false, {}, {},
-                      &candidates),
-                  FirewallError);
-  CHECK(firewall.calls.empty());
-  CHECK(firewall.prepared_modes.empty());
-}
-
 TEST_CASE("RulesOnly rejects list-backed default gateway with an empty active plan") {
   const Config previous_config = empty_inline_list_config();
   const Config config = parse_config(R"({

@@ -354,15 +354,13 @@ TEST_CASE("backend validation accepts nftables-only constructs on nftables") {
 }
 
 TEST_CASE("backend validation rejects unsupported construct with stable detail") {
-  FirewallPlan plan;
+  FirewallPlan balance_plan;
   auto balanced = rule("route.balance", "balance", FirewallRuleStage::route_classification,
                        0);
   balanced.action = BalanceAction{0x100U, {{0x200U, true, true}}};
-  plan.rules.push_back(std::move(balanced));
-
-  CHECK_THROWS_WITH(
-      validate_firewall_plan_backend(plan, FirewallBackend::iptables),
-      "unsupported firewall construct: module_id=route.balance, instance_id=balance, backend=iptables, construct=BalanceAction (requires nftables)");
+  balance_plan.rules.push_back(std::move(balanced));
+  CHECK_NOTHROW(
+      validate_firewall_plan_backend(balance_plan, FirewallBackend::iptables));
 
   FirewallPlan gateway_plan;
   auto gateway = rule("route.mark", "gateway", FirewallRuleStage::route_classification,

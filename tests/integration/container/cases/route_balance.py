@@ -46,12 +46,24 @@ def wait_for_balance_status(context, active, inactive=(), description="balance s
 def assert_balance_health(context):
     def healthy():
         routing = context.api("/api/health/routing")
-        if routing.get("overall") != "ok" or routing.get("firewall_backend") != "nftables":
+        if routing.get("overall") != "ok" or routing.get("firewall_backend") != context.backend:
             return False
         firewall = context.firewall_text()
+        if context.backend == "iptables":
+            return routing if "-m statistic --mode random" in firewall else False
         return routing if "numgen" in firewall and "vmap" in firewall else False
 
     return context.wait_for("balance firewall health", healthy)
+
+
+def spread_ports(first):
+    """Source ports of a probe burst that must reach both candidates.
+
+    nftables alternates (`numgen inc`), so any two flows differ; iptables
+    picks at random (`statistic`), so 24 new flows all landing on one of two
+    candidates has probability 2**-23 -- negligible, unlike a handful.
+    """
+    return range(first, first + 24)
 
 
 def probe_identities(context, source_ports, token_prefix):
@@ -83,22 +95,22 @@ def assert_no_leak(context, source_ports, token_prefix):
 
 
 def register(registry):
-    @registry.case("route_balance", backends=("nftables",), requires=("balance_numgen",))
+    @registry.case("route_balance", requires=("balance_numgen", "balance_statistic"))
     def route_balance(context):
         apply_balance(context)
         wait_for_balance_status(context, ("wan_direct", "wan_pbr"),
                                 description="both balance candidates active")
         assert_balance_health(context)
-        assert probe_identities(context, range(22000, 22004), "route-balance") == {
+        assert probe_identities(context, spread_ports(22000), "route-balance") == {
             "wan_direct", "wan_pbr"}
 
-    @registry.case("route_balance_failover", backends=("nftables",), requires=("balance_numgen",))
+    @registry.case("route_balance_failover", requires=("balance_numgen", "balance_statistic"))
     def route_balance_failover(context):
         apply_balance(context)
         wait_for_balance_status(context, ("wan_direct", "wan_pbr"),
                                 description="failover precondition candidates active")
         assert_balance_health(context)
-        assert probe_identities(context, range(22300, 22304), "route-balance-failover-pre") == {
+        assert probe_identities(context, spread_ports(22300), "route-balance-failover-pre") == {
             "wan_direct", "wan_pbr"}
 
         try:
@@ -106,7 +118,7 @@ def register(registry):
             wait_for_balance_status(
                 context, ("wan_pbr",), ("wan_direct",),
                 "failed balance candidate excluded")
-            assert probe_identities(context, range(22400, 22404),
+            assert probe_identities(context, spread_ports(22400),
                                     "route-balance-failover-down") == {"wan_pbr"}
         finally:
             context.run("ip", "link", "set", "wan_direct", "up", check=False)
@@ -116,16 +128,16 @@ def register(registry):
             description="both balance candidates recovered")
         assert_balance_health(context)
         assert probe_identities(
-            context, range(22500, 22504), "route-balance-failover-recovered") == {
+            context, spread_ports(22500), "route-balance-failover-recovered") == {
                 "wan_direct", "wan_pbr"}
 
-    @registry.case("route_balance_no_leak", backends=("nftables",), requires=("balance_numgen",))
+    @registry.case("route_balance_no_leak", requires=("balance_numgen", "balance_statistic"))
     def route_balance_no_leak(context):
         apply_balance(context)
         wait_for_balance_status(context, ("wan_direct", "wan_pbr"),
                                 description="no-leak precondition candidates active")
         assert_balance_health(context)
-        assert probe_identities(context, range(22600, 22604), "route-balance-no-leak-pre") == {
+        assert probe_identities(context, spread_ports(22600), "route-balance-no-leak-pre") == {
             "wan_direct", "wan_pbr"}
 
         health_drop = ("-p", "tcp", "--dport", "18080", "-j", "DROP")
@@ -160,5 +172,5 @@ def register(registry):
             description="both no-leak candidates recovered")
         assert_balance_health(context)
         assert probe_identities(
-            context, range(22800, 22804), "route-balance-no-leak-recovered") == {
+            context, spread_ports(22800), "route-balance-no-leak-recovered") == {
                 "wan_direct", "wan_pbr"}

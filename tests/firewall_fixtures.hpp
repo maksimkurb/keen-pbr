@@ -252,6 +252,63 @@ inline FirewallPlan capture_plan(bool nft, bool two_interfaces, bool conntrack) 
   return plan;
 }
 
+// iptables balance cascades: a two-way IPv4 split behind a set, a three-way
+// IPv6 split on a port, and a family-agnostic rule whose candidates differ per
+// family (so both tables get a cascade of a different length), behind the
+// restore prefilter that keeps established flows on their candidate.
+inline FirewallPlan capture_plan_iptables_balance() {
+  FirewallPlan plan;
+  plan.fwmark_mask = kCaptureMask;
+  FirewallRuleRegistrar r(plan);
+  r.register_set({"kpbr4_hybrid", FirewallFamily::ipv4, 0});
+  using S = FirewallRuleStage;
+  r.register_rule(capture_rule("prefilter.restore_conntrack_mark", "mask",
+                               S::restore_conntrack, 0, FirewallFamily::any, {},
+                               RestoreConntrackMarkAction{kCaptureMask}));
+  r.register_rule(capture_rule("prefilter.skip_marked_packets", "all",
+                               S::global_bypass, 1, FirewallFamily::any, {},
+                               SkipMarkedPacketsAction{}));
+  int index = 0;
+  const auto route = [&](FirewallFamily family, FirewallRuleCriteria criteria,
+                         FirewallRuleAction action) {
+    r.register_rule(capture_rule("route.balance", "r" + std::to_string(index),
+                                 S::route_classification, index, family,
+                                 std::move(criteria), std::move(action)));
+    ++index;
+  };
+  {
+    FirewallRuleCriteria c;
+    c.dst_set_name = "kpbr4_hybrid";
+    c.proto = L4Proto::Udp;
+    route(FirewallFamily::ipv4, c,
+          BalanceAction{0x30000u, {{0x10000u, true, false},
+                                   {0x20000u, true, false}}});
+  }
+  {
+    FirewallRuleCriteria c;
+    c.dst_port = "8443";
+    c.proto = L4Proto::Tcp;
+    route(FirewallFamily::ipv6, c,
+          BalanceAction{0x30000u, {{0x10000u, false, true},
+                                   {0x20000u, false, true},
+                                   {0x40000u, false, true}}});
+  }
+  {
+    FirewallRuleCriteria c;
+    c.dscp = 46;
+    route(FirewallFamily::any, c,
+          BalanceAction{0x30000u, {{0x10000u, true, true},
+                                   {0x20000u, true, true},
+                                   {0x40000u, true, false},
+                                   {0x50000u, true, false},
+                                   {0x60000u, true, false},
+                                   {0x70000u, true, false},
+                                   {0x80000u, false, true}}});
+  }
+  r.finish();
+  return plan;
+}
+
 // Catch-all address spellings (`0.0.0.0/0`, `::/0`, and the halves nft merges
 // into them) on route rules, behind the restore/reply-skip prefilters.
 inline FirewallPlan capture_plan_catch_all() {

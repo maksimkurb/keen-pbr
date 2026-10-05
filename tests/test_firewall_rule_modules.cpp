@@ -568,7 +568,7 @@ TEST_CASE("route balance skips rules without an owned fallback mark") {
   CHECK(build({{"auto", 0}}).rules.empty());
 }
 
-TEST_CASE("route balance keeps nftables-only backend validation") {
+TEST_CASE("route balance is valid on iptables") {
   BalanceModuleFixture fixture;
   fixture.candidates["auto"] = {{0x200U, true, true}};
   auto context = fixture.context();
@@ -581,11 +581,8 @@ TEST_CASE("route balance keeps nftables-only backend validation") {
   registrar.finish();
 
   REQUIRE(plan.rules.size() == 1);
-  CHECK_THROWS_WITH(
-      validate_firewall_plan_backend(plan, FirewallBackend::iptables),
-      "unsupported firewall construct: module_id=route.balance, instance_id=" +
-          plan.rules.front().key.instance_id +
-          ", backend=iptables, construct=BalanceAction (requires nftables)");
+  CHECK_NOTHROW(
+      validate_firewall_plan_backend(plan, FirewallBackend::iptables));
 }
 
 TEST_CASE("route balance module is included in the explicit manifest") {

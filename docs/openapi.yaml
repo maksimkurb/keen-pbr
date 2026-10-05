@@ -1074,7 +1074,8 @@ components:
           description: >
             `priority` keeps the stable test-group mark and routes it through one
             selected child. `balance` distributes new connections equally across
-            usable children in the lowest-weight healthy group (nftables only).
+            usable children in the lowest-weight healthy group (nftables or iptables
+            with the xt_statistic module; disabled on Keenetic).
         conntrack_on_switch:
           $ref: "#/components/schemas/ConntrackOnSwitch"
           default: preserve

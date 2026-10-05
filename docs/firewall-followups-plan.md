@@ -18,7 +18,7 @@ fails when the behaviour it guards is broken.
 
 ### What the case checks
 
-`tests/integration/container/cases/route_balance.py`, nftables only:
+`tests/integration/container/cases/route_balance.py`:
 
 1. A balance urltest outbound `auto` spans `wan_direct` and `wan_pbr`;
    198.18.0.10 is routed to `auto`.

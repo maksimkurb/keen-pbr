@@ -228,6 +228,18 @@ struct ConnbytesMatch {
   }
 };
 
+// iptables `-m statistic --mode random --probability p`: matches a random
+// share of the packets.  The probability is kept in the kernel's fixed point
+// (`p * 2^31`, what xt_statistic stores and iptables-save renders from), so
+// lowering and parser compare integers, never decimal text or floats.
+inline constexpr uint32_t kStatisticProbabilityOne = 0x80000000u;
+struct StatisticMatch {
+  uint32_t probability{0}; // 1 .. kStatisticProbabilityOne - 1
+  bool operator==(const StatisticMatch &o) const {
+    return probability == o.probability;
+  }
+};
+
 // Anything the parser could not translate.  Never equal to a lowered match.
 struct UnknownMatch {
   std::string text;
@@ -237,7 +249,7 @@ struct UnknownMatch {
 using PhysicalMatch =
     std::variant<SetMatch, AddrMatch, ProtoMatch, PortMatch, DscpMatch,
                  IifMatch, OifMatch, AddrTypeMatch, MarkMatch, CtStateMatch, CtDirMatch, ConnbytesMatch,
-                 UnknownMatch>;
+                 StatisticMatch, UnknownMatch>;
 
 // ---------------------------------------------------------------------------
 // Statements

@@ -221,6 +221,23 @@ private:
 std::string render_iptables_rule(const PhysicalRule &rule,
                                  const std::string &chain);
 
+// xt_statistic (`-m statistic --mode random`), needed by iptables load
+// balancing.  Kernel checks run once, at service start: the daemon calls
+// probe_iptables_statistic() (a throw-away `iptables-restore --test`; the
+// kernel may autoload the module during it, no modprobe of our own) and keeps
+// the answer with record_iptables_statistic_capability().  Everything after
+// that only reads the stored answer.  The match is registered for IPv4 and
+// IPv6 by one module, so IPv4 is probed.
+bool probe_iptables_statistic();
+void record_iptables_statistic_capability(bool available);
+void reset_iptables_statistic_capability_for_tests();
+
+// Pre-mutation gate: throws FirewallError naming xt_statistic when
+// `uses_balance` on the iptables backend and the startup probe found the
+// match unusable (or never ran, which needs a restart).  Probes nothing.
+void require_iptables_balance_support(FirewallBackend backend,
+                                      bool uses_balance);
+
 // Factory function called from firewall.cpp
 std::unique_ptr<Firewall>
 create_iptables_firewall(RawPreroutingMode raw_prerouting = {});

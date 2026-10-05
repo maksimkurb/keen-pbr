@@ -122,6 +122,9 @@ struct MatchDescriber {
         return keen_pbr3::format("connbytes {} {}-{} ({})", dir, m.from, m.to,
                                  mode);
     }
+    std::string operator()(const StatisticMatch& m) const {
+        return keen_pbr3::format("statistic {}/2^31", m.probability);
+    }
     std::string operator()(const UnknownMatch& m) const {
         return "unknown(" + m.text + ")";
     }

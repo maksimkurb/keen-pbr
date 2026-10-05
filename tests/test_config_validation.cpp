@@ -91,9 +91,12 @@ TEST_CASE("balance and default gateway reject the iptables backend") {
     CHECK(issues.size() >= 2);
 }
 
-TEST_CASE("auto backend resolves to iptables and rejects balance") {
+TEST_CASE("auto backend resolves to iptables, accepts balance and rejects default_gateway") {
     SystemInfoTestGuard sys_guard;
     set_detected_firewall_backend_for_tests(FirewallBackend::iptables);
+#ifdef USE_KEENETIC_API
+    set_keenetic_balance_restriction_for_tests(true);
+#endif
     const auto issues = validate_issues(R"({
       "daemon":{"firewall_backend":"auto"},
       "outbounds":[
@@ -103,16 +106,21 @@ TEST_CASE("auto backend resolves to iptables and rejects balance") {
       ],
       "route":{"rules":[{"default_gateway":"ipv4","outbound":"auto"}]}
     })");
-    CHECK(issues.size() >= 2);
     bool has_balance_error = false;
+    bool has_gateway_error = false;
     for (const auto& issue : issues) {
-        if (issue.path == "outbounds.auto.strategy" &&
+        if (issue.path == "outbounds.auto.strategy") has_balance_error = true;
+        if (issue.path == "route.rules[0].default_gateway" &&
             issue.message.find("auto-detected: iptables") != std::string::npos) {
-            has_balance_error = true;
+            has_gateway_error = true;
         }
     }
-    CHECK(has_balance_error);
+    CHECK_FALSE(has_balance_error);
+    CHECK(has_gateway_error);
     reset_detected_firewall_backend_for_tests();
+#ifdef USE_KEENETIC_API
+    reset_keenetic_balance_restriction_for_tests();
+#endif
 }
 
 TEST_CASE("auto backend resolves to nftables and accepts balance") {

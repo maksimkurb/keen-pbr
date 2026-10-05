@@ -199,10 +199,6 @@ void validate_firewall_plan_backend(const FirewallPlan& plan,
   };
 
   for (const auto& rule : plan.rules) {
-    if (std::holds_alternative<BalanceAction>(rule.action) &&
-        backend != FirewallBackend::nftables) {
-      reject(rule, "BalanceAction");
-    }
     if (rule.criteria.default_gateway != DefaultGatewayFamily::None &&
         backend != FirewallBackend::nftables) {
       reject(rule, "default_gateway");

@@ -1,5 +1,6 @@
 #include "../intercept/intercept_report.hpp"
 #include "daemon.hpp"
+#include "../firewall/iptables.hpp"
 
 #include "../config/routing_state.hpp"
 
@@ -1407,6 +1408,17 @@ void Daemon::fail_startup_runtime(std::string error) {
 void Daemon::begin_startup_runtime() {
   auto &log = Logger::instance();
   try {
+    // The one kernel check for load balancing, at service start: later
+    // applies only read this answer.  Nothing is installed yet, so an
+    // unusable balance config fails startup cleanly instead of leaving static
+    // routing behind a failed firewall.
+    if (firewall_->backend() == FirewallBackend::iptables) {
+      const bool statistic = probe_iptables_statistic();
+      record_iptables_statistic_capability(statistic);
+      log.info("iptables statistic match (xt_statistic): {}",
+               statistic ? "available" : "unavailable");
+    }
+    require_balance_support(config_);
     const auto main_routes = netlink_.dump_routes_in_table(254);
     setup_static_routing(&main_routes);
     log.info("Static routing tables and ip rules installed.");

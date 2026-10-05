@@ -11,6 +11,7 @@
 #include <rapidxml.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <charconv>
 #include <cctype>
 #include <cstdio>
@@ -960,6 +961,16 @@ void append_iptables_match(std::string &out, const PhysicalMatch &match,
         : bytes->dir == ConnbytesDir::reply ? "reply" : "both";
     out += " --connbytes-mode ";
     out += bytes->mode == ConnbytesMode::packets ? "packets" : "bytes";
+  } else if (const auto *statistic = std::get_if<StatisticMatch>(&match)) {
+    // iptables turns the decimal back into the same fixed point with
+    // lround(p * 2^31); 11 digits keep the round trip exact.
+    char buffer[32];
+    const int length = std::snprintf(
+        buffer, sizeof(buffer), "%.11f",
+        static_cast<double>(statistic->probability) /
+            static_cast<double>(kStatisticProbabilityOne));
+    out += " -m statistic --mode random --probability ";
+    out.append(buffer, static_cast<std::size_t>(length));
   } else if (const auto *mark = std::get_if<MarkMatch>(&match)) {
     if (mark->values.size() != 1U) {
       throw FirewallError("iptables cannot express a mark list in one rule");
@@ -1301,6 +1312,49 @@ void IptablesFirewall::clear_pending() {
   apply_prepared_ = false;
 }
 
+namespace {
+// 0: not probed (service start has not run the probe), 1: usable, 2: unusable.
+std::atomic<int> g_statistic_state{0};
+} // namespace
+
+bool probe_iptables_statistic() {
+  return safe_exec_pipe_stdin(
+             {"iptables-restore", "--test", "--noflush"},
+             "*mangle\n"
+             ":KpbrStatisticProbe - [0:0]\n"
+             "-A KpbrStatisticProbe -m statistic --mode random --probability "
+             "0.50000000000 -j RETURN\n"
+             "COMMIT\n") == 0;
+}
+
+void record_iptables_statistic_capability(bool available) {
+  g_statistic_state.store(available ? 1 : 2, std::memory_order_release);
+}
+
+void reset_iptables_statistic_capability_for_tests() {
+  g_statistic_state.store(0, std::memory_order_release);
+}
+
+void require_iptables_balance_support(FirewallBackend backend,
+                                      bool uses_balance) {
+  if (!uses_balance || backend != FirewallBackend::iptables) return;
+  switch (g_statistic_state.load(std::memory_order_acquire)) {
+  case 1:
+    return;
+  case 2:
+    throw FirewallError(
+        "load balancing needs the iptables statistic match (kernel module "
+        "xt_statistic), which the kernel could not use when the service "
+        "started; install/enable xt_statistic and restart the service, or use "
+        "the nftables backend");
+  default:
+    throw FirewallError(
+        "load balancing needs the iptables statistic match (kernel module "
+        "xt_statistic), which was not probed at service start; restart the "
+        "service");
+  }
+}
+
 void IptablesFirewall::compile_plan(const FirewallPlan& plan,
                                     FirewallApplyMode mode) {
   (void)mode;
@@ -1313,6 +1367,21 @@ void IptablesFirewall::compile_plan(const FirewallPlan& plan,
   }
   pending_ruleset_ =
       lower_firewall_plan(plan, lowering_context(plan.fwmark_mask));
+  // Defensive second line (the config gate rejects first): balancing needs
+  // xt_statistic, per the answer stored at service start.
+  const bool uses_statistic = std::any_of(
+      pending_ruleset_.chains.begin(), pending_ruleset_.chains.end(),
+      [](const PhysicalChain &chain) {
+        return std::any_of(
+            chain.rules.begin(), chain.rules.end(), [](const PhysicalRule &rule) {
+              return std::any_of(rule.matches.begin(), rule.matches.end(),
+                                 [](const PhysicalMatch &match) {
+                                   return std::holds_alternative<
+                                       StatisticMatch>(match);
+                                 });
+            });
+      });
+  require_iptables_balance_support(FirewallBackend::iptables, uses_statistic);
 }
 
 void IptablesFirewall::apply(const FirewallPlan& plan, FirewallApplyMode mode) {

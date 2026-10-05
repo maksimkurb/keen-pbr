@@ -11,6 +11,7 @@
 #include "../config/routing_state.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_runtime.hpp"
+#include "../firewall/iptables.hpp"
 #include "../log/logger.hpp"
 #include "../routing/urltest_manager.hpp"
 
@@ -610,7 +611,7 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
                 publish_runtime_state(StatusPublishScope::Outbounds);
 
                 balance_classifier_cache_[urltest_tag] = std::move(classifier);
-                log.info("Updated nft balance classifier for test-group '{}' ({} child marks cleaned)",
+                log.info("Updated balance classifier for test-group '{}' ({} child marks cleaned)",
                          urltest_tag, cleanup_marks.size());
             } catch (const std::exception& e) {
                 try {
@@ -1080,10 +1081,25 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
     }
 }
 
+void Daemon::require_balance_support(const Config& config) const {
+    const auto outbounds = config.outbounds.value_or(std::vector<Outbound>{});
+    const bool uses_balance = std::any_of(
+        outbounds.begin(), outbounds.end(), [](const Outbound& outbound) {
+            return (outbound.type == OutboundType::URLTEST ||
+                    outbound.type == OutboundType::ICMPTEST) &&
+                   outbound_uses_balance(outbound);
+        });
+    require_iptables_balance_support(firewall_->backend(), uses_balance);
+}
+
 PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
                                                      bool refresh_remote_lists) {
     TraceSpan span("prepare-runtime-inputs");
     validate_config(config);
+    // Before the config is committed or any routing/firewall state changes:
+    // a missing kernel match rejects the apply and the old runtime keeps
+    // serving.
+    require_balance_support(config);
 
     PreparedRuntimeInputs prepared;
     prepared.config = config;

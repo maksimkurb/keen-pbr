@@ -207,6 +207,9 @@ private:
       std::optional<RemoteListsRefreshResult> refresh_result,
       std::string error);
   void fail_startup_runtime(std::string error);
+  // Rejects a balance config the active firewall backend cannot realize
+  // (iptables without xt_statistic) before anything is mutated.
+  void require_balance_support(const Config &config) const;
 
   // lifecycle and runtime apply
   void setup_static_routing(const std::vector<DumpedRoute>* main_routes = nullptr);
