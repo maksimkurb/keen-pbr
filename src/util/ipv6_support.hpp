@@ -18,7 +18,9 @@ struct Ipv6SupportDecision {
 // cached snapshot.
 bool system_ipv6_supported();
 bool iptables_ipv6_supported();
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 bool nft_ipv6_supported();
+#endif
 Ipv6SupportDecision resolve_ipv6_support(const Config& config);
 void log_ipv6_support_decision_once(const Ipv6SupportDecision& decision);
 

@@ -1312,6 +1312,7 @@ void IptablesFirewall::clear_pending() {
   apply_prepared_ = false;
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 bool probe_iptables_statistic() {
   return safe_exec_pipe_stdin(
              {"iptables-restore", "--test", "--noflush"},
@@ -1333,6 +1334,7 @@ void require_iptables_balance_support(FirewallBackend backend,
         "the nftables backend");
   }
 }
+#endif
 
 void IptablesFirewall::compile_plan(const FirewallPlan& plan,
                                     FirewallApplyMode mode) {
@@ -1346,6 +1348,7 @@ void IptablesFirewall::compile_plan(const FirewallPlan& plan,
   }
   pending_ruleset_ =
       lower_firewall_plan(plan, lowering_context(plan.fwmark_mask));
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
   // Defensive second line (the config gate rejects first): balancing needs
   // xt_statistic, per the answer stored at service start.
   const bool uses_statistic = std::any_of(
@@ -1361,6 +1364,7 @@ void IptablesFirewall::compile_plan(const FirewallPlan& plan,
             });
       });
   require_iptables_balance_support(FirewallBackend::iptables, uses_statistic);
+#endif
 }
 
 void IptablesFirewall::apply(const FirewallPlan& plan, FirewallApplyMode mode) {

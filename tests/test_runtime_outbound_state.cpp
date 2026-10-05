@@ -162,6 +162,7 @@ TEST_CASE("runtime test-group projection reports table candidate probe state") {
     CHECK(response.outbounds[1].status == api::RuntimeOutboundStatusEnum::DEGRADED);
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("runtime balance projection reports each usable first-tier child active") {
     Config config;
     auto first = make_outbound("first", OutboundType::TABLE);
@@ -206,6 +207,7 @@ TEST_CASE("runtime balance projection reports each usable first-tier child activ
     CHECK(balanced.interfaces[2].status == api::RuntimeInterfaceStatusEnum::BACKUP);
     CHECK(balanced.detail == "balancing new connections across active candidates");
 }
+#endif
 
 } // namespace keen_pbr3
 

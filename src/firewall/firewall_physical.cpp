@@ -483,7 +483,9 @@ void canonicalize_physical_rule(PhysicalRule &rule) {
 namespace {
 
 constexpr std::string_view kIptablesOwnedPrefix = "KeenPbr";
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 constexpr std::string_view kNftTableName = "KeenPbrTable";
+#endif
 
 std::optional<uint32_t> parse_u32(std::string_view text) {
   if (text.empty()) return std::nullopt;
@@ -1269,6 +1271,7 @@ PhysicalRuleset parse_iptables_save(std::string_view output,
   return result;
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 // ===========================================================================
 // nft JSON parser
 // ===========================================================================
@@ -1971,5 +1974,6 @@ PhysicalRuleset parse_nft_json(std::string_view text) {
   }
   return result;
 }
+#endif // KEEN_PBR_PLATFORM_KEENETIC
 
 } // namespace keen_pbr3

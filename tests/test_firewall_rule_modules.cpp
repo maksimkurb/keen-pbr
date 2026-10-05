@@ -268,7 +268,9 @@ TEST_CASE("route module manifest is iterable without a manual count") {
       register_route_mark_rules,
       register_route_drop_rules,
       register_route_pass_rules,
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
       register_route_balance_rules,
+#endif
       register_dns_detour_rules,
       register_intercept_dns_hold_rules,
       register_intercept_l7_sniff_rules,
@@ -519,6 +521,7 @@ TEST_CASE("restore conntrack mark rule carries the configured mask") {
                                  "mask=" + std::to_string(0x00FF0000U)));
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("route balance module preserves fallback and candidate ordering") {
   BalanceModuleFixture fixture;
   const std::vector<std::vector<FirewallBalanceCandidate>> candidate_cases = {
@@ -536,7 +539,9 @@ TEST_CASE("route balance module preserves fallback and candidate ordering") {
     CHECK(action.candidates == candidates);
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("route balance candidate changes retain identity and change semantics") {
   BalanceModuleFixture fixture;
   fixture.candidates["auto"] = {{0x200U, true, true}, {0x300U, false, true}};
@@ -550,7 +555,9 @@ TEST_CASE("route balance candidate changes retain identity and change semantics"
   CHECK(changed.rules.front().key == first.rules.front().key);
   CHECK(changed.rules.front().action != first.rules.front().action);
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("route balance skips rules without an owned fallback mark") {
   BalanceModuleFixture fixture;
   fixture.candidates["auto"] = {{0x200U, true, true}};
@@ -567,7 +574,9 @@ TEST_CASE("route balance skips rules without an owned fallback mark") {
   CHECK(build({}).rules.empty());
   CHECK(build({{"auto", 0}}).rules.empty());
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("route balance is valid on iptables") {
   BalanceModuleFixture fixture;
   fixture.candidates["auto"] = {{0x200U, true, true}};
@@ -584,7 +593,9 @@ TEST_CASE("route balance is valid on iptables") {
   CHECK_NOTHROW(
       validate_firewall_plan_backend(plan, FirewallBackend::iptables));
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("route balance module is included in the explicit manifest") {
   BalanceModuleFixture fixture;
   fixture.candidates["auto"] = {{0x200U, true, true}};
@@ -600,6 +611,7 @@ TEST_CASE("route balance module is included in the explicit manifest") {
   CHECK(plan.rules[0].key.module_id == "prefilter.restore_conntrack_mark");
   CHECK(plan.rules[6].key.module_id == "route.balance");
 }
+#endif
 
 TEST_CASE("config builds ordered DNS detour rules in the firewall plan") {
   Config config = parse_config(R"({
@@ -692,6 +704,7 @@ TEST_CASE("config builds ordered DNS detour rules in the firewall plan") {
   }
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("health reports only the removed DNS physical instance as missing") {
   const Config config = parse_config(R"({
     "outbounds": [{"type":"table","tag":"wan","table":100}],
@@ -747,6 +760,7 @@ TEST_CASE("health reports only the removed DNS physical instance as missing") {
           (index == removed_index ? CheckStatus::missing : CheckStatus::ok));
   }
 }
+#endif
 
 TEST_CASE("route module manifest keeps reordered config rules in priority order") {
   const Config config = parse_config(R"({

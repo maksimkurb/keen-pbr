@@ -23,6 +23,13 @@ namespace keen_pbr3 {
 
 namespace {
 
+// The Keenetic platform build has no nftables backend.
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+constexpr FirewallBackend kFakeBackend = FirewallBackend::iptables;
+#else
+constexpr FirewallBackend kFakeBackend = FirewallBackend::nftables;
+#endif
+
 class PathGuard {
 public:
   PathGuard() : old_path_(std::getenv("PATH")) {}
@@ -78,7 +85,7 @@ public:
 
   void cleanup() override {}
 
-  FirewallBackend backend() const override { return FirewallBackend::nftables; }
+  FirewallBackend backend() const override { return kFakeBackend; }
 
   int set_declarations{0};
   struct SetDeclaration {
@@ -183,7 +190,7 @@ private:
 
 public:
 
-  FirewallBackend backend_type{FirewallBackend::nftables};
+  FirewallBackend backend_type{kFakeBackend};
   bool fail_apply{false};
   bool fail_rules_only{false};
   int stream_count{0};
@@ -459,6 +466,7 @@ TEST_CASE("runtime emits static and dynamic list sets in family order") {
   }
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("runtime projects and streams only finalized list-set declarations") {
   const Config config = parse_config(R"({
     "outbounds": [
@@ -492,6 +500,7 @@ TEST_CASE("runtime projects and streams only finalized list-set declarations") {
   CHECK(firewall.stream_count == 0);
   CHECK(firewall.calls == std::vector<std::string>{"prepare", "apply"});
 }
+#endif
 
 TEST_CASE("RulesOnly preserves shared list usage after a skipped first rule") {
   const Config config = parse_config(R"({
@@ -584,6 +593,7 @@ TEST_CASE("runtime streams a shared static list once per family") {
   CHECK(firewall.finished_loaders == (ipv6_enabled ? 2 : 1));
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("runtime captures OUTPUT default-gateway bypass criteria") {
   const Config config = parse_config(R"({
     "daemon": {"firewall_backend":"nftables","ipv6_enabled":false},
@@ -616,7 +626,9 @@ TEST_CASE("runtime captures OUTPUT default-gateway bypass criteria") {
                   criteria.default_gateway_bypass.end(), "default") ==
         criteria.default_gateway_bypass.end());
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("runtime replays only the gateway family for populated route lists") {
   const Config config = parse_config(R"({
     "daemon": {"firewall_backend":"nftables","ipv6_enabled":true},
@@ -654,7 +666,9 @@ TEST_CASE("runtime replays only the gateway family for populated route lists") {
     CHECK(recorded.criteria.dst_port == PortSpec("443"));
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("runtime passes balance fallback and candidates to the firewall") {
   const Config config = parse_config(R"({
     "daemon": {"firewall_backend":"nftables","ipv6_enabled":false},
@@ -691,6 +705,7 @@ TEST_CASE("runtime passes balance fallback and candidates to the firewall") {
   }
   CHECK(rule.criteria.dscp == 46);
 }
+#endif
 
 TEST_CASE("mixed nftables-only plan fails before backend mutation") {
   const Config config = parse_config(R"({

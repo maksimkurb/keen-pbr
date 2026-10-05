@@ -225,6 +225,7 @@ private:
 std::string render_iptables_rule(const PhysicalRule &rule,
                                  const std::string &chain);
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 // xt_statistic (`-m statistic --mode random`), needed by iptables load
 // balancing.  Probed once with the rest of the kernel capabilities
 // (probe_kernel_capabilities; a throw-away `iptables-restore --test`, the
@@ -237,6 +238,7 @@ bool probe_iptables_statistic();
 // match unusable.  Reads the snapshot; probes nothing.
 void require_iptables_balance_support(FirewallBackend backend,
                                       bool uses_balance);
+#endif
 
 // Factory function called from firewall.cpp
 std::unique_ptr<Firewall>

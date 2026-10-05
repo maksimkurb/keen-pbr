@@ -163,13 +163,21 @@ void Daemon::start_intercept_service(InterceptEffective& effective) {
         }
     };
     try {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+        auto writer = nfnl::make_ipset_writer();
+#else
         auto writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer()
                                                            : nfnl::make_ipset_writer();
+#endif
         writer->set_timeout_update_flag(nft_timeout_update_);
         std::unique_ptr<nfnl::DynamicSetWriter> l7_writer;
         if (effective.dns_hold && effective.l7) {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+            l7_writer = nfnl::make_ipset_writer();
+#else
             l7_writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer()
                                                              : nfnl::make_ipset_writer();
+#endif
             l7_writer->set_timeout_update_flag(nft_timeout_update_);
         }
         service = std::make_shared<InterceptService>(std::move(writer), std::move(l7_writer));

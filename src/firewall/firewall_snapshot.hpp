@@ -30,7 +30,9 @@ public:
 FirewallSnapshot inspect_iptables_snapshot(
     const CommandRunner& runner, RawPreroutingMode raw_prerouting = {},
     bool ipv6_enabled = true);
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 FirewallSnapshot inspect_nftables_snapshot(const CommandRunner& runner);
+#endif
 
 std::unique_ptr<FirewallSnapshotInspector> create_firewall_snapshot_inspector(
     FirewallBackend backend, RawPreroutingMode raw_prerouting = {},

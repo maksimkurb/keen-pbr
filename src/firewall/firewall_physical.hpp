@@ -430,7 +430,9 @@ PhysicalRuleset parse_iptables_save(
 // Parse `nft -j list table inet KeenPbrTable` (or a whole-ruleset listing; only
 // that table is examined).  An absent table yields an empty ruleset.  Throws
 // FirewallError when the text is not an nftables JSON document.
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 PhysicalRuleset parse_nft_json(std::string_view json);
+#endif
 
 // Canonical form shared by parsers and lowering.  A rule is canonical when
 //   * set-valued matches are sorted and deduplicated: port ranges are merged

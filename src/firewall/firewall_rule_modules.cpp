@@ -15,7 +15,9 @@ constexpr RouteRuleModuleRegistration kRouteRuleModules[] = {
     register_route_mark_rules,
     register_route_drop_rules,
     register_route_pass_rules,
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
     register_route_balance_rules,
+#endif
     register_dns_detour_rules,
     register_intercept_dns_hold_rules,
     register_intercept_l7_sniff_rules,

@@ -28,6 +28,7 @@ namespace {
 // it must only ever run inside a throw-away network namespace.
 // ---------------------------------------------------------------------------
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
   const char *scenario = std::getenv("KPBR_CAPTURE_SCENARIO");
   if (scenario == nullptr) {
@@ -86,6 +87,7 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
                                true),
       apply_mode);
 }
+#endif
 
 
 // ---------------------------------------------------------------------------
@@ -617,6 +619,7 @@ TEST_CASE("physical: iptables parser edge cases") {
   CHECK(parse_iptables_save("", Fam::ipv4).chains.empty());
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
   const std::string text = read_fixture("nft_balance.json");
   const auto set = parse_nft_json(text);
@@ -792,7 +795,9 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
     CHECK(std::get<SetMatch>(o.rules[15].matches.front()).name == "kpbr4_hybrid");
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("physical: nft foreign and unknown expressions") {
   const auto set = parse_nft_json(read_fixture("nft_foreign.json"));
   const auto &p = require_chain(set, nft_id(Role::nft_prerouting));
@@ -813,7 +818,9 @@ TEST_CASE("physical: nft foreign and unknown expressions") {
   CHECK(p.rules[21].statements ==
         std::vector<PhysicalStatement>{VerdictStmt{PhysicalVerdict::drop}});
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("physical: nft spelling zoo (real nft -j output)") {
   const auto set = parse_nft_json(read_fixture("nft_misc.json"));
   const auto &p = require_chain(set, nft_id(Role::nft_prerouting));
@@ -876,7 +883,9 @@ TEST_CASE("physical: nft spelling zoo (real nft -j output)") {
   // Empty owned chain is still reported.
   CHECK(require_chain(set, setter(0x10)).rules.empty());
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("physical: nft parser robustness") {
   CHECK_THROWS_AS(parse_nft_json("not json"), FirewallError);
   CHECK_THROWS_AS(parse_nft_json("{}"), FirewallError);
@@ -914,6 +923,7 @@ TEST_CASE("physical: nft parser robustness") {
         {"accept":null}]}}]})");
   CHECK(has_unknown(conflict.chains[0].rules[0]));
 }
+#endif
 
 // ---------------------------------------------------------------------------
 // Interception constructs: NFQUEUE / NFLOG / connbytes / ctdir, pinned hooks.
@@ -935,6 +945,7 @@ PhysicalRule parse_sniff_rule(const std::string &rule) {
   return rules.front();
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 // The rule of a one-rule nft document.
 PhysicalRule parse_nft_expr(const std::string &exprs,
                             const std::string &chain = "sniff_fwd") {
@@ -945,6 +956,7 @@ PhysicalRule parse_nft_expr(const std::string &exprs,
   REQUIRE(set.chains[0].rules.size() == 1);
   return set.chains[0].rules[0];
 }
+#endif
 
 } // namespace
 
@@ -1159,6 +1171,7 @@ TEST_CASE("physical: iptables hook position among all builtin rules") {
   }
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("physical: nft queue, log, ct counters and new base chain hooks") {
   using nlohmann::json;
   const std::string port =
@@ -1277,6 +1290,7 @@ TEST_CASE("physical: nft queue, log, ct counters and new base chain hooks") {
     CHECK(require_chain(set, unknown).base->hook == PhysicalBaseChain::Hook::other);
   }
 }
+#endif
 
 TEST_CASE("physical: canonical helpers") {
   SUBCASE("cidr") {
@@ -1440,6 +1454,7 @@ TEST_CASE("lowering round trip: iptables RAW PREROUTING layout equals the kernel
       v6, parse_iptables_save(read_fixture("iptables_raw_v6.save"), Fam::ipv6));
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering round trip: nftables layout equals the kernel dump") {
   const auto plan = capture_plan(true, true, true);
   const auto lowered =
@@ -1447,6 +1462,7 @@ TEST_CASE("lowering round trip: nftables layout equals the kernel dump") {
   check_lowered_equals_parsed(lowered,
                               parse_nft_json(read_fixture("nft_balance.json")));
 }
+#endif
 
 TEST_CASE("lowering round trip: iptables interception equals the kernel dump") {
   const auto plan = capture_plan_with_intercept(false, false, true);
@@ -1512,6 +1528,7 @@ TEST_CASE("lowering round trip: iptables interception with inbound interfaces "
               Fam::ipv6));
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering round trip: nftables interception with inbound interfaces "
           "equals the kernel dump") {
   const auto plan = capture_plan_with_intercept(true, true, true,
@@ -1521,7 +1538,9 @@ TEST_CASE("lowering round trip: nftables interception with inbound interfaces "
   check_lowered_equals_parsed(
       lowered, parse_nft_json(read_fixture("nft_intercept_inbound.json")));
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering round trip: nftables interception equals the kernel dump") {
   const auto plan = capture_plan_with_intercept(true, true, true);
   const auto lowered =
@@ -1533,6 +1552,7 @@ TEST_CASE("lowering round trip: nftables interception equals the kernel dump") {
     CHECK(lowered.find(nft_id(role)) != nullptr);
   }
 }
+#endif
 
 TEST_CASE("physical: catch-all address matches have one canonical form") {
   SUBCASE("cover detection") {
@@ -1603,6 +1623,7 @@ TEST_CASE("lowering round trip: iptables catch-all equals the kernel dump") {
   CHECK(addr_free >= 4); // restore pair, reply skip, catch-all rules
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering round trip: iptables balance equals the kernel dump") {
   const auto lowered = lower_firewall_plan(
       capture_plan_iptables_balance(),
@@ -1639,6 +1660,7 @@ TEST_CASE("lowering round trip: iptables balance equals the kernel dump") {
   }
   CHECK(probabilities == std::vector<uint32_t>{0x2AAAAAABu, 0x40000000u});
 }
+#endif
 
 TEST_CASE("physical: statistic match parsing is strict") {
   const auto parse_one = [](const std::string &options) {
@@ -1667,6 +1689,7 @@ TEST_CASE("physical: statistic match parsing is strict") {
       parse_one("-m statistic --mode random ! --probability 0.5")));
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering round trip: nftables catch-all equals the kernel dump") {
   const auto lowered = lower_firewall_plan(
       capture_plan_catch_all(), capture_context(FirewallBackend::nftables, {}));
@@ -1687,6 +1710,7 @@ TEST_CASE("lowering round trip: nftables catch-all equals the kernel dump") {
   CHECK(v4);
   CHECK(v6);
 }
+#endif
 
 namespace {
 bool has_oif_or_type(const PhysicalChain &chain) {
@@ -1734,6 +1758,7 @@ TEST_CASE("lowering round trip: iptables LAN-output skip equals the kernel dump"
   }
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering round trip: nftables LAN-output skip equals the kernel dump") {
   const auto lowered = lower_firewall_plan(
       capture_plan_lan_output(), capture_context(FirewallBackend::nftables, {}));
@@ -1742,6 +1767,7 @@ TEST_CASE("lowering round trip: nftables LAN-output skip equals the kernel dump"
   const auto &out = require_chain(parsed, nft_id(Role::nft_output));
   CHECK(has_oif_or_type(out));
 }
+#endif
 
 TEST_CASE("address lists compare as address sets") {
   using Strs = std::vector<std::string>;
@@ -1811,6 +1837,7 @@ TEST_CASE("address lists compare as address sets") {
   }
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("nft interval-set spellings parse to the same address set") {
   const auto parse_dst = [](const std::string &expr) {
     const auto set = parse_nft_json(
@@ -1874,7 +1901,9 @@ TEST_CASE("nft interval-set spellings parse to the same address set") {
     CHECK(std::holds_alternative<UnknownMatch>(observed.matches.at(0)));
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("real nft interval dump equals the lowered address lists") {
   const auto set = parse_nft_json(read_fixture("nft_interval.json"));
   const auto &chain = set.chains.at(0);
@@ -1905,7 +1934,9 @@ TEST_CASE("real nft interval dump equals the lowered address lists") {
                       {"0.0.0.0/8", "10.0.0.0/22", "77.74.65.225/32",
                        "192.168.40.0/22", "192.168.44.0/23", "192.168.54.0/23"}));
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("physical: output interface and destination address type matches") {
   SUBCASE("iptables -o and addrtype") {
     const auto oif = parse_sniff_rule("-o br-lan -j RETURN");
@@ -1956,6 +1987,7 @@ TEST_CASE("physical: output interface and destination address type matches") {
     CHECK(std::holds_alternative<UnknownMatch>(saddr.matches.at(0)));
   }
 }
+#endif
 
 } // namespace
 } // namespace keen_pbr3

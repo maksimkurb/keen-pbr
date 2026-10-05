@@ -83,6 +83,7 @@ const char* active_mark_snapshot() {
 
 } // namespace
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("routing health compares the active plan instead of RuleState") {
     FirewallState state;
     auto plan = active_mark_plan();
@@ -105,6 +106,7 @@ TEST_CASE("routing health compares the active plan instead of RuleState") {
     CHECK(report.firewall_rules.front().status == CheckStatus::ok);
     CHECK(report.overall_ok);
 }
+#endif
 
 TEST_CASE("routing health is explicitly not ready without an active plan") {
     FirewallState state;
@@ -123,6 +125,7 @@ TEST_CASE("routing health is explicitly not ready without an active plan") {
     CHECK(report.firewall_chain.detail.find("not ready") != std::string::npos);
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("routing health reports an active direct rule that the kernel lacks") {
     FirewallState state;
     state.publish_active_firewall(active_nft(active_direct_plan(), {}));
@@ -146,5 +149,6 @@ TEST_CASE("routing health reports an active direct rule that the kernel lacks") 
     }
     CHECK(direct_rule_missing);
 }
+#endif
 
 } // namespace keen_pbr3

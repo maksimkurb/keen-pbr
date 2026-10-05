@@ -35,7 +35,9 @@ bool on_path(const std::string& name) {
 
 HostTools find_host_tools() {
     HostTools tools;
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
     tools.nft = on_path("nft");
+#endif
     tools.iptables = on_path("iptables");
     tools.iptables_restore = on_path("iptables-restore");
     tools.ip6tables = on_path("ip6tables");
@@ -52,7 +54,9 @@ std::atomic<std::uint64_t> g_probe_runs{0};
 } // namespace
 
 std::optional<FirewallBackend> HostTools::detected_backend() const {
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
     if (nft) return FirewallBackend::nftables;
+#endif
     if (iptables) return FirewallBackend::iptables;
     return std::nullopt;
 }
@@ -91,16 +95,20 @@ KernelCapabilities probe_kernel_capabilities(const HostTools& tools) {
     caps.system_ipv6 = system_ipv6_supported();
 
     if (tools.iptables_restore) {
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
         caps.xt_statistic = probe_iptables_statistic();
+#endif
         caps.xt_comment_v4 = IptablesFirewall::probe_xt_comment_support(false);
     }
     if (tools.ip6tables && tools.ip6tables_restore && caps.system_ipv6) {
         caps.iptables_ipv6 = iptables_ipv6_supported();
         if (caps.iptables_ipv6) caps.xt_comment_v6 = IptablesFirewall::probe_xt_comment_support(true);
     }
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
     if (tools.nft && caps.system_ipv6) {
         caps.nftables_ipv6 = nft_ipv6_supported();
     }
+#endif
 
     Logger::instance().info(
         "Kernel capabilities (probed once): ipv6 system={} iptables={} nftables={}; "

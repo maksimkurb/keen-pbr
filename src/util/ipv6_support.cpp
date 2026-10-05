@@ -19,6 +19,7 @@ bool system_ipv6_supported() {
     return true;
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 bool nft_ipv6_supported() {
     static constexpr const char* kProbeRuleset =
         "table inet keen_pbr_ipv6_probe {\n"
@@ -29,6 +30,7 @@ bool nft_ipv6_supported() {
         "}\n";
     return safe_exec_pipe_stdin({"nft", "-c", "-f", "-"}, kProbeRuleset) == 0;
 }
+#endif
 
 bool iptables_ipv6_supported() {
     static constexpr const char* kProbeRuleset = "*mangle\nCOMMIT\n";

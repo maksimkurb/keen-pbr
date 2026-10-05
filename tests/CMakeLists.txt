@@ -11,7 +11,6 @@ add_executable(keen-pbr-tests
   test_firewall_plan.cpp
   test_firewall_rule_modules.cpp
   test_firewall_rule.cpp
-  test_nftables_builder.cpp
   test_iptables_builder.cpp
   test_cron.cpp
   test_addr_spec.cpp
@@ -38,7 +37,6 @@ add_executable(keen-pbr-tests
   test_intercept_live.cpp
   test_intercept_wiring.cpp
   test_intercept_probe.cpp
-  test_balance_classifier_state.cpp
   test_rebind_backoff.cpp
   test_kernel_probe.cpp
   test_kernel_capabilities.cpp
@@ -126,13 +124,10 @@ add_executable(keen-pbr-tests
   ../src/firewall/rules/route_mark.cpp
   ../src/firewall/rules/route_drop.cpp
   ../src/firewall/rules/route_pass.cpp
-  ../src/firewall/rules/route_balance.cpp
   ../src/firewall/rules/intercept_client_scope.cpp
   ../src/firewall/rules/intercept_dns_hold.cpp
   ../src/firewall/rules/intercept_l7_sniff.cpp
   ../src/firewall/port_spec_util.cpp
-  ../src/firewall/nftables.cpp
-  ../src/firewall/nft_batch_pipe.cpp
   ../src/firewall/iptables.cpp
   ../src/firewall/ipset_restore_pipe.cpp
   ../src/log/logger.cpp
@@ -199,6 +194,16 @@ add_executable(keen-pbr-tests
   ../src/routing/route_table.cpp
   ../src/routing/target.cpp
 )
+# Backends and features that the Keenetic platform build does not compile.
+if(NOT KEEN_PBR_PLATFORM_KEENETIC)
+  target_sources(keen-pbr-tests PRIVATE
+    ../src/firewall/rules/route_balance.cpp
+    ../src/firewall/nftables.cpp
+    ../src/firewall/nft_batch_pipe.cpp
+    test_nftables_builder.cpp
+    test_balance_classifier_state.cpp
+  )
+endif()
 set_target_properties(keen-pbr-tests PROPERTIES
   CXX_STANDARD 17
   CXX_STANDARD_REQUIRED YES

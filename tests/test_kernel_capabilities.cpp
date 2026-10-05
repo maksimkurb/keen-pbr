@@ -64,6 +64,7 @@ struct FakeToolsPath {
 
 } // namespace
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("every capability probe runs exactly once across startup, applies, refresh and re-bind") {
     FakeToolsPath fake;
     std::map<std::string, int> commands;
@@ -143,7 +144,9 @@ TEST_CASE("every capability probe runs exactly once across startup, applies, ref
     CHECK(modprobes == modprobes_at_start);
     CHECK(scratch_created == 1);
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("backend detection and validation read the cached tools without spawning") {
     FakeToolsPath fake;
     const auto spawns = safe_exec_spawn_count().load();
@@ -162,6 +165,7 @@ TEST_CASE("backend detection and validation read the cached tools without spawni
           FirewallBackend::nftables);
     CHECK(safe_exec_spawn_count().load() == spawns);
 }
+#endif
 
 TEST_CASE("required tools per backend are listed once") {
     HostTools tools;

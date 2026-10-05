@@ -661,7 +661,14 @@ void lower_iptables_classifier(const FirewallRuleInstance &rule,
   }
 
   const auto *mark = std::get_if<MarkAction>(&classifier.action);
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+  if (std::holds_alternative<BalanceAction>(classifier.action)) {
+    throw FirewallError("load balancing is not available on Keenetic");
+  }
+  const BalanceAction *balance = nullptr;
+#else
   const auto *balance = std::get_if<BalanceAction>(&classifier.action);
+#endif
   const auto *verdict_action = std::get_if<VerdictAction>(&classifier.action);
   const bool save_conntrack =
       (mark != nullptr || balance != nullptr) && target.conntrack &&
@@ -696,6 +703,7 @@ void lower_iptables_classifier(const FirewallRuleInstance &rule,
         }
         rules.push_back(build_rule(target.family, std::move(matches),
                                    {verdict(PhysicalVerdict::return_)}, key));
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
       } else if (balance != nullptr) {
         // mwan3-style cascade over the usable candidates.  Only packets that
         // are not marked yet take part (the guard also ends the cascade once a
@@ -726,6 +734,7 @@ void lower_iptables_classifier(const FirewallRuleInstance &rule,
             key));
         rules.push_back(build_rule(target.family, std::move(matches),
                                    {verdict(PhysicalVerdict::return_)}, key));
+#endif
       } else {
         const bool drop = verdict_action != nullptr &&
                           *verdict_action == VerdictAction::drop;
@@ -982,6 +991,7 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
   return result;
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 // ---------------------------------------------------------------------------
 // nftables
 // ---------------------------------------------------------------------------
@@ -1272,13 +1282,22 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
   return result;
 }
 
+#endif // KEEN_PBR_PLATFORM_KEENETIC
+
 } // namespace
 
 PhysicalRuleset lower_firewall_plan(const FirewallPlan &plan,
                                     const FirewallLoweringContext &context) {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+  if (context.backend == FirewallBackend::nftables) {
+    throw FirewallError("Keenetic supports only the iptables firewall backend");
+  }
+  PhysicalRuleset ruleset = lower_iptables(plan, context);
+#else
   PhysicalRuleset ruleset = context.backend == FirewallBackend::nftables
                                 ? lower_nftables(plan, context)
                                 : lower_iptables(plan, context);
+#endif
   // The output device is unknown before the routing decision: an `oif`
   // match in PREROUTING would silently never (or wrongly) match.
   for (const auto &chain : ruleset.chains) {

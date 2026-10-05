@@ -93,8 +93,10 @@ void register_route_drop_rules(const FirewallBuildContext& context,
                                FirewallRuleRegistrar& registrar);
 void register_route_pass_rules(const FirewallBuildContext& context,
                                FirewallRuleRegistrar& registrar);
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 void register_route_balance_rules(const FirewallBuildContext& context,
                                   FirewallRuleRegistrar& registrar);
+#endif
 void register_dns_detour_rules(const FirewallBuildContext& context,
                                FirewallRuleRegistrar& registrar);
 void register_restore_conntrack_mark_rules(const FirewallBuildContext& context,

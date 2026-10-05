@@ -288,6 +288,17 @@ Known issue: in the full nftables suite, every case after
 `route_balance_failover` fails at `topology.sh reset` ("RTNETLINK answers: No
 route to host"). This predates the refactor; run subsets until fixed.
 
+## Keenetic platform build
+
+`-DKEEN_PBR_PLATFORM_KEENETIC=ON` (set by the Keenetic package Makefile,
+independent of `USE_KEENETIC_API`, which is only the RCI integration) fixes the
+backend to iptables and does not compile the nftables backend (`nftables.cpp`,
+`nft_batch_pipe.cpp`, nft lowering, nft JSON parsing/inspection) or balancing
+(`rules/route_balance.cpp`, the iptables statistic cascade, the xt_statistic
+probe, the daemon balance handler).  Config validation rejects
+`firewall_backend: nftables` and balance strategies.  The shared IR types
+(`BalanceAction`, `StatisticMatch`, nft chain roles) stay.
+
 ## Resource rules
 
 C++17, no new dependencies, no `std::regex`, no `std::istringstream` on

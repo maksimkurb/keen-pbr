@@ -410,6 +410,11 @@ FirewallBalanceCandidates Daemon::build_balance_candidates(
     const std::vector<DumpedRoute>& main_routes,
     const std::vector<DumpedInterface>& interfaces) {
     FirewallBalanceCandidates candidates;
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    (void)main_routes;
+    (void)interfaces;
+    return candidates;  // balancing is not compiled on Keenetic
+#else
     if (!urltest_manager_) {
         return candidates;
     }
@@ -466,6 +471,7 @@ FirewallBalanceCandidates Daemon::build_balance_candidates(
         }
     }
     return candidates;
+#endif
 }
 
 void Daemon::reconcile_lists_only() {
@@ -509,6 +515,7 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
         const auto configured = std::find_if(
             configured_outbounds.begin(), configured_outbounds.end(),
             [&urltest_tag](const Outbound& outbound) { return outbound.tag == urltest_tag; });
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
         const bool balance = configured != configured_outbounds.end() &&
             outbound_uses_balance(*configured);
         if (balance) {
@@ -613,6 +620,7 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
             }
             return;
         }
+#endif
 
         // The route is already applied when cleanup is pending.  A later
         // unchanged probe must retry only the targeted conntrack deletion;
@@ -1062,6 +1070,10 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
 }
 
 void Daemon::require_balance_support(const Config& config) const {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    (void)config;  // config validation rejects balance in this build
+    return;
+#else
     const auto outbounds = config.outbounds.value_or(std::vector<Outbound>{});
     const bool uses_balance = std::any_of(
         outbounds.begin(), outbounds.end(), [](const Outbound& outbound) {
@@ -1070,6 +1082,7 @@ void Daemon::require_balance_support(const Config& config) const {
                    outbound_uses_balance(outbound);
         });
     require_iptables_balance_support(firewall_->backend(), uses_balance);
+#endif
 }
 
 PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,

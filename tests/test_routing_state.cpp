@@ -1096,10 +1096,8 @@ TEST_CASE("populate_routing_state: non-strict urltest relies on terminal RPDB gu
                         }) == 1);
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("populate_routing_state: balance test group keeps its stable mark for detours") {
-#ifdef USE_KEENETIC_API
-    set_keenetic_balance_restriction_for_tests(true);
-#endif
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},
         "outbounds":[
@@ -1132,7 +1130,5 @@ TEST_CASE("populate_routing_state: balance test group keeps its stable mark for 
     CHECK(std::all_of(routes.get_routes().begin(), routes.get_routes().end(), [](const RouteSpec& route) {
         return route.table != 200;
     }));
-#ifdef USE_KEENETIC_API
-    reset_keenetic_balance_restriction_for_tests();
-#endif
 }
+#endif

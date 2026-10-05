@@ -84,6 +84,7 @@ bool bytes_contain(const std::vector<uint8_t>& haystack, const std::vector<uint8
 
 // --- capability-time probes -----------------------------------------------------------
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("intercept probe: nftables backend records nf_tables, conntrack and the kernel release") {
     Script script;
     script.answer = healthy_kernel;
@@ -101,6 +102,7 @@ TEST_CASE("intercept probe: nftables backend records nf_tables, conntrack and th
     CHECK(script.seen[0] == kNftNewElem);
     CHECK(script.seen[1] == kCtGet);
 }
+#endif
 
 TEST_CASE("intercept probe: iptables backend asks the ipset protocol") {
     Script script;
@@ -137,6 +139,7 @@ TEST_CASE("intercept probe: old ipset protocol disables both parts through the e
     CHECK(contains(eff.reasons, "l7 sniffing disabled: set backend probe failed"));
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("intercept probe: timeout and refused netlink are errors that block") {
     // No answer at all.
     Script silent;
@@ -169,6 +172,7 @@ TEST_CASE("intercept probe: timeout and refused netlink are errors that block") 
     CHECK(caps.probe.set_backend.reason.find("Operation not permitted") != std::string::npos);
     CHECK(caps.probe.conntrack.status == ProbeStatus::error);
 }
+#endif
 
 TEST_CASE("intercept probe: missing ctnetlink only degrades") {
     Script script;
@@ -297,6 +301,7 @@ TEST_CASE("intercept probe: failed set write blocks and is reported with its rea
     }
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("intercept probe: nft timeout update runs only for nftables on a dynamic set") {
     const std::vector<FirewallSetDeclaration> sets{{"kpbr4d_a", FirewallFamily::ipv4, 0}};
     {
@@ -330,6 +335,7 @@ TEST_CASE("intercept probe: nft timeout update runs only for nftables on a dynam
         CHECK_FALSE(result.is_ok());
     }
 }
+#endif
 
 // --- effective settings follow the probes ---------------------------------------------
 

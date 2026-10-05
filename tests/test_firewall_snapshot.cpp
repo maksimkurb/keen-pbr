@@ -96,6 +96,7 @@ TEST_CASE("iptables snapshot reports unreadable or truncated output") {
   }
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("nft snapshot reads the table once, without set elements") {
   Calls calls;
   const auto snapshot = inspect_nftables_snapshot(
@@ -110,7 +111,9 @@ TEST_CASE("nft snapshot reads the table once, without set elements") {
              FirewallFamily::any, 0, "prerouting"}) !=
         nullptr);
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("nft snapshot reports failures, bad JSON and an absent table") {
   Calls calls;
   auto snapshot = inspect_nftables_snapshot(recording_runner(calls, "", 1));
@@ -130,6 +133,7 @@ TEST_CASE("nft snapshot reports failures, bad JSON and an absent table") {
   CHECK_FALSE(snapshot.available);
   CHECK(snapshot.error == "KeenPbrTable table not found in nftables");
 }
+#endif
 
 TEST_CASE("the inspector factory refuses RAW PREROUTING with nftables") {
   CHECK_THROWS_AS(create_firewall_snapshot_inspector(

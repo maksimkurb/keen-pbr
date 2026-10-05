@@ -1357,17 +1357,20 @@ void validate_config(const Config& cfg) {
     const std::string backend_note =
         backend_pref == FirewallBackendPreference::auto_detect ? " (auto-detected: iptables)" : "";
 
-#ifdef USE_KEENETIC_API
-    // Keenetic has its own multipath; two balancers would fight over routes.
-    if (!keenetic_balance_restriction_disabled_for_tests()) {
-        for (const auto& outbound : outbounds) {
-            if ((outbound.type == OutboundType::URLTEST ||
-                 outbound.type == OutboundType::ICMPTEST) &&
-                outbound_uses_balance(outbound)) {
-                add_issue(issues, "outbounds." + outbound.tag + ".strategy",
-                          "load balancing is disabled on Keenetic; use the router's multipath features");
-            }
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    // Keenetic has its own multipath, and conntrack is not usable in the RAW
+    // table that keen-pbr rules mostly live in: balance is not compiled.
+    for (const auto& outbound : outbounds) {
+        if ((outbound.type == OutboundType::URLTEST ||
+             outbound.type == OutboundType::ICMPTEST) &&
+            outbound_requests_balance(outbound)) {
+            add_issue(issues, "outbounds." + outbound.tag + ".strategy",
+                      "load balancing is not available on Keenetic; use the router's multipath");
         }
+    }
+    if (backend_pref == FirewallBackendPreference::nftables) {
+        add_issue(issues, "daemon.firewall_backend",
+                  "Keenetic supports only the iptables firewall backend");
     }
 #endif
 
@@ -1653,30 +1656,5 @@ uint32_t fwmark_mask_value(const FwmarkConfig& fwmark_cfg) {
     validate_fwmark_mask(mask);
     return mask;
 }
-
-#ifdef KEEN_PBR3_TESTING
-namespace {
-bool& keenetic_balance_test_override() {
-    static bool disabled = false;
-    return disabled;
-}
-}
-
-bool keenetic_balance_restriction_disabled_for_tests() {
-    return keenetic_balance_test_override();
-}
-
-void set_keenetic_balance_restriction_for_tests(bool disabled) {
-    keenetic_balance_test_override() = disabled;
-}
-
-void reset_keenetic_balance_restriction_for_tests() {
-    keenetic_balance_test_override() = false;
-}
-#else
-bool keenetic_balance_restriction_disabled_for_tests() {
-    return false;
-}
-#endif
 
 } // namespace keen_pbr3

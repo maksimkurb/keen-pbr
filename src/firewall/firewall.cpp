@@ -56,7 +56,9 @@ const char *firewall_backend_name(FirewallBackend backend) {
 // Forward declarations - implemented in iptables.cpp and nftables.cpp
 std::unique_ptr<Firewall>
 create_iptables_firewall(RawPreroutingMode raw_prerouting = {});
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 std::unique_ptr<Firewall> create_nftables_firewall();
+#endif
 
 std::unique_ptr<Firewall>
 create_firewall(FirewallBackendPreference backend_pref,
@@ -67,12 +69,16 @@ create_firewall(FirewallBackendPreference backend_pref,
   case FirewallBackend::iptables:
     return create_iptables_firewall(raw_prerouting);
   case FirewallBackend::nftables:
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    throw FirewallError("Keenetic supports only the iptables firewall backend");
+#else
     if (raw_prerouting.ipv4 || raw_prerouting.ipv6) {
       throw FirewallError(
           "RAW PREROUTING is supported only with the iptables firewall "
           "backend");
     }
     return create_nftables_firewall();
+#endif
   }
 
   // Unreachable, but silence compiler warnings

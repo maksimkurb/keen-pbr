@@ -113,11 +113,14 @@ void run_runtime_probes(InterceptRuntimeProbe& probe, FirewallBackend backend,
     probe.kernel_release = kernel_release_of(env);
     if (!env.runtime_probes) return;
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
     if (backend == FirewallBackend::nftables) {
         probe.set_backend = with_transport(env, "nf_tables", [&](nfnl::SetWriterTransport& t) {
             return nfnl::probe_nft_tables(t, env.nft_table, env.probe_timeout_ms);
         });
-    } else {
+    } else
+#endif
+    {
         probe.set_backend = with_transport(env, "ipset", [&](nfnl::SetWriterTransport& t) {
             const auto result = nfnl::probe_ipset_protocol(t, env.probe_timeout_ms);
             probe.ipset_protocol = result.protocol;
@@ -236,6 +239,12 @@ nfnl::SetAdd probe_element(const FirewallSetDeclaration& set, uint8_t last_octet
 nfnl::ProbeResult probe_intercept_nft_timeout_update(
     FirewallBackend backend, const std::vector<FirewallSetDeclaration>& sets,
     const InterceptProbeEnv& env) {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    (void)backend;
+    (void)sets;
+    (void)env;
+    return {};  // nft only; nftables is not compiled
+#else
     if (!env.runtime_probes || backend != FirewallBackend::nftables) return {};
     const FirewallSetDeclaration* chosen = choose_probe_set(sets);
     if (chosen == nullptr) {
@@ -246,6 +255,7 @@ nfnl::ProbeResult probe_intercept_nft_timeout_update(
     return with_transport(env, "nft timeout update", [&](nfnl::SetWriterTransport& t) {
         return nfnl::probe_nft_timeout_update(t, env.nft_table, element, env.probe_timeout_ms);
     });
+#endif
 }
 
 nfnl::ProbeResult probe_intercept_set_write(FirewallBackend backend,
@@ -271,6 +281,7 @@ constexpr const char* kScratchSetName = "kpbr4d_keenpbrprobe";
 
 bool create_scratch_set(FirewallBackend backend, const InterceptProbeEnv& env) {
     if (env.create_scratch_set) return env.create_scratch_set();
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
     if (backend == FirewallBackend::nftables) {
         // Same shape as the daemon's dynamic sets: plain timeout set.
         return safe_exec_pipe_stdin({"nft", "-f", "-"},
@@ -278,6 +289,9 @@ bool create_scratch_set(FirewallBackend backend, const InterceptProbeEnv& env) {
                                         " {\n set " + kScratchSetName +
                                         " {\n type ipv4_addr\n flags timeout\n }\n}\n") == 0;
     }
+#else
+    (void)backend;
+#endif
     // No -exist: a set of that name already there is not ours to touch.
     return safe_exec({"ipset", "create", kScratchSetName, "hash:net", "family", "inet",
                       "timeout", "0"},
@@ -289,10 +303,15 @@ void destroy_scratch_set(FirewallBackend backend, const InterceptProbeEnv& env) 
         env.destroy_scratch_set();
         return;
     }
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
     if (backend == FirewallBackend::nftables) {
         (void)safe_exec({"nft", "delete", "table", "inet", kScratchNftTable},
                         /*suppress_output=*/true);
-    } else {
+    } else
+#else
+    (void)backend;
+#endif
+    {
         (void)safe_exec({"ipset", "destroy", kScratchSetName}, /*suppress_output=*/true);
     }
 }
@@ -327,9 +346,11 @@ void load_intercept_modules(FirewallBackend backend, const InterceptProbeEnv& en
     // Best effort, failures ignored: the netlink subsystems are not always
     // autoloaded (OpenWrt) and a missing module is reported at bind time.
     std::vector<const char*> modules{"nfnetlink_queue", "nfnetlink_log"};
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
     if (backend == FirewallBackend::nftables) {
         modules.insert(modules.end(), {"nft_queue", "nft_log", "nft_ct"});
     }
+#endif
     for (const char* module : modules) {
         if (env.modprobe) {
             env.modprobe(module);

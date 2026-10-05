@@ -494,6 +494,7 @@ TEST_CASE("lowering iptables: order, generations, comments") {
 // nftables
 // ===========================================================================
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering nftables: chains and mark shapes") {
   const auto set = lower_firewall_plan(
       plan_of({mark_rule("m", Fam::ipv4, for_set("kpbr4_x"))}), nft_context());
@@ -558,7 +559,9 @@ TEST_CASE("lowering nftables: chains and mark shapes") {
     CHECK(nft_pre(lower_firewall_plan(plan, nft_context())).rules.empty());
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering nftables: family handling") {
   SUBCASE("a payload match implies the family, a port-only rule has none") {
     FirewallRuleCriteria ports;
@@ -595,7 +598,9 @@ TEST_CASE("lowering nftables: family handling") {
     CHECK(nft_pre(set).rules.size() == 2);
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering nftables: route rules in both chains and OUTPUT-only rules") {
   FirewallRuleCriteria criteria;
   criteria.default_gateway = DefaultGatewayFamily::Ipv4;
@@ -626,7 +631,9 @@ TEST_CASE("lowering nftables: route rules in both chains and OUTPUT-only rules")
     CHECK(verdict_of(nft_out(lowered).rules[0]) == PhysicalVerdict::drop);
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering: process_router_traffic=false keeps route rules out of OUTPUT") {
   auto plan = plan_of({mark_rule("route", Fam::ipv4, for_set("kpbr4_x")),
                        make_rule("dns.detour", "detour", Fam::ipv4,
@@ -667,7 +674,9 @@ TEST_CASE("lowering: process_router_traffic=false keeps route rules out of OUTPU
     CHECK(instance_ids(out_chain(set, Fam::ipv4)) == route_and_detour);
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering nftables: balance") {
   const auto balance = [](std::vector<FirewallBalanceCandidate> candidates,
                           FirewallRuleCriteria criteria = {}) {
@@ -719,7 +728,9 @@ TEST_CASE("lowering nftables: balance") {
     CHECK(nft_pre(set).rules[1].family == Fam::ipv6);
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering nftables: prefilters") {
   auto plan = prefilter_plan(true, {"wg0", "lan0"});
   plan.rules.push_back(mark_rule("a", Fam::ipv4, for_set("kpbr4_x")));
@@ -740,11 +751,13 @@ TEST_CASE("lowering nftables: prefilters") {
   // Route rule appears in both chains
   CHECK(pre[4] == out[3]);
 }
+#endif
 
 // ===========================================================================
 // nftables placement tests (a-e from brief)
 // ===========================================================================
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("nftables lowering: route mark rule appears in both prerouting and output") {
   // Test (a): nft route mark rule in both prerouting and output
   const auto set = lower_firewall_plan(
@@ -754,7 +767,9 @@ TEST_CASE("nftables lowering: route mark rule appears in both prerouting and out
   CHECK(nft_out(set).rules.size() == 1);
   CHECK(nft_pre(set).rules[0] == nft_out(set).rules[0]);
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("nftables lowering: hook=output rule appears only in output chain") {
   // Test (b): nft hook=output rule only in output
   const auto set = lower_firewall_plan(
@@ -765,7 +780,9 @@ TEST_CASE("nftables lowering: hook=output rule appears only in output chain") {
   CHECK(nft_pre(set).rules.empty());
   CHECK(nft_out(set).rules.size() == 1);
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("nftables lowering: inbound interface filter only in prerouting") {
   // Test (c): nft inbound filter only in prerouting
   auto plan = plan_of({});
@@ -777,7 +794,9 @@ TEST_CASE("nftables lowering: inbound interface filter only in prerouting") {
   CHECK(has_match(nft_pre(set).rules[0], IifMatch{true, {"lan0"}}));
   CHECK(nft_out(set).rules.empty());
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("nftables lowering: DNAT skip in both chains") {
   // Test (d): nft DNAT skip in both prerouting and output
   auto plan = plan_of({});
@@ -790,7 +809,9 @@ TEST_CASE("nftables lowering: DNAT skip in both chains") {
   CHECK(has_match(nft_pre(set).rules[0], CtStateMatch{ct_dnat, false}));
   CHECK(has_match(nft_out(set).rules[0], CtStateMatch{ct_dnat, false}));
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("nftables lowering: reply skip in prerouting and output") {
   auto plan = plan_of({});
   plan.rules.push_back(make_rule("prefilter.skip_local_replies", "reply",
@@ -802,6 +823,7 @@ TEST_CASE("nftables lowering: reply skip in prerouting and output") {
     CHECK(verdict_of(chain->rules[0]) == PhysicalVerdict::accept);
   }
 }
+#endif
 
 TEST_CASE("iptables lowering: reply skip in PREROUTING (mangle) and OUTPUT") {
   auto plan = plan_of({});
@@ -822,6 +844,7 @@ TEST_CASE("iptables lowering: reply skip in PREROUTING (mangle) and OUTPUT") {
                   "kpbr:v1:prefilter.skip_local_replies:reply -j RETURN\n");
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering: catch-all destinations are not emitted") {
   FirewallRuleCriteria v4;
   v4.proto = L4Proto::Udp;
@@ -868,6 +891,7 @@ TEST_CASE("lowering: catch-all destinations are not emitted") {
                     FirewallError);
   }
 }
+#endif
 
 TEST_CASE("lowering: reply skip is absent from raw PREROUTING") {
   auto plan = plan_of({});
@@ -881,6 +905,7 @@ TEST_CASE("lowering: reply skip is absent from raw PREROUTING") {
   CHECK(out_chain(set, Fam::ipv4).rules.size() == 1);
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("nftables lowering: default_gateway route rule in both prerouting and output") {
   // Test (e): nft default_gateway route rule exactly once in prerouting and once in output
   FirewallRuleCriteria criteria;
@@ -895,6 +920,7 @@ TEST_CASE("nftables lowering: default_gateway route rule in both prerouting and 
   CHECK(has_match(nft_pre(set).rules[0],
                   AddrMatch{PhysicalDir::dst, true, {"192.168.0.0/16"}}));
 }
+#endif
 
 // ===========================================================================
 // Emitters
@@ -1005,6 +1031,7 @@ TEST_CASE("iptables renderer: every match and statement kind") {
   }
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("nft renderer: every match and statement kind") {
   const auto pre = nft_physical_chain_id(Role::nft_prerouting);
   const auto render = [&](PhysicalRule rule) {
@@ -1135,6 +1162,7 @@ TEST_CASE("nft renderer: every match and statement kind") {
         FirewallError);
   }
 }
+#endif
 
 TEST_CASE("lowering: invalid address in firewall rule criteria") {
   FirewallRuleCriteria criteria;
@@ -1185,6 +1213,7 @@ bool has_chain_named(const PhysicalRuleset &set, const std::string &name) {
   return false;
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 nlohmann::json nft_rule_json(const PhysicalRuleset &set, Role role,
                              std::size_t index) {
   const auto &chain = chain_of(set, nft_physical_chain_id(role));
@@ -1193,9 +1222,11 @@ nlohmann::json nft_rule_json(const PhysicalRuleset &set, Role role,
   json["add"]["rule"].erase("comment");
   return json["add"]["rule"]["expr"];
 }
+#endif
 
 } // namespace
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering interception: nothing is emitted without interception rules") {
   const auto plan = prefilter_plan(true, {"lan0"});
   for (const auto &set : {lower_firewall_plan(plan, ipt_context()),
@@ -1211,7 +1242,9 @@ TEST_CASE("lowering interception: nothing is emitted without interception rules"
   // Both groups disabled: the modules plan nothing at all.
   CHECK(intercept_module_rules(InterceptFirewallSettings{}).empty());
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering interception: DNS hold") {
   const auto plan = intercept_plan(dns_only());
   SUBCASE("iptables emits one chain per family in mangle") {
@@ -1268,7 +1301,9 @@ TEST_CASE("lowering interception: DNS hold") {
               "--queue-num 7 --queue-bypass") != std::string::npos);
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering interception: DNS hold excludes loopback replies when asked") {
   auto rules = intercept_module_rules(dns_only());
   for (auto &rule : rules) rule.criteria.exclude_oif = {"lo"};
@@ -1286,7 +1321,9 @@ TEST_CASE("lowering interception: DNS hold excludes loopback replies when asked"
     CHECK(has_match(chain.rules[0], OifMatch{true, {"lo"}}));
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering interception: client interface scope") {
   InterceptFirewallSettings settings;
   settings.dns_hold = true;
@@ -1423,7 +1460,9 @@ TEST_CASE("lowering interception: client interface scope") {
     CHECK(has_match(hold.rules[0], OifMatch{false, {"br0", "br1", "lo"}}));
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering interception: L7 sniff") {
   SUBCASE("iptables: one shared chain serves FORWARD and OUTPUT") {
     const auto set = lower_firewall_plan(intercept_plan(sniff_only()), ipt_context());
@@ -1507,6 +1546,7 @@ TEST_CASE("lowering interception: L7 sniff") {
     CHECK(line.find("--nflog-group 12 --nflog-size 512") != std::string::npos);
   }
 }
+#endif
 
 TEST_CASE("lowering interception: IPv6 disabled drops the IPv6 chains") {
   InterceptFirewallSettings settings = dns_only();
@@ -1521,6 +1561,7 @@ TEST_CASE("lowering interception: IPv6 disabled drops the IPv6 chains") {
   CHECK(set.find(ipt_chain("KeenPbrSniff", PhysicalTable::mangle, Fam::ipv4)));
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering interception: raw mode and prefilters do not affect it") {
   InterceptFirewallSettings settings = dns_only();
   settings.l7_sniff = true;
@@ -1577,7 +1618,9 @@ TEST_CASE("lowering interception: raw mode and prefilters do not affect it") {
     }
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering interception: plan rules are attributed and keyed") {
   InterceptFirewallSettings settings = dns_only();
   settings.l7_sniff = true;
@@ -1595,6 +1638,7 @@ TEST_CASE("lowering interception: plan rules are attributed and keyed") {
     }
   }
 }
+#endif
 
 namespace {
 
@@ -1621,6 +1665,7 @@ FirewallPlan skip_lan_plan(std::vector<std::string> lan) {
 
 } // namespace
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering nftables: skip_lan_output only in OUTPUT, after the reply skip") {
   const auto set =
       lower_firewall_plan(skip_lan_plan({"wg0", "br-lan"}), nft_context());
@@ -1650,7 +1695,9 @@ TEST_CASE("lowering nftables: skip_lan_output only in OUTPUT, after the reply sk
   CHECK(mcast.find(R"("fib":{"flags":["daddr"],"result":"type"})") !=
         std::string::npos);
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("lowering nftables: empty inbound interfaces keep bcast/mcast only") {
   const auto set = lower_firewall_plan(skip_lan_plan({}), nft_context());
   const auto &out = nft_out(set).rules;
@@ -1659,6 +1706,7 @@ TEST_CASE("lowering nftables: empty inbound interfaces keep bcast/mcast only") {
   CHECK(has_match(out[1], AddrTypeMatch{addr_broadcast}));
   CHECK(has_match(out[2], AddrTypeMatch{addr_multicast}));
 }
+#endif
 
 TEST_CASE("lowering iptables: skip_lan_output only in OUTPUT, one oif rule per interface") {
   const auto set =
@@ -1762,6 +1810,7 @@ TEST_CASE("plan validation: interception actions only on their hooks") {
                   std::invalid_argument);
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("iptables balance lowers to a guarded statistic cascade") {
   const auto restore = make_rule("prefilter.restore_conntrack_mark", "m",
                                  Fam::any, {}, RestoreConntrackMarkAction{kMask});
@@ -1799,5 +1848,6 @@ TEST_CASE("iptables balance lowers to a guarded statistic cascade") {
                     FirewallError);
   }
 }
+#endif
 
 } // namespace keen_pbr3

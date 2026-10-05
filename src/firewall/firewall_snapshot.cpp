@@ -72,6 +72,7 @@ private:
     RawPreroutingMode mode_;
 };
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 class NftablesSnapshotInspector final : public FirewallSnapshotInspector {
 public:
     explicit NftablesSnapshotInspector(CommandRunner runner)
@@ -107,6 +108,7 @@ public:
 private:
     CommandRunner runner_;
 };
+#endif
 
 } // namespace
 
@@ -116,9 +118,11 @@ FirewallSnapshot inspect_iptables_snapshot(const CommandRunner& runner,
     return inspect_iptables_snapshot_impl(runner, raw_prerouting, ipv6_enabled);
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 FirewallSnapshot inspect_nftables_snapshot(const CommandRunner& runner) {
     return NftablesSnapshotInspector(runner).inspect(false);
 }
+#endif
 
 std::unique_ptr<FirewallSnapshotInspector> create_firewall_snapshot_inspector(
     FirewallBackend backend, RawPreroutingMode raw_prerouting, CommandRunner runner) {
@@ -126,10 +130,14 @@ std::unique_ptr<FirewallSnapshotInspector> create_firewall_snapshot_inspector(
         return std::make_unique<IptablesSnapshotInspector>(std::move(runner),
                                                             raw_prerouting);
     }
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    throw FirewallError("Keenetic supports only the iptables firewall backend");
+#else
     if (raw_prerouting.ipv4 || raw_prerouting.ipv6) {
         throw FirewallError(
             "RAW PREROUTING is supported only with the iptables firewall backend");
     }
     return std::make_unique<NftablesSnapshotInspector>(std::move(runner));
+#endif
 }
 } // namespace keen_pbr3

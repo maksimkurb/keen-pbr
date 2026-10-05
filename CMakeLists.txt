@@ -75,6 +75,11 @@ add_compile_definitions(JSON_DIAGNOSTICS=1)
 # Options
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
 option(USE_KEENETIC_API "Enable Keenetic RCI integration (DNS server type: keenetic)" OFF)
+# Platform build for Keenetic OS: the firewall backend is always iptables and
+# keen-pbr never balances (the router's own multipath does).  The nftables
+# backend and the route-balance feature are not compiled.  Independent of
+# USE_KEENETIC_API, which only enables the RCI integration.
+option(KEEN_PBR_PLATFORM_KEENETIC "Build for Keenetic OS: iptables only, no nftables backend, no load balancing" OFF)
 option(ENABLE_THREAD_SAFETY_ANALYSIS "Enable Clang thread-safety diagnostics for project targets" OFF)
 set(KEEN_PBR_ROUTE_PROTOCOL "186" CACHE STRING
   "Reserved rtnetlink protocol number used to identify keen-pbr routes (1-255)")
@@ -83,6 +88,9 @@ if(NOT KEEN_PBR_ROUTE_PROTOCOL MATCHES "^[1-9][0-9]*$" OR
   message(FATAL_ERROR "KEEN_PBR_ROUTE_PROTOCOL must be an integer from 1 through 255")
 endif()
 add_compile_definitions(KEEN_PBR_ROUTE_PROTOCOL=${KEEN_PBR_ROUTE_PROTOCOL})
+if(KEEN_PBR_PLATFORM_KEENETIC)
+  add_compile_definitions(KEEN_PBR_PLATFORM_KEENETIC)
+endif()
 set(KEEN_PBR_DEFAULT_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/config.json" CACHE STRING
   "Default config file path used by keen-pbr when --config is not passed")
 set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CACHE STRING
@@ -315,15 +323,12 @@ set(SOURCES
   src/firewall/rules/route_mark.cpp
   src/firewall/rules/route_drop.cpp
   src/firewall/rules/route_pass.cpp
-  src/firewall/rules/route_balance.cpp
   src/firewall/rules/intercept_client_scope.cpp
   src/firewall/rules/intercept_dns_hold.cpp
   src/firewall/rules/intercept_l7_sniff.cpp
   src/firewall/port_spec_util.cpp
   src/firewall/iptables.cpp
-  src/firewall/nftables.cpp
   src/firewall/ipset_restore_pipe.cpp
-  src/firewall/nft_batch_pipe.cpp
   src/firewall/firewall_verifier.cpp
   src/dns/dns_server.cpp
   src/dns/keenetic_dns.cpp
@@ -377,6 +382,14 @@ set(SOURCES
   src/util/traced_mutex.cpp
   src/main.cpp
 )
+
+if(NOT KEEN_PBR_PLATFORM_KEENETIC)
+  list(APPEND SOURCES
+    src/firewall/rules/route_balance.cpp
+    src/firewall/nftables.cpp
+    src/firewall/nft_batch_pipe.cpp
+  )
+endif()
 
 if(WITH_API)
   list(APPEND SOURCES

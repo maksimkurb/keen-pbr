@@ -573,6 +573,7 @@ TEST_CASE("verifier iptables: an unreadable kernel reports everything missing") 
   }
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 // ---------------------------------------------------------------------------
 // nftables
 // ---------------------------------------------------------------------------
@@ -910,6 +911,7 @@ TEST_CASE("verifier nftables: an absent table or failed read reports everything 
       nft_runner(Json{{"nftables", Json::array()}})));
 }
 
+#endif // KEEN_PBR_PLATFORM_KEENETIC
 // ---------------------------------------------------------------------------
 // Interception (DNS hold, L7 sniff): pinned iptables jumps and nft base chains
 // ---------------------------------------------------------------------------
@@ -1046,6 +1048,7 @@ TEST_CASE("verifier iptables interception: leftovers of a disabled feature are r
   CHECK(any_detail(checks, "unexpected rule in mangle/FORWARD"));
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("verifier nftables interception: the real kernel dump is entirely ok") {
   const auto plan = capture_plan_with_intercept(true, true, true);
   const auto expected = nft_expected(plan);
@@ -1054,7 +1057,9 @@ TEST_CASE("verifier nftables interception: the real kernel dump is entirely ok")
   CHECK_MESSAGE(problems(checks) == 0, describe(checks));
   CHECK(extras_of(plan, checks) == 0);
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("verifier nftables interception: drift") {
   const auto plan = capture_plan_with_intercept(true, true, true);
   const auto expected = nft_expected(plan);
@@ -1114,7 +1119,9 @@ TEST_CASE("verifier nftables interception: drift") {
     CHECK(any_detail(checks, "unexpected keen-pbr chain sniff_out"));
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("verifier: LAN-output skip rules are not drift on either backend") {
   const auto plan = capture_plan_lan_output();
   SUBCASE("iptables") {
@@ -1131,7 +1138,9 @@ TEST_CASE("verifier: LAN-output skip rules are not drift on either backend") {
     CHECK_MESSAGE(problems(checks) == 0, describe(checks));
   }
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("verifier: catch-all destinations are not drift on either backend") {
   const auto plan = capture_plan_catch_all();
   SUBCASE("iptables") {
@@ -1148,5 +1157,6 @@ TEST_CASE("verifier: catch-all destinations are not drift on either backend") {
     CHECK_MESSAGE(problems(checks) == 0, describe(checks));
   }
 }
+#endif
 
 } // namespace keen_pbr3

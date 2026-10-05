@@ -436,6 +436,7 @@ public:
   }
 };
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("balance support gate reads the startup snapshot and never probes") {
   const auto spawns = safe_exec_spawn_count().load();
   KernelCapabilities snapshot;
@@ -456,6 +457,7 @@ TEST_CASE("balance support gate reads the startup snapshot and never probes") {
   CHECK(safe_exec_spawn_count().load() == spawns);
   reset_kernel_capabilities_for_tests();
 }
+#endif
 
 } // namespace keen_pbr3
 

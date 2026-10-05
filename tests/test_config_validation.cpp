@@ -54,10 +54,48 @@ TEST_CASE("icmptest validation accepts a timing-safe complete probe set") {
     CHECK_NOTHROW(parse_test_config(nlohmann::json(cfg).dump()));
 }
 
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("Keenetic platform build rejects balance strategy") {
+    const auto issues = validate_issues(R"({
+      "outbounds":[
+        {"type":"interface","tag":"wan_a","interface":"wan_a"},
+        {"type":"interface","tag":"wan_b","interface":"wan_b"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
+      ]
+    })");
+    bool has_keenetic_error = false;
+    for (const auto& issue : issues) {
+        if (issue.path == "outbounds.auto.strategy" &&
+            issue.message.find("load balancing is not available on Keenetic") !=
+                std::string::npos) {
+            has_keenetic_error = true;
+        }
+    }
+    CHECK(has_keenetic_error);
+}
+
+TEST_CASE("Keenetic platform build rejects the nftables backend and resolves auto to iptables") {
+    const auto issues = validate_issues(R"({"daemon":{"firewall_backend":"nftables"}})");
+    bool has_backend_error = false;
+    for (const auto& issue : issues) {
+        if (issue.path == "daemon.firewall_backend" &&
+            issue.message.find("Keenetic supports only the iptables firewall backend") !=
+                std::string::npos) {
+            has_backend_error = true;
+        }
+    }
+    CHECK(has_backend_error);
+
+    SystemInfoTestGuard sys_guard;
+    set_detected_firewall_backend_for_tests(FirewallBackend::nftables);
+    CHECK(resolve_firewall_backend(FirewallBackendPreference::auto_detect) ==
+          FirewallBackend::iptables);
+    CHECK_THROWS_AS(resolve_firewall_backend(FirewallBackendPreference::nftables), FirewallError);
+    reset_detected_firewall_backend_for_tests();
+}
+#else
 TEST_CASE("test-group balance and default gateway rules are parsed") {
-#ifdef USE_KEENETIC_API
-    set_keenetic_balance_restriction_for_tests(true);
-#endif
     const auto cfg = parse_test_config(R"({
       "daemon":{"firewall_backend":"nftables"},
       "outbounds":[
@@ -73,12 +111,9 @@ TEST_CASE("test-group balance and default gateway rules are parsed") {
     })");
     CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
     CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
-#ifdef USE_KEENETIC_API
-    reset_keenetic_balance_restriction_for_tests();
-#endif
 }
 
-TEST_CASE("balance and default gateway reject the iptables backend") {
+TEST_CASE("default gateway rejects the iptables backend while balance is accepted") {
     const auto issues = validate_issues(R"({
       "daemon":{"firewall_backend":"iptables"},
       "outbounds":[
@@ -88,15 +123,13 @@ TEST_CASE("balance and default gateway reject the iptables backend") {
       ],
       "route":{"rules":[{"default_gateway":"ipv4","outbound":"auto"}]}
     })");
-    CHECK(issues.size() >= 2);
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "route.rules[0].default_gateway");
 }
 
 TEST_CASE("auto backend resolves to iptables, accepts balance and rejects default_gateway") {
     SystemInfoTestGuard sys_guard;
     set_detected_firewall_backend_for_tests(FirewallBackend::iptables);
-#ifdef USE_KEENETIC_API
-    set_keenetic_balance_restriction_for_tests(true);
-#endif
     const auto issues = validate_issues(R"({
       "daemon":{"firewall_backend":"auto"},
       "outbounds":[
@@ -118,17 +151,11 @@ TEST_CASE("auto backend resolves to iptables, accepts balance and rejects defaul
     CHECK_FALSE(has_balance_error);
     CHECK(has_gateway_error);
     reset_detected_firewall_backend_for_tests();
-#ifdef USE_KEENETIC_API
-    reset_keenetic_balance_restriction_for_tests();
-#endif
 }
 
 TEST_CASE("auto backend resolves to nftables and accepts balance") {
     SystemInfoTestGuard sys_guard;
     set_detected_firewall_backend_for_tests(FirewallBackend::nftables);
-#ifdef USE_KEENETIC_API
-    set_keenetic_balance_restriction_for_tests(true);
-#endif
     const auto cfg = parse_test_config(R"({
       "daemon":{"firewall_backend":"auto"},
       "outbounds":[
@@ -144,15 +171,9 @@ TEST_CASE("auto backend resolves to nftables and accepts balance") {
     CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
     CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
     reset_detected_firewall_backend_for_tests();
-#ifdef USE_KEENETIC_API
-    reset_keenetic_balance_restriction_for_tests();
-#endif
 }
 
 TEST_CASE("explicit nftables backend accepts balance") {
-#ifdef USE_KEENETIC_API
-    set_keenetic_balance_restriction_for_tests(true);
-#endif
     const auto cfg = parse_test_config(R"({
       "daemon":{"firewall_backend":"nftables"},
       "outbounds":[
@@ -167,32 +188,8 @@ TEST_CASE("explicit nftables backend accepts balance") {
     })");
     CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
     CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
-#ifdef USE_KEENETIC_API
-    reset_keenetic_balance_restriction_for_tests();
-#endif
 }
 
-#ifdef USE_KEENETIC_API
-TEST_CASE("Keenetic build rejects balance strategy") {
-    const auto issues = validate_issues(R"({
-      "daemon":{"firewall_backend":"nftables"},
-      "outbounds":[
-        {"type":"interface","tag":"wan_a","interface":"wan_a"},
-        {"type":"interface","tag":"wan_b","interface":"wan_b"},
-        {"type":"urltest","tag":"auto","url":"http://example.test",
-         "strategy":"balance","outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
-      ]
-    })");
-    CHECK(!issues.empty());
-    bool has_keenetic_error = false;
-    for (const auto& issue : issues) {
-        if (issue.path == "outbounds.auto.strategy" &&
-            issue.message.find("load balancing is disabled on Keenetic") != std::string::npos) {
-            has_keenetic_error = true;
-        }
-    }
-    CHECK(has_keenetic_error);
-}
 #endif
 
 TEST_CASE("icmptest migrates the legacy split probe form in memory") {
@@ -926,6 +923,7 @@ TEST_CASE("route rule: iptables allows src_port and dest_port ranges together") 
     })"));
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("route rule: nftables allows mixed multiport and dest_port") {
     CHECK_NOTHROW(parse_test_config(R"({
         "daemon":{"firewall_backend":"nftables"},
@@ -935,7 +933,9 @@ TEST_CASE("route rule: nftables allows mixed multiport and dest_port") {
         ]}
     })"));
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("route rule: auto allows mixed multiport and dest_port") {
     CHECK_NOTHROW(parse_test_config(R"({
         "daemon":{"firewall_backend":"auto"},
@@ -945,6 +945,7 @@ TEST_CASE("route rule: auto allows mixed multiport and dest_port") {
         ]}
     })"));
 }
+#endif
 
 TEST_CASE("route inbound_interfaces: omitted is accepted") {
     CHECK_NOTHROW(parse_test_config(R"({"lists":{"ads":{"domains":["example.com"]}},"outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],"route":{"rules":[{"list":["ads"],"outbound":"vpn"}]}})"));
@@ -1265,10 +1266,12 @@ TEST_CASE("daemon.firewall_backend: accepts iptables") {
     CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::iptables);
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("daemon.firewall_backend: accepts nftables") {
     auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"nftables"}})");
     CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::nftables);
 }
+#endif
 
 TEST_CASE("daemon.firewall_backend: rejects non-string value") {
     const auto issues = parse_issues(R"({"daemon":{"firewall_backend":true}})");

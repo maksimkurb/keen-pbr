@@ -18,10 +18,21 @@ std::optional<FirewallBackend>& detected_firewall_backend_override_for_tests() {
 bool firewall_backend_command_exists(FirewallBackend backend) {
     // Cached PATH lookup from service start; no process is started.
     const HostTools& tools = host_tools();
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    return backend == FirewallBackend::iptables && tools.iptables;
+#else
     return backend == FirewallBackend::nftables ? tools.nft : tools.iptables;
+#endif
 }
 
 FirewallBackend detect_firewall_backend() {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    // Fixed backend on Keenetic: no detection, nftables is not compiled.
+    if (!firewall_backend_command_exists(FirewallBackend::iptables)) {
+        throw FirewallError("iptables not found");
+    }
+    return FirewallBackend::iptables;
+#else
 #ifdef KEEN_PBR3_TESTING
     if (detected_firewall_backend_override_for_tests().has_value()) {
         return *detected_firewall_backend_override_for_tests();
@@ -36,6 +47,7 @@ FirewallBackend detect_firewall_backend() {
     }
 
     throw FirewallError("No supported firewall backend found (need nft or iptables)");
+#endif
 }
 
 FirewallBackend resolve_firewall_backend(FirewallBackendPreference backend_pref) {
@@ -48,10 +60,14 @@ FirewallBackend resolve_firewall_backend(FirewallBackendPreference backend_pref)
             }
             return FirewallBackend::iptables;
         case FirewallBackendPreference::nftables:
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+            throw FirewallError("Keenetic supports only the iptables firewall backend");
+#else
             if (!firewall_backend_command_exists(FirewallBackend::nftables)) {
                 throw FirewallError("nftables backend requested but nft not found");
             }
             return FirewallBackend::nftables;
+#endif
     }
 
     throw FirewallError("Unexpected firewall backend value");

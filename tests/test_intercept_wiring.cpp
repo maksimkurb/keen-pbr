@@ -91,6 +91,7 @@ TEST_CASE("intercept probe: iptables with everything loaded does not modprobe") 
     CHECK(proc.modprobed.empty());
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("intercept probe: nfnetlink queue/log modules are preloaded per backend") {
     FakeProc proc;
     proc.fill_all();
@@ -103,6 +104,7 @@ TEST_CASE("intercept probe: nfnetlink queue/log modules are preloaded per backen
           std::vector<std::string>{"nfnetlink_queue", "nfnetlink_log", "nft_queue",
                                    "nft_log", "nft_ct"});
 }
+#endif
 
 TEST_CASE("intercept bind EINVAL names the missing nfnetlink kernel module") {
     const std::string absent = "/nonexistent/nfnetlink_queue";
