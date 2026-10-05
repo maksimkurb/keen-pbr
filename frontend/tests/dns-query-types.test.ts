@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test"
 import {
-  dnsQueryTypes,
   noAddressReasonKey,
   noAddressTooltipKey,
   noAddressReason,
@@ -14,7 +13,7 @@ const mockT = (key: string, options?: Record<string, unknown>) => {
     return key
   }
   let result = key
-  for (const [k, v] of Object.entries(options)) {
+  for (const v of Object.values(options)) {
     result += ` ${v}`
   }
   return result

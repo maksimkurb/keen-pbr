@@ -33,7 +33,7 @@ export function noAddressReasonKey(
       return { key: "requestsLog.dnsReasons.servfail" }
     case 5:
       return { key: "requestsLog.dnsReasons.refused" }
-    case 0:
+    case 0: {
       // NODATA case
       const typeStr = queryTypeToString(qtype)
       if (qtype === 1 || qtype === 28) {
@@ -42,6 +42,7 @@ export function noAddressReasonKey(
       }
       // Other types: show "<TYPE> record"
       return { key: "requestsLog.dnsReasons.nodataOther", options: { type: typeStr } }
+    }
     default:
       if (rcode !== 0) {
         return { key: "requestsLog.dnsReasons.rcode", options: { code: rcode } }
