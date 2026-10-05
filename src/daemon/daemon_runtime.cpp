@@ -260,8 +260,24 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
     if (service_for_apply) {
         writer_pause.emplace(service_for_apply->pause_writes());
         service_for_apply->discard_l7_pending();
-        service_for_apply->invalidate_snapshot();
+        // The published snapshot stays: its domain index is still what the
+        // lists describe, and nothing can write while the pause lasts.  The
+        // element cache must not outlive the sets, though; with writes paused
+        // nothing can repopulate it before the rebind below clears it again.
+        service_for_apply->invalidate_set_cache();
     }
+    // The old snapshot's set bindings are only valid until this apply changes
+    // the sets.  Unless the new bindings are published before the pause ends
+    // (schedule_intercept_snapshot_update below), drop the snapshot so a failed
+    // or abandoned apply can never resume writes against recreated sets.
+    // Declared after writer_pause: it runs while the pause is still held.
+    struct SnapshotRebindGuard {
+        std::shared_ptr<InterceptService> service;
+        bool rebound{false};
+        ~SnapshotRebindGuard() {
+            if (service && !rebound) service->invalidate_snapshot();
+        }
+    } rebind_guard{service_for_apply};
 
     // Interception ordering: a service that must go away or rebind is
     // detached from the rules first (quiesce), a needed service is bound
@@ -346,8 +362,8 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         intercept.firewall_settings());
     // The apply may have recreated or flushed the dynamic sets: whatever the
     // interception cache remembered about their elements is no longer true.
-    // (The snapshot was invalidated before the apply; this also covers a
-    // service that was started during it.)
+    // (The cache was cleared when the pause began; this also covers a service
+    // that was started during the apply.)
     {
         std::shared_ptr<InterceptService> service_after_apply;
         {
@@ -387,6 +403,7 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
             }
         } else {
             schedule_intercept_snapshot_update(std::move(applied_sets), intercept);
+            rebind_guard.rebound = true;
         }
     }
 }

@@ -242,9 +242,17 @@ private:
       const Config &quiesce_config,
       const OutboundMarkMap &quiesce_marks);
   void stop_intercept_service();
+  // Called inside the firewall-apply write pause: republishes the previous
+  // domain index with the new set bindings, then builds the new index in the
+  // background (retrying with backoff when that fails).
   void schedule_intercept_snapshot_update(
       std::vector<FirewallSetDeclaration> sets,
       const InterceptEffective &effective);
+  struct InterceptSnapshotJob;
+  void queue_intercept_snapshot_build(
+      std::shared_ptr<const InterceptSnapshotJob> job, unsigned attempt);
+  void retry_intercept_snapshot_build(
+      std::shared_ptr<const InterceptSnapshotJob> job, unsigned attempt);
   InterceptEffective intercept_effective_snapshot() const;
   api::InterceptHealthClass build_intercept_health() const;
   void pump_intercept_events();

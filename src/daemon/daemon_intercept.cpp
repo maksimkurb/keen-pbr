@@ -1,11 +1,14 @@
 #include "daemon.hpp"
 
+#include <algorithm>
+
 #include "../firewall/firewall_runtime.hpp"
 #include "../intercept/intercept_report.hpp"
 #include "../intercept/intercept_snapshot_builder.hpp"
 #include "../log/logger.hpp"
 #include "../netfilter/set_writer.hpp"
 #include "../util/ipv6_support.hpp"
+#include "scheduler.hpp"
 #ifdef WITH_API
 #include "../api/handler_helpers.hpp"
 #include "../api/sse_broadcaster.hpp"
@@ -218,6 +221,22 @@ void Daemon::stop_intercept_service() {
     }
 }
 
+// Everything a (re)try of the background index build needs, captured at apply
+// time so a later retry never reads live daemon state.
+struct Daemon::InterceptSnapshotJob {
+    std::shared_ptr<InterceptService> service;
+    std::uint64_t seq{0};
+    Config config;
+    std::vector<FirewallSetDeclaration> sets;
+    bool ipv6_enabled{false};
+    InterceptEffective effective;
+};
+
+namespace {
+constexpr std::chrono::seconds kSnapshotRetryInitial{5};
+constexpr std::chrono::seconds kSnapshotRetryMax{60};
+}
+
 void Daemon::schedule_intercept_snapshot_update(std::vector<FirewallSetDeclaration> sets,
                                                 const InterceptEffective& effective) {
     std::shared_ptr<InterceptService> service;
@@ -233,32 +252,93 @@ void Daemon::schedule_intercept_snapshot_update(std::vector<FirewallSetDeclarati
         return;
     }
     const bool ipv6_enabled = firewall_->ipv6_enabled();
+
+    // Cheap half, synchronously (the caller still holds the write pause): keep
+    // the previous domain index but bind every list to the sets of the new
+    // configuration, so learning continues while the new index is built.
+    try {
+        const auto bindings = build_intercept_bindings(config_, sets, ipv6_enabled, effective);
+        const auto previous = service->current_snapshot();
+        if (auto rebound = rebind_intercept_snapshot(previous.get(), bindings, effective)) {
+            KPBR_LOCK_GUARD(intercept_mutex_);
+            if (intercept_service_ == service) service->update_snapshot(std::move(rebound));
+        }
+    } catch (const std::exception& error) {
+        // The apply guard drops the snapshot instead: no learning until the
+        // background build below (or its retry) publishes one.
+        Logger::instance().error("Interception snapshot rebind failed: {}", error.what());
+        service->invalidate_snapshot();
+    }
+
+    auto job = std::make_shared<InterceptSnapshotJob>();
+    job->service = std::move(service);
+    job->seq = seq;
+    job->config = config_;
+    job->sets = std::move(sets);
+    job->ipv6_enabled = ipv6_enabled;
+    job->effective = effective;
+    queue_intercept_snapshot_build(std::move(job), 0);
+}
+
+void Daemon::queue_intercept_snapshot_build(std::shared_ptr<const InterceptSnapshotJob> job,
+                                            unsigned attempt) {
+    {
+        KPBR_LOCK_GUARD(intercept_mutex_);
+        if (intercept_snapshot_seq_.load(std::memory_order_acquire) != job->seq ||
+            intercept_service_ != job->service) {
+            return;  // superseded by a newer apply or a stop
+        }
+    }
     const bool queued = blocking_executor_.try_post(
-        "intercept-snapshot",
-        [this, service, seq, config = config_, sets = std::move(sets), ipv6_enabled,
-         effective]() {
+        "intercept-snapshot", [this, job, attempt]() {
             try {
                 ListStreamer streamer(list_service_.cache_manager());
-                auto snapshot = build_intercept_snapshot(config, sets, ipv6_enabled, effective,
+                auto snapshot = build_intercept_snapshot(job->config, job->sets,
+                                                         job->ipv6_enabled, job->effective,
                                                          streamer);
                 {
                     KPBR_LOCK_GUARD(intercept_mutex_);
-                    if (intercept_snapshot_seq_.load(std::memory_order_acquire) != seq ||
-                        intercept_service_ != service) {
+                    if (intercept_snapshot_seq_.load(std::memory_order_acquire) != job->seq ||
+                        intercept_service_ != job->service) {
                         return;  // superseded by a newer apply or a stop
                     }
-                    service->update_snapshot(snapshot);
+                    job->service->update_snapshot(snapshot);
                 }
                 Logger::instance().info(
                     "Interception snapshot updated: {} list(s), {} domain(s)",
                     snapshot->index->list_names().size(), snapshot->index->domain_count());
             } catch (const std::exception& error) {
                 Logger::instance().error("Interception snapshot build failed: {}", error.what());
+                retry_intercept_snapshot_build(job, attempt);
             }
         });
     if (!queued) {
-        Logger::instance().warn("Interception snapshot update could not be queued; "
-                                "keeping the previous snapshot");
+        Logger::instance().warn("Interception snapshot build could not be queued; "
+                                "keeping the published snapshot and retrying");
+        retry_intercept_snapshot_build(std::move(job), attempt);
+    }
+}
+
+void Daemon::retry_intercept_snapshot_build(std::shared_ptr<const InterceptSnapshotJob> job,
+                                            unsigned attempt) {
+    // Exponential backoff 5 s, 10 s, 20 s, 40 s, 60 s, ...  The timer is armed
+    // on the event loop (the scheduler is not meant to be driven from the
+    // blocking executor); a newer apply or a stop supersedes the chain via
+    // intercept_snapshot_seq_ checked in queue_intercept_snapshot_build().
+    auto delay = kSnapshotRetryInitial;
+    for (unsigned i = 0; i < attempt && delay < kSnapshotRetryMax; ++i) delay *= 2;
+    delay = std::min(delay, kSnapshotRetryMax);
+    const bool posted = post_control_task(
+        [this, job, attempt, delay]() {
+            if (!scheduler_) return;
+            scheduler_->schedule_oneshot(
+                std::chrono::duration_cast<std::chrono::milliseconds>(delay),
+                [this, job, attempt]() { queue_intercept_snapshot_build(job, attempt + 1); },
+                "intercept-snapshot-retry");
+        },
+        "intercept-snapshot-retry");
+    if (!posted) {
+        Logger::instance().warn("Interception snapshot retry could not be scheduled");
     }
 }
 

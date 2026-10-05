@@ -1,8 +1,13 @@
 #include <doctest/doctest.h>
 
+#include "../src/cache/cache_manager.hpp"
+#include "../src/config/config.hpp"
 #include "../src/dns/dns_wire.hpp"
+#include "../src/firewall/firewall.hpp"
 #include "../src/intercept/intercept_processor.hpp"
 #include "../src/intercept/intercept_service.hpp"
+#include "../src/intercept/intercept_snapshot_builder.hpp"
+#include "../src/lists/list_streamer.hpp"
 
 #include <netinet/in.h>
 
@@ -1386,4 +1391,111 @@ TEST_CASE("intercept diag: write latency buckets and max") {
     }
     CHECK(h.max_us == 100000);
     CHECK(h.max_elements == 6);
+}
+
+namespace {
+
+// Snapshot-rebind scenario: the previous apply published a full snapshot; the
+// new apply keeps the DomainIndex and only re-derives the set bindings.
+struct RebindFixture {
+    FakeSetWriter writer;
+    FakeCleanup cleanup;
+    InterceptCounters counters;
+    InterceptProcessor proc{writer, cleanup, counters};
+    CacheManager cache{"/nonexistent/cache"};
+    ListStreamer streamer{cache};
+    InterceptEffective effective;
+
+    static std::vector<FirewallSetDeclaration> sets_for(const std::vector<std::string>& names) {
+        std::vector<FirewallSetDeclaration> sets;
+        for (const auto& name : names) {
+            sets.push_back({Firewall::dynamic_set_name(name, AF_INET), FirewallFamily::ipv4, 0});
+        }
+        return sets;
+    }
+    static Config config_with(const std::string& lists, const std::string& rule_lists) {
+        return parse_config(R"({"lists":)" + lists + R"(,"route":{"rules":[{"list":)" +
+                            rule_lists + R"(,"outbound":"wan"}]}})");
+    }
+    std::shared_ptr<const InterceptSnapshot> rebind(const Config& config,
+                                                    const std::vector<std::string>& declared) {
+        const auto previous = proc.current_snapshot();
+        const auto bindings = build_intercept_bindings(config, sets_for(declared), false, effective);
+        return rebind_intercept_snapshot(previous.get(), bindings, effective);
+    }
+    void answer(const std::string& name) {
+        const Bytes pkt = dns_packet(dns_response(name, 0, {a_rr(1, 2, 3, 4, 100)}));
+        proc.on_dns_packet(view(pkt), Clock::now() + std::chrono::milliseconds(30), true);
+    }
+};
+
+const char* const kTwoLists = R"({"a":{"domains":["a.example"]},"b":{"domains":["b.example"]}})";
+
+} // namespace
+
+TEST_CASE("intercept rebind: answers before the background build are learned") {
+    RebindFixture f;
+    const Config config = RebindFixture::config_with(kTwoLists, R"(["a","b"])");
+    f.proc.set_snapshot(build_intercept_snapshot(config, RebindFixture::sets_for({"a", "b"}), false,
+                                                 f.effective, f.streamer));
+    // Apply recreates the sets; the index is not rebuilt yet.
+    f.proc.invalidate_set_cache();
+    const auto rebound = f.rebind(config, {"a", "b"});
+    REQUIRE(rebound);
+    f.proc.set_snapshot(rebound);
+    f.answer("a.example");
+    REQUIRE(f.writer.recorded.size() == 1);
+    CHECK(f.writer.recorded[0].set == "kpbr4d_a");
+    f.answer("b.example");
+    REQUIRE(f.writer.recorded.size() == 2);
+    CHECK(f.writer.recorded[1].set == "kpbr4d_b");
+}
+
+TEST_CASE("intercept rebind: a list removed by the new config is not written") {
+    RebindFixture f;
+    f.proc.set_snapshot(build_intercept_snapshot(
+        RebindFixture::config_with(kTwoLists, R"(["a","b"])"),
+        RebindFixture::sets_for({"a", "b"}), false, f.effective, f.streamer));
+    const Config next = RebindFixture::config_with(kTwoLists, R"(["a"])");  // b no longer routed
+    const auto rebound = f.rebind(next, {"a"});
+    REQUIRE(rebound);
+    f.proc.set_snapshot(rebound);
+    f.answer("b.example");
+    CHECK(f.writer.recorded.empty());
+    f.answer("a.example");  // the other list keeps learning
+    REQUIRE(f.writer.recorded.size() == 1);
+    CHECK(f.writer.recorded[0].set == "kpbr4d_a");
+}
+
+TEST_CASE("intercept rebind: a redefined list waits for the new index") {
+    RebindFixture f;
+    f.proc.set_snapshot(build_intercept_snapshot(
+        RebindFixture::config_with(kTwoLists, R"(["a","b"])"),
+        RebindFixture::sets_for({"a", "b"}), false, f.effective, f.streamer));
+    // List b now has different content: the old index must not feed its set.
+    const Config next = RebindFixture::config_with(
+        R"({"a":{"domains":["a.example"]},"b":{"domains":["other.example"]}})", R"(["a","b"])");
+    const auto rebound = f.rebind(next, {"a", "b"});
+    REQUIRE(rebound);
+    f.proc.set_snapshot(rebound);
+    f.answer("b.example");
+    CHECK(f.writer.recorded.empty());
+    f.answer("a.example");
+    CHECK(f.writer.recorded.size() == 1);
+}
+
+TEST_CASE("intercept rebind: a failed background build keeps the published snapshot") {
+    RebindFixture f;
+    const Config config = RebindFixture::config_with(kTwoLists, R"(["a","b"])");
+    CHECK_FALSE(f.rebind(config, {"a", "b"}));  // nothing published: nothing to rebind
+    f.proc.set_snapshot(build_intercept_snapshot(config, RebindFixture::sets_for({"a", "b"}), false,
+                                                 f.effective, f.streamer));
+    const auto rebound = f.rebind(config, {"a", "b"});
+    f.proc.set_snapshot(rebound);
+    // The build then fails or cannot be queued: the daemon simply never calls
+    // set_snapshot again, so the rebound snapshot stays in use.
+    CHECK(f.proc.current_snapshot() == rebound);
+    f.answer("a.example");
+    REQUIRE(f.writer.recorded.size() == 1);
+    CHECK(f.writer.recorded[0].set == "kpbr4d_a");
 }

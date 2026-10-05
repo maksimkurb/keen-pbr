@@ -7,8 +7,39 @@
 #include "intercept_settings.hpp"
 
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace keen_pbr3 {
+
+// The cheap half of a snapshot: for every list that the daemon fills, which
+// dynamic sets it writes and with which TTL floor.  Derived from the config and
+// the declared sets only (no list content is read), so it can be rebuilt
+// synchronously inside the firewall-apply write pause.  `signature` identifies
+// the list definition the DomainIndex content was built from.
+struct InterceptListBinding {
+    std::string name;
+    InterceptListTarget target;
+    std::string signature;
+};
+
+std::vector<InterceptListBinding> build_intercept_bindings(
+    const Config& config,
+    const std::vector<FirewallSetDeclaration>& sets,
+    bool ipv6_enabled,
+    const InterceptEffective& effective);
+
+// Republishes `previous` for a new configuration without rebuilding the
+// DomainIndex.  Every indexed list gets the binding of the NEW configuration
+// when a binding with the same name and the same list signature exists; any
+// other list (removed from the config, no longer filled by the daemon, or
+// redefined so the index content is stale) gets an empty target and therefore
+// matches nothing until the next full build.  Settings come from `effective`.
+// Returns null when `previous` is null or carries no indexed list.
+std::shared_ptr<const InterceptSnapshot> rebind_intercept_snapshot(
+    const InterceptSnapshot* previous,
+    const std::vector<InterceptListBinding>& bindings,
+    const InterceptEffective& effective);
 
 // Builds the interception snapshot for an applied configuration: every list
 // referenced by an enabled route rule whose dynamic sets were declared by

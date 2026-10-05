@@ -31,6 +31,10 @@ struct InterceptListTarget {
 struct InterceptSnapshot {
     std::shared_ptr<const DomainIndex> index;
     std::vector<InterceptListTarget> targets;  // indexed by DomainIndex::ListId
+    // What each indexed list was built from (its config signature), indexed by
+    // DomainIndex::ListId.  Lets a rebind decide whether the index content of
+    // a list still describes the list of the new configuration.
+    std::vector<std::string> list_signatures;
     uint32_t max_ttl_s{86400};
     std::string marker_domain{"check.keen.pbr"};
     std::array<uint8_t, 4> marker_ipv4{127, 0, 0, 88};
@@ -200,6 +204,8 @@ public:
                        InterceptCounters& counters);
 
     void set_snapshot(std::shared_ptr<const InterceptSnapshot> snapshot);
+    // The currently published snapshot (null when none).  Thread-safe.
+    std::shared_ptr<const InterceptSnapshot> current_snapshot() const { return snapshot(); }
     void set_l7_submitter(L7Submitter submitter);
     void set_writer_callbacks(WriterAdmission dns_admission, WriterRelease dns_release,
                               WriterAdmission l7_admission, WriterRelease l7_release);

@@ -59,6 +59,10 @@ public:
     // requested and none could be bound.
     void start(const InterceptServiceOptions& options, std::shared_ptr<const InterceptSnapshot> snapshot);
     void update_snapshot(std::shared_ptr<const InterceptSnapshot> snapshot);
+    // The snapshot the processor currently uses (null after invalidate_snapshot()).
+    std::shared_ptr<const InterceptSnapshot> current_snapshot() const {
+        return processor_.current_snapshot();
+    }
     // Hot thread drains the queue, ACCEPTs everything still held, then unbinds.
     void stop();
     bool running() const;
