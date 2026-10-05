@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/api/handler_health_service.hpp"
+#include "../src/api/handler_helpers.hpp"
 #include "../src/cache/cache_manager.hpp"
 #include "../src/config/config.hpp"
 #include "../src/firewall/firewall_runtime.hpp"
@@ -477,6 +478,25 @@ TEST_CASE("intercept health JSON exposes timeout causes and write latency histog
     CHECK(health.counters->dns_write_latency->max_elements == 9);
     CHECK(health.counters->late_write_latency->max_us == 0);
 }
+
+#ifdef WITH_API
+TEST_CASE("intercept event JSON replaces invalid UTF-8 from traffic") {
+    InterceptEvent event;
+    event.seq = 1;
+    event.source = InterceptSource::dns;
+    event.domain = "bad\xFF.example.com";  // raw byte from a DNS label
+
+    std::string result;
+    CHECK_NOTHROW(result = safe_dump(intercept_event_to_json(event)));
+    const auto parsed = nlohmann::json::parse(result);
+    CHECK(parsed["domain"] == "bad\xEF\xBF\xBD.example.com");
+
+    event.source = InterceptSource::http;
+    event.domain = "caf\xE9.example.com";  // Latin-1 byte from an HTTP Host header
+    CHECK_NOTHROW(result = safe_dump(intercept_event_to_json(event)));
+    CHECK(nlohmann::json::parse(result)["domain"] == "caf\xEF\xBF\xBD.example.com");
+}
+#endif
 
 #ifdef WITH_API
 TEST_CASE("health service JSON contains the intercept object") {

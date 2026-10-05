@@ -7,6 +7,7 @@
 #include "../netfilter/set_writer.hpp"
 #include "../util/ipv6_support.hpp"
 #ifdef WITH_API
+#include "../api/handler_helpers.hpp"
 #include "../api/sse_broadcaster.hpp"
 #endif
 
@@ -313,10 +314,10 @@ void Daemon::pump_intercept_events() {
     const auto events =
         service->events_since(intercept_forwarded_seq_, InterceptProcessor::kEventCapacity);
     if (const auto gap = detect_event_gap(intercept_forwarded_seq_, events)) {
-        dns_test_broadcaster_->publish(event_gap_to_json(*gap).dump());
+        dns_test_broadcaster_->publish(safe_dump(event_gap_to_json(*gap)));
     }
     for (const auto& event : events) {
-        dns_test_broadcaster_->publish(intercept_event_to_json(event).dump());
+        dns_test_broadcaster_->publish(safe_dump(intercept_event_to_json(event)));
         intercept_forwarded_seq_ = event.seq;
     }
 #endif
