@@ -269,7 +269,7 @@ void InterceptProcessor::push_event(InterceptEvent&& event) {
             "intercept: dns hold timeout cause={} domain={} batch_pos={} queue_wait={}us "
             "budget_left={}us parse={}us admission_wait={}us write={}us elements={} "
             "late_elements={} errno={}",
-            timeout_cause_name(event.timeout_cause), event.domain, event.batch_pos,
+            timeout_cause_name(event.timeout_cause), log_escape(event.domain), event.batch_pos,
             event.queue_wait_us, event.budget_left_us, event.parse_us, event.admission_wait_us,
             event.set_write_us, event.write_elements, event.late_batch_elements,
             event.write_errno);

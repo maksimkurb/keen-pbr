@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -9,6 +11,30 @@
 #include "../util/format_compat.hpp"
 
 namespace keen_pbr3 {
+
+// Makes a traffic-derived string safe to log: printable ASCII is kept,
+// backslash becomes "\\", any other byte "\xNN". Long input is cut at 255
+// bytes and marked with "...".
+inline std::string log_escape(std::string_view s) {
+    static constexpr char kHex[] = "0123456789abcdef";
+    constexpr std::size_t kMaxBytes = 255;
+    std::string out;
+    out.reserve(std::min(s.size(), kMaxBytes) + 3);
+    for (std::size_t i = 0; i < s.size() && i < kMaxBytes; ++i) {
+        const auto byte = static_cast<unsigned char>(s[i]);
+        if (byte == '\\') {
+            out += "\\\\";
+        } else if (byte >= 0x20 && byte <= 0x7E) {
+            out += static_cast<char>(byte);
+        } else {
+            out += "\\x";
+            out += kHex[byte >> 4];
+            out += kHex[byte & 0xF];
+        }
+    }
+    if (s.size() > kMaxBytes) out += "...";
+    return out;
+}
 
 enum class LogLevel { error, warn, info, verbose, debug };
 enum class LogTarget { stderr_only, syslog_only, both };

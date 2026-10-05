@@ -67,6 +67,7 @@ add_executable(keen-pbr-tests
   test_api_config_password.cpp
   test_system_info.cpp
   test_safe_exec.cpp
+  test_log_escape.cpp
   test_trace_logging.cpp
   test_interface_monitor.cpp
   test_status_stream.cpp
