@@ -45,6 +45,8 @@ bool decrypt_initial_datagram(ByteView udp_payload, QuicInitialPacketInfo& info,
 // Reassembles CRYPTO data per connection (keyed by DCID bytes) across datagrams.
 class QuicCryptoAssembler {
 public:
+    static constexpr std::size_t kMaxRangesPerConn = 16;
+
     QuicCryptoAssembler(std::size_t max_conns = 256, std::size_t max_bytes = 8192,
                         std::chrono::milliseconds ttl = std::chrono::seconds(2));
 
@@ -65,7 +67,8 @@ private:
         std::chrono::steady_clock::time_point last_seen;
     };
 
-    void add_fragment_(Conn& c, uint64_t offset, ByteView data);
+    // Returns false if connection should be dropped due to exceeding range cap.
+    bool add_fragment_(Conn& c, uint64_t offset, ByteView data);
     void expire_(std::chrono::steady_clock::time_point now);
 
     std::size_t max_conns_;

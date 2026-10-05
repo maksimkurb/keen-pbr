@@ -407,3 +407,95 @@ TEST_CASE("l7 quic: assembler drops expired connections") {
     auto d1b = protect(QuicVersion::V1, from_hex("0101010101010101"), 2, {{3, {4}}});
     CHECK(asmb.feed(view(d1b), t0 + std::chrono::seconds(3)).size() == 0);
 }
+
+TEST_CASE("l7 quic: overlapping and touching fragments merge correctly") {
+    // Test that overlapping ranges merge (r.second >= ns && r.first <= ne).
+    // Send fragments with explicit overlaps and touching boundaries.
+    std::vector<uint8_t> data1{10, 11, 12};
+    std::vector<uint8_t> data2{12, 13, 14};  // overlaps at offset 2
+    std::vector<uint8_t> data3{14, 15, 16};  // touches at offset 4
+    auto dcid = dcid_a();
+    auto d1 = protect(QuicVersion::V1, dcid, 1, {{0, data1}});
+    auto d2 = protect(QuicVersion::V1, dcid, 2, {{2, data2}});
+    auto d3 = protect(QuicVersion::V1, dcid, 3, {{4, data3}});
+
+    QuicCryptoAssembler asmb;
+    auto now = Clock::now();
+    // Feed in order, check single merged range.
+    ByteView result1 = asmb.feed(view(d1), now);
+    CHECK(result1.size() == 3);
+    CHECK(result1[0] == 10);
+    CHECK(result1[1] == 11);
+    CHECK(result1[2] == 12);
+
+    ByteView result2 = asmb.feed(view(d2), now);
+    CHECK(result2.size() == 5);  // [0, 5) because overlapping and touching ranges merge
+    CHECK(result2[0] == 10);
+    CHECK(result2[1] == 11);
+    CHECK(result2[2] == 12);
+    CHECK(result2[3] == 13);
+    CHECK(result2[4] == 14);
+
+    ByteView result3 = asmb.feed(view(d3), now);
+    CHECK(result3.size() == 7);  // [0, 7) fully merged
+    CHECK(result3[4] == 14);
+    CHECK(result3[5] == 15);
+    CHECK(result3[6] == 16);
+}
+
+TEST_CASE("l7 quic: 200 one-byte fragments exceed cap and drop connection") {
+    // Create 200 one-byte fragments at non-adjacent offsets (0, 2, 4, 6, ..., 398).
+    // Each fragment is at a separate range, exceeding kMaxRangesPerConn (16).
+    // Verify connection state is dropped and later packets fail to extend it.
+    auto dcid = from_hex("aabbccddaabbccdd");
+    auto now = Clock::now();
+
+    QuicCryptoAssembler asmb;
+    std::vector<Crypto> frames;
+    for (int i = 0; i < 200; ++i) {
+        uint64_t offset = static_cast<uint64_t>(i) * 2;  // 0, 2, 4, 6, ...
+        std::vector<uint8_t> payload{static_cast<uint8_t>(i & 0xFF)};
+        frames.push_back({offset, payload});
+    }
+
+    auto dgram = protect(QuicVersion::V1, dcid, 1, frames);
+    ByteView result = asmb.feed(view(dgram), now);
+
+    // Connection should have been dropped during feed because ranges exceeded cap.
+    // Result should be empty since we don't have a contiguous [0, n) prefix.
+    CHECK(result.size() == 0);
+    CHECK(asmb.size() == 0);  // Connection was dropped.
+}
+
+TEST_CASE("l7 quic: assembler accepts new connection after dropping one") {
+    auto dcid1 = from_hex("0101010101010101");
+    auto dcid2 = from_hex("0202020202020202");
+    auto now = Clock::now();
+
+    QuicCryptoAssembler asmb(8, 8192, std::chrono::milliseconds(2000));
+
+    // Feed a packet with 200 fragments for dcid1 (will be dropped).
+    std::vector<Crypto> many_frames;
+    for (int i = 0; i < 200; ++i) {
+        many_frames.push_back({{static_cast<uint64_t>(i) * 2}, {static_cast<uint8_t>(i)}});
+    }
+    auto d1 = protect(QuicVersion::V1, dcid1, 1, many_frames);
+    CHECK(asmb.feed(view(d1), now).size() == 0);
+    CHECK(asmb.size() == 0);  // dcid1 dropped.
+
+    // Feed a normal packet for dcid2: verifies assembler can still accept new connections.
+    auto d2 = protect(QuicVersion::V1, dcid2, 1, {{0, {42, 43, 44}}});
+    ByteView result = asmb.feed(view(d2), now);
+    REQUIRE(result.size() == 3);
+    CHECK(result[0] == 42);
+    CHECK(result[1] == 43);
+    CHECK(result[2] == 44);
+    CHECK(asmb.size() == 1);  // dcid2 stored.
+
+    // Verify dcid1 (after being dropped) doesn't produce stale state:
+    // a follow-up packet for dcid1 at offset 3 still has no contiguous prefix from 0.
+    auto d1b = protect(QuicVersion::V1, dcid1, 2, {{3, {99}}});
+    CHECK(asmb.feed(view(d1b), now).size() == 0);  // No ClientHello: dcid1 never has [0, n)
+    // dcid1 may be recreated as a new connection, but dcid2 is still there.
+    CHECK(asmb.size() >= 1);
+}

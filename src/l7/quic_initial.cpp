@@ -247,9 +247,9 @@ void QuicCryptoAssembler::expire_(std::chrono::steady_clock::time_point now) {
     }
 }
 
-void QuicCryptoAssembler::add_fragment_(Conn& c, uint64_t offset, ByteView data) {
+bool QuicCryptoAssembler::add_fragment_(Conn& c, uint64_t offset, ByteView data) {
     if (data.size() == 0 || offset >= max_bytes_) {
-        return;
+        return true;
     }
     uint64_t end = offset + data.size();
     if (end > max_bytes_) {
@@ -260,30 +260,27 @@ void QuicCryptoAssembler::add_fragment_(Conn& c, uint64_t offset, ByteView data)
     }
     std::memcpy(c.buf.data() + offset, data.data(), static_cast<std::size_t>(end - offset));
 
-    // Insert [offset, end) into the sorted merged range list.
+    // Insert [offset, end) into the sorted merged range list in place.
     uint64_t ns = offset;
     uint64_t ne = end;
-    std::vector<std::pair<uint64_t, uint64_t>> merged;
-    merged.reserve(c.ranges.size() + 1);
-    bool placed = false;
-    for (const auto& r : c.ranges) {
-        if (r.second < ns) {
-            merged.push_back(r);
-        } else if (r.first > ne) {
-            if (!placed) {
-                merged.emplace_back(ns, ne);
-                placed = true;
-            }
-            merged.push_back(r);
-        } else {
-            ns = std::min(ns, r.first);
-            ne = std::max(ne, r.second);
-        }
+
+    // Ranges stay few (kMaxRangesPerConn), so a linear scan is enough.
+    auto it_start = c.ranges.begin();
+    while (it_start != c.ranges.end() && it_start->second < ns) {
+        ++it_start;
     }
-    if (!placed) {
-        merged.emplace_back(ns, ne);
+
+    auto it_end = it_start;
+    while (it_end != c.ranges.end() && it_end->first <= ne) {
+        ns = std::min(ns, it_end->first);
+        ne = std::max(ne, it_end->second);
+        ++it_end;
     }
-    c.ranges.swap(merged);
+
+    auto it_insert = c.ranges.erase(it_start, it_end);
+    c.ranges.insert(it_insert, {ns, ne});
+
+    return c.ranges.size() <= kMaxRangesPerConn;
 }
 
 ByteView QuicCryptoAssembler::feed(ByteView udp_payload, std::chrono::steady_clock::time_point now) {
@@ -292,7 +289,9 @@ ByteView QuicCryptoAssembler::feed(ByteView udp_payload, std::chrono::steady_clo
 
     QuicInitialPacketInfo info;
     Conn* conn = nullptr;
+    bool drop_conn = false;
     auto on_crypto = [&](uint64_t offset, ByteView data) {
+        if (drop_conn) return;  // over the range cap: ignore the rest of the packet
         if (conn == nullptr) {
             std::string key("k");  // non-empty even for a zero-length DCID
             key.append(reinterpret_cast<const char*>(info.dcid.data()), info.dcid_len);
@@ -312,10 +311,20 @@ ByteView QuicCryptoAssembler::feed(ByteView udp_payload, std::chrono::steady_clo
             conn->last_seen = now;
             last_key_ = key;
         }
-        add_fragment_(*conn, offset, data);
+        if (!add_fragment_(*conn, offset, data)) {
+            drop_conn = true;
+        }
     };
 
     if (!decrypt_initial_datagram(udp_payload, info, on_crypto, scratch_) || conn == nullptr) {
+        return ByteView();
+    }
+    if (drop_conn) {
+        auto it = index_.find(last_key_);
+        if (it != index_.end()) {
+            lru_.erase(it->second);
+            index_.erase(it);
+        }
         return ByteView();
     }
     if (conn->ranges.empty() || conn->ranges.front().first != 0) {
