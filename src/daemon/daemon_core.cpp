@@ -8,6 +8,7 @@
 #include <cerrno>
 #include <cstring>
 #include <ctime>
+#include <exception>
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
@@ -1343,7 +1344,14 @@ void Daemon::run_event_loop() {
     }
 
     for (int i = 0; i < nfds; ++i) {
-      dispatch_event_fd(events[i].data.fd, events[i].events);
+      const int fd = events[i].data.fd;  // packed struct: copy before use
+      try {
+        dispatch_event_fd(fd, events[i].events);
+      } catch (const std::exception &e) {
+        Logger::instance().error("Event handler for fd {} failed: {}", fd, e.what());
+      } catch (...) {
+        Logger::instance().error("Event handler for fd {} failed: unknown error", fd);
+      }
     }
   }
 }
@@ -1473,67 +1481,97 @@ void Daemon::run() {
   log.info("Daemon control plane running. PID: {}", getpid());
   post_control_task([this] { begin_startup_runtime(); }, "startup-runtime");
 
-  run_event_loop();
+  // Cleanup below must run even if the loop throws, or routes and firewall
+  // rules are left behind; the error is rethrown once cleanup is done.
+  std::exception_ptr loop_error;
+  try {
+    run_event_loop();
+  } catch (...) {
+    loop_error = std::current_exception();
+  }
+  const auto best_effort = [&log](const char *step, auto &&fn) {
+    try {
+      fn();
+    } catch (const std::exception &e) {
+      log.error("Shutdown step '{}' failed: {}", step, e.what());
+    } catch (...) {
+      log.error("Shutdown step '{}' failed: unknown error", step);
+    }
+  };
 
   log.info("Shutting down...");
-  transition_runtime_or_throw(RuntimeState::shutting_down, "daemon shutdown");
+  best_effort("runtime state", [this] {
+    transition_runtime_or_throw(RuntimeState::shutting_down, "daemon shutdown");
+  });
   publish_runtime_state();
   event_loop_active_.store(false, std::memory_order_release);
   event_loop_thread_id_.store(std::thread::id{}, std::memory_order_relaxed);
   accept_posted_control_tasks_.store(false, std::memory_order_release);
-  lifecycle_executor_.shutdown();
-  routing_test_executor_.shutdown();
-  blocking_executor_.shutdown();
+  best_effort("executors", [this] {
+    lifecycle_executor_.shutdown();
+    routing_test_executor_.shutdown();
+    blocking_executor_.shutdown();
+  });
 
 #ifdef WITH_API
-  if (status_stream_) {
-    status_stream_->close_all();
-  }
-  if (dns_test_broadcaster_) {
-    dns_test_broadcaster_->close_all();
-  }
-  if (api_server_) {
-    api_server_->stop();
-  }
+  best_effort("api", [this] {
+    if (status_stream_) {
+      status_stream_->close_all();
+    }
+    if (dns_test_broadcaster_) {
+      dns_test_broadcaster_->close_all();
+    }
+    if (api_server_) {
+      api_server_->stop();
+    }
+  });
 #endif
 
-  if (urltest_manager_) {
-    urltest_manager_->clear();
-  }
-  pending_urltest_conntrack_cleanup_.clear();
-  scheduler_->cancel_all();
-  const uint32_t mark_mask =
-      fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
-  std::set<uint32_t> owned_marks;
-  for (const auto &[tag, mark] : outbound_marks_) {
-    (void)tag;
-    owned_marks.insert(mark);
-  }
+  best_effort("scheduler", [this] {
+    if (urltest_manager_) {
+      urltest_manager_->clear();
+    }
+    pending_urltest_conntrack_cleanup_.clear();
+    scheduler_->cancel_all();
+  });
   // Process supervisors (procd: ~5 s) SIGKILL a daemon that is slow to exit,
   // which would leave the firewall rules behind.  Everything below is
   // best-effort cleanup, so bound each external command tightly and give the
   // conntrack flush (which can be slow on a large table) a shared budget.
   set_safe_exec_timeouts(std::chrono::milliseconds{1500},
                          std::chrono::milliseconds{200});
-  const auto conntrack_deadline =
-      std::chrono::steady_clock::now() + std::chrono::milliseconds{2000};
-  for (uint32_t mark : owned_marks) {
-    if (std::chrono::steady_clock::now() >= conntrack_deadline) {
-      log.warn("Skipping remaining conntrack cleanup: shutdown time budget exhausted");
-      break;
+  best_effort("conntrack", [this, &log] {
+    const uint32_t mark_mask =
+        fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
+    std::set<uint32_t> owned_marks;
+    for (const auto &[tag, mark] : outbound_marks_) {
+      (void)tag;
+      owned_marks.insert(mark);
     }
-    if (!conntrack_manager_.delete_mark(mark, mark_mask)) {
-      log.warn("Best-effort conntrack cleanup failed for mark {:#x}/{:#x}",
-               mark, mark_mask);
+    const auto conntrack_deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds{2000};
+    for (uint32_t mark : owned_marks) {
+      if (std::chrono::steady_clock::now() >= conntrack_deadline) {
+        log.warn("Skipping remaining conntrack cleanup: shutdown time budget exhausted");
+        break;
+      }
+      if (!conntrack_manager_.delete_mark(mark, mark_mask)) {
+        log.warn("Best-effort conntrack cleanup failed for mark {:#x}/{:#x}",
+                 mark, mark_mask);
+      }
     }
-  }
-  policy_rules_.clear();
-  route_table_.clear();
-  firewall_->cleanup();
+  });
+  best_effort("policy rules", [this] { policy_rules_.clear(); });
+  best_effort("route table", [this] { route_table_.clear(); });
+  best_effort("firewall", [this] { firewall_->cleanup(); });
   // Rules first, then unbind the queue (see quiesce_intercept_service).
-  stop_intercept_service();
+  best_effort("interception", [this] { stop_intercept_service(); });
   firewall_state_.clear_active_firewall();
   remove_pid_file();
+
+  if (loop_error) {
+    std::rethrow_exception(loop_error);
+  }
 }
 
 void Daemon::stop() { running_.store(false, std::memory_order_release); }
