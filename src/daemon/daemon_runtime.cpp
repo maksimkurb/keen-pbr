@@ -395,34 +395,14 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
     auto applied_sets = active.plan.sets;
     firewall_state_.publish_active_firewall(std::move(active));
     (void)conntrack_manager_.reconcile(conntrack_policy);
-    // Only after the apply that created the sets succeeded.
+    // Only after the apply that created the sets succeeded.  Whether the
+    // daemon can write the dynamic sets (set write, nft timeout update) is a
+    // kernel capability, measured once at service start on a scratch set; the
+    // writers report runtime write errors and health shows them, so the apply
+    // does not test the freshly created sets again.
     if (intercept.active()) {
-        // Functional check that the daemon can really write the dynamic sets
-        // the apply just created.  A failure here must not leave queue/log
-        // rules pointing at a listener that cannot do its job: detach them
-        // (never failing the apply itself) and report why.
-        const auto set_write = probe_intercept_set_write(firewall_->backend(), applied_sets);
-        nfnl::ProbeResult timeout_update;
-        if (!set_write.blocks()) {
-            timeout_update = probe_intercept_nft_timeout_update(firewall_->backend(), applied_sets);
-        }
-        record_intercept_set_write_probe(intercept, set_write, timeout_update);
-        if (!intercept.active()) {
-            Logger::instance().warn(
-                "Interception disabled: set write probe failed ({}); detaching interception rules",
-                set_write.reason);
-            try {
-                quiesce_intercept_service(owned_main_routes, interfaces, balance_candidates,
-                                          config_, outbound_marks_);
-            } catch (const std::exception& error) {
-                Logger::instance().error(
-                    "Could not detach interception after a failed set write probe: {}",
-                    error.what());
-            }
-        } else {
-            schedule_intercept_snapshot_update(std::move(applied_sets), intercept);
-            rebind_guard.rebound = true;
-        }
+        schedule_intercept_snapshot_update(std::move(applied_sets), intercept);
+        rebind_guard.rebound = true;
     }
 }
 
@@ -1150,8 +1130,9 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
     }
 
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
-    // A config change may alter the interception setup: probe again.
-    intercept_capabilities_stale_ = true;
+    // A config change may alter the interception setup: retry listener binds
+    // that failed.  Capabilities are not probed again (cached from start).
+    intercept_listener_results_.forget_blocking_listener_results();
 
     if (lists_autoupdate_task_id_ >= 0) {
         scheduler_->cancel(lists_autoupdate_task_id_);

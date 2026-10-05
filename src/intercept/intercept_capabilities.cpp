@@ -196,6 +196,15 @@ void InterceptRuntimeProbe::carry_forward(const InterceptRuntimeProbe& previous)
     keep(timeout_update, previous.timeout_update);
 }
 
+void InterceptRuntimeProbe::forget_blocking_listener_results() {
+    if (nfqueue.blocks()) {
+        nfqueue = {};
+        fail_open = {};
+        replacement = nfnl::ReplacementCapability::unknown;
+    }
+    if (nflog.blocks()) nflog = {};
+}
+
 namespace {
 // Prefers an IPv4 dynamic set; the element is a reserved documentation address.
 const FirewallSetDeclaration* choose_probe_set(const std::vector<FirewallSetDeclaration>& sets) {
@@ -256,6 +265,63 @@ nfnl::ProbeResult probe_intercept_set_write(FirewallBackend backend,
     return result;
 }
 
+namespace {
+constexpr const char* kScratchNftTable = "KeenPbrProbe";
+constexpr const char* kScratchSetName = "kpbr4d_keenpbrprobe";
+
+bool create_scratch_set(FirewallBackend backend, const InterceptProbeEnv& env) {
+    if (env.create_scratch_set) return env.create_scratch_set();
+    if (backend == FirewallBackend::nftables) {
+        // Same shape as the daemon's dynamic sets: plain timeout set.
+        return safe_exec_pipe_stdin({"nft", "-f", "-"},
+                                    std::string("table inet ") + kScratchNftTable +
+                                        " {\n set " + kScratchSetName +
+                                        " {\n type ipv4_addr\n flags timeout\n }\n}\n") == 0;
+    }
+    // No -exist: a set of that name already there is not ours to touch.
+    return safe_exec({"ipset", "create", kScratchSetName, "hash:net", "family", "inet",
+                      "timeout", "0"},
+                     /*suppress_output=*/true) == 0;
+}
+
+void destroy_scratch_set(FirewallBackend backend, const InterceptProbeEnv& env) {
+    if (env.destroy_scratch_set) {
+        env.destroy_scratch_set();
+        return;
+    }
+    if (backend == FirewallBackend::nftables) {
+        (void)safe_exec({"nft", "delete", "table", "inet", kScratchNftTable},
+                        /*suppress_output=*/true);
+    } else {
+        (void)safe_exec({"ipset", "destroy", kScratchSetName}, /*suppress_output=*/true);
+    }
+}
+} // namespace
+
+SetFeatureProbe probe_intercept_scratch_set(FirewallBackend backend,
+                                            const InterceptProbeEnv& env) {
+    SetFeatureProbe out;
+    if (!env.runtime_probes) return out;
+    if (!create_scratch_set(backend, env)) {
+        const auto skipped = nfnl::make_probe_result(
+            nfnl::ProbeStatus::skipped, "could not create a scratch set to test against");
+        out.set_write = skipped;
+        if (backend == FirewallBackend::nftables) out.timeout_update = skipped;
+        return out;
+    }
+    InterceptProbeEnv scratch = env;
+    scratch.nft_table = kScratchNftTable;
+    const std::vector<FirewallSetDeclaration> sets{
+        {kScratchSetName, FirewallFamily::ipv4, 0}};
+    out.set_write = probe_intercept_set_write(backend, sets, scratch);
+    // A kernel that cannot write sets at all cannot update timeouts either.
+    if (!out.set_write.blocks()) {
+        out.timeout_update = probe_intercept_nft_timeout_update(backend, sets, scratch);
+    }
+    destroy_scratch_set(backend, env);
+    return out;
+}
+
 void load_intercept_modules(FirewallBackend backend, const InterceptProbeEnv& env) {
     if (!env.load_modules) return;
     // Best effort, failures ignored: the netlink subsystems are not always
@@ -308,6 +374,27 @@ InterceptCapabilities probe_intercept_capabilities(FirewallBackend backend,
         Logger::instance().warn("Interception capability probe: {}", caps.reason);
     }
     return caps;
+}
+
+InterceptStartupProbe probe_intercept_startup(FirewallBackend backend, bool ipv6_supported,
+                                              const InterceptProbeEnv& env) {
+    InterceptStartupProbe out;
+    out.with_ipv6 = probe_intercept_capabilities(backend, ipv6_supported, env);
+    const SetFeatureProbe features = probe_intercept_scratch_set(backend, env);
+    out.with_ipv6.probe.set_write = features.set_write;
+    out.with_ipv6.probe.timeout_update = features.timeout_update;
+    if (!ipv6_supported) {
+        out.ipv4_only = out.with_ipv6;
+        return out;
+    }
+    // Same kernel, same functional probes; only the /proc requirement of the
+    // IPv6 half differs.  Reading /proc spawns nothing and loads nothing.
+    InterceptProbeEnv v4_env = env;
+    v4_env.load_modules = false;
+    v4_env.runtime_probes = false;
+    out.ipv4_only = probe_intercept_capabilities(backend, false, v4_env);
+    out.ipv4_only.probe = out.with_ipv6.probe;
+    return out;
 }
 
 bool enable_conntrack_accounting(const std::string& path) {

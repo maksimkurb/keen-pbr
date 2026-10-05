@@ -1408,16 +1408,12 @@ void Daemon::fail_startup_runtime(std::string error) {
 void Daemon::begin_startup_runtime() {
   auto &log = Logger::instance();
   try {
-    // The one kernel check for load balancing, at service start: later
-    // applies only read this answer.  Nothing is installed yet, so an
-    // unusable balance config fails startup cleanly instead of leaving static
-    // routing behind a failed firewall.
-    if (firewall_->backend() == FirewallBackend::iptables) {
-      const bool statistic = probe_iptables_statistic();
-      record_iptables_statistic_capability(statistic);
-      log.info("iptables statistic match (xt_statistic): {}",
-               statistic ? "available" : "unavailable");
-    }
+    // Every kernel/system capability check runs here, once, before anything
+    // is installed: later applies, refreshes and re-binds only read the
+    // answers.  A missing required tool or an unusable balance config fails
+    // startup cleanly instead of leaving static routing behind a failed
+    // firewall.
+    probe_capabilities_at_start();
     require_balance_support(config_);
     const auto main_routes = netlink_.dump_routes_in_table(254);
     setup_static_routing(&main_routes);

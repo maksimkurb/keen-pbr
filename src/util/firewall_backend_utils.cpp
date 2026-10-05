@@ -1,21 +1,10 @@
 #include "firewall_backend_utils.hpp"
 
-#include "safe_exec.hpp"
+#include "kernel_capabilities.hpp"
 
 namespace keen_pbr3 {
 
 namespace {
-
-const char* firewall_backend_command(FirewallBackend backend) {
-    switch (backend) {
-        case FirewallBackend::iptables:
-            return "iptables";
-        case FirewallBackend::nftables:
-            return "nft";
-    }
-
-    throw FirewallError("Unexpected firewall backend value");
-}
 
 #ifdef KEEN_PBR3_TESTING
 std::optional<FirewallBackend>& detected_firewall_backend_override_for_tests() {
@@ -27,7 +16,9 @@ std::optional<FirewallBackend>& detected_firewall_backend_override_for_tests() {
 } // namespace
 
 bool firewall_backend_command_exists(FirewallBackend backend) {
-    return safe_exec({"which", firewall_backend_command(backend)}, /*suppress_output=*/true) == 0;
+    // Cached PATH lookup from service start; no process is started.
+    const HostTools& tools = host_tools();
+    return backend == FirewallBackend::nftables ? tools.nft : tools.iptables;
 }
 
 FirewallBackend detect_firewall_backend() {

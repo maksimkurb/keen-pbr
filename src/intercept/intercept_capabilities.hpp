@@ -44,6 +44,13 @@ struct InterceptRuntimeProbe {
     // and replacement travel with a non-blocking nfqueue (same bind; a
     // blocking fail_open only warns).
     void carry_forward(const InterceptRuntimeProbe& previous);
+
+    // Forgets listener verdicts that blocked (a failed queue/group bind) so the
+    // next bind is tried again.  Kernel facts probed at service start are never
+    // touched, nothing is probed: a bind failure is not a capability verdict,
+    // it only says that bind did not work.  fail_open and replacement go with
+    // the nfqueue bind they came from.
+    void forget_blocking_listener_results();
 };
 
 // What the kernel offers for traffic interception.  `nfqueue` includes the
@@ -75,6 +82,12 @@ struct InterceptProbeEnv {
     // probes; all modprobe calls are skipped.  Set to true for the first probe
     // after daemon startup, false for subsequent re-probes.
     bool load_modules{true};
+    // Creates / removes the throw-away dynamic set the set-write and
+    // timeout-update probes run against.  Empty: `ipset create|destroy` (iptables)
+    // or `nft` with a scratch table (nftables).  create returns false when the
+    // set cannot be created (the probes are then `skipped`, never `error`).
+    std::function<bool()> create_scratch_set;
+    std::function<void()> destroy_scratch_set;
     // Transport factory for the probes; empty: a fresh NETLINK_NETFILTER socket.
     // May throw nfnl::NlSocketError, which is reported as a probe error.
     std::function<std::unique_ptr<nfnl::SetWriterTransport>()> make_transport;
@@ -94,8 +107,39 @@ InterceptCapabilities probe_intercept_capabilities(FirewallBackend backend,
                                                    bool ipv6_enabled,
                                                    const InterceptProbeEnv& env = {});
 
-// Functional test that the daemon can write the dynamic sets the firewall just
-// created: adds and removes a reserved documentation address (192.0.2.255 /
+// What the daemon measures once at service start for interception.  Both
+// variants share one set of functional probes; they differ only in whether the
+// IPv6 half of the iptables modules is required, so a later `daemon.ipv6_enabled`
+// toggle picks the matching one without probing again.
+struct InterceptStartupProbe {
+    InterceptCapabilities with_ipv6;  // IPv4 + IPv6 requirements (== ipv4_only when IPv6 is unusable)
+    InterceptCapabilities ipv4_only;
+    const InterceptCapabilities& for_ipv6(bool ipv6_enabled) const {
+        return ipv6_enabled ? with_ipv6 : ipv4_only;
+    }
+};
+
+// The one interception probe: modprobe (first and only time), /proc reads,
+// netlink set-backend and conntrack checks, and the set-write and nft
+// timeout-update checks on a throw-away set (see probe_intercept_scratch_set).
+InterceptStartupProbe probe_intercept_startup(FirewallBackend backend, bool ipv6_supported,
+                                              const InterceptProbeEnv& env = {});
+
+// Set-write and nft timeout-update probes against a scratch dynamic set that
+// only this probe owns (`ipset create kpbr4d_keenpbrprobe` / nft table
+// KeenPbrProbe), removed again afterwards.  Replaces the per-apply check on the
+// real sets: the capability under test is the kernel's, so it is measured once
+// at service start.  `skipped` (never blocking) when the scratch set cannot be
+// created.  Never throws.
+struct SetFeatureProbe {
+    nfnl::ProbeResult set_write;
+    nfnl::ProbeResult timeout_update;
+};
+SetFeatureProbe probe_intercept_scratch_set(FirewallBackend backend,
+                                            const InterceptProbeEnv& env = {});
+
+// Functional test that the daemon can write a dynamic set: adds and removes a
+// reserved documentation address (192.0.2.255 /
 // 2001:db8::ffff, 1 s timeout) on one `kpbr4d_*` / `kpbr6d_*` set.  `skipped`
 // when `sets` holds no dynamic set.  Never throws.
 nfnl::ProbeResult probe_intercept_set_write(FirewallBackend backend,

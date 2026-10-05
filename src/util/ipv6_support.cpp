@@ -2,6 +2,7 @@
 
 #include "../log/logger.hpp"
 #include "firewall_backend_utils.hpp"
+#include "kernel_capabilities.hpp"
 #include "safe_exec.hpp"
 
 #include <sys/socket.h>
@@ -40,17 +41,10 @@ bool firewall_ipv6_supported(const Config& config) {
     try {
         const FirewallBackend backend =
             resolve_firewall_backend(firewall_backend_preference(config));
-        if (backend == FirewallBackend::iptables) {
-            return iptables_ipv6_supported();
-        }
-        if (backend == FirewallBackend::nftables) {
-            return nft_ipv6_supported();
-        }
+        return kernel_capabilities()->firewall_ipv6(backend);
     } catch (const std::exception&) {
         return true;
     }
-
-    return true;
 }
 
 Ipv6SupportDecision resolve_ipv6_support(const Config& config) {
@@ -60,7 +54,8 @@ Ipv6SupportDecision resolve_ipv6_support(const Config& config) {
         return {false, Ipv6SupportDecision::Reason::DisabledByConfig};
     }
 
-    if (!system_ipv6_supported() || !firewall_ipv6_supported(config)) {
+    // Reads the answers probed at service start; spawns nothing.
+    if (!kernel_capabilities()->system_ipv6 || !firewall_ipv6_supported(config)) {
         return {false, Ipv6SupportDecision::Reason::UnsupportedBySystem};
     }
 

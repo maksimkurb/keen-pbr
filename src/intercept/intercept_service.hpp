@@ -179,9 +179,8 @@ private:
     std::atomic<bool> snapshot_ready_{false};
     std::atomic<bool> dns_bound_{false};
     std::atomic<bool> l7_bound_{false};
-    // Set once the kernel is seen to refuse or ignore the ctnetlink dump
-    // pre-filter; later cleanups then go straight to the userspace-filtered dump.
-    std::atomic<bool> ct_kernel_filter_unsupported_{false};
+    // Whether the kernel refuses/ignores the ctnetlink dump pre-filter is a
+    // process-wide kernel fact (nfnl::conntrack_kernel_filter_unsupported()).
     InterceptRuntimeProbe listener_probe_;
     bool replacement_allowed_{false};
     uint32_t max_packet_id_{0};

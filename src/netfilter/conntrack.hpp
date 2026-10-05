@@ -134,6 +134,22 @@ private:
 // request strictly); the caller retries without it.
 bool conntrack_kernel_filter_refused(int error);
 
+// Whether the kernel's ctnetlink dump pre-filter (source address) is unusable:
+// refused, or ignored (entries of other clients came back).  A property of the
+// kernel, learned once per process and shared by every cleanup: at service
+// start by probe_conntrack_kernel_filter(), otherwise by the first cleanup that
+// notices.  Only a definite answer is remembered.
+bool conntrack_kernel_filter_unsupported();
+void note_conntrack_kernel_filter_unsupported();
+// Dumps IPv4 conntrack with a pre-filter on a documentation address; records
+// "unsupported" when the kernel refuses it or returns other clients' entries
+// (the latter needs a non-empty table; otherwise the first cleanup learns it).
+// Never throws.
+void probe_conntrack_kernel_filter();
+#ifdef KEEN_PBR3_TESTING
+void reset_conntrack_kernel_filter_state_for_tests();
+#endif
+
 // Userspace scope of a cleanup: original tuple client -> one of `dsts`
 // (addresses in the first 4 or 16 bytes).  This is the single predicate that
 // decides what may be deleted, regardless of the kernel pre-filter.

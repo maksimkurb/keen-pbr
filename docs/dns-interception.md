@@ -413,6 +413,14 @@ therefore exercises each primitive and reports the result in
 `intercept.probes` of `GET /api/health/service`. Nothing here touches user
 traffic and a probe never fails a configuration apply.
 
+All kernel and system capability checks run **once, at service start** (the
+snapshot in `util/kernel_capabilities.hpp` plus the interception probe), before
+anything is installed. Applies, interface refreshes, listener re-binds and
+configuration changes only read the cached answers; there is no re-probe (a kernel
+change needs a reboot, a missing tool a restart). The only per-bind facts are the
+listener results (`nfqueue`, `fail_open`, `nflog`): a failed bind is forgotten on the
+next re-bind or configuration apply and retried, nothing is probed again.
+
 | Probe | Request | Result |
 |---|---|---|
 | `set_backend` | ipset: `IPSET_CMD_PROTOCOL` (needs a reply of at least protocol 6). nftables: a batched `NEWSETELEM` against a set that does not exist (`ENOENT` proves nf_tables answers; `EOPNOTSUPP`/`EINVAL` means it does not) | `unsupported`/`error` disables DNS hold and L7 |
@@ -421,14 +429,14 @@ traffic and a probe never fails a configuration apply.
 | `gso` | `NFQA_CFG_FLAGS(GSO)` in a separate request after the bind | failure (`EOPNOTSUPP` on 3.6-3.9) is ignored; never disables anything |
 | `payload_replacement` | `NS_GET_USERNS` owner of the network namespace | `supported`, `unsupported` or `unknown`; informational |
 | `nflog` | bind of the configured group, done by the service itself | failure disables L7 only |
-| `set_write` | after the firewall created the sets: add and delete of `192.0.2.255` / `2001:db8::ffff` with a 1 s timeout on one `kpbr4d_*`/`kpbr6d_*` set (ipset `ADD`/`DEL`, nft `NEWSETELEM`/`DELSETELEM`) | failure removes the interception rules again and disables DNS hold and L7; `skipped` when no dynamic set exists |
-| `nft_timeout_update` | nftables only, after `set_write` succeeded: on one dynamic set, delete any leftover of `192.0.2.254` / `2001:db8::fffe`, add it with a 5 s timeout, send the in-place refresh (non-exclusive `NEWSETELEM`, timeout and expiration 300 s), read the expiration back with `GETSETELEM` and delete the element again. `ok` only when the remaining expiration is above 10 s | `unsupported`/`error`: the writer keeps the delete+add refresh; never disables anything; `skipped` without a dynamic set, `not_run` for ipset |
+| `set_write` | at service start, on a scratch set owned by the probe (`kpbr4d_keenpbrprobe` ipset / nft table `KeenPbrProbe`, removed afterwards): add and delete of `192.0.2.255` / `2001:db8::ffff` with a 1 s timeout on (ipset `ADD`/`DEL`, nft `NEWSETELEM`/`DELSETELEM`); writes to the real sets are not re-tested per apply, the writer reports runtime errors | failure disables DNS hold and L7 before any rule is attached; `skipped` when the scratch set cannot be created |
+| `nft_timeout_update` | nftables only, after `set_write` succeeded: on the scratch set, delete any leftover of `192.0.2.254` / `2001:db8::fffe`, add it with a 5 s timeout, send the in-place refresh (non-exclusive `NEWSETELEM`, timeout and expiration 300 s), read the expiration back with `GETSETELEM` and delete the element again. `ok` only when the remaining expiration is above 10 s | `unsupported`/`error`: the writer keeps the delete+add refresh; never disables anything; `skipped` without a dynamic set, `not_run` for ipset |
 | `conntrack` | a ctnetlink dump request, abandoned after the first reply | failure disables conntrack cleanup only (warning) |
 
 `kernel_release` (`uname -r`) is reported for information and is never used to
-decide anything. A failed probe is cached until the next runtime refresh
-(which includes `SIGUSR1`) or configuration change, so a kernel that
-rejects a listener is not retried on every apply.
+decide anything. The ctnetlink dump pre-filter and NFQUEUE GSO are probed at
+start as well (a spare queue is bound for GSO); when that cannot give a
+definite answer the first real use learns it once, process-wide.
 
 ## Health and diagnostics
 
@@ -441,9 +449,8 @@ lists the functional [probe results](#runtime-probes) in `probes`
 and the kernel release and ipset protocol, and exposes counters such as DNS packets/parse errors/hold timeouts, partial TCP,
 NFQUEUE/NFLOG overruns, set additions/errors, set cache hits/misses/entries,
 deferred and dropped refreshes, and conntrack requests/deletes.
-`SIGUSR1` schedules a runtime refresh and clears the cached interception
-capability probe before reapplying the runtime state, so newly available kernel
-facilities are rechecked.
+`SIGUSR1` schedules a runtime refresh; it does not re-probe kernel facilities
+(they are measured once at service start).
 
 `GET /api/dns/test` is an SSE stream, not the removed probe listener. Its
 default `show=keen-pbr` view delivers marker events and closes after a matching

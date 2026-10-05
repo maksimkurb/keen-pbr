@@ -372,6 +372,7 @@ set(SOURCES
   src/util/firewall_backend_utils.cpp
   src/util/hostname_validation.cpp
   src/util/ipv6_support.cpp
+  src/util/kernel_capabilities.cpp
   src/util/system_info.cpp
   src/util/traced_mutex.cpp
   src/main.cpp

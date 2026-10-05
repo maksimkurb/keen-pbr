@@ -551,7 +551,7 @@ void InterceptService::cleanup_client(uint8_t family, const std::array<uint8_t, 
 
     // Dump only the client's flows when the kernel can filter by source;
     // otherwise the whole table is dumped and filtered in userspace.
-    bool use_kernel_filter = !ct_kernel_filter_unsupported_.load(std::memory_order_relaxed);
+    bool use_kernel_filter = !nfnl::conntrack_kernel_filter_unsupported();
     std::vector<nfnl::ConntrackEntry> entries;
     for (;;) {
         options.kernel_filter.reset();
@@ -565,7 +565,7 @@ void InterceptService::cleanup_client(uint8_t family, const std::array<uint8_t, 
              (dump.complete() && dump.kernel_filter_mismatches() != 0))) {
             // Refused (strict old kernel) or ignored (the kernel sent entries of
             // other clients): remember it and redo this cleanup unfiltered.
-            ct_kernel_filter_unsupported_.store(true, std::memory_order_relaxed);
+            nfnl::note_conntrack_kernel_filter_unsupported();
             Logger::instance().debug(
                 "intercept: ctnetlink dump pre-filter not supported, using a full dump");
             use_kernel_filter = false;

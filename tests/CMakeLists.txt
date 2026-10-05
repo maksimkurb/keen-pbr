@@ -41,6 +41,7 @@ add_executable(keen-pbr-tests
   test_balance_classifier_state.cpp
   test_rebind_backoff.cpp
   test_kernel_probe.cpp
+  test_kernel_capabilities.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
   test_list_streamer.cpp
@@ -189,6 +190,7 @@ add_executable(keen-pbr-tests
   ../src/util/firewall_backend_utils.cpp
   ../src/util/hostname_validation.cpp
   ../src/util/ipv6_support.cpp
+  ../src/util/kernel_capabilities.cpp
   ../src/util/system_info.cpp
   ../src/util/traced_mutex.cpp
   ../src/routing/policy_rule.cpp

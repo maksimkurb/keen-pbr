@@ -207,6 +207,11 @@ private:
       std::optional<RemoteListsRefreshResult> refresh_result,
       std::string error);
   void fail_startup_runtime(std::string error);
+  // The one place kernel/system capabilities are measured (service start):
+  // required tools, the shared KernelCapabilities snapshot, the interception
+  // probe, conntrack filter and NFQUEUE GSO.  Later code only reads the results.
+  // Throws DaemonError when a tool the selected backend needs is missing.
+  void probe_capabilities_at_start();
   // Rejects a balance config the active firewall backend cannot realize
   // (iptables without xt_statistic) before anything is mutated.
   void require_balance_support(const Config &config) const;
@@ -234,11 +239,6 @@ private:
   // payload replacement, nflog) into `effective` and the capability cache.
   void fold_intercept_listener_probe(InterceptEffective &effective,
                                      const InterceptService &service);
-  // Folds the post-apply set write probe into `effective` (published for
-  // health) and caches it so later resolves honor it until it is re-measured.
-  void record_intercept_set_write_probe(InterceptEffective &effective,
-                                        const nfnl::ProbeResult &set_write,
-                                        const nfnl::ProbeResult &timeout_update);
   // Applies the firewall without interception rules, then stops the service.
   void quiesce_intercept_service(
       const std::vector<DumpedRoute> &main_routes,
@@ -468,18 +468,17 @@ IcmpTester icmp_tester_;
   bool intercept_rebind_in_progress_{false};
   int intercept_rebind_task_id_{-1};
   InterceptServiceOptions intercept_service_options_;
-  std::optional<InterceptCapabilities> intercept_capabilities_;
+  // Interception capabilities measured once at service start (immutable
+  // afterwards); resolve_intercept_effective only reads them.
+  std::optional<InterceptStartupProbe> intercept_startup_probe_;
+  // What the listener binds revealed (queue/group bind, fail-open, payload
+  // replacement).  Not a kernel capability: a blocking result is forgotten on a
+  // re-bind or config apply so the bind is retried, without any probing.
+  InterceptRuntimeProbe intercept_listener_results_;
   // Shared with the nft set writers: true while the nft_timeout_update probe
   // proved the kernel extends an existing element's timeout in place.
   std::shared_ptr<std::atomic<bool>> nft_timeout_update_ =
       std::make_shared<std::atomic<bool>>(false);
-  bool intercept_capabilities_ipv6_{true};
-  // Set by config applies and runtime refreshes: the next resolve re-probes,
-  // carrying forward checks whose stage does not run again.
-  bool intercept_capabilities_stale_{false};
-  // True after the first capability probe completes (which includes modprobe).
-  // Later probes skip modprobe.
-  bool intercept_modules_loaded_{false};
   std::atomic<std::uint64_t> intercept_snapshot_seq_{0};
   std::uint64_t intercept_forwarded_seq_{0};
   int intercept_event_task_id_{-1};

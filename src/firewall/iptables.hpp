@@ -64,6 +64,11 @@ public:
   // `ipv6_backend` likewise replaces the ip6tables availability probe.  The
   // comment override also applies at once, so expected_ruleset() can be
   // built without prepare_apply() (which inspects the live system).
+  // xt_comment support of one family: /proc registration plus the restore
+  // grammar check.  Run once at service start (probe_kernel_capabilities);
+  // prepare_apply only reads that answer.
+  static bool probe_xt_comment_support(bool ipv6);
+
   void override_capabilities_for_fixtures(
       std::optional<bool> comments_supported,
       std::optional<RawPreroutingMode> raw_prerouting,
@@ -155,12 +160,11 @@ private:
                      const PhysicalRuleset &rules,
                      const std::string &observed_dump);
   FirewallLoweringContext lowering_context(uint32_t fwmark_mask) const;
-  bool probe_xt_comment(bool ipv6) const;
   // Probe a caller-supplied registration file before running the restore
   // grammar check.  The path parameter is an injectable seam for tests;
   // production always supplies the corresponding /proc/net file.
-  bool probe_xt_comment_from_registration(
-      bool ipv6, const std::string &registration_path) const;
+  static bool probe_xt_comment_from_registration(
+      bool ipv6, const std::string &registration_path);
   static bool has_xt_comment_registration(const std::string &contents);
   bool comments_supported_for_family(bool ipv6) const {
     return ipv6 ? comment_v6_supported_ : comment_v4_supported_;
@@ -222,19 +226,15 @@ std::string render_iptables_rule(const PhysicalRule &rule,
                                  const std::string &chain);
 
 // xt_statistic (`-m statistic --mode random`), needed by iptables load
-// balancing.  Kernel checks run once, at service start: the daemon calls
-// probe_iptables_statistic() (a throw-away `iptables-restore --test`; the
-// kernel may autoload the module during it, no modprobe of our own) and keeps
-// the answer with record_iptables_statistic_capability().  Everything after
-// that only reads the stored answer.  The match is registered for IPv4 and
-// IPv6 by one module, so IPv4 is probed.
+// balancing.  Probed once with the rest of the kernel capabilities
+// (probe_kernel_capabilities; a throw-away `iptables-restore --test`, the
+// kernel may autoload the module during it, no modprobe of our own).  The match
+// is registered for IPv4 and IPv6 by one module, so IPv4 is probed.
 bool probe_iptables_statistic();
-void record_iptables_statistic_capability(bool available);
-void reset_iptables_statistic_capability_for_tests();
 
 // Pre-mutation gate: throws FirewallError naming xt_statistic when
 // `uses_balance` on the iptables backend and the startup probe found the
-// match unusable (or never ran, which needs a restart).  Probes nothing.
+// match unusable.  Reads the snapshot; probes nothing.
 void require_iptables_balance_support(FirewallBackend backend,
                                       bool uses_balance);
 

@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/cache/cache_manager.hpp"
+#include "../src/util/kernel_capabilities.hpp"
 #include "../src/firewall/firewall_runtime.hpp"
 #include "../src/lists/list_entry_visitor.hpp"
 #include "../src/util/ipv6_support.hpp"
@@ -1096,6 +1097,8 @@ TEST_CASE("RulesOnly validates the active plan IPv6 static set") {
   const std::string path = sandbox.string() + ":" +
                            (old_path == nullptr ? std::string{} : old_path);
   REQUIRE(setenv("PATH", path.c_str(), 1) == 0);
+  // Capabilities are probed once per process; probe again with the fake tools.
+  reset_kernel_capabilities_for_tests();
 
   const Config config = valid_inline_ipv6_list_config();
   const OutboundMarkMap marks{{"wan", 1}};
@@ -1128,6 +1131,7 @@ TEST_CASE("RulesOnly validates the active plan IPv6 static set") {
   CHECK(states.front().set_names ==
         std::vector<std::string>{"kpbr4_remote", "kpbr6_remote"});
   std::filesystem::remove_all(sandbox);
+  reset_kernel_capabilities_for_tests();
 }
 
 TEST_CASE("RulesOnly reuses dynamic timeout from the active plan") {

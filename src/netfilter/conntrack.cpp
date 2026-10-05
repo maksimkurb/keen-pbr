@@ -1,4 +1,5 @@
 #include "conntrack.hpp"
+
 #include "uapi_compat.hpp"
 
 #include <arpa/inet.h>
@@ -6,6 +7,7 @@
 #include <poll.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <cstring>
@@ -287,6 +289,41 @@ void build_conntrack_get(MsgBuilder& builder, uint32_t seq, ConntrackFamily fami
 
 bool conntrack_kernel_filter_refused(int error) {
     return error == EINVAL || error == EOPNOTSUPP || error == ENOSYS;
+}
+
+namespace {
+std::atomic<bool> g_kernel_filter_unsupported{false};
+} // namespace
+
+bool conntrack_kernel_filter_unsupported() {
+    return g_kernel_filter_unsupported.load(std::memory_order_relaxed);
+}
+
+void note_conntrack_kernel_filter_unsupported() {
+    g_kernel_filter_unsupported.store(true, std::memory_order_relaxed);
+}
+
+#ifdef KEEN_PBR3_TESTING
+void reset_conntrack_kernel_filter_state_for_tests() { g_kernel_filter_unsupported.store(false); }
+#endif
+
+void probe_conntrack_kernel_filter() {
+    try {
+        ConntrackOptions options;
+        // 192.0.2.1 (TEST-NET-1): no entry of a real client has it as source.
+        options.kernel_filter = ConntrackKernelFilter{{192, 0, 2, 1}};
+        options.filter = [](const ConntrackEntry&) { return false; };
+        ConntrackDump dump(ConntrackFamily::ipv4, options);
+        const auto give_up = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+        int rc = 0;
+        while (rc == 0 && std::chrono::steady_clock::now() < give_up) rc = dump.receive(100);
+        if ((rc < 0 && conntrack_kernel_filter_refused(dump.last_errno())) ||
+            (dump.complete() && dump.kernel_filter_mismatches() != 0)) {
+            note_conntrack_kernel_filter_unsupported();
+        }
+    } catch (const std::exception&) {
+        // No ctnetlink socket: nothing learned.
+    }
 }
 
 std::function<bool(const ConntrackEntry&)> make_client_destination_filter(

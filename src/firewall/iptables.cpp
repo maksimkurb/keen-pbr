@@ -5,6 +5,7 @@
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
 #include "../util/ipv6_support.hpp"
+#include "../util/kernel_capabilities.hpp"
 #include "../util/safe_exec.hpp"
 #include "ipset_restore_pipe.hpp"
 #include "port_spec_util.hpp"
@@ -120,18 +121,17 @@ void IptablesFirewall::prepare_apply(FirewallApplyMode mode) {
   prepared_mode_ = mode;
   apply_prepared_ = false;
 
-  // Probe the optional ownership-match extension before any mode can clean
-  // live chains, mutate ipsets, or publish a restore transaction.  IPv4 is
-  // always an active backend; IPv6 only needs probing when it is enabled and
-  // its backend is available.  Unsupported frontends simply omit comments.
-  comment_v4_supported_ = comments_override_.has_value()
-                              ? *comments_override_
-                              : probe_xt_comment(false);
-  comment_v6_supported_ =
-      comments_override_.has_value()
-          ? *comments_override_
-          : (!ipv6_enabled() || !ipv6_backend_available() ||
-             probe_xt_comment(true));
+  // The optional ownership-match extension was probed once at service start
+  // (probe_kernel_capabilities); apply only reads that answer.  IPv6 counts as
+  // supported when it is unused.  Unsupported frontends simply omit comments.
+  if (comments_override_.has_value()) {
+    comment_v4_supported_ = comment_v6_supported_ = *comments_override_;
+  } else {
+    const auto capabilities = kernel_capabilities();
+    comment_v4_supported_ = capabilities->xt_comment_v4;
+    comment_v6_supported_ = !ipv6_enabled() || !ipv6_backend_available() ||
+                            capabilities->xt_comment_v6;
+  }
 
   // RulesOnly preparation is deliberately inspection-only: it reuses the live
   // rules and sets, so the live PREROUTING chain must exist for each active
@@ -554,10 +554,10 @@ bool IptablesFirewall::ipv6_backend_available() const {
   if (ipv6_backend_override_.has_value()) {
     return *ipv6_backend_override_;
   }
-  return iptables_ipv6_supported();
+  return kernel_capabilities()->iptables_ipv6;
 }
 
-bool IptablesFirewall::probe_xt_comment(bool ipv6) const {
+bool IptablesFirewall::probe_xt_comment_support(bool ipv6) {
   const char *registration_path =
       ipv6 ? "/proc/net/ip6_tables_matches" : "/proc/net/ip_tables_matches";
   return probe_xt_comment_from_registration(ipv6, registration_path);
@@ -583,7 +583,7 @@ bool IptablesFirewall::has_xt_comment_registration(
 }
 
 bool IptablesFirewall::probe_xt_comment_from_registration(
-    bool ipv6, const std::string &registration_path) const {
+    bool ipv6, const std::string &registration_path) {
   // The proc registration is the only read-only evidence that the kernel has
   // the match registered.  Do not create a temporary rule: restore --test
   // does not commit and, on legacy backends, may skip the kernel commit path.
@@ -1312,11 +1312,6 @@ void IptablesFirewall::clear_pending() {
   apply_prepared_ = false;
 }
 
-namespace {
-// 0: not probed (service start has not run the probe), 1: usable, 2: unusable.
-std::atomic<int> g_statistic_state{0};
-} // namespace
-
 bool probe_iptables_statistic() {
   return safe_exec_pipe_stdin(
              {"iptables-restore", "--test", "--noflush"},
@@ -1327,31 +1322,15 @@ bool probe_iptables_statistic() {
              "COMMIT\n") == 0;
 }
 
-void record_iptables_statistic_capability(bool available) {
-  g_statistic_state.store(available ? 1 : 2, std::memory_order_release);
-}
-
-void reset_iptables_statistic_capability_for_tests() {
-  g_statistic_state.store(0, std::memory_order_release);
-}
-
 void require_iptables_balance_support(FirewallBackend backend,
                                       bool uses_balance) {
   if (!uses_balance || backend != FirewallBackend::iptables) return;
-  switch (g_statistic_state.load(std::memory_order_acquire)) {
-  case 1:
-    return;
-  case 2:
+  if (!kernel_capabilities()->xt_statistic) {
     throw FirewallError(
         "load balancing needs the iptables statistic match (kernel module "
         "xt_statistic), which the kernel could not use when the service "
         "started; install/enable xt_statistic and restart the service, or use "
         "the nftables backend");
-  default:
-    throw FirewallError(
-        "load balancing needs the iptables statistic match (kernel module "
-        "xt_statistic), which was not probed at service start; restart the "
-        "service");
   }
 }
 

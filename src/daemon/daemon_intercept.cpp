@@ -6,8 +6,11 @@
 #include "../intercept/intercept_report.hpp"
 #include "../intercept/intercept_snapshot_builder.hpp"
 #include "../log/logger.hpp"
+#include "../netfilter/conntrack.hpp"
+#include "../netfilter/nfqueue.hpp"
 #include "../netfilter/set_writer.hpp"
 #include "../util/ipv6_support.hpp"
+#include "../util/kernel_capabilities.hpp"
 #include "scheduler.hpp"
 #ifdef WITH_API
 #include "../api/handler_helpers.hpp"
@@ -53,43 +56,62 @@ void log_intercept_probe(const InterceptCapabilities& capabilities) {
 
 } // namespace
 
-void Daemon::record_intercept_set_write_probe(InterceptEffective& effective,
-                                              const nfnl::ProbeResult& set_write,
-                                              const nfnl::ProbeResult& timeout_update) {
-    apply_set_write_probe(effective, set_write);
-    apply_timeout_update_probe(effective, timeout_update);
-    // Only a positive, current answer enables the in-place refresh.
-    nft_timeout_update_->store(timeout_update.is_ok(), std::memory_order_relaxed);
-    if (intercept_capabilities_.has_value()) {
-        intercept_capabilities_->probe.set_write = set_write;
-        intercept_capabilities_->probe.timeout_update = timeout_update;
-    }
-    KPBR_LOCK_GUARD(intercept_mutex_);
-    intercept_effective_ = effective;
+void Daemon::probe_capabilities_at_start() {
+  auto &log = Logger::instance();
+  const FirewallBackend backend = firewall_->backend();
+  // Pure PATH lookups: which executables the selected backend needs.
+  const std::string missing = host_tools().missing_required(backend);
+  if (!missing.empty()) {
+    throw DaemonError(std::string("required tool(s) not found in PATH for the ") +
+                      firewall_backend_name(backend) + " firewall backend: " +
+                      missing + "; install them and restart the service");
+  }
+  // IPv6 support per backend, iptables xt_comment / xt_statistic.
+  const auto capabilities = kernel_capabilities();
+  const bool ipv6_supported = capabilities->system_ipv6 &&
+                              capabilities->firewall_ipv6(backend);
+
+  // Interception: modules, /proc, netlink set/conntrack checks and the
+  // set-write / nft timeout-update checks on a scratch set.
+  auto startup_probe = probe_intercept_startup(backend, ipv6_supported);
+  log_intercept_probe(startup_probe.with_ipv6);
+  nft_timeout_update_->store(startup_probe.with_ipv6.probe.timeout_update.is_ok(),
+                             std::memory_order_relaxed);
+  const bool queue_available = startup_probe.with_ipv6.nfqueue;
+  intercept_startup_probe_ = std::move(startup_probe);
+
+  // Kernel facts that need a netlink conversation: ctnetlink dump pre-filter
+  // and NFQUEUE GSO.  Both stay "unknown" when the probe cannot run and are
+  // then learned once by the first real use.
+  nfnl::probe_conntrack_kernel_filter();
+  if (queue_available) {
+    nfnl::probe_nfqueue_gso(static_cast<std::uint16_t>(
+        config_.intercept.value_or(InterceptConfig{}).dns
+            .value_or(InterceptDnsConfig{}).queue_num.value_or(9053)));
+  }
+  log.info("Kernel capability probes done; they are not repeated until restart "
+           "(conntrack pre-filter unsupported={}, NFQUEUE GSO rejected={})",
+           nfnl::conntrack_kernel_filter_unsupported(), nfnl::nfqueue_gso_rejected());
 }
 
 InterceptEffective Daemon::resolve_intercept_effective() {
     const FirewallBackend backend = firewall_->backend();
+    // Both inputs are answers cached at service start; nothing is probed here.
     const bool ipv6_enabled = resolve_ipv6_support(config_).enabled;
     InterceptCapabilities capabilities;
-    if (config_.intercept.value_or(InterceptConfig{}).enabled.value_or(true)) {
-        if (!intercept_capabilities_.has_value() || intercept_capabilities_stale_ ||
-            intercept_capabilities_ipv6_ != ipv6_enabled) {
-            InterceptProbeEnv env;
-            env.load_modules = !intercept_modules_loaded_;
-            auto fresh = probe_intercept_capabilities(backend, ipv6_enabled, env);
-            // Log only what this probe measured, before older verdicts are
-            // carried forward.
-            log_intercept_probe(fresh);
-            if (intercept_capabilities_.has_value()) {
-                fresh.probe.carry_forward(intercept_capabilities_->probe);
-            }
-            intercept_capabilities_ = std::move(fresh);
-            intercept_capabilities_ipv6_ = ipv6_enabled;
-            intercept_capabilities_stale_ = false;
-            intercept_modules_loaded_ = true;
+    if (config_.intercept.value_or(InterceptConfig{}).enabled.value_or(true) &&
+        intercept_startup_probe_.has_value()) {
+        capabilities = intercept_startup_probe_->for_ipv6(ipv6_enabled);
+        // Listener bind results are not kernel capabilities: they come from the
+        // binds this daemon did (see forget_blocking_listener_results).
+        auto& probe = capabilities.probe;
+        const auto& bound = intercept_listener_results_;
+        if (bound.nfqueue.status != nfnl::ProbeStatus::not_run) {
+            probe.nfqueue = bound.nfqueue;
+            probe.fail_open = bound.fail_open;
+            probe.replacement = bound.replacement;
         }
-        capabilities = *intercept_capabilities_;
+        if (bound.nflog.status != nfnl::ProbeStatus::not_run) probe.nflog = bound.nflog;
     }
     auto effective = resolve_effective_intercept(config_, backend, capabilities);
     for (const auto& reason : effective.reasons) {
@@ -110,20 +132,19 @@ InterceptEffective Daemon::resolve_intercept_effective() {
 void Daemon::fold_intercept_listener_probe(InterceptEffective& effective,
                                            const InterceptService& service) {
     // Fold what the listener binds revealed into the effective settings (before
-    // any rule queues to them) and remember it until the next probe refresh, so
-    // a kernel that rejected a listener is not retried on every apply.
+    // any rule queues to them) and remember it, so a kernel that rejected a
+    // listener is not retried on every apply (a re-bind or config apply
+    // forgets blocking results and retries the bind, never the probes).
     const InterceptRuntimeProbe& listeners = service.listener_probe();
     apply_listener_probe(effective, listeners);
-    if (intercept_capabilities_.has_value()) {
-        auto& cached = intercept_capabilities_->probe;
-        if (listeners.nfqueue.status != nfnl::ProbeStatus::not_run) {
-            cached.nfqueue = listeners.nfqueue;
-            cached.fail_open = listeners.fail_open;
-            cached.replacement = listeners.replacement;
-        }
-        if (listeners.nflog.status != nfnl::ProbeStatus::not_run) {
-            cached.nflog = listeners.nflog;
-        }
+    auto& cached = intercept_listener_results_;
+    if (listeners.nfqueue.status != nfnl::ProbeStatus::not_run) {
+        cached.nfqueue = listeners.nfqueue;
+        cached.fail_open = listeners.fail_open;
+        cached.replacement = listeners.replacement;
+    }
+    if (listeners.nflog.status != nfnl::ProbeStatus::not_run) {
+        cached.nflog = listeners.nflog;
     }
 }
 
@@ -436,8 +457,9 @@ void Daemon::tick_intercept_rebind() {
             Logger::instance().info("Interception: re-binding listeners (attempt {})",
                                     intercept_rebind_.attempts() + 1);
             intercept_rebind_in_progress_ = true;
-            // A failed bind is cached as a blocking verdict; re-probe.
-            intercept_capabilities_stale_ = true;
+            // A failed bind is cached as a blocking verdict; forget it so the
+            // bind is retried.  The kernel capabilities stay as probed at start.
+            intercept_listener_results_.forget_blocking_listener_results();
             try {
                 apply_firewall(runtime_refresh_firewall_mode());
                 publish_runtime_state();

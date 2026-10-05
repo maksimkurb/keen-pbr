@@ -4,6 +4,8 @@
 #include "../src/config/routing_state.hpp"
 #include "../src/firewall/ipset_restore_pipe.hpp"
 #include "../src/firewall/iptables.hpp"
+#include "../src/util/kernel_capabilities.hpp"
+#include "../src/util/safe_exec.hpp"
 #include "firewall_fixtures.hpp"
 #include "../src/firewall/firewall_lowering.hpp"
 #include "../src/firewall/firewall_plan.hpp"
@@ -434,13 +436,11 @@ public:
   }
 };
 
-TEST_CASE("balance support gate reads the startup answer and never probes") {
-  reset_iptables_statistic_capability_for_tests();
-  // Not probed at start: balance on iptables asks for a restart.
-  CHECK_THROWS_WITH_AS(
-      require_iptables_balance_support(FirewallBackend::iptables, true),
-      doctest::Contains("restart"), FirewallError);
-  record_iptables_statistic_capability(false);
+TEST_CASE("balance support gate reads the startup snapshot and never probes") {
+  const auto spawns = safe_exec_spawn_count().load();
+  KernelCapabilities snapshot;
+  snapshot.xt_statistic = false;
+  set_kernel_capabilities_for_tests(snapshot);
   CHECK_THROWS_WITH_AS(
       require_iptables_balance_support(FirewallBackend::iptables, true),
       doctest::Contains("xt_statistic"), FirewallError);
@@ -449,10 +449,12 @@ TEST_CASE("balance support gate reads the startup answer and never probes") {
       require_iptables_balance_support(FirewallBackend::iptables, false));
   CHECK_NOTHROW(
       require_iptables_balance_support(FirewallBackend::nftables, true));
-  record_iptables_statistic_capability(true);
+  snapshot.xt_statistic = true;
+  set_kernel_capabilities_for_tests(snapshot);
   CHECK_NOTHROW(
       require_iptables_balance_support(FirewallBackend::iptables, true));
-  reset_iptables_statistic_capability_for_tests();
+  CHECK(safe_exec_spawn_count().load() == spawns);
+  reset_kernel_capabilities_for_tests();
 }
 
 } // namespace keen_pbr3

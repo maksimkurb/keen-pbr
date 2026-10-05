@@ -1,4 +1,5 @@
 #include "nfqueue.hpp"
+
 #include "uapi_compat.hpp"
 
 #include <arpa/inet.h>
@@ -8,6 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <cerrno>
 #include <cstring>
 #include <limits>
@@ -283,7 +285,36 @@ NfQueue::NfQueue(const NfQueueOptions& opt)
     if (opt_.gso) enable_gso();
 }
 
+namespace {
+// Set once the kernel definitely rejected NFQA_CFG_F_GSO.
+std::atomic<bool> g_gso_rejected{false};
+} // namespace
+
+bool nfqueue_gso_rejected() { return g_gso_rejected.load(std::memory_order_relaxed); }
+
+#ifdef KEEN_PBR3_TESTING
+void reset_nfqueue_gso_state_for_tests() { g_gso_rejected.store(false); }
+#endif
+
+void probe_nfqueue_gso(uint16_t avoid_queue) {
+    NfQueueOptions options;
+    options.queue_num = avoid_queue == 65535 ? 65534 : 65535;
+    options.fail_open = false;
+    options.gso = true;
+    try {
+        // The bind itself carries the GSO request and records the answer.
+        NfQueue spare(options);
+    } catch (const std::exception&) {
+        // Module missing or no privileges: unknown, the first real bind tries.
+    }
+}
+
 void NfQueue::enable_gso() {
+    if (nfqueue_gso_rejected()) {
+        gso_ = make_probe_result(ProbeStatus::unsupported,
+                                 "NFQA_CFG_F_GSO: the kernel rejected it earlier; not sent again");
+        return;
+    }
     // A separate request: an unknown flag bit rejects the whole attribute
     // (EOPNOTSUPP on 3.6..3.9), which must not take fail-open down with it.
     // Kernels before 3.6 ignore the attribute and ACK; that is harmless too.
@@ -308,6 +339,9 @@ void NfQueue::enable_gso() {
             if (ack_seq == seq) err = ack_err;
         });
     gso_ = classify_errno(err, "NFQA_CFG_F_GSO");
+    if (gso_.status == ProbeStatus::unsupported) {
+        g_gso_rejected.store(true, std::memory_order_relaxed);
+    }
     tx_.clear();
 }
 

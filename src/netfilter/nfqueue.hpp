@@ -36,6 +36,19 @@ struct NfQueueOptions {
     int rcvbuf_bytes{2 << 20};
 };
 
+// Whether the kernel accepts NFQA_CFG_F_GSO.  The answer is a property of the
+// kernel, learned once per process (by probe_nfqueue_gso() at service start, or
+// by the first real bind when that could not run) and shared by every later
+// bind: a rejected flag is not sent again.  Only a definite rejection is
+// remembered; a timeout or socket error stays "unknown" and is retried.
+bool nfqueue_gso_rejected();
+// Binds a spare queue (never `avoid_queue`) with GSO requested, then unbinds it.
+// Records the kernel's answer; a bind failure leaves it unknown.  Never throws.
+void probe_nfqueue_gso(uint16_t avoid_queue);
+#ifdef KEEN_PBR3_TESTING
+void reset_nfqueue_gso_state_for_tests();
+#endif
+
 class NfQueue {
 public:
     // Opens the socket, binds the queue and sets params.  Queue binding is
