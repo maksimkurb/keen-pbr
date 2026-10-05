@@ -998,6 +998,7 @@ export const ruTranslation = {
       strategy: {
         label: "Стратегия выбора",
         hint: "Priority оставляет один выбранный outbound; balance распределяет новые соединения между исправными outbound (только nftables).",
+        hintKeenetic: "Балансировка нагрузки отключена на Keenetic; используйте встроенные функции многопутевой маршрутизации маршрутизатора.",
         options: {
           priority: "По приоритету",
           balance: "Балансировка",

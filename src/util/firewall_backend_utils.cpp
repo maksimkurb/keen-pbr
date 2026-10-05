@@ -17,6 +17,13 @@ const char* firewall_backend_command(FirewallBackend backend) {
     throw FirewallError("Unexpected firewall backend value");
 }
 
+#ifdef KEEN_PBR3_TESTING
+std::optional<FirewallBackend>& detected_firewall_backend_override_for_tests() {
+    static std::optional<FirewallBackend> override;
+    return override;
+}
+#endif
+
 } // namespace
 
 bool firewall_backend_command_exists(FirewallBackend backend) {
@@ -24,6 +31,12 @@ bool firewall_backend_command_exists(FirewallBackend backend) {
 }
 
 FirewallBackend detect_firewall_backend() {
+#ifdef KEEN_PBR3_TESTING
+    if (detected_firewall_backend_override_for_tests().has_value()) {
+        return *detected_firewall_backend_override_for_tests();
+    }
+#endif
+
     if (firewall_backend_command_exists(FirewallBackend::nftables)) {
         return FirewallBackend::nftables;
     }
@@ -52,5 +65,15 @@ FirewallBackend resolve_firewall_backend(FirewallBackendPreference backend_pref)
 
     throw FirewallError("Unexpected firewall backend value");
 }
+
+#ifdef KEEN_PBR3_TESTING
+void set_detected_firewall_backend_for_tests(std::optional<FirewallBackend> backend) {
+    detected_firewall_backend_override_for_tests() = backend;
+}
+
+void reset_detected_firewall_backend_for_tests() {
+    detected_firewall_backend_override_for_tests().reset();
+}
+#endif
 
 } // namespace keen_pbr3

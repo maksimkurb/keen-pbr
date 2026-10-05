@@ -13,7 +13,7 @@ import type { Outbound } from "@/api/generated/model/outbound"
 import type { RuntimeInterfaceInventoryEntry } from "@/api/generated/model/runtimeInterfaceInventoryEntry"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
-import { useGetConfig, useGetRuntimeInterfaces } from "@/api/queries"
+import { useGetConfig, useGetHealthService, useGetRuntimeInterfaces } from "@/api/queries"
 import {
   findOutboundByTag,
   selectConfig,
@@ -376,6 +376,11 @@ function OutboundForm({
   })
 
   const postConfigMutation = usePostConfigMutation()
+  const serviceHealthQuery = useGetHealthService()
+  const serviceHealth =
+    serviceHealthQuery.data?.status === 200
+      ? serviceHealthQuery.data.data
+      : undefined
 
   const outboundType = useStore(form.store, (state) => state.values.type)
   const selectedGroups = useStore(
@@ -404,7 +409,10 @@ function OutboundForm({
   const isUrltest = outboundType === "urltest"
   const isIcmptest = outboundType === "icmptest"
   const isProbeTest = isUrltest || isIcmptest
-  const strategyOptions = ["priority", "balance"] as const
+  const isKeenetic = serviceHealth?.os_type === "keenetic"
+  const strategyOptions = isKeenetic
+    ? (["priority"] as const)
+    : (["priority", "balance"] as const)
   const tagId = useId()
   const interfaceId = useId()
   const gatewayId = useId()
@@ -924,7 +932,11 @@ function OutboundForm({
                   </SelectContent>
                 </Select>
                 <FieldHint
-                  description={t("pages.outboundUpsert.strategy.hint")}
+                  description={
+                    isKeenetic
+                      ? t("pages.outboundUpsert.strategy.hintKeenetic")
+                      : t("pages.outboundUpsert.strategy.hint")
+                  }
                 />
               </FieldContent>
             </Field>

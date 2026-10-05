@@ -153,4 +153,13 @@ OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
 uint32_t fwmark_start_value(const FwmarkConfig& fwmark_cfg);
 uint32_t fwmark_mask_value(const FwmarkConfig& fwmark_cfg);
 
+// --- Testing seams ---
+
+bool keenetic_balance_restriction_disabled_for_tests();
+
+#ifdef KEEN_PBR3_TESTING
+void set_keenetic_balance_restriction_for_tests(bool disabled);
+void reset_keenetic_balance_restriction_for_tests();
+#endif
+
 } // namespace keen_pbr3

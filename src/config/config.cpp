@@ -3,6 +3,7 @@
 #include "icmptest_limits.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
+#include "../util/firewall_backend_utils.hpp"
 #include "../auth/password.hpp"
 
 #include <arpa/inet.h>
@@ -1344,20 +1345,48 @@ void validate_config(const Config& cfg) {
         }
     }
 
-    if (firewall_backend_preference(cfg) == FirewallBackendPreference::iptables) {
+    // Validate against the backend the runtime will use: `auto` resolving to
+    // iptables must fail here, not at apply time.
+    const FirewallBackendPreference backend_pref = firewall_backend_preference(cfg);
+    FirewallBackend effective_backend = FirewallBackend::iptables;
+    try {
+        effective_backend = resolve_firewall_backend(backend_pref);
+    } catch (const std::exception&) {
+        // Unknown: validate for the more restrictive backend.
+    }
+    const std::string backend_note =
+        backend_pref == FirewallBackendPreference::auto_detect ? " (auto-detected: iptables)" : "";
+
+#ifdef USE_KEENETIC_API
+    // Keenetic has its own multipath; two balancers would fight over routes.
+    if (!keenetic_balance_restriction_disabled_for_tests()) {
         for (const auto& outbound : outbounds) {
             if ((outbound.type == OutboundType::URLTEST ||
                  outbound.type == OutboundType::ICMPTEST) &&
                 outbound_uses_balance(outbound)) {
                 add_issue(issues, "outbounds." + outbound.tag + ".strategy",
-                          "balance strategy requires daemon.firewall_backend=nftables");
+                          "load balancing is disabled on Keenetic; use the router's multipath features");
+            }
+        }
+    }
+#endif
+
+    if (effective_backend == FirewallBackend::iptables) {
+        for (const auto& outbound : outbounds) {
+            if ((outbound.type == OutboundType::URLTEST ||
+                 outbound.type == OutboundType::ICMPTEST) &&
+                outbound_uses_balance(outbound)) {
+                add_issue(issues, "outbounds." + outbound.tag + ".strategy",
+                          "balance strategy requires the nftables firewall backend" +
+                              backend_note);
             }
         }
         for (size_t i = 0; i < route_rules.size(); ++i) {
             const auto& rule = route_rules[i];
             if (rule.default_gateway.has_value()) {
                 add_issue(issues, "route.rules[" + std::to_string(i) + "].default_gateway",
-                          "default_gateway requires daemon.firewall_backend=nftables");
+                          "default_gateway requires the nftables firewall backend" +
+                              backend_note);
             }
             if (!route_rule_uses_unsupported_iptables_multiport_combo(rule)) {
                 continue;
@@ -1633,5 +1662,30 @@ uint32_t fwmark_mask_value(const FwmarkConfig& fwmark_cfg) {
     validate_fwmark_mask(mask);
     return mask;
 }
+
+#ifdef KEEN_PBR3_TESTING
+namespace {
+bool& keenetic_balance_test_override() {
+    static bool disabled = false;
+    return disabled;
+}
+}
+
+bool keenetic_balance_restriction_disabled_for_tests() {
+    return keenetic_balance_test_override();
+}
+
+void set_keenetic_balance_restriction_for_tests(bool disabled) {
+    keenetic_balance_test_override() = disabled;
+}
+
+void reset_keenetic_balance_restriction_for_tests() {
+    keenetic_balance_test_override() = false;
+}
+#else
+bool keenetic_balance_restriction_disabled_for_tests() {
+    return false;
+}
+#endif
 
 } // namespace keen_pbr3
