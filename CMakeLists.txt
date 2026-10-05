@@ -368,6 +368,7 @@ set(SOURCES
   src/intercept/intercept_snapshot_builder.cpp
   src/util/blocking_executor.cpp
   src/util/firewall_backend_utils.cpp
+  src/util/hostname_validation.cpp
   src/util/ipv6_support.cpp
   src/util/system_info.cpp
   src/util/traced_mutex.cpp

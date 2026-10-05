@@ -1,5 +1,7 @@
 #include "http_host.hpp"
 
+#include "../util/hostname_validation.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <cstring>
@@ -165,6 +167,10 @@ ParseStatus http_host(ByteView payload, std::string& host_out) {
                         }
 
                         if (host.empty()) {
+                            return ParseStatus::NotMatched;
+                        }
+
+                        if (!is_valid_dns_name(host)) {
                             return ParseStatus::NotMatched;
                         }
 

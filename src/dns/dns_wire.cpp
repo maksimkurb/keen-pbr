@@ -1,5 +1,7 @@
 #include "dns_wire.hpp"
 
+#include "../util/hostname_validation.hpp"
+
 #include <algorithm>
 #include <netinet/in.h>
 
@@ -229,6 +231,9 @@ bool parse_response(ByteView dns_message, ParsedResponse& out) {
     if (!read_name(m, size, pos, out.qname, pos)) {
         return false;
     }
+    if (!is_valid_dns_name(out.qname)) {
+        return false;
+    }
     if (pos + 4 > size) {
         return false;
     }
@@ -259,8 +264,13 @@ bool parse_response(ByteView dns_message, ParsedResponse& out) {
             if (!read_name(m, size, pos, target, ignored)) {
                 return false;
             }
-            add_unique(out.cname_chain, owner);
-            add_unique(out.cname_chain, target);
+            // A name with non-hostname bytes is never learnable.
+            if (is_valid_dns_name(owner)) {
+                add_unique(out.cname_chain, owner);
+            }
+            if (is_valid_dns_name(target)) {
+                add_unique(out.cname_chain, target);
+            }
         } else if ((type == 1 || type == 28) && cls == 1) {
             const std::size_t want = (type == 1) ? 4 : 16;
             if (rdlen != want) {

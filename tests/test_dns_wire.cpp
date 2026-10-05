@@ -4,6 +4,7 @@
 
 #include <netinet/in.h>
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <vector>
@@ -475,6 +476,56 @@ TEST_CASE("dns_wire: build_marker_packet rejects IPv6 extension headers and TCP"
     PacketLayout tcp = *layout;
     tcp.l4_proto = IPPROTO_TCP;
     CHECK_FALSE(build_marker_packet(view(orig), tcp, resp, {127, 0, 0, 88}));
+}
+
+TEST_CASE("dns_wire: invalid qname with non-ASCII byte is rejected") {
+    // Build a DNS response with a qname containing an invalid byte (0xFF)
+    Bytes m = header(0x1234, 0x8180, 1, 1);
+    // Manually encode qname with invalid byte
+    Bytes qname_with_invalid = {5, 'e', 'x', 'a', 'm', 'p', 0xFF, 3, 'c', 'o', 'm', 0};
+    append(m, qname_with_invalid);
+    put16(m, 1);  // qtype A
+    put16(m, 1);  // qclass IN
+    append(m, rr(kPtrQname, 1, 300, {1, 2, 3, 4}));
+
+    ParsedResponse r;
+    // Should reject the response because qname contains invalid byte
+    CHECK_FALSE(parse_response(view(m), r));
+}
+
+TEST_CASE("dns_wire: valid CNAME chain with underscores and hyphens are kept") {
+    Bytes m = header(0x1234, 0x8180, 1, 2);
+    append(m, question("example.com", 1));
+    // CNAME record with valid special characters
+    Bytes cname_owner = enc("example.com");
+    Bytes cname_target = enc("test_v2.example.com");
+    append(m, rr(cname_owner, 5, 300, cname_target));
+    append(m, rr(kPtrQname, 1, 300, {1, 2, 3, 4}));
+
+    ParsedResponse r;
+    REQUIRE(parse_response(view(m), r));
+    CHECK(r.qname == "example.com");
+    CHECK(r.cname_chain.size() == 2);
+    CHECK(std::find(r.cname_chain.begin(), r.cname_chain.end(), "test_v2.example.com") != r.cname_chain.end());
+}
+
+TEST_CASE("dns_wire: invalid CNAME target is skipped (not learned)") {
+    Bytes m = header(0x1234, 0x8180, 1, 2);
+    append(m, question("example.com", 1));
+    // CNAME record with invalid byte in target - manually encode name with invalid byte in label
+    Bytes cname_owner = enc("example.com");
+    // Create target with invalid byte: test<0xFF>.com where the label is "test" + byte 0xFF (length 5)
+    Bytes cname_target = {5, 't', 'e', 's', 't', 0xFF, 3, 'c', 'o', 'm', 0};
+    append(m, rr(cname_owner, 5, 300, cname_target));
+    append(m, rr(kPtrQname, 1, 300, {1, 2, 3, 4}));
+
+    ParsedResponse r;
+    REQUIRE(parse_response(view(m), r));
+    CHECK(r.qname == "example.com");
+    // The invalid target should not be in the CNAME chain (owner is valid, target is not)
+    // The owner gets added because it's valid, but the target is invalid so won't be added
+    CHECK(r.cname_chain.size() == 1);
+    CHECK(r.cname_chain[0] == "example.com");
 }
 
 TEST_CASE("dns_wire: inet_checksum RFC 1071 vector") {

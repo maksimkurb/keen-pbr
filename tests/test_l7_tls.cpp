@@ -398,6 +398,60 @@ TEST_CASE("l7: TLS ClientHello robustness - prefix truncation") {
     }
 }
 
+TEST_CASE("l7: TLS ClientHello SNI with wildcard") {
+    auto sni_ext = build_server_name_extension("*.example.com");
+    std::vector<std::pair<uint16_t, std::vector<uint8_t>>> extensions;
+    extensions.push_back({0x0000, sni_ext});
+
+    auto hello = build_client_hello(0, 4, extensions);
+    ByteView handshake(hello.data(), hello.size());
+
+    std::string sni_out;
+    auto status = client_hello_sni(handshake, sni_out);
+    CHECK(status == ParseStatus::Found);
+    CHECK(sni_out == "*.example.com");
+}
+
+TEST_CASE("l7: TLS ClientHello SNI with underscores") {
+    auto sni_ext = build_server_name_extension("test_server.example.com");
+    std::vector<std::pair<uint16_t, std::vector<uint8_t>>> extensions;
+    extensions.push_back({0x0000, sni_ext});
+
+    auto hello = build_client_hello(0, 4, extensions);
+    ByteView handshake(hello.data(), hello.size());
+
+    std::string sni_out;
+    auto status = client_hello_sni(handshake, sni_out);
+    CHECK(status == ParseStatus::Found);
+    CHECK(sni_out == "test_server.example.com");
+}
+
+TEST_CASE("l7: TLS ClientHello SNI with invalid character is rejected") {
+    // Create SNI with invalid byte 0xFF
+    std::vector<uint8_t> sni_name = {
+        5, 't', 'e', 's', 't', 0xFF, 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm'
+    };
+
+    std::vector<uint8_t> ext;
+    ext.push_back(0);
+    ext.push_back(static_cast<uint8_t>(sni_name.size()));
+    ext.push_back(0);
+    ext.push_back(0);
+    ext.push_back(static_cast<uint8_t>(sni_name.size() >> 8));
+    ext.push_back(static_cast<uint8_t>(sni_name.size() & 0xFF));
+    ext.insert(ext.end(), sni_name.begin(), sni_name.end());
+
+    std::vector<std::pair<uint16_t, std::vector<uint8_t>>> extensions;
+    extensions.push_back({0x0000, ext});
+
+    auto hello = build_client_hello(0, 4, extensions);
+    ByteView handshake(hello.data(), hello.size());
+
+    std::string sni_out;
+    auto status = client_hello_sni(handshake, sni_out);
+    CHECK(status == ParseStatus::NotMatched);
+}
+
 TEST_CASE("l7: TLS ClientHello robustness - byte flipping") {
     auto sni_ext = build_server_name_extension("example.com");
     std::vector<std::pair<uint16_t, std::vector<uint8_t>>> extensions;

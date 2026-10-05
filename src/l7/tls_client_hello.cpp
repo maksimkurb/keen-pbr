@@ -1,27 +1,22 @@
 #include "tls_client_hello.hpp"
 
+#include "../util/hostname_validation.hpp"
+
 #include <algorithm>
 
 namespace keen_pbr3::l7 {
 
 namespace {
 
-// Checks if a character is valid in a domain name after lowercasing
-bool is_valid_domain_char(uint8_t c) {
-    return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_';
-}
-
 // Lowercases and validates a domain name
 bool validate_and_lowercase(std::string& name) {
-    if (name.empty() || name.size() > 253) {
+    if (!is_valid_dns_name(name)) {
         return false;
     }
 
     for (auto& c : name) {
         if (c >= 'A' && c <= 'Z') {
             c = static_cast<char>(c - 'A' + 'a');
-        } else if (!is_valid_domain_char(c)) {
-            return false;
         }
     }
 

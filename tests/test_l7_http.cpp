@@ -238,3 +238,33 @@ TEST_CASE("l7: HTTP Host is never taken from the body") {
     CHECK(http_host(ByteView(reinterpret_cast<const uint8_t*>(req.data()), req.size()), host) ==
           ParseStatus::NotMatched);
 }
+
+TEST_CASE("l7: HTTP Host with non-ASCII byte is rejected") {
+    // Create payload with UTF-8 encoded é (0xC3 0xA9) in the hostname
+    std::string payload = "GET / HTTP/1.1\r\nHost: caf\xE9.example.com\r\n\r\n";
+    ByteView view(reinterpret_cast<const uint8_t*>(payload.data()), payload.size());
+
+    std::string host_out;
+    auto status = http_host(view, host_out);
+    CHECK(status == ParseStatus::NotMatched);
+}
+
+TEST_CASE("l7: HTTP Host with underscores is accepted") {
+    std::string payload = "GET / HTTP/1.1\r\nHost: test_server.example.com\r\n\r\n";
+    ByteView view(reinterpret_cast<const uint8_t*>(payload.data()), payload.size());
+
+    std::string host_out;
+    auto status = http_host(view, host_out);
+    CHECK(status == ParseStatus::Found);
+    CHECK(host_out == "test_server.example.com");
+}
+
+TEST_CASE("l7: HTTP Host with hyphens is accepted") {
+    std::string payload = "GET / HTTP/1.1\r\nHost: test-server.example.com\r\n\r\n";
+    ByteView view(reinterpret_cast<const uint8_t*>(payload.data()), payload.size());
+
+    std::string host_out;
+    auto status = http_host(view, host_out);
+    CHECK(status == ParseStatus::Found);
+    CHECK(host_out == "test-server.example.com");
+}
