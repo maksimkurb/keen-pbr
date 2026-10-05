@@ -114,11 +114,7 @@ void print_detail_if_needed(const std::string& detail, const std::string& indent
 }
 
 bool firewall_verification_unavailable(const RoutingHealthReport& report) {
-    return report.firewall_chain.detail.find("unavailable") != std::string::npos ||
-           report.firewall_chain.detail.find("pending") != std::string::npos ||
-           report.firewall_chain.detail.find("sample became stale") != std::string::npos ||
-           report.firewall_chain.detail.find("initialization is in progress") !=
-               std::string::npos;
+    return report.firewall_chain.verification_state == VerificationState::unavailable;
 }
 
 const Outbound* find_outbound(const std::vector<Outbound>& outbounds, const std::string& tag) {
@@ -558,6 +554,12 @@ RoutingHealthReport routing_health_report_from_api(
     report.firewall_chain.chain_present = health.firewall.chain_present;
     report.firewall_chain.prerouting_hook_present =
         health.firewall.prerouting_hook_present;
+    report.firewall_chain.verification_state =
+        health.firewall.verification_state == api::VerificationState::VERIFIED
+            ? VerificationState::verified
+            : (health.firewall.verification_state == api::VerificationState::UNAVAILABLE
+                   ? VerificationState::unavailable
+                   : VerificationState::failed);
     report.firewall_chain.detail = health.firewall.detail.value_or("");
 
     for (const auto& item : health.firewall_rules) {

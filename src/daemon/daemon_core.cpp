@@ -108,10 +108,12 @@ void send_control_response_and_close(int fd,
   close(fd);
 }
 
-RoutingHealthReport unavailable_routing_health(FirewallBackend backend,
-                                               std::string detail) {
+RoutingHealthReport unavailable_routing_health(
+    FirewallBackend backend, std::string detail,
+    VerificationState state = VerificationState::unavailable) {
   RoutingHealthReport report;
   report.firewall_backend = backend;
+  report.firewall_chain.verification_state = state;
   report.firewall_chain.detail = std::move(detail);
   return report;
 }
@@ -608,10 +610,12 @@ RoutingHealthReport Daemon::cached_routing_health() {
               health = unavailable_routing_health(
                   backend,
                   "canonical routing health check failed: " +
-                      std::string(error.what()));
+                      std::string(error.what()),
+                  VerificationState::failed);
             } catch (...) {
               health = unavailable_routing_health(
-                  backend, "canonical routing health check failed: unknown error");
+                  backend, "canonical routing health check failed: unknown error",
+                  VerificationState::failed);
             }
 
             const auto current_runtime_snapshot = runtime_state_store_.snapshot();

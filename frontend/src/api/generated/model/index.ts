@@ -53,6 +53,7 @@ export * from './draftConfig';
 export * from './draftConfigLists';
 export * from './errorResponse';
 export * from './firewallChain';
+export * from './firewallChainVerificationState';
 export * from './firewallRuleCheck';
 export * from './fwmarkConfig';
 export * from './getDnsTestParams';

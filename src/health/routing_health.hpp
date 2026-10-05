@@ -15,9 +15,16 @@ enum class CheckStatus {
     mismatch
 };
 
+enum class VerificationState {
+    verified,    // firewall chain is properly configured
+    unavailable, // verification not possible (runtime initializing/applying, snapshot unavailable)
+    failed       // firewall chain is missing or misconfigured
+};
+
 struct FirewallChainCheck {
     bool chain_present{false};
     bool prerouting_hook_present{false};
+    VerificationState verification_state{VerificationState::failed};
     std::string detail;
 };
 

@@ -130,7 +130,7 @@ TEST_CASE("dns txt probe: failures") {
     }
     SUBCASE("transaction id mismatch") {
         const auto r = parse(response(0x4321, 0x8180, 1, txt_answer({"x"})));
-        CHECK(r.status == DnsTxtProbeStatus::QueryFailed);
+        CHECK(r.status == DnsTxtProbeStatus::IdMismatch);
         CHECK(r.error == "DNS response id mismatch");
     }
     SUBCASE("question name mismatch") {

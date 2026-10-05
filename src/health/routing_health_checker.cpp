@@ -58,14 +58,19 @@ FirewallChainCheck firewall_chain_from_snapshot(const FirewallSnapshot& snapshot
     }
 
     if (!snapshot.error.empty()) {
+        result.verification_state = VerificationState::failed;
         result.detail = snapshot.error;
     } else if (!snapshot.available) {
+        result.verification_state = VerificationState::unavailable;
         result.detail = "firewall snapshot unavailable";
     } else if (!result.chain_present) {
+        result.verification_state = VerificationState::failed;
         result.detail = "KeenPbrTable chain not found in firewall snapshot";
     } else if (!result.prerouting_hook_present) {
+        result.verification_state = VerificationState::failed;
         result.detail = "KeenPbrTable chain exists but PREROUTING hook not found";
     } else {
+        result.verification_state = VerificationState::verified;
         result.detail = "ok";
     }
     return result;
@@ -89,6 +94,7 @@ RoutingHealthReport build_routing_health_report(
         if (!active) {
             report.firewall_chain.detail =
                 "active firewall plan unavailable; routing runtime is not ready";
+            report.firewall_chain.verification_state = VerificationState::unavailable;
         } else {
             // Inspect once and diff the observed ruleset against the one the
             // backend lowered at apply time. RuleState is only a control/API
@@ -262,6 +268,15 @@ static api::RoutingHealthResponseFirewallBackend to_api_firewall_backend(Firewal
     throw std::runtime_error("Unexpected firewall backend value");
 }
 
+static api::VerificationState to_api_verification_state(VerificationState state) {
+    switch (state) {
+        case VerificationState::verified:   return api::VerificationState::VERIFIED;
+        case VerificationState::unavailable: return api::VerificationState::UNAVAILABLE;
+        case VerificationState::failed:     return api::VerificationState::FAILED;
+    }
+    return api::VerificationState::FAILED;
+}
+
 nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
     if (!r.error.empty()) {
         api::RoutingHealthErrorResponse err;
@@ -283,6 +298,7 @@ nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
 
     resp.firewall.chain_present = r.firewall_chain.chain_present;
     resp.firewall.prerouting_hook_present = r.firewall_chain.prerouting_hook_present;
+    resp.firewall.verification_state = to_api_verification_state(r.firewall_chain.verification_state);
     if (!r.firewall_chain.detail.empty()) resp.firewall.detail = r.firewall_chain.detail;
 
     for (const auto& fc : r.firewall_rules) {

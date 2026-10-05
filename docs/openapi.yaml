@@ -2741,7 +2741,7 @@ components:
 
     FirewallChain:
       type: object
-      required: [chain_present, prerouting_hook_present]
+      required: [chain_present, prerouting_hook_present, verification_state]
       properties:
         chain_present:
           type: boolean
@@ -2751,6 +2751,15 @@ components:
           type: boolean
           description: Whether the chain is hooked into PREROUTING.
           example: true
+        verification_state:
+          type: string
+          enum: [verified, unavailable, failed]
+          description: |
+            Verification state of the firewall chain.
+            - verified: chain is properly configured
+            - unavailable: verification not possible (runtime initializing/applying)
+            - failed: chain is missing or misconfigured
+          example: verified
         detail:
           type: string
           description: Human-readable detail. Omitted when empty.

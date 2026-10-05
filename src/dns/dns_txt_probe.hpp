@@ -11,6 +11,7 @@ namespace keen_pbr3 {
 enum class DnsTxtProbeStatus {
     Ok,           // a TXT answer was received
     Missing,      // NXDOMAIN, or NOERROR without a TXT answer
+    IdMismatch,   // response id didn't match query (ignored during probing)
     QueryFailed,  // timeout, refused, socket error, SERVFAIL, truncated, malformed
 };
 

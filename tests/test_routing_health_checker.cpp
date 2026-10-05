@@ -105,6 +105,7 @@ TEST_CASE("routing health compares the active plan instead of RuleState") {
     REQUIRE(report.firewall_rules.size() == 1);
     CHECK(report.firewall_rules.front().status == CheckStatus::ok);
     CHECK(report.overall_ok);
+    CHECK(report.firewall_chain.verification_state == VerificationState::verified);
 }
 #endif
 
@@ -123,6 +124,7 @@ TEST_CASE("routing health is explicitly not ready without an active plan") {
     CHECK_FALSE(report.overall_ok);
     CHECK(report.firewall_rules.empty());
     CHECK(report.firewall_chain.detail.find("not ready") != std::string::npos);
+    CHECK(report.firewall_chain.verification_state == VerificationState::unavailable);
 }
 
 #ifndef KEEN_PBR_PLATFORM_KEENETIC

@@ -241,6 +241,11 @@ DnsmasqManager::ProbeObservation DnsmasqManager::probe_once() {
     case DnsTxtProbeStatus::Missing:
         observation.state = DnsmasqProbeState::Missing;
         break;
+    case DnsTxtProbeStatus::IdMismatch:
+        // Should not occur; handled inside probe_dns_txt retry loop.
+        // If it escapes, treat as a transient error.
+        observation.state = DnsmasqProbeState::QueryFailed;
+        break;
     case DnsTxtProbeStatus::QueryFailed:
         observation.state = DnsmasqProbeState::QueryFailed;
         break;

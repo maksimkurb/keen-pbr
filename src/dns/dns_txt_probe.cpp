@@ -104,7 +104,10 @@ DnsTxtProbeResult parse_dns_txt_response(const std::uint8_t* data,
         return failed("malformed DNS response");
     }
     if (response.id != transaction_id) {
-        return failed("DNS response id mismatch");
+        DnsTxtProbeResult result;
+        result.status = DnsTxtProbeStatus::IdMismatch;
+        result.error = "DNS response id mismatch";
+        return result;
     }
     if (response.qtype != kTypeTxt || response.qclass != kClassIn ||
         response.qname != strip_trailing_dot(name)) {
@@ -227,8 +230,7 @@ DnsTxtProbeResult probe_dns_txt(const std::string& address,
         DnsTxtProbeResult result = parse_dns_txt_response(
             buffer.data(), static_cast<std::size_t>(got), transaction_id, name);
         // A stray/spoofed datagram with a foreign id is ignored, not fatal.
-        if (result.status == DnsTxtProbeStatus::QueryFailed &&
-            result.error == "DNS response id mismatch") {
+        if (result.status == DnsTxtProbeStatus::IdMismatch) {
             continue;
         }
         return result;

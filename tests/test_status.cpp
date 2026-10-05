@@ -16,7 +16,11 @@ nlohmann::json health_response(const std::string& backend,
                                bool chain_present,
                                bool hook_present,
                                nlohmann::json rules = nlohmann::json::array(),
-                               std::string detail = "ok") {
+                               std::string detail = "ok",
+                               std::string verification_state = "") {
+    if (verification_state.empty()) {
+        verification_state = chain_present && hook_present ? "verified" : "failed";
+    }
     bool rules_ok = true;
     for (const auto& rule : rules) {
         if (rule.value("status", "missing") != "ok") rules_ok = false;
@@ -26,19 +30,26 @@ nlohmann::json health_response(const std::string& backend,
         {"firewall_backend", backend},
         {"firewall", {{"chain_present", chain_present},
                        {"prerouting_hook_present", hook_present},
-                       {"detail", std::move(detail)}}},
+                       {"detail", std::move(detail)},
+                       {"verification_state", verification_state}}},
         {"firewall_rules", std::move(rules)},
         {"route_tables", nlohmann::json::array()},
         {"policy_rules", nlohmann::json::array()},
     };
 }
 
-std::pair<int, std::string> render(const nlohmann::json& health) {
+// Restores std::cout even when the command throws; a dangling rdbuf would
+// crash the test reporter.
+struct CoutCapture {
     std::ostringstream output;
-    auto* const previous = std::cout.rdbuf(output.rdbuf());
+    std::streambuf* previous{std::cout.rdbuf(output.rdbuf())};
+    ~CoutCapture() { std::cout.rdbuf(previous); }
+};
+
+std::pair<int, std::string> render(const nlohmann::json& health) {
+    CoutCapture capture;
     const int result = run_status_command(Config{}, "/tmp/status-test.json", health);
-    std::cout.rdbuf(previous);
-    return {result, output.str()};
+    return {result, capture.output.str()};
 }
 
 } // namespace
@@ -87,21 +98,29 @@ TEST_CASE("status does not downgrade a missing output rule half to healthy") {
 TEST_CASE("status reports a cold canonical health refresh as unavailable") {
     const auto [result, output] = render(health_response(
         "iptables", false, false, nlohmann::json::array(),
-        "canonical routing health refresh is pending"));
+        "canonical routing health refresh is pending", "unavailable"));
 
     CHECK(result == 1);
     CHECK(output.find("UNAVAILABLE") != std::string::npos);
     CHECK(output.find("refresh is pending") != std::string::npos);
 }
 
+TEST_CASE("status reports a config apply in progress as unavailable, not failed") {
+    const auto [result, output] = render(health_response(
+        "iptables", false, false, nlohmann::json::array(),
+        "routing runtime configuration is being applied", "unavailable"));
+
+    CHECK(output.find("UNAVAILABLE") != std::string::npos);
+    CHECK(output.find("ERROR") == std::string::npos);
+}
+
 TEST_CASE("status reports unavailable when legacy daemon omits health") {
-    std::ostringstream output;
-    auto* const previous = std::cout.rdbuf(output.rdbuf());
+    CoutCapture capture;
     const int result = run_status_command(
         Config{}, "/tmp/status-test.json", nullptr);
-    std::cout.rdbuf(previous);
+    const std::string output = capture.output.str();
 
     CHECK(result == 1);
-    CHECK(output.str().find("UNAVAILABLE") != std::string::npos);
-    CHECK(output.str().find("active firewall plan unavailable") != std::string::npos);
+    CHECK(output.find("UNAVAILABLE") != std::string::npos);
+    CHECK(output.find("active firewall plan unavailable") != std::string::npos);
 }

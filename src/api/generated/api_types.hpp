@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesU7Qk0Z data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes7CRbg0 data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -477,10 +477,13 @@ namespace api {
         std::optional<std::vector<ValidationErrorElement>> validation_errors;
     };
 
+    enum class VerificationState : int { FAILED, UNAVAILABLE, VERIFIED };
+
     struct FirewallChain {
         bool chain_present;
         std::optional<std::string> detail;
         bool prerouting_hook_present;
+        VerificationState verification_state;
     };
 
     struct FirewallRuleCheck {
@@ -827,7 +830,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesU7Qk0Z {
+    struct KeenPbrTypes7CRbg0 {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1155,8 +1158,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesU7Qk0Z & x);
-    void to_json(json & j, const KeenPbrTypesU7Qk0Z & x);
+    void from_json(const json & j, KeenPbrTypes7CRbg0 & x);
+    void to_json(json & j, const KeenPbrTypes7CRbg0 & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1208,6 +1211,9 @@ namespace api {
 
     void from_json(const json & j, State & x);
     void to_json(json & j, const State & x);
+
+    void from_json(const json & j, VerificationState & x);
+    void to_json(json & j, const VerificationState & x);
 
     void from_json(const json & j, PayloadReplacement & x);
     void to_json(json & j, const PayloadReplacement & x);
@@ -2020,6 +2026,7 @@ namespace api {
         x.chain_present = j.at("chain_present").get<bool>();
         x.detail = get_stack_optional<std::string>(j, "detail");
         x.prerouting_hook_present = j.at("prerouting_hook_present").get<bool>();
+        x.verification_state = j.at("verification_state").get<VerificationState>();
     }
 
     inline void to_json(json & j, const FirewallChain & x) {
@@ -2027,6 +2034,7 @@ namespace api {
         j["chain_present"] = x.chain_present;
         j["detail"] = x.detail;
         j["prerouting_hook_present"] = x.prerouting_hook_present;
+        j["verification_state"] = x.verification_state;
     }
 
     inline void from_json(const json & j, FirewallRuleCheck& x) {
@@ -2675,7 +2683,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesU7Qk0Z& x) {
+    inline void from_json(const json & j, KeenPbrTypes7CRbg0& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2762,7 +2770,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesU7Qk0Z & x) {
+    inline void to_json(json & j, const KeenPbrTypes7CRbg0 & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3117,6 +3125,22 @@ namespace api {
             case State::OK: j = "ok"; break;
             case State::RECONCILING: j = "reconciling"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"State\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, VerificationState & x) {
+        if (j == "failed") x = VerificationState::FAILED;
+        else if (j == "unavailable") x = VerificationState::UNAVAILABLE;
+        else if (j == "verified") x = VerificationState::VERIFIED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"VerificationState\""); }
+    }
+
+    inline void to_json(json & j, const VerificationState & x) {
+        switch (x) {
+            case VerificationState::FAILED: j = "failed"; break;
+            case VerificationState::UNAVAILABLE: j = "unavailable"; break;
+            case VerificationState::VERIFIED: j = "verified"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"VerificationState\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
