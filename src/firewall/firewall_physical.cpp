@@ -509,7 +509,8 @@ std::optional<uint16_t> parse_port(std::string_view text) {
 // Jumps into these chains must be the first rule of their builtin chain.
 bool is_pinned_hook_target(PhysicalChainRole role) {
   return role == PhysicalChainRole::iptables_dns_hold ||
-         role == PhysicalChainRole::iptables_sniff;
+         role == PhysicalChainRole::iptables_sniff ||
+         role == PhysicalChainRole::iptables_sniff_out;
 }
 
 std::size_t builtin_slot(const PhysicalChainId &id) {
@@ -594,6 +595,9 @@ std::optional<PhysicalChainId> classify_iptables_chain(std::string_view name,
   }
   if (name == "KeenPbrSniff") {
     return iptables_id(R::iptables_sniff, table, family, name);
+  }
+  if (name == "KeenPbrSniffOut") {
+    return iptables_id(R::iptables_sniff_out, table, family, name);
   }
   return iptables_id(R::other_owned, table, family, name);
 }

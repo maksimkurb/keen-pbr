@@ -671,6 +671,7 @@ TEST_CASE("nft interception base chains are declared with their hooks") {
     CHECK(sniff[0].at("expr").dump() ==
           R"([{"match":{"left":{"meta":{"key":"l4proto"}},"op":"==","right":"tcp"}},)"
           R"({"match":{"left":{"payload":{"field":"dport","protocol":"tcp"}},"op":"==","right":{"set":[80,443]}}},)"
+          R"({"match":{"left":{"ct":{"key":"direction"}},"op":"==","right":0}},)"
           R"({"match":{"left":{"ct":{"dir":"original","key":"packets"}},"op":"==","right":{"range":[1,6]}}},)"
           R"({"counter":null},{"log":{"group":9054,"snaplen":2048}}])");
     CHECK(sniff[1].at("expr")[1].dump() ==

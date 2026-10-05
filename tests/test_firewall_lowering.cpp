@@ -1293,6 +1293,143 @@ TEST_CASE("lowering interception: DNS hold excludes loopback replies when asked"
   }
 }
 
+TEST_CASE("lowering interception: client interface scope") {
+  InterceptFirewallSettings settings;
+  settings.dns_hold = true;
+  settings.l7_sniff = true;
+  const auto rules_for = [&](const std::vector<std::string> &inbound,
+                             const std::vector<std::string> &wan) {
+    return plan_of(intercept_module_rules(settings, inbound, wan));
+  };
+
+  SUBCASE("iptables, WAN denylist of one interface: negated match, no guards") {
+    const auto set = lower_firewall_plan(rules_for({}, {"wan0"}), ipt_context());
+    const auto sniff = ipt_lines(set, "KeenPbrSniff", Fam::ipv4);
+    // The output copy is covered by the forward rule (no input interface).
+    REQUIRE(sniff.size() == 2);
+    CHECK(sniff[0].find("-A KeenPbrSniff ! -i wan0 -p tcp") == 0);
+    CHECK(sniff[0].find("-m conntrack --ctdir ORIGINAL") != std::string::npos);
+    const auto hold = ipt_lines(set, "KeenPbrDnsHold", Fam::ipv4);
+    REQUIRE(hold.size() == 2);
+    CHECK(hold[0].find("-A KeenPbrDnsHold ! -o wan0 -p udp") == 0);
+  }
+  SUBCASE("iptables, WAN denylist of several interfaces: leading RETURN guards") {
+    const auto set =
+        lower_firewall_plan(rules_for({}, {"wan1", "wan0"}), ipt_context());
+    const auto sniff = ipt_lines(set, "KeenPbrSniff", Fam::ipv4);
+    REQUIRE(sniff.size() == 4);
+    CHECK(sniff[0] == "-A KeenPbrSniff -i wan0 -m comment --comment " +
+                          chain_of(set, ipt_chain("KeenPbrSniff",
+                                                  PhysicalTable::mangle,
+                                                  Fam::ipv4))
+                              .rules[0]
+                              .key->comment() +
+                          " -j RETURN\n");
+    CHECK(sniff[1].find("-A KeenPbrSniff -i wan1 ") == 0);
+    CHECK(sniff[2].find("-A KeenPbrSniff -p tcp") == 0);
+    CHECK(sniff[2].find("-i ") == std::string::npos);
+    const auto hold = ipt_lines(set, "KeenPbrDnsHold", Fam::ipv4);
+    REQUIRE(hold.size() == 4);
+    CHECK(hold[0].find("-A KeenPbrDnsHold -o wan0 ") == 0);
+    CHECK(hold[0].find("-j RETURN") != std::string::npos);
+    CHECK(hold[1].find("-A KeenPbrDnsHold -o wan1 ") == 0);
+  }
+  SUBCASE("iptables, inbound allowlist: one fragment per interface") {
+    const auto set =
+        lower_firewall_plan(rules_for({"br0", "br1"}, {}), ipt_context());
+    const auto sniff = ipt_lines(set, "KeenPbrSniff", Fam::ipv4);
+    // The shared chain is jumped from FORWARD: every rule needs an `-i`.
+    REQUIRE(sniff.size() == 4);
+    CHECK(sniff[0].find("-A KeenPbrSniff -i br0 -p tcp") == 0);
+    CHECK(sniff[1].find("-A KeenPbrSniff -i br1 -p tcp") == 0);
+    CHECK(sniff[2].find("-A KeenPbrSniff -i br0 -p udp") == 0);
+    CHECK(sniff[3].find("-A KeenPbrSniff -i br1 -p udp") == 0);
+    // Router-originated copies live in their own chain, jumped from OUTPUT.
+    const auto &out_chain = chain_of(
+        set, ipt_chain("KeenPbrSniffOut", PhysicalTable::mangle, Fam::ipv4));
+    CHECK(out_chain.id.role == Role::iptables_sniff_out);
+    CHECK_FALSE(chain_of(set, ipt_chain("KeenPbrSniff", PhysicalTable::mangle,
+                                        Fam::ipv4))
+                    .output_hook);
+    const auto out = ipt_lines(set, "KeenPbrSniffOut", Fam::ipv4);
+    REQUIRE(out.size() == 2);
+    CHECK(out[0].find("-A KeenPbrSniffOut -p tcp") == 0);
+    CHECK(out[0].find("-i ") == std::string::npos);
+    const auto hold = ipt_lines(set, "KeenPbrDnsHold", Fam::ipv4);
+    // br0, br1 and lo (router traffic is processed in this plan), per proto.
+    REQUIRE(hold.size() == 6);
+    CHECK(hold[0].find("-A KeenPbrDnsHold -o br0 -p udp") == 0);
+    CHECK(hold[2].find("-A KeenPbrDnsHold -o lo -p udp") == 0);
+    CHECK(hold[3].find("-A KeenPbrDnsHold -o br0 -p tcp") == 0);
+  }
+  SUBCASE("iptables, allowlist: no FORWARD-reachable sniff rule lacks the -i match") {
+    InterceptFirewallSettings sniff = sniff_only();
+    const auto set = lower_firewall_plan(
+        plan_of(intercept_module_rules(sniff, {"lan0"}, {})), ipt_context());
+    for (const auto family : {Fam::ipv4, Fam::ipv6}) {
+      const auto &shared = chain_of(
+          set, ipt_chain("KeenPbrSniff", PhysicalTable::mangle, family));
+      REQUIRE_FALSE(shared.rules.empty());
+      for (const auto &rule : shared.rules) {
+        CHECK(has_match(rule, IifMatch{false, {"lan0"}}));
+      }
+    }
+  }
+  SUBCASE("iptables, denylist: one shared sniff chain, no separate OUTPUT chain") {
+    const auto set = lower_firewall_plan(rules_for({}, {"wan0"}), ipt_context());
+    CHECK_FALSE(has_chain_named(set, "KeenPbrSniffOut"));
+    CHECK(chain_of(set, ipt_chain("KeenPbrSniff", PhysicalTable::mangle,
+                                  Fam::ipv4))
+              .output_hook);
+  }
+  SUBCASE("iptables, no WAN known and no allowlist: no interface match") {
+    const auto set = lower_firewall_plan(rules_for({}, {}), ipt_context());
+    for (const auto &line : ipt_lines(set, "KeenPbrSniff", Fam::ipv4)) {
+      CHECK(line.find(" -i ") == std::string::npos);
+    }
+    for (const auto &line : ipt_lines(set, "KeenPbrDnsHold", Fam::ipv4)) {
+      CHECK(line.find(" -o ") == std::string::npos);
+    }
+  }
+  SUBCASE("nftables, WAN denylist: one rule with a negated interface set") {
+    const auto set =
+        lower_firewall_plan(rules_for({}, {"wan1", "wan0"}), nft_context());
+    const auto &forward =
+        chain_of(set, nft_physical_chain_id(Role::nft_sniff_forward));
+    REQUIRE(forward.rules.size() == 2);
+    for (const auto &rule : forward.rules) {
+      CHECK(has_match(rule, IifMatch{true, {"wan0", "wan1"}}));
+      CHECK(has_match(rule, CtDirMatch{true}));
+    }
+    // The router-originated chain has no input interface to test.
+    const auto &output =
+        chain_of(set, nft_physical_chain_id(Role::nft_sniff_output));
+    REQUIRE(output.rules.size() == 2);
+    for (const auto &rule : output.rules) {
+      for (const auto &match : rule.matches) {
+        CHECK_FALSE(std::holds_alternative<IifMatch>(match));
+      }
+      CHECK(has_match(rule, CtDirMatch{true}));
+    }
+    const auto &hold = chain_of(set, nft_physical_chain_id(Role::nft_dns_hold));
+    REQUIRE(hold.rules.size() == 2);
+    CHECK(has_match(hold.rules[0], OifMatch{true, {"wan0", "wan1"}}));
+  }
+  SUBCASE("nftables, inbound allowlist: one rule with an interface set") {
+    const auto set =
+        lower_firewall_plan(rules_for({"br1", "br0"}, {}), nft_context());
+    const auto &forward =
+        chain_of(set, nft_physical_chain_id(Role::nft_sniff_forward));
+    REQUIRE(forward.rules.size() == 2);
+    for (const auto &rule : forward.rules) {
+      CHECK(has_match(rule, IifMatch{false, {"br0", "br1"}}));
+    }
+    const auto &hold = chain_of(set, nft_physical_chain_id(Role::nft_dns_hold));
+    REQUIRE(hold.rules.size() == 2);
+    CHECK(has_match(hold.rules[0], OifMatch{false, {"br0", "br1", "lo"}}));
+  }
+}
+
 TEST_CASE("lowering interception: L7 sniff") {
   SUBCASE("iptables: one shared chain serves FORWARD and OUTPUT") {
     const auto set = lower_firewall_plan(intercept_plan(sniff_only()), ipt_context());
@@ -1305,13 +1442,15 @@ TEST_CASE("lowering interception: L7 sniff") {
       // The forward and output copies are the same physical rule.
       REQUIRE(lines.size() == 2);
       CHECK(lines[0].find("-A KeenPbrSniff -p tcp -m multiport --dports 80,443 "
-                          "-m connbytes --connbytes 1:6 --connbytes-dir "
-                          "original --connbytes-mode packets") == 0);
-      CHECK(lines[0].find(" -j NFLOG --nflog-group 9054 --nflog-size 2048\n") !=
-            std::string::npos);
-      CHECK(lines[1].find("-A KeenPbrSniff -p udp --dport 443 -m connbytes "
+                          "-m conntrack --ctdir ORIGINAL -m connbytes "
                           "--connbytes 1:6 --connbytes-dir original "
                           "--connbytes-mode packets") == 0);
+      CHECK(lines[0].find(" -j NFLOG --nflog-group 9054 --nflog-size 2048\n") !=
+            std::string::npos);
+      CHECK(lines[1].find("-A KeenPbrSniff -p udp --dport 443 -m conntrack "
+                          "--ctdir ORIGINAL -m connbytes --connbytes 1:6 "
+                          "--connbytes-dir original --connbytes-mode "
+                          "packets") == 0);
     }
     CHECK_FALSE(has_chain_named(set, "KeenPbrDnsHold"));
   }
@@ -1328,9 +1467,12 @@ TEST_CASE("lowering interception: L7 sniff") {
       REQUIRE(chain.rules.size() == 2);
       const auto expr = nft_rule_json(set, role, 0);
       CHECK(expr[2]["match"]["left"] ==
+            nlohmann::json{{"ct", {{"key", "direction"}}}});
+      CHECK(expr[2]["match"]["right"] == 0);
+      CHECK(expr[3]["match"]["left"] ==
             nlohmann::json{{"ct", {{"key", "packets"}, {"dir", "original"}}}});
-      CHECK(expr[2]["match"]["right"] == nlohmann::json{{"range", {1, 6}}});
-      CHECK(expr[3] == nlohmann::json{{"counter", nullptr}});
+      CHECK(expr[3]["match"]["right"] == nlohmann::json{{"range", {1, 6}}});
+      CHECK(expr[4] == nlohmann::json{{"counter", nullptr}});
       CHECK(expr.back() ==
             nlohmann::json{{"log", {{"group", 9054}, {"snaplen", 2048}}}});
     }
@@ -1346,7 +1488,7 @@ TEST_CASE("lowering interception: L7 sniff") {
       std::string text;
       if (!has_chain_named(set, "KeenPbrSniff")) return std::string("<none>");
       for (const auto &line : ipt_lines(set, "KeenPbrSniff", Fam::ipv4)) {
-        text += line.substr(line.find(" -p ") + 1, line.find(" -m connbytes") -
+        text += line.substr(line.find(" -p ") + 1, line.find(" -m conntrack") -
                                                    line.find(" -p ") - 1) + "|";
       }
       return text;

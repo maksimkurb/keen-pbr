@@ -959,6 +959,94 @@ TEST_CASE("process_router_traffic=false: no output sniff, DNS hold skips loopbac
   }
 }
 
+TEST_CASE("interception learns only for allowed client interfaces") {
+  const auto config_for = [](const char* inbound) {
+    return parse_config(std::string(R"({
+      "outbounds": [
+        {"type":"interface","tag":"wan","interface":"eth3"},
+        {"type":"interface","tag":"vpn","interface":"wg0"},
+        {"type":"table","tag":"tbl","table":100}
+      ],
+      "route": {)") + inbound + R"("rules": []}
+    })");
+  };
+  InterceptFirewallSettings settings;
+  settings.dns_hold = true;
+  settings.l7_sniff = true;
+  DumpedRoute default_route;
+  default_route.destination = "default";
+  default_route.table = 254;
+  default_route.interface = "ppp0";
+  DumpedRoute lan_route;  // not a default route: ignored
+  lan_route.destination = "192.168.1.0/24";
+  lan_route.table = 254;
+  lan_route.interface = "br0";
+  const std::vector<DumpedRoute> main_routes{default_route, lan_route};
+  const std::map<std::string, ListConfig> lists;
+  const std::map<std::string, ListSetUsage> usage;
+  const std::vector<DumpedInterface> interfaces;
+  const auto plan_for = [&](const Config& config,
+                            RouteRuleModuleRegistration module, bool router) {
+    FirewallBuildContext context{*config.route->rules, *config.outbounds, lists,
+                                 usage, main_routes, interfaces,
+                                 FirewallBackend::nftables};
+    context.config = &config;
+    context.intercept = settings;
+    context.process_router_traffic = router;
+    return build_plan_with(module, context);
+  };
+
+  SUBCASE("empty inbound_interfaces: outbound and default-route interfaces are denied") {
+    const auto config = config_for("");
+    const std::vector<std::string> wan{"eth3", "ppp0", "wg0"};
+    for (const auto& rule : plan_for(config, register_intercept_l7_sniff_rules, true).rules) {
+      CHECK(rule.criteria.ct_original);
+      CHECK(rule.criteria.include_iif.empty());
+      CHECK(rule.criteria.include_oif.empty());
+      CHECK(rule.criteria.exclude_oif.empty());
+      // Router-originated copies have no input interface.
+      CHECK(rule.criteria.exclude_iif ==
+            (rule.hook == FirewallHook::forward ? wan
+                                                : std::vector<std::string>{}));
+    }
+    for (const auto& rule :
+         plan_for(config, register_intercept_dns_hold_rules, true).rules) {
+      CHECK(rule.criteria.exclude_oif == wan);
+      CHECK(rule.criteria.include_oif.empty());
+      CHECK(rule.criteria.exclude_iif.empty());
+    }
+    // Router traffic off: loopback replies stay out as well.
+    for (const auto& rule :
+         plan_for(config, register_intercept_dns_hold_rules, false).rules) {
+      CHECK(rule.criteria.exclude_oif ==
+            std::vector<std::string>{"eth3", "lo", "ppp0", "wg0"});
+    }
+  }
+  SUBCASE("inbound_interfaces set: only those clients are learned") {
+    const auto config = config_for(R"("inbound_interfaces":["br1","br0"],)");
+    const std::vector<std::string> allowed{"br0", "br1"};
+    for (const auto& rule : plan_for(config, register_intercept_l7_sniff_rules, false).rules) {
+      CHECK(rule.criteria.include_iif == allowed);
+      CHECK(rule.criteria.exclude_iif.empty());
+    }
+    for (const auto& rule :
+         plan_for(config, register_intercept_dns_hold_rules, false).rules) {
+      CHECK(rule.criteria.include_oif == allowed);
+      CHECK(rule.criteria.exclude_oif.empty());
+    }
+    // With router traffic on, loopback replies to local processes are held too.
+    for (const auto& rule :
+         plan_for(config, register_intercept_dns_hold_rules, true).rules) {
+      CHECK(rule.criteria.include_oif ==
+            std::vector<std::string>{"br0", "br1", "lo"});
+    }
+  }
+  SUBCASE("only loopback allowed and router traffic off: nothing to hold") {
+    const auto config = config_for(R"("inbound_interfaces":["lo"],)");
+    CHECK(plan_for(config, register_intercept_dns_hold_rules, false).rules.empty());
+  }
+}
+
 TEST_CASE("l7.sniff copies the first packets of new flows at forward and output") {
   const ModuleFixture fixture;
   InterceptFirewallSettings settings;

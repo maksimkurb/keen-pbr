@@ -57,6 +57,9 @@ enum class PhysicalChainRole : uint8_t {
   // iptables: dedicated interception chains in mangle.
   iptables_dns_hold,
   iptables_sniff,
+  // iptables: router-originated sniff chain, only when KeenPbrSniff cannot
+  // serve OUTPUT as well (it is jumped from FORWARD and needs an `-i` match).
+  iptables_sniff_out,
   // nft: base chain `prerouting` / `output` of the keen-pbr table.
   nft_prerouting,
   nft_output,

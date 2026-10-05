@@ -30,8 +30,13 @@ public:
                                          bool interface_outbound_in_use,
                                          bool auto_gateway_outbound,
                                          bool auto_gateway_interface,
-                                         bool default_gateway_rules) noexcept {
-        return (default_gateway_rules && event.default_route_changed) ||
+                                         bool default_gateway_rules,
+                                         bool learning_wan_scope = false) noexcept {
+        // learning_wan_scope: interception learns from every client interface
+        // except the outbound/WAN ones, which include the main-table
+        // default-route interfaces.
+        return ((default_gateway_rules || learning_wan_scope) &&
+                event.default_route_changed) ||
                (event.administrative_state_changed && interface_outbound_in_use) ||
                (event.route_changed && auto_gateway_outbound) ||
                (event.address_changed && auto_gateway_interface);

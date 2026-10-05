@@ -37,6 +37,19 @@ TEST_CASE("InterfaceMonitor refresh predicate for default_gateway rules requires
     CHECK_FALSE(InterfaceMonitor::requires_runtime_refresh(link_event, false, false, false, true));
 }
 
+TEST_CASE("InterfaceMonitor refresh predicate for the learning WAN scope follows the default route") {
+    // The WAN interfaces excluded from learning include the default-route one.
+    InterfaceMonitor::Event default_route_event;
+    default_route_event.route_changed = true;
+    default_route_event.default_route_changed = true;
+    CHECK(InterfaceMonitor::requires_runtime_refresh(default_route_event, false, false, false, false, true));
+    CHECK_FALSE(InterfaceMonitor::requires_runtime_refresh(default_route_event, false, false, false, false, false));
+
+    InterfaceMonitor::Event other_route_event;
+    other_route_event.route_changed = true;
+    CHECK_FALSE(InterfaceMonitor::requires_runtime_refresh(other_route_event, false, false, false, false, true));
+}
+
 TEST_CASE("InterfaceMonitor reconnect rebuilds usable netlink socket") {
     std::unique_ptr<InterfaceMonitor> monitor;
     try {

@@ -53,6 +53,17 @@ struct FirewallBuildContext {
   bool process_router_traffic{true};
 };
 
+// Client-interface scope of the learning interception rules.  `include` is
+// route.inbound_interfaces when configured (learn only for clients there);
+// otherwise `exclude` lists the outbound/WAN interfaces (all interface
+// outbounds plus the interfaces of the main-table default routes), never a
+// learning source.  At most one of the two is non-empty.
+struct InterceptClientScope {
+  std::vector<std::string> include;
+  std::vector<std::string> exclude;
+};
+InterceptClientScope intercept_client_scope(const FirewallBuildContext& context);
+
 // One physical route selector target before an action is attached.
 struct RouteRuleTarget {
   FirewallRuleCriteria criteria;

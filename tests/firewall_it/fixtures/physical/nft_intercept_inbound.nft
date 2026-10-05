@@ -65,14 +65,14 @@ table inet KeenPbrTable {
 
 	chain dns_hold {
 		type filter hook postrouting priority mangle; policy accept;
-		udp sport 53 oifname != { "wan0", "wan1" } ct state established ct direction reply counter packets 0 bytes 0 queue flags bypass to 9053 comment "kpbr:v1:dns.intercept_hold:udp"
-		tcp sport 53 oifname != { "wan0", "wan1" } ct state established ct direction reply counter packets 0 bytes 0 queue flags bypass to 9053 comment "kpbr:v1:dns.intercept_hold:tcp"
+		udp sport 53 oifname { "br-guest", "lan0", "lo" } ct state established ct direction reply counter packets 0 bytes 0 queue flags bypass to 9053 comment "kpbr:v1:dns.intercept_hold:udp"
+		tcp sport 53 oifname { "br-guest", "lan0", "lo" } ct state established ct direction reply counter packets 0 bytes 0 queue flags bypass to 9053 comment "kpbr:v1:dns.intercept_hold:tcp"
 	}
 
 	chain sniff_fwd {
 		type filter hook forward priority mangle; policy accept;
-		tcp dport { 80, 443 } iifname != { "wan0", "wan1" } ct direction original ct original packets 1-6 counter packets 0 bytes 0 log group 9054 snaplen 2048 comment "kpbr:v1:l7.sniff:tcp.forward"
-		udp dport 443 iifname != { "wan0", "wan1" } ct direction original ct original packets 1-6 counter packets 0 bytes 0 log group 9054 snaplen 2048 comment "kpbr:v1:l7.sniff:udp.forward"
+		tcp dport { 80, 443 } iifname { "br-guest", "lan0" } ct direction original ct original packets 1-6 counter packets 0 bytes 0 log group 9054 snaplen 2048 comment "kpbr:v1:l7.sniff:tcp.forward"
+		udp dport 443 iifname { "br-guest", "lan0" } ct direction original ct original packets 1-6 counter packets 0 bytes 0 log group 9054 snaplen 2048 comment "kpbr:v1:l7.sniff:udp.forward"
 	}
 
 	chain sniff_out {

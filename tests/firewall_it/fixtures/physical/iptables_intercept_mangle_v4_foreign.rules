@@ -16,6 +16,8 @@
 -A POSTROUTING -j ACCEPT
 -A POSTROUTING -j KeenPbrDnsHold
 -A POSTROUTING -o eth8 -j ACCEPT
+-A KeenPbrDnsHold -o wan0 -m comment --comment "kpbr:v1:dns.intercept_hold:udp" -j RETURN
+-A KeenPbrDnsHold -o wan1 -m comment --comment "kpbr:v1:dns.intercept_hold:udp" -j RETURN
 -A KeenPbrDnsHold -p udp -m udp --sport 53 -m conntrack --ctstate ESTABLISHED --ctdir REPLY -m comment --comment "kpbr:v1:dns.intercept_hold:udp" -j NFQUEUE --queue-num 9053 --queue-bypass
 -A KeenPbrDnsHold -p tcp -m tcp --sport 53 -m conntrack --ctstate ESTABLISHED --ctdir REPLY -m comment --comment "kpbr:v1:dns.intercept_hold:tcp" -j NFQUEUE --queue-num 9053 --queue-bypass
 -A KeenPbrOutput -m conntrack --ctdir ORIGINAL -m connmark ! --mark 0x0/0xff0000 -m comment --comment "kpbr:v1:prefilter.restore_conntrack_mark:9a8c6f9a29c8dccb68b5fc837b14b28a" -j CONNMARK --restore-mark --nfmask 0xff0000 --ctmask 0xff0000
@@ -49,8 +51,10 @@
 -A KeenPbrOutput -m set --match-set kpbr4d_routed dst -m comment --comment "kpbr:v1:route.mark:cddcb8d7569e0d14efd45c34b081d542" -j CONNMARK --save-mark --nfmask 0xff0000 --ctmask 0xff0000
 -A KeenPbrOutput -m set --match-set kpbr4d_routed dst -m comment --comment "kpbr:v1:route.mark:cddcb8d7569e0d14efd45c34b081d542" -j RETURN
 -A KeenPbrOutput -m set --match-set kpbr4_hybrid dst -m comment --comment "kpbr:v1:route.drop:47c7580b6e3b5b208ce412ca875c3b1b" -j DROP
--A KeenPbrSniff -p tcp -m multiport --dports 80,443 -m connbytes --connbytes 1:6 --connbytes-mode packets --connbytes-dir original -m comment --comment "kpbr:v1:l7.sniff:tcp.forward" -j NFLOG --nflog-group 9054 --nflog-size 2048
--A KeenPbrSniff -p udp -m udp --dport 443 -m connbytes --connbytes 1:6 --connbytes-mode packets --connbytes-dir original -m comment --comment "kpbr:v1:l7.sniff:udp.forward" -j NFLOG --nflog-group 9054 --nflog-size 2048
+-A KeenPbrSniff -i wan0 -m comment --comment "kpbr:v1:l7.sniff:tcp.forward" -j RETURN
+-A KeenPbrSniff -i wan1 -m comment --comment "kpbr:v1:l7.sniff:tcp.forward" -j RETURN
+-A KeenPbrSniff -p tcp -m multiport --dports 80,443 -m conntrack --ctdir ORIGINAL -m connbytes --connbytes 1:6 --connbytes-mode packets --connbytes-dir original -m comment --comment "kpbr:v1:l7.sniff:tcp.forward" -j NFLOG --nflog-group 9054 --nflog-size 2048
+-A KeenPbrSniff -p udp -m udp --dport 443 -m conntrack --ctdir ORIGINAL -m connbytes --connbytes 1:6 --connbytes-mode packets --connbytes-dir original -m comment --comment "kpbr:v1:l7.sniff:udp.forward" -j NFLOG --nflog-group 9054 --nflog-size 2048
 -A KeenPbrTable -m conntrack --ctdir ORIGINAL -m connmark ! --mark 0x0/0xff0000 -m comment --comment "kpbr:v1:prefilter.restore_conntrack_mark:9a8c6f9a29c8dccb68b5fc837b14b28a" -j CONNMARK --restore-mark --nfmask 0xff0000 --ctmask 0xff0000
 -A KeenPbrTable -m conntrack --ctdir ORIGINAL -m mark ! --mark 0x0/0xff0000 -m comment --comment "kpbr:v1:prefilter.restore_conntrack_mark:9a8c6f9a29c8dccb68b5fc837b14b28a" -j RETURN
 -A KeenPbrTable -m conntrack --ctdir REPLY -m comment --comment "kpbr:v1:prefilter.skip_local_replies:7257c668d9bf18a9c15001249e18c1ef" -j RETURN

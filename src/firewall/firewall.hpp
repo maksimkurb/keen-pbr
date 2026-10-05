@@ -81,16 +81,24 @@ struct FirewallRuleCriteria {
   std::vector<std::string> default_gateway_bypass;
   // Reply-direction packets of an established connection (interception only).
   bool ct_established_reply = false;
-  // Output interfaces the packet must NOT leave through (interception only);
-  // empty = any.  Used to keep loopback replies to router-local processes out
-  // of the DNS hold.
+  // Original-direction packets of the connection (interception only).
+  bool ct_original = false;
+  // Interface scoping of the connection's client (interception only); empty =
+  // any.  Input interfaces for the L7 sniff (request direction), output
+  // interfaces for the DNS hold (reply going back to the client).  The
+  // include_* lists are allowlists, the exclude_* lists denylists; a plan
+  // rule uses at most one of the two per direction.
+  std::vector<std::string> include_iif;
+  std::vector<std::string> exclude_iif;
+  std::vector<std::string> include_oif;
   std::vector<std::string> exclude_oif;
   // Original-direction packet count window of the connection (interception
   // only); needs conntrack.
   std::optional<PacketCountRange> connbytes_original_packets;
   bool empty() const {
     return !dst_set_name.has_value() && !dscp.has_value() &&
-           !ct_established_reply && exclude_oif.empty() &&
+           !ct_established_reply && !ct_original && include_iif.empty() &&
+           exclude_iif.empty() && include_oif.empty() && exclude_oif.empty() &&
            !connbytes_original_packets.has_value() &&
            proto == L4Proto::Any && src_port.empty() && dst_port.empty() &&
            src_addr.empty() && dst_addr.empty() &&

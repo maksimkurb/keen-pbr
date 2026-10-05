@@ -345,18 +345,38 @@ inline FirewallPlan capture_plan_lan_output() {
 }
 
 // The rules of the interception policy modules (DNS hold, L7 sniff) for
-// `settings`, exactly as the production modules plan them.
+// `settings`, exactly as the production modules plan them.  `inbound` is
+// route.inbound_interfaces, `wan_interfaces` the interfaces of interface
+// outbounds; `router_traffic` is iproute.process_router_traffic (the default
+// keeps the historic behaviour of hand-built contexts).
 inline std::vector<FirewallRuleInstance> intercept_module_rules(
-    const InterceptFirewallSettings& settings) {
+    const InterceptFirewallSettings& settings,
+    const std::vector<std::string>& inbound = {},
+    const std::vector<std::string>& wan_interfaces = {},
+    bool router_traffic = true) {
   static const std::vector<RouteRule> route_rules;
-  static const std::vector<Outbound> outbounds;
+  std::vector<Outbound> outbounds;
+  for (const auto& name : wan_interfaces) {
+    Outbound outbound;
+    outbound.tag = name;
+    outbound.type = OutboundType::INTERFACE;
+    outbound.interface = name;
+    outbounds.push_back(std::move(outbound));
+  }
+  Config config;
+  if (!inbound.empty()) {
+    config.route = RouteConfig{};
+    config.route->inbound_interfaces = inbound;
+  }
   static const std::map<std::string, ListConfig> lists;
   static const std::map<std::string, ListSetUsage> usage;
   static const std::vector<DumpedRoute> main_routes;
   static const std::vector<DumpedInterface> interfaces;
   FirewallBuildContext context{route_rules, outbounds, lists, usage,
                                main_routes, interfaces};
+  context.config = &config;
   context.intercept = settings;
+  context.process_router_traffic = router_traffic;
   FirewallPlan plan;
   plan.fwmark_mask = kCaptureMask;
   FirewallRuleRegistrar registrar(plan);
@@ -368,14 +388,19 @@ inline std::vector<FirewallRuleInstance> intercept_module_rules(
 
 // The representative capture plan plus the interception rules (all of them
 // enabled with the default settings).  Their stage sorts after every other
-// rule, so appending keeps the plan order.
-inline FirewallPlan capture_plan_with_intercept(bool nft, bool two_interfaces,
-                                                bool conntrack) {
+// rule, so appending keeps the plan order.  Without `inbound` the learning
+// scope excludes two WAN interfaces; with it, learning is limited to them.
+inline FirewallPlan capture_plan_with_intercept(
+    bool nft, bool two_interfaces, bool conntrack,
+    const std::vector<std::string>& inbound = {}) {
   FirewallPlan plan = capture_plan(nft, two_interfaces, conntrack);
   InterceptFirewallSettings settings;
   settings.dns_hold = true;
   settings.l7_sniff = true;
-  for (auto& rule : intercept_module_rules(settings)) {
+  for (auto& rule : intercept_module_rules(
+           settings, inbound, inbound.empty()
+                                  ? std::vector<std::string>{"wan0", "wan1"}
+                                  : std::vector<std::string>{})) {
     rule.insertion_order = plan.rules.size();
     plan.rules.push_back(std::move(rule));
   }

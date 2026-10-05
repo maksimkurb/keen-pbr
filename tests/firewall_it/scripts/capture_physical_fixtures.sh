@@ -116,6 +116,18 @@ scenario nft_intercept "$run_case
     echo 'interception chains left behind' >&2; exit 1
   fi"
 
+# The same with route.inbound_interfaces = {lan0, br-guest}: learning only for
+# clients on those interfaces (iptables: one fragment per interface; nft: one
+# rule with an anonymous interface set).  The default scenarios above exclude the
+# WAN interfaces wan0/wan1 instead.
+scenario iptables_intercept_inbound "$run_case
+  iptables-save -t mangle >\"\$KPBR_OUT/iptables_intercept_inbound_mangle_v4.save\"
+  ip6tables-save -t mangle >\"\$KPBR_OUT/iptables_intercept_inbound_mangle_v6.save\""
+
+scenario nft_intercept_inbound "$run_case
+  nft -j list table inet KeenPbrTable >\"\$KPBR_OUT/nft_intercept_inbound.json\"
+  nft list table inet KeenPbrTable >\"\$KPBR_OUT/nft_intercept_inbound.nft\""
+
 # Representative zoo of kernel spellings (one rule per interesting form), added
 # with the stock tools so the dump shows exactly how iptables-save / nft -j
 # print them back.

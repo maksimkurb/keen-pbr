@@ -720,7 +720,7 @@ constexpr const char *kLegacyChains[] = {
     "KeenPbrOutput_B",
     // Interception chains are retired the same way whenever the plan no
     // longer carries them (they are skipped while declared by the commit).
-    "KeenPbrDnsHold",      "KeenPbrSniff"};
+    "KeenPbrDnsHold",      "KeenPbrSniff",   "KeenPbrSniffOut"};
 
 } // namespace
 
@@ -823,6 +823,9 @@ void IptablesFirewall::verify_applied_hooks(bool ipv6) const {
             ->output_hook) {
       verify_pinned("OUTPUT", iptables_sniff_chain_name());
     }
+  }
+  if (has_chain(iptables_sniff_out_chain_name())) {
+    verify_pinned("OUTPUT", iptables_sniff_out_chain_name());
   }
 }
 
@@ -1252,6 +1255,8 @@ void add_intercept_hook_rules(PhysicalRuleset &result) {
       if (chain.output_hook) {
         hooks.push_back({"OUTPUT", chain.id.family, chain.id});
       }
+    } else if (chain.id.role == PhysicalChainRole::iptables_sniff_out) {
+      hooks.push_back({"OUTPUT", chain.id.family, chain.id});
     }
   }
   for (const auto &hook : hooks) {
@@ -1499,6 +1504,10 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
       intercept.push_back({iptables_sniff_chain_name(), "FORWARD", true,
                            output_hook ? "OUTPUT" : nullptr});
     }
+    if (planned(iptables_sniff_out_chain_name())) {
+      intercept.push_back(
+          {iptables_sniff_out_chain_name(), "OUTPUT", true, nullptr});
+    }
     const auto run = [&](const char *table,
                          const std::vector<OwnedChainSpec> &chains) {
       pipe_to_cmd({command, "--noflush", "--counters"},
@@ -1577,10 +1586,12 @@ void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
     remove_all_hooks(command, "mangle", "POSTROUTING", "KeenPbrDnsHold");
     remove_all_hooks(command, "mangle", "FORWARD", "KeenPbrSniff");
     remove_all_hooks(command, "mangle", "OUTPUT", "KeenPbrSniff");
+    remove_all_hooks(command, "mangle", "OUTPUT", "KeenPbrSniffOut");
     if (sweep_live_state || !raw) {
       remove_all_hooks(command, "mangle", "PREROUTING", "KeenPbrTable");
     }
-    for (const char *chain : {"KeenPbrDnsHold", "KeenPbrSniff"}) {
+    for (const char *chain :
+         {"KeenPbrDnsHold", "KeenPbrSniff", "KeenPbrSniffOut"}) {
       flush_delete(command, "mangle", chain);
     }
     for (const char *chain : {"KeenPbrOutput", "KeenPbrTable_OUTPUT"}) {

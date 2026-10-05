@@ -85,6 +85,10 @@ const char *iptables_dns_hold_chain_name();
 // KeenPbrSniff (mangle): NFLOG of the first packets of new flows, jumped from
 // FORWARD and OUTPUT position 1.
 const char *iptables_sniff_chain_name();
+// KeenPbrSniffOut (mangle): the router-originated sniff rules, jumped from
+// OUTPUT only; present when the forward sniff rules need an `-i` allowlist and
+// the shared KeenPbrSniff would match forwarded packets of any interface.
+const char *iptables_sniff_out_chain_name();
 
 PhysicalChainId iptables_physical_chain_id(const std::string &name,
                                            PhysicalTable table,

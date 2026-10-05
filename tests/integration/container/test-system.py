@@ -20,7 +20,8 @@ from cases import (dns_no_leak, dns_routing_save, dns_upstream_ipv4,
                    prefilter_skip_marked, inbound_interface_filter, restore_conntrack_mark,
                    skip_established_or_dnat, local_reply_skip, forwarded_reply_skip, output_lan_skip,
                    firewall_corruption_recovery, dnsmasq_mgmt,
-                   loop_safety_marked_socket, router_traffic_default_off)
+                   loop_safety_marked_socket, router_traffic_default_off,
+                   learning_client_scope)
 
 CASE_MODULES = (
     service_lifecycle,
@@ -40,6 +41,7 @@ CASE_MODULES = (
     firewall_corruption_recovery,
     loop_safety_marked_socket,
     router_traffic_default_off,
+    learning_client_scope,
     rule_shapes,
     route_pass,
     route_drop,

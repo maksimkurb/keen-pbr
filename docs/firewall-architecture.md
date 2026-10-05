@@ -120,6 +120,34 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   `oifname != "lo"` / `! -o lo`, so replies of a local resolver to router-local
   processes (loopback) are not held or learned.  When true, router traffic is
   routed and learned like a LAN client.
+  **Learning scope** (interception only): the client's interface is part of
+  the interception criteria (`include_iif`/`exclude_iif` for the L7 sniff,
+  `include_oif`/`exclude_oif` for the DNS hold, `ct_original` for the sniff),
+  decided by the policy modules from `route.inbound_interfaces` (allowlist) or,
+  when it is empty, from the outbound/WAN interfaces (all interface outbounds
+  plus main-table default-route interfaces; denylist).  The forwarded L7 sniff
+  rule is `iifname {allowed}` / `iifname != {wan...}` plus
+  `ct direction original`; the output sniff copy has no input interface and
+  keeps only `ct direction original`; the DNS hold is `oifname {allowed (+lo
+  when router traffic is processed)}` / `oifname != {wan..., lo?}`.  nft emits
+  one rule with an anonymous interface set.  iptables has no interface list:
+  an allowlist is one fragment per interface (`-i br0 ...`, `-i br1 ...`), a
+  denylist of one interface is `! -i wan`, a longer one leading
+  `-i/-o <wan> -j RETURN` guard rules in the interception chain (no
+  xt_comment needed); an output sniff copy already covered by a forward rule
+  that only excludes interfaces is not emitted (router packets have no input
+  interface, so they would be logged twice in the shared `KeenPbrSniff`).
+  With an allowlist the forward rules need a positive `-i`, which an output
+  copy cannot have, and the shared chain is jumped from FORWARD (an `-i`-less
+  rule there would learn every interface).  OUTPUT then gets its own chain
+  `KeenPbrSniffOut` (role `iptables_sniff_out`, pinned first jump from OUTPUT
+  only, `KeenPbrSniff` is jumped from FORWARD only); a switch between layouts
+  drops the stale jump and chain in the same restore.  With a denylist or no
+  scope (or router traffic off) the single shared chain is kept.
+  The WAN set belongs to the plan, so the inspector and verifier see it like
+  any other rule, and a default-route change re-applies the firewall (the
+  interface monitor refreshes on `default_route_changed` while interception is
+  enabled with an empty allowlist).
   The `prefilter.skip_local_replies` prefilter is lowered to both PREROUTING
   and OUTPUT (`-m conntrack --ctdir REPLY -j RETURN` on iptables,
   `ct direction reply accept` in the nft `prerouting` and `output` chains),

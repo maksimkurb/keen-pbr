@@ -37,6 +37,29 @@ own traffic is observed. With `false`:
 With `true` both apply to the router like to a LAN client. DNS detour rules are
 OUTPUT-only in both modes and are not affected by this option.
 
+### Which clients are learned
+
+Learning writes router-wide routing sets, so it is scoped by the interface of
+the **client**, whatever resolver answered (answers of any DNS resolver are
+learned):
+
+* `route.inbound_interfaces` non-empty: only clients on those interfaces are
+  learned. A VPN or guest segment that is not listed is not learned.
+* `route.inbound_interfaces` empty: clients on any interface except the
+  outbound/WAN ones are learned, i.e. never traffic that arrived on an
+  interface used by a configured interface outbound or on the interface of a
+  main-table default route. A packet coming from the internet toward a
+  port-forwarded or IPv6 LAN address is therefore not parsed.
+
+L7 sniffing looks at the request direction only (`ct direction original`) and
+matches the input interface (`iifname`); the DNS hold matches the output
+interface of the reply going back to the client (`oifname`). Router-originated
+traffic has no input interface and follows `process_router_traffic` alone (with
+`true` and an allowlist, replies over `lo` are held as well). The WAN set is
+recomputed from the configuration and the main routing table on every firewall
+apply, and a change of the default route triggers a runtime refresh while
+interception is enabled and no allowlist is set.
+
 ## Minimal configuration
 
 Interception is enabled by default when the required kernel facilities are

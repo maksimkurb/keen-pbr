@@ -37,10 +37,17 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
   // *_intercept: the capture plan plus DNS hold and L7 sniff.  *_repair
   // re-applies in place (PreserveSets) so a drifted hook is repaired instead
   // of recreated; the plain scenarios are Destructive.
-  const bool intercept = name == "nft_intercept" ||
+  // *_intercept_inbound: the same with route.inbound_interfaces set (an
+  // allowlist of learning clients instead of the WAN denylist).
+  const bool inbound = name == "nft_intercept_inbound" ||
+                       name == "iptables_intercept_inbound";
+  const bool intercept = inbound || name == "nft_intercept" ||
                          name == "nft_intercept_repair" ||
                          name == "iptables_intercept" ||
                          name == "iptables_intercept_repair";
+  const std::vector<std::string> inbound_interfaces =
+      inbound ? std::vector<std::string>{"lan0", "br-guest"}
+              : std::vector<std::string>{};
   const bool repair = name.size() > 7 &&
                       name.compare(name.size() - 7, 7, "_repair") == 0;
   const FirewallApplyMode apply_mode =
@@ -53,7 +60,8 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
     firewall->apply(name == "nft_catchall"
                         ? capture_plan_catch_all()
                     : name == "nft_lan_output" ? capture_plan_lan_output()
-                    : intercept ? capture_plan_with_intercept(true, true, true)
+                    : intercept ? capture_plan_with_intercept(true, true, true,
+                                                         inbound_interfaces)
                                 : capture_plan(true, true, true),
                     apply_mode);
     // The nft backend deletes its table on destruction; the dump needs it.
@@ -70,7 +78,8 @@ TEST_CASE("physical fixture capture (manual, needs KPBR_CAPTURE_SCENARIO)") {
   firewall.apply(
       name == "iptables_catchall" ? capture_plan_catch_all()
       : name == "iptables_lan_output" ? capture_plan_lan_output()
-      : intercept ? capture_plan_with_intercept(false, false, true)
+      : intercept ? capture_plan_with_intercept(false, false, true,
+                                                 inbound_interfaces)
                 : capture_plan(false, name != "iptables_mangle" &&
                                           name != "iptables_plain_repair",
                                true),
@@ -1354,7 +1363,8 @@ TEST_CASE("physical: parse IPv4 and IPv6 CIDR from iptables dump") {
 bool is_lowered_role(Role role) {
   return role == Role::iptables_prerouting ||
          role == Role::iptables_output || role == Role::iptables_dns_hold ||
-         role == Role::iptables_sniff || role == Role::nft_prerouting ||
+         role == Role::iptables_sniff || role == Role::iptables_sniff_out ||
+         role == Role::nft_prerouting ||
          role == Role::nft_output || role == Role::nft_dns_hold ||
          role == Role::nft_sniff_forward || role == Role::nft_sniff_output ||
          role == Role::nft_setter;
@@ -1478,6 +1488,37 @@ TEST_CASE("lowering round trip: iptables interception equals the kernel dump") {
     REQUIRE(jump != nullptr);
     CHECK(jump->target.role == Role::iptables_sniff);
   }
+}
+
+TEST_CASE("lowering round trip: iptables interception with inbound interfaces "
+          "equals the kernel dump") {
+  const auto plan = capture_plan_with_intercept(false, false, true,
+                                                {"lan0", "br-guest"});
+  const auto lowered = lower_firewall_plan(
+      plan, capture_context(FirewallBackend::iptables, {}));
+  PhysicalRuleset v4;
+  PhysicalRuleset v6;
+  for (const auto &chain : lowered.chains) {
+    (chain.id.family == Fam::ipv4 ? v4 : v6).chains.push_back(chain);
+  }
+  check_lowered_equals_parsed(
+      v4, parse_iptables_save(
+              read_fixture("iptables_intercept_inbound_mangle_v4.save"),
+              Fam::ipv4));
+  check_lowered_equals_parsed(
+      v6, parse_iptables_save(
+              read_fixture("iptables_intercept_inbound_mangle_v6.save"),
+              Fam::ipv6));
+}
+
+TEST_CASE("lowering round trip: nftables interception with inbound interfaces "
+          "equals the kernel dump") {
+  const auto plan = capture_plan_with_intercept(true, true, true,
+                                                {"lan0", "br-guest"});
+  const auto lowered =
+      lower_firewall_plan(plan, capture_context(FirewallBackend::nftables, {}));
+  check_lowered_equals_parsed(
+      lowered, parse_nft_json(read_fixture("nft_intercept_inbound.json")));
 }
 
 TEST_CASE("lowering round trip: nftables interception equals the kernel dump") {

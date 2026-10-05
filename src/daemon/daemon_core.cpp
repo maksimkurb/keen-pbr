@@ -1155,6 +1155,13 @@ void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
   const bool default_gateway_rules = std::any_of(
       route_rules.begin(), route_rules.end(),
       [](const RouteRule &rule) { return rule.default_gateway.has_value(); });
+  // Interception without a route.inbound_interfaces allowlist excludes the
+  // outbound/WAN interfaces, default-route ones included, from learning.
+  const auto inbound_interfaces =
+      config_.route.value_or(RouteConfig{}).inbound_interfaces;
+  const bool learning_wan_scope =
+      config_.intercept.value_or(InterceptConfig{}).enabled.value_or(true) &&
+      (!inbound_interfaces.has_value() || inbound_interfaces->empty());
   const bool auto_gateway_outbound = is_auto_gateway_outbound_in_use();
   const bool auto_gateway_interface =
       event.address_changed && !event.interface_name.empty() &&
@@ -1164,7 +1171,8 @@ void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
           is_interface_outbound_in_use(event.interface_name),
           auto_gateway_outbound,
           auto_gateway_interface,
-          default_gateway_rules)) {
+          default_gateway_rules,
+          learning_wan_scope)) {
 #ifdef WITH_API
     if (status_stream_)
       status_stream_->reconcile(StatusUpdate::Interfaces |

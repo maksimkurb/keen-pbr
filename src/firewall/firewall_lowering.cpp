@@ -189,6 +189,8 @@ const char *iptables_dns_hold_chain_name() { return "KeenPbrDnsHold"; }
 
 const char *iptables_sniff_chain_name() { return "KeenPbrSniff"; }
 
+const char *iptables_sniff_out_chain_name() { return "KeenPbrSniffOut"; }
+
 PhysicalChainId iptables_physical_chain_id(const std::string &name,
                                            PhysicalTable table,
                                            FirewallFamily family) {
@@ -286,13 +288,25 @@ bool is_intercept_action(const FirewallRuleAction &action) {
          std::holds_alternative<LogAction>(action);
 }
 
-// Matches of the interception-only criteria (conntrack state/direction and
-// connection packet window).
+// Matches of the interception-only criteria (conntrack state/direction,
+// client interface lists and connection packet window).
 void append_intercept_matches(const FirewallRuleCriteria &criteria,
                               Matches &matches) {
   if (criteria.ct_established_reply) {
     matches.push_back(CtStateMatch{ct_established, false});
     matches.push_back(CtDirMatch{false});
+  }
+  if (criteria.ct_original) {
+    matches.push_back(CtDirMatch{true});
+  }
+  if (!criteria.include_iif.empty()) {
+    matches.push_back(IifMatch{false, criteria.include_iif});
+  }
+  if (!criteria.exclude_iif.empty()) {
+    matches.push_back(IifMatch{true, criteria.exclude_iif});
+  }
+  if (!criteria.include_oif.empty()) {
+    matches.push_back(OifMatch{false, criteria.include_oif});
   }
   if (!criteria.exclude_oif.empty()) {
     matches.push_back(OifMatch{true, criteria.exclude_oif});
@@ -686,14 +700,83 @@ void lower_iptables_classifier(const FirewallRuleInstance &rule,
 }
 
 // One interception rule: the same family/protocol/port expansion as a
-// classifier, plus conntrack matches, ending in NFQUEUE or NFLOG.  Equal rules
-// are not repeated: KeenPbrSniff serves both FORWARD and OUTPUT, so the plan's
-// forward and output copies of a sniff rule are one physical rule.
+// classifier, plus conntrack and client-interface matches, ending in NFQUEUE
+// or NFLOG.  Equal rules are not repeated: KeenPbrSniff serves both FORWARD
+// and OUTPUT, so the plan's forward and output copies of a sniff rule are one
+// physical rule.
+//
+// iptables has no interface list in one rule.  An allowlist becomes one
+// fragment of the rule per interface; a denylist of one interface is a
+// negated match, a longer one becomes leading `-i/-o <name> -j RETURN` rules
+// (the same RETURN-guard shape as the prefilters, no xt_comment needed).
 void lower_iptables_intercept(const FirewallRuleInstance &rule,
                               const FirewallPhysicalClassifier &classifier,
                               IptablesChain &target) {
-  const auto &criteria = classifier.criteria;
+  FirewallRuleCriteria criteria = classifier.criteria;
   const auto key = physical_key(rule.key, target.comments);
+  auto &rules = target.chain.rules;
+  // An output-hook copy is redundant when the chain already holds the same
+  // rule that merely excludes input interfaces: router-originated packets
+  // have no input interface, so that rule matches them too (and a second one
+  // would log them twice).
+  const bool output_copy = classifier.hook == FirewallHook::output;
+  const auto covers = [&](const PhysicalRule &existing,
+                          const PhysicalRule &physical) {
+    if (existing == physical) return true;
+    if (!output_copy) return false;
+    PhysicalRule stripped = existing;
+    stripped.matches.erase(
+        std::remove_if(stripped.matches.begin(), stripped.matches.end(),
+                       [](const PhysicalMatch &match) {
+                         const auto *iif = std::get_if<IifMatch>(&match);
+                         return iif != nullptr && iif->negate;
+                       }),
+        stripped.matches.end());
+    return stripped == physical;
+  };
+  const auto add_unique = [&](PhysicalRule physical) {
+    if (std::none_of(rules.begin(), rules.end(),
+                     [&](const PhysicalRule &existing) {
+                       return covers(existing, physical);
+                     })) {
+      rules.push_back(std::move(physical));
+    }
+  };
+
+  if (criteria.exclude_iif.size() > 1U) {
+    for (const auto &name : criteria.exclude_iif) {
+      add_unique(build_rule(target.family, {IifMatch{false, {name}}},
+                            {verdict(PhysicalVerdict::return_)}, key));
+    }
+    criteria.exclude_iif.clear();
+  }
+  if (criteria.exclude_oif.size() > 1U) {
+    for (const auto &name : criteria.exclude_oif) {
+      add_unique(build_rule(target.family, {OifMatch{false, {name}}},
+                            {verdict(PhysicalVerdict::return_)}, key));
+    }
+    criteria.exclude_oif.clear();
+  }
+  std::vector<Matches> interface_fragments{Matches{}};
+  const auto fan_out = [&](std::vector<std::string> &names, bool input) {
+    if (names.empty()) return;
+    std::vector<Matches> next;
+    for (const auto &fragment : interface_fragments) {
+      for (const auto &name : names) {
+        Matches matches = fragment;
+        if (input) {
+          matches.push_back(IifMatch{false, {name}});
+        } else {
+          matches.push_back(OifMatch{false, {name}});
+        }
+        next.push_back(std::move(matches));
+      }
+    }
+    interface_fragments = std::move(next);
+    names.clear();
+  };
+  fan_out(criteria.include_iif, true);
+  fan_out(criteria.include_oif, false);
 
   Matches base;
   if (criteria.proto != L4Proto::Any) {
@@ -701,16 +784,14 @@ void lower_iptables_intercept(const FirewallRuleInstance &rule,
   }
   append_intercept_matches(criteria, base);
 
-  auto &rules = target.chain.rules;
   for (const auto &ports :
        iptables_port_fragments(criteria, transport_for(criteria.proto))) {
-    Matches matches = base;
-    matches.insert(matches.end(), ports.begin(), ports.end());
-    PhysicalRule physical = build_rule(
-        target.family, std::move(matches),
-        {intercept_statement(classifier.action)}, key);
-    if (std::find(rules.begin(), rules.end(), physical) == rules.end()) {
-      rules.push_back(std::move(physical));
+    for (const auto &interfaces : interface_fragments) {
+      Matches matches = base;
+      matches.insert(matches.end(), ports.begin(), ports.end());
+      matches.insert(matches.end(), interfaces.begin(), interfaces.end());
+      add_unique(build_rule(target.family, std::move(matches),
+                            {intercept_statement(classifier.action)}, key));
     }
   }
 }
@@ -737,6 +818,17 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
         return std::holds_alternative<LogAction>(r.action) &&
                r.hook == FirewallHook::output;
       });
+  // An output sniff rule has no input interface to match.  In the shared
+  // KeenPbrSniff it would also match forwarded packets of every interface, so
+  // when the forward rules need an `-i` allowlist, OUTPUT gets its own chain.
+  const bool sniff_out_chain =
+      log_in_output &&
+      std::any_of(plan.rules.begin(), plan.rules.end(),
+                  [](const FirewallRuleInstance &r) {
+                    return std::holds_alternative<LogAction>(r.action) &&
+                           r.hook == FirewallHook::forward &&
+                           !r.criteria.include_iif.empty();
+                  });
 
   // One PREROUTING and one OUTPUT chain per enabled family.  Chains hold the
   // rules directly; there are no dispatchers or A/B generations.
@@ -786,7 +878,11 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
     }
     if (has_log) {
       add_intercept_chain(iptables_sniff_chain_name(), FirewallHook::forward);
-      chains.back().chain.output_hook = log_in_output;
+      chains.back().chain.output_hook = log_in_output && !sniff_out_chain;
+      if (sniff_out_chain) {
+        add_intercept_chain(iptables_sniff_out_chain_name(),
+                            FirewallHook::output);
+      }
     }
   };
   add_family(FirewallFamily::ipv4);
@@ -804,11 +900,15 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
       before.push_back(target.chain.rules.size());
     }
     if (is_intercept_action(rule.action)) {
-      const bool dns_hold = rule.hook == FirewallHook::postrouting;
+      const FirewallHook want =
+          rule.hook == FirewallHook::postrouting ? FirewallHook::postrouting
+          : rule.hook == FirewallHook::output && sniff_out_chain
+              ? FirewallHook::output
+              : FirewallHook::forward;
       for (const auto &classifier : expander.expand(rule)) {
         for (auto &target : chains) {
           if (target.intercept && target.family == classifier.family &&
-              (target.hook == FirewallHook::postrouting) == dns_hold) {
+              target.hook == want) {
             lower_iptables_intercept(rule, classifier, target);
           }
         }

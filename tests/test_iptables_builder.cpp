@@ -558,11 +558,13 @@ TEST_CASE("iptables interception chains are hooked at position 1") {
   CHECK(script.find("-j NFQUEUE --queue-num 9053 --queue-bypass\n") !=
         std::string::npos);
   CHECK(script.find("-A KeenPbrSniff -p tcp -m multiport --dports 80,443 -m "
-                    "connbytes --connbytes 1:6 --connbytes-dir original "
-                    "--connbytes-mode packets") != std::string::npos);
+                    "conntrack --ctdir ORIGINAL -m connbytes --connbytes 1:6 "
+                    "--connbytes-dir original --connbytes-mode packets") !=
+        std::string::npos);
   CHECK(script.find("-j NFLOG --nflog-group 9054 --nflog-size 2048\n") !=
         std::string::npos);
-  CHECK(script.find("-A KeenPbrSniff -p udp --dport 443 -m connbytes") !=
+  CHECK(script.find("-A KeenPbrSniff -p udp --dport 443 -m conntrack "
+                    "--ctdir ORIGINAL -m connbytes") !=
         std::string::npos);
   // Same for ip6tables.
   CHECK(T::intercept_script(true, true, "").find(

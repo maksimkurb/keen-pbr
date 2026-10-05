@@ -316,6 +316,7 @@ set(SOURCES
   src/firewall/rules/route_drop.cpp
   src/firewall/rules/route_pass.cpp
   src/firewall/rules/route_balance.cpp
+  src/firewall/rules/intercept_client_scope.cpp
   src/firewall/rules/intercept_dns_hold.cpp
   src/firewall/rules/intercept_l7_sniff.cpp
   src/firewall/port_spec_util.cpp
