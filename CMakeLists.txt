@@ -346,7 +346,6 @@ set(SOURCES
   src/ipc/control_client.cpp
   src/daemon/config_store.cpp
   src/daemon/disk_config_state.cpp
-  src/daemon/config_apply_transaction.cpp
   src/daemon/pid_file.cpp
   src/daemon/daemon_core.cpp
   src/daemon/daemon_runtime.cpp

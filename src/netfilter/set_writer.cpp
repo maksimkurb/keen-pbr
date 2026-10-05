@@ -60,8 +60,14 @@ private:
     NlSocket socket_;
 };
 
-// Shared two-pass logic; backends supply message construction and, where
-// needed, an atomic delete+add refresh for an existing element.
+// Shared write logic; backends supply message construction and the way an
+// existing element's timeout is extended.  The backend (and, for nft, whether
+// the kernel can extend a timeout in place) is fixed at construction from the
+// startup capability snapshot; nothing is probed per write.
+//
+// Every call writes each chunk once.  Elements that failed with a transient
+// error (see is_transient()) are then retried ONCE as a smaller write of the
+// same kind, bounded by the caller's deadline; there is no further ladder.
 class WriterBase : public DynamicSetWriter {
 public:
     WriterBase(bool batched, std::unique_ptr<SetWriterTransport> transport)
@@ -82,18 +88,31 @@ public:
     }
 
 protected:
+    // How refresh extends an existing element's timeout.
+    enum class RefreshKind : uint8_t {
+        NonExclusiveAdd,  // one non-exclusive add per element (ipset)
+        InPlace,          // one non-exclusive NEWSETELEM with expiration (nft, kernel probed ok)
+        DeleteAdd,        // delete + add per element (nft without in-place support)
+    };
+
     virtual void build(MsgBuilder& b, uint32_t seq, const SetAdd& a, bool exclusive) = 0;
-    virtual bool supports_refresh() const { return false; }
+    virtual RefreshKind refresh_kind() const { return RefreshKind::NonExclusiveAdd; }
     virtual void build_refresh(MsgBuilder&, uint32_t, uint32_t, const SetAdd&) {}
-    // True when refresh() may extend timeouts in place (one NEWSETELEM each).
-    virtual bool in_place_refresh() const { return false; }
     virtual void build_in_place(MsgBuilder&, uint32_t, const SetAdd&) {}
 
 private:
-    // Full: exclusive add, then resend/refresh of what existed (add()).
+    // Full: exclusive add, then refresh of what existed (add()).
     // NewOnly: exclusive add only; existing elements -> Exists (add_new()).
-    // Existing: skip the exclusive probe, treat every element as existing (refresh()).
+    // Existing: skip the exclusive add, refresh every element (refresh()).
     enum class Mode : uint8_t { Full, NewOnly, Existing };
+
+    // A retryable failure: the request may simply not have been processed
+    // (EAGAIN/EINTR/ENOBUFS), or - for the nft delete+add refresh only - the
+    // element expired between the caller's belief and the DELSETELEM (ENOENT).
+    bool is_transient(int err) const {
+        return err == EAGAIN || err == EINTR || err == ENOBUFS ||
+               (err == ENOENT && delete_add_ran_);
+    }
 
     bool timed_add(Mode mode, const SetAdd* adds, SetAddResult* out, std::size_t count,
                    int timeout_ms) {
@@ -207,8 +226,10 @@ private:
         return rc;
     }
 
-    int run_refresh(const SetAdd* adds, const std::size_t* sel, std::size_t m,
-                    int* errs, std::chrono::steady_clock::time_point deadline) {
+    // nft delete+add refresh of sel[0..m): one batch of DELSETELEM+NEWSETELEM
+    // pairs.  A batch-level error rolls back every element.
+    int run_delete_add(const SetAdd* adds, const std::size_t* sel, std::size_t m,
+                       int* errs, std::chrono::steady_clock::time_point deadline) {
         if (remaining_ms(deadline) == 0) {
             for (std::size_t i = 0; i < m; ++i) errs[sel[i]] = ETIMEDOUT;
             transport_errno_ = ETIMEDOUT;
@@ -266,164 +287,137 @@ private:
         return rc;
     }
 
-    // refresh() with kernel support: one non-exclusive NEWSETELEM transaction
-    // restarts the timeout of every element (an element that vanished is simply
-    // created by the same message, which cannot be told apart from an update).
-    // A transaction error rolls the whole batch back, so every element then
-    // carries that error.
-    bool refresh_in_place(const SetAdd* adds, SetAddResult* out, std::size_t n,
-                          std::chrono::steady_clock::time_point deadline) {
+    // Extends the timeout of the elements adds[sel[0..m)] that are believed to
+    // exist, storing 0 or an errno in errs[sel[i]].
+    void refresh_subset(const SetAdd* adds, const std::size_t* sel, std::size_t m, int* errs,
+                        std::chrono::steady_clock::time_point deadline) {
+        for (std::size_t i = 0; i < m; ++i) errs[sel[i]] = kPending;
+        RefreshKind kind = refresh_kind();
+        // In-place extension needs a timeout to restart; permanent elements
+        // (and so any batch containing one) take the delete+add path.
+        if (kind == RefreshKind::InPlace &&
+            std::any_of(sel, sel + m, [&](std::size_t i) { return adds[i].timeout_s == 0; })) {
+            kind = RefreshKind::DeleteAdd;
+        }
+        if (kind == RefreshKind::DeleteAdd) {
+            delete_add_ran_ = true;
+            (void)run_delete_add(adds, sel, m, errs, deadline);
+        } else {
+            // InPlace: one transaction, so an error rolls back every element.
+            // NonExclusiveAdd (ipset): one request per element, own ack each.
+            const int rc = run_pass(adds, sel, m, /*exclusive=*/false, errs, deadline,
+                                    /*in_place=*/kind == RefreshKind::InPlace);
+            if (rc != 0) {
+                for (std::size_t i = 0; i < m; ++i) errs[sel[i]] = rc;
+            }
+        }
+        for (std::size_t i = 0; i < m; ++i) {
+            if (errs[sel[i]] == kPending) errs[sel[i]] = transport_errno_;
+        }
+    }
+
+    // Writes one chunk once, without retry.  out[i] is the result and fin[i]
+    // the errno behind an Error (0 otherwise).
+    void write_once(Mode mode, const SetAdd* adds, SetAddResult* out, int* fin, std::size_t n,
+                    std::chrono::steady_clock::time_point deadline) {
         all_.resize(n);
         for (std::size_t i = 0; i < n; ++i) all_[i] = i;
         errs_.assign(n, kPending);
         transport_errno_ = ETIMEDOUT;
-        const int rc = run_pass(adds, all_.data(), n, /*exclusive=*/false, errs_.data(), deadline,
-                                /*in_place=*/true);
-        bool ok = true;
-        for (std::size_t i = 0; i < n; ++i) {
-            int err = errs_[i];
-            if (rc != 0) err = rc;
-            if (err == kPending) err = ETIMEDOUT;
-            if (err == 0) {
-                out[i] = SetAddResult::Refreshed;
-            } else {
-                out[i] = SetAddResult::Error;
-                last_errno_ = err;
-                ok = false;
+        refreshed_.assign(n, 0);
+
+        if (mode == Mode::Existing) {
+            refresh_subset(adds, all_.data(), n, errs_.data(), deadline);
+            refreshed_.assign(n, 1);
+        } else {
+            const int first_rc =
+                run_pass(adds, all_.data(), n, /*exclusive=*/true, errs_.data(), deadline);
+            first_.assign(errs_.begin(), errs_.end());
+            // An nft batch is one transaction: any error aborts it and rolls
+            // back its other elements even though they were acked, so every
+            // acknowledged element is resent (non-exclusively) after a failed
+            // batch.  ipset requests are independent and never need this.
+            bool any_error = first_rc != 0;
+            for (std::size_t i = 0; i < n; ++i) any_error = any_error || errs_[i] != 0;
+            resend_.clear();
+            if (batched_ && any_error) {
+                for (std::size_t i = 0; i < n; ++i) {
+                    if (errs_[i] == 0 && ack_seen_[i]) resend_.push_back(i);
+                }
+            }
+            if (!resend_.empty()) {
+                for (const std::size_t i : resend_) errs_[i] = kPending;
+                const int rc = run_pass(adds, resend_.data(), resend_.size(),
+                                        /*exclusive=*/false, errs_.data(), deadline);
+                // A transport/batch error means no resend result is publishable.
+                if (rc != 0) {
+                    for (const std::size_t i : resend_) errs_[i] = rc;
+                }
+                for (const std::size_t i : resend_) {
+                    if (errs_[i] == kPending) errs_[i] = transport_errno_;
+                }
+            }
+            // Full mode refreshes what already existed; NewOnly reports Exists.
+            if (mode == Mode::Full) {
+                refresh_.clear();
+                for (std::size_t i = 0; i < n; ++i) {
+                    if (is_exist(first_[i])) refresh_.push_back(i);
+                }
+                if (!refresh_.empty()) {
+                    refresh_subset(adds, refresh_.data(), refresh_.size(), errs_.data(), deadline);
+                    for (const std::size_t i : refresh_) refreshed_[i] = 1;
+                }
             }
         }
-        return ok;
+
+        for (std::size_t i = 0; i < n; ++i) {
+            if (mode == Mode::NewOnly && is_exist(errs_[i])) {
+                out[i] = SetAddResult::Exists;
+                fin[i] = 0;
+            } else if (errs_[i] == 0) {
+                out[i] = refreshed_[i] ? SetAddResult::Refreshed : SetAddResult::Added;
+                fin[i] = 0;
+            } else {
+                out[i] = SetAddResult::Error;
+                fin[i] = errs_[i] == kPending ? transport_errno_ : errs_[i];
+            }
+        }
     }
 
     bool add_chunk(Mode mode, const SetAdd* adds, SetAddResult* out, std::size_t n,
                    std::chrono::steady_clock::time_point deadline) {
-        if (mode == Mode::Existing && in_place_refresh() &&
-            std::all_of(adds, adds + n, [](const SetAdd& a) { return a.timeout_s != 0; })) {
-            return refresh_in_place(adds, out, n, deadline);
-        }
-        all_.resize(n);
-        for (std::size_t i = 0; i < n; ++i) all_[i] = i;
-        errs_.assign(n, kPending);
-        transport_errno_ = ETIMEDOUT;
-        recreated_.clear();
+        delete_add_ran_ = false;
+        fin_.assign(n, 0);
+        write_once(mode, adds, out, fin_.data(), n, deadline);
 
-        int first_rc = 0;
-        if (mode == Mode::Existing) {
-            // refresh(): the caller believes every element exists, so there is
-            // no exclusive probe; go straight to the non-exclusive resend.
-            errs_.assign(n, EEXIST);
-            ack_seen_.assign(n, 0);
-        } else {
-            first_rc = run_pass(adds, all_.data(), n, /*exclusive=*/true, errs_.data(), deadline);
-        }
-
-        // Existing elements are refreshed by a non-exclusive resend. An nft
-        // batch is one transaction: any error aborts it and rolls back its
-        // other elements even though they were acked, so every acknowledged
-        // element is resent after a failed batch.
-        bool any_error = first_rc != 0;
-        for (std::size_t i = 0; i < n; ++i) any_error = any_error || errs_[i] != 0;
-        resend_.clear();
+        // The single retry: transiently failed elements only, as the same kind
+        // of write.  An exclusive add is safe to repeat (an element that did
+        // land comes back EEXIST and is refreshed), so a refresh() retry also
+        // starts with one; that recreates an element that expired meanwhile.
+        retry_idx_.clear();
         for (std::size_t i = 0; i < n; ++i) {
-            // add_new() leaves existing elements alone (reported Exists); it
-            // only re-sends elements an aborted nft batch rolled back.
-            if ((mode != Mode::NewOnly && is_exist(errs_[i])) ||
-                (batched_ && any_error && errs_[i] == 0 && ack_seen_[i])) {
-                resend_.push_back(i);
-            }
+            if (out[i] == SetAddResult::Error && is_transient(fin_[i])) retry_idx_.push_back(i);
         }
-        first_.assign(errs_.begin(), errs_.end());
-        int second_rc = 0;
-        if (!resend_.empty() && remaining_ms(deadline) != 0) {
-            for (const std::size_t i : resend_) errs_[i] = kPending;
-            second_rc = run_pass(adds, resend_.data(), resend_.size(),
-                                 /*exclusive=*/false, errs_.data(), deadline);
-            if (second_rc != 0) {
-                // A transport/batch error means no resend result is
-                // publishable.  For nft this is the atomic-batch rollback;
-                // for ipset it covers a failed second transaction even when
-                // a test transport happened to report an inner ACK first.
-                for (const std::size_t i : resend_) errs_[i] = second_rc;
-            }
-        } else if (!resend_.empty()) {
-            for (const std::size_t i : resend_) errs_[i] = ETIMEDOUT;
-            transport_errno_ = ETIMEDOUT;
-        }
-
-        refresh_.clear();
-        if (mode != Mode::NewOnly && supports_refresh()) {
-            for (const std::size_t i : resend_) {
-                if (second_rc == 0 && is_exist(first_[i]) && errs_[i] == 0) {
-                    refresh_.push_back(i);
-                }
-            }
-            if (!refresh_.empty()) {
-                for (const std::size_t i : refresh_) errs_[i] = kPending;
-                const int refresh_rc = run_refresh(
-                    adds, refresh_.data(), refresh_.size(), errs_.data(), deadline);
-                // An element may expire between the EEXIST probe and the
-                // delete+add refresh.  Retry those elements individually:
-                // an exclusive add recreates an expired element, while a
-                // renewed EEXIST is followed by one bounded single-element
-                // delete+add attempt.  Never turn a partial batch ACK into a
-                // success; only complete per-element passes may do that.
-                if (refresh_rc == ENOENT || refresh_rc == EAGAIN ||
-                    std::any_of(refresh_.begin(), refresh_.end(), [&](std::size_t i) {
-                        return errs_[i] == ENOENT || errs_[i] == EAGAIN;
-                    })) {
-                    for (const std::size_t i : refresh_) {
-                        if (errs_[i] != ENOENT && errs_[i] != EAGAIN) continue;
-                        const std::size_t one = i;
-                        errs_[i] = kPending;
-                        const int recreate_rc = run_pass(
-                            adds, &one, 1, /*exclusive=*/true, errs_.data(), deadline);
-                        if (recreate_rc != 0 && !is_exist(recreate_rc)) {
-                            if (errs_[i] == 0 || errs_[i] == kPending) {
-                                errs_[i] = recreate_rc;
-                            }
-                            continue;
-                        }
-                        if (recreate_rc == 0 && errs_[i] == 0) {
-                            // The old element expired and this exclusive
-                            // pass created a new one; report that fact rather
-                            // than calling a delete+add refresh.
-                            recreated_.push_back(i);
-                            continue;
-                        }
-                        if (!is_exist(errs_[i])) continue;
-                        errs_[i] = kPending;
-                        (void)run_refresh(adds, &one, 1, errs_.data(), deadline);
-                    }
-                }
+        if (!retry_idx_.empty() && remaining_ms(deadline) != 0) {
+            retry_adds_.clear();
+            for (const std::size_t i : retry_idx_) retry_adds_.push_back(adds[i]);
+            const std::size_t k = retry_idx_.size();
+            retry_out_.assign(k, SetAddResult::Error);
+            retry_fin_.assign(k, 0);
+            delete_add_ran_ = false;
+            write_once(mode == Mode::NewOnly ? Mode::NewOnly : Mode::Full, retry_adds_.data(),
+                       retry_out_.data(), retry_fin_.data(), k, deadline);
+            for (std::size_t j = 0; j < k; ++j) {
+                out[retry_idx_[j]] = retry_out_[j];
+                fin_[retry_idx_[j]] = retry_fin_[j];
             }
         }
 
         bool ok = true;
-        std::size_t next_resend = 0;
         for (std::size_t i = 0; i < n; ++i) {
-            const bool resent = next_resend < resend_.size() && resend_[next_resend] == i;
-            if (resent) ++next_resend;
-            const int e1 = first_[i];
-            const int err = errs_[i];
-            SetAddResult res;
-            const bool recreated = std::find(recreated_.begin(), recreated_.end(), i) !=
-                                   recreated_.end();
-            if (!resent) {
-                res = e1 == 0 ? SetAddResult::Added
-                              : (mode == Mode::NewOnly && is_exist(e1) ? SetAddResult::Exists
-                                                                       : SetAddResult::Error);
-            } else if (err == 0) {
-                res = e1 == 0 || recreated ? SetAddResult::Added
-                                           : SetAddResult::Refreshed;
-            } else {
-                res = SetAddResult::Error;
-            }
-            if (res == SetAddResult::Error) {
-                const int e = resent ? err : e1;
-                last_errno_ = e == kPending ? transport_errno_ : e;
-                ok = false;
-            }
-            out[i] = res;
+            if (out[i] != SetAddResult::Error) continue;
+            last_errno_ = fin_[i];
+            ok = false;
         }
         return ok;
     }
@@ -433,13 +427,15 @@ private:
     std::unique_ptr<SetWriterTransport> transport_;
     int last_errno_{0};
     int transport_errno_{0};
+    bool delete_add_ran_{false};
     std::atomic<uint64_t>* slow_counter_{nullptr};
     bool logged_slow_{false};
     std::chrono::steady_clock::time_point last_slow_log_{};
-    std::vector<std::size_t> all_, resend_;
-    std::vector<int> errs_, first_;
-    std::vector<std::size_t> refresh_;
-    std::vector<std::size_t> recreated_;
+    std::vector<std::size_t> all_, resend_, refresh_, retry_idx_;
+    std::vector<int> errs_, first_, fin_, retry_fin_;
+    std::vector<uint8_t> refreshed_;
+    std::vector<SetAdd> retry_adds_;
+    std::vector<SetAddResult> retry_out_;
     std::vector<uint8_t> refresh_seen_;
     std::vector<uint8_t> ack_seen_;
 };
@@ -465,21 +461,18 @@ protected:
 
 class NftWriter final : public WriterBase {
 public:
-    NftWriter(std::string table, std::unique_ptr<SetWriterTransport> transport)
-        : WriterBase(true, std::move(transport)), table_(std::move(table)) {}
+    NftWriter(std::string table, bool in_place_refresh,
+              std::unique_ptr<SetWriterTransport> transport)
+        : WriterBase(true, std::move(transport)), table_(std::move(table)),
+          in_place_refresh_(in_place_refresh) {}
 
 protected:
     void build(MsgBuilder& b, uint32_t seq, const SetAdd& a, bool exclusive) override {
         build_nft_newsetelem(b, seq, table_, a, exclusive);
     }
 
-    bool supports_refresh() const override { return true; }
-
-    void set_timeout_update_flag(std::shared_ptr<const std::atomic<bool>> flag) override {
-        timeout_update_ = std::move(flag);
-    }
-    bool in_place_refresh() const override {
-        return timeout_update_ != nullptr && timeout_update_->load(std::memory_order_relaxed);
+    RefreshKind refresh_kind() const override {
+        return in_place_refresh_ ? RefreshKind::InPlace : RefreshKind::DeleteAdd;
     }
     void build_in_place(MsgBuilder& b, uint32_t seq, const SetAdd& a) override {
         build_nft_refresh_setelem(b, seq, table_, a);
@@ -493,7 +486,7 @@ protected:
 
 private:
     std::string table_;
-    std::shared_ptr<const std::atomic<bool>> timeout_update_;
+    bool in_place_refresh_;
 };
 
 } // namespace
@@ -581,8 +574,8 @@ std::unique_ptr<DynamicSetWriter> make_ipset_writer() {
     return std::make_unique<IpsetWriter>(std::make_unique<NlSocketTransport>(1 << 18));
 }
 
-std::unique_ptr<DynamicSetWriter> make_nft_writer(std::string table) {
-    return std::make_unique<NftWriter>(std::move(table),
+std::unique_ptr<DynamicSetWriter> make_nft_writer(std::string table, bool in_place_refresh) {
+    return std::make_unique<NftWriter>(std::move(table), in_place_refresh,
                                        std::make_unique<NlSocketTransport>(1 << 18));
 }
 
@@ -592,8 +585,9 @@ make_ipset_writer_for_test(std::unique_ptr<SetWriterTransport> transport) {
 }
 
 std::unique_ptr<DynamicSetWriter>
-make_nft_writer_for_test(std::string table, std::unique_ptr<SetWriterTransport> transport) {
-    return std::make_unique<NftWriter>(std::move(table), std::move(transport));
+make_nft_writer_for_test(std::string table, std::unique_ptr<SetWriterTransport> transport,
+                         bool in_place_refresh) {
+    return std::make_unique<NftWriter>(std::move(table), in_place_refresh, std::move(transport));
 }
 
 } // namespace keen_pbr3::nfnl

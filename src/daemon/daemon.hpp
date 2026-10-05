@@ -477,10 +477,6 @@ IcmpTester icmp_tester_;
   // replacement).  Not a kernel capability: a blocking result is forgotten on a
   // re-bind or config apply so the bind is retried, without any probing.
   InterceptRuntimeProbe intercept_listener_results_;
-  // Shared with the nft set writers: true while the nft_timeout_update probe
-  // proved the kernel extends an existing element's timeout in place.
-  std::shared_ptr<std::atomic<bool>> nft_timeout_update_ =
-      std::make_shared<std::atomic<bool>>(false);
   std::atomic<std::uint64_t> intercept_snapshot_seq_{0};
   std::uint64_t intercept_forwarded_seq_{0};
   int intercept_event_task_id_{-1};

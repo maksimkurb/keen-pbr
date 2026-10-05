@@ -211,27 +211,22 @@ TEST_CASE("set_writer: nft add_new of only new elements is one transaction") {
 TEST_CASE("set_writer: refresh() starts without an exclusive probe") {
     auto transport = std::make_unique<FakeTransport>();
     auto* fake = transport.get();
-    fake->replies = {
-        {{0}, 0, 0},     // non-exclusive add
-        {{0, 0}, 0, 0},  // delete + add
-    };
+    fake->replies = {{{0, 0}, 0, 0}};  // delete + add
     auto writer = make_nft_writer_for_test("table", std::move(transport));
     const SetAdd adds[] = {fake_v4("set", 1)};
     SetAddResult results[1]{};
 
     REQUIRE(writer->refresh(adds, results, 1, 100));
     CHECK(results[0] == SetAddResult::Refreshed);
-    REQUIRE(fake->calls.size() == 2);
-    CHECK((fake->calls[0].flags[1] & NLM_F_EXCL) == 0);  // no exclusive pass at all
-    CHECK(fake->calls[1].types[1] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM));
+    REQUIRE(fake->calls.size() == 1);  // no exclusive pass, no non-exclusive pass
+    CHECK(fake->calls[0].types[1] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM));
 }
 
 TEST_CASE("set_writer: nft refresh with kernel support is one non-exclusive transaction") {
     auto transport = std::make_unique<FakeTransport>();
     auto* fake = transport.get();
     fake->replies = {{{0, 0, 0}, 0, 0}};
-    auto writer = make_nft_writer_for_test("table", std::move(transport));
-    writer->set_timeout_update_flag(std::make_shared<std::atomic<bool>>(true));
+    auto writer = make_nft_writer_for_test("table", std::move(transport), /*in_place_refresh=*/true);
     const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2), fake_v4("set", 3)};
     SetAddResult results[3]{};
 
@@ -250,8 +245,7 @@ TEST_CASE("set_writer: nft in-place refresh failure marks every element and does
     auto transport = std::make_unique<FakeTransport>();
     auto* fake = transport.get();
     fake->replies = {{{0, ENOENT}, ENOENT, 0}};  // batch aborted: first ack is rolled back too
-    auto writer = make_nft_writer_for_test("table", std::move(transport));
-    writer->set_timeout_update_flag(std::make_shared<std::atomic<bool>>(true));
+    auto writer = make_nft_writer_for_test("table", std::move(transport), /*in_place_refresh=*/true);
     const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2)};
     SetAddResult results[2]{};
 
@@ -262,43 +256,37 @@ TEST_CASE("set_writer: nft in-place refresh failure marks every element and does
     CHECK(fake->calls.size() == 1);
 }
 
-TEST_CASE("set_writer: nft refresh without kernel support or flag keeps delete+add") {
-    for (const bool use_flag : {false, true}) {
-        CAPTURE(use_flag);
-        auto transport = std::make_unique<FakeTransport>();
-        auto* fake = transport.get();
-        fake->replies = {{{0}, 0, 0}, {{0, 0}, 0, 0}};
-        auto writer = make_nft_writer_for_test("table", std::move(transport));
-        if (use_flag) writer->set_timeout_update_flag(std::make_shared<std::atomic<bool>>(false));
-        const SetAdd adds[] = {fake_v4("set", 1)};
-        SetAddResult results[1]{};
-        REQUIRE(writer->refresh(adds, results, 1, 100));
-        CHECK(results[0] == SetAddResult::Refreshed);
-        REQUIRE(fake->calls.size() == 2);
-        CHECK(fake->calls[1].types[1] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM));
-    }
+TEST_CASE("set_writer: nft refresh without kernel support keeps delete+add") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{0, 0}, 0, 0}};
+    auto writer = make_nft_writer_for_test("table", std::move(transport), /*in_place_refresh=*/false);
+    const SetAdd adds[] = {fake_v4("set", 1)};
+    SetAddResult results[1]{};
+    REQUIRE(writer->refresh(adds, results, 1, 100));
+    CHECK(results[0] == SetAddResult::Refreshed);
+    REQUIRE(fake->calls.size() == 1);
+    CHECK(fake->calls[0].types[1] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM));
 }
 
 TEST_CASE("set_writer: nft in-place refresh is not used for permanent elements") {
     auto transport = std::make_unique<FakeTransport>();
     auto* fake = transport.get();
-    fake->replies = {{{0}, 0, 0}, {{0, 0}, 0, 0}};
-    auto writer = make_nft_writer_for_test("table", std::move(transport));
-    writer->set_timeout_update_flag(std::make_shared<std::atomic<bool>>(true));
+    fake->replies = {{{0, 0}, 0, 0}};
+    auto writer = make_nft_writer_for_test("table", std::move(transport), /*in_place_refresh=*/true);
     SetAdd add = fake_v4("set", 1);
     add.timeout_s = 0;
     SetAddResult result{};
     REQUIRE(writer->refresh(&add, &result, 1, 100));
-    REQUIRE(fake->calls.size() == 2);
-    CHECK(fake->calls[1].types[1] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM));
+    REQUIRE(fake->calls.size() == 1);
+    CHECK(fake->calls[0].types[1] == ((NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_DELSETELEM));
 }
 
-TEST_CASE("set_writer: the in-place flag does not change add() or add_new()") {
+TEST_CASE("set_writer: in-place refresh support does not change add_new()") {
     auto transport = std::make_unique<FakeTransport>();
     auto* fake = transport.get();
     fake->replies = {{{0}, 0, 0}};
-    auto writer = make_nft_writer_for_test("table", std::move(transport));
-    writer->set_timeout_update_flag(std::make_shared<std::atomic<bool>>(true));
+    auto writer = make_nft_writer_for_test("table", std::move(transport), /*in_place_refresh=*/true);
     const SetAdd add = fake_v4("set", 1);
     SetAddResult result{};
     REQUIRE(writer->add_new(&add, &result, 1, 100));
@@ -379,8 +367,7 @@ TEST_CASE("set_writer: nft partial batch ACK never reports unacknowledged Added"
     // failed.  The new element must remain Error, never Added.
     fake->replies = {
         {{EEXIST}, EEXIST, 0},
-        {{0}, 0, 0},
-        {{0, 0}, 0, 0},
+        {{0, 0}, 0, 0},  // delete + add of the existing element
     };
     auto writer = make_nft_writer_for_test("table", std::move(transport));
     const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2)};
@@ -413,10 +400,9 @@ TEST_CASE("set_writer: nft refresh retries an expiration race once") {
     auto transport = std::make_unique<FakeTransport>();
     auto* fake = transport.get();
     fake->replies = {
-        {{EEXIST}, EEXIST, 0}, // exclusive probe
-        {{0}, 0, 0},           // non-exclusive probe
+        {{EEXIST}, EEXIST, 0},    // exclusive probe
         {{ENOENT, 0}, ENOENT, 0}, // DEL races with expiry; batch rolls back
-        {{0}, 0, 0},           // bounded exclusive recreation succeeds
+        {{0}, 0, 0},              // the one retry: exclusive add recreates it
     };
     auto writer = make_nft_writer_for_test("table", std::move(transport));
     const SetAdd add = fake_v4("set", 3);
@@ -424,7 +410,7 @@ TEST_CASE("set_writer: nft refresh retries an expiration race once") {
 
     REQUIRE(writer->add(&add, &result, 1, 100));
     CHECK(result == SetAddResult::Added);
-    CHECK(fake->calls.size() == 4);
+    CHECK(fake->calls.size() == 3);
 }
 
 TEST_CASE("set_writer: second pass transport failure never reports refresh") {
@@ -441,6 +427,82 @@ TEST_CASE("set_writer: second pass transport failure never reports refresh") {
     CHECK_FALSE(writer->add(&add, &result, 1, 100));
     CHECK(result == SetAddResult::Error);
     CHECK(writer->last_errno() == ETIMEDOUT);
+}
+
+TEST_CASE("set_writer: a transient error is retried once") {
+    for (const int err : {EAGAIN, EINTR, ENOBUFS}) {
+        CAPTURE(err);
+        auto transport = std::make_unique<FakeTransport>();
+        auto* fake = transport.get();
+        auto writer = make_ipset_writer_for_test(std::move(transport));
+        const SetAdd adds[] = {fake_v4("set", 1), fake_v4("set", 2)};
+        SetAddResult results[2]{};
+        fake->replies = {{{err, 0}, 0, 0}, {{0}, 0, 0}};
+        REQUIRE(writer->add(adds, results, 2, 100));
+        CHECK(results[0] == SetAddResult::Added);
+        CHECK(results[1] == SetAddResult::Added);
+        REQUIRE(fake->calls.size() == 2);
+        CHECK(fake->calls[1].types.size() == 1);  // only the failed element
+    }
+}
+
+TEST_CASE("set_writer: a transient error is not retried twice") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{EAGAIN}, 0, 0}, {{EAGAIN}, 0, 0}, {{0}, 0, 0}};
+    auto writer = make_ipset_writer_for_test(std::move(transport));
+    const SetAdd add = fake_v4("set", 1);
+    SetAddResult result = SetAddResult::Added;
+
+    CHECK_FALSE(writer->add(&add, &result, 1, 100));
+    CHECK(result == SetAddResult::Error);
+    CHECK(writer->last_errno() == EAGAIN);
+    CHECK(fake->calls.size() == 2);
+}
+
+TEST_CASE("set_writer: a non-transient error is not retried") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{EPERM}, 0, 0}, {{0}, 0, 0}};
+    auto writer = make_ipset_writer_for_test(std::move(transport));
+    const SetAdd add = fake_v4("set", 1);
+    SetAddResult result = SetAddResult::Added;
+
+    CHECK_FALSE(writer->add(&add, &result, 1, 100));
+    CHECK(writer->last_errno() == EPERM);
+    CHECK(fake->calls.size() == 1);
+}
+
+TEST_CASE("set_writer: add_new retry stays exclusive and leaves existing elements alone") {
+    auto transport = std::make_unique<FakeTransport>();
+    auto* fake = transport.get();
+    fake->replies = {{{EAGAIN}, 0, 0}, {{EEXIST}, 0, 0}};
+    auto writer = make_ipset_writer_for_test(std::move(transport));
+    const SetAdd add = fake_v4("set", 1);
+    SetAddResult result = SetAddResult::Error;
+
+    REQUIRE(writer->add_new(&add, &result, 1, 100));
+    CHECK(result == SetAddResult::Exists);
+    REQUIRE(fake->calls.size() == 2);
+    CHECK((fake->calls[1].flags[0] & NLM_F_EXCL) != 0);
+}
+
+TEST_CASE("set_writer: ENOENT from a missing set is not retried on ipset or in-place nft") {
+    auto ipset_transport = std::make_unique<FakeTransport>();
+    auto* ipset_fake = ipset_transport.get();
+    ipset_fake->replies = {{{ENOENT}, 0, 0}};
+    auto ipset = make_ipset_writer_for_test(std::move(ipset_transport));
+    const SetAdd add = fake_v4("set", 1);
+    SetAddResult result{};
+    CHECK_FALSE(ipset->refresh(&add, &result, 1, 100));
+    CHECK(ipset_fake->calls.size() == 1);
+
+    auto nft_transport = std::make_unique<FakeTransport>();
+    auto* nft_fake = nft_transport.get();
+    nft_fake->replies = {{{ENOENT}, ENOENT, 0}};
+    auto nft = make_nft_writer_for_test("table", std::move(nft_transport), /*in_place_refresh=*/true);
+    CHECK_FALSE(nft->refresh(&add, &result, 1, 100));
+    CHECK(nft_fake->calls.size() == 1);
 }
 
 TEST_CASE("set_writer: stale ACK before the batch cannot poison its result") {
@@ -750,9 +812,7 @@ TEST_CASE("set_writer: live nft in-place timeout refresh (isolated netns only)")
     const bool supported = probe.status == ProbeStatus::ok;
     CHECK((supported || probe.status == ProbeStatus::unsupported));
 
-    auto flag = std::make_shared<std::atomic<bool>>(supported);
-    auto w = make_nft_writer(table);
-    w->set_timeout_update_flag(flag);
+    auto w = make_nft_writer(table, supported);
 
     SetAdd a = v4_add(30);
     a.set_name = "kpbr4d_up";
@@ -794,11 +854,11 @@ TEST_CASE("set_writer: live nft in-place timeout refresh (isolated netns only)")
         CHECK(r == SetAddResult::Error);
     }
 
-    // Flag off: the delete+add path still extends the timeout.
-    flag->store(false);
+    // Without in-place support: the delete+add path still extends the timeout.
+    auto legacy = make_nft_writer(table, false);
     std::this_thread::sleep_for(std::chrono::milliseconds(1200));
     const int64_t before_legacy = live_expiration_ms(table, "kpbr4d_up", a);
-    REQUIRE(w->refresh(&a, &r, 1, 2000));
+    REQUIRE(legacy->refresh(&a, &r, 1, 2000));
     CHECK(r == SetAddResult::Refreshed);
     CHECK(live_expiration_ms(table, "kpbr4d_up", a) > before_legacy + 800);
 

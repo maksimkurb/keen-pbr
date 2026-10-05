@@ -25,7 +25,9 @@ struct SetAdd {
 enum class SetAddResult : uint8_t { Added, Refreshed, Error, Exists };
 
 // Adds host addresses to dynamic firewall sets over nfnetlink (no exec).
-// Not thread-safe; use one writer per thread.
+// Not thread-safe; use one writer per thread.  Each call writes once; elements
+// that failed with a transient errno (EAGAIN, EINTR, ENOBUFS, or ENOENT from
+// the nft delete+add refresh) are retried once within the call's deadline.
 class DynamicSetWriter {
 public:
     virtual ~DynamicSetWriter() = default;
@@ -44,19 +46,11 @@ public:
     }
 
     // Extends the timeout of elements believed to exist (post-verdict path); an
-    // element that vanished is recreated and reported Added.  Never reports
-    // Exists.  Starts with no exclusive probe.  The default falls back to add().
+    // element that vanished (nft delete+add race) is recreated by the single
+    // retry and reported Added.  Never reports Exists.  Starts with no
+    // exclusive probe.  The default falls back to add().
     virtual bool refresh(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) {
         return add(adds, out, count, timeout_ms);
-    }
-
-    // nft only: when *flag is true, refresh() extends the timeout of existing
-    // elements in place with ONE non-exclusive NEWSETELEM transaction (kernel
-    // support is established by probe_nft_timeout_update(); the daemon owns and
-    // updates the flag).  Without it (or for permanent elements) refresh() keeps
-    // the delete+add path.  Other backends ignore it.
-    virtual void set_timeout_update_flag(std::shared_ptr<const std::atomic<bool>> flag) {
-        (void)flag;
     }
 
     // errno of the most recent Error, for logging.
@@ -92,13 +86,18 @@ std::unique_ptr<SetWriterTransport> make_netlink_transport(int rcvbuf_bytes = 1 
 
 // Throw NlSocketError on socket failure.
 std::unique_ptr<DynamicSetWriter> make_ipset_writer();
-std::unique_ptr<DynamicSetWriter> make_nft_writer(std::string table = "KeenPbrTable");  // family inet
+// family inet.  `in_place_refresh` is the startup nft_timeout_update probe result: refresh()
+// then extends timeouts in place (one non-exclusive NEWSETELEM transaction); otherwise it
+// uses delete+add.  Fixed for the writer's lifetime.
+std::unique_ptr<DynamicSetWriter> make_nft_writer(std::string table = "KeenPbrTable",
+                                                  bool in_place_refresh = false);
 
 // Test-only construction seam.  The returned writer owns `transport`.
 std::unique_ptr<DynamicSetWriter>
 make_ipset_writer_for_test(std::unique_ptr<SetWriterTransport> transport);
 std::unique_ptr<DynamicSetWriter>
-make_nft_writer_for_test(std::string table, std::unique_ptr<SetWriterTransport> transport);
+make_nft_writer_for_test(std::string table, std::unique_ptr<SetWriterTransport> transport,
+                         bool in_place_refresh = false);
 
 // Exposed for golden tests. `exclusive` sets NLM_F_EXCL so an existing element
 // is reported as an error instead of being refreshed.

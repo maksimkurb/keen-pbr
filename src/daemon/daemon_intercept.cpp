@@ -75,8 +75,6 @@ void Daemon::probe_capabilities_at_start() {
   // set-write / nft timeout-update checks on a scratch set.
   auto startup_probe = probe_intercept_startup(backend, ipv6_supported);
   log_intercept_probe(startup_probe.with_ipv6);
-  nft_timeout_update_->store(startup_probe.with_ipv6.probe.timeout_update.is_ok(),
-                             std::memory_order_relaxed);
   const bool queue_available = startup_probe.with_ipv6.nfqueue;
   intercept_startup_probe_ = std::move(startup_probe);
 
@@ -163,22 +161,25 @@ void Daemon::start_intercept_service(InterceptEffective& effective) {
         }
     };
     try {
+        // Startup nft_timeout_update probe: nft writers extend timeouts in
+        // place when the kernel proved it, else delete+add.
+        const bool nft_in_place_refresh =
+            intercept_startup_probe_.has_value() &&
+            intercept_startup_probe_->with_ipv6.probe.timeout_update.is_ok();
 #ifdef KEEN_PBR_PLATFORM_KEENETIC
         auto writer = nfnl::make_ipset_writer();
 #else
-        auto writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer()
+        auto writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer("KeenPbrTable", nft_in_place_refresh)
                                                            : nfnl::make_ipset_writer();
 #endif
-        writer->set_timeout_update_flag(nft_timeout_update_);
         std::unique_ptr<nfnl::DynamicSetWriter> l7_writer;
         if (effective.dns_hold && effective.l7) {
 #ifdef KEEN_PBR_PLATFORM_KEENETIC
             l7_writer = nfnl::make_ipset_writer();
 #else
-            l7_writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer()
+            l7_writer = backend == FirewallBackend::nftables ? nfnl::make_nft_writer("KeenPbrTable", nft_in_place_refresh)
                                                              : nfnl::make_ipset_writer();
 #endif
-            l7_writer->set_timeout_update_flag(nft_timeout_update_);
         }
         service = std::make_shared<InterceptService>(std::move(writer), std::move(l7_writer));
         service->start(options, make_empty_snapshot(effective));

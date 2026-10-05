@@ -1,5 +1,4 @@
 #include "daemon.hpp"
-#include "config_apply_transaction.hpp"
 #include "lifecycle_stages.hpp"
 #include "../config/config_writer.hpp"
 
@@ -373,7 +372,6 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
     auto prepared = std::make_shared<PreparedRuntimeInputs>();
     auto completion = std::make_shared<std::promise<ConfigApplyResult>>();
     auto completed = std::make_shared<std::atomic<bool>>(false);
-    auto transaction = std::make_shared<ConfigApplyTransaction>();
     auto completion_future = completion->get_future();
     const std::int64_t apply_started_ts = unix_timestamp_now_seconds();
     result->apply_started_ts = apply_started_ts;
@@ -392,7 +390,6 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
          prepared,
          completion,
          completed,
-         transaction,
          persist_config,
          saved_config_json = std::move(saved_config_json)]() mutable {
             const auto complete = [completion, completed](ConfigApplyResult value) {
@@ -410,12 +407,8 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
             };
             try {
                 apply_prepared_runtime_inputs(std::move(*prepared), false, persist_config);
-                transaction->candidate_applied();
+                // The candidate is serving; what follows is the durable commit.
                 try {
-                    transaction->runtime_confirmed();
-                    if (!transaction->may_commit()) {
-                        throw DaemonError("runtime confirmation did not unlock config commit");
-                    }
                     if (persist_config) {
                         write_config_atomically(config_path_, saved_config_json);
                         // dnsmasq's conf-script reads config.json: sync only now.
@@ -431,7 +424,6 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
                     publish_runtime_state();
                     result->saved = persist_config;
                     result->applied = true;
-                    transaction->committed();
                 } catch (const std::exception& error) {
                     result->error = error.what();
                     Logger::instance().error("Config durable commit failed: {}", error.what());
