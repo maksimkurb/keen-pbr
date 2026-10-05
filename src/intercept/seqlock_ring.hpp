@@ -16,8 +16,8 @@ namespace keen_pbr3 {
 // Nothing is allocated after construction and no mutex is taken.
 //
 // Memory model.  Each slot is a seqlock: `stamp` is a version counter (odd =
-// being written).  The payload is stored as an array of std::atomic<uint64_t>
-// words that are only ever accessed with relaxed loads/stores, so a reader that
+// being written).  The payload is stored as an array of lock-free atomic
+// words (64-bit where those are lock-free, 32-bit on e.g. MIPS32 routers) that are only ever accessed with relaxed loads/stores, so a reader that
 // races with a writer is not a data race (no UB, ThreadSanitizer-clean), and
 // the torn copy it may read is discarded by re-validating the stamp:
 //
@@ -40,16 +40,22 @@ namespace keen_pbr3 {
 // was overwritten).  push() waits for a concurrent writer of the same slot
 // and never drops a claimed sequence number, so a reader that finds an
 // unwritten slot may simply retry later.
-template <class Rec, std::size_t N>
+// The widest unsigned word whose std::atomic is lock-free on this target.
+using SeqlockWord = std::conditional_t<std::atomic<uint64_t>::is_always_lock_free,
+                                       uint64_t, uint32_t>;
+
+template <class Rec, std::size_t N, class Word = SeqlockWord>
 class SeqlockRing {
     static_assert(N != 0 && (N & (N - 1)) == 0, "capacity must be a power of two");
     static_assert(std::is_trivially_copyable_v<Rec>, "records are copied word by word");
-    static_assert(sizeof(Rec) % sizeof(uint64_t) == 0 && alignof(Rec) <= alignof(uint64_t),
-                  "record must be a whole number of 64-bit words");
     static_assert(std::is_standard_layout_v<Rec> && offsetof(Rec, seq) == 0,
                   "Rec::seq must be the first member");
-    static_assert(std::atomic<uint64_t>::is_always_lock_free);
-    static constexpr std::size_t kWords = sizeof(Rec) / sizeof(uint64_t);
+    static_assert(std::is_same_v<decltype(Rec::seq), uint64_t>, "Rec::seq must be uint64_t");
+    static_assert(std::atomic<Word>::is_always_lock_free, "seqlock words must be lock-free");
+    // Records are copied through memcpy, so any size works: the last word may
+    // be partial (32-bit ABIs align 64-bit members to 4 bytes).
+    static constexpr std::size_t kWords = (sizeof(Rec) + sizeof(Word) - 1) / sizeof(Word);
+    static constexpr std::size_t kSeqWords = sizeof(uint64_t) / sizeof(Word);
 
 public:
     enum class Peek { Ok, Pending, Lost };
@@ -63,7 +69,7 @@ public:
         const uint64_t seq = next_.fetch_add(1, std::memory_order_relaxed);
         rec.seq = seq;
         Slot& slot = slots_[seq & (N - 1)];
-        const uint64_t version = lock(slot);
+        const Word version = lock(slot);
         if (load_seq(slot) > seq) {
             // A newer event already took the slot (we were N events behind):
             // ours is lost, which readers report as a gap.
@@ -80,7 +86,7 @@ public:
     template <class F>
     bool update(uint64_t seq, F&& mutate) {
         Slot& slot = slots_[seq & (N - 1)];
-        const uint64_t version = lock(slot);
+        const Word version = lock(slot);
         if (load_seq(slot) != seq) {
             slot.stamp.store(version, std::memory_order_release);
             return false;
@@ -102,7 +108,7 @@ public:
     Peek peek(uint64_t seq, Rec& out) const {
         const Slot& slot = slots_[seq & (N - 1)];
         for (int attempt = 0; attempt < 4; ++attempt) {
-            const uint64_t before = slot.stamp.load(std::memory_order_acquire);
+            const Word before = slot.stamp.load(std::memory_order_acquire);
             if (before & 1) continue;  // writer inside: retry
             load(slot, out);
             std::atomic_thread_fence(std::memory_order_acquire);
@@ -138,8 +144,10 @@ public:
 
 private:
     struct Slot {
-        std::atomic<uint64_t> stamp{0};
-        std::atomic<uint64_t> words[kWords];
+        // A 32-bit stamp wraps after 2^31 writes to one slot; a reader would
+        // have to stall across exactly that many to be fooled.
+        std::atomic<Word> stamp{0};
+        std::atomic<Word> words[kWords];
         Slot() {
             for (auto& w : words) w.store(0, std::memory_order_relaxed);
         }
@@ -147,8 +155,8 @@ private:
 
     // Waits out a concurrent writer, claims the slot and returns its (even)
     // version before the claim.
-    static uint64_t lock(Slot& slot) {
-        uint64_t cur = slot.stamp.load(std::memory_order_relaxed);
+    static Word lock(Slot& slot) {
+        Word cur = slot.stamp.load(std::memory_order_relaxed);
         for (;;) {
             if (!(cur & 1) &&
                 slot.stamp.compare_exchange_weak(cur, cur + 1, std::memory_order_acq_rel,
@@ -166,13 +174,26 @@ private:
         return cur;
     }
 
-    static uint64_t load_seq(const Slot& slot) { return slot.words[0].load(std::memory_order_relaxed); }
+    static constexpr std::size_t chunk(std::size_t i) {
+        return i + 1 < kWords ? sizeof(Word) : sizeof(Rec) - i * sizeof(Word);
+    }
+
+    // Only called while holding the slot, so the words of `seq` are stable.
+    static uint64_t load_seq(const Slot& slot) {
+        Word words[kSeqWords];
+        for (std::size_t i = 0; i < kSeqWords; ++i) {
+            words[i] = slot.words[i].load(std::memory_order_relaxed);
+        }
+        uint64_t seq;
+        std::memcpy(&seq, words, sizeof(seq));
+        return seq;
+    }
 
     static void store(Slot& slot, const Rec& rec) {
         const auto* bytes = reinterpret_cast<const unsigned char*>(&rec);
         for (std::size_t i = 0; i < kWords; ++i) {
-            uint64_t word;
-            std::memcpy(&word, bytes + i * sizeof(uint64_t), sizeof(word));
+            Word word = 0;
+            std::memcpy(&word, bytes + i * sizeof(Word), chunk(i));
             slot.words[i].store(word, std::memory_order_relaxed);
         }
     }
@@ -180,8 +201,8 @@ private:
     static void load(const Slot& slot, Rec& rec) {
         auto* bytes = reinterpret_cast<unsigned char*>(&rec);
         for (std::size_t i = 0; i < kWords; ++i) {
-            const uint64_t word = slot.words[i].load(std::memory_order_relaxed);
-            std::memcpy(bytes + i * sizeof(uint64_t), &word, sizeof(word));
+            const Word word = slot.words[i].load(std::memory_order_relaxed);
+            std::memcpy(bytes + i * sizeof(Word), &word, chunk(i));
         }
     }
 
