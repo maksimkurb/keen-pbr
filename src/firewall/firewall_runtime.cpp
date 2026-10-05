@@ -229,6 +229,10 @@ std::vector<RuleState> project_rule_states(
 FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   FirewallPlan plan;
   plan.fwmark_mask = inputs.fwmark_mask;
+  const bool process_router_traffic =
+      inputs.config.iproute.value_or(IprouteConfig{})
+          .process_router_traffic.value_or(false);
+  plan.process_router_traffic = process_router_traffic;
   for (const auto& [list_name, usage] : inputs.list_usage) {
     (void)usage;
     plan.referenced_list_names.insert(list_name);
@@ -246,7 +250,8 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
       route_rules, all_outbounds, lists_map, inputs.list_usage,
       inputs.main_routes, inputs.interfaces, inputs.backend,
       inputs.ipv6_enabled, inputs.fwmark_mask, inputs.balance_candidates,
-      &inputs.config, &inputs.outbound_marks, inputs.intercept};
+      &inputs.config, &inputs.outbound_marks, inputs.intercept,
+      process_router_traffic};
   for (const auto register_module : route_rule_module_manifest()) {
     register_module(context, registrar);
   }

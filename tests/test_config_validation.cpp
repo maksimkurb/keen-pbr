@@ -990,6 +990,15 @@ TEST_CASE("iproute.table_start: value 32000 is rejected") {
     CHECK_THROWS_AS(parse_test_config(R"({"iproute":{"table_start":32000}})"), ConfigError);
 }
 
+TEST_CASE("iproute.process_router_traffic: boolean accepted, default unset") {
+    CHECK_NOTHROW(parse_test_config(R"({"iproute":{"process_router_traffic":true}})"));
+    CHECK_NOTHROW(parse_test_config(R"({"iproute":{"process_router_traffic":false}})"));
+    CHECK_THROWS_AS(
+        parse_test_config(R"({"iproute":{"process_router_traffic":"yes"}})"),
+        ConfigValidationError
+    );
+}
+
 TEST_CASE("iproute.table_start: non-integer value is rejected") {
     CHECK_THROWS_AS(
         parse_test_config(R"({"iproute":{"table_start":"400abc"}})"),

@@ -8,7 +8,8 @@ namespace {
 constexpr std::string_view kModuleId = "dns.intercept_hold";
 
 void register_hold(FirewallRuleRegistrar& registrar, std::string_view instance,
-                   L4Proto proto, uint16_t queue_num) {
+                   L4Proto proto, uint16_t queue_num,
+                   bool process_router_traffic) {
   FirewallRuleInstance rule;
   rule.key = FirewallRuleKey{std::string(kModuleId), std::string(instance)};
   rule.stage = FirewallRuleStage::interception;
@@ -17,6 +18,11 @@ void register_hold(FirewallRuleRegistrar& registrar, std::string_view instance,
   rule.criteria.proto = proto;
   rule.criteria.src_port = PortSpec("53");
   rule.criteria.ct_established_reply = true;
+  // Replies to router-local processes are sent through loopback: leave them
+  // alone unless the router's own traffic is processed.
+  if (!process_router_traffic) {
+    rule.criteria.exclude_oif = {"lo"};
+  }
   rule.action = QueueAction{queue_num, /*bypass=*/true};
   registrar.register_rule(std::move(rule));
 }
@@ -31,8 +37,10 @@ void register_intercept_dns_hold_rules(const FirewallBuildContext& context,
     return;
   }
   const uint16_t queue_num = context.intercept->queue_num;
-  register_hold(registrar, "udp", L4Proto::Udp, queue_num);
-  register_hold(registrar, "tcp", L4Proto::Tcp, queue_num);
+  register_hold(registrar, "udp", L4Proto::Udp, queue_num,
+                context.process_router_traffic);
+  register_hold(registrar, "tcp", L4Proto::Tcp, queue_num,
+                context.process_router_traffic);
 }
 
 } // namespace keen_pbr3

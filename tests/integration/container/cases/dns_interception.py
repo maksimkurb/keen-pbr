@@ -174,8 +174,9 @@ def register(registry):
         context.wait_for("forwarded IPv6 DNS learning", lambda: (
             context.dynamic_set_contains(TEST_IP6, list_name="learned")))
 
-        # Forwarded and router-local resolver paths both use the same held
-        # response path; the latter catches regressions in local OUTPUT flow.
+        # The router-local resolver path: replies to router-local processes
+        # leave through loopback and are not held when
+        # iproute.process_router_traffic is false, but must still be answered.
         context.resolve("alias.cname.test", "198.18.0.10")
         context.resolve("alias.cname.test", TEST_IP6, "AAAA")
         local = context.run("dig", "+short", "+time=2", "+tries=1", "A",

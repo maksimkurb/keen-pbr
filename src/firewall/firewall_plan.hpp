@@ -30,6 +30,11 @@ struct FirewallPlan {
   // applied empty list from a list absent from the active configuration.
   std::set<std::string> referenced_list_names;
   uint32_t fwmark_mask{0xFFFFFFFFu};
+  // False: route rules are lowered to the PREROUTING classification chain only
+  // (no route-rule classifier in OUTPUT).  DNS detour rules (hook=output) and
+  // the OUTPUT prefilters are unaffected.  Decided from
+  // iproute.process_router_traffic when the plan is built.
+  bool process_router_traffic{true};
 };
 
 // True when the plan contains a rule carrying Action. The plan is the single

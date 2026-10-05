@@ -17,12 +17,12 @@ LOG = "/tmp/kpbr_it_local_reply.log"
 def register(registry):
     @registry.case("local_reply_skip")
     def local_reply_skip(context):
-        # A catch-all UDP route rule also applies to router-originated
-        # packets. The answers a local service (think dnsmasq) sends to a LAN
+        # With iproute.process_router_traffic=true a catch-all UDP route rule
+        # also applies to router-originated packets. The answers a local service (think dnsmasq) sends to a LAN
         # client are conntrack REPLY packets and must keep following the main
         # table instead of being marked into the wan_pbr policy table.
         apply(context, [{"outbound": "wan_pbr", "proto": "udp",
-                        "dest_addr": "0.0.0.0/0"}])
+                        "dest_addr": "0.0.0.0/0"}], router_traffic=True)
         server = subprocess.Popen(
             ["python3", f"{REMOTE_CONTAINER_DIR}/probe.py", "server",
              "--identity", "router", "--log", LOG, "--ports", str(PORT)],

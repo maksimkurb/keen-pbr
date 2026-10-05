@@ -607,6 +607,9 @@ export const ruTranslation = {
         skipMarkedPacketsLabel: "Не обрабатывать маркированные пакеты",
         skipMarkedPacketsHint:
           "Игнорировать пакеты, у которых уже есть fwmark проставленный другими правилами firewall, чтобы policy routing не обрабатывал их повторно.",
+        processRouterTrafficLabel: "Обрабатывать собственный трафик роутера",
+        processRouterTrafficHint:
+          "Применять правила маршрутизации и изучать домены для трафика, который генерирует сам роутер. Если отключено, правилами маршрутизируется только транзитный трафик LAN; DNS detour по-прежнему применяется к собственным DNS-запросам роутера.",
         clearDynamicSetsOnApplyLabel:
           "Очищать изученные адреса доменов при применении",
         clearDynamicSetsOnApplyHint:

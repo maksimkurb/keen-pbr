@@ -633,6 +633,47 @@ TEST_CASE("lowering nftables: route rules in both chains and OUTPUT-only rules")
   }
 }
 
+TEST_CASE("lowering: process_router_traffic=false keeps route rules out of OUTPUT") {
+  auto plan = plan_of({mark_rule("route", Fam::ipv4, for_set("kpbr4_x")),
+                       make_rule("dns.detour", "detour", Fam::ipv4,
+                                 for_set("kpbr4d_dns"),
+                                 MarkAction{kMark2, kMask},
+                                 FirewallHook::output)});
+  const auto instance_ids = [](const PhysicalChain &chain) {
+    std::vector<std::string> ids;
+    for (const auto &rule : chain.rules) {
+      if (ids.empty() || ids.back() != rule.key->instance_id) {
+        ids.push_back(rule.key->instance_id);
+      }
+    }
+    return ids;
+  };
+  const std::vector<std::string> detour_only{"detour"};
+  const std::vector<std::string> route_and_detour{"route", "detour"};
+
+  plan.process_router_traffic = false;
+  SUBCASE("nftables") {
+    const auto set = lower_firewall_plan(plan, nft_context());
+    CHECK(instance_ids(nft_pre(set)) == std::vector<std::string>{"route"});
+    CHECK(instance_ids(nft_out(set)) == detour_only);
+  }
+  SUBCASE("iptables") {
+    const auto set = lower_firewall_plan(plan, ipt_context());
+    CHECK(instance_ids(gen_a(set, Fam::ipv4)) ==
+          std::vector<std::string>{"route"});
+    CHECK(instance_ids(out_chain(set, Fam::ipv4)) == detour_only);
+  }
+  plan.process_router_traffic = true;
+  SUBCASE("nftables, router traffic processed") {
+    const auto set = lower_firewall_plan(plan, nft_context());
+    CHECK(instance_ids(nft_out(set)) == route_and_detour);
+  }
+  SUBCASE("iptables, router traffic processed") {
+    const auto set = lower_firewall_plan(plan, ipt_context());
+    CHECK(instance_ids(out_chain(set, Fam::ipv4)) == route_and_detour);
+  }
+}
+
 TEST_CASE("lowering nftables: balance") {
   const auto balance = [](std::vector<FirewallBalanceCandidate> candidates,
                           FirewallRuleCriteria criteria = {}) {
@@ -1234,6 +1275,24 @@ TEST_CASE("lowering interception: DNS hold") {
   }
 }
 
+TEST_CASE("lowering interception: DNS hold excludes loopback replies when asked") {
+  auto rules = intercept_module_rules(dns_only());
+  for (auto &rule : rules) rule.criteria.exclude_oif = {"lo"};
+  const auto plan = plan_of(std::move(rules));
+  SUBCASE("iptables") {
+    const auto set = lower_firewall_plan(plan, ipt_context());
+    const auto lines = ipt_lines(set, "KeenPbrDnsHold", Fam::ipv4);
+    REQUIRE(lines.size() == 2);
+    CHECK(lines[0].find("! -o lo") != std::string::npos);
+  }
+  SUBCASE("nftables") {
+    const auto set = lower_firewall_plan(plan, nft_context());
+    const auto &chain = chain_of(set, nft_physical_chain_id(Role::nft_dns_hold));
+    REQUIRE(chain.rules.size() == 2);
+    CHECK(has_match(chain.rules[0], OifMatch{true, {"lo"}}));
+  }
+}
+
 TEST_CASE("lowering interception: L7 sniff") {
   SUBCASE("iptables: one shared chain serves FORWARD and OUTPUT") {
     const auto set = lower_firewall_plan(intercept_plan(sniff_only()), ipt_context());
@@ -1241,6 +1300,7 @@ TEST_CASE("lowering interception: L7 sniff") {
       const auto &chain = chain_of(
           set, ipt_chain("KeenPbrSniff", PhysicalTable::mangle, family));
       CHECK(chain.id.role == Role::iptables_sniff);
+      CHECK(chain.output_hook);
       const auto lines = ipt_lines(set, "KeenPbrSniff", family);
       // The forward and output copies are the same physical rule.
       REQUIRE(lines.size() == 2);

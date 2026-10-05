@@ -106,10 +106,20 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   classification in `KeenPbrRaw` (raw table, raw-prerouting mode) or
   `KeenPbrTable` (mangle), OUTPUT classification in `KeenPbrOutput` (mangle, in
   both modes). Placement is decided by lowering from the rule's hook: route
-  rules (hook=prerouting) go to PREROUTING and OUTPUT, DNS-detour rules
-  (hook=output) only to OUTPUT, and the inbound-interface prefilter (and its
-  multi-interface fragments) only to PREROUTING, since router-originated
-  packets have no input interface.
+  rules (hook=prerouting) go to PREROUTING and, only when
+  `iproute.process_router_traffic` is true (`FirewallPlan::process_router_traffic`,
+  default false), also to OUTPUT; DNS-detour rules (hook=output) only to OUTPUT
+  in both modes, and the inbound-interface prefilter (and its multi-interface
+  fragments) only to PREROUTING, since router-originated packets have no input
+  interface.
+  **Router-originated traffic** (`iproute.process_router_traffic`): when false
+  (default) OUTPUT holds only the prefilters and DNS-detour rules (no route
+  mark/drop/pass/balance classifier, both backends), the output L7 sniff rules
+  are not planned (no nft `sniff_out` chain; `KeenPbrSniff` is only jumped from
+  FORWARD), and the DNS hold carries a `exclude_oif = {lo}` criterion lowered to
+  `oifname != "lo"` / `! -o lo`, so replies of a local resolver to router-local
+  processes (loopback) are not held or learned.  When true, router traffic is
+  routed and learned like a LAN client.
   The `prefilter.skip_local_replies` prefilter is lowered to both PREROUTING
   and OUTPUT (`-m conntrack --ctdir REPLY -j RETURN` on iptables,
   `ct direction reply accept` in the nft `prerouting` and `output` chains),

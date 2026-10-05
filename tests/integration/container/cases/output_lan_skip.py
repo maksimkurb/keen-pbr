@@ -48,7 +48,7 @@ def register(registry):
         # conntrack replies, so only the OUTPUT oif/broadcast/multicast skip
         # keeps them on the main table.
         apply(context, [{"outbound": "wan_pbr", "proto": "udp",
-                         "dest_addr": "0.0.0.0/0"}])
+                         "dest_addr": "0.0.0.0/0"}], router_traffic=True)
         context.client("rm", "-f", LOG)
         context.client(
             "sh", "-c",

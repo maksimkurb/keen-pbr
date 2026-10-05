@@ -294,6 +294,9 @@ void append_intercept_matches(const FirewallRuleCriteria &criteria,
     matches.push_back(CtStateMatch{ct_established, false});
     matches.push_back(CtDirMatch{false});
   }
+  if (!criteria.exclude_oif.empty()) {
+    matches.push_back(OifMatch{true, criteria.exclude_oif});
+  }
   if (criteria.connbytes_original_packets.has_value()) {
     matches.push_back(ConnbytesMatch{
         ConnbytesDir::original, ConnbytesMode::packets,
@@ -727,6 +730,13 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
 
   const bool has_queue = plan_has_action<QueueAction>(plan);
   const bool has_log = plan_has_action<LogAction>(plan);
+  // A router-originated sniff rule exists only when router traffic is
+  // processed: KeenPbrSniff is then jumped from OUTPUT as well as FORWARD.
+  const bool log_in_output = std::any_of(
+      plan.rules.begin(), plan.rules.end(), [](const FirewallRuleInstance &r) {
+        return std::holds_alternative<LogAction>(r.action) &&
+               r.hook == FirewallHook::output;
+      });
 
   // One PREROUTING and one OUTPUT chain per enabled family.  Chains hold the
   // rules directly; there are no dispatchers or A/B generations.
@@ -776,6 +786,7 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
     }
     if (has_log) {
       add_intercept_chain(iptables_sniff_chain_name(), FirewallHook::forward);
+      chains.back().chain.output_hook = log_in_output;
     }
   };
   add_family(FirewallFamily::ipv4);
@@ -805,11 +816,14 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
     } else if (is_classifier_action(rule.action)) {
       for (const auto &classifier : expander.expand(rule)) {
         for (auto &target : chains) {
-          // Route rules (prerouting hook) cover forwarded and local traffic;
-          // output-hook rules (DNS detour) only local traffic.
+          // Route rules (prerouting hook) cover forwarded traffic and, when
+          // the plan processes router traffic, local traffic too; output-hook
+          // rules (DNS detour) only local traffic.
           if (!target.intercept && target.family == classifier.family &&
-              (classifier.hook == FirewallHook::prerouting ||
-               target.hook == FirewallHook::output)) {
+              (classifier.hook == FirewallHook::prerouting
+                   ? (target.hook == FirewallHook::prerouting ||
+                      plan.process_router_traffic)
+                   : target.hook == FirewallHook::output)) {
             lower_iptables_classifier(rule, classifier, facts,
                                       context.fwmark_mask, target);
           }
@@ -1084,10 +1098,13 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
           output.rules.push_back(build_rule(family, std::move(matches),
                                             std::move(statements), key));
         } else {
-          // Route rules (hook == prerouting) go to both prerouting and output chains
+          // Route rules (hook == prerouting) go to the prerouting chain and,
+          // when router traffic is processed, to the output chain too.
           prerouting.rules.push_back(build_rule(family, matches, statements, key));
-          output.rules.push_back(build_rule(family, std::move(matches),
-                                            std::move(statements), key));
+          if (plan.process_router_traffic) {
+            output.rules.push_back(build_rule(family, std::move(matches),
+                                              std::move(statements), key));
+          }
         }
       }
     }

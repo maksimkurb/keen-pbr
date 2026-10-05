@@ -97,12 +97,14 @@ API также может быть отключён во время выполн
 |---|---|---|---|
 | `table_start` | integer | `150` | Первый ID таблицы маршрутизации для выделения под outbounds |
 | `rule_priority_start` | integer или null | `table_start` | Первый приоритет правила RPDB; null наследует `table_start` |
+| `process_router_traffic` | boolean | `false` | Применять правила маршрутизации к трафику самого роутера и изучать по нему домены. При `false` правилами маршрутизации, DNS-перехватом и L7-сниффингом обрабатывается только транзитный трафик LAN. Правила DNS detour по-прежнему действуют на собственные DNS-запросы роутера. |
 
 ```json { filename="config.json" }
 {
   "iproute": {
     "table_start": 150,
-    "rule_priority_start": null
+    "rule_priority_start": null,
+    "process_router_traffic": false
   }
 }
 ```

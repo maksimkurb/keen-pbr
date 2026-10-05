@@ -818,6 +818,9 @@ Config parse_config_json(json parsed_json) {
         parsed_json, "iproute", "table_start", "iproute.table_start", issues);
     validate_optional_integer_field(
         parsed_json, "iproute", "rule_priority_start", "iproute.rule_priority_start", issues);
+    validate_optional_boolean_field(
+        parsed_json, "iproute", "process_router_traffic",
+        "iproute.process_router_traffic", issues);
     validate_optional_integer_field(
         parsed_json, "daemon", "firewall_verify_max_bytes",
         "daemon.firewall_verify_max_bytes", issues);

@@ -14,8 +14,9 @@ CLIENT_MARK = 0x1
 def register(registry):
     @registry.case("loop_safety_marked_socket")
     def loop_safety_marked_socket(context):
-        # Router-originated traffic is classified: an unmarked probe is routed.
-        apply(context, RULES)
+        # With iproute.process_router_traffic=true router-originated traffic is
+        # classified: an unmarked probe is routed.
+        apply(context, RULES, router_traffic=True)
         router_probe(context, "wan_pbr", 19010)
 
         # A tunnel client marks its own socket, so its encrypted packets must be
@@ -25,13 +26,13 @@ def register(registry):
         # Negative control: without the skip-marked-packets prefilter the same
         # marked socket is captured into wan_pbr, so the protection is what
         # made the marked probe leave via wan_direct.
-        config = routing_config(context, RULES)
+        config = routing_config(context, RULES, router_traffic=True)
         config["daemon"]["skip_marked_packets"] = False
         context.apply_config(config)
         router_probe(context, "wan_pbr", 19011, mark=CLIENT_MARK)
 
         # Restoring the default restores the protection.
-        config = routing_config(context, RULES)
+        config = routing_config(context, RULES, router_traffic=True)
         config["daemon"]["skip_marked_packets"] = True
         context.apply_config(config)
         router_probe(context, "wan_direct", 19010, mark=CLIENT_MARK)

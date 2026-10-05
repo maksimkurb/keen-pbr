@@ -9,6 +9,7 @@
 #include "../src/firewall/firewall_plan.hpp"
 #include "../src/lists/list_entry_visitor.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <filesystem>
@@ -584,6 +585,35 @@ TEST_CASE("iptables interception hooks that are already first are left alone") {
   // Idempotent: the classification hooks exist as well.
   CHECK(script.find("-A PREROUTING") == std::string::npos);
   CHECK(script.find("-A OUTPUT -j") == std::string::npos);
+}
+
+TEST_CASE("iptables sniff chain drops its OUTPUT hook when the plan has no output sniff") {
+  const std::string observed = read_fixture("iptables_intercept_mangle_v4.rules");
+  InterceptFirewallSettings settings;
+  settings.l7_sniff = true;
+  FirewallPlan plan;
+  plan.fwmark_mask = 0xFFFFFFFFu;
+  plan.process_router_traffic = false;
+  plan.rules = intercept_module_rules(settings);
+  plan.rules.erase(
+      std::remove_if(plan.rules.begin(), plan.rules.end(),
+                     [](const FirewallRuleInstance &rule) {
+                       return rule.hook == FirewallHook::output;
+                     }),
+      plan.rules.end());
+  const auto ruleset = T::lower(plan);
+  const auto *sniff = ruleset.find(iptables_physical_chain_id(
+      "KeenPbrSniff", PhysicalTable::mangle, FirewallFamily::ipv4));
+  REQUIRE(sniff != nullptr);
+  CHECK_FALSE(sniff->output_hook);
+  const std::string script = T::table_script(
+      "mangle", false,
+      {{"KeenPbrTable", "PREROUTING"}, {"KeenPbrOutput", "OUTPUT"},
+       {"KeenPbrSniff", "FORWARD", true, nullptr}},
+      ruleset, observed);
+  CHECK(script.find("-D OUTPUT -j KeenPbrSniff\n") != std::string::npos);
+  CHECK(script.find("-I OUTPUT") == std::string::npos);
+  CHECK(script.find("-D FORWARD") == std::string::npos);
 }
 
 TEST_CASE("iptables interception hook pushed down by a foreign rule is repaired") {

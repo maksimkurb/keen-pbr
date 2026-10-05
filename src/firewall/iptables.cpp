@@ -817,7 +817,12 @@ void IptablesFirewall::verify_applied_hooks(bool ipv6) const {
   }
   if (has_chain(iptables_sniff_chain_name())) {
     verify_pinned("FORWARD", iptables_sniff_chain_name());
-    verify_pinned("OUTPUT", iptables_sniff_chain_name());
+    if (pending_ruleset_
+            .find(iptables_physical_chain_id(iptables_sniff_chain_name(),
+                                             PhysicalTable::mangle, family))
+            ->output_hook) {
+      verify_pinned("OUTPUT", iptables_sniff_chain_name());
+    }
   }
 }
 
@@ -1114,6 +1119,21 @@ std::string IptablesFirewall::build_table_script(
   for (const auto &[source, target] : legacy_hooks) {
     s += "-D " + source + " -j " + target + '\n';
   }
+  // A pinned chain is hooked only from the builtin chains it asks for: drop
+  // the jumps of a hook that is no longer wanted (the OUTPUT hook of the sniff
+  // chain once router traffic is not processed).
+  for (const auto &chain : chains) {
+    if (!chain.pinned) continue;
+    for (const auto &jump : observed.jumps) {
+      if (jump.target == chain.name && jump.exact &&
+          observed.builtins.count(jump.source) != 0 &&
+          jump.source != chain.hook_chain &&
+          (chain.extra_hook_chain == nullptr ||
+           jump.source != chain.extra_hook_chain)) {
+        s += "-D " + jump.source + " -j " + jump.target + '\n';
+      }
+    }
+  }
   for (const auto &chain : chains) {
     const PhysicalChain *physical =
         rules.find(iptables_physical_chain_id(chain.name, physical_table,
@@ -1229,7 +1249,9 @@ void add_intercept_hook_rules(PhysicalRuleset &result) {
       hooks.push_back({"POSTROUTING", chain.id.family, chain.id});
     } else if (chain.id.role == PhysicalChainRole::iptables_sniff) {
       hooks.push_back({"FORWARD", chain.id.family, chain.id});
-      hooks.push_back({"OUTPUT", chain.id.family, chain.id});
+      if (chain.output_hook) {
+        hooks.push_back({"OUTPUT", chain.id.family, chain.id});
+      }
     }
   }
   for (const auto &hook : hooks) {
@@ -1469,8 +1491,13 @@ void IptablesFirewall::apply_prepared(FirewallApplyMode mode) {
           {iptables_dns_hold_chain_name(), "POSTROUTING", true, nullptr});
     }
     if (planned(iptables_sniff_chain_name())) {
-      intercept.push_back(
-          {iptables_sniff_chain_name(), "FORWARD", true, "OUTPUT"});
+      const bool output_hook =
+          pending_ruleset_
+              .find(iptables_physical_chain_id(iptables_sniff_chain_name(),
+                                               PhysicalTable::mangle, family))
+              ->output_hook;
+      intercept.push_back({iptables_sniff_chain_name(), "FORWARD", true,
+                           output_hook ? "OUTPUT" : nullptr});
     }
     const auto run = [&](const char *table,
                          const std::vector<OwnedChainSpec> &chains) {

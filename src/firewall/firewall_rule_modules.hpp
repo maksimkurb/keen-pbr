@@ -47,6 +47,10 @@ struct FirewallBuildContext {
   const OutboundMarkMap* outbound_marks{nullptr};
   // nullopt: no interception rules are planned.
   std::optional<InterceptFirewallSettings> intercept;
+  // iproute.process_router_traffic: route rules and interception also act on
+  // router-originated traffic.  Default true keeps hand-built test contexts on
+  // the historic behaviour; build_firewall_plan() sets it from the config.
+  bool process_router_traffic{true};
 };
 
 // One physical route selector target before an action is attached.

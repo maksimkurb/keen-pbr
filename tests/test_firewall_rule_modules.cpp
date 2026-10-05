@@ -934,6 +934,31 @@ TEST_CASE("dns.intercept_hold queues UDP and TCP responses at postrouting") {
   CHECK(plan.rules[0].key != plan.rules[1].key);
 }
 
+TEST_CASE("process_router_traffic=false: no output sniff, DNS hold skips loopback") {
+  const ModuleFixture fixture;
+  InterceptFirewallSettings settings;
+  settings.dns_hold = true;
+  settings.l7_sniff = true;
+  const auto plan_for = [&](RouteRuleModuleRegistration module, bool router) {
+    auto context = fixture.context();
+    context.intercept = settings;
+    context.process_router_traffic = router;
+    return build_plan_with(module, context);
+  };
+  const auto sniff_off = plan_for(register_intercept_l7_sniff_rules, false);
+  CHECK(sniff_instances(sniff_off) ==
+        std::vector<std::string>{"tcp.forward", "udp.forward"});
+  const auto sniff_on = plan_for(register_intercept_l7_sniff_rules, true);
+  CHECK(sniff_on.rules.size() == 4);
+
+  for (const auto& rule : plan_for(register_intercept_dns_hold_rules, false).rules) {
+    CHECK(rule.criteria.exclude_oif == std::vector<std::string>{"lo"});
+  }
+  for (const auto& rule : plan_for(register_intercept_dns_hold_rules, true).rules) {
+    CHECK(rule.criteria.exclude_oif.empty());
+  }
+}
+
 TEST_CASE("l7.sniff copies the first packets of new flows at forward and output") {
   const ModuleFixture fixture;
   InterceptFirewallSettings settings;
@@ -1025,17 +1050,33 @@ TEST_CASE("build_firewall_plan carries the interception settings") {
   inputs.intercept->dns_hold = true;
   inputs.intercept->l7_sniff = true;
   const auto with = build_firewall_plan(inputs);
+  // iproute.process_router_traffic defaults to false: no output sniff copies.
+  CHECK_FALSE(with.process_router_traffic);
   CHECK(count_of(with, "dns.intercept_hold") == 2);
-  CHECK(count_of(with, "l7.sniff") == 4);
+  CHECK(count_of(with, "l7.sniff") == 2);
   // Interception rules sort after every classification rule, and the other
   // rules are exactly the ones planned without them.
-  CHECK(with.rules.size() == without.rules.size() + 6);
+  CHECK(with.rules.size() == without.rules.size() + 4);
   for (std::size_t i = 0; i < without.rules.size(); ++i) {
     CHECK(with.rules[i].key == without.rules[i].key);
   }
   // Both validate for every backend.
   CHECK_NOTHROW(validate_firewall_plan_backend(with, FirewallBackend::nftables));
   CHECK_NOTHROW(validate_firewall_plan_backend(with, FirewallBackend::iptables));
+
+  // process_router_traffic=true restores the output sniff copies.
+  Config router_config = fixture.config;
+  router_config.iproute = IprouteConfig{};
+  router_config.iproute->process_router_traffic = true;
+  FirewallPlanBuildInputs router_inputs{router_config, fixture.marks, usage,
+                                        main_routes,   interfaces,    nullptr,
+                                        true,          0xFFFFFFFFU,
+                                        FirewallBackend::nftables};
+  router_inputs.intercept = inputs.intercept;
+  const auto router = build_firewall_plan(router_inputs);
+  CHECK(router.process_router_traffic);
+  CHECK(count_of(router, "l7.sniff") == 4);
+  CHECK(router.rules.size() == without.rules.size() + 6);
 }
 
 } // namespace keen_pbr3

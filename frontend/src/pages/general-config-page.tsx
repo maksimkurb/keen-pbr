@@ -45,6 +45,7 @@ export type SettingsDraft = {
   deviceName: string
   strictEnforcement: boolean
   skipMarkedPackets: boolean
+  processRouterTraffic: boolean
   clearDynamicSetsOnApply: boolean
   ipv6Enabled: boolean
   ipsetHashsize: string
@@ -74,6 +75,7 @@ const fallbackDraft: SettingsDraft = {
   deviceName: "",
   strictEnforcement: true,
   skipMarkedPackets: true,
+  processRouterTraffic: false,
   clearDynamicSetsOnApply: false,
   ipv6Enabled: true,
   ipsetHashsize: "",
@@ -103,6 +105,7 @@ const SETTINGS_FIELD_NAMES = {
   deviceName: "deviceName",
   strictEnforcement: "strictEnforcement",
   skipMarkedPackets: "skipMarkedPackets",
+  processRouterTraffic: "processRouterTraffic",
   clearDynamicSetsOnApply: "clearDynamicSetsOnApply",
   ipv6Enabled: "ipv6Enabled",
   ipsetHashsize: "ipsetHashsize",
@@ -507,6 +510,37 @@ function LoadedGeneralConfigPage({
                     <FieldHint
                       description={t(
                         "pages.settings.general.skipMarkedPacketsHint"
+                      )}
+                    />
+                  </FieldContent>
+                </Field>
+              )}
+            </form.Field>
+
+            <FieldSeparator />
+
+            <form.Field name={SETTINGS_FIELD_NAMES.processRouterTraffic}>
+              {(field) => (
+                <Field>
+                  <FieldContent>
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        checked={field.state.value}
+                        id="process-router-traffic"
+                        onCheckedChange={(checked) =>
+                          field.handleChange(checked === true)
+                        }
+                      />
+                      <FieldLabel
+                        className="cursor-pointer flex-col items-start gap-0"
+                        htmlFor="process-router-traffic"
+                      >
+                        {t("pages.settings.general.processRouterTrafficLabel")}
+                      </FieldLabel>
+                    </div>
+                    <FieldHint
+                      description={t(
+                        "pages.settings.general.processRouterTrafficHint"
                       )}
                     />
                   </FieldContent>
@@ -1130,6 +1164,9 @@ export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
       config.daemon?.strict_enforcement ?? fallbackDraft.strictEnforcement,
     skipMarkedPackets:
       config.daemon?.skip_marked_packets ?? fallbackDraft.skipMarkedPackets,
+    processRouterTraffic:
+      config.iproute?.process_router_traffic ??
+      fallbackDraft.processRouterTraffic,
     clearDynamicSetsOnApply:
       config.daemon?.clear_dynamic_sets_on_apply ??
       fallbackDraft.clearDynamicSetsOnApply,
@@ -1216,6 +1253,7 @@ export function buildUpdatedConfig(
     iproute: {
       ...config.iproute,
       table_start: toBackendIntegerValue(tableStart, draft.tableStart.trim()),
+      process_router_traffic: draft.processRouterTraffic,
     },
     lists_autoupdate: {
       ...config.lists_autoupdate,
@@ -1338,6 +1376,8 @@ function resolveSettingsFieldPath(path: string): SettingsFieldName | undefined {
       return SETTINGS_FIELD_NAMES.fwmarkStart
     case "fwmark.mask":
       return SETTINGS_FIELD_NAMES.fwmarkMask
+    case "iproute.process_router_traffic":
+      return SETTINGS_FIELD_NAMES.processRouterTraffic
     case "iproute.table_start":
       return SETTINGS_FIELD_NAMES.tableStart
     case "intercept.enabled":

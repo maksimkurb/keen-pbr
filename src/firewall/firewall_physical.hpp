@@ -380,6 +380,10 @@ struct PhysicalChain {
   PhysicalChainId id;
   std::optional<PhysicalBaseChain> base; // nft base chains only
   std::vector<PhysicalRule> rules;       // in kernel evaluation order
+  // iptables sniff chain only: besides FORWARD it is jumped from OUTPUT (the
+  // plan sniffs router-originated traffic).  A lowering fact used to derive
+  // the expected builtin-chain jumps; never parsed, so ignored by ==.
+  bool output_hook{false};
 
   bool operator==(const PhysicalChain &o) const {
     return id == o.id && base == o.base && rules == o.rules;

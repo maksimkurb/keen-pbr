@@ -27,9 +27,9 @@ void register_sniff(FirewallRuleRegistrar& registrar,
 } // namespace
 
 // Copy the first packets of new flows (TCP 80/443, UDP 443) to an NFLOG group
-// for TLS SNI / HTTP Host / QUIC Initial parsing.  Forwarded and
-// router-originated traffic are both sniffed.  Disabled unless interception
-// settings enable it explicitly.
+// for TLS SNI / HTTP Host / QUIC Initial parsing.  Forwarded traffic is always
+// sniffed; router-originated traffic only with process_router_traffic.
+// Disabled unless interception settings enable it explicitly.
 void register_intercept_l7_sniff_rules(const FirewallBuildContext& context,
                                        FirewallRuleRegistrar& registrar) {
   if (!context.intercept.has_value() || !context.intercept->l7_sniff) {
@@ -41,6 +41,9 @@ void register_intercept_l7_sniff_rules(const FirewallBuildContext& context,
                           : settings.tls                ? "443"
                                                         : nullptr;
   for (const auto hook : {FirewallHook::forward, FirewallHook::output}) {
+    if (hook == FirewallHook::output && !context.process_router_traffic) {
+      continue;
+    }
     const std::string suffix =
         hook == FirewallHook::forward ? ".forward" : ".output";
     if (tcp_ports != nullptr) {

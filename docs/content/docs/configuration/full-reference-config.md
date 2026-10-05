@@ -553,7 +553,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
     // First policy-routing rule priority to allocate.
     // Default: null, which inherits table_start.
-    "rule_priority_start": null
+    "rule_priority_start": null,
+
+    // Apply route rules to, and learn domains from, the router's own traffic.
+    // Default: false (only forwarded LAN traffic; DNS detour is unaffected).
+    "process_router_traffic": false
   },
 
   // Route-processing rules.

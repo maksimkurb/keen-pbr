@@ -555,7 +555,11 @@ weight: 6
 
     // Первый приоритет policy-routing rule для выделения.
     // По умолчанию: null, то есть используется table_start.
-    "rule_priority_start": null
+    "rule_priority_start": null,
+
+    // Применять правила маршрутизации к трафику самого роутера и изучать по нему домены.
+    // По умолчанию: false (только транзитный трафик LAN; DNS detour не затрагивается).
+    "process_router_traffic": false
   },
 
   // Правила обработки маршрутизации.

@@ -5,8 +5,12 @@ import uuid
 from integration_context import REMOTE_CONTAINER_DIR, TEST_IP, parse_probe
 
 
-def routing_config(context, rules, lists=None):
+def routing_config(context, rules, lists=None, router_traffic=False):
     config = context.api("/api/config")["config"]
+    # iproute.process_router_traffic defaults to false: route rules and
+    # learning then cover forwarded LAN traffic only.
+    config["iproute"] = {**config.get("iproute", {}),
+                         "process_router_traffic": router_traffic}
     config["outbounds"] = [
         {"tag": "wan_direct", "type": "interface", "interface": "wan_direct",
          "gateway": "10.10.0.2", "gateway6": "2001:db8:10::2"},
@@ -18,8 +22,8 @@ def routing_config(context, rules, lists=None):
     return config
 
 
-def apply(context, rules, lists=None):
-    context.apply_config(routing_config(context, rules, lists))
+def apply(context, rules, lists=None, router_traffic=False):
+    context.apply_config(routing_config(context, rules, lists, router_traffic))
 
 
 def probe(context, expected, **values):

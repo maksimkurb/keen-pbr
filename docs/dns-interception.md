@@ -22,6 +22,21 @@ postrouting for UDP/TCP DNS traffic; L7 logging is attached to the forwarding
 and locally generated paths. The iptables and nftables backends use the same
 logical lowering and verify the application-owned chains after apply.
 
+### Router-originated traffic
+
+`iproute.process_router_traffic` (default `false`) decides whether the router's
+own traffic is observed. With `false`:
+
+* L7 sniffing covers forwarded LAN traffic only; the locally generated (OUTPUT)
+  sniff rules and the nft `sniff_out` chain are not planned.
+* The DNS hold skips replies sent through loopback (`oifname != "lo"`, iptables
+  `! -o lo`), which are the answers of a local resolver to router-local
+  processes. Replies to LAN clients (including those a local resolver sends out
+  through a LAN interface) are still held and learned.
+
+With `true` both apply to the router like to a LAN client. DNS detour rules are
+OUTPUT-only in both modes and are not affected by this option.
+
 ## Minimal configuration
 
 Interception is enabled by default when the required kernel facilities are

@@ -12,15 +12,15 @@ def register(registry):
     @registry.case("inbound_interface_filter")
     def inbound_interface_filter(context):
         # Forwarded traffic from an allowed interface is classified, and router
-        # traffic is classified too.
-        apply(context, RULES)
+        # traffic is classified too (iproute.process_router_traffic=true).
+        apply(context, RULES, router_traffic=True)
         probe(context, "wan_pbr", destination_port=19000)
         router_probe(context, "wan_pbr", 19010)
 
         # Forwarded traffic from a non-allowed interface is not classified.
         # Router traffic has no input interface, so the filter never applies
         # to it (guards `! -i <iface> RETURN` leaking into OUTPUT).
-        config = routing_config(context, RULES)
+        config = routing_config(context, RULES, router_traffic=True)
         # The allowed interface must not be the router's own egress
         # (wan_direct): router packets that already leave through an inbound
         # interface are never policy-routed (see output_lan_skip).
