@@ -1183,22 +1183,36 @@ void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
              std::string(event.is_up ? "UP" : "DOWN");
   }
 
-  if (!interface_refresh_pending_) {
-    interface_refresh_pending_ = true;
-    interface_refresh_task_id_ = scheduler_->schedule_oneshot(
-        INTERFACE_REFRESH_DEBOUNCE_DELAY,
-        [this]() {
-          interface_refresh_task_id_ = -1;
-          interface_refresh_pending_ = false;
-          refresh_iproute_and_firewall_runtime(
-              StatusPublishScope::OutboundsAndInterfaces);
-        },
-        "interface-refresh");
-    log.info("{}, iproute and firewall refresh scheduled (debounced)",
-             reason);
-  } else {
+  // Leading-edge debounce: the first event refreshes at once (a link going
+  // down must leave the balance classifier promptly); events within the
+  // following quiet window are coalesced into one trailing refresh.
+  if (interface_refresh_pending_) {
     log.trace("interface_event_coalesced", "reason={}", reason);
+    return;
   }
+  const auto now = std::chrono::steady_clock::now();
+  if (now >= interface_refresh_quiet_until_) {
+    log.info("{}, iproute and firewall refresh triggered", reason);
+    interface_refresh_quiet_until_ = now + INTERFACE_REFRESH_DEBOUNCE_DELAY;
+    refresh_iproute_and_firewall_runtime(
+        StatusPublishScope::OutboundsAndInterfaces);
+    return;
+  }
+  interface_refresh_pending_ = true;
+  interface_refresh_task_id_ = scheduler_->schedule_oneshot(
+      std::max(std::chrono::milliseconds{1},  // 0 would disarm the timerfd
+               std::chrono::duration_cast<std::chrono::milliseconds>(
+                   interface_refresh_quiet_until_ - now)),
+      [this]() {
+        interface_refresh_task_id_ = -1;
+        interface_refresh_pending_ = false;
+        interface_refresh_quiet_until_ =
+            std::chrono::steady_clock::now() + INTERFACE_REFRESH_DEBOUNCE_DELAY;
+        refresh_iproute_and_firewall_runtime(
+            StatusPublishScope::OutboundsAndInterfaces);
+      },
+      "interface-refresh");
+  log.info("{}, iproute and firewall refresh scheduled (coalesced)", reason);
 }
 
 void Daemon::handle_interface_monitor_events(uint32_t events) {

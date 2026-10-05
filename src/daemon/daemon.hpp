@@ -353,6 +353,7 @@ private:
   // Debounced runtime refresh triggered by interface events.
   int interface_refresh_task_id_{-1};
   bool interface_refresh_pending_{false};
+  std::chrono::steady_clock::time_point interface_refresh_quiet_until_{};
 
   // Epoll state
   int epoll_fd_{-1};
