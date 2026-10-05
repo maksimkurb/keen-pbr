@@ -1478,6 +1478,10 @@ void Daemon::run() {
       "intercept-events");
 #endif
 
+  intercept_rebind_task_id_ = scheduler_->schedule_repeating(
+      std::chrono::seconds{1}, [this] { tick_intercept_rebind(); },
+      "intercept-rebind");
+
   log.info("Daemon control plane running. PID: {}", getpid());
   post_control_task([this] { begin_startup_runtime(); }, "startup-runtime");
 

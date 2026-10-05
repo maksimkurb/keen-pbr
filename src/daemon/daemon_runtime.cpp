@@ -235,6 +235,12 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
                             const Config* quiesce_config,
                             const OutboundMarkMap* quiesce_marks) {
     invalidate_routing_health_cache();
+    // An apply (re)binds the listeners itself and supersedes a pending
+    // automatic re-bind; the next tick starts over if one is still dead.
+    if (!intercept_rebind_in_progress_) {
+        intercept_rebind_.reset();
+        publish_intercept_rebind_status();
+    }
     {
         KPBR_LOCK_GUARD(intercept_mutex_);
         // Any in-flight build belongs to the previous apply attempt. It must

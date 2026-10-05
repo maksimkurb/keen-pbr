@@ -16,6 +16,7 @@
 #include "../runtime/conntrack_manager.hpp"
 #include "../runtime/lifecycle_operation.hpp"
 #include "../runtime/operation_coordinator.hpp"
+#include "../intercept/rebind_backoff.hpp"
 #include "../runtime/runtime_state_machine.hpp"
 #include "../util/blocking_executor.hpp"
 #include "../util/traced_mutex.hpp"
@@ -256,6 +257,10 @@ private:
   InterceptEffective intercept_effective_snapshot() const;
   api::InterceptHealthClass build_intercept_health() const;
   void pump_intercept_events();
+  // Control thread: notices a dead NFQUEUE/NFLOG listener and re-binds it
+  // through apply_firewall() with backoff (see rebind_backoff.hpp).
+  void tick_intercept_rebind();
+  void publish_intercept_rebind_status();
   void register_urltest_outbounds();
   void handle_urltest_selection_change(const std::string &urltest_tag,
                                        const std::string &new_child_tag);
@@ -434,6 +439,21 @@ IcmpTester icmp_tester_;
   std::shared_ptr<InterceptService> intercept_service_
       GUARDED_BY(intercept_mutex_);
   InterceptEffective intercept_effective_ GUARDED_BY(intercept_mutex_);
+  // What /health reports about an automatic listener re-bind in progress.
+  struct InterceptRebindStatus {
+    bool active{false};
+    unsigned attempts{0};
+    std::chrono::steady_clock::time_point next_due{};
+  };
+  InterceptRebindStatus intercept_rebind_status_ GUARDED_BY(intercept_mutex_);
+  // Control thread only.  The listeners that were wanted when they failed:
+  // a failed re-bind disables them in the effective settings, but they stay
+  // wanted until an explicit apply takes over.
+  RebindBackoff intercept_rebind_;
+  bool intercept_rebind_want_dns_{false};
+  bool intercept_rebind_want_l7_{false};
+  bool intercept_rebind_in_progress_{false};
+  int intercept_rebind_task_id_{-1};
   InterceptServiceOptions intercept_service_options_;
   std::optional<InterceptCapabilities> intercept_capabilities_;
   // Shared with the nft set writers: true while the nft_timeout_update probe

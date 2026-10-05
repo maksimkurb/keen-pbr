@@ -364,6 +364,19 @@ api::InterceptHealthClass Daemon::build_intercept_health() const {
     if (running && effective.dns_hold && health.counters) {
         health.kernel_queue = read_kernel_queue(effective.queue_num);
     }
+    InterceptRebindStatus rebind;
+    {
+        KPBR_LOCK_GUARD(intercept_mutex_);
+        rebind = intercept_rebind_status_;
+    }
+    if (rebind.active) {
+        const auto left = std::max(std::chrono::steady_clock::duration::zero(),
+                                   rebind.next_due - std::chrono::steady_clock::now());
+        health.reasons.push_back(
+            "interception listener degraded, re-binding (next attempt " +
+            std::to_string(rebind.attempts + 1) + " in " +
+            std::to_string(std::chrono::ceil<std::chrono::seconds>(left).count()) + "s)");
+    }
     if (service && service->failed()) {
         health.reasons.push_back("interception service stopped after a fatal listener error");
     } else if (service && service->l7_degraded()) {
@@ -371,6 +384,69 @@ api::InterceptHealthClass Daemon::build_intercept_health() const {
         health.reasons.push_back("L7 interception degraded after NFLOG receive failure");
     }
     return health;
+}
+
+void Daemon::publish_intercept_rebind_status() {
+    KPBR_LOCK_GUARD(intercept_mutex_);
+    intercept_rebind_status_.active = intercept_rebind_.pending();
+    intercept_rebind_status_.attempts = intercept_rebind_.attempts();
+    intercept_rebind_status_.next_due = intercept_rebind_.next_due();
+}
+
+void Daemon::tick_intercept_rebind() {
+    if (!routing_runtime_active_) {
+        intercept_rebind_.reset();
+        publish_intercept_rebind_status();
+        return;
+    }
+    std::shared_ptr<InterceptService> service;
+    InterceptEffective effective;
+    {
+        KPBR_LOCK_GUARD(intercept_mutex_);
+        service = intercept_service_;
+        effective = intercept_effective_;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    bool healthy;
+    if (intercept_rebind_.pending() || intercept_rebind_.attempts() > 0) {
+        // Tracking a recovery: healthy again only once every listener that
+        // was wanted when it failed is bound.
+        healthy = service && service->running() && !service->failed() &&
+                  (!intercept_rebind_want_dns_ || service->dns_bound()) &&
+                  (!intercept_rebind_want_l7_ || service->l7_bound());
+    } else {
+        // An NFLOG failure leaves the hot loop alive for DNS, so only the
+        // wanted L7 listener counts as degraded.
+        healthy = !(service && (service->failed() ||
+                                (effective.l7 && service->l7_degraded())));
+        if (!healthy) {
+            intercept_rebind_want_dns_ = effective.dns_hold;
+            intercept_rebind_want_l7_ = effective.l7;
+            Logger::instance().warn("Interception listener failed; re-binding with backoff");
+        }
+    }
+    intercept_rebind_.observe(healthy, now);
+    if (intercept_rebind_.due(now)) {
+        // Same lease an apply holds: when one is running it will rebind the
+        // listeners itself, so skip and look again on the next tick.
+        if (operation_coordinator_.try_begin("intercept-rebind")) {
+            Logger::instance().info("Interception: re-binding listeners (attempt {})",
+                                    intercept_rebind_.attempts() + 1);
+            intercept_rebind_in_progress_ = true;
+            // A failed bind is cached as a blocking verdict; re-probe.
+            intercept_capabilities_stale_ = true;
+            try {
+                apply_firewall(runtime_refresh_firewall_mode());
+                publish_runtime_state();
+            } catch (const std::exception& error) {
+                Logger::instance().error("Interception re-bind failed: {}", error.what());
+            }
+            intercept_rebind_in_progress_ = false;
+            operation_coordinator_.finish();
+            intercept_rebind_.attempted(std::chrono::steady_clock::now());
+        }
+    }
+    publish_intercept_rebind_status();
 }
 
 void Daemon::pump_intercept_events() {

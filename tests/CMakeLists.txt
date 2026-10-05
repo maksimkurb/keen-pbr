@@ -36,6 +36,7 @@ add_executable(keen-pbr-tests
   test_intercept_live.cpp
   test_intercept_wiring.cpp
   test_intercept_probe.cpp
+  test_rebind_backoff.cpp
   test_kernel_probe.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
