@@ -408,7 +408,7 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
                 complete(*result);
             };
             try {
-                apply_prepared_runtime_inputs(std::move(*prepared), false);
+                apply_prepared_runtime_inputs(std::move(*prepared), false, persist_config);
                 transaction->candidate_applied();
                 try {
                     transaction->runtime_confirmed();
@@ -417,6 +417,9 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
                     }
                     if (persist_config) {
                         write_config_atomically(config_path_, saved_config_json);
+                        // dnsmasq's conf-script reads config.json: sync only now.
+                        schedule_dnsmasq_sync(dnsmasq_apply_reason("config apply complete"),
+                                            /*explicit_apply=*/true);
                     }
                     config_store_.replace_active(config_, outbound_marks_);
                     if (persist_config) {

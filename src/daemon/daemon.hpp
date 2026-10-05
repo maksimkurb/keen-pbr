@@ -272,7 +272,8 @@ private:
   // Candidate application may mutate kernel state while keeping the
   // externally visible active snapshot unchanged until its transaction commits.
   void apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
-                                     bool publish_active_snapshot = true);
+                                     bool publish_active_snapshot = true,
+                                     bool defer_dnsmasq_sync = false);
   PreparedRuntimeInputs
   prepare_runtime_inputs(const Config &config,
                          bool refresh_remote_lists = true);
@@ -280,7 +281,7 @@ private:
   void teardown_routing_and_firewall(bool explicit_stop);
   void setup_routing_and_firewall();
   void reconcile_prepared_runtime(PreparedRuntimeInputs prepared);
-  void complete_running_runtime(const char *reason);
+  void complete_running_runtime(const char *reason, bool defer_dnsmasq_sync = false);
   void start_routing_runtime();
   void stop_routing_runtime();
   void restart_routing_runtime();
@@ -520,5 +521,9 @@ IcmpTester icmp_tester_;
   // Unix seconds of the last runtime apply start; 0 when none happened yet.
   std::atomic<std::int64_t> apply_started_ts_{0};
 };
+
+// Maps a runtime lifecycle reason to the wording used when dnsmasq is
+// restarted because of it.
+std::string dnsmasq_apply_reason(std::string_view lifecycle_reason);
 
 } // namespace keen_pbr3

@@ -582,13 +582,20 @@ void DnsmasqManager::request_check(const DnsmasqPostFn& post) {
     {
         KPBR_LOCK_GUARD(request_mutex_);
         if (pending_config_.has_value()) {
-            return;  // a queued sync supersedes the check
+            // A queued sync supersedes the check. If the worker is not active,
+            // it means post_worker failed earlier, so re-arm it to retry the sync.
+            if (!worker_active_) {
+                worker_active_ = true;
+            } else {
+                return;  // sync is already queued and will run
+            }
+        } else {
+            pending_check_ = true;
+            if (worker_active_) {
+                return;
+            }
+            worker_active_ = true;
         }
-        pending_check_ = true;
-        if (worker_active_) {
-            return;
-        }
-        worker_active_ = true;
     }
     post_worker(post);
 }

@@ -24,6 +24,7 @@ namespace keen_pbr3 {
 namespace {
 // How often the daemon verifies that dnsmasq still serves the keen-pbr config.
 constexpr auto kDnsmasqCheckInterval = std::chrono::seconds{30};
+} // namespace
 
 // Maps a runtime lifecycle reason to the wording used when dnsmasq is
 // restarted because of it.
@@ -43,7 +44,6 @@ std::string dnsmasq_apply_reason(std::string_view lifecycle_reason) {
     }
     return std::string(lifecycle_reason);
 }
-} // namespace
 
 bool Daemon::routing_runtime_active() const {
     return runtime_state_store_.snapshot().routing_runtime_active;
@@ -131,7 +131,7 @@ void Daemon::setup_routing_and_firewall() {
     begin_runtime_generation();
 }
 
-void Daemon::complete_running_runtime(const char* reason) {
+void Daemon::complete_running_runtime(const char* reason, bool defer_dnsmasq_sync) {
     register_urltest_outbounds();
     schedule_lists_autoupdate();
     transition_runtime_or_throw(RuntimeState::running, reason);
@@ -139,7 +139,12 @@ void Daemon::complete_running_runtime(const char* reason) {
     // Lifecycle operations are explicit user/boot actions: install the config
     // (not counted against the automatic repair budget, which they refill).
     // The sync also handles a switch to dns.resolver_integration=none.
-    schedule_dnsmasq_sync(dnsmasq_apply_reason(reason), /*explicit_apply=*/true);
+    // When a persisted config apply defers sync, the caller writes config.json
+    // first, then calls this explicitly after the write succeeds, ensuring
+    // dnsmasq's conf-script reads the updated config from disk.
+    if (!defer_dnsmasq_sync) {
+        schedule_dnsmasq_sync(dnsmasq_apply_reason(reason), /*explicit_apply=*/true);
+    }
     // While the DNS rules module is off dnsmasq is never probed: no check task.
     if (dnsmasq_integration_enabled(config_)) {
         start_dnsmasq_check();
@@ -1106,9 +1111,10 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
 }
 
 void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
-                                           bool publish_active_snapshot) {
+                                           bool publish_active_snapshot,
+                                           bool defer_dnsmasq_sync) {
     reconcile_prepared_runtime(std::move(prepared));
-    complete_running_runtime("config apply complete");
+    complete_running_runtime("config apply complete", defer_dnsmasq_sync);
     if (publish_active_snapshot) {
         config_store_.replace_active(config_, outbound_marks_);
         publish_runtime_state();

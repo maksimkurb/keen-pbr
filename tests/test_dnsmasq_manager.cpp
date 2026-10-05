@@ -895,3 +895,35 @@ TEST_CASE("dnsmasq manager: a queued sync supersedes a check and checks coalesce
     CHECK(rig.fake.probes == 1);
     CHECK(rig.fake.applies() == 1);
 }
+
+TEST_CASE("dnsmasq manager: post failure re-arms on next check request") {
+    Rig rig;
+    CacheManager cache("/nonexistent/cache");
+    std::vector<std::function<void()>> queue;
+    int post_fail_count = 1;
+    const DnsmasqPostFn post = [&queue, &post_fail_count](std::function<void()> task) {
+        if (post_fail_count > 0) {
+            --post_fail_count;
+            return false;  // Simulate executor unavailable
+        }
+        queue.push_back(std::move(task));
+        return true;
+    };
+    const Config config = make_config("dnsmasq", "example.com");
+    run_sync(rig, config);
+    rig.fake.probes = 0;
+
+    // Request a sync but the post fails
+    rig.manager.request_sync(config, cache, post);
+    // Queue should be empty because post failed
+    CHECK(queue.size() == 0);
+
+    // Now request a check; this should re-arm the worker and retry the pending sync
+    rig.manager.request_check(post);
+    // Queue should now have the retried sync
+    REQUIRE(queue.size() == 1);
+    // Run the sync
+    queue[0]();
+    // Sync should have run (it probes dnsmasq)
+    CHECK(rig.fake.probes >= 1);
+}
