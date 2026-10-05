@@ -71,6 +71,11 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     invalidate_routing_health_cache();
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
 
+    if (interface_refresh_task_id_ >= 0) {
+        scheduler_->cancel(interface_refresh_task_id_);
+        interface_refresh_task_id_ = -1;
+    }
+    interface_refresh_pending_ = false;
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
@@ -1133,6 +1138,11 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         scheduler_->cancel(lists_autoupdate_task_id_);
         lists_autoupdate_task_id_ = -1;
     }
+    if (interface_refresh_task_id_ >= 0) {
+        scheduler_->cancel(interface_refresh_task_id_);
+        interface_refresh_task_id_ = -1;
+    }
+    interface_refresh_pending_ = false;
     outbound_marks_ = std::move(prepared.outbound_marks);
     config_ = std::move(prepared.config);
     const auto daemon_config = config_.daemon.value_or(DaemonConfig{});

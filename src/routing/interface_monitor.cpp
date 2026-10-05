@@ -56,7 +56,11 @@ struct InterfaceMonitor::Impl {
             if (route != nullptr &&
                 (route->rtm_family == AF_INET || route->rtm_family == AF_INET6) &&
                 route->rtm_table == RT_TABLE_MAIN) {
-                callback(Event{"", false, false, true});
+                Event event{"", false, false, true};
+                if (route->rtm_dst_len == 0) {
+                    event.default_route_changed = true;
+                }
+                callback(event);
             }
             return;
         }

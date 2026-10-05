@@ -20,6 +20,7 @@ public:
         bool is_up{false};
         bool route_changed{false};
         bool address_changed{false};
+        bool default_route_changed{false};
     };
     using InterfaceStateCallback = std::function<void(const Event&)>;
 
@@ -30,7 +31,7 @@ public:
                                          bool auto_gateway_outbound,
                                          bool auto_gateway_interface,
                                          bool default_gateway_rules) noexcept {
-        return default_gateway_rules ||
+        return (default_gateway_rules && event.default_route_changed) ||
                (event.administrative_state_changed && interface_outbound_in_use) ||
                (event.route_changed && auto_gateway_outbound) ||
                (event.address_changed && auto_gateway_interface);

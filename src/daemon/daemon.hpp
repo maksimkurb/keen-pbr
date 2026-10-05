@@ -350,6 +350,9 @@ private:
   int sigusr1_refresh_task_id_{-1};
   // Retry task for interface monitor netlink reconnect after failure.
   int interface_monitor_reconnect_task_id_{-1};
+  // Debounced runtime refresh triggered by interface events.
+  int interface_refresh_task_id_{-1};
+  bool interface_refresh_pending_{false};
 
   // Epoll state
   int epoll_fd_{-1};

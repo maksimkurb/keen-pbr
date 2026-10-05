@@ -49,6 +49,7 @@ namespace {
 constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{150};
 constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY =
     std::chrono::seconds{5};
+constexpr auto INTERFACE_REFRESH_DEBOUNCE_DELAY = std::chrono::milliseconds{1500};
 constexpr std::size_t kMaxConcurrentRoutingTests = 2;
 constexpr std::size_t kMaxPendingControlClients = 64;
 constexpr std::size_t kMaxControlRequestBytes = std::size_t{4} * 1024U;
@@ -1173,18 +1174,32 @@ void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
     return;
   }
 
+  std::string reason;
   if (event.route_changed) {
-    log.info("Main routing table changed, iproute and firewall refresh triggered");
+    reason = "Main routing table changed";
   } else if (event.address_changed) {
-    log.info("Interface {} addresses changed, iproute and firewall refresh triggered",
-             event.interface_name);
+    reason = "Interface " + event.interface_name + " addresses changed";
   } else {
-    log.info("Interface {} state changed to {}, iproute and firewall refresh "
-             "triggered",
-             event.interface_name, event.is_up ? "UP" : "DOWN");
+    reason = "Interface " + event.interface_name + " state changed to " +
+             std::string(event.is_up ? "UP" : "DOWN");
   }
-  refresh_iproute_and_firewall_runtime(
-      StatusPublishScope::OutboundsAndInterfaces);
+
+  if (!interface_refresh_pending_) {
+    interface_refresh_pending_ = true;
+    interface_refresh_task_id_ = scheduler_->schedule_oneshot(
+        INTERFACE_REFRESH_DEBOUNCE_DELAY,
+        [this]() {
+          interface_refresh_task_id_ = -1;
+          interface_refresh_pending_ = false;
+          refresh_iproute_and_firewall_runtime(
+              StatusPublishScope::OutboundsAndInterfaces);
+        },
+        "interface-refresh");
+    log.info("{}, iproute and firewall refresh scheduled (debounced)",
+             reason);
+  } else {
+    log.trace("interface_event_coalesced", "reason={}", reason);
+  }
 }
 
 void Daemon::handle_interface_monitor_events(uint32_t events) {
