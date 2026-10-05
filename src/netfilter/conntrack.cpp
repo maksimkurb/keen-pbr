@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstring>
 #include <string>
+#include <utility>
 
 namespace keen_pbr3::nfnl {
 namespace {
@@ -261,10 +262,46 @@ bool parse_conntrack_entry(const MsgView& message, ConntrackEntry& entry) {
     return true;
 }
 
-void build_conntrack_get(MsgBuilder& builder, uint32_t seq, ConntrackFamily family) {
+void build_conntrack_get(MsgBuilder& builder, uint32_t seq, ConntrackFamily family,
+                         const ConntrackKernelFilter* kernel_filter) {
     builder.begin(kCtGet, NLM_F_REQUEST | NLM_F_DUMP, seq,
                   netlink_family(family), 0);
+    if (kernel_filter) {
+        // The kernel matches CTA_TUPLE_ORIG against the attributes named in
+        // CTA_FILTER_ORIG_FLAGS; only the source address is selected.
+        const std::size_t filter = builder.nest_begin(uapi::kCtaFilter);
+        builder.put_u32_be(uapi::kCtaFilterOrigFlags, uapi::kCtaFilterFlagIpSrc);
+        builder.nest_end(filter);
+        const std::size_t orig = builder.nest_begin(CTA_TUPLE_ORIG);
+        const std::size_t ip = builder.nest_begin(CTA_TUPLE_IP);
+        if (family == ConntrackFamily::ipv4) {
+            builder.put(CTA_IP_V4_SRC, kernel_filter->src.data(), 4);
+        } else {
+            builder.put(CTA_IP_V6_SRC, kernel_filter->src.data(), 16);
+        }
+        builder.nest_end(ip);
+        builder.nest_end(orig);
+    }
     builder.end();
+}
+
+bool conntrack_kernel_filter_refused(int error) {
+    return error == EINVAL || error == EOPNOTSUPP || error == ENOSYS;
+}
+
+std::function<bool(const ConntrackEntry&)> make_client_destination_filter(
+    ConntrackFamily family, const std::array<uint8_t, 16>& client,
+    std::vector<std::array<uint8_t, 16>> dsts) {
+    const std::size_t len = family == ConntrackFamily::ipv6 ? 16 : 4;
+    return [family, len, client, dsts = std::move(dsts)](const ConntrackEntry& entry) {
+        if (entry.original.family != family) return false;
+        if (!std::equal(client.begin(), client.begin() + len, entry.original.src.begin())) {
+            return false;
+        }
+        return std::any_of(dsts.begin(), dsts.end(), [&](const std::array<uint8_t, 16>& dst) {
+            return std::equal(dst.begin(), dst.begin() + len, entry.original.dst.begin());
+        });
+    };
 }
 
 void build_conntrack_delete(MsgBuilder& builder, uint32_t seq,
@@ -293,10 +330,11 @@ void build_conntrack_delete(MsgBuilder& builder, uint32_t seq,
 
 ConntrackDump::ConntrackDump(ConntrackFamily family, const ConntrackOptions& options)
     : socket_(options.rcvbuf_bytes, true), rx_(kRxBufSize), max_entries_(options.max_entries),
-      filter_(options.filter) {
+      kernel_filter_(options.kernel_filter), filter_(options.filter) {
     seq_ = socket_.next_seq();
     MsgBuilder request;
-    build_conntrack_get(request, seq_, family);
+    build_conntrack_get(request, seq_, family,
+                        options.kernel_filter ? &*options.kernel_filter : nullptr);
     int error = 0;
     if (!socket_.send(request.data(), request.size(), error)) {
         throw NlSocketError(std::string("conntrack dump send: ") + std::strerror(error));
@@ -360,6 +398,13 @@ int ConntrackDump::process_datagram(ByteView datagram) {
                 last_errno_ = EPROTO;
                 malformed = true;
                 return true;
+            }
+            if (kernel_filter_) {
+                const std::size_t len = entry.original.family == ConntrackFamily::ipv6 ? 16 : 4;
+                if (!std::equal(kernel_filter_->src.begin(), kernel_filter_->src.begin() + len,
+                                entry.original.src.begin())) {
+                    ++kernel_mismatches_;
+                }
             }
             if (filter_ && !filter_(entry)) return true;
             if (entries_.size() >= max_entries_) {

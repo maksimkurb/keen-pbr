@@ -62,6 +62,14 @@ struct ConntrackEntry {
     }
 };
 
+// Kernel-side dump selector: only entries whose ORIGINAL tuple has this source
+// address are sent (CTA_FILTER + CTA_TUPLE_ORIG, Linux >= 5.x).  Kernels
+// without it ignore the attributes and send everything (or reject them with
+// EINVAL), so it is only an optimisation: the userspace `filter` still decides.
+struct ConntrackKernelFilter {
+    std::array<uint8_t, 16> src{};
+};
+
 struct ConntrackOptions {
     int rcvbuf_bytes{2 << 20};
     std::size_t max_entries{4096};
@@ -69,6 +77,8 @@ struct ConntrackOptions {
     // Optional dump-time selector; rejected entries are not retained, keeping
     // destination-scoped operations independent of unrelated table size.
     std::function<bool(const ConntrackEntry&)> filter;
+    // Optional kernel-side pre-filter; see ConntrackKernelFilter.
+    std::optional<ConntrackKernelFilter> kernel_filter;
 };
 
 // Parses CTA_TUPLE_ORIG plus mark/id and preserves canonical zone provenance.
@@ -76,7 +86,8 @@ struct ConntrackOptions {
 // CT_DELETE form; incomplete reply tuples remain non-deletable.
 bool parse_conntrack_entry(const MsgView& message, ConntrackEntry& entry);
 
-void build_conntrack_get(MsgBuilder& builder, uint32_t seq, ConntrackFamily family);
+void build_conntrack_get(MsgBuilder& builder, uint32_t seq, ConntrackFamily family,
+                         const ConntrackKernelFilter* kernel_filter = nullptr);
 void build_conntrack_delete(MsgBuilder& builder, uint32_t seq,
                             const ConntrackEntry& entry);
 
@@ -92,6 +103,9 @@ public:
     bool complete() const { return complete_; }
     int last_errno() const { return last_errno_; }
     const std::vector<ConntrackEntry>& entries() const { return entries_; }
+    // Entries received although their source differs from the kernel
+    // pre-filter's.  Non-zero means the kernel ignored the pre-filter.
+    std::size_t kernel_filter_mismatches() const { return kernel_mismatches_; }
 
 #ifdef KEEN_PBR3_TESTING
     // Feeds one already-received datagram through the same state machine used
@@ -109,10 +123,23 @@ private:
     std::vector<ConntrackEntry> entries_;
     uint32_t seq_{0};
     std::size_t max_entries_{0};
+    std::size_t kernel_mismatches_{0};
+    std::optional<ConntrackKernelFilter> kernel_filter_;
     std::function<bool(const ConntrackEntry&)> filter_;
     bool complete_{false};
     int last_errno_{0};
 };
+
+// The kernel refused the dump pre-filter (an older kernel validating the
+// request strictly); the caller retries without it.
+bool conntrack_kernel_filter_refused(int error);
+
+// Userspace scope of a cleanup: original tuple client -> one of `dsts`
+// (addresses in the first 4 or 16 bytes).  This is the single predicate that
+// decides what may be deleted, regardless of the kernel pre-filter.
+std::function<bool(const ConntrackEntry&)> make_client_destination_filter(
+    ConntrackFamily family, const std::array<uint8_t, 16>& client,
+    std::vector<std::array<uint8_t, 16>> dsts);
 
 // Sends a bounded batch of tuple-specific deletes and waits for one ACK per
 // request.  Kernel errors are counted individually; callers can continue

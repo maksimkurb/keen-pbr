@@ -83,6 +83,9 @@ InterceptProcessor::InterceptProcessor(nfnl::DynamicSetWriter& writer, Conntrack
     refresh_adds_.reserve(kLateBatchCapacity);
     refresh_slots_.reserve(kLateBatchCapacity);
     refresh_snaps_.reserve(kLateBatchCapacity);
+    refresh_clients_.reserve(kLateBatchCapacity);
+    refresh_client_valid_.reserve(kLateBatchCapacity);
+    flush_refresh_idx_.reserve(kLateBatchCapacity);
 }
 
 Clock::time_point InterceptProcessor::clock_now() const {
@@ -119,6 +122,8 @@ bool InterceptProcessor::queue_refresh(const std::shared_ptr<const InterceptSnap
         return false;
     }
     refresh_adds_.push_back(add);  // within reserved capacity
+    refresh_clients_.push_back(dns_client_);
+    refresh_client_valid_.push_back(dns_client_valid_ ? 1 : 0);
     refresh_slots_.push_back(slot);
     refresh_snaps_.push_back(snap);
     bump(counters_.dns_refresh_deferred);
@@ -373,6 +378,14 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns(ByteView l3, cons
     const bool udp = layout->l4_proto == IPPROTO_UDP;
     const ByteView payload(l3.data() + layout->payload_offset, layout->payload_len);
     if (!udp && payload.size() == 0) return {};  // bare ACK/FIN
+    {
+        // The reply's destination is the asker; conntrack cleanup is scoped to it.
+        const std::size_t client_offset = layout->ip_version == 6 ? 24 : 16;
+        const std::size_t client_length = layout->ip_version == 6 ? 16 : 4;
+        dns_client_.fill(0);
+        dns_client_valid_ = client_offset + client_length <= l3.size();
+        if (dns_client_valid_) std::memcpy(dns_client_.data(), l3.data() + client_offset, client_length);
+    }
     bump(counters_.dns_packets);
 
     ByteView message = payload;
@@ -641,6 +654,8 @@ bool InterceptProcessor::defer_late_write(const std::shared_ptr<const InterceptS
     le.event = std::move(event);
     le.snapshot = snap;  // adds hold string_views into this snapshot
     le.addresses = response_.addresses;
+    le.client = dns_client_;
+    le.client_valid = dns_client_valid_;
     le.first = late_adds_.size();
     le.count = n;
     le.after_timeout = after_timeout;
@@ -749,10 +764,10 @@ void InterceptProcessor::flush_late_writes() {
             // The client may already be connecting: purge stale flows to these
             // IPs.  After an ETIMEDOUT first attempt an "existing" element may
             // have been added by it, so any success there also warrants a purge.
-            if (le.snapshot_ok &&
+            if (le.snapshot_ok && le.client_valid &&
                 (added > 0 || (le.after_timeout && (refreshed > 0 || (errors > 0 && err == ETIMEDOUT))))) {
                 for (const dns_wire::AddressRecord& rec : le.addresses) {
-                    cleanup_.request(rec.family, rec.addr);
+                    cleanup_.request(rec.family, le.client, rec.addr);
                 }
             }
             push_event(std::move(event));
@@ -785,6 +800,7 @@ void InterceptProcessor::flush_refreshes() {
         // the next query for the domain handles it.
         flush_adds_.clear();
         flush_slots_.clear();
+        flush_refresh_idx_.clear();
         const InterceptSnapshot* checked = nullptr;
         bool checked_ok = false;
         for (std::size_t i = 0; admitted && i < refresh_adds_.size(); ++i) {
@@ -795,6 +811,7 @@ void InterceptProcessor::flush_refreshes() {
             if (!checked_ok) continue;
             flush_adds_.push_back(refresh_adds_[i]);
             flush_slots_.push_back(refresh_slots_[i]);
+            flush_refresh_idx_.push_back(i);
         }
         if (!flush_adds_.empty()) {
             flush_results_.assign(flush_adds_.size(), nfnl::SetAddResult::Error);
@@ -812,6 +829,8 @@ void InterceptProcessor::flush_refreshes() {
                 refresh_adds_.clear();
                 refresh_slots_.clear();
                 refresh_snaps_.clear();
+                refresh_clients_.clear();
+                refresh_client_valid_.clear();
                 throw;
             }
             if (err == ETIMEDOUT) {
@@ -826,7 +845,12 @@ void InterceptProcessor::flush_refreshes() {
                     // were routed without it must be reset.
                     ++added;
                     note_written(flush_slots_[i], flush_adds_[i], write_started_ms, cache_epoch);
-                    cleanup_.request(flush_adds_[i].family, flush_adds_[i].addr);
+                    // The refresh carries the asker's address; without it
+                    // nothing is deleted rather than every client's flows.
+                    if (refresh_client_valid_[flush_refresh_idx_[i]]) {
+                        cleanup_.request(flush_adds_[i].family, refresh_clients_[flush_refresh_idx_[i]],
+                                         flush_adds_[i].addr);
+                    }
                     break;
                 case nfnl::SetAddResult::Refreshed:
                 case nfnl::SetAddResult::Exists:
@@ -849,6 +873,8 @@ void InterceptProcessor::flush_refreshes() {
     refresh_adds_.clear();
     refresh_slots_.clear();
     refresh_snaps_.clear();
+    refresh_clients_.clear();
+    refresh_client_valid_.clear();
 }
 
 void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
@@ -963,6 +989,7 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
         work.event = std::move(event);
         work.family = layout->ip_version;
         work.destination = key.dst;
+        work.client = key.src;
         L7Submitter submitter;
         {
             std::lock_guard<std::mutex> lock(snapshot_mutex_);
@@ -1043,7 +1070,7 @@ void InterceptProcessor::record_l7_result(InterceptL7Work work,
     bump(counters_.set_refreshed, work.event.refreshed);
     bump(counters_.set_errors, work.event.errors);
     // Only an address that was actually added needs conntrack cleanup.
-    if (any_added) cleanup_.request(work.family, work.destination);
+    if (any_added) cleanup_.request(work.family, work.client, work.destination);
     push_event(std::move(work.event));
 }
 

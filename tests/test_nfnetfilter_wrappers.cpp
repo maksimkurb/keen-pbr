@@ -534,6 +534,112 @@ TEST_CASE("conntrack: requests use AF_INET and AF_INET6 netlink families") {
     CHECK(one_message(v6).family == AF_INET6);
 }
 
+TEST_CASE("conntrack: plain dump request carries no filter attributes") {
+    MsgBuilder builder;
+    build_conntrack_get(builder, 30, ConntrackFamily::ipv4);
+    const MsgView message = one_message(builder);
+    CHECK((message.flags & NLM_F_DUMP) == NLM_F_DUMP);
+    CHECK(message.attrs.size() == 0);
+}
+
+TEST_CASE("conntrack: kernel-filtered dump request selects the original source") {
+    ConntrackKernelFilter filter;
+    filter.src = {192, 168, 1, 10};
+    MsgBuilder builder;
+    build_conntrack_get(builder, 31, ConntrackFamily::ipv4, &filter);
+    const MsgView message = one_message(builder);
+    CHECK(message.type == ((NFNL_SUBSYS_CTNETLINK << 8) | IPCTNL_MSG_CT_GET));
+    CHECK((message.flags & NLM_F_DUMP) == NLM_F_DUMP);
+    CHECK(message.family == AF_INET);
+    Attr attrs[CTA_MAX + 1]{};
+    REQUIRE(parse_attrs(message.attrs, attrs, CTA_MAX + 1));
+    Attr filter_attrs[CTA_FILTER_MAX + 1]{};
+    REQUIRE(parse_attrs(attrs[CTA_FILTER].payload, filter_attrs, CTA_FILTER_MAX + 1));
+    CHECK(attr_u32_be(filter_attrs[CTA_FILTER_ORIG_FLAGS]) == 1);  // CTA_FILTER_FLAG_CTA_IP_SRC
+    CHECK(filter_attrs[CTA_FILTER_REPLY_FLAGS].payload.size() == 0);
+    Attr tuple_attrs[CTA_TUPLE_MAX + 1]{};
+    REQUIRE(parse_attrs(attrs[CTA_TUPLE_ORIG].payload, tuple_attrs, CTA_TUPLE_MAX + 1));
+    Attr ip_attrs[CTA_IP_MAX + 1]{};
+    REQUIRE(parse_attrs(tuple_attrs[CTA_TUPLE_IP].payload, ip_attrs, CTA_IP_MAX + 1));
+    REQUIRE(ip_attrs[CTA_IP_V4_SRC].payload.size() == 4);
+    CHECK(std::memcmp(ip_attrs[CTA_IP_V4_SRC].payload.data(), filter.src.data(), 4) == 0);
+    CHECK(ip_attrs[CTA_IP_V4_DST].payload.size() == 0);
+    CHECK(tuple_attrs[CTA_TUPLE_PROTO].payload.size() == 0);
+    CHECK(attrs[CTA_TUPLE_REPLY].payload.size() == 0);
+    CHECK(attrs[CTA_MARK].payload.size() == 0);
+
+    ConntrackKernelFilter filter6;
+    for (std::size_t i = 0; i < 16; ++i) filter6.src[i] = static_cast<uint8_t>(0x20 + i);
+    MsgBuilder builder6;
+    build_conntrack_get(builder6, 32, ConntrackFamily::ipv6, &filter6);
+    const MsgView message6 = one_message(builder6);
+    CHECK(message6.family == AF_INET6);
+    Attr attrs6[CTA_MAX + 1]{};
+    REQUIRE(parse_attrs(message6.attrs, attrs6, CTA_MAX + 1));
+    Attr tuple6[CTA_TUPLE_MAX + 1]{};
+    REQUIRE(parse_attrs(attrs6[CTA_TUPLE_ORIG].payload, tuple6, CTA_TUPLE_MAX + 1));
+    Attr ip6[CTA_IP_MAX + 1]{};
+    REQUIRE(parse_attrs(tuple6[CTA_TUPLE_IP].payload, ip6, CTA_IP_MAX + 1));
+    REQUIRE(ip6[CTA_IP_V6_SRC].payload.size() == 16);
+    CHECK(std::memcmp(ip6[CTA_IP_V6_SRC].payload.data(), filter6.src.data(), 16) == 0);
+}
+
+TEST_CASE("conntrack: kernel pre-filter fallback is chosen only for refusals") {
+    CHECK(conntrack_kernel_filter_refused(EINVAL));
+    CHECK(conntrack_kernel_filter_refused(EOPNOTSUPP));
+    CHECK(conntrack_kernel_filter_refused(ENOSYS));
+    CHECK_FALSE(conntrack_kernel_filter_refused(0));
+    CHECK_FALSE(conntrack_kernel_filter_refused(EPERM));
+    CHECK_FALSE(conntrack_kernel_filter_refused(ENOBUFS));
+    CHECK_FALSE(conntrack_kernel_filter_refused(E2BIG));
+}
+
+namespace {
+ConntrackEntry scoped_entry(ConntrackFamily family, std::array<uint8_t, 16> src,
+                            std::array<uint8_t, 16> dst) {
+    ConntrackEntry entry;
+    entry.original.family = family;
+    entry.original.protocol = IPPROTO_TCP;
+    entry.original.src = src;
+    entry.original.dst = dst;
+    entry.original.src_port = 40000;
+    entry.original.dst_port = 443;
+    return entry;
+}
+} // namespace
+
+TEST_CASE("conntrack: cleanup scope is client to destination only") {
+    const std::array<uint8_t, 16> client_a{192, 168, 1, 10};
+    const std::array<uint8_t, 16> client_b{192, 168, 1, 11};
+    const std::array<uint8_t, 16> target{203, 0, 113, 7};
+    const std::array<uint8_t, 16> other{203, 0, 113, 8};
+    const auto filter = make_client_destination_filter(ConntrackFamily::ipv4, client_a,
+                                                       {target});
+    CHECK(filter(scoped_entry(ConntrackFamily::ipv4, client_a, target)));
+    // Another client's flow to the same address is not touched.
+    CHECK_FALSE(filter(scoped_entry(ConntrackFamily::ipv4, client_b, target)));
+    // The same client's flow to another address is not touched.
+    CHECK_FALSE(filter(scoped_entry(ConntrackFamily::ipv4, client_a, other)));
+    // An entry whose tuple only mirrors the pair (destination -> client) is not selected.
+    CHECK_FALSE(filter(scoped_entry(ConntrackFamily::ipv4, target, client_a)));
+    // Wrong family never matches even with equal leading bytes.
+    CHECK_FALSE(filter(scoped_entry(ConntrackFamily::ipv6, client_a, target)));
+
+    const auto both = make_client_destination_filter(ConntrackFamily::ipv4, client_a,
+                                                     {target, other});
+    CHECK(both(scoped_entry(ConntrackFamily::ipv4, client_a, target)));
+    CHECK(both(scoped_entry(ConntrackFamily::ipv4, client_a, other)));
+    CHECK_FALSE(both(scoped_entry(ConntrackFamily::ipv4, client_b, other)));
+
+    std::array<uint8_t, 16> v6_client{0x20, 0x01, 0xd, 0xb8};
+    std::array<uint8_t, 16> v6_other_client = v6_client;
+    v6_other_client[15] = 1;
+    std::array<uint8_t, 16> v6_dst{0x26, 0x06};
+    const auto filter6 = make_client_destination_filter(ConntrackFamily::ipv6, v6_client, {v6_dst});
+    CHECK(filter6(scoped_entry(ConntrackFamily::ipv6, v6_client, v6_dst)));
+    CHECK_FALSE(filter6(scoped_entry(ConntrackFamily::ipv6, v6_other_client, v6_dst)));
+}
+
 TEST_CASE("conntrack: delete contains full tuple and identity") {
     const ConntrackEntry expected = ipv4_entry();
     MsgBuilder builder;

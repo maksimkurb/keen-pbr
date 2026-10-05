@@ -13,6 +13,7 @@
 
 #include <cerrno>
 #include <condition_variable>
+#include <cstring>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -114,10 +115,13 @@ public:
 
 class FakeCleanup : public ConntrackCleanupSink {
 public:
-    void request(uint8_t family, const std::array<uint8_t, 16>& dst) override {
+    void request(uint8_t family, const std::array<uint8_t, 16>& client,
+                 const std::array<uint8_t, 16>& dst) override {
         requests.emplace_back(family, dst);
+        clients.push_back(client);
     }
     std::vector<std::pair<uint8_t, std::array<uint8_t, 16>>> requests;
+    std::vector<std::array<uint8_t, 16>> clients;  // parallel to `requests`
 };
 
 void put16(Bytes& b, uint16_t v) {
@@ -510,6 +514,10 @@ TEST_CASE("intercept: persistent writer timeout is retried late, then counted as
     REQUIRE(f.cleanup.requests.size() == 2);
     CHECK(f.cleanup.requests[0].first == 4);
     CHECK(f.cleanup.requests[1].first == 6);
+    // The cleanup is scoped to the asker (the reply's destination).
+    for (const auto& client : f.cleanup.clients) {
+        CHECK(std::memcmp(client.data(), kClient, 4) == 0);
+    }
     const auto events = f.proc.events_since(0, 10);
     REQUIRE(events.size() == 1);
     CHECK(events[0].timed_out);
@@ -755,6 +763,9 @@ TEST_CASE("intercept: L7 TLS SNI split across two segments") {
     CHECK(f.writer.recorded[1].addr[0] == 203);
     REQUIRE(f.cleanup.requests.size() == 1);
     CHECK(f.cleanup.requests[0].first == 4);
+    // The cleanup is scoped to the client that sent the request.
+    REQUIRE(f.cleanup.clients.size() == 1);
+    CHECK(std::memcmp(f.cleanup.clients[0].data(), kClient, 4) == 0);
     CHECK(f.cleanup.requests[0].second[3] == 7);
     CHECK(f.counters.l7_matched == 1);
     const auto events = f.proc.events_since(0, 10);
@@ -1162,6 +1173,9 @@ TEST_CASE("intercept cache: refresh of a vanished element counts as Added and pu
     f.writer.refresh_result = SetAddResult::Added;
     f.proc.flush_late_writes();
     CHECK(f.cleanup.requests.size() == 1);
+    // A recreated element is purged only for the client whose query refreshed it.
+    REQUIRE(f.cleanup.clients.size() == 1);
+    CHECK(std::memcmp(f.cleanup.clients[0].data(), kClient, 4) == 0);
     CHECK(f.counters.set_added == 2);
 }
 

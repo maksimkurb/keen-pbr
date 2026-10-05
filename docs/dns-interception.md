@@ -267,9 +267,15 @@ the L7 work and records the set error; it does not make the DNS hold path wait.
 Each L7 set-write transaction has a 100 ms budget, which is a userspace writer
 budget rather than a network-wide deadline.
 
-When a new address is added, conntrack cleanup is best effort and targets the
-matching original tuple/address. The first connection can already be in flight
-and an application retry may be required. Cleanup must not remove unrelated
+When a new address is added, conntrack cleanup is best effort and deletes only
+the connections of the client whose DNS answer or L7 packet taught the address
+(original tuple client → learned address); other clients' connections to the
+same address are left alone. Requests for one client within the 50 ms batching
+window share one dump. The dump asks the kernel to return only that client's
+flows (`CTA_FILTER`, Linux 5.10+); older kernels send the whole table, which is
+then filtered in userspace, and the daemon stops asking after the first refusal.
+The first connection can already be in flight and an application retry may be
+required. Cleanup must not remove unrelated
 zones or marked entries; failures are counted in health rather than hidden.
 
 ## Failure behavior
@@ -331,6 +337,7 @@ features, so keen-pbr does not trust these numbers at runtime: see
 | ctnetlink dump and delete | 2.6.16 | `net/netfilter/nf_conntrack_netlink.c` | conntrack cleanup | optional: cleanup disabled |
 | ctnetlink `CTA_ZONE` | 2.6.34 | `nfnetlink_conntrack.h` | conntrack cleanup | optional (zones are only read when present) |
 | ctnetlink `CTA_TUPLE_ZONE` | 4.3 | `nfnetlink_conntrack.h` | conntrack cleanup | optional |
+| ctnetlink kernel-side dump filter (`CTA_FILTER`) | 5.10 | `nfnetlink_conntrack.h` | conntrack cleanup | optional: full-table dump filtered in userspace |
 | `NETLINK_NO_ENOBUFS` | 2.6.30 | `netlink.h` | socket tuning | optional |
 | `NETLINK_CAP_ACK` | 4.3 | `netlink.h` | socket tuning | optional (`setsockopt` failure is ignored) |
 | `NETLINK_EXT_ACK` | 4.12 | `netlink.h` | socket tuning | optional (`setsockopt` failure is ignored) |

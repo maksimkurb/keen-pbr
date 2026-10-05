@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstring>
+#include <map>
 #include <set>
 #include <stdexcept>
 
@@ -20,7 +21,6 @@ namespace keen_pbr3 {
 namespace {
 
 using Clock = std::chrono::steady_clock;
-using DstKey = std::pair<uint8_t, std::array<uint8_t, 16>>;
 
 constexpr auto kCleanupDebounce = std::chrono::milliseconds(50);
 constexpr auto kCleanupDumpBudget = std::chrono::milliseconds(2000);
@@ -56,7 +56,8 @@ void InterceptService::WriteGate::resume() {
 
 // ---------------------------------------------------------------- cleanup queue
 
-void InterceptService::CleanupQueue::request(uint8_t family, const std::array<uint8_t, 16>& dst) {
+void InterceptService::CleanupQueue::request(uint8_t family, const std::array<uint8_t, 16>& client,
+                                             const std::array<uint8_t, 16>& dst) {
     if (!enabled_.load(std::memory_order_relaxed)) return;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -65,16 +66,16 @@ void InterceptService::CleanupQueue::request(uint8_t family, const std::array<ui
             counters_.conntrack_errors.fetch_add(1, std::memory_order_relaxed);
             return;
         }
-        pending_.emplace_back(family, dst);
+        pending_.push_back(CleanupRequest{family, client, dst});
     }
     cv_.notify_one();
 }
 
-bool InterceptService::CleanupQueue::wait_batch(std::vector<DstKey>& out) {
+bool InterceptService::CleanupQueue::wait_batch(std::vector<CleanupRequest>& out) {
     std::unique_lock<std::mutex> lock(mutex_);
     cv_.wait(lock, [this] { return stopping_ || !pending_.empty(); });
     if (stopping_) return false;
-    // Debounce: let a burst of requests accumulate so they share one dump.
+    // Debounce: let a burst of requests accumulate so one dump serves every address of a client.
     cv_.wait_for(lock, kCleanupDebounce, [this] { return stopping_; });
     if (stopping_) return false;
     out.swap(pending_);
@@ -504,7 +505,7 @@ void InterceptService::l7_loop() {
 }
 
 void InterceptService::cleanup_loop() {
-    std::vector<DstKey> batch;
+    std::vector<CleanupRequest> batch;
     while (cleanup_queue_.wait_batch(batch)) {
         try {
             run_cleanup(batch);
@@ -516,49 +517,76 @@ void InterceptService::cleanup_loop() {
     }
 }
 
-void InterceptService::run_cleanup(const std::vector<DstKey>& batch) {
-    for (const uint8_t family : {uint8_t{4}, uint8_t{6}}) {
-        std::set<std::array<uint8_t, 16>> dsts;
-        for (const DstKey& item : batch) {
-            if (item.first != family) continue;
-            std::array<uint8_t, 16> key{};
-            std::memcpy(key.data(), item.second.data(), family == 6 ? 16 : 4);
-            dsts.insert(key);
-        }
-        if (dsts.empty()) continue;
+void InterceptService::run_cleanup(const std::vector<CleanupRequest>& batch) {
+    // One dump per (family, client): a DNS answer with several addresses, or a
+    // burst of answers for the same client, is a single cleanup operation.
+    using ClientKey = std::pair<uint8_t, std::array<uint8_t, 16>>;
+    std::map<ClientKey, std::set<std::array<uint8_t, 16>>> groups;
+    for (const CleanupRequest& item : batch) {
+        const std::size_t len = item.family == 6 ? 16 : 4;
+        ClientKey key{item.family, {}};
+        std::memcpy(key.second.data(), item.client.data(), len);
+        std::array<uint8_t, 16> dst{};
+        std::memcpy(dst.data(), item.dst.data(), len);
+        groups[key].insert(dst);
+    }
+    for (auto& [key, dsts] : groups) {
         counters_.conntrack_requests.fetch_add(dsts.size(), std::memory_order_relaxed);
+        cleanup_client(key.first, key.second, std::vector<std::array<uint8_t, 16>>(dsts.begin(), dsts.end()));
+    }
+}
 
-        const std::size_t addr_len = family == 6 ? 16 : 4;
-        nfnl::ConntrackOptions options;
-        options.filter = [&dsts, addr_len](const nfnl::ConntrackEntry& entry) {
-            std::array<uint8_t, 16> key{};
-            std::memcpy(key.data(), entry.original.dst.data(), addr_len);
-            return dsts.count(key) != 0;
-        };
-        nfnl::ConntrackDump dump(family == 6 ? nfnl::ConntrackFamily::ipv6 : nfnl::ConntrackFamily::ipv4,
-                                 options);
+void InterceptService::cleanup_client(uint8_t family, const std::array<uint8_t, 16>& client,
+                                      std::vector<std::array<uint8_t, 16>> dsts) {
+    const nfnl::ConntrackFamily ct_family =
+        family == 6 ? nfnl::ConntrackFamily::ipv6 : nfnl::ConntrackFamily::ipv4;
+    nfnl::ConntrackOptions options;
+    // Scope: original tuple client -> learned destination, whatever the kernel
+    // pre-filter did.  Other clients and other destinations are never touched.
+    options.filter = nfnl::make_client_destination_filter(ct_family, client, std::move(dsts));
+
+    // Dump only the client's flows when the kernel can filter by source;
+    // otherwise the whole table is dumped and filtered in userspace.
+    bool use_kernel_filter = !ct_kernel_filter_unsupported_.load(std::memory_order_relaxed);
+    std::vector<nfnl::ConntrackEntry> entries;
+    for (;;) {
+        options.kernel_filter.reset();
+        if (use_kernel_filter) options.kernel_filter = nfnl::ConntrackKernelFilter{client};
+        nfnl::ConntrackDump dump(ct_family, options);
         const Clock::time_point give_up = Clock::now() + kCleanupDumpBudget;
         int rc = 0;
         while (rc == 0 && Clock::now() < give_up) rc = dump.receive(100);
+        if (use_kernel_filter &&
+            ((rc < 0 && nfnl::conntrack_kernel_filter_refused(dump.last_errno())) ||
+             (dump.complete() && dump.kernel_filter_mismatches() != 0))) {
+            // Refused (strict old kernel) or ignored (the kernel sent entries of
+            // other clients): remember it and redo this cleanup unfiltered.
+            ct_kernel_filter_unsupported_.store(true, std::memory_order_relaxed);
+            Logger::instance().debug(
+                "intercept: ctnetlink dump pre-filter not supported, using a full dump");
+            use_kernel_filter = false;
+            continue;
+        }
         if (rc < 0 || !dump.complete()) {
             counters_.conntrack_errors.fetch_add(1, std::memory_order_relaxed);
         }
-        const auto& entries = dump.entries();
-        for (std::size_t off = 0; off < entries.size(); off += options.max_delete_batch) {
-            const std::size_t end = std::min(entries.size(), off + options.max_delete_batch);
-            std::vector<nfnl::ConntrackEntry> chunk(entries.begin() + static_cast<std::ptrdiff_t>(off),
-                                                    entries.begin() + static_cast<std::ptrdiff_t>(end));
-            nfnl::ConntrackDeleteBatch del(chunk, options);
-            const Clock::time_point del_give_up = Clock::now() + kCleanupDumpBudget;
-            std::size_t last_pending = del.pending() + 1;
-            while (!del.complete() && Clock::now() < del_give_up) {
-                const int r = del.receive(100);
-                if (r < 0 && del.pending() == last_pending) break;  // no progress on error
-                last_pending = del.pending();
-            }
-            counters_.conntrack_deleted.fetch_add(del.succeeded(), std::memory_order_relaxed);
-            counters_.conntrack_errors.fetch_add(del.failures(), std::memory_order_relaxed);
+        entries = dump.entries();
+        break;
+    }
+    for (std::size_t off = 0; off < entries.size(); off += options.max_delete_batch) {
+        const std::size_t end = std::min(entries.size(), off + options.max_delete_batch);
+        std::vector<nfnl::ConntrackEntry> chunk(entries.begin() + static_cast<std::ptrdiff_t>(off),
+                                                entries.begin() + static_cast<std::ptrdiff_t>(end));
+        nfnl::ConntrackDeleteBatch del(chunk, options);
+        const Clock::time_point del_give_up = Clock::now() + kCleanupDumpBudget;
+        std::size_t last_pending = del.pending() + 1;
+        while (!del.complete() && Clock::now() < del_give_up) {
+            const int r = del.receive(100);
+            if (r < 0 && del.pending() == last_pending) break;  // no progress on error
+            last_pending = del.pending();
         }
+        counters_.conntrack_deleted.fetch_add(del.succeeded(), std::memory_order_relaxed);
+        counters_.conntrack_errors.fetch_add(del.failures(), std::memory_order_relaxed);
     }
 }
 

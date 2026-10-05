@@ -106,14 +106,22 @@ private:
         std::size_t in_flight_{0};
     };
 
+    // One client -> destination cleanup request.
+    struct CleanupRequest {
+        uint8_t family{0};
+        std::array<uint8_t, 16> client{};
+        std::array<uint8_t, 16> dst{};
+    };
+
     // Bounded MPSC queue feeding the cleanup thread.  request() never blocks
     // beyond a short critical section and drops (counting) when full.
     class CleanupQueue : public ConntrackCleanupSink {
     public:
         explicit CleanupQueue(InterceptCounters& counters) : counters_(counters) {}
-        void request(uint8_t family, const std::array<uint8_t, 16>& dst) override;
+        void request(uint8_t family, const std::array<uint8_t, 16>& client,
+                     const std::array<uint8_t, 16>& dst) override;
         // Blocks until work arrives or stop; debounces, then returns the batch.
-        bool wait_batch(std::vector<std::pair<uint8_t, std::array<uint8_t, 16>>>& out);
+        bool wait_batch(std::vector<CleanupRequest>& out);
         void shutdown();
         void reset();
         void set_enabled(bool enabled) { enabled_.store(enabled, std::memory_order_relaxed); }
@@ -125,7 +133,7 @@ private:
         std::atomic<bool> enabled_{true};
         std::mutex mutex_;
         std::condition_variable cv_;
-        std::vector<std::pair<uint8_t, std::array<uint8_t, 16>>> pending_;
+        std::vector<CleanupRequest> pending_;
         bool stopping_{false};
     };
 
@@ -135,7 +143,10 @@ private:
     void handle_queue_packet(const nfnl::QueuedPacket& packet,
                              const DnsRound& round);
     void drain_queue();
-    void run_cleanup(const std::vector<std::pair<uint8_t, std::array<uint8_t, 16>>>& batch);
+    void run_cleanup(const std::vector<CleanupRequest>& batch);
+    // Deletes the entries client -> one of `dsts`; one dump serves them all.
+    void cleanup_client(uint8_t family, const std::array<uint8_t, 16>& client,
+                        std::vector<std::array<uint8_t, 16>> dsts);
     void submit_l7_work(InterceptL7Work work);
     void stop_l7_worker();
 
@@ -166,6 +177,9 @@ private:
     std::atomic<bool> snapshot_ready_{false};
     std::atomic<bool> dns_bound_{false};
     std::atomic<bool> l7_bound_{false};
+    // Set once the kernel is seen to refuse or ignore the ctnetlink dump
+    // pre-filter; later cleanups then go straight to the userspace-filtered dump.
+    std::atomic<bool> ct_kernel_filter_unsupported_{false};
     InterceptRuntimeProbe listener_probe_;
     bool replacement_allowed_{false};
     uint32_t max_packet_id_{0};

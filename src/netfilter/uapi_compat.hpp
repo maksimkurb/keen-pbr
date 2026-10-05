@@ -85,6 +85,9 @@ inline constexpr uint16_t kNfqaCapLen = 13;        // NFQA_CAP_LEN
 inline constexpr uint16_t kNfulaCt = 18;           // NFULA_CT
 inline constexpr uint16_t kCtaTupleZone = 3;       // CTA_TUPLE_ZONE
 inline constexpr uint16_t kCtaZone = 18;           // CTA_ZONE
+inline constexpr uint16_t kCtaFilter = 25;         // CTA_FILTER (dump filter, newer kernels only)
+inline constexpr uint16_t kCtaFilterOrigFlags = 1; // CTA_FILTER_ORIG_FLAGS
+inline constexpr uint32_t kCtaFilterFlagIpSrc = 1; // CTA_FILTER_FLAG_CTA_IP_SRC (libnetfilter_conntrack)
 
 // Newer headers (linux/nsfs.h appeared in 4.9, later than every symbol above) must agree.
 #if __has_include(<linux/nsfs.h>)
@@ -94,6 +97,8 @@ static_assert(kNfqaCfgFFailOpen == NFQA_CFG_F_FAIL_OPEN, "NFQA_CFG_F_FAIL_OPEN m
 static_assert(kNfulaCt == NFULA_CT, "NFULA_CT mismatch");
 static_assert(kCtaTupleZone == CTA_TUPLE_ZONE, "CTA_TUPLE_ZONE mismatch");
 static_assert(kCtaZone == CTA_ZONE, "CTA_ZONE mismatch");
+static_assert(kCtaFilter == CTA_FILTER, "CTA_FILTER mismatch");
+static_assert(kCtaFilterOrigFlags == CTA_FILTER_ORIG_FLAGS, "CTA_FILTER_ORIG_FLAGS mismatch");
 #endif
 
 }  // namespace keen_pbr3::nfnl::uapi

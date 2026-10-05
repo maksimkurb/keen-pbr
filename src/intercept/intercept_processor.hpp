@@ -117,6 +117,7 @@ struct InterceptL7Work {
     InterceptEvent event;
     uint8_t family{0};
     std::array<uint8_t, 16> destination{};
+    std::array<uint8_t, 16> client{};  // source of the captured request
 };
 
 // Set-write latency histogram (buckets <1, <5, <10, <30, <100, >=100 ms), the
@@ -187,8 +188,12 @@ struct InterceptCounters {
 class ConntrackCleanupSink {
 public:
     virtual ~ConntrackCleanupSink() = default;
-    // Non-blocking.  `dst` holds the address in its first 4 (IPv4) or 16 bytes.
-    virtual void request(uint8_t family, const std::array<uint8_t, 16>& dst) = 0;
+    // Non-blocking.  Asks for the deletion of conntrack entries whose original
+    // tuple is `client` -> `dst` (the client whose traffic caused the learning);
+    // other clients' flows to `dst` must be left alone.  Both addresses hold the
+    // address in their first 4 (IPv4) or 16 bytes.
+    virtual void request(uint8_t family, const std::array<uint8_t, 16>& client,
+                         const std::array<uint8_t, 16>& dst) = 0;
 };
 
 // Pure packet-processing core.  on_dns_packet()/on_l7_packet() must be called
@@ -323,6 +328,8 @@ private:
         InterceptEvent event;
         std::shared_ptr<const InterceptSnapshot> snapshot;  // keeps SetAdd string_views alive
         std::vector<dns_wire::AddressRecord> addresses;     // for conntrack cleanup
+        std::array<uint8_t, 16> client{};                   // asker, scopes the cleanup
+        bool client_valid{false};
         std::size_t first{0};
         std::size_t count{0};
         bool snapshot_ok{false};    // set by the flush
@@ -339,6 +346,13 @@ private:
     std::vector<nfnl::SetAdd> refresh_adds_;
     std::vector<uint16_t> refresh_slots_;
     std::vector<std::shared_ptr<const InterceptSnapshot>> refresh_snaps_;  // keep set names alive
+    // Client (reply destination) of the DNS packet being handled; the conntrack
+    // cleanup of its answers is scoped to it.  Valid only inside handle_dns().
+    std::array<uint8_t, 16> dns_client_{};
+    bool dns_client_valid_{false};
+    std::vector<std::array<uint8_t, 16>> refresh_clients_;  // parallel to refresh_adds_
+    std::vector<std::size_t> flush_refresh_idx_;            // refresh_* index per flush_adds_ entry
+    std::vector<uint8_t> refresh_client_valid_;             // parallel to refresh_adds_
     SetElementCache cache_;
     std::function<std::chrono::steady_clock::time_point()> clock_;
     std::chrono::steady_clock::time_point late_backoff_until_{};
