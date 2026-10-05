@@ -90,6 +90,8 @@ struct InterceptEvent {
     uint32_t late_batch_elements{0};  // adds in the combined late write that covered this event
     int32_t write_errno{0};         // errno of the last failed write for this event
     TimeoutCause timeout_cause{TimeoutCause::none};  // set only when timed_out
+    uint16_t qtype{0};  // DNS query type (0 for non-DNS)
+    uint8_t rcode{0};   // DNS response code (0 for non-DNS)
 };
 
 // What the hot path records per observation: fixed size, trivially copyable,
@@ -132,9 +134,11 @@ struct EventRecord {
     uint8_t ips_overflow{0};   // answer addresses beyond kMaxIps (saturating)
     uint8_t list_count{0};
     uint8_t lists_overflow{0};  // matched lists beyond kMaxLists (saturating)
+    uint8_t rcode{0};  // DNS response code (0 for non-DNS)
     uint8_t client[16]{};
     uint8_t ip_family[kMaxIps]{};
     uint8_t ips[kMaxIps][16]{};
+    uint16_t qtype{0};  // DNS query type (0 for non-DNS)
     uint16_t list_ids[kMaxLists]{};
     char domain[kMaxDomain]{};
 };

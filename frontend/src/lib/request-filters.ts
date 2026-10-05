@@ -13,6 +13,7 @@ export type RequestFilters = {
   methods: RequestMethod[]
   domain: string
   ip: string
+  hideEmptyAnswers: boolean
 }
 
 export const emptyRequestFilters: RequestFilters = {
@@ -20,6 +21,7 @@ export const emptyRequestFilters: RequestFilters = {
   methods: allRequestMethods,
   domain: "",
   ip: "",
+  hideEmptyAnswers: true,
 }
 
 export function hasActiveFilters(filters: RequestFilters): boolean {
@@ -27,7 +29,8 @@ export function hasActiveFilters(filters: RequestFilters): boolean {
     filters.device.trim() !== "" ||
     filters.domain.trim() !== "" ||
     filters.ip.trim() !== "" ||
-    filters.methods.length !== allRequestMethods.length
+    filters.methods.length !== allRequestMethods.length ||
+    filters.hideEmptyAnswers !== true
   )
 }
 
@@ -155,6 +158,8 @@ export type FilterableRow = {
   source?: string
   domain?: string
   ips?: string[]
+  qtype?: number
+  rcode?: number
 }
 
 /** Gap rows are never filtered out: lost events may have matched anything. */
@@ -177,6 +182,13 @@ export function filterRequests<T extends FilterableRow>(
     if (!wildcardMatch(filters.domain, row.domain ?? "")) return false
     if (ipFilter.kind !== "none" && ipFilter.kind !== "invalid") {
       if (!(row.ips ?? []).some((ip) => ipMatches(ipFilter, ip))) return false
+    }
+    // Hide empty answers: DNS events with no addresses and rcode 0 (NODATA)
+    if (filters.hideEmptyAnswers) {
+      if (row.source === "dns" && (row.ips ?? []).length === 0) {
+        const rcode = row.rcode ?? 0
+        if (rcode === 0) return false
+      }
     }
     return true
   })

@@ -379,6 +379,8 @@ InterceptEvent InterceptProcessor::format_event(const EventRecord& record) const
     event.late_batch_elements = record.late_batch_elements;
     event.write_errno = record.write_errno;
     event.timeout_cause = record.timeout_cause;
+    event.qtype = record.qtype;
+    event.rcode = record.rcode;
     return event;
 }
 
@@ -612,6 +614,8 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns_message(
         event.batch_pos = static_cast<int32_t>(round.batch_pos);
         event.queue_wait_us = signed_micros(round.woke, started);
         event.budget_left_us = signed_micros(started, deadline);
+        event.qtype = response_.qtype;
+        event.rcode = response_.rcode;
         for (const dns_wire::AddressRecord& rec : response_.addresses) {
             add_ip(event, rec.family, rec.addr.data());
         }

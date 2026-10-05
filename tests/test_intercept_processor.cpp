@@ -460,6 +460,25 @@ TEST_CASE("intercept: no match and NXDOMAIN produce observations without adds") 
     CHECK(f.writer.calls == 0);
 }
 
+TEST_CASE("intercept: DNS qtype and rcode are recorded in events") {
+    Fixture f;
+    // Test 1: A response (qtype 1, rcode 0)
+    const Bytes a_resp = dns_packet(dns_response("example.com", 0, {a_rr(1, 1, 1, 1, 60)}));
+    f.proc.on_dns_packet(view(a_resp), Fixture::deadline(), true);
+    auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() >= 1);
+    CHECK(events[0].qtype == 1);
+    CHECK(events[0].rcode == 0);
+
+    // Test 2: NXDOMAIN response (qtype 1, rcode 3)
+    const Bytes nx = dns_packet(dns_response("nxdomain.example.com", 3, {}));
+    f.proc.on_dns_packet(view(nx), Fixture::deadline(), true);
+    events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() >= 2);
+    CHECK(events[1].qtype == 1);
+    CHECK(events[1].rcode == 3);
+}
+
 TEST_CASE("intercept: TTL clamping") {
     {
         Fixture f(300);

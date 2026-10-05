@@ -70,4 +70,8 @@ export interface DnsTestInterceptEvent {
   /** Why the hold timed out (only with `timed_out`). `budget_spent_by_batch`: the deadline had already passed when the packet started (earlier packets of the round used the shared budget). `admission_blocked`: the deadline passed while waiting for the firewall-apply write pause. `own_write_slow`: the packet's own write ran past the deadline. `late_batch_full`: the adds were dropped because the pending late-write batch was full.
    */
   timeout_cause?: DnsTestInterceptEventTimeoutCause;
+  /** DNS query type (RFC 1035, e.g. 1=A, 28=AAAA). Only for DNS-sourced events. */
+  qtype?: number;
+  /** DNS response code (RFC 1035, e.g. 0=NOERROR, 3=NXDOMAIN). Only for DNS-sourced events. */
+  rcode?: number;
 }

@@ -1,6 +1,11 @@
 import type { DnsTestInterceptEvent } from "@/api/generated/model"
 import { formatProcessingTime } from "@/lib/processing-time"
 import { timeoutBadge } from "@/lib/timeout-cause"
+import {
+  queryTypeToString,
+  noAddressReason,
+  noAddressTooltip,
+} from "@/lib/dns-query-types"
 
 export type Translate = (
   key: string,
@@ -168,10 +173,98 @@ export const methodBadgeStyles: Record<RequestMethod, MethodBadgeStyle> = {
   marker: { variant: "outline", className: "" },
 }
 
-export function methodBadge(source: RequestMethod, t: Translate) {
+export type MethodBadge = {
+  label: string
+  tooltip: string
+  variant: "secondary" | "outline"
+  className: string
+}
+
+export function methodBadge(
+  source: RequestMethod,
+  t: Translate,
+  event?: { qtype?: number }
+): MethodBadge {
+  // For DNS events, show the query type
+  if (source === "dns" && event?.qtype && event.qtype > 0) {
+    const typeStr = queryTypeToString(event.qtype)
+    return {
+      label: `DNS ${typeStr}`,
+      tooltip: t(`requestsLog.methodTooltips.dns`),
+      ...methodBadgeStyles[source],
+    }
+  }
+
   return {
     label: t(`requestsLog.methods.${source}`),
     tooltip: t(`requestsLog.methodTooltips.${source}`),
     ...methodBadgeStyles[source],
+  }
+}
+
+export type IpColumnInfo = {
+  text: string | null
+  tooltip: string | null
+  tone: "error" | "muted" | "normal"
+  isClickable: boolean
+}
+
+export function getIpColumnInfo(
+  event: { source?: string; ips?: string[]; qtype?: number; rcode?: number },
+  t: Translate
+): IpColumnInfo {
+  // Non-DNS events or events with addresses
+  const ips = event.ips ?? []
+  if (event.source !== "dns" || ips.length > 0) {
+    if (ips.length === 0) {
+      return {
+        text: "—",
+        tooltip: null,
+        tone: "normal",
+        isClickable: false,
+      }
+    }
+    return {
+      text: ips.join(", "),
+      tooltip: ips.join(", "),
+      tone: "normal",
+      isClickable: true,
+    }
+  }
+
+  // DNS events with no addresses
+  const qtype = event.qtype || 0
+  const rcode = event.rcode || 0
+
+  const reason = noAddressReason(rcode, qtype, t)
+  if (!reason) {
+    return {
+      text: "—",
+      tooltip: null,
+      tone: "normal",
+      isClickable: false,
+    }
+  }
+
+  // Determine tone based on error type
+  let tone: "error" | "muted" | "normal"
+  if (rcode === 3) {
+    // NXDOMAIN - muted
+    tone = "muted"
+  } else if (rcode === 2 || rcode === 5 || (rcode !== 0 && rcode !== 3)) {
+    // SERVFAIL, REFUSED, or other errors - error tone (amber/warning)
+    tone = "error"
+  } else {
+    // NODATA (rcode=0, no addresses) - muted
+    tone = "muted"
+  }
+
+  const tooltip = noAddressTooltip(rcode, qtype, t)
+
+  return {
+    text: reason,
+    tooltip,
+    tone,
+    isClickable: false,
   }
 }

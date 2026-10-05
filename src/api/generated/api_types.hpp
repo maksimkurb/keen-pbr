@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes7CRbg0 data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesSqlxgN data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -426,7 +426,9 @@ namespace api {
         std::optional<bool> late_write;
         std::vector<std::string> lists;
         std::optional<int64_t> parse_us;
+        std::optional<int64_t> qtype;
         std::optional<int64_t> queue_wait_us;
+        std::optional<int64_t> rcode;
         int64_t refreshed;
         int64_t seq;
         std::optional<int64_t> set_write_us;
@@ -830,7 +832,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypes7CRbg0 {
+    struct KeenPbrTypesSqlxgN {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1158,8 +1160,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypes7CRbg0 & x);
-    void to_json(json & j, const KeenPbrTypes7CRbg0 & x);
+    void from_json(const json & j, KeenPbrTypesSqlxgN & x);
+    void to_json(json & j, const KeenPbrTypesSqlxgN & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1911,7 +1913,9 @@ namespace api {
         x.late_write = get_stack_optional<bool>(j, "late_write");
         x.lists = j.at("lists").get<std::vector<std::string>>();
         x.parse_us = get_stack_optional<int64_t>(j, "parse_us");
+        x.qtype = get_stack_optional<int64_t>(j, "qtype");
         x.queue_wait_us = get_stack_optional<int64_t>(j, "queue_wait_us");
+        x.rcode = get_stack_optional<int64_t>(j, "rcode");
         x.refreshed = j.at("refreshed").get<int64_t>();
         x.seq = j.at("seq").get<int64_t>();
         x.set_write_us = get_stack_optional<int64_t>(j, "set_write_us");
@@ -1942,7 +1946,9 @@ namespace api {
         j["late_write"] = x.late_write;
         j["lists"] = x.lists;
         j["parse_us"] = x.parse_us;
+        j["qtype"] = x.qtype;
         j["queue_wait_us"] = x.queue_wait_us;
+        j["rcode"] = x.rcode;
         j["refreshed"] = x.refreshed;
         j["seq"] = x.seq;
         j["set_write_us"] = x.set_write_us;
@@ -2683,7 +2689,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes7CRbg0& x) {
+    inline void from_json(const json & j, KeenPbrTypesSqlxgN& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2770,7 +2776,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes7CRbg0 & x) {
+    inline void to_json(json & j, const KeenPbrTypesSqlxgN & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

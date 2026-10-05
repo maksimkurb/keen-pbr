@@ -1882,6 +1882,12 @@ components:
             passed while waiting for the firewall-apply write pause. `own_write_slow`:
             the packet's own write ran past the deadline. `late_batch_full`: the adds
             were dropped because the pending late-write batch was full.
+        qtype:
+          type: integer
+          description: DNS query type (RFC 1035, e.g. 1=A, 28=AAAA). Only for DNS-sourced events.
+        rcode:
+          type: integer
+          description: DNS response code (RFC 1035, e.g. 0=NOERROR, 3=NXDOMAIN). Only for DNS-sourced events.
 
     DnsTestGapEvent:
       type: object

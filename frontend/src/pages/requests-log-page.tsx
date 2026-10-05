@@ -47,6 +47,7 @@ import {
 } from "@/lib/request-filters"
 import {
   buildRequestFlags,
+  getIpColumnInfo,
   methodBadge,
   type RequestMethod,
 } from "@/lib/request-flags"
@@ -70,6 +71,8 @@ function loadFilters(): RequestFilters {
       methods: Array.isArray(data.methods)
         ? allRequestMethods.filter((m) => data.methods?.includes(m))
         : allRequestMethods,
+      hideEmptyAnswers:
+        typeof data.hideEmptyAnswers === "boolean" ? data.hideEmptyAnswers : true,
     }
   } catch {
     return emptyRequestFilters
@@ -391,6 +394,15 @@ function RequestFilterBar({
       </fieldset>
       {textField("domain", t("requestsLog.filters.placeholder.domain"))}
       {textField("ip", t("requestsLog.filters.placeholder.ip"), ipInvalid)}
+      <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
+        <Checkbox
+          checked={filters.hideEmptyAnswers}
+          onCheckedChange={(checked) =>
+            onChange({ ...filters, hideEmptyAnswers: checked === true })
+          }
+        />
+        {t("requestsLog.filters.hideEmptyAnswers")}
+      </label>
       <div className="flex h-8 items-center gap-2 text-xs text-muted-foreground">
         <span aria-live="polite" className="tabular-nums">
           {t("requestsLog.filters.count", { shown, total })}
@@ -440,7 +452,8 @@ function RequestTableRow({
     )
   }
 
-  const method = methodBadge(row.source, t)
+  const method = methodBadge(row.source, t, row)
+  const ipInfo = getIpColumnInfo(row, t)
   const ips = row.ips.join(", ")
   const processingUs =
     row.hold_us > 0
@@ -488,8 +501,13 @@ function RequestTableRow({
       <TableCell className="border-r px-2 py-1" title={row.lists.join(", ")}>
         {row.lists.join(", ") || "—"}
       </TableCell>
-      <TableCell className="border-r px-2 py-1">
-        {ips ? (
+      <TableCell
+        className={cn("border-r px-2 py-1", {
+          "text-muted-foreground": ipInfo.tone === "muted",
+          "text-amber-600 dark:text-amber-400": ipInfo.tone === "error",
+        })}
+      >
+        {ipInfo.isClickable && ipInfo.text ? (
           <Tooltip>
             <TooltipTrigger
               render={
@@ -505,6 +523,15 @@ function RequestTableRow({
             </TooltipTrigger>
             <TooltipContent>{ips}</TooltipContent>
           </Tooltip>
+        ) : ipInfo.text ? (
+          ipInfo.tooltip ? (
+            <Tooltip>
+              <TooltipTrigger render={<span>{ipInfo.text}</span>} />
+              <TooltipContent>{ipInfo.tooltip}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <span>{ipInfo.text}</span>
+          )
         ) : (
           "—"
         )}

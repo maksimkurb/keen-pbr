@@ -490,6 +490,7 @@ export const enTranslation = {
       clear: "Clear filters",
       noMatches: "No requests match the filters.",
       invalidIp: "Invalid CIDR subnet; the IP filter is ignored.",
+      hideEmptyAnswers: "Hide empty answers",
       placeholder: {
         device: "192.168.1.*",
         domain: "*.example.com",
@@ -553,6 +554,22 @@ export const enTranslation = {
     },
     decimalSeparator: ".",
     units: { us: "µs", ms: "ms", s: "s" },
+    dnsReasons: {
+      nxdomain: "NXDOMAIN",
+      servfail: "SERVFAIL",
+      refused: "REFUSED",
+      rcode: "RCODE {{code}}",
+      nodata: "no {{type}}",
+      nodataOther: "{{type}} record",
+    },
+    dnsTooltips: {
+      nxdomain: "Domain does not exist (NXDOMAIN)",
+      servfail: "Server failure (SERVFAIL)",
+      refused: "Query refused (REFUSED)",
+      rcode: "DNS error code {{code}}",
+      nodata: "The resolver answered NOERROR without {{type}} records (NODATA)",
+      nodataOther: "The resolver answered NOERROR without {{type}} records (NODATA)",
+    },
     flags: {
       added_one: "{{count}} new address added to the routing set",
       added_other: "{{count}} new addresses added to the routing set",

@@ -501,6 +501,40 @@ TEST_CASE("intercept event JSON replaces invalid UTF-8 from traffic") {
 #endif
 
 #ifdef WITH_API
+TEST_CASE("intercept event JSON includes qtype and rcode for DNS events") {
+    InterceptEvent event;
+    event.seq = 1;
+    event.source = InterceptSource::dns;
+    event.domain = "example.com";
+
+    // Test 1: DNS event with qtype and rcode = 0 (omit rcode, include qtype)
+    event.qtype = 1;  // A
+    event.rcode = 0;
+    auto json = intercept_event_to_json(event);
+    CHECK(json.contains("qtype"));
+    CHECK(json["qtype"] == 1);
+    CHECK_FALSE(json.contains("rcode"));
+
+    // Test 2: DNS event with qtype and non-zero rcode
+    event.qtype = 28;  // AAAA
+    event.rcode = 3;   // NXDOMAIN
+    json = intercept_event_to_json(event);
+    CHECK(json.contains("qtype"));
+    CHECK(json["qtype"] == 28);
+    CHECK(json.contains("rcode"));
+    CHECK(json["rcode"] == 3);
+
+    // Test 3: Non-DNS event (sni) - qtype and rcode should be omitted
+    event.source = InterceptSource::sni;
+    event.qtype = 0;
+    event.rcode = 0;
+    json = intercept_event_to_json(event);
+    CHECK_FALSE(json.contains("qtype"));
+    CHECK_FALSE(json.contains("rcode"));
+}
+#endif
+
+#ifdef WITH_API
 TEST_CASE("health service JSON contains the intercept object") {
     InterceptCounters counters;
     counters.dns_packets = 5;

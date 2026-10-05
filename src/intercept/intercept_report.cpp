@@ -196,6 +196,8 @@ nlohmann::json intercept_event_to_json(const InterceptEvent& event) {
     if (event.timed_out && event.timeout_cause != TimeoutCause::none) {
         json["timeout_cause"] = timeout_cause_name(event.timeout_cause);
     }
+    if (event.qtype != 0) json["qtype"] = event.qtype;
+    if (event.rcode != 0) json["rcode"] = event.rcode;
     return json;
 }
 

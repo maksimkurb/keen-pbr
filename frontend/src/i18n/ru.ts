@@ -496,6 +496,7 @@ export const ruTranslation = {
       clear: "Сбросить фильтры",
       noMatches: "Нет запросов, подходящих под фильтры.",
       invalidIp: "Некорректная CIDR-подсеть; фильтр по IP игнорируется.",
+      hideEmptyAnswers: "Скрыть пустые ответы",
       placeholder: {
         device: "192.168.1.*",
         domain: "*.example.com",
@@ -559,6 +560,22 @@ export const ruTranslation = {
     },
     decimalSeparator: ",",
     units: { us: "µs", ms: "мс", s: "с" },
+    dnsReasons: {
+      nxdomain: "NXDOMAIN",
+      servfail: "SERVFAIL",
+      refused: "REFUSED",
+      rcode: "RCODE {{code}}",
+      nodata: "нет {{type}}",
+      nodataOther: "запись {{type}}",
+    },
+    dnsTooltips: {
+      nxdomain: "Доменное имя не существует (NXDOMAIN)",
+      servfail: "Ошибка сервера (SERVFAIL)",
+      refused: "Запрос отклонен (REFUSED)",
+      rcode: "Код ошибки DNS {{code}}",
+      nodata: "DNS-сервер ответил NOERROR без записей {{type}} (NODATA)",
+      nodataOther: "DNS-сервер ответил NOERROR без записей {{type}} (NODATA)",
+    },
     flags: {
       added_one: "Добавлен {{count}} новый адрес в набор маршрутизации",
       added_few: "Добавлено {{count}} новых адреса в набор маршрутизации",
