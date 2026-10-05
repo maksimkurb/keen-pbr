@@ -460,25 +460,33 @@ void Daemon::tick_intercept_rebind() {
     }
     intercept_rebind_.observe(healthy, now);
     if (intercept_rebind_.due(now)) {
+#ifdef WITH_API
         // Same lease an apply holds: when one is running it will rebind the
         // listeners itself, so skip and look again on the next tick.
-        if (operation_coordinator_.try_begin("intercept-rebind")) {
-            Logger::instance().info("Interception: re-binding listeners (attempt {})",
-                                    intercept_rebind_.attempts() + 1);
-            intercept_rebind_in_progress_ = true;
-            // A failed bind is cached as a blocking verdict; forget it so the
-            // bind is retried.  The kernel capabilities stay as probed at start.
-            intercept_listener_results_.forget_blocking_listener_results();
-            try {
-                apply_firewall(runtime_refresh_firewall_mode());
-                publish_runtime_state();
-            } catch (const std::exception& error) {
-                Logger::instance().error("Interception re-bind failed: {}", error.what());
-            }
-            intercept_rebind_in_progress_ = false;
-            operation_coordinator_.finish();
-            intercept_rebind_.attempted(std::chrono::steady_clock::now());
+        if (!operation_coordinator_.try_begin("intercept-rebind")) {
+            publish_intercept_rebind_status();
+            return;
         }
+#endif
+        // Headless builds run every lifecycle operation on this control
+        // thread, so nothing can overlap the re-bind there.
+        Logger::instance().info("Interception: re-binding listeners (attempt {})",
+                                intercept_rebind_.attempts() + 1);
+        intercept_rebind_in_progress_ = true;
+        // A failed bind is cached as a blocking verdict; forget it so the
+        // bind is retried.  The kernel capabilities stay as probed at start.
+        intercept_listener_results_.forget_blocking_listener_results();
+        try {
+            apply_firewall(runtime_refresh_firewall_mode());
+            publish_runtime_state();
+        } catch (const std::exception& error) {
+            Logger::instance().error("Interception re-bind failed: {}", error.what());
+        }
+        intercept_rebind_in_progress_ = false;
+#ifdef WITH_API
+        operation_coordinator_.finish();
+#endif
+        intercept_rebind_.attempted(std::chrono::steady_clock::now());
     }
     publish_intercept_rebind_status();
 }
