@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesFrzM3Q data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesHnMEtF data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -827,7 +827,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesFrzM3Q {
+    struct KeenPbrTypesHnMEtF {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1155,8 +1155,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesFrzM3Q & x);
-    void to_json(json & j, const KeenPbrTypesFrzM3Q & x);
+    void from_json(const json & j, KeenPbrTypesHnMEtF & x);
+    void to_json(json & j, const KeenPbrTypesHnMEtF & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -2675,7 +2675,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesFrzM3Q& x) {
+    inline void from_json(const json & j, KeenPbrTypesHnMEtF& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2762,7 +2762,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesFrzM3Q & x) {
+    inline void to_json(json & j, const KeenPbrTypesHnMEtF & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

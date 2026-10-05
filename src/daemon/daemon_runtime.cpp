@@ -545,12 +545,11 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
                 const auto result = state->last_results.find(child_tag);
                 return result != state->last_results.end() && !result->second.success;
             };
-            const bool delete_on_healthy_switch =
-                configured->conntrack_on_switch.value_or(api::ConntrackOnSwitch::PRESERVE) ==
-                api::ConntrackOnSwitch::DELETE;
             // Probe results arrive every cycle; rebuild only when the inputs
             // of the classifier change, and flush a failed child's
-            // connections once, when it fails.
+            // connections once, when it fails. For balance groups, only
+            // failed children's connections are flushed, regardless of
+            // conntrack_on_switch (unlike priority groups).
             const auto owned_main_routes = netlink_.dump_routes_in_table(254);
             const auto interfaces = netlink_.dump_interfaces();
             const auto all_candidates = build_balance_candidates(owned_main_routes, interfaces);
@@ -574,9 +573,7 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
                 for (const auto& child_tag : outbound_group_tags(group)) {
                     const auto mark = outbound_marks_.find(child_tag);
                     if (mark == outbound_marks_.end()) continue;
-                    if (newly_failed.count(child_tag) != 0 ||
-                        (delete_on_healthy_switch && !old_child_tag.empty() &&
-                         old_child_tag != new_child_tag)) {
+                    if (newly_failed.count(child_tag) != 0) {
                         cleanup_marks.insert(mark->second);
                     }
                 }

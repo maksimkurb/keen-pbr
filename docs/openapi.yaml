@@ -1082,8 +1082,8 @@ components:
             URLTEST/ICMPTEST conntrack handling when a healthy selected child is
             replaced for latency or priority reasons. `preserve` keeps established
             flows and `delete` removes affected entries after the replacement is
-            active. In balance mode this applies to candidate marks. Entries using
-            an unhealthy child are always removed.
+            active. In balance mode this setting is ignored; only connections
+            using an unhealthy child are removed regardless of this setting.
         outbound_groups:
           type: array
           description: >

@@ -185,11 +185,10 @@ next tier is evaluated.
 With `strategy: "balance"`, selection is per connection, not per HTTP request.
 HTTP/2 and QUIC multiplexed traffic stays on the WAN chosen for that connection.
 `weight` remains a group priority only; children are equal. `tolerance_ms`
-applies only to `priority` selection. A failed balance child has its conntrack
-flows removed; `conntrack_on_switch: "delete"` also removes the group's
-candidate flows when the test group's scalar selection changes. When no candidate is usable,
-the test group's existing terminal fallback blocks marked traffic rather than
-leaking to the main table.
+applies only to `priority` selection. For balance groups, `conntrack_on_switch`
+is ignored; only a failed child's conntrack flows are removed when it becomes
+unhealthy. When no candidate is usable, the test group's existing terminal
+fallback blocks marked traffic rather than leaking to the main table.
 
 ### Retry Configuration
 

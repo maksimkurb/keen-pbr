@@ -76,7 +76,7 @@ export interface Outbound {
   /** `priority` keeps the stable test-group mark and routes it through one selected child. `balance` distributes new connections equally across usable children in the lowest-weight healthy group (nftables only).
    */
   strategy?: TestGroupStrategy;
-  /** URLTEST/ICMPTEST conntrack handling when a healthy selected child is replaced for latency or priority reasons. `preserve` keeps established flows and `delete` removes affected entries after the replacement is active. In balance mode this applies to candidate marks. Entries using an unhealthy child are always removed.
+  /** URLTEST/ICMPTEST conntrack handling when a healthy selected child is replaced for latency or priority reasons. `preserve` keeps established flows and `delete` removes affected entries after the replacement is active. In balance mode this setting is ignored; only connections using an unhealthy child are removed regardless of this setting.
    */
   conntrack_on_switch?: ConntrackOnSwitch;
   /** Ordered list of outbound groups. Required for `urltest` and `icmptest`. Groups are tried by ascending group weight. In `priority` mode one usable child is selected by latency; in `balance` mode usable children in the active group receive an equal share of new connections.
