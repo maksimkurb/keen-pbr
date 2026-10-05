@@ -75,7 +75,9 @@ InterceptEffective Daemon::resolve_intercept_effective() {
     if (config_.intercept.value_or(InterceptConfig{}).enabled.value_or(true)) {
         if (!intercept_capabilities_.has_value() || intercept_capabilities_stale_ ||
             intercept_capabilities_ipv6_ != ipv6_enabled) {
-            auto fresh = probe_intercept_capabilities(backend, ipv6_enabled);
+            InterceptProbeEnv env;
+            env.load_modules = !intercept_modules_loaded_;
+            auto fresh = probe_intercept_capabilities(backend, ipv6_enabled, env);
             // Log only what this probe measured, before older verdicts are
             // carried forward.
             log_intercept_probe(fresh);
@@ -85,6 +87,7 @@ InterceptEffective Daemon::resolve_intercept_effective() {
             intercept_capabilities_ = std::move(fresh);
             intercept_capabilities_ipv6_ = ipv6_enabled;
             intercept_capabilities_stale_ = false;
+            intercept_modules_loaded_ = true;
         }
         capabilities = *intercept_capabilities_;
     }

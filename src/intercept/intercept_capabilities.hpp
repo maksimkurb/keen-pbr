@@ -70,6 +70,11 @@ struct InterceptProbeEnv {
     // Run the functional netlink probes (set backend, ctnetlink) in addition to
     // the /proc checks.  Tests that only exercise the /proc logic turn it off.
     bool runtime_probes{true};
+    // Attempt to load kernel modules (nfnetlink_queue, nfnetlink_log, etc).
+    // When false, probe_intercept_capabilities only reads /proc and runs functional
+    // probes; all modprobe calls are skipped.  Set to true for the first probe
+    // after daemon startup, false for subsequent re-probes.
+    bool load_modules{true};
     // Transport factory for the probes; empty: a fresh NETLINK_NETFILTER socket.
     // May throw nfnl::NlSocketError, which is reported as a probe error.
     std::function<std::unique_ptr<nfnl::SetWriterTransport>()> make_transport;

@@ -199,6 +199,36 @@ TEST_CASE("intercept probe: probes can be turned off and stay not_run") {
               .status == ProbeStatus::not_run);
 }
 
+TEST_CASE("intercept probe: load_modules=false skips all modprobe calls") {
+    Script script;
+    script.answer = healthy_kernel;
+    bool modprobe_called = false;
+    auto env = script.env();
+    env.load_modules = false;
+    env.modprobe = [&modprobe_called](const std::string&) { modprobe_called = true; };
+    const auto caps = probe_intercept_capabilities(FirewallBackend::nftables, true, env);
+    // Functional probes still run
+    CHECK(caps.probe.set_backend.status == ProbeStatus::ok);
+    CHECK(caps.probe.conntrack.status == ProbeStatus::ok);
+    // But modprobe was never called
+    CHECK_FALSE(modprobe_called);
+}
+
+TEST_CASE("intercept probe: load_modules=true (default) calls modprobe") {
+    Script script;
+    script.answer = healthy_kernel;
+    int modprobe_count = 0;
+    auto env = script.env();
+    env.load_modules = true;
+    env.modprobe = [&modprobe_count](const std::string&) { ++modprobe_count; };
+    // iptables backend tries to load modules per missing requirement
+    env.ip_targets = env.ip6_targets = env.ip_matches = env.ip6_matches = "/nonexistent/proc";
+    const auto caps = probe_intercept_capabilities(FirewallBackend::iptables, true, env);
+    // load_intercept_modules calls modprobe for queue/log modules,
+    // then Prober tries modules for missing iptables targets/matches
+    CHECK(modprobe_count > 0);
+}
+
 // --- set write probe ------------------------------------------------------------------
 
 TEST_CASE("intercept probe: set write is skipped without a dynamic set") {

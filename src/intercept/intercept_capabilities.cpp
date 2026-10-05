@@ -67,6 +67,7 @@ private:
     }
 
     void load_module(const char* module) const {
+        if (!env_.load_modules) return;
         if (env_.modprobe) {
             env_.modprobe(module);
             return;
@@ -256,6 +257,7 @@ nfnl::ProbeResult probe_intercept_set_write(FirewallBackend backend,
 }
 
 void load_intercept_modules(FirewallBackend backend, const InterceptProbeEnv& env) {
+    if (!env.load_modules) return;
     // Best effort, failures ignored: the netlink subsystems are not always
     // autoloaded (OpenWrt) and a missing module is reported at bind time.
     std::vector<const char*> modules{"nfnetlink_queue", "nfnetlink_log"};

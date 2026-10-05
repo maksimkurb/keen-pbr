@@ -472,6 +472,9 @@ IcmpTester icmp_tester_;
   // Set by config applies and runtime refreshes: the next resolve re-probes,
   // carrying forward checks whose stage does not run again.
   bool intercept_capabilities_stale_{false};
+  // True after the first capability probe completes (which includes modprobe).
+  // Later probes skip modprobe.
+  bool intercept_modules_loaded_{false};
   std::atomic<std::uint64_t> intercept_snapshot_seq_{0};
   std::uint64_t intercept_forwarded_seq_{0};
   int intercept_event_task_id_{-1};
