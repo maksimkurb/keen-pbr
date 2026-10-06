@@ -2,7 +2,6 @@
 
 #include "../firewall/firewall.hpp"
 
-#include <cstdint>
 #include <set>
 #include <string>
 #include <vector>

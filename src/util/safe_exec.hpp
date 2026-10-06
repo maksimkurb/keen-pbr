@@ -11,7 +11,6 @@
 #include <cstdlib>
 #include <ctime>
 #include <fcntl.h>
-#include <functional>
 #include <fstream>
 #include <mutex>
 #include <signal.h>

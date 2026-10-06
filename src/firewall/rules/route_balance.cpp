@@ -2,9 +2,6 @@
 
 #include "../../routing/target.hpp"
 
-#include <algorithm>
-#include <string>
-
 namespace keen_pbr3 {
 
 namespace {

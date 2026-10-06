@@ -2,8 +2,6 @@
 
 #include "../firewall/firewall.hpp"
 
-#include <optional>
-
 namespace keen_pbr3 {
 
 bool firewall_backend_command_exists(FirewallBackend backend);

@@ -4,7 +4,6 @@
 #include "firewall_rule.hpp"
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
-#include "../util/ipv6_support.hpp"
 #include "../util/kernel_capabilities.hpp"
 #include "../util/safe_exec.hpp"
 #include "ipset_restore_pipe.hpp"
@@ -12,7 +11,6 @@
 #include <rapidxml.hpp>
 
 #include <algorithm>
-#include <atomic>
 #include <charconv>
 #include <cctype>
 #include <cstdio>

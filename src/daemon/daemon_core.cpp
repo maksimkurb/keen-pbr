@@ -1,6 +1,5 @@
 #include "../intercept/intercept_report.hpp"
 #include "daemon.hpp"
-#include "../firewall/iptables.hpp"
 
 #include "../config/routing_state.hpp"
 
