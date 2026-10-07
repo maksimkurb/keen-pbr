@@ -61,6 +61,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
       - uses: docker/setup-buildx-action@v4
       - name: Download frontend bundle
@@ -111,6 +112,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
       - name: Download unsigned package artifacts
         uses: actions/download-artifact@v8
