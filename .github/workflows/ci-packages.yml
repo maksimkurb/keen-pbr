@@ -139,6 +139,7 @@ jobs:
       - uses: actions/checkout@v6
         if: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
       - name: Bootstrap immutable release directory
         if: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}

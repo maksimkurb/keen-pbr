@@ -63,7 +63,14 @@ else
 fi
 rsync_ssh="ssh -i $HOME/.ssh/id_rsync -p $RSYNC_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 
-ssh "${ssh_options[@]}" "$ssh_target" "test -f '$release_dir/index.html' && mkdir -p -- '$remote_leaf'"
+if ! ssh "${ssh_options[@]}" "$ssh_target" "test -f '$release_dir/index.html'"; then
+    echo "Remote release bootstrap is missing: $release_dir/index.html" >&2
+    echo "Publisher source SHA: $source_sha; generation: $build_number" >&2
+    echo "Bootstrap and package jobs must checkout the same source commit." >&2
+    exit 1
+fi
+
+ssh "${ssh_options[@]}" "$ssh_target" "mkdir -p -- '$remote_leaf'"
 rsync -a --delete --delay-updates -e "$rsync_ssh" "$local_leaf/" "$rsync_target:$remote_leaf/"
 
 if [[ "$PLATFORM" == "keenetic" ]]; then
