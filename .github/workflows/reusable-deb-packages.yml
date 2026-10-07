@@ -14,19 +14,54 @@ on:
         required: false
         type: boolean
         default: true
+      publish_branch:
+        required: false
+        type: boolean
+        default: false
+      source_ref_name:
+        required: false
+        type: string
+        default: ""
 
 jobs:
+  generate-config:
+    runs-on: ubuntu-latest
+    outputs:
+      job-config: ${{ steps.gen.outputs.job-config }}
+    steps:
+      - name: Generate Debian matrix
+        id: gen
+        env:
+          BUILD_SCOPE: ${{ inputs.build_scope }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+
+          full = [
+              {"debian_version": "bookworm", "debian_arch": "amd64"},
+              {"debian_version": "bookworm", "debian_arch": "arm64"},
+              {"debian_version": "trixie", "debian_arch": "amd64"},
+              {"debian_version": "trixie", "debian_arch": "arm64"},
+          ]
+          builds = full if os.environ["BUILD_SCOPE"] == "full" else [
+              {"debian_version": "trixie", "debian_arch": "amd64"}
+          ]
+          print(f"job-config={json.dumps(builds)}")
+          PY
+
   build:
-    name: "build: ${{ matrix.debian_version }}-${{ matrix.debian_arch }}"
-    runs-on: ${{ matrix.debian_arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    name: "build: ${{ matrix.build_env.debian_version }}-${{ matrix.build_env.debian_arch }}"
+    runs-on: ${{ matrix.build_env.debian_arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    needs: [generate-config]
     strategy:
       fail-fast: false
       matrix:
-        debian_version: [bookworm, trixie]
-        debian_arch: [amd64, arm64]
+        build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
       - uses: docker/setup-buildx-action@v4
       - name: Download frontend bundle
@@ -42,47 +77,47 @@ jobs:
       - name: Cache Debian image layers
         uses: actions/cache@v5
         with:
-          path: /tmp/.buildx-cache-debian-${{ matrix.debian_arch }}
-          key: buildx-debian-${{ matrix.debian_version }}-${{ matrix.debian_arch }}-${{ hashFiles('docker/Dockerfile.debian-builder') }}
+          path: /tmp/.buildx-cache-debian-${{ matrix.build_env.debian_arch }}
+          key: buildx-debian-${{ matrix.build_env.debian_version }}-${{ matrix.build_env.debian_arch }}-${{ hashFiles('docker/Dockerfile.debian-builder') }}
       - name: Build Debian packages
         run: |
           make deb-packages \
-            DEBIAN_VERSION="${{ matrix.debian_version }}" \
-            DEBIAN_ARCH="${{ matrix.debian_arch }}" \
-            DEBIAN_DOCKER_PLATFORM="linux/${{ matrix.debian_arch }}" \
-            DEBIAN_DOCKER_CACHE_FROM="/tmp/.buildx-cache-debian-${{ matrix.debian_arch }}" \
-            DEBIAN_DOCKER_CACHE_TO="/tmp/.buildx-cache-debian-${{ matrix.debian_arch }}-new"
+            DEBIAN_VERSION="${{ matrix.build_env.debian_version }}" \
+            DEBIAN_ARCH="${{ matrix.build_env.debian_arch }}" \
+            DEBIAN_DOCKER_PLATFORM="linux/${{ matrix.build_env.debian_arch }}" \
+            DEBIAN_DOCKER_CACHE_FROM="/tmp/.buildx-cache-debian-${{ matrix.build_env.debian_arch }}" \
+            DEBIAN_DOCKER_CACHE_TO="/tmp/.buildx-cache-debian-${{ matrix.build_env.debian_arch }}-new"
       - name: Persist Debian image cache
         if: always()
         run: |
-          rm -rf /tmp/.buildx-cache-debian-${{ matrix.debian_arch }}
-          if [ -d /tmp/.buildx-cache-debian-${{ matrix.debian_arch }}-new ]; then
-            mv /tmp/.buildx-cache-debian-${{ matrix.debian_arch }}-new /tmp/.buildx-cache-debian-${{ matrix.debian_arch }}
+          rm -rf /tmp/.buildx-cache-debian-${{ matrix.build_env.debian_arch }}
+          if [ -d /tmp/.buildx-cache-debian-${{ matrix.build_env.debian_arch }}-new ]; then
+            mv /tmp/.buildx-cache-debian-${{ matrix.build_env.debian_arch }}-new /tmp/.buildx-cache-debian-${{ matrix.build_env.debian_arch }}
           fi
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: staging-debian-${{ matrix.debian_version }}-${{ matrix.debian_arch }}
+          name: staging-debian-${{ matrix.build_env.debian_version }}-${{ matrix.build_env.debian_arch }}
           path: build/packages/debian
 
   sign:
     if: ${{ inputs.use_signing_secrets }}
-    name: "sign: ${{ matrix.debian_version }}-${{ matrix.debian_arch }}"
+    name: "sign: ${{ matrix.build_env.debian_version }}-${{ matrix.build_env.debian_arch }}"
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [generate-config, build]
     strategy:
       fail-fast: false
       matrix:
-        debian_version: [bookworm, trixie]
-        debian_arch: [amd64, arm64]
+        build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
       - name: Download unsigned package artifacts
         uses: actions/download-artifact@v8
         with:
-          name: staging-debian-${{ matrix.debian_version }}-${{ matrix.debian_arch }}
+          name: staging-debian-${{ matrix.build_env.debian_version }}-${{ matrix.build_env.debian_arch }}
           path: build/packages/debian
       - name: Sign Debian repository metadata
         env:
@@ -93,5 +128,19 @@ jobs:
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: packages-debian-${{ matrix.debian_version }}-${{ matrix.debian_arch }}
+          name: packages-debian-${{ matrix.build_env.debian_version }}-${{ matrix.build_env.debian_arch }}
           path: build/packages/debian
+      - name: Publish target to branch repository
+        if: ${{ inputs.publish_branch }}
+        env:
+          RSYNC_HOST: ${{ secrets.RSYNC_HOST || vars.RSYNC_HOST }}
+          RSYNC_USERNAME: ${{ secrets.RSYNC_USERNAME || vars.RSYNC_USERNAME }}
+          RSYNC_SSH_PRIVATE_KEY: ${{ secrets.RSYNC_SSH_PRIVATE_KEY || vars.RSYNC_SSH_PRIVATE_KEY }}
+          RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT || vars.RSYNC_TARGET_ROOT }}
+          RSYNC_PORT: ${{ secrets.RSYNC_PORT || vars.RSYNC_PORT || '22' }}
+        run: |
+          bash build_scripts/publish-rsync-incremental.sh \
+            "${{ inputs.source_ref_name }}" \
+            debian \
+            "${{ matrix.build_env.debian_version }}" \
+            "${{ matrix.build_env.debian_arch }}"
