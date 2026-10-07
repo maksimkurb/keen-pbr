@@ -313,6 +313,7 @@ set(SOURCES
   src/firewall/firewall_runtime.cpp
   src/firewall/firewall_rule_modules.cpp
   src/firewall/rules/dns_detour.cpp
+  src/firewall/rules/dhcp_bypass.cpp
   src/firewall/rules/restore_conntrack_mark.cpp
   src/firewall/rules/skip_established_or_dnat.cpp
   src/firewall/rules/skip_lan_output.cpp

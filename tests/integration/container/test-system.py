@@ -21,7 +21,7 @@ from cases import (dns_no_leak, dns_routing_save, dns_upstream_ipv4,
                    skip_established_or_dnat, local_reply_skip, forwarded_reply_skip, output_lan_skip,
                    firewall_corruption_recovery, dnsmasq_mgmt,
                    loop_safety_marked_socket, router_traffic_default_off,
-                   learning_client_scope)
+                   learning_client_scope, dhcp_bypass)
 
 CASE_MODULES = (
     service_lifecycle,
@@ -42,6 +42,7 @@ CASE_MODULES = (
     loop_safety_marked_socket,
     router_traffic_default_off,
     learning_client_scope,
+    dhcp_bypass,
     rule_shapes,
     route_pass,
     route_drop,

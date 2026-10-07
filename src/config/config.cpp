@@ -1035,7 +1035,7 @@ Config parse_config(std::istream& json_stream) {
     return parse_config_input(json_stream);
 }
 
-void validate_config(const Config& cfg) {
+void validate_config(const Config& cfg, ConfigValidationMode mode) {
     std::vector<ConfigValidationIssue> issues;
 
     if (cfg.device_name && utf8_code_point_count(*cfg.device_name) > 128) {
@@ -1477,53 +1477,60 @@ void validate_config(const Config& cfg) {
         }
     }
 
-    // Validate against the backend the runtime will use: `auto` resolving to
-    // iptables must fail here, not at apply time.
-    const FirewallBackendPreference backend_pref = firewall_backend_preference(cfg);
-    FirewallBackend effective_backend = FirewallBackend::iptables;
-    try {
-        effective_backend = resolve_firewall_backend(backend_pref);
-    } catch (const std::exception&) {
-        // Unknown: validate for the more restrictive backend.
-    }
-    const std::string backend_note =
-        backend_pref == FirewallBackendPreference::auto_detect ? " (auto-detected: iptables)" : "";
+    if (mode == ConfigValidationMode::Runtime) {
+        // Validate against the backend the runtime will use: `auto` resolving
+        // to iptables must fail here, not at apply time.
+        const FirewallBackendPreference backend_pref = firewall_backend_preference(cfg);
+        FirewallBackend effective_backend = FirewallBackend::iptables;
+        bool backend_detected = false;
+        try {
+            effective_backend = resolve_firewall_backend(backend_pref);
+            backend_detected = true;
+        } catch (const std::exception&) {
+            // Unknown: validate for the more restrictive backend.
+        }
+        const std::string backend_note =
+            backend_pref == FirewallBackendPreference::auto_detect
+                ? (backend_detected ? " (auto-detected: iptables)"
+                                     : " (firewall backend detection unavailable; checked as iptables)")
+                : "";
 
 #ifdef KEEN_PBR_PLATFORM_KEENETIC
-    // Keenetic has its own multipath, and conntrack is not usable in the RAW
-    // table that keen-pbr rules mostly live in: balance is not compiled.
-    for (size_t outbound_index = 0; outbound_index < outbounds.size(); ++outbound_index) {
-        const auto& outbound = outbounds[outbound_index];
-        if ((outbound.type == OutboundType::URLTEST ||
-             outbound.type == OutboundType::ICMPTEST) &&
-            outbound_requests_balance(outbound)) {
-            add_issue(issues, json_index_path("outbounds", outbound_index) + ".strategy",
-                      "load balancing is not available on Keenetic; use the router's multipath");
+        // Keenetic has its own multipath, and conntrack is not usable in the RAW
+        // table that keen-pbr rules mostly live in: balance is not compiled.
+        for (size_t outbound_index = 0; outbound_index < outbounds.size(); ++outbound_index) {
+            const auto& outbound = outbounds[outbound_index];
+            if ((outbound.type == OutboundType::URLTEST ||
+                 outbound.type == OutboundType::ICMPTEST) &&
+                outbound_requests_balance(outbound)) {
+                add_issue(issues, json_index_path("outbounds", outbound_index) + ".strategy",
+                          "load balancing is not available on Keenetic; use the router's multipath");
+            }
         }
-    }
-    if (backend_pref == FirewallBackendPreference::nftables) {
-        add_issue(issues, "daemon.firewall_backend",
-                  "Keenetic supports only the iptables firewall backend");
-    }
+        if (backend_pref == FirewallBackendPreference::nftables) {
+            add_issue(issues, "daemon.firewall_backend",
+                      "Keenetic supports only the iptables firewall backend");
+        }
 #endif
 
-    if (effective_backend == FirewallBackend::iptables) {
-        for (size_t i = 0; i < route_rules.size(); ++i) {
-            const auto& rule = route_rules[i];
-            if (rule.default_gateway.has_value() &&
-                !firewall_backend_supports_default_gateway(effective_backend)) {
-                add_issue(issues, json_index_path("route.rules", i) + ".default_gateway",
-                          "default_gateway requires the nftables firewall backend" +
-                              backend_note);
-            }
-            if (!route_rule_uses_unsupported_iptables_multiport_combo(rule)) {
-                continue;
-            }
+        if (effective_backend == FirewallBackend::iptables) {
+            for (size_t i = 0; i < route_rules.size(); ++i) {
+                const auto& rule = route_rules[i];
+                if (rule.default_gateway.has_value() &&
+                    !firewall_backend_supports_default_gateway(effective_backend)) {
+                    add_issue(issues, json_index_path("route.rules", i) + ".default_gateway",
+                              "default_gateway requires the nftables firewall backend" +
+                                  backend_note);
+                }
+                if (!route_rule_uses_unsupported_iptables_multiport_combo(rule)) {
+                    continue;
+                }
 
-            add_issue(
-                issues,
-                route_rule_unsupported_iptables_multiport_path(i, rule),
-                "When you use port lists (e.g. 444,555) you can't combine src_port and dest_port condition. This is a xt_multiport module limitation. Consider using nftables firewall backend or create multiple rules.");
+                add_issue(
+                    issues,
+                    route_rule_unsupported_iptables_multiport_path(i, rule),
+                    "When you use port lists (e.g. 444,555) you can't combine src_port and dest_port condition. This is a xt_multiport module limitation. Consider using nftables firewall backend or create multiple rules.");
+            }
         }
     }
 

@@ -90,6 +90,8 @@ The `direct_local` outbound is an `ignore` type that prevents these networks fro
 
 Router-originated packets whose route already leaves through one of the `inbound_interfaces` (for example a DHCP reply to a LAN client), and all broadcast and multicast packets the router sends, are never policy-routed: route rules, including catch-all ones, do not apply to them. Therefore do not list the interface that carries your upstream traffic in `inbound_interfaces`.
 
+DHCP is always excluded before keen-pbr restores or assigns routing marks: IPv4 UDP with both ports in 67–68, and IPv6 UDP with both ports in 546–547. This also covers unicast renewals and relay traffic, independently of `inbound_interfaces` and optional address-type matches.
+
 ## Route Rule Fields
 
 | Field | Type | Required | Description |

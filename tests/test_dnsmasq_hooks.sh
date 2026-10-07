@@ -393,11 +393,64 @@ test_debian() {
     fi
 }
 
+test_resolver_generation() {
+    resolver_bin=${KEEN_PBR_RESOLVER_BIN:-}
+    [ -n "$resolver_bin" ] || return 0
+    [ -x "$resolver_bin" ] || fail "resolver: binary is not executable"
+
+    resolver_root="$tmp_root/resolver"
+    empty_path="$resolver_root/empty-path"
+    mkdir -p "$empty_path" "$resolver_root/cache"
+    enabled_config="$resolver_root/enabled.json"
+    cat > "$enabled_config" <<EOF
+{
+  "daemon": {"firewall_backend": "auto", "cache_dir": "$resolver_root/cache"},
+  "outbounds": [{"type": "interface", "tag": "wan", "interface": "wan"}],
+  "lists": {"domains": {"domains": ["example.com"]}},
+  "dns": {
+    "resolver_integration": "dnsmasq",
+    "servers": [{"tag": "up", "address": "1.1.1.1"}],
+    "rules": [{"list": ["domains"], "server": "up"}]
+  },
+  "route": {"rules": [{"default_gateway": "ipv4", "outbound": "wan"}]}
+}
+EOF
+    output=$(PATH="$empty_path" "$resolver_bin" --config "$enabled_config" \
+        generate-resolver-config dnsmasq) || fail "resolver: enabled generation failed"
+    printf '%s\n' "$output" | grep -qx 'server=/example.com/1.1.1.1' ||
+        fail "resolver: DNS rule was not generated"
+    printf '%s\n' "$output" | grep -Eq '^txt-record=config-hash\.keen\.pbr,[0-9a-f]{32}\|[0-9]+\|[0-9]+$' ||
+        fail "resolver: config hash TXT stamp is missing"
+    case "$output" in
+        *"generate-resolver-config failed"*) fail "resolver: enabled generation reported failure" ;;
+    esac
+
+    disabled_config="$resolver_root/disabled.json"
+    sed 's/"dnsmasq"/"none"/' "$enabled_config" > "$disabled_config"
+    output=$(PATH="$empty_path" "$resolver_bin" --config "$disabled_config" \
+        generate-resolver-config dnsmasq) || fail "resolver: disabled generation failed"
+    [ "$output" = '# keen-pbr: dns.resolver_integration is none' ] ||
+        fail "resolver: disabled integration output is wrong"
+
+    invalid_config="$resolver_root/invalid.json"
+    sed 's/"server": "up"/"server": "missing"/' "$enabled_config" > "$invalid_config"
+    rc=0
+    output=$(PATH="$empty_path" "$resolver_bin" --config "$invalid_config" \
+        generate-resolver-config dnsmasq) || rc=$?
+    [ "$rc" = 0 ] || fail "resolver: invalid config changed conf-script exit status"
+    case "$output" in
+        '# keen-pbr: generate-resolver-config failed:'*) ;;
+        *) fail "resolver: invalid config did not produce a failure comment" ;;
+    esac
+}
+
 echo "Testing OpenWrt dnsmasq hook..."
 test_openwrt
 echo "Testing Keenetic dnsmasq hook..."
 test_keenetic
 echo "Testing Debian dnsmasq hook..."
 test_debian
+echo "Testing resolver generation..."
+test_resolver_generation
 
 echo "dnsmasq hooks tests: PASS"

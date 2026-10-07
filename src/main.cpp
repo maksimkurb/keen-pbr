@@ -404,7 +404,8 @@ int main(int argc, char *argv[]) {
           }
           return keen_pbr3::parse_config(config_stream);
         }();
-        keen_pbr3::validate_config(config);
+        keen_pbr3::validate_config(
+            config, keen_pbr3::ConfigValidationMode::ResolverGeneration);
         if (keen_pbr3::effective_resolver_integration(config) ==
             keen_pbr3::ResolverIntegrationMode::NONE) {
           std::cout << "# keen-pbr: dns.resolver_integration is none\n";

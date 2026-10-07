@@ -38,6 +38,13 @@ private:
     std::vector<ConfigValidationIssue> issues_;
 };
 
+enum class ConfigValidationMode {
+    Runtime,
+    // DNSMASQ conf-scripts run in a restricted jail and only generate DNS
+    // text; they must not resolve the runtime firewall backend from that jail.
+    ResolverGeneration,
+};
+
 // Type aliases: map generated QuickType names to conventional keen-pbr names.
 // All config structs now live in api:: with full from_json/to_json support.
 using Config               = api::ConfigObject;
@@ -166,7 +173,8 @@ Config parse_config(const std::string& json_str);
 // Pure: callers decide whether to persist it, after parse+validate succeeded.
 std::optional<std::string> upgraded_config_text(const std::string& json_str);
 Config parse_config(std::istream& json_stream);
-void validate_config(const Config& config);
+void validate_config(const Config& config,
+                     ConfigValidationMode mode = ConfigValidationMode::Runtime);
 Config parse_and_validate_config(const std::string& json_str);
 size_t max_file_size_bytes(const Config& config);
 FirewallBackendPreference firewall_backend_preference(const Config& config);

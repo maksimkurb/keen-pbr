@@ -5,6 +5,7 @@
 #include "../src/config/routing_state.hpp"
 #include "../src/util/system_info.hpp"
 #include "../src/util/firewall_backend_utils.hpp"
+#include "../src/util/kernel_capabilities.hpp"
 
 #include <nlohmann/json.hpp>
 #include <string>
@@ -158,6 +159,20 @@ TEST_CASE("auto backend resolves to iptables, accepts balance and rejects defaul
     reset_detected_firewall_backend_for_tests();
 }
 
+TEST_CASE("auto backend fallback identifies unavailable detection") {
+    SystemInfoTestGuard sys_guard;
+    set_host_tools_for_tests(HostTools{});
+    const auto issues = validate_issues(R"({
+      "daemon":{"firewall_backend":"auto"},
+      "outbounds":[{"type":"interface","tag":"wan","interface":"wan"}],
+      "route":{"rules":[{"default_gateway":"ipv4","outbound":"wan"}]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].message.find("detection unavailable") != std::string::npos);
+    reset_kernel_capabilities_for_tests();
+    reset_detected_firewall_backend_for_tests();
+}
+
 TEST_CASE("auto backend resolves to nftables and accepts balance") {
     SystemInfoTestGuard sys_guard;
     set_detected_firewall_backend_for_tests(FirewallBackend::nftables);
@@ -175,6 +190,32 @@ TEST_CASE("auto backend resolves to nftables and accepts balance") {
     })");
     CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
     CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
+    reset_detected_firewall_backend_for_tests();
+}
+
+TEST_CASE("resolver generation skips runtime backend checks") {
+    SystemInfoTestGuard sys_guard;
+    set_detected_firewall_backend_for_tests(FirewallBackend::iptables);
+    const auto config = parse_config(R"({
+      "daemon":{"firewall_backend":"auto"},
+      "outbounds":[{"type":"interface","tag":"wan","interface":"wan"}],
+      "lists":{"domains":{"domains":["example.com"]}},
+      "dns":{
+        "resolver_integration":"dnsmasq",
+        "servers":[{"tag":"up","address":"1.1.1.1"}],
+        "rules":[{"list":["domains"],"server":"up"}]
+      },
+      "route":{"rules":[{"default_gateway":"ipv4","outbound":"wan"}]}
+    })");
+
+    CHECK_THROWS_AS(validate_config(config), ConfigValidationError);
+    CHECK_NOTHROW(validate_config(config, ConfigValidationMode::ResolverGeneration));
+
+    auto invalid_dns = config;
+    invalid_dns.dns->rules->at(0).server = "missing";
+    CHECK_THROWS_AS(validate_config(invalid_dns, ConfigValidationMode::ResolverGeneration),
+                    ConfigValidationError);
+
     reset_detected_firewall_backend_for_tests();
 }
 

@@ -351,7 +351,7 @@ TEST_CASE("runtime preserves ordered direct rule actions and selectors") {
       FirewallApplyMode::Destructive).rule_states;
 
   REQUIRE(states.size() == 5);
-  REQUIRE(firewall.recorded_rules.size() == 5);
+  REQUIRE(firewall.recorded_rules.size() == 7);
   CHECK(states[0].action_type == RuleActionType::Mark);
   CHECK(states[0].fwmark == 0x100U);
   CHECK(states[1].action_type == RuleActionType::Mark);
@@ -360,21 +360,33 @@ TEST_CASE("runtime preserves ordered direct rule actions and selectors") {
   CHECK(states[4].action_type == RuleActionType::Pass);
   CHECK(firewall.calls == std::vector<std::string>{
                                "prepare", "rule", "rule", "rule", "rule",
-                               "rule", "apply"});
-  CHECK(firewall.recorded_rules[0].action == RecordingFirewall::RuleAction::Mark);
-  CHECK(firewall.recorded_rules[0].fwmark == 0x100U);
-  CHECK(firewall.recorded_rules[0].criteria.proto == L4Proto::Any);
-  CHECK(firewall.recorded_rules[0].criteria.dscp == 46);
-  CHECK(firewall.recorded_rules[1].criteria.proto == L4Proto::Tcp);
-  CHECK(firewall.recorded_rules[1].criteria.dst_port == PortSpec("443"));
-  CHECK(firewall.recorded_rules[2].criteria.proto == L4Proto::Udp);
-  CHECK(firewall.recorded_rules[2].criteria.src_port == PortSpec("53"));
-  CHECK(firewall.recorded_rules[3].action == RecordingFirewall::RuleAction::Drop);
-  CHECK(firewall.recorded_rules[3].criteria.dst_addr ==
+                               "rule", "rule", "rule", "apply"});
+  CHECK(firewall.recorded_rules[0].action == RecordingFirewall::RuleAction::Pass);
+  CHECK(firewall.recorded_rules[0].criteria.proto == L4Proto::Udp);
+  CHECK(firewall.recorded_rules[0].criteria.src_addr ==
+        std::vector<std::string>{"0.0.0.0/0"});
+  CHECK(firewall.recorded_rules[0].criteria.src_port == PortSpec("67-68"));
+  CHECK(firewall.recorded_rules[0].criteria.dst_port == PortSpec("67-68"));
+  CHECK(firewall.recorded_rules[1].action == RecordingFirewall::RuleAction::Pass);
+  CHECK(firewall.recorded_rules[1].criteria.proto == L4Proto::Udp);
+  CHECK(firewall.recorded_rules[1].criteria.src_addr ==
+        std::vector<std::string>{"::/0"});
+  CHECK(firewall.recorded_rules[1].criteria.src_port == PortSpec("546-547"));
+  CHECK(firewall.recorded_rules[1].criteria.dst_port == PortSpec("546-547"));
+  CHECK(firewall.recorded_rules[2].action == RecordingFirewall::RuleAction::Mark);
+  CHECK(firewall.recorded_rules[2].fwmark == 0x100U);
+  CHECK(firewall.recorded_rules[2].criteria.proto == L4Proto::Any);
+  CHECK(firewall.recorded_rules[2].criteria.dscp == 46);
+  CHECK(firewall.recorded_rules[3].criteria.proto == L4Proto::Tcp);
+  CHECK(firewall.recorded_rules[3].criteria.dst_port == PortSpec("443"));
+  CHECK(firewall.recorded_rules[4].criteria.proto == L4Proto::Udp);
+  CHECK(firewall.recorded_rules[4].criteria.src_port == PortSpec("53"));
+  CHECK(firewall.recorded_rules[5].action == RecordingFirewall::RuleAction::Drop);
+  CHECK(firewall.recorded_rules[5].criteria.dst_addr ==
         std::vector<std::string>{"203.0.113.7"});
-  CHECK(firewall.recorded_rules[4].action == RecordingFirewall::RuleAction::Pass);
-  CHECK(firewall.recorded_rules[4].criteria.negate_src_addr);
-  CHECK(firewall.recorded_rules[4].criteria.negate_dst_port);
+  CHECK(firewall.recorded_rules[6].action == RecordingFirewall::RuleAction::Pass);
+  CHECK(firewall.recorded_rules[6].criteria.negate_src_addr);
+  CHECK(firewall.recorded_rules[6].criteria.negate_dst_port);
 }
 
 TEST_CASE("failed firewall apply does not publish a candidate plan") {
@@ -448,21 +460,21 @@ TEST_CASE("runtime emits static and dynamic list sets in family order") {
             "prepare", "set:kpbr4_mixed", "set:kpbr4d_mixed",
             "set:kpbr6_mixed", "set:kpbr6d_mixed", "loader:kpbr4_mixed",
             "loader:kpbr6_mixed", "finish", "finish", "rule", "rule", "rule",
-            "rule", "apply"}
+            "rule", "rule", "rule", "apply"}
       : std::vector<std::string>{"prepare", "set:kpbr4_mixed", "set:kpbr4d_mixed",
                                  "loader:kpbr4_mixed", "finish", "rule", "rule",
-                                 "apply"};
+                                 "rule", "rule", "apply"};
   CHECK(firewall.calls == expected_calls);
   CHECK(firewall.streamed_entries == (ipv6_enabled ? 2 : 1));
   CHECK(firewall.finished_loaders == (ipv6_enabled ? 2 : 1));
-  REQUIRE(firewall.recorded_rules.size() == (ipv6_enabled ? 4 : 2));
-  CHECK(firewall.recorded_rules[0].criteria.dst_set_name == "kpbr4_mixed");
+  REQUIRE(firewall.recorded_rules.size() == (ipv6_enabled ? 6 : 4));
+  CHECK(firewall.recorded_rules[2].criteria.dst_set_name == "kpbr4_mixed");
   if (ipv6_enabled) {
-    CHECK(firewall.recorded_rules[1].criteria.dst_set_name == "kpbr6_mixed");
-    CHECK(firewall.recorded_rules[2].criteria.dst_set_name == "kpbr4d_mixed");
-    CHECK(firewall.recorded_rules[3].criteria.dst_set_name == "kpbr6d_mixed");
+    CHECK(firewall.recorded_rules[3].criteria.dst_set_name == "kpbr6_mixed");
+    CHECK(firewall.recorded_rules[4].criteria.dst_set_name == "kpbr4d_mixed");
+    CHECK(firewall.recorded_rules[5].criteria.dst_set_name == "kpbr6d_mixed");
   } else {
-    CHECK(firewall.recorded_rules[1].criteria.dst_set_name == "kpbr4d_mixed");
+    CHECK(firewall.recorded_rules[3].criteria.dst_set_name == "kpbr4d_mixed");
   }
 }
 
@@ -498,7 +510,8 @@ TEST_CASE("runtime projects and streams only finalized list-set declarations") {
   CHECK(applied_plan.sets.empty());
   CHECK(firewall.set_names.empty());
   CHECK(firewall.stream_count == 0);
-  CHECK(firewall.calls == std::vector<std::string>{"prepare", "apply"});
+  CHECK(firewall.calls == std::vector<std::string>{"prepare", "rule", "rule",
+                                                    "apply"});
 }
 #endif
 
@@ -540,7 +553,7 @@ TEST_CASE("RulesOnly preserves shared list usage after a skipped first rule") {
   CHECK(states[1].set_names == std::vector<std::string>{"kpbr4_shared"});
   CHECK(rules_only_firewall.applied_mode == FirewallApplyMode::RulesOnly);
   CHECK(rules_only_firewall.set_declarations == 1);
-  CHECK(rules_only_firewall.rule_count == 1);
+  CHECK(rules_only_firewall.rule_count == 3);
 }
 
 TEST_CASE("runtime streams a shared static list once per family") {
@@ -613,8 +626,14 @@ TEST_CASE("runtime captures OUTPUT default-gateway bypass criteria") {
                                FirewallApplyMode::PreserveSets, nullptr, false,
                                main_routes, {interface});
 
-  REQUIRE(firewall.recorded_rules.size() == 1);
-  const auto &criteria = firewall.recorded_rules.front().criteria;
+  REQUIRE(firewall.recorded_rules.size() == 3);
+  const auto gateway_rule = std::find_if(
+      firewall.recorded_rules.begin(), firewall.recorded_rules.end(),
+      [](const auto &recorded) {
+        return recorded.criteria.default_gateway != DefaultGatewayFamily::None;
+      });
+  REQUIRE(gateway_rule != firewall.recorded_rules.end());
+  const auto &criteria = gateway_rule->criteria;
   CHECK(criteria.default_gateway == DefaultGatewayFamily::Ipv4);
   CHECK(std::find(criteria.default_gateway_bypass.begin(),
                   criteria.default_gateway_bypass.end(),
@@ -655,16 +674,22 @@ TEST_CASE("runtime replays only the gateway family for populated route lists") {
                                      "kpbr4d_remote", "kpbr6d_remote"}
           : std::vector<std::string>{"kpbr4_remote", "kpbr4d_remote"};
   CHECK(states.front().set_names == expected_sets);
-  REQUIRE(firewall.recorded_rules.size() == 2);
+  REQUIRE(firewall.recorded_rules.size() == 4);
   CHECK(firewall.referenced_sets ==
         std::vector<std::string>{"kpbr4_remote", "kpbr4d_remote"});
+  size_t gateway_rule_count = 0;
   for (const auto &recorded : firewall.recorded_rules) {
+    if (recorded.criteria.default_gateway == DefaultGatewayFamily::None) {
+      continue;
+    }
+    ++gateway_rule_count;
     CHECK(recorded.action == RecordingFirewall::RuleAction::Mark);
     CHECK(recorded.fwmark == 0x100U);
     CHECK(recorded.criteria.default_gateway == DefaultGatewayFamily::Ipv4);
     CHECK(recorded.criteria.proto == L4Proto::TcpUdp);
     CHECK(recorded.criteria.dst_port == PortSpec("443"));
   }
+  CHECK(gateway_rule_count == 2);
 }
 #endif
 
@@ -693,8 +718,14 @@ TEST_CASE("runtime passes balance fallback and candidates to the firewall") {
   REQUIRE(states.size() == 1);
   CHECK(states.front().action_type == RuleActionType::Mark);
   CHECK(states.front().fwmark == 0x100U);
-  REQUIRE(firewall.recorded_rules.size() == 1);
-  const auto &rule = firewall.recorded_rules.front();
+  REQUIRE(firewall.recorded_rules.size() == 3);
+  const auto balance_rule = std::find_if(
+      firewall.recorded_rules.begin(), firewall.recorded_rules.end(),
+      [](const auto &recorded) {
+        return recorded.action == RecordingFirewall::RuleAction::Balance;
+      });
+  REQUIRE(balance_rule != firewall.recorded_rules.end());
+  const auto &rule = *balance_rule;
   CHECK(rule.action == RecordingFirewall::RuleAction::Balance);
   CHECK(rule.fwmark == 0x100U);
   REQUIRE(rule.candidates.size() == candidates.at("auto").size());
@@ -806,16 +837,17 @@ TEST_CASE("runtime emits DNS detours as OUTPUT TCP/UDP rules") {
       FirewallApplyMode::PreserveSets);
 
   CHECK(firewall.calls == std::vector<std::string>{"prepare", "rule", "rule",
-                                                    "apply"});
-  REQUIRE(firewall.recorded_rules.size() == 2);
-  for (const auto &rule : firewall.recorded_rules) {
+                                                    "rule", "rule", "apply"});
+  REQUIRE(firewall.recorded_rules.size() == 4);
+  for (size_t index = 2; index < firewall.recorded_rules.size(); ++index) {
+    const auto &rule = firewall.recorded_rules[index];
     CHECK(rule.action == RecordingFirewall::RuleAction::Mark);
     CHECK(rule.fwmark == 0x200U);
     CHECK(rule.criteria.dst_port == PortSpec("5353"));
     CHECK(rule.criteria.dst_addr == std::vector<std::string>{"192.0.2.53"});
   }
-  CHECK(firewall.recorded_rules[0].criteria.proto == L4Proto::Tcp);
-  CHECK(firewall.recorded_rules[1].criteria.proto == L4Proto::Udp);
+  CHECK(firewall.recorded_rules[2].criteria.proto == L4Proto::Tcp);
+  CHECK(firewall.recorded_rules[3].criteria.proto == L4Proto::Udp);
 }
 
 TEST_CASE("runtime DNS detour precedence follows configured order") {
@@ -844,29 +876,29 @@ TEST_CASE("runtime DNS detour precedence follows configured order") {
   };
 
   const auto first = apply(config);
-  REQUIRE(first.size() == 4);
-  CHECK(first[0].criteria.dst_addr == std::vector<std::string>{"192.0.2.54"});
-  CHECK(first[0].criteria.proto == L4Proto::Tcp);
-  CHECK(first[0].fwmark == 0x300U);
-  CHECK(first[1].criteria.proto == L4Proto::Udp);
-  CHECK(first[2].criteria.dst_addr == std::vector<std::string>{"192.0.2.53"});
+  REQUIRE(first.size() == 6);
+  CHECK(first[2].criteria.dst_addr == std::vector<std::string>{"192.0.2.54"});
   CHECK(first[2].criteria.proto == L4Proto::Tcp);
-  CHECK(first[2].fwmark == 0x200U);
+  CHECK(first[2].fwmark == 0x300U);
   CHECK(first[3].criteria.proto == L4Proto::Udp);
+  CHECK(first[4].criteria.dst_addr == std::vector<std::string>{"192.0.2.53"});
+  CHECK(first[4].criteria.proto == L4Proto::Tcp);
+  CHECK(first[4].fwmark == 0x200U);
+  CHECK(first[5].criteria.proto == L4Proto::Udp);
 
   std::reverse(config.dns->servers->begin(), config.dns->servers->end());
   const auto reversed = apply(config);
   REQUIRE(reversed.size() == first.size());
-  CHECK(reversed[0].criteria.dst_addr ==
-        std::vector<std::string>{"192.0.2.53"});
-  CHECK(reversed[0].criteria.proto == L4Proto::Tcp);
-  CHECK(reversed[0].fwmark == 0x200U);
-  CHECK(reversed[1].criteria.proto == L4Proto::Udp);
   CHECK(reversed[2].criteria.dst_addr ==
-        std::vector<std::string>{"192.0.2.54"});
+        std::vector<std::string>{"192.0.2.53"});
   CHECK(reversed[2].criteria.proto == L4Proto::Tcp);
-  CHECK(reversed[2].fwmark == 0x300U);
+  CHECK(reversed[2].fwmark == 0x200U);
   CHECK(reversed[3].criteria.proto == L4Proto::Udp);
+  CHECK(reversed[4].criteria.dst_addr ==
+        std::vector<std::string>{"192.0.2.54"});
+  CHECK(reversed[4].criteria.proto == L4Proto::Tcp);
+  CHECK(reversed[4].fwmark == 0x300U);
+  CHECK(reversed[5].criteria.proto == L4Proto::Udp);
 }
 
 TEST_CASE("runtime leaves inactive and empty route cases without rules") {
@@ -890,8 +922,11 @@ TEST_CASE("runtime leaves inactive and empty route cases without rules") {
   REQUIRE(states.size() == 3);
   CHECK(states[0].action_type == RuleActionType::Skip);
   CHECK(states[1].action_type == RuleActionType::Skip);
-  CHECK(firewall.recorded_rules.empty());
-  CHECK(firewall.calls == std::vector<std::string>{"prepare", "apply"});
+  REQUIRE(firewall.recorded_rules.size() == 2);
+  CHECK(firewall.recorded_rules[0].action == RecordingFirewall::RuleAction::Pass);
+  CHECK(firewall.recorded_rules[1].action == RecordingFirewall::RuleAction::Pass);
+  CHECK(firewall.calls == std::vector<std::string>{"prepare", "rule", "rule",
+                                                    "apply"});
 }
 
 TEST_CASE("runtime forwards every apply mode and preserves RulesOnly no-streaming") {

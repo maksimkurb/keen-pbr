@@ -101,6 +101,8 @@ void register_dns_detour_rules(const FirewallBuildContext& context,
                                FirewallRuleRegistrar& registrar);
 void register_restore_conntrack_mark_rules(const FirewallBuildContext& context,
                                            FirewallRuleRegistrar& registrar);
+void register_dhcp_bypass_rules(const FirewallBuildContext& context,
+                                FirewallRuleRegistrar& registrar);
 void register_skip_established_or_dnat_rules(
     const FirewallBuildContext& context, FirewallRuleRegistrar& registrar);
 void register_skip_local_replies_rules(const FirewallBuildContext& context,

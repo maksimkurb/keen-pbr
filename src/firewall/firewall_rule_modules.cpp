@@ -6,6 +6,7 @@ namespace keen_pbr3 {
 namespace {
 
 constexpr RouteRuleModuleRegistration kRouteRuleModules[] = {
+    register_dhcp_bypass_rules,
     register_restore_conntrack_mark_rules,
     register_skip_local_replies_rules,
     register_skip_lan_output_rules,

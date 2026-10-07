@@ -345,6 +345,77 @@ TEST_CASE("lowering iptables: prefilters") {
   }
 }
 
+TEST_CASE("lowering DHCP bypass precedes restore in mangle and raw") {
+  FirewallRuleCriteria v4_criteria;
+  v4_criteria.proto = L4Proto::Udp;
+  v4_criteria.src_port = "67-68";
+  v4_criteria.dst_port = "67-68";
+  v4_criteria.src_addr = {"0.0.0.0/0"};
+  FirewallRuleCriteria v6_criteria;
+  v6_criteria.proto = L4Proto::Udp;
+  v6_criteria.src_port = "546-547";
+  v6_criteria.dst_port = "546-547";
+  v6_criteria.src_addr = {"::/0"};
+  const auto dhcp4 = make_rule("prefilter.dhcp_bypass", "ipv4", Fam::ipv4,
+                               v4_criteria, VerdictAction::pass);
+  const auto dhcp6 = make_rule("prefilter.dhcp_bypass", "ipv6", Fam::ipv6,
+                               v6_criteria, VerdictAction::pass);
+  const auto restore = make_rule(
+      "prefilter.restore_conntrack_mark", "restore", Fam::any, {},
+      RestoreConntrackMarkAction{kMask});
+  FirewallRuleCriteria route_criteria;
+  route_criteria.proto = L4Proto::Udp;
+  const auto route = mark_rule("udp", Fam::ipv4, route_criteria);
+  const auto plan = plan_of({dhcp4, dhcp6, restore, route});
+
+  const auto mangle = lower_firewall_plan(plan, ipt_context());
+  const auto& mangle4 = gen_a(mangle, Fam::ipv4).rules;
+  const auto& mangle6 = gen_a(mangle, Fam::ipv6).rules;
+  REQUIRE(mangle4.size() == 6);
+  REQUIRE(mangle6.size() == 3);
+  CHECK(verdict_of(mangle4[0]) == PhysicalVerdict::return_);
+  CHECK(has_match(mangle4[0], ProtoMatch{L4Proto::Udp}));
+  CHECK(has_match(mangle4[0], PortMatch{PhysicalTransport::udp,
+                                        PhysicalDir::src, false, {{67, 68}}}));
+  CHECK(has_match(mangle4[0], PortMatch{PhysicalTransport::udp,
+                                        PhysicalDir::dst, false, {{67, 68}}}));
+  CHECK(verdict_of(mangle6[0]) == PhysicalVerdict::return_);
+  CHECK(has_match(mangle6[0], PortMatch{PhysicalTransport::udp,
+                                        PhysicalDir::src, false, {{546, 547}}}));
+  CHECK(has_match(mangle6[0], PortMatch{PhysicalTransport::udp,
+                                        PhysicalDir::dst, false, {{546, 547}}}));
+  CHECK(has_match(mangle4[3], ProtoMatch{L4Proto::Udp}));
+  CHECK(std::holds_alternative<SetMarkStmt>(mangle4[3].statements.front()));
+
+  auto raw_context = ipt_context();
+  raw_context.raw_prerouting = RawPreroutingMode{true, true};
+  const auto raw = lower_firewall_plan(plan, raw_context);
+  const auto& raw4 = chain_of(
+      raw, ipt_chain("KeenPbrRaw", PhysicalTable::raw, Fam::ipv4)).rules;
+  const auto& raw6 = chain_of(
+      raw, ipt_chain("KeenPbrRaw", PhysicalTable::raw, Fam::ipv6)).rules;
+  REQUIRE(raw4.size() == 3);
+  REQUIRE(raw6.size() == 1);
+  CHECK(verdict_of(raw4[0]) == PhysicalVerdict::return_);
+  CHECK(verdict_of(raw6[0]) == PhysicalVerdict::return_);
+  CHECK(std::holds_alternative<SetMarkStmt>(raw4[1].statements.front()));
+  CHECK(has_match(raw4[2], ProtoMatch{L4Proto::Udp}));
+
+  const auto nft = lower_firewall_plan(plan, nft_context());
+  REQUIRE(nft_pre(nft).rules.size() == 4);
+  REQUIRE(nft_out(nft).rules.size() == 4);
+  CHECK(nft_pre(nft).rules[0].family == Fam::ipv4);
+  CHECK(nft_pre(nft).rules[1].family == Fam::ipv6);
+  CHECK(verdict_of(nft_pre(nft).rules[0]) == PhysicalVerdict::accept);
+  CHECK(verdict_of(nft_pre(nft).rules[1]) == PhysicalVerdict::accept);
+  CHECK(has_match(nft_pre(nft).rules[0], PortMatch{
+      PhysicalTransport::udp, PhysicalDir::src, false, {{67, 68}}}));
+  CHECK(has_match(nft_pre(nft).rules[1], PortMatch{
+      PhysicalTransport::udp, PhysicalDir::src, false, {{546, 547}}}));
+  CHECK(std::holds_alternative<JumpStmt>(
+      nft_pre(nft).rules.back().statements.front()));
+}
+
 TEST_CASE("lowering iptables: PREROUTING and OUTPUT placement") {
   const auto routes = [] {
     FirewallRuleCriteria detour = for_set("kpbr4s_dns");

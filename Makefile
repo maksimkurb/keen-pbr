@@ -52,7 +52,7 @@ generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (
 
 test: ## Build and run unit tests (doctest)
 	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS) -DBUILD_TESTS=ON
-	cmake --build $(GCC_BUILD_DIR) --parallel $(BUILD_JOBS) --target keen-pbr-tests crash-diagnostics-smoke
+	cmake --build $(GCC_BUILD_DIR) --parallel $(BUILD_JOBS) --target keen-pbr keen-pbr-tests crash-diagnostics-smoke
 	$(GCC_BUILD_DIR)/tests/keen-pbr-tests
 	$(GCC_BUILD_DIR)/tests/crash-diagnostics-smoke
 	python3 -m unittest tests/integration/test_case_engine.py
@@ -62,7 +62,7 @@ test: ## Build and run unit tests (doctest)
 	sh tests/test_keenetic_raw_policy.sh
 	sh tests/test_keenetic_intercept_modules.sh
 	sh tests/test_dnsmasq_migration.sh
-	sh tests/test_dnsmasq_hooks.sh
+	KEEN_PBR_RESOLVER_BIN="$(GCC_BUILD_DIR)/keen-pbr" sh tests/test_dnsmasq_hooks.sh
 	python3 tests/check_firewall_dependencies.py
 
 INTEGRATION_BACKEND ?= all
