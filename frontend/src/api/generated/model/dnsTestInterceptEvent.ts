@@ -27,9 +27,9 @@ export interface DnsTestInterceptEvent {
   /** Names of the lists whose sets received the addresses. */
   lists: string[];
   ips: string[];
-  /** Number of new set elements. */
+  /** Number of set elements written as added, including existing ones rewritten by an upsert (late DNS write, L7). */
   added: number;
-  /** Number of existing set elements whose timeout was refreshed. */
+  /** Number of existing set elements whose timeout was extended (not counted in `added`). */
   refreshed: number;
   /** Number of failed set writes. */
   errors: number;

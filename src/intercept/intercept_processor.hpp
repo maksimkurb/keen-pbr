@@ -170,6 +170,9 @@ struct InterceptL7Work {
     std::shared_ptr<const InterceptSnapshot> snapshot;
     std::vector<nfnl::SetAdd> adds;
     std::vector<uint16_t> slots;  // set-cache slot per add (parallel to `adds`)
+    // Parallel to `adds`: 1 = the cache believes the element is present (Stale),
+    // so it is refreshed instead of upserted.  Empty: every add is upserted.
+    std::vector<uint8_t> stale;
     uint64_t cache_epoch{0};      // SetElementCache epoch captured before the lookups
     int64_t cache_now_ms{0};      // steady ms used for the lookups / expiry estimate
     EventRecord event;
@@ -404,7 +407,8 @@ private:
     bool queue_refresh(const std::shared_ptr<const InterceptSnapshot>& snap,
                        const nfnl::SetAdd& add, uint16_t slot);
     // Splits adds_ (in place) into the pre-verdict part (cache miss, kept) and
-    // the cached part (dropped, or queued for a post-verdict refresh).
+    // the cached part (dropped, or queued for a post-verdict refresh).  Without
+    // queue_refreshes (L7) a Stale entry is kept too and flagged in add_stale_.
     void classify_adds(const std::shared_ptr<const InterceptSnapshot>& snap, int64_t now_ms,
                        bool queue_refreshes, EventRecord& event);
     void flush_refreshes();
@@ -455,6 +459,7 @@ private:
     std::vector<DomainIndex::ListId> ids_tmp_;
     std::vector<nfnl::SetAdd> adds_;
     std::vector<uint16_t> add_slots_;  // parallel to adds_
+    std::vector<uint8_t> add_stale_;   // parallel to adds_ after an L7 classify_adds()
     std::vector<nfnl::SetAddResult> results_;
     // Pending-late batch (hot thread only).  Capacity is reserved once in the
     // constructor, so queuing never reallocates.

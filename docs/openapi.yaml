@@ -1866,10 +1866,10 @@ components:
             type: string
         added:
           type: integer
-          description: Number of new set elements.
+          description: Number of set elements written as added, including existing ones rewritten by an upsert (late DNS write, L7).
         refreshed:
           type: integer
-          description: Number of existing set elements whose timeout was refreshed.
+          description: Number of existing set elements whose timeout was extended (not counted in `added`).
         errors:
           type: integer
           description: Number of failed set writes.

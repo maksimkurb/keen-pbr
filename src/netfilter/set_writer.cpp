@@ -68,6 +68,11 @@ private:
 // Every call writes each chunk once.  Elements that failed with a transient
 // error (see is_transient()) are then retried ONCE as a smaller write of the
 // same kind, bounded by the caller's deadline; there is no further ladder.
+//
+// add() is an upsert: where the backend can create-or-extend with one
+// non-exclusive request per element (ipset, nft with in-place support) that is
+// the whole write on the hot path, and every success is Added.  Otherwise it
+// falls back to an exclusive add plus a refresh of what already existed.
 class WriterBase : public DynamicSetWriter {
 public:
     WriterBase(bool batched, std::unique_ptr<SetWriterTransport> transport)
@@ -79,7 +84,7 @@ public:
     void set_metrics(Metrics* metrics) override { metrics_ = metrics; }
 
     bool add(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
-        return timed_add(Mode::Full, adds, out, count, timeout_ms);
+        return timed_add(Mode::Upsert, adds, out, count, timeout_ms);
     }
     bool add_new(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
         return timed_add(Mode::NewOnly, adds, out, count, timeout_ms);
@@ -102,10 +107,13 @@ protected:
     virtual void build_in_place(MsgBuilder&, uint32_t, const SetAdd&) {}
 
 private:
-    // Full: exclusive add, then refresh of what existed (add()).
+    // Upsert: one non-exclusive add per element when refresh_kind() allows it
+    //   (see write_once()), otherwise as Full (add()).
+    // Full: exclusive add, then refresh of what existed; also the retry of
+    //   Existing.
     // NewOnly: exclusive add only; existing elements -> Exists (add_new()).
     // Existing: skip the exclusive add, refresh every element (refresh()).
-    enum class Mode : uint8_t { Full, NewOnly, Existing };
+    enum class Mode : uint8_t { Upsert, Full, NewOnly, Existing };
 
     // A retryable failure: the request may simply not have been processed
     // (EAGAIN/EINTR/ENOBUFS), or - for the nft delete+add refresh only - the
@@ -324,6 +332,34 @@ private:
         }
     }
 
+    // An nft batch is one transaction: any error aborts it and rolls back its
+    // other elements even though they were acked, so after a failed first pass
+    // every acknowledged element is resent non-exclusively (as the same kind of
+    // message as the first pass).  ipset requests are independent and never
+    // need this.
+    void resend_acked(const SetAdd* adds, std::size_t n, int first_rc, bool in_place,
+                      std::chrono::steady_clock::time_point deadline) {
+        bool any_error = first_rc != 0;
+        for (std::size_t i = 0; i < n; ++i) any_error = any_error || errs_[i] != 0;
+        resend_.clear();
+        if (batched_ && any_error) {
+            for (std::size_t i = 0; i < n; ++i) {
+                if (errs_[i] == 0 && ack_seen_[i]) resend_.push_back(i);
+            }
+        }
+        if (resend_.empty()) return;
+        for (const std::size_t i : resend_) errs_[i] = kPending;
+        const int rc = run_pass(adds, resend_.data(), resend_.size(), /*exclusive=*/false,
+                                errs_.data(), deadline, in_place);
+        // A transport/batch error means no resend result is publishable.
+        if (rc != 0) {
+            for (const std::size_t i : resend_) errs_[i] = rc;
+        }
+        for (const std::size_t i : resend_) {
+            if (errs_[i] == kPending) errs_[i] = transport_errno_;
+        }
+    }
+
     // Writes one chunk once, without retry.  out[i] is the result and fin[i]
     // the errno behind an Error (0 otherwise).
     void write_once(Mode mode, const SetAdd* adds, SetAddResult* out, int* fin, std::size_t n,
@@ -338,35 +374,25 @@ private:
             refresh_subset(adds, all_.data(), n, errs_.data(), deadline);
             refreshed_.assign(n, 1);
         } else {
-            const int first_rc =
-                run_pass(adds, all_.data(), n, /*exclusive=*/true, errs_.data(), deadline);
+            // Upsert in a single non-exclusive pass: ipset always, nft when the
+            // kernel extends timeouts in place and no element is permanent (the
+            // same whole-chunk rule as refresh_subset()).  The result cannot
+            // tell a created element from a refreshed one, so all are Added.
+            const RefreshKind kind = refresh_kind();
+            const bool upsert =
+                mode == Mode::Upsert &&
+                (kind == RefreshKind::NonExclusiveAdd ||
+                 (kind == RefreshKind::InPlace &&
+                  std::none_of(adds, adds + n,
+                               [](const SetAdd& a) { return a.timeout_s == 0; })));
+            const bool in_place = upsert && kind == RefreshKind::InPlace;
+            const int first_rc = run_pass(adds, all_.data(), n, /*exclusive=*/!upsert,
+                                          errs_.data(), deadline, in_place);
             first_.assign(errs_.begin(), errs_.end());
-            // An nft batch is one transaction: any error aborts it and rolls
-            // back its other elements even though they were acked, so every
-            // acknowledged element is resent (non-exclusively) after a failed
-            // batch.  ipset requests are independent and never need this.
-            bool any_error = first_rc != 0;
-            for (std::size_t i = 0; i < n; ++i) any_error = any_error || errs_[i] != 0;
-            resend_.clear();
-            if (batched_ && any_error) {
-                for (std::size_t i = 0; i < n; ++i) {
-                    if (errs_[i] == 0 && ack_seen_[i]) resend_.push_back(i);
-                }
-            }
-            if (!resend_.empty()) {
-                for (const std::size_t i : resend_) errs_[i] = kPending;
-                const int rc = run_pass(adds, resend_.data(), resend_.size(),
-                                        /*exclusive=*/false, errs_.data(), deadline);
-                // A transport/batch error means no resend result is publishable.
-                if (rc != 0) {
-                    for (const std::size_t i : resend_) errs_[i] = rc;
-                }
-                for (const std::size_t i : resend_) {
-                    if (errs_[i] == kPending) errs_[i] = transport_errno_;
-                }
-            }
-            // Full mode refreshes what already existed; NewOnly reports Exists.
-            if (mode == Mode::Full) {
+            resend_acked(adds, n, first_rc, in_place, deadline);
+            // Without the single pass, Full/Upsert refresh what already
+            // existed; NewOnly reports Exists.
+            if (!upsert && mode != Mode::NewOnly) {
                 refresh_.clear();
                 for (std::size_t i = 0; i < n; ++i) {
                     if (is_exist(first_[i])) refresh_.push_back(i);
@@ -399,9 +425,10 @@ private:
         write_once(mode, adds, out, fin_.data(), n, deadline);
 
         // The single retry: transiently failed elements only, as the same kind
-        // of write.  An exclusive add is safe to repeat (an element that did
-        // land comes back EEXIST and is refreshed), so a refresh() retry also
-        // starts with one; that recreates an element that expired meanwhile.
+        // of write.  Upserts and exclusive adds are safe to repeat (an element
+        // that did land is refreshed or comes back EEXIST), so a refresh() retry
+        // runs as Full: its exclusive add recreates an element that expired
+        // meanwhile (reported Added).
         retry_idx_.clear();
         for (std::size_t i = 0; i < n; ++i) {
             if (out[i] == SetAddResult::Error && is_transient(fin_[i])) retry_idx_.push_back(i);
@@ -413,7 +440,7 @@ private:
             retry_out_.assign(k, SetAddResult::Error);
             retry_fin_.assign(k, 0);
             delete_add_ran_ = false;
-            write_once(mode == Mode::NewOnly ? Mode::NewOnly : Mode::Full, retry_adds_.data(),
+            write_once(mode == Mode::Existing ? Mode::Full : mode, retry_adds_.data(),
                        retry_out_.data(), retry_fin_.data(), k, deadline);
             for (std::size_t j = 0; j < k; ++j) {
                 out[retry_idx_[j]] = retry_out_[j];
@@ -449,13 +476,13 @@ private:
     std::vector<uint8_t> ack_seen_;
 };
 
-// ipset refresh() needs no special message: a non-exclusive IPSET_CMD_ADD
-// (no NLM_F_EXCL) is what userspace calls `ipset add -exist`.  The kernel maps
-// the missing NLM_F_EXCL to IPSET_FLAG_EXIST (ip_set_core.c flag_exist()), and
-// hash mtype_add() then overwrites the extensions of an existing element,
-// including ip_set_timeout_set(), or creates a missing one - all in one
-// request.  IPSET_ATTR_CADT_FLAGS is NOT involved (it carries the type flags
-// such as nomatch/before).  WriterBase::refresh() therefore sends exactly one
+// ipset add() and refresh() need no special message: a non-exclusive
+// IPSET_CMD_ADD (no NLM_F_EXCL) is what userspace calls `ipset add -exist`.
+// The kernel maps the missing NLM_F_EXCL to IPSET_FLAG_EXIST (ip_set_core.c
+// flag_exist()), and hash mtype_add() then overwrites the extensions of an
+// existing element, including ip_set_timeout_set(), or creates a missing one -
+// all in one request.  IPSET_ATTR_CADT_FLAGS is NOT involved (it carries the
+// type flags such as nomatch/before).  WriterBase therefore sends exactly one
 // non-exclusive request per element in one transact and never probes first.
 class IpsetWriter final : public WriterBase {
 public:

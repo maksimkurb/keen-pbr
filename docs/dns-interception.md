@@ -190,8 +190,9 @@ errors.
 
 A timeout (`ETIMEDOUT`) is treated as "unknown", not as an error: the kernel
 may still have applied the batch, so the unconfirmed elements are written again
-in the late flush (an existing element is reported as refreshed) and only a
-real kernel error counts as `set_errors`. Affected events have
+in the late flush (an upsert, see below: an element that already exists is
+rewritten and reported like a new one) and only a real kernel error counts as
+`set_errors`. Affected events have
 `timed_out: true` and `late_write: true`, and the counters `dns_hold_timeouts`,
 `dns_late_writes` and `dns_late_write_errors` are updated. The flush runs on the
 hot thread, so packets read after it wait for it (at most 500 ms, normally far
@@ -224,7 +225,9 @@ addresses). Post-verdict refreshes ride on the same pending batch as late writes
 refresh is dropped and counted in `refresh_dropped`; this is not an error, the
 element is still present and a later answer refreshes it. L7 sniffing uses the
 same cache: a trusted cached element is not written at all and does not trigger
-a conntrack cleanup.
+a conntrack cleanup. A cached element past the trust bound is only refreshed
+(one request, reported as refreshed, no cleanup); an element the cache does not
+know is upserted and reported as added, which triggers the cleanup.
 
 The cache is cleared whenever the sets may have changed: a new interception
 snapshot is installed, every firewall apply (runtime refresh, `SIGUSR1`,
@@ -235,8 +238,9 @@ example with `nft delete element`) is only noticed after the trust bound, a
 re-apply, or when the element's own timeout runs out. `set_cache_hits`,
 `set_cache_misses` and the gauge `set_cache_entries` in `/api/health/service`
 show how well the cache works. An element refreshed after the verdict is not
-counted again in `set_refreshed`; `set_refreshed` counts elements found already
-present when they were first written.
+counted again in `set_refreshed`; `set_refreshed` counts elements that were
+found already present by the pre-verdict exclusive add, refreshed by L7 because
+the cache was stale, or reported as refreshed by the fallback write below.
 
 How an element's timeout is extended depends on the kernel. With nftables,
 Linux 6.12 and newer extend the timeout of an existing element in place when a
@@ -252,6 +256,18 @@ update). On older kernels, which silently keep the old expiration, and for
 permanent elements (timeout 0) the refresh stays a delete plus add of the
 element in one batch.
 
+The late flush and L7 writes of unknown elements (`add()`) are upserts. With
+the in-place probe result the same non-exclusive `NEWSETELEM` is sent for every
+element, new or existing, so the write is one transaction instead of an
+exclusive add followed by a refresh; a success is reported as added because a
+creation cannot be told apart from an update. Without in-place support, or when
+a write (one datagram of up to 128 elements) contains a permanent element,
+`add()` keeps the exclusive add followed by the delete plus add refresh of the
+elements that already existed, reported as added and refreshed respectively.
+Because an existing element is also reported as added, the late flush's
+conntrack cleanup can reset flows to an address that was already routed; the
+pre-verdict write (exclusive add) and L7 refreshes of cached elements do not.
+
 The ipset backend needs no probe and no fallback: a post-verdict refresh is one
 non-exclusive `IPSET_CMD_ADD` per element (no `NLM_F_EXCL`, the equivalent of
 `ipset add -exist`) with `IPSET_ATTR_TIMEOUT`, all sent in a single netlink
@@ -262,6 +278,8 @@ existing element, including its timeout (`ip_set_timeout_set()`), or creates a
 missing one. This works on every supported ipset protocol (6 and up) because the
 dynamic sets are created with timeout support (`timeout 0` default,
 per-element timeouts). As with nft, a refresh is always reported as refreshed.
+`add()` sends the same request for every element, so a success is reported as
+added whether or not the element existed.
 
 `set_write_slow` counts set writes (on-time, late and L7) that took 20 ms or
 more. Each such write is also logged at info, at most once per 10 s, as

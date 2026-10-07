@@ -22,6 +22,10 @@ struct SetAdd {
     uint32_t timeout_s{0};          // 0 = permanent element
 };
 
+// Added: the element was written.  add() reports this for every success on the
+// single-request paths, whether the element was new or already present.
+// Refreshed: an existing element's timeout was extended (refresh(), or add()
+// on its exclusive-add-then-refresh fallback).
 // Exists is only produced by add_new(): the element was already in the set and
 // its timeout was NOT extended.
 enum class SetAddResult : uint8_t { Added, Refreshed, Error, Exists };
@@ -34,7 +38,13 @@ class DynamicSetWriter {
 public:
     virtual ~DynamicSetWriter() = default;
 
-    // Adds all elements; out[i] receives the result for adds[i].
+    // Upserts all elements (creates, or extends the timeout of existing ones);
+    // out[i] receives the result for adds[i].  ipset, and nft with in-place
+    // timeout support, send one non-exclusive request per element and report
+    // every success as Added.  nft without in-place support, or a datagram-sized
+    // chunk containing a permanent element (timeout_s == 0), does an exclusive
+    // add and then a refresh of those that existed, reported as Added and
+    // Refreshed respectively.
     // Must complete within timeout_ms or marks the remaining ones Error.
     // Returns false if any element is Error.
     virtual bool add(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) = 0;
@@ -42,7 +52,7 @@ public:
     // Cheap "is it new?" write for the pre-verdict path: a single exclusive add.
     // Elements that already exist are reported as Exists and are left untouched
     // (no resend, no timeout refresh); everything else behaves as in add().
-    // The default falls back to the full add().
+    // The default falls back to add().
     virtual bool add_new(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) {
         return add(adds, out, count, timeout_ms);
     }
@@ -109,9 +119,10 @@ std::unique_ptr<SetWriterTransport> make_netlink_transport(int rcvbuf_bytes = 1 
 
 // Throw NlSocketError on socket failure.
 std::unique_ptr<DynamicSetWriter> make_ipset_writer();
-// family inet.  `in_place_refresh` is the startup nft_timeout_update probe result: refresh()
-// then extends timeouts in place (one non-exclusive NEWSETELEM transaction); otherwise it
-// uses delete+add.  Fixed for the writer's lifetime.
+// family inet.  `in_place_refresh` is the startup nft_timeout_update probe result: add() and
+// refresh() then extend timeouts in place (one non-exclusive NEWSETELEM transaction);
+// otherwise add() uses an exclusive add and refresh() uses delete+add.  Fixed for the
+// writer's lifetime.
 std::unique_ptr<DynamicSetWriter> make_nft_writer(std::string table = "KeenPbrTable",
                                                   bool in_place_refresh = false);
 

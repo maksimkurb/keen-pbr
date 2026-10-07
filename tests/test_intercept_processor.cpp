@@ -59,15 +59,16 @@ public:
         }
         return do_add(adds, out, count, timeout_ms);
     }
-    bool refresh(const SetAdd* adds, SetAddResult* out, std::size_t count, int) override {
+    bool refresh(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
         kinds.push_back("refresh");
         ++refresh_calls;
+        refresh_timeouts_ms.push_back(timeout_ms);
         for (std::size_t i = 0; i < count; ++i) {
             refreshed.push_back({std::string(adds[i].set_name), adds[i].family, adds[i].addr,
                                  adds[i].timeout_s});
             out[i] = refresh_result;
         }
-        errno_ = 0;
+        errno_ = refresh_errno;
         return refresh_result != SetAddResult::Error;
     }
 
@@ -103,6 +104,8 @@ public:
     std::vector<std::string> kinds;  // "add" / "add_new" / "refresh" in call order
     bool exists_on_new{false};
     SetAddResult refresh_result{SetAddResult::Refreshed};
+    int refresh_errno{0};  // last_errno() after a refresh()
+    std::vector<int> refresh_timeouts_ms;
     int refresh_calls{0};
     int error_errno{EPERM};
     SetAddResult result{SetAddResult::Added};
@@ -615,6 +618,7 @@ TEST_CASE("intercept: expired DNS deadline accepts first, writes late with its o
 
 TEST_CASE("intercept: late write refreshing an existing element does not purge flows") {
     Fixture f;
+    // The writer reports Refreshed on its exclusive-add-then-refresh fallback.
     f.writer.result = SetAddResult::Refreshed;
     const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));
     f.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(1), true);
@@ -1234,7 +1238,7 @@ TEST_CASE("intercept cache: late write feeds the cache") {
     const auto d = f.proc.on_dns_packet(view(pkt), Clock::now() - std::chrono::milliseconds(1), true);
     REQUIRE(d.late_write);
     f.proc.flush_late_writes();
-    CHECK(f.writer.kinds == std::vector<std::string>{"add"});  // late path keeps the full add()
+    CHECK(f.writer.kinds == std::vector<std::string>{"add"});  // late path keeps add() (upsert)
     CHECK(f.counters.set_cache_entries == 1);
     f.dns(pkt);
     CHECK(f.writer.calls == 1);
@@ -1266,6 +1270,176 @@ TEST_CASE("intercept cache: L7 skips the write and the conntrack cleanup for a c
     f.proc.invalidate_set_cache();
     f.proc.on_l7_packet(view(pkt), Clock::now());
     CHECK(queued.size() == 1);
+}
+
+namespace {
+
+// Queues L7 work instead of running it, so a test can drive the worker side.
+struct L7Queue {
+    std::vector<InterceptL7Work> queued;
+    explicit L7Queue(InterceptProcessor& proc) {
+        proc.set_l7_submitter([this](InterceptL7Work work) { queued.push_back(std::move(work)); });
+    }
+};
+
+// video.example.com is in "ex" and "vid": it matches kpbr4d_ex and kpbr4d_vid.
+Bytes l7_video_packet() { return tcp_packet(tls_stream("video.example.com"), 1, 443); }
+
+// Learns kServer through DNS with a long TTL so the cache holds it (for long
+// enough that it turns Stale before it expires).  example.com is only in
+// "ex"; video.example.com is in "ex" and "vid".
+void learn_server(CacheFixture& f, const std::string& qname) {
+    f.dns(dns_packet(dns_response(qname, 0, {a_rr(203, 0, 113, 7, 86400)})));
+    f.writer.recorded.clear();
+    f.writer.kinds.clear();
+    f.writer.timeouts_ms.clear();
+    f.cleanup.requests.clear();
+}
+
+} // namespace
+
+TEST_CASE("intercept cache: L7 refreshes a Stale element with refresh(), no purge") {
+    CacheFixture f;
+    L7Queue l7(f.proc);
+    learn_server(f, "video.example.com");
+    f.advance_ms(SetElementCache::kMaxTrustMs + 1000);  // cached but no longer trusted
+
+    const Bytes pkt = l7_video_packet();
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    REQUIRE(l7.queued.size() == 1);
+    f.proc.process_l7_work(std::move(l7.queued[0]), f.writer);
+    l7.queued.clear();
+
+    CHECK(f.writer.kinds == std::vector<std::string>{"refresh"});
+    CHECK(f.writer.recorded.empty());
+    REQUIRE(f.writer.refreshed.size() == 2);
+    CHECK(f.cleanup.requests.empty());  // refreshed, not added: flows stay
+    CHECK(f.counters.set_refreshed == 2);
+    CHECK(f.counters.set_errors == 0);
+    const auto events = f.events();
+    REQUIRE_FALSE(events.empty());
+    CHECK(events.back().source == InterceptSource::sni);
+    CHECK(events.back().added == 0);
+    CHECK(events.back().refreshed == 2);
+
+    // The refresh renewed the cache entries: the next packet needs no write.
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    CHECK(l7.queued.empty());
+}
+
+TEST_CASE("intercept cache: L7 upserts an unknown element and refreshes a Stale one") {
+    CacheFixture f;
+    L7Queue l7(f.proc);
+    learn_server(f, "example.com");  // kpbr4d_ex only
+    f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+
+    const Bytes pkt = l7_video_packet();
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    REQUIRE(l7.queued.size() == 1);
+    f.proc.process_l7_work(std::move(l7.queued[0]), f.writer);
+
+    // kpbr4d_vid is unknown -> add() (first, it gates routing); kpbr4d_ex is Stale -> refresh().
+    CHECK(f.writer.kinds == (std::vector<std::string>{"add", "refresh"}));
+    REQUIRE(f.writer.recorded.size() == 1);
+    CHECK(f.writer.recorded[0].set == "kpbr4d_vid");
+    REQUIRE(f.writer.refreshed.size() == 1);
+    CHECK(f.writer.refreshed[0].set == "kpbr4d_ex");
+    // One budget for both calls.
+    REQUIRE(f.writer.timeouts_ms.size() == 1);
+    CHECK(f.writer.timeouts_ms[0] == 100);
+    REQUIRE(f.writer.refresh_timeouts_ms.size() == 1);
+    CHECK(f.writer.refresh_timeouts_ms[0] > 0);
+    CHECK(f.writer.refresh_timeouts_ms[0] <= 100);
+    // Only the newly added element purges flows.
+    REQUIRE(f.cleanup.requests.size() == 1);
+    CHECK(f.counters.set_added == 2);      // one from the DNS learn, one from L7
+    CHECK(f.counters.set_refreshed == 1);
+    CHECK(f.counters.set_errors == 0);
+    const auto events = f.events();
+    REQUIRE_FALSE(events.empty());
+    CHECK(events.back().added == 1);
+    CHECK(events.back().refreshed == 1);
+    CHECK(events.back().errors == 0);
+    CHECK(f.counters.set_cache_entries == 2);  // both recorded
+}
+
+TEST_CASE("intercept cache: L7 refresh that recreated a vanished element is Added and purges flows") {
+    CacheFixture f;
+    L7Queue l7(f.proc);
+    learn_server(f, "video.example.com");
+    f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+    f.writer.refresh_result = SetAddResult::Added;
+
+    const Bytes pkt = l7_video_packet();
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    REQUIRE(l7.queued.size() == 1);
+    f.proc.process_l7_work(std::move(l7.queued[0]), f.writer);
+
+    CHECK(f.writer.kinds == std::vector<std::string>{"refresh"});
+    CHECK(f.cleanup.requests.size() == 1);
+    CHECK(f.events().back().added == 2);
+}
+
+TEST_CASE("intercept cache: L7 Stale elements stay Error when the add spent the whole budget") {
+    CacheFixture f;
+    L7Queue l7(f.proc);
+    learn_server(f, "example.com");
+    f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+    // add() outlasts the 100 ms L7 budget.  sleep_for() never returns early, so
+    // however loaded the machine is, no time is left for refresh().
+    f.writer.delay_ms = 120;
+
+    const Bytes pkt = l7_video_packet();
+    f.proc.on_l7_packet(view(pkt), Clock::now());
+    REQUIRE(l7.queued.size() == 1);
+    f.proc.process_l7_work(std::move(l7.queued[0]), f.writer);
+
+    CHECK(f.writer.kinds == std::vector<std::string>{"add"});
+    CHECK(f.writer.refresh_calls == 0);
+    CHECK(f.counters.set_errors == 1);
+    const auto events = f.events();
+    REQUIRE_FALSE(events.empty());
+    CHECK(events.back().added == 1);
+    CHECK(events.back().refreshed == 0);
+    CHECK(events.back().errors == 1);
+}
+
+TEST_CASE("intercept cache: L7 ENOENT from either call clears the cache") {
+    SUBCASE("add() hits ENOENT, refresh() succeeds") {
+        CacheFixture f;
+        L7Queue l7(f.proc);
+        learn_server(f, "example.com");
+        f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+        f.writer.real_error = true;
+        f.writer.error_errno = ENOENT;
+
+        const Bytes pkt = l7_video_packet();
+        f.proc.on_l7_packet(view(pkt), Clock::now());
+        REQUIRE(l7.queued.size() == 1);
+        f.proc.process_l7_work(std::move(l7.queued[0]), f.writer);
+
+        CHECK(f.writer.kinds == (std::vector<std::string>{"add", "refresh"}));
+        CHECK(f.counters.set_errors == 1);
+        CHECK(f.counters.set_refreshed == 1);
+        CHECK(f.counters.set_cache_entries == 0);  // refresh() reset errno, ENOENT was kept
+    }
+    SUBCASE("add() succeeds, refresh() hits ENOENT") {
+        CacheFixture f;
+        L7Queue l7(f.proc);
+        learn_server(f, "example.com");
+        f.advance_ms(SetElementCache::kMaxTrustMs + 1000);
+        f.writer.refresh_result = SetAddResult::Error;
+        f.writer.refresh_errno = ENOENT;
+
+        const Bytes pkt = l7_video_packet();
+        f.proc.on_l7_packet(view(pkt), Clock::now());
+        REQUIRE(l7.queued.size() == 1);
+        f.proc.process_l7_work(std::move(l7.queued[0]), f.writer);
+
+        CHECK(f.counters.set_errors == 1);
+        CHECK(f.counters.set_added == 2);  // DNS learn + L7 upsert
+        CHECK(f.counters.set_cache_entries == 0);
+    }
 }
 
 TEST_CASE("intercept cache: L7 record from before an invalidation is discarded") {
