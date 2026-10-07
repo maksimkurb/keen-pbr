@@ -1786,6 +1786,65 @@ TEST_CASE("lowering iptables: skip_lan_output only in OUTPUT, one oif rule per i
         "kpbr:v1:prefilter.skip_lan_output:mcast -j RETURN\n");
 }
 
+// Keenetic ships xt_addrtype unloaded (and some firmwares without it): the
+// startup probe then says so and the skips become plain `-d` matches that
+// iptables 1.4.21 understands without any module.
+TEST_CASE("lowering iptables: skip_lan_output without xt_addrtype uses -d address matches") {
+  auto context = ipt_context();
+  context.comments_ipv4_supported = false;
+  context.comments_ipv6_supported = false;
+  context.addrtype_ipv4_supported = false;
+  context.addrtype_ipv6_supported = false;
+  const auto set = lower_firewall_plan(skip_lan_plan({"br0", "br1"}), context);
+
+  const auto dst = [](std::string cidr) {
+    return AddrMatch{PhysicalDir::dst, false, {std::move(cidr)}};
+  };
+  const auto &v4 = out_chain(set, Fam::ipv4).rules;
+  REQUIRE(v4.size() == 5);
+  CHECK(has_match(v4[3], dst("255.255.255.255/32")));
+  CHECK(has_match(v4[4], dst("224.0.0.0/4")));
+  const auto &v6 = out_chain(set, Fam::ipv6).rules;
+  REQUIRE(v6.size() == 4);
+  CHECK(has_match(v6[3], dst("ff00::/8")));
+
+  for (const Fam family : {Fam::ipv4, Fam::ipv6}) {
+    std::string text = "*mangle\n";
+    const auto &rules = out_chain(set, family).rules;
+    for (const auto &rule : rules) {
+      const auto line = render_iptables_rule(rule, "KeenPbrOutput");
+      CHECK(line.find("addrtype") == std::string::npos);
+      text += line;
+    }
+    CHECK(render_iptables_rule(out_chain(set, family).rules[3],
+                               "KeenPbrOutput") ==
+          (family == Fam::ipv4
+               ? "-A KeenPbrOutput -d 255.255.255.255/32 -j RETURN\n"
+               : "-A KeenPbrOutput -d ff00::/8 -j RETURN\n"));
+    // The rendered text parses back to the same typed rules, so drift
+    // detection compares equal.
+    const auto parsed = parse_iptables_save(text, family);
+    const PhysicalChain *chain = nullptr;
+    for (const auto &candidate : parsed.chains) {
+      if (candidate.id.name == "KeenPbrOutput") chain = &candidate;
+    }
+    REQUIRE(chain != nullptr);
+    REQUIRE(chain->rules.size() == rules.size());
+    for (std::size_t i = 0; i < rules.size(); ++i) {
+      CHECK(chain->rules[i] == rules[i]);
+    }
+  }
+
+  SUBCASE("with xt_addrtype the typed addrtype match is kept") {
+    context.addrtype_ipv4_supported = true;
+    const auto modern = lower_firewall_plan(skip_lan_plan({"br0"}), context);
+    CHECK(has_match(out_chain(modern, Fam::ipv4).rules[2],
+                    AddrTypeMatch{addr_broadcast}));
+    // IPv6 stays on the fallback: the capability is per family.
+    CHECK(has_match(out_chain(modern, Fam::ipv6).rules[2], dst("ff00::/8")));
+  }
+}
+
 TEST_CASE("lowering iptables: skip_lan_output also applies in raw PREROUTING mode") {
   auto context = ipt_context();
   context.raw_prerouting = RawPreroutingMode{true, true};

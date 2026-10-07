@@ -1239,6 +1239,8 @@ IptablesFirewall::lowering_context(uint32_t fwmark_mask) const {
   context.comments_ipv6_supported = comment_v6_supported_;
   context.nflog_size_ipv4_supported = nflog_size_v4_supported_;
   context.nflog_size_ipv6_supported = nflog_size_v6_supported_;
+  context.addrtype_ipv4_supported = addrtype_supported_;
+  context.addrtype_ipv6_supported = addrtype_supported_;
   context.fwmark_mask = fwmark_mask;
   context.physical_set_name = [this](const std::string &name) {
     return physical_set_name(name);

@@ -238,6 +238,8 @@ export const ruTranslation = {
     },
     issues: {
       capabilityUnsupported: "Не поддерживается ядром",
+      capabilityFallback:
+        "Недоступно в ядре; вместо этого используются обычные правила по адресам",
       kernelCheckFailed: "Проверка ядра не пройдена: {{reason}}",
       interceptLimited: "Перехват трафика ограничен",
       interceptWarning: "Предупреждение перехвата трафика",
@@ -508,6 +510,7 @@ export const ruTranslation = {
         nfqueue: "NFQUEUE",
         nflog: "NFLOG",
         connbytes: "connbytes",
+        addrtype: "addrtype",
       },
       probes: {
         title: "Проверки ядра",

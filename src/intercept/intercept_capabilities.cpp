@@ -41,6 +41,7 @@ constexpr Requirement kNfqueue{"NFQUEUE target", "xt_NFQUEUE", true, "NFQUEUE"};
 constexpr Requirement kConntrack{"conntrack match", "xt_conntrack", false, "conntrack"};
 constexpr Requirement kNflog{"NFLOG target", "xt_NFLOG", true, "NFLOG"};
 constexpr Requirement kConnbytes{"connbytes match", "xt_connbytes", false, "connbytes"};
+constexpr Requirement kAddrtype{"addrtype match", "xt_addrtype", false, "addrtype"};
 
 class Prober {
 public:
@@ -390,6 +391,14 @@ InterceptCapabilities probe_intercept_capabilities(FirewallBackend backend,
     caps.nfqueue = queue_target && conntrack;
     caps.nflog = need(kNflog);
     caps.connbytes = need(kConnbytes);
+    // Same modprobe + /proc check as the others, but only advisory: not listed
+    // in `missing`/reason, the skip rules have a fallback.
+    caps.addrtype = prober.available(kAddrtype);
+    if (!caps.addrtype) {
+        Logger::instance().warn(
+            "xt_addrtype unavailable: router-output broadcast/multicast skips use "
+            "plain destination address matches");
+    }
 
     for (const auto& item : missing) {
         if (!caps.reason.empty()) caps.reason += ", ";

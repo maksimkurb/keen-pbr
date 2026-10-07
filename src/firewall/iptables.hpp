@@ -71,6 +71,12 @@ public:
   // Whether the restore binary accepts `-j NFLOG --nflog-size` (>= 1.6.0).
   static bool probe_nflog_size_support(bool ipv6);
 
+  // The startup interception probe's xt_addrtype verdict (modprobe + /proc,
+  // run once at service start).  Both families share the module.
+  void set_addrtype_support(bool supported) override {
+    addrtype_supported_ = supported;
+  }
+
   void override_capabilities_for_fixtures(
       std::optional<bool> comments_supported,
       std::optional<RawPreroutingMode> raw_prerouting,
@@ -244,6 +250,8 @@ private:
   bool comment_v6_supported_{true};
   bool nflog_size_v4_supported_{true};
   bool nflog_size_v6_supported_{true};
+  // `-m addrtype` (xt_addrtype); set once from the startup probe.
+  bool addrtype_supported_{true};
   RawPreroutingMode raw_prerouting_{};
 
 #ifdef KEEN_PBR3_TESTING

@@ -65,14 +65,16 @@ export function collectOverviewIssues({
       const failed = entry.status === "error" || entry.status === "unsupported"
       issues.push({
         key: entry.key,
-        tone: failed ? "bad" : "warn",
+        tone: failed && !entry.advisory ? "bad" : "warn",
         title:
           entry.kind === "capability"
             ? t(`overview.intercept.capabilities.${entry.feature}`)
             : humanizeFeature(entry.feature),
         detail:
           entry.kind === "capability"
-            ? t("overview.issues.capabilityUnsupported")
+            ? entry.advisory
+              ? t("overview.issues.capabilityFallback")
+              : t("overview.issues.capabilityUnsupported")
             : t("overview.issues.kernelCheckFailed", {
                 reason:
                   entry.reason ??

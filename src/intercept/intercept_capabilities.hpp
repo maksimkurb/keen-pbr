@@ -60,6 +60,10 @@ struct InterceptCapabilities {
     bool nfqueue{false};
     bool nflog{false};
     bool connbytes{false};
+    // iptables `-m addrtype`.  Not required by interception: the router-output
+    // broadcast/multicast skips fall back to `-d` address matches without it.
+    // nftables (`fib daddr type`) always has it.
+    bool addrtype{true};
     // Human readable list of what is missing (empty when everything is there).
     std::string reason;
     // Functional probe results; see InterceptRuntimeProbe.

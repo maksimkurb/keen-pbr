@@ -67,6 +67,7 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
     health.capabilities.nfqueue = effective.capabilities.nfqueue;
     health.capabilities.nflog = effective.capabilities.nflog;
     health.capabilities.connbytes = effective.capabilities.connbytes;
+    health.capabilities.addrtype = effective.capabilities.addrtype;
     const auto& probe = effective.capabilities.probe;
     health.capabilities.fail_open = probe.fail_open.status == nfnl::ProbeStatus::not_run
                                         ? std::nullopt
@@ -98,7 +99,13 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
         probes.push_back(std::move(out));
     }
     health.probes = std::move(probes);
-    if (!effective.warnings.empty()) health.warnings = effective.warnings;
+    auto warnings = effective.warnings;
+    if (!effective.capabilities.addrtype) {
+        warnings.push_back(
+            "xt_addrtype is unavailable: router-output broadcast/multicast skips "
+            "use plain destination address matches (-d) instead of -m addrtype");
+    }
+    if (!warnings.empty()) health.warnings = std::move(warnings);
     health.reasons = effective.reasons;
     if (!effective.config_enabled) {
         health.reasons.insert(health.reasons.begin(), "interception is disabled by config");

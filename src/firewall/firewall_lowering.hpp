@@ -63,6 +63,12 @@ struct FirewallLoweringContext {
   // range bounds the payload instead.  nft always supports snaplen.
   bool nflog_size_ipv4_supported{true};
   bool nflog_size_ipv6_supported{true};
+  // iptables: whether `-m addrtype` (xt_addrtype) exists in the kernel.  Without
+  // it the router-output BROADCAST/MULTICAST skips become plain destination
+  // address matches (255.255.255.255/32, 224.0.0.0/4, ff00::/8).  nft uses
+  // `fib daddr type` and always has it.
+  bool addrtype_ipv4_supported{true};
+  bool addrtype_ipv6_supported{true};
   uint32_t fwmark_mask{0xFFFFFFFFu};
   // nft: marks that always get a setter chain (marks allocated to this daemon
   // instance), in addition to the marks used by the plan.

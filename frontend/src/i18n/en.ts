@@ -234,6 +234,8 @@ export const enTranslation = {
     },
     issues: {
       capabilityUnsupported: "Not supported by the kernel",
+      capabilityFallback:
+        "Not available in the kernel; plain address rules are used instead",
       kernelCheckFailed: "Kernel check failed: {{reason}}",
       interceptLimited: "Traffic interception is limited",
       interceptWarning: "Traffic interception warning",
@@ -501,6 +503,7 @@ export const enTranslation = {
         nfqueue: "NFQUEUE",
         nflog: "NFLOG",
         connbytes: "connbytes",
+        addrtype: "addrtype",
       },
       probes: {
         title: "Kernel probes",

@@ -9,6 +9,8 @@ export type KernelDiagnosticEntry = {
   status: string
   relevant: boolean
   reason?: string
+  /** A missing capability that has a fallback: a warning, never an error. */
+  advisory?: boolean
 }
 
 export type KernelBadgeState = "healthy" | "neutral" | "degraded"
@@ -30,7 +32,12 @@ export function getVisibleInterceptDiagnosticEntries<
 
 /** Maps capabilities and probes into the entry shape of the kernel group. */
 export function mapKernelDiagnosticEntries(
-  capabilities: { nfqueue: boolean; nflog: boolean; connbytes: boolean },
+  capabilities: {
+    nfqueue: boolean
+    nflog: boolean
+    connbytes: boolean
+    addrtype?: boolean
+  },
   probes: ReadonlyArray<{
     feature: string
     status: InterceptProbeFeatureStatus
@@ -50,6 +57,18 @@ export function mapKernelDiagnosticEntries(
     status: supported ? "ok" : "unsupported",
     relevant: relevant as boolean,
   }))
+  // addrtype serves the router-output skip rules (always built), and has a
+  // `-d` address-match fallback, so it only ever warns.
+  if (capabilities.addrtype !== undefined) {
+    capabilityEntries.push({
+      key: "capability:addrtype",
+      kind: "capability",
+      feature: "addrtype",
+      status: capabilities.addrtype ? "ok" : "unsupported",
+      relevant: true,
+      advisory: true,
+    })
+  }
   const probeEntries: KernelDiagnosticEntry[] = probes.map((probe) => ({
     key: `probe:${probe.feature}`,
     kind: "probe",
@@ -72,12 +91,18 @@ export function mapKernelDiagnosticEntries(
  * have not run, green when everything is ok or skipped.
  */
 export function getKernelBadgeState(
-  entries: ReadonlyArray<{ relevant: boolean; status: string }>
+  entries: ReadonlyArray<{
+    relevant: boolean
+    status: string
+    advisory?: boolean
+  }>
 ): KernelBadgeState {
   const relevant = entries.filter((entry) => entry.relevant)
   if (
     relevant.some(
-      (entry) => entry.status === "error" || entry.status === "unsupported"
+      (entry) =>
+        !entry.advisory &&
+        (entry.status === "error" || entry.status === "unsupported")
     )
   ) {
     return "degraded"

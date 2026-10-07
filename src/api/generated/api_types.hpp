@@ -508,6 +508,7 @@ namespace api {
     enum class PayloadReplacement : int { SUPPORTED, UNKNOWN, UNSUPPORTED };
 
     struct Capabilities {
+        bool addrtype;
         bool connbytes;
         std::optional<bool> conntrack_cleanup;
         std::optional<bool> fail_open;
@@ -2093,6 +2094,7 @@ namespace api {
     }
 
     inline void from_json(const json & j, Capabilities& x) {
+        x.addrtype = j.at("addrtype").get<bool>();
         x.connbytes = j.at("connbytes").get<bool>();
         x.conntrack_cleanup = get_stack_optional<bool>(j, "conntrack_cleanup");
         x.fail_open = get_stack_optional<bool>(j, "fail_open");
@@ -2103,6 +2105,7 @@ namespace api {
 
     inline void to_json(json & j, const Capabilities & x) {
         j = json::object();
+        j["addrtype"] = x.addrtype;
         j["connbytes"] = x.connbytes;
         j["conntrack_cleanup"] = x.conntrack_cleanup;
         j["fail_open"] = x.fail_open;

@@ -11,6 +11,9 @@ export interface InterceptCapabilitiesHealth {
   nfqueue: boolean;
   nflog: boolean;
   connbytes: boolean;
+  /** iptables `-m addrtype` (xt_addrtype) is available after the startup modprobe. Advisory: when false the router-output broadcast and multicast skips use plain destination address matches (255.255.255.255/32, 224.0.0.0/4, ff00::/8) instead. Always true for nftables.
+   */
+  addrtype: boolean;
   /** The kernel accepted NFQA_CFG_F_FAIL_OPEN on the DNS queue. Absent until a queue has been bound. When false the queue still works but packets are not released by the kernel if the daemon stalls.
    */
   fail_open?: boolean;

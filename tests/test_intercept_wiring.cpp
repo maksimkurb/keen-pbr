@@ -65,7 +65,7 @@ struct FakeProc {
             write(*targets, {"ERROR", "NFQUEUE", "NFLOG", "MARK"});
         }
         for (const auto* matches : {&env.ip_matches, &env.ip6_matches}) {
-            write(*matches, {"conntrack", "connbytes", "mark"});
+            write(*matches, {"conntrack", "connbytes", "mark", "addrtype"});
         }
     }
 };
@@ -138,8 +138,8 @@ TEST_CASE("intercept probe: missing modules are modprobed once and re-read") {
 TEST_CASE("intercept probe: modules that stay missing are reported") {
     FakeProc proc;
     proc.fill_all();
-    FakeProc::write(proc.env.ip_matches, {"conntrack"});
-    FakeProc::write(proc.env.ip6_matches, {"conntrack"});
+    FakeProc::write(proc.env.ip_matches, {"conntrack", "addrtype"});
+    FakeProc::write(proc.env.ip6_matches, {"conntrack", "addrtype"});
     const auto caps = probe_intercept_capabilities(FirewallBackend::iptables, true, proc.env);
     CHECK(caps.nfqueue);
     CHECK(caps.nflog);

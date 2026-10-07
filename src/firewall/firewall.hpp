@@ -200,6 +200,10 @@ public:
   // capabilities and discard buffers before rules and set contents are queued.
   virtual void prepare_apply(FirewallApplyMode mode) { (void)mode; }
 
+  // iptables: whether the kernel has `-m addrtype`, as measured once by the
+  // startup probe.  Backends without the concept ignore it.
+  virtual void set_addrtype_support(bool supported) { (void)supported; }
+
   // Physical set names are stable and equal to the logical names:
   // kpbr4_<list> / kpbr6_<list> (static), kpbr4d_<list> / kpbr6d_<list>
   // (dynamic).  Both backends use them verbatim.

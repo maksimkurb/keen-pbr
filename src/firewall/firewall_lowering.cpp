@@ -481,6 +481,8 @@ struct IptablesChain {
   bool comments{true};
   // Whether `-j NFLOG --nflog-size` can be emitted.
   bool nflog_size{true};
+  // Whether `-m addrtype` can be emitted.
+  bool addrtype{true};
   // The interception chains hold only interception rules; the classification
   // chains never receive them.
   bool intercept{false};
@@ -615,11 +617,32 @@ void lower_iptables_prefilter(const FirewallRuleInstance &rule,
     case SkipLanOutputAction::Kind::broadcast:
       // IPv6 has no broadcast.
       if (family != FirewallFamily::ipv6) {
-        skip_return({AddrTypeMatch{addr_broadcast}});
+        if (target.addrtype) {
+          skip_return({AddrTypeMatch{addr_broadcast}});
+        } else {
+          // No xt_addrtype: only the limited broadcast 255.255.255.255 can be
+          // matched.  `--dst-type BROADCAST` also matches subnet-directed
+          // broadcasts (e.g. 192.168.1.255), which this fallback does NOT
+          // cover.  That is acceptable because the lan_oif skip above already
+          // keeps everything routed out of a LAN interface on the main table,
+          // and a LAN subnet broadcast always leaves through its LAN
+          // interface.  It only holds for interfaces listed in
+          // route.inbound_interfaces: with that option unset, a
+          // subnet-directed broadcast of a non-listed interface can still be
+          // policy-routed (rare; the default mark/route rules rarely match
+          // such a destination).
+          skip_return({AddrMatch{PhysicalDir::dst, false, {"255.255.255.255/32"}}});
+        }
       }
       break;
     case SkipLanOutputAction::Kind::multicast:
-      skip_return({AddrTypeMatch{addr_multicast}});
+      if (target.addrtype) {
+        skip_return({AddrTypeMatch{addr_multicast}});
+      } else {
+        skip_return({AddrMatch{PhysicalDir::dst, false,
+                               {family == FirewallFamily::ipv6 ? "ff00::/8"
+                                                               : "224.0.0.0/4"}}});
+      }
       break;
     }
   } else if (std::holds_alternative<SkipMarkedPacketsAction>(rule.action)) {
@@ -912,6 +935,8 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
                                : context.comments_ipv4_supported;
     const bool nflog_size = ipv6 ? context.nflog_size_ipv6_supported
                                  : context.nflog_size_ipv4_supported;
+    const bool addrtype = ipv6 ? context.addrtype_ipv6_supported
+                               : context.addrtype_ipv4_supported;
     const bool raw = context.raw_prerouting.uses(ipv6);
     IptablesChain prerouting;
     prerouting.chain.id = iptables_physical_chain_id(
@@ -932,6 +957,7 @@ PhysicalRuleset lower_iptables(const FirewallPlan &plan,
     output.hook = FirewallHook::output;
     output.conntrack = true;
     output.comments = comments;
+    output.addrtype = addrtype;
     chains.push_back(std::move(output));
     // Interception chains exist only when the plan asks for them; they are
     // always in mangle (conntrack/connbytes need conntrack to have run).

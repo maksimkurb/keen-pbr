@@ -1589,7 +1589,7 @@ components:
 
     InterceptCapabilitiesHealth:
       type: object
-      required: [nfqueue, nflog, connbytes]
+      required: [nfqueue, nflog, connbytes, addrtype]
       properties:
         nfqueue:
           type: boolean
@@ -1597,6 +1597,14 @@ components:
           type: boolean
         connbytes:
           type: boolean
+        addrtype:
+          type: boolean
+          description: >
+            iptables `-m addrtype` (xt_addrtype) is available after the startup
+            modprobe. Advisory: when false the router-output broadcast and
+            multicast skips use plain destination address matches
+            (255.255.255.255/32, 224.0.0.0/4, ff00::/8) instead.
+            Always true for nftables.
         fail_open:
           type: boolean
           description: >

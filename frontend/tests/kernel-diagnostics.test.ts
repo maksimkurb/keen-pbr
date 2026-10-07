@@ -60,6 +60,32 @@ describe("kernel diagnostics group", () => {
     expect(badge(["not_run", "error"])).toBe("degraded")
   })
 
+  test("addrtype is an advisory capability that never degrades the badge", () => {
+    const entries = mapKernelDiagnosticEntries(
+      { ...caps, addrtype: false },
+      [],
+      false,
+      false
+    )
+    const addrtype = entries.find((e) => e.key === "capability:addrtype")
+    expect(addrtype).toMatchObject({
+      status: "unsupported",
+      relevant: true,
+      advisory: true,
+    })
+    expect(getKernelBadgeState(entries)).toBe("neutral")
+    expect(
+      getKernelBadgeState([
+        ...entries,
+        { status: "unsupported", relevant: true },
+      ])
+    ).toBe("degraded")
+    expect(
+      mapKernelDiagnosticEntries({ ...caps, addrtype: true }, [], false, false)
+        .find((e) => e.key === "capability:addrtype")?.status
+    ).toBe("ok")
+  })
+
   test("badge ignores irrelevant entries", () => {
     const entries = mapKernelDiagnosticEntries(
       { ...caps, nflog: false },

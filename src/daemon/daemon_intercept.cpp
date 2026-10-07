@@ -76,6 +76,10 @@ void Daemon::probe_capabilities_at_start() {
   auto startup_probe = probe_intercept_startup(backend, ipv6_supported);
   log_intercept_probe(startup_probe.with_ipv6);
   const bool queue_available = startup_probe.with_ipv6.nfqueue;
+  // The iptables rules lower against the probe's xt_addrtype verdict (cached,
+  // never re-probed at apply).
+  firewall_->set_addrtype_support(
+      startup_probe.for_ipv6(ipv6_supported).addrtype);
   intercept_startup_probe_ = std::move(startup_probe);
 
   // Kernel facts that need a netlink conversation: ctnetlink dump pre-filter
@@ -110,6 +114,10 @@ InterceptEffective Daemon::resolve_intercept_effective() {
             probe.replacement = bound.replacement;
         }
         if (bound.nflog.status != nfnl::ProbeStatus::not_run) probe.nflog = bound.nflog;
+    }
+    // The addrtype verdict is a firewall fact, valid even with interception off.
+    if (intercept_startup_probe_.has_value()) {
+        capabilities.addrtype = intercept_startup_probe_->for_ipv6(ipv6_enabled).addrtype;
     }
     auto effective = resolve_effective_intercept(config_, backend, capabilities);
     for (const auto& reason : effective.reasons) {

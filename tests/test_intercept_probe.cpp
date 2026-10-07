@@ -9,6 +9,11 @@
 #include <algorithm>
 #include <map>
 #include <cerrno>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <unistd.h>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
@@ -116,6 +121,106 @@ TEST_CASE("intercept probe: iptables backend asks the ipset protocol") {
     // /proc and probes are independent: tables are missing, the probes still ran.
     CHECK_FALSE(caps.nfqueue);
     CHECK(caps.probe.conntrack.status == ProbeStatus::ok);
+}
+
+namespace {
+
+// A fake /proc/net/ip{,6}_tables_matches pair in a scratch directory.
+struct FakeMatches {
+    std::filesystem::path dir;
+    FakeMatches() {
+        dir = std::filesystem::temp_directory_path() /
+              ("kpbr-matches-" + std::to_string(::getpid()) + "-" +
+               std::to_string(reinterpret_cast<std::uintptr_t>(this)));
+        std::filesystem::create_directories(dir);
+        write("conntrack\nmultiport\n");
+    }
+    ~FakeMatches() { std::filesystem::remove_all(dir); }
+    void write(const std::string& text) const {
+        for (const char* name : {"v4", "v6"}) {
+            std::ofstream(dir / name) << text;
+        }
+    }
+    std::string text() const {
+        std::ifstream in(dir / "v4");
+        return {std::istreambuf_iterator<char>(in), {}};
+    }
+    void apply(InterceptProbeEnv& env) const {
+        env.ip_matches = (dir / "v4").string();
+        env.ip6_matches = (dir / "v6").string();
+    }
+};
+
+} // namespace
+
+// xt_addrtype is loadable (Keenetic ships it unloaded): the startup probe
+// runs the same modprobe-then-/proc check as connbytes.
+TEST_CASE("intercept probe: addrtype appears after the startup modprobe") {
+    FakeMatches matches;
+    Script script;
+    script.answer = healthy_kernel;
+    auto env = script.env();
+    matches.apply(env);
+    std::vector<std::string> loaded;
+    env.modprobe = [&](const std::string& module) {
+        loaded.push_back(module);
+        if (module == "xt_addrtype") matches.write(matches.text() + "addrtype\n");
+    };
+    const auto caps = probe_intercept_capabilities(FirewallBackend::iptables, true, env);
+    CHECK(caps.addrtype);
+    CHECK(std::count(loaded.begin(), loaded.end(), "xt_addrtype") == 1);
+    // Advisory only: it never shows up in the interception reason.
+    CHECK(caps.reason.find("addrtype") == std::string::npos);
+}
+
+TEST_CASE("intercept probe: addrtype stays unsupported when modprobe cannot load it") {
+    FakeMatches matches;
+    Script script;
+    script.answer = healthy_kernel;
+    auto env = script.env();
+    matches.apply(env);
+    int attempts = 0;
+    env.modprobe = [&](const std::string& module) { attempts += module == "xt_addrtype"; };
+    const auto caps = probe_intercept_capabilities(FirewallBackend::iptables, true, env);
+    CHECK_FALSE(caps.addrtype);
+    CHECK(attempts == 1);
+    CHECK(caps.reason.find("addrtype") == std::string::npos);
+
+    SUBCASE("the verdict reaches /api/health/service as a capability and a warning") {
+        InterceptEffective effective;
+        effective.capabilities = caps;
+        const auto health = make_intercept_health(effective, false, nullptr, 0, false);
+        CHECK_FALSE(health.capabilities.addrtype);
+        REQUIRE(health.warnings.has_value());
+        CHECK(contains(*health.warnings, "xt_addrtype is unavailable"));
+    }
+}
+
+TEST_CASE("intercept probe: addrtype already registered needs no modprobe retry and no warning") {
+    FakeMatches matches;
+    matches.write("addrtype\nconntrack\n");
+    Script script;
+    script.answer = healthy_kernel;
+    auto env = script.env();
+    matches.apply(env);
+    const auto caps = probe_intercept_capabilities(FirewallBackend::iptables, true, env);
+    CHECK(caps.addrtype);
+    InterceptEffective effective;
+    effective.capabilities = caps;
+    const auto health = make_intercept_health(effective, false, nullptr, 0, false);
+    CHECK(health.capabilities.addrtype);
+    CHECK_FALSE(health.warnings.has_value());
+}
+
+// Token match: a similarly named registration must not count.
+TEST_CASE("intercept probe: addrtype needs an exact /proc token") {
+    FakeMatches matches;
+    matches.write("addrtype6\nxt_addrtype\n");
+    Script script;
+    script.answer = healthy_kernel;
+    auto env = script.env();
+    matches.apply(env);
+    CHECK_FALSE(probe_intercept_capabilities(FirewallBackend::iptables, true, env).addrtype);
 }
 
 TEST_CASE("intercept probe: old ipset protocol disables both parts through the effective settings") {
