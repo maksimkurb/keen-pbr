@@ -423,7 +423,61 @@ int main(int argc, char *argv[]) {
         keen_pbr3::ListStreamer streamer(cache);
         const keen_pbr3::DnsServerRegistry registry(dns);
         keen_pbr3::DnsmasqGenerator generator(registry, streamer, dns, lists);
-        const std::string hash = generator.generate(std::cout);
+        auto &log = keen_pbr3::Logger::instance();
+        // Who ran us: dnsmasq (conf-script), the daemon, or a shell. Inside
+        // the dnsmasq jail the PIDs are the jail's own (dnsmasq is 1) and
+        // /proc may be missing, hence the "?" fallback.
+        const auto parent_name = [] {
+          std::ifstream comm("/proc/" + std::to_string(::getppid()) + "/comm");
+          std::string name;
+          return std::getline(comm, name) && !name.empty() ? name
+                                                           : std::string("?");
+        }();
+        log.info("generate-resolver-config dnsmasq: pid {}, parent {} ({}), "
+                 "config {}, list cache {}",
+                 static_cast<long>(::getpid()), static_cast<long>(::getppid()),
+                 parent_name, opts.config_path, cache_dir);
+        const auto join = [](const std::vector<std::string> &items) {
+          std::string out;
+          for (const auto &item : items) {
+            if (!out.empty()) out += ", ";
+            out += item;
+          }
+          return out;
+        };
+        keen_pbr3::DnsmasqGenStats stats;
+        const std::string hash = generator.generate(std::cout, &stats);
+        // Runs as dnsmasq's conf-script: these lines (syslog there) are the
+        // only trace of what dnsmasq was given.
+        if (stats.fallback.empty()) {
+          log.info("generate-resolver-config: no dns.fallback, dnsmasq keeps "
+                   "its own upstream servers");
+        } else {
+          log.info("generate-resolver-config: default upstreams (no-resolv): {}",
+                   join(stats.fallback));
+        }
+        for (const auto &list : stats.lists) {
+          if (!list.skipped.empty()) {
+            log.warn("generate-resolver-config: list '{}' skipped: {}",
+                     list.name, list.skipped);
+            continue;
+          }
+          log.info("generate-resolver-config: list '{}' -> {} ({}): {} domains{}",
+                   list.name, list.server,
+                   list.upstreams.empty() ? std::string("no upstream")
+                                          : join(list.upstreams),
+                   list.domains,
+                   list.allow_rebind ? ", rebind allowed" : "");
+          if (list.url_pending) {
+            log.warn("generate-resolver-config: list '{}': its URL source is "
+                     "not downloaded yet, its domains are missing from this "
+                     "dnsmasq config",
+                     list.name);
+          }
+        }
+        log.info("generate-resolver-config: done, {} rules, {} lists, {} "
+                 "domains, config hash {}",
+                 stats.rules, stats.lists.size(), stats.domains, hash);
         // The stamp is written after (and not covered by) the hash, so the
         // daemon can compute the same hash in memory.
         keen_pbr3::write_dnsmasq_config_stamp(
@@ -435,16 +489,21 @@ int main(int argc, char *argv[]) {
         try {
           throw;
         } catch (const keen_pbr3::ConfigValidationError &e) {
-          message = e.what();
+          // what() repeats the first issue; list each issue once with its path.
           for (const auto &issue : e.issues()) {
-            message += "; " + issue.path + ": " + issue.message;
+            if (!message.empty()) message += "; ";
+            message += issue.path + ": " + issue.message;
           }
+          if (message.empty()) message = e.what();
         } catch (const std::exception &e) {
           message = e.what();
         } catch (...) {
           message = "unknown error";
         }
-        std::cerr << "keen-pbr generate-resolver-config failed: " << message << '\n';
+        // dnsmasq runs this as conf-script and discards stderr, so the failure
+        // goes through the logger (syslog there, the terminal when run by hand).
+        keen_pbr3::Logger::instance().error(
+            "generate-resolver-config failed: {}", message);
         for (char &c : message) {
           if (c == '\n' || c == '\r') c = ' ';
         }

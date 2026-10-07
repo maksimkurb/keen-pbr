@@ -82,6 +82,7 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
         for (const auto& tag : fallback_tags) {
             for (const DnsServerConfig* server : dns_registry_.get_servers(tag)) {
                 out << "server=" << server_address(*server) << "\n";
+                local_stats.fallback.push_back(server_address(*server));
             }
         }
         out << "\n";
@@ -107,16 +108,27 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
     for (const auto& entry : dns_list_servers) {
         const std::string& list_name = entry.first;
         const std::string& server_tag = entry.second;
+        DnsmasqListStats& list_stats = local_stats.lists.emplace_back();
+        list_stats.name = list_name;
+        list_stats.server = server_tag;
         auto list_cfg_it = lists_.find(list_name);
         if (list_cfg_it == lists_.end()) {
+            list_stats.skipped = "the list is not defined in lists";
             continue;
         }
 
         const auto dns_servers = dns_registry_.get_servers(server_tag);
         const bool allow_domain_rebinding = dns_list_allow_rebind[list_name];
+        list_stats.allow_rebind = allow_domain_rebinding;
+        for (const DnsServerConfig* server : dns_servers) {
+            list_stats.upstreams.push_back(server_address(*server));
+        }
         if (dns_servers.empty() && !allow_domain_rebinding) {
+            list_stats.skipped = "DNS server '" + server_tag + "' has no address";
             continue;
         }
+        list_stats.url_pending = list_cfg_it->second.url.has_value() &&
+                                 !list_streamer_.has_cached(list_name);
 
         bool wrote_list_header = false;
 
@@ -222,6 +234,7 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
             out << "\n";
         }
         local_stats.domains += list_domains;
+        list_stats.domains = list_domains;
     }
 
     out.flush();

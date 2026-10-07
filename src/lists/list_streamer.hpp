@@ -24,6 +24,9 @@ public:
                                      const ListConfig& config,
                                      ListEntryVisitor& visitor);
 
+    // Whether a downloaded copy of the list's URL source is cached.
+    bool has_cached(const std::string& name) const { return cache_.has_cache(name); }
+
     // Stream only the cached file for a named list through the visitor.
     void stream_cache(const std::string& name, ListEntryVisitor& visitor);
 

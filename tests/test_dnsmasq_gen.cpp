@@ -398,6 +398,39 @@ TEST_CASE("dnsmasq gen: cached content is merged with file and inline entries") 
     }
 }
 
+TEST_CASE("dnsmasq gen: stats describe every list for the conf-script log") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("vpn", "10.0.0.53"),
+                                         make_server("fb", "1.1.1.1")};
+    cfg.fallback = std::vector<std::string>{"fb"};
+    cfg.rules = std::vector<DnsRule>{make_rule("inline", "vpn"),
+                                     make_rule("remote", "vpn", true),
+                                     make_rule("undefined", "vpn")};
+    ListConfig remote;
+    remote.url = "https://example.com/list.txt";  // never downloaded here
+    const auto result = run_generate(
+        cfg, {{"inline", make_list_cfg({"a.example", "b.example"})},
+              {"remote", remote}});
+
+    CHECK(result.stats.fallback == std::vector<std::string>{"1.1.1.1"});
+    REQUIRE(result.stats.lists.size() == 3);
+    const auto& inline_list = result.stats.lists[0];
+    CHECK(inline_list.name == "inline");
+    CHECK(inline_list.server == "vpn");
+    CHECK(inline_list.upstreams == std::vector<std::string>{"10.0.0.53"});
+    CHECK(inline_list.domains == 2);
+    CHECK(inline_list.skipped.empty());
+    CHECK_FALSE(inline_list.url_pending);
+    const auto& remote_list = result.stats.lists[1];
+    CHECK(remote_list.name == "remote");
+    CHECK(remote_list.url_pending);
+    CHECK(remote_list.allow_rebind);
+    CHECK(remote_list.domains == 0);
+    const auto& undefined_list = result.stats.lists[2];
+    CHECK(undefined_list.name == "undefined");
+    CHECK_FALSE(undefined_list.skipped.empty());
+}
+
 TEST_CASE("dnsmasq stamp: write and parse round trip") {
     const DnsmasqConfigStamp stamp{"0123456789abcdef0123456789abcdef", 123456789, 1700000000};
     std::ostringstream out;

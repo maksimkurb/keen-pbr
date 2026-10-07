@@ -11,12 +11,26 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace keen_pbr3 {
+
+// What happened to one list referenced by dns.rules.
+struct DnsmasqListStats {
+    std::string name;
+    std::string server;                  // dns.rules server tag
+    std::vector<std::string> upstreams;  // its resolved addresses
+    size_t domains = 0;                  // domains written for the list
+    bool allow_rebind = false;
+    bool url_pending = false;            // URL source declared but not downloaded yet
+    std::string skipped;                 // why the list was left out; empty when written
+};
 
 struct DnsmasqGenStats {
     size_t rules = 0;    // enabled dns.rules entries
     size_t domains = 0;  // domains written into server= rows
+    std::vector<std::string> fallback;     // default upstreams (no-resolv); empty: dnsmasq keeps its own
+    std::vector<DnsmasqListStats> lists;   // in output order
 };
 
 // Domain of the stamp TXT record the conf-script appends after the generated
