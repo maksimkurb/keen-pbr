@@ -4,6 +4,7 @@
 #include "../util/format_compat.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <arpa/inet.h>
 #include <map>
 #include <memory>
@@ -122,10 +123,21 @@ struct RuleDeleter {
 };
 using RulePtr = std::unique_ptr<struct rtnl_rule, RuleDeleter>;
 
+class OperationErrorCounter {
+public:
+    explicit OperationErrorCounter(std::atomic<uint64_t>& errors) : errors_(errors) {}
+    ~OperationErrorCounter() { if (!ok_) errors_.fetch_add(1, std::memory_order_relaxed); }
+    void success() { ok_ = true; }
+private:
+    std::atomic<uint64_t>& errors_;
+    bool ok_{false};
+};
+
 } // anonymous namespace
 
 struct NetlinkManager::Impl {
     struct nl_sock* sock{nullptr};
+    std::atomic<uint64_t> errors{0};
 
     Impl() {
         sock = nl_socket_alloc();
@@ -160,6 +172,7 @@ NetlinkManager::~NetlinkManager() = default;
 
 RouteAddResult NetlinkManager::add_route(const RouteSpec& spec) {
     KPBR_LOCK_GUARD(mutex_);
+    OperationErrorCounter error_counter(impl_->errors);
 
     int family = spec.family;
     if (family == 0) {
@@ -227,6 +240,7 @@ RouteAddResult NetlinkManager::add_route(const RouteSpec& spec) {
     int err = rtnl_route_add(impl_->sock, route.get(), NLM_F_CREATE | NLM_F_EXCL);
     if (err < 0) {
         if (err == -NLE_EXIST) {
+            error_counter.success();
             return RouteAddResult::AlreadyPresent;
         }
         throw NetlinkError(keen_pbr3::format(
@@ -239,11 +253,13 @@ RouteAddResult NetlinkManager::add_route(const RouteSpec& spec) {
             family,
             spec.blackhole));
     }
+    error_counter.success();
     return RouteAddResult::Created;
 }
 
 void NetlinkManager::delete_route(const RouteSpec& spec) {
     KPBR_LOCK_GUARD(mutex_);
+    OperationErrorCounter error_counter(impl_->errors);
 
     int family = spec.family;
     if (family == 0) {
@@ -305,10 +321,13 @@ void NetlinkManager::delete_route(const RouteSpec& spec) {
     if (err < 0) {
         throw NetlinkError(std::string("Failed to delete route: ") + nl_geterror(err));
     }
+    error_counter.success();
 }
 
 void NetlinkManager::flush_routes_in_table(uint32_t table_id, int family) {
     KPBR_LOCK_GUARD(mutex_);
+    OperationErrorCounter error_counter(impl_->errors);
+    bool had_delete_error = false;
 
     struct nl_cache* raw_cache = nullptr;
     int err = rtnl_route_alloc_cache(impl_->sock, family, 0, &raw_cache);
@@ -340,17 +359,22 @@ void NetlinkManager::flush_routes_in_table(uint32_t table_id, int family) {
                                    nl_geterror(delete_err));
             }
         } catch (const std::exception& e) {
+            had_delete_error = true;
             Logger::instance().warn("flush_routes_in_table: failed to delete route in table {}: {}",
                                     table_id, e.what());
         } catch (...) {
+            had_delete_error = true;
             Logger::instance().warn("flush_routes_in_table: failed to delete route in table {} (unknown error)",
                                     table_id);
         }
     }
+    if (had_delete_error) return;
+    error_counter.success();
 }
 
 RuleAddResult NetlinkManager::add_rule_for_family(const RuleSpec& spec, int family) {
     KPBR_LOCK_GUARD(mutex_);
+    OperationErrorCounter error_counter(impl_->errors);
 
     RulePtr rule(rtnl_rule_alloc());
     if (!rule) {
@@ -365,16 +389,21 @@ RuleAddResult NetlinkManager::add_rule_for_family(const RuleSpec& spec, int fami
     rtnl_rule_set_action(rule.get(), native_rule_action(spec.action));
 
     const int err = rtnl_rule_add(impl_->sock, rule.get(), NLM_F_CREATE | NLM_F_EXCL);
-    if (err == -NLE_EXIST) return RuleAddResult::AlreadyPresent;
+    if (err == -NLE_EXIST) {
+        error_counter.success();
+        return RuleAddResult::AlreadyPresent;
+    }
     if (err < 0) {
         throw NetlinkError(std::string("Failed to add rule (family ") +
                            std::to_string(family) + "): " + nl_geterror(err));
     }
+    error_counter.success();
     return RuleAddResult::Created;
 }
 
 void NetlinkManager::delete_rule_for_family(const RuleSpec& spec, int family) {
     KPBR_LOCK_GUARD(mutex_);
+    OperationErrorCounter error_counter(impl_->errors);
 
     RulePtr rule(rtnl_rule_alloc());
     if (!rule) {
@@ -392,6 +421,11 @@ void NetlinkManager::delete_rule_for_family(const RuleSpec& spec, int family) {
         throw NetlinkError(std::string("Failed to delete rule (family ") +
                            std::to_string(family) + "): " + nl_geterror(err));
     }
+    error_counter.success();
+}
+
+NetlinkMetricsSnapshot NetlinkManager::metrics_snapshot() const {
+    return {impl_->errors.load(std::memory_order_relaxed)};
 }
 
 std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
@@ -407,6 +441,7 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
 
 std::vector<DumpedRoute> NetlinkManager::dump_routes(int family) {
     KPBR_LOCK_GUARD(mutex_);
+    OperationErrorCounter error_counter(impl_->errors);
 
     struct nl_cache* raw_cache = nullptr;
     int err = rtnl_route_alloc_cache(impl_->sock, family, 0, &raw_cache);
@@ -478,11 +513,13 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes(int family) {
         ctx->result->push_back(std::move(dr));
     }, &ctx);
 
+    error_counter.success();
     return result;
 }
 
 std::vector<DumpedRule> NetlinkManager::dump_policy_rules(int family) {
     KPBR_LOCK_GUARD(mutex_);
+    OperationErrorCounter error_counter(impl_->errors);
 
     struct nl_cache* raw_cache = nullptr;
     int err = rtnl_rule_alloc_cache(impl_->sock, family, &raw_cache);
@@ -509,11 +546,13 @@ std::vector<DumpedRule> NetlinkManager::dump_policy_rules(int family) {
         out->push_back(dr);
     }, &result);
 
+    error_counter.success();
     return result;
 }
 
 std::vector<DumpedInterface> NetlinkManager::dump_interfaces() {
     KPBR_LOCK_GUARD(mutex_);
+    OperationErrorCounter error_counter(impl_->errors);
 
     struct nl_cache* raw_link_cache = nullptr;
     int err = rtnl_link_alloc_cache(impl_->sock, AF_UNSPEC, &raw_link_cache);
@@ -623,6 +662,7 @@ std::vector<DumpedInterface> NetlinkManager::dump_interfaces() {
         return lhs.name < rhs.name;
     });
 
+    error_counter.success();
     return result;
 }
 

@@ -94,6 +94,87 @@ and vice versa.
 
 For live outbound runtime state (health, latency, circuit breaker) use `GET /api/runtime/outbounds`.
 
+## GET /metrics
+
+Returns Prometheus text format 0.0.4. It uses the same authentication as the API,
+including when authentication is enabled; scrape it with Basic auth or the
+current Bearer token:
+
+```bash
+curl -u admin:password http://127.0.0.1:12121/metrics
+```
+
+`keen_pbr_active_rules` is the number of realized firewall rules.
+`keen_pbr_errors_total{category=...}` groups cumulative failures into
+`firewall` (apply and dynamic-set writes), `kernel` (route/rule netlink,
+conntrack, NFQUEUE and NFLOG), and `parser` (DNS parsing). Individual
+interception counters use the `keen_pbr_intercept_` prefix. These expose every
+scalar `InterceptCounters` counter: `dns_packets`, `dns_parse_errors`, `dns_matched`,
+`dns_aaaa_ignored`, `dns_hold_timeouts`, `dns_late_writes`,
+`dns_late_write_errors`, `set_write_slow`, `dns_timeout_budget_spent_by_batch`,
+`dns_timeout_admission_blocked`, `dns_timeout_own_write_slow`,
+`dns_timeout_late_batch_full`, `dns_timeout_other`, `dns_tcp_partial`,
+`marker_hits`, `l7_packets`, `l7_matched`, `set_added`, `set_refreshed`,
+`set_errors`, `set_cache_hits`, `set_cache_misses`, `dns_refresh_deferred`,
+`refresh_skipped`, `refresh_dropped`, `conntrack_requests`,
+`conntrack_deleted`, `conntrack_errors`, `queue_overruns`, and `log_overruns`
+(all suffixed `_total`). `set_cache_entries` is a gauge.
+
+DNS set-write histograms are `keen_pbr_dns_write_duration_seconds`,
+`keen_pbr_dns_late_write_duration_seconds`, and
+`keen_pbr_l7_write_duration_seconds`. Client-facing timing is exposed as
+`keen_pbr_dns_hold_duration_seconds`,
+`keen_pbr_dns_queue_wait_duration_seconds`, and
+`keen_pbr_dns_admission_wait_duration_seconds`. The gauges
+`keen_pbr_set_write_max_microseconds` and `keen_pbr_set_write_max_elements`
+preserve maximum-duration and largest-write observations for the DNS,
+deferred-DNS and L7 write paths. Dynamic-set netlink timing is split into
+`keen_pbr_netlink_write_total_duration_seconds`,
+`keen_pbr_netlink_write_send_duration_seconds`, and
+`keen_pbr_netlink_write_remainder_duration_seconds`; the remainder excludes
+time in `sendto()`. Probe counters include attempted, sent, received and failed
+ICMP packets. Probe metrics and `keen_pbr_probe_latency_seconds` are
+labelled by child `outbound`, test-group `test_outbound`, `interface`, and
+`type` (`urltest` or `icmptest`). Probe success ratio is 0–1 and is omitted
+until a result exists; multiply it by 100 for a percentage. Histograms report
+inclusive buckets, a sum in seconds, and a count.
+
+Prometheus scrape configuration:
+
+```yaml
+scrape_configs:
+  - job_name: keen-pbr
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["router.example:12121"]
+    basic_auth:
+      username: admin
+      password_file: /etc/prometheus/keen-pbr-password
+```
+
+Example queries:
+
+```promql
+100 * sum by (outbound, interface) (rate(keen_pbr_probe_successes_total[5m]))
+    / sum by (outbound, interface) (rate(keen_pbr_probe_attempts_total[5m]))
+
+sum by (outbound, interface) (rate(keen_pbr_probe_latency_seconds_sum[5m]))
+    / sum by (outbound, interface) (rate(keen_pbr_probe_latency_seconds_count[5m]))
+
+histogram_quantile(0.95, sum by (le, outbound, interface)
+    (rate(keen_pbr_probe_latency_seconds_bucket[5m])))
+
+histogram_quantile(0.95, sum by (le)
+    (rate(keen_pbr_dns_hold_duration_seconds_bucket[5m])))
+
+histogram_quantile(0.95, sum by (le)
+    (rate(keen_pbr_netlink_write_total_duration_seconds_bucket[5m])))
+```
+
+`keen_pbr_build_info` reports the version, source commit and firewall backend.
+Compare DNS hold and netlink write query results before and after a release to
+see the client-facing effect alongside the underlying dynamic-set write time.
+
 ---
 
 ## POST /api/lists/refresh

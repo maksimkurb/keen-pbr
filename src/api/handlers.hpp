@@ -98,6 +98,7 @@ struct ApiContext {
     std::function<bool(std::string, std::function<void()>)> enqueue_lifecycle_task_fn;
     std::function<std::string(LifecycleRequest)> submit_lifecycle_operation_fn;
     std::function<void(AuthenticationConfig, CorsConfig)> commit_api_security_fn;
+    std::function<std::string()> get_prometheus_metrics_fn;
 
     bool enqueue_lifecycle_task(std::string label, std::function<void()> task) const {
         return enqueue_lifecycle_task_fn(std::move(label), std::move(task));

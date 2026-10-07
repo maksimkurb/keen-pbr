@@ -66,6 +66,7 @@ add_executable(keen-pbr-tests
   test_api_test_routing.cpp
   test_api_static.cpp
   test_api_auth.cpp
+  test_prometheus_metrics.cpp
   test_api_config_password.cpp
   test_system_info.cpp
   test_safe_exec.cpp
@@ -271,6 +272,7 @@ if(WITH_API)
   target_compile_definitions(keen-pbr-tests PRIVATE WITH_API)
   target_sources(keen-pbr-tests PRIVATE
     ../src/api/server.cpp
+    ../src/api/prometheus_metrics.cpp
     ../src/api/handler_config.cpp
     ../src/api/handler_dns_test.cpp
     ../src/api/sse_broadcaster.cpp

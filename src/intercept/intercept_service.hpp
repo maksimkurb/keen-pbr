@@ -47,7 +47,8 @@ public:
 
     // `writer` is used by the hot thread only.
     explicit InterceptService(std::unique_ptr<nfnl::DynamicSetWriter> writer,
-                              std::unique_ptr<nfnl::DynamicSetWriter> l7_writer = nullptr);
+                              std::unique_ptr<nfnl::DynamicSetWriter> l7_writer = nullptr,
+                              std::shared_ptr<InterceptCounters> counters = nullptr);
     ~InterceptService();
     InterceptService(const InterceptService&) = delete;
     InterceptService& operator=(const InterceptService&) = delete;
@@ -87,7 +88,7 @@ public:
     // flushed).  Safe from any thread; called after every firewall apply.
     void invalidate_set_cache() { processor_.invalidate_set_cache(); }
     void discard_l7_pending();
-    const InterceptCounters& counters() const { return counters_; }
+    const InterceptCounters& counters() const { return *counters_; }
     std::vector<InterceptEvent> events_since(uint64_t after_seq, std::size_t max) const;
     uint64_t last_event_seq() const { return processor_.last_event_seq(); }
     // Logs the DNS hold timeouts not logged yet; called by the event pump only.
@@ -151,12 +152,14 @@ private:
                         std::vector<std::array<uint8_t, 16>> dsts);
     void submit_l7_work(InterceptL7Work work);
     void stop_l7_worker();
+    void update_queue_overruns();
+    void update_log_overruns();
 
     std::unique_ptr<nfnl::DynamicSetWriter> writer_;
     std::unique_ptr<nfnl::DynamicSetWriter> l7_writer_;
     WriteGate dns_writes_;
     WriteGate l7_writes_;
-    InterceptCounters counters_;
+    std::shared_ptr<InterceptCounters> counters_;
     CleanupQueue cleanup_queue_;
     InterceptProcessor processor_;
 
@@ -179,6 +182,8 @@ private:
     std::atomic<bool> snapshot_ready_{false};
     std::atomic<bool> dns_bound_{false};
     std::atomic<bool> l7_bound_{false};
+    uint64_t queue_overruns_seen_{0};
+    uint64_t log_overruns_seen_{0};
     // Whether the kernel refuses/ignores the ctnetlink dump pre-filter is a
     // process-wide kernel fact (nfnl::conntrack_kernel_filter_unsupported()).
     InterceptRuntimeProbe listener_probe_;

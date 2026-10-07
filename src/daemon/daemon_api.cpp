@@ -14,6 +14,7 @@
 #include "../api/handlers.hpp"
 #include "../api/handler_config.hpp"
 #include "../api/handler_health_service.hpp"
+#include "../api/prometheus_metrics.hpp"
 #include "../api/server.hpp"
 #include "../api/status_stream.hpp"
 #include "../config/routing_state.hpp"
@@ -771,6 +772,31 @@ void Daemon::setup_api() {
             }, true, "api-security-update");
         },
     });
+    api_ctx_->get_prometheus_metrics_fn = [this]() {
+        const auto snapshot = runtime_state_store_.snapshot();
+        ControlRuntimeSnapshot control;
+        control.routing_runtime_active = snapshot.routing_runtime_active;
+        control.runtime_state = snapshot.runtime_state;
+        control.runtime_state_reason = snapshot.runtime_state_reason;
+        for (const auto& rule : snapshot.firewall_state.get_rules()) {
+            if (rule.action_type != RuleActionType::Skip) {
+                control.realized_rules.push_back({rule.rule_index, rule.set_names,
+                    rule.outbound_tag, rule.action_type, rule.fwmark});
+            }
+        }
+        OutboundRuntimeSnapshot outbound;
+        outbound.outbound_marks = snapshot.firewall_state.get_outbound_marks();
+        outbound.policy_rule_specs = snapshot.policy_rule_specs;
+        outbound.applied_urltest_selections = snapshot.firewall_state.get_urltest_selections();
+        outbound.urltest_states = snapshot.urltest_states;
+        outbound.runtime_state = snapshot.runtime_state;
+        return prometheus_metrics(
+            intercept_counters_.get(),
+            netlink_.metrics_snapshot(), control, outbound,
+            config_store_.active_config(),
+            firewall_apply_errors_.load(std::memory_order_relaxed),
+            firewall_ && firewall_->backend() == FirewallBackend::nftables ? "nftables" : "iptables");
+    };
     status_stream_ = std::make_unique<StatusStream>(
         [this]() {
             return build_health_response(api_ctx_->get_service_health());

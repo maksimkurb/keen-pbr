@@ -313,6 +313,16 @@ void InterceptProcessor::set_round_batch_size(uint64_t first_seq, uint32_t batch
 
 void InterceptProcessor::push_event(EventRecord& event) {
     if (event.ts_steady_us == 0) event.ts_steady_us = steady_us(Clock::now());
+    if (event.source == InterceptSource::dns && event.batch_pos >= 0) {
+        counters_.dns_hold_latency.record(event.hold_us, 0);
+        if (event.queue_wait_us >= 0) {
+            counters_.dns_queue_wait_latency.record(
+                static_cast<uint64_t>(event.queue_wait_us), 0);
+        }
+        if (event.write_elements > 0) {
+            counters_.dns_admission_wait_latency.record(event.admission_wait_us, 0);
+        }
+    }
     ring_.push(event);
 }
 

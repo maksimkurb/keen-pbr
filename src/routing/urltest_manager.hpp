@@ -8,6 +8,8 @@
 #include "../util/traced_mutex.hpp"
 
 #include <functional>
+#include <array>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -17,10 +19,25 @@ namespace keen_pbr3 {
 
 class Scheduler;
 
+struct ProbeMetrics {
+    inline static constexpr std::array<uint32_t, 10> kLatencyBoundsMs{
+        1, 2, 5, 10, 25, 50, 100, 250, 500, 1000};
+    uint64_t attempts{0};
+    uint64_t successes{0};
+    uint64_t latency_count{0};
+    uint64_t latency_sum_ms{0};
+    std::array<uint64_t, 11> latency_buckets{}; // Exclusive bins; final bin is +Inf.
+    uint64_t packets_attempted{0};
+    uint64_t packets_sent{0};
+    uint64_t packets_received{0};
+    uint64_t packets_failed{0};
+};
+
 // Per-urltest outbound state: test results, circuit breakers, selected child.
 struct UrltestState {
     Outbound config;
     std::map<std::string, URLTestResult> last_results;
+    std::map<std::string, ProbeMetrics> probe_metrics;
     std::map<std::string, CircuitBreaker> circuit_breakers;
     std::string selected_outbound;
     int scheduler_task_id{-1};

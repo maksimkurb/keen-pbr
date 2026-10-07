@@ -16,6 +16,10 @@ public:
     using std::runtime_error::runtime_error;
 };
 
+struct NetlinkMetricsSnapshot {
+    uint64_t errors{0};
+};
+
 enum class RouteType {
     unicast,
     blackhole,
@@ -147,6 +151,8 @@ public:
     // Policy rule operations
     RuleAddResult add_rule_for_family(const RuleSpec& spec, int family) override;
     void delete_rule_for_family(const RuleSpec& spec, int family) override;
+
+    NetlinkMetricsSnapshot metrics_snapshot() const;
 
     // Dump all routes in a specific routing table from the kernel.
     // family: 0 (AF_UNSPEC) to get both IPv4 and IPv6 routes.

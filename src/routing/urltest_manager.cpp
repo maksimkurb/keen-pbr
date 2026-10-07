@@ -163,6 +163,24 @@ bool UrltestManager::commit_probe_results(const std::string& urltest_tag,
                 continue;
             }
 
+            auto& metrics = state.probe_metrics[child_tag];
+            ++metrics.attempts;
+            if (result.success) ++metrics.successes;
+            if (result.success || result.latency_ms > 0) {
+                ++metrics.latency_count;
+                metrics.latency_sum_ms += result.latency_ms;
+                std::size_t bucket = 0;
+                while (bucket < ProbeMetrics::kLatencyBoundsMs.size() &&
+                       result.latency_ms > ProbeMetrics::kLatencyBoundsMs[bucket]) {
+                    ++bucket;
+                }
+                ++metrics.latency_buckets[bucket];
+            }
+            metrics.packets_attempted += result.packets_attempted.value_or(0);
+            metrics.packets_sent += result.packets_sent.value_or(0);
+            metrics.packets_received += result.packets_received.value_or(0);
+            metrics.packets_failed += result.packets_failed.value_or(0);
+
             cb_it->second.end_request(child_tag);
             if (result.success) {
                 cb_it->second.record_success(child_tag);

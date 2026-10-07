@@ -189,7 +189,8 @@ void Daemon::start_intercept_service(InterceptEffective& effective) {
                                                              : nfnl::make_ipset_writer();
 #endif
         }
-        service = std::make_shared<InterceptService>(std::move(writer), std::move(l7_writer));
+        service = std::make_shared<InterceptService>(
+            std::move(writer), std::move(l7_writer), intercept_counters_);
         service->start(options, make_empty_snapshot(effective));
         const std::size_t reasons_before = effective.reasons.size();
         fold_listeners();

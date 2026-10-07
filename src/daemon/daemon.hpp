@@ -410,6 +410,7 @@ private:
   ConfigStore config_store_;
   ListService list_service_;
   RuntimeStateStore runtime_state_store_;
+  std::atomic<uint64_t> firewall_apply_errors_{0};
   LifecycleOperationStore lifecycle_operation_store_;
   LifecycleOperationCoordinator lifecycle_operations_{
       lifecycle_operation_store_};
@@ -451,6 +452,8 @@ IcmpTester icmp_tester_;
   // the effective settings are read by API threads; everything else is owned
   // by the control/event-loop thread.
   mutable TracedMutex intercept_mutex_;
+  std::shared_ptr<InterceptCounters> intercept_counters_{
+      std::make_shared<InterceptCounters>()};
   std::shared_ptr<InterceptService> intercept_service_
       GUARDED_BY(intercept_mutex_);
   InterceptEffective intercept_effective_ GUARDED_BY(intercept_mutex_);

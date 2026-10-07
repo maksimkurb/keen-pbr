@@ -95,6 +95,50 @@ L7-пакетов, обновлений наборов, очистки conntrack
 
 Для текущего состояния outbounds во время выполнения (здоровье, задержка, circuit breaker) используйте `GET /api/runtime/outbounds`.
 
+## GET /metrics
+
+Возвращает текстовый формат Prometheus 0.0.4. Эндпоинт использует ту же
+аутентификацию, что и API:
+
+```bash
+curl -u admin:password http://127.0.0.1:12121/metrics
+```
+
+`keen_pbr_active_rules` — количество применённых правил firewall.
+`keen_pbr_errors_total{category=...}` группирует накопленные ошибки по
+`firewall` (применение и запись динамических наборов), `kernel` (netlink,
+conntrack, NFQUEUE и NFLOG) и `parser` (разбор DNS). Счётчики interception
+имеют префикс `keen_pbr_intercept_` и отражают все поля `InterceptCounters`;
+`keen_pbr_intercept_set_cache_entries` — gauge. Гистограммы DNS-записей:
+`keen_pbr_dns_write_duration_seconds`,
+`keen_pbr_dns_late_write_duration_seconds` и
+`keen_pbr_l7_write_duration_seconds`. Гистограммы времени netlink для записей
+динамических наборов: `keen_pbr_netlink_write_total_duration_seconds`,
+`keen_pbr_netlink_write_send_duration_seconds` и
+`keen_pbr_netlink_write_remainder_duration_seconds` (время без `sendto()`).
+Задержки на пути DNS-клиента измеряются метриками
+`keen_pbr_dns_hold_duration_seconds`,
+`keen_pbr_dns_queue_wait_duration_seconds` и
+`keen_pbr_dns_admission_wait_duration_seconds`. Максимальная длительность и
+размер DNS/L7-записи доступны в gauge
+`keen_pbr_set_write_max_microseconds` и `keen_pbr_set_write_max_elements`.
+
+Метрики проверок `urltest` и `icmptest` содержат метки `outbound`,
+`test_outbound`, `interface` и `type`. `keen_pbr_probe_success_ratio` находится
+в диапазоне 0–1; умножьте значение на 100 для процентов. До первого результата
+эта метрика не публикуется. Гистограммы используют накопительные bucket, сумму
+в секундах и count.
+
+Примеры запросов PromQL и полный список счётчиков приведены в английской
+версии этой страницы.
+
+Пример запроса p95 для времени удержания DNS-ответа:
+
+```promql
+histogram_quantile(0.95, sum by (le)
+    (rate(keen_pbr_dns_hold_duration_seconds_bucket[5m])))
+```
+
 ---
 
 ## POST /api/lists/refresh

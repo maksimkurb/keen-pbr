@@ -523,7 +523,8 @@ ApiServer::ApiServer(const ApiConfig& config, std::string device_name)
                 res.status = 204;
                 return httplib::Server::HandlerResponse::Handled;
             }
-            const bool api = req.path == "/api" || req.path.rfind("/api/", 0) == 0;
+            const bool api = req.path == "/metrics" || req.path == "/api" ||
+                             req.path.rfind("/api/", 0) == 0;
             const bool public_auth = req.path == "/api/auth/status" ||
                                      req.path == "/api/auth/login";
             bool auth_enabled = false;

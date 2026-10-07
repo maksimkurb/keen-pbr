@@ -182,7 +182,13 @@ struct InterceptL7Work {
 // slowest write and the element count of that write.
 struct WriteLatencyCounters {
     static constexpr std::size_t kBuckets = 6;
+    static constexpr std::size_t kPrometheusBuckets = 11;
+    inline static constexpr std::array<uint64_t, kPrometheusBuckets - 1> kPrometheusBoundsUs{
+        100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000};
     std::array<std::atomic<uint64_t>, kBuckets> buckets{};
+    std::array<std::atomic<uint64_t>, kPrometheusBuckets> prometheus_buckets{};
+    std::atomic<uint64_t> count{0};
+    std::atomic<uint64_t> sum_us{0};
     std::atomic<uint64_t> max_us{0};
     std::atomic<uint64_t> max_elements{0};
 
@@ -196,6 +202,14 @@ struct WriteLatencyCounters {
     }
     void record(uint64_t us, uint64_t elements) {
         buckets[bucket_for(us)].fetch_add(1, std::memory_order_relaxed);
+        std::size_t prometheus_bucket = 0;
+        while (prometheus_bucket < kPrometheusBoundsUs.size() &&
+               us > kPrometheusBoundsUs[prometheus_bucket]) {
+            ++prometheus_bucket;
+        }
+        prometheus_buckets[prometheus_bucket].fetch_add(1, std::memory_order_relaxed);
+        count.fetch_add(1, std::memory_order_relaxed);
+        sum_us.fetch_add(us, std::memory_order_relaxed);
         // >= so the first write counts even when it took 0 us (fast CPUs).
         uint64_t seen = max_us.load(std::memory_order_relaxed);
         while (us >= seen) {
@@ -225,6 +239,10 @@ struct InterceptCounters {
     WriteLatencyCounters dns_write_latency;   // synchronous (pre-verdict) DNS writes
     WriteLatencyCounters late_write_latency;  // combined post-verdict late writes
     WriteLatencyCounters l7_write_latency;    // L7 worker writes
+    WriteLatencyCounters dns_hold_latency;    // total time a DNS packet is held
+    WriteLatencyCounters dns_queue_wait_latency;
+    WriteLatencyCounters dns_admission_wait_latency;
+    nfnl::DynamicSetWriter::Metrics netlink_write_metrics;
     std::atomic<uint64_t> dns_tcp_partial{0};
     std::atomic<uint64_t> marker_hits{0};
     std::atomic<uint64_t> l7_packets{0};
@@ -244,6 +262,18 @@ struct InterceptCounters {
     std::atomic<uint64_t> queue_overruns{0};
     std::atomic<uint64_t> log_overruns{0};
 };
+
+// Adds a source's cumulative snapshot delta while tolerating listener reset.
+inline void accumulate_resetting_counter(std::atomic<uint64_t>& total,
+                                         uint64_t& previous,
+                                         uint64_t current) {
+    if (current >= previous) {
+        total.fetch_add(current - previous, std::memory_order_relaxed);
+    } else {
+        total.fetch_add(current, std::memory_order_relaxed);
+    }
+    previous = current;
+}
 
 class ConntrackCleanupSink {
 public:

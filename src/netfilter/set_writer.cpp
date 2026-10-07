@@ -76,6 +76,7 @@ public:
     int last_errno() const override { return last_errno_; }
 
     void set_slow_write_counter(std::atomic<uint64_t>* counter) override { slow_counter_ = counter; }
+    void set_metrics(Metrics* metrics) override { metrics_ = metrics; }
 
     bool add(const SetAdd* adds, SetAddResult* out, std::size_t count, int timeout_ms) override {
         return timed_add(Mode::Full, adds, out, count, timeout_ms);
@@ -123,8 +124,15 @@ private:
         const auto total_us = std::chrono::duration_cast<std::chrono::microseconds>(
                                   std::chrono::steady_clock::now() - started)
                                   .count();
+        const auto send_us = transport_->take_send_us();
+        if (metrics_ != nullptr) {
+            const auto total = static_cast<uint64_t>(std::max<long long>(total_us, 0));
+            metrics_->total.record(total);
+            metrics_->send.record(send_us);
+            metrics_->remainder.record(total > send_us ? total - send_us : 0);
+        }
         if (total_us >= static_cast<long long>(kSlowWriteMs) * 1000) {
-            note_slow_write(static_cast<uint64_t>(total_us), transport_->take_send_us(), count,
+            note_slow_write(static_cast<uint64_t>(total_us), send_us, count,
                             adds != nullptr ? adds[0].set_name : std::string_view());
         }
         return ok;
@@ -429,6 +437,7 @@ private:
     int transport_errno_{0};
     bool delete_add_ran_{false};
     std::atomic<uint64_t>* slow_counter_{nullptr};
+    Metrics* metrics_{nullptr};
     bool logged_slow_{false};
     std::chrono::steady_clock::time_point last_slow_log_{};
     std::vector<std::size_t> all_, resend_, refresh_, retry_idx_;

@@ -100,13 +100,19 @@ void InterceptService::CleanupQueue::reset() {
 // ---------------------------------------------------------------- service
 
 InterceptService::InterceptService(std::unique_ptr<nfnl::DynamicSetWriter> writer,
-                                   std::unique_ptr<nfnl::DynamicSetWriter> l7_writer)
+                                   std::unique_ptr<nfnl::DynamicSetWriter> l7_writer,
+                                   std::shared_ptr<InterceptCounters> counters)
     : writer_(std::move(writer)),
       l7_writer_(std::move(l7_writer)),
-      cleanup_queue_(counters_),
-      processor_(*writer_, cleanup_queue_, counters_) {
-    writer_->set_slow_write_counter(&counters_.set_write_slow);
-    if (l7_writer_) l7_writer_->set_slow_write_counter(&counters_.set_write_slow);
+      counters_(counters ? std::move(counters) : std::make_shared<InterceptCounters>()),
+      cleanup_queue_(*counters_),
+      processor_(*writer_, cleanup_queue_, *counters_) {
+    writer_->set_slow_write_counter(&counters_->set_write_slow);
+    writer_->set_metrics(&counters_->netlink_write_metrics);
+    if (l7_writer_) {
+        l7_writer_->set_slow_write_counter(&counters_->set_write_slow);
+        l7_writer_->set_metrics(&counters_->netlink_write_metrics);
+    }
     processor_.set_writer_callbacks(
         [this] { return dns_writes_.enter(); },
         [this] { dns_writes_.leave(); },
@@ -424,7 +430,7 @@ void InterceptService::hot_loop() {
             const int rc = queue_->receive([this, woke, deadline, &batch_pos](const nfnl::QueuedPacket& packet) {
                 handle_queue_packet(packet, DnsRound(woke, deadline, batch_pos++));
             });
-            counters_.queue_overruns.store(queue_->overruns(), std::memory_order_relaxed);
+            counters_->queue_overruns.store(queue_->overruns(), std::memory_order_relaxed);
             // Every verdict of this round is out: now write, once, whatever
             // missed the hold deadline (bounded combined budget, with backoff).
             processor_.flush_late_writes();
@@ -439,7 +445,7 @@ void InterceptService::hot_loop() {
             const int rc = log_->receive([this](const nfnl::LoggedPacket& packet) {
                 processor_.on_l7_packet(packet.payload, Clock::now());
             });
-            counters_.log_overruns.store(log_->overruns(), std::memory_order_relaxed);
+            counters_->log_overruns.store(log_->overruns(), std::memory_order_relaxed);
             if (rc < 0) {
                 Logger::instance().error("intercept: NFLOG receive failed (errno={})", log_->last_errno());
                 l7_degraded_.store(true, std::memory_order_release);
@@ -514,7 +520,7 @@ void InterceptService::cleanup_loop() {
         try {
             run_cleanup(batch);
         } catch (const std::exception& e) {
-            counters_.conntrack_errors.fetch_add(1, std::memory_order_relaxed);
+            counters_->conntrack_errors.fetch_add(1, std::memory_order_relaxed);
             Logger::instance().debug("intercept: conntrack cleanup failed: {}", e.what());
         }
         batch.clear();
@@ -535,7 +541,7 @@ void InterceptService::run_cleanup(const std::vector<CleanupRequest>& batch) {
         groups[key].insert(dst);
     }
     for (auto& [key, dsts] : groups) {
-        counters_.conntrack_requests.fetch_add(dsts.size(), std::memory_order_relaxed);
+        counters_->conntrack_requests.fetch_add(dsts.size(), std::memory_order_relaxed);
         cleanup_client(key.first, key.second, std::vector<std::array<uint8_t, 16>>(dsts.begin(), dsts.end()));
     }
 }
@@ -572,7 +578,7 @@ void InterceptService::cleanup_client(uint8_t family, const std::array<uint8_t, 
             continue;
         }
         if (rc < 0 || !dump.complete()) {
-            counters_.conntrack_errors.fetch_add(1, std::memory_order_relaxed);
+            counters_->conntrack_errors.fetch_add(1, std::memory_order_relaxed);
         }
         entries = dump.entries();
         break;
@@ -589,8 +595,8 @@ void InterceptService::cleanup_client(uint8_t family, const std::array<uint8_t, 
             if (r < 0 && del.pending() == last_pending) break;  // no progress on error
             last_pending = del.pending();
         }
-        counters_.conntrack_deleted.fetch_add(del.succeeded(), std::memory_order_relaxed);
-        counters_.conntrack_errors.fetch_add(del.failures(), std::memory_order_relaxed);
+        counters_->conntrack_deleted.fetch_add(del.succeeded(), std::memory_order_relaxed);
+        counters_->conntrack_errors.fetch_add(del.failures(), std::memory_order_relaxed);
     }
 }
 

@@ -26,6 +26,18 @@ namespace keen_pbr3 {
 namespace {
 // How often the daemon verifies that dnsmasq still serves the keen-pbr config.
 constexpr auto kDnsmasqCheckInterval = std::chrono::seconds{30};
+
+class FailedApplyCounter {
+public:
+    explicit FailedApplyCounter(std::atomic<uint64_t>& counter) : counter_(counter) {}
+    ~FailedApplyCounter() {
+        if (!completed_) counter_.fetch_add(1, std::memory_order_relaxed);
+    }
+    void complete() { completed_ = true; }
+private:
+    std::atomic<uint64_t>& counter_;
+    bool completed_{false};
+};
 } // namespace
 
 // Maps a runtime lifecycle reason to the wording used when dnsmasq is
@@ -367,6 +379,7 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
     }
 
     const auto previous_active = firewall_state_.active_firewall();
+    FailedApplyCounter failed_apply(firewall_apply_errors_);
     auto active = apply_runtime_firewall(
         config_,
         outbound_marks_,
@@ -379,6 +392,7 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         interfaces,
         &balance_candidates,
         intercept.firewall_settings());
+    failed_apply.complete();
     // The apply may have recreated or flushed the dynamic sets: whatever the
     // interception cache remembered about their elements is no longer true.
     // (The cache was cleared when the pause began; this also covers a service

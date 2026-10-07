@@ -538,7 +538,9 @@ TEST_CASE("set_writer: writes slower than 20 ms bump the slow-write counter") {
     fake->replies = {{{0}, 0, 0}, {{0}, 0, 30}};
     auto writer = make_ipset_writer_for_test(std::move(transport));
     std::atomic<uint64_t> slow{0};
+    DynamicSetWriter::Metrics metrics;
     writer->set_slow_write_counter(&slow);
+    writer->set_metrics(&metrics);
     const SetAdd add = fake_v4("set", 1);
     SetAddResult result = SetAddResult::Error;
 
@@ -546,6 +548,9 @@ TEST_CASE("set_writer: writes slower than 20 ms bump the slow-write counter") {
     CHECK(slow.load() == 0);
     REQUIRE(writer->add(&add, &result, 1, 500));
     CHECK(slow.load() == 1);
+    CHECK(metrics.total.buckets[8].load() == 1);
+    CHECK(metrics.remainder.buckets[8].load() == 1);
+    CHECK(metrics.send.buckets[0].load() == 2);
 }
 
 TEST_CASE("set_writer: re-adding after ETIMEDOUT is idempotent (Refreshed, not Error)") {
