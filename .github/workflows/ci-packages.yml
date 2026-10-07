@@ -22,6 +22,15 @@ on:
       - 'version.mk'
   pull_request:
   workflow_dispatch:
+    inputs:
+      build_scope:
+        description: Package target set
+        required: true
+        default: default
+        type: choice
+        options:
+          - default
+          - full
 
 jobs:
   prepare-frontend:
@@ -33,6 +42,7 @@ jobs:
       source_ref_type: ${{ steps.context.outputs.source_ref_type }}
       source_ref_name: ${{ steps.context.outputs.source_ref_name }}
       source_pr_number: ${{ steps.context.outputs.source_pr_number }}
+      build_scope: ${{ steps.context.outputs.build_scope }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -47,6 +57,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_HEAD_REPO_FULL_NAME: ${{ github.event.pull_request.head.repo.full_name }}
+          REQUESTED_SCOPE: ${{ inputs.build_scope || 'default' }}
         run: |
           set -euo pipefail
 
@@ -56,15 +67,18 @@ jobs:
           source_ref_type=branch
           source_ref_name="$REF_NAME"
           source_pr_number=
+          build_scope=default
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$REQUESTED_SCOPE" = "full" ]; then
+            build_scope=full
+          fi
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
             target_root="pr/$PR_NUMBER"
             source_ref_name="$PR_HEAD_REF"
             source_pr_number="$PR_NUMBER"
             if [ "$PR_HEAD_REPO_FULL_NAME" = "$REPOSITORY" ]; then
-              target_root="$PR_HEAD_REF"
               use_signing_secrets=true
-              allow_publish=true
             fi
           elif [[ "$REF" == refs/heads/* ]]; then
             use_signing_secrets=true
@@ -77,9 +91,9 @@ jobs:
           echo "source_ref_type=$source_ref_type" >> "$GITHUB_OUTPUT"
           echo "source_ref_name=$source_ref_name" >> "$GITHUB_OUTPUT"
           echo "source_pr_number=$source_pr_number" >> "$GITHUB_OUTPUT"
+          echo "build_scope=$build_scope" >> "$GITHUB_OUTPUT"
+
       - uses: oven-sh/setup-bun@v2
-      # The target platform is baked into the bundle (frontend/src/lib/platform.ts),
-      # so every package family gets its own build.
       - name: Build frontend bundles
         run: |
           set -euo pipefail
@@ -89,84 +103,106 @@ jobs:
             mkdir -p "$GITHUB_WORKSPACE/frontend-artifact-$platform"
             cp -a "$GITHUB_WORKSPACE/frontend/dist"/. "$GITHUB_WORKSPACE/frontend-artifact-$platform"/
           done
+
       - name: Upload frontend bundle (generic)
         uses: actions/upload-artifact@v6
         with:
           name: frontend-dist-generic
           path: frontend-artifact-generic
-          # Keeps the .keen-pbr-platform marker checked by ensure-frontend-dist.sh.
           include-hidden-files: true
+
       - name: Upload frontend bundle (openwrt)
         uses: actions/upload-artifact@v6
         with:
           name: frontend-dist-openwrt
           path: frontend-artifact-openwrt
-          # Keeps the .keen-pbr-platform marker checked by ensure-frontend-dist.sh.
           include-hidden-files: true
+
       - name: Upload frontend bundle (keenetic)
         uses: actions/upload-artifact@v6
         with:
           name: frontend-dist-keenetic
           path: frontend-artifact-keenetic
-          # Keeps the .keen-pbr-platform marker checked by ensure-frontend-dist.sh.
           include-hidden-files: true
 
-  openwrt:
+  bootstrap-publish:
+    name: Prepare branch repository
     needs: [prepare-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        if: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
+        with:
+          submodules: recursive
+      - name: Bootstrap immutable release directory
+        if: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
+        env:
+          RSYNC_HOST: ${{ secrets.RSYNC_HOST || vars.RSYNC_HOST }}
+          RSYNC_USERNAME: ${{ secrets.RSYNC_USERNAME || vars.RSYNC_USERNAME }}
+          RSYNC_SSH_PRIVATE_KEY: ${{ secrets.RSYNC_SSH_PRIVATE_KEY || vars.RSYNC_SSH_PRIVATE_KEY }}
+          RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT || vars.RSYNC_TARGET_ROOT }}
+          RSYNC_PORT: ${{ secrets.RSYNC_PORT || vars.RSYNC_PORT || '22' }}
+        run: |
+          bash build_scripts/bootstrap-rsync-release.sh \
+            branch \
+            "${{ needs.prepare-frontend.outputs.source_ref_name }}" \
+            "${{ needs.prepare-frontend.outputs.source_pr_number }}"
+
+  openwrt-matrix:
+    needs: [prepare-frontend]
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Resolve OpenWrt matrix
+        id: matrix
+        env:
+          BUILD_SCOPE: ${{ needs.prepare-frontend.outputs.build_scope }}
+        run: |
+          set -euo pipefail
+          if [ "$BUILD_SCOPE" = "full" ]; then
+            matrix="$(python3 .github/builder/extract_release_openwrt_matrix.py)"
+          else
+            matrix='[{"openwrt_version":"25.12.2","architecture":"aarch64_cortex-a53"}]'
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Selected OpenWrt matrix: $matrix"
+
+  openwrt:
+    needs: [prepare-frontend, bootstrap-publish, openwrt-matrix]
     strategy:
       fail-fast: false
       matrix:
-        build:
-          - openwrt_version: "24.10.6"
-            architecture: "aarch64_cortex-a53"
-          - openwrt_version: "25.12.2"
-            architecture: "aarch64_cortex-a53"
-          - openwrt_version: "25.12.2"
-            architecture: "x86_64"
+        build: ${{ fromJson(needs.openwrt-matrix.outputs.matrix) }}
     uses: ./.github/workflows/reusable-openwrt-packages.yml
     with:
       openwrt_version: ${{ matrix.build.openwrt_version }}
       architecture: ${{ matrix.build.architecture }}
       frontend_artifact_name: frontend-dist-openwrt
       use_signing_secrets: ${{ needs.prepare-frontend.outputs.use_signing_secrets == 'true' }}
+      publish_branch: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
+      source_ref_name: ${{ needs.prepare-frontend.outputs.source_ref_name }}
     secrets: inherit
 
   keenetic:
-    needs: [prepare-frontend]
+    needs: [prepare-frontend, bootstrap-publish]
     uses: ./.github/workflows/reusable-keenetic-packages.yml
     with:
-      build_scope: default
+      build_scope: ${{ needs.prepare-frontend.outputs.build_scope }}
       keenetic_version: current
       frontend_artifact_name: frontend-dist-keenetic
+      publish_branch: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
+      source_ref_name: ${{ needs.prepare-frontend.outputs.source_ref_name }}
     secrets: inherit
 
   debian:
-    needs: [prepare-frontend]
+    needs: [prepare-frontend, bootstrap-publish]
     uses: ./.github/workflows/reusable-deb-packages.yml
     with:
-      build_scope: default
+      build_scope: ${{ needs.prepare-frontend.outputs.build_scope }}
       frontend_artifact_name: frontend-dist-generic
       use_signing_secrets: ${{ needs.prepare-frontend.outputs.use_signing_secrets == 'true' }}
-    secrets: inherit
-
-  # Previous GitHub-repository publisher retained for easy rollback:
-  # publish-repository:
-  #   needs: [prepare-frontend, openwrt, keenetic, debian]
-  #   if: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
-  #   uses: ./.github/workflows/reusable-publish-repository.yml
-  #   with:
-  #     target_root: ${{ needs.prepare-frontend.outputs.target_root }}
-  #     source_ref_type: ${{ needs.prepare-frontend.outputs.source_ref_type }}
-  #     source_ref_name: ${{ needs.prepare-frontend.outputs.source_ref_name }}
-  #     source_pr_number: ${{ needs.prepare-frontend.outputs.source_pr_number }}
-  #   secrets: inherit
-
-  publish-rsync:
-    needs: [prepare-frontend, openwrt, keenetic, debian]
-    # Every branch push is published; pull requests still build without deploying.
-    if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') }}
-    uses: ./.github/workflows/reusable-publish-rsync.yml
-    with:
-      source_ref_type: branch
+      publish_branch: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
       source_ref_name: ${{ needs.prepare-frontend.outputs.source_ref_name }}
     secrets: inherit
