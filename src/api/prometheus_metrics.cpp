@@ -128,8 +128,8 @@ std::string prometheus_metrics(const InterceptCounters* counters,
         KPBR_COUNTER(marker_hits, "DNS marker responses observed.");
         KPBR_COUNTER(l7_packets, "Layer 7 packets inspected.");
         KPBR_COUNTER(l7_matched, "Layer 7 destinations matched configured domains.");
-        KPBR_COUNTER(set_added, "Dynamic set elements added.");
-        KPBR_COUNTER(set_refreshed, "Dynamic set elements refreshed.");
+        KPBR_COUNTER(set_added, "Dynamic set elements written by an add or upsert, including existing ones.");
+        KPBR_COUNTER(set_refreshed, "Existing dynamic set elements whose timeout was extended.");
         KPBR_COUNTER(set_errors, "Dynamic set write errors.");
         KPBR_COUNTER(set_cache_hits, "Dynamic set cache hits.");
         KPBR_COUNTER(set_cache_misses, "Dynamic set cache misses.");

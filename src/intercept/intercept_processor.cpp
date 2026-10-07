@@ -82,6 +82,49 @@ int64_t signed_micros(Clock::time_point from, Clock::time_point to) {
     return std::chrono::duration_cast<std::chrono::microseconds>(to - from).count();
 }
 
+// Writes an L7 work item within `budget_ms`, results[i] parallel to work.adds.
+// Elements the cache does not know are upserted with add() (Added: the client
+// may already be connecting, so flows to them are purged).  Stale ones, which
+// the cache believes present, only get refresh() (Refreshed: no purge).  The
+// upserts go first because they gate routing; the refresh gets what is left of
+// the budget and stays Error when none is.  The two groups are made contiguous
+// by reordering adds/slots/stale together.  Returns whether a call ended in
+// ENOENT (the second call would overwrite writer.last_errno()).
+bool write_l7_adds(InterceptL7Work& work, std::vector<nfnl::SetAddResult>& results,
+                   nfnl::DynamicSetWriter& writer, int budget_ms) {
+    const Clock::time_point deadline = Clock::now() + std::chrono::milliseconds(budget_ms);
+    const std::size_t n = work.adds.size();
+    std::size_t upserts = n;
+    if (work.stale.size() == n && work.slots.size() == n) {
+        upserts = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            if (work.stale[i] != 0) continue;
+            if (i != upserts) {
+                std::swap(work.adds[i], work.adds[upserts]);
+                std::swap(work.slots[i], work.slots[upserts]);
+                std::swap(work.stale[i], work.stale[upserts]);
+            }
+            ++upserts;
+        }
+    }
+    bool enoent = false;
+    if (upserts > 0) {
+        writer.add(work.adds.data(), results.data(), upserts, budget_ms);
+        enoent = writer.last_errno() == ENOENT;
+    }
+    if (upserts < n) {
+        const int64_t left_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    (deadline - Clock::now()) + std::chrono::microseconds(999))
+                                    .count();
+        if (left_ms > 0) {
+            writer.refresh(work.adds.data() + upserts, results.data() + upserts, n - upserts,
+                           static_cast<int>(left_ms));
+            enoent = enoent || writer.last_errno() == ENOENT;
+        }
+    }
+    return enoent;
+}
+
 } // namespace
 
 static_assert(InterceptProcessor::kEventCapacity == 512, "EventRing capacity");
@@ -162,16 +205,21 @@ void InterceptProcessor::classify_adds(const std::shared_ptr<const InterceptSnap
                                        EventRecord& event) {
     std::size_t kept = 0;
     uint64_t hits = 0;
+    if (!queue_refreshes) add_stale_.clear();
     for (std::size_t i = 0; i < adds_.size(); ++i) {
         const nfnl::SetAdd& add = adds_[i];
         const SetElementCache::Lookup found = cache_.lookup(add_slots_[i], add.family, add.addr, now_ms);
-        // L7 (queue_refreshes == false) only skips trusted entries; a Stale one is rewritten.
+        // L7 (queue_refreshes == false) only skips trusted entries; a Stale one is kept,
+        // flagged so it is refreshed rather than upserted (no conntrack purge).
         const bool hit = found.state == SetElementCache::State::Fresh ||
                          (queue_refreshes && found.state == SetElementCache::State::Stale);
         if (!hit) {
             if (kept != i) {
                 adds_[kept] = adds_[i];
                 add_slots_[kept] = add_slots_[i];
+            }
+            if (!queue_refreshes) {
+                add_stale_.push_back(found.state == SetElementCache::State::Stale ? 1 : 0);
             }
             ++kept;
             continue;
@@ -954,8 +1002,11 @@ void InterceptProcessor::flush_late_writes() {
             bump(counters_.set_errors, errors);
             bump(counters_.dns_late_write_errors, errors);
             // The client may already be connecting: purge stale flows to these
-            // IPs.  After an ETIMEDOUT first attempt an "existing" element may
-            // have been added by it, so any success there also warrants a purge.
+            // IPs.  add() upserts and reports Added for an element that already
+            // existed too, so this can purge flows that were routed correctly;
+            // accepted for the rare late write.  On the nft fallback an element
+            // added by an ETIMEDOUT first attempt comes back Refreshed, so any
+            // success there also warrants a purge.
             if (le.snapshot_ok && le.client_valid &&
                 (added > 0 || (le.after_timeout && (refreshed > 0 || (errors > 0 && err == ETIMEDOUT))))) {
                 for (const dns_wire::AddressRecord& rec : le.addresses) {
@@ -1174,6 +1225,7 @@ void InterceptProcessor::handle_l7(ByteView l3, Clock::time_point now) {
         work.snapshot = snap;
         work.adds = std::move(adds_);
         work.slots = std::move(add_slots_);
+        work.stale = std::move(add_stale_);
         work.cache_epoch = cache_epoch;
         work.cache_now_ms = cache_now_ms;
         work.event = event;
@@ -1219,11 +1271,12 @@ void InterceptProcessor::record_l7_result(InterceptL7Work work,
     }
     const bool admitted = !l7_admission || l7_admission();
     const bool current = admitted && snapshot_is_current(work.snapshot);
+    bool saw_enoent = false;
     if (admitted) {
         if (current) {
             const Clock::time_point write_started = Clock::now();
             try {
-                writer.add(work.adds.data(), results.data(), work.adds.size(), kL7BudgetMs);
+                saw_enoent = write_l7_adds(work, results, writer, kL7BudgetMs);
             } catch (const std::exception& e) {
                 Logger::instance().debug("intercept: set writer failed: {}", e.what());
             } catch (...) {
@@ -1246,20 +1299,20 @@ void InterceptProcessor::record_l7_result(InterceptL7Work work,
             if (known) note_written(work.slots[i], work.adds[i], work.cache_now_ms, work.cache_epoch);
             break;
         case nfnl::SetAddResult::Refreshed:
+        case nfnl::SetAddResult::Exists:
             ++work.event.refreshed;
             if (known) note_written(work.slots[i], work.adds[i], work.cache_now_ms, work.cache_epoch);
             break;
         default: ++work.event.errors; break;
         }
     }
-    if (admitted && current && work.event.errors > 0 && writer.last_errno() == ENOENT) {
-        invalidate_set_cache();
-    }
+    if (work.event.errors > 0 && saw_enoent) invalidate_set_cache();
     sync_cache_gauge();
     bump(counters_.set_added, work.event.added);
     bump(counters_.set_refreshed, work.event.refreshed);
     bump(counters_.set_errors, work.event.errors);
-    // Only an address that was actually added needs conntrack cleanup.
+    // Only an address that was newly added needs conntrack cleanup; a refreshed
+    // (Stale) one is already routed.
     if (any_added) cleanup_.request(work.family, work.client, work.destination);
     push_event(work.event);
 }
