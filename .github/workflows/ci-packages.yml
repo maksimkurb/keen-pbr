@@ -50,6 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
       - name: Derive workflow context
         id: context
@@ -83,6 +84,7 @@ jobs:
             source_pr_number="$PR_NUMBER"
             if [ "$PR_HEAD_REPO_FULL_NAME" = "$REPOSITORY" ]; then
               use_signing_secrets=true
+              allow_publish=true
             fi
           elif [[ "$REF" == refs/heads/* ]]; then
             use_signing_secrets=true
@@ -159,6 +161,8 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Resolve OpenWrt matrix
         id: matrix
         env:
