@@ -32,6 +32,10 @@ on:
           - default
           - full
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   prepare-frontend:
     runs-on: ubuntu-latest
