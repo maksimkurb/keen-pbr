@@ -17,6 +17,14 @@ on:
         required: false
         type: boolean
         default: true
+      publish_branch:
+        required: false
+        type: boolean
+        default: false
+      source_ref_name:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build:
@@ -62,3 +70,18 @@ jobs:
           name: debug-symbols-openwrt-${{ inputs.openwrt_version }}-${{ inputs.architecture }}
           path: build/packages/openwrt-debug
           if-no-files-found: error
+      - name: Publish target to branch repository
+        if: ${{ inputs.publish_branch }}
+        env:
+          RSYNC_HOST: ${{ secrets.RSYNC_HOST || vars.RSYNC_HOST }}
+          RSYNC_USERNAME: ${{ secrets.RSYNC_USERNAME || vars.RSYNC_USERNAME }}
+          RSYNC_SSH_PRIVATE_KEY: ${{ secrets.RSYNC_SSH_PRIVATE_KEY || vars.RSYNC_SSH_PRIVATE_KEY }}
+          RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT || vars.RSYNC_TARGET_ROOT }}
+          RSYNC_PORT: ${{ secrets.RSYNC_PORT || vars.RSYNC_PORT || '22' }}
+        run: |
+          bash build_scripts/publish-rsync-incremental.sh \
+            "${{ inputs.source_ref_name }}" \
+            openwrt \
+            "${{ inputs.openwrt_version }}" \
+            "${{ inputs.architecture }}"
+
