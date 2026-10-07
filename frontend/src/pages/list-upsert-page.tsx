@@ -1,4 +1,3 @@
-import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   CheckCircle2Icon,
@@ -42,14 +41,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  clearFormServerErrors,
-  clearServerErrorsOnChange,
-  getFieldError,
-  setFormServerErrors,
-  splitFormApiErrors,
-  useFormServerErrors,
-} from "@/lib/form-api-errors"
+import { splitFormApiErrors, useDraftForm } from "@/lib/draft-form"
 import { cn } from "@/lib/utils"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -65,29 +57,28 @@ type ListDraft = {
 }
 
 type ListSourceGroup = "url" | "file" | "inline"
-type ListFieldName = (typeof LIST_FIELD_NAMES)[keyof typeof LIST_FIELD_NAMES]
 
+const LIST_FIELD_NAMES = [
+  "name",
+  "ttlMs",
+  "detour",
+  "domains",
+  "ipCidrs",
+  "url",
+  "file",
+] as const
 const LIST_SOURCE_GROUPS: ListSourceGroup[] = ["url", "file", "inline"]
 const DEFAULT_SOURCE_GROUP: ListSourceGroup = "url"
-const LIST_FIELD_NAMES = {
-  name: "name",
-  ttlMs: "ttlMs",
-  detour: "detour",
-  domains: "domains",
-  ipCidrs: "ipCidrs",
-  url: "url",
-  file: "file",
-} as const
 const LIST_SOURCE_GROUP_ICONS = {
   url: CloudIcon,
   file: FileTextIcon,
   inline: ScrollTextIcon,
 } satisfies Record<ListSourceGroup, typeof CloudIcon>
 const LIST_SOURCE_GROUP_FIELDS = {
-  url: [LIST_FIELD_NAMES.url],
-  file: [LIST_FIELD_NAMES.file],
-  inline: [LIST_FIELD_NAMES.domains, LIST_FIELD_NAMES.ipCidrs],
-} satisfies Record<ListSourceGroup, ListFieldName[]>
+  url: ["url"],
+  file: ["file"],
+  inline: ["domains", "ipCidrs"],
+} satisfies Record<ListSourceGroup, (keyof ListDraft)[]>
 
 const sampleNewList: ListDraft = {
   name: "",
@@ -213,73 +204,73 @@ function ListForm({
   >(() => getActiveSourceGroupsFromDraft(draft))
   const postConfigMutation = usePostConfigMutation()
   const isMobile = useIsMobile()
-
-  const form = useForm({
-    listeners: clearServerErrorsOnChange,
-    defaultValues: draft,
-    validators: {
-      onSubmitAsync: async ({ value }) => {
-        clearFormServerErrors(form)
-        const updatedConfig = buildUpdatedConfigForListUpsert(
-          loadedConfig,
-          mode,
-          value,
-          listId
-        )
-
-        try {
-          await postConfigMutation.mutateAsync({ data: updatedConfig })
-          toast.success(
-            mode === "create"
-              ? t("pages.listUpsert.messages.created")
-              : t("pages.listUpsert.messages.updated")
-          )
-          clearFormServerErrors(form)
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() }),
-          ])
-          navigate("/lists")
-          return undefined
-        } catch (error) {
-          const apiError = error as ApiError
-          const result = splitFormApiErrors({
-            error: apiError,
-            fieldNames: Object.values(LIST_FIELD_NAMES),
-            resolvePath: (path) =>
-              resolveListFieldPath(path, value.name || draft.name),
-          })
-
-          setFormServerErrors(form, {
-            form: result.formError ?? undefined,
-            fields: result.fieldErrors,
-            unmapped: result.unmappedErrors,
-          })
-
-          if (result.formError) {
-            toast.error(result.formError, { richColors: true })
-          }
-
-          return {
-            form: result.formError ?? undefined,
-            fields: result.fieldErrors,
-          }
-        }
-      },
-    },
-  })
-
-  const serverErrors = useFormServerErrors(form)
-
-  const apiErrorMessage = serverErrors.form
-  const unmappedServerErrors = serverErrors.unmapped
-
   const isCreate = mode === "create"
 
+  const form = useDraftForm<ListDraft>(draft, {
+    validate: (value) => {
+      const errors: Record<string, string> = {}
+
+      const nameError = getListNameError(
+        value.name,
+        existingListNames,
+        isCreate ? undefined : draft.name,
+        t
+      )
+      if (nameError) {
+        errors.name = nameError
+      }
+
+      const ttlError = getTtlError(value.ttlMs, t)
+      if (ttlError) {
+        errors.ttlMs = ttlError
+      }
+
+      return errors
+    },
+  })
+  const { values } = form
+
+  const save = async (value: ListDraft) => {
+    const updatedConfig = buildUpdatedConfigForListUpsert(
+      loadedConfig,
+      mode,
+      value,
+      listId
+    )
+
+    try {
+      await postConfigMutation.mutateAsync({ data: updatedConfig })
+      toast.success(
+        mode === "create"
+          ? t("pages.listUpsert.messages.created")
+          : t("pages.listUpsert.messages.updated")
+      )
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() }),
+      ])
+      navigate("/lists")
+    } catch (error) {
+      const result = splitFormApiErrors({
+        error: error as ApiError,
+        fieldNames: LIST_FIELD_NAMES,
+        resolvePath: (path) =>
+          resolveListFieldPath(path, value.name || draft.name),
+      })
+      form.setServerErrors({
+        form: result.formError,
+        fields: result.fieldErrors,
+        unmapped: result.unmappedErrors,
+      })
+      if (result.formError) {
+        toast.error(result.formError, { richColors: true })
+      }
+    }
+  }
+
   const handleSourceGroupSelect = (group: ListSourceGroup) => {
-    const currentValues = form.state.values
     const filledActiveGroups = activeSourceGroups.filter((sourceGroup) =>
-      isSourceGroupPopulated(sourceGroup, currentValues)
+      isSourceGroupPopulated(sourceGroup, values)
     )
     const groupsToClear = filledActiveGroups.filter(
       (sourceGroup) => sourceGroup !== group
@@ -301,32 +292,30 @@ function ListForm({
     }
 
     setActiveSourceGroups([group])
-    clearFormServerErrors(form)
 
-    for (const sourceGroup of LIST_SOURCE_GROUPS) {
-      if (sourceGroup === group) {
-        continue
+    form.setValues((prev) => {
+      const next = { ...prev }
+      for (const sourceGroup of LIST_SOURCE_GROUPS) {
+        if (sourceGroup === group) {
+          continue
+        }
+
+        for (const fieldName of LIST_SOURCE_GROUP_FIELDS[sourceGroup]) {
+          next[fieldName] = ""
+        }
       }
 
-      for (const fieldName of LIST_SOURCE_GROUP_FIELDS[sourceGroup]) {
-        form.setFieldValue(fieldName, "")
+      if (group !== "inline") {
+        next.domains = ""
+        next.ipCidrs = ""
       }
-    }
 
-    if (group !== "inline") {
-      form.setFieldValue(LIST_FIELD_NAMES.domains, "")
-      form.setFieldValue(LIST_FIELD_NAMES.ipCidrs, "")
-    }
+      return next
+    })
   }
 
   return (
-    <form
-      className="space-y-6"
-      onSubmit={(event) => {
-        event.preventDefault()
-        form.handleSubmit()
-      }}
-    >
+    <form className="space-y-6" onSubmit={form.onSubmit(save)}>
       <Card>
         <CardHeader>
           <CardTitle>{t("pages.listUpsert.common.title")}</CardTitle>
@@ -336,81 +325,44 @@ function ListForm({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <form.Field
-              name={LIST_FIELD_NAMES.name}
-              validators={{
-                onChange: ({ value }) =>
-                  getListNameError(
-                    value,
-                    existingListNames,
-                    isCreate ? undefined : draft.name,
-                    t
-                  ) ?? undefined,
-              }}
-            >
-              {(field) => {
-                const error = getFieldError(field)
+            <Field invalid={Boolean(form.errorFor("name"))}>
+              <FieldLabel htmlFor="list-name">
+                {t("pages.listUpsert.fields.name")}
+              </FieldLabel>
+              <FieldContent>
+                <Input
+                  aria-invalid={Boolean(form.errorFor("name"))}
+                  disabled={!isCreate}
+                  id="list-name"
+                  onChange={(event) => form.setValue("name", event.target.value)}
+                  value={values.name}
+                />
+                <FieldHint
+                  description={t("pages.listUpsert.fields.nameHint")}
+                  error={form.errorFor("name")}
+                />
+              </FieldContent>
+            </Field>
 
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="list-name">
-                      {t("pages.listUpsert.fields.name")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
-                        disabled={!isCreate}
-                        id="list-name"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.nameHint")}
-                        error={error ?? null}
-                      />
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            </form.Field>
-
-            <form.Field
-              name={LIST_FIELD_NAMES.ttlMs}
-              validators={{
-                onMount: ({ value }) => getTtlError(value, t) ?? undefined,
-                onChange: ({ value }) => getTtlError(value, t) ?? undefined,
-              }}
-            >
-              {(field) => {
-                const error = getFieldError(field)
-
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="list-ttl-ms">
-                      {t("pages.listUpsert.fields.ttlMs")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
-                        id="list-ttl-ms"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.ttlMsHint")}
-                        error={error ?? null}
-                      />
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            </form.Field>
+            <Field invalid={Boolean(form.errorFor("ttlMs"))}>
+              <FieldLabel htmlFor="list-ttl-ms">
+                {t("pages.listUpsert.fields.ttlMs")}
+              </FieldLabel>
+              <FieldContent>
+                <Input
+                  aria-invalid={Boolean(form.errorFor("ttlMs"))}
+                  id="list-ttl-ms"
+                  onChange={(event) =>
+                    form.setValue("ttlMs", event.target.value)
+                  }
+                  value={values.ttlMs}
+                />
+                <FieldHint
+                  description={t("pages.listUpsert.fields.ttlMsHint")}
+                  error={form.errorFor("ttlMs")}
+                />
+              </FieldContent>
+            </Field>
           </FieldGroup>
         </CardContent>
       </Card>
@@ -473,59 +425,46 @@ function ListForm({
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <form.Field name={LIST_FIELD_NAMES.url}>
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="list-url">
-                      {t("pages.listUpsert.fields.url")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        id="list-url"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.urlHint")}
-                      />
-                    </FieldContent>
-                  </Field>
-                )}
-              </form.Field>
+              <Field>
+                <FieldLabel htmlFor="list-url">
+                  {t("pages.listUpsert.fields.url")}
+                </FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="list-url"
+                    onChange={(event) =>
+                      form.setValue("url", event.target.value)
+                    }
+                    value={values.url}
+                  />
+                  <FieldHint
+                    description={t("pages.listUpsert.fields.urlHint")}
+                  />
+                </FieldContent>
+              </Field>
 
-              <form.Field name={LIST_FIELD_NAMES.detour}>
-                {(field) => {
-                  const error = getFieldError(field)
-
-                  return (
-                    <Field invalid={Boolean(error)}>
-                      <FieldLabel>
-                        {t("pages.listUpsert.fields.detour")}
-                      </FieldLabel>
-                      <FieldContent>
-                        <OutboundSelect
-                          allowEmpty
-                          ariaInvalid={Boolean(error)}
-                          emptyLabel={t("pages.listUpsert.fields.detourEmpty")}
-                          onValueChange={field.handleChange}
-                          outbounds={outbounds}
-                          placeholder={t(
-                            "pages.listUpsert.fields.detourPlaceholder"
-                          )}
-                          value={field.state.value}
-                        />
-                        <FieldHint
-                          description={t("pages.listUpsert.fields.detourHint")}
-                          error={error}
-                        />
-                      </FieldContent>
-                    </Field>
-                  )
-                }}
-              </form.Field>
+              <Field invalid={Boolean(form.errorFor("detour"))}>
+                <FieldLabel>
+                  {t("pages.listUpsert.fields.detour")}
+                </FieldLabel>
+                <FieldContent>
+                  <OutboundSelect
+                    allowEmpty
+                    ariaInvalid={Boolean(form.errorFor("detour"))}
+                    emptyLabel={t("pages.listUpsert.fields.detourEmpty")}
+                    onValueChange={(value) => form.setValue("detour", value)}
+                    outbounds={outbounds}
+                    placeholder={t(
+                      "pages.listUpsert.fields.detourPlaceholder"
+                    )}
+                    value={values.detour}
+                  />
+                  <FieldHint
+                    description={t("pages.listUpsert.fields.detourHint")}
+                    error={form.errorFor("detour")}
+                  />
+                </FieldContent>
+              </Field>
             </FieldGroup>
           </CardContent>
         </Card>
@@ -543,28 +482,23 @@ function ListForm({
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <form.Field name={LIST_FIELD_NAMES.file}>
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="list-file">
-                      {t("pages.listUpsert.fields.file")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        id="list-file"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.fileHint")}
-                      />
-                    </FieldContent>
-                  </Field>
-                )}
-              </form.Field>
+              <Field>
+                <FieldLabel htmlFor="list-file">
+                  {t("pages.listUpsert.fields.file")}
+                </FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="list-file"
+                    onChange={(event) =>
+                      form.setValue("file", event.target.value)
+                    }
+                    value={values.file}
+                  />
+                  <FieldHint
+                    description={t("pages.listUpsert.fields.fileHint")}
+                  />
+                </FieldContent>
+              </Field>
             </FieldGroup>
           </CardContent>
         </Card>
@@ -582,66 +516,56 @@ function ListForm({
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <form.Field name={LIST_FIELD_NAMES.domains}>
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="list-domains">
-                      {t("pages.listUpsert.fields.domains")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Textarea
-                        className="min-h-24"
-                        id="list-domains"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.domainsHint")}
-                      />
-                    </FieldContent>
-                  </Field>
-                )}
-              </form.Field>
-              <form.Field name={LIST_FIELD_NAMES.ipCidrs}>
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="list-ip-cidrs">
-                      {t("pages.listUpsert.fields.ipCidrs")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Textarea
-                        className="min-h-24"
-                        id="list-ip-cidrs"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.ipCidrsHint")}
-                      />
-                    </FieldContent>
-                  </Field>
-                )}
-              </form.Field>
+              <Field>
+                <FieldLabel htmlFor="list-domains">
+                  {t("pages.listUpsert.fields.domains")}
+                </FieldLabel>
+                <FieldContent>
+                  <Textarea
+                    className="min-h-24"
+                    id="list-domains"
+                    onChange={(event) =>
+                      form.setValue("domains", event.target.value)
+                    }
+                    value={values.domains}
+                  />
+                  <FieldHint
+                    description={t("pages.listUpsert.fields.domainsHint")}
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="list-ip-cidrs">
+                  {t("pages.listUpsert.fields.ipCidrs")}
+                </FieldLabel>
+                <FieldContent>
+                  <Textarea
+                    className="min-h-24"
+                    id="list-ip-cidrs"
+                    onChange={(event) =>
+                      form.setValue("ipCidrs", event.target.value)
+                    }
+                    value={values.ipCidrs}
+                  />
+                  <FieldHint
+                    description={t("pages.listUpsert.fields.ipCidrsHint")}
+                  />
+                </FieldContent>
+              </Field>
             </FieldGroup>
           </CardContent>
         </Card>
       ) : null}
 
-      {apiErrorMessage ? (
+      {form.errors.form ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
           <AlertDescription className="whitespace-pre-wrap">
-            {apiErrorMessage}
+            {form.errors.form}
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <ServerValidationAlert errors={unmappedServerErrors} />
+      <ServerValidationAlert errors={form.errors.unmapped} />
 
       <div className="flex justify-end gap-3">
         <Button
@@ -652,28 +576,19 @@ function ListForm({
         >
           {t("common.cancel")}
         </Button>
-        <form.Subscribe
-          selector={(state) => ({
-            canSubmit: state.canSubmit,
-            isPristine: state.isPristine,
-          })}
+        <Button
+          disabled={
+            postConfigMutation.isPending || !form.isDirty || form.isSubmitting
+          }
+          size="xl"
+          type="submit"
         >
-          {({ canSubmit, isPristine }) => (
-            <Button
-              disabled={
-                postConfigMutation.isPending || isPristine || !canSubmit
-              }
-              size="xl"
-              type="submit"
-            >
-              {postConfigMutation.isPending
-                ? t("pages.listUpsert.actions.saving")
-                : mode === "create"
-                  ? t("pages.listUpsert.actions.create")
-                  : t("pages.listUpsert.actions.save")}
-            </Button>
-          )}
-        </form.Subscribe>
+          {postConfigMutation.isPending
+            ? t("pages.listUpsert.actions.saving")
+            : mode === "create"
+              ? t("pages.listUpsert.actions.create")
+              : t("pages.listUpsert.actions.save")}
+        </Button>
       </div>
     </form>
   )
@@ -827,42 +742,39 @@ function getTtlError(value: string, t?: (key: string) => string) {
   return null
 }
 
-function resolveListFieldPath(
-  path: string,
-  name: string
-): ListFieldName | undefined {
+function resolveListFieldPath(path: string, name: string): string | undefined {
   const normalizedName = name.trim()
 
   if (path === "lists") {
-    return LIST_FIELD_NAMES.name
+    return "name"
   }
 
   if (normalizedName && path === `lists.${normalizedName}`) {
-    return LIST_FIELD_NAMES.name
+    return "name"
   }
 
   if (normalizedName && path === `lists.${normalizedName}.ttl_ms`) {
-    return LIST_FIELD_NAMES.ttlMs
+    return "ttlMs"
   }
 
   if (normalizedName && path === `lists.${normalizedName}.domains`) {
-    return LIST_FIELD_NAMES.domains
+    return "domains"
   }
 
   if (normalizedName && path === `lists.${normalizedName}.ip_cidrs`) {
-    return LIST_FIELD_NAMES.ipCidrs
+    return "ipCidrs"
   }
 
   if (normalizedName && path === `lists.${normalizedName}.url`) {
-    return LIST_FIELD_NAMES.url
+    return "url"
   }
 
   if (normalizedName && path === `lists.${normalizedName}.file`) {
-    return LIST_FIELD_NAMES.file
+    return "file"
   }
 
   if (normalizedName && path === `lists.${normalizedName}.detour`) {
-    return LIST_FIELD_NAMES.detour
+    return "detour"
   }
 
   return undefined

@@ -11,9 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import { type AnyFormApi, revalidateLogic, useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
-import { useStore } from "@tanstack/react-store"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
@@ -58,13 +56,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RadioGroup } from "@/components/ui/radio-group"
 import {
-  clearFormServerErrors,
-  clearServerErrorsOnChange,
-  getFieldError,
-  setFormServerErrors,
-  splitFormApiErrors,
-  useFormServerErrors,
-} from "@/lib/form-api-errors"
+  bindInput,
+  type FieldBinding,
+  type Path,
+  useDraftForm,
+} from "@/lib/draft-form"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
 import {
   PLATFORM_DEVELOPMENT,
@@ -80,7 +76,6 @@ import {
   type KillSwitchChoice,
   mapOutboundToDraft,
   normalizeOutboundGroups,
-  OUTBOUND_FIELD_NAMES,
   type OutboundDraft,
   resolveOutboundFieldPath,
   sampleNewOutbound,
@@ -245,88 +240,66 @@ function OutboundForm({
       runtime: runtimeByTag.get(item.tag),
     }))
 
-  const form = useForm({
-    listeners: clearServerErrorsOnChange,
-    defaultValues: draft,
-    validationLogic: revalidateLogic({
-      mode: "submit",
-      modeAfterSubmission: "change",
-    }),
-    validators: {
-      onSubmitAsync: async ({ value }) => {
-        clearFormServerErrors(form)
-        const duplicateTagError = validateTagUniqueness(
-          existingOutbounds,
-          value.tag,
-          mode === "edit" ? outboundId : undefined,
-          t
-        )
-        if (duplicateTagError) {
-          setFormServerErrors(form, {
-            fields: { [OUTBOUND_FIELD_NAMES.tag]: duplicateTagError },
-          })
-          return undefined
-        }
-
-        const payload = buildOutboundPayload(value)
-        const nextOutbounds =
-          mode === "create"
-            ? [...existingOutbounds, payload]
-            : existingOutbounds.map((outbound) =>
-                outbound.tag === outboundId ? payload : outbound
-              )
-
-        const referencesError = validateUrltestGroupReferences(nextOutbounds, t)
-        if (referencesError) {
-          setFormServerErrors(form, { form: referencesError, fields: {} })
-          return undefined
-        }
-
-        try {
-          await postConfigMutation.mutateAsync({
-            data: {
-              ...loadedConfig,
-              outbounds: nextOutbounds,
-            } satisfies ConfigObject,
-          })
-          clearFormServerErrors(form)
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.healthService(),
-            }),
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.healthRouting(),
-            }),
-          ])
-          navigate("/outbounds")
-          return undefined
-        } catch (error) {
-          const result = splitFormApiErrors({
-            error: error as ApiError,
-            resolvePath: (path) =>
-              resolveOutboundFieldPath(path, payload.tag || draft.tag),
-          })
-          setFormServerErrors(form, {
-            form: result.formError ?? undefined,
-            fields: result.fieldErrors,
-            unmapped: result.unmappedErrors,
-          })
-          return undefined
-        }
-      },
+  const existingTag = mode === "edit" ? outboundId : undefined
+  const form = useDraftForm<OutboundDraft>(draft, {
+    // The only client check: the daemon cannot know the name rules of the
+    // loaded list. Everything else is validated by the daemon on save.
+    validate: (value) => {
+      const tagError = getOutboundTagError(
+        value.tag,
+        existingOutbounds,
+        existingTag,
+        t
+      )
+      return tagError ? { tag: tagError } : {}
     },
   })
+  const { values } = form
 
-  const values = useStore(form.store, (state) => state.values)
-  const serverErrors = useFormServerErrors(form)
-  const apiErrorMessage = serverErrors.form
-  const serverFieldErrors = serverErrors.fields
-  const unmappedServerErrors = serverErrors.unmapped
+  const save = async (value: OutboundDraft) => {
+    const payload = buildOutboundPayload(value)
+    const nextOutbounds =
+      mode === "create"
+        ? [...existingOutbounds, payload]
+        : existingOutbounds.map((outbound) =>
+            outbound.tag === outboundId ? payload : outbound
+          )
+
+    const referencesError = validateUrltestGroupReferences(nextOutbounds, t)
+    if (referencesError) {
+      form.setServerErrors({ form: referencesError })
+      return
+    }
+
+    try {
+      await postConfigMutation.mutateAsync({
+        data: {
+          ...loadedConfig,
+          outbounds: nextOutbounds,
+        } satisfies ConfigObject,
+      })
+    } catch (error) {
+      form.setApiError(error as ApiError, (path) =>
+        resolveOutboundFieldPath(path, payload.tag || draft.tag)
+      )
+      return
+    }
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.healthService() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.healthRouting() }),
+    ])
+    navigate("/outbounds")
+  }
+
+  const steps = getOutboundGroupTags(values.outboundGroups)
+  const apiErrorMessage = form.errors.form
+  const serverFieldErrors = form.errors.fields
+  const unmappedServerErrors = form.errors.unmapped
   // Members are validated by the daemon only; its errors reach the inputs by
-  // field name (a weight error keeps the weight visible in priority mode).
-  const sectionErrorLabel = (names: readonly string[]) =>
-    names.some((name) => serverFieldErrors[name])
+  // path (a weight error keeps the weight visible in priority mode).
+  const sectionErrorLabel = (names: ReadonlyArray<Path<OutboundDraft>>) =>
+    names.some((name) => form.errorFor(name))
       ? t("pages.outboundUpsert.advanced.hasError")
       : null
   const hasWeightServerError = Object.keys(serverFieldErrors).some((name) =>
@@ -354,56 +327,49 @@ function OutboundForm({
     globalAction
   )
   const killSwitchError =
-    serverFieldErrors[OUTBOUND_FIELD_NAMES.strictEnforcement] ??
-    serverFieldErrors[OUTBOUND_FIELD_NAMES.strictEnforcementAction] ??
-    null
+    form.errorFor("strictEnforcement") ??
+    form.errorFor("strictEnforcementAction")
   const changedLabel = (changed: boolean) =>
     changed
       ? t("pages.outboundUpsert.advanced.changed")
       : t("pages.outboundUpsert.advanced.default")
 
-  const changeType = (nextType: Outbound["type"]) => {
-    const previousType = form.getFieldValue(OUTBOUND_FIELD_NAMES.type)
-    if (nextType === previousType) {
-      return
-    }
-    const wasGroup = previousType === "urltest" || previousType === "icmptest"
-    const isGroup = nextType === "urltest" || nextType === "icmptest"
-    if (isGroup) {
-      const previousDefaults =
-        previousType === "icmptest"
-          ? TEST_GROUP_DEFAULTS.icmptest
-          : TEST_GROUP_DEFAULTS.urltest
-      const nextDefaults =
-        nextType === "icmptest"
-          ? TEST_GROUP_DEFAULTS.icmptest
-          : TEST_GROUP_DEFAULTS.urltest
-      // Swap per-type defaults, but keep values the user has tuned.
-      for (const name of TEST_GROUP_TUNED_FIELDS) {
-        if (!wasGroup || form.getFieldValue(name) === previousDefaults[name]) {
-          form.setFieldValue(name, nextDefaults[name])
+  const changeType = (nextType: Outbound["type"]) =>
+    form.setValues((previous) => {
+      const previousType = previous.type
+      if (nextType === previousType) {
+        return previous
+      }
+      const next = { ...previous, type: nextType }
+      const wasGroup = previousType === "urltest" || previousType === "icmptest"
+      if (nextType === "urltest" || nextType === "icmptest") {
+        const previousDefaults =
+          previousType === "icmptest"
+            ? TEST_GROUP_DEFAULTS.icmptest
+            : TEST_GROUP_DEFAULTS.urltest
+        const nextDefaults =
+          nextType === "icmptest"
+            ? TEST_GROUP_DEFAULTS.icmptest
+            : TEST_GROUP_DEFAULTS.urltest
+        // Swap per-type defaults, but keep values the user has tuned.
+        for (const name of TEST_GROUP_TUNED_FIELDS) {
+          if (!wasGroup || previous[name] === previousDefaults[name]) {
+            next[name] = nextDefaults[name]
+          }
+        }
+        if (wasGroup) {
+          // Keep the chosen members when switching between urltest and ICMP.
+          next.outboundGroups = synchronizeOutboundGroups(
+            previous.outboundGroups,
+            getOutboundGroupTags(previous.outboundGroups)
+          )
         }
       }
-      if (wasGroup) {
-        // Keep the chosen members when switching between urltest and ICMP.
-        const groups = form.getFieldValue(OUTBOUND_FIELD_NAMES.outboundGroups)
-        form.setFieldValue(
-          OUTBOUND_FIELD_NAMES.outboundGroups,
-          synchronizeOutboundGroups(groups, getOutboundGroupTags(groups))
-        )
-      }
-    }
-    form.setFieldValue(OUTBOUND_FIELD_NAMES.type, nextType)
-  }
+      return next
+    })
 
   return (
-    <form
-      className="space-y-6"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
-      }}
-    >
+    <form className="space-y-6" onSubmit={form.onSubmit(save)}>
       {apiErrorMessage ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
           <AlertDescription className="whitespace-pre-wrap">
@@ -413,130 +379,89 @@ function OutboundForm({
       ) : null}
 
       <FieldGroup>
-        <form.Field
-          name={OUTBOUND_FIELD_NAMES.tag}
-          validators={{
-            onChange: ({ value }) =>
-              getOutboundTagError(
-                value,
-                existingOutbounds,
-                mode === "edit" ? outboundId : undefined,
-                t
-              ) ?? undefined,
-          }}
-        >
-          {(field) => (
-            <TextField
-              className="max-w-md"
-              field={field}
-              hint={t("pages.outboundUpsert.fields.tagHint")}
-              label={t("pages.outboundUpsert.fields.tag")}
-              readOnly={mode === "edit"}
-            />
-          )}
-        </form.Field>
+        <TextField
+          className="max-w-md"
+          field={form.field("tag")}
+          hint={t("pages.outboundUpsert.fields.tagHint")}
+          label={t("pages.outboundUpsert.fields.tag")}
+          readOnly={mode === "edit"}
+        />
 
-        <form.Field name={OUTBOUND_FIELD_NAMES.type}>
-          {(field) => {
-            const error = getFieldError(field)
-            return (
-              <Field invalid={Boolean(error)}>
-                <FieldLabel>{t("pages.outboundUpsert.fields.type")}</FieldLabel>
-                <FieldContent>
-                  <RadioGroup
-                    aria-label={t("pages.outboundUpsert.fields.type")}
-                    className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"
-                    onValueChange={(value) =>
-                      changeType(value as Outbound["type"])
-                    }
-                    value={field.state.value}
-                  >
-                    {outboundTypes.map(({ type, icon: Icon }) => (
-                      <ChoiceCard
-                        className="min-h-28 flex-col items-center justify-center gap-2 px-2 pt-6 pb-3 text-center"
-                        key={type}
-                        value={type}
-                      >
-                        <Icon className="size-7 text-primary" />
-                        <span className="text-sm leading-tight font-medium">
-                          {t(`pages.outboundUpsert.fields.typeOptions.${type}`)}
-                        </span>
-                        <InfoHint
-                          className="absolute top-2.5 right-2.5"
-                          label={t("pages.outboundUpsert.fields.aboutType")}
-                          text={t(`pages.outboundUpsert.typeHints.${type}`)}
-                        />
-                      </ChoiceCard>
-                    ))}
-                  </RadioGroup>
-                  <FieldHint error={error ?? null} />
-                </FieldContent>
-              </Field>
-            )
-          }}
-        </form.Field>
+        <Field invalid={Boolean(form.errorFor("type"))}>
+          <FieldLabel>{t("pages.outboundUpsert.fields.type")}</FieldLabel>
+          <FieldContent>
+            <RadioGroup
+              aria-label={t("pages.outboundUpsert.fields.type")}
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"
+              onValueChange={(value) => changeType(value as Outbound["type"])}
+              value={values.type}
+            >
+              {outboundTypes.map(({ type, icon: Icon }) => (
+                <ChoiceCard
+                  className="min-h-28 flex-col items-center justify-center gap-2 px-2 pt-6 pb-3 text-center"
+                  key={type}
+                  value={type}
+                >
+                  <Icon className="size-7 text-primary" />
+                  <span className="text-sm leading-tight font-medium">
+                    {t(`pages.outboundUpsert.fields.typeOptions.${type}`)}
+                  </span>
+                  <InfoHint
+                    className="absolute top-2.5 right-2.5"
+                    label={t("pages.outboundUpsert.fields.aboutType")}
+                    text={t(`pages.outboundUpsert.typeHints.${type}`)}
+                  />
+                </ChoiceCard>
+              ))}
+            </RadioGroup>
+            <FieldHint error={form.errorFor("type")} />
+          </FieldContent>
+        </Field>
       </FieldGroup>
 
       {outboundType === "interface" ? (
         <FieldGroup>
-          <form.Field name={OUTBOUND_FIELD_NAMES.interfaceName}>
-            {(field) => {
-              const error = getFieldError(field)
-              return (
-                <Field invalid={Boolean(error)}>
-                  <FieldLabel>
-                    {t("pages.outboundUpsert.interface.interface")}
-                  </FieldLabel>
-                  <FieldContent>
-                    <InterfacePicker
-                      allowCustomOption
-                      interfaces={runtimeInterfaces}
-                      invalid={Boolean(error)}
-                      onChange={field.handleChange}
-                      onSelect={field.handleChange}
-                      placeholder={t(
-                        "pages.outboundUpsert.interface.interfacePlaceholder"
-                      )}
-                      renderSelectedInline
-                      showDetails={false}
-                      value={field.state.value}
-                    />
-                    <FieldHint
-                      description={t(
-                        "pages.outboundUpsert.interface.interfaceHint"
-                      )}
-                      error={error ?? null}
-                    />
-                  </FieldContent>
-                </Field>
-              )
-            }}
-          </form.Field>
+          <Field invalid={Boolean(form.errorFor("interfaceName"))}>
+            <FieldLabel>
+              {t("pages.outboundUpsert.interface.interface")}
+            </FieldLabel>
+            <FieldContent>
+              <InterfacePicker
+                allowCustomOption
+                interfaces={runtimeInterfaces}
+                invalid={Boolean(form.errorFor("interfaceName"))}
+                onChange={(value) => form.setValue("interfaceName", value)}
+                onSelect={(value) => form.setValue("interfaceName", value)}
+                placeholder={t(
+                  "pages.outboundUpsert.interface.interfacePlaceholder"
+                )}
+                renderSelectedInline
+                showDetails={false}
+                value={values.interfaceName}
+              />
+              <FieldHint
+                description={t("pages.outboundUpsert.interface.interfaceHint")}
+                error={form.errorFor("interfaceName")}
+              />
+            </FieldContent>
+          </Field>
 
           <div className="space-y-1.5">
             <div className="grid gap-4 md:grid-cols-2">
-              <form.Field name={OUTBOUND_FIELD_NAMES.gateway}>
-                {(field) => (
-                  <TextField
-                    field={field}
-                    label={t("pages.outboundUpsert.interface.gateway")}
-                    placeholder={t(
-                      "pages.outboundUpsert.interface.gatewayPlaceholder"
-                    )}
-                  />
+              <TextField
+                field={form.field("gateway")}
+                label={t("pages.outboundUpsert.interface.gateway")}
+                placeholder={t(
+                  "pages.outboundUpsert.interface.gatewayPlaceholder"
                 )}
-              </form.Field>
-              <form.Field name={OUTBOUND_FIELD_NAMES.gateway6}>
-                {(field) => (
-                  <TextField
-                    field={field}
-                    label={t("pages.outboundUpsert.interface.gateway6")}
-                    placeholder={t(
-                      "pages.outboundUpsert.interface.gateway6Placeholder"
-                    )}
-                  />
+              />
+              <TextField
+                field={form.field("gateway6")}
+                label={t("pages.outboundUpsert.interface.gateway6")}
+                placeholder={t(
+                  "pages.outboundUpsert.interface.gateway6Placeholder"
                 )}
-              </form.Field>
+              />
             </div>
             <FieldDescription>
               {t("pages.outboundUpsert.interface.gatewaysHint")}
@@ -553,17 +478,13 @@ function OutboundForm({
             <RadioGroup
               aria-label={t("pages.outboundUpsert.killSwitch.title")}
               className="grid gap-3 md:grid-cols-2"
-              onValueChange={(value) => {
-                const fields = getKillSwitchFields(value as KillSwitchChoice)
-                form.setFieldValue(
-                  OUTBOUND_FIELD_NAMES.strictEnforcement,
-                  fields.strictEnforcement
-                )
-                form.setFieldValue(
-                  OUTBOUND_FIELD_NAMES.strictEnforcementAction,
-                  fields.strictEnforcementAction
-                )
-              }}
+              onValueChange={(value) =>
+                // Two config fields change together.
+                form.setValues((previous) => ({
+                  ...previous,
+                  ...getKillSwitchFields(value as KillSwitchChoice),
+                }))
+              }
               value={killSwitch}
             >
               {(["inherit", "off", "reject", "drop"] as const).map((choice) => (
@@ -597,20 +518,14 @@ function OutboundForm({
       ) : null}
 
       {outboundType === "table" ? (
-        <>
-          <form.Field name={OUTBOUND_FIELD_NAMES.table}>
-            {(field) => (
-              <TextField
-                className="max-w-64"
-                field={field}
-                hint={t("pages.outboundUpsert.table.hint")}
-                inputMode="numeric"
-                label={t("pages.outboundUpsert.table.field")}
-                placeholder="100"
-              />
-            )}
-          </form.Field>
-        </>
+        <TextField
+          className="max-w-64"
+          field={form.field("table")}
+          hint={t("pages.outboundUpsert.table.hint")}
+          inputMode="numeric"
+          label={t("pages.outboundUpsert.table.field")}
+          placeholder="100"
+        />
       ) : null}
 
       {outboundType === "blackhole" || outboundType === "ignore" ? (
@@ -624,155 +539,127 @@ function OutboundForm({
 
       {isTestGroup ? (
         <>
-          <form.Field name={OUTBOUND_FIELD_NAMES.strategy}>
-            {(field) =>
-              // Without load balancing there is nothing to choose, unless a
-              // balance config has to be switched back.
-              !BALANCE_SUPPORTED && field.state.value !== "balance" ? null : (
-                <Field>
-                  <FieldLabel>
-                    {t("pages.outboundUpsert.strategy.label")}
-                  </FieldLabel>
-                  <FieldContent>
-                    <RadioGroup
-                      aria-label={t("pages.outboundUpsert.strategy.label")}
-                      className="grid max-w-2xl gap-3 sm:grid-cols-2"
-                      onValueChange={(value) =>
-                        field.handleChange(
-                          value as NonNullable<Outbound["strategy"]>
-                        )
-                      }
-                      value={field.state.value}
-                    >
-                      {(["priority", "balance"] as const).map((strategy) => (
-                        <ChoiceCard
-                          className="flex-col items-start gap-0.5 py-3 pr-3.5 pl-9 text-left"
-                          disabled={
-                            strategy === "balance" && !BALANCE_SUPPORTED
-                          }
-                          key={strategy}
-                          value={strategy}
-                        >
-                          <span className="text-sm font-medium">
-                            {t(
-                              `pages.outboundUpsert.strategy.cards.${strategy}.title`
-                            )}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {t(
-                              `pages.outboundUpsert.strategy.cards.${strategy}.description`
-                            )}
-                          </span>
-                        </ChoiceCard>
-                      ))}
-                    </RadioGroup>
-                  </FieldContent>
-                </Field>
-              )
-            }
-          </form.Field>
+          {
+            // Without load balancing there is nothing to choose, unless a
+            // balance config has to be switched back.
+            !BALANCE_SUPPORTED && values.strategy !== "balance" ? null : (
+              <Field>
+                <FieldLabel>
+                  {t("pages.outboundUpsert.strategy.label")}
+                </FieldLabel>
+                <FieldContent>
+                  <RadioGroup
+                    aria-label={t("pages.outboundUpsert.strategy.label")}
+                    className="grid max-w-2xl gap-3 sm:grid-cols-2"
+                    onValueChange={(value) =>
+                      form.setValue(
+                        "strategy",
+                        value as NonNullable<Outbound["strategy"]>
+                      )
+                    }
+                    value={values.strategy}
+                  >
+                    {(["priority", "balance"] as const).map((strategy) => (
+                      <ChoiceCard
+                        className="flex-col items-start gap-0.5 py-3 pr-3.5 pl-9 text-left"
+                        disabled={strategy === "balance" && !BALANCE_SUPPORTED}
+                        key={strategy}
+                        value={strategy}
+                      >
+                        <span className="text-sm font-medium">
+                          {t(
+                            `pages.outboundUpsert.strategy.cards.${strategy}.title`
+                          )}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {t(
+                            `pages.outboundUpsert.strategy.cards.${strategy}.description`
+                          )}
+                        </span>
+                      </ChoiceCard>
+                    ))}
+                  </RadioGroup>
+                </FieldContent>
+              </Field>
+            )
+          }
 
           <FormSection>
-            <form.Field name={OUTBOUND_FIELD_NAMES.outboundGroups}>
-              {(field) => {
-                const steps = getOutboundGroupTags(field.state.value)
-                const groupError = getFieldError(field)
-                return (
-                  <div className="space-y-2">
-                    {candidates.length === 0 ? (
-                      <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-                        {t(
-                          "pages.outboundUpsert.urltest.addInterfaceOutboundsFirst"
-                        )}
-                      </div>
-                    ) : null}
-                    <GroupLadder
-                      candidates={candidates}
-                      memberRuntime={memberRuntime}
-                      onChange={(nextSteps) =>
-                        field.handleChange(
-                          synchronizeOutboundGroups(
-                            field.state.value,
-                            normalizeOutboundGroups(nextSteps)
-                          )
-                        )
-                      }
-                      renderTarget={
-                        isIcmptest
-                          ? (stepIndex, memberIndex) => (
-                              <form.Field
-                                name={`outboundGroups[${stepIndex}].members[${memberIndex}].target`}
-                              >
-                                {(targetField) => (
-                                  <PingTargetInput
-                                    error={
-                                      serverFieldErrors[targetField.name] ??
-                                      null
-                                    }
-                                    field={targetField}
-                                  />
-                                )}
-                              </form.Field>
-                            )
-                          : undefined
-                      }
-                      renderWeight={(stepIndex, memberIndex) => (
-                        <form.Field
-                          name={`outboundGroups[${stepIndex}].members[${memberIndex}].weight`}
-                        >
-                          {(weightField) => (
-                            <WeightInput
-                              error={
-                                serverFieldErrors[weightField.name] ?? null
-                              }
-                              field={weightField}
-                              share={getMemberSharePercent(
-                                field.state.value[stepIndex],
-                                memberIndex
-                              )}
-                            />
+            <div className="space-y-2">
+              {candidates.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                  {t("pages.outboundUpsert.urltest.addInterfaceOutboundsFirst")}
+                </div>
+              ) : null}
+              <GroupLadder
+                candidates={candidates}
+                memberRuntime={memberRuntime}
+                // Structural edits replace the whole array, which also drops
+                // the errors of every row below it (rows shift on reorder).
+                onChange={(nextSteps) =>
+                  form.setValue(
+                    "outboundGroups",
+                    synchronizeOutboundGroups(
+                      values.outboundGroups,
+                      normalizeOutboundGroups(nextSteps)
+                    )
+                  )
+                }
+                renderTarget={
+                  isIcmptest
+                    ? (stepIndex, memberIndex) => (
+                        <PingTargetInput
+                          field={form.field(
+                            `outboundGroups[${stepIndex}].members[${memberIndex}].target`
                           )}
-                        </form.Field>
-                      )}
-                      stepErrors={steps.map(
-                        (_, index) =>
-                          serverFieldErrors[`outboundGroups[${index}]`] ?? null
-                      )}
-                      showWeights={
-                        values.strategy === "balance" || hasWeightServerError
-                      }
-                      steps={steps}
-                      strategy={values.strategy}
-                    />
-                    {groupError ? (
-                      <p className="text-sm text-destructive">{groupError}</p>
-                    ) : null}
-                  </div>
-                )
-              }}
-            </form.Field>
+                        />
+                      )
+                    : undefined
+                }
+                renderWeight={(stepIndex, memberIndex) => (
+                  <WeightInput
+                    field={form.field(
+                      `outboundGroups[${stepIndex}].members[${memberIndex}].weight`
+                    )}
+                    share={getMemberSharePercent(
+                      values.outboundGroups[stepIndex],
+                      memberIndex
+                    )}
+                  />
+                )}
+                showWeights={
+                  values.strategy === "balance" || hasWeightServerError
+                }
+                stepErrors={steps.map((_, index) =>
+                  form.errorFor(`outboundGroups[${index}]`)
+                )}
+                steps={steps}
+                strategy={values.strategy}
+              />
+              {form.errorFor("outboundGroups") ? (
+                <p className="text-sm text-destructive">
+                  {form.errorFor("outboundGroups")}
+                </p>
+              ) : null}
+            </div>
           </FormSection>
 
           {values.strategy === "priority" ? (
-            <form.Field name={OUTBOUND_FIELD_NAMES.conntrackOnSwitch}>
-              {(field) => (
-                <ChoiceField
-                  error={getFieldError(field)}
-                  hint={t("pages.outboundUpsert.conntrack.hint")}
-                  label={t("pages.outboundUpsert.conntrack.label")}
-                >
-                  <SegmentedControl
-                    aria-label={t("pages.outboundUpsert.conntrack.label")}
-                    onChange={field.handleChange}
-                    options={(["preserve", "delete"] as const).map((value) => ({
-                      value,
-                      label: t(`pages.outboundUpsert.conntrack.${value}`),
-                    }))}
-                    value={field.state.value}
-                  />
-                </ChoiceField>
-              )}
-            </form.Field>
+            <ChoiceField
+              error={form.errorFor("conntrackOnSwitch")}
+              hint={t("pages.outboundUpsert.conntrack.hint")}
+              label={t("pages.outboundUpsert.conntrack.label")}
+            >
+              <SegmentedControl
+                aria-label={t("pages.outboundUpsert.conntrack.label")}
+                onChange={(value) => form.setValue("conntrackOnSwitch", value)}
+                options={(["preserve", "delete"] as const).map((value) => ({
+                  value,
+                  label: t(`pages.outboundUpsert.conntrack.${value}`),
+                }))}
+                value={values.conntrackOnSwitch}
+              />
+            </ChoiceField>
           ) : null}
 
           {isUrltest ? (
@@ -806,16 +693,12 @@ function OutboundForm({
               title={t("pages.outboundUpsert.advanced.probesTitle")}
             >
               <div className="grid gap-4 md:grid-cols-2">
-                <form.Field name={OUTBOUND_FIELD_NAMES.probeUrl}>
-                  {(field) => (
-                    <TextField
-                      className="md:col-span-2"
-                      field={field}
-                      label={t("pages.outboundUpsert.urltest.probeUrl")}
-                      tooltip={t("pages.outboundUpsert.urltest.probeUrlHint")}
-                    />
-                  )}
-                </form.Field>
+                <TextField
+                  className="md:col-span-2"
+                  field={form.field("probeUrl")}
+                  label={t("pages.outboundUpsert.urltest.probeUrl")}
+                  tooltip={t("pages.outboundUpsert.urltest.probeUrlHint")}
+                />
                 {(
                   [
                     ["interval", "urltest.interval"],
@@ -825,16 +708,13 @@ function OutboundForm({
                     ["retryInterval", "urltest.retryInterval"],
                   ] as const
                 ).map(([name, key]) => (
-                  <form.Field key={name} name={name}>
-                    {(field) => (
-                      <TextField
-                        field={field}
-                        inputMode="numeric"
-                        label={t(`pages.outboundUpsert.${key}`)}
-                        tooltip={t(`pages.outboundUpsert.${key}Hint`)}
-                      />
-                    )}
-                  </form.Field>
+                  <TextField
+                    field={form.field(name)}
+                    inputMode="numeric"
+                    key={name}
+                    label={t(`pages.outboundUpsert.${key}`)}
+                    tooltip={t(`pages.outboundUpsert.${key}Hint`)}
+                  />
                 ))}
               </div>
             </AdvancedSection>
@@ -885,16 +765,13 @@ function OutboundForm({
                     "tolerance",
                   ] as const
                 ).map((name) => (
-                  <form.Field key={name} name={name}>
-                    {(field) => (
-                      <TextField
-                        field={field}
-                        inputMode="numeric"
-                        label={t(`pages.outboundUpsert.icmptest.${name}`)}
-                        tooltip={t(`pages.outboundUpsert.icmptest.${name}Hint`)}
-                      />
-                    )}
-                  </form.Field>
+                  <TextField
+                    field={form.field(name)}
+                    inputMode="numeric"
+                    key={name}
+                    label={t(`pages.outboundUpsert.icmptest.${name}`)}
+                    tooltip={t(`pages.outboundUpsert.icmptest.${name}Hint`)}
+                  />
                 ))}
               </div>
             </AdvancedSection>
@@ -935,18 +812,13 @@ function OutboundForm({
                   ["circuitBreakerHalfOpen", "halfOpen"],
                 ] as const
               ).map(([name, key]) => (
-                <form.Field key={name} name={name}>
-                  {(field) => (
-                    <TextField
-                      field={field}
-                      inputMode="numeric"
-                      label={t(`pages.outboundUpsert.circuitBreaker.${key}`)}
-                      tooltip={t(
-                        `pages.outboundUpsert.circuitBreaker.${key}Hint`
-                      )}
-                    />
-                  )}
-                </form.Field>
+                <TextField
+                  field={form.field(name)}
+                  inputMode="numeric"
+                  key={name}
+                  label={t(`pages.outboundUpsert.circuitBreaker.${key}`)}
+                  tooltip={t(`pages.outboundUpsert.circuitBreaker.${key}Hint`)}
+                />
               ))}
             </div>
           </AdvancedSection>
@@ -959,37 +831,18 @@ function OutboundForm({
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
           {t("common.cancel")}
         </Button>
-        <form.Subscribe
-          selector={(state) => ({
-            canSubmit: state.canSubmit,
-            isPristine: state.isPristine,
-          })}
+        <Button
+          disabled={form.isSubmitting || !form.isDirty}
+          size="xl"
+          type="submit"
         >
-          {({ canSubmit, isPristine }) => (
-            <Button
-              disabled={
-                postConfigMutation.isPending || isPristine || !canSubmit
-              }
-              size="xl"
-              type="submit"
-            >
-              {mode === "create"
-                ? t("pages.outboundUpsert.actions.create")
-                : t("pages.outboundUpsert.actions.save")}
-            </Button>
-          )}
-        </form.Subscribe>
+          {mode === "create"
+            ? t("pages.outboundUpsert.actions.create")
+            : t("pages.outboundUpsert.actions.save")}
+        </Button>
       </div>
     </form>
   )
-}
-
-type StringFieldApi = {
-  form: AnyFormApi
-  name: string
-  state: { value: string; meta: { errors: unknown[] } }
-  handleBlur: () => void
-  handleChange: (value: string) => void
 }
 
 function TextField({
@@ -1002,7 +855,7 @@ function TextField({
   readOnly,
   className,
 }: {
-  field: StringFieldApi
+  field: FieldBinding<string>
   label: string
   /** Shown under the input. */
   hint?: string
@@ -1014,26 +867,21 @@ function TextField({
   className?: string
 }) {
   const id = useId()
-  const error = getFieldError(field)
   return (
-    <Field className={className} invalid={Boolean(error)}>
+    <Field className={className} invalid={Boolean(field.error)}>
       <FieldLabel htmlFor={id}>
         {label}
         {tooltip ? <InfoHint label={label} text={tooltip} /> : null}
       </FieldLabel>
       <FieldContent>
         <Input
-          aria-invalid={Boolean(error)}
+          {...bindInput(field)}
           id={id}
           inputMode={inputMode}
-          name={field.name}
-          onBlur={field.handleBlur}
-          onChange={(event) => field.handleChange(event.target.value)}
           placeholder={placeholder}
           readOnly={readOnly}
-          value={field.state.value}
         />
-        <FieldHint description={hint} error={error ?? null} />
+        <FieldHint description={hint} error={field.error} />
       </FieldContent>
     </Field>
   )
@@ -1067,13 +915,12 @@ function ChoiceField({
 function WeightInput({
   field,
   share,
-  error,
 }: {
-  field: StringFieldApi
+  field: FieldBinding<string>
   share: number
-  error: string | null
 }) {
   const { t } = useTranslation()
+  const error = field.error
   const errorId = useId()
   const label = t("pages.outboundUpsert.ladder.weight")
   return (
@@ -1087,14 +934,13 @@ function WeightInput({
             className="h-7 w-14 text-xs tabular-nums md:text-xs"
             inputMode="numeric"
             name={field.name}
-            onBlur={field.handleBlur}
             // Digits only, so the request always carries a number; the
             // daemon checks the 1..100 range.
             onChange={(event) =>
-              field.handleChange(event.target.value.replace(/\D/g, ""))
+              field.onChange(event.target.value.replace(/\D/g, ""))
             }
             placeholder="1"
-            value={field.state.value ?? ""}
+            value={field.value ?? ""}
           />
         </label>
         <InfoHint
@@ -1112,14 +958,9 @@ function WeightInput({
   )
 }
 
-function PingTargetInput({
-  field,
-  error,
-}: {
-  field: StringFieldApi
-  error: string | null
-}) {
+function PingTargetInput({ field }: { field: FieldBinding<string> }) {
   const { t } = useTranslation()
+  const error = field.error
   const errorId = useId()
   return (
     <InlineFieldError error={error} id={errorId}>
@@ -1127,14 +968,10 @@ function PingTargetInput({
         {t("pages.outboundUpsert.ladder.pingTarget")}
         <Input
           aria-describedby={error ? errorId : undefined}
-          aria-invalid={Boolean(error)}
           className="h-7 w-40 font-mono text-xs md:text-xs"
-          name={field.name}
-          onBlur={field.handleBlur}
-          onChange={(event) => field.handleChange(event.target.value)}
+          {...bindInput(field)}
           placeholder="1.1.1.1"
           title={t("pages.outboundUpsert.icmptest.targetHint")}
-          value={field.state.value ?? ""}
         />
       </label>
     </InlineFieldError>

@@ -1,6 +1,6 @@
+import type { ComponentProps, ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
-import { type AnyFormApi, useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 
 import type { ApiError } from "@/api/client"
@@ -34,13 +34,11 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  clearFormServerErrors,
-  clearServerErrorsOnChange,
-  getFieldError,
-  setFormServerErrors,
+  type FieldBinding,
+  bindInput,
   splitFormApiErrors,
-  useFormServerErrors,
-} from "@/lib/form-api-errors"
+  useDraftForm,
+} from "@/lib/draft-form"
 import { toast } from "sonner"
 
 export type SettingsDraft = {
@@ -176,62 +174,46 @@ function LoadedGeneralConfigPage({
 
   const postConfigMutation = usePostConfigMutation()
 
-  const form = useForm({
-    listeners: clearServerErrorsOnChange,
-    defaultValues: getDraftFromConfig(loadedConfig),
-    validators: {
-      onSubmitAsync: async ({ value }) => {
-        const updatedConfig = buildUpdatedConfig(loadedConfig, value)
-        clearFormServerErrors(form)
+  const form = useDraftForm<SettingsDraft>(getDraftFromConfig(loadedConfig))
 
-        try {
-          await postConfigMutation.mutateAsync({ data: updatedConfig })
-          toast.success(t("pages.settings.saved"))
-          clearFormServerErrors(form)
+  const save = async (value: SettingsDraft) => {
+    const updatedConfig = buildUpdatedConfig(loadedConfig, value)
 
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.healthService(),
-            }),
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.healthRouting(),
-            }),
-          ])
+    try {
+      await postConfigMutation.mutateAsync({ data: updatedConfig })
+    } catch (error) {
+      const result = splitFormApiErrors({
+        error: error as ApiError,
+        fieldNames: Object.values(SETTINGS_FIELD_NAMES),
+        resolvePath: resolveSettingsFieldPath,
+      })
 
-          form.reset(getDraftFromConfig(updatedConfig))
-          return undefined
-        } catch (error) {
-          const result = splitFormApiErrors({
-            error: error as ApiError,
-            fieldNames: Object.values(SETTINGS_FIELD_NAMES),
-            resolvePath: resolveSettingsFieldPath,
-          })
+      form.setServerErrors({
+        form: result.formError,
+        fields: result.fieldErrors,
+        unmapped: result.unmappedErrors,
+      })
 
-          setFormServerErrors(form, {
-            form: result.formError ?? undefined,
-            fields: result.fieldErrors,
-            unmapped: result.unmappedErrors,
-          })
+      if (result.formError) {
+        toast.error(result.formError, { richColors: true })
+      }
+      return
+    }
 
-          if (result.formError) {
-            toast.error(result.formError, { richColors: true })
-          }
+    toast.success(t("pages.settings.saved"))
 
-          return {
-            form: result.formError ?? undefined,
-            fields: result.fieldErrors,
-          }
-        }
-      },
-    },
-  })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.healthService() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.healthRouting() }),
+    ])
 
-  const serverErrors = useFormServerErrors(form)
+    form.reset(getDraftFromConfig(updatedConfig))
+  }
 
-  const unmappedServerErrors = serverErrors.unmapped
+  const unmappedServerErrors = form.errors.unmapped
 
-  const isPending = postConfigMutation.isPending
+  const isPending = form.isSubmitting
   const runtimeInterfaces =
     runtimeInterfacesQuery.data?.status === 200
       ? runtimeInterfacesQuery.data.data.interfaces
@@ -239,8 +221,10 @@ function LoadedGeneralConfigPage({
 
   const handleCancel = () => {
     form.reset(getDraftFromConfig(loadedConfig))
-    clearFormServerErrors(form)
   }
+
+  const cron = form.field("cron")
+  const inboundInterfacesError = form.errorFor("inboundInterfaces")
 
   return (
     <>
@@ -252,31 +236,22 @@ function LoadedGeneralConfigPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form.Field name={SETTINGS_FIELD_NAMES.deviceName}>
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor="device-name">
-                  {t("pages.settings.general.deviceNameLabel")}
-                </FieldLabel>
-                <Input
-                  id="device-name"
-                  maxLength={128}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder={t(
-                    "pages.settings.general.deviceNamePlaceholder"
-                  )}
-                  value={field.state.value}
-                />
-                <FieldDescription>
-                  {t("pages.settings.general.deviceNameHint")}
-                </FieldDescription>
-              </Field>
-            )}
-          </form.Field>
+          <Field>
+            <FieldLabel htmlFor="device-name">
+              {t("pages.settings.general.deviceNameLabel")}
+            </FieldLabel>
+            <Input
+              id="device-name"
+              maxLength={128}
+              placeholder={t("pages.settings.general.deviceNamePlaceholder")}
+              {...bindInput(form.field("deviceName"))}
+            />
+            <FieldDescription>
+              {t("pages.settings.general.deviceNameHint")}
+            </FieldDescription>
+          </Field>
         </CardContent>
       </Card>
-
 
       <Card>
         <CardHeader>
@@ -287,159 +262,101 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <form.Field name={SETTINGS_FIELD_NAMES.interceptEnabled}>
-              {(field) => (
-                <BooleanSettingField
-                  checked={field.state.value}
-                  id="intercept-enabled"
-                  label={t("pages.settings.intercept.enabledLabel")}
-                  hint={t("pages.settings.intercept.enabledHint")}
-                  onChange={(checked) => field.handleChange(checked)}
-                />
-              )}
-            </form.Field>
+            <BooleanSettingField
+              field={form.field("interceptEnabled")}
+              id="intercept-enabled"
+              label={t("pages.settings.intercept.enabledLabel")}
+              hint={t("pages.settings.intercept.enabledHint")}
+            />
 
             <FieldSeparator />
 
             <div className="grid gap-6 md:grid-cols-2">
-              <form.Field name={SETTINGS_FIELD_NAMES.interceptMinTtlS}>
-                {(field) => (
-                  <NumberSettingField
-                    field={field}
-                    id="intercept-min-ttl"
-                    label={t("pages.settings.intercept.minTtlLabel")}
-                    hint={t("pages.settings.intercept.minTtlHint")}
-                  />
-                )}
-              </form.Field>
-              <form.Field name={SETTINGS_FIELD_NAMES.interceptMaxTtlS}>
-                {(field) => (
-                  <NumberSettingField
-                    field={field}
-                    id="intercept-max-ttl"
-                    label={t("pages.settings.intercept.maxTtlLabel")}
-                    hint={t("pages.settings.intercept.maxTtlHint")}
-                  />
-                )}
-              </form.Field>
+              <NumberSettingField
+                field={form.field("interceptMinTtlS")}
+                id="intercept-min-ttl"
+                label={t("pages.settings.intercept.minTtlLabel")}
+                hint={t("pages.settings.intercept.minTtlHint")}
+              />
+              <NumberSettingField
+                field={form.field("interceptMaxTtlS")}
+                id="intercept-max-ttl"
+                label={t("pages.settings.intercept.maxTtlLabel")}
+                hint={t("pages.settings.intercept.maxTtlHint")}
+              />
             </div>
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.interceptDnsEnabled}>
-              {(field) => (
-                <BooleanSettingField
-                  checked={field.state.value}
-                  id="intercept-dns-enabled"
-                  label={t("pages.settings.intercept.dnsEnabledLabel")}
-                  hint={t("pages.settings.intercept.dnsEnabledHint")}
-                  onChange={(checked) => field.handleChange(checked)}
-                />
-              )}
-            </form.Field>
+            <BooleanSettingField
+              field={form.field("interceptDnsEnabled")}
+              id="intercept-dns-enabled"
+              label={t("pages.settings.intercept.dnsEnabledLabel")}
+              hint={t("pages.settings.intercept.dnsEnabledHint")}
+            />
 
             <div className="grid gap-6 md:grid-cols-2">
-              <form.Field name={SETTINGS_FIELD_NAMES.interceptDnsQueueNum}>
-                {(field) => (
-                  <NumberSettingField
-                    field={field}
-                    id="intercept-dns-queue"
-                    label={t("pages.settings.intercept.queueLabel")}
-                    hint={t("pages.settings.intercept.queueHint")}
-                  />
-                )}
-              </form.Field>
-              <form.Field name={SETTINGS_FIELD_NAMES.interceptDnsHoldTimeoutMs}>
-                {(field) => (
-                  <NumberSettingField
-                    field={field}
-                    id="intercept-dns-timeout"
-                    label={t("pages.settings.intercept.holdTimeoutLabel")}
-                    hint={t("pages.settings.intercept.holdTimeoutHint")}
-                  />
-                )}
-              </form.Field>
+              <NumberSettingField
+                field={form.field("interceptDnsQueueNum")}
+                id="intercept-dns-queue"
+                label={t("pages.settings.intercept.queueLabel")}
+                hint={t("pages.settings.intercept.queueHint")}
+              />
+              <NumberSettingField
+                field={form.field("interceptDnsHoldTimeoutMs")}
+                id="intercept-dns-timeout"
+                label={t("pages.settings.intercept.holdTimeoutLabel")}
+                hint={t("pages.settings.intercept.holdTimeoutHint")}
+              />
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
-              <form.Field name={SETTINGS_FIELD_NAMES.interceptMarkerDomain}>
-                {(field) => (
-                  <TextSettingField
-                    field={field}
-                    id="intercept-marker-domain"
-                    label={t("pages.settings.intercept.markerDomainLabel")}
-                    hint={t("pages.settings.intercept.markerDomainHint")}
-                  />
-                )}
-              </form.Field>
-              <form.Field name={SETTINGS_FIELD_NAMES.interceptMarkerAddress}>
-                {(field) => (
-                  <TextSettingField
-                    field={field}
-                    id="intercept-marker-address"
-                    label={t("pages.settings.intercept.markerAddressLabel")}
-                    hint={t("pages.settings.intercept.markerAddressHint")}
-                  />
-                )}
-              </form.Field>
+              <TextSettingField
+                field={form.field("interceptMarkerDomain")}
+                id="intercept-marker-domain"
+                label={t("pages.settings.intercept.markerDomainLabel")}
+                hint={t("pages.settings.intercept.markerDomainHint")}
+              />
+              <TextSettingField
+                field={form.field("interceptMarkerAddress")}
+                id="intercept-marker-address"
+                label={t("pages.settings.intercept.markerAddressLabel")}
+                hint={t("pages.settings.intercept.markerAddressHint")}
+              />
             </div>
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.interceptL7Enabled}>
-              {(field) => (
-                <BooleanSettingField
-                  checked={field.state.value}
-                  id="intercept-l7-enabled"
-                  label={t("pages.settings.intercept.l7EnabledLabel")}
-                  hint={t("pages.settings.intercept.l7EnabledHint")}
-                  onChange={(checked) => field.handleChange(checked)}
-                />
-              )}
-            </form.Field>
+            <BooleanSettingField
+              field={form.field("interceptL7Enabled")}
+              id="intercept-l7-enabled"
+              label={t("pages.settings.intercept.l7EnabledLabel")}
+              hint={t("pages.settings.intercept.l7EnabledHint")}
+            />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.interceptL7NflogGroup}>
-              {(field) => (
-                <NumberSettingField
-                  field={field}
-                  id="intercept-l7-group"
-                  label={t("pages.settings.intercept.nflogGroupLabel")}
-                  hint={t("pages.settings.intercept.nflogGroupHint")}
-                />
-              )}
-            </form.Field>
+            <NumberSettingField
+              field={form.field("interceptL7NflogGroup")}
+              id="intercept-l7-group"
+              label={t("pages.settings.intercept.nflogGroupLabel")}
+              hint={t("pages.settings.intercept.nflogGroupHint")}
+            />
 
             <div className="grid gap-6 md:grid-cols-3">
-              <form.Field name={SETTINGS_FIELD_NAMES.interceptL7Tls}>
-                {(field) => (
-                  <BooleanSettingField
-                    checked={field.state.value}
-                    id="intercept-l7-tls"
-                    label={t("pages.settings.intercept.tlsLabel")}
-                    onChange={(checked) => field.handleChange(checked)}
-                  />
-                )}
-              </form.Field>
-              <form.Field name={SETTINGS_FIELD_NAMES.interceptL7Http}>
-                {(field) => (
-                  <BooleanSettingField
-                    checked={field.state.value}
-                    id="intercept-l7-http"
-                    label={t("pages.settings.intercept.httpLabel")}
-                    onChange={(checked) => field.handleChange(checked)}
-                  />
-                )}
-              </form.Field>
-              <form.Field name={SETTINGS_FIELD_NAMES.interceptL7Quic}>
-                {(field) => (
-                  <BooleanSettingField
-                    checked={field.state.value}
-                    id="intercept-l7-quic"
-                    label={t("pages.settings.intercept.quicLabel")}
-                    onChange={(checked) => field.handleChange(checked)}
-                  />
-                )}
-              </form.Field>
+              <BooleanSettingField
+                field={form.field("interceptL7Tls")}
+                id="intercept-l7-tls"
+                label={t("pages.settings.intercept.tlsLabel")}
+              />
+              <BooleanSettingField
+                field={form.field("interceptL7Http")}
+                id="intercept-l7-http"
+                label={t("pages.settings.intercept.httpLabel")}
+              />
+              <BooleanSettingField
+                field={form.field("interceptL7Quic")}
+                id="intercept-l7-quic"
+                label={t("pages.settings.intercept.quicLabel")}
+              />
             </div>
           </FieldGroup>
         </CardContent>
@@ -454,199 +371,84 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <form.Field name={SETTINGS_FIELD_NAMES.strictEnforcement}>
-              {(field) => (
-                <Field>
-                  <FieldContent>
-                    <div className="flex items-center space-x-3">
-                      <Checkbox
-                        checked={field.state.value}
-                        id="strict-enforcement"
-                        onCheckedChange={(checked) =>
-                          field.handleChange(checked === true)
-                        }
-                      />
-                      <FieldLabel
-                        className="cursor-pointer flex-col items-start gap-0"
-                        htmlFor="strict-enforcement"
-                      >
-                        {t("pages.settings.general.strictEnforcementLabel")}
-                      </FieldLabel>
-                    </div>
-                    <FieldHint
-                      description={t(
-                        "pages.settings.general.strictEnforcementHint"
-                      )}
-                    />
-                  </FieldContent>
-                </Field>
-              )}
-            </form.Field>
+            <BooleanSettingField
+              field={form.field("strictEnforcement")}
+              hint={t("pages.settings.general.strictEnforcementHint")}
+              id="strict-enforcement"
+              label={t("pages.settings.general.strictEnforcementLabel")}
+            />
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.skipMarkedPackets}>
-              {(field) => (
-                <Field>
-                  <FieldContent>
-                    <div className="flex items-center space-x-3">
-                      <Checkbox
-                        checked={field.state.value}
-                        id="skip-marked-packets"
-                        onCheckedChange={(checked) =>
-                          field.handleChange(checked === true)
-                        }
-                      />
-                      <FieldLabel
-                        className="cursor-pointer flex-col items-start gap-0"
-                        htmlFor="skip-marked-packets"
-                      >
-                        {t("pages.settings.general.skipMarkedPacketsLabel")}
-                      </FieldLabel>
-                    </div>
-                    <FieldHint
-                      description={t(
-                        "pages.settings.general.skipMarkedPacketsHint"
-                      )}
-                    />
-                  </FieldContent>
-                </Field>
-              )}
-            </form.Field>
+            <BooleanSettingField
+              field={form.field("skipMarkedPackets")}
+              hint={t("pages.settings.general.skipMarkedPacketsHint")}
+              id="skip-marked-packets"
+              label={t("pages.settings.general.skipMarkedPacketsLabel")}
+            />
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.processRouterTraffic}>
-              {(field) => (
-                <Field>
-                  <FieldContent>
-                    <div className="flex items-center space-x-3">
-                      <Checkbox
-                        checked={field.state.value}
-                        id="process-router-traffic"
-                        onCheckedChange={(checked) =>
-                          field.handleChange(checked === true)
-                        }
-                      />
-                      <FieldLabel
-                        className="cursor-pointer flex-col items-start gap-0"
-                        htmlFor="process-router-traffic"
-                      >
-                        {t("pages.settings.general.processRouterTrafficLabel")}
-                      </FieldLabel>
-                    </div>
-                    <FieldHint
-                      description={t(
-                        "pages.settings.general.processRouterTrafficHint"
-                      )}
-                    />
-                  </FieldContent>
-                </Field>
-              )}
-            </form.Field>
+            <BooleanSettingField
+              field={form.field("processRouterTraffic")}
+              hint={t("pages.settings.general.processRouterTrafficHint")}
+              id="process-router-traffic"
+              label={t("pages.settings.general.processRouterTrafficLabel")}
+            />
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.clearDynamicSetsOnApply}>
-              {(field) => (
-                <Field>
-                  <FieldContent>
-                    <div className="flex items-center space-x-3">
-                      <Checkbox
-                        checked={field.state.value}
-                        id="clear-dynamic-sets-on-apply"
-                        onCheckedChange={(checked) =>
-                          field.handleChange(checked === true)
-                        }
-                      />
-                      <FieldLabel
-                        className="cursor-pointer flex-col items-start gap-0"
-                        htmlFor="clear-dynamic-sets-on-apply"
-                      >
-                        {t(
-                          "pages.settings.general.clearDynamicSetsOnApplyLabel"
-                        )}
-                      </FieldLabel>
-                    </div>
-                    <FieldHint
-                      description={t(
-                        "pages.settings.general.clearDynamicSetsOnApplyHint"
-                      )}
-                    />
-                  </FieldContent>
-                </Field>
-              )}
-            </form.Field>
+            <BooleanSettingField
+              field={form.field("clearDynamicSetsOnApply")}
+              hint={t("pages.settings.general.clearDynamicSetsOnApplyHint")}
+              id="clear-dynamic-sets-on-apply"
+              label={t("pages.settings.general.clearDynamicSetsOnApplyLabel")}
+            />
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.ipv6Enabled}>
-              {(field) => (
-                <Field>
-                  <FieldContent>
-                    <div className="flex items-center space-x-3">
-                      <Checkbox
-                        checked={field.state.value}
-                        id="ipv6-enabled"
-                        onCheckedChange={(checked) =>
-                          field.handleChange(checked === true)
-                        }
-                      />
-                      <FieldLabel
-                        className="cursor-pointer flex-col items-start gap-0"
-                        htmlFor="ipv6-enabled"
-                      >
-                        {t("pages.settings.general.ipv6EnabledLabel")}
-                      </FieldLabel>
-                    </div>
-                    <FieldHint
-                      description={t("pages.settings.general.ipv6EnabledHint")}
-                    />
-                  </FieldContent>
-                </Field>
-              )}
-            </form.Field>
+            <BooleanSettingField
+              field={form.field("ipv6Enabled")}
+              hint={t("pages.settings.general.ipv6EnabledHint")}
+              id="ipv6-enabled"
+              label={t("pages.settings.general.ipv6EnabledLabel")}
+            />
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.inboundInterfaces}>
-              {(field) => {
-                const error = getFieldError(field)
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="inbound-interfaces">
-                      {t("pages.settings.general.inboundInterfacesLabel")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <div id="inbound-interfaces">
-                        <InterfaceMultiSelectList
-                          name={SETTINGS_FIELD_NAMES.inboundInterfaces}
-                          interfaces={runtimeInterfaces}
-                          value={field.state.value}
-                          onChange={field.handleChange}
-                          addLabel={t(
-                            "pages.settings.general.inboundInterfacesAddAction"
-                          )}
-                          emptyMessage={t(
-                            "pages.settings.general.inboundInterfacesNoAvailable"
-                          )}
-                          placeholderTitle={t(
-                            "pages.settings.general.inboundInterfacesEmptyTitle"
-                          )}
-                          placeholderDescription={t(
-                            "pages.settings.general.inboundInterfacesEmptyDescription"
-                          )}
-                          error={error}
-                        />
-                      </div>
-                      <FieldDescription>
-                        {t("pages.settings.general.inboundInterfacesHint")}
-                      </FieldDescription>
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            </form.Field>
+            <Field invalid={Boolean(inboundInterfacesError)}>
+              <FieldLabel htmlFor="inbound-interfaces">
+                {t("pages.settings.general.inboundInterfacesLabel")}
+              </FieldLabel>
+              <FieldContent>
+                <div id="inbound-interfaces">
+                  <InterfaceMultiSelectList
+                    name={SETTINGS_FIELD_NAMES.inboundInterfaces}
+                    interfaces={runtimeInterfaces}
+                    value={form.values.inboundInterfaces}
+                    onChange={(value) =>
+                      form.setValue("inboundInterfaces", value)
+                    }
+                    addLabel={t(
+                      "pages.settings.general.inboundInterfacesAddAction"
+                    )}
+                    emptyMessage={t(
+                      "pages.settings.general.inboundInterfacesNoAvailable"
+                    )}
+                    placeholderTitle={t(
+                      "pages.settings.general.inboundInterfacesEmptyTitle"
+                    )}
+                    placeholderDescription={t(
+                      "pages.settings.general.inboundInterfacesEmptyDescription"
+                    )}
+                    error={inboundInterfacesError}
+                  />
+                </div>
+                <FieldDescription>
+                  {t("pages.settings.general.inboundInterfacesHint")}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
           </FieldGroup>
         </CardContent>
       </Card>
@@ -660,91 +462,55 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <form.Field name={SETTINGS_FIELD_NAMES.listsAutoupdateEnabled}>
-              {(field) => (
-                <Field>
-                  <FieldContent>
-                    <div className="flex items-center space-x-3">
-                      <Checkbox
-                        checked={field.state.value}
-                        id="autoupdate-lists"
-                        onCheckedChange={(checked) =>
-                          field.handleChange(checked === true)
-                        }
-                      />
-                      <FieldLabel
-                        className="cursor-pointer flex-col items-start gap-0"
-                        htmlFor="autoupdate-lists"
-                      >
-                        {t("pages.settings.autoupdate.enabledLabel")}
-                      </FieldLabel>
-                    </div>
-                    <FieldHint
-                      description={t("pages.settings.autoupdate.enabledHint")}
-                    />
-                  </FieldContent>
-                </Field>
-              )}
-            </form.Field>
+            <BooleanSettingField
+              field={form.field("listsAutoupdateEnabled")}
+              hint={t("pages.settings.autoupdate.enabledHint")}
+              id="autoupdate-lists"
+              label={t("pages.settings.autoupdate.enabledLabel")}
+            />
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.cron}>
-              {(field) => {
-                const error = getFieldError(field)
-
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="general-cron">
-                      {t("pages.settings.autoupdate.cronLabel")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
-                        id="general-cron"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={
-                          <>
-                            {t("pages.settings.autoupdate.cronHintPrefix")}{" "}
-                            <a
-                              className="underline underline-offset-3 hover:text-foreground"
-                              href={getCrontabGuruUrl(field.state.value)}
-                              rel="noreferrer"
-                              target="_blank"
-                            >
-                              Crontab Guru
-                            </a>{" "}
-                            {t("pages.settings.autoupdate.cronHintSuffix")}
-                          </>
-                        }
-                        error={
-                          error ? (
-                            <>
-                              {error}{" "}
-                              <a
-                                className="underline underline-offset-3 hover:text-foreground"
-                                href={getCrontabGuruUrl(field.state.value)}
-                                rel="noreferrer"
-                                target="_blank"
-                              >
-                                {t("pages.settings.autoupdate.openInGuru")}
-                              </a>
-                              .
-                            </>
-                          ) : null
-                        }
-                      />
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            </form.Field>
+            <Field invalid={Boolean(cron.error)}>
+              <FieldLabel htmlFor="general-cron">
+                {t("pages.settings.autoupdate.cronLabel")}
+              </FieldLabel>
+              <FieldContent>
+                <Input id="general-cron" {...bindInput(cron)} />
+                <FieldHint
+                  description={
+                    <>
+                      {t("pages.settings.autoupdate.cronHintPrefix")}{" "}
+                      <a
+                        className="underline underline-offset-3 hover:text-foreground"
+                        href={getCrontabGuruUrl(cron.value)}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Crontab Guru
+                      </a>{" "}
+                      {t("pages.settings.autoupdate.cronHintSuffix")}
+                    </>
+                  }
+                  error={
+                    cron.error ? (
+                      <>
+                        {cron.error}{" "}
+                        <a
+                          className="underline underline-offset-3 hover:text-foreground"
+                          href={getCrontabGuruUrl(cron.value)}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          {t("pages.settings.autoupdate.openInGuru")}
+                        </a>
+                        .
+                      </>
+                    ) : null
+                  }
+                />
+              </FieldContent>
+            </Field>
           </FieldGroup>
         </CardContent>
       </Card>
@@ -758,183 +524,69 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <form.Field name={SETTINGS_FIELD_NAMES.fwmarkStart}>
-              {(field) => {
-                const error = getFieldError(field)
-
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="fwmark-start">
-                      {t("pages.settings.advanced.fwmarkStartLabel")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
-                        id="fwmark-start"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t(
-                          "pages.settings.advanced.fwmarkStartHint"
-                        )}
-                        error={error ?? null}
-                      />
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            </form.Field>
+            <AdvancedTextField
+              field={form.field("fwmarkStart")}
+              hint={t("pages.settings.advanced.fwmarkStartHint")}
+              id="fwmark-start"
+              label={t("pages.settings.advanced.fwmarkStartLabel")}
+            />
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.fwmarkMask}>
-              {(field) => {
-                const error = getFieldError(field)
-
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="fwmark-mask">
-                      {t("pages.settings.advanced.fwmarkMaskLabel")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
-                        id="fwmark-mask"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={
-                          <>
-                            {t("pages.settings.advanced.fwmarkMaskHintPrefix")}{" "}
-                            <code>f</code>{" "}
-                            {t("pages.settings.advanced.fwmarkMaskHintSuffix")}{" "}
-                            <code>0x00ff0000</code>.
-                          </>
-                        }
-                        error={error ?? null}
-                      />
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            </form.Field>
+            <AdvancedTextField
+              field={form.field("fwmarkMask")}
+              hint={
+                <>
+                  {t("pages.settings.advanced.fwmarkMaskHintPrefix")}{" "}
+                  <code>f</code>{" "}
+                  {t("pages.settings.advanced.fwmarkMaskHintSuffix")}{" "}
+                  <code>0x00ff0000</code>.
+                </>
+              }
+              id="fwmark-mask"
+              label={t("pages.settings.advanced.fwmarkMaskLabel")}
+            />
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.tableStart}>
-              {(field) => {
-                const error = getFieldError(field)
-
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="table-start">
-                      {t("pages.settings.advanced.tableStartLabel")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
-                        id="table-start"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t(
-                          "pages.settings.advanced.tableStartHint"
-                        )}
-                        error={error ?? null}
-                      />
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            </form.Field>
+            <AdvancedTextField
+              field={form.field("tableStart")}
+              hint={t("pages.settings.advanced.tableStartHint")}
+              id="table-start"
+              label={t("pages.settings.advanced.tableStartLabel")}
+            />
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.ipsetHashsize}>
-              {(field) => {
-                const error = getFieldError(field)
-
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="ipset-hashsize">
-                      {t("pages.settings.advanced.ipsetHashsizeLabel")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
-                        id="ipset-hashsize"
-                        inputMode="numeric"
-                        max={2147483648}
-                        min={1}
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        placeholder="1024"
-                        type="number"
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t(
-                          "pages.settings.advanced.ipsetHashsizeHint"
-                        )}
-                        error={error ?? null}
-                      />
-                    </FieldContent>
-                  </Field>
-                )
+            <AdvancedTextField
+              field={form.field("ipsetHashsize")}
+              hint={t("pages.settings.advanced.ipsetHashsizeHint")}
+              id="ipset-hashsize"
+              inputProps={{
+                inputMode: "numeric",
+                max: 2147483648,
+                min: 1,
+                placeholder: "1024",
+                type: "number",
               }}
-            </form.Field>
+              label={t("pages.settings.advanced.ipsetHashsizeLabel")}
+            />
 
             <FieldSeparator />
 
-            <form.Field name={SETTINGS_FIELD_NAMES.ipsetMaxelem}>
-              {(field) => {
-                const error = getFieldError(field)
-
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="ipset-maxelem">
-                      {t("pages.settings.advanced.ipsetMaxelemLabel")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
-                        id="ipset-maxelem"
-                        inputMode="numeric"
-                        max={4294967295}
-                        min={1}
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        placeholder="65536"
-                        type="number"
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t(
-                          "pages.settings.advanced.ipsetMaxelemHint"
-                        )}
-                        error={error ?? null}
-                      />
-                    </FieldContent>
-                  </Field>
-                )
+            <AdvancedTextField
+              field={form.field("ipsetMaxelem")}
+              hint={t("pages.settings.advanced.ipsetMaxelemHint")}
+              id="ipset-maxelem"
+              inputProps={{
+                inputMode: "numeric",
+                max: 4294967295,
+                min: 1,
+                placeholder: "65536",
+                type: "number",
               }}
-            </form.Field>
+              label={t("pages.settings.advanced.ipsetMaxelemLabel")}
+            />
           </FieldGroup>
         </CardContent>
       </Card>
@@ -950,24 +602,15 @@ function LoadedGeneralConfigPage({
         >
           {t("common.cancel")}
         </Button>
-        <form.Subscribe
-          selector={(state) => ({
-            canSubmit: state.canSubmit,
-            isPristine: state.isPristine,
-          })}
+        <Button
+          disabled={isPending || !form.isDirty}
+          onClick={() => void form.submit(save)}
+          size="xl"
         >
-          {({ canSubmit, isPristine }) => (
-            <Button
-              disabled={isPending || isPristine || !canSubmit}
-              onClick={() => form.handleSubmit()}
-              size="xl"
-            >
-              {isPending
-                ? t("pages.settings.actions.saving")
-                : t("pages.settings.actions.save")}
-            </Button>
-          )}
-        </form.Subscribe>
+          {isPending
+            ? t("pages.settings.actions.saving")
+            : t("pages.settings.actions.save")}
+        </Button>
       </div>
     </>
   )
@@ -1043,35 +686,25 @@ function GeneralConfigPageSkeleton() {
   )
 }
 
-type TextFieldApi = {
-  form: AnyFormApi
-  name: string
-  state: { value: string; meta: { errors: unknown[] } }
-  handleBlur: () => void
-  handleChange: (value: string) => void
-}
-
 function BooleanSettingField({
-  checked,
+  field,
   hint,
   id,
   label,
-  onChange,
 }: {
-  checked: boolean
+  field: FieldBinding<boolean>
   hint?: string
   id: string
   label: string
-  onChange: (checked: boolean) => void
 }) {
   return (
     <Field>
       <FieldContent>
         <div className="flex items-center space-x-3">
           <Checkbox
-            checked={checked}
+            checked={field.value}
             id={id}
-            onCheckedChange={(value) => onChange(value === true)}
+            onCheckedChange={(value) => field.onChange(value === true)}
           />
           <FieldLabel
             className="cursor-pointer flex-col items-start gap-0"
@@ -1092,24 +725,17 @@ function TextSettingField({
   id,
   label,
 }: {
-  field: TextFieldApi
+  field: FieldBinding<string>
   hint?: string
   id: string
   label: string
 }) {
-  const error = getFieldError(field)
   return (
-    <Field invalid={Boolean(error)}>
+    <Field invalid={Boolean(field.error)}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <FieldContent>
-        <Input
-          aria-invalid={Boolean(error)}
-          id={id}
-          onBlur={field.handleBlur}
-          onChange={(event) => field.handleChange(event.target.value)}
-          value={field.state.value}
-        />
-        <FieldHint description={hint} error={error} />
+        <Input id={id} {...bindInput(field)} />
+        <FieldHint description={hint} error={field.error} />
       </FieldContent>
     </Field>
   )
@@ -1121,31 +747,50 @@ function NumberSettingField({
   id,
   label,
 }: {
-  field: TextFieldApi
+  field: FieldBinding<string>
   hint?: string
   id: string
   label: string
 }) {
-  const error = getFieldError(field)
   return (
-    <Field invalid={Boolean(error)}>
+    <Field invalid={Boolean(field.error)}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <FieldContent>
         <Input
-          aria-invalid={Boolean(error)}
           id={id}
           inputMode="numeric"
-          onBlur={field.handleBlur}
-          onChange={(event) => field.handleChange(event.target.value)}
           type="number"
-          value={field.state.value}
+          {...bindInput(field)}
         />
-        <FieldHint description={hint} error={error} />
+        <FieldHint description={hint} error={field.error} />
       </FieldContent>
     </Field>
   )
 }
 
+function AdvancedTextField({
+  field,
+  hint,
+  id,
+  inputProps,
+  label,
+}: {
+  field: FieldBinding<string>
+  hint: ReactNode
+  id: string
+  inputProps?: ComponentProps<typeof Input>
+  label: string
+}) {
+  return (
+    <Field invalid={Boolean(field.error)}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldContent>
+        <Input id={id} {...inputProps} {...bindInput(field)} />
+        <FieldHint description={hint} error={field.error} />
+      </FieldContent>
+    </Field>
+  )
+}
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
