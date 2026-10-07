@@ -1,24 +1,45 @@
 /**
- * useDraftForm: a form is a DRAFT of a config object. The daemon validates the
- * whole config on save and answers with errors addressed by config path; the
- * form maps those to form paths and shows them. There are no client
- * validators (one optional `validate` on submit, see below).
+ * useDraftForm: a form is a DRAFT of (a part of) the config document. The
+ * daemon validates the whole config on save and reports errors by the EXACT
+ * JSON path of the offending value (`outbounds[3].retry.attempts`,
+ * `dns.servers[1].detour`, `lists["my.list"].url`). There are no client
+ * validators (one optional `validate` on submit) and no path-mapping
+ * functions: every control owns the path of its value.
  *
- * Reference implementation: src/pages/outbound-upsert-page.tsx.
- * Core (paths, errors, store) and its tests: draft-form-core.ts,
- * tests/draft-form.test.ts.
+ * Reference: src/pages/outbound-upsert-page.tsx (nested draft + array index
+ * prefix), src/pages/general-config-page.tsx (whole config, no prefix).
+ * Core and tests: draft-form-core.ts, tests/draft-form.test.ts.
+ *
+ * ## The two rules
+ *
+ * 1. NAME THE DRAFT LIKE THE API. A draft key/nesting equals the API field,
+ *    relative to the edited object: `interface`, `interval_ms`,
+ *    `retry.attempts`, `outbound_groups[0].members[1].weight`. Values may be
+ *    strings for text inputs; only names and structure mirror the API (UI-only
+ *    fields such as `password_confirmation` are fine).
+ * 2. TELL THE HOOK WHERE THE DRAFT LIVES with `apiPrefix`: the path of the
+ *    edited object inside the sent config document, e.g.
+ *    `outbounds[${index}]` where index is the position in the array that is
+ *    SENT (existing item: its index; new item: array length), or a function of
+ *    the values (`lists` keyed by name: `formatPath(["lists", values.name])`).
+ *    Omit it when the draft is the whole config.
+ *
+ * `form.field("retry.attempts")` / `form.errorFor("retry.attempts")` then show
+ * the server error for `<apiPrefix>.retry.attempts`.
  *
  * ## API in one screen
  *
- *   const form = useDraftForm<Draft>(initialDraft, { validate? })
+ *   const form = useDraftForm<Draft>(initialDraft, { validate?, apiPrefix? })
  *   form.values                    current draft (read-only)
- *   form.field("a.b[0].c")         { name, value, onChange, error }  (typed path)
+ *   form.field("a.b[0].c", opts?)  { name, value, onChange, error }  (typed path)
+ *   form.errorFor("a.b[0].c", opts?)   string | null
  *   form.setValue("a.b[0].c", v)   typed set; clears errors at/below that path
  *   form.setValues(prev => next)   whole-draft update; clears errors whose value changed
- *   form.errorFor("a.b[0].c")      string | null
- *   form.errors                    { form: string|null, fields, unmapped[] }
- *   form.setApiError(err, resolvePath)   API failure -> field/form/unmapped errors
- *   form.setServerErrors({ form?, fields?, unmapped? })
+ *   form.setApiError(err)          failed save -> errors by exact path; returns the form message or null
+ *   form.formError                 message for the whole form
+ *   form.unmappedErrors()          errors no control showed, with full path
+ *   form.errorPaths()              draft paths that have an error (for "show weights" style logic)
+ *   form.setServerErrors({ form?, fields? })   manual errors by DRAFT path
  *   form.clearServerErrors()
  *   form.isDirty / form.reset(next?) / form.isSubmitting
  *   form.onSubmit(async (values) => {...})   <form onSubmit> handler
@@ -29,110 +50,57 @@
  * first; editing a path clears its error and everything below it (`a` clears
  * `a[0].b`, never `aExtra`).
  *
- * ## Migrating a TanStack form page, step by step
+ * ## Where an error is shown (claims and ancestor fallback)
  *
- * 1. Imports. Drop `@tanstack/react-form`, `@tanstack/react-store` and
- *    `@/lib/form-api-errors`; add
- *      import { bindInput, type FieldBinding, type Path, useDraftForm } from "@/lib/draft-form"
+ * Calling `form.field(path)` or `form.errorFor(path)` while rendering CLAIMS
+ * that path. A server error goes to the control that claims its exact path;
+ * if nobody does, to the nearest claimed ANCESTOR (an error on
+ * `outbound_groups[0].members` shows at the tier that claimed
+ * `outbound_groups[0]`); if there is none it is listed by
+ * `form.unmappedErrors()` with its full path. Rules for this to work:
+ * - call `field`/`errorFor` in the SAME component that calls `useDraftForm`
+ *   (pass the bindings down as props); claims are collected per render and
+ *   adopted after the commit (one extra render when the set of controls
+ *   changed while errors are showing);
+ * - controls that are not rendered (hidden by a condition) claim nothing, so
+ *   their errors fall back to an ancestor or the unmapped list;
+ * - exceptions are explicit: a control that owns more than one API path passes
+ *   `{ alsoClaims: [...] }` (kill switch: `strict_enforcement` +
+ *   `strict_enforcement_action`); `""` is the draft root, i.e. errors
+ *   addressed to the whole edited object (give it to the tag/name control:
+ *   `form.field("tag", { alsoClaims: [""] })`). Keep these rare.
  *
- * 2. Create the form. The default values become the first argument and its
- *    type the generic (use the existing draft type). All validators, `listeners`
- *    and `validationLogic` go away.
- *      before: const form = useForm({ listeners: clearServerErrorsOnChange,
- *                defaultValues: draft, validationLogic: revalidateLogic(...),
- *                validators: { onSubmitAsync: async ({ value }) => {...} } })
- *      after:  const form = useDraftForm<OutboundDraft>(draft, { validate })
- *      `const { values } = form` replaces `useStore(form.store, s => s.values)`.
+ * ## Migrating a form step by step
  *
- * 3. Submit. The body of `onSubmitAsync` becomes a plain async function taking
- *    the values; wire it with `form.onSubmit`. Drop every `clearFormServerErrors`
- *    (submit clears errors itself) and every `return undefined`.
- *      before: <form onSubmit={(e) => { e.preventDefault(); void form.handleSubmit() }}>
- *      after:  <form onSubmit={form.onSubmit(save)}>
- *      Failure handling inside `save`: catch the API error, then
- *      before: const result = splitFormApiErrors({ error, resolvePath })
- *              setFormServerErrors(form, { form: result.formError ?? undefined,
- *                fields: result.fieldErrors, unmapped: result.unmappedErrors })
- *      after:  form.setApiError(error as ApiError, (path) => resolveXxxFieldPath(path, ...))
- *      Your own message instead of an API call:
- *      before: setFormServerErrors(form, { form: msg, fields: {} })
- *      after:  form.setServerErrors({ form: msg })
- *      On success just navigate/invalidate; do not clear errors by hand.
- *      Do NOT call `form.reset(...)` before `navigate`, it is not needed.
- *
- * 4. Client-side checks. If the old form had `validators.onChange`/`onSubmit`
- *    that the daemon cannot know about (name uniqueness among loaded items),
- *    move them into one `validate(values) => ({ [path]: message })`: it runs on
- *    submit only, blocks the handler, and its messages show via `errorFor`
- *    like server errors (and clear when the field is edited). Delete the rest.
- *      after:  useDraftForm<D>(draft, { validate: (v) => {
- *                const e = getOutboundTagError(v.tag, ...)
- *                return e ? { tag: e } : {}
- *              } })
- *
- * 5. Fields. Replace each `<form.Field name="x">{(field) => ...}</form.Field>`
- *    render prop with `form.field("x")`; no wrapper, no hooks in callbacks.
- *    Components that took a TanStack field take `field: FieldBinding<string>`:
- *      before: <form.Field name="gateway">
- *                {(field) => <TextField field={field} label="..." />}
- *              </form.Field>
- *      after:  <TextField field={form.field("gateway")} label="..." />
- *    Inside such a component:
- *      before: <Input name={field.name} value={field.state.value}
- *                onBlur={field.handleBlur}
- *                onChange={(e) => field.handleChange(e.target.value)} />
- *              and `const error = getFieldError(field)`
- *      after:  <Input {...bindInput(field)} />  and  `field.error`
- *    For non-input controls call `field.value` / `field.onChange(v)` or use
- *    `form.values.x` + `form.setValue("x", v)` directly (selects, radios,
- *    pickers, switches). Errors: `form.errorFor("x")` replaces
- *    `getFieldError(field)`, and `useFormServerErrors(form)` /
- *    `serverErrors.fields[...]` become `form.errors.fields[...]`.
- *      before: <InterfacePicker onChange={field.handleChange} value={field.state.value} />
- *      after:  <InterfacePicker onChange={(v) => form.setValue("interfaceName", v)}
- *                value={values.interfaceName} />
- *    Array items use indexed paths built in template strings, no sub-forms:
- *      form.field(`outboundGroups[${i}].members[${j}].weight`)
- *    Whenever the old code read `form.getFieldValue(x)`, read `form.values`
- *    (or `previous` inside `setValues`); `form.setFieldValue(x, v)` is
- *    `form.setValue(x, v)`.
- *
- * 6. Changing several fields at once: ONE `setValues` call with an updater
- *    (not several setValue calls on stale `values`):
- *      form.setValues((prev) => ({ ...prev, ...getKillSwitchFields(choice) }))
- *    Conditional "swap defaults only if untouched" logic reads `prev` and
- *    returns the new object (see `changeType` in the pilot).
- *
- * 7. Arrays (add/remove/reorder rows): build the whole new array from
- *    `form.values` and call `form.setValue("rows", nextRows)`. That clears the
- *    errors of every row below `rows`, so errors never stick to the wrong row
- *    after rows shift. (Plain field edits keep other rows' errors.)
- *
- * 8. Dirty / submit button.
- *      before: <form.Subscribe selector={(s) => ({ canSubmit: s.canSubmit, isPristine: s.isPristine })}>
- *                {({ canSubmit, isPristine }) => <Button disabled={mutation.isPending || isPristine || !canSubmit} />}
- *              </form.Subscribe>
- *      after:  <Button disabled={form.isSubmitting || !form.isDirty} type="submit" />
- *    Pages that are never "pristine-disabled" simply omit `!form.isDirty`.
- *
- * 9. Server error display: `form.errors.form` for the alert message,
- *    `form.errors.unmapped` for `<ServerValidationAlert errors={...} />`, and
- *    `form.errorFor(path)` for fields. A section that must open on an error
- *    can check `names.some((n) => form.errorFor(n))`.
+ * 1. Rename the draft to the API names (types, `*-utils.ts` mapping/payload,
+ *    tests). Delete every `resolve*FieldPath` and `*_FIELD_NAMES`.
+ * 2. `const form = useDraftForm<Draft>(draft, { apiPrefix, validate? })`;
+ *    `const { values } = form`.
+ * 3. Submit: `<form onSubmit={form.onSubmit(save)}>`; `save` does the POST and
+ *    on failure `const message = form.setApiError(error as ApiError)` (toast
+ *    the message if the old code did). Success: navigate / `form.reset(next)`.
+ * 4. Fields: `<TextField field={form.field("retry.attempts")} />` with
+ *    `<Input {...bindInput(field)} />` inside; other controls use
+ *    `field.value` / `field.onChange(v)` or `form.values` + `form.setValue`.
+ *    Errors: `form.errorFor(path)`.
+ * 5. Several fields at once: one `form.setValues(prev => ...)`. Array
+ *    add/remove/reorder: `form.setValue("rows", nextRows)` (clears the errors
+ *    of all rows).
+ * 6. Client-only checks (name uniqueness among loaded items) go into
+ *    `validate: (values) => ({ [draftPath]: message })`; it runs on submit only.
+ * 7. Save button: `disabled={form.isSubmitting || !form.isDirty}`;
+ *    alert for `form.formError`; `<ServerValidationAlert errors={form.unmappedErrors()} />`.
  *
  * Gotchas
- * - `resolvePath` must return FORM paths (the draft's keys, e.g. `interfaceName`,
- *   `outboundGroups[0].members[1].weight`), or undefined for "unmapped".
- *   Both `a[0].b` and `a.0.b` work.
- * - The form key/remount pattern still applies: pass a stable `initial` and
- *   remount with `key` when switching entity. A changed `initial` is adopted
- *   by itself only while the draft has no unsaved edits.
+ * - Keep `apiPrefix` equal to what is really sent: if the payload drops or
+ *   reorders array items, indices in the error paths will not match the draft.
+ * - A changed `initial` is adopted automatically only while the draft has no
+ *   unsaved edits; remount with `key` when switching entity.
  * - Do not mutate `form.values`; always go through setValue/setValues.
- * - The draft type must be a plain object of strings/arrays/objects so paths
- *   type-check (drafts in this repo already are).
- * - `bun run typecheck` does not check the app (root tsconfig has no files);
- *   use `bunx tsc -b`.
+ * - The draft type must be a plain object of strings/booleans/arrays/objects
+ *   so paths type-check.
  */
+
 import {
   type ChangeEvent,
   type FormEvent,
@@ -143,12 +111,11 @@ import {
 } from "react"
 
 import type { ApiError } from "@/api/client"
+import type { ValidationErrorEntry } from "@/lib/api-errors"
 import {
-  type ApiPathResolver,
-  apiErrorsToServerErrors,
+  type ClaimOptions,
   createDraftStore,
   deepEqual,
-  type FormErrors,
   getIn,
   type Path,
   type PathValue,
@@ -156,13 +123,13 @@ import {
 } from "@/lib/draft-form-core"
 
 export {
-  type ApiPathResolver,
   deepEqual,
-  type FormErrors,
+  formatPath,
+  getIn,
   type Path,
   type PathValue,
   type ServerErrors,
-  splitFormApiErrors,
+  setIn,
 } from "@/lib/draft-form-core"
 
 /** What a field control needs: bind it to an input, select, picker, ... */
@@ -171,7 +138,7 @@ export type FieldBinding<V> = {
   name: string
   value: V
   onChange: (value: V) => void
-  /** Server (or `validate`) error addressed to exactly this path. */
+  /** Server (or `validate`) error shown at exactly this control. */
   error: string | null
 }
 
@@ -180,12 +147,20 @@ type ClientErrors = Record<string, string | null | undefined>
 export type UseDraftFormOptions<T> = {
   /**
    * OPTIONAL synchronous client check, run on submit only. Return
-   * `{ [path]: message }`; any entry stops the submit and is shown through
+   * `{ [draftPath]: message }`; any entry stops the submit and is shown through
    * `errorFor` like a server error. Do NOT use it for rules the daemon already
    * enforces; use it only for what the server cannot know (e.g. a duplicate
    * name among already-loaded items).
    */
   validate?: (values: T) => ClientErrors
+  /**
+   * Where the draft lives inside the config document the API validates, e.g.
+   * `"outbounds[3]"` (the index the item has in the array that is SENT; for a
+   * new item the index it will get) or a function of the draft. Draft paths
+   * mirror the API, so `errorFor("interface")` shows the server error for
+   * `outbounds[3].interface`. Omit it when the draft is the whole config.
+   */
+  apiPrefix?: string | ((values: T) => string)
 }
 
 export type DraftForm<T> = {
@@ -200,20 +175,35 @@ export type DraftForm<T> = {
    * errors below `rows`.
    */
   setValues: (next: T | ((previous: T) => T)) => void
-  /** Binding for one path: `{ name, value, onChange, error }`. */
-  field: <P extends Path<T>>(path: P) => FieldBinding<PathValue<T, P>>
-  /** The error addressed to exactly this path, or null. */
-  errorFor: (path: Path<T>) => string | null
-  /** All current errors: `errors.form`, `errors.fields`, `errors.unmapped`. */
-  errors: FormErrors
-  /** Store API validation errors (usually via `setApiError`). Replaces old ones. */
-  setServerErrors: (errors: ServerErrors) => void
   /**
-   * Map an API failure to field errors with `resolvePath` (API path -> form
-   * path, undefined = unmapped) and show it: field errors, `errors.form` for a
-   * plain message, `errors.unmapped` for the rest.
+   * Binding for one path: `{ name, value, onChange, error }`. Rendering it
+   * claims the path: server errors for it (or, failing a more specific
+   * control, for paths below it) show up as `error`. Pass `alsoClaims` when
+   * one control owns several API paths.
    */
-  setApiError: (error: ApiError, resolvePath: ApiPathResolver) => void
+  field: <P extends Path<T>>(
+    path: P,
+    options?: DraftClaimOptions<T>
+  ) => FieldBinding<PathValue<T, P>>
+  /** `field(path).error` without a binding (also claims the path). */
+  errorFor: (path: Path<T>, options?: DraftClaimOptions<T>) => string | null
+  /** Draft paths (relative to `apiPrefix`) that currently have an error. */
+  errorPaths: () => string[]
+  /**
+   * Errors that no rendered control claimed (by exact or ancestor path),
+   * with their full API path:
+   * `<ServerValidationAlert errors={form.unmappedErrors()} />`.
+   */
+  unmappedErrors: () => ValidationErrorEntry[]
+  /** Message for the whole form (non-validation failures, manual errors). */
+  formError: string | null
+  /**
+   * Store validation errors from a failed save (exact API paths). Returns the
+   * form message when the failure had no validation details (e.g. for a toast).
+   */
+  setApiError: (error: ApiError) => string | null
+  /** Manual errors by DRAFT path, plus an optional form message. */
+  setServerErrors: (errors: ServerErrors) => void
   clearServerErrors: () => void
   /** Differs from the initial value (deep compare). */
   isDirty: boolean
@@ -231,23 +221,45 @@ export type DraftForm<T> = {
   ) => (event?: FormEvent) => void
 }
 
+/**
+ * `alsoClaims` lists further draft paths the control shows errors for; `""`
+ * is the draft root, i.e. errors addressed to the whole edited object.
+ */
+export type DraftClaimOptions<T> = {
+  alsoClaims?: ReadonlyArray<Path<T> | "">
+} & ClaimOptions
+
 export function useDraftForm<T extends object>(
   initial: T,
   options: UseDraftFormOptions<T> = {}
 ): DraftForm<T> {
-  const [store] = useState(() => createDraftStore<T>(initial))
+  const { apiPrefix } = options
+  const [store] = useState(() =>
+    createDraftStore<T>(initial, (values) =>
+      typeof apiPrefix === "function" ? apiPrefix(values) : (apiPrefix ?? "")
+    )
+  )
   const state = useSyncExternalStore(
     store.subscribe,
     store.getState,
     store.getState
   )
 
+  // Controls rendered below register their paths while this component renders.
+  store.beginRender()
+
   // Latest options/initial are read by the store from its event handlers.
   useEffect(() => {
     store.setValidate(options.validate)
+    store.setPrefix((values) =>
+      typeof apiPrefix === "function" ? apiPrefix(values) : (apiPrefix ?? "")
+    )
   })
   useEffect(() => {
     store.syncInitial(initial)
+  })
+  useEffect(() => {
+    store.commitClaims()
   })
 
   const actions = useMemo(
@@ -255,9 +267,10 @@ export function useDraftForm<T extends object>(
       setValue: store.setValue as DraftForm<T>["setValue"],
       setValues: store.setValues,
       errorFor: store.errorFor as DraftForm<T>["errorFor"],
+      errorPaths: store.errorPaths,
+      unmappedErrors: store.unmapped,
       setServerErrors: store.setServerErrors,
-      setApiError: (error: ApiError, resolvePath: ApiPathResolver) =>
-        store.setServerErrors(apiErrorsToServerErrors(error, resolvePath)),
+      setApiError: store.setApiError,
       clearServerErrors: store.clearServerErrors,
       reset: store.reset,
       submit: store.submit,
@@ -279,15 +292,15 @@ export function useDraftForm<T extends object>(
   return {
     ...actions,
     values: state.values,
-    errors: state.errors,
+    formError: state.errors.form,
     isDirty,
     isSubmitting: state.isSubmitting,
-    field: (path) =>
+    field: (path, claimOptions) =>
       ({
         name: path,
         value: getIn(state.values, path),
         onChange: (value: unknown) => store.setValue(path, value),
-        error: store.errorFor(path),
+        error: store.errorFor(path, claimOptions),
       }) as unknown as FieldBinding<never>,
   } as DraftForm<T>
 }

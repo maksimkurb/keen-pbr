@@ -24,7 +24,7 @@ import { UpsertPage } from "@/components/shared/upsert-page"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useListUsageSubtitle } from "@/hooks/use-list-usage-subtitle"
-import { splitFormApiErrors, useDraftForm } from "@/lib/draft-form"
+import { useDraftForm } from "@/lib/draft-form"
 import {
   Select,
   SelectContent,
@@ -40,13 +40,6 @@ import {
   getRuleDraft,
   validateRules,
 } from "@/pages/dns-rules-utils"
-
-const DNS_RULE_FIELD_NAMES = [
-  "enabled",
-  "server",
-  "lists",
-  "allowDomainRebinding",
-] as const
 
 export function DnsRuleUpsertPage({
   mode,
@@ -159,11 +152,14 @@ function DnsRuleForm({
       : {
           enabled: true,
           server: serverTags[0] ?? "",
-          lists: [],
-          allowDomainRebinding: false,
+          list: [],
+          allow_domain_rebinding: false,
         }
 
-  const form = useDraftForm<DnsRuleDraft>(draft)
+  const form = useDraftForm<DnsRuleDraft>(draft, {
+    // Index the rule has in the array that is sent (new ones are appended).
+    apiPrefix: `dns.rules[${mode === "edit" ? parsedRuleIndex : rules.length}]`,
+  })
   const { values } = form
 
   const save = async (value: DnsRuleDraft) => {
@@ -196,7 +192,7 @@ function DnsRuleForm({
         fieldErrors.server = currentError.server
       }
       if (currentError.lists) {
-        fieldErrors.lists = currentError.lists
+        fieldErrors.list = currentError.lists
       }
 
       form.setServerErrors({
@@ -218,21 +214,15 @@ function DnsRuleForm({
       toast.success(t("pages.dnsRuleUpsert.messages.saved"))
       navigate("/dns-rules")
     } catch (error) {
-      const result = splitFormApiErrors({
-        error: error as ApiError,
-        fieldNames: DNS_RULE_FIELD_NAMES,
-        resolvePath: resolveDnsRuleFieldPath,
-      })
-      form.setServerErrors({
-        form: result.formError,
-        fields: result.fieldErrors,
-        unmapped: result.unmappedErrors,
-      })
-      if (result.formError) {
-        toast.error(result.formError, { richColors: true })
+      const message = form.setApiError(error as ApiError)
+      if (message) {
+        toast.error(message, { richColors: true })
       }
     }
   }
+
+  // The server control also shows errors addressed to the whole rule.
+  const serverError = form.errorFor("server", { alsoClaims: [""] })
 
   return (
     <UpsertPage
@@ -271,7 +261,7 @@ function DnsRuleForm({
             </FieldContent>
           </Field>
 
-          <Field invalid={Boolean(form.errorFor("server"))}>
+          <Field invalid={Boolean(serverError)}>
             <FieldLabel>{t("pages.dnsRuleUpsert.fields.serverTag")}</FieldLabel>
             <FieldContent>
               <Select
@@ -281,7 +271,7 @@ function DnsRuleForm({
                 }
                 value={values.server}
               >
-                <SelectTrigger aria-invalid={Boolean(form.errorFor("server"))}>
+                <SelectTrigger aria-invalid={Boolean(serverError)}>
                   <SelectValue
                     placeholder={t("pages.dnsRuleUpsert.fields.selectServer")}
                   />
@@ -305,19 +295,19 @@ function DnsRuleForm({
                     ? t("pages.dnsRuleUpsert.fields.noServers")
                     : undefined
                 }
-                error={form.errorFor("server")}
+                error={serverError}
               />
             </FieldContent>
           </Field>
 
-          <Field invalid={Boolean(form.errorFor("lists"))}>
+          <Field invalid={Boolean(form.errorFor("list"))}>
             <FieldLabel>{t("pages.dnsRuleUpsert.fields.listNames")}</FieldLabel>
             <FieldContent>
               <MultiSelectList
-                name="lists"
-                onChange={(newLists) => form.setValue("lists", newLists)}
+                name="list"
+                onChange={(newLists) => form.setValue("list", newLists)}
                 options={listOptions}
-                error={form.errorFor("lists")}
+                error={form.errorFor("list")}
                 placeholderDescription={t(
                   "pages.dnsRuleUpsert.fields.listPlaceholderDescription"
                 )}
@@ -325,7 +315,7 @@ function DnsRuleForm({
                   "pages.dnsRuleUpsert.fields.noListsSelected"
                 )}
                 usageSubtitle={listUsageSubtitle}
-                value={values.lists}
+                value={values.list}
               />
               <FieldHint
                 description={
@@ -341,10 +331,10 @@ function DnsRuleForm({
             <FieldContent>
               <div className="flex items-center space-x-3">
                 <Checkbox
-                  checked={values.allowDomainRebinding}
+                  checked={values.allow_domain_rebinding}
                   id="allow-domain-rebinding"
                   onCheckedChange={(checked) =>
-                    form.setValue("allowDomainRebinding", checked === true)
+                    form.setValue("allow_domain_rebinding", checked === true)
                   }
                 />
                 <FieldLabel
@@ -363,7 +353,7 @@ function DnsRuleForm({
           </Field>
         </FieldGroup>
 
-        <ServerValidationAlert errors={form.errors.unmapped} />
+        <ServerValidationAlert errors={form.unmappedErrors()} />
 
         <div className="flex justify-end gap-3">
           <Button
@@ -389,28 +379,4 @@ function DnsRuleForm({
       </form>
     </UpsertPage>
   )
-}
-
-function resolveDnsRuleFieldPath(path: string): string | undefined {
-  if (path === "dns.rules") {
-    return "server"
-  }
-
-  if (/^dns\.rules(?:\[\d+\]|\.\d+)?$/.test(path)) {
-    return "server"
-  }
-
-  if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.server$/.test(path)) {
-    return "server"
-  }
-
-  if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
-    return "lists"
-  }
-
-  if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.allow_domain_rebinding$/.test(path)) {
-    return "allowDomainRebinding"
-  }
-
-  return undefined
 }

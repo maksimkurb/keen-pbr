@@ -2,15 +2,19 @@ import { describe, expect, test } from "bun:test"
 
 import type { ApiError } from "../src/api/client"
 import {
-  apiErrorsToServerErrors,
+  apiErrorsToFormErrors,
   createDraftStore,
   deepEqual,
+  formatPath,
   getIn,
   isAtOrBelow,
+  joinPath,
+  nearestClaimed,
   normalizePath,
   parsePath,
+  relativePath,
+  routeErrors,
   setIn,
-  splitFormApiErrors,
 } from "../src/lib/draft-form-core"
 
 type Draft = {
@@ -41,6 +45,36 @@ describe("paths", () => {
     expect(normalizePath("groups[0].members[1].weight")).toBe(
       "groups[0].members[1].weight"
     )
+  })
+
+  test("quoted keys and canonical spelling", () => {
+    expect(parsePath('lists["my.list"].url')).toEqual([
+      "lists",
+      "my.list",
+      "url",
+    ])
+    expect(normalizePath('lists["my_list"].url')).toBe("lists.my_list.url")
+    expect(normalizePath('a["2"].b')).toBe("a[2].b")
+    expect(formatPath(["lists", "bad.name"])).toBe('lists["bad.name"]')
+    expect(formatPath(["lists", ""])).toBe('lists[""]')
+    expect(parsePath('lists[""]')).toEqual(["lists", ""])
+    expect(parsePath('a["q\\"x"]')).toEqual(["a", 'q"x'])
+    expect(normalizePath(formatPath(["a", 'q"x', "1"]))).toBe('a["q\\"x"][1]')
+  })
+
+  test("joinPath and relativePath", () => {
+    expect(joinPath("outbounds[3]", "retry.attempts")).toBe(
+      "outbounds[3].retry.attempts"
+    )
+    expect(joinPath("outbounds[3]", "outbound_groups[0]")).toBe(
+      "outbounds[3].outbound_groups[0]"
+    )
+    expect(joinPath("outbounds[3]", "")).toBe("outbounds[3]")
+    expect(joinPath("", "a.0")).toBe("a[0]")
+    expect(relativePath("outbounds[3]", "outbounds[3].url")).toBe("url")
+    expect(relativePath("outbounds[3]", "outbounds[3]")).toBe("")
+    expect(relativePath("outbounds[3]", "outbounds[30].url")).toBe(null)
+    expect(relativePath("outbounds[3]", "dns.x")).toBe(null)
   })
 
   test("getIn reads nested arrays and tolerates missing branches", () => {
@@ -126,6 +160,23 @@ describe("dirty tracking", () => {
   })
 })
 
+// Simulates a render that shows controls for `paths` (draft paths), then a commit.
+const render = <T>(
+  store: ReturnType<typeof createDraftStore<T>>,
+  paths: string[]
+) => {
+  store.beginRender()
+  paths.forEach((path) => store.claim(path))
+  store.commitClaims()
+}
+const allPaths = [
+  "tag",
+  "groups",
+  "groups[0].members[0].weight",
+  "groups[1].members[1].target",
+  "groupsExtra",
+]
+
 describe("error clearing", () => {
   const withErrors = () => {
     const store = createDraftStore(draft())
@@ -140,6 +191,7 @@ describe("error clearing", () => {
       },
       unmapped: [{ path: "x", message: "y" }],
     })
+    render(store, allPaths)
     return store
   }
 
@@ -175,11 +227,11 @@ describe("error clearing", () => {
     expect(store.errorFor("groups[0].members[0].weight")).toBe("w0")
   })
 
-  test("form and unmapped errors stay until cleared or resubmitted", () => {
+  test("form and extra errors stay until cleared or resubmitted", () => {
     const store = withErrors()
     store.setValue("tag", "z")
     expect(store.getState().errors.form).toBe("boom")
-    expect(store.getState().errors.unmapped).toHaveLength(1)
+    expect(store.unmapped()).toEqual([{ path: "x", message: "y" }])
     store.clearServerErrors()
     expect(store.getState().errors.form).toBe(null)
     expect(store.errorFor("groupsExtra")).toBe(null)
@@ -188,7 +240,153 @@ describe("error clearing", () => {
   test("paths are matched in any spelling", () => {
     const store = createDraftStore(draft())
     store.setServerErrors({ fields: { "groups.0.members.1.target": "bad" } })
+    render(store, ["groups[0].members[1].target"])
     expect(store.errorFor("groups[0].members[1].target")).toBe("bad")
+  })
+})
+
+describe("apiPrefix", () => {
+  const apiErrors = {
+    validation_errors: [
+      { path: "outbounds[3].tag", message: "bad tag" },
+      { path: "outbounds[3].groups[0].members[0].weight", message: "weight" },
+      { path: "outbounds[4].tag", message: "other outbound" },
+    ],
+  }
+  const prefixed = (prefix: string | ((v: Draft) => string)) =>
+    createDraftStore(
+      draft(),
+      typeof prefix === "function" ? prefix : () => prefix
+    )
+
+  test("draft paths resolve under the prefix; foreign paths stay unmapped", () => {
+    const store = prefixed("outbounds[3]")
+    store.setApiError(apiError(apiErrors))
+    render(store, ["tag", "groups[0].members[0].weight"])
+    expect(store.errorFor("tag")).toBe("bad tag")
+    expect(store.errorFor("groups[0].members[0].weight")).toBe("weight")
+    expect(store.unmapped()).toEqual([
+      { path: "outbounds[4].tag", message: "other outbound" },
+    ])
+    expect(store.errorPaths().sort()).toEqual([
+      "groups[0].members[0].weight",
+      "tag",
+    ])
+  })
+
+  test("the prefix may depend on the values", () => {
+    const store = prefixed((v) => formatPath(["lists", v.tag]))
+    store.setApiError(
+      apiError({ validation_errors: [{ path: "lists.a.url", message: "u" }] })
+    )
+    render(store, ["url"])
+    expect(store.errorFor("url")).toBe("u")
+  })
+
+  test("editing clears the error under the prefix only", () => {
+    const store = prefixed("outbounds[3]")
+    store.setApiError(apiError(apiErrors))
+    render(store, ["tag"])
+    store.setValue("tag", "x")
+    expect(store.errorFor("tag")).toBe(null)
+    expect(store.unmapped().map((entry) => entry.path)).toEqual([
+      "outbounds[3].groups[0].members[0].weight",
+      "outbounds[4].tag",
+    ])
+  })
+
+  test("manual and client errors are by draft path", async () => {
+    const store = prefixed("dns.rules[2]")
+    store.setServerErrors({ fields: { tag: "manual" } })
+    render(store, ["tag"])
+    expect(store.errorFor("tag")).toBe("manual")
+    expect(Object.keys(store.getState().errors.fields)).toEqual([
+      "dns.rules[2].tag",
+    ])
+    store.setValidate(() => ({ tag: "client" }))
+    await store.submit(() => {})
+    expect(store.errorFor("tag")).toBe("client")
+  })
+})
+
+describe("claims and ancestor fallback", () => {
+  test("nearestClaimed picks the closest claimed ancestor", () => {
+    const claims = new Set(["a", "a[0]", "a[0].b.c"])
+    expect(nearestClaimed("a[0].b.c", claims)).toBe("a[0].b.c")
+    expect(nearestClaimed("a[0].b.c.d", claims)).toBe("a[0].b.c")
+    expect(nearestClaimed("a[0].b", claims)).toBe("a[0]")
+    expect(nearestClaimed("a[1].b", claims)).toBe("a")
+    expect(nearestClaimed("aExtra", claims)).toBe(null)
+    expect(nearestClaimed("z", claims)).toBe(null)
+    expect(nearestClaimed("z", new Set([""]))).toBe("")
+  })
+
+  test("routeErrors groups messages and leaves the unclaimed unmapped", () => {
+    const result = routeErrors(
+      { "a[0].members": "empty", "a[0].members[1].weight": "w", other: "o" },
+      new Set(["a[0]", "a[0].members[1].weight"])
+    )
+    expect(result.byClaim).toEqual({
+      "a[0]": "empty",
+      "a[0].members[1].weight": "w",
+    })
+    expect(result.unmapped).toEqual([{ path: "other", message: "o" }])
+  })
+
+  test("an error moves to the specific control once it is rendered", () => {
+    const store = createDraftStore(draft())
+    store.setServerErrors({ fields: { "groups[0].members[0].weight": "w" } })
+    // weight input not shown: the tier container shows the error
+    render(store, ["groups[0]"])
+    expect(store.errorFor("groups[0]")).toBe("w")
+    expect(store.unmapped()).toEqual([])
+    // weight input rendered after a re-render: it takes over
+    render(store, ["groups[0]", "groups[0].members[0].weight"])
+    expect(store.errorFor("groups[0].members[0].weight")).toBe("w")
+    expect(store.errorFor("groups[0]")).toBe(null)
+  })
+
+  test("an error nobody claims is unmapped with its full path", () => {
+    const store = createDraftStore(draft(), () => "x[1]")
+    store.setApiError(
+      apiError({ validation_errors: [{ path: "x[1].nowhere", message: "m" }] })
+    )
+    render(store, ["tag"])
+    expect(store.unmapped()).toEqual([{ path: "x[1].nowhere", message: "m" }])
+  })
+
+  test("alsoClaims lets one control show several paths, '' is the root", () => {
+    const store = createDraftStore(draft(), () => "x[1]")
+    store.setApiError(
+      apiError({
+        validation_errors: [
+          { path: "x[1]", message: "whole" },
+          { path: "x[1].tag", message: "tag" },
+          { path: "x[1].groups", message: "groups" },
+        ],
+      })
+    )
+    store.beginRender()
+    store.claim("tag", { alsoClaims: ["groups", ""] })
+    store.commitClaims()
+    expect(store.errorFor("tag", { alsoClaims: ["groups", ""] })).toBe(
+      "tag groups whole"
+    )
+    expect(store.unmapped()).toEqual([])
+  })
+
+  test("commitClaims re-notifies only when errors exist and claims changed", () => {
+    const store = createDraftStore(draft())
+    let calls = 0
+    store.subscribe(() => calls++)
+    render(store, ["tag"])
+    expect(calls).toBe(0)
+    store.setServerErrors({ fields: { tag: "e" } })
+    calls = 0
+    render(store, ["tag"])
+    expect(calls).toBe(0)
+    render(store, ["tag", "groups"])
+    expect(calls).toBe(1)
   })
 })
 
@@ -221,6 +419,7 @@ describe("submit", () => {
   test("validate stops the submit and shows messages like server errors", async () => {
     const store = createDraftStore(draft())
     store.setValidate((values) => ({ tag: values.tag === "a" ? "taken" : "" }))
+    render(store, ["tag"])
     let ran = false
     await store.submit(() => {
       ran = true
@@ -260,58 +459,33 @@ describe("submit", () => {
   })
 })
 
-describe("api error splitting", () => {
-  const resolvePath = (path: string) =>
-    path === "outbounds.x.interface"
-      ? "interfaceName"
-      : path === "outbounds.x.members[0].weight"
-        ? "outboundGroups[0].members[0].weight"
-        : undefined
-  const details = {
-    validation_errors: [
-      { path: "outbounds.x.interface", message: "required" },
-      { path: "outbounds.x.interface", message: "unknown" },
-      { path: "outbounds.x.members[0].weight", message: "1..100" },
-      { path: "daemon.thing", message: "elsewhere" },
-    ],
-  }
-
-  test("maps fields, joins duplicates, keeps the rest unmapped", () => {
-    const result = splitFormApiErrors({ error: apiError(details), resolvePath })
-    expect(result.formError).toBe(null)
-    expect(result.fieldErrors).toEqual({
-      interfaceName: "required unknown",
-      "outboundGroups[0].members[0].weight": "1..100",
+describe("api errors", () => {
+  test("keeps exact normalized paths and joins messages on the same path", () => {
+    const result = apiErrorsToFormErrors(
+      apiError({
+        validation_errors: [
+          { path: "outbounds.0.url", message: "a" },
+          { path: "outbounds[0].url", message: "b" },
+          { path: 'lists["x.y"]', message: "c" },
+        ],
+      })
+    )
+    expect(result.form).toBe(null)
+    expect(result.fields).toEqual({
+      "outbounds[0].url": "a b",
+      'lists["x.y"]': "c",
     })
-    expect(result.unmappedErrors).toEqual([
-      { path: "daemon.thing", message: "elsewhere" },
-    ])
   })
 
   test("an error without validation details becomes the form message", () => {
-    const result = splitFormApiErrors({
-      error: apiError(undefined, "server down"),
-      resolvePath,
-    })
-    expect(result.formError).toBe("server down")
-  })
-
-  test("fieldNames restricts what counts as a field", () => {
-    const result = splitFormApiErrors({
-      error: apiError(details),
-      fieldNames: ["interfaceName"],
-      resolvePath,
-    })
-    expect(Object.keys(result.fieldErrors)).toEqual(["interfaceName"])
-    expect(result.unmappedErrors).toHaveLength(2)
-  })
-
-  test("apiErrorsToServerErrors feeds setServerErrors", () => {
     const store = createDraftStore(draft())
-    store.setServerErrors(
-      apiErrorsToServerErrors(apiError(details), resolvePath)
+    expect(store.setApiError(apiError(undefined, "server down"))).toBe(
+      "server down"
     )
-    expect(store.errorFor("outboundGroups[0].members[0].weight")).toBe("1..100")
-    expect(store.getState().errors.unmapped).toHaveLength(1)
+    expect(store.getState().errors.form).toBe("server down")
+  })
+
+  test("a missing error yields no errors", () => {
+    expect(apiErrorsToFormErrors(null).fields).toEqual({})
   })
 })

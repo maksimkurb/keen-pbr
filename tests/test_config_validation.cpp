@@ -71,7 +71,7 @@ TEST_CASE("Keenetic platform build rejects balance strategy") {
     })");
     bool has_keenetic_error = false;
     for (const auto& issue : issues) {
-        if (issue.path == "outbounds.auto.strategy" &&
+        if (issue.path == "outbounds[2].strategy" &&
             issue.message.find("load balancing is not available on Keenetic") !=
                 std::string::npos) {
             has_keenetic_error = true;
@@ -147,7 +147,7 @@ TEST_CASE("auto backend resolves to iptables, accepts balance and rejects defaul
     bool has_balance_error = false;
     bool has_gateway_error = false;
     for (const auto& issue : issues) {
-        if (issue.path == "outbounds.auto.strategy") has_balance_error = true;
+        if (issue.path == "outbounds[1].strategy") has_balance_error = true;
         if (issue.path == "route.rules[0].default_gateway" &&
             issue.message.find("auto-detected: iptables") != std::string::npos) {
             has_gateway_error = true;
@@ -521,7 +521,7 @@ TEST_CASE("dns servers: keenetic type is rejected on KeeneticOS 2.x") {
     })");
 
     REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "dns.servers.router_dns.type");
+    CHECK(issues[0].path == "dns.servers[0].type");
     CHECK(issues[0].message.find("requires KeeneticOS 3.x or newer") != std::string::npos);
     CHECK(issues[0].message.find("2.16.D.12.0-12") != std::string::npos);
 }
@@ -1468,7 +1468,7 @@ TEST_CASE("interface outbound: empty interface name is rejected") {
         "outbounds":[{"tag":"wan","type":"interface","interface":""}]
     })");
     REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "outbounds.wan.interface");
+    CHECK(issues[0].path == "outbounds[0].interface");
 }
 
 TEST_CASE("daemon execution timeout must be positive") {
@@ -1659,7 +1659,7 @@ TEST_CASE("dns rules validation: unknown server, list and fallback tags are reje
     const auto bad_fallback = validate_issues(
         R"({"dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],"fallback":["nope"]}})");
     REQUIRE(bad_fallback.size() == 1);
-    CHECK(bad_fallback[0].path == "dns.fallback.0");
+    CHECK(bad_fallback[0].path == "dns.fallback[0]");
     CHECK(bad_fallback[0].message.find("unknown DNS server tag") != std::string::npos);
 }
 
@@ -1914,4 +1914,41 @@ TEST_CASE("upgrade_config_file_if_needed rewrites once and keeps the first backu
     CHECK(upgrade_config_file_if_needed(path, R"({"outbounds":[{"type":"urltest","tag":"u","outbound_groups":[{"outbounds":["a"]}]}]})"));
     CHECK(read(path + ".bak-pre-members") == kMainFormatConfig);
     fs::remove_all(dir);
+}
+
+TEST_CASE("validation paths address the submitted document by index and key") {
+    const auto issues = validate_issues(R"({
+        "outbounds":[
+            {"type":"interface","tag":"wan","interface":"wan"},
+            {"type":"icmptest","tag":"probe","outbound_groups":[
+                {"members":[{"outbound":"wan","target":"1.1.1.1"}]},
+                {"members":[{"outbound":"wan","target":"not-an-ip"}]}
+            ]}
+        ],
+        "dns":{"servers":[
+            {"tag":"a","address":"1.1.1.1"},
+            {"tag":"b","address":"8.8.8.8","detour":"missing"}
+        ]},
+        "lists":{"bad.name":{"domains":[]}}
+    })");
+    const auto has_path = [&](const std::string& path) {
+        return std::any_of(issues.begin(), issues.end(),
+                           [&](const auto& issue) { return issue.path == path; });
+    };
+    CHECK(has_path("outbounds[1].outbound_groups[1].members[0].target"));
+    CHECK(has_path("outbounds[1].outbound_groups[1].members[0].outbound"));
+    CHECK(has_path("dns.servers[1].detour"));
+    CHECK(has_path("lists[\"bad.name\"]"));
+}
+
+TEST_CASE("legacy migration issues point at the original json location") {
+    const auto issues = validate_issues(R"({
+        "outbounds":[
+            {"type":"interface","tag":"wan","interface":"wan"},
+            {"type":"urltest","tag":"auto","url":"http://example.test",
+             "outbound_groups":[{"members":[{"outbound":"wan"}],"outbounds":["wan"]}]}
+        ]
+    })");
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "outbounds[1].outbound_groups[0]");
 }

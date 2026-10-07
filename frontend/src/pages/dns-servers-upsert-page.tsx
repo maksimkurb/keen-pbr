@@ -155,7 +155,14 @@ function DnsServerForm({
 
   const configServers = config?.dns?.servers ?? []
 
+  // Index the server has in the array that is sent (new ones are appended).
+  const serverIndex =
+    mode === "edit"
+      ? configServers.findIndex((server) => server.tag === serverTag)
+      : configServers.length
+
   const form = useDraftForm<DnsServerDraft>(initialDraft, {
+    apiPrefix: `dns.servers[${serverIndex}]`,
     validate: (value) => {
       const errors: Record<string, string> = {}
 
@@ -229,27 +236,24 @@ function DnsServerForm({
       await postConfigMutation.mutateAsync({ data: updatedConfig })
       onSaved()
     } catch (error) {
-      form.setApiError(error as ApiError, (path) =>
-        resolveDnsServerFieldPath(
-          path,
-          value.tag || serverTag || initialDraft.tag
-        )
-      )
+      form.setApiError(error as ApiError)
     }
   }
 
   const isKeeneticDns = values.type === DnsServerType.keenetic
+  // The tag control also shows errors addressed to the whole server entry.
+  const tagError = form.errorFor("tag", { alsoClaims: [""] })
 
   return (
     <form className="space-y-6" onSubmit={form.onSubmit(save)}>
       <FieldGroup>
-        <Field invalid={Boolean(form.errorFor("tag"))}>
+        <Field invalid={Boolean(tagError)}>
           <FieldLabel htmlFor="dns-server-tag">
             {t("pages.dnsServerUpsert.fields.tag")}
           </FieldLabel>
           <FieldContent>
             <Input
-              aria-invalid={Boolean(form.errorFor("tag"))}
+              aria-invalid={Boolean(tagError)}
               id="dns-server-tag"
               onChange={(event) => form.setValue("tag", event.target.value)}
               readOnly={mode === "edit"}
@@ -257,7 +261,7 @@ function DnsServerForm({
             />
             <FieldHint
               description={t("pages.dnsServerUpsert.fields.tagHint")}
-              error={form.errorFor("tag")}
+              error={tagError}
             />
           </FieldContent>
         </Field>
@@ -392,15 +396,15 @@ function DnsServerForm({
         ) : null}
       </FieldGroup>
 
-      {form.errors.form ? (
+      {form.formError ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
           <AlertDescription className="whitespace-pre-wrap">
-            {form.errors.form}
+            {form.formError}
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <ServerValidationAlert errors={form.errors.unmapped} />
+      <ServerValidationAlert errors={form.unmappedErrors()} />
 
       <div className="flex justify-end gap-3">
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
@@ -553,37 +557,4 @@ function isValidPort(value?: string) {
 
   const port = Number(value)
   return port >= 1 && port <= 65535
-}
-
-function resolveDnsServerFieldPath(
-  path: string,
-  tag: string
-): string | undefined {
-  const normalizedTag = tag.trim()
-
-  if (path === "dns.servers") {
-    return "tag"
-  }
-
-  if (path === `dns.servers.${normalizedTag}`) {
-    return "tag"
-  }
-
-  if (path === `dns.servers.${normalizedTag}.tag`) {
-    return "tag"
-  }
-
-  if (path === `dns.servers.${normalizedTag}.type`) {
-    return "type"
-  }
-
-  if (path === `dns.servers.${normalizedTag}.address`) {
-    return "address"
-  }
-
-  if (path === `dns.servers.${normalizedTag}.detour`) {
-    return "detour"
-  }
-
-  return undefined
 }

@@ -80,7 +80,7 @@ describe("routing rule enabled helpers", () => {
       outbound: "vpn",
     })
 
-    expect(draft.mode).toBe("ipv6")
+    expect(draft.default_gateway).toBe("ipv6")
     expect(normalizeRouteRuleDraft(draft)).toEqual({
       enabled: true,
       outbound: "vpn",
@@ -208,8 +208,8 @@ describe("dns rule enabled helpers", () => {
           {
             enabled: false,
             server: "vpn_dns",
-            lists: ["ads"],
-            allowDomainRebinding: true,
+            list: ["ads"],
+            allow_domain_rebinding: true,
           },
         ]
       )
@@ -235,14 +235,14 @@ describe("dns rule enabled helpers", () => {
       {
         enabled: true,
         server: "vpn_dns",
-        lists: ["ads"],
-        allowDomainRebinding: false,
+        list: ["ads"],
+        allow_domain_rebinding: false,
       },
       {
         enabled: false,
         server: "wan_dns",
-        lists: ["work"],
-        allowDomainRebinding: true,
+        list: ["work"],
+        allow_domain_rebinding: true,
       },
     ]
 
@@ -250,14 +250,14 @@ describe("dns rule enabled helpers", () => {
       {
         enabled: false,
         server: "vpn_dns",
-        lists: ["ads"],
-        allowDomainRebinding: false,
+        list: ["ads"],
+        allow_domain_rebinding: false,
       },
       {
         enabled: false,
         server: "wan_dns",
-        lists: ["work"],
-        allowDomainRebinding: true,
+        list: ["work"],
+        allow_domain_rebinding: true,
       },
     ])
   })
@@ -271,14 +271,14 @@ describe("dns rule enabled helpers", () => {
           {
             enabled: false,
             server: "",
-            lists: [],
-            allowDomainRebinding: false,
+            list: [],
+            allow_domain_rebinding: false,
           },
           {
             enabled: true,
             server: "vpn_dns",
-            lists: ["ads"],
-            allowDomainRebinding: false,
+            list: ["ads"],
+            allow_domain_rebinding: false,
           },
         ],
         ["vpn_dns"],

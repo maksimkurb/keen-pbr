@@ -2790,8 +2790,14 @@ components:
       properties:
         path:
           type: string
-          description: Dot-style config path associated with the validation failure.
-          example: "fwmark.mask"
+          description: >-
+            Exact path of the offending value inside the submitted config
+            document. Object keys are separated by dots (`fwmark.mask`,
+            `lists.my_list.url`), array elements are addressed by index
+            (`outbounds[3].outbound_groups[0].members[1].target`,
+            `dns.servers[1].detour`, `route.rules[2].dest_port`), and a key
+            that is not a plain identifier is written as `["key"]`.
+          example: "outbounds[3].outbound_groups[0].members[1].target"
         message:
           type: string
           description: Human-readable validation message.

@@ -69,6 +69,29 @@ void add_issue(std::vector<ConfigValidationIssue>& issues,
     issues.push_back({std::move(path), std::move(message)});
 }
 
+// Validation paths address the submitted JSON document exactly: object keys
+// as `.key` (or `["key"]` when the key is not a plain identifier) and array
+// elements as `[index]`.
+std::string json_index_path(const std::string& parent, std::size_t index) {
+    return parent + "[" + std::to_string(index) + "]";
+}
+
+std::string json_key_path(const std::string& parent, const std::string& key) {
+    const bool plain = !key.empty() &&
+        std::all_of(key.begin(), key.end(), [](unsigned char ch) {
+            return std::isalnum(ch) != 0 || ch == '_' || ch == '-';
+        });
+    if (plain) {
+        return parent.empty() ? key : parent + "." + key;
+    }
+    std::string quoted;
+    for (const char ch : key) {
+        if (ch == '"' || ch == '\\') quoted.push_back('\\');
+        quoted.push_back(ch);
+    }
+    return parent + "[\"" + quoted + "\"]";
+}
+
 std::size_t utf8_code_point_count(const std::string& value) {
     return static_cast<std::size_t>(std::count_if(
         value.begin(), value.end(), [](unsigned char byte) {
@@ -89,12 +112,7 @@ void migrate_legacy_icmptest(json& root,
             type->get_ref<const std::string&>() != "icmptest") {
             continue;
         }
-        const auto tag_value = outbound.find("tag");
-        const std::string tag =
-            tag_value != outbound.end() && tag_value->is_string()
-                ? tag_value->get<std::string>()
-                : std::to_string(outbound_index);
-        const std::string path = "outbounds." + tag;
+        const std::string path = json_index_path("outbounds", outbound_index);
         auto groups = outbound.find("outbound_groups");
         if (groups == outbound.end() || !groups->is_array()) continue;
 
@@ -201,11 +219,6 @@ void migrate_legacy_group_members(json& root,
         if (type == outbound.end() || !type->is_string()) continue;
         const auto& type_name = type->get_ref<const std::string&>();
         if (type_name != "icmptest" && type_name != "urltest") continue;
-        const auto tag_value = outbound.find("tag");
-        const std::string tag =
-            tag_value != outbound.end() && tag_value->is_string()
-                ? tag_value->get<std::string>()
-                : std::to_string(outbound_index);
         auto groups = outbound.find("outbound_groups");
         if (groups == outbound.end() || !groups->is_array()) continue;
 
@@ -218,8 +231,9 @@ void migrate_legacy_group_members(json& root,
         bool failed = false;
         for (size_t group_index = 0; group_index < groups->size(); ++group_index) {
             json group = groups->at(group_index);
-            const std::string group_path = "outbounds." + tag + ".outbound_groups[" +
-                                           std::to_string(group_index) + "]";
+            const std::string group_path = json_index_path(
+                json_index_path("outbounds", outbound_index) + ".outbound_groups",
+                group_index);
             int64_t weight = 1;
             if (!group.is_object()) {
                 entries.push_back({weight, std::move(group)});
@@ -505,7 +519,7 @@ void validate_rule_list_references(std::vector<ConfigValidationIssue>& issues,
     for (size_t i = 0; i < list_refs.size(); ++i) {
         validate_required_reference(issues,
                                     known_lists,
-                                    rule_path + ".list[" + std::to_string(i) + "]",
+                                    json_index_path(rule_path + ".list", i),
                                     rule_path,
                                     list_refs[i],
                                     "list");
@@ -680,7 +694,7 @@ void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIss
             continue;
         }
 
-        const std::string rule_path = "route.rules[" + std::to_string(index) + "]";
+        const std::string rule_path = json_index_path("route.rules", index);
         const bool has_any_condition =
             rule_has_list_condition(rule) ||
             rule_has_present_condition(rule, "dscp") ||
@@ -730,10 +744,10 @@ std::string route_rule_unsupported_iptables_multiport_path(size_t rule_index,
                                                            const RouteRule& rule) {
     const auto src_kind = classify_optional_port_spec(rule.src_port);
     if (src_kind.has_value() && *src_kind == PortSpecKind::List) {
-        return "route.rules[" + std::to_string(rule_index) + "].src_port";
+        return json_index_path("route.rules", rule_index) + ".src_port";
     }
 
-    return "route.rules[" + std::to_string(rule_index) + "].dest_port";
+    return json_index_path("route.rules", rule_index) + ".dest_port";
 }
 
 void validate_route_inbound_interfaces(const json& root, std::vector<ConfigValidationIssue>& issues) {
@@ -756,7 +770,7 @@ void validate_route_inbound_interfaces(const json& root, std::vector<ConfigValid
     for (size_t index = 0; index < inbound_it->size(); ++index) {
         const auto& iface_value = inbound_it->at(index);
         const std::string iface_path =
-            "route.inbound_interfaces[" + std::to_string(index) + "]";
+            json_index_path("route.inbound_interfaces", index);
 
         if (!iface_value.is_string()) {
             add_issue(issues, iface_path, iface_path + " must be a string");
@@ -1191,7 +1205,7 @@ void validate_config(const Config& cfg) {
     }
 
     for (const auto& [name, list_cfg] : cfg.lists.value_or(std::map<std::string, ListConfig>{})) {
-        const std::string list_path = name.empty() ? "lists" : "lists." + name;
+        const std::string list_path = json_key_path("lists", name);
         validate_tag(issues, list_path, "List name", name);
 
         const bool has_url = list_cfg.url.has_value();
@@ -1214,28 +1228,30 @@ void validate_config(const Config& cfg) {
     }
 
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
-    for (const auto& ob : outbounds) {
-        validate_tag(issues, "outbounds." + ob.tag + ".tag", "Outbound tag", ob.tag);
+    for (size_t ob_index = 0; ob_index < outbounds.size(); ++ob_index) {
+        const auto& ob = outbounds[ob_index];
+        const std::string ob_path = json_index_path("outbounds", ob_index);
+        validate_tag(issues, ob_path + ".tag", "Outbound tag", ob.tag);
 
         if (ob.type == OutboundType::INTERFACE) {
             const std::string iface = trim_copy(ob.interface.value_or(""));
             if (iface.empty()) {
                 add_issue(issues,
-                          "outbounds." + ob.tag + ".interface",
+                          ob_path + ".interface",
                           "Interface outbound '" + ob.tag +
                               "' requires a non-empty interface name");
             }
             if (ob.gateway.has_value() && *ob.gateway != "auto" &&
                 !is_valid_ipv4_address(*ob.gateway)) {
                 add_issue(issues,
-                          "outbounds." + ob.tag + ".gateway",
+                          ob_path + ".gateway",
                           "Interface outbound '" + ob.tag +
                               "' gateway must be a valid IPv4 address");
             }
             if (ob.gateway6.has_value() && *ob.gateway6 != "auto" &&
                 !is_valid_ipv6_address(*ob.gateway6)) {
                 add_issue(issues,
-                          "outbounds." + ob.tag + ".gateway6",
+                          ob_path + ".gateway6",
                           "Interface outbound '" + ob.tag +
                               "' gateway6 must be a valid IPv6 address");
             }
@@ -1243,7 +1259,7 @@ void validate_config(const Config& cfg) {
 
         if (ob.type != OutboundType::URLTEST && ob.type != OutboundType::ICMPTEST) {
             if (ob.strategy.has_value()) {
-                add_issue(issues, "outbounds." + ob.tag + ".strategy",
+                add_issue(issues, ob_path + ".strategy",
                           "strategy is supported only by urltest and icmptest outbounds");
             }
             continue;
@@ -1251,15 +1267,15 @@ void validate_config(const Config& cfg) {
         const bool is_icmp = ob.type == OutboundType::ICMPTEST;
 
         if (!is_icmp && (!ob.url.has_value() || ob.url->empty())) {
-            add_issue(issues, "outbounds." + ob.tag + ".url",
+            add_issue(issues, ob_path + ".url",
                       "Urltest outbound '" + ob.tag + "' requires a URL");
         } else if (!is_icmp && !is_http_url(*ob.url)) {
-            add_issue(issues, "outbounds." + ob.tag + ".url",
+            add_issue(issues, ob_path + ".url",
                       "Urltest URL must use the http or https scheme");
         }
 
         if (!ob.outbound_groups.has_value() || ob.outbound_groups->empty()) {
-            add_issue(issues, "outbounds." + ob.tag + ".outbound_groups",
+            add_issue(issues, ob_path + ".outbound_groups",
                       "Urltest outbound '" + ob.tag +
                           "' 'outbound_groups' array must not be empty");
             continue;
@@ -1270,7 +1286,7 @@ void validate_config(const Config& cfg) {
         for (size_t group_index = 0; group_index < ob.outbound_groups->size(); ++group_index) {
             const auto& group = ob.outbound_groups->at(group_index);
             const std::string group_path =
-                "outbounds." + ob.tag + ".outbound_groups[" + std::to_string(group_index) + "]";
+                json_index_path(ob_path + ".outbound_groups", group_index);
 
             const auto& members = group.members.value_or(std::vector<api::OutboundGroupMemberElement>{});
             if (members.empty()) {
@@ -1283,7 +1299,7 @@ void validate_config(const Config& cfg) {
                 const auto& member = members[member_index];
                 const auto& ref_tag = member.outbound;
                 const std::string member_path =
-                    group_path + ".members[" + std::to_string(member_index) + "]";
+                    json_index_path(group_path + ".members", member_index);
                 candidates.insert(ref_tag);
                 if (!candidate_entries.insert(ref_tag).second) {
                     add_issue(issues, member_path + ".outbound",
@@ -1342,28 +1358,28 @@ void validate_config(const Config& cfg) {
         const bool count_valid = count >= 1 && count <= icmptest_limits::max_count;
         const bool packet_interval_valid = packet_interval >= 100 && packet_interval <= 1000;
         const bool timeout_valid = timeout >= 100 && timeout <= 5000;
-        if (!count_valid) add_issue(issues, "outbounds." + ob.tag + ".count", "Icmptest count must be between 1 and 10");
-        if (max_failed < 0 || max_failed >= count) add_issue(issues, "outbounds." + ob.tag + ".max_failed", "Icmptest max_failed must be non-negative and less than count");
-        if (!packet_interval_valid) add_issue(issues, "outbounds." + ob.tag + ".packet_interval_ms", "Icmptest packet_interval_ms must be between 100 and 1000");
-        if (!timeout_valid) add_issue(issues, "outbounds." + ob.tag + ".probe_timeout_ms", "Icmptest probe_timeout_ms must be between 100 and 5000");
-        if (max_rtt < 1 || max_rtt > timeout) add_issue(issues, "outbounds." + ob.tag + ".max_rtt_ms", "Icmptest max_rtt_ms must be between 1 and probe_timeout_ms");
-        if (candidates.size() > icmptest_limits::max_candidates) add_issue(issues, "outbounds." + ob.tag + ".outbound_groups", "Icmptest supports at most 16 unique candidates");
-        if (interval < icmptest_limits::min_interval_ms || interval > icmptest_limits::max_interval_ms) add_issue(issues, "outbounds." + ob.tag + ".interval_ms", "Icmptest interval_ms must be between 1000 and 86400000");
+        if (!count_valid) add_issue(issues, ob_path + ".count", "Icmptest count must be between 1 and 10");
+        if (max_failed < 0 || max_failed >= count) add_issue(issues, ob_path + ".max_failed", "Icmptest max_failed must be non-negative and less than count");
+        if (!packet_interval_valid) add_issue(issues, ob_path + ".packet_interval_ms", "Icmptest packet_interval_ms must be between 100 and 1000");
+        if (!timeout_valid) add_issue(issues, ob_path + ".probe_timeout_ms", "Icmptest probe_timeout_ms must be between 100 and 5000");
+        if (max_rtt < 1 || max_rtt > timeout) add_issue(issues, ob_path + ".max_rtt_ms", "Icmptest max_rtt_ms must be between 1 and probe_timeout_ms");
+        if (candidates.size() > icmptest_limits::max_candidates) add_issue(issues, ob_path + ".outbound_groups", "Icmptest supports at most 16 unique candidates");
+        if (interval < icmptest_limits::min_interval_ms || interval > icmptest_limits::max_interval_ms) add_issue(issues, ob_path + ".interval_ms", "Icmptest interval_ms must be between 1000 and 86400000");
         if (count_valid && packet_interval_valid && timeout_valid &&
             candidates.size() <= icmptest_limits::max_candidates) {
             const int64_t packet_count = count * static_cast<int64_t>(candidates.size());
             if (packet_count > icmptest_limits::max_packets_per_sweep) {
-                add_issue(issues, "outbounds." + ob.tag + ".count", "Icmptest supports at most 160 packets per sweep");
+                add_issue(issues, ob_path + ".count", "Icmptest supports at most 160 packets per sweep");
             }
             const int64_t per_candidate = icmptest_limits::candidate_worst_case_ms(
                 count, timeout, packet_interval);
             const int64_t sweep = per_candidate * static_cast<int64_t>(candidates.size());
             if (sweep > icmptest_limits::max_sweep_ms) {
-                add_issue(issues, "outbounds." + ob.tag + ".interval_ms", "Icmptest worst-case sweep must not exceed 600000 ms");
+                add_issue(issues, ob_path + ".interval_ms", "Icmptest worst-case sweep must not exceed 600000 ms");
             }
             const int64_t minimum_interval =
                 icmptest_limits::minimum_interval_with_reserve_ms(sweep);
-            if (interval < minimum_interval) add_issue(issues, "outbounds." + ob.tag + ".interval_ms", "Icmptest interval_ms is too short; minimum is " + std::to_string(minimum_interval) + " ms including 25% reserve");
+            if (interval < minimum_interval) add_issue(issues, ob_path + ".interval_ms", "Icmptest interval_ms is too short; minimum is " + std::to_string(minimum_interval) + " ms including 25% reserve");
         }
         if (ob.circuit_breaker) {
             const auto failure_threshold = ob.circuit_breaker->failure_threshold.value_or(5);
@@ -1371,10 +1387,10 @@ void validate_config(const Config& cfg) {
             const auto half_open = ob.circuit_breaker->half_open_max_requests.value_or(1);
             const auto breaker_timeout = ob.circuit_breaker->timeout_ms.value_or(
                 std::max(icmptest_limits::default_breaker_timeout_ms, interval));
-            if (failure_threshold < 1 || failure_threshold > 20) add_issue(issues, "outbounds." + ob.tag + ".circuit_breaker.failure_threshold", "Icmptest failure_threshold must be between 1 and 20");
-            if (success_threshold < 1 || success_threshold > 20) add_issue(issues, "outbounds." + ob.tag + ".circuit_breaker.success_threshold", "Icmptest success_threshold must be between 1 and 20");
-            if (half_open < 1 || half_open > 10) add_issue(issues, "outbounds." + ob.tag + ".circuit_breaker.half_open_max_requests", "Icmptest half_open_max_requests must be between 1 and 10");
-            if (breaker_timeout < interval || breaker_timeout > icmptest_limits::max_interval_ms) add_issue(issues, "outbounds." + ob.tag + ".circuit_breaker.timeout_ms", "Icmptest circuit breaker timeout_ms must be between interval_ms and 86400000");
+            if (failure_threshold < 1 || failure_threshold > 20) add_issue(issues, ob_path + ".circuit_breaker.failure_threshold", "Icmptest failure_threshold must be between 1 and 20");
+            if (success_threshold < 1 || success_threshold > 20) add_issue(issues, ob_path + ".circuit_breaker.success_threshold", "Icmptest success_threshold must be between 1 and 20");
+            if (half_open < 1 || half_open > 10) add_issue(issues, ob_path + ".circuit_breaker.half_open_max_requests", "Icmptest half_open_max_requests must be between 1 and 10");
+            if (breaker_timeout < interval || breaker_timeout > icmptest_limits::max_interval_ms) add_issue(issues, ob_path + ".circuit_breaker.timeout_ms", "Icmptest circuit breaker timeout_ms must be between interval_ms and 86400000");
         }
     }
 
@@ -1384,7 +1400,7 @@ void validate_config(const Config& cfg) {
         cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
     for (size_t rule_index = 0; rule_index < route_rules.size(); ++rule_index) {
         const auto& rule = route_rules[rule_index];
-        const std::string rule_path = "route.rules[" + std::to_string(rule_index) + "]";
+        const std::string rule_path = json_index_path("route.rules", rule_index);
 
         validate_required_reference(issues,
                                     outbound_tags,
@@ -1476,11 +1492,12 @@ void validate_config(const Config& cfg) {
 #ifdef KEEN_PBR_PLATFORM_KEENETIC
     // Keenetic has its own multipath, and conntrack is not usable in the RAW
     // table that keen-pbr rules mostly live in: balance is not compiled.
-    for (const auto& outbound : outbounds) {
+    for (size_t outbound_index = 0; outbound_index < outbounds.size(); ++outbound_index) {
+        const auto& outbound = outbounds[outbound_index];
         if ((outbound.type == OutboundType::URLTEST ||
              outbound.type == OutboundType::ICMPTEST) &&
             outbound_requests_balance(outbound)) {
-            add_issue(issues, "outbounds." + outbound.tag + ".strategy",
+            add_issue(issues, json_index_path("outbounds", outbound_index) + ".strategy",
                       "load balancing is not available on Keenetic; use the router's multipath");
         }
     }
@@ -1495,7 +1512,7 @@ void validate_config(const Config& cfg) {
             const auto& rule = route_rules[i];
             if (rule.default_gateway.has_value() &&
                 !firewall_backend_supports_default_gateway(effective_backend)) {
-                add_issue(issues, "route.rules[" + std::to_string(i) + "].default_gateway",
+                add_issue(issues, json_index_path("route.rules", i) + ".default_gateway",
                           "default_gateway requires the nftables firewall backend" +
                               backend_note);
             }
@@ -1516,10 +1533,12 @@ void validate_config(const Config& cfg) {
         std::set<std::string> dns_server_tags;
         std::set<std::string> dns_server_identities;
         size_t keenetic_servers_count = 0;
-        for (const auto& srv : dns_servers) {
-            validate_tag(issues, "dns.servers." + srv.tag + ".tag", "DNS server tag", srv.tag);
+        for (size_t srv_index = 0; srv_index < dns_servers.size(); ++srv_index) {
+            const auto& srv = dns_servers[srv_index];
+            const std::string srv_path = json_index_path("dns.servers", srv_index);
+            validate_tag(issues, srv_path + ".tag", "DNS server tag", srv.tag);
             if (!dns_server_tags.insert(srv.tag).second) {
-                add_issue(issues, "dns.servers." + srv.tag + ".tag",
+                add_issue(issues, srv_path + ".tag",
                           "Duplicate DNS server tag \"" + srv.tag + "\"");
             }
 
@@ -1528,7 +1547,7 @@ void validate_config(const Config& cfg) {
             const std::string srv_identity =
                 std::to_string(static_cast<int>(srv_type)) + "|" + srv_addr;
             if (!dns_server_identities.insert(srv_identity).second) {
-                add_issue(issues, "dns.servers." + srv.tag,
+                add_issue(issues, srv_path,
                           "DNS server \"" + srv.tag +
                               "\" duplicates an existing DNS server definition (same type/address)");
             }
@@ -1536,7 +1555,7 @@ void validate_config(const Config& cfg) {
             if (srv_type == api::DnsServerType::KEENETIC) {
                 ++keenetic_servers_count;
 #ifndef USE_KEENETIC_API
-                add_issue(issues, "dns.servers." + srv.tag + ".type",
+                add_issue(issues, srv_path + ".type",
                           "dns.servers[\"" + srv.tag +
                               "\"].type='keenetic' requires build with USE_KEENETIC_API=ON");
 #endif
@@ -1545,24 +1564,24 @@ void validate_config(const Config& cfg) {
                 if (system_info.os_type == "keenetic" &&
                     encrypted_dns_supported.has_value() &&
                     !*encrypted_dns_supported) {
-                    add_issue(issues, "dns.servers." + srv.tag + ".type",
+                    add_issue(issues, srv_path + ".type",
                               "dns.servers[\"" + srv.tag +
                                   "\"].type='keenetic' requires KeeneticOS 3.x or newer; detected " +
                                   system_info.os_version);
                 }
                 if (srv.address.has_value() && !srv.address->empty()) {
-                    add_issue(issues, "dns.servers." + srv.tag + ".address",
+                    add_issue(issues, srv_path + ".address",
                               "dns.servers[\"" + srv.tag +
                                   "\"].address must not be set for type='keenetic' (resolved via RCI)");
                 }
             } else if (srv_type == api::DnsServerType::STATIC) {
                 if (!srv.address.has_value() || srv.address->empty()) {
-                    add_issue(issues, "dns.servers." + srv.tag + ".address",
+                    add_issue(issues, srv_path + ".address",
                               "dns.servers[\"" + srv.tag +
                                   "\"].address is required for type='static'");
                 }
             } else {
-                add_issue(issues, "dns.servers." + srv.tag + ".type",
+                add_issue(issues, srv_path + ".type",
                           "dns.servers[\"" + srv.tag +
                               "\"].type must be one of: static, keenetic");
             }
@@ -1581,7 +1600,7 @@ void validate_config(const Config& cfg) {
                     ob.type == OutboundType::IGNORE) {
                     add_issue(
                         issues,
-                        "dns.servers." + srv.tag + ".detour",
+                        srv_path + ".detour",
                         "dns.servers[\"" + srv.tag + "\"].detour: outbound \""
                             + dtag + "\" has no routing table");
                 }
@@ -1591,7 +1610,7 @@ void validate_config(const Config& cfg) {
             if (!found) {
                 add_issue(
                     issues,
-                    "dns.servers." + srv.tag + ".detour",
+                    srv_path + ".detour",
                     "dns.servers[\"" + srv.tag + "\"].detour: unknown outbound tag \""
                         + dtag + "\"");
             }
@@ -1607,7 +1626,7 @@ void validate_config(const Config& cfg) {
             std::set<std::string> seen_fallback_tags;
             for (size_t i = 0; i < cfg.dns->fallback->size(); ++i) {
                 const std::string& fallback_tag = (*cfg.dns->fallback)[i];
-                const std::string path = "dns.fallback." + std::to_string(i);
+                const std::string path = json_index_path("dns.fallback", i);
 
                 if (fallback_tag.empty()) {
                     add_issue(issues, path,
@@ -1632,7 +1651,7 @@ void validate_config(const Config& cfg) {
         const auto dns_rules = cfg.dns->rules.value_or(std::vector<DnsRule>{});
         for (size_t rule_index = 0; rule_index < dns_rules.size(); ++rule_index) {
             const auto& rule = dns_rules[rule_index];
-            const std::string rule_path = "dns.rules[" + std::to_string(rule_index) + "]";
+            const std::string rule_path = json_index_path("dns.rules", rule_index);
 
             validate_required_reference(issues,
                                         dns_server_tags,

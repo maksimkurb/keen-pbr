@@ -33,106 +33,94 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  type FieldBinding,
-  bindInput,
-  splitFormApiErrors,
-  useDraftForm,
-} from "@/lib/draft-form"
+import { type FieldBinding, bindInput, useDraftForm } from "@/lib/draft-form"
 import { toast } from "sonner"
 
+/**
+ * Draft of the settings page. Names and nesting mirror the config document,
+ * so a draft path is exactly the API path of that value (`daemon.ipv6_enabled`).
+ */
 export type SettingsDraft = {
-  deviceName: string
-  strictEnforcement: boolean
-  skipMarkedPackets: boolean
-  processRouterTraffic: boolean
-  clearDynamicSetsOnApply: boolean
-  ipv6Enabled: boolean
-  ipsetHashsize: string
-  ipsetMaxelem: string
-  inboundInterfaces: string[]
-  listsAutoupdateEnabled: boolean
-  cron: string
-  fwmarkStart: string
-  fwmarkMask: string
-  tableStart: string
-  interceptEnabled: boolean
-  interceptMinTtlS: string
-  interceptMaxTtlS: string
-  interceptDnsEnabled: boolean
-  interceptDnsQueueNum: string
-  interceptDnsHoldTimeoutMs: string
-  interceptMarkerDomain: string
-  interceptMarkerAddress: string
-  interceptL7Enabled: boolean
-  interceptL7NflogGroup: string
-  interceptL7Tls: boolean
-  interceptL7Http: boolean
-  interceptL7Quic: boolean
+  device_name: string
+  daemon: {
+    strict_enforcement: boolean
+    skip_marked_packets: boolean
+    clear_dynamic_sets_on_apply: boolean
+    ipv6_enabled: boolean
+    ipset_hashsize: string
+    ipset_maxelem: string
+  }
+  route: {
+    inbound_interfaces: string[]
+  }
+  lists_autoupdate: {
+    enabled: boolean
+    cron: string
+  }
+  fwmark: {
+    start: string
+    mask: string
+  }
+  iproute: {
+    table_start: string
+    process_router_traffic: boolean
+  }
+  intercept: {
+    enabled: boolean
+    min_ttl_s: string
+    max_ttl_s: string
+    dns: {
+      enabled: boolean
+      queue_num: string
+      hold_timeout_ms: string
+      marker: {
+        domain: string
+        answer_ipv4: string
+      }
+    }
+    l7: {
+      enabled: boolean
+      nflog_group: string
+      tls: boolean
+      http: boolean
+      quic: boolean
+    }
+  }
 }
 
 const fallbackDraft: SettingsDraft = {
-  deviceName: "",
-  strictEnforcement: true,
-  skipMarkedPackets: true,
-  processRouterTraffic: false,
-  clearDynamicSetsOnApply: false,
-  ipv6Enabled: true,
-  ipsetHashsize: "",
-  ipsetMaxelem: "",
-  inboundInterfaces: [],
-  listsAutoupdateEnabled: false,
-  cron: "0 4 * * 0",
-  fwmarkStart: "0x00010000",
-  fwmarkMask: "0xffff0000",
-  tableStart: "150",
-  interceptEnabled: true,
-  interceptMinTtlS: "300",
-  interceptMaxTtlS: "86400",
-  interceptDnsEnabled: true,
-  interceptDnsQueueNum: "9053",
-  interceptDnsHoldTimeoutMs: "30",
-  interceptMarkerDomain: "check.keen.pbr",
-  interceptMarkerAddress: "127.0.0.88",
-  interceptL7Enabled: true,
-  interceptL7NflogGroup: "9054",
-  interceptL7Tls: true,
-  interceptL7Http: true,
-  interceptL7Quic: true,
+  device_name: "",
+  daemon: {
+    strict_enforcement: true,
+    skip_marked_packets: true,
+    clear_dynamic_sets_on_apply: false,
+    ipv6_enabled: true,
+    ipset_hashsize: "",
+    ipset_maxelem: "",
+  },
+  route: { inbound_interfaces: [] },
+  lists_autoupdate: { enabled: false, cron: "0 4 * * 0" },
+  fwmark: { start: "0x00010000", mask: "0xffff0000" },
+  iproute: { table_start: "150", process_router_traffic: false },
+  intercept: {
+    enabled: true,
+    min_ttl_s: "300",
+    max_ttl_s: "86400",
+    dns: {
+      enabled: true,
+      queue_num: "9053",
+      hold_timeout_ms: "30",
+      marker: { domain: "check.keen.pbr", answer_ipv4: "127.0.0.88" },
+    },
+    l7: {
+      enabled: true,
+      nflog_group: "9054",
+      tls: true,
+      http: true,
+      quic: true,
+    },
+  },
 }
-
-const SETTINGS_FIELD_NAMES = {
-  deviceName: "deviceName",
-  strictEnforcement: "strictEnforcement",
-  skipMarkedPackets: "skipMarkedPackets",
-  processRouterTraffic: "processRouterTraffic",
-  clearDynamicSetsOnApply: "clearDynamicSetsOnApply",
-  ipv6Enabled: "ipv6Enabled",
-  ipsetHashsize: "ipsetHashsize",
-  ipsetMaxelem: "ipsetMaxelem",
-  inboundInterfaces: "inboundInterfaces",
-  listsAutoupdateEnabled: "listsAutoupdateEnabled",
-  cron: "cron",
-  fwmarkStart: "fwmarkStart",
-  fwmarkMask: "fwmarkMask",
-  tableStart: "tableStart",
-  interceptEnabled: "interceptEnabled",
-  interceptMinTtlS: "interceptMinTtlS",
-  interceptMaxTtlS: "interceptMaxTtlS",
-  interceptDnsEnabled: "interceptDnsEnabled",
-  interceptDnsQueueNum: "interceptDnsQueueNum",
-  interceptDnsHoldTimeoutMs: "interceptDnsHoldTimeoutMs",
-  interceptMarkerDomain: "interceptMarkerDomain",
-  interceptMarkerAddress: "interceptMarkerAddress",
-  interceptL7Enabled: "interceptL7Enabled",
-  interceptL7NflogGroup: "interceptL7NflogGroup",
-  interceptL7Tls: "interceptL7Tls",
-  interceptL7Http: "interceptL7Http",
-  interceptL7Quic: "interceptL7Quic",
-} as const
-
-type SettingsFieldName =
-  (typeof SETTINGS_FIELD_NAMES)[keyof typeof SETTINGS_FIELD_NAMES]
 
 export function GeneralConfigPage() {
   const { t } = useTranslation()
@@ -182,20 +170,9 @@ function LoadedGeneralConfigPage({
     try {
       await postConfigMutation.mutateAsync({ data: updatedConfig })
     } catch (error) {
-      const result = splitFormApiErrors({
-        error: error as ApiError,
-        fieldNames: Object.values(SETTINGS_FIELD_NAMES),
-        resolvePath: resolveSettingsFieldPath,
-      })
-
-      form.setServerErrors({
-        form: result.formError,
-        fields: result.fieldErrors,
-        unmapped: result.unmappedErrors,
-      })
-
-      if (result.formError) {
-        toast.error(result.formError, { richColors: true })
+      const message = form.setApiError(error as ApiError)
+      if (message) {
+        toast.error(message, { richColors: true })
       }
       return
     }
@@ -211,8 +188,6 @@ function LoadedGeneralConfigPage({
     form.reset(getDraftFromConfig(updatedConfig))
   }
 
-  const unmappedServerErrors = form.errors.unmapped
-
   const isPending = form.isSubmitting
   const runtimeInterfaces =
     runtimeInterfacesQuery.data?.status === 200
@@ -223,8 +198,8 @@ function LoadedGeneralConfigPage({
     form.reset(getDraftFromConfig(loadedConfig))
   }
 
-  const cron = form.field("cron")
-  const inboundInterfacesError = form.errorFor("inboundInterfaces")
+  const cron = form.field("lists_autoupdate.cron")
+  const inboundInterfacesError = form.errorFor("route.inbound_interfaces")
 
   return (
     <>
@@ -244,7 +219,7 @@ function LoadedGeneralConfigPage({
               id="device-name"
               maxLength={128}
               placeholder={t("pages.settings.general.deviceNamePlaceholder")}
-              {...bindInput(form.field("deviceName"))}
+              {...bindInput(form.field("device_name"))}
             />
             <FieldDescription>
               {t("pages.settings.general.deviceNameHint")}
@@ -263,7 +238,7 @@ function LoadedGeneralConfigPage({
         <CardContent>
           <FieldGroup>
             <BooleanSettingField
-              field={form.field("interceptEnabled")}
+              field={form.field("intercept.enabled")}
               id="intercept-enabled"
               label={t("pages.settings.intercept.enabledLabel")}
               hint={t("pages.settings.intercept.enabledHint")}
@@ -273,13 +248,13 @@ function LoadedGeneralConfigPage({
 
             <div className="grid gap-6 md:grid-cols-2">
               <NumberSettingField
-                field={form.field("interceptMinTtlS")}
+                field={form.field("intercept.min_ttl_s")}
                 id="intercept-min-ttl"
                 label={t("pages.settings.intercept.minTtlLabel")}
                 hint={t("pages.settings.intercept.minTtlHint")}
               />
               <NumberSettingField
-                field={form.field("interceptMaxTtlS")}
+                field={form.field("intercept.max_ttl_s")}
                 id="intercept-max-ttl"
                 label={t("pages.settings.intercept.maxTtlLabel")}
                 hint={t("pages.settings.intercept.maxTtlHint")}
@@ -289,7 +264,7 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <BooleanSettingField
-              field={form.field("interceptDnsEnabled")}
+              field={form.field("intercept.dns.enabled")}
               id="intercept-dns-enabled"
               label={t("pages.settings.intercept.dnsEnabledLabel")}
               hint={t("pages.settings.intercept.dnsEnabledHint")}
@@ -297,13 +272,13 @@ function LoadedGeneralConfigPage({
 
             <div className="grid gap-6 md:grid-cols-2">
               <NumberSettingField
-                field={form.field("interceptDnsQueueNum")}
+                field={form.field("intercept.dns.queue_num")}
                 id="intercept-dns-queue"
                 label={t("pages.settings.intercept.queueLabel")}
                 hint={t("pages.settings.intercept.queueHint")}
               />
               <NumberSettingField
-                field={form.field("interceptDnsHoldTimeoutMs")}
+                field={form.field("intercept.dns.hold_timeout_ms")}
                 id="intercept-dns-timeout"
                 label={t("pages.settings.intercept.holdTimeoutLabel")}
                 hint={t("pages.settings.intercept.holdTimeoutHint")}
@@ -312,13 +287,13 @@ function LoadedGeneralConfigPage({
 
             <div className="grid gap-6 md:grid-cols-2">
               <TextSettingField
-                field={form.field("interceptMarkerDomain")}
+                field={form.field("intercept.dns.marker.domain")}
                 id="intercept-marker-domain"
                 label={t("pages.settings.intercept.markerDomainLabel")}
                 hint={t("pages.settings.intercept.markerDomainHint")}
               />
               <TextSettingField
-                field={form.field("interceptMarkerAddress")}
+                field={form.field("intercept.dns.marker.answer_ipv4")}
                 id="intercept-marker-address"
                 label={t("pages.settings.intercept.markerAddressLabel")}
                 hint={t("pages.settings.intercept.markerAddressHint")}
@@ -328,14 +303,14 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <BooleanSettingField
-              field={form.field("interceptL7Enabled")}
+              field={form.field("intercept.l7.enabled")}
               id="intercept-l7-enabled"
               label={t("pages.settings.intercept.l7EnabledLabel")}
               hint={t("pages.settings.intercept.l7EnabledHint")}
             />
 
             <NumberSettingField
-              field={form.field("interceptL7NflogGroup")}
+              field={form.field("intercept.l7.nflog_group")}
               id="intercept-l7-group"
               label={t("pages.settings.intercept.nflogGroupLabel")}
               hint={t("pages.settings.intercept.nflogGroupHint")}
@@ -343,17 +318,17 @@ function LoadedGeneralConfigPage({
 
             <div className="grid gap-6 md:grid-cols-3">
               <BooleanSettingField
-                field={form.field("interceptL7Tls")}
+                field={form.field("intercept.l7.tls")}
                 id="intercept-l7-tls"
                 label={t("pages.settings.intercept.tlsLabel")}
               />
               <BooleanSettingField
-                field={form.field("interceptL7Http")}
+                field={form.field("intercept.l7.http")}
                 id="intercept-l7-http"
                 label={t("pages.settings.intercept.httpLabel")}
               />
               <BooleanSettingField
-                field={form.field("interceptL7Quic")}
+                field={form.field("intercept.l7.quic")}
                 id="intercept-l7-quic"
                 label={t("pages.settings.intercept.quicLabel")}
               />
@@ -372,7 +347,7 @@ function LoadedGeneralConfigPage({
         <CardContent>
           <FieldGroup>
             <BooleanSettingField
-              field={form.field("strictEnforcement")}
+              field={form.field("daemon.strict_enforcement")}
               hint={t("pages.settings.general.strictEnforcementHint")}
               id="strict-enforcement"
               label={t("pages.settings.general.strictEnforcementLabel")}
@@ -381,7 +356,7 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <BooleanSettingField
-              field={form.field("skipMarkedPackets")}
+              field={form.field("daemon.skip_marked_packets")}
               hint={t("pages.settings.general.skipMarkedPacketsHint")}
               id="skip-marked-packets"
               label={t("pages.settings.general.skipMarkedPacketsLabel")}
@@ -390,7 +365,7 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <BooleanSettingField
-              field={form.field("processRouterTraffic")}
+              field={form.field("iproute.process_router_traffic")}
               hint={t("pages.settings.general.processRouterTrafficHint")}
               id="process-router-traffic"
               label={t("pages.settings.general.processRouterTrafficLabel")}
@@ -399,7 +374,7 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <BooleanSettingField
-              field={form.field("clearDynamicSetsOnApply")}
+              field={form.field("daemon.clear_dynamic_sets_on_apply")}
               hint={t("pages.settings.general.clearDynamicSetsOnApplyHint")}
               id="clear-dynamic-sets-on-apply"
               label={t("pages.settings.general.clearDynamicSetsOnApplyLabel")}
@@ -408,7 +383,7 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <BooleanSettingField
-              field={form.field("ipv6Enabled")}
+              field={form.field("daemon.ipv6_enabled")}
               hint={t("pages.settings.general.ipv6EnabledHint")}
               id="ipv6-enabled"
               label={t("pages.settings.general.ipv6EnabledLabel")}
@@ -423,11 +398,11 @@ function LoadedGeneralConfigPage({
               <FieldContent>
                 <div id="inbound-interfaces">
                   <InterfaceMultiSelectList
-                    name={SETTINGS_FIELD_NAMES.inboundInterfaces}
+                    name={"route.inbound_interfaces"}
                     interfaces={runtimeInterfaces}
-                    value={form.values.inboundInterfaces}
+                    value={form.values.route.inbound_interfaces}
                     onChange={(value) =>
-                      form.setValue("inboundInterfaces", value)
+                      form.setValue("route.inbound_interfaces", value)
                     }
                     addLabel={t(
                       "pages.settings.general.inboundInterfacesAddAction"
@@ -463,7 +438,7 @@ function LoadedGeneralConfigPage({
         <CardContent>
           <FieldGroup>
             <BooleanSettingField
-              field={form.field("listsAutoupdateEnabled")}
+              field={form.field("lists_autoupdate.enabled")}
               hint={t("pages.settings.autoupdate.enabledHint")}
               id="autoupdate-lists"
               label={t("pages.settings.autoupdate.enabledLabel")}
@@ -525,7 +500,7 @@ function LoadedGeneralConfigPage({
         <CardContent>
           <FieldGroup>
             <AdvancedTextField
-              field={form.field("fwmarkStart")}
+              field={form.field("fwmark.start")}
               hint={t("pages.settings.advanced.fwmarkStartHint")}
               id="fwmark-start"
               label={t("pages.settings.advanced.fwmarkStartLabel")}
@@ -534,7 +509,7 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <AdvancedTextField
-              field={form.field("fwmarkMask")}
+              field={form.field("fwmark.mask")}
               hint={
                 <>
                   {t("pages.settings.advanced.fwmarkMaskHintPrefix")}{" "}
@@ -550,7 +525,7 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <AdvancedTextField
-              field={form.field("tableStart")}
+              field={form.field("iproute.table_start")}
               hint={t("pages.settings.advanced.tableStartHint")}
               id="table-start"
               label={t("pages.settings.advanced.tableStartLabel")}
@@ -559,7 +534,7 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <AdvancedTextField
-              field={form.field("ipsetHashsize")}
+              field={form.field("daemon.ipset_hashsize")}
               hint={t("pages.settings.advanced.ipsetHashsizeHint")}
               id="ipset-hashsize"
               inputProps={{
@@ -575,7 +550,7 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <AdvancedTextField
-              field={form.field("ipsetMaxelem")}
+              field={form.field("daemon.ipset_maxelem")}
               hint={t("pages.settings.advanced.ipsetMaxelemHint")}
               id="ipset-maxelem"
               inputProps={{
@@ -591,7 +566,7 @@ function LoadedGeneralConfigPage({
         </CardContent>
       </Card>
 
-      <ServerValidationAlert errors={unmappedServerErrors} />
+      <ServerValidationAlert errors={form.unmappedErrors()} />
 
       <div className="flex justify-end gap-2">
         <Button
@@ -798,62 +773,81 @@ export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
   const dns = intercept?.dns
   const marker = dns?.marker
   const l7 = intercept?.l7
+  const fallback = fallbackDraft
   return {
-    deviceName: config.device_name ?? fallbackDraft.deviceName,
-    strictEnforcement:
-      config.daemon?.strict_enforcement ?? fallbackDraft.strictEnforcement,
-    skipMarkedPackets:
-      config.daemon?.skip_marked_packets ?? fallbackDraft.skipMarkedPackets,
-    processRouterTraffic:
-      config.iproute?.process_router_traffic ??
-      fallbackDraft.processRouterTraffic,
-    clearDynamicSetsOnApply:
-      config.daemon?.clear_dynamic_sets_on_apply ??
-      fallbackDraft.clearDynamicSetsOnApply,
-    ipv6Enabled: config.daemon?.ipv6_enabled ?? fallbackDraft.ipv6Enabled,
-    ipsetHashsize: toStringInt(config.daemon?.ipset_hashsize, ""),
-    ipsetMaxelem: toStringInt(config.daemon?.ipset_maxelem, ""),
-    inboundInterfaces:
-      config.route?.inbound_interfaces ?? fallbackDraft.inboundInterfaces,
-    listsAutoupdateEnabled:
-      config.lists_autoupdate?.enabled ?? fallbackDraft.listsAutoupdateEnabled,
-    cron: config.lists_autoupdate?.cron ?? fallbackDraft.cron,
-    fwmarkStart: toHex32(config.fwmark?.start, fallbackDraft.fwmarkStart),
-    fwmarkMask: toHex32(config.fwmark?.mask, fallbackDraft.fwmarkMask),
-    tableStart: toStringInt(
-      config.iproute?.table_start,
-      fallbackDraft.tableStart
-    ),
-    interceptEnabled: intercept?.enabled ?? fallbackDraft.interceptEnabled,
-    interceptMinTtlS: toStringInt(
-      intercept?.min_ttl_s,
-      fallbackDraft.interceptMinTtlS
-    ),
-    interceptMaxTtlS: toStringInt(
-      intercept?.max_ttl_s,
-      fallbackDraft.interceptMaxTtlS
-    ),
-    interceptDnsEnabled: dns?.enabled ?? fallbackDraft.interceptDnsEnabled,
-    interceptDnsQueueNum: toStringInt(
-      dns?.queue_num,
-      fallbackDraft.interceptDnsQueueNum
-    ),
-    interceptDnsHoldTimeoutMs: toStringInt(
-      dns?.hold_timeout_ms,
-      fallbackDraft.interceptDnsHoldTimeoutMs
-    ),
-    interceptMarkerDomain:
-      marker?.domain ?? fallbackDraft.interceptMarkerDomain,
-    interceptMarkerAddress:
-      marker?.answer_ipv4 ?? fallbackDraft.interceptMarkerAddress,
-    interceptL7Enabled: l7?.enabled ?? fallbackDraft.interceptL7Enabled,
-    interceptL7NflogGroup: toStringInt(
-      l7?.nflog_group,
-      fallbackDraft.interceptL7NflogGroup
-    ),
-    interceptL7Tls: l7?.tls ?? fallbackDraft.interceptL7Tls,
-    interceptL7Http: l7?.http ?? fallbackDraft.interceptL7Http,
-    interceptL7Quic: l7?.quic ?? fallbackDraft.interceptL7Quic,
+    device_name: config.device_name ?? fallback.device_name,
+    daemon: {
+      strict_enforcement:
+        config.daemon?.strict_enforcement ?? fallback.daemon.strict_enforcement,
+      skip_marked_packets:
+        config.daemon?.skip_marked_packets ??
+        fallback.daemon.skip_marked_packets,
+      clear_dynamic_sets_on_apply:
+        config.daemon?.clear_dynamic_sets_on_apply ??
+        fallback.daemon.clear_dynamic_sets_on_apply,
+      ipv6_enabled: config.daemon?.ipv6_enabled ?? fallback.daemon.ipv6_enabled,
+      ipset_hashsize: toStringInt(config.daemon?.ipset_hashsize, ""),
+      ipset_maxelem: toStringInt(config.daemon?.ipset_maxelem, ""),
+    },
+    route: {
+      inbound_interfaces:
+        config.route?.inbound_interfaces ?? fallback.route.inbound_interfaces,
+    },
+    lists_autoupdate: {
+      enabled:
+        config.lists_autoupdate?.enabled ?? fallback.lists_autoupdate.enabled,
+      cron: config.lists_autoupdate?.cron ?? fallback.lists_autoupdate.cron,
+    },
+    fwmark: {
+      start: toHex32(config.fwmark?.start, fallback.fwmark.start),
+      mask: toHex32(config.fwmark?.mask, fallback.fwmark.mask),
+    },
+    iproute: {
+      table_start: toStringInt(
+        config.iproute?.table_start,
+        fallback.iproute.table_start
+      ),
+      process_router_traffic:
+        config.iproute?.process_router_traffic ??
+        fallback.iproute.process_router_traffic,
+    },
+    intercept: {
+      enabled: intercept?.enabled ?? fallback.intercept.enabled,
+      min_ttl_s: toStringInt(
+        intercept?.min_ttl_s,
+        fallback.intercept.min_ttl_s
+      ),
+      max_ttl_s: toStringInt(
+        intercept?.max_ttl_s,
+        fallback.intercept.max_ttl_s
+      ),
+      dns: {
+        enabled: dns?.enabled ?? fallback.intercept.dns.enabled,
+        queue_num: toStringInt(
+          dns?.queue_num,
+          fallback.intercept.dns.queue_num
+        ),
+        hold_timeout_ms: toStringInt(
+          dns?.hold_timeout_ms,
+          fallback.intercept.dns.hold_timeout_ms
+        ),
+        marker: {
+          domain: marker?.domain ?? fallback.intercept.dns.marker.domain,
+          answer_ipv4:
+            marker?.answer_ipv4 ?? fallback.intercept.dns.marker.answer_ipv4,
+        },
+      },
+      l7: {
+        enabled: l7?.enabled ?? fallback.intercept.l7.enabled,
+        nflog_group: toStringInt(
+          l7?.nflog_group,
+          fallback.intercept.l7.nflog_group
+        ),
+        tls: l7?.tls ?? fallback.intercept.l7.tls,
+        http: l7?.http ?? fallback.intercept.l7.http,
+        quic: l7?.quic ?? fallback.intercept.l7.quic,
+      },
+    },
   }
 }
 
@@ -862,68 +856,72 @@ export function buildUpdatedConfig(
   config: ConfigObject,
   draft: SettingsDraft
 ): ConfigObject {
-  const tableStart = parseStrictDecimalToNumber(draft.tableStart)
+  const { daemon, intercept } = draft
+  const tableStart = parseStrictDecimalToNumber(draft.iproute.table_start)
   const marker = {
     ...config.intercept?.dns?.marker,
-    domain: draft.interceptMarkerDomain.trim(),
-    answer_ipv4: draft.interceptMarkerAddress.trim(),
+    domain: intercept.dns.marker.domain.trim(),
+    answer_ipv4: intercept.dns.marker.answer_ipv4.trim(),
   }
 
   return {
     ...config,
-    device_name: draft.deviceName.trim(),
+    device_name: draft.device_name.trim(),
     daemon: {
       ...config.daemon,
-      strict_enforcement: draft.strictEnforcement,
-      skip_marked_packets: draft.skipMarkedPackets,
-      clear_dynamic_sets_on_apply: draft.clearDynamicSetsOnApply,
-      ipv6_enabled: draft.ipv6Enabled,
-      ipset_hashsize: toOptionalBackendInteger(draft.ipsetHashsize),
-      ipset_maxelem: toOptionalBackendInteger(draft.ipsetMaxelem),
+      strict_enforcement: daemon.strict_enforcement,
+      skip_marked_packets: daemon.skip_marked_packets,
+      clear_dynamic_sets_on_apply: daemon.clear_dynamic_sets_on_apply,
+      ipv6_enabled: daemon.ipv6_enabled,
+      ipset_hashsize: toOptionalBackendInteger(daemon.ipset_hashsize),
+      ipset_maxelem: toOptionalBackendInteger(daemon.ipset_maxelem),
     },
     route: {
       ...config.route,
-      inbound_interfaces: draft.inboundInterfaces,
+      inbound_interfaces: draft.route.inbound_interfaces,
     },
     fwmark: {
       ...config.fwmark,
-      start: draft.fwmarkStart.trim(),
-      mask: draft.fwmarkMask.trim(),
+      start: draft.fwmark.start.trim(),
+      mask: draft.fwmark.mask.trim(),
     },
     iproute: {
       ...config.iproute,
-      table_start: toBackendIntegerValue(tableStart, draft.tableStart.trim()),
-      process_router_traffic: draft.processRouterTraffic,
+      table_start: toBackendIntegerValue(
+        tableStart,
+        draft.iproute.table_start.trim()
+      ),
+      process_router_traffic: draft.iproute.process_router_traffic,
     },
     lists_autoupdate: {
       ...config.lists_autoupdate,
-      enabled: draft.listsAutoupdateEnabled,
-      cron: draft.cron.trim(),
+      enabled: draft.lists_autoupdate.enabled,
+      cron: draft.lists_autoupdate.cron.trim(),
     },
     dns: {
       ...config.dns,
     },
     intercept: {
       ...config.intercept,
-      enabled: draft.interceptEnabled,
-      min_ttl_s: toOptionalBackendInteger(draft.interceptMinTtlS),
-      max_ttl_s: toOptionalBackendInteger(draft.interceptMaxTtlS),
+      enabled: intercept.enabled,
+      min_ttl_s: toOptionalBackendInteger(intercept.min_ttl_s),
+      max_ttl_s: toOptionalBackendInteger(intercept.max_ttl_s),
       dns: {
         ...config.intercept?.dns,
-        enabled: draft.interceptDnsEnabled,
-        queue_num: toOptionalBackendInteger(draft.interceptDnsQueueNum),
+        enabled: intercept.dns.enabled,
+        queue_num: toOptionalBackendInteger(intercept.dns.queue_num),
         hold_timeout_ms: toOptionalBackendInteger(
-          draft.interceptDnsHoldTimeoutMs
+          intercept.dns.hold_timeout_ms
         ),
         marker,
       },
       l7: {
         ...config.intercept?.l7,
-        enabled: draft.interceptL7Enabled,
-        nflog_group: toOptionalBackendInteger(draft.interceptL7NflogGroup),
-        tls: draft.interceptL7Tls,
-        http: draft.interceptL7Http,
-        quic: draft.interceptL7Quic,
+        enabled: intercept.l7.enabled,
+        nflog_group: toOptionalBackendInteger(intercept.l7.nflog_group),
+        tls: intercept.l7.tls,
+        http: intercept.l7.http,
+        quic: intercept.l7.quic,
       },
     },
   }
@@ -983,72 +981,6 @@ function getCrontabGuruUrl(value: string) {
   }
 
   return `https://crontab.guru/#${getCronHash(value)}`
-}
-
-function resolveSettingsFieldPath(path: string): SettingsFieldName | undefined {
-  if (
-    path === "route.inbound_interfaces" ||
-    path.startsWith("route.inbound_interfaces[")
-  ) {
-    return SETTINGS_FIELD_NAMES.inboundInterfaces
-  }
-
-  switch (path) {
-    case "device_name":
-      return SETTINGS_FIELD_NAMES.deviceName
-    case "daemon.strict_enforcement":
-      return SETTINGS_FIELD_NAMES.strictEnforcement
-    case "daemon.skip_marked_packets":
-      return SETTINGS_FIELD_NAMES.skipMarkedPackets
-    case "daemon.clear_dynamic_sets_on_apply":
-      return SETTINGS_FIELD_NAMES.clearDynamicSetsOnApply
-    case "daemon.ipv6_enabled":
-      return SETTINGS_FIELD_NAMES.ipv6Enabled
-    case "daemon.ipset_hashsize":
-      return SETTINGS_FIELD_NAMES.ipsetHashsize
-    case "daemon.ipset_maxelem":
-      return SETTINGS_FIELD_NAMES.ipsetMaxelem
-    case "lists_autoupdate.enabled":
-      return SETTINGS_FIELD_NAMES.listsAutoupdateEnabled
-    case "lists_autoupdate.cron":
-      return SETTINGS_FIELD_NAMES.cron
-    case "fwmark.start":
-      return SETTINGS_FIELD_NAMES.fwmarkStart
-    case "fwmark.mask":
-      return SETTINGS_FIELD_NAMES.fwmarkMask
-    case "iproute.process_router_traffic":
-      return SETTINGS_FIELD_NAMES.processRouterTraffic
-    case "iproute.table_start":
-      return SETTINGS_FIELD_NAMES.tableStart
-    case "intercept.enabled":
-      return SETTINGS_FIELD_NAMES.interceptEnabled
-    case "intercept.min_ttl_s":
-      return SETTINGS_FIELD_NAMES.interceptMinTtlS
-    case "intercept.max_ttl_s":
-      return SETTINGS_FIELD_NAMES.interceptMaxTtlS
-    case "intercept.dns.enabled":
-      return SETTINGS_FIELD_NAMES.interceptDnsEnabled
-    case "intercept.dns.queue_num":
-      return SETTINGS_FIELD_NAMES.interceptDnsQueueNum
-    case "intercept.dns.hold_timeout_ms":
-      return SETTINGS_FIELD_NAMES.interceptDnsHoldTimeoutMs
-    case "intercept.dns.marker.domain":
-      return SETTINGS_FIELD_NAMES.interceptMarkerDomain
-    case "intercept.dns.marker.answer_ipv4":
-      return SETTINGS_FIELD_NAMES.interceptMarkerAddress
-    case "intercept.l7.enabled":
-      return SETTINGS_FIELD_NAMES.interceptL7Enabled
-    case "intercept.l7.nflog_group":
-      return SETTINGS_FIELD_NAMES.interceptL7NflogGroup
-    case "intercept.l7.tls":
-      return SETTINGS_FIELD_NAMES.interceptL7Tls
-    case "intercept.l7.http":
-      return SETTINGS_FIELD_NAMES.interceptL7Http
-    case "intercept.l7.quic":
-      return SETTINGS_FIELD_NAMES.interceptL7Quic
-    default:
-      return undefined
-  }
 }
 
 function getCronHash(value: string) {

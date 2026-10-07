@@ -33,19 +33,20 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { useDraftForm } from "@/lib/draft-form"
 
+/** Names mirror the auth settings API; `password_confirmation` is UI only. */
 type SecurityDraft = {
-  authEnabled: boolean
-  authPassword: string
-  authConfirmation: string
-  allowedOrigins: string
+  authentication: { enabled: boolean }
+  password: string
+  password_confirmation: string
+  cors: { allowed_origins: string }
 }
 
 function getDraftFromSettings(settings: AuthSettingsResponse): SecurityDraft {
   return {
-    authEnabled: settings.authentication.enabled ?? false,
-    authPassword: "",
-    authConfirmation: "",
-    allowedOrigins: (settings.cors.allowed_origins ?? []).join("\n"),
+    authentication: { enabled: settings.authentication.enabled ?? false },
+    password: "",
+    password_confirmation: "",
+    cors: { allowed_origins: (settings.cors.allowed_origins ?? []).join("\n") },
   }
 }
 
@@ -90,21 +91,21 @@ function LoadedSecurityPage({
     validate: (value) => {
       const errors: Record<string, string> = {}
 
-      if (value.authEnabled && !value.authPassword && !passwordSet) {
-        errors.authPassword = t("auth.settings.passwordRequired")
+      if (value.authentication.enabled && !value.password && !passwordSet) {
+        errors.password = t("auth.settings.passwordRequired")
       }
 
-      if (value.authPassword && value.authPassword !== value.authConfirmation) {
-        errors.authConfirmation = t("auth.settings.passwordMismatch")
+      if (value.password && value.password !== value.password_confirmation) {
+        errors.password_confirmation = t("auth.settings.passwordMismatch")
       }
 
-      const origins = value.allowedOrigins
+      const origins = value.cors.allowed_origins
         .split("\n")
         .map((origin) => origin.trim())
         .filter(Boolean)
 
       if (origins.some((origin) => !isExactHttpOrigin(origin))) {
-        errors.allowedOrigins = t("auth.settings.invalidOrigin")
+        errors["cors.allowed_origins"] = t("auth.settings.invalidOrigin")
       }
 
       return errors
@@ -113,7 +114,7 @@ function LoadedSecurityPage({
   const { values } = form
 
   const save = async (value: SecurityDraft) => {
-    const origins = value.allowedOrigins
+    const origins = value.cors.allowed_origins
       .split("\n")
       .map((origin) => origin.trim())
       .filter(Boolean)
@@ -121,9 +122,9 @@ function LoadedSecurityPage({
     try {
       await postAuthSettingsMutation.mutateAsync({
         data: {
-          authentication: { enabled: value.authEnabled },
+          authentication: { enabled: value.authentication.enabled },
           cors: { allowed_origins: origins },
-          ...(value.authPassword ? { password: value.authPassword } : {}),
+          ...(value.password ? { password: value.password } : {}),
         },
       })
       toast.success(t("auth.settings.saved"))
@@ -131,9 +132,9 @@ function LoadedSecurityPage({
         queryClient.invalidateQueries({ queryKey: getGetAuthSettingsQueryKey() }),
       ])
       form.reset(getDraftFromSettings({
-        authentication: { enabled: value.authEnabled },
+        authentication: { enabled: value.authentication.enabled },
         cors: { allowed_origins: origins },
-        password_set: Boolean(value.authPassword) || passwordSet,
+        password_set: Boolean(value.password) || passwordSet,
       }))
     } catch {
       form.setServerErrors({ form: t("auth.settings.updateFailed") })
@@ -150,10 +151,10 @@ function LoadedSecurityPage({
         <CardContent className="space-y-5">
           <div className="flex items-center gap-3">
             <Checkbox
-              checked={values.authEnabled}
+              checked={values.authentication.enabled}
               id="authentication-enabled"
               onCheckedChange={(value) =>
-                form.setValue("authEnabled", value === true)
+                form.setValue("authentication.enabled", value === true)
               }
             />
             <FieldLabel htmlFor="authentication-enabled">
@@ -162,18 +163,18 @@ function LoadedSecurityPage({
           </div>
 
           <div className="space-y-4">
-            <Field invalid={Boolean(form.errorFor("authPassword"))}>
+            <Field invalid={Boolean(form.errorFor("password"))}>
               <FieldLabel htmlFor="new-auth-password">
                 {t("auth.settings.newPassword")}
               </FieldLabel>
               <Input
-                aria-invalid={Boolean(form.errorFor("authPassword"))}
+                aria-invalid={Boolean(form.errorFor("password"))}
                 autoComplete="new-password"
                 id="new-auth-password"
                 onChange={(event) => {
-                  form.setValue("authPassword", event.target.value)
+                  form.setValue("password", event.target.value)
                   if (!event.target.value) {
-                    form.setValue("authConfirmation", "")
+                    form.setValue("password_confirmation", "")
                   }
                 }}
                 placeholder={t(
@@ -182,57 +183,57 @@ function LoadedSecurityPage({
                     : "auth.settings.newPasswordPlaceholder"
                 )}
                 type="password"
-                value={values.authPassword}
+                value={values.password}
               />
-              <FieldHint error={form.errorFor("authPassword")} />
+              <FieldHint error={form.errorFor("password")} />
             </Field>
-            {values.authPassword ? (
+            {values.password ? (
               <Field
                 className="animate-in duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none"
-                invalid={Boolean(form.errorFor("authConfirmation"))}
+                invalid={Boolean(form.errorFor("password_confirmation"))}
               >
                 <FieldLabel htmlFor="confirm-auth-password">
                   {t("auth.settings.confirmPassword")}
                 </FieldLabel>
                 <FieldContent>
                   <Input
-                    aria-invalid={Boolean(form.errorFor("authConfirmation"))}
+                    aria-invalid={Boolean(form.errorFor("password_confirmation"))}
                     autoComplete="new-password"
                     id="confirm-auth-password"
                     onChange={(event) =>
-                      form.setValue("authConfirmation", event.target.value)
+                      form.setValue("password_confirmation", event.target.value)
                     }
                     type="password"
-                    value={values.authConfirmation}
+                    value={values.password_confirmation}
                   />
-                  <FieldHint error={form.errorFor("authConfirmation")} />
+                  <FieldHint error={form.errorFor("password_confirmation")} />
                 </FieldContent>
               </Field>
             ) : null}
           </div>
 
-          <Field invalid={Boolean(form.errorFor("allowedOrigins"))}>
+          <Field invalid={Boolean(form.errorFor("cors.allowed_origins"))}>
             <FieldLabel htmlFor="cors-origins">
               {t("auth.settings.allowedOrigins")}
             </FieldLabel>
             <Textarea
-              aria-invalid={Boolean(form.errorFor("allowedOrigins"))}
+              aria-invalid={Boolean(form.errorFor("cors.allowed_origins"))}
               id="cors-origins"
               onChange={(event) =>
-                form.setValue("allowedOrigins", event.target.value)
+                form.setValue("cors.allowed_origins", event.target.value)
               }
               placeholder={t("auth.settings.originsPlaceholder")}
-              value={values.allowedOrigins}
+              value={values.cors.allowed_origins}
             />
             <FieldDescription>
               {t("auth.settings.originsDescription")}
             </FieldDescription>
-            <FieldHint error={form.errorFor("allowedOrigins")} />
+            <FieldHint error={form.errorFor("cors.allowed_origins")} />
           </Field>
 
-          {form.errors.form ? (
+          {form.formError ? (
             <Alert variant="destructive">
-              <AlertDescription>{form.errors.form}</AlertDescription>
+              <AlertDescription>{form.formError}</AlertDescription>
             </Alert>
           ) : null}
         </CardContent>

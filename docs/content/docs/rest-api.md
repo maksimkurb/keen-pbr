@@ -223,7 +223,7 @@ curl -X POST http://127.0.0.1:12121/api/config \
 {
   "error": "Validation failed",
   "validation_errors": [
-    { "path": "outbounds.vpn.interface", "message": "interface is required" }
+    { "path": "outbounds[0].interface", "message": "interface is required" }
   ]
 }
 ```

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
+import { getIn } from "../src/lib/draft-form-core"
+
 import type { Outbound } from "../src/api/generated/model/outbound"
 import {
   type OutboundDraft,
@@ -9,7 +11,6 @@ import {
   getMemberSharePercent,
   isValidMemberWeight,
   mapOutboundToDraft,
-  resolveOutboundFieldPath,
   synchronizeOutboundGroups,
 } from "../src/pages/outbound-upsert-utils"
 
@@ -144,7 +145,7 @@ describe("outbound draft round trip", () => {
       tag: "auto",
       outbound_groups: [{ members: [{ outbound: "a", weight: 5 }] }],
     })
-    draft.outboundGroups[0].members[0].target = "1.1.1.1"
+    draft.outbound_groups[0].members[0].target = "1.1.1.1"
     expect(sent(buildOutboundPayload(draft)).outbound_groups).toEqual([
       { members: [{ outbound: "a", weight: 5 }] },
     ])
@@ -159,40 +160,11 @@ describe("outbound draft round trip", () => {
       ],
     })
     expect(
-      synchronizeOutboundGroups(draft.outboundGroups, [["b"], ["a"]])
+      synchronizeOutboundGroups(draft.outbound_groups, [["b"], ["a"]])
     ).toEqual([
       { members: [{ outbound: "b", target: "", weight: "" }] },
       { members: [{ outbound: "a", target: "1.1.1.1", weight: "4" }] },
     ])
-  })
-})
-
-describe("server error paths", () => {
-  test("map new fields and group members to form fields", () => {
-    expect(
-      resolveOutboundFieldPath("outbounds.vpn.strict_enforcement_action", "vpn")
-    ).toBe("strictEnforcementAction")
-    expect(
-      resolveOutboundFieldPath("outbounds.vpn.conntrack_on_switch", "vpn")
-    ).toBe("conntrackOnSwitch")
-    expect(
-      resolveOutboundFieldPath(
-        "outbounds.vpn.outbound_groups[1].outbounds",
-        "vpn"
-      )
-    ).toBe("outboundGroups[1]")
-    expect(
-      resolveOutboundFieldPath(
-        "outbounds.vpn.outbound_groups[0].members[2].target",
-        "vpn"
-      )
-    ).toBe("outboundGroups[0].members[2].target")
-    expect(
-      resolveOutboundFieldPath(
-        "outbounds.vpn.outbound_groups[0].members[1].weight",
-        "vpn"
-      )
-    ).toBe("outboundGroups[0].members[1].weight")
   })
 })
 
@@ -219,8 +191,8 @@ describe("kill-switch choice", () => {
       const fields = getKillSwitchFields(choice)
       expect(
         getKillSwitchChoice(
-          fields.strictEnforcement,
-          fields.strictEnforcementAction,
+          fields.strict_enforcement,
+          fields.strict_enforcement_action,
           "unreachable"
         )
       ).toBe(choice)
@@ -259,15 +231,6 @@ describe("member weights", () => {
     ).toBe(100)
     expect(getMemberSharePercent(group(["3", "abc"]), 1)).toBe(25)
   })
-
-  test("member weight server errors map to the weight field", () => {
-    expect(
-      resolveOutboundFieldPath(
-        "outbounds.lb.outbound_groups[1].members[0].weight",
-        "lb"
-      )
-    ).toBe("outboundGroups[1].members[0].weight")
-  })
 })
 
 describe("member payload", () => {
@@ -291,7 +254,7 @@ describe("member payload", () => {
     const payload = buildOutboundPayload(
       draft({
         strategy: "balance",
-        outboundGroups: members(
+        outbound_groups: members(
           { outbound: "a", target: "", weight: "0" },
           { outbound: "b", target: "1.1.1", weight: "250" },
           { outbound: "c", target: "8.8.8.8", weight: "" }
@@ -307,5 +270,69 @@ describe("member payload", () => {
         ],
       },
     ])
+  })
+})
+
+describe("draft paths mirror the API", () => {
+  test("every draft path is the path of that value in the Outbound", () => {
+    const outbound: Outbound = {
+      type: "icmptest",
+      tag: "ping",
+      count: 5,
+      max_failed: 1,
+      packet_interval_ms: 300,
+      probe_timeout_ms: 800,
+      max_rtt_ms: 400,
+      interval_ms: 70000,
+      tolerance_ms: 15,
+      strategy: "balance",
+      conntrack_on_switch: "delete",
+      outbound_groups: [
+        { members: [{ outbound: "a", target: "1.1.1.1", weight: 3 }] },
+      ],
+      retry: { attempts: 2, interval_ms: 500 },
+      circuit_breaker: {
+        failure_threshold: 4,
+        success_threshold: 3,
+        timeout_ms: 20000,
+        half_open_max_requests: 2,
+      },
+    }
+    const draft = mapOutboundToDraft(outbound)
+    for (const path of [
+      "count",
+      "max_failed",
+      "packet_interval_ms",
+      "probe_timeout_ms",
+      "max_rtt_ms",
+      "interval_ms",
+      "tolerance_ms",
+      "retry.attempts",
+      "retry.interval_ms",
+      "circuit_breaker.failure_threshold",
+      "circuit_breaker.success_threshold",
+      "circuit_breaker.timeout_ms",
+      "circuit_breaker.half_open_max_requests",
+      "outbound_groups[0].members[0].target",
+      "outbound_groups[0].members[0].weight",
+    ]) {
+      expect(String(getIn(draft, path))).toBe(String(getIn(outbound, path)))
+    }
+    expect(getIn(draft, "conntrack_on_switch")).toBe("delete")
+    expect(getIn(draft, "strategy")).toBe("balance")
+  })
+
+  test("interface fields use the API names", () => {
+    const draft = mapOutboundToDraft({
+      type: "interface",
+      tag: "wan",
+      interface: "eth1",
+      gateway: "auto",
+      strict_enforcement: true,
+      strict_enforcement_action: "blackhole",
+    })
+    expect(draft.interface).toBe("eth1")
+    expect(draft.strict_enforcement).toBe("enabled")
+    expect(draft.strict_enforcement_action).toBe("blackhole")
   })
 })

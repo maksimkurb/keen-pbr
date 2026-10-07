@@ -59,6 +59,8 @@ import {
   bindInput,
   type FieldBinding,
   type Path,
+  getIn,
+  setIn,
   useDraftForm,
 } from "@/lib/draft-form"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
@@ -77,7 +79,6 @@ import {
   mapOutboundToDraft,
   normalizeOutboundGroups,
   type OutboundDraft,
-  resolveOutboundFieldPath,
   sampleNewOutbound,
   synchronizeOutboundGroups,
   TEST_GROUP_DEFAULTS,
@@ -102,11 +103,39 @@ const outboundTypes: Array<{ type: Outbound["type"]; icon: LucideIcon }> = [
 ]
 
 const TEST_GROUP_TUNED_FIELDS = [
-  "interval",
-  "tolerance",
-  "probeTimeout",
-  "circuitBreakerTimeout",
+  "interval_ms",
+  "tolerance_ms",
+  "probe_timeout_ms",
+  "circuit_breaker.timeout_ms",
 ] as const
+
+// [draft path, i18n key suffix] of the fields in each advanced section.
+const URLTEST_PROBE_FIELDS = [
+  ["interval_ms", "urltest.interval"],
+  ["probe_timeout_ms", "urltest.probeTimeout"],
+  ["tolerance_ms", "urltest.tolerance"],
+  ["retry.attempts", "urltest.retryAttempts"],
+  ["retry.interval_ms", "urltest.retryInterval"],
+] as const
+const ICMPTEST_FIELDS = [
+  ["count", "count"],
+  ["max_failed", "maxFailed"],
+  ["packet_interval_ms", "packetInterval"],
+  ["probe_timeout_ms", "probeTimeout"],
+  ["max_rtt_ms", "maxRtt"],
+  ["interval_ms", "interval"],
+  ["tolerance_ms", "tolerance"],
+] as const
+const CIRCUIT_BREAKER_FIELDS = [
+  ["circuit_breaker.failure_threshold", "failures"],
+  ["circuit_breaker.success_threshold", "successes"],
+  ["circuit_breaker.timeout_ms", "timeout"],
+  ["circuit_breaker.half_open_max_requests", "halfOpen"],
+] as const
+
+const sectionPaths = (
+  fields: ReadonlyArray<readonly [Path<OutboundDraft>, string]>
+) => fields.map(([path]) => path)
 
 export function OutboundUpsertPage({
   mode,
@@ -241,7 +270,13 @@ function OutboundForm({
     }))
 
   const existingTag = mode === "edit" ? outboundId : undefined
+  // Index the outbound has in the array that is sent (new ones are appended).
+  const outboundIndex =
+    mode === "edit"
+      ? existingOutbounds.findIndex((item) => item.tag === outboundId)
+      : existingOutbounds.length
   const form = useDraftForm<OutboundDraft>(draft, {
+    apiPrefix: `outbounds[${outboundIndex}]`,
     // The only client check: the daemon cannot know the name rules of the
     // loaded list. Everything else is validated by the daemon on save.
     validate: (value) => {
@@ -279,9 +314,7 @@ function OutboundForm({
         } satisfies ConfigObject,
       })
     } catch (error) {
-      form.setApiError(error as ApiError, (path) =>
-        resolveOutboundFieldPath(path, payload.tag || draft.tag)
-      )
+      form.setApiError(error as ApiError)
       return
     }
     await Promise.all([
@@ -292,19 +325,19 @@ function OutboundForm({
     navigate("/outbounds")
   }
 
-  const steps = getOutboundGroupTags(values.outboundGroups)
-  const apiErrorMessage = form.errors.form
-  const serverFieldErrors = form.errors.fields
-  const unmappedServerErrors = form.errors.unmapped
+  const steps = getOutboundGroupTags(values.outbound_groups)
+  const apiErrorMessage = form.formError
   // Members are validated by the daemon only; its errors reach the inputs by
   // path (a weight error keeps the weight visible in priority mode).
   const sectionErrorLabel = (names: ReadonlyArray<Path<OutboundDraft>>) =>
     names.some((name) => form.errorFor(name))
       ? t("pages.outboundUpsert.advanced.hasError")
       : null
-  const hasWeightServerError = Object.keys(serverFieldErrors).some((name) =>
-    /^outboundGroups\[\d+\]\.members\[\d+\]\.weight$/.test(name)
-  )
+  const hasWeightServerError = form
+    .errorPaths()
+    .some((name) =>
+      /^outbound_groups\[\d+\]\.members\[\d+\]\.weight$/.test(name)
+    )
 
   const outboundType = values.type
   const isUrltest = outboundType === "urltest"
@@ -322,13 +355,20 @@ function OutboundForm({
       : "reject"
     : "off"
   const killSwitch = getKillSwitchChoice(
-    values.strictEnforcement,
-    values.strictEnforcementAction,
+    values.strict_enforcement,
+    values.strict_enforcement_action,
     globalAction
   )
-  const killSwitchError =
-    form.errorFor("strictEnforcement") ??
-    form.errorFor("strictEnforcementAction")
+  const killSwitchError = form.errorFor("strict_enforcement", {
+    // One kill-switch control owns both config fields.
+    alsoClaims: ["strict_enforcement_action"],
+  })
+  const urltestPaths: Path<OutboundDraft>[] = [
+    "url",
+    ...sectionPaths(URLTEST_PROBE_FIELDS),
+  ]
+  const icmptestPaths = sectionPaths(ICMPTEST_FIELDS)
+  const breakerPaths = sectionPaths(CIRCUIT_BREAKER_FIELDS)
   const changedLabel = (changed: boolean) =>
     changed
       ? t("pages.outboundUpsert.advanced.changed")
@@ -340,7 +380,7 @@ function OutboundForm({
       if (nextType === previousType) {
         return previous
       }
-      const next = { ...previous, type: nextType }
+      let next: OutboundDraft = { ...previous, type: nextType }
       const wasGroup = previousType === "urltest" || previousType === "icmptest"
       if (nextType === "urltest" || nextType === "icmptest") {
         const previousDefaults =
@@ -353,16 +393,19 @@ function OutboundForm({
             : TEST_GROUP_DEFAULTS.urltest
         // Swap per-type defaults, but keep values the user has tuned.
         for (const name of TEST_GROUP_TUNED_FIELDS) {
-          if (!wasGroup || previous[name] === previousDefaults[name]) {
-            next[name] = nextDefaults[name]
+          if (!wasGroup || getIn(previous, name) === previousDefaults[name]) {
+            next = setIn(next, name, nextDefaults[name])
           }
         }
         if (wasGroup) {
           // Keep the chosen members when switching between urltest and ICMP.
-          next.outboundGroups = synchronizeOutboundGroups(
-            previous.outboundGroups,
-            getOutboundGroupTags(previous.outboundGroups)
-          )
+          next = {
+            ...next,
+            outbound_groups: synchronizeOutboundGroups(
+              previous.outbound_groups,
+              getOutboundGroupTags(previous.outbound_groups)
+            ),
+          }
         }
       }
       return next
@@ -381,7 +424,8 @@ function OutboundForm({
       <FieldGroup>
         <TextField
           className="max-w-md"
-          field={form.field("tag")}
+          // The tag control also shows errors addressed to the whole outbound.
+          field={form.field("tag", { alsoClaims: [""] })}
           hint={t("pages.outboundUpsert.fields.tagHint")}
           label={t("pages.outboundUpsert.fields.tag")}
           readOnly={mode === "edit"}
@@ -421,7 +465,7 @@ function OutboundForm({
 
       {outboundType === "interface" ? (
         <FieldGroup>
-          <Field invalid={Boolean(form.errorFor("interfaceName"))}>
+          <Field invalid={Boolean(form.errorFor("interface"))}>
             <FieldLabel>
               {t("pages.outboundUpsert.interface.interface")}
             </FieldLabel>
@@ -429,19 +473,19 @@ function OutboundForm({
               <InterfacePicker
                 allowCustomOption
                 interfaces={runtimeInterfaces}
-                invalid={Boolean(form.errorFor("interfaceName"))}
-                onChange={(value) => form.setValue("interfaceName", value)}
-                onSelect={(value) => form.setValue("interfaceName", value)}
+                invalid={Boolean(form.errorFor("interface"))}
+                onChange={(value) => form.setValue("interface", value)}
+                onSelect={(value) => form.setValue("interface", value)}
                 placeholder={t(
                   "pages.outboundUpsert.interface.interfacePlaceholder"
                 )}
                 renderSelectedInline
                 showDetails={false}
-                value={values.interfaceName}
+                value={values.interface}
               />
               <FieldHint
                 description={t("pages.outboundUpsert.interface.interfaceHint")}
-                error={form.errorFor("interfaceName")}
+                error={form.errorFor("interface")}
               />
             </FieldContent>
           </Field>
@@ -598,9 +642,9 @@ function OutboundForm({
                 // the errors of every row below it (rows shift on reorder).
                 onChange={(nextSteps) =>
                   form.setValue(
-                    "outboundGroups",
+                    "outbound_groups",
                     synchronizeOutboundGroups(
-                      values.outboundGroups,
+                      values.outbound_groups,
                       normalizeOutboundGroups(nextSteps)
                     )
                   )
@@ -610,7 +654,7 @@ function OutboundForm({
                     ? (stepIndex, memberIndex) => (
                         <PingTargetInput
                           field={form.field(
-                            `outboundGroups[${stepIndex}].members[${memberIndex}].target`
+                            `outbound_groups[${stepIndex}].members[${memberIndex}].target`
                           )}
                         />
                       )
@@ -619,10 +663,10 @@ function OutboundForm({
                 renderWeight={(stepIndex, memberIndex) => (
                   <WeightInput
                     field={form.field(
-                      `outboundGroups[${stepIndex}].members[${memberIndex}].weight`
+                      `outbound_groups[${stepIndex}].members[${memberIndex}].weight`
                     )}
                     share={getMemberSharePercent(
-                      values.outboundGroups[stepIndex],
+                      values.outbound_groups[stepIndex],
                       memberIndex
                     )}
                   />
@@ -631,14 +675,14 @@ function OutboundForm({
                   values.strategy === "balance" || hasWeightServerError
                 }
                 stepErrors={steps.map((_, index) =>
-                  form.errorFor(`outboundGroups[${index}]`)
+                  form.errorFor(`outbound_groups[${index}]`)
                 )}
                 steps={steps}
                 strategy={values.strategy}
               />
-              {form.errorFor("outboundGroups") ? (
+              {form.errorFor("outbound_groups") ? (
                 <p className="text-sm text-destructive">
-                  {form.errorFor("outboundGroups")}
+                  {form.errorFor("outbound_groups")}
                 </p>
               ) : null}
             </div>
@@ -646,18 +690,20 @@ function OutboundForm({
 
           {values.strategy === "priority" ? (
             <ChoiceField
-              error={form.errorFor("conntrackOnSwitch")}
+              error={form.errorFor("conntrack_on_switch")}
               hint={t("pages.outboundUpsert.conntrack.hint")}
               label={t("pages.outboundUpsert.conntrack.label")}
             >
               <SegmentedControl
                 aria-label={t("pages.outboundUpsert.conntrack.label")}
-                onChange={(value) => form.setValue("conntrackOnSwitch", value)}
+                onChange={(value) =>
+                  form.setValue("conntrack_on_switch", value)
+                }
                 options={(["preserve", "delete"] as const).map((value) => ({
                   value,
                   label: t(`pages.outboundUpsert.conntrack.${value}`),
                 }))}
-                value={values.conntrackOnSwitch}
+                value={values.conntrack_on_switch}
               />
             </ChoiceField>
           ) : null}
@@ -665,49 +711,20 @@ function OutboundForm({
           {isUrltest ? (
             <AdvancedSection
               badge={changedLabel(
-                isChanged(values, groupDefaults, [
-                  "probeUrl",
-                  "interval",
-                  "probeTimeout",
-                  "tolerance",
-                  "retryAttempts",
-                  "retryInterval",
-                ])
+                isChanged(values, groupDefaults, urltestPaths)
               )}
-              changed={isChanged(values, groupDefaults, [
-                "probeUrl",
-                "interval",
-                "probeTimeout",
-                "tolerance",
-                "retryAttempts",
-                "retryInterval",
-              ])}
-              errorLabel={sectionErrorLabel([
-                "probeUrl",
-                "interval",
-                "probeTimeout",
-                "tolerance",
-                "retryAttempts",
-                "retryInterval",
-              ])}
+              changed={isChanged(values, groupDefaults, urltestPaths)}
+              errorLabel={sectionErrorLabel(urltestPaths)}
               title={t("pages.outboundUpsert.advanced.probesTitle")}
             >
               <div className="grid gap-4 md:grid-cols-2">
                 <TextField
                   className="md:col-span-2"
-                  field={form.field("probeUrl")}
+                  field={form.field("url")}
                   label={t("pages.outboundUpsert.urltest.probeUrl")}
                   tooltip={t("pages.outboundUpsert.urltest.probeUrlHint")}
                 />
-                {(
-                  [
-                    ["interval", "urltest.interval"],
-                    ["probeTimeout", "urltest.probeTimeout"],
-                    ["tolerance", "urltest.tolerance"],
-                    ["retryAttempts", "urltest.retryAttempts"],
-                    ["retryInterval", "urltest.retryInterval"],
-                  ] as const
-                ).map(([name, key]) => (
+                {URLTEST_PROBE_FIELDS.map(([name, key]) => (
                   <TextField
                     field={form.field(name)}
                     inputMode="numeric"
@@ -723,54 +740,20 @@ function OutboundForm({
           {isIcmptest ? (
             <AdvancedSection
               badge={changedLabel(
-                isChanged(values, groupDefaults, [
-                  "count",
-                  "maxFailed",
-                  "packetInterval",
-                  "probeTimeout",
-                  "maxRtt",
-                  "interval",
-                  "tolerance",
-                ])
+                isChanged(values, groupDefaults, icmptestPaths)
               )}
-              changed={isChanged(values, groupDefaults, [
-                "count",
-                "maxFailed",
-                "packetInterval",
-                "probeTimeout",
-                "maxRtt",
-                "interval",
-                "tolerance",
-              ])}
-              errorLabel={sectionErrorLabel([
-                "count",
-                "maxFailed",
-                "packetInterval",
-                "probeTimeout",
-                "maxRtt",
-                "interval",
-                "tolerance",
-              ])}
+              changed={isChanged(values, groupDefaults, icmptestPaths)}
+              errorLabel={sectionErrorLabel(icmptestPaths)}
               title={t("pages.outboundUpsert.icmptest.title")}
             >
               <div className="grid gap-4 md:grid-cols-2">
-                {(
-                  [
-                    "count",
-                    "maxFailed",
-                    "packetInterval",
-                    "probeTimeout",
-                    "maxRtt",
-                    "interval",
-                    "tolerance",
-                  ] as const
-                ).map((name) => (
+                {ICMPTEST_FIELDS.map(([name, key]) => (
                   <TextField
                     field={form.field(name)}
                     inputMode="numeric"
                     key={name}
-                    label={t(`pages.outboundUpsert.icmptest.${name}`)}
-                    tooltip={t(`pages.outboundUpsert.icmptest.${name}Hint`)}
+                    label={t(`pages.outboundUpsert.icmptest.${key}`)}
+                    tooltip={t(`pages.outboundUpsert.icmptest.${key}Hint`)}
                   />
                 ))}
               </div>
@@ -778,40 +761,16 @@ function OutboundForm({
           ) : null}
 
           <AdvancedSection
-            badge={changedLabel(
-              isChanged(values, groupDefaults, [
-                "circuitBreakerFailures",
-                "circuitBreakerSuccesses",
-                "circuitBreakerTimeout",
-                "circuitBreakerHalfOpen",
-              ])
-            )}
-            changed={isChanged(values, groupDefaults, [
-              "circuitBreakerFailures",
-              "circuitBreakerSuccesses",
-              "circuitBreakerTimeout",
-              "circuitBreakerHalfOpen",
-            ])}
-            errorLabel={sectionErrorLabel([
-              "circuitBreakerFailures",
-              "circuitBreakerSuccesses",
-              "circuitBreakerTimeout",
-              "circuitBreakerHalfOpen",
-            ])}
+            badge={changedLabel(isChanged(values, groupDefaults, breakerPaths))}
+            changed={isChanged(values, groupDefaults, breakerPaths)}
+            errorLabel={sectionErrorLabel(breakerPaths)}
             title={t("pages.outboundUpsert.advanced.circuitBreakerTitle")}
           >
             <FieldDescription className="mb-4">
               {t("pages.outboundUpsert.circuitBreaker.description")}
             </FieldDescription>
             <div className="grid gap-4 md:grid-cols-2">
-              {(
-                [
-                  ["circuitBreakerFailures", "failures"],
-                  ["circuitBreakerSuccesses", "successes"],
-                  ["circuitBreakerTimeout", "timeout"],
-                  ["circuitBreakerHalfOpen", "halfOpen"],
-                ] as const
-              ).map(([name, key]) => (
+              {CIRCUIT_BREAKER_FIELDS.map(([name, key]) => (
                 <TextField
                   field={form.field(name)}
                   inputMode="numeric"
@@ -825,7 +784,7 @@ function OutboundForm({
         </>
       ) : null}
 
-      <ServerValidationAlert errors={unmappedServerErrors} />
+      <ServerValidationAlert errors={form.unmappedErrors()} />
 
       <div className="flex justify-end gap-3">
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
@@ -1002,11 +961,13 @@ function InlineFieldError({
 
 function isChanged(
   values: OutboundDraft,
-  groupDefaults: Partial<Record<keyof OutboundDraft, string>>,
-  names: ReadonlyArray<keyof OutboundDraft>
+  groupDefaults: Readonly<Record<string, string>>,
+  paths: ReadonlyArray<Path<OutboundDraft>>
 ) {
-  return names.some(
-    (name) => values[name] !== (groupDefaults[name] ?? sampleNewOutbound[name])
+  return paths.some(
+    (path) =>
+      getIn(values, path) !==
+      (groupDefaults[path] ?? getIn(sampleNewOutbound, path))
   )
 }
 

@@ -41,32 +41,23 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { splitFormApiErrors, useDraftForm } from "@/lib/draft-form"
+import { formatPath, useDraftForm } from "@/lib/draft-form"
 import { cn } from "@/lib/utils"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 type ListDraft = {
   name: string
-  ttlMs: string
+  ttl_ms: string
   detour: string
   domains: string
-  ipCidrs: string
+  ip_cidrs: string
   url: string
   file: string
 }
 
 type ListSourceGroup = "url" | "file" | "inline"
 
-const LIST_FIELD_NAMES = [
-  "name",
-  "ttlMs",
-  "detour",
-  "domains",
-  "ipCidrs",
-  "url",
-  "file",
-] as const
 const LIST_SOURCE_GROUPS: ListSourceGroup[] = ["url", "file", "inline"]
 const DEFAULT_SOURCE_GROUP: ListSourceGroup = "url"
 const LIST_SOURCE_GROUP_ICONS = {
@@ -77,15 +68,15 @@ const LIST_SOURCE_GROUP_ICONS = {
 const LIST_SOURCE_GROUP_FIELDS = {
   url: ["url"],
   file: ["file"],
-  inline: ["domains", "ipCidrs"],
+  inline: ["domains", "ip_cidrs"],
 } satisfies Record<ListSourceGroup, (keyof ListDraft)[]>
 
 const sampleNewList: ListDraft = {
   name: "",
-  ttlMs: "7200000",
+  ttl_ms: "7200000",
   detour: "",
   domains: "",
-  ipCidrs: "",
+  ip_cidrs: "",
   url: "",
   file: "",
 }
@@ -207,6 +198,12 @@ function ListForm({
   const isCreate = mode === "create"
 
   const form = useDraftForm<ListDraft>(draft, {
+    // The list lives under its name in the `lists` object.
+    apiPrefix: (value) =>
+      formatPath([
+        "lists",
+        isCreate ? value.name.trim() : (listId ?? draft.name).trim(),
+      ]),
     validate: (value) => {
       const errors: Record<string, string> = {}
 
@@ -220,9 +217,9 @@ function ListForm({
         errors.name = nameError
       }
 
-      const ttlError = getTtlError(value.ttlMs, t)
+      const ttlError = getTtlError(value.ttl_ms, t)
       if (ttlError) {
-        errors.ttlMs = ttlError
+        errors.ttl_ms = ttlError
       }
 
       return errors
@@ -251,22 +248,15 @@ function ListForm({
       ])
       navigate("/lists")
     } catch (error) {
-      const result = splitFormApiErrors({
-        error: error as ApiError,
-        fieldNames: LIST_FIELD_NAMES,
-        resolvePath: (path) =>
-          resolveListFieldPath(path, value.name || draft.name),
-      })
-      form.setServerErrors({
-        form: result.formError,
-        fields: result.fieldErrors,
-        unmapped: result.unmappedErrors,
-      })
-      if (result.formError) {
-        toast.error(result.formError, { richColors: true })
+      const message = form.setApiError(error as ApiError)
+      if (message) {
+        toast.error(message, { richColors: true })
       }
     }
   }
+
+  // The name control also shows errors addressed to the whole list entry.
+  const nameError = form.errorFor("name", { alsoClaims: [""] })
 
   const handleSourceGroupSelect = (group: ListSourceGroup) => {
     const filledActiveGroups = activeSourceGroups.filter((sourceGroup) =>
@@ -307,7 +297,7 @@ function ListForm({
 
       if (group !== "inline") {
         next.domains = ""
-        next.ipCidrs = ""
+        next.ip_cidrs = ""
       }
 
       return next
@@ -325,13 +315,13 @@ function ListForm({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <Field invalid={Boolean(form.errorFor("name"))}>
+            <Field invalid={Boolean(nameError)}>
               <FieldLabel htmlFor="list-name">
                 {t("pages.listUpsert.fields.name")}
               </FieldLabel>
               <FieldContent>
                 <Input
-                  aria-invalid={Boolean(form.errorFor("name"))}
+                  aria-invalid={Boolean(nameError)}
                   disabled={!isCreate}
                   id="list-name"
                   onChange={(event) => form.setValue("name", event.target.value)}
@@ -339,27 +329,27 @@ function ListForm({
                 />
                 <FieldHint
                   description={t("pages.listUpsert.fields.nameHint")}
-                  error={form.errorFor("name")}
+                  error={nameError}
                 />
               </FieldContent>
             </Field>
 
-            <Field invalid={Boolean(form.errorFor("ttlMs"))}>
+            <Field invalid={Boolean(form.errorFor("ttl_ms"))}>
               <FieldLabel htmlFor="list-ttl-ms">
                 {t("pages.listUpsert.fields.ttlMs")}
               </FieldLabel>
               <FieldContent>
                 <Input
-                  aria-invalid={Boolean(form.errorFor("ttlMs"))}
+                  aria-invalid={Boolean(form.errorFor("ttl_ms"))}
                   id="list-ttl-ms"
                   onChange={(event) =>
-                    form.setValue("ttlMs", event.target.value)
+                    form.setValue("ttl_ms", event.target.value)
                   }
-                  value={values.ttlMs}
+                  value={values.ttl_ms}
                 />
                 <FieldHint
                   description={t("pages.listUpsert.fields.ttlMsHint")}
-                  error={form.errorFor("ttlMs")}
+                  error={form.errorFor("ttl_ms")}
                 />
               </FieldContent>
             </Field>
@@ -543,9 +533,9 @@ function ListForm({
                     className="min-h-24"
                     id="list-ip-cidrs"
                     onChange={(event) =>
-                      form.setValue("ipCidrs", event.target.value)
+                      form.setValue("ip_cidrs", event.target.value)
                     }
-                    value={values.ipCidrs}
+                    value={values.ip_cidrs}
                   />
                   <FieldHint
                     description={t("pages.listUpsert.fields.ipCidrsHint")}
@@ -557,15 +547,15 @@ function ListForm({
         </Card>
       ) : null}
 
-      {form.errors.form ? (
+      {form.formError ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
           <AlertDescription className="whitespace-pre-wrap">
-            {form.errors.form}
+            {form.formError}
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <ServerValidationAlert errors={form.errors.unmapped} />
+      <ServerValidationAlert errors={form.unmappedErrors()} />
 
       <div className="flex justify-end gap-3">
         <Button
@@ -607,7 +597,7 @@ function getActiveSourceGroupsFromDraft(draft: ListDraft): ListSourceGroup[] {
 
   if (
     splitLines(draft.domains).length > 0 ||
-    splitLines(draft.ipCidrs).length > 0
+    splitLines(draft.ip_cidrs).length > 0
   ) {
     populatedGroups.push("inline")
   }
@@ -619,7 +609,7 @@ function isSourceGroupPopulated(group: ListSourceGroup, draft: ListDraft) {
   if (group === "inline") {
     return (
       splitLines(draft.domains).length > 0 ||
-      splitLines(draft.ipCidrs).length > 0
+      splitLines(draft.ip_cidrs).length > 0
     )
   }
 
@@ -636,10 +626,10 @@ function getDraftFromMapEntry(
 
   return {
     name,
-    ttlMs: String(listConfig.ttl_ms ?? 0),
+    ttl_ms: String(listConfig.ttl_ms ?? 0),
     detour: listConfig.detour ?? "",
     domains: (listConfig.domains ?? []).join("\n"),
-    ipCidrs: (listConfig.ip_cidrs ?? []).join("\n"),
+    ip_cidrs: (listConfig.ip_cidrs ?? []).join("\n"),
     url: listConfig.url ?? "",
     file: listConfig.file ?? "",
   }
@@ -667,11 +657,11 @@ function buildUpdatedConfigForListUpsert(
 
 function getListConfigFromDraft(draft: ListDraft): ListConfig {
   const domains = splitLines(draft.domains)
-  const ipCidrs = splitLines(draft.ipCidrs)
+  const ipCidrs = splitLines(draft.ip_cidrs)
   const trimmedUrl = draft.url.trim()
   const trimmedFile = draft.file.trim()
   const trimmedDetour = draft.detour.trim()
-  const ttlMs = Number.parseInt(draft.ttlMs.trim(), 10)
+  const ttlMs = Number.parseInt(draft.ttl_ms.trim(), 10)
 
   const listConfig: ListConfig = {}
   listConfig.ttl_ms = Number.isNaN(ttlMs) ? 0 : ttlMs
@@ -740,42 +730,4 @@ function getTtlError(value: string, t?: (key: string) => string) {
   }
 
   return null
-}
-
-function resolveListFieldPath(path: string, name: string): string | undefined {
-  const normalizedName = name.trim()
-
-  if (path === "lists") {
-    return "name"
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}`) {
-    return "name"
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.ttl_ms`) {
-    return "ttlMs"
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.domains`) {
-    return "domains"
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.ip_cidrs`) {
-    return "ipCidrs"
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.url`) {
-    return "url"
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.file`) {
-    return "file"
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.detour`) {
-    return "detour"
-  }
-
-  return undefined
 }

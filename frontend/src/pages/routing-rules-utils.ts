@@ -3,7 +3,8 @@ import type { RouteRule } from "@/api/generated/model/routeRule"
 import { getApiErrorMessage as getSharedApiErrorMessage } from "@/lib/api-errors"
 
 export type RouteRuleDraft = {
-  mode: RouteRuleMode
+  /** Mirrors the API `default_gateway`; "normal" means the field is unset. */
+  default_gateway: RouteRuleMode
   enabled: boolean
   list: string[]
   outbound: string
@@ -20,7 +21,7 @@ export type RouteRuleMode = "normal" | "ipv4" | "ipv6"
 export const protoOptions = ["", "tcp", "udp", "tcp/udp"] as const
 
 export const emptyRouteRuleDraft: RouteRuleDraft = {
-  mode: "normal",
+  default_gateway: "normal",
   enabled: true,
   list: [],
   outbound: "",
@@ -46,7 +47,7 @@ export function getRuleDetails(rule: RouteRule) {
 
 export function toRouteRuleDraft(rule: RouteRule): RouteRuleDraft {
   return {
-    mode: rule.default_gateway ?? "normal",
+    default_gateway: rule.default_gateway ?? "normal",
     enabled: rule.enabled ?? true,
     list: rule.list ?? [],
     outbound: rule.outbound,
@@ -60,11 +61,11 @@ export function toRouteRuleDraft(rule: RouteRule): RouteRuleDraft {
 }
 
 export function normalizeRouteRuleDraft(draft: RouteRuleDraft): RouteRule {
-  if (draft.mode !== "normal") {
+  if (draft.default_gateway !== "normal") {
     return {
       enabled: draft.enabled,
       outbound: draft.outbound,
-      default_gateway: draft.mode,
+      default_gateway: draft.default_gateway,
     }
   }
 

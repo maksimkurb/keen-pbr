@@ -161,6 +161,8 @@ function RoutingRuleForm({
       : emptyRouteRuleDraft
 
   const form = useDraftForm<RouteRuleDraft>(draft, {
+    // Index the rule has in the array that is sent (new ones are appended).
+    apiPrefix: `route.rules[${mode === "edit" ? parsedRuleIndex : rules.length}]`,
     validate: (value) => {
       const errors: Record<string, string> = {}
 
@@ -220,11 +222,14 @@ function RoutingRuleForm({
       toast.success(t("pages.routingRuleUpsert.messages.saved"))
       navigate("/routing-rules")
     } catch (error) {
-      form.setApiError(error as ApiError, resolveRoutingRuleFieldPath)
+      form.setApiError(error as ApiError)
     }
   }
 
-  const isNormalRule = values.mode === "normal"
+  // The outbound control also shows errors addressed to the whole rule.
+  const outboundError = form.errorFor("outbound", { alsoClaims: [""] })
+  const gatewayError = form.errorFor("default_gateway")
+  const isNormalRule = values.default_gateway === "normal"
 
   return (
     <UpsertPage
@@ -243,7 +248,7 @@ function RoutingRuleForm({
     >
       <form className="space-y-6" onSubmit={form.onSubmit(save)}>
         <FieldGroup>
-          <Field>
+          <Field invalid={Boolean(gatewayError)}>
             <FieldLabel>{t("pages.routingRuleUpsert.fields.mode")}</FieldLabel>
             <FieldContent>
               <Select
@@ -251,7 +256,7 @@ function RoutingRuleForm({
                   const nextMode = (value as RouteRuleMode) ?? "normal"
                   form.setValues((prev) => ({
                     ...prev,
-                    mode: nextMode,
+                    default_gateway: nextMode,
                     // Condition fields only apply to normal rules: back to
                     // their initial values.
                     ...(nextMode !== "normal"
@@ -267,7 +272,7 @@ function RoutingRuleForm({
                       : {}),
                   }))
                 }}
-                value={values.mode}
+                value={values.default_gateway}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -289,6 +294,7 @@ function RoutingRuleForm({
               </Select>
               <FieldHint
                 description={t("pages.routingRuleUpsert.fields.modeHint")}
+                error={gatewayError}
               />
             </FieldContent>
           </Field>
@@ -507,27 +513,27 @@ function RoutingRuleForm({
             </FieldContent>
           </Field>
 
-          <Field invalid={Boolean(form.errorFor("outbound"))}>
+          <Field invalid={Boolean(outboundError)}>
             <FieldLabel>
               {t("pages.routingRuleUpsert.fields.outbound")}
             </FieldLabel>
             <FieldContent>
               <OutboundSelect
-                ariaInvalid={Boolean(form.errorFor("outbound"))}
+                ariaInvalid={Boolean(outboundError)}
                 onValueChange={(value) => form.setValue("outbound", value)}
                 outbounds={outbounds}
                 value={values.outbound}
               />
               <FieldHint
                 description={t("pages.routingRuleUpsert.fields.outboundHint")}
-                error={form.errorFor("outbound")}
+                error={outboundError}
               />
             </FieldContent>
           </Field>
         </FieldGroup>
         <ServerValidationAlert
-          errors={form.errors.unmapped}
-          message={form.errors.form}
+          errors={form.unmappedErrors()}
+          message={form.formError}
         />
 
         <div className="flex justify-end gap-3">
@@ -554,54 +560,6 @@ function RoutingRuleForm({
       </form>
     </UpsertPage>
   )
-}
-
-function resolveRoutingRuleFieldPath(path: string): string | undefined {
-  if (path === "route.rules") {
-    return "outbound"
-  }
-
-  if (/^route\.rules(?:\[\d+\]|\.\d+)?$/.test(path)) {
-    return "outbound"
-  }
-
-  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.default_gateway$/.test(path)) {
-    return "mode"
-  }
-
-  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
-    return "list"
-  }
-
-  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.outbound$/.test(path)) {
-    return "outbound"
-  }
-
-  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.proto$/.test(path)) {
-    return "proto"
-  }
-
-  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.dscp$/.test(path)) {
-    return "dscp"
-  }
-
-  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.src_port$/.test(path)) {
-    return "src_port"
-  }
-
-  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.dest_port$/.test(path)) {
-    return "dest_port"
-  }
-
-  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.src_addr$/.test(path)) {
-    return "src_addr"
-  }
-
-  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.dest_addr$/.test(path)) {
-    return "dest_addr"
-  }
-
-  return undefined
 }
 
 function validateDscp(value: string, t: (key: string) => string) {

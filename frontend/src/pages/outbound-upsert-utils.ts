@@ -9,33 +9,43 @@ export type StrictEnforcementOption = "default" | "enabled" | "disabled"
 export type StrictActionOption = "default" | "unreachable" | "blackhole"
 export type ConntrackOnSwitchOption = "preserve" | "delete"
 
+/**
+ * The outbound editor's draft. Names and nesting mirror the API `Outbound`
+ * object, so a draft path is the API path relative to the outbound
+ * (`retry.attempts`, `outbound_groups[0].members[1].weight`). Values are
+ * strings for text inputs; the kill-switch fields hold UI options.
+ */
 export type OutboundDraft = {
   tag: string
   type: Outbound["type"]
-  interfaceName: string
+  interface: string
   gateway: string
   gateway6: string
   table: string
   /** Steps in priority order (first is tried first); legacy forms are normalized on load. */
-  outboundGroups: OutboundGroupDraft[]
+  outbound_groups: OutboundGroupDraft[]
   strategy: NonNullable<Outbound["strategy"]>
-  conntrackOnSwitch: ConntrackOnSwitchOption
-  probeUrl: string
-  interval: string
-  tolerance: string
+  conntrack_on_switch: ConntrackOnSwitchOption
+  url: string
+  interval_ms: string
+  tolerance_ms: string
   count: string
-  maxFailed: string
-  packetInterval: string
-  probeTimeout: string
-  maxRtt: string
-  retryAttempts: string
-  retryInterval: string
-  circuitBreakerFailures: string
-  circuitBreakerSuccesses: string
-  circuitBreakerTimeout: string
-  circuitBreakerHalfOpen: string
-  strictEnforcement: StrictEnforcementOption
-  strictEnforcementAction: StrictActionOption
+  max_failed: string
+  packet_interval_ms: string
+  probe_timeout_ms: string
+  max_rtt_ms: string
+  retry: {
+    attempts: string
+    interval_ms: string
+  }
+  circuit_breaker: {
+    failure_threshold: string
+    success_threshold: string
+    timeout_ms: string
+    half_open_max_requests: string
+  }
+  strict_enforcement: StrictEnforcementOption
+  strict_enforcement_action: StrictActionOption
 }
 
 export type OutboundGroupDraft = {
@@ -50,76 +60,52 @@ export type OutboundGroupMemberDraft = {
   weight: string
 }
 
-export const OUTBOUND_FIELD_NAMES = {
-  tag: "tag",
-  type: "type",
-  interfaceName: "interfaceName",
-  gateway: "gateway",
-  gateway6: "gateway6",
-  table: "table",
-  outboundGroups: "outboundGroups",
-  strategy: "strategy",
-  conntrackOnSwitch: "conntrackOnSwitch",
-  probeUrl: "probeUrl",
-  interval: "interval",
-  tolerance: "tolerance",
-  count: "count",
-  maxFailed: "maxFailed",
-  packetInterval: "packetInterval",
-  probeTimeout: "probeTimeout",
-  maxRtt: "maxRtt",
-  retryAttempts: "retryAttempts",
-  retryInterval: "retryInterval",
-  circuitBreakerFailures: "circuitBreakerFailures",
-  circuitBreakerSuccesses: "circuitBreakerSuccesses",
-  circuitBreakerTimeout: "circuitBreakerTimeout",
-  circuitBreakerHalfOpen: "circuitBreakerHalfOpen",
-  strictEnforcement: "strictEnforcement",
-  strictEnforcementAction: "strictEnforcementAction",
-} as const
-
-/** Per-type defaults for fields whose default depends on urltest vs icmptest. */
+/**
+ * Per-type defaults for fields whose default depends on urltest vs icmptest,
+ * keyed by draft path.
+ */
 export const TEST_GROUP_DEFAULTS = {
   urltest: {
-    interval: "180000",
-    tolerance: "100",
-    probeTimeout: "5000",
-    circuitBreakerTimeout: "30000",
+    interval_ms: "180000",
+    tolerance_ms: "100",
+    probe_timeout_ms: "5000",
+    "circuit_breaker.timeout_ms": "30000",
   },
   icmptest: {
-    interval: "60000",
-    tolerance: "10",
-    probeTimeout: "1000",
-    circuitBreakerTimeout: "60000",
+    interval_ms: "60000",
+    tolerance_ms: "10",
+    probe_timeout_ms: "1000",
+    "circuit_breaker.timeout_ms": "60000",
   },
 } as const
 
 export const sampleNewOutbound: OutboundDraft = {
   tag: "",
   type: "interface",
-  interfaceName: "",
+  interface: "",
   gateway: "",
   gateway6: "",
   table: "",
-  outboundGroups: [{ members: [] }],
+  outbound_groups: [{ members: [] }],
   strategy: "priority",
-  conntrackOnSwitch: "preserve",
-  probeUrl: "https://www.gstatic.com/generate_204",
-  interval: TEST_GROUP_DEFAULTS.urltest.interval,
-  tolerance: TEST_GROUP_DEFAULTS.urltest.tolerance,
+  conntrack_on_switch: "preserve",
+  url: "https://www.gstatic.com/generate_204",
+  interval_ms: TEST_GROUP_DEFAULTS.urltest.interval_ms,
+  tolerance_ms: TEST_GROUP_DEFAULTS.urltest.tolerance_ms,
   count: "3",
-  maxFailed: "0",
-  packetInterval: "200",
-  probeTimeout: TEST_GROUP_DEFAULTS.urltest.probeTimeout,
-  maxRtt: "500",
-  retryAttempts: "3",
-  retryInterval: "1000",
-  circuitBreakerFailures: "5",
-  circuitBreakerSuccesses: "2",
-  circuitBreakerTimeout: TEST_GROUP_DEFAULTS.urltest.circuitBreakerTimeout,
-  circuitBreakerHalfOpen: "1",
-  strictEnforcement: "default",
-  strictEnforcementAction: "default",
+  max_failed: "0",
+  packet_interval_ms: "200",
+  probe_timeout_ms: TEST_GROUP_DEFAULTS.urltest.probe_timeout_ms,
+  max_rtt_ms: "500",
+  retry: { attempts: "3", interval_ms: "1000" },
+  circuit_breaker: {
+    failure_threshold: "5",
+    success_threshold: "2",
+    timeout_ms: TEST_GROUP_DEFAULTS.urltest["circuit_breaker.timeout_ms"],
+    half_open_max_requests: "1",
+  },
+  strict_enforcement: "default",
+  strict_enforcement_action: "default",
 }
 
 export function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
@@ -129,7 +115,7 @@ export function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
     : TEST_GROUP_DEFAULTS.urltest
   const defaultBreakerTimeout = isIcmp
     ? Math.max(60000, outbound.interval_ms ?? 60000).toString()
-    : defaults.circuitBreakerTimeout
+    : defaults["circuit_breaker.timeout_ms"]
 
   // Legacy configs ordered steps by a group weight; this also reads them, so
   // the array order is the effective priority and saving writes `members`.
@@ -138,11 +124,11 @@ export function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
   return {
     tag: outbound.tag,
     type: outbound.type,
-    interfaceName: outbound.interface ?? "",
+    interface: outbound.interface ?? "",
     gateway: outbound.gateway ?? "",
     gateway6: outbound.gateway6 ?? "",
     table: outbound.table?.toString() ?? "",
-    outboundGroups: orderedGroups.length
+    outbound_groups: orderedGroups.length
       ? orderedGroups.map((group) => ({
           members: getOutboundGroupMembers(group).map((member) => ({
             outbound: member.outbound,
@@ -150,67 +136,73 @@ export function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
             weight: member.weight?.toString() ?? "",
           })),
         }))
-      : sampleNewOutbound.outboundGroups,
-    probeUrl: outbound.url ?? sampleNewOutbound.probeUrl,
+      : sampleNewOutbound.outbound_groups,
+    url: outbound.url ?? sampleNewOutbound.url,
     strategy: outbound.strategy ?? sampleNewOutbound.strategy,
-    conntrackOnSwitch:
-      outbound.conntrack_on_switch ?? sampleNewOutbound.conntrackOnSwitch,
-    interval: outbound.interval_ms?.toString() ?? defaults.interval,
-    tolerance: outbound.tolerance_ms?.toString() ?? defaults.tolerance,
+    conntrack_on_switch:
+      outbound.conntrack_on_switch ?? sampleNewOutbound.conntrack_on_switch,
+    interval_ms: outbound.interval_ms?.toString() ?? defaults.interval_ms,
+    tolerance_ms: outbound.tolerance_ms?.toString() ?? defaults.tolerance_ms,
     count: outbound.count?.toString() ?? sampleNewOutbound.count,
-    maxFailed: outbound.max_failed?.toString() ?? sampleNewOutbound.maxFailed,
-    packetInterval:
+    max_failed: outbound.max_failed?.toString() ?? sampleNewOutbound.max_failed,
+    packet_interval_ms:
       outbound.packet_interval_ms?.toString() ??
-      sampleNewOutbound.packetInterval,
-    probeTimeout:
-      outbound.probe_timeout_ms?.toString() ?? defaults.probeTimeout,
-    maxRtt: outbound.max_rtt_ms?.toString() ?? sampleNewOutbound.maxRtt,
-    retryAttempts:
-      outbound.retry?.attempts?.toString() ?? sampleNewOutbound.retryAttempts,
-    retryInterval:
-      outbound.retry?.interval_ms?.toString() ??
-      sampleNewOutbound.retryInterval,
-    circuitBreakerFailures:
-      outbound.circuit_breaker?.failure_threshold?.toString() ??
-      sampleNewOutbound.circuitBreakerFailures,
-    circuitBreakerSuccesses:
-      outbound.circuit_breaker?.success_threshold?.toString() ??
-      sampleNewOutbound.circuitBreakerSuccesses,
-    circuitBreakerTimeout:
-      outbound.circuit_breaker?.timeout_ms?.toString() ?? defaultBreakerTimeout,
-    circuitBreakerHalfOpen:
-      outbound.circuit_breaker?.half_open_max_requests?.toString() ??
-      sampleNewOutbound.circuitBreakerHalfOpen,
-    strictEnforcement: mapStrictEnforcementToOption(
+      sampleNewOutbound.packet_interval_ms,
+    probe_timeout_ms:
+      outbound.probe_timeout_ms?.toString() ?? defaults.probe_timeout_ms,
+    max_rtt_ms: outbound.max_rtt_ms?.toString() ?? sampleNewOutbound.max_rtt_ms,
+    retry: {
+      attempts:
+        outbound.retry?.attempts?.toString() ??
+        sampleNewOutbound.retry.attempts,
+      interval_ms:
+        outbound.retry?.interval_ms?.toString() ??
+        sampleNewOutbound.retry.interval_ms,
+    },
+    circuit_breaker: {
+      failure_threshold:
+        outbound.circuit_breaker?.failure_threshold?.toString() ??
+        sampleNewOutbound.circuit_breaker.failure_threshold,
+      success_threshold:
+        outbound.circuit_breaker?.success_threshold?.toString() ??
+        sampleNewOutbound.circuit_breaker.success_threshold,
+      timeout_ms:
+        outbound.circuit_breaker?.timeout_ms?.toString() ??
+        defaultBreakerTimeout,
+      half_open_max_requests:
+        outbound.circuit_breaker?.half_open_max_requests?.toString() ??
+        sampleNewOutbound.circuit_breaker.half_open_max_requests,
+    },
+    strict_enforcement: mapStrictEnforcementToOption(
       outbound.strict_enforcement
     ),
-    strictEnforcementAction: outbound.strict_enforcement_action ?? "default",
+    strict_enforcement_action: outbound.strict_enforcement_action ?? "default",
   }
 }
 
 export function buildOutboundPayload(draft: OutboundDraft): Outbound {
   const tag = draft.tag.trim()
   const circuitBreaker = {
-    failure_threshold: parseNumber(draft.circuitBreakerFailures),
-    success_threshold: parseNumber(draft.circuitBreakerSuccesses),
-    timeout_ms: parseNumber(draft.circuitBreakerTimeout),
-    half_open_max_requests: parseNumber(draft.circuitBreakerHalfOpen),
+    failure_threshold: parseNumber(draft.circuit_breaker.failure_threshold),
+    success_threshold: parseNumber(draft.circuit_breaker.success_threshold),
+    timeout_ms: parseNumber(draft.circuit_breaker.timeout_ms),
+    half_open_max_requests: parseNumber(draft.circuit_breaker.half_open_max_requests),
   }
 
   if (draft.type === "interface") {
     return {
       type: "interface",
       tag,
-      interface: draft.interfaceName.trim() || undefined,
+      interface: draft.interface.trim() || undefined,
       gateway: draft.gateway.trim() || undefined,
       gateway6: draft.gateway6.trim() || undefined,
       strict_enforcement: mapStrictEnforcementToBoolean(
-        draft.strictEnforcement
+        draft.strict_enforcement
       ),
       strict_enforcement_action:
-        draft.strictEnforcementAction === "default"
+        draft.strict_enforcement_action === "default"
           ? undefined
-          : draft.strictEnforcementAction,
+          : draft.strict_enforcement_action,
     }
   }
 
@@ -226,16 +218,16 @@ export function buildOutboundPayload(draft: OutboundDraft): Outbound {
     return {
       type: "urltest",
       tag,
-      url: draft.probeUrl.trim() || undefined,
-      interval_ms: parseNumber(draft.interval),
-      probe_timeout_ms: parseNumber(draft.probeTimeout),
-      tolerance_ms: parseNumber(draft.tolerance),
+      url: draft.url.trim() || undefined,
+      interval_ms: parseNumber(draft.interval_ms),
+      probe_timeout_ms: parseNumber(draft.probe_timeout_ms),
+      tolerance_ms: parseNumber(draft.tolerance_ms),
       strategy: draft.strategy,
-      conntrack_on_switch: draft.conntrackOnSwitch,
-      outbound_groups: buildGroupPayload(draft.outboundGroups, false),
+      conntrack_on_switch: draft.conntrack_on_switch,
+      outbound_groups: buildGroupPayload(draft.outbound_groups, false),
       retry: {
-        attempts: parseNumber(draft.retryAttempts),
-        interval_ms: parseNumber(draft.retryInterval),
+        attempts: parseNumber(draft.retry.attempts),
+        interval_ms: parseNumber(draft.retry.interval_ms),
       },
       circuit_breaker: circuitBreaker,
     }
@@ -246,15 +238,15 @@ export function buildOutboundPayload(draft: OutboundDraft): Outbound {
       type: "icmptest",
       tag,
       count: parseNumber(draft.count),
-      max_failed: parseNumber(draft.maxFailed),
-      packet_interval_ms: parseNumber(draft.packetInterval),
-      probe_timeout_ms: parseNumber(draft.probeTimeout),
-      max_rtt_ms: parseNumber(draft.maxRtt),
-      interval_ms: parseNumber(draft.interval),
-      tolerance_ms: parseNumber(draft.tolerance),
+      max_failed: parseNumber(draft.max_failed),
+      packet_interval_ms: parseNumber(draft.packet_interval_ms),
+      probe_timeout_ms: parseNumber(draft.probe_timeout_ms),
+      max_rtt_ms: parseNumber(draft.max_rtt_ms),
+      interval_ms: parseNumber(draft.interval_ms),
+      tolerance_ms: parseNumber(draft.tolerance_ms),
       strategy: draft.strategy,
-      conntrack_on_switch: draft.conntrackOnSwitch,
-      outbound_groups: buildGroupPayload(draft.outboundGroups, true),
+      conntrack_on_switch: draft.conntrack_on_switch,
+      outbound_groups: buildGroupPayload(draft.outbound_groups, true),
       circuit_breaker: circuitBreaker,
     }
   }
@@ -367,86 +359,6 @@ function mapStrictEnforcementToBoolean(
   return value === "enabled"
 }
 
-export function resolveOutboundFieldPath(
-  path: string,
-  tag: string
-): string | undefined {
-  const normalizedTag = tag.trim()
-  if (path === "outbounds") {
-    return OUTBOUND_FIELD_NAMES.tag
-  }
-
-  if (!normalizedTag) {
-    return undefined
-  }
-
-  const prefix = `outbounds.${normalizedTag}`
-  if (path === prefix || path === `${prefix}.tag`) {
-    return OUTBOUND_FIELD_NAMES.tag
-  }
-
-  const simpleFields: Record<string, string> = {
-    type: OUTBOUND_FIELD_NAMES.type,
-    interface: OUTBOUND_FIELD_NAMES.interfaceName,
-    gateway: OUTBOUND_FIELD_NAMES.gateway,
-    gateway6: OUTBOUND_FIELD_NAMES.gateway6,
-    table: OUTBOUND_FIELD_NAMES.table,
-    url: OUTBOUND_FIELD_NAMES.probeUrl,
-    interval_ms: OUTBOUND_FIELD_NAMES.interval,
-    tolerance_ms: OUTBOUND_FIELD_NAMES.tolerance,
-    strategy: OUTBOUND_FIELD_NAMES.strategy,
-    conntrack_on_switch: OUTBOUND_FIELD_NAMES.conntrackOnSwitch,
-    count: OUTBOUND_FIELD_NAMES.count,
-    max_failed: OUTBOUND_FIELD_NAMES.maxFailed,
-    packet_interval_ms: OUTBOUND_FIELD_NAMES.packetInterval,
-    probe_timeout_ms: OUTBOUND_FIELD_NAMES.probeTimeout,
-    max_rtt_ms: OUTBOUND_FIELD_NAMES.maxRtt,
-    "retry.attempts": OUTBOUND_FIELD_NAMES.retryAttempts,
-    "retry.interval_ms": OUTBOUND_FIELD_NAMES.retryInterval,
-    "circuit_breaker.failure_threshold":
-      OUTBOUND_FIELD_NAMES.circuitBreakerFailures,
-    "circuit_breaker.success_threshold":
-      OUTBOUND_FIELD_NAMES.circuitBreakerSuccesses,
-    "circuit_breaker.timeout_ms": OUTBOUND_FIELD_NAMES.circuitBreakerTimeout,
-    "circuit_breaker.half_open_max_requests":
-      OUTBOUND_FIELD_NAMES.circuitBreakerHalfOpen,
-    strict_enforcement: OUTBOUND_FIELD_NAMES.strictEnforcement,
-    strict_enforcement_action: OUTBOUND_FIELD_NAMES.strictEnforcementAction,
-  }
-  if (path.startsWith(`${prefix}.`)) {
-    const mapped = simpleFields[path.slice(prefix.length + 1)]
-    if (mapped) {
-      return mapped
-    }
-  }
-
-  const groupsPrefix = `${prefix}.outbound_groups`
-  if (path === groupsPrefix) {
-    return OUTBOUND_FIELD_NAMES.outboundGroups
-  }
-  if (path.startsWith(groupsPrefix)) {
-    const fieldPath = path.replace(
-      groupsPrefix,
-      OUTBOUND_FIELD_NAMES.outboundGroups
-    )
-    if (fieldPath.endsWith(".target")) {
-      return fieldPath.replace(".candidates[", ".members[")
-    }
-    if (/\.members\[\d+\]\.weight$/.test(fieldPath)) {
-      return fieldPath
-    }
-
-    // outbound_groups[N].members[M].outbound (or the legacy
-    // .outbounds / .candidates paths) → the step itself.
-    const memberPathIndex = fieldPath.search(/\.(members|candidates|outbounds)/)
-    return memberPathIndex === -1
-      ? fieldPath
-      : fieldPath.slice(0, memberPathIndex)
-  }
-
-  return undefined
-}
-
 /**
  * Single user-facing kill-switch choice. The config keeps two fields
  * (`strict_enforcement` and `strict_enforcement_action`); this collapses them
@@ -470,29 +382,29 @@ export function getKillSwitchChoice(
 }
 
 export function getKillSwitchFields(choice: KillSwitchChoice): {
-  strictEnforcement: StrictEnforcementOption
-  strictEnforcementAction: StrictActionOption
+  strict_enforcement: StrictEnforcementOption
+  strict_enforcement_action: StrictActionOption
 } {
   switch (choice) {
     case "inherit":
       return {
-        strictEnforcement: "default",
-        strictEnforcementAction: "default",
+        strict_enforcement: "default",
+        strict_enforcement_action: "default",
       }
     case "off":
       return {
-        strictEnforcement: "disabled",
-        strictEnforcementAction: "default",
+        strict_enforcement: "disabled",
+        strict_enforcement_action: "default",
       }
     case "reject":
       return {
-        strictEnforcement: "enabled",
-        strictEnforcementAction: "unreachable",
+        strict_enforcement: "enabled",
+        strict_enforcement_action: "unreachable",
       }
     case "drop":
       return {
-        strictEnforcement: "enabled",
-        strictEnforcementAction: "blackhole",
+        strict_enforcement: "enabled",
+        strict_enforcement_action: "blackhole",
       }
   }
 }
