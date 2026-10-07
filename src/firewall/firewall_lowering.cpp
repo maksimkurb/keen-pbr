@@ -2,6 +2,7 @@
 
 #include "ip_family.hpp"
 #include <algorithm>
+#include <numeric>
 #include <cstdio>
 #include <map>
 #include <optional>
@@ -78,6 +79,22 @@ std::vector<std::string> addresses_for_family(
   return result;
 }
 
+// Candidate weights divided by their greatest common divisor, so 70/30 and
+// 7/3 lower to the same (smallest) rules.  A zero weight counts as 1.
+std::vector<uint32_t> reduced_balance_weights(
+    const std::vector<FirewallBalanceCandidate> &candidates) {
+  std::vector<uint32_t> weights;
+  weights.reserve(candidates.size());
+  uint32_t divisor = 0;
+  for (const auto &candidate : candidates) {
+    const uint32_t weight = std::max<uint32_t>(candidate.weight, 1U);
+    weights.push_back(weight);
+    divisor = std::gcd(divisor, weight);
+  }
+  for (auto &weight : weights) weight /= divisor;
+  return weights;
+}
+
 std::optional<FirewallRuleAction> action_for_family(
     const FirewallRuleAction& action, FirewallFamily family,
     uint32_t fwmark_mask) {
@@ -99,7 +116,7 @@ std::optional<FirewallRuleAction> action_for_family(
         (family == FirewallFamily::ipv6 && candidate.ipv6)) {
       filtered.candidates.push_back(
           {candidate.fwmark, family == FirewallFamily::ipv4,
-           family == FirewallFamily::ipv6});
+           family == FirewallFamily::ipv6, candidate.weight});
     }
   }
   if (filtered.candidates.empty()) {
@@ -713,19 +730,25 @@ void lower_iptables_classifier(const FirewallRuleInstance &rule,
         // mwan3-style cascade over the usable candidates.  Only packets that
         // are not marked yet take part (the guard also ends the cascade once a
         // rule has marked the packet); established flows were restored from
-        // the connection mark before and never get here.  Candidate i of n is
-        // picked with probability 1/(n-i), the last one unconditionally, so
-        // all of them end up equally likely.  The mark is then saved to the
-        // connection, which keeps the rest of the flow on that candidate.
+        // the connection mark before and never get here.  Candidate i is
+        // picked with probability w_i / (w_i + ... + w_n), the last one
+        // unconditionally, so each ends up with w_i / sum of the connections
+        // (1/(n-i) when all weights are equal).  The mark is then saved to
+        // the connection, which keeps the rest of the flow on that candidate.
         const std::size_t count = balance->candidates.size();
+        const auto weights = reduced_balance_weights(balance->candidates);
+        uint64_t remaining = 0;
+        for (const uint32_t weight : weights) remaining += weight;
         for (std::size_t index = 0; index < count; ++index) {
           Matches picked = matches;
           picked.push_back(
               MarkMatch{PhysicalMarkKind::packet, fwmark_mask, false, {0}});
           if (index + 1U < count) {
-            const uint32_t remaining = static_cast<uint32_t>(count - index);
-            picked.push_back(StatisticMatch{
-                (kStatisticProbabilityOne + remaining / 2U) / remaining});
+            const uint64_t weight = weights[index];
+            picked.push_back(StatisticMatch{static_cast<uint32_t>(
+                (uint64_t{kStatisticProbabilityOne} * weight + remaining / 2U) /
+                remaining)});
+            remaining -= weight;
           }
           rules.push_back(build_rule(
               target.family, std::move(picked),
@@ -1145,8 +1168,9 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
       vmap.param = restore->mask;
       std::vector<uint32_t> known;
       for (const uint32_t mark : setter_marks) {
-        vmap.entries.emplace_back(
-            mark, nft_physical_chain_id(PhysicalChainRole::nft_setter, mark));
+        vmap.entries.push_back(VmapEntry{
+            mark, mark,
+            nft_physical_chain_id(PhysicalChainRole::nft_setter, mark)});
         known.push_back(mark);
       }
       for (auto *chain : {&prerouting, &output}) {
@@ -1230,16 +1254,21 @@ PhysicalRuleset lower_nftables(const FirewallPlan &plan,
           matches.push_back(
               MarkMatch{PhysicalMarkKind::packet, context.fwmark_mask, false,
                         {0}});
+          // Every candidate owns `weight` consecutive slots of the counter,
+          // so it gets weight / sum of new connections.
+          const auto weights = reduced_balance_weights(balance->candidates);
           VmapStmt vmap;
           vmap.key = PhysicalVmapKey::numgen_inc;
-          vmap.param = static_cast<uint32_t>(balance->candidates.size());
+          uint32_t slot = 0;
           for (std::size_t index = 0; index < balance->candidates.size();
                ++index) {
-            vmap.entries.emplace_back(
-                static_cast<uint32_t>(index),
+            vmap.entries.push_back(VmapEntry{
+                slot, slot + weights[index] - 1U,
                 nft_physical_chain_id(PhysicalChainRole::nft_setter,
-                                      balance->candidates[index].fwmark));
+                                      balance->candidates[index].fwmark)});
+            slot += weights[index];
           }
+          vmap.param = slot;
           statements.push_back(std::move(vmap));
           statements.push_back(verdict(PhysicalVerdict::accept));
         } else {

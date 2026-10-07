@@ -90,6 +90,7 @@ export * from './listRefreshState';
 export * from './listsAutoupdateConfig';
 export * from './outbound';
 export * from './outboundGroup';
+export * from './outboundGroupMember';
 export * from './outboundStrictEnforcementAction';
 export * from './outboundType';
 export * from './policyRuleCheck';

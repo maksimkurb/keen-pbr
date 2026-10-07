@@ -12,7 +12,7 @@ on:
       frontend_artifact_name:
         required: false
         type: string
-        default: "frontend-dist"
+        default: "frontend-dist-openwrt"
       use_signing_secrets:
         required: false
         type: boolean

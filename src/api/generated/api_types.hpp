@@ -291,8 +291,15 @@ namespace api {
         std::string target;
     };
 
+    struct OutboundGroupMemberElement {
+        std::string outbound;
+        std::optional<std::string> target;
+        std::optional<int64_t> weight;
+    };
+
     struct OutboundGroupElement {
         std::optional<std::vector<IcmpCandidateElement>> candidates;
+        std::optional<std::vector<OutboundGroupMemberElement>> members;
         std::optional<std::vector<std::string>> outbounds;
         std::optional<int64_t> weight;
     };
@@ -890,6 +897,7 @@ namespace api {
         std::optional<ListsAutoupdate> lists_autoupdate_config;
         std::optional<OutboundElement> outbound;
         std::optional<OutboundGroupElement> outbound_group;
+        std::optional<OutboundGroupMemberElement> outbound_group_member;
         std::optional<PolicyRuleCheck> policy_rule_check;
         std::optional<ReloadResponse> reload_response;
         std::optional<ResolverIntegration> resolver_integration_mode;
@@ -1011,6 +1019,9 @@ namespace api {
 
     void from_json(const json & j, IcmpCandidateElement & x);
     void to_json(json & j, const IcmpCandidateElement & x);
+
+    void from_json(const json & j, OutboundGroupMemberElement & x);
+    void to_json(json & j, const OutboundGroupMemberElement & x);
 
     void from_json(const json & j, OutboundGroupElement & x);
     void to_json(json & j, const OutboundGroupElement & x);
@@ -1683,8 +1694,22 @@ namespace api {
         j["target"] = x.target;
     }
 
+    inline void from_json(const json & j, OutboundGroupMemberElement& x) {
+        x.outbound = j.at("outbound").get<std::string>();
+        x.target = get_stack_optional<std::string>(j, "target");
+        x.weight = get_stack_optional<int64_t>(j, "weight");
+    }
+
+    inline void to_json(json & j, const OutboundGroupMemberElement & x) {
+        j = json::object();
+        j["outbound"] = x.outbound;
+        j["target"] = x.target;
+        j["weight"] = x.weight;
+    }
+
     inline void from_json(const json & j, OutboundGroupElement& x) {
         x.candidates = get_stack_optional<std::vector<IcmpCandidateElement>>(j, "candidates");
+        x.members = get_stack_optional<std::vector<OutboundGroupMemberElement>>(j, "members");
         x.outbounds = get_stack_optional<std::vector<std::string>>(j, "outbounds");
         x.weight = get_stack_optional<int64_t>(j, "weight");
     }
@@ -1692,6 +1717,7 @@ namespace api {
     inline void to_json(json & j, const OutboundGroupElement & x) {
         j = json::object();
         j["candidates"] = x.candidates;
+        j["members"] = x.members;
         j["outbounds"] = x.outbounds;
         j["weight"] = x.weight;
     }
@@ -2751,6 +2777,7 @@ namespace api {
         x.lists_autoupdate_config = get_stack_optional<ListsAutoupdate>(j, "ListsAutoupdateConfig");
         x.outbound = get_stack_optional<OutboundElement>(j, "Outbound");
         x.outbound_group = get_stack_optional<OutboundGroupElement>(j, "OutboundGroup");
+        x.outbound_group_member = get_stack_optional<OutboundGroupMemberElement>(j, "OutboundGroupMember");
         x.policy_rule_check = get_stack_optional<PolicyRuleCheck>(j, "PolicyRuleCheck");
         x.reload_response = get_stack_optional<ReloadResponse>(j, "ReloadResponse");
         x.resolver_integration_mode = get_stack_optional<ResolverIntegration>(j, "ResolverIntegrationMode");
@@ -2839,6 +2866,7 @@ namespace api {
         j["ListsAutoupdateConfig"] = x.lists_autoupdate_config;
         j["Outbound"] = x.outbound;
         j["OutboundGroup"] = x.outbound_group;
+        j["OutboundGroupMember"] = x.outbound_group_member;
         j["PolicyRuleCheck"] = x.policy_rule_check;
         j["ReloadResponse"] = x.reload_response;
         j["ResolverIntegrationMode"] = x.resolver_integration_mode;

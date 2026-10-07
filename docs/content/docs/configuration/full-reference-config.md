@@ -238,7 +238,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
       // Selection strategy: "priority" (default) keeps one selected child.
       // "balance" (not on Keenetic) spreads new connections equally over usable
-      // children in the first healthy lowest-weight group.
+      // members of the first healthy group, in proportion to their weight.
       "strategy": "priority",
 
       // Compatibility field for older configs.
@@ -253,21 +253,22 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
       // Ordered outbound groups.
       // Default: no default, required for type="urltest".
-      // Lower weight is preferred before higher weight.
+      // Groups are tried in array order (first group first).
+      // Older configs with "outbounds" and a group-level "weight" are still read
+      // and upgraded to "members" automatically (backup: <config>.bak-pre-members).
       "outbound_groups": [
         {
-          // Relative priority of this group.
-          // Default: 1.
-          "weight": 1,
-
-          // Candidate outbound tags inside this group.
-          // Supported child types: interface, table, blackhole.
-          "outbounds": ["vpn", "wan_as_table"]
+          // Members of this group. Supported types: interface, table, blackhole.
+          "members": [
+            // "weight" (1-100, default 1) is the share of new connections
+            // under strategy "balance"; ignored by "priority".
+            { "outbound": "vpn", "weight": 7 },
+            { "outbound": "wan_as_table", "weight": 3 }
+          ]
         },
         {
           // If the first group is unhealthy, keen-pbr can fall back to this one.
-          "weight": 2,
-          "outbounds": ["wan", "block"]
+          "members": [{ "outbound": "wan" }, { "outbound": "block" }]
         }
       ],
 
@@ -339,12 +340,12 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // changes. Supported values: "preserve" (default) or "delete".
       "conntrack_on_switch": "preserve",
 
-      // Ordered groups of explicit outbound/target pairs. Required for
-      // type="icmptest". Every candidate requires both fields below.
+      // Ordered groups (first tried first) of explicit outbound/target
+      // members. Required for type="icmptest". Every member requires
+      // "outbound" and "target"; "weight" (1-100, default 1) is optional.
       "outbound_groups": [
         {
-          "weight": 1,
-          "candidates": [
+          "members": [
             {
               // Interface or table outbound tag.
               "outbound": "vpn",
@@ -353,7 +354,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
             },
             {
               "outbound": "wan",
-              "target": "9.9.9.9"
+              "target": "9.9.9.9",
+              "weight": 3
             }
           ]
         }

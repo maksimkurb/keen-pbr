@@ -431,7 +431,7 @@ void canonicalize_physical_rule(PhysicalRule &rule) {
       canonicalize_match(late->match);
     } else if (auto *vmap = std::get_if<VmapStmt>(&statement)) {
       std::sort(vmap->entries.begin(), vmap->entries.end(),
-                [](const auto &a, const auto &b) { return a.first < b.first; });
+                [](const auto &a, const auto &b) { return a.from < b.from; });
     }
   }
   // Implied protocol of tcp/udp port matches.
@@ -1762,17 +1762,31 @@ struct NftRuleParser {
       ok = data.is_object() && data.contains("set") && data["set"].is_array();
       if (ok) {
         for (const auto &entry : data["set"]) {
-          if (!entry.is_array() || entry.size() != 2 ||
-              !json_u32(entry[0]).has_value() || !entry[1].is_object() ||
-              !entry[1].contains("jump") || !entry[1]["jump"].is_object() ||
+          // A key is a number, or {"range": [from, to]} for an interval.
+          std::optional<uint32_t> from;
+          std::optional<uint32_t> to;
+          if (entry.is_array() && entry.size() == 2) {
+            const json &key = entry[0];
+            if (key.is_object() && key.size() == 1 && key.contains("range") &&
+                key["range"].is_array() && key["range"].size() == 2) {
+              from = json_u32(key["range"][0]);
+              to = json_u32(key["range"][1]);
+            } else {
+              from = json_u32(key);
+              to = from;
+            }
+          }
+          if (!from.has_value() || !to.has_value() || *from > *to ||
+              !entry[1].is_object() || !entry[1].contains("jump") ||
+              !entry[1]["jump"].is_object() ||
               !entry[1]["jump"].contains("target") ||
               !entry[1]["jump"]["target"].is_string()) {
             ok = false;
             break;
           }
-          stmt.entries.emplace_back(
-              *json_u32(entry[0]),
-              nft_chain_id(entry[1]["jump"]["target"].get<std::string>()));
+          stmt.entries.push_back(VmapEntry{
+              *from, *to,
+              nft_chain_id(entry[1]["jump"]["target"].get<std::string>())});
         }
       }
     }

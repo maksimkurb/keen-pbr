@@ -168,9 +168,11 @@ struct StatementDescriber {
     }
     std::string operator()(const VmapStmt& s) const {
         std::string entries;
-        for (const auto& [key, target] : s.entries) {
+        for (const auto& entry : s.entries) {
             if (!entries.empty()) entries += ',';
-            entries += std::to_string(key) + ":" + describe_chain_ref(target);
+            entries += std::to_string(entry.from);
+            if (entry.to != entry.from) entries += "-" + std::to_string(entry.to);
+            entries += ":" + describe_chain_ref(entry.chain);
         }
         return keen_pbr3::format(
             "vmap {}{:#x} {{{}}}",

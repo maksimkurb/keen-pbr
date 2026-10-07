@@ -120,11 +120,6 @@ export function setRouteRuleEnabled(
   )
 }
 
-export function getFirstFieldError(errors: unknown[]) {
-  const firstError = errors[0]
-  return typeof firstError === "string" ? firstError : undefined
-}
-
 export function getApiErrorMessage(error: ApiError) {
   return getSharedApiErrorMessage(error)
 }

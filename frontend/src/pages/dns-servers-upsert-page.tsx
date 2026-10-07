@@ -8,7 +8,7 @@ import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { DnsServer } from "@/api/generated/model/dnsServer"
 import { DnsServerType } from "@/api/generated/model/dnsServerType"
 import { usePostConfigMutation } from "@/api/mutations"
-import { useGetConfig, useGetHealthService } from "@/api/queries"
+import { useGetConfig } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import {
   Field,
@@ -35,10 +35,13 @@ import i18n from "@/i18n"
 import {
   applyFormApiErrors,
   clearFormServerErrors,
+  clearServerErrorsOnChange,
+  getFieldError,
+  useFormServerErrors,
 } from "@/lib/form-api-errors"
+import { PLATFORM_DEVELOPMENT, PLATFORM_KEENETIC } from "@/lib/platform"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
 import { useForm } from "@tanstack/react-form"
-import { useStore } from "@tanstack/react-store"
 
 type DnsServerDraft = {
   tag: string
@@ -74,14 +77,11 @@ export function DnsServerUpsertPage({
   const { t } = useTranslation()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
-  const serviceHealthQuery = useGetHealthService()
   const config = selectConfig(configQuery.data)
   const dnsServers = config?.dns?.servers ?? []
-  const serviceHealth =
-    serviceHealthQuery.data?.status === 200
-      ? serviceHealthQuery.data.data
-      : undefined
-  const supportsKeeneticDns = serviceHealth?.os_type === "keenetic"
+  const supportsKeeneticDns =
+    import.meta.env.VITE_KEEN_PBR_PLATFORM === PLATFORM_KEENETIC ||
+    import.meta.env.VITE_KEEN_PBR_PLATFORM === PLATFORM_DEVELOPMENT
 
   const existingServer =
     mode === "edit"
@@ -171,6 +171,7 @@ function DnsServerForm({
     },
   ]
   const form = useForm({
+    listeners: clearServerErrorsOnChange,
     defaultValues: initialDraft,
     onSubmit: ({ value }) => {
       if (!config) {
@@ -215,15 +216,8 @@ function DnsServerForm({
       postConfigMutation.mutate({ data: updatedConfig })
     },
   })
-  const unmappedServerErrors = useStore(
-    form.store,
-    (state) =>
-      (
-        state.errorMap.onServer as
-          | { unmapped?: { path: string; message: string }[] }
-          | undefined
-      )?.unmapped ?? []
-  )
+  const serverErrors = useFormServerErrors(form)
+  const unmappedServerErrors = serverErrors.unmapped
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -278,7 +272,7 @@ function DnsServerForm({
           }}
         >
           {(field) => {
-            const error = getFirstFieldError(field.state.meta.errors)
+            const error = getFieldError(field)
 
             return (
               <Field invalid={Boolean(error)}>
@@ -311,7 +305,7 @@ function DnsServerForm({
           }}
         >
           {(field) => {
-            const error = getFirstFieldError(field.state.meta.errors)
+            const error = getFieldError(field)
 
             if (!showTypeSelector) {
               return null
@@ -421,7 +415,7 @@ function DnsServerForm({
                   }}
                 >
                   {(field) => {
-                    const error = getFirstFieldError(field.state.meta.errors)
+                    const error = getFieldError(field)
 
                     if (isKeeneticDns) {
                       return null
@@ -550,11 +544,6 @@ function getDnsServerDraft(server?: DnsServer): DnsServerDraft {
     address: server.address ?? "",
     detour: server.detour ?? "",
   }
-}
-
-function getFirstFieldError(errors: unknown[]) {
-  const error = errors.find((item) => typeof item === "string")
-  return typeof error === "string" ? error : null
 }
 
 function getTagError(value: string, servers: DnsServer[], editingTag?: string) {

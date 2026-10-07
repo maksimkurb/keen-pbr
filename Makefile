@@ -39,8 +39,10 @@ build: ## Compile the project
 	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS)
 	cmake --build $(GCC_BUILD_DIR)
 
-frontend-build: ## Build frontend assets with bun
-	bash build_scripts/build-frontend.sh "$(abspath .)" "$(abspath frontend/dist)"
+FRONTEND_PLATFORM ?= generic
+
+frontend-build: ## Build frontend assets with bun (FRONTEND_PLATFORM=generic|openwrt|keenetic)
+	bash build_scripts/build-frontend.sh "$(abspath .)" "$(abspath frontend/dist)" "$(FRONTEND_PLATFORM)"
 
 frontend-api-generate: ## Regenerate frontend API client using the Orval version pinned in frontend/package.json
 	cd frontend && bunx --bun orval@$(ORVAL_VERSION) --config ./orval.config.ts --clean

@@ -37,6 +37,7 @@ table inet KeenPbrTable {
 		ip6 daddr != fd00::/8 counter packets 0 bytes 0 jump setmark_00020000 comment "kpbr:v1:route.mark:4f6c6790a5be251a7e19dfd6630031d8"
 		ip daddr @kpbr4_hybrid meta l4proto udp meta mark & 0x00ff0000 == 0x00000000 counter packets 0 bytes 0 numgen inc mod 2 vmap { 0 : jump setmark_00010000, 1 : jump setmark_00020000 } accept comment "kpbr:v1:route.balance:4a7045354776473b80a90771284649fe"
 		meta nfproto ipv6 tcp dport 8443 meta mark & 0x00ff0000 == 0x00000000 counter packets 0 bytes 0 numgen inc mod 3 vmap { 0 : jump setmark_00010000, 1 : jump setmark_00020000, 2 : jump setmark_00040000 } accept comment "kpbr:v1:route.balance:c036194542e5f8e4dda4f573d5cad223"
+		meta nfproto ipv4 tcp dport 9443 meta mark & 0x00ff0000 == 0x00000000 counter packets 0 bytes 0 numgen inc mod 10 vmap { 0-6 : jump setmark_00010000, 7-8 : jump setmark_00020000, 9 : jump setmark_00040000 } accept comment "kpbr:v1:route.balance:56a4ae2a9ff240964046308013524c40"
 	}
 
 	chain output {
@@ -61,6 +62,7 @@ table inet KeenPbrTable {
 		ip6 daddr != fd00::/8 counter packets 0 bytes 0 jump setmark_00020000 comment "kpbr:v1:route.mark:4f6c6790a5be251a7e19dfd6630031d8"
 		ip daddr @kpbr4_hybrid meta l4proto udp meta mark & 0x00ff0000 == 0x00000000 counter packets 0 bytes 0 numgen inc mod 2 vmap { 0 : jump setmark_00010000, 1 : jump setmark_00020000 } accept comment "kpbr:v1:route.balance:4a7045354776473b80a90771284649fe"
 		meta nfproto ipv6 tcp dport 8443 meta mark & 0x00ff0000 == 0x00000000 counter packets 0 bytes 0 numgen inc mod 3 vmap { 0 : jump setmark_00010000, 1 : jump setmark_00020000, 2 : jump setmark_00040000 } accept comment "kpbr:v1:route.balance:c036194542e5f8e4dda4f573d5cad223"
+		meta nfproto ipv4 tcp dport 9443 meta mark & 0x00ff0000 == 0x00000000 counter packets 0 bytes 0 numgen inc mod 10 vmap { 0-6 : jump setmark_00010000, 7-8 : jump setmark_00020000, 9 : jump setmark_00040000 } accept comment "kpbr:v1:route.balance:56a4ae2a9ff240964046308013524c40"
 	}
 
 	chain setmark_00010000 {

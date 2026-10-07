@@ -16,18 +16,38 @@ jobs:
         with:
           submodules: recursive
       - uses: oven-sh/setup-bun@v2
-      - name: Build frontend
-        run: make frontend-build
-      - name: Prepare frontend artifact
+      # The target platform is baked into the bundle (frontend/src/lib/platform.ts),
+      # so every package family gets its own build.
+      - name: Build frontend bundles
         run: |
-          rm -rf "$GITHUB_WORKSPACE/frontend-artifact"
-          mkdir -p "$GITHUB_WORKSPACE/frontend-artifact"
-          cp -a "$GITHUB_WORKSPACE/frontend/dist"/. "$GITHUB_WORKSPACE/frontend-artifact"/
-      - name: Upload frontend bundle
+          set -euo pipefail
+          for platform in generic openwrt keenetic; do
+            make frontend-build FRONTEND_PLATFORM="$platform"
+            rm -rf "$GITHUB_WORKSPACE/frontend-artifact-$platform"
+            mkdir -p "$GITHUB_WORKSPACE/frontend-artifact-$platform"
+            cp -a "$GITHUB_WORKSPACE/frontend/dist"/. "$GITHUB_WORKSPACE/frontend-artifact-$platform"/
+          done
+      - name: Upload frontend bundle (generic)
         uses: actions/upload-artifact@v6
         with:
-          name: frontend-dist
-          path: frontend-artifact
+          name: frontend-dist-generic
+          path: frontend-artifact-generic
+          # Keeps the .keen-pbr-platform marker checked by ensure-frontend-dist.sh.
+          include-hidden-files: true
+      - name: Upload frontend bundle (openwrt)
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-dist-openwrt
+          path: frontend-artifact-openwrt
+          # Keeps the .keen-pbr-platform marker checked by ensure-frontend-dist.sh.
+          include-hidden-files: true
+      - name: Upload frontend bundle (keenetic)
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-dist-keenetic
+          path: frontend-artifact-keenetic
+          # Keeps the .keen-pbr-platform marker checked by ensure-frontend-dist.sh.
+          include-hidden-files: true
 
   openwrt:
     needs: [prepare-frontend]
@@ -175,7 +195,7 @@ jobs:
     with:
       openwrt_version: ${{ matrix.build.openwrt_version }}
       architecture: ${{ matrix.build.architecture }}
-      frontend_artifact_name: frontend-dist
+      frontend_artifact_name: frontend-dist-openwrt
     secrets: inherit
 
   keenetic:
@@ -184,7 +204,7 @@ jobs:
     with:
       build_scope: full
       keenetic_version: current
-      frontend_artifact_name: frontend-dist
+      frontend_artifact_name: frontend-dist-keenetic
     secrets: inherit
 
   debian:
@@ -192,7 +212,7 @@ jobs:
     uses: ./.github/workflows/reusable-deb-packages.yml
     with:
       build_scope: full
-      frontend_artifact_name: frontend-dist
+      frontend_artifact_name: frontend-dist-generic
     secrets: inherit
 
   # Previous GitHub-repository publisher retained for easy rollback:

@@ -1,6 +1,5 @@
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
-import { useStore } from "@tanstack/react-store"
 import {
   CheckCircle2Icon,
   CircleIcon,
@@ -45,8 +44,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
   clearFormServerErrors,
+  clearServerErrorsOnChange,
+  getFieldError,
   setFormServerErrors,
   splitFormApiErrors,
+  useFormServerErrors,
 } from "@/lib/form-api-errors"
 import { cn } from "@/lib/utils"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
@@ -213,6 +215,7 @@ function ListForm({
   const isMobile = useIsMobile()
 
   const form = useForm({
+    listeners: clearServerErrorsOnChange,
     defaultValues: draft,
     validators: {
       onSubmitAsync: async ({ value }) => {
@@ -266,22 +269,10 @@ function ListForm({
     },
   })
 
-  const apiErrorMessage = useStore(
-    form.store,
-    (state) =>
-      (state.errorMap.onServer as { form?: string } | undefined)?.form ?? null
-  )
-  const unmappedServerErrors = useStore(
-    form.store,
-    (state) =>
-      (
-        state.errorMap.onServer as
-          | {
-              unmapped?: { path: string; message: string }[]
-            }
-          | undefined
-      )?.unmapped ?? []
-  )
+  const serverErrors = useFormServerErrors(form)
+
+  const apiErrorMessage = serverErrors.form
+  const unmappedServerErrors = serverErrors.unmapped
 
   const isCreate = mode === "create"
 
@@ -358,7 +349,7 @@ function ListForm({
               }}
             >
               {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
+                const error = getFieldError(field)
 
                 return (
                   <Field invalid={Boolean(error)}>
@@ -394,7 +385,7 @@ function ListForm({
               }}
             >
               {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
+                const error = getFieldError(field)
 
                 return (
                   <Field invalid={Boolean(error)}>
@@ -507,7 +498,7 @@ function ListForm({
 
               <form.Field name={LIST_FIELD_NAMES.detour}>
                 {(field) => {
-                  const error = getFirstFieldError(field.state.meta.errors)
+                  const error = getFieldError(field)
 
                   return (
                     <Field invalid={Boolean(error)}>
@@ -800,10 +791,6 @@ function splitLines(value: string) {
     .filter(Boolean)
 }
 
-function getFirstFieldError(errors: unknown[]) {
-  const firstError = errors[0]
-  return typeof firstError === "string" ? firstError : null
-}
 
 function getListNameError(
   value: string,

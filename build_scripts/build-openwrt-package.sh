@@ -74,7 +74,7 @@ install_required_feed_packages() {
     done
 }
 
-bash "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST"
+bash "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST" openwrt
 
 rm -rf "$SDK_DIR/package/keen-pbr"
 cp -r "$WORKSPACE/packages/openwrt/keen-pbr" "$SDK_DIR/package/"

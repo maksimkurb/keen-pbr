@@ -16,7 +16,7 @@ on:
       frontend_artifact_name:
         required: false
         type: string
-        default: "frontend-dist"
+        default: "frontend-dist-keenetic"
 
 jobs:
   generate-config:

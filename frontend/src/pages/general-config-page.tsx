@@ -1,8 +1,7 @@
 import { useTranslation } from "react-i18next"
 
-import { useForm } from "@tanstack/react-form"
+import { type AnyFormApi, useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
-import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
@@ -36,8 +35,11 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   clearFormServerErrors,
+  clearServerErrorsOnChange,
+  getFieldError,
   setFormServerErrors,
   splitFormApiErrors,
+  useFormServerErrors,
 } from "@/lib/form-api-errors"
 import { toast } from "sonner"
 
@@ -175,6 +177,7 @@ function LoadedGeneralConfigPage({
   const postConfigMutation = usePostConfigMutation()
 
   const form = useForm({
+    listeners: clearServerErrorsOnChange,
     defaultValues: getDraftFromConfig(loadedConfig),
     validators: {
       onSubmitAsync: async ({ value }) => {
@@ -224,15 +227,9 @@ function LoadedGeneralConfigPage({
     },
   })
 
-  const unmappedServerErrors = useStore(
-    form.store,
-    (state) =>
-      (
-        state.errorMap.onServer as
-          | { unmapped?: { path: string; message: string }[] }
-          | undefined
-      )?.unmapped ?? []
-  )
+  const serverErrors = useFormServerErrors(form)
+
+  const unmappedServerErrors = serverErrors.unmapped
 
   const isPending = postConfigMutation.isPending
   const runtimeInterfaces =
@@ -614,7 +611,7 @@ function LoadedGeneralConfigPage({
 
             <form.Field name={SETTINGS_FIELD_NAMES.inboundInterfaces}>
               {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
+                const error = getFieldError(field)
                 return (
                   <Field invalid={Boolean(error)}>
                     <FieldLabel htmlFor="inbound-interfaces">
@@ -694,7 +691,7 @@ function LoadedGeneralConfigPage({
 
             <form.Field name={SETTINGS_FIELD_NAMES.cron}>
               {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
+                const error = getFieldError(field)
 
                 return (
                   <Field invalid={Boolean(error)}>
@@ -763,7 +760,7 @@ function LoadedGeneralConfigPage({
           <FieldGroup>
             <form.Field name={SETTINGS_FIELD_NAMES.fwmarkStart}>
               {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
+                const error = getFieldError(field)
 
                 return (
                   <Field invalid={Boolean(error)}>
@@ -796,7 +793,7 @@ function LoadedGeneralConfigPage({
 
             <form.Field name={SETTINGS_FIELD_NAMES.fwmarkMask}>
               {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
+                const error = getFieldError(field)
 
                 return (
                   <Field invalid={Boolean(error)}>
@@ -834,7 +831,7 @@ function LoadedGeneralConfigPage({
 
             <form.Field name={SETTINGS_FIELD_NAMES.tableStart}>
               {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
+                const error = getFieldError(field)
 
                 return (
                   <Field invalid={Boolean(error)}>
@@ -867,7 +864,7 @@ function LoadedGeneralConfigPage({
 
             <form.Field name={SETTINGS_FIELD_NAMES.ipsetHashsize}>
               {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
+                const error = getFieldError(field)
 
                 return (
                   <Field invalid={Boolean(error)}>
@@ -905,7 +902,7 @@ function LoadedGeneralConfigPage({
 
             <form.Field name={SETTINGS_FIELD_NAMES.ipsetMaxelem}>
               {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
+                const error = getFieldError(field)
 
                 return (
                   <Field invalid={Boolean(error)}>
@@ -1047,6 +1044,8 @@ function GeneralConfigPageSkeleton() {
 }
 
 type TextFieldApi = {
+  form: AnyFormApi
+  name: string
   state: { value: string; meta: { errors: unknown[] } }
   handleBlur: () => void
   handleChange: (value: string) => void
@@ -1098,7 +1097,7 @@ function TextSettingField({
   id: string
   label: string
 }) {
-  const error = getFirstFieldError(field.state.meta.errors)
+  const error = getFieldError(field)
   return (
     <Field invalid={Boolean(error)}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -1127,7 +1126,7 @@ function NumberSettingField({
   id: string
   label: string
 }) {
-  const error = getFirstFieldError(field.state.meta.errors)
+  const error = getFieldError(field)
   return (
     <Field invalid={Boolean(error)}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -1147,10 +1146,6 @@ function NumberSettingField({
   )
 }
 
-function getFirstFieldError(errors: unknown[]) {
-  const firstError = errors[0]
-  return typeof firstError === "string" ? firstError : null
-}
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function getDraftFromConfig(config: ConfigObject): SettingsDraft {

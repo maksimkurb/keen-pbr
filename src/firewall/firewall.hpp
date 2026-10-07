@@ -22,9 +22,12 @@ struct FirewallBalanceCandidate {
   uint32_t fwmark;
   bool ipv4{true};
   bool ipv6{true};
+  // Relative share of new connections (1..100); see balance_weights.
+  uint32_t weight{1};
 
   bool operator==(const FirewallBalanceCandidate& other) const {
-    return fwmark == other.fwmark && ipv4 == other.ipv4 && ipv6 == other.ipv6;
+    return fwmark == other.fwmark && ipv4 == other.ipv4 && ipv6 == other.ipv6 &&
+           weight == other.weight;
   }
 
   bool operator!=(const FirewallBalanceCandidate& other) const {

@@ -514,14 +514,25 @@ int main(int argc, char *argv[]) {
 
     // Parse directly from the file and destroy the stream before the daemon is
     // constructed, keeping neither raw JSON nor the stream buffer alive.
-    keen_pbr3::Config config = [&opts] {
+    std::string config_text;
+    keen_pbr3::Config config = [&opts, &config_text] {
       std::ifstream config_stream(opts.config_path);
       if (!config_stream.is_open()) {
         throw std::runtime_error("Cannot open config file: " + opts.config_path);
       }
-      return keen_pbr3::parse_config(config_stream);
+      std::ostringstream contents;
+      contents << config_stream.rdbuf();
+      config_text = contents.str();
+      return keen_pbr3::parse_config(config_text);
     }();
     keen_pbr3::validate_config(config);
+    // Persist a legacy->members upgrade only for the real daemon start, after
+    // the config parsed and validated.
+    if (opts.run_service) {
+      keen_pbr3::upgrade_config_file_if_needed(opts.config_path, config_text);
+    }
+    config_text.clear();
+    config_text.shrink_to_fit();
     if (opts.run_service && opts.has_pid_file_override) {
       if (!config.daemon.has_value()) {
         config.daemon = keen_pbr3::DaemonConfig{};

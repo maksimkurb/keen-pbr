@@ -700,9 +700,36 @@ TEST_CASE("lowering nftables: balance") {
     const auto &vmap = std::get<VmapStmt>(rule.statements[0]);
     CHECK(vmap.key == PhysicalVmapKey::numgen_inc);
     CHECK(vmap.param == 2);
-    CHECK(vmap.entries[1].second ==
+    CHECK(vmap.entries[1].chain ==
           nft_physical_chain_id(Role::nft_setter, kMark2));
     CHECK(verdict_of(rule) == PhysicalVerdict::accept);
+  }
+  SUBCASE("weights 70/20/10 reduce to 7/2/1: one slot range per candidate") {
+    const auto set = lower_firewall_plan(
+        plan_of({balance({{kMark1, true, true, 70},
+                          {kMark2, true, true, 20},
+                          {0x40000u, true, true, 10}})}),
+        nft_context());
+    REQUIRE(nft_pre(set).rules.size() == 2);
+    const auto &vmap = std::get<VmapStmt>(nft_pre(set).rules[0].statements[0]);
+    CHECK(vmap.param == 10);
+    CHECK(vmap.entries ==
+          std::vector<VmapEntry>{
+              {0, 6, nft_physical_chain_id(Role::nft_setter, kMark1)},
+              {7, 8, nft_physical_chain_id(Role::nft_setter, kMark2)},
+              {9, 9, nft_physical_chain_id(Role::nft_setter, 0x40000u)}});
+  }
+  SUBCASE("equal weights 2/2 reduce to 1/1") {
+    const auto set = lower_firewall_plan(
+        plan_of({balance({{kMark1, true, true, 2}, {kMark2, true, true, 2}})}),
+        nft_context());
+    const auto &vmap = std::get<VmapStmt>(nft_pre(set).rules[0].statements[0]);
+    CHECK(vmap.param == 2);
+    CHECK(vmap.entries.size() == 2);
+    CHECK(vmap.entries[0].from == 0);
+    CHECK(vmap.entries[0].to == 0);
+    CHECK(vmap.entries[1].from == 1);
+    CHECK(vmap.entries[1].to == 1);
   }
   SUBCASE("families are filtered independently") {
     const auto set = lower_firewall_plan(
@@ -1102,7 +1129,7 @@ TEST_CASE("nft renderer: every match and statement kind") {
         {CtDirMatch{true},
          MarkMatch{PhysicalMarkKind::conntrack, kMask, true, {0}}},
         {VmapStmt{PhysicalVmapKey::conntrack_mark_and, kMask,
-                  {{kMark1, nft_physical_chain_id(Role::nft_setter, kMark1)}}},
+                  {{kMark1, kMark1, nft_physical_chain_id(Role::nft_setter, kMark1)}}},
          LateMatchStmt{MarkMatch{PhysicalMarkKind::conntrack, kMask, false,
                                  {kMark1}}},
          VerdictStmt{PhysicalVerdict::accept}}));
@@ -1126,12 +1153,29 @@ TEST_CASE("nft renderer: every match and statement kind") {
     const auto numgen = render(rule_of(
         Fam::ipv4, {MarkMatch{PhysicalMarkKind::packet, kMask, false, {0}}},
         {VmapStmt{PhysicalVmapKey::numgen_inc, 2,
-                  {{0, nft_physical_chain_id(Role::nft_setter, kMark1)},
-                   {1, nft_physical_chain_id(Role::nft_setter, kMark2)}}},
+                  {{0, 0, nft_physical_chain_id(Role::nft_setter, kMark1)},
+                   {1, 1, nft_physical_chain_id(Role::nft_setter, kMark2)}}},
          VerdictStmt{PhysicalVerdict::accept}}));
     CHECK(numgen["expr"][0]["match"]["right"] == "ipv4");
     CHECK(numgen["expr"][1]["match"]["left"]["&"][1] == kMask);
     CHECK(numgen["expr"][3]["vmap"]["key"]["numgen"]["mod"] == 2);
+    // Single keys stay plain, wider slots render as {"range":[from,to]}.
+    const auto weighted = render(rule_of(
+        Fam::ipv4, {},
+        {VmapStmt{PhysicalVmapKey::numgen_inc, 10,
+                  {{0, 6, nft_physical_chain_id(Role::nft_setter, kMark1)},
+                   {7, 9, nft_physical_chain_id(Role::nft_setter, kMark2)}}},
+         VerdictStmt{PhysicalVerdict::accept}}));
+    const nlohmann::json *vmap_expr = nullptr;
+    for (const auto &expr : weighted["expr"]) {
+      if (expr.contains("vmap")) vmap_expr = &expr;
+    }
+    REQUIRE(vmap_expr != nullptr);
+    const auto &entries = (*vmap_expr)["vmap"]["data"]["set"];
+    CHECK(entries[0][0] == nlohmann::json{{"range", {0, 6}}});
+    CHECK(entries[1][0] == nlohmann::json{{"range", {7, 9}}});
+    CHECK(numgen["expr"][3]["vmap"]["data"]["set"][0][0] == 0);
+    CHECK(numgen["expr"][3]["vmap"]["data"]["set"][1][0] == 1);
     const auto mark = render(rule_of(
         Fam::any, {},
         {SetMarkStmt{PhysicalMarkKind::packet, kMark1, kMask | kMark1},
@@ -1814,6 +1858,29 @@ TEST_CASE("plan validation: interception actions only on their hooks") {
 }
 
 #ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("iptables balance weights 7/2/1 shape the statistic cascade") {
+  const auto restore = make_rule("prefilter.restore_conntrack_mark", "m",
+                                 Fam::any, {}, RestoreConntrackMarkAction{kMask});
+  const auto balance = make_rule(
+      "route.balance", "b", Fam::ipv4, for_set("kpbr4_x"),
+      BalanceAction{kMark1, {{kMark1, true, false, 70},
+                             {kMark2, true, false, 20},
+                             {kMark3, true, false, 10}}});
+  const auto lowered = lower_firewall_plan(plan_of({restore, balance}),
+                                           ipt_context());
+  const auto &rules = gen_a(lowered, Fam::ipv4).rules;
+  const auto probability = [&](std::size_t index) {
+    const auto *stat = find_match<StatisticMatch>(rules[index]);
+    return stat == nullptr ? 0U : stat->probability;
+  };
+  // 7/10 of 2^31 and 2/3 of 2^31 (rounded to nearest), then unconditional.
+  CHECK(probability(2) == 0x5999999Au);
+  CHECK(probability(3) == 0x55555555u);
+  CHECK(find_match<StatisticMatch>(rules[4]) == nullptr);
+  CHECK(std::get<SetMarkStmt>(rules[2].statements[0]).value == kMark1);
+  CHECK(std::get<SetMarkStmt>(rules[4].statements[0]).value == kMark3);
+}
+
 TEST_CASE("iptables balance lowers to a guarded statistic cascade") {
   const auto restore = make_rule("prefilter.restore_conntrack_mark", "m",
                                  Fam::any, {}, RestoreConntrackMarkAction{kMask});

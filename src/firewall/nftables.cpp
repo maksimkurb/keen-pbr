@@ -473,8 +473,12 @@ void append_statement_exprs(json& expr, const PhysicalStatement& statement,
             : json{{"&", json::array({json{{"ct", {{"key", "mark"}}}},
                                        vmap->param})}};
         json targets = json::array();
-        for (const auto& [value, chain] : vmap->entries) {
-            targets.push_back(json::array({value, setter_target(chain)}));
+        for (const auto& entry : vmap->entries) {
+            json key = entry.from == entry.to
+                ? json(entry.from)
+                : json{{"range", json::array({entry.from, entry.to})}};
+            targets.push_back(
+                json::array({std::move(key), setter_target(entry.chain)}));
         }
         expr.push_back({{"vmap", {{"key", std::move(key)},
                                    {"data", {{"set", std::move(targets)}}}}}});

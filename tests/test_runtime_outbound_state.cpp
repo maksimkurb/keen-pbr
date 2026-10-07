@@ -45,7 +45,9 @@ TEST_CASE("runtime outbound projection reuses one route snapshot") {
     auto missing = make_outbound("missing", OutboundType::TABLE);
     auto automatic = make_outbound("auto", OutboundType::URLTEST);
     OutboundGroup group;
-    group.outbounds = std::vector<std::string>{"wan"};
+    api::OutboundGroupMemberElement member;
+    member.outbound = "wan";
+    group.members = std::vector<api::OutboundGroupMemberElement>{member};
     automatic.outbound_groups = std::vector<OutboundGroup>{group};
     config.outbounds = std::vector<Outbound>{interface, table, missing, automatic};
 
@@ -114,10 +116,10 @@ TEST_CASE("runtime test-group projection reports table candidate probe state") {
     table.table = 200;
     auto automatic = make_outbound("auto", OutboundType::ICMPTEST);
     OutboundGroup group;
-    api::IcmpCandidateElement candidate;
-    candidate.outbound = "external";
-    candidate.target = "1.1.1.1";
-    group.candidates = std::vector<api::IcmpCandidateElement>{candidate};
+    api::OutboundGroupMemberElement member;
+    member.outbound = "external";
+    member.target = "1.1.1.1";
+    group.members = std::vector<api::OutboundGroupMemberElement>{member};
     automatic.outbound_groups = std::vector<OutboundGroup>{group};
     config.outbounds = std::vector<Outbound>{table, automatic};
 
@@ -171,10 +173,9 @@ TEST_CASE("runtime balance projection reports each usable first-tier child activ
     auto automatic = make_outbound("auto", OutboundType::URLTEST);
     automatic.strategy = api::Strategy::BALANCE;
     OutboundGroup active_group;
-    active_group.outbounds = std::vector<std::string>{"first", "second"};
+    active_group.members = std::vector<api::OutboundGroupMemberElement>{{"first", std::nullopt, std::nullopt}, {"second", std::nullopt, std::nullopt}};
     OutboundGroup backup_group;
-    backup_group.weight = 2;
-    backup_group.outbounds = std::vector<std::string>{"backup"};
+    backup_group.members = std::vector<api::OutboundGroupMemberElement>{{"backup", std::nullopt, std::nullopt}};
     automatic.outbound_groups = std::vector<OutboundGroup>{active_group, backup_group};
     config.outbounds = std::vector<Outbound>{first, second, backup, automatic};
 

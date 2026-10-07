@@ -656,7 +656,7 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
   }
 
   const auto &p = require_chain(set, pre);
-  REQUIRE(p.rules.size() == 19);
+  REQUIRE(p.rules.size() == 20);
   for (const auto &rule : p.rules) {
     CHECK_FALSE(has_unknown(rule));
     CHECK(rule.key.has_value());
@@ -666,9 +666,9 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
     VmapStmt vmap;
     vmap.key = PhysicalVmapKey::conntrack_mark_and;
     vmap.param = kMask;
-    vmap.entries = {{0x10000u, setter(0x10000u)},
-                    {0x20000u, setter(0x20000u)},
-                    {0x40000u, setter(0x40000u)}};
+    vmap.entries = {{0x10000u, 0x10000u, setter(0x10000u)},
+                    {0x20000u, 0x20000u, setter(0x20000u)},
+                    {0x40000u, 0x40000u, setter(0x40000u)}};
     CHECK(p.rules[0] ==
           make_rule(Fam::any,
                     {MarkMatch{PhysicalMarkKind::conntrack, kMask, true, {0}},
@@ -751,7 +751,7 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
     VmapStmt vmap;
     vmap.key = PhysicalVmapKey::numgen_inc;
     vmap.param = 2;
-    vmap.entries = {{0, setter(0x10000u)}, {1, setter(0x20000u)}};
+    vmap.entries = {{0, 0, setter(0x10000u)}, {1, 1, setter(0x20000u)}};
     CHECK(p.rules[17] ==
           make_rule(Fam::ipv4,
                     {SetMatch{"kpbr4_hybrid", PhysicalDir::dst, false},
@@ -770,14 +770,24 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
     const auto &v6vmap = std::get<VmapStmt>(v6.statements[0]);
     CHECK(v6vmap.param == 3);
     CHECK(v6vmap.entries.size() == 3);
-    CHECK(v6vmap.entries[2].second == setter(0x40000u));
+    CHECK(v6vmap.entries[2].chain == setter(0x40000u));
+
+    // Weighted 70/20/10 -> numgen mod 10, kernel prints ranges 0-6, 7-8, 9.
+    const auto &weighted = p.rules[19];
+    CHECK(weighted.family == Fam::ipv4);
+    const auto &wvmap = std::get<VmapStmt>(weighted.statements[0]);
+    CHECK(wvmap.param == 10);
+    CHECK(wvmap.entries ==
+          std::vector<VmapEntry>{{0, 6, setter(0x10000u)},
+                                 {7, 8, setter(0x20000u)},
+                                 {9, 9, setter(0x40000u)}});
   }
 
   SUBCASE("output chain mirrors prerouting except inbound filter and output-only rules") {
     const auto &p = require_chain(set, pre);
     const auto &o = require_chain(set, out);
-    REQUIRE(p.rules.size() == 19);
-    REQUIRE(o.rules.size() == 20);
+    REQUIRE(p.rules.size() == 20);
+    REQUIRE(o.rules.size() == 21);
     // Prerouting rule 4 is the inbound-interface filter, which never applies
     // to router-originated traffic; output rules 14 and 15 come from plan
     // rules with hook=output.  The reply skip (rule 1) is in both chains.
@@ -801,21 +811,21 @@ TEST_CASE("physical: nft balance dump (restore vmap, setter chains, numgen)") {
 TEST_CASE("physical: nft foreign and unknown expressions") {
   const auto set = parse_nft_json(read_fixture("nft_foreign.json"));
   const auto &p = require_chain(set, nft_id(Role::nft_prerouting));
-  REQUIRE(p.rules.size() == 22);
+  REQUIRE(p.rules.size() == 23);
   // The three rules appended with the stock nft tool sit at the end.
-  const auto &foreign = p.rules[19];
+  const auto &foreign = p.rules[20];
   CHECK(foreign == make_rule(Fam::ipv4,
                              {AddrMatch{PhysicalDir::src, false, {"203.0.113.9/32"}}},
                              {VerdictStmt{PhysicalVerdict::accept}}));
   CHECK_FALSE(foreign.key.has_value());
   // `limit rate 1/second` is not understood: explicit unknown statement.
-  REQUIRE(p.rules[20].statements.size() == 2);
-  CHECK(std::holds_alternative<UnknownStmt>(p.rules[20].statements[0]));
-  CHECK(p.rules[20] != p.rules[20]);
+  REQUIRE(p.rules[21].statements.size() == 2);
+  CHECK(std::holds_alternative<UnknownStmt>(p.rules[21].statements[0]));
+  CHECK(p.rules[21] != p.rules[21]);
   // Malformed comment -> keyless, still parsed.
-  CHECK(p.rules[21].family == Fam::ipv4);
-  CHECK_FALSE(p.rules[21].key.has_value());
-  CHECK(p.rules[21].statements ==
+  CHECK(p.rules[22].family == Fam::ipv4);
+  CHECK_FALSE(p.rules[22].key.has_value());
+  CHECK(p.rules[22].statements ==
         std::vector<PhysicalStatement>{VerdictStmt{PhysicalVerdict::drop}});
 }
 #endif
@@ -1292,6 +1302,30 @@ TEST_CASE("physical: nft queue, log, ct counters and new base chain hooks") {
     unknown.name = "sniff_in";
     CHECK(require_chain(set, unknown).base->hook == PhysicalBaseChain::Hook::other);
   }
+}
+#endif
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("physical: nft vmap keys and ranges parse") {
+  const auto set = parse_nft_json(R"({"nftables":[
+    {"chain":{"family":"inet","table":"KeenPbrTable","name":"setmark_00010000"}},
+    {"chain":{"family":"inet","table":"KeenPbrTable","name":"setmark_00020000"}},
+    {"chain":{"family":"inet","table":"KeenPbrTable","name":"prerouting","type":"filter","hook":"prerouting","prio":-150,"policy":"accept"}},
+    {"rule":{"family":"inet","table":"KeenPbrTable","chain":"prerouting","expr":[
+      {"vmap":{"key":{"numgen":{"mode":"inc","mod":10,"offset":0}},
+        "data":{"set":[[{"range":[0,6]},{"jump":{"target":"setmark_00010000"}}],
+                       [7,{"jump":{"target":"setmark_00020000"}}]]}}}]}}
+  ]})");
+  const auto &rules = require_chain(set, nft_id(Role::nft_prerouting)).rules;
+  REQUIRE(rules.size() == 1);
+  const auto *vmap = std::get_if<VmapStmt>(&rules[0].statements.front());
+  REQUIRE(vmap != nullptr);
+  CHECK(vmap->param == 10);
+  REQUIRE(vmap->entries.size() == 2);
+  CHECK(vmap->entries[0].from == 0);
+  CHECK(vmap->entries[0].to == 6);
+  CHECK(vmap->entries[1].from == 7);
+  CHECK(vmap->entries[1].to == 7);
 }
 #endif
 

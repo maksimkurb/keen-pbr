@@ -3,7 +3,6 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { usePostRoutingTestMutation } from "@/api/mutations"
-import { SectionCard } from "@/components/shared/section-card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Empty,
@@ -36,8 +35,8 @@ export function RoutingTestPanel() {
       ? routingTestMutation.data.data
       : undefined
 
-  return (
-    <SectionCard title={t("overview.routingTest.title")}>
+  const content = (
+    <>
       <form
         className="space-y-3"
         onSubmit={(event) => {
@@ -134,6 +133,8 @@ export function RoutingTestPanel() {
       {routingDiagnostics ? (
         <RoutingDiagnosticsResult diagnostics={routingDiagnostics} />
       ) : null}
-    </SectionCard>
+    </>
   )
+
+  return <div className="min-w-0 space-y-3">{content}</div>
 }

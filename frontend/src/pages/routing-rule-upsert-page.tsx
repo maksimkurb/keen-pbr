@@ -29,8 +29,11 @@ import { Input } from "@/components/ui/input"
 import { useListUsageSubtitle } from "@/hooks/use-list-usage-subtitle"
 import {
   clearFormServerErrors,
+  clearServerErrorsOnChange,
+  getFieldError,
   setFormServerErrors,
   splitFormApiErrors,
+  useFormServerErrors,
 } from "@/lib/form-api-errors"
 import {
   Select,
@@ -43,7 +46,6 @@ import {
 } from "@/components/ui/select"
 import {
   emptyRouteRuleDraft,
-  getFirstFieldError,
   normalizeRouteRuleDraft,
   protoOptions,
   type RouteRuleMode,
@@ -179,6 +181,7 @@ function RoutingRuleForm({
   const postConfigMutation = usePostConfigMutation()
 
   const form = useForm({
+    listeners: clearServerErrorsOnChange,
     defaultValues:
       mode === "edit" && existingRule
         ? toRouteRuleDraft(existingRule)
@@ -263,17 +266,8 @@ function RoutingRuleForm({
     const firstError = state.errors[0]
     return typeof firstError === "string" ? firstError : null
   })
-  const unmappedServerErrors = useStore(
-    form.store,
-    (state) =>
-      (
-        state.errorMap.onServer as
-          | {
-              unmapped?: { path: string; message: string }[]
-            }
-          | undefined
-      )?.unmapped ?? []
-  )
+  const serverErrors = useFormServerErrors(form)
+  const unmappedServerErrors = serverErrors.unmapped
 
   return (
     <UpsertPage
@@ -377,7 +371,7 @@ function RoutingRuleForm({
 
           <form.Field name={ROUTING_RULE_FIELD_NAMES.list}>
             {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
+              const error = getFieldError(field)
 
               return (
                 <Field hidden={!isNormalRule} invalid={Boolean(error)}>
@@ -456,7 +450,7 @@ function RoutingRuleForm({
             }}
           >
             {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
+              const error = getFieldError(field)
 
               return (
                 <Field hidden={!isNormalRule} invalid={Boolean(error)}>
@@ -492,7 +486,7 @@ function RoutingRuleForm({
 
           <form.Field name={ROUTING_RULE_FIELD_NAMES.srcPort}>
             {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
+              const error = getFieldError(field)
 
               return (
                 <Field hidden={!isNormalRule} invalid={Boolean(error)}>
@@ -526,7 +520,7 @@ function RoutingRuleForm({
 
           <form.Field name={ROUTING_RULE_FIELD_NAMES.destPort}>
             {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
+              const error = getFieldError(field)
 
               return (
                 <Field hidden={!isNormalRule} invalid={Boolean(error)}>
@@ -560,7 +554,7 @@ function RoutingRuleForm({
 
           <form.Field name={ROUTING_RULE_FIELD_NAMES.srcAddr}>
             {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
+              const error = getFieldError(field)
 
               return (
                 <Field hidden={!isNormalRule} invalid={Boolean(error)}>
@@ -594,7 +588,7 @@ function RoutingRuleForm({
 
           <form.Field name={ROUTING_RULE_FIELD_NAMES.destAddr}>
             {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
+              const error = getFieldError(field)
 
               return (
                 <Field hidden={!isNormalRule} invalid={Boolean(error)}>
@@ -636,7 +630,7 @@ function RoutingRuleForm({
             }}
           >
             {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
+              const error = getFieldError(field)
 
               return (
                 <Field invalid={Boolean(error)}>

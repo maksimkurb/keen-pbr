@@ -1,14 +1,9 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Download, Play, RotateCw, Square } from "lucide-react"
+import { Route } from "lucide-react"
+import { Link } from "wouter"
 
 import type { ApiError } from "@/api/client"
-import type {
-  DnsmasqHealth,
-  InterceptHealth,
-  Outbound,
-  RuntimeOutboundState,
-} from "@/api/generated/model"
 import {
   DNS_CHECK_DOMAIN_SUFFIX,
   type DnsCheckStatus,
@@ -17,50 +12,46 @@ import {
   useGetConfig,
   useGetHealthRouting,
   useGetHealthService,
-  useGetRuntimeInterfaces,
   useGetRuntimeOutbounds,
 } from "@/api/queries"
-import {
-  usePostServiceActionMutation,
-  useRoutingControlPendingState,
-} from "@/api/mutations"
 import { selectConfig } from "@/api/selectors"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty"
-import { Skeleton } from "@/components/ui/skeleton"
-import { DataTable } from "@/components/shared/data-table"
-import { PageHeader } from "@/components/shared/page-header"
-import { RuntimeOutboundDetails } from "@/components/shared/runtime-outbound-state"
-import { SectionCard } from "@/components/shared/section-card"
-import {
-  RoutingHealthCard,
-} from "@/components/overview/routing-health-card"
-import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
-import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-download-dialog"
-import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
-import { getApiErrorMessage } from "@/lib/api-errors"
-import {
-  collectInterceptDiagnosticErrors,
-  mapKernelDiagnosticEntries,
-} from "@/lib/intercept-diagnostics"
 import { useAuth } from "@/auth/auth-context"
-import { Link } from "wouter"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { PageHeader } from "@/components/shared/page-header"
+import { CountersPanel } from "@/components/overview/counters-panel"
+import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-download-dialog"
+import { DiagnosticsPanel } from "@/components/overview/diagnostics-panel"
+import { DnsRulesPanel } from "@/components/overview/dns-rules-panel"
+import { InterceptPanel } from "@/components/overview/intercept-panel"
+import {
+  collectHealthySummaries,
+  collectOverviewIssues,
+} from "@/components/overview/overview-issues"
+import { OutboundsOverviewPanel } from "@/components/overview/outbounds-overview-panel"
+import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
+import { ServiceStatusBar } from "@/components/overview/service-status-bar"
+import { getApiErrorMessage } from "@/lib/api-errors"
+
+const HIGHLIGHT_MS = 1800
 
 export function OverviewPage() {
   const { t } = useTranslation()
   const auth = useAuth()
   const [dnsCheckStatus, setDnsCheckStatus] = useState<DnsCheckStatus>("idle")
   const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false)
+  const [isRoutingTestOpen, setIsRoutingTestOpen] = useState(false)
   const [showHealthyDiagnostics, setShowHealthyDiagnostics] = useState(false)
+  const [highlightDiagnostics, setHighlightDiagnostics] = useState(false)
+  const diagnosticsRef = useRef<HTMLElement>(null)
+
   const serviceHealthQuery = useGetHealthService()
   const configQuery = useGetConfig()
   const routingHealthQuery = useGetHealthRouting({
@@ -71,12 +62,6 @@ export function OverviewPage() {
     },
   })
   const runtimeOutboundsQuery = useGetRuntimeOutbounds()
-  const runtimeInterfacesQuery = useGetRuntimeInterfaces()
-
-  const postServiceStartMutation = usePostServiceActionMutation("start")
-  const postServiceStopMutation = usePostServiceActionMutation("stop")
-  const postServiceRestartMutation = usePostServiceActionMutation("restart")
-  const { anyPending: actionPending } = useRoutingControlPendingState()
 
   const serviceHealth =
     serviceHealthQuery.data?.status === 200
@@ -95,102 +80,91 @@ export function OverviewPage() {
     [runtimeOutboundsQuery.data]
   )
   const runtimeOutboundByTag = useMemo(
-    () =>
-      new Map(
-        runtimeOutbounds.map((runtimeOutbound) => [
-          runtimeOutbound.tag,
-          runtimeOutbound,
-        ])
-      ),
+    () => new Map(runtimeOutbounds.map((state) => [state.tag, state])),
     [runtimeOutbounds]
   )
-  const runtimeInterfaceByName = useMemo(
-    () =>
-      new Map(
-        (runtimeInterfacesQuery.data?.status === 200
-          ? runtimeInterfacesQuery.data.data.interfaces
-          : []
-        ).map((runtimeInterface) => [runtimeInterface.name, runtimeInterface])
-      ),
-    [runtimeInterfacesQuery.data]
-  )
+
   const isServiceRunning =
     serviceHealth?.status === "running" || serviceHealth?.status === "degraded"
-  const markerConfig = loadedConfig?.intercept?.dns?.marker
-  const dnsCheckConfigEnabled =
-    Boolean(loadedConfig) &&
-    loadedConfig?.intercept?.enabled !== false &&
-    loadedConfig?.intercept?.dns?.enabled !== false
-  const dnsCheckRuntimeEnabled =
-    serviceHealth?.intercept?.running === true &&
-    serviceHealth.intercept.dns_hold_active === true
-  const dnsCheckEnabled = dnsCheckConfigEnabled && dnsCheckRuntimeEnabled
-  const dnsCheckDisabledReason = !dnsCheckConfigEnabled ? "config" : "runtime"
-  const outboundRows = useMemo(() => {
-    const configuredOutbounds = loadedConfig?.outbounds ?? []
-    if (configuredOutbounds.length === 0) {
-      return []
-    }
-
-    return configuredOutbounds.map((outbound) => {
-      const runtimeState = runtimeOutboundByTag.get(outbound.tag)
-      const detailContent = runtimeState ? (
-        <RuntimeOutboundDetails
-          fallbackLabel={getRuntimeFallbackLabel(outbound, t)}
-          fallbackTone={getRuntimeFallbackTone(outbound)}
-          runtimeState={runtimeState}
-          runtimeInterfaces={runtimeInterfaceByName}
-          t={t}
-          variant="tree"
-        />
-      ) : null
-      const tagCell =
-        outbound.type === "urltest" ||
-        outbound.type === "interface" ||
-        detailContent ? (
-          <div className="space-y-2">
-            <OutboundHeader outbound={outbound} runtimeState={runtimeState} />
-            {detailContent}
-          </div>
-        ) : (
-          <OutboundHeader outbound={outbound} runtimeState={runtimeState} />
-        )
-
-      return [tagCell]
-    })
-  }, [loadedConfig, runtimeInterfaceByName, runtimeOutboundByTag, t])
-
+  const interceptEnabled =
+    Boolean(loadedConfig) && loadedConfig?.intercept?.enabled !== false
   const requestedInterceptDns =
-    Boolean(loadedConfig) &&
-    loadedConfig?.intercept?.enabled !== false &&
-    loadedConfig?.intercept?.dns?.enabled !== false
+    interceptEnabled && loadedConfig?.intercept?.dns?.enabled !== false
   const requestedInterceptL7 =
-    Boolean(loadedConfig) &&
-    loadedConfig?.intercept?.enabled !== false &&
-    loadedConfig?.intercept?.l7?.enabled !== false
-  const interceptHealth = serviceHealth?.intercept
-  const kernelDiagnostics = useMemo(
-    () =>
-      interceptHealth
-        ? {
-            release: interceptHealth.kernel_release || undefined,
-            entries: mapKernelDiagnosticEntries(
-              interceptHealth.capabilities,
-              interceptHealth.probes ?? [],
-              requestedInterceptDns,
-              requestedInterceptL7
-            ),
-          }
-        : undefined,
-    [interceptHealth, requestedInterceptDns, requestedInterceptL7]
-  )
-
+    interceptEnabled && loadedConfig?.intercept?.l7?.enabled !== false
   const routingHealthErrorMessage = routingHealthQuery.isError
     ? getRoutingHealthErrorMessage(routingHealthQuery.error, t)
     : null
 
+  const issues = useMemo(
+    () =>
+      collectOverviewIssues({
+        serviceRunning: isServiceRunning,
+        routingHealth,
+        routingHealthError: routingHealthErrorMessage,
+        intercept: serviceHealth?.intercept,
+        requestedDns: requestedInterceptDns,
+        requestedL7: requestedInterceptL7,
+        dnsmasq: serviceHealth?.dnsmasq,
+        runtimeOutbounds,
+        t,
+      }),
+    [
+      isServiceRunning,
+      routingHealth,
+      routingHealthErrorMessage,
+      serviceHealth?.intercept,
+      serviceHealth?.dnsmasq,
+      requestedInterceptDns,
+      requestedInterceptL7,
+      runtimeOutbounds,
+      t,
+    ]
+  )
+  const healthySummaries = useMemo(
+    () =>
+      collectHealthySummaries({
+        routingHealth,
+        intercept: serviceHealth?.intercept,
+        requestedDns: requestedInterceptDns,
+        requestedL7: requestedInterceptL7,
+        runtimeOutbounds,
+        t,
+      }),
+    [
+      routingHealth,
+      serviceHealth?.intercept,
+      requestedInterceptDns,
+      requestedInterceptL7,
+      runtimeOutbounds,
+      t,
+    ]
+  )
+
+  useEffect(() => {
+    if (!highlightDiagnostics) {
+      return
+    }
+    const timer = window.setTimeout(
+      () => setHighlightDiagnostics(false),
+      HIGHLIGHT_MS
+    )
+    return () => window.clearTimeout(timer)
+  }, [highlightDiagnostics])
+
+  const showIssues = () => {
+    diagnosticsRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    })
+    diagnosticsRef.current?.focus({ preventScroll: true })
+    setHighlightDiagnostics(true)
+  }
+
+  const dimmed = !isServiceRunning
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {!auth.enabled ? (
         <Alert className="border-amber-500/40 bg-amber-500/10">
           <AlertDescription>
@@ -202,187 +176,81 @@ export function OverviewPage() {
           </AlertDescription>
         </Alert>
       ) : null}
+
       <PageHeader
-        description={t("overview.pageDescription")}
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsRoutingTestOpen(true)}
+          >
+            <Route />
+            {t("overview.routingTest.title")}
+          </Button>
+        }
+        className="mb-0 md:mb-0 md:items-center"
         title={t("nav.items.systemMonitor")}
       />
 
-      <Card className="gap-0 py-0">
-        <div className="grid min-w-0 grid-cols-1 divide-y lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-          <div className="flex min-w-0 flex-col gap-4 p-4 lg:p-5">
-            <h3 className="font-semibold">{t("overview.runtime.title")}</h3>
-            {serviceHealthQuery.isLoading ? <ServiceSummarySkeleton /> : null}
+      <ServiceStatusBar
+        health={serviceHealth}
+        isError={serviceHealthQuery.isError}
+        isLoading={serviceHealthQuery.isLoading}
+        issueCount={issues.length}
+        onShowIssues={showIssues}
+      />
 
-            {serviceHealthQuery.isError ? (
-              <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-                <AlertDescription>
-                  {t("overview.runtime.loadError")}
-                </AlertDescription>
-              </Alert>
-            ) : null}
-
-            {serviceHealth ? (
-              <>
-                <div className="min-w-0 space-y-2">
-                  <RuntimeValue
-                    label={t("overview.runtime.version")}
-                    value={serviceHealth.version}
-                  />
-                  <RuntimeValue
-                    label={t("overview.runtime.build")}
-                    value={serviceHealth.build}
-                    valueWeight="normal"
-                  />
-                  <RuntimeValue
-                    label={t("overview.runtime.router")}
-                    value={`${serviceHealth.os_type} ${serviceHealth.os_version}`}
-                  />
-                  <StatusValue
-                    label={t("overview.runtime.routingStatus")}
-                    value={
-                      <StatusBadge
-                        tone={mapServiceStatusTone(serviceHealth.status)}
-                      >
-                        {serviceHealth.status}
-                      </StatusBadge>
-                    }
-                  />
-                </div>
-                <div
-                  className={`mt-auto grid gap-2 ${isServiceRunning ? "grid-cols-2" : "grid-cols-1"}`}
-                  role="group"
-                >
-                  {isServiceRunning ? (
-                    <>
-                      <Button
-                        className="flex aspect-square min-h-20 w-full min-w-0 flex-col gap-1 px-1.5 py-2 text-center text-xs leading-tight whitespace-normal"
-                        variant="outline"
-                        disabled={actionPending}
-                        onClick={() => postServiceStopMutation.mutate()}
-                      >
-                        <Square className="size-6 shrink-0" />
-                        {t("overview.runtime.actions.stop")}
-                      </Button>
-                      <Button
-                        className="flex aspect-square min-h-20 w-full min-w-0 flex-col gap-1 px-1.5 py-2 text-center text-xs leading-tight whitespace-normal"
-                        variant="outline"
-                        disabled={actionPending}
-                        onClick={() => postServiceRestartMutation.mutate()}
-                      >
-                        <RotateCw className="size-6 shrink-0" />
-                        {t("overview.runtime.actions.restart")}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      className="flex aspect-square min-h-20 w-full min-w-0 flex-col gap-1 px-1.5 py-2 text-center text-xs leading-tight whitespace-normal"
-                      variant="outline"
-                      disabled={actionPending}
-                      onClick={() => postServiceStartMutation.mutate()}
-                    >
-                      <Play className="size-6 shrink-0" />
-                      {t("overview.runtime.actions.start")}
-                    </Button>
-                  )}
-                </div>
-              </>
-            ) : null}
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-4 p-4 lg:p-5">
-            <DnsCheckWidget
-              summary={<InterceptStatusSummary health={serviceHealth?.intercept} />}
-              disabledReason={dnsCheckDisabledReason}
-              dnsProbeEnabled={dnsCheckEnabled}
-              markerDomain={markerConfig?.domain ?? DNS_CHECK_DOMAIN_SUFFIX}
-              onStatusChange={setDnsCheckStatus}
-              embedded
-            />
-          </div>
-
-          <DnsRulesSection health={serviceHealth?.dnsmasq} />
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.8fr)]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <OutboundsOverviewPanel
+            dimmed={dimmed}
+            isLoading={configQuery.isLoading}
+            loadError={configQuery.isError || runtimeOutboundsQuery.isError}
+            outbounds={loadedConfig?.outbounds ?? []}
+            runtimeByTag={runtimeOutboundByTag}
+          />
+          <DiagnosticsPanel
+            healthy={healthySummaries}
+            highlighted={highlightDiagnostics}
+            isLoading={
+              routingHealthQuery.isLoading || serviceHealthQuery.isLoading
+            }
+            issues={issues}
+            onDownload={() => setIsDiagnosticsDialogOpen(true)}
+            onShowHealthyChange={setShowHealthyDiagnostics}
+            ref={diagnosticsRef}
+            showHealthy={showHealthyDiagnostics}
+          />
         </div>
-      </Card>
 
-      <InterceptCountersCard health={serviceHealth?.intercept} />
-
-      <RoutingTestPanel />
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <SectionCard className="h-full" title={t("overview.outbounds.title")}>
-          {configQuery.isLoading ? <TableSkeleton /> : null}
-          {configQuery.isError || runtimeOutboundsQuery.isError ? (
-            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-              <AlertDescription>
-                {t("overview.outbounds.loadError")}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          {!configQuery.isLoading && outboundRows.length === 0 ? (
-            <Empty className="border">
-              <EmptyHeader>
-                <EmptyTitle>{t("overview.outbounds.emptyTitle")}</EmptyTitle>
-                <EmptyDescription>
-                  {t("overview.outbounds.emptyDescription")}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : null}
-          {outboundRows.length > 0 ? (
-            <DataTable compact rows={outboundRows} />
-          ) : null}
-        </SectionCard>
-
-        <SectionCard
-          className="h-full"
-          contentClassName="flex flex-1 flex-col"
-          title={t("overview.routing.title")}
-          action={
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setIsDiagnosticsDialogOpen(true)
-              }}
-            >
-              <Download className="h-4 w-4" />
-              {t("overview.diagnosticsDownload.button")}
-            </Button>
-          }
-        >
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Checkbox
-                checked={showHealthyDiagnostics}
-                onCheckedChange={(checked) =>
-                  setShowHealthyDiagnostics(checked === true)
-                }
-              />
-              <span>{t("overview.routing.showHealthyEntries")}</span>
-            </label>
-          </div>
-          {routingHealth || kernelDiagnostics ? (
-            <RoutingHealthCard
-              kernel={kernelDiagnostics}
-              routingHealth={routingHealth}
-              showHealthyEntries={showHealthyDiagnostics}
-            />
-          ) : null}
-          {routingHealthQuery.isLoading ? <TableSkeleton /> : null}
-          {routingHealthQuery.isError ? (
-            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-              <AlertDescription className="whitespace-pre-wrap">
-                {routingHealthErrorMessage}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          <InterceptHealthCard
+        <div className="flex min-w-0 flex-col gap-4">
+          <InterceptPanel
             health={serviceHealth?.intercept}
+            markerDomain={
+              loadedConfig?.intercept?.dns?.marker?.domain ??
+              DNS_CHECK_DOMAIN_SUFFIX
+            }
+            onDnsCheckStatusChange={setDnsCheckStatus}
             requestedDns={requestedInterceptDns}
             requestedL7={requestedInterceptL7}
+            serviceRunning={isServiceRunning}
           />
-        </SectionCard>
+          <DnsRulesPanel dimmed={dimmed} health={serviceHealth?.dnsmasq} />
+          <CountersPanel dimmed={dimmed} health={serviceHealth?.intercept} />
+        </div>
       </div>
+
+      <Dialog onOpenChange={setIsRoutingTestOpen} open={isRoutingTestOpen}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[860px]">
+          <DialogHeader>
+            <DialogTitle>{t("overview.routingTest.title")}</DialogTitle>
+            <DialogDescription>
+              {t("overview.routingTest.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <RoutingTestPanel />
+        </DialogContent>
+      </Dialog>
 
       <DiagnosticsDownloadDialog
         config={loadedConfig}
@@ -397,461 +265,6 @@ export function OverviewPage() {
         }
         serviceHealth={serviceHealth}
       />
-    </div>
-  )
-}
-
-function ServiceSummarySkeleton() {
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-20" />
-        <Skeleton className="h-7 w-28" />
-      </div>
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-28" />
-        <Skeleton className="h-7 w-32" />
-      </div>
-    </div>
-  )
-}
-
-function TableSkeleton() {
-  return (
-    <div className="space-y-2">
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-10 w-full" />
-    </div>
-  )
-}
-
-function DnsRulesSection({ health }: { health?: DnsmasqHealth }) {
-  const { t, i18n } = useTranslation()
-  const state = health?.mode === "dnsmasq" ? health.state : "disabled"
-  const tone =
-    state === "ok"
-      ? "healthy"
-      : state === "applying" || state === "reconciling"
-        ? "warning"
-        : state === "disabled"
-          ? "warning"
-          : "degraded"
-  const lastApplyTs = health?.last_apply_ts ?? null
-  const loadedTs = health?.loaded_ts ?? null
-  const externalReloadTs = health?.last_external_reload_ts ?? null
-  const repairAttempt = health?.repair_attempt ?? 0
-  const repairMax = health?.repair_max_attempts ?? 0
-  const nextRepairTs = health?.next_repair_ts ?? null
-  const repairPaused = health?.repair_paused === true && state === "error"
-  const alive = health?.dnsmasq_alive
-  const showAlive = alive === "dead" || alive === "unknown"
-
-  return (
-    <section className="min-w-0 space-y-3 p-4 lg:p-5">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <h3 className="min-w-0 flex-1 basis-40 font-semibold break-words">
-          {t("overview.dnsRules.title")}
-        </h3>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <StatusBadge tone={tone}>
-            {t(`overview.dnsRules.state.${state}`)}
-          </StatusBadge>
-        </div>
-      </div>
-      <div className="space-y-3">
-        <div className="space-y-1 text-sm">
-          <StatusValue
-            label={t("overview.dnsRules.server")}
-            value="dnsmasq"
-          />
-          <StatusValue
-            label={t("overview.dnsRules.rules")}
-            value={String(health?.rules ?? 0)}
-          />
-          <StatusValue
-            label={t("overview.dnsRules.domains")}
-            value={String(health?.domains ?? 0)}
-          />
-          <StatusValue
-            label={t("overview.dnsRules.lastSync")}
-            value={
-              <span
-                title={
-                  lastApplyTs
-                    ? new Date(lastApplyTs * 1000).toLocaleString(i18n.language)
-                    : undefined
-                }
-              >
-                {lastApplyTs
-                  ? formatRelativeTime(lastApplyTs * 1000, i18n.language)
-                  : t("overview.dnsRules.neverSynced")}
-              </span>
-            }
-          />
-          {loadedTs ? (
-            <StatusValue
-              label={t("overview.dnsRules.loadedAt")}
-              value={
-                <span>{new Date(loadedTs * 1000).toLocaleString(i18n.language)}</span>
-              }
-            />
-          ) : null}
-          {externalReloadTs ? (
-            <StatusValue
-              label={t("overview.dnsRules.externalReload")}
-              value={
-                <span>
-                  {new Date(externalReloadTs * 1000).toLocaleString(i18n.language)}
-                </span>
-              }
-            />
-          ) : null}
-        </div>
-        {state === "disabled" ? (
-          <Alert className="border-border bg-muted/20">
-            <AlertDescription>
-              {t("overview.dnsRules.disabledDescription")}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {showAlive && state !== "ok" ? (
-          <StatusValue
-            label={t("overview.dnsRules.alive.label")}
-            value={t(`overview.dnsRules.alive.${alive}`)}
-          />
-        ) : null}
-        {state === "reconciling" ? (
-          <Alert className="border-border bg-muted/20">
-            <AlertDescription>
-              {nextRepairTs
-                ? t("overview.dnsRules.repairScheduled", {
-                    n: repairAttempt + 1,
-                    max: repairMax,
-                    time: new Date(nextRepairTs * 1000).toLocaleTimeString(
-                      i18n.language,
-                    ),
-                  })
-                : null}
-              {health?.repair_reason ? ` ${health.repair_reason}` : null}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {state === "applying" && repairAttempt > 0 ? (
-          <Alert className="border-border bg-muted/20">
-            <AlertDescription>
-              {t("overview.dnsRules.repairRestarting", {
-                n: repairAttempt,
-                max: repairMax,
-              })}
-              {health?.repair_reason ? ` ${health.repair_reason}` : null}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {state === "error" && (health?.last_error || repairPaused) ? (
-          <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-            <AlertDescription>
-              {repairPaused ? (
-                <>
-                  {t("overview.dnsRules.repairPaused", { max: repairMax })}
-                  <br />
-                  {t("overview.dnsRules.repairPausedHint")}
-                  <br />
-                </>
-              ) : null}
-              {health?.last_error
-                ? `${t("overview.dnsRules.lastError")}: ${health.last_error}`
-                : null}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-      </div>
-    </section>
-  )
-}
-
-function formatRelativeTime(timestampMs: number, locale: string) {
-  const diffSeconds = Math.round((timestampMs - Date.now()) / 1000)
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" })
-  const abs = Math.abs(diffSeconds)
-
-  if (abs < 60) {
-    return formatter.format(diffSeconds, "second")
-  }
-  if (abs < 3600) {
-    return formatter.format(Math.round(diffSeconds / 60), "minute")
-  }
-  if (abs < 86400) {
-    return formatter.format(Math.round(diffSeconds / 3600), "hour")
-  }
-  return formatter.format(Math.round(diffSeconds / 86400), "day")
-}
-
-function RuntimeValue({
-  label,
-  value,
-  valueWeight = "strong",
-}: {
-  label: string
-  value: string
-  valueWeight?: "normal" | "strong"
-}) {
-  return (
-    <StatusValue
-      label={label}
-      value={
-        <div
-          className={valueWeight === "normal" ? "font-normal" : "font-semibold"}
-        >
-          {value}
-        </div>
-      }
-    />
-  )
-}
-
-function InterceptStatusSummary({ health }: { health?: InterceptHealth }) {
-  const { t } = useTranslation()
-
-  if (!health) {
-    return null
-  }
-
-  const status = !health.enabled
-    ? t("overview.intercept.status.disabled")
-    : health.running
-      ? t("overview.intercept.status.running")
-      : t("overview.intercept.status.stopped")
-  const statusTone = !health.enabled
-    ? "warning"
-    : health.running
-      ? "healthy"
-      : "degraded"
-
-  return (
-    <div className="space-y-1 text-sm">
-      <StatusValue
-        label={t("overview.intercept.summary.processor")}
-        value={<StatusBadge tone={statusTone}>{status}</StatusBadge>}
-      />
-      <StatusValue
-        label={t("overview.intercept.summary.dnsHold")}
-        value={
-          <StatusBadge tone={health.dns_hold_active ? "healthy" : "warning"}>
-            {health.dns_hold_active
-              ? t("overview.intercept.summary.enabled")
-              : t("overview.intercept.summary.disabled")}
-          </StatusBadge>
-        }
-      />
-      <StatusValue
-        label={t("overview.intercept.summary.dpi")}
-        value={
-          <StatusBadge tone={health.l7_active ? "healthy" : "warning"}>
-            {health.l7_active
-              ? t("overview.intercept.summary.enabled")
-              : t("overview.intercept.summary.disabled")}
-          </StatusBadge>
-        }
-      />
-      {health.enabled && health.reasons?.length ? (
-        <ul className="list-disc space-y-0.5 pl-4 text-xs text-amber-600 dark:text-amber-400">
-          {health.reasons.map((reason) => (
-            <li key={reason} className="break-words">
-              {reason}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  )
-}
-
-function StatusValue({
-  label,
-  value,
-}: {
-  label: string
-  value: React.ReactNode
-}) {
-  return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,auto)] items-start gap-x-3 gap-y-1">
-      <div className="min-w-0 break-words text-muted-foreground">{label}</div>
-      <div className="min-w-0 text-right break-words">{value}</div>
-    </div>
-  )
-}
-
-function InterceptCountersCard({ health }: { health?: InterceptHealth }) {
-  const { t } = useTranslation()
-  const counters = health?.counters
-  const kernelQueue = health?.kernel_queue
-
-  if (!counters && !kernelQueue) {
-    return null
-  }
-
-  const primaryEntries = counters
-    ? ([
-        ["dnsPackets", counters.dns_packets],
-        ["dnsMatched", counters.dns_matched],
-        ["l7Packets", counters.l7_packets],
-        ["l7Matched", counters.l7_matched],
-      ] as const)
-    : []
-  const detailEntries = counters
-    ? ([
-        ["dnsParseErrors", counters.dns_parse_errors],
-        ["dnsHoldTimeouts", counters.dns_hold_timeouts],
-        ["dnsTcpPartial", counters.dns_tcp_partial],
-        ["markerHits", counters.marker_hits],
-        ["setAdded", counters.set_added],
-        ["setRefreshed", counters.set_refreshed],
-        ["setErrors", counters.set_errors],
-        ["conntrackRequests", counters.conntrack_requests],
-        ["conntrackDeleted", counters.conntrack_deleted],
-        ["conntrackErrors", counters.conntrack_errors],
-        ["queueOverruns", counters.queue_overruns],
-        ["logOverruns", counters.log_overruns],
-      ] as const)
-    : []
-
-  return (
-    <SectionCard title={t("overview.intercept.countersTitle")}>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {primaryEntries.map(([name, value]) => (
-          <StackedCounter
-            key={name}
-            label={t(`overview.intercept.counters.${name}`)}
-            value={value}
-          />
-        ))}
-      </div>
-      {detailEntries.length > 0 || kernelQueue ? (
-        <details className="group">
-          <summary className="inline-flex cursor-pointer text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
-            {t("overview.intercept.moreCounters")}
-          </summary>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {kernelQueue ? (
-              <StackedCounter
-                label={t("overview.intercept.kernelQueue.queueTotal")}
-                value={kernelQueue.queue_total}
-              />
-            ) : null}
-            {detailEntries.map(([name, value]) => (
-              <StackedCounter
-                key={name}
-                label={t(`overview.intercept.counters.${name}`)}
-                value={value}
-              />
-            ))}
-            {kernelQueue
-              ? (
-                  [
-                    ["queueDropped", kernelQueue.queue_dropped],
-                    ["userDropped", kernelQueue.user_dropped],
-                    ["idSequence", kernelQueue.id_sequence],
-                  ] as const
-                ).map(([name, value]) => (
-                  <StackedCounter
-                    key={name}
-                    label={t(`overview.intercept.kernelQueue.${name}`)}
-                    value={value}
-                  />
-                ))
-              : null}
-          </div>
-        </details>
-      ) : null}
-    </SectionCard>
-  )
-}
-
-function StackedCounter({ label, value }: { label: string; value?: number }) {
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-xl font-semibold tabular-nums">{value ?? 0}</div>
-    </div>
-  )
-}
-
-function InterceptHealthCard({
-  health,
-  requestedDns,
-  requestedL7,
-}: {
-  health?: InterceptHealth
-  requestedDns: boolean
-  requestedL7: boolean
-}) {
-  const { t } = useTranslation()
-
-  if (!health) {
-    return null
-  }
-
-  const errors = collectInterceptDiagnosticErrors(
-    health.capabilities,
-    health.probes ?? [],
-    requestedDns,
-    requestedL7
-  )
-
-  if (
-    errors.length === 0 &&
-    (health.warnings?.length ?? 0) === 0 &&
-    health.reasons.length === 0
-  ) {
-    return null
-  }
-
-  return (
-    <div className="space-y-4">
-      {errors.length > 0 ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>
-            <div className="font-medium">
-              {t("overview.intercept.diagnosticErrors")}
-            </div>
-            <ul className="list-disc pl-5">
-              {errors.map((error) => (
-                <li key={error}>{error}</li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {health.warnings && health.warnings.length > 0 ? (
-        <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
-          <AlertDescription>
-            <ul className="list-disc pl-5">
-              {health.warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {health.reasons.length > 0 ? (
-        <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
-          <AlertDescription>
-            <div className="space-y-1">
-              <div className="font-medium">
-                {t("overview.intercept.unsupportedWarning")}
-              </div>
-              <ul className="list-disc pl-5">
-                {health.reasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
-            </div>
-          </AlertDescription>
-        </Alert>
-      ) : null}
     </div>
   )
 }
@@ -871,104 +284,4 @@ function getRoutingHealthErrorMessage(
     getApiErrorMessage(error as ApiError | null) ||
     t("overview.routing.loadError")
   )
-}
-
-function mapServiceStatusTone(
-  status: string
-): "healthy" | "warning" | "degraded" {
-  if (status === "running") {
-    return "healthy"
-  }
-
-  if (status === "degraded" || status === "starting" || status === "reloading") {
-    return "warning"
-  }
-
-  return "degraded"
-}
-
-function StatusBadge({
-  tone,
-  children,
-}: {
-  tone: "healthy" | "warning" | "degraded"
-  children: string
-}) {
-  return (
-    <Badge
-      size="xs"
-      variant={
-        tone === "warning"
-          ? "warning"
-          : tone === "degraded"
-            ? "destructive"
-            : "success"
-      }
-    >
-      {children}
-    </Badge>
-  )
-}
-
-function OutboundHeader({
-  outbound,
-  runtimeState,
-}: {
-  outbound: Outbound
-  runtimeState?: RuntimeOutboundState
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="font-medium">{outbound.tag}</div>
-      <Badge size="xs" variant="outline">
-        {outbound.type}
-      </Badge>
-      <StatusBadge tone={mapRuntimeHealthTone(runtimeState?.status)}>
-        {runtimeState?.status ?? "unknown"}
-      </StatusBadge>
-    </div>
-  )
-}
-
-function mapRuntimeHealthTone(
-  status: RuntimeOutboundState["status"] | undefined
-): "healthy" | "warning" | "degraded" {
-  if (status === "healthy") {
-    return "healthy"
-  }
-
-  if (status === "unknown" || status === undefined) {
-    return "warning"
-  }
-
-  return "degraded"
-}
-
-function getRuntimeFallbackLabel(
-  outbound: Outbound,
-  t: (key: string, options?: Record<string, unknown>) => string
-): string | undefined {
-  if (outbound.type === "table" && typeof outbound.table === "number") {
-    return t("runtime.fallback.table", { value: outbound.table })
-  }
-
-  if (outbound.type === "blackhole") {
-    return t("runtime.fallback.blackhole")
-  }
-
-  return undefined
-}
-
-function getRuntimeFallbackTone(
-  outbound: Outbound
-): "info" | "unknown" | undefined {
-  if (outbound.type === "table") {
-    return "info"
-  }
-
-  if (outbound.type === "blackhole") {
-    return "unknown"
-  }
-
-  return undefined
 }

@@ -4,7 +4,6 @@ import { useLocation } from "wouter"
 
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
-import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
@@ -28,8 +27,11 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useListUsageSubtitle } from "@/hooks/use-list-usage-subtitle"
 import {
   clearFormServerErrors,
+  clearServerErrorsOnChange,
+  getFieldError,
   setFormServerErrors,
   splitFormApiErrors,
+  useFormServerErrors,
 } from "@/lib/form-api-errors"
 import {
   Select,
@@ -161,6 +163,7 @@ function DnsRuleForm({
   )
   const postConfigMutation = usePostConfigMutation()
   const form = useForm({
+    listeners: clearServerErrorsOnChange,
     defaultValues: {
       rule:
         mode === "edit" && existingRule
@@ -255,17 +258,8 @@ function DnsRuleForm({
       },
     },
   })
-  const unmappedServerErrors = useStore(
-    form.store,
-    (state) =>
-      (
-        state.errorMap.onServer as
-          | {
-              unmapped?: { path: string; message: string }[]
-            }
-          | undefined
-      )?.unmapped ?? []
-  )
+  const serverErrors = useFormServerErrors(form)
+  const unmappedServerErrors = serverErrors.unmapped
 
   return (
     <UpsertPage
@@ -316,7 +310,7 @@ function DnsRuleForm({
 
           <form.Field name={DNS_RULE_FIELD_NAMES.server}>
             {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
+              const error = getFieldError(field)
               return (
                 <Field invalid={Boolean(error)}>
                   <FieldLabel>
@@ -366,7 +360,7 @@ function DnsRuleForm({
 
           <form.Field name={DNS_RULE_FIELD_NAMES.lists}>
             {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
+              const error = getFieldError(field)
               return (
                 <Field invalid={Boolean(error)}>
                   <FieldLabel>
@@ -465,11 +459,6 @@ function DnsRuleForm({
       </form>
     </UpsertPage>
   )
-}
-
-function getFirstFieldError(errors: unknown[]) {
-  const firstError = errors[0]
-  return typeof firstError === "string" ? firstError : undefined
 }
 
 function resolveDnsRuleFieldPath(path: string): DnsRuleFieldName | undefined {

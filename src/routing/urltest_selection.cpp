@@ -10,24 +10,10 @@ std::vector<std::string> select_test_group_usable_outbounds(const UrltestState& 
     const auto& test_group = state.config;
     if (!test_group.outbound_groups.has_value()) return {};
 
-    struct GroupRef {
-        size_t index;
-        uint32_t weight;
-    };
     const auto& groups = *test_group.outbound_groups;
-    std::vector<GroupRef> sorted_groups;
-    sorted_groups.reserve(groups.size());
-    for (size_t index = 0; index < groups.size(); ++index) {
-        sorted_groups.push_back({index,
-            static_cast<uint32_t>(groups[index].weight.value_or(1))});
-    }
-    std::stable_sort(sorted_groups.begin(), sorted_groups.end(),
-                     [](const GroupRef& left, const GroupRef& right) {
-                         return left.weight < right.weight;
-                     });
 
-    for (const auto& group_ref : sorted_groups) {
-        const auto group_tags = outbound_group_tags(groups[group_ref.index]);
+    for (const auto& group : groups) {
+        const auto group_tags = outbound_group_tags(group);
         const auto usable = [&](const std::string& child_tag) {
             const auto breaker = state.circuit_breakers.find(child_tag);
             const auto result = state.last_results.find(child_tag);

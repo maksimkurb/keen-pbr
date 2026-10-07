@@ -180,6 +180,113 @@ void migrate_legacy_icmptest(json& root,
     }
 }
 
+// Converts the legacy group fields (`outbounds`, `candidates`, group `weight`)
+// of urltest/icmptest outbounds into the canonical `members` form. Groups are
+// stable-sorted by the legacy weight (default 1), which was the step priority.
+// Must run after migrate_legacy_icmptest().
+void migrate_legacy_group_members(json& root,
+                                  std::vector<ConfigValidationIssue>& issues) {
+    auto outbounds = root.find("outbounds");
+    if (outbounds == root.end() || !outbounds->is_array()) return;
+
+    const auto present = [](const json& object, const char* key) {
+        const auto it = object.find(key);
+        return it != object.end() && !it->is_null();
+    };
+
+    for (size_t outbound_index = 0; outbound_index < outbounds->size(); ++outbound_index) {
+        auto& outbound = outbounds->at(outbound_index);
+        if (!outbound.is_object()) continue;
+        const auto type = outbound.find("type");
+        if (type == outbound.end() || !type->is_string()) continue;
+        const auto& type_name = type->get_ref<const std::string&>();
+        if (type_name != "icmptest" && type_name != "urltest") continue;
+        const auto tag_value = outbound.find("tag");
+        const std::string tag =
+            tag_value != outbound.end() && tag_value->is_string()
+                ? tag_value->get<std::string>()
+                : std::to_string(outbound_index);
+        auto groups = outbound.find("outbound_groups");
+        if (groups == outbound.end() || !groups->is_array()) continue;
+
+        struct Entry {
+            int64_t weight;
+            json group;
+        };
+        std::vector<Entry> entries;
+        bool any_legacy = false;
+        bool failed = false;
+        for (size_t group_index = 0; group_index < groups->size(); ++group_index) {
+            json group = groups->at(group_index);
+            const std::string group_path = "outbounds." + tag + ".outbound_groups[" +
+                                           std::to_string(group_index) + "]";
+            int64_t weight = 1;
+            if (!group.is_object()) {
+                entries.push_back({weight, std::move(group)});
+                continue;
+            }
+            const bool has_members = present(group, "members");
+            const bool has_outbounds = present(group, "outbounds");
+            const bool has_candidates = present(group, "candidates");
+            const bool has_weight = present(group, "weight");
+            const bool has_legacy = has_outbounds || has_candidates || has_weight;
+            if (has_members && has_legacy) {
+                add_issue(issues, group_path,
+                          "outbound_group cannot mix 'members' with the legacy "
+                          "'outbounds', 'candidates' or 'weight' fields");
+                failed = true;
+            } else if (has_outbounds && has_candidates) {
+                add_issue(issues, group_path,
+                          "outbound_group cannot have both 'outbounds' and 'candidates'");
+                failed = true;
+            }
+            if (has_weight) {
+                if (group["weight"].is_number_integer()) {
+                    weight = group["weight"].get<int64_t>();
+                } else {
+                    add_issue(issues, group_path + ".weight", "Group weight must be an integer");
+                    failed = true;
+                }
+            }
+            if (!failed && !has_members &&
+                (has_outbounds || has_candidates)) {
+                json members = json::array();
+                if (has_outbounds) {
+                    if (group["outbounds"].is_array()) {
+                        for (const auto& item : group["outbounds"]) {
+                            if (item.is_string()) members.push_back({{"outbound", item}});
+                            else members.push_back(item);
+                        }
+                    } else {
+                        add_issue(issues, group_path + ".outbounds", "'outbounds' must be an array");
+                        failed = true;
+                    }
+                } else if (group["candidates"].is_array()) {
+                    members = group["candidates"];
+                } else {
+                    add_issue(issues, group_path + ".candidates", "'candidates' must be an array");
+                    failed = true;
+                }
+                group["members"] = std::move(members);
+            }
+            if (has_legacy) any_legacy = true;
+            group.erase("outbounds");
+            group.erase("candidates");
+            group.erase("weight");
+            entries.push_back({weight, std::move(group)});
+        }
+        if (failed || !any_legacy) continue;
+
+        std::stable_sort(entries.begin(), entries.end(),
+                         [](const Entry& left, const Entry& right) {
+                             return left.weight < right.weight;
+                         });
+        json migrated = json::array();
+        for (auto& entry : entries) migrated.push_back(std::move(entry.group));
+        *groups = std::move(migrated);
+    }
+}
+
 void validate_optional_integer_field(const json& root,
                                      const char* parent_key,
                                      const char* child_key,
@@ -810,6 +917,7 @@ Config parse_config_json(json parsed_json) {
     std::vector<ConfigValidationIssue> issues;
 
     migrate_legacy_icmptest(parsed_json, issues);
+    migrate_legacy_group_members(parsed_json, issues);
 
     validate_optional_hex_string_field(
         parsed_json, "fwmark", "start", "fwmark.start", issues);
@@ -896,6 +1004,17 @@ Config parse_config_input(Input&& input) {
 
 Config parse_config(const std::string& json_str) {
     return parse_config_input(json_str);
+}
+
+std::optional<std::string> upgraded_config_text(const std::string& json_str) {
+    json parsed = json::parse(json_str, nullptr, false, true);
+    if (parsed.is_discarded() || !parsed.is_object()) return std::nullopt;
+    const json original = parsed;
+    std::vector<ConfigValidationIssue> ignored;
+    migrate_legacy_icmptest(parsed, ignored);
+    migrate_legacy_group_members(parsed, ignored);
+    if (parsed == original) return std::nullopt;
+    return parsed.dump(2) + "\n";
 }
 
 Config parse_config(std::istream& json_stream) {
@@ -1153,39 +1272,38 @@ void validate_config(const Config& cfg) {
             const std::string group_path =
                 "outbounds." + ob.tag + ".outbound_groups[" + std::to_string(group_index) + "]";
 
-            if (is_icmp && group.outbounds) {
-                add_issue(issues, group_path + ".outbounds",
-                          "Icmptest groups must use 'candidates', not 'outbounds'");
-            }
-            if (!is_icmp && group.candidates) {
-                add_issue(issues, group_path + ".candidates",
-                          "Urltest groups must use 'outbounds', not 'candidates'");
-            }
-            if (is_icmp && (!group.candidates || group.candidates->empty())) {
-                add_issue(issues, group_path + ".candidates",
-                          "Icmptest outbound_group has an empty 'candidates' array");
-            }
-            if (!is_icmp && (!group.outbounds || group.outbounds->empty())) {
-                add_issue(issues, group_path + ".outbounds",
-                          "Urltest outbound_group has an empty 'outbounds' array");
+            const auto& members = group.members.value_or(std::vector<api::OutboundGroupMemberElement>{});
+            if (members.empty()) {
+                add_issue(issues, group_path + ".members",
+                          std::string(is_icmp ? "Icmptest" : "Urltest") +
+                              " outbound_group has an empty 'members' array");
             }
 
-            const auto group_tags = outbound_group_tags(group);
-            for (size_t candidate_index = 0; candidate_index < group_tags.size(); ++candidate_index) {
-                const auto& ref_tag = group_tags[candidate_index];
+            for (size_t member_index = 0; member_index < members.size(); ++member_index) {
+                const auto& member = members[member_index];
+                const auto& ref_tag = member.outbound;
+                const std::string member_path =
+                    group_path + ".members[" + std::to_string(member_index) + "]";
                 candidates.insert(ref_tag);
                 if (!candidate_entries.insert(ref_tag).second) {
-                    add_issue(issues, group_path + (is_icmp ? ".candidates" : ".outbounds"),
+                    add_issue(issues, member_path + ".outbound",
                               "Outbound '" + ref_tag + "' occurs more than once across outbound_groups");
                 }
-                if (is_icmp && group.candidates && candidate_index < group.candidates->size()) {
-                    const auto& candidate = group.candidates->at(candidate_index);
-                    if (!is_valid_ipv4_address(candidate.target) &&
-                        !is_valid_ipv6_address(candidate.target)) {
-                        add_issue(issues, group_path + ".candidates[" +
-                                              std::to_string(candidate_index) + "].target",
+                if (is_icmp) {
+                    if (!member.target.has_value() ||
+                        (!is_valid_ipv4_address(*member.target) &&
+                         !is_valid_ipv6_address(*member.target))) {
+                        add_issue(issues, member_path + ".target",
                                   "Icmptest target must be a literal IPv4 or IPv6 address");
                     }
+                } else if (member.target.has_value()) {
+                    add_issue(issues, member_path + ".target",
+                              "Urltest members must not have a 'target'; it is only used by icmptest");
+                }
+                if (member.weight.has_value() &&
+                    (*member.weight < kMinBalanceWeight || *member.weight > kMaxBalanceWeight)) {
+                    add_issue(issues, member_path + ".weight",
+                              "Member weight must be between 1 and 100");
                 }
                 bool found = false;
                 for (const auto& target : outbounds) {
@@ -1198,8 +1316,7 @@ void validate_config(const Config& cfg) {
                         target.type != OutboundType::TABLE &&
                         (!is_icmp && target.type != OutboundType::BLACKHOLE)) {
                         add_issue(
-                            issues,
-                            group_path + (is_icmp ? ".candidates" : ".outbounds"),
+                            issues, member_path + ".outbound",
                             "Urltest outbound '" + ob.tag +
                                 "' references outbound '" + ref_tag +
                                 "' which is not an interface, table, or blackhole outbound");
@@ -1209,8 +1326,7 @@ void validate_config(const Config& cfg) {
 
                 if (!found) {
                     add_issue(
-                        issues,
-                        group_path + (is_icmp ? ".candidates" : ".outbounds"),
+                        issues, member_path + ".outbound",
                         "Urltest outbound '" + ob.tag +
                             "' references unknown outbound tag '" + ref_tag + "'");
                 }

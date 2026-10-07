@@ -204,6 +204,80 @@ export const ruTranslation = {
     },
   },
   overview: {
+    status: {
+      ok: "Всё работает",
+      degraded: "Маршрутизация работает с ограничениями",
+      stopped: "Служба остановлена",
+      issuesPrefix: "Система работает, но есть",
+      issueCount_one: "{{count}} проблема",
+      issueCount_few: "{{count}} проблемы",
+      issueCount_many: "{{count}} проблем",
+      issueCount_other: "{{count}} проблемы",
+      versionLine: "keen-pbr {{version}} · сборка {{build}} · {{os}}",
+      confirmStop: "Остановить службу?",
+      confirmStopAction: "Да, остановить",
+      busy: {
+        start: "Служба запускается…",
+        stop: "Служба останавливается…",
+        restart: "Служба перезапускается…",
+        apply: "Применяется конфигурация…",
+      },
+      busyAction: {
+        start: "Запуск…",
+        stop: "Остановка…",
+        restart: "Перезапуск…",
+        apply: "Применение…",
+      },
+    },
+    diagnostics: {
+      allChecks: "все проверки",
+      onlyProblems: "только проблемы",
+      showHealthy: "Показать исправные",
+      noIssues: "Проблем нет",
+      open: "Открыть",
+    },
+    issues: {
+      capabilityUnsupported: "Не поддерживается ядром",
+      kernelCheckFailed: "Проверка ядра не пройдена: {{reason}}",
+      interceptLimited: "Перехват трафика ограничен",
+      interceptWarning: "Предупреждение перехвата трафика",
+      routingCheckFailed: "Не удалось выполнить проверки маршрутизации",
+      chainMissing: "Цепочка файрвола отсутствует",
+      preroutingMissing: "Цепочка файрвола не подключена к PREROUTING",
+      firewallRules: "Правила файрвола не совпадают: {{count}}",
+      routes: "Таблицы маршрутизации не совпадают: {{count}}",
+      policies: "Политики маршрутизации не совпадают: {{count}}",
+      dnsmasqError: "dnsmasq не применил DNS-правила",
+      dnsmasqDead: "dnsmasq не запущен",
+      dnsmasqReconciling: "DNS-правила восстанавливаются",
+      outboundUnavailable: "{{tag}} недоступен",
+      outboundDegraded: "{{tag}} работает с перебоями",
+      groupMembersFailing: "{{tag}}: неисправных участников: {{count}}",
+    },
+    healthy: {
+      firewallOk: "цепочка и хук PREROUTING на месте",
+      firewallPartial: "цепочка неполная",
+      kernelWithRelease: "Проверки ядра ({{release}})",
+      passed: "{{passed}} из {{total}} пройдено",
+    },
+    counters: {
+      title: "Счётчики",
+      collapse: "Свернуть",
+      showAll: "Все {{count}}",
+      short: {
+        dnsPackets: "DNS",
+        dnsMatched: "DNS совп.",
+        l7Packets: "L7",
+        l7Matched: "L7 совп.",
+      },
+      groups: {
+        dns: "DNS",
+        l7: "L7 и маркер",
+        sets: "Наборы",
+        conntrack: "Conntrack",
+        queue: "Очередь",
+      },
+    },
     pageDescription:
       "Обзор состояния маршрутизации, конфигурации и активных outbounds",
     runtime: {
@@ -220,7 +294,18 @@ export const ruTranslation = {
       },
     },
     outbounds: {
-      title: "Состояние outbounds",
+      title: "Outbounds",
+      summary: "{{configured}} настроено · групп: {{groups}}",
+      online: "{{count}} online",
+      manage: "Управлять",
+      plainTitle: "Простые outbounds",
+      latency: "{{value}} мс",
+      packetsTitle: "Ответов на пробы: {{received}} из {{attempted}}",
+      columns: {
+        group: "Группа",
+        strategy: "Стратегия",
+        members: "Участники",
+      },
       loadError: "Не удалось загрузить состояние outbounds.",
       emptyTitle: "Outbounds не настроены",
       emptyDescription: "Добавьте outbounds, чтобы увидеть проверки состояния.",
@@ -327,6 +412,7 @@ export const ruTranslation = {
       },
       status: {
         disabled: "Перехват DNS отключён в конфигурации.",
+        runtimeDisabled: "Перехват не работает: удержание DNS не активно",
         browserSuccess:
           "Перехват DNS-запросов из этого браузера работает",
         manualProbeSuccess: "Перехватчик увидел DNS-запрос от устройства.",
@@ -350,6 +436,8 @@ export const ruTranslation = {
     },
     dnsRules: {
       server: "DNS-сервер",
+      inactive: "Не активно",
+      rulesAndDomains: "Правила / домены",
       title: "Правила DNS",
       state: {
         ok: "Синхронизирован",
@@ -378,6 +466,20 @@ export const ruTranslation = {
     },
     intercept: {
       title: "Перехват трафика",
+      rows: {
+        dns: {
+          title: "Перехват DNS",
+          description: "определение доменов по ответам",
+        },
+        dnsHold: {
+          title: "Удержание DNS",
+          description: "ответ ждёт заполнения наборов",
+        },
+        l7: {
+          title: "Перехват L7",
+          description: "TLS SNI · HTTP Host · QUIC",
+        },
+      },
       description: "Состояние перехвата DNS и L7 на стороне демона.",
       status: {
         disabled: "Отключён",
@@ -444,7 +546,8 @@ export const ruTranslation = {
       },
     },
     routingTest: {
-      title: "Куда пойдёт этот трафик?",
+      title: "Куда пойдёт трафик?",
+      description: "Проверка домена или IP-адреса",
       placeholder: "напр. google.com или 1.2.3.4",
       submit: "Проверить маршрут",
       invalidTarget: "Введите корректный домен или IP-адрес.",
@@ -1000,6 +1103,67 @@ export const ruTranslation = {
       },
     },
     outboundUpsert: {
+      typeHints: {
+        interface:
+          "Трафик уходит через выбранный сетевой интерфейс (tun0, wg0, eth0) с необязательными шлюзами.",
+        table:
+          "Трафик отправляется по существующей таблице маршрутизации ядра по её ID.",
+        urltest:
+          "Группа outbound’ов: сервис периодически скачивает URL через каждый и выбирает самый быстрый.",
+        icmptest:
+          "То же, но каждый кандидат проверяется ping-ом (ICMP echo) на свой адрес.",
+        blackhole: "Весь трафик, входящий в этот outbound, отбрасывается.",
+        ignore:
+          "Весь трафик, входящий в этот outbound, игнорирует последующие правила keen-pbr и маршрутизируется согласно настройкам роутера.",
+      },
+      advanced: {
+        probesTitle: "Проверки и повторы",
+        circuitBreakerTitle: "Circuit breaker",
+        hasError: "есть ошибки",
+        changed: "изменено",
+        default: "по умолчанию",
+      },
+      conntrack: {
+        label: "Соединения при переключении",
+        hint: "Что делать с установленными соединениями, когда работающий outbound заменяется более быстрым или приоритетным. Соединения через упавший outbound сбрасываются всегда.",
+        preserve: "Сохранять",
+        delete: "Сбрасывать",
+      },
+      ladder: {
+        phrase: {
+          priority: "Весь трафик идёт через самый быстрый работающий outbound ступени 1.",
+          balance:
+            "Новые соединения распределяются между работающими outbound’ами ступени 1 по их весам.",
+          fallbackOne: "Если ни один из них не работает — берётся ступень 2.",
+          fallbackMany:
+            "Если ни один из них не работает — по очереди берутся ступени 2–{{last}}.",
+        },
+        primaryStep: "Основная ступень",
+        backupStep: "Резервная ступень {{index}}",
+        activeNow: "сейчас работает",
+        ifAllDown: "если все недоступны",
+        moveUp: "Выше",
+        moveDown: "Ниже",
+        removeStep: "Удалить ступень",
+        removeMember: "Убрать {{tag}}",
+        add: "Добавить",
+        addStep: "Добавить резервную ступень",
+        noOptions: "Все доступные outbound’ы уже использованы",
+        weight: "Вес",
+        weightHint:
+          "Доля новых соединений этого outbound внутри ступени. Например, веса 7 и 3 дают 70% и 30%. Пусто — вес 1. Учитываются только работающие outbound’ы: если один недоступен, его доля делится между остальными по их весам. Уже установленные соединения не переносятся. Допустимо от 1 до 100.",
+        shareTitle: "Доля новых соединений, когда все outbound’ы ступени работают",
+        pingTarget: "Цель ping",
+        latency: "{{value}} мс",
+        roles: {
+          selected: "выбран",
+          balanced: "в ротации",
+          standby: "в запасе",
+          waiting: "ожидает",
+          degraded: "перебои",
+          unavailable: "недоступен",
+        },
+      },
       createTitle: "Создать outbound",
       editTitle: "Изменить outbound",
       editCardTitle: "Изменить {{tag}}",
@@ -1014,11 +1178,11 @@ export const ruTranslation = {
         back: "Назад к outbounds",
       },
       actions: { create: "Создать outbound", save: "Сохранить outbound" },
-      common: {
-        noExtraFields:
-          "Для этого типа не нужны дополнительные поля, кроме тега outbound.",
-      },
       strategy: {
+        cards: {
+          priority: { title: "Самый быстрый", description: "Выбирает выход с наименьшей задержкой" },
+          balance: { title: "Многопутевая передача", description: "Балансировка подключений между выходами активной ступени" },
+        },
         label: "Стратегия выбора",
         hint: "Priority оставляет один выбранный outbound; balance распределяет новые соединения между исправными outbound (недоступно на Keenetic).",
         hintKeenetic: "Балансировка нагрузки отключена на Keenetic; используйте встроенные функции многопутевой маршрутизации маршрутизатора.",
@@ -1028,6 +1192,7 @@ export const ruTranslation = {
         },
       },
       fields: {
+        aboutType: "Об этом типе",
         tag: "Название",
         tagHint:
           "Уникальное название для этого outbound. Используется в правилах и группах.",
@@ -1043,6 +1208,9 @@ export const ruTranslation = {
         },
       },
       interface: {
+        gatewayPlaceholder: "необязательно, напр. auto или 10.23.0.1",
+        gateway6Placeholder: "необязательно, напр. auto или fe80::1",
+        gatewaysHint: 'Укажите "auto", чтобы попытаться определить автоматически',
         title: "Настройки интерфейса",
         description:
           "Укажите исходящий интерфейс и необязательные IPv4/IPv6 шлюзы для этого outbound.",
@@ -1050,10 +1218,10 @@ export const ruTranslation = {
         interfacePlaceholder: "Выберите или введите интерфейс",
         interfaceHint:
           "Имя исходящего интерфейса, напр. `tun0`, `eth0`, `wg0`.",
-        gateway: "Шлюз (IPv4)",
+        gateway: "Шлюз по умолчанию IPv4",
         gatewayHint:
           "Необязательный IPv4-шлюз; `auto` автоматически выбирает его из основного маршрута по умолчанию.",
-        gateway6: "Шлюз (IPv6)",
+        gateway6: "Шлюз по умолчанию IPv6",
         gateway6Hint:
           "Необязательный IPv6-шлюз; `auto` автоматически выбирает его из основного маршрута по умолчанию.",
       },
@@ -1075,6 +1243,8 @@ export const ruTranslation = {
           "Outbounds типа ignore пропускают подходящий трафик без изменения policy-based routing.",
       },
       urltest: {
+        probeTimeout: "Таймаут проверки (мс)",
+        probeTimeoutHint: "Сколько ждать ответа на каждый запрос проверки (в миллисекундах).",
         groupsTitle: "Группы outbound (urltest)",
         groupsDescription:
           "Добавьте outbounds в группу. Самый быстрый outbound (по urltest-проверке) будет выбран автоматически.",
@@ -1151,10 +1321,34 @@ export const ruTranslation = {
         halfOpenHint:
           "Количество попыток проверки в фазе half-open, прежде чем circuit полностью закроется или откроется снова.",
       },
-      strictEnforcement: {
-        label: "Переопределение kill-switch",
-        hint: "Переопределяет глобальную настройку kill-switch для этого outbound.",
-        default: "По умолчанию (как в глобальном конфиге)",
+      killSwitch: {
+        title: "Kill-switch",
+        description:
+          "Что делать с трафиком этого outbound, пока его интерфейс или шлюз недоступен.",
+        inheritNow: "Сейчас: {{value}}",
+        options: {
+          inherit: { title: "Поведение по умолчанию" },
+          off: {
+            title: "Не блокировать",
+            description: "Трафик пойдёт в обход, через основной маршрут.",
+          },
+          reject: {
+            title: "Блокировать с ошибкой",
+            description:
+              "Соединения сразу завершаются ошибкой (unreachable): приложения узнают об этом мгновенно.",
+          },
+          drop: {
+            title: "Блокировать молча",
+            description:
+              "Пакеты отбрасываются (blackhole): приложения ждут тайм-аута.",
+          },
+        },
+        badge: {
+          inherit: "по умолчанию",
+          off: "не блокировать",
+          reject: "блокировать с ошибкой",
+          drop: "блокировать молча",
+        },
       },
       validation: {
         tagRequired: "Тег обязателен.",

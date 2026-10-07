@@ -247,6 +247,17 @@ inline FirewallPlan capture_plan(bool nft, bool two_interfaces, bool conntrack) 
                                      {0x20000u, false, true},
                                      {0x40000u, false, true}}});
     }
+    {
+      // Weighted: 70/20/10 reduce to 7/2/1 -> numgen mod 10, ranges 0-6, 7-8
+      // and the single key 9.
+      FirewallRuleCriteria c;
+      c.dst_port = "9443";
+      c.proto = L4Proto::Tcp;
+      route("route.balance", FirewallFamily::ipv4, c,
+            BalanceAction{0x30000u, {{0x10000u, true, false, 70},
+                                     {0x20000u, true, false, 20},
+                                     {0x40000u, true, false, 10}}});
+    }
   }
   r.finish();
   return plan;
@@ -304,6 +315,16 @@ inline FirewallPlan capture_plan_iptables_balance() {
                                    {0x60000u, true, false},
                                    {0x70000u, true, false},
                                    {0x80000u, false, true}}});
+  }
+  {
+    // Weighted 70/20/10: picks with 7/10, then 2/3, then unconditionally.
+    FirewallRuleCriteria c;
+    c.dst_port = "9443";
+    c.proto = L4Proto::Tcp;
+    route(FirewallFamily::ipv4, c,
+          BalanceAction{0x30000u, {{0x10000u, true, false, 70},
+                                   {0x20000u, true, false, 20},
+                                   {0x40000u, true, false, 10}}});
   }
   r.finish();
   return plan;

@@ -51,6 +51,8 @@ import { getApiErrorMessage } from "@/lib/api-errors"
 import {
   buildUpdatedConfigForOutboundsDelete,
   getOutboundDeleteImpact,
+  getOrderedOutboundGroups,
+  getOutboundGroupMembers,
   getOutboundGroupTags,
   type OutboundDeleteImpact,
 } from "@/pages/outbounds-utils"
@@ -393,9 +395,12 @@ function getOutboundDeleteImpactItems(
   }
 
   for (const membership of impact.urltestMemberships) {
-    const group = config?.outbounds?.find(
+    const owner = config?.outbounds?.find(
       (outbound) => outbound.tag === membership.outboundTag
-    )?.outbound_groups?.[membership.groupIndex]
+    )
+    const group = owner
+      ? getOrderedOutboundGroups(owner)[membership.groupIndex]
+      : undefined
     const groupTags = group ? getOutboundGroupTags(group) : []
     const remainingTags = groupTags.filter(
       (tag) => !impact.deletedOutboundTags.includes(tag)
@@ -584,7 +589,7 @@ function getOutboundSummary(
 
   if (outbound.type === "urltest") {
     const allOutbounds =
-      outbound.outbound_groups?.flatMap(getOutboundGroupTags) ?? []
+      getOrderedOutboundGroups(outbound).flatMap(getOutboundGroupTags)
     const outbounds = {
       outbounds: allOutbounds.join(", ") || "-",
     }
@@ -597,13 +602,11 @@ function getOutboundSummary(
   }
 
   if (outbound.type === "icmptest") {
-    const candidates =
-      outbound.outbound_groups?.flatMap(
-        (group) =>
-          group.candidates?.map(
-            (candidate) => `${candidate.outbound}(→${candidate.target})`
-          ) ?? []
-      ) ?? []
+    const candidates = getOrderedOutboundGroups(outbound).flatMap((group) =>
+      getOutboundGroupMembers(group).map(
+        (member) => `${member.outbound}(→${member.target ?? "-"})`
+      )
+    )
     return t("pages.outbounds.summary.icmptest", {
       candidates: candidates.join(", ") || "-",
     })

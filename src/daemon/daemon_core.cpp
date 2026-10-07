@@ -1,5 +1,6 @@
 #include "../intercept/intercept_report.hpp"
 #include "daemon.hpp"
+#include "../config/config_writer.hpp"
 
 #include "../config/routing_state.hpp"
 
@@ -1070,8 +1071,10 @@ void Daemon::handle_sighup() {
           }
           std::ostringstream contents;
           contents << input.rdbuf();
-          Config candidate = parse_config(contents.str());
+          const std::string disk_text = contents.str();
+          Config candidate = parse_config(disk_text);
           validate_config(candidate);
+          upgrade_config_file_if_needed(config_path_, disk_text);
           result = apply_validated_config_via_control_task(std::move(candidate),
                                                            "", false);
         } catch (const std::exception &error) {

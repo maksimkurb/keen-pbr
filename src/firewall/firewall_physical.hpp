@@ -307,15 +307,24 @@ struct LogStmt {
   }
 };
 
-// nft `<key> vmap { k : jump chain, ... }`.
+// nft `<key> vmap { k : jump chain, from-to : jump chain, ... }`.
 enum class PhysicalVmapKey : uint8_t {
   numgen_inc,         // numgen inc mod `param`
   conntrack_mark_and, // ct mark & `param`
 };
+// One vmap element: the key interval [from, to] (from == to for a single key).
+struct VmapEntry {
+  uint32_t from{0};
+  uint32_t to{0};
+  PhysicalChainId chain;
+  bool operator==(const VmapEntry &o) const {
+    return from == o.from && to == o.to && chain == o.chain;
+  }
+};
 struct VmapStmt {
   PhysicalVmapKey key{PhysicalVmapKey::numgen_inc};
   uint32_t param{0};
-  std::vector<std::pair<uint32_t, PhysicalChainId>> entries;
+  std::vector<VmapEntry> entries;
   bool operator==(const VmapStmt &o) const {
     return key == o.key && param == o.param && entries == o.entries;
   }

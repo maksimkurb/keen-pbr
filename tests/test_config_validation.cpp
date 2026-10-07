@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/config/config.hpp"
+#include "../src/config/config_writer.hpp"
 #include "../src/config/routing_state.hpp"
 #include "../src/util/system_info.hpp"
 #include "../src/util/firewall_backend_utils.hpp"
@@ -10,6 +11,9 @@
 #include <fstream>
 #include <algorithm>
 #include <cstdio>
+#include <unistd.h>
+#include <filesystem>
+#include <iterator>
 
 using namespace keen_pbr3;
 
@@ -42,15 +46,16 @@ TEST_CASE("icmptest validation accepts a timing-safe complete probe set") {
     const auto cfg = parse_test_config(R"({"outbounds":[
       {"type":"interface","tag":"wan","interface":"wan"},
       {"type":"icmptest","tag":"auto","interval_ms":60000,
-       "outbound_groups":[{"candidates":[{"outbound":"wan","target":"1.1.1.1"}]}]}
+       "outbound_groups":[{"members":[{"outbound":"wan","target":"1.1.1.1"}]}]}
     ]})");
     REQUIRE(cfg.outbounds);
     REQUIRE(cfg.outbounds->at(1).outbound_groups);
     const auto& group = cfg.outbounds->at(1).outbound_groups->at(0);
     CHECK_FALSE(group.outbounds.has_value());
-    REQUIRE(group.candidates);
-    CHECK(group.candidates->at(0).outbound == "wan");
-    CHECK(group.candidates->at(0).target == "1.1.1.1");
+    CHECK_FALSE(group.candidates.has_value());
+    REQUIRE(group.members);
+    CHECK(group.members->at(0).outbound == "wan");
+    CHECK(group.members->at(0).target == "1.1.1.1");
     CHECK_NOTHROW(parse_test_config(nlohmann::json(cfg).dump()));
 }
 
@@ -201,10 +206,11 @@ TEST_CASE("icmptest migrates the legacy split probe form in memory") {
     ]})");
     const auto& group = cfg.outbounds->at(1).outbound_groups->at(0);
     CHECK_FALSE(group.outbounds.has_value());
-    REQUIRE(group.candidates);
-    CHECK(group.candidates->at(0).outbound == "wan");
-    CHECK(group.candidates->at(0).target == "1.1.1.1");
-    CHECK(group.weight == 2);
+    CHECK_FALSE(group.candidates.has_value());
+    CHECK_FALSE(group.weight.has_value());
+    REQUIRE(group.members);
+    CHECK(group.members->at(0).outbound == "wan");
+    CHECK(group.members->at(0).target == "1.1.1.1");
 }
 
 TEST_CASE("icmptest rejects mixed legacy and canonical forms") {
@@ -1725,4 +1731,187 @@ TEST_CASE("shipped example configs validate and include default local_networks r
         Config cfg = parse_test_config(json.dump());
         CHECK_NOTHROW(validate_config(cfg));
     }
+}
+
+// =============================================================================
+// outbound_groups: unified `members` schema and legacy upgrade
+// =============================================================================
+
+namespace {
+
+const char* const kMainFormatConfig = R"({
+  "outbounds":[
+    {"type":"interface","tag":"a","interface":"eth0"},
+    {"type":"interface","tag":"b","interface":"eth1"},
+    {"type":"interface","tag":"c","interface":"eth2"},
+    {"type":"interface","tag":"d","interface":"eth3"},
+    {"type":"urltest","tag":"web","url":"http://example.test",
+     "outbound_groups":[
+       {"weight":3,"outbounds":["c"]},
+       {"weight":1,"outbounds":["a","b"]},
+       {"outbounds":["d"]}]},
+    {"type":"icmptest","tag":"ping","interval_ms":60000,
+     "outbound_groups":[
+       {"weight":2,"candidates":[{"outbound":"c","target":"9.9.9.9"}]},
+       {"candidates":[{"outbound":"a","target":"1.1.1.1"},
+                      {"outbound":"b","target":"2606:4700:4700::1111"}]}]}
+  ]})";
+
+std::vector<std::string> member_tags(const Outbound& outbound, size_t group) {
+    return outbound_group_tags(outbound.outbound_groups->at(group));
+}
+
+} // namespace
+
+TEST_CASE("legacy urltest and icmptest groups normalize to members in weight order") {
+    const auto cfg = parse_test_config(kMainFormatConfig);
+    const auto& web = cfg.outbounds->at(4);
+    REQUIRE(web.outbound_groups->size() == 3);
+    // Stable sort by legacy weight (default 1): [a,b] (1), [d] (1), [c] (3).
+    CHECK(member_tags(web, 0) == std::vector<std::string>{"a", "b"});
+    CHECK(member_tags(web, 1) == std::vector<std::string>{"d"});
+    CHECK(member_tags(web, 2) == std::vector<std::string>{"c"});
+    for (const auto& group : *web.outbound_groups) {
+        CHECK_FALSE(group.outbounds.has_value());
+        CHECK_FALSE(group.candidates.has_value());
+        CHECK_FALSE(group.weight.has_value());
+        for (const auto& member : *group.members) {
+            CHECK_FALSE(member.target.has_value());
+            CHECK_FALSE(member.weight.has_value());
+        }
+    }
+    const auto& ping = cfg.outbounds->at(5);
+    REQUIRE(ping.outbound_groups->size() == 2);
+    CHECK(member_tags(ping, 0) == std::vector<std::string>{"a", "b"});
+    CHECK(member_tags(ping, 1) == std::vector<std::string>{"c"});
+    CHECK(outbound_group_target(ping.outbound_groups->at(0), "b") ==
+          "2606:4700:4700::1111");
+    CHECK(outbound_group_target(ping.outbound_groups->at(1), "c") == "9.9.9.9");
+}
+
+TEST_CASE("upgraded main-format config serializes to members and round-trips") {
+    const auto cfg = parse_test_config(kMainFormatConfig);
+    const auto json = nlohmann::json(cfg);
+    for (const auto& outbound : json["outbounds"]) {
+        if (!outbound.contains("outbound_groups")) continue;
+        for (const auto& group : outbound["outbound_groups"]) {
+            CHECK(group["candidates"].is_null());
+            CHECK(group["outbounds"].is_null());
+            CHECK(group["weight"].is_null());
+            CHECK(group["members"].is_array());
+        }
+    }
+    const auto serialized = json.dump();
+    const auto reparsed = parse_test_config(serialized);
+    CHECK(nlohmann::json(reparsed) == nlohmann::json(cfg));
+    CHECK_FALSE(upgraded_config_text(serialized).has_value());
+}
+
+TEST_CASE("upgraded_config_text decides whether the file needs a rewrite") {
+    const auto upgraded = upgraded_config_text(kMainFormatConfig);
+    REQUIRE(upgraded.has_value());
+    CHECK(upgraded->find("\"members\"") != std::string::npos);
+    CHECK(upgraded->find("\"candidates\"") == std::string::npos);
+    CHECK(upgraded->find("\"weight\"") == std::string::npos);
+    // The written text is itself valid, and needs no further upgrade.
+    CHECK_NOTHROW(parse_test_config(*upgraded));
+    CHECK(nlohmann::json(parse_test_config(*upgraded)) ==
+          nlohmann::json(parse_test_config(kMainFormatConfig)));
+    CHECK_FALSE(upgraded_config_text(*upgraded).has_value());
+    // Canonical, unrelated, and malformed input is left alone.
+    CHECK_FALSE(upgraded_config_text(R"({"outbounds":[
+      {"type":"urltest","tag":"u","outbound_groups":[{"members":[{"outbound":"a"}]}]}]})")
+                    .has_value());
+    CHECK_FALSE(upgraded_config_text("{}").has_value());
+    CHECK_FALSE(upgraded_config_text("not json").has_value());
+}
+
+TEST_CASE("canonical members keep order, target and weight") {
+    const auto cfg = parse_test_config(R"({"outbounds":[
+      {"type":"interface","tag":"a","interface":"eth0"},
+      {"type":"interface","tag":"b","interface":"eth1"},
+      {"type":"urltest","tag":"web","url":"http://example.test",
+       "outbound_groups":[{"members":[{"outbound":"a","weight":7},{"outbound":"b"}]}]}
+    ]})");
+    const auto& group = cfg.outbounds->at(2).outbound_groups->at(0);
+    CHECK(outbound_group_balance_weight(group, "a") == 7);
+    CHECK(outbound_group_balance_weight(group, "b") == 1);
+    CHECK(outbound_group_balance_weight(group, "missing") == 1);
+}
+
+TEST_CASE("outbound_group members are validated") {
+    const auto wrap = [](const std::string& type_fields, const std::string& members) {
+        return R"({"outbounds":[
+          {"type":"interface","tag":"a","interface":"eth0"},
+          {"type":"interface","tag":"b","interface":"eth1"},
+          {)" + type_fields + R"(,"outbound_groups":[)" + members + R"(]}]})";
+    };
+    const std::string urltest = R"("type":"urltest","tag":"u","url":"http://example.test")";
+    const std::string icmptest = R"("type":"icmptest","tag":"u","interval_ms":60000)";
+
+    SUBCASE("mixing members with legacy fields is rejected") {
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a"}],"outbounds":["b"]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a"}],"weight":2})")).empty());
+        CHECK_FALSE(validate_issues(wrap(icmptest,
+            R"({"members":[{"outbound":"a","target":"1.1.1.1"}],
+                "candidates":[{"outbound":"b","target":"1.1.1.1"}]})")).empty());
+    }
+    SUBCASE("weight must be between 1 and 100") {
+        CHECK(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a","weight":1},{"outbound":"b","weight":100}]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a","weight":0}]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a","weight":101}]})")).empty());
+    }
+    SUBCASE("unknown and duplicate members are rejected") {
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"nope"}]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a"}]},{"members":[{"outbound":"a"}]})")).empty());
+    }
+    SUBCASE("icmptest members need a literal target, urltest members must not have one") {
+        CHECK_FALSE(validate_issues(wrap(icmptest,
+            R"({"members":[{"outbound":"a"}]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(icmptest,
+            R"({"members":[{"outbound":"a","target":"example.com"}]})")).empty());
+        CHECK(validate_issues(wrap(icmptest,
+            R"({"members":[{"outbound":"a","target":"1.1.1.1"}]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a","target":"1.1.1.1"}]})")).empty());
+    }
+    SUBCASE("a group without members is rejected") {
+        CHECK_FALSE(validate_issues(wrap(urltest, R"({"members":[]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest, R"({})")).empty());
+    }
+}
+
+TEST_CASE("upgrade_config_file_if_needed rewrites once and keeps the first backup") {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() /
+                         ("kpbr-upgrade-" + std::to_string(::getpid()));
+    fs::create_directories(dir);
+    const std::string path = (dir / "config.json").string();
+    const auto read = [](const std::string& file) {
+        std::ifstream in(file);
+        return std::string(std::istreambuf_iterator<char>(in), {});
+    };
+    {
+        std::ofstream out(path);
+        out << kMainFormatConfig;
+    }
+    CHECK(upgrade_config_file_if_needed(path, kMainFormatConfig));
+    CHECK(read(path + ".bak-pre-members") == kMainFormatConfig);
+    const auto upgraded = read(path);
+    CHECK(upgraded.find("\"members\"") != std::string::npos);
+    CHECK_NOTHROW(parse_test_config(upgraded));
+    // Already upgraded: nothing to do, file and backup untouched.
+    CHECK_FALSE(upgrade_config_file_if_needed(path, upgraded));
+    CHECK(read(path) == upgraded);
+    // A later legacy rewrite never overwrites the existing backup.
+    CHECK(upgrade_config_file_if_needed(path, R"({"outbounds":[{"type":"urltest","tag":"u","outbound_groups":[{"outbounds":["a"]}]}]})"));
+    CHECK(read(path + ".bak-pre-members") == kMainFormatConfig);
+    fs::remove_all(dir);
 }

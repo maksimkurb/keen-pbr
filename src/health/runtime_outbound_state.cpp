@@ -47,24 +47,8 @@ std::vector<const Outbound*> ordered_urltest_children(const std::vector<Outbound
         return ordered;
     }
 
-    struct GroupRef {
-        size_t index;
-        int64_t weight;
-    };
-
-    std::vector<GroupRef> groups;
-    groups.reserve(urltest.outbound_groups->size());
-    for (size_t index = 0; index < urltest.outbound_groups->size(); ++index) {
-        groups.push_back({index, urltest.outbound_groups->at(index).weight.value_or(1)});
-    }
-
-    std::stable_sort(groups.begin(), groups.end(), [](const GroupRef& lhs, const GroupRef& rhs) {
-        return lhs.weight < rhs.weight;
-    });
-
-    for (const auto& group : groups) {
-        for (const auto& child_tag :
-             outbound_group_tags(urltest.outbound_groups->at(group.index))) {
+    for (const auto& group : *urltest.outbound_groups) {
+        for (const auto& child_tag : outbound_group_tags(group)) {
             const Outbound* child = find_outbound(outbounds, child_tag);
             if (child) {
                 ordered.push_back(child);

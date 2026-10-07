@@ -1,4 +1,5 @@
 #include "daemon.hpp"
+#include "../config/config_writer.hpp"
 #include "../util/safe_exec.hpp"
 
 #include <algorithm>
@@ -445,6 +446,14 @@ FirewallBalanceCandidates Daemon::build_balance_candidates(
             }
 
             FirewallBalanceCandidate candidate{mark->second};
+            for (const auto& member_group : group.outbound_groups.value_or(
+                     std::vector<OutboundGroup>{})) {
+                const auto members = outbound_group_tags(member_group);
+                if (std::find(members.begin(), members.end(), tag) != members.end()) {
+                    candidate.weight = outbound_group_balance_weight(member_group, tag);
+                    break;
+                }
+            }
             if (child->type == OutboundType::INTERFACE) {
                 const bool family4 = is_interface_outbound_family_reachable(
                     *child, AF_INET, main_routes);
@@ -1203,8 +1212,10 @@ void Daemon::reload_from_disk() {
 
     std::ostringstream ss;
     ss << ifs.rdbuf();
-    Config next_config = parse_config(ss.str());
+    const std::string disk_text = ss.str();
+    Config next_config = parse_config(disk_text);
     validate_config(next_config);
+    upgrade_config_file_if_needed(config_path_, disk_text);
     try {
         apply_config(std::move(next_config));
     } catch (...) {

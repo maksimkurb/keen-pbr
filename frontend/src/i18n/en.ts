@@ -202,6 +202,78 @@ export const enTranslation = {
     },
   },
   overview: {
+    status: {
+      ok: "Everything works",
+      degraded: "Routing works with limitations",
+      stopped: "Service is stopped",
+      issuesPrefix: "System is running, but there are",
+      issueCount_one: "{{count}} problem",
+      issueCount_other: "{{count}} problems",
+      versionLine: "keen-pbr {{version}} · build {{build}} · {{os}}",
+      confirmStop: "Stop the service?",
+      confirmStopAction: "Yes, stop",
+      busy: {
+        start: "Service is starting…",
+        stop: "Service is stopping…",
+        restart: "Service is restarting…",
+        apply: "Applying configuration…",
+      },
+      busyAction: {
+        start: "Starting…",
+        stop: "Stopping…",
+        restart: "Restarting…",
+        apply: "Applying…",
+      },
+    },
+    diagnostics: {
+      allChecks: "all checks",
+      onlyProblems: "problems only",
+      showHealthy: "Show healthy",
+      noIssues: "No problems",
+      open: "Open",
+    },
+    issues: {
+      capabilityUnsupported: "Not supported by the kernel",
+      kernelCheckFailed: "Kernel check failed: {{reason}}",
+      interceptLimited: "Traffic interception is limited",
+      interceptWarning: "Traffic interception warning",
+      routingCheckFailed: "Routing checks failed",
+      chainMissing: "Firewall chain is missing",
+      preroutingMissing: "Firewall chain is not hooked into PREROUTING",
+      firewallRules: "Firewall rules do not match: {{count}}",
+      routes: "Routing tables do not match: {{count}}",
+      policies: "Policy rules do not match: {{count}}",
+      dnsmasqError: "dnsmasq does not serve the DNS rules",
+      dnsmasqDead: "dnsmasq is not running",
+      dnsmasqReconciling: "DNS rules are being repaired",
+      outboundUnavailable: "{{tag}} is unavailable",
+      outboundDegraded: "{{tag}} is degraded",
+      groupMembersFailing: "{{tag}}: failing members: {{count}}",
+    },
+    healthy: {
+      firewallOk: "chain and PREROUTING hook in place",
+      firewallPartial: "chain is incomplete",
+      kernelWithRelease: "Kernel checks ({{release}})",
+      passed: "{{passed}} of {{total}} passed",
+    },
+    counters: {
+      title: "Counters",
+      collapse: "Collapse",
+      showAll: "All {{count}}",
+      short: {
+        dnsPackets: "DNS",
+        dnsMatched: "DNS matched",
+        l7Packets: "L7",
+        l7Matched: "L7 matched",
+      },
+      groups: {
+        dns: "DNS",
+        l7: "L7 and marker",
+        sets: "Sets",
+        conntrack: "Conntrack",
+        queue: "Queue",
+      },
+    },
     pageDescription:
       "Overview of routing runtime, config state, and active outbounds",
     runtime: {
@@ -218,7 +290,18 @@ export const enTranslation = {
       },
     },
     outbounds: {
-      title: "Outbounds health",
+      title: "Outbounds",
+      summary: "{{configured}} configured · {{groups}} groups",
+      online: "{{count}} online",
+      manage: "Manage",
+      plainTitle: "Plain outbounds",
+      latency: "{{value}} ms",
+      packetsTitle: "{{received}} of {{attempted}} probe replies",
+      columns: {
+        group: "Group",
+        strategy: "Strategy",
+        members: "Members",
+      },
       loadError: "Unable to load outbound health.",
       emptyTitle: "No outbounds configured",
       emptyDescription: "Add outbounds to see health checks.",
@@ -321,6 +404,7 @@ export const enTranslation = {
       },
       status: {
         disabled: "DNS interception is disabled in config.",
+        runtimeDisabled: "Interception is not working: the DNS hold is not active",
         browserSuccess: "DNS interception from this browser is working",
         manualProbeSuccess:
           "DNS request from the device was observed by the interceptor.",
@@ -345,6 +429,8 @@ export const enTranslation = {
     },
     dnsRules: {
       server: "DNS server",
+      inactive: "Not active",
+      rulesAndDomains: "Rules / domains",
       title: "DNS Rules",
       state: {
         ok: "In sync",
@@ -373,6 +459,20 @@ export const enTranslation = {
     },
     intercept: {
       title: "Traffic interception",
+      rows: {
+        dns: {
+          title: "DNS interception",
+          description: "learns domains from DNS answers",
+        },
+        dnsHold: {
+          title: "DNS hold",
+          description: "answer waits until sets are filled",
+        },
+        l7: {
+          title: "L7 interception",
+          description: "TLS SNI · HTTP Host · QUIC",
+        },
+      },
       description: "Daemon-side DNS and L7 interception health.",
       status: {
         disabled: "Disabled",
@@ -440,6 +540,7 @@ export const enTranslation = {
     },
     routingTest: {
       title: "Where does this traffic go?",
+      description: "Check a domain or IP address",
       placeholder: "e.g. google.com or 1.2.3.4",
       submit: "Check route",
       invalidTarget: "Please enter a valid domain or IP.",
@@ -979,6 +1080,66 @@ export const enTranslation = {
       },
     },
     outboundUpsert: {
+      typeHints: {
+        interface:
+          "Traffic leaves through the selected network interface (tun0, wg0, eth0) with optional gateways.",
+        table: "Traffic is sent through an existing kernel routing table by its ID.",
+        urltest:
+          "A group of outbounds: the service periodically fetches a URL through each one and picks the fastest.",
+        icmptest:
+          "Same as auto-select, but each candidate is checked with ping (ICMP echo) to its own address.",
+        blackhole: "All traffic sent to this outbound is dropped.",
+        ignore:
+          "All traffic sent to this outbound skips the remaining keen-pbr rules and is routed according to the router settings.",
+      },
+      advanced: {
+        probesTitle: "Probes and retries",
+        circuitBreakerTitle: "Circuit breaker",
+        hasError: "has errors",
+        changed: "changed",
+        default: "default",
+      },
+      conntrack: {
+        label: "Existing connections on switch",
+        hint: "What happens to established connections when a healthy outbound is replaced by a faster or higher-priority one. Connections through a failed outbound are always reset.",
+        preserve: "Keep",
+        delete: "Reset",
+      },
+      ladder: {
+        phrase: {
+          priority: "All traffic goes through the fastest working outbound of tier 1.",
+          balance:
+            "New connections are spread across the working outbounds of tier 1 according to their weights.",
+          fallbackOne: "If none of them works, tier 2 is used.",
+          fallbackMany:
+            "If none of them works, tiers 2–{{last}} are tried in order.",
+        },
+        primaryStep: "Primary tier",
+        backupStep: "Backup tier {{index}}",
+        activeNow: "in use now",
+        ifAllDown: "if all are unavailable",
+        moveUp: "Move up",
+        moveDown: "Move down",
+        removeStep: "Remove tier",
+        removeMember: "Remove {{tag}}",
+        add: "Add",
+        addStep: "Add backup tier",
+        noOptions: "All available outbounds are already used",
+        weight: "Weight",
+        weightHint:
+          "Share of new connections for this outbound within the tier. For example, weights 7 and 3 give 70% and 30%. Empty means 1. Only working outbounds count: if one is down, its share is split among the others by their weights. Established connections stay where they are. Allowed range: 1 to 100.",
+        shareTitle: "Share of new connections while every outbound of the tier works",
+        pingTarget: "Ping target",
+        latency: "{{value}} ms",
+        roles: {
+          selected: "selected",
+          balanced: "in rotation",
+          standby: "standby",
+          waiting: "waiting",
+          degraded: "degraded",
+          unavailable: "unavailable",
+        },
+      },
       createTitle: "Create outbound",
       editTitle: "Edit outbound",
       editCardTitle: "Edit {{tag}}",
@@ -992,11 +1153,11 @@ export const enTranslation = {
         back: "Back to outbounds",
       },
       actions: { create: "Create outbound", save: "Save outbound" },
-      common: {
-        noExtraFields:
-          "No additional fields are required for this type beyond the outbound tag.",
-      },
       strategy: {
+        cards: {
+          priority: { title: "Fastest", description: "Picks the outbound with the lowest latency" },
+          balance: { title: "Multipath", description: "Balances connections across the outbounds of the active tier" },
+        },
         label: "Selection strategy",
         hint: "Priority keeps one selected outbound; balance distributes new connections across healthy outbounds (not available on Keenetic).",
         hintKeenetic: "Load balancing is disabled on Keenetic; use the router's multipath features.",
@@ -1006,6 +1167,7 @@ export const enTranslation = {
         },
       },
       fields: {
+        aboutType: "About this type",
         tag: "Name",
         tagHint:
           "A unique name for this outbound. Referenced in traffic rules and groups.",
@@ -1021,16 +1183,19 @@ export const enTranslation = {
         },
       },
       interface: {
+        gatewayPlaceholder: "optional, e.g. auto or 10.23.0.1",
+        gateway6Placeholder: "optional, e.g. auto or fe80::1",
+        gatewaysHint: 'Enter "auto" to try to detect it automatically',
         title: "Interface settings",
         description:
           "Set the egress interface and optional IPv4/IPv6 gateways for this outbound.",
         interface: "Interface",
         interfacePlaceholder: "Select or type an interface",
         interfaceHint: "Egress interface name, e.g. `tun0`, `eth0`, `wg0`.",
-        gateway: "Gateway (IPv4)",
+        gateway: "Default gateway IPv4",
         gatewayHint:
           "Optional IPv4 gateway; use `auto` to discover it from the main default route.",
-        gateway6: "Gateway (IPv6)",
+        gateway6: "Default gateway IPv6",
         gateway6Hint:
           "Optional IPv6 gateway; use `auto` to discover it from the main default route.",
       },
@@ -1051,6 +1216,8 @@ export const enTranslation = {
           "Ignore outbounds pass matching traffic through without policy-based routing changes.",
       },
       urltest: {
+        probeTimeout: "Probe timeout (ms)",
+        probeTimeoutHint: "How long to wait for each probe request (in milliseconds).",
         groupsTitle: "Outbound groups (urltest)",
         groupsDescription:
           "Add outbounds to this group. The fastest responding outbound (by urltest probe) will be selected.",
@@ -1125,10 +1292,35 @@ export const enTranslation = {
         halfOpenHint:
           "Number of probe attempts allowed during the half-open phase before the circuit fully closes or reopens.",
       },
-      strictEnforcement: {
-        label: "Kill-switch override",
-        hint: "Override the global kill-switch setting for this outbound.",
-        default: "Default (as in global config)",
+      killSwitch: {
+        title: "Kill-switch",
+        description:
+          "What happens to traffic routed to this outbound while its interface or gateway is down.",
+        inheritNow: "Currently: {{value}}",
+        options: {
+          inherit: { title: "Default behavior" },
+          off: {
+            title: "Do not block",
+            description:
+              "Traffic bypasses the outbound and leaves via the main route.",
+          },
+          reject: {
+            title: "Block with an error",
+            description:
+              "Connections fail immediately (unreachable): apps notice at once.",
+          },
+          drop: {
+            title: "Block silently",
+            description:
+              "Packets are dropped (blackhole): apps wait for a timeout.",
+          },
+        },
+        badge: {
+          inherit: "default",
+          off: "not blocking",
+          reject: "block with error",
+          drop: "block silently",
+        },
       },
       validation: {
         tagRequired: "Tag is required.",

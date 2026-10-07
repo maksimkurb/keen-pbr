@@ -931,28 +931,75 @@ components:
 
     OutboundGroup:
       type: object
+      description: >
+        One tier of a `urltest` or `icmptest` outbound. Tiers are tried in
+        array order (first tier first); the members of a tier are listed in
+        `members`. The legacy fields `outbounds`, `candidates` and `weight`
+        are still accepted when reading a config and are converted to
+        `members` (groups stable-sorted by legacy `weight`) while loading;
+        mixing them with `members` in one group is a validation error.
       properties:
+        members:
+          type: array
+          description: Ordered members of this tier. Must not be empty.
+          items:
+            $ref: "#/components/schemas/OutboundGroupMember"
         weight:
           type: integer
+          deprecated: true
           description: >
-            Group priority. Lower values are tried first; equal values retain
-            configuration order. This is not a per-candidate balancing weight.
+            Deprecated. Legacy tier priority (lower values are tried first;
+            equal values keep configuration order). Use the array order of
+            `outbound_groups` instead.
           default: 1
           example: 1
         outbounds:
           type: array
-          description: Ordered outbound tags. Required for `urltest` groups.
+          deprecated: true
+          description: >
+            Deprecated. Legacy ordered outbound tags of a `urltest` group.
+            Use `members` instead.
           items:
             type: string
           example: ["vpn"]
         candidates:
           type: array
-          description: Ordered ICMP candidates. Required for `icmptest` groups.
+          deprecated: true
+          description: >
+            Deprecated. Legacy ordered ICMP candidates of an `icmptest`
+            group. Use `members` instead.
           items:
             $ref: "#/components/schemas/IcmpCandidate"
 
+    OutboundGroupMember:
+      type: object
+      required: [outbound]
+      properties:
+        outbound:
+          type: string
+          description: Member interface, table or (urltest only) blackhole outbound tag.
+          example: "wan1"
+        target:
+          type: string
+          description: >
+            Literal IPv4 or IPv6 address to ping through this member. Required
+            for `icmptest` outbounds; rejected for `urltest` outbounds.
+          example: "1.1.1.1"
+        weight:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 1
+          description: >
+            Share of new connections for this member when the outbound uses
+            the `balance` strategy: each usable member of the active tier
+            receives weight / (sum of the usable members' weights). Ignored
+            by the `priority` strategy.
+          example: 7
+
     IcmpCandidate:
       type: object
+      deprecated: true
       required: [outbound, target]
       properties:
         outbound:

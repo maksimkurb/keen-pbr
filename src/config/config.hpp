@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <istream>
 #include <stdexcept>
 #include <string>
@@ -80,23 +81,40 @@ inline bool dns_rule_enabled(const DnsRule& rule) {
     return rule.enabled.value_or(true);
 }
 
+inline const std::vector<api::OutboundGroupMemberElement>& outbound_group_members(
+    const OutboundGroup& group) {
+    static const std::vector<api::OutboundGroupMemberElement> empty;
+    return group.members ? *group.members : empty;
+}
+
 inline std::vector<std::string> outbound_group_tags(const OutboundGroup& group) {
-    if (group.outbounds) return *group.outbounds;
     std::vector<std::string> tags;
-    for (const auto& candidate : group.candidates.value_or(
-             std::vector<api::IcmpCandidateElement>{})) {
-        tags.push_back(candidate.outbound);
+    for (const auto& member : outbound_group_members(group)) {
+        tags.push_back(member.outbound);
     }
     return tags;
 }
 
 inline std::string outbound_group_target(const OutboundGroup& group,
                                          const std::string& tag) {
-    for (const auto& candidate : group.candidates.value_or(
-             std::vector<api::IcmpCandidateElement>{})) {
-        if (candidate.outbound == tag) return candidate.target;
+    for (const auto& member : outbound_group_members(group)) {
+        if (member.outbound == tag) return member.target.value_or(std::string{});
     }
     return {};
+}
+
+inline constexpr int64_t kMinBalanceWeight = 1;
+inline constexpr int64_t kMaxBalanceWeight = 100;
+
+// Share weight of a group member in balance mode (default 1).
+inline uint32_t outbound_group_balance_weight(const OutboundGroup& group,
+                                              const std::string& tag) {
+    for (const auto& member : outbound_group_members(group)) {
+        if (member.outbound == tag) {
+            return static_cast<uint32_t>(member.weight.value_or(1));
+        }
+    }
+    return 1U;
 }
 
 // What the config asks for, independent of the build.
@@ -142,6 +160,11 @@ std::vector<std::string> config_warnings(const Config& config);
 // --- JSON deserialization and validation ---
 
 Config parse_config(const std::string& json_str);
+// When the config text uses a legacy form that load-time migration rewrites
+// (legacy icmptest probes, group outbounds/candidates/weight), returns the
+// upgraded JSON text; nullopt when nothing changes or the text is not JSON.
+// Pure: callers decide whether to persist it, after parse+validate succeeded.
+std::optional<std::string> upgraded_config_text(const std::string& json_str);
 Config parse_config(std::istream& json_stream);
 void validate_config(const Config& config);
 Config parse_and_validate_config(const std::string& json_str);
