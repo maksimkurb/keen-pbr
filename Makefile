@@ -104,17 +104,17 @@ integration-tests-nftables: ## Run rootless integration tests with the nftables 
 
 clang-build: ## Configure and compile with Clang in a host-only build dir
 	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS)
-	cmake --build $(CLANG_BUILD_DIR) --target keen-pbr
+	cmake --build $(CLANG_BUILD_DIR) --parallel $(BUILD_JOBS) --target keen-pbr
 
 clang-check: ## Compile with Clang thread-safety analysis enabled; never runs binaries
 	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
-	cmake --build $(CLANG_BUILD_DIR) --target keen-pbr keen-pbr-tests thread-safety-smoke
+	cmake --build $(CLANG_BUILD_DIR) --parallel $(BUILD_JOBS) --target keen-pbr keen-pbr-tests thread-safety-smoke
 
 CLANGD_TIDY_ARGS ?=
 
 clang-tidy: ## Run clangd-tidy against project-owned sources using the Clang compile database
 	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
-	bash build_scripts/run-clangd-tidy.sh "$(abspath $(CLANG_BUILD_DIR))" $(CLANGD_TIDY_ARGS)
+	bash build_scripts/run-clangd-tidy.sh "$(abspath $(CLANG_BUILD_DIR))" -j $(BUILD_JOBS) $(CLANGD_TIDY_ARGS)
 
 clean: ## Remove compiled artifacts
 	rm -rf $(NETNS_INTEGRATION_BUILD_DIR)
