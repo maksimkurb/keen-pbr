@@ -63,7 +63,7 @@ void histogram(std::ostringstream& out, const char* name, const char* help,
     }
     out << name << "_sum";
     if (!labels.empty()) out << '{' << labels << '}';
-    out << ' ' << std::setprecision(12) << static_cast<double>(sum_us) / 1000000.0 << '\n'
+    out << ' ' << std::defaultfloat << std::setprecision(12) << static_cast<double>(sum_us) / 1000000.0 << '\n'
         << name << "_count";
     if (!labels.empty()) out << '{' << labels << '}';
     out << ' ' << cumulative << '\n';
