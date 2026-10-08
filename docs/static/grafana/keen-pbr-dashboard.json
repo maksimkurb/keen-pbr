@@ -1680,7 +1680,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (cause) (increase(keen_pbr_dns_hold_timeouts_total{job=~\"$job\"}[$__interval]))",
+          "expr": "sum by (cause) (increase(keen_pbr_dns_hold_timeouts_total{job=~\"$job\"}[$__rate_interval]))",
           "legendFormat": "{{cause}}",
           "refId": "A",
           "range": true
@@ -1735,8 +1735,7 @@
           "mode": "multi",
           "sort": "desc"
         }
-      },
-      "interval": "1m"
+      }
     },
     {
       "id": 23,

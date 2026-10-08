@@ -1,7 +1,5 @@
 #include "../firewall_rule_modules.hpp"
 
-#include <utility>
-
 namespace keen_pbr3 {
 namespace {
 
