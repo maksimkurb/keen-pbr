@@ -3,6 +3,7 @@
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
 #include "../util/traced_mutex.hpp"
+#include "list_refresh_stats.hpp"
 
 #include <condition_variable>
 #include <exception>
@@ -75,6 +76,9 @@ class ListService {
     void ensure_dir();
     const CacheManager& cache_manager() const;
 
+    // Snapshot of per-list refresh telemetry for the metrics endpoint.
+    std::map<std::string, ListRefreshStats> refresh_stats() const;
+
     // Startup only: preserve cached lists and download just the missing ones.
     RemoteListsRefreshResult download_uncached(const Config& config,
                                                const OutboundMarkMap& outbound_marks,
@@ -101,6 +105,8 @@ class ListService {
 
     mutable TracedMutex mutex_;
     std::mutex refresh_mutex_;
+    mutable std::mutex stats_mutex_;
+    std::map<std::string, ListRefreshStats> refresh_stats_;
     std::condition_variable_any refresh_available_;
     std::shared_ptr<RefreshFlight> refresh_flight_;
     CacheManager cache_manager_;

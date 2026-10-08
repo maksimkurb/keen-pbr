@@ -108,10 +108,8 @@ InterceptService::InterceptService(std::unique_ptr<nfnl::DynamicSetWriter> write
       cleanup_queue_(*counters_),
       processor_(*writer_, cleanup_queue_, *counters_) {
     writer_->set_slow_write_counter(&counters_->set_write_slow);
-    writer_->set_metrics(&counters_->netlink_write_metrics);
     if (l7_writer_) {
         l7_writer_->set_slow_write_counter(&counters_->set_write_slow);
-        l7_writer_->set_metrics(&counters_->netlink_write_metrics);
     }
     processor_.set_writer_callbacks(
         [this] { return dns_writes_.enter(); },

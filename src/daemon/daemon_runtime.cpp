@@ -149,6 +149,7 @@ void Daemon::complete_running_runtime(const char* reason, bool defer_dnsmasq_syn
     register_urltest_outbounds();
     schedule_lists_autoupdate();
     transition_runtime_or_throw(RuntimeState::running, reason);
+    config_reload_last_success_s_.store(unix_timestamp_now_seconds(), std::memory_order_relaxed);
     publish_runtime_state();
     // Lifecycle operations are explicit user/boot actions: install the config
     // (not counted against the automatic repair budget, which they refill).
@@ -1212,6 +1213,7 @@ void Daemon::apply_config(Config config, bool refresh_remote_lists) {
     try {
         apply_prepared_runtime_inputs(prepare_runtime_inputs(config, refresh_remote_lists));
     } catch (...) {
+        config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
         std::string ignored_error;
         (void)runtime_state_machine_.transition(RuntimeState::broken, "config apply failed", ignored_error);
         throw;
@@ -1221,14 +1223,21 @@ void Daemon::apply_config(Config config, bool refresh_remote_lists) {
 void Daemon::reload_from_disk() {
     std::ifstream ifs(config_path_);
     if (!ifs.is_open()) {
+        config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
         throw DaemonError("Cannot open config file: " + config_path_);
     }
 
     std::ostringstream ss;
     ss << ifs.rdbuf();
     const std::string disk_text = ss.str();
-    Config next_config = parse_config(disk_text);
-    validate_config(next_config);
+    Config next_config;
+    try {
+        next_config = parse_config(disk_text);
+        validate_config(next_config);
+    } catch (...) {
+        config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
+        throw;
+    }
     upgrade_config_file_if_needed(config_path_, disk_text);
     try {
         apply_config(std::move(next_config));

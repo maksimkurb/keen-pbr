@@ -20,6 +20,7 @@
 #include "../intercept/rebind_backoff.hpp"
 #include "../runtime/runtime_state_machine.hpp"
 #include "../util/blocking_executor.hpp"
+#include "../util/time_utils.hpp"
 #include "../util/traced_mutex.hpp"
 #include "config_store.hpp"
 #include "dnsmasq_manager.hpp"
@@ -411,6 +412,10 @@ private:
   ListService list_service_;
   RuntimeStateStore runtime_state_store_;
   std::atomic<uint64_t> firewall_apply_errors_{0};
+  // Prometheus telemetry, written on the control path only.
+  const std::int64_t process_start_unix_s_{unix_timestamp_now_seconds()};
+  std::atomic<std::int64_t> config_reload_last_success_s_{0};  // 0 = never
+  std::atomic<uint64_t> config_reload_errors_{0};
   LifecycleOperationStore lifecycle_operation_store_;
   LifecycleOperationCoordinator lifecycle_operations_{
       lifecycle_operation_store_};

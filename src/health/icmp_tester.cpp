@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <cerrno>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <netinet/ip.h>
 #include <netinet/icmp6.h>
@@ -141,6 +142,10 @@ URLTestResult test_with_socket(const std::string& target, uint32_t fwmark,
 
     uint32_t failed = 0, accepted = 0;
     uint64_t total_ms = 0;
+    uint64_t received_us_sum = 0;
+    uint32_t received_count = 0;
+    uint32_t min_us = UINT32_MAX;
+    uint32_t max_us = 0;
     for (uint32_t sequence = 0; sequence < count; ++sequence) {
         if (sequence) std::this_thread::sleep_for(std::chrono::milliseconds(packet_interval_ms));
         std::array<unsigned char, sizeof(icmphdr) + kDefaultIcmpPayloadSize> packet{};
@@ -193,6 +198,12 @@ URLTestResult test_with_socket(const std::string& target, uint32_t fwmark,
             ++*result.packets_received;
             const auto elapsed = std::chrono::steady_clock::now() - started;
             const auto rtt_ms = std::chrono::ceil<std::chrono::milliseconds>(elapsed).count();
+            const auto rtt_us = static_cast<uint32_t>(std::min<int64_t>(
+                std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count(), UINT32_MAX));
+            received_us_sum += rtt_us;
+            ++received_count;
+            min_us = std::min(min_us, rtt_us);
+            max_us = std::max(max_us, rtt_us);
             if (rtt_ms <= max_rtt_ms) {
                 ++accepted;
                 total_ms += static_cast<uint64_t>(rtt_ms);
@@ -210,6 +221,11 @@ URLTestResult test_with_socket(const std::string& target, uint32_t fwmark,
     }
     result.success = true;
     result.latency_ms = accepted ? static_cast<uint32_t>(total_ms / accepted) : 0;
+    if (received_count > 0) {
+        result.latency_us = static_cast<uint32_t>(received_us_sum / received_count);
+        result.latency_min_us = min_us;
+        result.latency_max_us = max_us;
+    }
     return result;
 }
 

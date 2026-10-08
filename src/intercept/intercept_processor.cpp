@@ -367,9 +367,6 @@ void InterceptProcessor::push_event(EventRecord& event) {
             counters_.dns_queue_wait_latency.record(
                 static_cast<uint64_t>(event.queue_wait_us), 0);
         }
-        if (event.write_elements > 0) {
-            counters_.dns_admission_wait_latency.record(event.admission_wait_us, 0);
-        }
     }
     ring_.push(event);
 }

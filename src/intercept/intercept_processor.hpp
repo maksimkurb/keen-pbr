@@ -186,6 +186,8 @@ struct InterceptL7Work {
 struct WriteLatencyCounters {
     static constexpr std::size_t kBuckets = 6;
     static constexpr std::size_t kPrometheusBuckets = 11;
+    // Bucket edges of the exported histograms.  25000 us (le="0.025") is the
+    // "slow write" threshold the dashboards derive the slow share from.
     inline static constexpr std::array<uint64_t, kPrometheusBuckets - 1> kPrometheusBoundsUs{
         100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000};
     std::array<std::atomic<uint64_t>, kBuckets> buckets{};
@@ -244,8 +246,6 @@ struct InterceptCounters {
     WriteLatencyCounters l7_write_latency;    // L7 worker writes
     WriteLatencyCounters dns_hold_latency;    // total time a DNS packet is held
     WriteLatencyCounters dns_queue_wait_latency;
-    WriteLatencyCounters dns_admission_wait_latency;
-    nfnl::DynamicSetWriter::Metrics netlink_write_metrics;
     std::atomic<uint64_t> dns_tcp_partial{0};
     std::atomic<uint64_t> marker_hits{0};
     std::atomic<uint64_t> l7_packets{0};

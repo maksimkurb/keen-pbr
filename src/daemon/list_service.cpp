@@ -2,6 +2,7 @@
 
 #include "../log/logger.hpp"
 
+#include <chrono>
 #include <sstream>
 
 namespace keen_pbr3 {
@@ -110,6 +111,11 @@ std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(c
     return refresh_state;
 }
 
+std::map<std::string, ListRefreshStats> ListService::refresh_stats() const {
+    std::lock_guard<std::mutex> lock(stats_mutex_);
+    return refresh_stats_;
+}
+
 ListService::ListService(const std::filesystem::path& cache_dir, size_t max_file_size_bytes)
     : cache_manager_(cache_dir, max_file_size_bytes) {
 }
@@ -204,6 +210,16 @@ RemoteListsRefreshResult ListService::download_remote_lists(const Config& config
             }
 
             const auto download_result = cache_manager_.download(name, *list_cfg.url, CacheDownloadOptions{fwmark});
+            {
+                std::lock_guard<std::mutex> stats_lock(stats_mutex_);
+                auto& stats = refresh_stats_[name];
+                if (download_result.failed()) {
+                    ++stats.errors;
+                } else {
+                    stats.last_success_unix_s = std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                }
+            }
 
             if (download_result.failed()) {
                 result.failed_lists.push_back(name);

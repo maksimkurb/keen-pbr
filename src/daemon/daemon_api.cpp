@@ -282,6 +282,9 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
         }
         lifecycle_operations_.finish(id);
     } catch (const std::exception& error) {
+        if (request.type == LifecycleOperationType::ApplyConfig) {
+            config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
+        }
         clear_committed_apply_draft();
         if (!current_stage.empty()) lifecycle_operations_.fail_stage(id, current_stage, error.what());
         if (runtime_mutated || rollback_available_.load(std::memory_order_acquire)) {
@@ -380,6 +383,7 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
     try {
         *prepared = prepare_runtime_inputs(config, true);
     } catch (const std::exception& e) {
+        config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
         result->error = e.what();
         Logger::instance().error("Prepare staged config task failed: {}", e.what());
         return *result;
@@ -400,6 +404,7 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
                 }
             };
             auto fail_after_mutation = [this, result, &complete]() mutable {
+                config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
                 std::string ignored_error;
                 (void)runtime_state_machine_.transition(
                     RuntimeState::broken, "config apply failed", ignored_error);
@@ -790,11 +795,19 @@ void Daemon::setup_api() {
         outbound.applied_urltest_selections = snapshot.firewall_state.get_urltest_selections();
         outbound.urltest_states = snapshot.urltest_states;
         outbound.runtime_state = snapshot.runtime_state;
+        DaemonMetrics daemon;
+        daemon.firewall_apply_errors = firewall_apply_errors_.load(std::memory_order_relaxed);
+        daemon.process_start_unix_s = process_start_unix_s_;
+        if (const auto reloaded = config_reload_last_success_s_.load(std::memory_order_relaxed);
+            reloaded > 0) {
+            daemon.config_reload_last_success_unix_s = reloaded;
+        }
+        daemon.config_reload_errors = config_reload_errors_.load(std::memory_order_relaxed);
+        daemon.lists = list_service_.refresh_stats();
         return prometheus_metrics(
             intercept_counters_.get(),
             netlink_.metrics_snapshot(), control, outbound,
-            config_store_.active_config(),
-            firewall_apply_errors_.load(std::memory_order_relaxed),
+            config_store_.active_config(), daemon,
             firewall_ && firewall_->backend() == FirewallBackend::nftables ? "nftables" : "iptables");
     };
     status_stream_ = std::make_unique<StatusStream>(

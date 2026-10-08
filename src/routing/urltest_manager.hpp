@@ -8,7 +8,6 @@
 #include "../util/traced_mutex.hpp"
 
 #include <functional>
-#include <array>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -19,18 +18,19 @@ namespace keen_pbr3 {
 
 class Scheduler;
 
+// Per-child probe telemetry, written under the manager lock when a sweep is
+// committed (never on a packet path).  Latencies are microseconds; the
+// optionals are empty until the first probe and after a failed probe.
 struct ProbeMetrics {
-    inline static constexpr std::array<uint32_t, 10> kLatencyBoundsMs{
-        1, 2, 5, 10, 25, 50, 100, 250, 500, 1000};
     uint64_t attempts{0};
     uint64_t successes{0};
-    uint64_t latency_count{0};
-    uint64_t latency_sum_ms{0};
-    std::array<uint64_t, 11> latency_buckets{}; // Exclusive bins; final bin is +Inf.
-    uint64_t packets_attempted{0};
-    uint64_t packets_sent{0};
-    uint64_t packets_received{0};
-    uint64_t packets_failed{0};
+    uint64_t packets_sent{0};      // ICMP only
+    uint64_t packets_received{0};  // ICMP only
+    std::optional<bool> last_up;                 // result of the last probe
+    std::optional<int64_t> last_success_unix_s;  // wall clock of the last success
+    std::optional<uint64_t> latency_us;          // last probe, success only
+    std::optional<uint64_t> latency_min_us;      // ICMP, last probe, success only
+    std::optional<uint64_t> latency_max_us;      // ICMP, last probe, success only
 };
 
 // Per-urltest outbound state: test results, circuit breakers, selected child.
@@ -40,6 +40,7 @@ struct UrltestState {
     std::map<std::string, ProbeMetrics> probe_metrics;
     std::map<std::string, CircuitBreaker> circuit_breakers;
     std::string selected_outbound;
+    uint64_t selection_changes{0};
     int scheduler_task_id{-1};
     bool probe_inflight{false};
     std::uint64_t generation{0};
