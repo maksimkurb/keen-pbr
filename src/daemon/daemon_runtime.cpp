@@ -953,8 +953,9 @@ void Daemon::refresh_lists_and_maybe_reload() {
 
     try {
         execute_remote_list_refresh(nullptr, "autoupdate");
-        // reconcile_lists_only() cancels the pending autoupdate timer, so the
-        // next run is always scheduled here, reloaded or not.
+        // The timer is a one-shot that has already fired, and a list-only
+        // reconcile does not reschedule it: always schedule the next run here,
+        // reloaded or not.
         schedule_lists_autoupdate();
     } catch (const std::exception& e) {
         log.error("Lists autoupdate failed: {}", e.what());
@@ -1172,8 +1173,8 @@ void Daemon::commit_startup_list_retry_result(
                 }
             }
 
-            // A runtime reload above cancels the retry timer, so the next
-            // attempt is scheduled afterwards.
+            // The retry timer is a one-shot that has already fired: schedule
+            // the next attempt here while failures remain.
             if (failures_remain) {
                 ++startup_list_retry_attempt_;
                 schedule_startup_list_retry();
