@@ -178,5 +178,7 @@ The `cron` field uses the standard 5-field format: `minute hour day-of-month mon
 
 The `cron` field is validated even when `enabled` is `false`.
 
+If a remote list could not be downloaded at startup, the daemon keeps retrying it in the background with increasing delays (10 seconds, 30 seconds, 2 minutes, then every 5 minutes) until it succeeds. This does not depend on `lists_autoupdate`. At startup dnsmasq is configured before the first download, so the domain of the list host must be covered by an inline list, a file list, or an already cached list for the DNS rule to apply to the first download attempt.
+
 You can also trigger a manual refresh at any time:
 - Send `SIGHUP` to the daemon process: `kill -HUP $(cat /var/run/keen-pbr.pid)`
