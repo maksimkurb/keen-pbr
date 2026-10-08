@@ -93,6 +93,19 @@ bool should_reload_runtime_after_list_refresh(bool routing_runtime_active,
     return routing_runtime_active && refresh_result.any_relevant_changed();
 }
 
+std::chrono::seconds startup_list_retry_delay(unsigned attempt) {
+    switch (attempt) {
+    case 0:
+        return std::chrono::seconds{10};
+    case 1:
+        return std::chrono::seconds{30};
+    case 2:
+        return std::chrono::seconds{120};
+    default:
+        return std::chrono::seconds{300};
+    }
+}
+
 std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
                                                                                const CacheManager& cache_manager) {
     std::map<std::string, api::ListRefreshStateValue> refresh_state;

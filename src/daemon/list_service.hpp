@@ -5,6 +5,7 @@
 #include "../util/traced_mutex.hpp"
 #include "list_refresh_stats.hpp"
 
+#include <chrono>
 #include <condition_variable>
 #include <exception>
 #include <map>
@@ -65,6 +66,10 @@ std::string format_list_names(const std::vector<std::string>& list_names);
 
 bool should_reload_runtime_after_list_refresh(bool routing_runtime_active,
                                               const RemoteListsRefreshResult& refresh_result);
+
+// Delay before the next background retry of lists that failed to download at
+// startup: 10s, 30s, 2m, then every 5m.  `attempt` counts retries already made.
+std::chrono::seconds startup_list_retry_delay(unsigned attempt);
 
 std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
                                                                                const CacheManager& cache_manager);
