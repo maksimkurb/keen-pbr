@@ -310,6 +310,15 @@ TEST_CASE("should_reload_runtime_after_list_refresh: only relevant changes "
     CHECK_FALSE(should_reload_runtime_after_list_refresh(true, refresh_result));
 }
 
+TEST_CASE("startup_list_retry_delay: backoff sequence is capped at five minutes") {
+    CHECK(startup_list_retry_delay(0) == std::chrono::seconds{10});
+    CHECK(startup_list_retry_delay(1) == std::chrono::seconds{30});
+    CHECK(startup_list_retry_delay(2) == std::chrono::seconds{120});
+    CHECK(startup_list_retry_delay(3) == std::chrono::seconds{300});
+    CHECK(startup_list_retry_delay(4) == std::chrono::seconds{300});
+    CHECK(startup_list_retry_delay(1000000U) == std::chrono::seconds{300});
+}
+
 TEST_CASE("build_list_refresh_state_map: URL-backed lists expose last_updated "
           "metadata only") {
     const auto temp_dir = make_temp_dir();

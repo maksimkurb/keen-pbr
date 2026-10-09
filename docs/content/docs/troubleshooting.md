@@ -497,7 +497,8 @@ Expected result: `curl` returns the external VPN IP. If the command hangs or exi
 2. If the list still does not update, check whether the URL is reachable from the same system.
 3. If the list should be downloaded through VPN, check `lists[].detour` and the corresponding outbound.
 4. If automatic refresh is used, check `lists_autoupdate.cron`.
-5. After an error, read `keen-pbr` logs again.
+5. If the list failed on the first start, the daemon retries it in the background (after 10 seconds, 30 seconds, 2 minutes, then every 5 minutes) until it succeeds. dnsmasq is reconfigured at startup before the first download, so the domain of the list host must be covered by an inline list, a file list, or an already cached list for the DNS rule to apply to the first attempt.
+6. After an error, read `keen-pbr` logs again.
 
 {{% details title="Advanced checks" closed="true" %}}
 If you need to force a full reload:

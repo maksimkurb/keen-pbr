@@ -104,39 +104,174 @@ L7-пакетов, обновлений наборов, очистки conntrack
 curl -u admin:password http://127.0.0.1:12121/metrics
 ```
 
-`keen_pbr_active_rules` — количество применённых правил firewall.
-`keen_pbr_errors_total{category=...}` группирует накопленные ошибки по
-`firewall` (применение и запись динамических наборов), `kernel` (netlink,
-conntrack, NFQUEUE и NFLOG) и `parser` (разбор DNS). Счётчики interception
-имеют префикс `keen_pbr_intercept_` и отражают все поля `InterceptCounters`;
-`keen_pbr_intercept_set_cache_entries` — gauge. Гистограммы DNS-записей:
-`keen_pbr_dns_write_duration_seconds`,
-`keen_pbr_dns_late_write_duration_seconds` и
-`keen_pbr_l7_write_duration_seconds`. Гистограммы времени netlink для записей
-динамических наборов: `keen_pbr_netlink_write_total_duration_seconds`,
-`keen_pbr_netlink_write_send_duration_seconds` и
-`keen_pbr_netlink_write_remainder_duration_seconds` (время без `sendto()`).
-Задержки на пути DNS-клиента измеряются метриками
-`keen_pbr_dns_hold_duration_seconds`,
-`keen_pbr_dns_queue_wait_duration_seconds` и
-`keen_pbr_dns_admission_wait_duration_seconds`. Максимальная длительность и
-размер DNS/L7-записи доступны в gauge
-`keen_pbr_set_write_max_microseconds` и `keen_pbr_set_write_max_elements`.
+Все длительности — числа с плавающей точкой в **секундах**. Серия, не имеющая
+смысла, **не публикуется** (а не выводится как `0`). `# HELP` и `# TYPE`
+выводятся один раз на семейство, пустые семейства не печатаются. Это
+несовместимое изменение: прежние `keen_pbr_intercept_*`,
+`keen_pbr_dns_write_duration_seconds`, метрики времени netlink, гистограмма
+проб и `probe_success_ratio` удалены.
 
-Метрики проверок `urltest` и `icmptest` содержат метки `outbound`,
-`test_outbound`, `interface` и `type`. `keen_pbr_probe_success_ratio` находится
-в диапазоне 0–1; умножьте значение на 100 для процентов. До первого результата
-эта метрика не публикуется. Гистограммы используют накопительные bucket, сумму
-в секундах и count.
+### Процесс и конфигурация
 
-Примеры запросов PromQL и полный список счётчиков приведены в английской
-версии этой страницы.
+| Метрика | Тип | Метки | Смысл |
+|---|---|---|---|
+| `keen_pbr_build_info` | gauge | `version`, `commit`, `firewall_backend` | Всегда `1`; сведения о сборке. |
+| `keen_pbr_process_start_time_seconds` | gauge | - | Unix-время старта; uptime: `time() - keen_pbr_process_start_time_seconds`. |
+| `keen_pbr_active_rules` | gauge | - | Применённые правила firewall. |
+| `keen_pbr_config_reload_last_success_timestamp_seconds` | gauge | - | Unix-время, когда рантайм последний раз завершил применение конфигурации (старт тоже считается). До первого применения не публикуется. |
+| `keen_pbr_config_reload_errors_total` | counter | - | Неудачные перезагрузки и применения конфигурации. |
+| `keen_pbr_list_last_update_timestamp_seconds` | gauge | `list` | Unix-время последней успешной проверки удалённого списка (независимо от изменения содержимого). Хранится в памяти: до первого успешного обновления в этом процессе не публикуется. |
+| `keen_pbr_list_update_errors_total` | counter | `list` | Неудачные обновления удалённого списка. |
 
-Пример запроса p95 для времени удержания DNS-ответа:
+### Ошибки
+
+`keen_pbr_errors_total{subsystem}` — одно семейство счётчиков, все значения
+выводятся всегда (включая нули): `firewall_apply`, `netlink`, `set_write`
+(запись в динамические наборы), `conntrack`, `dns_parse`, `dns_tcp_partial`
+(не полностью собранные DNS-сообщения по TCP) и `dns_late_write` (неудачные
+отложенные DNS-записи).
+
+### Пробы (urltest / icmptest)
+
+Метки: `outbound` (дочерний), `test_outbound` (группа), `interface`, `type`
+(`urltest` или `icmptest`).
+
+| Метрика | Тип | Смысл |
+|---|---|---|
+| `keen_pbr_probe_attempts_total` | counter | Принятые результаты проб. |
+| `keen_pbr_probe_successes_total` | counter | Успешные результаты проб. |
+| `keen_pbr_probe_packets_sent_total` | counter | Отправленные ICMP echo-запросы. Только `type="icmptest"`. |
+| `keen_pbr_probe_packets_received_total` | counter | Полученные ICMP echo-ответы. Только `type="icmptest"`. |
+| `keen_pbr_probe_up` | gauge | `1` — последняя проба успешна, `0` — неуспешна. |
+| `keen_pbr_probe_last_success_timestamp_seconds` | gauge | Unix-время последней успешной пробы. |
+| `keen_pbr_probe_latency_seconds` | gauge | Задержка последней успешной пробы: для ICMP — среднее по полученным ответам, для URL — время запроса. Точность лучше миллисекунды. |
+| `keen_pbr_probe_latency_min_seconds`, `keen_pbr_probe_latency_max_seconds` | gauge | Самый быстрый и самый медленный ответ последней успешной ICMP-пробы. Только `type="icmptest"`. |
+| `keen_pbr_urltest_selected` | gauge | Метки `group`, `outbound`: `1` у выбранного сейчас outbound группы, `0` у остальных. |
+| `keen_pbr_urltest_selection_changes_total` | counter | Метка `group`: число смен выбора с момента регистрации группы (применение конфигурации регистрирует её заново и сбрасывает счётчик). |
+
+#### Когда серии не публикуются
+
+- `probe_up` — пока не завершилась первая проба.
+- `probe_latency_seconds`, `probe_latency_min_seconds`, `probe_latency_max_seconds` —
+  если **последняя** проба неуспешна или проб ещё не было. В Grafana это разрыв
+  линии, а не `0`.
+- `probe_last_success_timestamp_seconds` — до первой успешной пробы.
+- `list_last_update_timestamp_seconds` и
+  `config_reload_last_success_timestamp_seconds` — до первого успеха.
+
+### Interception
+
+Счётчики обновляются на путях DNS/L7 одним relaxed-атомарным инкрементом
+заранее выделенного счётчика; значения меток — фиксированные слоты массива и
+превращаются в текст только при запросе `/metrics`.
+
+| Метрика | Тип | Метки | Смысл |
+|---|---|---|---|
+| `keen_pbr_intercept_packets_total` | counter | `path` = `dns`, `l7` | Проверенные пакеты. |
+| `keen_pbr_intercept_matches_total` | counter | `path` = `dns`, `l7` | Пакеты, совпавшие с доменами списков. |
+| `keen_pbr_dns_hold_duration_seconds` | histogram | - | Время удержания DNS-ответа до вердикта. |
+| `keen_pbr_dns_queue_wait_duration_seconds` | histogram | - | Ожидание DNS-пакета в очереди приёма. |
+| `keen_pbr_dns_hold_timeouts_total` | counter | `cause` = `batch_budget`, `admission_blocked`, `own_write_slow`, `late_batch_full`, `other` | Удержания, дошедшие до дедлайна. |
+| `keen_pbr_dns_late_writes_total` | counter | - | DNS-записи, завершённые после отпускания пакета. |
+| `keen_pbr_queue_overruns_total` | counter | `queue` = `nfqueue`, `nflog` | Переполнения очередей ядра. |
+| `keen_pbr_set_write_duration_seconds` | histogram | `path` = `dns`, `late_dns`, `l7` | Время записи в динамический набор. Границы (с): 0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, +Inf. |
+| `keen_pbr_set_writes_total` | counter | `kind` = `add`, `refresh` | Добавленные или обновлённые по таймауту элементы. |
+| `keen_pbr_set_refresh_total` | counter | `result` = `skipped`, `deferred`, `dropped` | Исходы обновления кэшированных элементов; `dropped` — очередь была заполнена. |
+| `keen_pbr_set_cache_lookups_total` | counter | `result` = `hit`, `miss` | Обращения к кэшу наборов; попадание избавляет от записи до вердикта. |
+| `keen_pbr_set_cache_entries` | gauge | - | Запомненные элементы динамических наборов. |
+| `keen_pbr_conntrack_requests_total` | counter | - | Запросы очистки conntrack. |
+| `keen_pbr_conntrack_deleted_total` | counter | - | Удалённые записи conntrack. |
+
+Доля «медленных» записей вычисляется по bucket `le="0.025"` метрики
+`keen_pbr_set_write_duration_seconds` (записи дольше 25 мс).
+
+Не экспортируются: байты/пакеты по outbound и число элементов в наборах.
+Для обоих пришлось бы читать счётчики firewall или netlink-дамп наборов при
+каждом scrape (через подпроцесс или дамп ядра, по-разному для каждого бэкенда
+firewall); демон намеренно этого не делает.
+
+Конфигурация Prometheus:
+
+```yaml
+scrape_configs:
+  - job_name: keen-pbr
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["router.example:12121"]
+    basic_auth:
+      username: admin
+      password_file: /etc/prometheus/keen-pbr-password
+```
+
+Примеры запросов PromQL:
 
 ```promql
-histogram_quantile(0.95, sum by (le)
+# Потери ICMP за 15 минут, % (нет данных, если пакеты не отправлялись)
+100 * clamp(1 - increase(keen_pbr_probe_packets_received_total[15m])
+    / (increase(keen_pbr_probe_packets_sent_total[15m]) > 0), 0, 1)
+
+# Доля успешных проб за 15 минут
+100 * increase(keen_pbr_probe_successes_total[15m])
+    / (increase(keen_pbr_probe_attempts_total[15m]) > 0)
+
+# Средняя и 95-я перцентиль задержки за час (секунды)
+avg_over_time(keen_pbr_probe_latency_seconds[1h])
+quantile_over_time(0.95, keen_pbr_probe_latency_seconds[1h])
+
+# p99 времени удержания DNS (секунды)
+histogram_quantile(0.99, sum by (le)
     (rate(keen_pbr_dns_hold_duration_seconds_bucket[5m])))
+
+# Доля записей в наборы дольше 25 мс по путям
+1 - sum by (path) (rate(keen_pbr_set_write_duration_seconds_bucket{le="0.025"}[5m]))
+  / (sum by (path) (rate(keen_pbr_set_write_duration_seconds_count[5m])) > 0)
+
+# Ошибки за час по подсистемам
+sum by (subsystem) (increase(keen_pbr_errors_total[1h])) > 0
+```
+
+### Дашборд Grafana и алерты
+
+Импортируйте [keen-pbr-dashboard.json](https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json)
+в Grafana (Dashboards - New - Import). Нужен источник данных Prometheus с UID
+`prometheus`; в дашборде переменные `job` и `outbound`, обновление каждые 30 с
+и разделы Status, Outbounds, DNS interception, Sets & lists и Errors. Интервал
+scrape должен быть не больше 30 с: столбчатые панели считают `increase()` по
+окнам в одну минуту.
+
+Пример правил алертов:
+
+```yaml
+groups:
+  - name: keen-pbr
+    rules:
+      - alert: KeenPbrDown
+        expr: up{job="keen-pbr"} == 0
+        for: 2m
+      - alert: KeenPbrOutboundDown
+        expr: keen_pbr_probe_up == 0
+        for: 5m
+        annotations:
+          summary: "Проба {{ $labels.outbound }} неуспешна ({{ $labels.test_outbound }})"
+      - alert: KeenPbrProbeStale
+        # Пробы перестали завершаться (интервал проб должен быть заметно меньше 30м).
+        expr: increase(keen_pbr_probe_attempts_total[30m]) == 0
+        for: 10m
+      - alert: KeenPbrErrors
+        expr: sum by (subsystem) (increase(keen_pbr_errors_total[10m])) > 0
+        for: 5m
+      - alert: KeenPbrDnsHoldSlow
+        # 0.03 с — дедлайн удержания по умолчанию (intercept hold_timeout_ms: 30).
+        expr: >
+          histogram_quantile(0.99, sum by (le)
+            (rate(keen_pbr_dns_hold_duration_seconds_bucket[5m]))) > 0.03
+        for: 10m
+      - alert: KeenPbrQueueOverruns
+        expr: sum by (queue) (increase(keen_pbr_queue_overruns_total[10m])) > 0
+      - alert: KeenPbrListStale
+        expr: time() - keen_pbr_list_last_update_timestamp_seconds > 86400
+        for: 30m
 ```
 
 ---

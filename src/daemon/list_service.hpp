@@ -3,7 +3,9 @@
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
 #include "../util/traced_mutex.hpp"
+#include "list_refresh_stats.hpp"
 
+#include <chrono>
 #include <condition_variable>
 #include <exception>
 #include <map>
@@ -65,6 +67,10 @@ std::string format_list_names(const std::vector<std::string>& list_names);
 bool should_reload_runtime_after_list_refresh(bool routing_runtime_active,
                                               const RemoteListsRefreshResult& refresh_result);
 
+// Delay before the next background retry of lists that failed to download at
+// startup: 10s, 30s, 2m, then every 5m.  `attempt` counts retries already made.
+std::chrono::seconds startup_list_retry_delay(unsigned attempt);
+
 std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
                                                                                const CacheManager& cache_manager);
 
@@ -74,6 +80,9 @@ class ListService {
 
     void ensure_dir();
     const CacheManager& cache_manager() const;
+
+    // Snapshot of per-list refresh telemetry for the metrics endpoint.
+    std::map<std::string, ListRefreshStats> refresh_stats() const;
 
     // Startup only: preserve cached lists and download just the missing ones.
     RemoteListsRefreshResult download_uncached(const Config& config,
@@ -101,6 +110,8 @@ class ListService {
 
     mutable TracedMutex mutex_;
     std::mutex refresh_mutex_;
+    mutable std::mutex stats_mutex_;
+    std::map<std::string, ListRefreshStats> refresh_stats_;
     std::condition_variable_any refresh_available_;
     std::shared_ptr<RefreshFlight> refresh_flight_;
     CacheManager cache_manager_;

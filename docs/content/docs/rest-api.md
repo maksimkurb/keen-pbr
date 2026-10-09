@@ -104,40 +104,92 @@ current Bearer token:
 curl -u admin:password http://127.0.0.1:12121/metrics
 ```
 
-`keen_pbr_active_rules` is the number of realized firewall rules.
-`keen_pbr_errors_total{category=...}` groups cumulative failures into
-`firewall` (apply and dynamic-set writes), `kernel` (route/rule netlink,
-conntrack, NFQUEUE and NFLOG), and `parser` (DNS parsing). Individual
-interception counters use the `keen_pbr_intercept_` prefix. These expose every
-scalar `InterceptCounters` counter: `dns_packets`, `dns_parse_errors`, `dns_matched`,
-`dns_aaaa_ignored`, `dns_hold_timeouts`, `dns_late_writes`,
-`dns_late_write_errors`, `set_write_slow`, `dns_timeout_budget_spent_by_batch`,
-`dns_timeout_admission_blocked`, `dns_timeout_own_write_slow`,
-`dns_timeout_late_batch_full`, `dns_timeout_other`, `dns_tcp_partial`,
-`marker_hits`, `l7_packets`, `l7_matched`, `set_added`, `set_refreshed`,
-`set_errors`, `set_cache_hits`, `set_cache_misses`, `dns_refresh_deferred`,
-`refresh_skipped`, `refresh_dropped`, `conntrack_requests`,
-`conntrack_deleted`, `conntrack_errors`, `queue_overruns`, and `log_overruns`
-(all suffixed `_total`). `set_cache_entries` is a gauge.
+All durations are floating-point **seconds**. A series that is not meaningful is
+**omitted** instead of being exported as `0` (see "Omitted series" below).
+Every family has `# HELP` and `# TYPE` exactly once; families without samples
+are not printed. This is a breaking change from earlier builds: the old
+`keen_pbr_intercept_*`, `keen_pbr_dns_write_duration_seconds`, netlink timing,
+probe histogram and success-ratio metrics no longer exist.
 
-DNS set-write histograms are `keen_pbr_dns_write_duration_seconds`,
-`keen_pbr_dns_late_write_duration_seconds`, and
-`keen_pbr_l7_write_duration_seconds`. Client-facing timing is exposed as
-`keen_pbr_dns_hold_duration_seconds`,
-`keen_pbr_dns_queue_wait_duration_seconds`, and
-`keen_pbr_dns_admission_wait_duration_seconds`. The gauges
-`keen_pbr_set_write_max_microseconds` and `keen_pbr_set_write_max_elements`
-preserve maximum-duration and largest-write observations for the DNS,
-deferred-DNS and L7 write paths. Dynamic-set netlink timing is split into
-`keen_pbr_netlink_write_total_duration_seconds`,
-`keen_pbr_netlink_write_send_duration_seconds`, and
-`keen_pbr_netlink_write_remainder_duration_seconds`; the remainder excludes
-time in `sendto()`. Probe counters include attempted, sent, received and failed
-ICMP packets. Probe metrics and `keen_pbr_probe_latency_seconds` are
-labelled by child `outbound`, test-group `test_outbound`, `interface`, and
-`type` (`urltest` or `icmptest`). Probe success ratio is 0–1 and is omitted
-until a result exists; multiply it by 100 for a percentage. Histograms report
-inclusive buckets, a sum in seconds, and a count.
+### Process and configuration
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `keen_pbr_build_info` | gauge | `version`, `commit`, `firewall_backend` | Always `1`; build identity. |
+| `keen_pbr_process_start_time_seconds` | gauge | - | Unix start time; uptime is `time() - keen_pbr_process_start_time_seconds`. |
+| `keen_pbr_active_rules` | gauge | - | Realized firewall rules. |
+| `keen_pbr_config_reload_last_success_timestamp_seconds` | gauge | - | Unix time the runtime last finished applying a configuration (startup counts). Omitted until the first one. |
+| `keen_pbr_config_reload_errors_total` | counter | - | Failed config reloads and applies (parse, validation, prepare or apply failures). |
+| `keen_pbr_list_last_update_timestamp_seconds` | gauge | `list` | Unix time of the last successful check of a remote (URL) list, whether or not its content changed. In-memory: omitted until a refresh succeeded in this process. |
+| `keen_pbr_list_update_errors_total` | counter | `list` | Failed refresh attempts of a remote list. |
+
+### Errors
+
+`keen_pbr_errors_total{subsystem}` is a single counter family; all values are
+always present (zeros included): `firewall_apply` (failed firewall applies),
+`netlink` (route / policy-rule operations), `set_write` (dynamic set writes),
+`conntrack` (cleanup errors), `dns_parse`, `dns_tcp_partial` (DNS-over-TCP
+messages not fully reassembled) and `dns_late_write` (failed deferred DNS
+writes).
+
+### Probes (urltest / icmptest)
+
+Labelled with the child `outbound`, test group `test_outbound`, `interface` and
+`type` (`urltest` or `icmptest`).
+
+| Metric | Type | Meaning |
+|---|---|---|
+| `keen_pbr_probe_attempts_total` | counter | Accepted probe results. |
+| `keen_pbr_probe_successes_total` | counter | Successful probe results. |
+| `keen_pbr_probe_packets_sent_total` | counter | ICMP echo requests sent. `type="icmptest"` only. |
+| `keen_pbr_probe_packets_received_total` | counter | ICMP echo replies received. `type="icmptest"` only. |
+| `keen_pbr_probe_up` | gauge | `1` if the last probe succeeded, `0` if it failed. |
+| `keen_pbr_probe_last_success_timestamp_seconds` | gauge | Unix time of the last successful probe. |
+| `keen_pbr_probe_latency_seconds` | gauge | Latency of the last successful probe: ICMP is the mean of the received replies, URL is the request time. Sub-millisecond precision. |
+| `keen_pbr_probe_latency_min_seconds`, `keen_pbr_probe_latency_max_seconds` | gauge | Fastest and slowest reply of the last successful ICMP probe. `type="icmptest"` only. |
+| `keen_pbr_urltest_selected` | gauge | Labels `group`, `outbound`: `1` for the group's currently selected outbound, `0` for the other members. |
+| `keen_pbr_urltest_selection_changes_total` | counter | Label `group`: selection changes since the group was registered (a config apply registers it again, which resets the counter). |
+
+#### Omitted series
+
+- `probe_up` is omitted before the first probe of an outbound completed.
+- `probe_latency_seconds`, `probe_latency_min_seconds` and
+  `probe_latency_max_seconds` are omitted when the **last** probe failed or no
+  probe completed yet. In Grafana this shows up as a gap, never as a `0`.
+- `probe_last_success_timestamp_seconds` is omitted until the first success.
+- `list_last_update_timestamp_seconds` and
+  `config_reload_last_success_timestamp_seconds` are omitted until the first success.
+
+### Interception
+
+All of these are updated on the DNS / L7 packet paths with a single relaxed
+atomic increment on a pre-allocated counter; labels are fixed array slots that
+are only rendered when `/metrics` is scraped.
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `keen_pbr_intercept_packets_total` | counter | `path` = `dns`, `l7` | Packets inspected. |
+| `keen_pbr_intercept_matches_total` | counter | `path` = `dns`, `l7` | Packets that matched a configured domain list. |
+| `keen_pbr_dns_hold_duration_seconds` | histogram | - | Time a DNS answer was held before its verdict. |
+| `keen_pbr_dns_queue_wait_duration_seconds` | histogram | - | Time a DNS packet waited in the receive queue. |
+| `keen_pbr_dns_hold_timeouts_total` | counter | `cause` = `batch_budget`, `admission_blocked`, `own_write_slow`, `late_batch_full`, `other` | Holds that reached their deadline. |
+| `keen_pbr_dns_late_writes_total` | counter | - | DNS writes completed after the packet was released. |
+| `keen_pbr_queue_overruns_total` | counter | `queue` = `nfqueue`, `nflog` | Kernel queue receive overruns. |
+| `keen_pbr_set_write_duration_seconds` | histogram | `path` = `dns`, `late_dns`, `l7` | Dynamic set write time. Buckets (seconds): 0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, +Inf. |
+| `keen_pbr_set_writes_total` | counter | `kind` = `add`, `refresh` | Elements added (upserted) or timeout-refreshed. |
+| `keen_pbr_set_refresh_total` | counter | `result` = `skipped`, `deferred`, `dropped` | Cached-element refresh outcomes. `dropped` means the refresh queue was full. |
+| `keen_pbr_set_cache_lookups_total` | counter | `result` = `hit`, `miss` | Set cache lookups; a hit avoids a write before the verdict. |
+| `keen_pbr_set_cache_entries` | gauge | - | Remembered dynamic set elements. |
+| `keen_pbr_conntrack_requests_total` | counter | - | Conntrack cleanup requests. |
+| `keen_pbr_conntrack_deleted_total` | counter | - | Conntrack entries deleted. |
+
+The "slow write" share is derived from the `le="0.025"` bucket of
+`keen_pbr_set_write_duration_seconds` (writes slower than 25 ms).
+
+Not exported: per-outbound routed bytes/packets and per-set element counts.
+Both would need the firewall counters or a netlink set dump to be read on every
+scrape (through a subprocess or a kernel dump, with a different mechanism per
+firewall backend), which is deliberately kept out of the daemon.
 
 Prometheus scrape configuration:
 
@@ -145,6 +197,7 @@ Prometheus scrape configuration:
 scrape_configs:
   - job_name: keen-pbr
     metrics_path: /metrics
+    scrape_interval: 15s
     static_configs:
       - targets: ["router.example:12121"]
     basic_auth:
@@ -155,25 +208,72 @@ scrape_configs:
 Example queries:
 
 ```promql
-100 * sum by (outbound, interface) (rate(keen_pbr_probe_successes_total[5m]))
-    / sum by (outbound, interface) (rate(keen_pbr_probe_attempts_total[5m]))
+# ICMP packet loss over 15 minutes, in percent (no data when nothing was sent)
+100 * clamp(1 - increase(keen_pbr_probe_packets_received_total[15m])
+    / (increase(keen_pbr_probe_packets_sent_total[15m]) > 0), 0, 1)
 
-sum by (outbound, interface) (rate(keen_pbr_probe_latency_seconds_sum[5m]))
-    / sum by (outbound, interface) (rate(keen_pbr_probe_latency_seconds_count[5m]))
+# Probe success rate over 15 minutes
+100 * increase(keen_pbr_probe_successes_total[15m])
+    / (increase(keen_pbr_probe_attempts_total[15m]) > 0)
 
-histogram_quantile(0.95, sum by (le, outbound, interface)
-    (rate(keen_pbr_probe_latency_seconds_bucket[5m])))
+# Average and 95th percentile latency per outbound over 1 hour (seconds)
+avg_over_time(keen_pbr_probe_latency_seconds[1h])
+quantile_over_time(0.95, keen_pbr_probe_latency_seconds[1h])
 
-histogram_quantile(0.95, sum by (le)
+# DNS hold time p99 (seconds)
+histogram_quantile(0.99, sum by (le)
     (rate(keen_pbr_dns_hold_duration_seconds_bucket[5m])))
 
-histogram_quantile(0.95, sum by (le)
-    (rate(keen_pbr_netlink_write_total_duration_seconds_bucket[5m])))
+# Share of set writes slower than 25 ms, per path
+1 - sum by (path) (rate(keen_pbr_set_write_duration_seconds_bucket{le="0.025"}[5m]))
+  / (sum by (path) (rate(keen_pbr_set_write_duration_seconds_count[5m])) > 0)
+
+# Errors in the last hour by subsystem
+sum by (subsystem) (increase(keen_pbr_errors_total[1h])) > 0
 ```
 
-`keen_pbr_build_info` reports the version, source commit and firewall backend.
-Compare DNS hold and netlink write query results before and after a release to
-see the client-facing effect alongside the underlying dynamic-set write time.
+### Grafana dashboard and alerts
+
+Import [keen-pbr-dashboard.json](https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json)
+into Grafana (Dashboards - New - Import). It expects a Prometheus data source
+with UID `prometheus`, and has `job` and `outbound` variables, a 30 s refresh,
+and the rows Status, Outbounds, DNS interception, Sets & lists and Errors. Use a
+scrape interval of 30 s or less: the bar panels compute `increase()` over
+one-minute windows.
+
+Example alerting rules:
+
+```yaml
+groups:
+  - name: keen-pbr
+    rules:
+      - alert: KeenPbrDown
+        expr: up{job="keen-pbr"} == 0
+        for: 2m
+      - alert: KeenPbrOutboundDown
+        expr: keen_pbr_probe_up == 0
+        for: 5m
+        annotations:
+          summary: "{{ $labels.outbound }} probe is failing ({{ $labels.test_outbound }})"
+      - alert: KeenPbrProbeStale
+        # Probes stopped completing (probe interval must be well below 30m).
+        expr: increase(keen_pbr_probe_attempts_total[30m]) == 0
+        for: 10m
+      - alert: KeenPbrErrors
+        expr: sum by (subsystem) (increase(keen_pbr_errors_total[10m])) > 0
+        for: 5m
+      - alert: KeenPbrDnsHoldSlow
+        # 0.03 s is the default hold deadline (intercept hold_timeout_ms: 30).
+        expr: >
+          histogram_quantile(0.99, sum by (le)
+            (rate(keen_pbr_dns_hold_duration_seconds_bucket[5m]))) > 0.03
+        for: 10m
+      - alert: KeenPbrQueueOverruns
+        expr: sum by (queue) (increase(keen_pbr_queue_overruns_total[10m])) > 0
+      - alert: KeenPbrListStale
+        expr: time() - keen_pbr_list_last_update_timestamp_seconds > 86400
+        for: 30m
+```
 
 ---
 

@@ -72,27 +72,6 @@ public:
     // null).  The counter must outlive the writer.
     virtual void set_slow_write_counter(std::atomic<uint64_t>* counter) { (void)counter; }
 
-    struct Histogram {
-        static constexpr std::size_t kBuckets = 11;
-        inline static constexpr std::array<uint64_t, kBuckets - 1> kBoundsUs{
-            100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000};
-        std::array<std::atomic<uint64_t>, kBuckets> buckets{};
-        std::atomic<uint64_t> sum_us{0};
-
-        void record(uint64_t us) {
-            std::size_t bucket = 0;
-            while (bucket < kBoundsUs.size() && us > kBoundsUs[bucket]) ++bucket;
-            buckets[bucket].fetch_add(1, std::memory_order_relaxed);
-            sum_us.fetch_add(us, std::memory_order_relaxed);
-        }
-    };
-    struct Metrics {
-        Histogram total;
-        Histogram send;
-        Histogram remainder;
-    };
-    virtual void set_metrics(Metrics* metrics) { (void)metrics; }
-
     static constexpr int kSlowWriteMs = 20;
 };
 

@@ -20,6 +20,7 @@
 #include "../intercept/rebind_backoff.hpp"
 #include "../runtime/runtime_state_machine.hpp"
 #include "../util/blocking_executor.hpp"
+#include "../util/time_utils.hpp"
 #include "../util/traced_mutex.hpp"
 #include "config_store.hpp"
 #include "dnsmasq_manager.hpp"
@@ -310,6 +311,20 @@ private:
       std::string_view source = "service");
   void refresh_lists_and_maybe_reload();
   void refresh_lists_and_maybe_reload_async();
+  // Applies a finished list refresh on the control thread: dnsmasq sync,
+  // runtime reload for relevant changes, logging.  May throw if the reload
+  // fails.  `source` only labels the log lines.
+  ListsRefreshExecutionResult apply_list_refresh_result(
+      RemoteListsRefreshResult refresh_result, bool runtime_active,
+      std::string_view source);
+  // Background retry of lists whose startup download failed.
+  void schedule_startup_list_retry();
+  void cancel_startup_list_retry();
+  void run_startup_list_retry();
+  void commit_startup_list_retry_result(
+      std::uint64_t generation,
+      std::optional<RemoteListsRefreshResult> refresh_result, std::string error,
+      TraceId trace_id);
   void commit_lists_refresh_async_result(
       Config config_snapshot, bool runtime_active_snapshot,
       std::uint64_t generation,
@@ -352,6 +367,9 @@ private:
 
   // Lists autoupdate state
   int lists_autoupdate_task_id_{-1};
+  // One-shot retry timer for lists that failed to download at startup.
+  int startup_list_retry_task_id_{-1};
+  unsigned startup_list_retry_attempt_{0};
   // Debounced runtime refresh triggered by SIGUSR1.
   int sigusr1_refresh_task_id_{-1};
   // Retry task for interface monitor netlink reconnect after failure.
@@ -411,6 +429,10 @@ private:
   ListService list_service_;
   RuntimeStateStore runtime_state_store_;
   std::atomic<uint64_t> firewall_apply_errors_{0};
+  // Prometheus telemetry, written on the control path only.
+  const std::int64_t process_start_unix_s_{unix_timestamp_now_seconds()};
+  std::atomic<std::int64_t> config_reload_last_success_s_{0};  // 0 = never
+  std::atomic<uint64_t> config_reload_errors_{0};
   LifecycleOperationStore lifecycle_operation_store_;
   LifecycleOperationCoordinator lifecycle_operations_{
       lifecycle_operation_store_};

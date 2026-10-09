@@ -165,21 +165,22 @@ bool UrltestManager::commit_probe_results(const std::string& urltest_tag,
 
             auto& metrics = state.probe_metrics[child_tag];
             ++metrics.attempts;
-            if (result.success) ++metrics.successes;
-            if (result.success || result.latency_ms > 0) {
-                ++metrics.latency_count;
-                metrics.latency_sum_ms += result.latency_ms;
-                std::size_t bucket = 0;
-                while (bucket < ProbeMetrics::kLatencyBoundsMs.size() &&
-                       result.latency_ms > ProbeMetrics::kLatencyBoundsMs[bucket]) {
-                    ++bucket;
-                }
-                ++metrics.latency_buckets[bucket];
+            metrics.last_up = result.success;
+            metrics.latency_us.reset();
+            metrics.latency_min_us.reset();
+            metrics.latency_max_us.reset();
+            if (result.success) {
+                ++metrics.successes;
+                metrics.last_success_unix_s = std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+                metrics.latency_us = result.latency_us.value_or(
+                    static_cast<uint64_t>(result.latency_ms) * 1000U);
+                if (result.latency_min_us) metrics.latency_min_us = *result.latency_min_us;
+                if (result.latency_max_us) metrics.latency_max_us = *result.latency_max_us;
             }
-            metrics.packets_attempted += result.packets_attempted.value_or(0);
+            // Packet counters are ICMP-only: other probes leave them unset.
             metrics.packets_sent += result.packets_sent.value_or(0);
             metrics.packets_received += result.packets_received.value_or(0);
-            metrics.packets_failed += result.packets_failed.value_or(0);
 
             cb_it->second.end_request(child_tag);
             if (result.success) {
@@ -194,6 +195,7 @@ bool UrltestManager::commit_probe_results(const std::string& urltest_tag,
         new_selected = select_outbound(urltest_tag);
         if (new_selected != previous_selected) {
             state.selected_outbound = new_selected;
+            ++state.selection_changes;
             selection_changed = true;
         }
     }

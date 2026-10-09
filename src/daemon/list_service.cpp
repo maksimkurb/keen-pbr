@@ -2,6 +2,7 @@
 
 #include "../log/logger.hpp"
 
+#include <chrono>
 #include <sstream>
 
 namespace keen_pbr3 {
@@ -92,6 +93,19 @@ bool should_reload_runtime_after_list_refresh(bool routing_runtime_active,
     return routing_runtime_active && refresh_result.any_relevant_changed();
 }
 
+std::chrono::seconds startup_list_retry_delay(unsigned attempt) {
+    switch (attempt) {
+    case 0:
+        return std::chrono::seconds{10};
+    case 1:
+        return std::chrono::seconds{30};
+    case 2:
+        return std::chrono::seconds{120};
+    default:
+        return std::chrono::seconds{300};
+    }
+}
+
 std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
                                                                                const CacheManager& cache_manager) {
     std::map<std::string, api::ListRefreshStateValue> refresh_state;
@@ -108,6 +122,11 @@ std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(c
     }
 
     return refresh_state;
+}
+
+std::map<std::string, ListRefreshStats> ListService::refresh_stats() const {
+    std::lock_guard<std::mutex> lock(stats_mutex_);
+    return refresh_stats_;
 }
 
 ListService::ListService(const std::filesystem::path& cache_dir, size_t max_file_size_bytes)
@@ -204,6 +223,16 @@ RemoteListsRefreshResult ListService::download_remote_lists(const Config& config
             }
 
             const auto download_result = cache_manager_.download(name, *list_cfg.url, CacheDownloadOptions{fwmark});
+            {
+                std::lock_guard<std::mutex> stats_lock(stats_mutex_);
+                auto& stats = refresh_stats_[name];
+                if (download_result.failed()) {
+                    ++stats.errors;
+                } else {
+                    stats.last_success_unix_s = std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                }
+            }
 
             if (download_result.failed()) {
                 result.failed_lists.push_back(name);

@@ -1489,6 +1489,10 @@ void Daemon::continue_startup_after_lists(
     register_interface_monitor_fd();
     complete_running_runtime("startup complete");
     log.info("Routing runtime started.");
+    if (!result.failed_lists.empty()) {
+      startup_list_retry_attempt_ = 0;
+      schedule_startup_list_retry();
+    }
   } catch (const std::exception &exception) {
     fail_startup_runtime(exception.what());
   } catch (...) {
