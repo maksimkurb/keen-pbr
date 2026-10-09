@@ -25,7 +25,7 @@ on:
 
 jobs:
   generate-config:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       job-config: ${{ steps.gen.outputs.job-config }}
     steps:
@@ -52,7 +52,7 @@ jobs:
 
   build:
     name: "build: ${{ matrix.build_env.debian_version }}-${{ matrix.build_env.debian_arch }}"
-    runs-on: ${{ matrix.build_env.debian_arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.build_env.debian_arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     needs: [generate-config]
     strategy:
       fail-fast: false
@@ -103,7 +103,7 @@ jobs:
   sign:
     if: ${{ inputs.use_signing_secrets }}
     name: "sign: ${{ matrix.build_env.debian_version }}-${{ matrix.build_env.debian_arch }}"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [generate-config, build]
     strategy:
       fail-fast: false

@@ -1,5 +1,5 @@
 ARG DEBIAN_VERSION=bookworm
-FROM debian:${DEBIAN_VERSION}
+FROM public.ecr.aws/docker/library/debian:${DEBIAN_VERSION}
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \

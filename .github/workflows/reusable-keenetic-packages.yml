@@ -28,7 +28,7 @@ on:
 
 jobs:
   generate-config:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       job-config: ${{ steps.gen.outputs.job-config }}
     steps:
@@ -73,7 +73,7 @@ jobs:
 
   build:
     name: "build: ${{ matrix.build_env.config_name }}"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [generate-config]
     strategy:
       fail-fast: false

@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
   prepare-frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       target_root: ${{ steps.context.outputs.target_root }}
       use_signing_secrets: ${{ steps.context.outputs.use_signing_secrets }}
@@ -133,7 +133,7 @@ jobs:
   bootstrap-publish:
     name: Prepare branch repository
     needs: [prepare-frontend]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         if: ${{ needs.prepare-frontend.outputs.allow_publish == 'true' }}
@@ -156,7 +156,7 @@ jobs:
 
   openwrt-matrix:
     needs: [prepare-frontend]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
