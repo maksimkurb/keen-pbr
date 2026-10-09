@@ -47,7 +47,7 @@ export function DeleteImpactDialog({
       description={description}
     >
       {impactItems.length > 0 ? (
-        <div className="rounded-lg border bg-muted/30 p-3 md:max-h-72 md:overflow-y-auto">
+        <div className="rounded-lg border bg-muted/30 p-3">
           <ul className="space-y-2 text-sm leading-5">
             {impactItems.map((item, index) => (
               <li className="flex gap-2" key={index}>
