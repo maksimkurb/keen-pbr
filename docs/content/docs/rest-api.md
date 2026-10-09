@@ -384,8 +384,12 @@ Resolves the target (if a domain), scans configured route rules against cached l
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/routing/test \
   -H "Content-Type: application/json" \
-  -d '{"target": "example.com"}'
+  -d '{"target": "example.com", "proto": "tcp", "dest_port": 443}'
 ```
+
+The optional packet fields (`proto` (`tcp`, `udp`, or `other`), `dest_port`,
+`src_addr`, `src_port`, and `dscp`) make rule diagnostics packet-specific.
+Leaving them out preserves the target-only list diagnostic.
 
 ### Response
 

@@ -18,6 +18,8 @@ import { selectConfig } from "@/api/selectors"
 import { useAuth } from "@/auth/auth-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Kbd, KbdGroup } from "@/components/ui/kbd"
+import { isRoutingTestShortcut } from "@/components/overview/routing-test-shortcut"
 import {
   Dialog,
   DialogContent,
@@ -37,6 +39,14 @@ import {
 } from "@/components/overview/overview-issues"
 import { OutboundsOverviewPanel } from "@/components/overview/outbounds-overview-panel"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
+import { useRoutingTestPanelState } from "@/components/overview/use-routing-test-panel-state"
+import { useIsMobile } from "@/hooks/use-mobile"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 import { ServiceStatusBar } from "@/components/overview/service-status-bar"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
@@ -51,6 +61,16 @@ export function OverviewPage() {
   const [showHealthyDiagnostics, setShowHealthyDiagnostics] = useState(false)
   const [highlightDiagnostics, setHighlightDiagnostics] = useState(false)
   const diagnosticsRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!isRoutingTestShortcut(event)) return
+      event.preventDefault()
+      setIsRoutingTestOpen(true)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
 
   const serviceHealthQuery = useGetHealthService()
   const configQuery = useGetConfig()
@@ -162,6 +182,8 @@ export function OverviewPage() {
   }
 
   const dimmed = !isServiceRunning
+  const isMobile = useIsMobile()
+  const routingTestPanel = useRoutingTestPanelState()
 
   return (
     <div className="space-y-4">
@@ -181,14 +203,19 @@ export function OverviewPage() {
         actions={
           <Button
             type="button"
-            variant="outline"
+            variant="default"
+            className="max-md:h-12 max-md:w-full max-md:gap-2 max-md:px-5 max-md:text-base"
+            aria-keyshortcuts="Control+Alt+K"
             onClick={() => setIsRoutingTestOpen(true)}
           >
             <Route />
             {t("overview.routingTest.title")}
+            <KbdGroup className="hidden md:inline-flex">
+              <Kbd>Ctrl</Kbd>+<Kbd>Alt</Kbd>+<Kbd>K</Kbd>
+            </KbdGroup>
           </Button>
         }
-        className="mb-0 md:mb-0 md:items-center"
+        className="mb-4 md:mb-4 md:items-center"
         title={t("nav.items.systemMonitor")}
       />
 
@@ -240,17 +267,35 @@ export function OverviewPage() {
         </div>
       </div>
 
-      <Dialog onOpenChange={setIsRoutingTestOpen} open={isRoutingTestOpen}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[860px]">
-          <DialogHeader>
-            <DialogTitle>{t("overview.routingTest.title")}</DialogTitle>
-            <DialogDescription>
+      {isMobile ? (
+        <Drawer
+          onOpenChange={setIsRoutingTestOpen}
+          open={isRoutingTestOpen}
+          swipeDirection="down"
+        >
+          <DrawerContent className="max-h-[calc(100dvh-1rem)]">
+            <DrawerTitle className="text-base font-medium">
+              {t("overview.routingTest.title")}
+            </DrawerTitle>
+            <DrawerDescription className="mb-4 text-sm text-muted-foreground">
               {t("overview.routingTest.description")}
-            </DialogDescription>
-          </DialogHeader>
-          <RoutingTestPanel />
-        </DialogContent>
-      </Dialog>
+            </DrawerDescription>
+            <RoutingTestPanel state={routingTestPanel} />
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog onOpenChange={setIsRoutingTestOpen} open={isRoutingTestOpen}>
+          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[860px]">
+            <DialogHeader>
+              <DialogTitle>{t("overview.routingTest.title")}</DialogTitle>
+              <DialogDescription>
+                {t("overview.routingTest.description")}
+              </DialogDescription>
+            </DialogHeader>
+            <RoutingTestPanel state={routingTestPanel} />
+          </DialogContent>
+        </Dialog>
+      )}
 
       <DiagnosticsDownloadDialog
         config={loadedConfig}

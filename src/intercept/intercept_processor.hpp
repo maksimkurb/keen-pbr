@@ -19,6 +19,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -310,6 +311,13 @@ public:
     void set_snapshot(std::shared_ptr<const InterceptSnapshot> snapshot);
     // The currently published snapshot (null when none).  Thread-safe.
     std::shared_ptr<const InterceptSnapshot> current_snapshot() const { return snapshot(); }
+    // Looks up daemon write evidence for a set in one specific snapshot. A
+    // null result means that the set is not a tracked dynamic target in that
+    // snapshot; the cache result itself remains advisory.
+    std::optional<SetElementCache::Lookup> lookup_set_write_evidence(
+        const std::shared_ptr<const InterceptSnapshot>& snapshot,
+        const std::string& set_name, uint8_t family,
+        const std::array<uint8_t, 16>& addr) const;
     void set_l7_submitter(L7Submitter submitter);
     void set_writer_callbacks(WriterAdmission dns_admission, WriterRelease dns_release,
                               WriterAdmission l7_admission, WriterRelease l7_release);
@@ -394,6 +402,7 @@ private:
     void handle_l7(ByteView l3, std::chrono::steady_clock::time_point now);
     std::shared_ptr<const InterceptSnapshot> snapshot() const;
     struct SlotTable {
+        std::vector<std::string> names;  // sorted dynamic set names, indexed by slot
         // [0] = v4 set slot, [1] = v6 set slot, per InterceptListTarget.
         std::vector<std::array<uint16_t, 2>> by_target;
         uint64_t generation{0};  // identifies the snapshot in EventRecord::generation

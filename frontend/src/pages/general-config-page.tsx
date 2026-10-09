@@ -1,14 +1,20 @@
-import type { ComponentProps, ReactNode } from "react"
+import { Toolbox } from "lucide-react"
+import { useState, type ComponentProps, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
+import type { ResolverIntegrationMode } from "@/api/generated/model/resolverIntegrationMode"
+import { effectiveResolverIntegration, selectConfig } from "@/api/selectors"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
-import { useGetConfig, useGetRuntimeInterfaces } from "@/api/queries"
-import { selectConfig } from "@/api/selectors"
+import {
+  useGetConfig,
+  useGetHealthRouting,
+  useGetRuntimeInterfaces,
+} from "@/api/queries"
 import {
   Field,
   FieldContent,
@@ -32,7 +38,9 @@ import {
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import { type FieldBinding, bindInput, useDraftForm } from "@/lib/draft-form"
 import { toast } from "sonner"
 
@@ -64,6 +72,9 @@ export type SettingsDraft = {
   iproute: {
     table_start: string
     process_router_traffic: boolean
+  }
+  dns: {
+    resolver_integration: ResolverIntegrationMode
   }
   intercept: {
     enabled: boolean
@@ -102,6 +113,7 @@ const fallbackDraft: SettingsDraft = {
   lists_autoupdate: { enabled: false, cron: "0 4 * * 0" },
   fwmark: { start: "0x00010000", mask: "0xffff0000" },
   iproute: { table_start: "150", process_router_traffic: false },
+  dns: { resolver_integration: "none" },
   intercept: {
     enabled: true,
     min_ttl_s: "300",
@@ -157,8 +169,19 @@ function LoadedGeneralConfigPage({
   loadedConfig,
 }: LoadedGeneralConfigPageProps) {
   const { t } = useTranslation()
+  const [advancedMode, setAdvancedMode] = useState(() => {
+    try {
+      return localStorage.getItem("keen-pbr-settings-mode") === "advanced"
+    } catch {
+      return false
+    }
+  })
   const queryClient = useQueryClient()
   const runtimeInterfacesQuery = useGetRuntimeInterfaces()
+  const routingHealthQuery = useGetHealthRouting()
+  const usesNftables =
+    routingHealthQuery.data?.status === 200 &&
+    routingHealthQuery.data.data.firewall_backend === "nftables"
 
   const postConfigMutation = usePostConfigMutation()
 
@@ -225,6 +248,40 @@ function LoadedGeneralConfigPage({
               {t("pages.settings.general.deviceNameHint")}
             </FieldDescription>
           </Field>
+          <Field className="mt-6">
+            <FieldLabel id="settings-mode-label">
+              {t("pages.settings.webUi.settingsModeLabel")}
+            </FieldLabel>
+            <RadioGroup
+              aria-labelledby="settings-mode-label"
+              className="gap-3"
+              value={advancedMode ? "advanced" : "simple"}
+              onValueChange={(value) => {
+                setAdvancedMode(value === "advanced")
+                try {
+                  localStorage.setItem("keen-pbr-settings-mode", value)
+                } catch {
+                  // Storage may be unavailable; the mode still works for this page.
+                }
+              }}
+            >
+              <FieldLabel htmlFor="settings-mode-simple">
+                <RadioGroupItem id="settings-mode-simple" value="simple" />
+                {t("pages.settings.webUi.simpleMode")}
+              </FieldLabel>
+              <FieldLabel
+                htmlFor="settings-mode-advanced"
+                className="text-amber-700 dark:text-amber-400"
+              >
+                <RadioGroupItem id="settings-mode-advanced" value="advanced" />
+                {t("pages.settings.webUi.advancedMode")}
+                <Toolbox aria-hidden="true" className="size-4 shrink-0" />
+              </FieldLabel>
+            </RadioGroup>
+            <FieldDescription>
+              {t("pages.settings.webUi.settingsModeHint")}
+            </FieldDescription>
+          </Field>
         </CardContent>
       </Card>
 
@@ -272,33 +329,57 @@ function LoadedGeneralConfigPage({
 
             <div className="grid gap-6 md:grid-cols-2">
               <NumberSettingField
-                field={form.field("intercept.dns.queue_num")}
-                id="intercept-dns-queue"
-                label={t("pages.settings.intercept.queueLabel")}
-                hint={t("pages.settings.intercept.queueHint")}
-              />
-              <NumberSettingField
                 field={form.field("intercept.dns.hold_timeout_ms")}
                 id="intercept-dns-timeout"
                 label={t("pages.settings.intercept.holdTimeoutLabel")}
                 hint={t("pages.settings.intercept.holdTimeoutHint")}
               />
+              {advancedMode && (
+                <div className="[&_[data-slot=field-description]]:text-amber-700 dark:[&_[data-slot=field-description]]:text-amber-400 [&_[data-slot=field-label]]:text-amber-700 dark:[&_[data-slot=field-label]]:text-amber-400">
+                  <NumberSettingField
+                    field={form.field("intercept.dns.queue_num")}
+                    id="intercept-dns-queue"
+                    label={
+                      <span className="inline-flex items-center gap-2">
+                        {t("pages.settings.intercept.queueLabel")}
+                        <Toolbox
+                          aria-hidden="true"
+                          className="size-4 shrink-0"
+                        />
+                      </span>
+                    }
+                    hint={t("pages.settings.intercept.queueHint")}
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <TextSettingField
-                field={form.field("intercept.dns.marker.domain")}
-                id="intercept-marker-domain"
-                label={t("pages.settings.intercept.markerDomainLabel")}
-                hint={t("pages.settings.intercept.markerDomainHint")}
-              />
-              <TextSettingField
-                field={form.field("intercept.dns.marker.answer_ipv4")}
-                id="intercept-marker-address"
-                label={t("pages.settings.intercept.markerAddressLabel")}
-                hint={t("pages.settings.intercept.markerAddressHint")}
-              />
-            </div>
+            {advancedMode && (
+              <div className="grid gap-6 md:grid-cols-2 [&_[data-slot=field-description]]:text-amber-700 dark:[&_[data-slot=field-description]]:text-amber-400 [&_[data-slot=field-label]]:text-amber-700 dark:[&_[data-slot=field-label]]:text-amber-400">
+                <TextSettingField
+                  field={form.field("intercept.dns.marker.domain")}
+                  id="intercept-marker-domain"
+                  label={
+                    <span className="inline-flex items-center gap-2">
+                      {t("pages.settings.intercept.markerDomainLabel")}
+                      <Toolbox aria-hidden="true" className="size-4 shrink-0" />
+                    </span>
+                  }
+                  hint={t("pages.settings.intercept.markerDomainHint")}
+                />
+                <TextSettingField
+                  field={form.field("intercept.dns.marker.answer_ipv4")}
+                  id="intercept-marker-address"
+                  label={
+                    <span className="inline-flex items-center gap-2">
+                      {t("pages.settings.intercept.markerAddressLabel")}
+                      <Toolbox aria-hidden="true" className="size-4 shrink-0" />
+                    </span>
+                  }
+                  hint={t("pages.settings.intercept.markerAddressHint")}
+                />
+              </div>
+            )}
 
             <FieldSeparator />
 
@@ -309,12 +390,21 @@ function LoadedGeneralConfigPage({
               hint={t("pages.settings.intercept.l7EnabledHint")}
             />
 
-            <NumberSettingField
-              field={form.field("intercept.l7.nflog_group")}
-              id="intercept-l7-group"
-              label={t("pages.settings.intercept.nflogGroupLabel")}
-              hint={t("pages.settings.intercept.nflogGroupHint")}
-            />
+            {advancedMode && (
+              <div className="[&_[data-slot=field-description]]:text-amber-700 dark:[&_[data-slot=field-description]]:text-amber-400 [&_[data-slot=field-label]]:text-amber-700 dark:[&_[data-slot=field-label]]:text-amber-400">
+                <NumberSettingField
+                  field={form.field("intercept.l7.nflog_group")}
+                  id="intercept-l7-group"
+                  label={
+                    <span className="inline-flex items-center gap-2">
+                      {t("pages.settings.intercept.nflogGroupLabel")}
+                      <Toolbox aria-hidden="true" className="size-4 shrink-0" />
+                    </span>
+                  }
+                  hint={t("pages.settings.intercept.nflogGroupHint")}
+                />
+              </div>
+            )}
 
             <div className="grid gap-6 md:grid-cols-3">
               <BooleanSettingField
@@ -346,51 +436,6 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <BooleanSettingField
-              field={form.field("daemon.strict_enforcement")}
-              hint={t("pages.settings.general.strictEnforcementHint")}
-              id="strict-enforcement"
-              label={t("pages.settings.general.strictEnforcementLabel")}
-            />
-
-            <FieldSeparator />
-
-            <BooleanSettingField
-              field={form.field("daemon.skip_marked_packets")}
-              hint={t("pages.settings.general.skipMarkedPacketsHint")}
-              id="skip-marked-packets"
-              label={t("pages.settings.general.skipMarkedPacketsLabel")}
-            />
-
-            <FieldSeparator />
-
-            <BooleanSettingField
-              field={form.field("iproute.process_router_traffic")}
-              hint={t("pages.settings.general.processRouterTrafficHint")}
-              id="process-router-traffic"
-              label={t("pages.settings.general.processRouterTrafficLabel")}
-            />
-
-            <FieldSeparator />
-
-            <BooleanSettingField
-              field={form.field("daemon.clear_dynamic_sets_on_apply")}
-              hint={t("pages.settings.general.clearDynamicSetsOnApplyHint")}
-              id="clear-dynamic-sets-on-apply"
-              label={t("pages.settings.general.clearDynamicSetsOnApplyLabel")}
-            />
-
-            <FieldSeparator />
-
-            <BooleanSettingField
-              field={form.field("daemon.ipv6_enabled")}
-              hint={t("pages.settings.general.ipv6EnabledHint")}
-              id="ipv6-enabled"
-              label={t("pages.settings.general.ipv6EnabledLabel")}
-            />
-
-            <FieldSeparator />
-
             <Field invalid={Boolean(inboundInterfacesError)}>
               <FieldLabel htmlFor="inbound-interfaces">
                 {t("pages.settings.general.inboundInterfacesLabel")}
@@ -424,6 +469,58 @@ function LoadedGeneralConfigPage({
                 </FieldDescription>
               </FieldContent>
             </Field>
+            <FieldSeparator />
+
+            <BooleanSettingField
+              field={form.field("daemon.strict_enforcement")}
+              hint={t("pages.settings.general.strictEnforcementHint")}
+              id="strict-enforcement"
+              label={t("pages.settings.general.strictEnforcementLabel")}
+            />
+
+            <FieldSeparator />
+
+            <BooleanSettingField
+              field={form.field("daemon.skip_marked_packets")}
+              hint={t("pages.settings.general.skipMarkedPacketsHint")}
+              id="skip-marked-packets"
+              label={t("pages.settings.general.skipMarkedPacketsLabel")}
+            />
+
+            {advancedMode && (
+              <div className="space-y-6 [&_[data-slot=field-description]]:text-amber-700 dark:[&_[data-slot=field-description]]:text-amber-400 [&_[data-slot=field-label]]:text-amber-700 dark:[&_[data-slot=field-label]]:text-amber-400">
+                <FieldSeparator />
+                <BooleanSettingField
+                  field={form.field("iproute.process_router_traffic")}
+                  hint={t("pages.settings.general.processRouterTrafficHint")}
+                  id="process-router-traffic"
+                  label={
+                    <span className="inline-flex items-center gap-2">
+                      {t("pages.settings.general.processRouterTrafficLabel")}
+                      <Toolbox aria-hidden="true" className="size-4 shrink-0" />
+                    </span>
+                  }
+                />
+              </div>
+            )}
+
+            <FieldSeparator />
+
+            <BooleanSettingField
+              field={form.field("daemon.clear_dynamic_sets_on_apply")}
+              hint={t("pages.settings.general.clearDynamicSetsOnApplyHint")}
+              id="clear-dynamic-sets-on-apply"
+              label={t("pages.settings.general.clearDynamicSetsOnApplyLabel")}
+            />
+
+            <FieldSeparator />
+
+            <BooleanSettingField
+              field={form.field("daemon.ipv6_enabled")}
+              hint={t("pages.settings.general.ipv6EnabledHint")}
+              id="ipv6-enabled"
+              label={t("pages.settings.general.ipv6EnabledLabel")}
+            />
           </FieldGroup>
         </CardContent>
       </Card>
@@ -500,60 +597,19 @@ function LoadedGeneralConfigPage({
         <CardContent>
           <FieldGroup>
             <AdvancedTextField
-              field={form.field("fwmark.start")}
-              hint={t("pages.settings.advanced.fwmarkStartHint")}
-              id="fwmark-start"
-              label={t("pages.settings.advanced.fwmarkStartLabel")}
-            />
-
-            <FieldSeparator />
-
-            <AdvancedTextField
-              field={form.field("fwmark.mask")}
-              hint={
-                <>
-                  {t("pages.settings.advanced.fwmarkMaskHintPrefix")}{" "}
-                  <code>f</code>{" "}
-                  {t("pages.settings.advanced.fwmarkMaskHintSuffix")}{" "}
-                  <code>0x00ff0000</code>.
-                </>
-              }
-              id="fwmark-mask"
-              label={t("pages.settings.advanced.fwmarkMaskLabel")}
-            />
-
-            <FieldSeparator />
-
-            <AdvancedTextField
-              field={form.field("iproute.table_start")}
-              hint={t("pages.settings.advanced.tableStartHint")}
-              id="table-start"
-              label={t("pages.settings.advanced.tableStartLabel")}
-            />
-
-            <FieldSeparator />
-
-            <AdvancedTextField
-              field={form.field("daemon.ipset_hashsize")}
-              hint={t("pages.settings.advanced.ipsetHashsizeHint")}
-              id="ipset-hashsize"
-              inputProps={{
-                inputMode: "numeric",
-                max: 2147483648,
-                min: 1,
-                placeholder: "1024",
-                type: "number",
-              }}
-              label={t("pages.settings.advanced.ipsetHashsizeLabel")}
-            />
-
-            <FieldSeparator />
-
-            <AdvancedTextField
               field={form.field("daemon.ipset_maxelem")}
-              hint={t("pages.settings.advanced.ipsetMaxelemHint")}
+              hint={
+                usesNftables ? (
+                  <span className="text-muted-foreground">
+                    {t("pages.settings.advanced.ipsetIptablesOnlyHint")}
+                  </span>
+                ) : (
+                  t("pages.settings.advanced.ipsetMaxelemHint")
+                )
+              }
               id="ipset-maxelem"
               inputProps={{
+                disabled: usesNftables,
                 inputMode: "numeric",
                 max: 4294967295,
                 min: 1,
@@ -562,7 +618,121 @@ function LoadedGeneralConfigPage({
               }}
               label={t("pages.settings.advanced.ipsetMaxelemLabel")}
             />
+            {advancedMode && (
+              <div className="space-y-6 [&_[data-slot=field-description]]:text-amber-700 dark:[&_[data-slot=field-description]]:text-amber-400 [&_[data-slot=field-label]]:text-amber-700 dark:[&_[data-slot=field-label]]:text-amber-400">
+                <FieldSeparator />
+                <AdvancedTextField
+                  field={form.field("daemon.ipset_hashsize")}
+                  hint={
+                    usesNftables ? (
+                      <span className="text-muted-foreground">
+                        {t("pages.settings.advanced.ipsetIptablesOnlyHint")}
+                      </span>
+                    ) : (
+                      t("pages.settings.advanced.ipsetHashsizeHint")
+                    )
+                  }
+                  id="ipset-hashsize"
+                  inputProps={{
+                    disabled: usesNftables,
+                    inputMode: "numeric",
+                    max: 2147483648,
+                    min: 1,
+                    placeholder: "1024",
+                    type: "number",
+                  }}
+                  label={
+                    <span className="inline-flex items-center gap-2">
+                      {t("pages.settings.advanced.ipsetHashsizeLabel")}
+                      <Toolbox aria-hidden="true" className="size-4 shrink-0" />
+                    </span>
+                  }
+                />
+                <FieldSeparator />
+                <div className="grid gap-6 md:grid-cols-2">
+                  <AdvancedTextField
+                    field={form.field("fwmark.start")}
+                    hint={t("pages.settings.advanced.fwmarkStartHint")}
+                    id="fwmark-start"
+                    label={
+                      <span className="inline-flex items-center gap-2">
+                        {t("pages.settings.advanced.fwmarkStartLabel")}
+                        <Toolbox
+                          aria-hidden="true"
+                          className="size-4 shrink-0"
+                        />
+                      </span>
+                    }
+                  />
+                  <AdvancedTextField
+                    field={form.field("fwmark.mask")}
+                    hint={
+                      <>
+                        {t("pages.settings.advanced.fwmarkMaskHintPrefix")}{" "}
+                        <code>f</code>{" "}
+                        {t("pages.settings.advanced.fwmarkMaskHintSuffix")}{" "}
+                        <code>0x00ff0000</code>.
+                      </>
+                    }
+                    id="fwmark-mask"
+                    label={
+                      <span className="inline-flex items-center gap-2">
+                        {t("pages.settings.advanced.fwmarkMaskLabel")}
+                        <Toolbox
+                          aria-hidden="true"
+                          className="size-4 shrink-0"
+                        />
+                      </span>
+                    }
+                  />
+                </div>
+                <FieldSeparator />
+                <AdvancedTextField
+                  field={form.field("iproute.table_start")}
+                  hint={t("pages.settings.advanced.tableStartHint")}
+                  id="table-start"
+                  label={
+                    <span className="inline-flex items-center gap-2">
+                      {t("pages.settings.advanced.tableStartLabel")}
+                      <Toolbox aria-hidden="true" className="size-4 shrink-0" />
+                    </span>
+                  }
+                />
+              </div>
+            )}
           </FieldGroup>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("pages.settings.dns.title")}</CardTitle>
+          <CardDescription>
+            {t("pages.settings.dns.description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel htmlFor="dnsmasq-management">
+                {t("pages.settings.dns.resolverIntegrationLabel")}
+              </FieldLabel>
+              <FieldHint
+                description={t("pages.settings.dns.resolverIntegrationHint")}
+              />
+            </FieldContent>
+            <Switch
+              checked={form.values.dns.resolver_integration === "dnsmasq"}
+              className="scroll-mt-24"
+              id="dnsmasq-management"
+              onCheckedChange={(enabled) =>
+                form.setValue(
+                  "dns.resolver_integration",
+                  enabled ? "dnsmasq" : "none"
+                )
+              }
+            />
+          </Field>
         </CardContent>
       </Card>
 
@@ -670,7 +840,7 @@ function BooleanSettingField({
   field: FieldBinding<boolean>
   hint?: string
   id: string
-  label: string
+  label: ReactNode
 }) {
   return (
     <Field>
@@ -703,7 +873,7 @@ function TextSettingField({
   field: FieldBinding<string>
   hint?: string
   id: string
-  label: string
+  label: ReactNode
 }) {
   return (
     <Field invalid={Boolean(field.error)}>
@@ -725,7 +895,7 @@ function NumberSettingField({
   field: FieldBinding<string>
   hint?: string
   id: string
-  label: string
+  label: ReactNode
 }) {
   return (
     <Field invalid={Boolean(field.error)}>
@@ -754,7 +924,7 @@ function AdvancedTextField({
   hint: ReactNode
   id: string
   inputProps?: ComponentProps<typeof Input>
-  label: string
+  label: ReactNode
 }) {
   return (
     <Field invalid={Boolean(field.error)}>
@@ -811,6 +981,9 @@ export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
         config.iproute?.process_router_traffic ??
         fallback.iproute.process_router_traffic,
     },
+    dns: {
+      resolver_integration: effectiveResolverIntegration(config),
+    },
     intercept: {
       enabled: intercept?.enabled ?? fallback.intercept.enabled,
       min_ttl_s: toStringInt(
@@ -857,6 +1030,7 @@ export function buildUpdatedConfig(
   draft: SettingsDraft
 ): ConfigObject {
   const { daemon, intercept } = draft
+  const resolverIntegration = draft.dns.resolver_integration
   const tableStart = parseStrictDecimalToNumber(draft.iproute.table_start)
   const marker = {
     ...config.intercept?.dns?.marker,
@@ -900,6 +1074,9 @@ export function buildUpdatedConfig(
     },
     dns: {
       ...config.dns,
+      ...(effectiveResolverIntegration(config) === resolverIntegration
+        ? {}
+        : { resolver_integration: resolverIntegration }),
     },
     intercept: {
       ...config.intercept,

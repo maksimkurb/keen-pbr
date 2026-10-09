@@ -31,6 +31,7 @@ import {
   selectListRefreshState,
 } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
@@ -45,11 +46,13 @@ import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { useRowSelection } from "@/hooks/use-row-selection"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { getRulesUsingList } from "@/lib/list-usage"
 import { getApiErrorMessage } from "@/lib/api-errors"
 import {
   buildUpdatedConfigForListsDelete,
   getListDeleteImpact,
   type ListDeleteImpact,
+  splitListSourceUrl,
 } from "@/pages/lists-utils"
 
 type ListDraft = {
@@ -67,7 +70,7 @@ type ListTableRow = {
   locationLabel: string
   locationIcon?: "external"
   lastUpdated?: string
-  rule: string
+  ruleCount: number
   stats?: {
     totalHosts: number
     ipv4Subnets: number
@@ -151,8 +154,8 @@ export function ListsPage() {
   })
 
   const tableRows = useMemo(
-    () => getTableRowsFromListMap(loadedConfig?.lists, listRefreshState, t),
-    [loadedConfig?.lists, listRefreshState, t]
+    () => getTableRowsFromListMap(loadedConfig, listRefreshState, t),
+    [loadedConfig, listRefreshState, t]
   )
   const listRowIds = tableRows.map((row) => row.id)
   const listSelection = useRowSelection(listRowIds)
@@ -268,7 +271,7 @@ export function ListsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-0">
       <PageHeader
         actions={
           <div className="flex flex-wrap justify-end gap-2">
@@ -289,12 +292,18 @@ export function ListsPage() {
               </Button>
             ) : null}
             <Button
+              className="hidden md:inline-flex"
               disabled={configMutationPending}
               onClick={() => navigate("/lists/create")}
             >
               <Plus className="mr-1 h-4 w-4" />
               {t("pages.lists.actions.new")}
             </Button>
+            <MobileAddFab
+              disabled={configMutationPending}
+              icon={<Plus className="size-4" />}
+              onClick={() => navigate("/lists/create")}
+            />
           </div>
         }
         description={t("pages.lists.description")}
@@ -318,8 +327,10 @@ export function ListsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {listSelection.hasSelection ? (
+          {listSelection.isSelecting ? (
             <BulkSelectionToolbar
+              selection={listSelection}
+              disabled={configMutationPending}
               countLabel={t("pages.lists.bulk.selected", {
                 count: listSelection.selectedCount,
               })}
@@ -338,7 +349,9 @@ export function ListsPage() {
                       bulkRefreshRunning ? "animate-spin" : ""
                     }`}
                   />
-                  {t("pages.lists.bulk.refreshSelected")}
+                  {t("pages.lists.bulk.refreshSelected", {
+                    count: selectedRefreshableLists.length,
+                  })}
                 </Button>
               ) : null}
               <Button
@@ -348,11 +361,21 @@ export function ListsPage() {
                 variant="destructive"
               >
                 <Trash2 className="mr-1 h-4 w-4" />
-                {t("pages.lists.bulk.deleteSelected")}
+                {t("pages.lists.bulk.deleteSelected", {
+                  count: listSelection.selectedCount,
+                })}
               </Button>
             </BulkSelectionToolbar>
           ) : null}
           <DataTable
+            mobileCards={{
+              titleColumns: [0, 1],
+              bodyColumns: [2, 3],
+              hideLabels: [3],
+              beforeBody: (index) => (
+                <ListSource list={tableRows[index]} t={t} />
+              ),
+            }}
             headers={[
               t("pages.lists.headers.name"),
               t("pages.lists.headers.type"),
@@ -361,13 +384,13 @@ export function ListsPage() {
               t("pages.lists.headers.actions"),
             ]}
             rows={tableRows.map((list) => [
-              <div className="space-y-1" key={`${list.id}-name`}>
+              <div className="md:space-y-1" key={`${list.id}-name`}>
                 <div className="flex items-center gap-2 font-medium">
                   {list.draft.name}
                   {list.locationIcon === "external" ? (
                     <a
                       aria-label={list.locationLabel}
-                      className="text-muted-foreground transition-colors hover:text-foreground"
+                      className="hidden text-muted-foreground transition-colors hover:text-foreground md:inline-flex"
                       href={list.draft.url}
                       rel="noreferrer"
                       target="_blank"
@@ -376,11 +399,11 @@ export function ListsPage() {
                     </a>
                   ) : null}
                 </div>
-                <div className="text-sm text-muted-foreground md:text-xs">
+                <div className="hidden text-sm text-muted-foreground md:block md:text-xs">
                   {list.locationLabel}
                 </div>
                 {list.canRefresh ? (
-                  <div className="text-sm text-muted-foreground md:text-xs">
+                  <div className="hidden text-sm text-muted-foreground md:block md:text-xs">
                     {t("pages.lists.lastUpdated", {
                       value: formatLastUpdatedLabel(
                         list.lastUpdated,
@@ -408,10 +431,14 @@ export function ListsPage() {
                   {t("pages.lists.noStats")}
                 </span>
               ),
-              <Badge key={`${list.id}-rule`} variant="outline">
-                {list.rule}
-              </Badge>,
+              <div key={`${list.id}-rule`}>
+                <span className="md:hidden">
+                  {t("pages.lists.rule.used", { count: list.ruleCount })}
+                </span>
+                <span className="hidden md:inline">{list.ruleCount}</span>
+              </div>,
               <ActionButtons
+                mobileIcons
                 actions={[
                   ...(list.canRefresh
                     ? [
@@ -445,6 +472,7 @@ export function ListsPage() {
                   {
                     disabled: configMutationPending,
                     icon: <Trash2 className="h-4 w-4" />,
+                    destructive: true,
                     label: t("common.delete"),
                     onClick: () => handleDelete(list.id),
                   },
@@ -453,6 +481,8 @@ export function ListsPage() {
               />,
             ])}
             selection={{
+              isSelecting: listSelection.isSelecting,
+              onStartSelecting: listSelection.startSelecting,
               rowIds: listRowIds,
               selectedIds: listSelection.selectedIds,
               disabled: configMutationPending,
@@ -714,11 +744,11 @@ function formatFailedListNamesForToast(
 }
 
 function getTableRowsFromListMap(
-  lists: ConfigObject["lists"],
+  config: ConfigObject | undefined,
   listRefreshState: ConfigStateResponseListRefreshState,
   t: (key: string) => string
 ): ListTableRow[] {
-  return Object.entries(lists ?? {}).map(([name, listConfig]) => {
+  return Object.entries(config?.lists ?? {}).map(([name, listConfig]) => {
     const domains = listConfig.domains ?? []
     const ipCidrs = listConfig.ip_cidrs ?? []
     const showInlineStats = !listConfig.url && !listConfig.file
@@ -737,10 +767,22 @@ function getTableRowsFromListMap(
         listConfig.url || listConfig.file || t("pages.lists.location.inline"),
       locationIcon: listConfig.url ? "external" : undefined,
       lastUpdated: listRefreshState[name]?.last_updated,
-      rule: t("pages.lists.rule.configured"),
+      ruleCount:
+        getRulesUsingList(
+          name,
+          config?.route?.rules ?? [],
+          (rule) => rule.list,
+          (rule) => rule.outbound
+        ).length +
+        getRulesUsingList(
+          name,
+          config?.dns?.rules ?? [],
+          (rule) => rule.list,
+          (rule) => rule.server
+        ).length,
       stats: showInlineStats
         ? {
-            totalHosts: domains.length + ipCidrs.length,
+            totalHosts: domains.length,
             ipv4Subnets: ipCidrs.filter((value) => value.includes(".")).length,
             ipv6Subnets: ipCidrs.filter((value) => value.includes(":")).length,
           }
@@ -779,4 +821,70 @@ function formatLastUpdatedLabel(value: string | undefined, fallback: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(parsedDate)
+}
+
+function ListSource({
+  list,
+  t,
+}: {
+  list: ListTableRow
+  t: (key: string, options?: Record<string, unknown>) => string
+}) {
+  if (!list.draft.url && !list.draft.file) return null
+  return (
+    <div className="min-w-0 space-y-2">
+      {list.draft.url ? (
+        <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+          <SourceUrl text={list.draft.url} />
+          <a
+            href={list.draft.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={list.draft.url}
+            className="flex size-8 shrink-0 items-center justify-center rounded-md hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <ExternalLink className="size-4" />
+          </a>
+        </div>
+      ) : null}
+      {list.draft.file ? <StartEllipsis text={list.draft.file} /> : null}
+      {list.canRefresh ? (
+        <div className="text-xs text-muted-foreground">
+          {t("pages.lists.lastUpdated", {
+            value: formatLastUpdatedLabel(
+              list.lastUpdated,
+              t("pages.lists.neverUpdated")
+            ),
+          })}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function StartEllipsis({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      className="min-w-0 truncate text-left text-sm text-muted-foreground [direction:rtl]"
+    >
+      <bdi dir="ltr">{text}</bdi>
+    </span>
+  )
+}
+
+function SourceUrl({ text }: { text: string }) {
+  const { domain, remainder } = splitListSourceUrl(text)
+  const hasSlash = remainder.startsWith("/")
+  return (
+    <div title={text} className="flex min-w-0 flex-1 items-center">
+      <span className="max-w-[70%] shrink-0 break-all">
+        {domain}
+        {hasSlash ? "/" : ""}
+      </span>
+      <span className="min-w-0 truncate text-right [direction:rtl]">
+        <bdi dir="ltr">{hasSlash ? remainder.slice(1) : remainder}</bdi>
+      </span>
+    </div>
+  )
 }

@@ -1,8 +1,13 @@
 import type { ComponentProps, ReactNode } from "react"
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
-export type DotTone = "ok" | "warn" | "bad" | "off"
+export type DotTone = "ok" | "up" | "warn" | "bad" | "off"
 
 export function Panel({ className, ...props }: ComponentProps<"section">) {
   return (
@@ -49,21 +54,31 @@ export function StatusDot({
   className?: string
   title?: string
 }) {
-  return (
+  const dot = (
     <span
       aria-hidden={title ? undefined : true}
       className={cn(
         "inline-block size-2 shrink-0 rounded-full",
         tone === "ok" && "bg-success",
+        tone === "up" && "bg-success",
         tone === "warn" && "bg-warning",
         tone === "bad" && "bg-destructive",
         tone === "off" && "bg-muted-foreground/40",
         className
       )}
       role={title ? "img" : undefined}
-      title={title}
       aria-label={title}
+      tabIndex={title ? 0 : undefined}
     />
+  )
+
+  return title ? (
+    <Tooltip>
+      <TooltipTrigger render={dot} />
+      <TooltipContent>{title}</TooltipContent>
+    </Tooltip>
+  ) : (
+    dot
   )
 }
 

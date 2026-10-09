@@ -61,5 +61,39 @@ describe("settings draft mirrors the config document", () => {
     expect(buildUpdatedConfig(config, getDraftFromConfig(config))).toEqual(
       config
     )
+    expect(getDraftFromConfig(config).dns.resolver_integration).toBe("none")
+  })
+
+  test("editing a simple setting preserves advanced routing parameters", () => {
+    const draft = getDraftFromConfig(config)
+    draft.device_name = "new name"
+    const updated = buildUpdatedConfig(config, draft)
+    expect(updated.fwmark).toEqual(config.fwmark)
+    expect(updated.iproute).toEqual(config.iproute)
+    expect(updated.intercept).toEqual(config.intercept)
+    expect(updated.daemon?.ipset_hashsize).toBe(config.daemon?.ipset_hashsize)
+  })
+
+  test("settings save can change DNS integration without replacing DNS data", () => {
+    const configWithDns = {
+      ...config,
+      dns: {
+        servers: [{ tag: "home", address: "1.1.1.1" }],
+        rules: [{ list: ["video"], server: "home" }],
+        fallback: ["home"],
+      },
+    } as ConfigObject
+    const draft = getDraftFromConfig(configWithDns)
+    expect(draft.dns.resolver_integration).toBe("dnsmasq")
+
+    const disabledDraft = {
+      ...draft,
+      dns: { resolver_integration: "none" },
+    }
+    const updated = buildUpdatedConfig(configWithDns, disabledDraft)
+    expect(updated.dns?.resolver_integration).toBe("none")
+    expect(updated.dns?.servers).toEqual(configWithDns.dns?.servers)
+    expect(updated.dns?.rules).toEqual(configWithDns.dns?.rules)
+    expect(updated.dns?.fallback).toEqual(configWithDns.dns?.fallback)
   })
 })

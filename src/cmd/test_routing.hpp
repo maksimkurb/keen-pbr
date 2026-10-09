@@ -5,6 +5,7 @@
 #include "../routing/firewall_state.hpp"
 
 #include <functional>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -16,12 +17,47 @@ struct ListMatchInfo {
     std::string via; // specific entry that triggered match: an IP, CIDR, or domain
 };
 
+// Packet fields supplied by the routing-test API. An empty object preserves
+// the legacy target-only/list-only diagnostic behavior.
+struct TestRoutingCriteria {
+    std::optional<std::string> proto; // tcp, udp, or other
+    std::optional<uint16_t> dest_port;
+    std::optional<std::string> src_addr;
+    std::optional<uint16_t> src_port;
+    std::optional<uint8_t> dscp;
+
+    bool has_any() const {
+        return proto.has_value() || dest_port.has_value() || src_addr.has_value() ||
+               src_port.has_value() || dscp.has_value();
+    }
+};
+
+enum class SetWriteEvidenceStatus : uint8_t {
+    Recorded,
+    NoRecord,
+    NotTracked,
+};
+
+struct SetWriteEvidence {
+    SetWriteEvidenceStatus status{SetWriteEvidenceStatus::NotTracked};
+    std::optional<uint64_t> age_seconds;
+};
+
+// Returns evidence for one realized dynamic set and address. The callback is
+// optional so the standalone CLI keeps its target-only behavior.
+using SetWriteEvidenceLookup =
+    std::function<SetWriteEvidence(const std::string& set_name, const std::string& ip)>;
+
 struct TestRoutingEntry {
     std::string ip;
     std::optional<ListMatchInfo> list_match;
     std::string expected_outbound; // rule outbound tag, or "(default)"
-    std::string actual_outbound;   // tag, "(default)", or "(unknown)" if kernel check unavailable
+    std::string actual_outbound;   // tag, "(default)", or "(unknown)" if live state/criteria unavailable
     bool ok;
+    std::optional<int> matched_rule_index;
+    // Whether the selected rule's packet criteria matched. null when packet
+    // criteria were omitted or the result cannot be determined.
+    std::optional<bool> criteria_match;
 };
 
 struct RuleIpDiagnostic {
@@ -31,6 +67,13 @@ struct RuleIpDiagnostic {
     std::optional<ListMatchInfo> list_match;
     // true/false when checked against live firewall set, null when unavailable.
     std::optional<bool> in_ipset;
+    // Whether this resolved IP matches the rule's packet criteria. null means
+    // that a required packet field was not supplied or directness is unknown.
+    std::optional<bool> criteria_match;
+    // Evidence that keen-pbr successfully operated on this exact dynamic set
+    // and address. This says nothing about DNS provenance or current kernel
+    // membership, which is reported separately by in_ipset.
+    std::optional<SetWriteEvidence> set_write_evidence;
 };
 
 struct RuleDiagnostic {
@@ -67,6 +110,13 @@ TestRoutingResult compute_test_routing(const Config& config,
                                         const CacheManager& cache,
                                         const std::string& target,
                                         const std::vector<RuleState>* realized_rule_states = nullptr);
+
+TestRoutingResult compute_test_routing(const Config& config,
+                                        const CacheManager& cache,
+                                        const std::string& target,
+                                        const TestRoutingCriteria& criteria,
+                                        const std::vector<RuleState>* realized_rule_states = nullptr,
+                                        SetWriteEvidenceLookup set_write_evidence_lookup = {});
 
 // Print table and return 0 if all entries match, 1 otherwise.
 int run_test_routing_command(const Config& config,

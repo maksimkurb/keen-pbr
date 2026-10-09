@@ -44,11 +44,6 @@ export function DiagnosticsPanel({
     >
       <PanelHeader
         title={t("overview.routing.title")}
-        subtitle={
-          showHealthy
-            ? t("overview.diagnostics.allChecks")
-            : t("overview.diagnostics.onlyProblems")
-        }
       >
         <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
           <Checkbox

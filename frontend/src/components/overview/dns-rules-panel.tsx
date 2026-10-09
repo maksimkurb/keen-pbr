@@ -57,8 +57,7 @@ export function DnsRulesPanel({
             </KeyValue>
             <KeyValue label={t("overview.dnsRules.lastSync")}>
               <span title={fullTimestamp(health?.last_apply_ts, i18n.language)}>
-                {formatTs(health?.last_apply_ts) ??
-                  t("overview.dnsRules.neverSynced")}
+                {formatTs(health?.last_apply_ts) ?? "—"}
               </span>
             </KeyValue>
             {health?.loaded_ts ? (

@@ -55,6 +55,25 @@ SetElementCache::Lookup SetElementCache::lookup(uint16_t slot, uint8_t family,
     return {};
 }
 
+SetElementCache::Lookup SetElementCache::lookup_evidence(
+    uint16_t slot, uint8_t family, const std::array<uint8_t, 16>& addr,
+    int64_t now_ms) const {
+    if (slot == kNoSlot || (family != 4 && family != 6)) return {};
+    const std::size_t base = hash(slot, family, addr);
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (std::size_t k = 0; k < kProbeWindow; ++k) {
+        const Entry& e = entries_[(base + k) & (kSetCacheCapacity - 1)];
+        if (e.family == 0) break;
+        if (e.slot != slot || e.family != family || !same_key(e.addr, addr, family)) continue;
+        Lookup out;
+        out.expires_at_ms = e.expires_at_ms;
+        out.written_at_ms = e.written_at_ms;
+        out.state = now_ms - e.written_at_ms > kMaxTrustMs ? State::Stale : State::Fresh;
+        return out;
+    }
+    return {};
+}
+
 bool SetElementCache::record(uint16_t slot, uint8_t family, const std::array<uint8_t, 16>& addr,
                              uint32_t timeout_s, int64_t now_ms, uint64_t epoch) {
     if (slot == kNoSlot || (family != 4 && family != 6)) return false;

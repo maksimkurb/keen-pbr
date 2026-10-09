@@ -4,6 +4,7 @@
 
 #ifdef WITH_API
 
+#include <algorithm>
 #include <filesystem>
 #include <fcntl.h>
 #include <fstream>
@@ -88,6 +89,21 @@ api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
     health.rules = static_cast<std::int64_t>(status.rules);
     health.domains = static_cast<std::int64_t>(status.domains);
     return health;
+}
+
+SetWriteEvidence make_set_write_evidence(
+    const std::optional<SetElementCache::Lookup>& lookup) {
+    if (!lookup.has_value()) {
+        return {SetWriteEvidenceStatus::NotTracked, std::nullopt};
+    }
+    if (lookup->state == SetElementCache::State::Unknown) {
+        return {SetWriteEvidenceStatus::NoRecord, std::nullopt};
+    }
+    const int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    const int64_t age_ms = std::max<int64_t>(0, now_ms - lookup->written_at_ms);
+    return {SetWriteEvidenceStatus::Recorded,
+            static_cast<uint64_t>(age_ms / 1000)};
 }
 
 } // namespace
@@ -563,6 +579,59 @@ void Daemon::setup_api() {
     api_server_ = std::make_unique<ApiServer>(
         *config_.api, config_.device_name.value_or(""));
 
+    const auto compute_test_routing_with_criteria =
+        [this](const std::string& target, const TestRoutingCriteria& criteria) {
+            const Config active_config = config_store_.active_config();
+            const auto runtime_snapshot = runtime_state_store_.snapshot();
+            const auto realized_rules = runtime_snapshot.firewall_state.get_rules();
+            std::shared_ptr<InterceptService> intercept_service;
+            std::shared_ptr<const InterceptSnapshot> intercept_snapshot;
+            {
+                KPBR_LOCK_GUARD(intercept_mutex_);
+                intercept_service = intercept_service_;
+                if (intercept_service) {
+                    intercept_snapshot = intercept_service->current_snapshot();
+                }
+            }
+            if (!try_begin_routing_test()) {
+                throw ApiError("Too many routing tests are already running", 503);
+            }
+            auto pending = routing_test_executor_.try_submit(
+                "api-test-routing",
+                [this, active_config, realized_rules, target, criteria,
+                 intercept_service, intercept_snapshot] {
+                    try {
+                        auto result = compute_test_routing(
+                            active_config,
+                            list_service_.cache_manager(),
+                            target,
+                            criteria,
+                            &realized_rules,
+                            [intercept_service, intercept_snapshot](
+                                const std::string& set_name,
+                                const std::string& ip) {
+                                if (!intercept_service || !intercept_snapshot ||
+                                    !intercept_service->running()) {
+                                    return SetWriteEvidence{};
+                                }
+                                return make_set_write_evidence(
+                                    intercept_service->lookup_set_write_evidence(
+                                        intercept_snapshot, set_name, ip));
+                            });
+                        finish_routing_test();
+                        return result;
+                    } catch (...) {
+                        finish_routing_test();
+                        throw;
+                    }
+                });
+            if (!pending.has_value()) {
+                finish_routing_test();
+                throw ApiError("Routing test executor queue is full", 503);
+            }
+            return pending->get();
+        };
+
     api_ctx_ = std::make_unique<ApiContext>(ApiContext{
         config_path_,
         *dns_test_broadcaster_,
@@ -667,34 +736,8 @@ void Daemon::setup_api() {
         [this](const Config& config) {
             return build_list_refresh_state_map(config, list_service_.cache_manager());
         },
-        [this](const std::string& target) {
-            const Config active_config = config_store_.active_config();
-            const auto runtime_snapshot = runtime_state_store_.snapshot();
-            const auto realized_rules = runtime_snapshot.firewall_state.get_rules();
-            if (!try_begin_routing_test()) {
-                throw ApiError("Too many routing tests are already running", 503);
-            }
-            auto pending = routing_test_executor_.try_submit(
-                "api-test-routing",
-                [this, active_config, realized_rules, target] {
-                    try {
-                        auto result = compute_test_routing(
-                            active_config,
-                            list_service_.cache_manager(),
-                            target,
-                            &realized_rules);
-                        finish_routing_test();
-                        return result;
-                    } catch (...) {
-                        finish_routing_test();
-                        throw;
-                    }
-                });
-            if (!pending.has_value()) {
-                finish_routing_test();
-                throw ApiError("Routing test executor queue is full", 503);
-            }
-            return pending->get();
+        [compute_test_routing_with_criteria](const std::string& target) {
+            return compute_test_routing_with_criteria(target, TestRoutingCriteria{});
         },
         [this]() {
             begin_config_operation_or_throw(ConfigOperationState::Saving,
@@ -797,6 +840,7 @@ void Daemon::setup_api() {
             firewall_apply_errors_.load(std::memory_order_relaxed),
             firewall_ && firewall_->backend() == FirewallBackend::nftables ? "nftables" : "iptables");
     };
+    api_ctx_->compute_test_routing_with_criteria_fn = compute_test_routing_with_criteria;
     status_stream_ = std::make_unique<StatusStream>(
         [this]() {
             return build_health_response(api_ctx_->get_service_health());

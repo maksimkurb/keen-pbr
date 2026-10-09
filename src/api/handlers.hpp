@@ -99,6 +99,10 @@ struct ApiContext {
     std::function<std::string(LifecycleRequest)> submit_lifecycle_operation_fn;
     std::function<void(AuthenticationConfig, CorsConfig)> commit_api_security_fn;
     std::function<std::string()> get_prometheus_metrics_fn;
+    // Optional packet-aware routing test callback. Keep the target-only
+    // callback above for API test fixtures and older embedders.
+    std::function<TestRoutingResult(const std::string&, const TestRoutingCriteria&)>
+        compute_test_routing_with_criteria_fn;
 
     bool enqueue_lifecycle_task(std::string label, std::function<void()> task) const {
         return enqueue_lifecycle_task_fn(std::move(label), std::move(task));
@@ -154,6 +158,17 @@ struct ApiContext {
     }
 
     TestRoutingResult compute_test_routing(const std::string& target) const {
+        return compute_test_routing_fn(target);
+    }
+
+    TestRoutingResult compute_test_routing(const std::string& target,
+                                           const TestRoutingCriteria& criteria) const {
+        if (compute_test_routing_with_criteria_fn) {
+            return compute_test_routing_with_criteria_fn(target, criteria);
+        }
+        if (criteria.has_any()) {
+            throw ApiError("Packet-aware routing test is unavailable", 503);
+        }
         return compute_test_routing_fn(target);
     }
 

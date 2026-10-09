@@ -5,6 +5,7 @@
 
 #include "../netfilter/uapi_compat.hpp"  // IWYU pragma: keep (macro compat shims)
 #include <poll.h>
+#include <arpa/inet.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
@@ -32,6 +33,19 @@ bool InterceptService::WriteGate::enter() {
     if (paused_) return false;
     ++in_flight_;
     return true;
+}
+
+std::optional<SetElementCache::Lookup> InterceptService::lookup_set_write_evidence(
+    const std::shared_ptr<const InterceptSnapshot>& snapshot,
+    const std::string& set_name, const std::string& ip) const {
+    std::array<uint8_t, 16> addr{};
+    if (inet_pton(AF_INET, ip.c_str(), addr.data()) == 1) {
+        return processor_.lookup_set_write_evidence(snapshot, set_name, 4, addr);
+    }
+    if (inet_pton(AF_INET6, ip.c_str(), addr.data()) == 1) {
+        return processor_.lookup_set_write_evidence(snapshot, set_name, 6, addr);
+    }
+    return std::nullopt;
 }
 
 void InterceptService::WriteGate::leave() {

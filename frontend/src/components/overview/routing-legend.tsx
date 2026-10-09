@@ -7,7 +7,7 @@ export function RoutingLegend() {
   return (
     <div className="space-y-2 text-sm">
       <div className="font-medium">{t("overview.routingLegend.title")}</div>
-      <ul className="space-y-1">
+      <ul className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 [&_svg]:shrink-0">
         <li className="flex items-center gap-2">
           <CircleCheckBig className="h-4 w-4 text-green-600" />
           {t("overview.routingLegend.inLists")}

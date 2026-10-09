@@ -1,3 +1,4 @@
+import { DnsManagementDisabled } from "@/components/shared/dns-management-disabled"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
@@ -15,6 +16,7 @@ import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
 import { effectiveResolverIntegration, selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
@@ -31,12 +33,10 @@ import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { useRowSelection } from "@/hooks/use-row-selection"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { getApiErrorMessage } from "@/lib/api-errors"
 import {
-  buildConfigWithResolverIntegration,
   buildUpdatedConfigWithRules,
   getRuleDraft,
   setDnsRuleEnabled,
@@ -109,19 +109,6 @@ export function DnsRulesPage() {
   }
 
   const resolverIntegration = effectiveResolverIntegration(loadedConfig)
-  const resolverIntegrationExplicit = Boolean(
-    loadedConfig?.dns?.resolver_integration
-  )
-
-  const handleResolverIntegrationChange = (enabled: boolean) => {
-    if (!loadedConfig) {
-      return
-    }
-
-    postConfigMutation.mutate({
-      data: buildConfigWithResolverIntegration(loadedConfig, enabled),
-    })
-  }
 
   const handleDeleteRule = (index: number) => {
     if (!loadedConfig) {
@@ -250,16 +237,26 @@ export function DnsRulesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-0">
       <PageHeader
         actions={
-          <Button
-            disabled={configMutationPending}
-            onClick={() => navigate("/dns-rules/create")}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t("pages.dnsRules.actions.add")}
-          </Button>
+          resolverIntegration === "dnsmasq" ? (
+            <>
+              <Button
+                className="hidden md:inline-flex"
+                disabled={configMutationPending}
+                onClick={() => navigate("/dns-rules/create")}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                {t("pages.dnsRules.actions.add")}
+              </Button>
+              <MobileAddFab
+                disabled={configMutationPending}
+                icon={<Plus className="size-4" />}
+                onClick={() => navigate("/dns-rules/create")}
+              />
+            </>
+          ) : null
         }
         description={t("pages.dnsRules.description")}
         title={t("pages.dnsRules.title")}
@@ -275,35 +272,12 @@ export function DnsRulesPage() {
           title={t("common.unableToLoadData")}
           variant="error"
         />
+      ) : resolverIntegration !== "dnsmasq" ? (
+        <DnsManagementDisabled />
       ) : (
         <>
           <Card>
             <CardContent className="space-y-6">
-              <Field orientation="horizontal">
-                <FieldContent>
-                  <FieldLabel htmlFor="dnsmasq-management">
-                    {t("pages.dnsRules.integration.title")}
-                  </FieldLabel>
-                  <FieldHint
-                    description={
-                      resolverIntegrationExplicit
-                        ? t("pages.dnsRules.integration.description")
-                        : `${t("pages.dnsRules.integration.description")} ${
-                            resolverIntegration === "dnsmasq"
-                              ? t("pages.dnsRules.integration.effectiveHint")
-                              : ""
-                          }`.trim()
-                    }
-                  />
-                </FieldContent>
-                <Switch
-                  checked={resolverIntegration === "dnsmasq"}
-                  disabled={configMutationPending}
-                  id="dnsmasq-management"
-                  onCheckedChange={handleResolverIntegrationChange}
-                />
-              </Field>
-
               <Field>
                 <FieldLabel>{t("pages.dnsRules.fallback.title")}</FieldLabel>
                 <FieldContent>
@@ -338,17 +312,6 @@ export function DnsRulesPage() {
             </CardContent>
           </Card>
 
-          {resolverIntegration !== "dnsmasq" ? (
-            <Alert className="border-amber-500/40 bg-amber-500/10">
-              <AlertTitle>
-                {t("pages.dnsRules.integration.inactiveTitle")}
-              </AlertTitle>
-              <AlertDescription>
-                {t("pages.dnsRules.integration.inactiveDescription")}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
           {rules.length === 0 ? (
             <ListPlaceholder
               description={t("pages.dnsRules.empty.description")}
@@ -356,8 +319,10 @@ export function DnsRulesPage() {
             />
           ) : (
             <div className="space-y-3">
-              {ruleSelection.hasSelection ? (
+              {ruleSelection.isSelecting ? (
                 <BulkSelectionToolbar
+                  selection={ruleSelection}
+                  disabled={configMutationPending}
                   countLabel={t("pages.dnsRules.bulk.selected", {
                     count: ruleSelection.selectedCount,
                   })}
@@ -368,7 +333,9 @@ export function DnsRulesPage() {
                     size="sm"
                     variant="outline"
                   >
-                    {t("pages.dnsRules.bulk.enable")}
+                    {t("pages.dnsRules.bulk.enable", {
+                      count: ruleSelection.selectedCount,
+                    })}
                   </Button>
                   <Button
                     disabled={configMutationPending}
@@ -376,7 +343,9 @@ export function DnsRulesPage() {
                     size="sm"
                     variant="outline"
                   >
-                    {t("pages.dnsRules.bulk.disable")}
+                    {t("pages.dnsRules.bulk.disable", {
+                      count: ruleSelection.selectedCount,
+                    })}
                   </Button>
                   <Button
                     disabled={configMutationPending}
@@ -385,11 +354,18 @@ export function DnsRulesPage() {
                     variant="destructive"
                   >
                     <Trash2 className="mr-1 h-4 w-4" />
-                    {t("pages.dnsRules.bulk.delete")}
+                    {t("pages.dnsRules.bulk.delete", {
+                      count: ruleSelection.selectedCount,
+                    })}
                   </Button>
                 </BulkSelectionToolbar>
               ) : null}
               <DataTable
+                mobileCards={{
+                  titleColumns: [0, 2],
+                  bodyColumns: [1, 3],
+                  hideLabels: [3],
+                }}
                 headers={[
                   "",
                   t("pages.dnsRules.headers.criteria"),
@@ -435,7 +411,7 @@ export function DnsRulesPage() {
                   <Badge
                     key={`allow-domain-rebinding-${index}`}
                     variant={
-                      rule.allow_domain_rebinding ? "default" : "outline"
+                      rule.allow_domain_rebinding ? "warning" : "outline"
                     }
                   >
                     {rule.allow_domain_rebinding
@@ -443,6 +419,7 @@ export function DnsRulesPage() {
                       : t("pages.dnsRules.rebinding.disabled")}
                   </Badge>,
                   <ActionButtons
+                    mobileIcons
                     actions={[
                       {
                         disabled: configMutationPending,
@@ -453,6 +430,7 @@ export function DnsRulesPage() {
                       {
                         disabled: configMutationPending,
                         icon: <Trash2 className="h-4 w-4" />,
+                        destructive: true,
                         label: t("common.delete"),
                         onClick: () => handleDeleteRule(index),
                       },
@@ -461,6 +439,8 @@ export function DnsRulesPage() {
                   />,
                 ])}
                 selection={{
+                  isSelecting: ruleSelection.isSelecting,
+                  onStartSelecting: ruleSelection.startSelecting,
                   rowIds: ruleRowIds,
                   selectedIds: ruleSelection.selectedIds,
                   disabled: configMutationPending,

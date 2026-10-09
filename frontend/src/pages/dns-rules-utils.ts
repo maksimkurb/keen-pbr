@@ -108,16 +108,3 @@ export function validateRules(
 
   return errors
 }
-
-export function buildConfigWithResolverIntegration(
-  config: ConfigObject,
-  enabled: boolean
-): ConfigObject {
-  return {
-    ...config,
-    dns: {
-      ...config.dns,
-      resolver_integration: enabled ? "dnsmasq" : "none",
-    },
-  }
-}

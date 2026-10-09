@@ -1009,6 +1009,32 @@ TEST_CASE("intercept cache: first response writes before the verdict and fills t
     CHECK(events[0].cache_hits == 0);
 }
 
+TEST_CASE("intercept cache: write evidence resolves current dynamic set slots") {
+    CacheFixture f;
+    f.dns(dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)})));
+
+    std::array<uint8_t, 16> address{};
+    address[0] = 1;
+    address[1] = 2;
+    address[2] = 3;
+    address[3] = 4;
+    const auto hit = f.proc.lookup_set_write_evidence(
+        f.snap, "kpbr4d_ex", 4, address);
+    REQUIRE(hit.has_value());
+    CHECK(hit->state == SetElementCache::State::Fresh);
+    CHECK(hit->written_at_ms > 0);
+    CHECK_FALSE(f.proc.lookup_set_write_evidence(f.snap, "kpbr4_ex", 4, address).has_value());
+
+    auto replacement = std::make_shared<InterceptSnapshot>(*f.snap);
+    f.proc.set_snapshot(replacement);
+    CHECK_FALSE(f.proc.lookup_set_write_evidence(
+        f.snap, "kpbr4d_ex", 4, address).has_value());
+    const auto cleared = f.proc.lookup_set_write_evidence(
+        replacement, "kpbr4d_ex", 4, address);
+    REQUIRE(cleared.has_value());
+    CHECK(cleared->state == SetElementCache::State::Unknown);
+}
+
 TEST_CASE("intercept cache: identical second response has zero writer calls before the verdict") {
     CacheFixture f;
     const Bytes pkt = dns_packet(dns_response("example.com", 0, {a_rr(1, 2, 3, 4, 100)}));

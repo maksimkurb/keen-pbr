@@ -43,6 +43,16 @@ TEST_CASE("set cache: record then lookup is Fresh until the expiry margin") {
     CHECK(cache.size() == 1);
 }
 
+TEST_CASE("set cache: evidence peek retains a successful record after TTL expiry") {
+    SetElementCache cache;
+    REQUIRE(cache.record(3, 4, v4(1), 1, 1000, cache.epoch()));
+    CHECK(cache.lookup(3, 4, v4(1), 3000).state == State::Unknown);
+    const auto evidence = cache.lookup_evidence(3, 4, v4(1), 3000);
+    CHECK(evidence.state == State::Fresh);
+    CHECK(evidence.written_at_ms == 1000);
+    CHECK(evidence.expires_at_ms == 2000);
+}
+
 TEST_CASE("set cache: timeout 0 is permanent and stale only by trust age") {
     SetElementCache cache;
     REQUIRE(cache.record(0, 4, v4(9), 0, 5000, cache.epoch()));

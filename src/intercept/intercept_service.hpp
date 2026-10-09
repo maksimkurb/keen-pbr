@@ -64,6 +64,15 @@ public:
     std::shared_ptr<const InterceptSnapshot> current_snapshot() const {
         return processor_.current_snapshot();
     }
+    std::optional<SetElementCache::Lookup> lookup_set_write_evidence(
+        const std::shared_ptr<const InterceptSnapshot>& snapshot,
+        const std::string& set_name, uint8_t family,
+        const std::array<uint8_t, 16>& addr) const {
+        return processor_.lookup_set_write_evidence(snapshot, set_name, family, addr);
+    }
+    std::optional<SetElementCache::Lookup> lookup_set_write_evidence(
+        const std::shared_ptr<const InterceptSnapshot>& snapshot,
+        const std::string& set_name, const std::string& ip) const;
     // Hot thread drains the queue, ACCEPTs everything still held, then unbinds.
     void stop();
     bool running() const;

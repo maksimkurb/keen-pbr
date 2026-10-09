@@ -76,6 +76,7 @@ export function OutboundSelect({
 
             return (
               <RuntimeOutboundStatusLabel
+                statusDot
                 runtimeState={runtimeOutboundsByTag.get(selected)}
                 t={t}
                 title={selected}
@@ -121,6 +122,7 @@ function OutboundSelectOption({
   return (
     <div className="flex min-w-0 items-center justify-between gap-3">
       <RuntimeOutboundStatusLabel
+        statusDot
         runtimeState={runtimeState}
         t={t}
         title={outbound.tag}

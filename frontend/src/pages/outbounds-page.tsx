@@ -24,6 +24,7 @@ import {
 } from "@/api/queries"
 import { selectConfig, selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
@@ -191,16 +192,24 @@ export function OutboundsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-0">
       <PageHeader
         actions={
-          <Button
-            disabled={configMutationPending}
-            onClick={() => navigate("/outbounds/create")}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t("pages.outbounds.actions.new")}
-          </Button>
+          <>
+            <Button
+              className="hidden md:inline-flex"
+              disabled={configMutationPending}
+              onClick={() => navigate("/outbounds/create")}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              {t("pages.outbounds.actions.new")}
+            </Button>
+            <MobileAddFab
+              disabled={configMutationPending}
+              icon={<Plus className="size-4" />}
+              onClick={() => navigate("/outbounds/create")}
+            />
+          </>
         }
         description={t("pages.outbounds.description")}
         title={t("pages.outbounds.title")}
@@ -223,8 +232,10 @@ export function OutboundsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {outboundSelection.hasSelection ? (
+          {outboundSelection.isSelecting ? (
             <BulkSelectionToolbar
+              selection={outboundSelection}
+              disabled={configMutationPending}
               countLabel={t("pages.outbounds.bulk.selected", {
                 count: outboundSelection.selectedCount,
               })}
@@ -236,11 +247,14 @@ export function OutboundsPage() {
                 variant="destructive"
               >
                 <Trash2 className="mr-1 h-4 w-4" />
-                {t("pages.outbounds.bulk.delete")}
+                {t("pages.outbounds.bulk.delete", {
+                  count: outboundSelection.selectedCount,
+                })}
               </Button>
             </BulkSelectionToolbar>
           ) : null}
           <DataTable
+            mobileCards={{ titleColumns: [0, 1], bodyColumns: [3, 2] }}
             headers={[
               t("pages.outbounds.headers.tag"),
               t("pages.outbounds.headers.type"),
@@ -273,6 +287,7 @@ export function OutboundsPage() {
                 t={t}
               />,
               <ActionButtons
+                mobileIcons
                 actions={[
                   {
                     disabled: configMutationPending,
@@ -283,6 +298,7 @@ export function OutboundsPage() {
                   {
                     disabled: configMutationPending,
                     icon: <Trash2 className="h-4 w-4" />,
+                    destructive: true,
                     label: t("common.delete"),
                     onClick: () => handleDelete(outbound.id),
                   },
@@ -291,6 +307,8 @@ export function OutboundsPage() {
               />,
             ])}
             selection={{
+              isSelecting: outboundSelection.isSelecting,
+              onStartSelecting: outboundSelection.startSelecting,
               rowIds: outboundRowIds,
               selectedIds: outboundSelection.selectedIds,
               disabled: configMutationPending,

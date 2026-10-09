@@ -119,14 +119,11 @@ export function OutboundsOverviewPanel({
 
       {groups.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse border-b border-border [&_td]:border-r [&_td]:border-b [&_td]:border-border [&_td:last-child]:border-r-0 [&_th]:border-r [&_th]:border-b [&_th]:border-border [&_th:last-child]:border-r-0">
             <thead>
               <tr className="border-b bg-muted/40 text-left text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                 <th className="w-[24%] px-3.5 py-1.75 font-semibold">
                   {t("overview.outbounds.columns.group")}
-                </th>
-                <th className="hidden w-[13%] px-3.5 py-1.75 font-semibold sm:table-cell">
-                  {t("overview.outbounds.columns.strategy")}
                 </th>
                 <th className="px-3.5 py-1.75 font-semibold">
                   {t("overview.outbounds.columns.members")}
@@ -134,7 +131,7 @@ export function OutboundsOverviewPanel({
               </tr>
             </thead>
             <tbody>
-              {groups.map((group, groupIndex) => {
+              {groups.map((group) => {
                 const runtimeState = runtimeByTag.get(group.tag)
                 const members = getGroupMembers(group, runtimeState)
                 const rowSpan = Math.max(members.length, 1)
@@ -143,14 +140,7 @@ export function OutboundsOverviewPanel({
                   <Fragment key={group.tag}>
                     {(members.length > 0 ? members : [null]).map(
                       (member, memberIndex) => (
-                        <tr
-                          className={cn(
-                            groupIndex > 0 &&
-                              memberIndex === 0 &&
-                              "border-t border-foreground/15"
-                          )}
-                          key={member?.key ?? "empty"}
-                        >
+                        <tr key={member?.key ?? "empty"}>
                           {memberIndex === 0 ? (
                             <>
                               <td
@@ -160,34 +150,36 @@ export function OutboundsOverviewPanel({
                                 <div className="flex items-center gap-1.5 font-semibold">
                                   {!dimmed && runtimeState ? (
                                     <StatusDot
+                                      className={
+                                        runtimeState.status === "healthy"
+                                          ? "relative motion-safe:after:absolute motion-safe:after:inset-0 motion-safe:after:rounded-full motion-safe:after:bg-success motion-safe:after:animate-[outbound-ripple_2s_ease-out_infinite]"
+                                          : undefined
+                                      }
                                       tone={outboundTone(runtimeState.status)}
-                                      title={t(
-                                        `runtime.outboundStatus.${runtimeState.status}`
-                                      )}
+                                      title={
+                                        runtimeState.status === "healthy"
+                                          ? t("overview.outbounds.probePassed")
+                                          : t(
+                                              `runtime.outboundStatus.${runtimeState.status}`
+                                            )
+                                      }
                                     />
                                   ) : null}
                                   <span className="truncate">{group.tag}</span>
                                 </div>
                                 <div className="text-[11px] text-muted-foreground">
                                   {group.type}
-                                  <span className="sm:hidden">
+                                  <span>
                                     {" · "}
                                     {group.strategy ?? "priority"}
                                   </span>
                                 </div>
                               </td>
-                              <td
-                                className="hidden px-3.5 py-2 align-middle sm:table-cell"
-                                rowSpan={rowSpan}
-                              >
-                                {group.strategy ?? "priority"}
-                              </td>
                             </>
                           ) : null}
                           <td
                             className={cn(
-                              "px-3.5 py-2 align-middle",
-                              memberIndex > 0 && "border-t"
+                              "px-3.5 py-2 align-middle"
                             )}
                           >
                             {member ? (
@@ -216,16 +208,11 @@ export function OutboundsOverviewPanel({
       {plain.length > 0 ? (
         <>
           {groups.length > 0 ? (
-            <div className="px-3.5 pt-2.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+            <div className="bg-muted/40 px-3.5 py-1.75 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
               {t("overview.outbounds.plainTitle")}
             </div>
           ) : null}
-          <div
-            className={cn(
-              "overflow-hidden border-t",
-              groups.length > 0 ? "mt-2" : null
-            )}
-          >
+          <div className="overflow-hidden border-t">
             <div className="-mr-px -mb-px grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
               {plain.map((outbound) => {
                 const runtimeState = runtimeByTag.get(outbound.tag)
@@ -240,11 +227,21 @@ export function OutboundsOverviewPanel({
                       tone={
                         dimmed || !runtimeState
                           ? "off"
-                          : outboundTone(runtimeState.status)
+                          : runtimeState.status === "healthy"
+                            ? "up"
+                            : outboundTone(runtimeState.status)
                       }
-                      title={t(
-                        `runtime.outboundStatus.${dimmed ? "unknown" : (runtimeState?.status ?? "unknown")}`
-                      )}
+                      title={
+                        !dimmed && runtimeState?.status === "healthy"
+                          ? t(
+                              outbound.type === "interface"
+                                ? "overview.outbounds.interfaceUp"
+                                : "overview.outbounds.plainActive"
+                            )
+                          : t(
+                              `runtime.outboundStatus.${dimmed ? "unknown" : (runtimeState?.status ?? "unknown")}`
+                            )
+                      }
                     />
                     <span className="truncate text-[13px] font-medium">
                       {outbound.tag}

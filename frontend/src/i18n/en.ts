@@ -37,6 +37,7 @@ export const enTranslation = {
     },
   },
   common: {
+    add: "Add",
     documentation: "Documentation",
     documentationUrl: "https://keen-pbr.fyi/docs/",
     language: "Language",
@@ -78,8 +79,12 @@ export const enTranslation = {
       tagNamePattern:
         "Can only contain a-z, 0-9 and underscores. Max 24 characters, must start with a letter.",
     },
+    rowActions: "Actions",
     selection: {
-      selectAll: "Select all visible rows",
+      selectedOfTotal: "Selected {{count}}/{{total}}",
+      selected: "Selected: {{count}}",
+      select: "Select multiple",
+      selectAll: "Select all",
       selectRow: "Select {{rowLabel}}",
     },
   },
@@ -125,8 +130,8 @@ export const enTranslation = {
   nav: {
     groups: {
       general: "General",
-      internet: "Internet",
-      networkRules: "Traffic Rules",
+      routing: "Routing",
+      dns: "DNS",
     },
     items: {
       systemMonitor: "Dashboard",
@@ -134,7 +139,7 @@ export const enTranslation = {
       settings: "Settings",
       security: "Security",
       outbounds: "Outbounds",
-      dnsServers: "DNS Servers",
+      dnsServers: "DNS servers",
       lists: "Lists",
       routingRules: "Routing rules",
       dnsRules: "DNS Rules",
@@ -226,8 +231,6 @@ export const enTranslation = {
       },
     },
     diagnostics: {
-      allChecks: "all checks",
-      onlyProblems: "problems only",
       showHealthy: "Show healthy",
       noIssues: "No problems",
       open: "Open",
@@ -297,6 +300,9 @@ export const enTranslation = {
       online: "{{count}} online",
       manage: "Manage",
       plainTitle: "Plain outbounds",
+      probePassed: "Network available",
+      interfaceUp: "Interface is up; connectivity is not checked",
+      plainActive: "Active; connectivity is not checked",
       latency: "{{value}} ms",
       packetsTitle: "{{received}} of {{attempted}} probe replies",
       columns: {
@@ -406,7 +412,8 @@ export const enTranslation = {
       },
       status: {
         disabled: "DNS interception is disabled in config.",
-        runtimeDisabled: "Interception is not working: the DNS hold is not active",
+        runtimeDisabled:
+          "Interception is not working: the DNS hold is not active",
         browserSuccess: "DNS interception from this browser is working",
         manualProbeSuccess:
           "DNS request from the device was observed by the interceptor.",
@@ -419,8 +426,7 @@ export const enTranslation = {
         sseFail: "Live DNS event stream is not connected.",
         sseStalled:
           "The browser could not open the live DNS event stream. Too many keen-pbr tabs may be open (browsers allow 6 connections per site) — close other keen-pbr tabs and retry.",
-        sseHttp:
-          "The live DNS event stream request failed (HTTP {{status}}).",
+        sseHttp: "The live DNS event stream request failed (HTTP {{status}}).",
         browserChecking: "Checking browser DNS path...",
         browserUnknown: "Browser DNS status is not known yet.",
         manualSuccess:
@@ -444,7 +450,6 @@ export const enTranslation = {
       rules: "DNS rules",
       domains: "Domains",
       lastSync: "Last sync",
-      neverSynced: "Not synced yet",
       loadedAt: "dnsmasq loaded the config at",
       externalReload: "dnsmasq restarted outside keen-pbr at",
       disabledDescription: "DNS rules integration is disabled.",
@@ -460,7 +465,7 @@ export const enTranslation = {
       lastError: "Last error",
     },
     intercept: {
-      title: "Traffic interception",
+      title: "Domain-based routing",
       rows: {
         dns: {
           title: "DNS interception",
@@ -542,6 +547,12 @@ export const enTranslation = {
       },
     },
     routingTest: {
+      protocol: "Protocol",
+      port: "Destination port",
+      otherProtocol: "Other",
+      otherCriteria: "Other criteria",
+      sourceIpPlaceholder: "Device IP, e.g. 192.168.1.10",
+
       title: "Where does this traffic go?",
       description: "Check a domain or IP address",
       placeholder: "e.g. google.com or 1.2.3.4",
@@ -552,12 +563,143 @@ export const enTranslation = {
       emptyDescription: "Try another domain or IP address.",
     },
     routingDiagnostics: {
-      noMatchingRule: "No matching routing rule for the target lists.",
+      trace: {
+        writeEvidence: {
+          title: "Dynamic write history",
+          recorded:
+            "keen-pbr successfully added, refreshed or confirmed this IP in the set.",
+          age: "Latest retained operation: {{age}} s ago.",
+          nowMissing:
+            "A successful operation was recorded, but the IP is absent now. This cache does not record why it later disappeared.",
+          no_record:
+            "No successful operation for this IP and set is retained in the cache.",
+          not_tracked:
+            "Dynamic write history for this set is currently unavailable.",
+          unavailable: "Write history was not provided.",
+          scope:
+            "The cache stores IPs and sets, not domains or DNS queries. It can be reset or evict records: missing history does not mean the IP was never added.",
+        },
+
+        allRoutesMatch: "The routes match the rules",
+        routeProblems: "Route problems detected",
+        ipResults: "Matching routes: {{count}} of {{total}}",
+        matches: "Matches",
+        differs: "Mismatch",
+        pathFor: "Active path for {{outbound}}",
+
+        outboundUnavailable:
+          "The service reports outbound {{outbound}} as unavailable. A matching route does not confirm that it can carry traffic.",
+        dns: "DNS resolution",
+        dnsEmpty: "DNS returned no IP addresses for this domain.",
+        literalIp: "IP {{ip}} was supplied directly; no DNS query is needed.",
+        list: "List matching",
+        noListNeeded: "This rule uses other criteria, without a list.",
+        rule: "Rule selection",
+        selectedRule: "Rule #{{rule}} → {{outbound}}",
+        systemRule: "No rule matched. The system route is used.",
+        unknownRule:
+          "There is not enough information to select a rule reliably.",
+        firewall: "Firewall check",
+        step: "Step {{step}} of {{total}}",
+        configuredPath: "Current path of the expected outbound",
+        expectedSetMissing:
+          "The IP is also absent from the expected rule’s IPSet.",
+        notConnectivityTest:
+          "This checks the route from firewall state, not website connectivity.",
+        dnsAdvice:
+          "The device’s DNS query may not have passed through the router yet. Open the site on a device using the router’s DNS, then check again.",
+        issues: {
+          ok: {
+            title: "The route matches the rule",
+            reason: "The expected outbound matches the firewall route.",
+            advice: "",
+          },
+          dns: {
+            title: "No IP address resolved",
+            reason:
+              "Without an IP address, firewall membership cannot be checked.",
+            advice: "Check the domain and the router’s DNS, then try again.",
+          },
+          criteria: {
+            title: "The route cannot be determined yet",
+            reason:
+              "Packet criteria are incomplete, address families are incompatible, or default-gateway directness cannot be evaluated.",
+            advice:
+              "Provide source IP, source port and DSCP if required by the rules. This check cannot establish whether an address is directly connected for default-gateway rules.",
+          },
+          firewall: {
+            title: "The actual route is unknown",
+            reason:
+              "Live set membership or applied rule criteria could not be checked reliably.",
+            advice:
+              "Check service status and detailed diagnostics. An unavailable check does not mean the IP is absent from an IPSet.",
+          },
+          missing_ipset: {
+            title: "IP missing from the expected IPSet",
+            reason:
+              "The address matches the list but is absent from the selected rule’s IPSet.",
+            advice:
+              "Check applied configuration and list updates, then try again.",
+          },
+          other_ipset: {
+            title: "IP found in another IPSet",
+            reason:
+              "The address is absent from the expected set but present in another rule’s set for the actual outbound.",
+            advice:
+              "Check rule order and set membership in detailed diagnostics. Set membership alone does not prove which rule won.",
+          },
+          conflicting_ipsets: {
+            title: "IP present in multiple IPSets",
+            reason:
+              "The address is in the expected set and another rule’s set, but the firewall chooses a different outbound.",
+            advice:
+              "An earlier rule may have priority. Check rule order and current set contents.",
+          },
+          stale_ipset: {
+            title: "IPSet differs from list contents",
+            reason:
+              "The address is in a set for the actual outbound but does not match that rule’s current lists.",
+            advice:
+              "Check list updates and applied configuration. The set entry may be stale.",
+          },
+          mismatch: {
+            title: "The route differs from the expected route",
+            reason:
+              "The expected and firewall outbounds differ. There is not enough evidence to identify the exact cause.",
+            advice:
+              "Check applied configuration, rule order and detailed diagnostics.",
+          },
+        },
+      },
+
+      expectedRouteUnknown:
+        "Not enough information to predict the route for {{target}}",
+      ruleDetailsTitle: "Diagnostics",
+
+      defaultRoute: "System route",
+      unknownRoute: "Unknown",
+      chainTarget: "Target",
+      chainList: "List",
+      chainRule: "Rule",
+      noListMatch: "No match",
+      activePaths: "Active path",
+      expectedRouteTitle: "{{target}} should use {{outbound}}",
+      actualRouteTitle: "Actual route: {{outbound}}",
+      ruleConditionsLabel: "Rule conditions",
+      routeConfirmed: "The firewall route matches the expected route.",
+      routeUnavailable:
+        "The actual route could not be determined from firewall state and the supplied criteria.",
+      dnsPendingHint:
+        "This IP is not yet in the rule’s IPSet. The device’s DNS request may not have reached the router. Open the site on a device using the router’s DNS, then check again.",
+      routeMismatchHint:
+        "Firewall state differs from the expected route. See rule diagnostics for details.",
+      recheck: "Check again",
+
+      noMatchingRule: "No routing rule matches the supplied parameters.",
       resultTitle: "Routing result",
-      ruleDetailsTitle: "Rule diagnostics",
       ip: "IP",
       resultListMatch: "List Match",
-      resultListMatchVia: "{{list}} (via {{via}})",
+      resultListMatchVia: "{{list}} (entry <code>{{via}}</code>)",
       expectedOutbound: "Expected Outbound",
       actualOutbound: "Actual Outbound",
       status: "Status",
@@ -567,6 +709,7 @@ export const enTranslation = {
       listMatch: "{{list}}: {{via}}",
       noConditions: "No extra conditions",
       conditions: {
+        dscp: "DSCP",
         lists: "Lists",
         proto: "Protocol",
         sourceIp: "Source IP",
@@ -672,7 +815,8 @@ export const enTranslation = {
       refused: "Query refused (REFUSED)",
       rcode: "DNS error code {{code}}",
       nodata: "The resolver answered NOERROR without {{type}} records (NODATA)",
-      nodataOther: "The resolver answered NOERROR without {{type}} records (NODATA)",
+      nodataOther:
+        "The resolver answered NOERROR without {{type}} records (NODATA)",
     },
     flags: {
       added_one: "{{count}} new address added to the routing set",
@@ -684,7 +828,8 @@ export const enTranslation = {
       errors_one: "{{count}} address failed to be written to the set",
       errors_other: "{{count}} addresses failed to be written to the set",
       not_learned_one: "{{count}} blocking or unroutable address not learned",
-      not_learned_other: "{{count}} blocking or unroutable addresses not learned",
+      not_learned_other:
+        "{{count}} blocking or unroutable addresses not learned",
       not_learned_tooltip:
         "Blocking or unroutable answer (0.0.0.0, ::, loopback) — not added to sets",
       seq: "Request #{{seq}} (event sequence number)",
@@ -704,8 +849,23 @@ export const enTranslation = {
         "Global defaults that apply to all your outbounds and rules.",
       saved: "Settings staged. Apply new config to persist them.",
       webUi: {
+        settingsModeLabel: "Settings mode",
+        simpleMode: "Simple",
+        advancedMode: "Advanced",
+        settingsModeHint: "Advanced mode exposes low-level routing parameters such as the fwmark mask and netlink queue and log group numbers. Do not change these parameters unless you fully understand them, as this may disrupt the correct operation of your device.",
         title: "Web UI",
         description: "Customize how this keen-pbr installation is identified.",
+      },
+      dns: {
+        disabledTitle: "Local DNS server management is disabled",
+        disabledDescription: "Enable dnsmasq management in settings to unlock DNS server and rule configuration",
+        disabledAction: "Go to setting",
+        title: "Local DNS server management",
+        description:
+          "Configure an upstream DNS server through keen-pbr and use separate DNS servers to resolve specific domains.",
+        resolverIntegrationLabel: "Manage dnsmasq configuration",
+        resolverIntegrationHint:
+          "Example: Use DNS 8.8.8.8 by default, but resolve *.corp.acme domains using DNS 10.10.10.10.",
       },
       general: {
         title: "General",
@@ -715,24 +875,24 @@ export const enTranslation = {
         deviceNameHint:
           "Shown in the browser page title and under the keen-pbr logo. Leave empty to use the default branding.",
         strictEnforcementLabel:
-          "Block traffic when outbound drops (kill-switch)",
+          "Block traffic when an outbound is unavailable (kill-switch)",
         strictEnforcementHint:
           "If a VPN or interface goes offline, traffic matching its rules is blocked instead of falling back to the main routing table. Can be overridden per outbound.",
         skipMarkedPacketsLabel: "Skip packets that are already marked",
         skipMarkedPacketsHint:
-          "Ignore packets that already have a fwmark set by other firewall rules so policy routing does not process them again.",
+          "Ignore packets with a fwmark already set by other firewall rules so keen-pbr does not process them again or change their route.",
         processRouterTrafficLabel: "Process router's own traffic",
         processRouterTrafficHint:
           "Apply route rules to, and learn domains from, traffic generated by the router itself. When disabled, only forwarded LAN traffic is routed by rules; DNS detour still applies to the router's own DNS queries.",
         clearDynamicSetsOnApplyLabel: "Clear learned domain addresses on apply",
         clearDynamicSetsOnApplyHint:
-          "Flush DNS-driven dynamic firewall sets during a full config apply or runtime restart. Disable this to preserve learned addresses until their TTL expires.",
+          "Clear dynamic ipset entries learned from DNS responses and L7 when applying a new configuration or restarting keen-pbr. Disable to preserve addresses until their TTL expires.",
         ipv6EnabledLabel: "Enable IPv6 support",
         ipv6EnabledHint:
           "Install IPv6 firewall sets and learn IPv6 destinations. Disable this on older firmware without IPv6 netfilter support.",
-        inboundInterfacesLabel: "Inbound interfaces",
+        inboundInterfacesLabel: "Processed (inbound) interfaces",
         inboundInterfacesHint:
-          "Only packets arriving on the selected interfaces will be processed by policy routing. Leave this empty to match traffic from any interface.",
+          "Apply route rules only to the interfaces selected above. Prefer LAN interfaces and local VPN server interfaces to avoid changing routes for packets arriving from WAN. Leave empty to process traffic from any interface.",
         inboundInterfacesAddAction: "Add interface",
         inboundInterfacesLoading: "Loading interfaces...",
         inboundInterfacesNoAvailable: "No more interfaces available.",
@@ -749,31 +909,30 @@ export const enTranslation = {
           "This interface is saved in config but is not present in the current live interface inventory.",
       },
       intercept: {
-        title: "Traffic interception",
+        title: "Domain-based routing",
         description:
-          "Fill dynamic domain sets from DNS responses and TLS, HTTP, or QUIC traffic.",
-        enabledLabel: "Enable traffic interception",
-        enabledHint:
-          "When enabled, keen-pbr learns destinations.",
+          "Configure how keen-pbr determines domain IP addresses to populate ipset.",
+        enabledLabel: "Enable domain-based routing",
+        enabledHint: "When disabled, keen-pbr neither intercepts DNS nor analyzes L7. Domain-based rules will not work, but IP/CIDR-based rules continue to work.",
         minTtlLabel: "Minimum TTL (seconds)",
-        minTtlHint: "Floor for learned set entry timeouts.",
+        minTtlHint: "Minimum lifetime of entries in ipset.",
         maxTtlLabel: "Maximum TTL (seconds)",
-        maxTtlHint: "Upper bound for learned set entry timeouts.",
-        dnsEnabledLabel: "Enable DNS interception",
+        maxTtlHint: "Maximum lifetime of entries in ipset.",
+        dnsEnabledLabel: "Intercept DNS server responses",
         dnsEnabledHint:
-          "Hold DNS responses briefly while learned addresses are added to sets.",
+          "Intercept unencrypted DNS server responses on port 53, inspect the domain, and add IP addresses from the response to ipset when they match lists.",
         queueLabel: "NFQUEUE number",
-        queueHint: "Queue used for DNS response interception.",
+        queueHint: "Netlink NFQUEUE queue number for intercepting DNS packets.",
         holdTimeoutLabel: "DNS hold timeout (milliseconds)",
-        holdTimeoutHint: "Maximum time to hold a DNS response (5–500 ms).",
+        holdTimeoutHint: "How long keen-pbr may hold a DNS response to populate ipset (5–500 ms). A timeout that is too short may let client packets take the wrong route before the IP is added. A timeout that is too long may make websites feel slow to open if keen-pbr hangs or crashes and DNS responses are delayed.",
         markerDomainLabel: "Marker domain",
         markerDomainHint: "Domain answered by the synthetic DNS marker.",
         markerAddressLabel: "Marker IPv4 address",
         markerAddressHint: "IPv4 address returned for the marker domain.",
         l7EnabledLabel: "Enable L7 interception",
-        l7EnabledHint: "Learn destinations from TLS SNI, HTTP Host, and QUIC.",
+        l7EnabledHint: "Analyze TLS SNI, HTTP, and QUIC packets to identify domains and populate ipset. Helps route applications using their own DoH/DoT or hardcoded IPs when the domain name is visible in L7. When a newly observed IP is first added to ipset, keen-pbr deletes conntrack entries for that client and destination. The connection may be interrupted; reconnecting traffic then follows the correct route.",
         nflogGroupLabel: "NFLOG group",
-        nflogGroupHint: "Group used for TLS, HTTP, and QUIC packet events.",
+        nflogGroupHint: "Netlink NFLOG group number for TLS SNI / HTTP / QUIC analysis.",
         tlsLabel: "TLS SNI",
         httpLabel: "HTTP Host",
         quicLabel: "QUIC",
@@ -803,12 +962,13 @@ export const enTranslation = {
         tableStartLabel: "IP routing table starting value",
         tableStartHint:
           "The routing table ID assigned to your first outbound. Each additional outbound gets the next ID.",
-        ipsetHashsizeLabel: "IPSet hash table size",
+        ipsetHashsizeLabel: "IPSet hash table size (ipset hashsize)",
         ipsetHashsizeHint:
-          "Optional iptables-only setting for every hash:net set. Leave empty to use the ipset default (1024); this has no effect with nftables. Changing it while iptables is running recreates owned ipsets and clears learned addresses.",
-        ipsetMaxelemLabel: "IPSet maximum elements",
+          "Initial hash table size for address lookup in each ipset. Increasing it for large lists may reduce collisions and speed up lookup, but uses more RAM. This is not the entry limit. Changing this recreates ipsets and clears learned addresses.",
+        ipsetMaxelemLabel: "Maximum entries in ipset (ipset maxelem)",
+        ipsetIptablesOnlyHint: "This setting is only available for iptables",
         ipsetMaxelemHint:
-          "Optional iptables-only setting for every hash:net set. Leave empty to use the ipset default (65536); this has no effect with nftables. Changing it while iptables is running recreates owned ipsets and clears learned addresses.",
+          "Maximum IP addresses or subnets in each ipset. Increase for lists with many entries; increasing this limit uses more RAM. Changing this recreates ipsets and clears learned addresses.",
       },
       actions: {
         saving: "Saving...",
@@ -853,7 +1013,7 @@ export const enTranslation = {
       },
       bulk: {
         selected: "{{count}} selected",
-        delete: "Delete selected",
+        delete: "Delete {{count}}",
         confirmDelete:
           "Delete DNS servers {{tags}}?\nAutomatically remove stale references?",
       },
@@ -928,9 +1088,9 @@ export const enTranslation = {
       },
       bulk: {
         selected: "{{count}} selected",
-        enable: "Enable selected",
-        disable: "Disable selected",
-        delete: "Delete selected",
+        enable: "Enable {{count}}",
+        disable: "Disable {{count}}",
+        delete: "Delete {{count}}",
         confirmDelete:
           "Delete {{count}} routing rule(s)? This cannot be undone from this screen alone.",
       },
@@ -1033,7 +1193,7 @@ export const enTranslation = {
       actions: { new: "Add outbound" },
       bulk: {
         selected: "{{count}} selected",
-        delete: "Delete selected",
+        delete: "Delete {{count}}",
         confirmDelete:
           "Delete {{count}} outbound(s)? Dependencies are not validated until save.",
       },
@@ -1086,7 +1246,8 @@ export const enTranslation = {
       typeHints: {
         interface:
           "Traffic leaves through the selected network interface (tun0, wg0, eth0) with optional gateways.",
-        table: "Traffic is sent through an existing kernel routing table by its ID.",
+        table:
+          "Traffic is sent through an existing kernel routing table by its ID.",
         urltest:
           "A group of outbounds: the service periodically fetches a URL through each one and picks the fastest.",
         icmptest:
@@ -1110,7 +1271,8 @@ export const enTranslation = {
       },
       ladder: {
         phrase: {
-          priority: "All traffic goes through the fastest working outbound of tier 1.",
+          priority:
+            "All traffic goes through the fastest working outbound of tier 1.",
           balance:
             "New connections are spread across the working outbounds of tier 1 according to their weights.",
           fallbackOne: "If none of them works, tier 2 is used.",
@@ -1131,7 +1293,8 @@ export const enTranslation = {
         weight: "Weight",
         weightHint:
           "Share of new connections for this outbound within the tier. For example, weights 7 and 3 give 70% and 30%. Empty means 1. Only working outbounds count: if one is down, its share is split among the others by their weights. Established connections stay where they are. Allowed range: 1 to 100.",
-        shareTitle: "Share of new connections while every outbound of the tier works",
+        shareTitle:
+          "Share of new connections while every outbound of the tier works",
         pingTarget: "Ping target",
         latency: "{{value}} ms",
         roles: {
@@ -1158,12 +1321,20 @@ export const enTranslation = {
       actions: { create: "Create outbound", save: "Save outbound" },
       strategy: {
         cards: {
-          priority: { title: "Fastest", description: "Picks the outbound with the lowest latency" },
-          balance: { title: "Multipath", description: "Balances connections across the outbounds of the active tier" },
+          priority: {
+            title: "Fastest",
+            description: "Picks the outbound with the lowest latency",
+          },
+          balance: {
+            title: "Multipath",
+            description:
+              "Balances connections across the outbounds of the active tier",
+          },
         },
         label: "Selection strategy",
         hint: "Priority keeps one selected outbound; balance distributes new connections across healthy outbounds (not available on Keenetic).",
-        hintKeenetic: "Load balancing is disabled on Keenetic; use the router's multipath features.",
+        hintKeenetic:
+          "Load balancing is disabled on Keenetic; use the router's multipath features.",
         options: {
           priority: "Priority",
           balance: "Balance",
@@ -1220,7 +1391,8 @@ export const enTranslation = {
       },
       urltest: {
         probeTimeout: "Probe timeout (ms)",
-        probeTimeoutHint: "How long to wait for each probe request (in milliseconds).",
+        probeTimeoutHint:
+          "How long to wait for each probe request (in milliseconds).",
         groupsTitle: "Outbound groups (urltest)",
         groupsDescription:
           "Add outbounds to this group. The fastest responding outbound (by urltest probe) will be selected.",
@@ -1343,9 +1515,9 @@ export const enTranslation = {
       },
       bulk: {
         selected: "{{count}} selected",
-        enable: "Enable selected",
-        disable: "Disable selected",
-        delete: "Delete selected",
+        enable: "Enable {{count}}",
+        disable: "Disable {{count}}",
+        delete: "Delete {{count}}",
         confirmDelete: "Delete {{count}} DNS rule(s)?",
       },
       messages: {
@@ -1359,25 +1531,17 @@ export const enTranslation = {
         invalidResult: "Cannot save because resulting DNS rules are invalid.",
       },
       fallback: {
-        title: "Fallback DNS servers",
+        title: "Default upstream DNS servers",
         description:
           "The ordered DNS servers dnsmasq should use when no DNS rule matches. When set, dnsmasq ignores the system upstreams (no-resolv).",
         add: "Add fallback DNS server",
-        placeholderTitle: "No fallback DNS servers selected",
+        placeholderTitle: "No default upstream DNS servers selected",
         placeholderDescription:
           "Optional. Leave empty to keep the system upstreams for domains not matched by any rule.",
         noneDefined: "No DNS servers defined on the DNS Servers page.",
         noneAvailable: "All DNS servers are already selected.",
       },
       integration: {
-        title: "Manage dnsmasq (per-list DNS servers)",
-        description:
-          "When enabled, keen-pbr generates the dnsmasq config so domains from your lists are resolved through the chosen DNS servers.",
-        effectiveHint:
-          "The mode is not set explicitly; it is enabled automatically because DNS rules exist.",
-        inactiveTitle: "DNS rules are inactive",
-        inactiveDescription:
-          "dnsmasq management is off, so the rules below are saved but not applied. Turn it on above to use them.",
       },
       empty: {
         title: "No DNS rules yet",
@@ -1387,15 +1551,15 @@ export const enTranslation = {
       headers: {
         criteria: "Match",
         serverTag: "DNS server",
-        allowDomainRebinding: "Domain rebinding",
+        allowDomainRebinding: "Private IPs (rebind)",
         actions: "Actions",
       },
       criteriaLabels: {
         lists: "Lists",
       },
       rebinding: {
-        enabled: "Allowed",
-        disabled: "Blocked",
+        enabled: "Private IPs allowed",
+        disabled: "Private IPs blocked",
       },
     },
     dnsRuleUpsert: {
@@ -1453,7 +1617,7 @@ export const enTranslation = {
       headers: {
         name: "Name",
         type: "Type",
-        stats: "Entries",
+        stats: "Domains / IPv4 / IPv6",
         rules: "Used in rules",
         actions: "Actions",
       },
@@ -1478,8 +1642,8 @@ export const enTranslation = {
       },
       bulk: {
         selected: "{{count}} selected",
-        refreshSelected: "Update selected (URL)",
-        deleteSelected: "Delete selected lists",
+        refreshSelected: "Update {{count}} (URL)",
+        deleteSelected: "Delete {{count}}",
         confirmDeleteSimple: "Delete lists: {{names}}?",
         confirmDeleteWithRefs:
           "Delete lists: {{names}} and remove references from routing/DNS rules where needed?",
@@ -1493,7 +1657,8 @@ export const enTranslation = {
         updateDisabled: "Apply the staged draft before refreshing",
       },
       rule: {
-        configured: "Configured",
+        used_one: "Used in {{count}} rule",
+        used_other: "Used in {{count}} rules",
       },
       messages: {
         refreshedOne: "List refresh finished.",

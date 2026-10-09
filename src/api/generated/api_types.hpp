@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesVKfpSt data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesHwuqQh data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -724,21 +724,39 @@ namespace api {
 
     struct RoutingTestEntry {
         std::string actual_outbound;
+        std::optional<bool> criteria_match;
         std::string expected_outbound;
         std::string ip;
         std::optional<ListMatch> list_match;
+        std::optional<int64_t> matched_rule_index;
         bool ok;
     };
 
+    enum class Proto : int { OTHER, TCP, UDP };
+
     struct RoutingTestRequest {
+        std::optional<int64_t> dest_port;
+        std::optional<int64_t> dscp;
+        std::optional<Proto> proto;
+        std::optional<std::string> src_addr;
+        std::optional<int64_t> src_port;
         std::string target;
     };
 
+    enum class RoutingTestSetWriteEvidenceStatus : int { NOT_TRACKED, NO_RECORD, RECORDED };
+
+    struct SetWriteEvidence {
+        std::optional<int64_t> age_seconds;
+        RoutingTestSetWriteEvidenceStatus status;
+    };
+
     struct RoutingTestRuleIpDiagnosticElement {
+        std::optional<bool> criteria_match;
         std::optional<bool> in_ipset;
         bool in_lists;
         std::string ip;
         std::optional<ListMatch> list_match;
+        std::optional<SetWriteEvidence> set_write_evidence;
     };
 
     struct RoutingTestRuleDiagnosticElement {
@@ -842,7 +860,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesVKfpSt {
+    struct KeenPbrTypesHwuqQh {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -914,6 +932,7 @@ namespace api {
         std::optional<RoutingTestResponse> routing_test_response;
         std::optional<RoutingTestRuleDiagnosticElement> routing_test_rule_diagnostic;
         std::optional<RoutingTestRuleIpDiagnosticElement> routing_test_rule_ip_diagnostic;
+        std::optional<SetWriteEvidence> routing_test_set_write_evidence;
         std::optional<RuntimeInterfaceInventoryEntry> runtime_interface_inventory_entry;
         std::optional<RuntimeInterfaceInventoryResponse> runtime_interface_inventory_response;
         std::optional<RuntimeInterfaceInventoryStatusEnum> runtime_interface_inventory_status;
@@ -1135,6 +1154,9 @@ namespace api {
     void from_json(const json & j, RoutingTestRequest & x);
     void to_json(json & j, const RoutingTestRequest & x);
 
+    void from_json(const json & j, SetWriteEvidence & x);
+    void to_json(json & j, const SetWriteEvidence & x);
+
     void from_json(const json & j, RoutingTestRuleIpDiagnosticElement & x);
     void to_json(json & j, const RoutingTestRuleIpDiagnosticElement & x);
 
@@ -1174,8 +1196,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesVKfpSt & x);
-    void to_json(json & j, const KeenPbrTypesVKfpSt & x);
+    void from_json(const json & j, KeenPbrTypesHwuqQh & x);
+    void to_json(json & j, const KeenPbrTypesHwuqQh & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1266,6 +1288,12 @@ namespace api {
 
     void from_json(const json & j, RoutingHealthResponseOverall & x);
     void to_json(json & j, const RoutingHealthResponseOverall & x);
+
+    void from_json(const json & j, Proto & x);
+    void to_json(json & j, const Proto & x);
+
+    void from_json(const json & j, RoutingTestSetWriteEvidenceStatus & x);
+    void to_json(json & j, const RoutingTestSetWriteEvidenceStatus & x);
 
     void from_json(const json & j, RuntimeInterfaceInventoryStatusEnum & x);
     void to_json(json & j, const RuntimeInterfaceInventoryStatusEnum & x);
@@ -2499,43 +2527,72 @@ namespace api {
 
     inline void from_json(const json & j, RoutingTestEntry& x) {
         x.actual_outbound = j.at("actual_outbound").get<std::string>();
+        x.criteria_match = get_stack_optional<bool>(j, "criteria_match");
         x.expected_outbound = j.at("expected_outbound").get<std::string>();
         x.ip = j.at("ip").get<std::string>();
         x.list_match = get_stack_optional<ListMatch>(j, "list_match");
+        x.matched_rule_index = get_stack_optional<int64_t>(j, "matched_rule_index");
         x.ok = j.at("ok").get<bool>();
     }
 
     inline void to_json(json & j, const RoutingTestEntry & x) {
         j = json::object();
         j["actual_outbound"] = x.actual_outbound;
+        j["criteria_match"] = x.criteria_match;
         j["expected_outbound"] = x.expected_outbound;
         j["ip"] = x.ip;
         j["list_match"] = x.list_match;
+        j["matched_rule_index"] = x.matched_rule_index;
         j["ok"] = x.ok;
     }
 
     inline void from_json(const json & j, RoutingTestRequest& x) {
+        x.dest_port = get_stack_optional<int64_t>(j, "dest_port");
+        x.dscp = get_stack_optional<int64_t>(j, "dscp");
+        x.proto = get_stack_optional<Proto>(j, "proto");
+        x.src_addr = get_stack_optional<std::string>(j, "src_addr");
+        x.src_port = get_stack_optional<int64_t>(j, "src_port");
         x.target = j.at("target").get<std::string>();
     }
 
     inline void to_json(json & j, const RoutingTestRequest & x) {
         j = json::object();
+        j["dest_port"] = x.dest_port;
+        j["dscp"] = x.dscp;
+        j["proto"] = x.proto;
+        j["src_addr"] = x.src_addr;
+        j["src_port"] = x.src_port;
         j["target"] = x.target;
     }
 
+    inline void from_json(const json & j, SetWriteEvidence& x) {
+        x.age_seconds = get_stack_optional<int64_t>(j, "age_seconds");
+        x.status = j.at("status").get<RoutingTestSetWriteEvidenceStatus>();
+    }
+
+    inline void to_json(json & j, const SetWriteEvidence & x) {
+        j = json::object();
+        j["age_seconds"] = x.age_seconds;
+        j["status"] = x.status;
+    }
+
     inline void from_json(const json & j, RoutingTestRuleIpDiagnosticElement& x) {
+        x.criteria_match = get_stack_optional<bool>(j, "criteria_match");
         x.in_ipset = get_stack_optional<bool>(j, "in_ipset");
         x.in_lists = j.at("in_lists").get<bool>();
         x.ip = j.at("ip").get<std::string>();
         x.list_match = get_stack_optional<ListMatch>(j, "list_match");
+        x.set_write_evidence = get_stack_optional<SetWriteEvidence>(j, "set_write_evidence");
     }
 
     inline void to_json(json & j, const RoutingTestRuleIpDiagnosticElement & x) {
         j = json::object();
+        j["criteria_match"] = x.criteria_match;
         j["in_ipset"] = x.in_ipset;
         j["in_lists"] = x.in_lists;
         j["ip"] = x.ip;
         j["list_match"] = x.list_match;
+        j["set_write_evidence"] = x.set_write_evidence;
     }
 
     inline void from_json(const json & j, RoutingTestRuleDiagnosticElement& x) {
@@ -2724,7 +2781,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesVKfpSt& x) {
+    inline void from_json(const json & j, KeenPbrTypesHwuqQh& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2796,6 +2853,7 @@ namespace api {
         x.routing_test_response = get_stack_optional<RoutingTestResponse>(j, "RoutingTestResponse");
         x.routing_test_rule_diagnostic = get_stack_optional<RoutingTestRuleDiagnosticElement>(j, "RoutingTestRuleDiagnostic");
         x.routing_test_rule_ip_diagnostic = get_stack_optional<RoutingTestRuleIpDiagnosticElement>(j, "RoutingTestRuleIpDiagnostic");
+        x.routing_test_set_write_evidence = get_stack_optional<SetWriteEvidence>(j, "RoutingTestSetWriteEvidence");
         x.runtime_interface_inventory_entry = get_stack_optional<RuntimeInterfaceInventoryEntry>(j, "RuntimeInterfaceInventoryEntry");
         x.runtime_interface_inventory_response = get_stack_optional<RuntimeInterfaceInventoryResponse>(j, "RuntimeInterfaceInventoryResponse");
         x.runtime_interface_inventory_status = get_stack_optional<RuntimeInterfaceInventoryStatusEnum>(j, "RuntimeInterfaceInventoryStatus");
@@ -2812,7 +2870,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesVKfpSt & x) {
+    inline void to_json(json & j, const KeenPbrTypesHwuqQh & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2885,6 +2943,7 @@ namespace api {
         j["RoutingTestResponse"] = x.routing_test_response;
         j["RoutingTestRuleDiagnostic"] = x.routing_test_rule_diagnostic;
         j["RoutingTestRuleIpDiagnostic"] = x.routing_test_rule_ip_diagnostic;
+        j["RoutingTestSetWriteEvidence"] = x.routing_test_set_write_evidence;
         j["RuntimeInterfaceInventoryEntry"] = x.runtime_interface_inventory_entry;
         j["RuntimeInterfaceInventoryResponse"] = x.runtime_interface_inventory_response;
         j["RuntimeInterfaceInventoryStatus"] = x.runtime_interface_inventory_status;
@@ -3386,6 +3445,38 @@ namespace api {
             case RoutingHealthResponseOverall::ERROR: j = "error"; break;
             case RoutingHealthResponseOverall::OK: j = "ok"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RoutingHealthResponseOverall\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, Proto & x) {
+        if (j == "other") x = Proto::OTHER;
+        else if (j == "tcp") x = Proto::TCP;
+        else if (j == "udp") x = Proto::UDP;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"Proto\""); }
+    }
+
+    inline void to_json(json & j, const Proto & x) {
+        switch (x) {
+            case Proto::OTHER: j = "other"; break;
+            case Proto::TCP: j = "tcp"; break;
+            case Proto::UDP: j = "udp"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"Proto\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, RoutingTestSetWriteEvidenceStatus & x) {
+        if (j == "not_tracked") x = RoutingTestSetWriteEvidenceStatus::NOT_TRACKED;
+        else if (j == "no_record") x = RoutingTestSetWriteEvidenceStatus::NO_RECORD;
+        else if (j == "recorded") x = RoutingTestSetWriteEvidenceStatus::RECORDED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RoutingTestSetWriteEvidenceStatus\""); }
+    }
+
+    inline void to_json(json & j, const RoutingTestSetWriteEvidenceStatus & x) {
+        switch (x) {
+            case RoutingTestSetWriteEvidenceStatus::NOT_TRACKED: j = "not_tracked"; break;
+            case RoutingTestSetWriteEvidenceStatus::NO_RECORD: j = "no_record"; break;
+            case RoutingTestSetWriteEvidenceStatus::RECORDED: j = "recorded"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"RoutingTestSetWriteEvidenceStatus\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

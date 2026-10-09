@@ -9,6 +9,7 @@ import {
   type OutboundInterfaceStatusItem,
   RuntimeStateBadge,
 } from "@/components/shared/outbound-interface-status-list"
+import { StatusDot } from "@/components/overview/overview-panel"
 import { Badge } from "@/components/ui/badge"
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string
@@ -17,16 +18,19 @@ export function RuntimeOutboundEntry({
   runtimeState,
   title,
   t,
+  statusDot = false,
 }: {
   runtimeState?: RuntimeOutboundState
   title?: string
   t: TranslateFn
+  statusDot?: boolean
 }) {
   return title ? (
     <RuntimeOutboundStatusLabel
       runtimeState={runtimeState}
       t={t}
       title={title}
+      statusDot={statusDot}
     />
   ) : null
 }
@@ -35,11 +39,33 @@ export function RuntimeOutboundStatusLabel({
   runtimeState,
   title,
   t,
+  statusDot = false,
 }: {
   runtimeState?: RuntimeOutboundState
   title: string
   t: TranslateFn
+  statusDot?: boolean
 }) {
+  if (statusDot) {
+    const status = runtimeState?.status ?? "unknown"
+    return (
+      <div className="flex min-w-0 items-center gap-2">
+        <StatusDot
+          tone={
+            status === "healthy"
+              ? "ok"
+              : status === "degraded"
+                ? "warn"
+                : status === "unavailable"
+                  ? "bad"
+                  : "off"
+          }
+          title={t(`runtime.outboundStatus.${status}`)}
+        />
+        <span className="truncate font-medium">{title}</span>
+      </div>
+    )
+  }
   return (
     <div className="flex min-w-0 items-center gap-2">
       <span className="truncate font-medium">{title}</span>

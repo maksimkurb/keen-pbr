@@ -1,9 +1,11 @@
+import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
 import { useLocation } from "wouter"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { AppBrandHeader } from "@/components/layout/app-brand-header"
+import { getMobileFabCollapsedState } from "@/components/shared/mobile-add-fab-utils"
 import { useWarningBannerState } from "@/components/layout/warning-banner-state"
 import { WarningBanner } from "@/components/layout/warning-banner"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -37,7 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             fullBleed ? "min-h-0 overflow-y-clip" : null
           )}
         >
-          <MobileSidebarHeader />
+          <MobileSidebarHeader key={pathname} />
           <main
             aria-labelledby="page-title"
             className={cn(
@@ -52,7 +54,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 fullBleed
                   ? "flex min-h-0 w-full flex-1 flex-col"
                   : "mx-auto max-w-7xl",
-                warningBannerState.isVisible ? "pb-44 md:pb-48" : null
+                warningBannerState.isVisible
+                  ? "pb-[calc(var(--warning-banner-height,3.5rem)+1rem)] min-[1100px]:pb-48"
+                  : null
               )}
             >
               {children}
@@ -67,10 +71,35 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function MobileSidebarHeader() {
   const { toggleSidebar } = useSidebar()
+  const [hidden, setHidden] = useState(false)
+  const headerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let lastChangeY = window.scrollY
+    const onScroll = () => {
+      if (headerRef.current?.contains(document.activeElement)) {
+        setHidden(false)
+        return
+      }
+      const nextHidden = getMobileFabCollapsedState(window.scrollY, lastChangeY)
+      if (nextHidden === null) return
+      setHidden(nextHidden)
+      lastChangeY = window.scrollY
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   return (
-    <div className="bg-background md:hidden">
-      <div className="border-b px-4 py-2">
+    <div
+      aria-hidden={hidden}
+      className={`sticky top-0 z-30 border-b bg-background shadow-sm transition-transform duration-200 motion-reduce:transition-none md:hidden ${hidden ? "-translate-y-full" : "translate-y-0"}`}
+      inert={hidden}
+      onFocusCapture={() => setHidden(false)}
+      ref={headerRef}
+    >
+      <div className="px-4 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2">
         <AppBrandHeader onMenuClick={toggleSidebar} variant="topbar" />
       </div>
     </div>

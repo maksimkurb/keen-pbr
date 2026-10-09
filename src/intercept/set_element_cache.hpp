@@ -48,6 +48,13 @@ public:
     Lookup lookup(uint16_t slot, uint8_t family, const std::array<uint8_t, 16>& addr,
                   int64_t now_ms) const;
 
+    // Read-only historical peek for diagnostics. Unlike lookup(), this keeps
+    // entries that are near or past their kernel TTL: the record proves that
+    // the daemon once observed a successful operation while it remains stored.
+    Lookup lookup_evidence(uint16_t slot, uint8_t family,
+                           const std::array<uint8_t, 16>& addr,
+                           int64_t now_ms) const;
+
     // Records a successful write at `now_ms` (taken BEFORE the write so the
     // expiry is never over-estimated).  Ignored when `epoch` is not the current
     // epoch (the cache was cleared after the write started) or slot == kNoSlot.

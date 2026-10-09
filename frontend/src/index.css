@@ -184,6 +184,17 @@
   --shadow-2xl: var(--shadow-2xl);
 }
 
+@keyframes outbound-ripple {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  15%, 100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+
 @layer base {
   * {
     @apply box-border border-border outline-ring/50;
@@ -197,6 +208,7 @@
   }
 
   body {
+    position: relative;
     @apply bg-background text-foreground antialiased;
     overflow-x: clip;
   }

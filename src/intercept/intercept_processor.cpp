@@ -270,6 +270,8 @@ void InterceptProcessor::set_snapshot(std::shared_ptr<const InterceptSnapshot> s
                                                   : SetElementCache::kNoSlot;
         };
         table = std::make_shared<SlotTable>();
+        table->names.reserve(names.size());
+        for (const std::string_view name : names) table->names.emplace_back(name);
         table->by_target.reserve(snapshot->targets.size());
         for (const InterceptListTarget& target : snapshot->targets) {
             table->by_target.push_back({slot_of(target.set_v4), slot_of(target.set_v6)});
@@ -294,6 +296,31 @@ void InterceptProcessor::set_snapshot(std::shared_ptr<const InterceptSnapshot> s
         cache_.clear();
     }
     sync_cache_gauge();
+}
+
+std::optional<SetElementCache::Lookup> InterceptProcessor::lookup_set_write_evidence(
+    const std::shared_ptr<const InterceptSnapshot>& snapshot,
+    const std::string& set_name, uint8_t family,
+    const std::array<uint8_t, 16>& addr) const {
+    std::shared_ptr<const SlotTable> slots;
+    uint64_t cache_epoch = 0;
+    {
+        std::lock_guard<std::mutex> lock(snapshot_mutex_);
+        if (!snapshot || snapshot_ != snapshot || !slots_) return std::nullopt;
+        slots = slots_;
+        cache_epoch = cache_.epoch();
+    }
+    const auto it = std::lower_bound(slots->names.begin(), slots->names.end(), set_name);
+    if (it == slots->names.end() || *it != set_name) return std::nullopt;
+    const auto slot = static_cast<uint16_t>(it - slots->names.begin());
+    const auto result = cache_.lookup_evidence(slot, family, addr, to_ms(clock_now()));
+    {
+        std::lock_guard<std::mutex> lock(snapshot_mutex_);
+        if (snapshot_ != snapshot || slots_ != slots || cache_.epoch() != cache_epoch) {
+            return std::nullopt;
+        }
+    }
+    return result;
 }
 
 void InterceptProcessor::set_l7_submitter(L7Submitter submitter) {

@@ -2110,6 +2110,36 @@ components:
           type: string
           description: IP address or domain name to test routing for.
           example: "www.google.com"
+        proto:
+          type: string
+          enum: [tcp, udp, other]
+          description: Optional packet transport protocol to evaluate against route rules.
+          example: tcp
+        dest_port:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 65535
+          description: Optional packet destination port.
+          example: 443
+        src_addr:
+          type: string
+          description: Optional packet source IPv4 or IPv6 address.
+          example: "192.168.1.10"
+        src_port:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 65535
+          description: Optional packet source port.
+          example: 51514
+        dscp:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 63
+          description: Optional packet DSCP value.
+          example: 46
 
     RoutingTestListMatch:
       type: object
@@ -2144,19 +2174,50 @@ components:
           type: string
           description: >
             Outbound tag determined by scanning route rules against cached list
-            data. "(default)" when no rule matches.
+            data. "(default)" when no rule matches. "(unknown)" when packet
+            criteria or address family cannot be evaluated.
           example: "vpn"
         actual_outbound:
           type: string
           description: >
             Outbound tag found in the live kernel firewall sets.
             "(default)" when the IP is not present in any set.
-            "(unknown)" when the firewall tool is unavailable.
+            "(unknown)" when the firewall tool is unavailable or packet criteria
+            or directness cannot be evaluated.
           example: "vpn"
+        matched_rule_index:
+          type: integer
+          minimum: 0
+          description: Index of the first route rule matching both list and packet criteria.
+        criteria_match:
+          type: boolean
+          nullable: true
+          description: Whether packet criteria matched the selected rule; null when omitted or unknown.
         ok:
           type: boolean
-          description: true when expected_outbound equals actual_outbound.
+          description: true when expected_outbound equals actual_outbound and neither side is unknown.
           example: true
+
+    RoutingTestSetWriteEvidence:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [recorded, no_record, not_tracked]
+          description: |
+            Retained evidence for a successful operation on this exact
+            dynamic firewall set and address. `recorded` means Added,
+            Refreshed, or Exists was observed; `no_record` means no retained
+            successful record remains; `not_tracked` means the set is static,
+            outside the active interception snapshot, or interception is
+            unavailable. This is not DNS provenance and does not prove live
+            kernel membership.
+        age_seconds:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Age of the latest retained successful operation using a monotonic clock.
 
     RoutingTestRuleIpDiagnostic:
       type: object
@@ -2172,12 +2233,18 @@ components:
             configured lists.
         list_match:
           $ref: "#/components/schemas/RoutingTestListMatch"
+        criteria_match:
+          type: boolean
+          nullable: true
+          description: Whether the packet criteria matched this rule; null when a required value is missing or directness is unknown.
         in_ipset:
           type: boolean
           nullable: true
           description: |
             Whether the IP exists in this rule's firewall set.
             null when firewall check is unavailable.
+        set_write_evidence:
+          $ref: "#/components/schemas/RoutingTestSetWriteEvidence"
 
     RoutingTestRuleDiagnostic:
       type: object

@@ -29,19 +29,11 @@ export function InfoHint({
   return (
     <Tooltip>
       <TooltipTrigger
-        render={
-          <span
-            aria-label={label}
-            className={cn(
-              "inline-flex cursor-help rounded-full text-muted-foreground outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50",
-              className
-            )}
-            // Keep a click on the hint from toggling the surrounding control.
-            onClick={(event) => event.preventDefault()}
-            role="button"
-            tabIndex={0}
-          />
-        }
+        aria-label={label}
+        className={cn(
+          "inline-flex cursor-help rounded-full text-muted-foreground outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50",
+          className
+        )}
       >
         <Info className="size-3.5" />
       </TooltipTrigger>
