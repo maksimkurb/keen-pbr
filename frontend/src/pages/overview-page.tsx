@@ -1,3 +1,4 @@
+import { ResponsiveDialog } from "@/components/shared/responsive-dialog"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Route } from "lucide-react"
@@ -20,13 +21,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { isRoutingTestShortcut } from "@/components/overview/routing-test-shortcut"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { PageHeader } from "@/components/shared/page-header"
 import { CountersPanel } from "@/components/overview/counters-panel"
 import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-download-dialog"
@@ -40,13 +34,6 @@ import {
 import { OutboundsOverviewPanel } from "@/components/overview/outbounds-overview-panel"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { useRoutingTestPanelState } from "@/components/overview/use-routing-test-panel-state"
-import { useIsMobile } from "@/hooks/use-mobile"
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerTitle,
-} from "@/components/ui/drawer"
 import { ServiceStatusBar } from "@/components/overview/service-status-bar"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
@@ -60,6 +47,7 @@ export function OverviewPage() {
   const [isRoutingTestOpen, setIsRoutingTestOpen] = useState(false)
   const [showHealthyDiagnostics, setShowHealthyDiagnostics] = useState(false)
   const [highlightDiagnostics, setHighlightDiagnostics] = useState(false)
+  const routingTargetRef = useRef<HTMLInputElement>(null)
   const diagnosticsRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -182,7 +170,6 @@ export function OverviewPage() {
   }
 
   const dimmed = !isServiceRunning
-  const isMobile = useIsMobile()
   const routingTestPanel = useRoutingTestPanelState()
 
   return (
@@ -267,35 +254,19 @@ export function OverviewPage() {
         </div>
       </div>
 
-      {isMobile ? (
-        <Drawer
-          onOpenChange={setIsRoutingTestOpen}
-          open={isRoutingTestOpen}
-          swipeDirection="down"
-        >
-          <DrawerContent className="max-h-[calc(100dvh-1rem)]">
-            <DrawerTitle className="text-base font-medium">
-              {t("overview.routingTest.title")}
-            </DrawerTitle>
-            <DrawerDescription className="mb-4 text-sm text-muted-foreground">
-              {t("overview.routingTest.description")}
-            </DrawerDescription>
-            <RoutingTestPanel state={routingTestPanel} />
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog onOpenChange={setIsRoutingTestOpen} open={isRoutingTestOpen}>
-          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[860px]">
-            <DialogHeader>
-              <DialogTitle>{t("overview.routingTest.title")}</DialogTitle>
-              <DialogDescription>
-                {t("overview.routingTest.description")}
-              </DialogDescription>
-            </DialogHeader>
-            <RoutingTestPanel state={routingTestPanel} />
-          </DialogContent>
-        </Dialog>
-      )}
+      <ResponsiveDialog
+        open={isRoutingTestOpen}
+        onOpenChange={setIsRoutingTestOpen}
+        title={t("overview.routingTest.title")}
+        description={t("overview.routingTest.description")}
+        className="sm:max-w-[860px]"
+        initialFocus={routingTargetRef}
+      >
+        <RoutingTestPanel
+          state={routingTestPanel}
+          targetInputRef={routingTargetRef}
+        />
+      </ResponsiveDialog>
 
       <DiagnosticsDownloadDialog
         config={loadedConfig}

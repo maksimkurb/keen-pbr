@@ -7,7 +7,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { RadioGroupItem } from "@/components/ui/radio-group"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   Tooltip,
@@ -39,35 +38,6 @@ export function InfoHint({
       </TooltipTrigger>
       <TooltipContent className="max-w-64 text-left">{text}</TooltipContent>
     </Tooltip>
-  )
-}
-
-/** A radio rendered as a selectable card (shadcn "choice card"). */
-export function ChoiceCard({
-  value,
-  disabled,
-  className,
-  children,
-}: {
-  value: string
-  disabled?: boolean
-  className?: string
-  children: ReactNode
-}) {
-  return (
-    <label
-      className={cn(
-        "relative flex cursor-pointer rounded-xl border bg-card transition-colors hover:bg-muted/50 has-focus-visible:ring-3 has-focus-visible:ring-ring/50 has-data-checked:border-primary has-data-checked:bg-primary/5 has-data-checked:ring-1 has-data-checked:ring-primary has-data-disabled:cursor-not-allowed has-data-disabled:opacity-60 has-data-disabled:hover:bg-card",
-        className
-      )}
-    >
-      <RadioGroupItem
-        className="absolute top-3 left-3"
-        disabled={disabled}
-        value={value}
-      />
-      {children}
-    </label>
   )
 }
 

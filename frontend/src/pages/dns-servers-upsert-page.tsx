@@ -1,6 +1,6 @@
 import { ExternalLink } from "lucide-react"
 import { useMemo } from "react"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
@@ -104,9 +104,17 @@ export function DnsServerUpsertPage({
       }
       description={t("pages.dnsServerUpsert.description")}
       title={
-        mode === "create"
-          ? t("pages.dnsServerUpsert.createTitle")
-          : t("pages.dnsServerUpsert.editTitle")
+        mode === "create" ? (
+          t("pages.dnsServerUpsert.createTitle")
+        ) : existingServer ? (
+          <Trans
+            i18nKey="pages.dnsServerUpsert.editCardTitle"
+            values={{ tag: existingServer.tag }}
+            components={{ entity: <span className="text-primary" /> }}
+          />
+        ) : (
+          t("pages.dnsServerUpsert.editTitle")
+        )
       }
     >
       <DnsServerForm
@@ -255,6 +263,7 @@ function DnsServerForm({
             <Input
               aria-invalid={Boolean(tagError)}
               id="dns-server-tag"
+              className="max-w-sm"
               onChange={(event) => form.setValue("tag", event.target.value)}
               readOnly={mode === "edit"}
               value={values.tag}
@@ -414,7 +423,7 @@ function DnsServerForm({
           disabled={
             postConfigMutation.isPending ||
             !config ||
-            !form.isDirty ||
+            (mode === "edit" && !form.isDirty) ||
             form.isSubmitting
           }
           size="xl"
@@ -451,7 +460,7 @@ function getTagError(value: string, servers: DnsServer[], editingTag?: string) {
 
   return (
     getTagNameValidationError(value, {
-      requiredError: t("pages.dnsServerUpsert.validation.tagRequired"),
+      requiredError: t("common.validation.required"),
       invalidError: t("common.validation.tagNamePattern"),
       duplicateError: duplicate
         ? t("pages.dnsServerUpsert.validation.tagUnique")
@@ -472,7 +481,7 @@ function getDnsTypeError(value: string) {
 function getAddressError(value: string) {
   const t = i18n.t.bind(i18n)
   if (!value.trim()) {
-    return t("pages.dnsServerUpsert.validation.addressRequired")
+    return t("common.validation.required")
   }
 
   if (!normalizeDnsAddress(value)) {

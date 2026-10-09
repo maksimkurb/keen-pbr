@@ -17,7 +17,7 @@ export type ConntrackOnSwitchOption = "preserve" | "delete"
  */
 export type OutboundDraft = {
   tag: string
-  type: Outbound["type"]
+  type: Outbound["type"] | ""
   interface: string
   gateway: string
   gateway6: string
@@ -81,7 +81,7 @@ export const TEST_GROUP_DEFAULTS = {
 
 export const sampleNewOutbound: OutboundDraft = {
   tag: "",
-  type: "interface",
+  type: "",
   interface: "",
   gateway: "",
   gateway6: "",
@@ -181,12 +181,15 @@ export function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
 }
 
 export function buildOutboundPayload(draft: OutboundDraft): Outbound {
+  if (!draft.type) throw new Error("Outbound type is required")
   const tag = draft.tag.trim()
   const circuitBreaker = {
     failure_threshold: parseNumber(draft.circuit_breaker.failure_threshold),
     success_threshold: parseNumber(draft.circuit_breaker.success_threshold),
     timeout_ms: parseNumber(draft.circuit_breaker.timeout_ms),
-    half_open_max_requests: parseNumber(draft.circuit_breaker.half_open_max_requests),
+    half_open_max_requests: parseNumber(
+      draft.circuit_breaker.half_open_max_requests
+    ),
   }
 
   if (draft.type === "interface") {

@@ -31,6 +31,8 @@ export function DiagnosticsPanel({
   ref?: Ref<HTMLElement>
 }) {
   const { t } = useTranslation()
+  const hasProblems = issues.length > 0
+  const hasErrors = issues.some((issue) => issue.tone === "bad")
 
   return (
     <Panel
@@ -42,17 +44,28 @@ export function DiagnosticsPanel({
       ref={ref}
       tabIndex={-1}
     >
-      <PanelHeader
-        title={t("overview.routing.title")}
-      >
-        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+      <PanelHeader title={t("overview.routing.title")}>
+        <label className="hidden cursor-pointer items-center gap-2 text-xs text-muted-foreground md:flex">
           <Checkbox
             checked={showHealthy}
             onCheckedChange={(checked) => onShowHealthyChange(checked === true)}
           />
           {t("overview.diagnostics.showHealthy")}
         </label>
-        <Button size="sm" type="button" variant="ghost" onClick={onDownload}>
+        <Button
+          size="sm"
+          type="button"
+          variant="outline"
+          onClick={onDownload}
+          className={cn(
+            hasProblems &&
+              "motion-safe:animate-[diagnostics-ping_1.5s_ease-out_infinite]",
+            hasProblems &&
+              (hasErrors
+                ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive dark:border-destructive/40 dark:bg-destructive/20 dark:hover:bg-destructive/30"
+                : "border-warning/40 bg-warning/15 text-warning-foreground hover:bg-warning/25 hover:text-warning-foreground dark:border-warning/40 dark:bg-warning/15 dark:hover:bg-warning/25")
+          )}
+        >
           <Download />
           {t("overview.diagnosticsDownload.button")}
         </Button>

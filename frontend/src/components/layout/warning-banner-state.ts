@@ -83,9 +83,7 @@ export function useWarningBannerState(): WarningBannerState {
       visibleOperation?.stages.map((stage) => ({
         id: stage.id,
         status: stage.status,
-        title: t(`lifecycle.stages.${stage.id}`, {
-          defaultValue: stage.title,
-        }),
+        title: t(`lifecycle.stages.${stage.id}`),
       })) ?? [],
     [t, visibleOperation]
   )

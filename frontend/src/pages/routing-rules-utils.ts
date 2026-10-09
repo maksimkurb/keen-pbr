@@ -18,6 +18,31 @@ export type RouteRuleDraft = {
 
 export type RouteRuleMode = "normal" | "ipv4" | "ipv6"
 
+export const routeConditionKeys = [
+  "list",
+  "proto",
+  "src_port",
+  "dest_port",
+  "src_addr",
+  "dest_addr",
+  "dscp",
+] as const
+export type RouteConditionKey = (typeof routeConditionKeys)[number]
+
+export function getActiveRouteConditions(
+  draft: RouteRuleDraft,
+  opened: readonly RouteConditionKey[],
+  errorPaths: readonly string[] = []
+): RouteConditionKey[] {
+  if (draft.default_gateway !== "normal") return []
+  return [...new Set([...opened, ...routeConditionKeys])].filter(
+    (key) =>
+      opened.includes(key) ||
+      (key === "list" ? draft.list.length > 0 : draft[key].trim().length > 0) ||
+      errorPaths.some((path) => path === key || path.startsWith(`${key}[`))
+  )
+}
+
 export const protoOptions = ["", "tcp", "udp", "tcp/udp"] as const
 
 export const emptyRouteRuleDraft: RouteRuleDraft = {
@@ -136,4 +161,20 @@ function parseOptionalDscp(value: string) {
     return undefined
   }
   return Number(trimmed)
+}
+
+export function validateDscp(value: string, t: (key: string) => string) {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) {
+    return undefined
+  }
+
+  if (!/^\d+$/.test(trimmed)) {
+    return t("pages.routingRuleUpsert.validation.dscpRange")
+  }
+
+  const parsed = Number(trimmed)
+  return parsed >= 1 && parsed <= 63
+    ? undefined
+    : t("pages.routingRuleUpsert.validation.dscpRange")
 }

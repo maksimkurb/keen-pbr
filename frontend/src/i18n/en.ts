@@ -76,9 +76,11 @@ export const enTranslation = {
       notFound: "Interface does not exist.",
     },
     validation: {
+      required: "This field is required",
       tagNamePattern:
         "Can only contain a-z, 0-9 and underscores. Max 24 characters, must start with a letter.",
     },
+    ruleNumber: "Rule #{{number}}",
     rowActions: "Actions",
     selection: {
       selectedOfTotal: "Selected {{count}}/{{total}}",
@@ -368,7 +370,7 @@ export const enTranslation = {
       },
     },
     diagnosticsDownload: {
-      button: "Download diagnostics file",
+      button: "Download report",
       modal: {
         title: "Warning: sensitive data",
         description: "The diagnostics file includes:",
@@ -381,7 +383,7 @@ export const enTranslation = {
         },
         trustWarning: "Please share this file only with people you trust.",
         hideListsOption: "Hide list contents and list URLs",
-        downloadAction: "Download diagnostics file",
+        downloadAction: "Download report",
       },
     },
     dnsCheck: {
@@ -852,13 +854,15 @@ export const enTranslation = {
         settingsModeLabel: "Settings mode",
         simpleMode: "Simple",
         advancedMode: "Advanced",
-        settingsModeHint: "Advanced mode exposes low-level routing parameters such as the fwmark mask and netlink queue and log group numbers. Do not change these parameters unless you fully understand them, as this may disrupt the correct operation of your device.",
+        settingsModeHint:
+          "Advanced mode exposes low-level routing parameters such as the fwmark mask and netlink queue and log group numbers. Do not change these parameters unless you fully understand them, as this may disrupt the correct operation of your device.",
         title: "Web UI",
         description: "Customize how this keen-pbr installation is identified.",
       },
       dns: {
         disabledTitle: "Local DNS server management is disabled",
-        disabledDescription: "Enable dnsmasq management in settings to unlock DNS server and rule configuration",
+        disabledDescription:
+          "Enable dnsmasq management in settings to unlock DNS server and rule configuration",
         disabledAction: "Go to setting",
         title: "Local DNS server management",
         description:
@@ -913,7 +917,8 @@ export const enTranslation = {
         description:
           "Configure how keen-pbr determines domain IP addresses to populate ipset.",
         enabledLabel: "Enable domain-based routing",
-        enabledHint: "When disabled, keen-pbr neither intercepts DNS nor analyzes L7. Domain-based rules will not work, but IP/CIDR-based rules continue to work.",
+        enabledHint:
+          "When disabled, keen-pbr neither intercepts DNS nor analyzes L7. Domain-based rules will not work, but IP/CIDR-based rules continue to work.",
         minTtlLabel: "Minimum TTL (seconds)",
         minTtlHint: "Minimum lifetime of entries in ipset.",
         maxTtlLabel: "Maximum TTL (seconds)",
@@ -924,15 +929,18 @@ export const enTranslation = {
         queueLabel: "NFQUEUE number",
         queueHint: "Netlink NFQUEUE queue number for intercepting DNS packets.",
         holdTimeoutLabel: "DNS hold timeout (milliseconds)",
-        holdTimeoutHint: "How long keen-pbr may hold a DNS response to populate ipset (5–500 ms). A timeout that is too short may let client packets take the wrong route before the IP is added. A timeout that is too long may make websites feel slow to open if keen-pbr hangs or crashes and DNS responses are delayed.",
+        holdTimeoutHint:
+          "How long keen-pbr may hold a DNS response to populate ipset (5–500 ms). A timeout that is too short may let client packets take the wrong route before the IP is added. A timeout that is too long may make websites feel slow to open if keen-pbr hangs or crashes and DNS responses are delayed.",
         markerDomainLabel: "Marker domain",
         markerDomainHint: "Domain answered by the synthetic DNS marker.",
         markerAddressLabel: "Marker IPv4 address",
         markerAddressHint: "IPv4 address returned for the marker domain.",
         l7EnabledLabel: "Enable L7 interception",
-        l7EnabledHint: "Analyze TLS SNI, HTTP, and QUIC packets to identify domains and populate ipset. Helps route applications using their own DoH/DoT or hardcoded IPs when the domain name is visible in L7. When a newly observed IP is first added to ipset, keen-pbr deletes conntrack entries for that client and destination. The connection may be interrupted; reconnecting traffic then follows the correct route.",
+        l7EnabledHint:
+          "Analyze TLS SNI, HTTP, and QUIC packets to identify domains and populate ipset. Helps route applications using their own DoH/DoT or hardcoded IPs when the domain name is visible in L7. When a newly observed IP is first added to ipset, keen-pbr deletes conntrack entries for that client and destination. The connection may be interrupted; reconnecting traffic then follows the correct route.",
         nflogGroupLabel: "NFLOG group",
-        nflogGroupHint: "Netlink NFLOG group number for TLS SNI / HTTP / QUIC analysis.",
+        nflogGroupHint:
+          "Netlink NFLOG group number for TLS SNI / HTTP / QUIC analysis.",
         tlsLabel: "TLS SNI",
         httpLabel: "HTTP Host",
         quicLabel: "QUIC",
@@ -1031,7 +1039,7 @@ export const enTranslation = {
         "This server will be available in your DNS rules and as a fallback.",
       cardDescription:
         "Choose the DNS server type and optional detour outbound.",
-      editCardTitle: "Edit {{tag}}",
+      editCardTitle: "Edit DNS server <entity>{{tag}}</entity>",
       fields: {
         tag: "Name",
         tagHint: "A short name for this server, used in DNS rules.",
@@ -1062,10 +1070,8 @@ export const enTranslation = {
           "Optional: send DNS queries for this server through a specific outbound (e.g. a VPN).",
       },
       validation: {
-        tagRequired: "Name is required.",
         tagUnique: "Name must be unique.",
         typeRequired: "DNS type is required.",
-        addressRequired: "Address is required.",
         addressInvalid:
           "Address must be a valid IPv4/IPv6 value with an optional port.",
       },
@@ -1087,6 +1093,8 @@ export const enTranslation = {
         saved: "Routing rules staged. Apply new config to persist them.",
       },
       bulk: {
+        deleteConsequences:
+          "After applying changes, the selected rules will no longer determine traffic routes. Remaining rules and router settings will be used.",
         selected: "{{count}} selected",
         enable: "Enable {{count}}",
         disable: "Disable {{count}}",
@@ -1119,10 +1127,35 @@ export const enTranslation = {
     routingRuleUpsert: {
       createTitle: "Create routing rule",
       editTitle: "Edit routing rule",
+      editNamedTitle: "Edit routing rule <entity>#{{number}}</entity>",
       description:
         "This rule directs matching traffic to the specified outbound.",
       cardDescription:
-        "Choose lists and outbound, then optionally narrow by protocol, ports, and addresses.",
+        "Add conditions and choose an outbound for matching traffic.",
+      builder: {
+        title: "Conditions",
+        description:
+          "Add conditions one at a time. All added conditions must match.",
+        chooseFirst: "Choose the first condition",
+        addAnother: "Add another condition",
+        choose: "Choose condition",
+        available: "Available conditions",
+        allAdded: "All available conditions have been added",
+        if: "IF",
+        and: "AND",
+        then: "then",
+        routeThrough: "Route traffic through",
+        remove: "Remove condition “{{condition}}”",
+        descriptions: {
+          list: "The IP address or domain is in the specified lists",
+          proto: "TCP or UDP",
+          dscp: "Packet DSCP tag from 1 to 63.",
+          src_port: "Source port of the connection.",
+          dest_port: "Destination port of the connection.",
+          src_addr: "Source IP addresses or subnets.",
+          dest_addr: "Destination IP addresses or subnets.",
+        },
+      },
       messages: {
         saved: "Routing rule staged. Apply new config to persist it.",
       },
@@ -1137,14 +1170,14 @@ export const enTranslation = {
         atLeastOneCondition:
           "Specify at least one condition: list, DSCP, source/destination address, or source/destination port.",
         dscpRange: "DSCP must be an integer between 1 and 63.",
-        outboundRequired: "Outbound tag is required.",
       },
       actions: { create: "Create rule", save: "Save rule" },
       fields: {
+        enabled: "Enable rule",
         mode: "Rule type",
         ruleType: "Rule types",
         modeOptions: {
-          normal: "Normal rule",
+          normal: "Conditional routing",
           ipv4: "IPv4 default gateway",
           ipv6: "IPv6 default gateway",
         },
@@ -1155,11 +1188,10 @@ export const enTranslation = {
           "Add one or more configured list names to match for this rule.",
         noListsSelected: "No lists selected",
         listsHint: "Choose which of your lists this rule applies to.",
-        proto: "Proto",
+        proto: "Protocol",
         any: "Any",
         anyLower: "any",
         protocol: "Protocol",
-        protoHint: "Filter by protocol (TCP, UDP, etc.). Leave empty for any.",
         dscp: "DSCP",
         dscpHint: "Match packets with this DSCP tag. Leave empty for any.",
         sourcePort: "Source port",
@@ -1243,18 +1275,17 @@ export const enTranslation = {
       },
     },
     outboundUpsert: {
+      noAdditionalSettings: "This outbound type has no additional settings",
       typeHints: {
-        interface:
-          "Traffic leaves through the selected network interface (tun0, wg0, eth0) with optional gateways.",
-        table:
-          "Traffic is sent through an existing kernel routing table by its ID.",
+        interface: "Traffic leaves through the selected network interface",
+        table: "Traffic is sent to an existing routing table (ip route table).",
         urltest:
-          "A group of outbounds: the service periodically fetches a URL through each one and picks the fastest.",
+          "Select the outbound with the lowest latency (measured by sending an HTTP request)",
         icmptest:
-          "Same as auto-select, but each candidate is checked with ping (ICMP echo) to its own address.",
+          "Select the outbound with the lowest latency (measured by sending an ICMP packet)",
         blackhole: "All traffic sent to this outbound is dropped.",
         ignore:
-          "All traffic sent to this outbound skips the remaining keen-pbr rules and is routed according to the router settings.",
+          "Traffic is not processed by keen-pbr rules and is routed according to the router settings.",
       },
       advanced: {
         probesTitle: "Probes and retries",
@@ -1308,7 +1339,7 @@ export const enTranslation = {
       },
       createTitle: "Create outbound",
       editTitle: "Edit outbound",
-      editCardTitle: "Edit {{tag}}",
+      editCardTitle: "Edit outbound <entity>{{tag}}</entity>",
       description:
         "An outbound can be a single network interface, a routing table, or a urltest group that picks the fastest option.",
       cardDescription: "Configure interface or urltest outbounds.",
@@ -1343,8 +1374,6 @@ export const enTranslation = {
       fields: {
         aboutType: "About this type",
         tag: "Name",
-        tagHint:
-          "A unique name for this outbound. Referenced in traffic rules and groups.",
         type: "Type",
         outboundTypes: "Outbound types",
         typeOptions: {
@@ -1498,7 +1527,6 @@ export const enTranslation = {
         },
       },
       validation: {
-        tagRequired: "Tag is required.",
         duplicateTag: 'Outbound tag "{{tag}}" already exists.',
         missingReference:
           'Outbound "{{outbound}}" references missing outbound tag "{{referenced}}".',
@@ -1514,6 +1542,8 @@ export const enTranslation = {
         disableRule: "Disable rule",
       },
       bulk: {
+        deleteConsequences:
+          "After applying changes, the selected rules will no longer select DNS servers for domains. Remaining rules and default DNS servers will be used.",
         selected: "{{count}} selected",
         enable: "Enable {{count}}",
         disable: "Disable {{count}}",
@@ -1541,8 +1571,7 @@ export const enTranslation = {
         noneDefined: "No DNS servers defined on the DNS Servers page.",
         noneAvailable: "All DNS servers are already selected.",
       },
-      integration: {
-      },
+      integration: {},
       empty: {
         title: "No DNS rules yet",
         description:
@@ -1565,6 +1594,7 @@ export const enTranslation = {
     dnsRuleUpsert: {
       createTitle: "Create DNS rule",
       editTitle: "Edit DNS rule",
+      editNamedTitle: "Edit DNS rule <entity>#{{number}}</entity>",
       description:
         "This rule defines which DNS server to use for domains in a specific list.",
       cardDescription: "Set the list names and DNS server for this rule.",
@@ -1573,7 +1603,6 @@ export const enTranslation = {
         notFound: "The requested DNS rule was not found.",
         fixErrors: "Fix validation errors before saving.",
         serverRequired: "Rule must reference an existing DNS server.",
-        listsRequired: "Rule must include at least one list.",
         unknownLists: "Unknown lists: {{lists}}",
         duplicate: "Duplicate rule entry.",
       },
@@ -1683,7 +1712,7 @@ export const enTranslation = {
     listUpsert: {
       createTitle: "Create list",
       editTitle: "Edit list",
-      editCardTitle: "Edit {{name}}",
+      editCardTitle: "Edit list <entity>{{name}}</entity>",
       fallbackName: "list",
       description:
         "A list can contain domains and IPs you enter directly, load from a URL, or import from a file.",
@@ -1709,11 +1738,13 @@ export const enTranslation = {
         description: "Set the list identity before choosing the source.",
       },
       sourceSwitcher: {
+        confirmTitle: "Change source type?",
+        confirmAction: "Change source",
         title: "Source type",
         description:
           "Choose which source to edit. Legacy lists with multiple saved sources stay visible until you switch.",
         confirmChange:
-          "Switch source type and clear the currently filled fields?",
+          "The populated data of the listed sources will be cleared from the form. The change takes effect after saving the list.",
       },
       sourceGroups: {
         url: {
@@ -1735,7 +1766,6 @@ export const enTranslation = {
       },
       fields: {
         name: "Name",
-        nameHint: "Stable identifier used in rules and references.",
         ttlMs: "IP cache duration (ms)",
         ttlMsHint:
           "How long to keep resolved IPs in the ipset. `0` = no timeout.",
@@ -1755,10 +1785,10 @@ export const enTranslation = {
           "Domains to include, one per line. `example.com` will also match all subdomains.",
         ipCidrs: "IP CIDRs",
         ipCidrsHint:
-          "IP addresses or CIDR ranges, one per line. E.g. `93.184.216.34`, `10.0.0.0/8`.",
+          "IP addresses or CIDR ranges, one per line. E.g. <code>93.184.216.34</code>, <code>10.0.0.0/8</code>.",
       },
       validation: {
-        nameRequired: "Name is required.",
+        inlineRequired: "Enter domains or IP/CIDR entries",
         duplicateName: "A list with this name already exists.",
         invalidTtl: "TTL must be a non-negative integer.",
       },

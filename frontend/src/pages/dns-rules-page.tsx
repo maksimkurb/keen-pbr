@@ -1,6 +1,7 @@
+import { DeleteImpactDialog } from "@/components/shared/delete-impact-dialog"
 import { DnsManagementDisabled } from "@/components/shared/dns-management-disabled"
 import { Pencil, Plus, Trash2 } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -47,6 +48,7 @@ export function DnsRulesPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
+  const [deleteIds, setDeleteIds] = useState<string[]>([])
   const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
 
@@ -199,26 +201,20 @@ export function DnsRulesPage() {
   }
 
   const handleBulkDeleteRules = () => {
-    if (ruleSelection.selectedCount === 0) {
-      return
+    if (!configMutationPending && ruleSelection.selectedCount > 0) {
+      setDeleteIds([...ruleSelection.selectedIds])
     }
+  }
 
-    if (
-      !window.confirm(
-        t("pages.dnsRules.bulk.confirmDelete", {
-          count: ruleSelection.selectedCount,
-        })
-      )
-    ) {
-      return
-    }
-
+  const confirmBulkDelete = () => {
+    if (!loadedConfig || configMutationPending || deleteIds.length === 0) return
     persistDnsRules(
       rules
-        .filter((_rule, index) => !ruleSelection.selectedIds.has(String(index)))
+        .filter((_rule, index) => !deleteIds.includes(String(index)))
         .map((rule) => getRuleDraft(rule)),
       { clearSelection: true }
     )
+    setDeleteIds([])
   }
 
   const handleBulkSetEnabled = (enabled: boolean) => {
@@ -238,6 +234,24 @@ export function DnsRulesPage() {
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">
+      <DeleteImpactDialog
+        open={deleteIds.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setDeleteIds([])
+        }}
+        onConfirm={confirmBulkDelete}
+        isPending={configMutationPending}
+        title={t("pages.dnsRules.bulk.confirmDelete", {
+          count: deleteIds.length,
+        })}
+        description={t("pages.dnsRules.bulk.deleteConsequences")}
+        confirmLabel={t("pages.dnsRules.bulk.delete", {
+          count: deleteIds.length,
+        })}
+        impactItems={deleteIds.map((id) => ({
+          label: t("common.ruleNumber", { number: Number(id) + 1 }),
+        }))}
+      />
       <PageHeader
         actions={
           resolverIntegration === "dnsmasq" ? (

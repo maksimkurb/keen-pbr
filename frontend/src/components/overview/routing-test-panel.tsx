@@ -1,3 +1,4 @@
+import type { Ref } from "react"
 import { Loader2, Search } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import type { ApiError } from "@/api/client"
@@ -27,8 +28,10 @@ import { useRoutingTestPanelState } from "./use-routing-test-panel-state"
 
 export function RoutingTestPanel({
   state,
+  targetInputRef,
 }: {
   state: ReturnType<typeof useRoutingTestPanelState>
+  targetInputRef?: Ref<HTMLInputElement>
 }) {
   const { t } = useTranslation()
   const {
@@ -76,6 +79,7 @@ export function RoutingTestPanel({
               </InputGroupText>
             </InputGroupAddon>
             <InputGroupInput
+              ref={targetInputRef}
               onChange={(event) => setTestTarget(event.target.value)}
               onKeyDown={(event) => {
                 if (

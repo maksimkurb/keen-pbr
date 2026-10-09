@@ -8,7 +8,7 @@ export function PageHeader({
   actions,
   className,
 }: {
-  title: string
+  title: ReactNode
   description?: string
   actions?: ReactNode
   className?: string
@@ -16,24 +16,26 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-start md:justify-between",
+        "mb-6 grid grid-cols-1 gap-x-4 gap-y-2 border-b pb-4 md:mb-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-start",
         className
       )}
     >
-      <div className="min-w-0">
-        <h1
-          className="text-balance text-3xl font-semibold tracking-tight md:text-2xl"
-          id="page-title"
-        >
-          {title}
-        </h1>
-        {description ? (
-          <p className="mt-1 max-w-[60ch] text-pretty text-base text-muted-foreground md:text-sm">
-            {description}
-          </p>
-        ) : null}
-      </div>
-      {actions}
+      <h1
+        className="min-w-0 text-3xl font-semibold tracking-tight text-balance md:text-2xl"
+        id="page-title"
+      >
+        {title}
+      </h1>
+      {actions ? (
+        <div className="order-3 min-w-0 pt-2 md:order-none md:pt-0">
+          {actions}
+        </div>
+      ) : null}
+      {description ? (
+        <p className="min-w-0 text-base text-pretty text-muted-foreground md:col-span-2 md:text-sm">
+          {description}
+        </p>
+      ) : null}
     </header>
   )
 }

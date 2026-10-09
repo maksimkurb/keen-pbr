@@ -1,4 +1,6 @@
-import { useTranslation } from "react-i18next"
+import { useState, type ReactNode } from "react"
+import { RoutingRuleConditionBuilder } from "@/components/routing-rules/routing-rule-condition-builder"
+import { Trans, useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
@@ -11,6 +13,7 @@ import { selectConfig } from "@/api/selectors"
 import {
   Field,
   FieldContent,
+  FieldDescription,
   FieldGroup,
   FieldHint,
   FieldLabel,
@@ -35,6 +38,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  getActiveRouteConditions,
+  validateDscp,
+  type RouteConditionKey,
   emptyRouteRuleDraft,
   normalizeRouteRuleDraft,
   protoOptions,
@@ -42,6 +48,18 @@ import {
   type RouteRuleDraft,
   toRouteRuleDraft,
 } from "@/pages/routing-rules-utils"
+
+import {
+  PLATFORM_GENERIC,
+  PLATFORM_OPENWRT,
+  PLATFORM_DEVELOPMENT,
+} from "@/lib/platform"
+
+// Direct build-time comparisons let the bundler remove the selector on Keenetic.
+const DEFAULT_GATEWAY_RULES_SUPPORTED =
+  import.meta.env.VITE_KEEN_PBR_PLATFORM === PLATFORM_GENERIC ||
+  import.meta.env.VITE_KEEN_PBR_PLATFORM === PLATFORM_OPENWRT ||
+  import.meta.env.VITE_KEEN_PBR_PLATFORM === PLATFORM_DEVELOPMENT
 
 const routeRuleModeOptions = ["normal", "ipv4", "ipv6"] as const
 
@@ -148,6 +166,12 @@ function RoutingRuleForm({
     "routing",
     mode === "edit" ? parsedRuleIndex : undefined
   )
+  const modeSelectItems = DEFAULT_GATEWAY_RULES_SUPPORTED
+    ? routeRuleModeOptions.map((value) => ({
+        value,
+        label: t(`pages.routingRuleUpsert.fields.modeOptions.${value}`),
+      }))
+    : []
   const protoSelectItems = protoOptions.map((option) => ({
     value: option,
     label: option || t("pages.routingRuleUpsert.fields.anyLower"),
@@ -168,7 +192,7 @@ function RoutingRuleForm({
 
       const outboundError =
         value.outbound.trim().length === 0
-          ? t("pages.routingRuleUpsert.validation.outboundRequired")
+          ? t("common.validation.required")
           : undefined
       if (outboundError) {
         errors.outbound = outboundError
@@ -226,79 +250,156 @@ function RoutingRuleForm({
     }
   }
 
-  // The outbound control also shows errors addressed to the whole rule.
-  const outboundError = form.errorFor("outbound", { alsoClaims: [""] })
-  const gatewayError = form.errorFor("default_gateway")
+  const gatewayError = DEFAULT_GATEWAY_RULES_SUPPORTED
+    ? form.errorFor("default_gateway")
+    : null
   const isNormalRule = values.default_gateway === "normal"
+
+  // Empty opened editors are UI state only; values and serialization stay in useDraftForm.
+  const [openedConditions, setOpenedConditions] = useState<RouteConditionKey[]>(
+    () => getActiveRouteConditions(draft, [])
+  )
+  const activeConditions = getActiveRouteConditions(
+    values,
+    openedConditions,
+    form.errorPaths()
+  )
+  const showOutbound = !isNormalRule || activeConditions.length > 0
+  const outboundError = showOutbound ? form.errorFor("outbound") : null
+  const conditionControls: Partial<Record<RouteConditionKey, ReactNode>> = {}
+  if (activeConditions.includes("list")) {
+    conditionControls.list = (
+      <Field className="gap-2" invalid={Boolean(form.errorFor("list"))}>
+        <FieldLabel id="routing-list-label">
+          {t("pages.routingRuleUpsert.fields.lists")}
+        </FieldLabel>
+        <FieldContent>
+          <FieldDescription>
+            {t("pages.routingRuleUpsert.builder.descriptions.list")}
+          </FieldDescription>
+          <MultiSelectList
+            error={form.errorFor("list")}
+            name="list"
+            compact
+            ariaLabelledBy="routing-list-label"
+            onChange={(value) => form.setValue("list", value)}
+            options={listOptions}
+            placeholderDescription={t(
+              "pages.routingRuleUpsert.fields.listsPlaceholderDescription"
+            )}
+            placeholderTitle={t(
+              "pages.routingRuleUpsert.fields.noListsSelected"
+            )}
+            usageSubtitle={listUsageSubtitle}
+            value={values.list}
+          />
+        </FieldContent>
+      </Field>
+    )
+  }
+  if (activeConditions.includes("proto")) {
+    conditionControls.proto = (
+      <Field className="gap-2" invalid={Boolean(form.errorFor("proto"))}>
+        <FieldLabel htmlFor="routing-proto">
+          {t("pages.routingRuleUpsert.fields.proto")}
+        </FieldLabel>
+        <FieldContent>
+          <FieldDescription>
+            {t("pages.routingRuleUpsert.builder.descriptions.proto")}
+          </FieldDescription>
+          <Select
+            items={protoSelectItems}
+            onValueChange={(value) => form.setValue("proto", value ?? "")}
+            value={values.proto}
+          >
+            <SelectTrigger
+              id="routing-proto"
+              aria-invalid={Boolean(form.errorFor("proto"))}
+            >
+              <SelectValue
+                placeholder={t("pages.routingRuleUpsert.fields.any")}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>
+                  {t("pages.routingRuleUpsert.fields.protocol")}
+                </SelectLabel>
+                {protoOptions.map((option) => (
+                  <SelectItem key={option || "any"} value={option}>
+                    {option || t("pages.routingRuleUpsert.fields.anyLower")}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <FieldHint error={form.errorFor("proto")} />
+        </FieldContent>
+      </Field>
+    )
+  }
+  const inputConditions = [
+    ["dscp", "dscp", "dscpHint"],
+    ["src_port", "sourcePort", "sourcePortHint"],
+    ["dest_port", "destinationPort", "destinationPortHint"],
+    ["src_addr", "sourceAddresses", "sourceAddressHint"],
+    ["dest_addr", "destinationAddresses", "destinationAddressHint"],
+  ] as const
+  for (const [key, label, hint] of inputConditions) {
+    if (!activeConditions.includes(key)) continue
+    const error = form.errorFor(key)
+    const id = `routing-${key}`
+    conditionControls[key] = (
+      <Field className="gap-2" invalid={Boolean(error)}>
+        <FieldLabel htmlFor={id}>
+          {t(`pages.routingRuleUpsert.fields.${label}`)}
+        </FieldLabel>
+        <FieldContent>
+          <FieldDescription id={`${id}-description`}>
+            {t(`pages.routingRuleUpsert.fields.${hint}`)}
+          </FieldDescription>
+          <Input
+            aria-invalid={Boolean(error)}
+            aria-describedby={`${id}-description ${id}-hint`}
+            id={id}
+            name={key}
+            inputMode={key === "dscp" ? "numeric" : undefined}
+            max={key === "dscp" ? 63 : undefined}
+            min={key === "dscp" ? 1 : undefined}
+            onChange={(event) => form.setValue(key, event.target.value)}
+            placeholder={t(`pages.routingRuleUpsert.placeholders.${label}`)}
+            type={key === "dscp" ? "number" : "text"}
+            value={values[key]}
+          />
+          <div id={`${id}-hint`}>
+            <FieldHint error={error} />
+          </div>
+        </FieldContent>
+      </Field>
+    )
+  }
 
   return (
     <UpsertPage
-      cardDescription={t("pages.routingRuleUpsert.cardDescription")}
-      cardTitle={
-        mode === "create"
-          ? t("pages.routingRuleUpsert.createTitle")
-          : t("pages.routingRuleUpsert.editTitle")
-      }
       description={t("pages.routingRuleUpsert.description")}
       title={
-        mode === "create"
-          ? t("pages.routingRuleUpsert.createTitle")
-          : t("pages.routingRuleUpsert.editTitle")
+        mode === "create" ? (
+          t("pages.routingRuleUpsert.createTitle")
+        ) : (
+          <Trans
+            i18nKey="pages.routingRuleUpsert.editNamedTitle"
+            values={{ number: parsedRuleIndex + 1 }}
+            components={{ entity: <span className="text-primary" /> }}
+          />
+        )
       }
     >
-      <form className="space-y-6" onSubmit={form.onSubmit(save)}>
+      <form className="min-w-0 space-y-6" onSubmit={form.onSubmit(save)}>
+        <ServerValidationAlert
+          errors={form.unmappedErrors()}
+          message={form.formError}
+        />
         <FieldGroup>
-          <Field invalid={Boolean(gatewayError)}>
-            <FieldLabel>{t("pages.routingRuleUpsert.fields.mode")}</FieldLabel>
-            <FieldContent>
-              <Select
-                onValueChange={(value) => {
-                  const nextMode = (value as RouteRuleMode) ?? "normal"
-                  form.setValues((prev) => ({
-                    ...prev,
-                    default_gateway: nextMode,
-                    // Condition fields only apply to normal rules: back to
-                    // their initial values.
-                    ...(nextMode !== "normal"
-                      ? {
-                          list: draft.list,
-                          proto: draft.proto,
-                          dscp: draft.dscp,
-                          src_port: draft.src_port,
-                          dest_port: draft.dest_port,
-                          src_addr: draft.src_addr,
-                          dest_addr: draft.dest_addr,
-                        }
-                      : {}),
-                  }))
-                }}
-                value={values.default_gateway}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>
-                      {t("pages.routingRuleUpsert.fields.ruleType")}
-                    </SelectLabel>
-                    {routeRuleModeOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {t(
-                          `pages.routingRuleUpsert.fields.modeOptions.${option}`
-                        )}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <FieldHint
-                description={t("pages.routingRuleUpsert.fields.modeHint")}
-                error={gatewayError}
-              />
-            </FieldContent>
-          </Field>
-
           <Field>
             <FieldContent>
               <div className="flex items-center space-x-3">
@@ -310,233 +411,115 @@ function RoutingRuleForm({
                   }
                 />
                 <FieldLabel
-                  className="cursor-pointer flex-col items-start gap-0"
+                  className="cursor-pointer flex-col items-start justify-center gap-0"
                   htmlFor="routing-rule-enabled"
                 >
-                  {t("common.enabled")}
+                  {t("pages.routingRuleUpsert.fields.enabled")}
                 </FieldLabel>
               </div>
             </FieldContent>
           </Field>
 
-          <Field
-            hidden={!isNormalRule}
-            invalid={Boolean(form.errorFor("list"))}
-          >
-            <FieldLabel>{t("pages.routingRuleUpsert.fields.lists")}</FieldLabel>
-            <FieldContent>
-              <MultiSelectList
-                error={form.errorFor("list")}
-                name="list"
-                onChange={(value) => form.setValue("list", value)}
-                options={listOptions}
-                placeholderDescription={t(
-                  "pages.routingRuleUpsert.fields.listsPlaceholderDescription"
-                )}
-                placeholderTitle={t(
-                  "pages.routingRuleUpsert.fields.noListsSelected"
-                )}
-                usageSubtitle={listUsageSubtitle}
-                value={values.list}
-              />
-              <FieldHint
-                description={t("pages.routingRuleUpsert.fields.listsHint")}
-              />
-            </FieldContent>
-          </Field>
-
-          <Field hidden={!isNormalRule}>
-            <FieldLabel>{t("pages.routingRuleUpsert.fields.proto")}</FieldLabel>
-            <FieldContent>
-              <Select
-                items={protoSelectItems}
-                onValueChange={(value) => form.setValue("proto", value ?? "")}
-                value={values.proto}
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={t("pages.routingRuleUpsert.fields.any")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>
-                      {t("pages.routingRuleUpsert.fields.protocol")}
-                    </SelectLabel>
-                    {protoOptions.map((option) => (
-                      <SelectItem key={option || "any"} value={option}>
-                        {option || t("pages.routingRuleUpsert.fields.anyLower")}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <FieldHint
-                description={t("pages.routingRuleUpsert.fields.protoHint")}
-              />
-            </FieldContent>
-          </Field>
-
-          <Field
-            hidden={!isNormalRule}
-            invalid={Boolean(form.errorFor("dscp"))}
-          >
-            <FieldLabel htmlFor="routing-dscp">
-              {t("pages.routingRuleUpsert.fields.dscp")}
-            </FieldLabel>
-            <FieldContent>
-              <Input
-                aria-invalid={Boolean(form.errorFor("dscp"))}
-                id="routing-dscp"
-                inputMode="numeric"
-                max={63}
-                min={1}
-                onChange={(event) => form.setValue("dscp", event.target.value)}
-                placeholder={t("pages.routingRuleUpsert.placeholders.dscp")}
-                type="number"
-                value={values.dscp}
-              />
-              <FieldHint
-                description={t("pages.routingRuleUpsert.fields.dscpHint")}
-                error={form.errorFor("dscp")}
-              />
-            </FieldContent>
-          </Field>
-
-          <Field
-            hidden={!isNormalRule}
-            invalid={Boolean(form.errorFor("src_port"))}
-          >
-            <FieldLabel htmlFor="routing-src-port">
-              {t("pages.routingRuleUpsert.fields.sourcePort")}
-            </FieldLabel>
-            <FieldContent>
-              <Input
-                aria-invalid={Boolean(form.errorFor("src_port"))}
-                id="routing-src-port"
-                onChange={(event) =>
-                  form.setValue("src_port", event.target.value)
-                }
-                placeholder={t(
-                  "pages.routingRuleUpsert.placeholders.sourcePort"
-                )}
-                value={values.src_port}
-              />
-              <FieldHint
-                description={t("pages.routingRuleUpsert.fields.sourcePortHint")}
-                error={form.errorFor("src_port")}
-              />
-            </FieldContent>
-          </Field>
-
-          <Field
-            hidden={!isNormalRule}
-            invalid={Boolean(form.errorFor("dest_port"))}
-          >
-            <FieldLabel htmlFor="routing-dest-port">
-              {t("pages.routingRuleUpsert.fields.destinationPort")}
-            </FieldLabel>
-            <FieldContent>
-              <Input
-                aria-invalid={Boolean(form.errorFor("dest_port"))}
-                id="routing-dest-port"
-                onChange={(event) =>
-                  form.setValue("dest_port", event.target.value)
-                }
-                placeholder={t(
-                  "pages.routingRuleUpsert.placeholders.destinationPort"
-                )}
-                value={values.dest_port}
-              />
-              <FieldHint
-                description={t(
-                  "pages.routingRuleUpsert.fields.destinationPortHint"
-                )}
-                error={form.errorFor("dest_port")}
-              />
-            </FieldContent>
-          </Field>
-
-          <Field
-            hidden={!isNormalRule}
-            invalid={Boolean(form.errorFor("src_addr"))}
-          >
-            <FieldLabel htmlFor="routing-src-addr">
-              {t("pages.routingRuleUpsert.fields.sourceAddresses")}
-            </FieldLabel>
-            <FieldContent>
-              <Input
-                aria-invalid={Boolean(form.errorFor("src_addr"))}
-                id="routing-src-addr"
-                onChange={(event) =>
-                  form.setValue("src_addr", event.target.value)
-                }
-                placeholder={t(
-                  "pages.routingRuleUpsert.placeholders.sourceAddresses"
-                )}
-                value={values.src_addr}
-              />
-              <FieldHint
-                description={t(
-                  "pages.routingRuleUpsert.fields.sourceAddressHint"
-                )}
-                error={form.errorFor("src_addr")}
-              />
-            </FieldContent>
-          </Field>
-
-          <Field
-            hidden={!isNormalRule}
-            invalid={Boolean(form.errorFor("dest_addr"))}
-          >
-            <FieldLabel htmlFor="routing-dest-addr">
-              {t("pages.routingRuleUpsert.fields.destinationAddresses")}
-            </FieldLabel>
-            <FieldContent>
-              <Input
-                aria-invalid={Boolean(form.errorFor("dest_addr"))}
-                id="routing-dest-addr"
-                onChange={(event) =>
-                  form.setValue("dest_addr", event.target.value)
-                }
-                placeholder={t(
-                  "pages.routingRuleUpsert.placeholders.destinationAddresses"
-                )}
-                value={values.dest_addr}
-              />
-              <FieldHint
-                description={t(
-                  "pages.routingRuleUpsert.fields.destinationAddressHint"
-                )}
-                error={form.errorFor("dest_addr")}
-              />
-            </FieldContent>
-          </Field>
-
-          <Field invalid={Boolean(outboundError)}>
-            <FieldLabel>
-              {t("pages.routingRuleUpsert.fields.outbound")}
-            </FieldLabel>
-            <FieldContent>
-              <OutboundSelect
-                ariaInvalid={Boolean(outboundError)}
-                onValueChange={(value) => form.setValue("outbound", value)}
-                outbounds={outbounds}
-                value={values.outbound}
-              />
-              <FieldHint
-                description={t("pages.routingRuleUpsert.fields.outboundHint")}
-                error={outboundError}
-              />
-            </FieldContent>
-          </Field>
+          {DEFAULT_GATEWAY_RULES_SUPPORTED ? (
+            <Field invalid={Boolean(gatewayError)}>
+              <FieldLabel htmlFor="routing-rule-mode">
+                {t("pages.routingRuleUpsert.fields.mode")}
+              </FieldLabel>
+              <FieldContent>
+                <Select
+                  items={modeSelectItems}
+                  onValueChange={(value) => {
+                    const nextMode = (value as RouteRuleMode) ?? "normal"
+                    if (nextMode !== "normal") setOpenedConditions([])
+                    form.setValues((prev) => ({
+                      ...prev,
+                      default_gateway: nextMode,
+                      // Condition fields only apply to normal rules: back to
+                      // their initial values.
+                      ...(nextMode !== "normal"
+                        ? {
+                            list: draft.list,
+                            proto: draft.proto,
+                            dscp: draft.dscp,
+                            src_port: draft.src_port,
+                            dest_port: draft.dest_port,
+                            src_addr: draft.src_addr,
+                            dest_addr: draft.dest_addr,
+                          }
+                        : {}),
+                    }))
+                  }}
+                  value={values.default_gateway}
+                >
+                  <SelectTrigger
+                    id="routing-rule-mode"
+                    aria-invalid={Boolean(gatewayError)}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>
+                        {t("pages.routingRuleUpsert.fields.ruleType")}
+                      </SelectLabel>
+                      {routeRuleModeOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {t(
+                            `pages.routingRuleUpsert.fields.modeOptions.${option}`
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldHint error={gatewayError} />
+              </FieldContent>
+            </Field>
+          ) : null}
         </FieldGroup>
-        <ServerValidationAlert
-          errors={form.unmappedErrors()}
-          message={form.formError}
+        <RoutingRuleConditionBuilder
+          activeConditions={isNormalRule ? activeConditions : []}
+          controls={conditionControls}
+          isNormalRule={isNormalRule}
+          onAdd={(key) =>
+            setOpenedConditions((previous) =>
+              previous.includes(key) ? previous : [...activeConditions, key]
+            )
+          }
+          onRemove={(key) => {
+            if (key === "list") form.setValue("list", [])
+            else form.setValue(key, "")
+            setOpenedConditions((previous) =>
+              previous.filter((item) => item !== key)
+            )
+          }}
+          outbound={
+            showOutbound ? (
+              <Field invalid={Boolean(outboundError)}>
+                <FieldLabel id="routing-outbound-label">
+                  {t("pages.routingRuleUpsert.builder.routeThrough")}
+                </FieldLabel>
+                <FieldContent>
+                  <OutboundSelect
+                    ariaInvalid={Boolean(outboundError)}
+                    ariaLabelledBy="routing-outbound-label"
+                    onValueChange={(value) => form.setValue("outbound", value)}
+                    outbounds={outbounds}
+                    value={values.outbound}
+                  />
+                  <FieldHint
+                    description={t(
+                      "pages.routingRuleUpsert.fields.outboundHint"
+                    )}
+                    error={outboundError}
+                  />
+                </FieldContent>
+              </Field>
+            ) : null
+          }
         />
 
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
           <Button
             onClick={() => navigate("/routing-rules")}
             size="xl"
@@ -547,7 +530,9 @@ function RoutingRuleForm({
           </Button>
           <Button
             disabled={
-              postConfigMutation.isPending || !form.isDirty || form.isSubmitting
+              postConfigMutation.isPending ||
+              (mode === "edit" && !form.isDirty) ||
+              form.isSubmitting
             }
             size="xl"
             type="submit"
@@ -560,20 +545,4 @@ function RoutingRuleForm({
       </form>
     </UpsertPage>
   )
-}
-
-function validateDscp(value: string, t: (key: string) => string) {
-  const trimmed = value.trim()
-  if (trimmed.length === 0) {
-    return undefined
-  }
-
-  if (!/^\d+$/.test(trimmed)) {
-    return t("pages.routingRuleUpsert.validation.dscpRange")
-  }
-
-  const parsed = Number(trimmed)
-  return parsed >= 1 && parsed <= 63
-    ? undefined
-    : t("pages.routingRuleUpsert.validation.dscpRange")
 }

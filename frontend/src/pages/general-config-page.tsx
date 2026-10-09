@@ -654,6 +654,7 @@ function LoadedGeneralConfigPage({
                     field={form.field("fwmark.start")}
                     hint={t("pages.settings.advanced.fwmarkStartHint")}
                     id="fwmark-start"
+                    inputProps={{ className: "max-w-sm" }}
                     label={
                       <span className="inline-flex items-center gap-2">
                         {t("pages.settings.advanced.fwmarkStartLabel")}
@@ -675,6 +676,7 @@ function LoadedGeneralConfigPage({
                       </>
                     }
                     id="fwmark-mask"
+                    inputProps={{ className: "max-w-sm" }}
                     label={
                       <span className="inline-flex items-center gap-2">
                         {t("pages.settings.advanced.fwmarkMaskLabel")}
@@ -691,6 +693,7 @@ function LoadedGeneralConfigPage({
                   field={form.field("iproute.table_start")}
                   hint={t("pages.settings.advanced.tableStartHint")}
                   id="table-start"
+                  inputProps={{ inputMode: "numeric" }}
                   label={
                     <span className="inline-flex items-center gap-2">
                       {t("pages.settings.advanced.tableStartLabel")}

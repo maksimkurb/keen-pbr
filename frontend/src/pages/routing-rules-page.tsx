@@ -1,3 +1,4 @@
+import { DeleteImpactDialog } from "@/components/shared/delete-impact-dialog"
 import {
   ArrowDown,
   ArrowUp,
@@ -50,6 +51,7 @@ export function RoutingRulesPage() {
     null
   )
 
+  const [deleteIds, setDeleteIds] = useState<string[]>([])
   const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
@@ -262,24 +264,18 @@ export function RoutingRulesPage() {
   }
 
   const handleBulkDelete = () => {
-    if (!loadedConfig || ruleSelection.selectedCount === 0) {
-      return
+    if (!configMutationPending && ruleSelection.selectedCount > 0) {
+      setDeleteIds([...ruleSelection.selectedIds])
     }
+  }
 
-    if (
-      !window.confirm(
-        t("pages.routingRules.bulk.confirmDelete", {
-          count: ruleSelection.selectedCount,
-        })
-      )
-    ) {
-      return
-    }
-
+  const confirmBulkDelete = () => {
+    if (!loadedConfig || configMutationPending || deleteIds.length === 0) return
     const nextRules = routeRules.filter(
-      (_rule, index) => !ruleSelection.selectedIds.has(String(index))
+      (_rule, index) => !deleteIds.includes(String(index))
     )
     persistRules(loadedConfig, nextRules, { clearSelection: true })
+    setDeleteIds([])
   }
 
   const handleBulkSetEnabled = (enabled: boolean) => {
@@ -295,6 +291,24 @@ export function RoutingRulesPage() {
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">
+      <DeleteImpactDialog
+        open={deleteIds.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setDeleteIds([])
+        }}
+        onConfirm={confirmBulkDelete}
+        isPending={configMutationPending}
+        title={t("pages.routingRules.bulk.confirmDelete", {
+          count: deleteIds.length,
+        })}
+        description={t("pages.routingRules.bulk.deleteConsequences")}
+        confirmLabel={t("pages.routingRules.bulk.delete", {
+          count: deleteIds.length,
+        })}
+        impactItems={deleteIds.map((id) => ({
+          label: t("common.ruleNumber", { number: Number(id) + 1 }),
+        }))}
+      />
       <PageHeader
         actions={
           <>

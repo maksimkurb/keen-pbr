@@ -277,7 +277,21 @@ export function useDraftForm<T extends object>(
       onSubmit: (handler: (values: T) => void | Promise<void>) => {
         return (event?: FormEvent) => {
           event?.preventDefault()
-          void store.submit(handler)
+          const element = event?.currentTarget
+          void store.submit(handler).then(() => {
+            if (!element || !(element instanceof HTMLFormElement)) return
+            requestAnimationFrame(() => {
+              const invalid = element.querySelector<HTMLElement>(
+                '[data-slot="field"][data-invalid="true"], [aria-invalid="true"]'
+              )
+              invalid?.scrollIntoView({ behavior: "smooth", block: "center" })
+              invalid
+                ?.querySelector<HTMLElement>(
+                  'input, textarea, button, [tabindex="0"]'
+                )
+                ?.focus({ preventScroll: true })
+            })
+          })
         }
       },
     }),

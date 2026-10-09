@@ -489,3 +489,34 @@ describe("api errors", () => {
     expect(apiErrorsToFormErrors(null).fields).toEqual({})
   })
 })
+
+test("clearing an empty hidden source removes its error before it can fall back to name", () => {
+  const store = createDraftStore({
+    name: "asda",
+    source: "url",
+    url: "",
+    file: "",
+  })
+  store.setServerErrors({ fields: { url: "Поле обязательно" } })
+  store.beginRender()
+  store.errorFor("name", { alsoClaims: [""] })
+  store.errorFor("url")
+  store.commitClaims()
+  store.setValue("source", "file")
+  store.setValue("url", "")
+  store.beginRender()
+  store.errorFor("name", { alsoClaims: [""] })
+  store.errorFor("file")
+  store.commitClaims()
+  expect(store.errorFor("name", { alsoClaims: [""] })).toBeNull()
+  expect(store.errorFor("file")).toBeNull()
+  store.setServerErrors({ fields: { file: "Поле обязательно" } })
+  store.setValue("source", "url")
+  store.setValue("file", "")
+  store.beginRender()
+  store.errorFor("name", { alsoClaims: [""] })
+  store.errorFor("url")
+  store.commitClaims()
+  expect(store.errorFor("name", { alsoClaims: [""] })).toBeNull()
+  expect(store.errorFor("url")).toBeNull()
+})

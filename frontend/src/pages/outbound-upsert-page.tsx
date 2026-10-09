@@ -1,5 +1,6 @@
+import { ChoiceButton } from "@/components/ui/choice-button"
 import { type ReactNode, useId } from "react"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
 import {
   Activity,
   Ban,
@@ -31,7 +32,6 @@ import {
 } from "@/api/selectors"
 import {
   AdvancedSection,
-  ChoiceCard,
   FormSection,
   InfoHint,
   SegmentedControl,
@@ -204,7 +204,17 @@ export function OutboundUpsertPage({
           : t("pages.outboundUpsert.editCardTitle", { tag: draft.tag })
       }
       description={t("pages.outboundUpsert.description")}
-      title={title}
+      title={
+        mode === "edit" ? (
+          <Trans
+            i18nKey="pages.outboundUpsert.editCardTitle"
+            values={{ tag: draft.tag }}
+            components={{ entity: <span className="text-primary" /> }}
+          />
+        ) : (
+          title
+        )
+      }
     >
       <OutboundForm
         draft={draft}
@@ -277,8 +287,7 @@ function OutboundForm({
       : existingOutbounds.length
   const form = useDraftForm<OutboundDraft>(draft, {
     apiPrefix: `outbounds[${outboundIndex}]`,
-    // The only client check: the daemon cannot know the name rules of the
-    // loaded list. Everything else is validated by the daemon on save.
+    // Check the name and explicit type selection; the daemon validates type-specific settings.
     validate: (value) => {
       const tagError = getOutboundTagError(
         value.tag,
@@ -286,7 +295,10 @@ function OutboundForm({
         existingTag,
         t
       )
-      return tagError ? { tag: tagError } : {}
+      const errors: Record<string, string> = {}
+      if (tagError) errors.tag = tagError
+      if (!value.type) errors.type = t("common.validation.required")
+      return errors
     },
   })
   const { values } = form
@@ -423,12 +435,11 @@ function OutboundForm({
 
       <FieldGroup>
         <TextField
-          className="max-w-md"
+          className="max-w-sm"
           // The tag control also shows errors addressed to the whole outbound.
           field={form.field("tag", { alsoClaims: [""] })}
-          hint={t("pages.outboundUpsert.fields.tagHint")}
           label={t("pages.outboundUpsert.fields.tag")}
-          readOnly={mode === "edit"}
+          disabled={mode === "edit"}
         />
 
         <Field invalid={Boolean(form.errorFor("type"))}>
@@ -436,26 +447,20 @@ function OutboundForm({
           <FieldContent>
             <RadioGroup
               aria-label={t("pages.outboundUpsert.fields.type")}
-              className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"
-              onValueChange={(value) => changeType(value as Outbound["type"])}
               value={values.type}
+              onValueChange={(value) => changeType(value as Outbound["type"])}
+              className="grid w-full max-w-3xl min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3"
             >
               {outboundTypes.map(({ type, icon: Icon }) => (
-                <ChoiceCard
-                  className="min-h-28 flex-col items-center justify-center gap-2 px-2 pt-6 pb-3 text-center"
-                  key={type}
-                  value={type}
-                >
-                  <Icon className="size-7 text-primary" />
-                  <span className="text-sm leading-tight font-medium">
+                <ChoiceButton value={type} key={type}>
+                  <Icon aria-hidden="true" className="size-5 text-primary" />
+                  <span className="text-sm font-medium">
                     {t(`pages.outboundUpsert.fields.typeOptions.${type}`)}
                   </span>
-                  <InfoHint
-                    className="absolute top-2.5 right-2.5"
-                    label={t("pages.outboundUpsert.fields.aboutType")}
-                    text={t(`pages.outboundUpsert.typeHints.${type}`)}
-                  />
-                </ChoiceCard>
+                  <span className="text-xs text-muted-foreground">
+                    {t(`pages.outboundUpsert.typeHints.${type}`)}
+                  </span>
+                </ChoiceButton>
               ))}
             </RadioGroup>
             <FieldHint error={form.errorFor("type")} />
@@ -521,7 +526,7 @@ function OutboundForm({
             </FieldDescription>
             <RadioGroup
               aria-label={t("pages.outboundUpsert.killSwitch.title")}
-              className="grid gap-3 md:grid-cols-2"
+              className="grid w-full max-w-3xl gap-3 md:grid-cols-2"
               onValueChange={(value) =>
                 // Two config fields change together.
                 form.setValues((previous) => ({
@@ -532,8 +537,8 @@ function OutboundForm({
               value={killSwitch}
             >
               {(["inherit", "off", "reject", "drop"] as const).map((choice) => (
-                <ChoiceCard
-                  className="flex-col items-start gap-0.5 py-2.5 pr-3 pl-9 text-left"
+                <ChoiceButton
+                  className="flex flex-col items-start gap-0.5 py-2.5 pr-9 pl-3 text-left"
                   key={choice}
                   value={choice}
                 >
@@ -553,7 +558,7 @@ function OutboundForm({
                           `pages.outboundUpsert.killSwitch.options.${choice}.description`
                         )}
                   </span>
-                </ChoiceCard>
+                </ChoiceButton>
               ))}
             </RadioGroup>
             <FieldHint error={killSwitchError} />
@@ -563,7 +568,7 @@ function OutboundForm({
 
       {outboundType === "table" ? (
         <TextField
-          className="max-w-64"
+          className="max-w-sm"
           field={form.field("table")}
           hint={t("pages.outboundUpsert.table.hint")}
           inputMode="numeric"
@@ -576,7 +581,7 @@ function OutboundForm({
         <div className="flex items-start gap-2.5 rounded-xl border border-dashed bg-muted/40 p-3.5 text-sm text-muted-foreground">
           <Info className="mt-0.5 size-4 shrink-0" />
           <p className="text-foreground">
-            {t(`pages.outboundUpsert.typeHints.${outboundType}`)}
+            {t("pages.outboundUpsert.noAdditionalSettings")}
           </p>
         </div>
       ) : null}
@@ -604,8 +609,8 @@ function OutboundForm({
                     value={values.strategy}
                   >
                     {(["priority", "balance"] as const).map((strategy) => (
-                      <ChoiceCard
-                        className="flex-col items-start gap-0.5 py-3 pr-3.5 pl-9 text-left"
+                      <ChoiceButton
+                        className="flex flex-col items-start gap-0.5 py-3 pr-9 pl-3.5 text-left"
                         disabled={strategy === "balance" && !BALANCE_SUPPORTED}
                         key={strategy}
                         value={strategy}
@@ -620,7 +625,7 @@ function OutboundForm({
                             `pages.outboundUpsert.strategy.cards.${strategy}.description`
                           )}
                         </span>
-                      </ChoiceCard>
+                      </ChoiceButton>
                     ))}
                   </RadioGroup>
                 </FieldContent>
@@ -791,7 +796,7 @@ function OutboundForm({
           {t("common.cancel")}
         </Button>
         <Button
-          disabled={form.isSubmitting || !form.isDirty}
+          disabled={form.isSubmitting || (mode === "edit" && !form.isDirty)}
           size="xl"
           type="submit"
         >
@@ -811,7 +816,7 @@ function TextField({
   tooltip,
   placeholder,
   inputMode,
-  readOnly,
+  disabled,
   className,
 }: {
   field: FieldBinding<string>
@@ -822,7 +827,7 @@ function TextField({
   tooltip?: string
   placeholder?: string
   inputMode?: "numeric"
-  readOnly?: boolean
+  disabled?: boolean
   className?: string
 }) {
   const id = useId()
@@ -838,7 +843,7 @@ function TextField({
           id={id}
           inputMode={inputMode}
           placeholder={placeholder}
-          readOnly={readOnly}
+          disabled={disabled}
         />
         <FieldHint description={hint} error={field.error} />
       </FieldContent>
@@ -978,7 +983,7 @@ function getOutboundTagError(
   t: TranslateFn
 ) {
   return getTagNameValidationError(value, {
-    requiredError: t("pages.outboundUpsert.validation.tagRequired"),
+    requiredError: t("common.validation.required"),
     invalidError: t("common.validation.tagNamePattern"),
     duplicateError: validateTagUniqueness(
       outbounds,

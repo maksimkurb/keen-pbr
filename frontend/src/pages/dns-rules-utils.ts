@@ -82,7 +82,7 @@ export function validateRules(
     }
 
     if (parsedLists.length === 0) {
-      nextRuleErrors.lists = t("pages.dnsRuleUpsert.validation.listsRequired")
+      nextRuleErrors.lists = t("common.validation.required")
     }
 
     const missingLists = parsedLists.filter(

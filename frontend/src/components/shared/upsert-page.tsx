@@ -16,25 +16,35 @@ export function UpsertPage({
   cardTitle,
   cardDescription,
   children,
+  withCard = false,
 }: {
-  title: string
+  title: ReactNode
   description: string
-  cardTitle: string
-  cardDescription: string
+  cardTitle?: string
+  cardDescription?: string
   children: ReactNode
+  withCard?: boolean
 }) {
   const isMobile = useIsMobile()
 
   return (
     <div className="space-y-5 md:space-y-6">
       <PageHeader description={description} title={title} />
-      <Card size={isMobile ? "sm" : "default"}>
-        <CardHeader>
-          <CardTitle>{cardTitle}</CardTitle>
-          <CardDescription>{cardDescription}</CardDescription>
-        </CardHeader>
-        <CardContent>{children}</CardContent>
-      </Card>
+      {withCard ? (
+        <Card size={isMobile ? "sm" : "default"}>
+          {cardTitle || cardDescription ? (
+            <CardHeader>
+              {cardTitle ? <CardTitle>{cardTitle}</CardTitle> : null}
+              {cardDescription ? (
+                <CardDescription>{cardDescription}</CardDescription>
+              ) : null}
+            </CardHeader>
+          ) : null}
+          <CardContent>{children}</CardContent>
+        </Card>
+      ) : (
+        children
+      )}
     </div>
   )
 }

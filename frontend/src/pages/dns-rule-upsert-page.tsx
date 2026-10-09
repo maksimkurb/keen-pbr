@@ -1,5 +1,5 @@
 import { toast } from "sonner"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import { useQueryClient } from "@tanstack/react-query"
@@ -234,9 +234,15 @@ function DnsRuleForm({
       }
       description={t("pages.dnsRuleUpsert.description")}
       title={
-        mode === "create"
-          ? t("pages.dnsRuleUpsert.createTitle")
-          : t("pages.dnsRuleUpsert.editTitle")
+        mode === "create" ? (
+          t("pages.dnsRuleUpsert.createTitle")
+        ) : (
+          <Trans
+            i18nKey="pages.dnsRuleUpsert.editNamedTitle"
+            values={{ number: parsedRuleIndex + 1 }}
+            components={{ entity: <span className="text-primary" /> }}
+          />
+        )
       }
     >
       <form className="space-y-6" onSubmit={form.onSubmit(save)}>
@@ -366,7 +372,9 @@ function DnsRuleForm({
           </Button>
           <Button
             disabled={
-              postConfigMutation.isPending || !form.isDirty || form.isSubmitting
+              postConfigMutation.isPending ||
+              (mode === "edit" && !form.isDirty) ||
+              form.isSubmitting
             }
             size="xl"
             type="submit"
