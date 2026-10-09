@@ -47,7 +47,7 @@ export function DeleteImpactDialog({
       description={description}
     >
       {impactItems.length > 0 ? (
-        <div className="max-h-72 overflow-y-auto rounded-lg border bg-muted/30 p-3">
+        <div className="rounded-lg border bg-muted/30 p-3 md:max-h-72 md:overflow-y-auto">
           <ul className="space-y-2 text-sm leading-5">
             {impactItems.map((item, index) => (
               <li className="flex gap-2" key={index}>
@@ -71,12 +71,18 @@ export function DeleteImpactDialog({
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         <Button
           disabled={isPending}
+          className="h-11 text-base md:h-8 md:text-sm"
           variant="outline"
           onClick={() => onOpenChange(false)}
         >
           {t("common.cancel")}
         </Button>
-        <Button disabled={isPending} onClick={onConfirm} variant="destructive">
+        <Button
+          className="h-11 text-base md:h-8 md:text-sm"
+          disabled={isPending}
+          onClick={onConfirm}
+          variant="destructive"
+        >
           {confirmLabel}
         </Button>
       </div>
