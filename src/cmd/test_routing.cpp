@@ -1,7 +1,6 @@
 #include "test_routing.hpp"
 
 #include "../config/routing_state.hpp"
-#include "../config/addr_spec.hpp"
 #include "../lists/domain_index.hpp"
 #include "../lists/ipset.hpp"
 #include "../lists/kernel_set_tester.hpp"
@@ -632,10 +631,8 @@ std::string find_actual_outbound(
         }
 
         if (rs.list_names.empty()) {
-            if (!have_realized_rules) {
-                unknown_answer = true;
-            } else if (diagnostic.criteria_match.has_value() &&
-                       *diagnostic.criteria_match) {
+            if (have_realized_rules && diagnostic.criteria_match.has_value() &&
+                *diagnostic.criteria_match) {
                 if (!unknown_answer) return rs.outbound_tag;
             } else {
                 unknown_answer = true;
