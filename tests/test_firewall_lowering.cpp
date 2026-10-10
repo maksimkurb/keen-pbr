@@ -401,6 +401,7 @@ TEST_CASE("lowering DHCP bypass precedes restore in mangle and raw") {
   CHECK(std::holds_alternative<SetMarkStmt>(raw4[1].statements.front()));
   CHECK(has_match(raw4[2], ProtoMatch{L4Proto::Udp}));
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
   const auto nft = lower_firewall_plan(plan, nft_context());
   REQUIRE(nft_pre(nft).rules.size() == 4);
   REQUIRE(nft_out(nft).rules.size() == 4);
@@ -414,6 +415,7 @@ TEST_CASE("lowering DHCP bypass precedes restore in mangle and raw") {
       PhysicalTransport::udp, PhysicalDir::src, false, {{546, 547}}}));
   CHECK(std::holds_alternative<JumpStmt>(
       nft_pre(nft).rules.back().statements.front()));
+#endif
 }
 
 TEST_CASE("lowering iptables: PREROUTING and OUTPUT placement") {
