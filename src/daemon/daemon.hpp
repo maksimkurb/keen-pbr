@@ -2,6 +2,7 @@
 
 #include "../config/config.hpp"
 #include "../firewall/firewall.hpp"
+#include "../firewall/firewall_counters.hpp"
 #include "../health/host_health_warnings.hpp"
 #include "../health/routing_health.hpp"
 #include "../health/url_tester.hpp"
@@ -541,6 +542,8 @@ IcmpTester icmp_tester_;
   bool routing_health_check_inflight_ GUARDED_BY(routing_health_mutex_){false};
   // Cached `iptables -t nat -S` output; invalidated on every firewall apply.
   IptablesTableCache host_table_cache_;
+  // Briefly cached iptables rule counters for /metrics.
+  FirewallCounterCache firewall_counter_cache_;
   std::vector<std::string> routing_health_logged_warning_keys_
       GUARDED_BY(routing_health_mutex_);
   std::atomic<std::uint64_t> routing_health_revision_{1};

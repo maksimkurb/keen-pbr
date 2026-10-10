@@ -337,6 +337,24 @@ TEST_CASE("Prometheus emits HELP and TYPE once per family and no empty family") 
     }
 }
 
+TEST_CASE("Prometheus exports balance classification and skip_marked counters") {
+    Fixture f;
+    CHECK_FALSE(has(f.render(), "keen_pbr_balance_classifications_total"));
+    CHECK_FALSE(has(f.render(), "keen_pbr_skip_marked_packets_total"));
+
+    f.daemon.firewall_counters.balance_classifications = {
+        {"lb", "wan1", "ipv4", 400}, {"lb", "wan2", "ipv4", 380}, {"lb", "wan\"1", "ipv6", 7}};
+    f.daemon.firewall_counters.skip_marked_packets = {{"ipv4", 905}, {"ipv6", 12}};
+    const auto text = f.render();
+    CHECK(count_of(text, "# TYPE keen_pbr_balance_classifications_total counter") == 1);
+    CHECK(has(text, "keen_pbr_balance_classifications_total{outbound=\"lb\",candidate=\"wan1\",family=\"ipv4\"} 400\n"));
+    CHECK(has(text, "keen_pbr_balance_classifications_total{outbound=\"lb\",candidate=\"wan2\",family=\"ipv4\"} 380\n"));
+    CHECK(has(text, "keen_pbr_balance_classifications_total{outbound=\"lb\",candidate=\"wan\\\"1\",family=\"ipv6\"} 7\n"));
+    CHECK(count_of(text, "# TYPE keen_pbr_skip_marked_packets_total counter") == 1);
+    CHECK(has(text, "keen_pbr_skip_marked_packets_total{family=\"ipv4\"} 905\n"));
+    CHECK(has(text, "keen_pbr_skip_marked_packets_total{family=\"ipv6\"} 12\n"));
+}
+
 } // namespace keen_pbr3
 
 #endif // WITH_API

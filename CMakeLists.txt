@@ -278,6 +278,7 @@ set(SOURCES
   src/runtime/operation_coordinator.cpp
   src/runtime/lifecycle_operation.cpp
   src/firewall/firewall_snapshot.cpp
+  src/firewall/firewall_counters.cpp
   src/firewall/firewall_physical.cpp
   src/firewall/firewall_lowering.cpp
   src/firewall/ip_family.cpp

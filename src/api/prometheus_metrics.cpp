@@ -240,6 +240,27 @@ std::string prometheus_metrics(const InterceptCounters* counters,
         out << "keen_pbr_conntrack_deleted_total " << load(counters->conntrack_deleted) << '\n';
     }
 
+    // Firewall rule counters (iptables only): parsed from `iptables-save -c`.
+    if (!daemon.firewall_counters.balance_classifications.empty()) {
+        header(out, "keen_pbr_balance_classifications_total", "counter",
+               "New connections classified to a balance candidate by the statistic cascade; "
+               "restarts from zero when the firewall rules are rebuilt.");
+        for (const auto& item : daemon.firewall_counters.balance_classifications) {
+            sample(out, "keen_pbr_balance_classifications_total",
+                   label("outbound", item.outbound) + ',' + label("candidate", item.candidate) +
+                   ',' + label("family", item.family),
+                   item.connections);
+        }
+    }
+    if (!daemon.firewall_counters.skip_marked_packets.empty()) {
+        header(out, "keen_pbr_skip_marked_packets_total", "counter",
+               "Packets that bypassed keen-pbr because they already carried a mark "
+               "(daemon.skip_marked_packets); restarts from zero when the firewall rules are rebuilt.");
+        for (const auto& [family, packets] : daemon.firewall_counters.skip_marked_packets) {
+            sample(out, "keen_pbr_skip_marked_packets_total", label("family", family), packets);
+        }
+    }
+
     // Probes.
     std::vector<ProbeSample> probes;
     std::map<std::string, std::string> interfaces;

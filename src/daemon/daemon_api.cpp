@@ -851,6 +851,20 @@ void Daemon::setup_api() {
         }
         daemon.config_reload_errors = config_reload_errors_.load(std::memory_order_relaxed);
         daemon.lists = list_service_.refresh_stats();
+        if (firewall_ && firewall_->backend() == FirewallBackend::iptables) {
+            // nftables has no equivalent per-rule counters here.
+            const auto active = snapshot.firewall_state.active_firewall();
+            if (active) {
+                const bool ipv6 = config_store_.active_config().daemon.value_or(DaemonConfig{})
+                                      .ipv6_enabled.value_or(true);
+                daemon.firewall_counters = firewall_counter_cache_.get(active.get(), [&]() {
+                    return collect_iptables_counters(
+                        run_command_capture,
+                        build_firewall_counter_index(active->plan, snapshot.firewall_state.get_outbound_marks()),
+                        ipv6, firewall_->raw_prerouting_mode());
+                });
+            }
+        }
         return prometheus_metrics(
             intercept_counters_.get(),
             netlink_.metrics_snapshot(), control, outbound,

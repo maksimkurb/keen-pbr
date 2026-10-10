@@ -4,6 +4,7 @@ add_executable(keen-pbr-tests
   test_firewall_verifier.cpp
   test_firewall_runtime.cpp
   test_firewall_snapshot.cpp
+  test_firewall_counters.cpp
   test_firewall_physical.cpp
   test_firewall_keenetic_fixtures.cpp
   test_firewall_lowering.cpp
@@ -105,6 +106,7 @@ add_executable(keen-pbr-tests
   ../src/runtime/lifecycle_operation.cpp
   ../src/firewall/firewall_verifier.cpp
   ../src/firewall/firewall_snapshot.cpp
+  ../src/firewall/firewall_counters.cpp
   ../src/firewall/firewall_physical.cpp
   ../src/firewall/firewall_lowering.cpp
   ../src/firewall/ip_family.cpp
