@@ -27,6 +27,8 @@ Commands:
   status
   download
   test-routing <ip-or-domain>
+  dnsmasq detect [--json]
+  dnsmasq remove <selector>
 ```
 
 The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, and `/opt/etc/keen-pbr/config.json` on Keenetic / NetCraze.
@@ -92,6 +94,8 @@ ip6tables -t raw -S
 | `status` | Show routing, route table, rule, and firewall verification status, then exit. |
 | `download` | Download all URL-backed lists into cache, then exit. |
 | `generate-resolver-config dnsmasq` | Print dnsmasq configuration for per-list DNS servers to stdout. |
+| `dnsmasq detect [--json]` | List dnsmasq instances, their DNS endpoints and the instance keen-pbr uses. |
+| `dnsmasq remove <selector>` | Remove keen-pbr's drop-in and owned settings from one dnsmasq instance. |
 | `test-routing <ip-or-domain>` | Compare expected and actual routing for the given IP or domain. |
 
 ### `generate-resolver-config dnsmasq`
@@ -122,6 +126,41 @@ rebind-domain-ok=/openai.com/www.openai.com/...
 - Always exits with status 0, even on errors; errors are printed as `# keen-pbr: ...` comment lines.
 - When `resolver_integration: "none"` (default), the output is empty; the dynamic sets are filled by interception.
 - Used internally by the platform hook: dnsmasq reads the config via this command (see `conf-script=keen-pbr generate-resolver-config dnsmasq` in the drop-in).
+
+### `dnsmasq detect` and `remove`
+
+Inspect and clean up the dnsmasq integration without the daemon. Neither command needs the control socket.
+
+```bash
+keen-pbr dnsmasq detect [--json]
+keen-pbr dnsmasq remove <selector>
+```
+
+**`detect`** lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr's drop-in is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (`explicit`, `adopted` or `automatic`), or why it could not choose.
+
+```text
+dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)
+
+  uci:cfg01411c  [selected: adopted]
+    running:     yes (pid 1842)
+    enabled:     yes
+    endpoint:    127.0.0.1:53 (stamp_verified)
+    listeners:   udp+tcp 0.0.0.0:53, udp+tcp [::]:53
+    keen-pbr:    installed, loaded hash 3f2a9c0e1b7d4a55c6e8f0a1b2c3d4e5
+    conf-dir:    /tmp/dnsmasq.cfg01411c.d (included)
+    problem:     none
+
+Selection: uci:cfg01411c (adopted)
+```
+
+- `--json` prints the same data as one JSON object (`selected`, `selection`, `error_code`, `message`, `warnings`, `instances[]`).
+- Exit code `0` when an instance is selected and has no problem, `1` otherwise.
+- If the choice is ambiguous, the output ends with a hint to set `dns.dnsmasq_instance`.
+
+**`remove <selector>`** deletes keen-pbr's drop-in and the settings keen-pbr added (for example the `addnmount` entries recorded in `keen_pbr_addnmount` on OpenWrt) from one instance, using the platform hook, and restarts that instance. It never removes anything that is not provably keen-pbr's. Use it for leftovers shown by `detect` (for example, after switching the integration off while keen-pbr was not running).
+
+- Must run as root. Exit code `64` for a missing or invalid selector.
+- If the integration is still enabled for this instance, the command prints a note: the daemon may install the drop-in again on its next sync. Disable the integration first.
 
 ## Signals
 

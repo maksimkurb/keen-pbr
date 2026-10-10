@@ -76,11 +76,72 @@ When `resolver_integration` is set to `"dnsmasq"`, keen-pbr optionally manages d
 
 dnsmasq is not installed by keen-pbr; install it yourself when you need this feature.
 
-**OpenWrt**: install `dnsmasq`. keen-pbr adds UCI jail mounts (`addnmount` entries) to the dnsmasq section so the binary can run the conf-script command. These are removed when you disable the feature.
+**OpenWrt**: install `dnsmasq`. keen-pbr adds UCI jail mounts (`addnmount` entries) to the selected dnsmasq section so the binary can run the conf-script command, and records each entry it adds in the `keen_pbr_addnmount` list of that section. Only the recorded entries are removed when you disable the feature; entries that were already there (including ones added by earlier keen-pbr versions) are never claimed or deleted.
 
 **Keenetic (Entware)**: install `dnsmasq-full` (replaces the built-in ndnproxy as the LAN resolver). keen-pbr adds a marked block to `/opt/etc/dnsmasq.conf` with `conf-dir=/tmp/keen-pbr/dnsmasq.d,*.conf` once; the init script `S55keen-pbr-dnsmasq` recreates the tmpfs drop-in at boot. Health shows an error if dnsmasq is not installed.
 
 **Debian**: install `dnsmasq`. keen-pbr places a drop-in at `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf` with a one-line `conf-script` command.
+
+### Choosing the dnsmasq instance
+
+A router can run several dnsmasq instances (on OpenWrt, one per `dnsmasq` section in `/etc/config/dhcp`). keen-pbr manages exactly one of them and identifies it by a **selector**:
+
+| Platform | Selector | Example |
+|---|---|---|
+| OpenWrt | `uci:<section>` (name as shown by `uci show dhcp`) | `uci:cfg01411c`, `uci:guest` |
+| Keenetic (Entware) | `entware:default` | `entware:default` |
+| Debian | `systemd:<unit>.service` | `systemd:dnsmasq.service` |
+
+The instance is picked in this order:
+
+1. **Explicit**: `dns.dnsmasq_instance` is set. If no such instance exists, keen-pbr reports `DNSMASQ_INSTANCE_NOT_FOUND` and changes nothing.
+2. **Adopted**: the field is empty and keen-pbr's drop-in is already installed in exactly one instance. That instance keeps being used. If the drop-in is found in several instances, selection stops with `DNSMASQ_INSTANCE_AMBIGUOUS`.
+3. **Automatic**: the field is empty, nothing is installed yet, and exactly one enabled instance has DNS (`port` is not `0`). With none, the result is `DNSMASQ_NO_DNS_INSTANCE`; with several, `DNSMASQ_INSTANCE_AMBIGUOUS`.
+
+When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run `keen-pbr dnsmasq detect` to see the candidates, then set `dns.dnsmasq_instance` in `config.json` or in the Web UI under DNS settings. If keen-pbr's drop-in is also installed in an instance that is not selected, `detect` and the logs show a warning with the command that removes it (`keen-pbr dnsmasq remove <selector>`).
+
+#### DNS endpoint detection
+
+keen-pbr no longer assumes that dnsmasq listens on `127.0.0.1:53`. It reads the configuration the selected process actually loaded (the `-C` file, its `conf-dir` entries including `*.conf` filters, and the command line), lists the sockets owned by that process, and confirms the endpoint by sending it a DNS query. The endpoint used for configuration checks and the routing test is the one that answered. If dnsmasq runs in another network namespace, has `port=0`, or owns no DNS socket, keen-pbr reports an error instead of falling back to a default address.
+
+#### Checks before every restart
+
+dnsmasq is restarted to load new settings, so keen-pbr checks them first:
+
+- **Capability check**: once per binary, keen-pbr verifies that this dnsmasq build runs `conf-script` under `--test` (`DNSMASQ_CONF_SCRIPT_UNSUPPORTED`, `DNSMASQ_TEST_FAILED`).
+- **Preflight**: keen-pbr runs `dnsmasq --test` against the real, current configuration plus the new drop-in (`DNSMASQ_PREFLIGHT_FAILED`; the dnsmasq output is included in the error detail).
+
+If either check fails, the new configuration is **rejected: keen-pbr does not restart dnsmasq and does not install the drop-in**, so the running dnsmasq keeps working with its previous settings. Fix the reported problem and apply the configuration again.
+
+Every preflight runs the config generator once more, so the system log shows an extra `generate-resolver-config dnsmasq: pid ..., parent ... (dnsmasq)` block before each apply. This is expected.
+
+#### Errors
+
+The code is shown in `GET /api/health/service` (`error_code`) and in the Web UI. In every case below keen-pbr leaves dnsmasq unrestarted unless the table says otherwise.
+
+| Code | Meaning | What to do |
+|---|---|---|
+| `DNSMASQ_NO_HOOK` | This build has no dnsmasq hook. | Use a package built for your platform. |
+| `DNSMASQ_HOOK_FAILED` | The hook's `inspect` call failed or printed something unreadable. | Run `keen-pbr dnsmasq detect`; check that the hook and keen-pbr are from the same version. |
+| `DNSMASQ_NOT_INSTALLED` | dnsmasq is not installed. | Install dnsmasq (see above). It is optional: without it per-list DNS servers are unavailable. |
+| `DNSMASQ_NO_DNS_INSTANCE` | No enabled instance serves DNS. | Enable an instance with DNS, or set `dns.resolver_integration` to `none`. |
+| `DNSMASQ_INSTANCE_NOT_FOUND` | `dns.dnsmasq_instance` names an instance that does not exist. | Fix the selector; `keen-pbr dnsmasq detect` lists valid ones. |
+| `DNSMASQ_INSTANCE_AMBIGUOUS` | Several instances qualify. | Set `dns.dnsmasq_instance`. |
+| `DNSMASQ_NOT_RUNNING` | The selected instance is not running. | Start dnsmasq yourself. keen-pbr never starts it, and re-applies its configuration once dnsmasq runs again. |
+| `DNSMASQ_DNS_DISABLED` | The selected instance has `port=0`. | Pick another instance or enable DNS in this one. |
+| `DNSMASQ_OTHER_NETNS` | dnsmasq runs in another network namespace. | Not supported; run dnsmasq in the router's main namespace. |
+| `DNSMASQ_NO_DNS_LISTENER` | The process runs but owns no DNS socket. | Check `listen-address`, `interface` and `port` in the dnsmasq configuration. |
+| `DNSMASQ_ENDPOINT_UNRESPONSIVE` | Sockets exist, but none answered a DNS query. | Check that dnsmasq works (`nslookup example.com 127.0.0.1`). Not restarted. |
+| `DNSMASQ_DROPIN_NOT_LOADED` | The running dnsmasq does not read the directory keen-pbr's drop-in goes to (or a `conf-dir` filter rejects the file name). | Add the directory to the `conf-dir` of that instance, or relax the filter. |
+| `DNSMASQ_FOREIGN_DROPIN` | The drop-in file exists but keen-pbr did not write it. | Move or delete the file; keen-pbr never overwrites it. |
+| `DNSMASQ_CONF_SCRIPT_UNSUPPORTED` | This dnsmasq build does not run `conf-script`. | Install a dnsmasq build with `conf-script` support (on Keenetic, `dnsmasq-full`). |
+| `DNSMASQ_TEST_FAILED` | Even a minimal configuration fails `dnsmasq --test`. | Run `dnsmasq --test` by hand and fix what it reports. |
+| `DNSMASQ_PREFLIGHT_FAILED` | The current dnsmasq configuration plus keen-pbr's drop-in fails `--test`. | Read the dnsmasq output in the error detail and fix the configuration. dnsmasq was not touched. |
+| `DNSMASQ_APPLY_FAILED` | The hook failed to install the drop-in. | See the hook output in the error detail and the system log. |
+| `DNSMASQ_CONFIG_NOT_LOADED` | dnsmasq was restarted, but the new configuration did not show up in time. | Check the dnsmasq log; apply the configuration again. |
+| `DNSMASQ_STAMP_MISMATCH` | dnsmasq serves a different configuration than expected (for example, it was restarted by someone else). | keen-pbr repairs this itself within the limits described below. |
+| `DNSMASQ_REPAIR_PAUSED` | The automatic repair budget is used up. | Find out why dnsmasq loses the configuration, then apply the configuration or restart keen-pbr. |
+| `DNSMASQ_PROBE_FAILED` | The process is alive but stopped answering. | Check dnsmasq. It is not restarted. |
 
 ### How it works
 
@@ -88,12 +149,13 @@ keen-pbr never writes the generated dnsmasq config to flash. Instead:
 1. keen-pbr generates a config (per-list domain rules, fallback servers, etc.)
 2. keen-pbr places a one-line drop-in (`conf-script=keen-pbr generate-resolver-config dnsmasq`) in a tmpfs directory
 3. dnsmasq runs that command at start and reads the config from its output
-4. dnsmasq is restarted only when the generated config changes (list update, settings change, or once after keen-pbr starts)
+4. dnsmasq is restarted only when the generated config changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in [Checks before every restart](#checks-before-every-restart) have passed
 
 ### On stop, disable, or uninstall
 
 - **Stopping keen-pbr**: dnsmasq is NOT restarted; the per-list upstreams remain active.
-- **Disabling the feature** (`resolver_integration: "none"`): when you switch it off while keen-pbr runs, the drop-in is removed and dnsmasq is restarted (reverts to system/ISP upstreams). While the feature is off keen-pbr never touches dnsmasq, not even at startup.
+- **Disabling the feature** (`resolver_integration: "none"`): when you switch it off while keen-pbr runs, the drop-in is removed from the selected instance and that instance is restarted (reverts to system/ISP upstreams). While the feature is off keen-pbr never touches dnsmasq, not even at startup, so if you disable the feature and then restart keen-pbr, or remove the integration from the config while keen-pbr is stopped, the drop-in stays. It is harmless (with the integration off it prints only a comment). `keen-pbr dnsmasq detect` shows such leftovers and `keen-pbr dnsmasq remove <selector>` deletes them. See [`dnsmasq` commands]({{< relref "/docs/cli#dnsmasq-detect-and-remove" >}}).
+- **dnsmasq is not running**: keen-pbr never starts a stopped dnsmasq. This is a change from earlier versions, which restarted it. If dnsmasq crashes on a system without a service supervisor (Entware), start it manually; keen-pbr re-applies its configuration once dnsmasq is running again.
 - **dnsmasq loses the config** (restarted by something else, drop-in gone): keen-pbr restarts it at most 3 times (immediately, then after 5 and 10 minutes) and then pauses automatic repair; `state` in `/api/health/service` shows `reconciling` or `error` with the reason. Applying the configuration or restarting keen-pbr re-arms it. A dnsmasq that is running but does not answer the config check is never restarted.
 - **Uninstalling the package**: the drop-in and any persistent changes to dnsmasq config are removed; dnsmasq is restarted.
 
