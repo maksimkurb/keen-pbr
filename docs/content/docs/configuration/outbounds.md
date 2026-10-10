@@ -232,7 +232,7 @@ kept per connection).
 {{< callout type="info" >}}
 Balancing across several WANs needs NAT on every uplink, loose `rp_filter`, and
 an fwmark range that other services do not touch. See
-[Multi-WAN Load Balancing](../multi-wan/) for a complete Debian/iptables setup.
+[Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}) for a complete Debian/iptables setup.
 {{< /callout >}}
 
 ### Retry Configuration

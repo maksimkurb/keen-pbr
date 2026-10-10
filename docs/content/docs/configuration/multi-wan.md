@@ -6,7 +6,7 @@ weight: 7
 This page describes how to spread new connections over two or more internet uplinks (multi-WAN) on a Debian or Ubuntu host with the `iptables` firewall backend.
 
 {{< callout type="warning" >}}
-Load balancing is **not available on Keenetic**: it is compiled out and config validation rejects `"strategy": "balance"`. Use the router's own multipath there. The `nftables` backend (OpenWrt 24+ with fw4, or any host with `nft`) supports balancing as well, see [Outbounds](../outbounds/#urltest); the step-by-step guide below targets iptables on Debian/Ubuntu, and the NAT, `rp_filter` and fwmark notes apply to every backend.
+Load balancing is **not available on Keenetic**: it is compiled out and config validation rejects `"strategy": "balance"`. Use the router's own multipath there. The `nftables` backend (OpenWrt 24+ with fw4, or any host with `nft`) supports balancing as well, see [Outbounds]({{< relref "/docs/configuration/outbounds#urltest" >}}); the step-by-step guide below targets iptables on Debian/Ubuntu, and the NAT, `rp_filter` and fwmark notes apply to every backend.
 {{< /callout >}}
 
 ## How it works
@@ -77,7 +77,7 @@ Two uplinks, `eth1` (30% of new connections) and `eth2` (70%), LAN on `eth0`. Ad
 }
 ```
 
-Use `icmptest` instead of `urltest` if you prefer ICMP probes; every member then needs a literal `target` address (see [Outbounds](../outbounds/#icmptest)). Members that fail their health checks are removed from the split and returned when they recover.
+Use `icmptest` instead of `urltest` if you prefer ICMP probes; every member then needs a literal `target` address (see [Outbounds]({{< relref "/docs/configuration/outbounds#icmptest" >}})). Members that fail their health checks are removed from the split and returned when they recover.
 
 ## Required system setup
 
@@ -143,4 +143,4 @@ Balancing only handles connections that LAN clients (and optionally the host) op
 | Config is rejected with a message about `xt_statistic` | `sudo modprobe xt_statistic`, then restart the service. |
 | No iptables rules, `nft` rules appear instead | `firewall_backend` is `auto` and `nft` is installed: set it to `iptables`. |
 
-Logs go to syslog (systemd journal on Debian). Use `--log-level verbose` or `debug` for more detail, see [CLI](../../cli/).
+Logs go to syslog (systemd journal on Debian). Use `--log-level verbose` or `debug` for more detail, see [CLI]({{< relref "/docs/cli" >}}).
