@@ -120,7 +120,8 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             staged = parse_config(body);
             const Config visible = ctx.get_visible_config();
             staged.api = visible.api;
-            validate_config(staged);
+            validate_config(staged, ConfigValidationMode::Runtime,
+                            ctx.validation_context());
         } catch (const ConfigValidationError& e) {
             throw ApiError(e.what(), 400, make_validation_error_json(e).dump());
         } catch (const ConfigError& e) {

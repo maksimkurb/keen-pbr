@@ -104,6 +104,15 @@ struct ApiContext {
     std::function<TestRoutingResult(const std::string&, const TestRoutingCriteria&)>
         compute_test_routing_with_criteria_fn;
 
+    // Daemon facts (e.g. raw PREROUTING placement) that config validation
+    // needs; unset in embedders/tests that do not know them.
+    std::function<ConfigValidationContext()> validation_context_fn;
+
+    ConfigValidationContext validation_context() const {
+        return validation_context_fn ? validation_context_fn()
+                                     : ConfigValidationContext{};
+    }
+
     bool enqueue_lifecycle_task(std::string label, std::function<void()> task) const {
         return enqueue_lifecycle_task_fn(std::move(label), std::move(task));
     }

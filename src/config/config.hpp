@@ -45,6 +45,16 @@ enum class ConfigValidationMode {
     ResolverGeneration,
 };
 
+// Daemon-level facts that are not part of the config but affect whether a
+// config is applicable.  Callers that do not run inside the daemon (CLI
+// checks, tests) leave this defaulted.
+struct ConfigValidationContext {
+    // PREROUTING placement requested via --use-raw-prerouting /
+    // --use-raw6-prerouting.  This is the requested mode; the IPv6 half only
+    // takes effect when the validated config has daemon.ipv6_enabled.
+    RawPreroutingMode raw_prerouting{};
+};
+
 // Type aliases: map generated QuickType names to conventional keen-pbr names.
 // All config structs now live in api:: with full from_json/to_json support.
 using Config               = api::ConfigObject;
@@ -174,7 +184,8 @@ Config parse_config(const std::string& json_str);
 std::optional<std::string> upgraded_config_text(const std::string& json_str);
 Config parse_config(std::istream& json_stream);
 void validate_config(const Config& config,
-                     ConfigValidationMode mode = ConfigValidationMode::Runtime);
+                     ConfigValidationMode mode = ConfigValidationMode::Runtime,
+                     const ConfigValidationContext& context = {});
 Config parse_and_validate_config(const std::string& json_str);
 size_t max_file_size_bytes(const Config& config);
 FirewallBackendPreference firewall_backend_preference(const Config& config);

@@ -180,7 +180,8 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             if (!request.config.has_value()) throw DaemonError("Apply request has no configuration");
 
             start_stage("validate_config");
-            validate_config(*request.config);
+            validate_config(*request.config, ConfigValidationMode::Runtime,
+                            validation_context());
             succeed_stage();
 
             start_stage("prepare_remote_lists");
@@ -257,7 +258,8 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
                 throw DaemonError("Cannot open restored configuration");
             }
             Config restored = parse_config(restored_stream);
-            validate_config(restored);
+            validate_config(restored, ConfigValidationMode::Runtime,
+                            validation_context());
             succeed_stage();
 
             start_stage("prepare_remote_lists");
@@ -658,7 +660,8 @@ void Daemon::setup_api() {
             if (status_stream_) status_stream_->reconcile(StatusUpdate::Service);
         },
         [this](const Config& config) {
-            validate_config(config);
+            validate_config(config, ConfigValidationMode::Runtime,
+                            validation_context());
 
             const auto active_pid_file = config_store_.active_config()
                 .daemon.value_or(DaemonConfig{}).pid_file.value_or("");
@@ -802,7 +805,8 @@ void Daemon::setup_api() {
                 if (!config_.api) config_.api = ApiConfig{};
                 config_.api->authentication = std::move(authentication);
                 config_.api->cors = std::move(cors);
-                validate_config(config_);
+                validate_config(config_, ConfigValidationMode::Runtime,
+                            validation_context());
                 write_config_atomically(config_path_, serialize_config_pretty(config_));
 
                 if (api_server_) {
@@ -854,6 +858,7 @@ void Daemon::setup_api() {
             firewall_ && firewall_->backend() == FirewallBackend::nftables ? "nftables" : "iptables");
     };
     api_ctx_->compute_test_routing_with_criteria_fn = compute_test_routing_with_criteria;
+    api_ctx_->validation_context_fn = [this]() { return validation_context(); };
     status_stream_ = std::make_unique<StatusStream>(
         [this]() {
             return build_health_response(api_ctx_->get_service_health());

@@ -1048,7 +1048,8 @@ Config parse_config(std::istream& json_stream) {
     return parse_config_input(json_stream);
 }
 
-void validate_config(const Config& cfg, ConfigValidationMode mode) {
+void validate_config(const Config& cfg, ConfigValidationMode mode,
+                     const ConfigValidationContext& context) {
     std::vector<ConfigValidationIssue> issues;
 
     if (cfg.device_name && utf8_code_point_count(*cfg.device_name) > 128) {
@@ -1543,6 +1544,29 @@ void validate_config(const Config& cfg, ConfigValidationMode mode) {
 #endif
 
         if (effective_backend == FirewallBackend::iptables) {
+            // Balancing needs conntrack mark restore/save, which raw PREROUTING
+            // lacks.  Mirror the effective placement the daemon will use.
+            const bool ipv6_enabled =
+                cfg.daemon.value_or(DaemonConfig{}).ipv6_enabled.value_or(true);
+            const bool raw_ipv4 = context.raw_prerouting.ipv4;
+            const bool raw_ipv6 = context.raw_prerouting.ipv6 && ipv6_enabled;
+            if (raw_ipv4 || raw_ipv6) {
+                for (size_t outbound_index = 0; outbound_index < outbounds.size();
+                     ++outbound_index) {
+                    const auto& outbound = outbounds[outbound_index];
+                    if ((outbound.type == OutboundType::URLTEST ||
+                         outbound.type == OutboundType::ICMPTEST) &&
+                        outbound_uses_balance(outbound)) {
+                        add_issue(issues,
+                                  json_index_path("outbounds", outbound_index) + ".strategy",
+                                  "load balancing needs conntrack, which is unavailable when "
+                                  "PREROUTING classification uses the raw table "
+                                  "(--use-raw-prerouting / --use-raw6-prerouting); remove the "
+                                  "flag or use a non-balance strategy" + backend_note);
+                    }
+                }
+            }
+
             for (size_t i = 0; i < route_rules.size(); ++i) {
                 const auto& rule = route_rules[i];
                 if (rule.default_gateway.has_value() &&

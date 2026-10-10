@@ -120,7 +120,8 @@ TEST_CASE("full-reference config examples parse and validate in both locales") {
     }
 }
 
-static std::vector<ConfigValidationIssue> validate_issues(const std::string& json);
+static std::vector<ConfigValidationIssue> validate_issues(
+    const std::string& json, const ConfigValidationContext& context = {});
 
 TEST_CASE("icmptest validation accepts a timing-safe complete probe set") {
     const auto cfg = parse_test_config(R"({"outbounds":[
@@ -236,6 +237,76 @@ TEST_CASE("auto backend resolves to iptables, accepts balance and rejects defaul
     CHECK_FALSE(has_balance_error);
     CHECK(has_gateway_error);
     reset_detected_firewall_backend_for_tests();
+}
+
+namespace {
+
+std::string balance_config_json(const std::string& daemon_json) {
+    return R"({)" + daemon_json + R"("outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan"]}]},
+        {"type":"urltest","tag":"prio","url":"http://example.test",
+         "outbound_groups":[{"outbounds":["wan"]}]}
+      ]})";
+}
+
+bool has_raw_balance_issue(const std::vector<ConfigValidationIssue>& issues,
+                           const std::string& path) {
+    for (const auto& issue : issues) {
+        if (issue.path == path &&
+            issue.message.find("raw table") != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
+TEST_CASE("balance is rejected when IPv4 raw PREROUTING is requested") {
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"iptables"},)"),
+        ConfigValidationContext{RawPreroutingMode{true, false}});
+    REQUIRE(issues.size() == 1);
+    CHECK(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+}
+
+TEST_CASE("balance is rejected with raw6 PREROUTING while IPv6 is enabled") {
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"iptables"},)"),
+        ConfigValidationContext{RawPreroutingMode{false, true}});
+    CHECK(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+}
+
+TEST_CASE("raw6 PREROUTING is ignored for balance when IPv6 is disabled") {
+    const auto issues = validate_issues(
+        balance_config_json(
+            R"("daemon":{"firewall_backend":"iptables","ipv6_enabled":false},)"),
+        ConfigValidationContext{RawPreroutingMode{false, true}});
+    CHECK(issues.empty());
+}
+
+TEST_CASE("balance without raw PREROUTING is accepted") {
+    CHECK(validate_issues(balance_config_json(
+              R"("daemon":{"firewall_backend":"iptables"},)")).empty());
+}
+
+TEST_CASE("non-balance strategy is accepted with raw PREROUTING") {
+    const auto issues = validate_issues(
+        R"({"daemon":{"firewall_backend":"iptables"},"outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"urltest","tag":"prio","url":"http://example.test",
+         "outbound_groups":[{"outbounds":["wan"]}]}]})",
+        ConfigValidationContext{RawPreroutingMode{true, true}});
+    CHECK(issues.empty());
+}
+
+TEST_CASE("raw PREROUTING flags never conflict with balance on nftables") {
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"nftables"},)"),
+        ConfigValidationContext{RawPreroutingMode{true, true}});
+    CHECK_FALSE(has_raw_balance_issue(issues, "outbounds[1].strategy"));
 }
 
 TEST_CASE("auto backend fallback identifies unavailable detection") {
@@ -423,7 +494,8 @@ static std::vector<ConfigValidationIssue> parse_issues(const std::string& json) 
     }
 }
 
-static std::vector<ConfigValidationIssue> validate_issues(const std::string& json) {
+static std::vector<ConfigValidationIssue> validate_issues(
+    const std::string& json, const ConfigValidationContext& context) {
     try {
         auto cfg = parse_config(json);
         if (!cfg.dns.has_value()) {
@@ -435,7 +507,7 @@ static std::vector<ConfigValidationIssue> validate_issues(const std::string& jso
             fallback_server.address = "127.0.0.1";
             cfg.dns->servers = std::vector<DnsServer>{fallback_server};
         }
-        validate_config(cfg);
+        validate_config(cfg, ConfigValidationMode::Runtime, context);
         return {};
     } catch (const ConfigValidationError& e) {
         return e.issues();

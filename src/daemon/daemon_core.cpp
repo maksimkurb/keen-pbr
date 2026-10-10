@@ -1073,7 +1073,8 @@ void Daemon::handle_sighup() {
           contents << input.rdbuf();
           const std::string disk_text = contents.str();
           Config candidate = parse_config(disk_text);
-          validate_config(candidate);
+          validate_config(candidate, ConfigValidationMode::Runtime,
+                          validation_context());
           upgrade_config_file_if_needed(config_path_, disk_text);
           result = apply_validated_config_via_control_task(std::move(candidate),
                                                            "", false);

@@ -585,7 +585,10 @@ int main(int argc, char *argv[]) {
       config_text = contents.str();
       return keen_pbr3::parse_config(config_text);
     }();
-    keen_pbr3::validate_config(config);
+    keen_pbr3::validate_config(
+        config, keen_pbr3::ConfigValidationMode::Runtime,
+        keen_pbr3::ConfigValidationContext{
+            {opts.use_raw_prerouting, opts.use_raw6_prerouting}});
     // Persist a legacy->members upgrade only for the real daemon start, after
     // the config parsed and validated.
     if (opts.run_service) {

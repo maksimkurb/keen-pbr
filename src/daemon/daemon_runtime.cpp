@@ -1205,7 +1205,7 @@ void Daemon::require_balance_support(const Config& config) const {
 PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
                                                      bool refresh_remote_lists) {
     TraceSpan span("prepare-runtime-inputs");
-    validate_config(config);
+    validate_config(config, ConfigValidationMode::Runtime, validation_context());
     // Before the config is committed or any routing/firewall state changes:
     // a missing kernel match rejects the apply and the old runtime keeps
     // serving.
@@ -1327,7 +1327,8 @@ void Daemon::reload_from_disk() {
     Config next_config;
     try {
         next_config = parse_config(disk_text);
-        validate_config(next_config);
+        validate_config(next_config, ConfigValidationMode::Runtime,
+                        validation_context());
     } catch (...) {
         config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
         throw;

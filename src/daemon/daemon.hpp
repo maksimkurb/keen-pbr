@@ -218,6 +218,11 @@ private:
   // Rejects a balance config the active firewall backend cannot realize
   // (iptables without xt_statistic) before anything is mutated.
   void require_balance_support(const Config &config) const;
+  // Daemon CLI facts (raw PREROUTING placement) that config validation needs.
+  ConfigValidationContext validation_context() const {
+    return ConfigValidationContext{
+        RawPreroutingMode{opts_.use_raw_prerouting, opts_.use_raw6_prerouting}};
+  }
 
   // lifecycle and runtime apply
   void setup_static_routing(const std::vector<DumpedRoute>* main_routes = nullptr);
