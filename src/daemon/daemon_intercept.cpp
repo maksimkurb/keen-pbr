@@ -21,10 +21,14 @@ namespace keen_pbr3 {
 
 namespace {
 
+uint32_t ttl_seconds_from_ms(uint64_t milliseconds) {
+    return static_cast<uint32_t>(milliseconds / 1000U);
+}
+
 std::shared_ptr<const InterceptSnapshot> make_empty_snapshot(const InterceptEffective& effective) {
     auto snapshot = std::make_shared<InterceptSnapshot>();
     snapshot->index = std::make_shared<const DomainIndex>(DomainIndex::Builder{}.build());
-    snapshot->max_ttl_s = effective.max_ttl_s;
+    snapshot->max_ttl_s = ttl_seconds_from_ms(effective.max_ttl_ms);
     snapshot->marker_domain = effective.marker_domain;
     snapshot->marker_ipv4 = effective.marker_ipv4;
     snapshot->tls = effective.tls;

@@ -29,7 +29,7 @@ Most users start with a simple domain list such as:
 | `domains` | array of string | no | Inline DNS-compatible domain patterns (supports a leading `*.`) |
 | `ip_cidrs` | array of string | no | Inline IP addresses or CIDR ranges |
 | `file` | string | no | Path to a local list file |
-| `ttl_ms` | integer | no (default: `0`) | How long resolved IPs should stay cached for domain-based lists. Most users can leave this at `0`. |
+| `ttl_ms` | integer | no (default: `0`) | Per-list timeout floor for IPs learned through DNS/L7 interception. Omitted, `0`, and values below 1000 ms use `intercept.min_ttl_ms`; larger values are truncated to seconds. A DNS record TTL may extend the timeout up to `intercept.max_ttl_ms`. |
 
 Inline, local-file, and URL-backed lists use the same domain syntax. A leading
 `*.` and one trailing root dot are normalized away, so `*.google.com` is normalized
@@ -55,7 +55,7 @@ Each list is backed by static and dynamic IP sets.
 
 - Static entries from `ip_cidrs`, `file`, and `url` are loaded immediately.
 - Domain entries are added later, when DNS/L7 interception observes them.
-- If `ttl_ms` is set, those resolved IPs for domains expire automatically after that time.
+- Learned IPs expire using the DNS record TTL, bounded by `intercept.min_ttl_ms` and `intercept.max_ttl_ms`; `ttl_ms` sets the list's floor. It is separate from the refresh interval for remote lists.
 {{% /details %}}
 
 ## List File Format
@@ -134,4 +134,4 @@ Both entries match the domain and all its subdomains. Writing `*.example.com` is
 }
 ```
 
-All four sources are merged into a single list. `ttl_ms: 86400000` sets a 24-hour TTL for IPs learned from DNS/L7 interception in the stable dynamic set (`kpbr4d_combined` / `kpbr6d_combined`). Static IPs from `ip_cidrs` and the cached URL/file are loaded into the active A/B iptables set (`kpbr4s_combined` or `kpbr4S_combined`) or the stable nftables set (`kpbr4_combined`) and never expire automatically.
+All four sources are merged into a single list. `ttl_ms: 86400000` sets a 24-hour floor for IPs learned through DNS/L7 interception in the dynamic sets (`kpbr4d_combined` / `kpbr6d_combined`). Static IPs from `ip_cidrs` and the cached URL/file are loaded into the stable sets (`kpbr4_combined` / `kpbr6_combined`) and do not expire automatically. iptables uses a temporary set only while refreshing a static set before swapping it into place.

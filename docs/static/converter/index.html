@@ -506,7 +506,7 @@
               E_no_src:
                 'List "{n}": no source defined (url, file, or hosts). Skipped.',
               W_iptables:
-                'ipset "{n}": раздел [[ipset.iptables_rule]] is not supported in v3 and will be dropped.',
+                'ipset "{n}": the [[ipset.iptables_rule]] section is not supported in v3 and will be dropped.',
               W_multi_if:
                 'ipset "{n}": multiple interfaces [{ifaces}] — v3 uses one interface per outbound. Only "{first}" was used. Create separate outbounds + a urltest outbound for failover.',
               W_keenapi:
@@ -539,7 +539,7 @@
               I_autoupd:
                 'Added lists_autoupdate (enabled=true, cron="0 4 * * 0"). Set enabled=false to disable lists auto-refresh from remote sources.',
               I_ttl:
-                'Lists with domains now support "ttl_ms" — how long a resolved IP stays in the routing ipset. Default value set: 7200000 ms (1 h).',
+                'Lists with domains now support "ttl_ms" as a timeout floor for IPs resolved from domains. Values are rounded down to seconds; DNS TTL can extend an entry up to the global maximum. Converted lists use 7200000 ms (2 h).',
               I_defout:
                 'Added outbound "default" → routing table 254 (main). Route lists to it for normal internet traffic.',
               I_newformat:
@@ -551,7 +551,7 @@
               I_dns_test:
                 "Added dns.dns_test_server (listen 127.0.0.88:12153). New v3 feature — enables DNS diagnostics in the Web UI.",
               I_split:
-                'List "{n}" contained both domains and IPs. Domains and IPs were splitted into separate keys: domains and ip_cidrs.',
+                'List "{n}" contained both domains and IPs. Domains and IPs were split into separate keys: domains and ip_cidrs.',
             },
             ru: {
               converter: "Конвертер конфига",
@@ -589,7 +589,7 @@
               W_keen_dns:
                 '"use_keenetic_dns" включён или не задан — добавлен DNS-сервер типа "keenetic" как первый fallback-резолвер.',
               W_cache_def:
-                '"lists_output_dir" был устаревшим путём. В v3 директория кэша изменилась на "/opt/var/cache/keen-pbr". daemon.cache_dir обновлён.',
+                '"lists_output_dir" раньше был путём по умолчанию. В v3 путь по умолчанию изменился на "/opt/var/cache/keen-pbr". Значение daemon.cache_dir обновлено.',
               W_cache_cst:
                 '"lists_output_dir" был нестандартным путём "{p}". Перенесён в daemon.cache_dir.',
               W_fwmark:
@@ -609,19 +609,19 @@
               I_daemon:
                 "Добавлена секция daemon со значениями по умолчанию. Новые настройки v3: cache_dir, pid_file, strict_enforcement.",
               I_fwmark:
-                "Добавлена секция fwmark (start=0x00010000, mask=0x00FF0000). В v3 fwmark назначаются автоматически.",
+                "Добавлена секция fwmark (start=0x00010000, mask=0x00FF0000). В v3 keen-pbr автоматически назначает fwmark каждому outbound.",
               I_iproute:
                 "Добавлена секция iproute (table_start=150). В v3 ID таблиц маршрутизации выделяются последовательно с этого значения.",
               I_autoupd:
                 'Добавлена секция lists_autoupdate (enabled=true, cron="0 4 * * 0"). Установите enabled=false для отключения автообновления удалённых списков.',
               I_ttl:
-                'Списки с доменами теперь поддерживают "ttl_ms" — как долго resolved IP остаётся в routing ipset. Установлено значение по умолчанию: 7200000 мс (1 ч).',
+                'Списки с доменами теперь поддерживают "ttl_ms" как нижнюю границу тайм-аута для IP-адресов, полученных при разрешении доменов. Значение округляется вниз до секунд; DNS TTL может продлить хранение до глобального максимума. Для преобразованных списков задано 7200000 мс (2 ч).',
               I_defout:
                 'Добавлен outbound "default" → таблица маршрутизации 254 (main). Направьте нужные списки на него для обычного интернет-трафика.',
               I_newformat:
                 "Конфиг конвертирован из TOML v2 в JSON v3. Проверьте настройки IPv4/IPv6 шлюзов, адреса DNS и ttl_ms перед применением.",
               I_cbr:
-                'В v3 поддерживаются urltest outbound-ы с circuit-breaker. Подробнее: <link href="/docs/configuration/outbounds/">keen-pbr.fyi/docs/configuration/outbounds/</link>.',
+                'В v3 urltest outbounds поддерживают circuit-breaker для проверки доступности интерфейсов. Подробнее: <link href="/docs/configuration/outbounds/">keen-pbr.fyi/docs/configuration/outbounds/</link>.',
               I_keen_fb:
                 'DNS-сервер типа "keenetic" добавлен в dns.fallback, т.к. был включён use_keenetic_api или use_keenetic_dns не был явно отключён.',
               I_dns_test:

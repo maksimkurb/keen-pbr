@@ -15,15 +15,18 @@ import type { InterceptL7Config } from './interceptL7Config';
 export interface InterceptConfig {
   enabled?: boolean;
   /**
-     * Floor for the element timeout when the list has no `ttl_ms`.
-     * @minimum 1
+     * Global minimum timeout in milliseconds, also used as the per-list floor when `ttl_ms` is omitted, zero, or below 1000 ms. Must not exceed `max_ttl_ms`. Values are truncated to whole seconds at the runtime boundary; the normalized timeout must fit in an unsigned 32-bit number of seconds.
+
+     * @minimum 1000
+     * @maximum 4294967295999
      */
-  min_ttl_s?: number;
+  min_ttl_ms?: number;
   /**
-     * Upper bound for the element timeout.
-     * @minimum 1
+     * Global upper bound for learned set element timeouts in milliseconds. Values are truncated to whole seconds at the runtime boundary.
+     * @minimum 1000
+     * @maximum 4294967295999
      */
-  max_ttl_s?: number;
+  max_ttl_ms?: number;
   dns?: InterceptDnsConfig;
   l7?: InterceptL7Config;
 }

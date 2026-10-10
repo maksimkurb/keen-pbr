@@ -20,8 +20,12 @@ export interface ListConfig {
   ip_cidrs?: string[];
   /** Path to a local list file. */
   file?: string;
-  /** TTL for dynamically learned set entries in milliseconds. `0` means no timeout.
-   */
+  /**
+     * Per-list floor for dynamically learned set entry timeouts, in milliseconds. Omitted, zero, and values below 1000 use `intercept.min_ttl_ms`; otherwise the value is divided by 1000 and truncated to whole seconds. DNS record TTL can raise the timeout above this floor, up to `intercept.max_ttl_ms`. The normalized timeout must fit in an unsigned 32-bit number of seconds.
+
+     * @minimum 0
+     * @maximum 4294967295999
+     */
   ttl_ms?: number;
   /** Optional outbound tag to use when downloading this list. If set, download traffic is marked with the outbound's fwmark and routed via its dedicated routing table. If omitted, the system default routing table is used.
    */

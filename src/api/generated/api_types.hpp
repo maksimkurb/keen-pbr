@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesHwuqQh data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesCmCaiD data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -260,8 +260,8 @@ namespace api {
         std::optional<InterceptDnsConfigClass> dns;
         std::optional<bool> enabled;
         std::optional<L7> l7;
-        std::optional<int64_t> max_ttl_s;
-        std::optional<int64_t> min_ttl_s;
+        std::optional<int64_t> max_ttl_ms;
+        std::optional<int64_t> min_ttl_ms;
     };
 
     struct Iproute {
@@ -860,7 +860,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesHwuqQh {
+    struct KeenPbrTypesCmCaiD {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1196,8 +1196,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesHwuqQh & x);
-    void to_json(json & j, const KeenPbrTypesHwuqQh & x);
+    void from_json(const json & j, KeenPbrTypesCmCaiD & x);
+    void to_json(json & j, const KeenPbrTypesCmCaiD & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1656,8 +1656,8 @@ namespace api {
         x.dns = get_stack_optional<InterceptDnsConfigClass>(j, "dns");
         x.enabled = get_stack_optional<bool>(j, "enabled");
         x.l7 = get_stack_optional<L7>(j, "l7");
-        x.max_ttl_s = get_stack_optional<int64_t>(j, "max_ttl_s");
-        x.min_ttl_s = get_stack_optional<int64_t>(j, "min_ttl_s");
+        x.max_ttl_ms = get_stack_optional<int64_t>(j, "max_ttl_ms");
+        x.min_ttl_ms = get_stack_optional<int64_t>(j, "min_ttl_ms");
     }
 
     inline void to_json(json & j, const InterceptConfigClass & x) {
@@ -1665,8 +1665,8 @@ namespace api {
         j["dns"] = x.dns;
         j["enabled"] = x.enabled;
         j["l7"] = x.l7;
-        j["max_ttl_s"] = x.max_ttl_s;
-        j["min_ttl_s"] = x.min_ttl_s;
+        j["max_ttl_ms"] = x.max_ttl_ms;
+        j["min_ttl_ms"] = x.min_ttl_ms;
     }
 
     inline void from_json(const json & j, Iproute& x) {
@@ -2781,7 +2781,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesHwuqQh& x) {
+    inline void from_json(const json & j, KeenPbrTypesCmCaiD& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2870,7 +2870,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesHwuqQh & x) {
+    inline void to_json(json & j, const KeenPbrTypesCmCaiD & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

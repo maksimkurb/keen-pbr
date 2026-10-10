@@ -83,7 +83,7 @@ Controls the firewall mark range used to tag packets for policy routing.
 }
 ```
 
-The `mask` must be exactly two adjacent hex nibbles (e.g. `0x00FF0000`). Outbounds are assigned sequential marks starting from `start`, masked by `mask`.
+The `mask` must contain one or more consecutive full hex nibbles (e.g. `0x00FF0000`). Outbounds are assigned sequential marks starting from `start`, masked by `mask`.
 
 {{< callout type="warning" >}}
 If other software on your system uses the same fwmark range, adjust `start` and `mask` to avoid conflicts.
@@ -131,8 +131,9 @@ that test group's owned conntrack entries after its replacement route is active.
 Failed selected paths are always cleaned up after failover.
 
 `ipv6_enabled: false` means IPv6 is unmanaged by keen-pbr; it is not an IPv6
-block. Keen-pbr also does not intercept arbitrary client DNS, DoT, or DoH. Clients
-must use the router resolver, or DNS enforcement must be provided separately.
+block. Keen-pbr can observe ordinary UDP/TCP DNS replies passing through the
+router even when clients use another resolver. It does not redirect DNS
+requests or decode DoT/DoH, so encrypted DNS names are not learned.
 
 Marks identify active configuration ownership only while that configuration is
 unchanged. After a crash, changing the fwmark mask offline prevents the daemon
@@ -178,7 +179,7 @@ The `cron` field uses the standard 5-field format: `minute hour day-of-month mon
 
 The `cron` field is validated even when `enabled` is `false`.
 
-If a remote list could not be downloaded at startup, the daemon keeps retrying it in the background with increasing delays (10 seconds, 30 seconds, 2 minutes, then every 5 minutes) until it succeeds. This does not depend on `lists_autoupdate`. At startup dnsmasq is configured before the first download, so the domain of the list host must be covered by an inline list, a file list, or an already cached list for the DNS rule to apply to the first download attempt.
+If a remote list could not be downloaded at startup, the daemon keeps retrying it in the background with increasing delays (10 seconds, 30 seconds, 2 minutes, then every 5 minutes) until it succeeds. This does not depend on `lists_autoupdate`. The first uncached download happens before the new runtime and dnsmasq configuration is synchronized and uses the resolver configuration already active on the system. New per-list DNS rules may therefore not apply to that initial download; later retries can use the synchronized configuration.
 
 You can also trigger a manual refresh at any time:
 - Send `SIGHUP` to the daemon process: `kill -HUP $(cat /var/run/keen-pbr.pid)`

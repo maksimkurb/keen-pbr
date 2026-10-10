@@ -10,6 +10,10 @@ namespace keen_pbr3 {
 
 namespace {
 constexpr std::size_t kMaxDomainNameLength = 255;
+
+uint32_t ttl_seconds_from_ms(uint64_t milliseconds) {
+    return static_cast<uint32_t>(milliseconds / 1000U);
+}
 }
 
 std::vector<InterceptListBinding> build_intercept_bindings(
@@ -51,7 +55,7 @@ std::vector<InterceptListBinding> build_intercept_bindings(
             binding.target.set_v6 = has6 ? set6 : std::string{};
             const int64_t ttl_ms = list_it->second.ttl_ms.value_or(0);
             binding.target.min_ttl_s = ttl_ms >= 1000 ? static_cast<uint32_t>(ttl_ms / 1000)
-                                                      : effective.min_ttl_s;
+                                                      : ttl_seconds_from_ms(effective.min_ttl_ms);
             binding.signature = nlohmann::json(list_it->second).dump();
             bindings.push_back(std::move(binding));
         }
@@ -63,7 +67,7 @@ namespace {
 
 void apply_effective_settings(InterceptSnapshot& snapshot, const InterceptEffective& effective,
                               bool ipv6_enabled) {
-    snapshot.max_ttl_s = effective.max_ttl_s;
+    snapshot.max_ttl_s = ttl_seconds_from_ms(effective.max_ttl_ms);
     snapshot.marker_domain = effective.marker_domain;
     snapshot.marker_ipv4 = effective.marker_ipv4;
     snapshot.ipv6_enabled = ipv6_enabled;

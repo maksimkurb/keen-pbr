@@ -115,7 +115,7 @@ export const enTranslation = {
     },
     fallback: {
       table: "Routing table {{value}}",
-      blackhole: "Block all incoming traffic",
+      blackhole: "Block all traffic",
     },
   },
   language: {
@@ -299,7 +299,7 @@ export const enTranslation = {
     outbounds: {
       title: "Outbounds",
       summary: "{{configured}} configured · {{groups}} groups",
-      online: "{{count}} online",
+      online: "Healthy: {{count}}",
       manage: "Manage",
       plainTitle: "Plain outbounds",
       probePassed: "Network available",
@@ -609,7 +609,7 @@ export const enTranslation = {
         notConnectivityTest:
           "This checks the route from firewall state, not website connectivity.",
         dnsAdvice:
-          "The device’s DNS query may not have passed through the router yet. Open the site on a device using the router’s DNS, then check again.",
+          "The device’s plain DNS query may not have passed through the router yet. Open the site on a device whose DNS traffic passes through the router, then check again.",
         issues: {
           ok: {
             title: "The route matches the rule",
@@ -692,7 +692,7 @@ export const enTranslation = {
       routeUnavailable:
         "The actual route could not be determined from firewall state and the supplied criteria.",
       dnsPendingHint:
-        "This IP is not yet in the rule’s IPSet. The device’s DNS request may not have reached the router. Open the site on a device using the router’s DNS, then check again.",
+        "This IP is not yet in the rule’s IP set. The device’s plain DNS request may not have passed through the router. Open the site on a device whose DNS traffic passes through the router, then check again.",
       routeMismatchHint:
         "Firewall state differs from the expected route. See rule diagnostics for details.",
       recheck: "Check again",
@@ -833,7 +833,7 @@ export const enTranslation = {
       not_learned_other:
         "{{count}} blocking or unroutable addresses not learned",
       not_learned_tooltip:
-        "Blocking or unroutable answer (0.0.0.0, ::, loopback) — not added to sets",
+        "Blocking or unroutable answer (0.0.0.0, ::, loopback) — not added to routing sets",
       seq: "Request #{{seq}} (event sequence number)",
       time: "Seen at {{time}} ({{date}})",
       parse: "Response parsed in {{value}}",
@@ -919,10 +919,12 @@ export const enTranslation = {
         enabledLabel: "Enable domain-based routing",
         enabledHint:
           "When disabled, keen-pbr neither intercepts DNS nor analyzes L7. Domain-based rules will not work, but IP/CIDR-based rules continue to work.",
-        minTtlLabel: "Minimum TTL (seconds)",
-        minTtlHint: "Minimum lifetime of entries in ipset.",
-        maxTtlLabel: "Maximum TTL (seconds)",
-        maxTtlHint: "Maximum lifetime of entries in ipset.",
+        minTtlLabel: "Minimum TTL (milliseconds)",
+        minTtlHint:
+          "Minimum lifetime of entries in ipset. Values are rounded down to whole seconds at runtime (1000–4294967295999 ms).",
+        maxTtlLabel: "Maximum TTL (milliseconds)",
+        maxTtlHint:
+          "Maximum lifetime of entries in ipset. Values are rounded down to whole seconds at runtime (1000–4294967295999 ms).",
         dnsEnabledLabel: "Intercept DNS server responses",
         dnsEnabledHint:
           "Intercept unencrypted DNS server responses on port 53, inspect the domain, and add IP addresses from the response to ipset when they match lists.",
@@ -960,10 +962,10 @@ export const enTranslation = {
         title: "Advanced routing settings",
         description:
           "Advanced settings - only change these if you know what you're doing.",
-        fwmarkStartLabel: "Firewall mark starting value",
+        fwmarkStartLabel: "fwmark starting value",
         fwmarkStartHint:
           "The starting fwmark assigned to your first outbound. Each additional outbound gets the next value in the range.",
-        fwmarkMaskLabel: "Firewall mark mask",
+        fwmarkMaskLabel: "fwmark mask",
         fwmarkMaskHintPrefix:
           "Bitmask defining which bits are used for fwmarks. Must be a continuous block of hex",
         fwmarkMaskHintSuffix: "digits, e.g.",
@@ -1564,7 +1566,7 @@ export const enTranslation = {
         title: "Default upstream DNS servers",
         description:
           "The ordered DNS servers dnsmasq should use when no DNS rule matches. When set, dnsmasq ignores the system upstreams (no-resolv).",
-        add: "Add fallback DNS server",
+        add: "Add default DNS server",
         placeholderTitle: "No default upstream DNS servers selected",
         placeholderDescription:
           "Optional. Leave empty to keep the system upstreams for domains not matched by any rule.",
@@ -1625,8 +1627,7 @@ export const enTranslation = {
         listPlaceholderDescription:
           "Choose which lists this rule applies to. Matching domains will use this DNS server.",
         noListsSelected: "No lists selected",
-        noLists:
-          "No lists found. Please, create first filter on the Lists page.",
+        noLists: "No lists found. Create a list first on the Lists page.",
       },
     },
     lists: {
@@ -1768,7 +1769,7 @@ export const enTranslation = {
         name: "Name",
         ttlMs: "IP cache duration (ms)",
         ttlMsHint:
-          "How long to keep resolved IPs in the ipset. `0` = no timeout.",
+          "How long to keep resolved IPs in the ipset. Omitted, `0`, and values below 1000 ms use the global minimum. Larger values are rounded down to seconds; DNS TTL can extend an entry up to the global maximum.",
         detour: "Make requests via Outbound",
         detourEmpty: "Not selected",
         detourPlaceholder: "Optional outbound tag",
@@ -1790,7 +1791,8 @@ export const enTranslation = {
       validation: {
         inlineRequired: "Enter domains or IP/CIDR entries",
         duplicateName: "A list with this name already exists.",
-        invalidTtl: "TTL must be a non-negative integer.",
+        invalidTtl:
+          "Enter a whole number from 0 to 4,294,967,295,999 ms (maximum normalized timeout: 4,294,967,295 seconds).",
       },
     },
   },

@@ -78,8 +78,8 @@ export type SettingsDraft = {
   }
   intercept: {
     enabled: boolean
-    min_ttl_s: string
-    max_ttl_s: string
+    min_ttl_ms: string
+    max_ttl_ms: string
     dns: {
       enabled: boolean
       queue_num: string
@@ -116,8 +116,8 @@ const fallbackDraft: SettingsDraft = {
   dns: { resolver_integration: "none" },
   intercept: {
     enabled: true,
-    min_ttl_s: "300",
-    max_ttl_s: "86400",
+    min_ttl_ms: "300000",
+    max_ttl_ms: "86400000",
     dns: {
       enabled: true,
       queue_num: "9053",
@@ -305,16 +305,20 @@ function LoadedGeneralConfigPage({
 
             <div className="grid gap-6 md:grid-cols-2">
               <NumberSettingField
-                field={form.field("intercept.min_ttl_s")}
+                field={form.field("intercept.min_ttl_ms")}
                 id="intercept-min-ttl"
                 label={t("pages.settings.intercept.minTtlLabel")}
                 hint={t("pages.settings.intercept.minTtlHint")}
+                min={1000}
+                max={4294967295999}
               />
               <NumberSettingField
-                field={form.field("intercept.max_ttl_s")}
+                field={form.field("intercept.max_ttl_ms")}
                 id="intercept-max-ttl"
                 label={t("pages.settings.intercept.maxTtlLabel")}
                 hint={t("pages.settings.intercept.maxTtlHint")}
+                min={1000}
+                max={4294967295999}
               />
             </div>
 
@@ -894,11 +898,15 @@ function NumberSettingField({
   hint,
   id,
   label,
+  max,
+  min,
 }: {
   field: FieldBinding<string>
   hint?: string
   id: string
   label: ReactNode
+  max?: number
+  min?: number
 }) {
   return (
     <Field invalid={Boolean(field.error)}>
@@ -907,6 +915,8 @@ function NumberSettingField({
         <Input
           id={id}
           inputMode="numeric"
+          max={max}
+          min={min}
           type="number"
           {...bindInput(field)}
         />
@@ -989,13 +999,13 @@ export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
     },
     intercept: {
       enabled: intercept?.enabled ?? fallback.intercept.enabled,
-      min_ttl_s: toStringInt(
-        intercept?.min_ttl_s,
-        fallback.intercept.min_ttl_s
+      min_ttl_ms: toStringInt(
+        intercept?.min_ttl_ms,
+        fallback.intercept.min_ttl_ms
       ),
-      max_ttl_s: toStringInt(
-        intercept?.max_ttl_s,
-        fallback.intercept.max_ttl_s
+      max_ttl_ms: toStringInt(
+        intercept?.max_ttl_ms,
+        fallback.intercept.max_ttl_ms
       ),
       dns: {
         enabled: dns?.enabled ?? fallback.intercept.dns.enabled,
@@ -1084,8 +1094,8 @@ export function buildUpdatedConfig(
     intercept: {
       ...config.intercept,
       enabled: intercept.enabled,
-      min_ttl_s: toOptionalBackendInteger(intercept.min_ttl_s),
-      max_ttl_s: toOptionalBackendInteger(intercept.max_ttl_s),
+      min_ttl_ms: toOptionalBackendInteger(intercept.min_ttl_ms),
+      max_ttl_ms: toOptionalBackendInteger(intercept.max_ttl_ms),
       dns: {
         ...config.intercept?.dns,
         enabled: intercept.dns.enabled,

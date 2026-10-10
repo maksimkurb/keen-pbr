@@ -46,7 +46,8 @@ std::shared_ptr<const InterceptSnapshot> rebind_intercept_snapshot(
 // referenced by an enabled route rule whose dynamic sets were declared by
 // `sets` (i.e. it has domain entries) becomes a DomainIndex list with its
 // set names and TTL floor (list `ttl_ms`/1000 when >= 1000, else the
-// configured intercept.min_ttl_s).  set_v6 is empty when IPv6 is disabled.
+// configured intercept.min_ttl_ms converted to whole seconds).  set_v6 is
+// empty when IPv6 is disabled.
 // Streams list content, so call it from a blocking executor.
 std::shared_ptr<const InterceptSnapshot> build_intercept_snapshot(
     const Config& config,

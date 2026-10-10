@@ -67,6 +67,23 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 
 По умолчанию API прослушивает `0.0.0.0:12121`. Все эндпоинты обслуживаются на настроенном адресе `api.listen`.
 
+Полная схема запросов и ответов находится в [OpenAPI-документе](https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml). Основные маршруты:
+
+| Маршрут | Назначение |
+|---|---|
+| `GET /api/health/service` | Состояние службы, черновика конфигурации, операции жизненного цикла и отката. |
+| `POST /api/service/start`, `/stop`, `/restart` | Асинхронный запуск, остановка или перезапуск маршрутизации. |
+| `GET /api/config`, `POST /api/config` | Чтение или подготовка проверенного черновика конфигурации. |
+| `POST /api/config/discard`, `/save`, `/rollback` | Отмена черновика, сохранение и применение либо явный откат неудачного применения. |
+| `GET /api/status/events` | Поток Server-Sent Events о состоянии службы, outbounds и интерфейсов. |
+| `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Текущее состояние outbounds и список системных интерфейсов. |
+| `GET /api/health/routing`, `POST /api/routing/test` | Кэшированная диагностика маршрутизации/firewall и проверка маршрута для цели. |
+| `POST /api/lists/refresh` | Обновление одного или всех удалённых списков URL. |
+| `GET /api/dns/test` | Поток событий перехвата DNS/L7 или проверка DNS-маркера веб-интерфейса. |
+| `GET /api/diagnostics/command-failure` | Чтение недавнего журнала ошибок команд. |
+| `GET /metrics` | Метрики Prometheus в текстовом формате. |
+| `/api/auth/status`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/password`, `/api/auth/settings` | Состояние аутентификации и управление сессией/паролем. |
+
 ---
 
 ## GET /api/health/service
@@ -82,8 +99,15 @@ curl http://127.0.0.1:12121/api/health/service
 ```json
 {
   "version": "3.0.0",
+  "build": "20261010120000",
   "status": "running",
-  "config_is_draft": false
+  "runtime_state": "running",
+  "runtime_state_reason": "config apply complete",
+  "os_type": "debian",
+  "os_version": "12",
+  "build_variant": "generic",
+  "config_is_draft": false,
+  "rollback_available": false
 }
 ```
 
@@ -98,7 +122,8 @@ L7-пакетов, обновлений наборов, очистки conntrack
 ## GET /metrics
 
 Возвращает текстовый формат Prometheus 0.0.4. Эндпоинт использует ту же
-аутентификацию, что и API:
+аутентификацию, что и API. При недоступности поставщика метрик возможен ответ
+`503`:
 
 ```bash
 curl -u admin:password http://127.0.0.1:12121/metrics
@@ -345,7 +370,7 @@ curl -X POST http://127.0.0.1:12121/api/lists/refresh
 
 ## GET /api/config
 
-Возвращает текущую конфигурацию и флаг, указывающий, существует ли отложенный черновик в памяти.
+Возвращает видимую конфигурацию и флаг наличия подготовленного черновика в памяти. Секретные настройки `api` намеренно опущены. Ответ также содержит состояние обновления списков.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/config
@@ -357,12 +382,12 @@ curl http://127.0.0.1:12121/api/config
 {
   "config": {
     "daemon": { "pid_file": "/var/run/keen-pbr.pid", "cache_dir": "/var/cache/keen-pbr" },
-    "api": { "enabled": true, "listen": "127.0.0.1:12121" },
     "outbounds": [],
     "lists": {},
     "route": {}
   },
-  "is_draft": false
+  "is_draft": false,
+  "list_refresh_state": {}
 }
 ```
 
@@ -381,6 +406,8 @@ curl http://127.0.0.1:12121/api/config
 ## POST /api/config
 
 Проверяет предоставленное JSON-тело как файл конфигурации и откладывает его в память. Конфигурация **НЕ** записывается на диск и среда выполнения маршрутизации **НЕ** изменяется. Используйте `POST /api/config/save` для сохранения и применения отложенного черновика.
+
+Поле `api` в запросе игнорируется: демон сохраняет действующие настройки безопасности.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/config \
@@ -412,21 +439,18 @@ curl -X POST http://127.0.0.1:12121/api/config \
 
 ## POST /api/config/save
 
-Сохраняет отложенную конфигурацию на диск, затем применяет её к среде выполнения маршрутизации.
+Принимает асинхронную операцию, которая сохраняет отложенную конфигурацию на диск, а затем согласует среду выполнения маршрутизации. HTTP `202` подтверждает только принятие операции, но не её завершение.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/config/save
 ```
 
-### Ответ
+### Принятая операция (202)
 
 ```json
 {
-  "status": "ok",
-  "message": "Config saved and applied",
-  "saved": true,
-  "applied": true,
-  "rolled_back": false
+  "operation_id": "op-123",
+  "status": "accepted"
 }
 ```
 
@@ -434,12 +458,11 @@ curl -X POST http://127.0.0.1:12121/api/config/save
 
 ```json
 {
-  "error": "No staged config to save",
-  "saved": false,
-  "applied": false,
-  "rolled_back": false
+  "error": "No staged config to save"
 }
 ```
+
+После принятия операции проверяйте `lifecycle_operation` в `GET /api/health/service` или подпишитесь на `/api/status/events`, пока операция не завершится. Конфигурация сохраняется до согласования runtime. Если согласование завершается ошибкой после сохранения файла, демон сообщает о неисправном runtime и устанавливает `rollback_available`; прежний файл и runtime автоматически не восстанавливаются. `POST /api/config/rollback` явно восстанавливает сохранённую копию прежней конфигурации и согласует её с runtime. При успехе runtime становится активным, а соответствующий черновик удаляется. `POST /api/config/discard` только отменяет несохранённый черновик в памяти и не меняет файл или runtime.
 
 ---
 
@@ -483,7 +506,7 @@ curl http://127.0.0.1:12121/api/runtime/outbounds
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/routing/test \
   -H "Content-Type: application/json" \
-  -d '{"target": "example.com"}
+  -d '{"target": "example.com", "proto": "tcp", "dest_port": 443}'
 ```
 
 ### Ответ
@@ -509,7 +532,7 @@ curl -X POST http://127.0.0.1:12121/api/routing/test \
 
 ## GET /api/health/routing
 
-Проверяет текущее состояние маршрутизации и firewall ядра против ожидаемой конфигурации: проверяет, что цепочка firewall существует, все правила на месте, ip table заполнены и ip rule установлены.
+Возвращает кэшированный канонический отчёт о состоянии маршрутизации и firewall ядра. При холодном или устаревшем снимке обновление запускается вне event loop, поэтому временно может отображаться ожидающий или деградированный результат; каждый запрос не выполняет синхронную проверку ядра.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/health/routing
@@ -520,16 +543,17 @@ curl http://127.0.0.1:12121/api/health/routing
 ```json
 {
   "overall": "ok",
-  "firewall_backend": "nftables",
+  "firewall_backend": "iptables",
   "firewall": {
     "chain_present": true,
     "prerouting_hook_present": true,
-    "detail": "chain keen-pbr found in table mangle"
+    "verification_state": "verified",
+    "detail": "chain KeenPbrTable found in table mangle"
   },
   "firewall_rules": [
     {
-      "set_name": "keen-pbr-my_domains",
-      "action": "MARK",
+      "set_name": "<direct>",
+      "action": "mark",
       "expected_fwmark": "0x00010000",
       "actual_fwmark": "0x00010000",
       "status": "ok"

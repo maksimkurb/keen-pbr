@@ -48,7 +48,7 @@ bool InterceptEffective::operator==(const InterceptEffective& other) const {
            dns_requested == other.dns_requested &&
            l7 == other.l7 && queue_num == other.queue_num &&
            nflog_group == other.nflog_group && hold_timeout_ms == other.hold_timeout_ms &&
-           min_ttl_s == other.min_ttl_s && max_ttl_s == other.max_ttl_s &&
+           min_ttl_ms == other.min_ttl_ms && max_ttl_ms == other.max_ttl_ms &&
            conntrack_cleanup == other.conntrack_cleanup && marker_domain == other.marker_domain && marker_ipv4 == other.marker_ipv4 &&
            tls == other.tls && http == other.http && quic == other.quic;
 }
@@ -70,8 +70,8 @@ InterceptEffective resolve_effective_intercept(const Config& config,
     eff.queue_num = static_cast<uint16_t>(dns.queue_num.value_or(9053));
     eff.nflog_group = static_cast<uint16_t>(l7.nflog_group.value_or(9054));
     eff.hold_timeout_ms = static_cast<int>(dns.hold_timeout_ms.value_or(30));
-    eff.min_ttl_s = static_cast<uint32_t>(ic.min_ttl_s.value_or(300));
-    eff.max_ttl_s = static_cast<uint32_t>(ic.max_ttl_s.value_or(86400));
+    eff.min_ttl_ms = static_cast<uint64_t>(ic.min_ttl_ms.value_or(300000));
+    eff.max_ttl_ms = static_cast<uint64_t>(ic.max_ttl_ms.value_or(86400000));
     eff.marker_domain = marker.domain.value_or("check.keen.pbr");
     in_addr addr{};
     if (inet_pton(AF_INET, marker.answer_ipv4.value_or("127.0.0.88").c_str(), &addr) == 1) {

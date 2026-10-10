@@ -213,8 +213,10 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   nftables: base chains `dns_hold` (postrouting), `sniff_fwd` (forward) and
   `sniff_out` (output), priority -150, present only when non-empty; no jumps.
 - **nftables** replaces the whole `inet KeenPbrTable` content in one batch;
-  balance uses `numgen inc mod N` + `vmap` into `setmark_XXXXXXXX` chains.
-  Balancing also lowers on iptables (below); only `default_gateway` is nft-only.
+  balance assigns each candidate a consecutive range of slots sized by its
+  reduced weight in `numgen inc mod sum(weights)`, then uses `vmap` into
+  `setmark_XXXXXXXX` chains. Balancing also lowers on iptables (below); only
+  `default_gateway` is nft-only.
 - **iptables balance** needs no extra chain.  A `BalanceAction` with n >= 2
   usable candidates (per family: `FirewallBalanceCandidate::ipv4/ipv6`; zero
   usable is the fallback `MarkAction`, one is a plain `MarkAction`, exactly as
@@ -222,10 +224,10 @@ or daemon code includes `src/firewall/rules/*` or mentions a module id.
   classification chain:
   `M -m mark --mark 0/<mask> -m statistic --mode random --probability p_i -j MARK --set-xmark c_i/<mask>`
   for i = 1..n-1 (the last without `statistic`), then `M -j CONNMARK
-  --save-mark` and `M -j RETURN` like a `MarkAction`.  The mark guard is what
-  ends the cascade once a candidate was chosen, and equals the nft rule's
-  "only unmarked packets are balanced"; `p_i = 1/(n-i)` since candidates are
-  equal (weight is only a group priority).  Stickiness is the existing
+  --save-mark` and `M -j RETURN` like a `MarkAction`. The mark guard ends the
+  cascade once a candidate is chosen; `p_i = w_i / (w_i + ... + w_n)` for each
+  usable member's configured weight. The last candidate is unconditional.
+  Stickiness is the existing
   restore/save machinery: `restore_conntrack_mark` restores the connection
   mark of ESTABLISHED flows and returns before any classifier, and the save
   rule stores the new choice, so the cascade only decides new connections.

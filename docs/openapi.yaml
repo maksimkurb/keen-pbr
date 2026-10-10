@@ -13,6 +13,28 @@ security:
   - bearerAuth: []
 
 paths:
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: >
+        Returns Prometheus text exposition format 0.0.4. Uses the same API
+        authentication as other protected endpoints. The metrics provider may
+        be unavailable during startup or when metrics support is disabled.
+      operationId: getMetrics
+      responses:
+        "200":
+          description: Prometheus metrics
+          content:
+            text/plain; version=0.0.4; charset=utf-8:
+              schema:
+                type: string
+        "503":
+          description: Metrics provider is unavailable
+          content:
+            text/plain; version=0.0.4; charset=utf-8:
+              schema:
+                type: string
+
   /api/auth/status:
     get:
       summary: Get authentication status
@@ -1120,9 +1142,9 @@ components:
           default: priority
           description: >
             `priority` keeps the stable test-group mark and routes it through one
-            selected child. `balance` distributes new connections equally across
-            usable children in the lowest-weight healthy group (nftables or iptables
-            with the xt_statistic module; disabled on Keenetic).
+            selected child. `balance` distributes new connections by member weight
+            within the first usable healthy tier (nftables or iptables with the
+            xt_statistic module; disabled on Keenetic).
         conntrack_on_switch:
           $ref: "#/components/schemas/ConntrackOnSwitch"
           default: preserve
@@ -1136,9 +1158,9 @@ components:
           type: array
           description: >
             Ordered list of outbound groups. Required for `urltest` and `icmptest`.
-            Groups are tried by ascending group weight. In `priority` mode one usable
-            child is selected by latency; in `balance` mode usable children in the
-            active group receive an equal share of new connections.
+            Tiers are tried in array order. In `priority` mode one usable child is
+            selected by latency; in `balance` mode usable members in the first
+            healthy tier receive new connections in proportion to their weights.
           items:
             $ref: "#/components/schemas/OutboundGroup"
         retry:
@@ -1190,9 +1212,15 @@ components:
           example: "./my-list.txt"
         ttl_ms:
           type: integer
+          minimum: 0
+          maximum: 4294967295999
           description: >
-            TTL for dynamically learned set entries in milliseconds.
-            `0` means no timeout.
+            Per-list floor for dynamically learned set entry timeouts, in
+            milliseconds. Omitted, zero, and values below 1000 use
+            `intercept.min_ttl_ms`; otherwise the value is divided by 1000 and
+            truncated to whole seconds. DNS record TTL can raise the timeout
+            above this floor, up to `intercept.max_ttl_ms`. The normalized
+            timeout must fit in an unsigned 32-bit number of seconds.
           default: 0
           example: 86400000
         detour:
@@ -1570,18 +1598,25 @@ components:
           type: boolean
           default: true
           example: true
-        min_ttl_s:
+        min_ttl_ms:
           type: integer
-          minimum: 1
-          description: Floor for the element timeout when the list has no `ttl_ms`.
-          default: 300
-          example: 300
-        max_ttl_s:
+          minimum: 1000
+          maximum: 4294967295999
+          description: >
+            Global minimum timeout in milliseconds, also used as the per-list floor
+            when `ttl_ms` is omitted, zero, or below 1000 ms. Must not exceed
+            `max_ttl_ms`. Values are truncated to whole seconds at the runtime
+            boundary; the normalized timeout must fit in an unsigned 32-bit
+            number of seconds.
+          default: 300000
+          example: 300000
+        max_ttl_ms:
           type: integer
-          minimum: 1
-          description: Upper bound for the element timeout.
-          default: 86400
-          example: 86400
+          minimum: 1000
+          maximum: 4294967295999
+          description: Global upper bound for learned set element timeouts in milliseconds. Values are truncated to whole seconds at the runtime boundary.
+          default: 86400000
+          example: 86400000
         dns:
           $ref: "#/components/schemas/InterceptDnsConfig"
         l7:
@@ -1886,7 +1921,7 @@ components:
           description: >
             Non-learnable answer addresses (blocking/unroutable: 0.0.0.0, ::,
             127.0.0.0/8 loopback, ::1 loopback) that appear in the answer but
-            were not added to sets. Only present if non-zero.
+            were not added to routing sets. Only present if non-zero.
         hold_us:
           type: integer
           description: Time the DNS response was held, in microseconds (0 for L7 events).

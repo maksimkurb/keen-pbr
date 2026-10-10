@@ -3,9 +3,9 @@ title: Full Reference Config
 weight: 6
 ---
 
-This page shows one commented JSON example with every supported configuration section and every supported option.
+This page shows one full configuration example with comments, including platform-specific settings marked in the example. Remove settings that are unsupported on your target platform before applying it.
 
-Comments are supported in real keen-pbr config files, so you can use this example directly as a starting point.
+Comments are supported in real keen-pbr config files. Replace sample interfaces, addresses, and file paths with values from your network before applying it.
 
 {{< callout type="info" >}}
 List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` and must be at most 24 characters.
@@ -237,8 +237,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       "tolerance_ms": 100,
 
       // Selection strategy: "priority" (default) keeps one selected child.
-      // "balance" (not on Keenetic) spreads new connections equally over usable
-      // members of the first healthy group, in proportion to their weight.
+      // "balance" (not on Keenetic) spreads new connections over usable
+      // members of the first healthy group in proportion to their weight.
       "strategy": "priority",
 
       // Compatibility field for older configs.
@@ -373,9 +373,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // same effect.
       "domains": ["example.com", "othersite.net"],
 
-      // Time in milliseconds that IPs learned for these domains by DNS/L7
-      // interception remain in the dynamic set. 0 keeps them indefinitely.
-      // Default: 0 (no timeout); this example uses 24 hours.
+      // Per-list timeout floor for IPs learned through DNS/L7 interception.
+      // Omitted, 0, and values below 1000 ms use intercept.min_ttl_ms.
+      // Values of 1000 ms or more are truncated to whole seconds. A DNS
+      // record TTL may raise the timeout up to intercept.max_ttl_ms. This is
+      // separate from the refresh interval for remote lists.
       "ttl_ms": 86400000
     },
 
@@ -398,9 +400,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Default: null (use the system's normal routing)
       "detour": "auto_select",
 
-      // Time in milliseconds that IPs learned for these domains by DNS/L7
-      // interception remain in the dynamic set. 0 keeps them indefinitely.
-      // Default: 0 (no timeout); this example uses 24 hours.
+      // Per-list timeout floor for IPs learned through DNS/L7 interception.
+      // Omitted, 0, and values below 1000 ms use intercept.min_ttl_ms.
+      // Values of 1000 ms or more are truncated to whole seconds. A DNS
+      // record TTL may raise the timeout up to intercept.max_ttl_ms. This is
+      // separate from the refresh interval for remote lists.
       "ttl_ms": 86400000
     },
   
@@ -408,9 +412,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Local list file path.
       "file": "/etc/keen-pbr/local.lst",
       
-      // Time in milliseconds that IPs learned for these domains by DNS/L7
-      // interception remain in the dynamic set. 0 keeps them indefinitely.
-      // Default: 0 (no timeout); this example uses 24 hours.
+      // Per-list timeout floor for IPs learned through DNS/L7 interception.
+      // Omitted, 0, and values below 1000 ms use intercept.min_ttl_ms.
+      // Values of 1000 ms or more are truncated to whole seconds. A DNS
+      // record TTL may raise the timeout up to intercept.max_ttl_ms. This is
+      // separate from the refresh interval for remote lists.
       "ttl_ms": 86400000
     },
 
@@ -475,12 +481,13 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       },
 
       {
+        // [Only on Keenetic and Netcraze platforms]
         // Reuse the router's built-in DNS settings through RCI.
         // Configure DoT/DoH on the router first, then add this Keenetic DNS server.
-        // Available only on Keenetic and Netcraze routers.
         "tag": "keenetic_dns",
         "type": "keenetic"
       }
+
     ],
 
     // Domain-to-DNS-server routing rules (only active when resolver_integration: "dnsmasq").
@@ -491,7 +498,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         "enabled": true,
 
         // Lists whose domains should be resolved by this server.
-        "list": ["ai_services"],
+        "list": ["inline_domains"],
 
         // DNS server tag to use.
         "server": "vpn_dns",
@@ -505,15 +512,15 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Upstream DNS servers used when no DNS rule matches
     // (only active when resolver_integration: "dnsmasq").
     // Default: no upstream servers (system/ISP upstreams from resolv.conf are used).
-    "fallback": ["isp_dns"]
+    "fallback": ["google_dns"]
   },
 
   // Traffic interception. All fields below have defaults; capability gaps
   // disable DNS and L7 independently and are reported by health.
   "intercept": {
     "enabled": true,
-    "min_ttl_s": 300,
-    "max_ttl_s": 86400,
+    "min_ttl_ms": 300000,
+    "max_ttl_ms": 86400000,
     "dns": {
       "enabled": true,
       "queue_num": 9053,
@@ -606,10 +613,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         // Supported: single IP, CIDR
         "dest_addr": "203.0.113.0/24",
 
-        // nftables-only catch-all for non-local, non-connected IPv4 traffic.
-        // Keep default_gateway rules last and add a separate IPv6 rule.
-        "default_gateway": "ipv4",
-
+        // [Only for nftables when combining src_port with a dest_port list]
+        // On iptables, remove src_port when dest_port contains a port list.
         // Match traffic only if source port matches
         // Supported: single port, multiple port comma-separated, range
         "src_port": "1024-65535",
@@ -654,6 +659,22 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         "proto": "tcp/udp",
         "dest_port": "!80,443",
         "outbound": "wan"
+      },
+
+      {
+        // [Only for nftables]
+        // Catch-all for non-local IPv4 traffic. Keep default_gateway rules last.
+        // Forwarded client traffic is covered by default. Set
+        // iproute.process_router_traffic to true to include router-originated traffic.
+        "default_gateway": "ipv4",
+        "outbound": "auto_select"
+      },
+
+      {
+        // [Only for nftables]
+        // Catch-all for non-local IPv6 traffic. Keep default_gateway rules last.
+        "default_gateway": "ipv6",
+        "outbound": "auto_select"
       }
     ]
   },
@@ -677,5 +698,5 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
 - `dns.servers[].detour` supports `interface`, `table`, and `urltest` outbounds, but not `blackhole` or `ignore`.
 - `lists[].detour` is useful when a remote list should be downloaded through a VPN or other non-default path.
-- `route.rules[]` must include at least one matching condition: `list`, `dscp`, `src_port`, `dest_port`, `src_addr`, or `dest_addr`.
+- `route.rules[]` must include at least one matching condition: `list`, `dscp`, `src_port`, `dest_port`, `src_addr`, `dest_addr`, or `default_gateway`.
 - `dns.rules[].allow_domain_rebinding` is mainly for internal domains that intentionally resolve to private IP ranges.

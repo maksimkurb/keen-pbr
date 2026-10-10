@@ -69,6 +69,15 @@ void add_issue(std::vector<ConfigValidationIssue>& issues,
     issues.push_back({std::move(path), std::move(message)});
 }
 
+constexpr int64_t kTtlMillisecondsPerSecond = 1000;
+constexpr int64_t kDefaultMinTtlMilliseconds = 300000;
+constexpr int64_t kDefaultMaxTtlMilliseconds = 86400000;
+constexpr int64_t kMinTtlMilliseconds = kTtlMillisecondsPerSecond;
+constexpr int64_t kMaxTtlMilliseconds =
+    static_cast<int64_t>(std::numeric_limits<uint32_t>::max()) *
+        kTtlMillisecondsPerSecond +
+    (kTtlMillisecondsPerSecond - 1);
+
 // Validation paths address the submitted JSON document exactly: object keys
 // as `.key` (or `["key"]` when the key is not a plain identifier) and array
 // elements as `[index]`.
@@ -967,6 +976,10 @@ Config parse_config_json(json parsed_json) {
         parsed_json, "api", "write_timeout_seconds", "api.write_timeout_seconds", issues);
     validate_optional_integer_field(
         parsed_json, "api", "keep_alive_timeout_seconds", "api.keep_alive_timeout_seconds", issues);
+    validate_optional_integer_field(
+        parsed_json, "intercept", "min_ttl_ms", "intercept.min_ttl_ms", issues);
+    validate_optional_integer_field(
+        parsed_json, "intercept", "max_ttl_ms", "intercept.max_ttl_ms", issues);
     validate_optional_string_field(
         parsed_json, "daemon", "firewall_backend", "daemon.firewall_backend", issues);
     validate_optional_boolean_field(
@@ -1167,17 +1180,27 @@ void validate_config(const Config& cfg, ConfigValidationMode mode) {
                               " is reserved by Keenetic NDM");
             }
         };
-        const int64_t min_ttl = ic.min_ttl_s.value_or(300);
-        const int64_t max_ttl = ic.max_ttl_s.value_or(86400);
-        if (ic.min_ttl_s.has_value() && min_ttl < 1) {
-            add_issue(issues, "intercept.min_ttl_s", "intercept.min_ttl_s must be >= 1");
+        const int64_t min_ttl = ic.min_ttl_ms.value_or(kDefaultMinTtlMilliseconds);
+        const int64_t max_ttl = ic.max_ttl_ms.value_or(kDefaultMaxTtlMilliseconds);
+        if (ic.min_ttl_ms.has_value() && min_ttl < kMinTtlMilliseconds) {
+            add_issue(issues, "intercept.min_ttl_ms",
+                      "intercept.min_ttl_ms must be >= 1000 milliseconds");
         }
-        if (ic.max_ttl_s.has_value() && max_ttl < 1) {
-            add_issue(issues, "intercept.max_ttl_s", "intercept.max_ttl_s must be >= 1");
+        if (ic.max_ttl_ms.has_value() && max_ttl < kMinTtlMilliseconds) {
+            add_issue(issues, "intercept.max_ttl_ms",
+                      "intercept.max_ttl_ms must be >= 1000 milliseconds");
+        }
+        if (ic.min_ttl_ms.has_value() && min_ttl > kMaxTtlMilliseconds) {
+            add_issue(issues, "intercept.min_ttl_ms",
+                      "intercept.min_ttl_ms must normalize to at most UINT32_MAX seconds");
+        }
+        if (ic.max_ttl_ms.has_value() && max_ttl > kMaxTtlMilliseconds) {
+            add_issue(issues, "intercept.max_ttl_ms",
+                      "intercept.max_ttl_ms must normalize to at most UINT32_MAX seconds");
         }
         if (min_ttl > max_ttl) {
-            add_issue(issues, "intercept.min_ttl_s",
-                      "intercept.min_ttl_s must be <= intercept.max_ttl_s");
+            add_issue(issues, "intercept.min_ttl_ms",
+                      "intercept.min_ttl_ms must be <= intercept.max_ttl_ms");
         }
         if (ic.dns) {
             check_port("intercept.dns.queue_num", ic.dns->queue_num);
@@ -1223,6 +1246,12 @@ void validate_config(const Config& cfg, ConfigValidationMode mode) {
             add_issue(issues,
                       list_path + ".url",
                       "List URL must use the http or https scheme");
+        }
+        if (list_cfg.ttl_ms.has_value() &&
+            (*list_cfg.ttl_ms < 0 ||
+             *list_cfg.ttl_ms / 1000 > std::numeric_limits<uint32_t>::max())) {
+            add_issue(issues, list_path + ".ttl_ms",
+                      "List ttl_ms must be non-negative and normalize to at most UINT32_MAX seconds");
         }
 
     }

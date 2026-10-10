@@ -73,13 +73,13 @@ export interface Outbound {
      * @minimum 0
      */
   tolerance_ms?: number;
-  /** `priority` keeps the stable test-group mark and routes it through one selected child. `balance` distributes new connections equally across usable children in the lowest-weight healthy group (nftables or iptables with the xt_statistic module; disabled on Keenetic).
+  /** `priority` keeps the stable test-group mark and routes it through one selected child. `balance` distributes new connections by member weight within the first usable healthy tier (nftables or iptables with the xt_statistic module; disabled on Keenetic).
    */
   strategy?: TestGroupStrategy;
   /** URLTEST/ICMPTEST conntrack handling when a healthy selected child is replaced for latency or priority reasons. `preserve` keeps established flows and `delete` removes affected entries after the replacement is active. In balance mode this setting is ignored; only connections using an unhealthy child are removed regardless of this setting.
    */
   conntrack_on_switch?: ConntrackOnSwitch;
-  /** Ordered list of outbound groups. Required for `urltest` and `icmptest`. Groups are tried by ascending group weight. In `priority` mode one usable child is selected by latency; in `balance` mode usable children in the active group receive an equal share of new connections.
+  /** Ordered list of outbound groups. Required for `urltest` and `icmptest`. Tiers are tried in array order. In `priority` mode one usable child is selected by latency; in `balance` mode usable members in the first healthy tier receive new connections in proportion to their weights.
    */
   outbound_groups?: OutboundGroup[];
   retry?: RetryConfig;

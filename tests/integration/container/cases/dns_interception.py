@@ -21,8 +21,8 @@ def _config(context):
         "enabled": True,
         "dns": {"enabled": True, "hold_timeout_ms": 100},
         "l7": {"enabled": False},
-        "min_ttl_s": 30,
-        "max_ttl_s": 3600,
+        "min_ttl_ms": 30000,
+        "max_ttl_ms": 3600000,
     }
     return config
 

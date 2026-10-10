@@ -23,8 +23,10 @@ struct InterceptEffective {
     uint16_t queue_num{9053};
     uint16_t nflog_group{9054};
     int hold_timeout_ms{30};
-    uint32_t min_ttl_s{300};
-    uint32_t max_ttl_s{86400};
+    // Public configuration remains in milliseconds until the snapshot is
+    // built; the netfilter writer consumes whole seconds.
+    uint64_t min_ttl_ms{300000};
+    uint64_t max_ttl_ms{86400000};
     std::string marker_domain{"check.keen.pbr"};
     std::array<uint8_t, 4> marker_ipv4{127, 0, 0, 88};
     bool tls{true};

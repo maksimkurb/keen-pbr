@@ -28,8 +28,8 @@ def _config(context, inbound):
         "enabled": True,
         "dns": {"enabled": False},
         "l7": {"enabled": True, "tls": True, "http": True, "quic": True},
-        "min_ttl_s": 30,
-        "max_ttl_s": 3600,
+        "min_ttl_ms": 30000,
+        "max_ttl_ms": 3600000,
     }
     return config
 

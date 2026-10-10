@@ -72,8 +72,8 @@ available. The effective defaults are:
   },
   "intercept": {
     "enabled": true,
-    "min_ttl_s": 300,
-    "max_ttl_s": 86400,
+"min_ttl_ms": 300000,
+"max_ttl_ms": 86400000,
     "dns": {
       "enabled": true,
       "queue_num": 9053,
@@ -98,7 +98,7 @@ available. The effective defaults are:
 survive an ordinary apply or runtime refresh and leave the sets when their
 element timeout expires. A full clear is an explicit configuration choice.
 
-`min_ttl_s` and `max_ttl_s` clamp the TTL used for addresses learned from DNS.
+`min_ttl_ms` and `max_ttl_ms` clamp the TTL used for addresses learned from DNS.
 When a list has `ttl_ms >= 1000`, its value in seconds overrides the global
 minimum for that list; the global maximum still applies. Static list entries
 are not affected. L7-derived addresses have no DNS record TTL, so they use the
@@ -343,9 +343,9 @@ zones or marked entries; failures are counted in health rather than hidden.
 | NFLOG receive failure | L7 is marked degraded and the DNS NFQUEUE path continues. |
 | Fatal listener failure | The service unbinds the listener and reports `running: false`. |
 | Apply or snapshot publication | Admitted writes drain, queued L7 work is cancelled, and the old snapshot is invalidated before the new snapshot is published. Failed publication does not permit stale writes; health exposes initialization/degraded state. |
-| NFQUEUE or NFLOG cannot be bound | Only that part is disabled before any rule references it; the other keeps running. The failure is cached until the next runtime refresh. |
+| NFQUEUE or NFLOG cannot be bound | Only that part is disabled before any rule references it; the other keeps running. Listener bind results are forgotten on runtime refresh or config apply, which can retry the bind. |
 | Kernel rejects `NFQA_CFG_F_FAIL_OPEN` | The queue runs without fail-open, `capabilities.fail_open` is `false` and a warning is reported. |
-| Dynamic set write test fails after apply | The interception rules are detached again, DNS hold and L7 are disabled and the reason is reported. The apply itself still succeeds. |
+| Startup dynamic set-write probe fails | DNS hold and L7 are disabled before firewall rules are installed. The probe uses a temporary set and is not repeated until service restart; later writes to active sets report runtime errors separately. |
 | ctnetlink does not answer | Conntrack cleanup is disabled with a warning; interception continues. |
 | DNS/L7 capability missing | The unavailable part is disabled and reported independently; the other part can remain active. |
 

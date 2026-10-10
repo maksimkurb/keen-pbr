@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <filesystem>
 #include <iterator>
+#include <stdexcept>
 
 using namespace keen_pbr3;
 
@@ -39,7 +40,85 @@ Config parse_test_config(const std::string& json_str) {
     return cfg;
 }
 
+std::string read_full_reference_config_jsonc(const std::string& locale_suffix) {
+    const std::filesystem::path relative_path =
+        "docs/content/docs/configuration/full-reference-config" + locale_suffix + ".md";
+    std::filesystem::path path = std::filesystem::current_path() / relative_path;
+    if (!std::filesystem::exists(path)) {
+        const std::filesystem::path source_file = __FILE__;
+        path = source_file.parent_path().parent_path() / relative_path;
+    }
+
+    std::ifstream input(path);
+    if (!input.is_open()) {
+        throw std::runtime_error("Cannot open full-reference config documentation: " + path.string());
+    }
+    const std::string document(std::istreambuf_iterator<char>(input), {});
+    const std::string fence = "```json {filename=\"config.json\"}";
+    const auto code_start = document.find(fence);
+    if (code_start == std::string::npos) {
+        throw std::runtime_error("Full-reference config JSONC code block was not found");
+    }
+    const auto body_start = document.find('\n', code_start + fence.size());
+    const auto code_end = document.find("\n```", body_start);
+    if (body_start == std::string::npos || code_end == std::string::npos) {
+        throw std::runtime_error("Full-reference config JSONC code block is incomplete");
+    }
+    return document.substr(body_start + 1, code_end - body_start - 1);
+}
+
+void remove_platform_specific_config(nlohmann::json& config_json, FirewallBackend backend) {
+#ifndef USE_KEENETIC_API
+    auto& dns_servers = config_json["dns"]["servers"];
+    dns_servers.erase(
+        std::remove_if(dns_servers.begin(), dns_servers.end(), [](const auto& server) {
+            return server.value("type", "static") == "keenetic";
+        }),
+        dns_servers.end());
+#endif
+
+    if (backend == FirewallBackend::iptables) {
+        auto& route_rules = config_json["route"]["rules"];
+        for (auto& rule : route_rules) {
+            if (rule.contains("src_port") && rule.contains("dest_port") &&
+                ((rule["src_port"].is_string() &&
+                  rule["src_port"].get<std::string>().find(',') != std::string::npos) ||
+                 (rule["dest_port"].is_string() &&
+                  rule["dest_port"].get<std::string>().find(',') != std::string::npos))) {
+                // iptables cannot combine a port list with both source and destination ports.
+                rule.erase("src_port");
+            }
+        }
+        route_rules.erase(
+            std::remove_if(route_rules.begin(), route_rules.end(), [](const auto& rule) {
+                return rule.contains("default_gateway");
+            }),
+            route_rules.end());
+    }
+}
+
 } // namespace
+
+TEST_CASE("full-reference config examples parse and validate in both locales") {
+    for (const auto& locale_suffix : {std::string{}, std::string{".ru"}}) {
+        INFO("locale suffix: " << (locale_suffix.empty() ? "EN" : "RU"));
+        const auto reference_json = nlohmann::json::parse(
+            read_full_reference_config_jsonc(locale_suffix), nullptr, true, true);
+
+        for (const auto backend : {FirewallBackend::nftables, FirewallBackend::iptables}) {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+            if (backend == FirewallBackend::nftables) {
+                continue;
+            }
+#endif
+            auto config_json = reference_json;
+            remove_platform_specific_config(config_json, backend);
+            set_detected_firewall_backend_for_tests(backend);
+            CHECK_NOTHROW(validate_config(parse_config(config_json.dump())));
+        }
+        reset_detected_firewall_backend_for_tests();
+    }
+}
 
 static std::vector<ConfigValidationIssue> validate_issues(const std::string& json);
 
@@ -1550,7 +1629,7 @@ TEST_CASE("intercept: defaults are accepted and absent values stay optional") {
     REQUIRE(cfg.intercept.has_value());
     CHECK_FALSE(cfg.intercept->enabled.has_value());
     const auto full = parse_test_config(R"({"intercept":{
-      "enabled":true,"min_ttl_s":300,"max_ttl_s":86400,
+      "enabled":true,"min_ttl_ms":300000,"max_ttl_ms":86400000,
       "dns":{"enabled":true,"queue_num":9053,"hold_timeout_ms":30,
              "marker":{"domain":"check.keen.pbr","answer_ipv4":"127.0.0.88"}},
       "l7":{"enabled":true,"nflog_group":9054,"tls":true,"http":true,"quic":true}}})");
@@ -1581,13 +1660,35 @@ TEST_CASE("intercept: hold timeout, ttl range and marker are validated") {
         CHECK(issues[0].path == "intercept.dns.hold_timeout_ms");
     }
 
-    auto ttl = validate_issues(R"({"intercept":{"min_ttl_s":600,"max_ttl_s":300}})");
+    auto ttl = validate_issues(R"({"intercept":{"min_ttl_ms":600000,"max_ttl_ms":300000}})");
     REQUIRE(ttl.size() == 1);
-    CHECK(ttl[0].path == "intercept.min_ttl_s");
-    CHECK(validate_issues(R"({"intercept":{"min_ttl_s":300,"max_ttl_s":300}})").empty());
-    CHECK(validate_issues(R"({"intercept":{"min_ttl_s":0}})").size() == 1);
+    CHECK(ttl[0].path == "intercept.min_ttl_ms");
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":300000,"max_ttl_ms":300000}})").empty());
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":0}})").size() == 1);
     // A lone min above the default max is also inconsistent.
-    CHECK(validate_issues(R"({"intercept":{"min_ttl_s":90000}})").size() == 1);
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":90000000}})").size() == 1);
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":4294967295999,"max_ttl_ms":4294967295999}})").empty());
+    CHECK_FALSE(validate_issues(R"({"intercept":{"min_ttl_ms":4294967296000}})").empty());
+    const auto global_ttl_overflow = validate_issues(
+        R"({"intercept":{"min_ttl_ms":4294967296000,"max_ttl_ms":4294967296000}})");
+    REQUIRE(global_ttl_overflow.size() == 2);
+    CHECK(global_ttl_overflow[0].path == "intercept.min_ttl_ms");
+    CHECK(global_ttl_overflow[1].path == "intercept.max_ttl_ms");
+    const auto max_ttl_overflow =
+        validate_issues(R"({"intercept":{"min_ttl_ms":1000,"max_ttl_ms":4294967296000}})");
+    REQUIRE(max_ttl_overflow.size() == 1);
+    CHECK(max_ttl_overflow[0].path == "intercept.max_ttl_ms");
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":1001,"max_ttl_ms":1999}})").empty());
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":999}})").size() == 1);
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":1999,"max_ttl_ms":1001}})").size() == 1);
+    CHECK_FALSE(validate_issues(R"({"intercept":{"max_ttl_ms":999}})").empty());
+    CHECK(validate_issues(R"({"lists":{"ttl":{"domains":["example.com"],"ttl_ms":4294967295999}}})").empty());
+    for (const auto* bad : {"-1", "4294967296000"}) {
+        const auto issues = validate_issues(
+            std::string(R"({"lists":{"ttl":{"domains":["example.com"],"ttl_ms":)") + bad + "}}}");
+        REQUIRE(issues.size() == 1);
+        CHECK(issues[0].path == "lists.ttl.ttl_ms");
+    }
 
     for (const char* bad : {"", "-bad.example", "a..b", "bad domain", "a.b-"}) {
         const auto issues = validate_issues(

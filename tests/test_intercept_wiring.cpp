@@ -211,8 +211,8 @@ TEST_CASE("effective intercept: defaults with full capabilities enable both part
     CHECK(eff.queue_num == 9053);
     CHECK(eff.nflog_group == 9054);
     CHECK(eff.hold_timeout_ms == 30);
-    CHECK(eff.min_ttl_s == 300);
-    CHECK(eff.max_ttl_s == 86400);
+    CHECK(eff.min_ttl_ms == 300000);
+    CHECK(eff.max_ttl_ms == 86400000);
     CHECK(eff.marker_domain == "check.keen.pbr");
     CHECK(eff.marker_ipv4 == std::array<uint8_t, 4>{127, 0, 0, 88});
     const auto settings = eff.firewall_settings();
@@ -258,15 +258,15 @@ TEST_CASE("effective intercept: config switches and overrides are honoured") {
     CHECK(eff.reasons.empty());
 
     eff = resolve_effective_intercept(
-        config_from(R"({"intercept":{"min_ttl_s":60,"max_ttl_s":120,
+        config_from(R"({"intercept":{"min_ttl_ms":60000,"max_ttl_ms":120000,
           "dns":{"enabled":false,"queue_num":100,"hold_timeout_ms":50,
                  "marker":{"domain":"m.example","answer_ipv4":"10.1.2.3"}},
           "l7":{"nflog_group":200,"tls":true,"http":false,"quic":false}}})"),
         FirewallBackend::nftables, all_caps());
     CHECK_FALSE(eff.dns_hold);
     CHECK(eff.l7);
-    CHECK(eff.min_ttl_s == 60);
-    CHECK(eff.max_ttl_s == 120);
+    CHECK(eff.min_ttl_ms == 60000);
+    CHECK(eff.max_ttl_ms == 120000);
     CHECK(eff.marker_domain == "m.example");
     CHECK(eff.marker_ipv4 == std::array<uint8_t, 4>{10, 1, 2, 3});
     const auto settings = eff.firewall_settings();
@@ -329,8 +329,8 @@ TEST_CASE("snapshot builder: lists become targets with ttl floors") {
     sets.push_back({Firewall::static_set_name("ips", AF_INET), FirewallFamily::ipv4, 0});
 
     InterceptEffective eff;
-    eff.min_ttl_s = 600;
-    eff.max_ttl_s = 1234;
+    eff.min_ttl_ms = 600000;
+    eff.max_ttl_ms = 1234000;
     eff.marker_domain = "m.example";
     eff.tls = false;
     const auto snapshot = build_intercept_snapshot(config, sets, true, eff, streamer);

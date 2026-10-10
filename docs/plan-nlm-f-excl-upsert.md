@@ -1,5 +1,11 @@
 # Plan: single-request upsert for set writes (drop `NLM_F_EXCL` on the hot path)
 
+> Completed in commit [`f219a9fb`](https://github.com/maksimkurb/keen-pbr/commit/f219a9fb).
+> This document records the design history, not pending work. Current behavior:
+> ipset uses non-exclusive upsert; nft uses in-place timeout updates when the
+> startup capability probe supports them and retains the delete/add fallback
+> otherwise.
+
 ## Problem
 
 Intercept set writes are slow (30–50 ms per 1-element batch, see the

@@ -65,6 +65,23 @@ trusted network or an HTTPS reverse proxy.
 
 By default, the API listens on `0.0.0.0:12121`. All endpoints are served at the configured `api.listen` address.
 
+The [OpenAPI document](https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml) is the complete request and response schema. The main routes are:
+
+| Route | Purpose |
+|---|---|
+| `GET /api/health/service` | Service, config draft, lifecycle operation, and rollback status. |
+| `POST /api/service/start`, `/stop`, `/restart` | Start, stop, or restart routing asynchronously. |
+| `GET /api/config`, `POST /api/config` | Read or stage a validated config draft. |
+| `POST /api/config/discard`, `/save`, `/rollback` | Discard a draft, persist/apply it, or explicitly roll back a failed apply. |
+| `GET /api/status/events` | Server-Sent Events for service, outbound, and interface status. |
+| `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Current outbound health and system interface inventory. |
+| `GET /api/health/routing`, `POST /api/routing/test` | Cached routing/firewall health and a per-target routing diagnostic. |
+| `POST /api/lists/refresh` | Refresh one or all remote URL lists. |
+| `GET /api/dns/test` | Stream DNS and L7 interception events or run the Web UI DNS marker check. |
+| `GET /api/diagnostics/command-failure` | Read the recent command failure log. |
+| `GET /metrics` | Prometheus text metrics. |
+| `/api/auth/status`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/password`, `/api/auth/settings` | Authentication status and session/password management. |
+
 ---
 
 ## GET /api/health/service
@@ -80,8 +97,15 @@ curl http://127.0.0.1:12121/api/health/service
 ```json
 {
   "version": "3.0.0",
+  "build": "20261010120000",
   "status": "running",
-  "config_is_draft": false
+  "runtime_state": "running",
+  "runtime_state_reason": "config apply complete",
+  "os_type": "debian",
+  "os_version": "12",
+  "build_variant": "generic",
+  "config_is_draft": false,
+  "rollback_available": false
 }
 ```
 
@@ -98,7 +122,7 @@ For live outbound runtime state (health, latency, circuit breaker) use `GET /api
 
 Returns Prometheus text format 0.0.4. It uses the same authentication as the API,
 including when authentication is enabled; scrape it with Basic auth or the
-current Bearer token:
+current Bearer token. It may return `503` if the metrics provider is unavailable:
 
 ```bash
 curl -u admin:password http://127.0.0.1:12121/metrics
@@ -346,7 +370,7 @@ Error response body:
 
 ## GET /api/config
 
-Returns the current configuration and a flag indicating whether a staged in-memory draft exists.
+Returns the visible configuration and a flag indicating whether a staged in-memory draft exists. The `api` security settings are intentionally omitted. The response also includes per-list refresh state.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/config
@@ -358,12 +382,12 @@ curl http://127.0.0.1:12121/api/config
 {
   "config": {
     "daemon": { "pid_file": "/var/run/keen-pbr.pid", "cache_dir": "/var/cache/keen-pbr" },
-    "api": { "enabled": true, "listen": "127.0.0.1:12121" },
     "outbounds": [],
     "lists": {},
     "route": {}
   },
-  "is_draft": false
+  "is_draft": false,
+  "list_refresh_state": {}
 }
 ```
 
@@ -382,6 +406,8 @@ curl http://127.0.0.1:12121/api/config
 ## POST /api/config
 
 Validates the provided JSON body as a config file and stages it in memory. The config is **not** written to disk and the routing runtime is **not** changed. Use `POST /api/config/save` to persist and apply the staged draft.
+
+The `api` field in the submitted body is ignored; the daemon keeps the security settings already in effect.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/config \
@@ -413,21 +439,18 @@ curl -X POST http://127.0.0.1:12121/api/config \
 
 ## POST /api/config/save
 
-Persists the staged config to disk, then applies it to the routing runtime.
+Accepts an asynchronous operation that persists the staged config to disk and then reconciles the routing runtime. HTTP `202` confirms acceptance only; it does not mean the runtime apply has completed.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/config/save
 ```
 
-### Response
+### Accepted response (202)
 
 ```json
 {
-  "status": "ok",
-  "message": "Config saved and applied",
-  "saved": true,
-  "applied": true,
-  "rolled_back": false
+  "operation_id": "op-123",
+  "status": "accepted"
 }
 ```
 
@@ -435,12 +458,11 @@ curl -X POST http://127.0.0.1:12121/api/config/save
 
 ```json
 {
-  "error": "No staged config to save",
-  "saved": false,
-  "applied": false,
-  "rolled_back": false
+  "error": "No staged config to save"
 }
 ```
+
+After acceptance, inspect `GET /api/health/service` and its `lifecycle_operation` field, or subscribe to `/api/status/events`, until the operation reaches a terminal state. Persistence happens before runtime reconciliation. If reconciliation fails after the file was committed, the daemon reports a broken runtime and sets `rollback_available`; it does not automatically restore the prior file or runtime. `POST /api/config/rollback` explicitly restores the retained previous config and reconciles it. On success the runtime becomes active and the staged revision is cleared. `POST /api/config/discard` only discards an unsaved in-memory draft; it does not change the file or runtime.
 
 ---
 
@@ -514,7 +536,7 @@ Leaving them out preserves the target-only list diagnostic.
 
 ## GET /api/health/routing
 
-Verifies the live kernel routing and firewall state against the expected configuration. Checks that the firewall chain exists, all rules are present, route tables are populated, and policy rules are in place.
+Returns the daemon's cached canonical report of kernel routing and firewall state. A cold or stale snapshot triggers an off-loop refresh and may temporarily report a pending/degraded result; each request does not synchronously inspect the kernel.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/health/routing
@@ -525,16 +547,17 @@ curl http://127.0.0.1:12121/api/health/routing
 ```json
 {
   "overall": "ok",
-  "firewall_backend": "nftables",
+  "firewall_backend": "iptables",
   "firewall": {
     "chain_present": true,
     "prerouting_hook_present": true,
-    "detail": "chain keen-pbr found in table mangle"
+    "verification_state": "verified",
+    "detail": "chain KeenPbrTable found in table mangle"
   },
   "firewall_rules": [
     {
-      "set_name": "keen-pbr-my_domains",
-      "action": "MARK",
+      "set_name": "<direct>",
+      "action": "mark",
       "expected_fwmark": "0x00010000",
       "actual_fwmark": "0x00010000",
       "status": "ok"

@@ -702,7 +702,7 @@ function getListNameError(
 
 function getTtlError(value: string, t: (key: string) => string) {
   const trimmed = value.trim()
-  if (!/^\d+$/.test(trimmed)) {
+  if (!/^\d+$/.test(trimmed) || Number(trimmed) > 4294967295999) {
     return t("pages.listUpsert.validation.invalidTtl")
   }
 

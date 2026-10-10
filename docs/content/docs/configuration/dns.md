@@ -122,8 +122,8 @@ these values only when the defaults do not suit the device:
 {
   "intercept": {
     "enabled": true,
-    "min_ttl_s": 300,
-    "max_ttl_s": 86400,
+"min_ttl_ms": 300000,
+"max_ttl_ms": 86400000,
     "dns": {
       "enabled": true,
       "queue_num": 9053,
@@ -229,13 +229,14 @@ traffic and a probe never fails a configuration apply.
 | `fail_open` | `NFQA_CFG_FLAGS(FAIL_OPEN)` on the bound queue, plus a control request with an unknown flag bit. Kernels before 3.6 ignore the attribute and ACK both, so a control that is accepted means the flag was never parsed | `unsupported`: queue runs without fail-open, `capabilities.fail_open=false`, warning |
 | `payload_replacement` | `NS_GET_USERNS` owner of the network namespace | `supported`, `unsupported` or `unknown`; informational |
 | `nflog` | bind of the configured group, done by the service itself | failure disables L7 only |
-| `set_write` | after the firewall created the sets: add and delete of `192.0.2.255` / `2001:db8::ffff` with a 1 s timeout on one `kpbr4d_*`/`kpbr6d_*` set (ipset `ADD`/`DEL`, nft `NEWSETELEM`/`DELSETELEM`) | failure removes the interception rules again and disables DNS hold and L7; `skipped` when no dynamic set exists |
+| `set_write` | once at service startup, add and delete on a temporary probe set (`kpbr4d_keenpbrprobe` for ipset or nft table `KeenPbrProbe`); the probe object is removed afterwards | failure disables DNS hold and L7 before rules are installed; restart the service to repeat this kernel capability check. Runtime writes to active sets report their own errors and are not re-probed |
 | `conntrack` | a ctnetlink dump request, abandoned after the first reply | failure disables conntrack cleanup only (warning) |
 
 `kernel_release` (`uname -r`) is reported for information and is never used to
-decide anything. A failed probe is cached until the next runtime refresh
-(which includes `SIGUSR1`) or configuration change, so a kernel that
-rejects a listener is not retried on every apply.
+decide anything. Kernel capability probes run once before firewall setup and
+are cached until service restart. Listener bind results are separate: a failed
+NFQUEUE/NFLOG bind can be retried during a runtime refresh or configuration
+apply. Runtime writes to active sets are monitored independently.
 
 ## DNS Servers
 
@@ -292,7 +293,7 @@ Rules and behavior:
 
 ### How `detour` works
 
-When `detour` is set, keen-pbr makes sure DNS queries for that server leave through the selected outbound; keen-pbr would automatically create firewall rule for specified DNS IP and port. This can also affect other clients in your network that trying to contact this DNS server directly.
+When `detour` is set, keen-pbr routes its own upstream DNS requests to that server through the selected outbound. The firewall rule matches the configured DNS server IP and port; it does not enforce a detour for forwarded client requests to the same address.
 
 For example, if `vpn_dns` has `detour: "vpn"`, then the DNS requests to `vpn_dns` will also go through `vpn`.
 

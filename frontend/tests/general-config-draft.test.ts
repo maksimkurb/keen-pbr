@@ -24,8 +24,8 @@ const config = {
   iproute: { table_start: 200, process_router_traffic: true },
   intercept: {
     enabled: true,
-    min_ttl_s: 10,
-    max_ttl_s: 20,
+    min_ttl_ms: 10000,
+    max_ttl_ms: 20000,
     dns: {
       enabled: false,
       queue_num: 1,

@@ -8,7 +8,8 @@ Always build using the root `Makefile`:
 make
 ```
 
-This runs `cmake -S . -B cmake-build ...` followed by `cmake --build cmake-build`.
+This runs `cmake -S . -B cmake-build-gcc ...` followed by
+`cmake --build cmake-build-gcc`.
 
 ### Leave CPUs free
 
