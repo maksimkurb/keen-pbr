@@ -93,6 +93,7 @@ case "$cmd" in
         cat "$db.new" > "$db"
         ;;
     commit) echo "commit $arg" >> "$FAKE_UCI_LOG" ;;
+    changes) [ -n "${FAKE_UCI_CHANGES:-}" ] && printf '%s\n' "$FAKE_UCI_CHANGES"; exit 0 ;;
     *) echo "fake uci: unsupported: $*" >&2; exit 1 ;;
 esac
 FAKE
@@ -116,47 +117,78 @@ chmod +x "$fake_bin/pidof"
 # --- OpenWrt -----------------------------------------------------------------
 
 test_openwrt() {
-    confdir="$tmp_root/owrt/tmp/dnsmasq.d"
+    confdir="$tmp_root/owrt/tmp/dnsmasq.cfg01.d"
+    guestdir="$tmp_root/owrt/x/guest.d"
     export FAKE_UCI_DB="$tmp_root/uci.db" FAKE_UCI_LOG="$tmp_root/uci.log"
     export TMP_ROOT="$tmp_root/owrt/tmp"
     export CACHE_DIR="$tmp_root/owrt/cache" CONFIG_DIR="$tmp_root/owrt/etc-keen-pbr"
     export KEEN_PBR_BIN=/usr/sbin/keen-pbr
+    export LOCK_DIR="$tmp_root/hook.lock" DNSMASQ_BIN=/usr/sbin/dnsmasq
+    unset INIT_SCRIPT
     mounts="/usr/sbin/keen-pbr $CONFIG_DIR $CACHE_DIR"
-    cat > "$FAKE_UCI_DB" <<EOF
+    cat > "$FAKE_UCI_DB" <<EOT
 dhcp.cfg01=dnsmasq
-dhcp.cfg01.confdir=$confdir
-dhcp.cfg01.addnmount=/opt/foreign
-dhcp.cfg02=dnsmasq
-dhcp.cfg02.server=1.1.1.1
-EOF
+dhcp.cfg01.addnmount=$CONFIG_DIR
+dhcp.guest=dnsmasq
+dhcp.guest.confdir=$guestdir,*.conf
+EOT
     : > "$tmp_root/uci.log"
     run() { PATH="$fake_bin:$PATH" UCI="$fake_bin/uci" sh "$owrt_hook" "$@"; }
     f1="$confdir/keen-pbr-upstream-dns.conf"
-    f2="$TMP_ROOT/dnsmasq.cfg02.d/keen-pbr-upstream-dns.conf"
+    f2="$guestdir/keen-pbr-upstream-dns.conf"
     want='conf-script=/usr/sbin/keen-pbr generate-resolver-config dnsmasq'
 
     [ "$(run status)" = not-installed ] || fail "owrt: status before apply"
+
+    # inspect (before apply).
+    out=$(run inspect) || fail "owrt: inspect failed"
+    printf '%s\n' "$out" | grep -qxF 'hook_version=2' || fail "owrt: inspect hook_version"
+    [ "$(printf '%s\n' "$out" | grep -cxF '[instance]')" = 2 ] || fail "owrt: inspect instance count"
+    printf '%s\n' "$out" | grep -qxF 'selector=uci:cfg01' || fail "owrt: inspect selector"
+    printf '%s\n' "$out" | grep -qxF "dropin_dir=$guestdir" || fail "owrt: inspect did not strip the confdir filter"
+    [ "$(printf '%s\n' "$out" | grep -cxF 'dropin_state=absent')" = 2 ] || fail "owrt: inspect state before apply"
+
+    # Usage and selector errors.
     reset_restarts
-    run apply || fail "owrt: apply failed"
+    [ "$(rc_of run apply)" = 64 ] || fail "owrt: apply without selector should exit 64"
+    [ "$(rc_of run remove)" = 64 ] || fail "owrt: remove without selector should exit 64"
+    [ "$(rc_of run apply uci:nosuch)" = 3 ] || fail "owrt: unknown selector should exit 3"
+    [ "$(rc_of run apply cfg01)" = 3 ] || fail "owrt: selector without scheme should exit 3"
+    [ ! -e "$f1" ] && [ ! -e "$f2" ] && [ "$(restarts)" = 0 ] || fail "owrt: failed apply touched something"
+
+    run apply uci:cfg01 || fail "owrt: apply failed"
     [ "$(cat "$f1")" = "$want" ] || fail "owrt: conf file 1 wrong"
-    [ "$(cat "$f2")" = "$want" ] || fail "owrt: conf file 2 (default confdir) wrong"
-    for m in $mounts; do
-        grep -qxF "dhcp.cfg01.addnmount=$m" "$FAKE_UCI_DB" || fail "owrt: cfg01 missing mount $m"
-        grep -qxF "dhcp.cfg02.addnmount=$m" "$FAKE_UCI_DB" || fail "owrt: cfg02 missing mount $m"
-    done
-    grep -qxF "dhcp.cfg01.addnmount=/opt/foreign" "$FAKE_UCI_DB" || fail "owrt: foreign mount lost"
+    [ ! -e "$f2" ] || fail "owrt: apply wrote into another section's confdir"
+    [ ! -d "$TMP_ROOT/dnsmasq.guest.d" ] || fail "owrt: apply created the guest default dir"
+    grep -qxF "dhcp.cfg01.addnmount=$CONFIG_DIR" "$FAKE_UCI_DB" || fail "owrt: pre-existing mount lost"
+    grep -qxF "dhcp.cfg01.addnmount=/usr/sbin/keen-pbr" "$FAKE_UCI_DB" || fail "owrt: bin mount missing"
+    grep -qxF "dhcp.cfg01.addnmount=$CACHE_DIR" "$FAKE_UCI_DB" || fail "owrt: cache mount missing"
+    ! grep -q '^dhcp.guest.addnmount' "$FAKE_UCI_DB" || fail "owrt: guest got mounts"
+    [ "$(grep -c '^dhcp.cfg01.keen_pbr_addnmount=' "$FAKE_UCI_DB")" = 2 ] || fail "owrt: ownership list size"
+    grep -qxF "dhcp.cfg01.keen_pbr_addnmount=/usr/sbin/keen-pbr" "$FAKE_UCI_DB" || fail "owrt: ownership bin"
+    grep -qxF "dhcp.cfg01.keen_pbr_addnmount=$CACHE_DIR" "$FAKE_UCI_DB" || fail "owrt: ownership cache"
+    ! grep -qxF "dhcp.cfg01.keen_pbr_addnmount=$CONFIG_DIR" "$FAKE_UCI_DB" || fail "owrt: claimed a pre-existing mount"
     [ "$(restarts)" = 1 ] || fail "owrt: apply should restart once"
+    [ "$(tail -n 1 "$tmp_root/restart.log")" = "restart cfg01" ] || fail "owrt: restart should name the section"
     [ "$(commits)" = 1 ] || fail "owrt: apply should commit once"
     [ "$(run status)" = installed ] || fail "owrt: status after apply"
+    out=$(run inspect)
+    printf '%s\n' "$out" | grep -qxF 'dropin_state=current' || fail "owrt: inspect state after apply"
+    [ "$(printf '%s\n' "$out" | grep -cxF 'dropin_state=absent')" = 1 ] || fail "owrt: guest state after apply"
+    [ ! -e "$LOCK_DIR" ] || fail "owrt: lock left behind"
 
     # Second apply: no rewrite, no commit, but restart again.
-    touch -t 200001010000 "$f1" "$f2"
+    touch -t 200001010000 "$f1"
     cp "$FAKE_UCI_DB" "$tmp_root/uci.before"
-    run apply || fail "owrt: second apply failed"
-    [ "$(touched "$f1" "$f2")" = 0 ] || fail "owrt: second apply rewrote the conf file"
+    run apply uci:cfg01 || fail "owrt: second apply failed"
+    [ "$(touched "$f1")" = 0 ] || fail "owrt: second apply rewrote the conf file"
     cmp -s "$FAKE_UCI_DB" "$tmp_root/uci.before" || fail "owrt: second apply changed uci"
     [ "$(commits)" = 1 ] || fail "owrt: second apply committed"
     [ "$(restarts)" = 2 ] || fail "owrt: second apply should restart again"
+
+    # PER_INSTANCE_RESTART=0 restarts without a section name.
+    PER_INSTANCE_RESTART=0 run apply uci:cfg01 || fail "owrt: apply (restart all) failed"
+    [ "$(tail -n 1 "$tmp_root/restart.log")" = "restart" ] || fail "owrt: PER_INSTANCE_RESTART=0 restart line"
 
     # Migration must not strip the hook's addnmount entries.
     PATH="$fake_bin:$PATH" DNSMASQ_RESTART_CMD="true" sh "$owrt_uci_sh" dnsmasq-migrate-from-keen-pbr >/dev/null 2>&1 ||
@@ -165,22 +197,59 @@ EOF
     [ -f "$f1" ] || fail "owrt: migration removed the new conf file"
     [ "$(commits)" = 1 ] || fail "owrt: migration committed"
 
-    # Remove.
-    run remove || fail "owrt: remove failed"
-    [ ! -e "$f1" ] && [ ! -e "$f2" ] || fail "owrt: conf files not removed"
-    for m in $mounts; do
-        ! grep -qF "addnmount=$m" "$FAKE_UCI_DB" || fail "owrt: mount $m not removed"
-    done
-    grep -qxF "dhcp.cfg01.addnmount=/opt/foreign" "$FAKE_UCI_DB" || fail "owrt: remove dropped foreign mount"
-    [ "$(restarts)" = 3 ] || fail "owrt: remove should restart once"
-    [ "$(commits)" = 2 ] || fail "owrt: remove should commit once"
+    # Foreign drop-in is never overwritten.
+    guest_before=$(cat "$FAKE_UCI_DB")
+    mkdir -p "$guestdir"
+    echo other > "$f2"
+    rc=$(rc_of run apply uci:guest)
+    [ "$rc" = 1 ] || fail "owrt: foreign drop-in should exit 1 (got $rc)"
+    [ "$(cat "$f2")" = other ] || fail "owrt: foreign drop-in overwritten"
+    [ "$(cat "$FAKE_UCI_DB")" = "$guest_before" ] || fail "owrt: foreign drop-in changed uci"
+    [ "$(run inspect | grep -cxF 'dropin_state=foreign')" = 1 ] || fail "owrt: inspect foreign state"
+    rm -f "$f2"
+
+    # Section with a confdir filter: file goes into the bare directory.
+    run apply uci:guest || fail "owrt: apply guest failed"
+    [ "$(cat "$f2")" = "$want" ] || fail "owrt: guest drop-in not in the stripped confdir"
+    run remove uci:guest || fail "owrt: remove guest failed"
+    [ ! -e "$f2" ] || fail "owrt: guest drop-in not removed"
+    ! grep -q '^dhcp.guest.keen_pbr_addnmount' "$FAKE_UCI_DB" || fail "owrt: guest ownership left"
+
+    # Remove: only our drop-in and owned mounts.
+    n=$(restarts)
+    run remove uci:cfg01 || fail "owrt: remove failed"
+    [ ! -e "$f1" ] || fail "owrt: conf file not removed"
+    grep -qxF "dhcp.cfg01.addnmount=$CONFIG_DIR" "$FAKE_UCI_DB" || fail "owrt: remove dropped a pre-existing mount"
+    ! grep -qxF "dhcp.cfg01.addnmount=/usr/sbin/keen-pbr" "$FAKE_UCI_DB" || fail "owrt: bin mount not removed"
+    ! grep -qxF "dhcp.cfg01.addnmount=$CACHE_DIR" "$FAKE_UCI_DB" || fail "owrt: cache mount not removed"
+    ! grep -q 'keen_pbr_addnmount' "$FAKE_UCI_DB" || fail "owrt: ownership list not removed"
+    [ "$(restarts)" = "$((n + 1))" ] || fail "owrt: remove should restart once"
 
     # Remove with nothing installed.
     cp "$FAKE_UCI_DB" "$tmp_root/uci.before"
-    run remove || fail "owrt: idempotent remove failed"
-    [ "$(restarts)" = 3 ] && [ "$(commits)" = 2 ] || fail "owrt: idempotent remove restarted/committed"
+    c=$(commits); n=$(restarts)
+    run remove uci:cfg01 || fail "owrt: idempotent remove failed"
+    [ "$(restarts)" = "$n" ] && [ "$(commits)" = "$c" ] || fail "owrt: idempotent remove restarted/committed"
     cmp -s "$FAKE_UCI_DB" "$tmp_root/uci.before" || fail "owrt: idempotent remove changed uci"
     [ "$(run status)" = not-installed ] || fail "owrt: status after remove"
+
+    # Pending foreign UCI changes: refuse to commit.
+    c=$(commits); cp "$FAKE_UCI_DB" "$tmp_root/uci.before"
+    rc=$(FAKE_UCI_CHANGES="dhcp.cfg01.foo=bar" rc_of run apply uci:cfg01)
+    [ "$rc" = 1 ] || fail "owrt: pending uci changes should exit 1 (got $rc)"
+    [ "$(commits)" = "$c" ] || fail "owrt: committed over pending changes"
+    cmp -s "$FAKE_UCI_DB" "$tmp_root/uci.before" || fail "owrt: pending-changes apply changed uci"
+    [ ! -e "$f1" ] || fail "owrt: pending-changes apply wrote the drop-in"
+
+    # Lock: live owner -> exit 4; dead owner -> stolen and released.
+    mkdir "$LOCK_DIR"; echo $$ > "$LOCK_DIR/pid"
+    rc=$(LOCK_TRIES=1 rc_of run apply uci:cfg01)
+    [ "$rc" = 4 ] || fail "owrt: held lock should exit 4 (got $rc)"
+    [ -d "$LOCK_DIR" ] || fail "owrt: a failed locker removed the owner's lock"
+    echo 999999 > "$LOCK_DIR/pid"
+    run apply uci:cfg01 || fail "owrt: stale lock not stolen"
+    [ ! -e "$LOCK_DIR" ] || fail "owrt: lock left after apply"
+    run remove uci:cfg01 || fail "owrt: cleanup remove failed"
 
     # alive: ALIVE_CMD override maps 0 -> 0, 1 -> 1, anything else -> 2.
     [ "$(ALIVE_CMD=true rc_of run alive)" = 0 ] || fail "owrt: alive (ALIVE_CMD ok)"
@@ -207,13 +276,17 @@ test_keenetic() {
     export DNSMASQ_SH=/opt/usr/lib/keen-pbr/dnsmasq.sh
     f="$TMP_CONF_DIR/keen-pbr-upstream-dns.conf"
     want='conf-script=/opt/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry'
+    export LOCK_DIR="$tmp_root/hook.lock"
+    printf '#!/bin/sh\n' > "$kroot/dnsmasq-bin"
+    chmod +x "$kroot/dnsmasq-bin"
+    export DNSMASQ_BIN="$kroot/dnsmasq-bin"
     run() { sh "$keen_hook" "$@"; }
 
     # No dnsmasq installed.
     rm -f "$DNSMASQ_CONF" "$INIT_SCRIPT"
     reset_restarts
     rc=0
-    err=$(run apply 2>&1 >/dev/null) || rc=$?
+    err=$(run apply entware:default 2>&1 >/dev/null) || rc=$?
     [ "$rc" = 2 ] || fail "keenetic: apply without dnsmasq should exit 2 (got $rc)"
     [ "$err" = "dnsmasq is not installed (opkg install dnsmasq-full)" ] || fail "keenetic: wrong message: $err"
     [ "$(restarts)" = 0 ] || fail "keenetic: restarted without dnsmasq"
@@ -221,24 +294,34 @@ test_keenetic() {
     printf 'user=nobody\nserver=1.1.1.1\n' > "$DNSMASQ_CONF"
     : > "$INIT_SCRIPT"
     [ "$(run status)" = not-installed ] || fail "keenetic: status before apply"
+    [ "$(rc_of run apply)" = 64 ] || fail "keenetic: apply without selector should exit 64"
+    [ "$(rc_of run apply uci:x)" = 3 ] || fail "keenetic: foreign selector should exit 3"
+    [ "$(rc_of run remove uci:x)" = 3 ] || fail "keenetic: remove foreign selector should exit 3"
+    out=$(run inspect) || fail "keenetic: inspect failed"
+    printf '%s\n' "$out" | grep -qxF 'hook_version=2' || fail "keenetic: inspect hook_version"
+    printf '%s\n' "$out" | grep -qxF 'selector=entware:default' || fail "keenetic: inspect selector"
+    printf '%s\n' "$out" | grep -qxF 'dropin_state=absent' || fail "keenetic: inspect state before apply"
+    [ "$(restarts)" = 0 ] || fail "keenetic: rejected calls restarted"
 
     # Nothing installed: remove is silent and writes nothing.
     cp "$DNSMASQ_CONF" "$kroot/conf.before"
-    run remove || fail "keenetic: idempotent remove failed"
+    run remove entware:default || fail "keenetic: idempotent remove failed"
     cmp -s "$DNSMASQ_CONF" "$kroot/conf.before" || fail "keenetic: idempotent remove changed dnsmasq.conf"
     [ "$(restarts)" = 0 ] || fail "keenetic: idempotent remove restarted"
 
-    run apply || fail "keenetic: apply failed"
+    run apply entware:default || fail "keenetic: apply failed"
     [ "$(cat "$f")" = "$want" ] || fail "keenetic: conf file wrong"
     grep -qxF '# BEGIN keen-pbr upstream dns' "$DNSMASQ_CONF" || fail "keenetic: block missing"
     grep -qxF "conf-dir=$TMP_CONF_DIR,*.conf" "$DNSMASQ_CONF" || fail "keenetic: conf-dir line missing"
     grep -qxF 'server=1.1.1.1' "$DNSMASQ_CONF" || fail "keenetic: user config lost"
     [ "$(restarts)" = 1 ] || fail "keenetic: apply should restart once"
     [ "$(run status)" = installed ] || fail "keenetic: status after apply"
+    run inspect | grep -qxF 'dropin_state=current' || fail "keenetic: inspect state after apply"
+    [ ! -e "$LOCK_DIR" ] || fail "keenetic: lock left behind"
 
     # Second apply: nothing rewritten.
     touch -t 200001010000 "$f" "$DNSMASQ_CONF"
-    run apply || fail "keenetic: second apply failed"
+    run apply entware:default || fail "keenetic: second apply failed"
     [ "$(touched "$f" "$DNSMASQ_CONF")" = 0 ] || fail "keenetic: second apply rewrote files"
     [ "$(grep -c 'BEGIN keen-pbr upstream dns' "$DNSMASQ_CONF")" = 1 ] || fail "keenetic: block duplicated"
     [ "$(restarts)" = 2 ] || fail "keenetic: second apply should restart again"
@@ -252,7 +335,7 @@ test_keenetic() {
         cat "$kroot/conf.before"
         printf '%s\nserver=8.8.8.8\nserver=8.8.4.4\n# END keen-pbr fallback upstream\n' "$fb_begin"
     } > "$DNSMASQ_CONF"
-    run apply || fail "keenetic: apply with fallback block failed"
+    run apply entware:default || fail "keenetic: apply with fallback block failed"
     ! grep -q 'keen-pbr fallback upstream' "$DNSMASQ_CONF" || fail "keenetic: apply kept the fallback block"
     ! grep -q '8\.8\.8\.8' "$DNSMASQ_CONF" || fail "keenetic: apply left fallback servers"
     cmp -s "$DNSMASQ_CONF" "$kroot/conf.before" || fail "keenetic: apply changed other config"
@@ -260,7 +343,7 @@ test_keenetic() {
         cat "$kroot/conf.before"
         printf '%s\nserver=8.8.8.8\nserver=9.9.9.9\n# END keen-pbr fallback upstream\n' "$fb_begin"
     } > "$DNSMASQ_CONF"
-    run apply || fail "keenetic: apply with modified fallback block failed"
+    run apply entware:default || fail "keenetic: apply with modified fallback block failed"
     grep -qxF 'server=9.9.9.9' "$DNSMASQ_CONF" || fail "keenetic: apply removed a user-modified block"
     cp "$kroot/conf.before" "$DNSMASQ_CONF"
     unset FALLBACK_CONF
@@ -293,7 +376,7 @@ test_keenetic() {
     [ -f "$f" ] || fail "keenetic: S55 restart did not recreate the conf file"
 
     # Remove.
-    run remove || fail "keenetic: remove failed"
+    run remove entware:default || fail "keenetic: remove failed"
     [ ! -e "$f" ] || fail "keenetic: conf file not removed"
     ! grep -q 'keen-pbr upstream dns' "$DNSMASQ_CONF" || fail "keenetic: block not removed"
     ! grep -q 'conf-dir=' "$DNSMASQ_CONF" || fail "keenetic: conf-dir line left"
@@ -349,30 +432,52 @@ test_debian() {
     export DNSMASQ_CONF_DIR="$droot/etc/dnsmasq.d" KEEN_PBR_BIN=/usr/sbin/keen-pbr
     f="$DNSMASQ_CONF_DIR/keen-pbr-upstream-dns.conf"
     want='conf-script=/usr/sbin/keen-pbr generate-resolver-config dnsmasq'
+    export LOCK_DIR="$tmp_root/hook.lock"
+    unset DNSMASQ_BIN
     run() { PATH="$droot/bin:$PATH" sh "$deb_hook" "$@"; }
 
     reset_restarts
     # Only meaningful when the host has no dnsmasq of its own.
     if ! command -v dnsmasq >/dev/null 2>&1; then
         rc=0
-        run apply >/dev/null 2>&1 || rc=$?
+        run apply systemd:dnsmasq.service >/dev/null 2>&1 || rc=$?
         [ "$rc" = 2 ] || fail "debian: apply without dnsmasq should exit 2 (got $rc)"
         [ "$(restarts)" = 0 ] || fail "debian: restarted without dnsmasq"
     fi
     printf '#!/bin/sh\n' > "$droot/bin/dnsmasq"
     chmod +x "$droot/bin/dnsmasq"
 
-    run remove || fail "debian: idempotent remove failed"
+    [ "$(rc_of run apply)" = 64 ] || fail "debian: apply without selector should exit 64"
+    [ "$(rc_of run apply systemd:other.service)" = 3 ] || fail "debian: other unit should exit 3"
+    [ "$(rc_of run remove systemd:other.service)" = 3 ] || fail "debian: remove other unit should exit 3"
+    printf '#!/bin/sh\ncase "$1" in\n  show) echo 1234 ;;\n  is-enabled) exit 0 ;;\n  *) exit 9 ;;\nesac\n' > "$droot/bin/systemctl"
+    chmod +x "$droot/bin/systemctl"
+    out=$(run inspect) || fail "debian: inspect failed"
+    printf '%s\n' "$out" | grep -qxF 'hook_version=2' || fail "debian: inspect hook_version"
+    printf '%s\n' "$out" | grep -qxF 'selector=systemd:dnsmasq.service' || fail "debian: inspect selector"
+    printf '%s\n' "$out" | grep -qxF 'main_pid=1234' || fail "debian: inspect main_pid"
+    printf '%s\n' "$out" | grep -qxF 'enabled=1' || fail "debian: inspect enabled"
+    printf '%s\n' "$out" | grep -qxF 'dropin_state=absent' || fail "debian: inspect state before apply"
+    rm -f "$droot/bin/systemctl"
+    run remove systemd:dnsmasq.service || fail "debian: idempotent remove failed"
     [ "$(restarts)" = 0 ] || fail "debian: idempotent remove restarted"
-    run apply || fail "debian: apply failed"
+    run apply systemd:dnsmasq.service || fail "debian: apply failed"
     [ "$(cat "$f")" = "$want" ] || fail "debian: conf file wrong"
     [ "$(restarts)" = 1 ] || fail "debian: apply should restart once"
     [ "$(run status)" = installed ] || fail "debian: status"
+    run inspect | grep -qxF 'dropin_state=current' || fail "debian: inspect state after apply"
+    # Foreign drop-in is not overwritten.
+    cp "$f" "$f.keep"; echo other > "$f"
+    [ "$(rc_of run apply systemd:dnsmasq.service)" = 1 ] || fail "debian: foreign drop-in should exit 1"
+    [ "$(cat "$f")" = other ] || fail "debian: foreign drop-in overwritten"
+    [ "$(rc_of run remove systemd:dnsmasq.service)" = 0 ] && [ "$(cat "$f")" = other ] || fail "debian: remove touched a foreign drop-in"
+    cp "$f.keep" "$f"; rm -f "$f.keep"
+    [ "$(restarts)" = 1 ] || fail "debian: rejected calls restarted"
     touch -t 200001010000 "$f"
-    run apply || fail "debian: second apply failed"
+    run apply systemd:dnsmasq.service || fail "debian: second apply failed"
     [ "$(touched "$f")" = 0 ] || fail "debian: second apply rewrote file"
     [ "$(restarts)" = 2 ] || fail "debian: second apply should restart again"
-    run remove || fail "debian: remove failed"
+    run remove systemd:dnsmasq.service || fail "debian: remove failed"
     [ ! -e "$f" ] || fail "debian: file not removed"
     [ "$(restarts)" = 3 ] || fail "debian: remove should restart once"
     [ "$(run status)" = not-installed ] || fail "debian: status after remove"

@@ -1,5 +1,5 @@
 #!/bin/sh
-# keen-pbr dnsmasq hook (Keenetic/Entware): dnsmasq-hook.sh apply|remove|status|alive
+# keen-pbr dnsmasq hook (Keenetic/Entware): dnsmasq-hook.sh inspect|apply <selector>|remove <selector>|status|alive
 #
 # The conf-script drop-in lives in tmpfs (/tmp); the only persistent change is
 # a managed block in /opt/etc/dnsmasq.conf that includes that directory, and it
@@ -17,6 +17,10 @@ INIT_SCRIPT="${INIT_SCRIPT:-/opt/etc/init.d/S56dnsmasq}"
 RESTART_CMD="${RESTART_CMD:-$INIT_SCRIPT restart}"
 ALIVE_CMD="${ALIVE_CMD:-$INIT_SCRIPT check}"
 TMP_CONF_DIR="${TMP_CONF_DIR:-/tmp/keen-pbr/dnsmasq.d}"
+DNSMASQ_BIN="${DNSMASQ_BIN:-/opt/sbin/dnsmasq}"
+SELECTOR="entware:default"
+LOCK_DIR="${LOCK_DIR:-/tmp/keen-pbr-dnsmasq-hook.lock}"
+LOCK_TRIES="${LOCK_TRIES:-30}"
 CONF_NAME="keen-pbr-upstream-dns.conf"
 BEGIN_MARK="# BEGIN keen-pbr upstream dns"
 END_MARK="# END keen-pbr upstream dns"
@@ -37,14 +41,80 @@ block_present() {
     [ -f "$DNSMASQ_CONF" ] && grep -qxF "$BEGIN_MARK" "$DNSMASQ_CONF"
 }
 
-write_conf() {
-    want="conf-script=$DNSMASQ_SH dnsmasq-config-entry"
-    f="$TMP_CONF_DIR/$CONF_NAME"
-    if [ -f "$f" ] && [ "$(cat "$f" 2>/dev/null)" = "$want" ]; then
+conf_line() { printf 'conf-script=%s dnsmasq-config-entry' "$DNSMASQ_SH"; }
+write_conf() { write_line_atomic "$TMP_CONF_DIR/$CONF_NAME" "$(conf_line)"; }
+
+release_lock() { rm -rf "$LOCK_DIR"; }
+
+acquire_lock() {
+    _tries=0
+    while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+        _owner="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+        # A lock whose owner is gone is stale. An empty pid file means the
+        # owner is between mkdir and writing its pid: wait, never steal.
+        if [ -n "$_owner" ] && ! kill -0 "$_owner" 2>/dev/null; then
+            rm -rf "$LOCK_DIR"
+            continue
+        fi
+        _tries=$((_tries + 1))
+        [ "$_tries" -ge "$LOCK_TRIES" ] && die 4 "another dnsmasq-hook operation is running"
+        sleep 1
+    done
+    echo "$$" > "$LOCK_DIR/pid"
+    trap release_lock EXIT
+    trap 'release_lock; exit 130' INT TERM
+}
+
+# write_line_atomic <file> <line>: writes "<line>\n" only when the content differs.
+# Returns 0 when unchanged or written, 1 on error.
+write_line_atomic() {
+    if [ -f "$1" ] && [ "$(cat "$1" 2>/dev/null)" = "$2" ]; then
         return 0
     fi
-    mkdir -p "$TMP_CONF_DIR" || return 1
-    printf '%s\n' "$want" > "$f"
+    mkdir -p "$(dirname "$1")" || return 1
+    printf '%s\n' "$2" > "$1.kpbr.$$" || { rm -f "$1.kpbr.$$"; return 1; }
+    mv -f "$1.kpbr.$$" "$1" || { rm -f "$1.kpbr.$$"; return 1; }
+}
+
+# dropin_state <file> <expected-line>: prints absent|current|foreign
+dropin_state() {
+    if [ ! -e "$1" ]; then echo absent; return 0; fi
+    if [ "$(cat "$1" 2>/dev/null)" = "$2" ]; then echo current; return 0; fi
+    echo foreign
+}
+
+usage() {
+    echo "usage: $0 inspect | apply <selector> | remove <selector> | status | alive [<selector>]" >&2
+    exit 64
+}
+
+check_selector() {
+    [ -n "$1" ] || usage
+    [ "$1" = "$SELECTOR" ] || die 3 "unknown dnsmasq selector: $1 (only $SELECTOR exists here)"
+}
+
+do_inspect() {
+    printf 'hook_version=2\nplatform=keenetic\n'
+    if [ ! -x "$DNSMASQ_BIN" ] || [ ! -f "$INIT_SCRIPT" ]; then
+        printf 'binary=\n'
+        exit 2
+    fi
+    printf 'binary=%s\n' "$DNSMASQ_BIN"
+    _en=1
+    grep -q '^ENABLED=no' "$INIT_SCRIPT" 2>/dev/null && _en=0
+    _f="$TMP_CONF_DIR/$CONF_NAME"
+    if block_present; then _st=current; else _st="$(dropin_state "$_f" "$(conf_line)")"; fi
+    printf '[instance]\n'
+    printf 'selector=%s\n' "$SELECTOR"
+    printf 'enabled=%s\n' "$_en"
+    printf 'exe_required=%s\n' "$DNSMASQ_BIN"
+    printf 'match_conf_file=%s\n' "$DNSMASQ_CONF"
+    printf 'default_conf_file=%s\n' "$DNSMASQ_CONF"
+    printf 'dropin_include=managed\n'
+    printf 'dropin_dir=%s\n' "$TMP_CONF_DIR"
+    printf 'dropin_file=%s\n' "$_f"
+    printf 'dropin_content=%s\n' "$(conf_line)"
+    printf 'dropin_state=%s\n' "$_st"
 }
 
 # migrate-dnsmasq.sh may have written a marked fallback upstream block (when
@@ -89,8 +159,13 @@ do_restart() {
 }
 
 do_apply() {
+    check_selector "$1"
     if [ ! -f "$INIT_SCRIPT" ] || [ ! -f "$DNSMASQ_CONF" ]; then
         die 2 "dnsmasq is not installed (opkg install dnsmasq-full)"
+    fi
+    acquire_lock
+    if [ "$(dropin_state "$TMP_CONF_DIR/$CONF_NAME" "$(conf_line)")" = foreign ]; then
+        die 1 "$TMP_CONF_DIR/$CONF_NAME exists and was not written by keen-pbr"
     fi
     write_conf || die 1 "cannot write $TMP_CONF_DIR/$CONF_NAME"
     if ! block_present; then
@@ -107,8 +182,10 @@ do_apply() {
 }
 
 do_remove() {
+    check_selector "$1"
+    acquire_lock
     changed=0
-    if [ -f "$TMP_CONF_DIR/$CONF_NAME" ]; then
+    if [ "$(dropin_state "$TMP_CONF_DIR/$CONF_NAME" "$(conf_line)")" = current ]; then
         rm -f "$TMP_CONF_DIR/$CONF_NAME"
         changed=1
     fi
@@ -152,9 +229,10 @@ do_alive() {
     esac
 }
 
-case "$1" in
-    apply) do_apply ;;
-    remove) do_remove ;;
+case "${1:-}" in
+    inspect) do_inspect ;;
+    apply) do_apply "${2:-}" ;;
+    remove) do_remove "${2:-}" ;;
     status)
         if block_present || [ -f "$TMP_CONF_DIR/$CONF_NAME" ]; then
             echo installed
@@ -163,8 +241,5 @@ case "$1" in
         fi
         ;;
     alive) do_alive ;;
-    *)
-        echo "usage: $0 apply|remove|status|alive" >&2
-        exit 64
-        ;;
+    *) usage ;;
 esac

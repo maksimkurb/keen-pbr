@@ -1,57 +1,103 @@
 #!/bin/ash
-# keen-pbr dnsmasq hook (OpenWrt): dnsmasq-hook.sh apply|remove|status|alive
+# keen-pbr dnsmasq hook v2 (OpenWrt)
+#   dnsmasq-hook.sh inspect
+#   dnsmasq-hook.sh apply <selector>     selector: uci:<dhcp section name as in `uci -X show dhcp`>
+#   dnsmasq-hook.sh remove <selector>
+#   dnsmasq-hook.sh status               (v1 compatibility)
+#   dnsmasq-hook.sh alive [<selector>]   (v1 compatibility; the daemon no longer calls it)
 #
-# Makes dnsmasq run "keen-pbr generate-resolver-config dnsmasq" through a
-# conf-script drop-in.  The drop-in lives in the (tmpfs) dnsmasq confdir; the
-# only persistent change is the UCI addnmount list that exposes keen-pbr to
-# the dnsmasq procd jail, and it is written only when an entry is missing.
-#
-# `alive` exits 0 when dnsmasq runs, 1 when it definitely does not and 2 when
-# that cannot be told.
+# apply installs a conf-script drop-in into the confdir of ONE section, adds the
+# jail mounts keen-pbr needs to that section's addnmount list (recording every
+# entry it adds in keen_pbr_addnmount), and restarts that instance only.
+# remove deletes only the exact drop-in and the addnmount entries listed in
+# keen_pbr_addnmount. Entries that existed before keen-pbr added them are never
+# claimed. Exit codes: 0 ok, 1 failure, 2 dnsmasq not installed, 3 unknown
+# selector, 4 locked, 64 usage.
 
 KEEN_PBR_BIN="${KEEN_PBR_BIN:-/usr/sbin/keen-pbr}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/keen-pbr}"
 CACHE_DIR="${CACHE_DIR:-/var/cache/keen-pbr}"
 UCI="${UCI:-uci}"
-RESTART_CMD="${RESTART_CMD:-/etc/init.d/dnsmasq restart}"
 INIT_SCRIPT="${INIT_SCRIPT:-/etc/init.d/dnsmasq}"
-# Overridable for tests; unset means "ask procd, then look for the process".
+RESTART_CMD="${RESTART_CMD:-$INIT_SCRIPT restart}"
+# 1: "$RESTART_CMD <section>" restarts one instance (M0 experiment C2). 0: restart all.
+PER_INSTANCE_RESTART="${PER_INSTANCE_RESTART:-1}"
 ALIVE_CMD="${ALIVE_CMD:-}"
 TMP_ROOT="${TMP_ROOT:-/tmp}"
+RUNTIME_CONF_BASE="${RUNTIME_CONF_BASE:-/var/etc/dnsmasq.conf}"
+DNSMASQ_BIN="${DNSMASQ_BIN:-}"
+LOCK_DIR="${LOCK_DIR:-/tmp/keen-pbr-dnsmasq-hook.lock}"
+LOCK_TRIES="${LOCK_TRIES:-30}"
 CONF_NAME="keen-pbr-upstream-dns.conf"
 JAIL_MOUNTS="$KEEN_PBR_BIN $CONFIG_DIR $CACHE_DIR"
+OWN_OPT="keen_pbr_addnmount"
 
 conf_line() {
     printf 'conf-script=%s generate-resolver-config dnsmasq' "$KEEN_PBR_BIN"
 }
 
-log() {
-    logger -t keen-pbr "dnsmasq-hook: $1" >/dev/null 2>&1 || true
-}
+log() { logger -t keen-pbr "dnsmasq-hook: $1" >/dev/null 2>&1 || true; }
 
 die() {
-    printf '%s\n' "$1" >&2
-    log "$1"
-    exit 1
+    _code="$1"; shift
+    printf '%s\n' "$*" >&2
+    log "$*"
+    exit "$_code"
+}
+
+usage() {
+    echo "usage: $0 inspect | apply <selector> | remove <selector> | status | alive [<selector>]" >&2
+    exit 64
+}
+
+release_lock() { rm -rf "$LOCK_DIR"; }
+
+acquire_lock() {
+    _tries=0
+    while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+        _owner="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+        # A lock whose owner is gone is stale. An empty pid file means the
+        # owner is between mkdir and writing its pid: wait, never steal.
+        if [ -n "$_owner" ] && ! kill -0 "$_owner" 2>/dev/null; then
+            rm -rf "$LOCK_DIR"
+            continue
+        fi
+        _tries=$((_tries + 1))
+        [ "$_tries" -ge "$LOCK_TRIES" ] && die 4 "another dnsmasq-hook operation is running"
+        sleep 1
+    done
+    echo "$$" > "$LOCK_DIR/pid"
+    trap release_lock EXIT
+    trap 'release_lock; exit 130' INT TERM
+}
+
+# write_line_atomic <file> <line>: writes "<line>\n" only when the content differs.
+# Returns 0 when unchanged or written, 1 on error.
+write_line_atomic() {
+    if [ -f "$1" ] && [ "$(cat "$1" 2>/dev/null)" = "$2" ]; then
+        return 0
+    fi
+    mkdir -p "$(dirname "$1")" || return 1
+    printf '%s\n' "$2" > "$1.kpbr.$$" || { rm -f "$1.kpbr.$$"; return 1; }
+    mv -f "$1.kpbr.$$" "$1" || { rm -f "$1.kpbr.$$"; return 1; }
+}
+
+# dropin_state <file> <expected-line>: prints absent|current|foreign
+dropin_state() {
+    if [ ! -e "$1" ]; then echo absent; return 0; fi
+    if [ "$(cat "$1" 2>/dev/null)" = "$2" ]; then echo current; return 0; fi
+    echo foreign
 }
 
 dnsmasq_sections() {
     "$UCI" -q -X show dhcp | sed -n 's/^dhcp\.\([^.=]*\)=dnsmasq$/\1/p'
 }
 
+# Directory part of the confdir option; "dir,*.conf" -> "dir".
 section_confdir() {
     _cd="$("$UCI" -q get "dhcp.$1.confdir" 2>/dev/null || true)"
+    _cd="${_cd%%,*}"
     printf '%s\n' "${_cd:-$TMP_ROOT/dnsmasq.$1.d}"
-}
-
-# All candidate confdirs: per-section ones plus the well-known defaults.
-all_conf_paths() {
-    for _s in $(dnsmasq_sections); do
-        printf '%s/%s\n' "$(section_confdir "$_s")" "$CONF_NAME"
-    done
-    for _p in "$TMP_ROOT/dnsmasq.d/$CONF_NAME" "$TMP_ROOT"/dnsmasq.*.d/"$CONF_NAME"; do
-        [ -e "$_p" ] && printf '%s\n' "$_p"
-    done
 }
 
 list_has() {
@@ -61,75 +107,133 @@ list_has() {
     return 1
 }
 
-# Write the drop-in only when its content differs (tmpfs anyway).
-write_conf() {
-    _want="$(conf_line)"
-    if [ -f "$1" ] && [ "$(cat "$1" 2>/dev/null)" = "$_want" ]; then
-        return 0
-    fi
-    mkdir -p "$(dirname "$1")" || return 1
-    printf '%s\n' "$_want" > "$1"
+# selector_section <selector>: prints the section; returns 3 when the selector
+# is malformed or the section is not a dnsmasq section.
+selector_section() {
+    case "$1" in
+        uci:?*) _sec="${1#uci:}" ;;
+        *) return 3 ;;
+    esac
+    case "$_sec" in *[!A-Za-z0-9_]*) return 3 ;; esac
+    [ "$("$UCI" -q get "dhcp.$_sec" 2>/dev/null)" = dnsmasq ] || return 3
+    printf '%s\n' "$_sec"
 }
 
-do_restart() {
-    if ! eval "$RESTART_CMD" >/dev/null 2>&1; then
-        die "failed to restart dnsmasq"
+# `uci commit dhcp` would also commit somebody else's pending edits.
+require_clean_uci() {
+    if [ -n "$("$UCI" -q changes dhcp 2>/dev/null)" ]; then
+        die 1 "the dhcp UCI package has uncommitted changes; commit or revert them first"
     fi
+}
+
+restart_instance() {
+    if [ "$PER_INSTANCE_RESTART" = 1 ]; then
+        eval "$RESTART_CMD" '"$1"' >/dev/null 2>&1 || die 1 "failed to restart dnsmasq instance $1"
+    else
+        eval "$RESTART_CMD" >/dev/null 2>&1 || die 1 "failed to restart dnsmasq"
+    fi
+}
+
+do_inspect() {
+    printf 'hook_version=2\nplatform=openwrt\n'
+    _bin="${DNSMASQ_BIN:-$(command -v dnsmasq 2>/dev/null || true)}"
+    printf 'binary=%s\n' "$_bin"
+    [ -n "$_bin" ] || exit 2
+    _svc_enabled=1
+    if [ -x "$INIT_SCRIPT" ] && ! "$INIT_SCRIPT" enabled >/dev/null 2>&1; then
+        _svc_enabled=0
+    fi
+    _want="$(conf_line)"
+    for _s in $(dnsmasq_sections); do
+        _en="$_svc_enabled"
+        case "$("$UCI" -q get "dhcp.$_s.disabled" 2>/dev/null)" in
+            1|yes|on|true|enabled) _en=0 ;;
+        esac
+        _dir="$(section_confdir "$_s")"
+        _f="$_dir/$CONF_NAME"
+        _cur="$("$UCI" -q get "dhcp.$_s.addnmount" 2>/dev/null || true)"
+        _missing=""
+        for _m in $JAIL_MOUNTS; do
+            list_has "$_cur" "$_m" || _missing="${_missing:+$_missing }$_m"
+        done
+        printf '[instance]\n'
+        printf 'selector=uci:%s\n' "$_s"
+        printf 'enabled=%s\n' "$_en"
+        printf 'match_conf_file=%s.%s\n' "$RUNTIME_CONF_BASE" "$_s"
+        printf 'dropin_include=static\n'
+        printf 'dropin_dir=%s\n' "$_dir"
+        printf 'dropin_file=%s\n' "$_f"
+        printf 'dropin_content=%s\n' "$_want"
+        printf 'dropin_state=%s\n' "$(dropin_state "$_f" "$_want")"
+        printf 'owned_mounts=%s\n' "$("$UCI" -q get "dhcp.$_s.$OWN_OPT" 2>/dev/null || true)"
+        printf 'missing_mounts=%s\n' "$_missing"
+    done
 }
 
 do_apply() {
-    _sections="$(dnsmasq_sections)"
-    [ -n "$_sections" ] || die "no dnsmasq section found in /etc/config/dhcp"
-
-    # addnmount targets must exist before procd builds the jail.
-    mkdir -p "$CACHE_DIR" "$CONFIG_DIR" 2>/dev/null || true
-
-    _changed=1
-    for _s in $_sections; do
-        write_conf "$(section_confdir "$_s")/$CONF_NAME" ||
-            die "cannot write $(section_confdir "$_s")/$CONF_NAME"
-        _cur="$("$UCI" -q get "dhcp.$_s.addnmount" 2>/dev/null || true)"
-        for _m in $JAIL_MOUNTS; do
-            list_has "$_cur" "$_m" && continue
-            "$UCI" -q add_list "dhcp.$_s.addnmount=$_m" ||
-                die "uci add_list dhcp.$_s.addnmount failed"
-            log "UCI add_list dhcp.$_s.addnmount=$_m"
-            _changed=0
-        done
-    done
-    if [ "$_changed" -eq 0 ]; then
-        "$UCI" -q commit dhcp || die "uci commit dhcp failed"
+    [ -n "$1" ] || usage
+    _s="$(selector_section "$1")" || die 3 "unknown dnsmasq selector: $1"
+    acquire_lock
+    mkdir -p "$CACHE_DIR" "$CONFIG_DIR" 2>/dev/null || true   # addnmount targets must exist
+    _want="$(conf_line)"
+    _f="$(section_confdir "$_s")/$CONF_NAME"
+    if [ "$(dropin_state "$_f" "$_want")" = foreign ]; then
+        die 1 "$_f exists and was not written by keen-pbr; not overwriting it"
     fi
-    do_restart
-    log "applied"
+    _cur="$("$UCI" -q get "dhcp.$_s.addnmount" 2>/dev/null || true)"
+    _need=""
+    for _m in $JAIL_MOUNTS; do
+        list_has "$_cur" "$_m" || _need="${_need:+$_need }$_m"
+    done
+    [ -z "$_need" ] || require_clean_uci
+    write_line_atomic "$_f" "$_want" || die 1 "cannot write $_f"
+    for _m in $_need; do
+        "$UCI" -q add_list "dhcp.$_s.addnmount=$_m" || die 1 "uci add_list dhcp.$_s.addnmount failed"
+        "$UCI" -q add_list "dhcp.$_s.$OWN_OPT=$_m" || die 1 "uci add_list dhcp.$_s.$OWN_OPT failed"
+        log "UCI add_list dhcp.$_s.addnmount=$_m (owned by keen-pbr)"
+    done
+    if [ -n "$_need" ]; then
+        "$UCI" -q commit dhcp || die 1 "uci commit dhcp failed"
+    fi
+    restart_instance "$_s"
+    log "applied to uci:$_s"
 }
 
 do_remove() {
+    [ -n "$1" ] || usage
+    _s="$(selector_section "$1")" || die 3 "unknown dnsmasq selector: $1"
+    acquire_lock
     _changed=1
-    for _p in $(all_conf_paths); do
-        if [ -e "$_p" ]; then
-            rm -f "$_p" && _changed=0
-        fi
-    done
-
-    _ucichg=1
-    for _s in $(dnsmasq_sections); do
-        _cur="$("$UCI" -q get "dhcp.$_s.addnmount" 2>/dev/null || true)"
-        for _m in $JAIL_MOUNTS; do
-            list_has "$_cur" "$_m" || continue
-            "$UCI" -q del_list "dhcp.$_s.addnmount=$_m" || die "uci del_list failed"
-            log "UCI del_list dhcp.$_s.addnmount=$_m"
-            _ucichg=0
-        done
-    done
-    if [ "$_ucichg" -eq 0 ]; then
-        "$UCI" -q commit dhcp || die "uci commit dhcp failed"
+    _f="$(section_confdir "$_s")/$CONF_NAME"
+    if [ "$(dropin_state "$_f" "$(conf_line)")" = current ]; then
+        rm -f "$_f" || die 1 "cannot remove $_f"
         _changed=0
     fi
-
+    _owned="$("$UCI" -q get "dhcp.$_s.$OWN_OPT" 2>/dev/null || true)"
+    if [ -n "$_owned" ]; then
+        require_clean_uci
+        for _m in $_owned; do
+            "$UCI" -q del_list "dhcp.$_s.addnmount=$_m" || die 1 "uci del_list dhcp.$_s.addnmount failed"
+            log "UCI del_list dhcp.$_s.addnmount=$_m"
+        done
+        "$UCI" -q delete "dhcp.$_s.$OWN_OPT" || die 1 "uci delete dhcp.$_s.$OWN_OPT failed"
+        "$UCI" -q commit dhcp || die 1 "uci commit dhcp failed"
+        _changed=0
+    fi
     [ "$_changed" -eq 0 ] || return 0
-    do_restart
-    log "removed"
+    restart_instance "$_s"
+    log "removed from uci:$_s"
+}
+
+do_status() {
+    _want="$(conf_line)"
+    for _s in $(dnsmasq_sections); do
+        if [ "$(dropin_state "$(section_confdir "$_s")/$CONF_NAME" "$_want")" = current ]; then
+            echo installed
+            return 0
+        fi
+    done
+    echo not-installed
 }
 
 # Exit 0: dnsmasq runs, 1: it does not, 2: unknown.
@@ -154,23 +258,11 @@ do_alive() {
     return 1
 }
 
-do_status() {
-    for _p in $(all_conf_paths); do
-        if [ -f "$_p" ]; then
-            echo installed
-            return 0
-        fi
-    done
-    echo not-installed
-}
-
-case "$1" in
-    apply) do_apply ;;
-    remove) do_remove ;;
+case "${1:-}" in
+    inspect) do_inspect ;;
+    apply) do_apply "${2:-}" ;;
+    remove) do_remove "${2:-}" ;;
     status) do_status ;;
     alive) do_alive ;;
-    *)
-        echo "usage: $0 apply|remove|status|alive" >&2
-        exit 64
-        ;;
+    *) usage ;;
 esac

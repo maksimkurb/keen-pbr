@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Test KEEN_PBR_DNSMASQ_HOOK for the rootless netns harness:
-#   dnsmasq-hook.sh apply|remove|status|alive
+#   dnsmasq-hook.sh inspect|apply <selector>|remove <selector>|status|alive
 #
 # Mirrors the platform hooks: apply installs a drop-in with
 # `conf-script=<keen-pbr> --config <cfg> generate-resolver-config dnsmasq`
 # and restarts the harness dnsmasq (service-control.sh translates the drop-in
 # into options, since dnsmasq refuses foreign-uid config files in the sandbox).
-# Every invocation except `alive` is appended to $KPBR_RUNTIME/dnsmasq-hook.log.
+# Every invocation except `alive` and `inspect` is appended to $KPBR_RUNTIME/dnsmasq-hook.log.
 # `alive` exits 0 while the harness dnsmasq runs and 1 when it does not.
 # If $KPBR_RUNTIME/dnsmasq-hook.fail exists, apply fails.
 # If $KPBR_RUNTIME/dnsmasq-hook.nodropin exists, apply "succeeds" and restarts
@@ -27,10 +27,28 @@ fail_flag="$KPBR_RUNTIME/dnsmasq-hook.fail"
 nodropin_flag="$KPBR_RUNTIME/dnsmasq-hook.nodropin"
 
 mkdir -p "$KPBR_RUNTIME"
-# `alive` is a query the daemon may repeat while dnsmasq is silent; it is not logged.
-[[ "${1:-}" == alive ]] || printf '%s\n' "${1:-}" >>"$call_log"
+# `alive` and `inspect` are queries the daemon may repeat; they are not logged.
+[[ "${1:-}" == alive || "${1:-}" == inspect ]] || printf '%s\n' "${1:-}" >>"$call_log"
+
+if [[ "${1:-}" == apply || "${1:-}" == remove ]] && [[ "${2:-}" != test:netns ]]; then
+  echo "unknown dnsmasq selector: ${2:-}" >&2
+  exit 3
+fi
 
 case "${1:-}" in
+  inspect)
+    want="conf-script=$KPBR_BIN --config $KPBR_CONFIG_PATH generate-resolver-config dnsmasq"
+    pid="$(bash "$service" mainpid dnsmasq 2>/dev/null || echo 0)"
+    state=absent
+    if [[ -f "$conf_file" ]]; then
+      if [[ "$(cat "$conf_file")" == "$want" ]]; then state=current; else state=foreign; fi
+    fi
+    printf 'hook_version=2\nplatform=test\nbinary=%s\n' "$(command -v dnsmasq || true)"
+    printf '[instance]\nselector=test:netns\nenabled=1\nmain_pid=%s\n' "${pid:-0}"
+    printf 'dropin_include=managed\ndropin_dir=%s\ndropin_file=%s\n' "$conf_dir" "$conf_file"
+    printf 'dropin_content=%s\ndropin_state=%s\n' "$want" "$state"
+    printf 'static_endpoint=192.0.2.1:53\npreflight=skip\n'
+    ;;
   apply)
     if [[ -e "$fail_flag" ]]; then
       echo "simulated hook failure" >&2
