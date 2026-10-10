@@ -90,7 +90,8 @@ sh m0-router.sh D /etc/dnsmasq.conf -7 /etc/dnsmasq.d,.dpkg-dist,.dpkg-old,.dpkg
 ```
 
 Arguments after the main config are the extra argv seen in the real cmdline.
-Set `KEEN_PBR_BIN` if `keen-pbr` is not on `PATH`.
+Set `KEEN_PBR_BIN` if `keen-pbr` is not on `PATH`. Running `D` without the main
+config prints a usage line to stderr and exits 64.
 
 Run D1 twice:
 
@@ -130,7 +131,20 @@ Steps:
    ```sh
    sh m0-router.sh E <LAN_IP> 450000
    ```
-   It prints `start_ms`, RSS and HWM, then waits for Enter.
+   Running `E` with anything other than exactly two arguments prints a usage line
+   to stderr and exits 64. After start the script prints:
+   - `E check upstream5399 alive=yes|no` and `E check upstream5400 alive=yes|no`
+     (pid files are waited for up to 5 s). `E check main alive=...` follows; if main
+     is not alive the script prints an error and exits 1.
+   - `E check udp 5398|5399|5400 bound=yes|no`: the port is looked up in
+     `/proc/net/udp`.
+   - `E start_ms~<ms> rss_kb=... hwm_kb=...`: RSS is polled every 0.5 s (1 s if
+     `sleep` has no fractions) until it has not grown for 3 polls, or 60 s pass.
+   - a firewall hint: if `m0-query.py` shows only timeouts, the router firewall
+     may block UDP `<LAN_IP>:5398` from the LAN (OpenWrt: `lan` zone input ACCEPT;
+     Keenetic: may block). Test with `dig @<LAN_IP> -p 5398 m0canary.test`.
+
+   Then it waits for Enter.
 2. On the LAN PC, start the load generator (each run covers one domain count):
    ```sh
    python3 m0-query.py --server <LAN_IP> --port 5398 --rate 100 --duration 60
@@ -164,3 +178,34 @@ write the new values down before M2 starts):
 
 All "Go" → M2 may start. Any "No-Go" → M2 is cancelled; write the reason in the
 results file.
+
+## E2: load-time measurement (m0-load.sh)
+
+```sh
+sh m0-load.sh <servers|conf> <count> <cap_seconds>
+# example: sh m0-load.sh servers 100000 150
+```
+
+Starts a temporary dnsmasq on loopback only (127.0.0.1:5398, with two upstreams on
+127.0.0.1:5399 and 127.0.0.1:5400), loads `<count>` domains either through
+`--servers-file` (`servers` mode) or `--conf-file` (`conf` mode, the same `server=`
+lines as M1 conf-script output), and polls port 5398 with `dig` until the canary
+answer appears or `<cap_seconds>` pass.
+
+- Loopback only: nothing listens on a LAN address, so no firewall rule is needed.
+- `nice -n 19` for every dnsmasq process, so a long load does not starve the router.
+- Working files are in a `mktemp` directory under `/tmp`. All dnsmasq processes are
+  killed with `kill -9` and the directory is removed on exit, including on Ctrl-C.
+- Needs `dig` on the router (`bind-dig` on OpenWrt, `dnsutils` on Debian, `opkg install bind-dig` or similar elsewhere).
+
+Output:
+
+- `first_answer_ms`: time from start to the first correct answer, or `TIMEOUT` / `DIED`.
+- `cpu_ms`: user + system CPU of the dnsmasq process at that point.
+- `rss_kb` / `hwm_kb`: current and peak resident memory.
+- `servers` mode only: after the first answer the script regenerates the file for the
+  second upstream, sends SIGHUP, and prints `sighup_flip_ms` (time until answers come
+  from the second upstream) and `sighup_cpu_ms`.
+
+Use E2 instead of E on a production router. E exposes a LAN listener and waits for
+Enter; E2 is non-interactive, stays on loopback and has a hard time cap.

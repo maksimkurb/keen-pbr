@@ -4,7 +4,8 @@ set -u
 DNSMASQ="${DNSMASQ:-$(command -v dnsmasq || echo /opt/sbin/dnsmasq)}"
 WORK="$(mktemp -d /tmp/kpbr-m0.XXXXXX)" || exit 1
 chmod 700 "$WORK"
-trap 'kill $(cat "$WORK"/*.pid 2>/dev/null) 2>/dev/null; rm -rf "$WORK"' EXIT INT TERM
+# dnsmasq can ignore SIGTERM while busy loading a large servers-file, so escalate to SIGKILL after 1 s.
+trap 'p=$(cat "$WORK"/*.pid 2>/dev/null); kill $p 2>/dev/null; sleep 1; kill -9 $p 2>/dev/null; rm -rf "$WORK"' EXIT INT TERM
 say() { printf '%s\n' "$*"; }
 now_ms() { awk '{printf "%d\n", $1 * 1000}' /proc/uptime; }
 say "dnsmasq=$DNSMASQ version=$("$DNSMASQ" --version 2>/dev/null | head -1)"
@@ -84,6 +85,7 @@ exp_D() {   # $1 = main conf file, rest = extra args seen in the real cmdline (e
 
 exp_E() {   # $1 = LAN IP to bind the main test instance, $2 = domain count (10000|100000|450000)
     lan="$1"; n="$2"
+    tick=0.5; sleep 0.5 2>/dev/null || tick=1   # busybox sleep may lack fractions
     for u in 5399:198.51.100.1 5400:198.51.100.2; do
         port="${u%%:*}"; ip="${u#*:}"
         "$DNSMASQ" --keep-in-foreground --no-resolv --no-hosts --listen-address=127.0.0.1 \
@@ -108,8 +110,47 @@ exp_E() {   # $1 = LAN IP to bind the main test instance, $2 = domain count (100
         --conf-file=/dev/null --cache-size=1000 --user=root &
     # --user=root: dnsmasq re-reads servers-file on SIGHUP *after* dropping privileges;
     # $WORK is 0700 root. (Production M2 must make the file readable by the dnsmasq user, §20.)
-    sleep 1; main=$(cat "$WORK/main.pid")
-    say "E start_ms~$(( $(now_ms) - t0 )) rss_kb=$(awk '/VmRSS/{print $2}' /proc/$main/status) hwm_kb=$(awk '/VmHWM/{print $2}' /proc/$main/status)"
+    # wait up to 5 s for the three pid files (dnsmasq writes them at startup)
+    deadline=$(( $(now_ms) + 5000 ))
+    while [ "$(now_ms)" -lt "$deadline" ] && \
+          { [ ! -s "$WORK/up5399.pid" ] || [ ! -s "$WORK/up5400.pid" ] || [ ! -s "$WORK/main.pid" ]; }; do
+        sleep "$tick"
+    done
+    up1=$(cat "$WORK/up5399.pid" 2>/dev/null); up2=$(cat "$WORK/up5400.pid" 2>/dev/null)
+    main=$(cat "$WORK/main.pid" 2>/dev/null)
+    isalive() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null && echo yes || echo no; }
+    say "E check upstream5399 alive=$(isalive "$up1")"
+    say "E check upstream5400 alive=$(isalive "$up2")"
+    m_alive=$(isalive "$main")
+    say "E check main alive=$m_alive"
+    if [ "$m_alive" != yes ]; then
+        printf 'E error: main dnsmasq (pid=%s) is not running; check the instance log above\n' "$main" >&2
+        return 1
+    fi
+    # sockets: /proc/net/udp column 2 is local_address "IP:PORT" (hex, port in upper-case)
+    for port in 5398 5399 5400; do
+        hex=$(printf '%04X' "$port")
+        if awk -v h="$hex" 'NR>1 { k = split($2, a, ":"); if (a[k] == h) f = 1 } END { exit !f }' /proc/net/udp; then
+            b=yes
+        else
+            b=no
+        fi
+        say "E check udp $port bound=$b"
+    done
+    # wait for the servers-file to load: RSS stable for 3 polls, or 60 s max
+    rss() { awk '/VmRSS/{print $2}' "/proc/$1/status" 2>/dev/null; }
+    hwm() { awk '/VmHWM/{print $2}' "/proc/$1/status" 2>/dev/null; }
+    prev=-1; flat=0; deadline=$(( $(now_ms) + 60000 ))
+    while [ "$(now_ms)" -lt "$deadline" ]; do
+        sleep "$tick"
+        cur=$(rss "$main")
+        [ -n "$cur" ] || break
+        if [ "$cur" -gt "$prev" ]; then flat=0; else flat=$(( flat + 1 )); fi
+        prev=$cur
+        [ "$flat" -ge 3 ] && break
+    done
+    say "E start_ms~$(( $(now_ms) - t0 )) rss_kb=$(rss "$main") hwm_kb=$(hwm "$main")"
+    say "If m0-query.py shows only timeouts, check the router firewall allows UDP $lan:5398 from the LAN (OpenWrt: lan zone input ACCEPT; Keenetic: may block), and test with: dig @$lan -p 5398 m0canary.test"
     say "Start m0-query.py on the PC now; press Enter to send SIGHUP"; read _
     gen 5400 > "$WORK/servers.conf.new" && mv "$WORK/servers.conf.new" "$WORK/servers.conf"
     say "E sighup_at_uptime_ms=$(now_ms)"; kill -HUP "$main"
@@ -135,7 +176,11 @@ case "${1:-}" in
     A) exp_A;;
     B) exp_A;;
     C) exp_C;;
-    D) shift; exp_D "$@";;
-    E) shift; exp_E "$@";;
+    D) shift
+       [ $# -ge 1 ] || { printf '%s\n' "usage: m0-router.sh D <main-conf> [args...]" >&2; exit 64; }
+       exp_D "$@";;
+    E) shift
+       [ $# -eq 2 ] || { printf '%s\n' "usage: m0-router.sh E <lan-ip> <count>" >&2; exit 64; }
+       exp_E "$@";;
     *) usage;;
 esac

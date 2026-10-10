@@ -23,7 +23,13 @@ keen-pbr records every `addnmount` entry it adds in the list `dhcp.<section>.kee
 
 The platform hooks (OpenWrt, Keenetic, Debian) now require a selector for `apply` and `remove` and gained an `inspect` command. An old daemon calling a new hook (and a new daemon calling an old hook) fails loudly with a usage error instead of touching every dnsmasq instance. Upgrade the keen-pbr package as a whole and restart the service.
 
+### Findings from M0
+
+- A non-zero exit of a `conf-script` makes dnsmasq reject the whole configuration (exit 10). keen-pbr's generator therefore always exits 0 and reports problems as a comment.
+- A list of 450k domains needs `daemon.max_file_size_bytes` above the 8 MiB default. Otherwise dnsmasq rejects the generated file.
+- Measured on OpenWrt aarch64 (dnsmasq 2.93): preflight of a 450k-domain configuration takes about 2 s, and dnsmasq needs about 112 MB RSS to load 450k domains.
+
 ### Known gaps
 
-- The M0 experiments (`docs/dnsmasq-m0-results.md`) have not been run on real hardware yet. The defaults from the specification are used: `dnsmasq --test` is assumed to execute `conf-script`, and the OpenWrt single-instance restart and Keenetic/Debian instance identification follow the documented behaviour of `dnsmasq.init`, not measured results. Hardware QA is still pending.
+- M0 partially run (OpenWrt aarch64, dnsmasq 2.93); Keenetic, Debian and dnsmasq 2.92 pending. See `docs/dnsmasq-m0-results.md`. Where a result is pending, the defaults from the specification are used: `dnsmasq --test` is assumed to execute `conf-script`, and the Keenetic/Debian instance identification follows the documented behaviour of `dnsmasq.init`, not measured results. Hardware QA is still pending.
 - On the development machine, the test that applies a real dnsmasq config is skipped because of an environment restriction on reading config files.
