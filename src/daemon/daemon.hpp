@@ -2,6 +2,7 @@
 
 #include "../config/config.hpp"
 #include "../firewall/firewall.hpp"
+#include "../health/host_health_warnings.hpp"
 #include "../health/routing_health.hpp"
 #include "../health/url_tester.hpp"
 #include "../intercept/intercept_capabilities.hpp"
@@ -538,6 +539,8 @@ IcmpTester icmp_tester_;
   std::chrono::steady_clock::time_point routing_health_cache_time_
       GUARDED_BY(routing_health_mutex_){};
   bool routing_health_check_inflight_ GUARDED_BY(routing_health_mutex_){false};
+  // Cached `iptables -t nat -S` output; invalidated on every firewall apply.
+  NatTableCache nat_table_cache_;
   std::vector<std::string> routing_health_logged_warning_keys_
       GUARDED_BY(routing_health_mutex_);
   std::atomic<std::uint64_t> routing_health_revision_{1};

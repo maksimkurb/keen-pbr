@@ -3,6 +3,7 @@
 #include "../log/logger.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <fstream>
 #include <set>
 #include <sstream>
@@ -59,54 +60,213 @@ int parse_rp_value(const std::optional<std::string>& text) {
     }
 }
 
+struct ParsedNatRule {
+    std::string chain;
+    std::string target;
+    bool has_out{false};
+    bool out_negated{false};
+    std::string out_pattern;
+    std::vector<Ipv4Net> sources;  // positive -s networks
+    std::string source_text;       // "-s a,b" for messages
+    std::string restriction;       // first non -o/-s restriction, if any
+};
+
+bool is_stop_token(const std::string& t) {
+    return t == "-m" || t == "-o" || t == "-s" || t == "-d" || t == "-j" ||
+           t == "-g" || t == "--jump" || t == "--goto" || t == "!" ||
+           t == "--out-interface" || t == "--source" || t == "--destination";
+}
+
+std::vector<std::string> split_commas(const std::string& v) {
+    std::vector<std::string> out;
+    std::string cur;
+    for (const char c : v) {
+        if (c == ',') {
+            out.push_back(cur);
+            cur.clear();
+        } else {
+            cur.push_back(c);
+        }
+    }
+    out.push_back(cur);
+    return out;
+}
+
+bool net_contains(const Ipv4Net& outer, const Ipv4Net& inner) {
+    return (outer.mask & ~inner.mask) == 0 &&
+           (inner.addr & outer.mask) == (outer.addr & outer.mask);
+}
+
+bool net_overlaps(const Ipv4Net& a, const Ipv4Net& b) {
+    return net_contains(a, b) || net_contains(b, a);
+}
+
+ParsedNatRule parse_nat_rule(const std::vector<std::string>& tokens) {
+    ParsedNatRule rule;
+    rule.chain = tokens.size() > 1 ? tokens[1] : "";
+    bool negate = false;
+    bool in_target = false;
+    std::size_t i = 2;
+    const auto note_restriction = [&](const std::string& text) {
+        if (rule.restriction.empty()) rule.restriction = text;
+    };
+    while (i < tokens.size()) {
+        const std::string& t = tokens[i];
+        const bool has_value = i + 1 < tokens.size();
+        if (t == "!") {
+            negate = true;
+            ++i;
+            continue;
+        }
+        if (t == "-j" || t == "-g" || t == "--jump" || t == "--goto") {
+            if (has_value) rule.target = tokens[i + 1];
+            in_target = true;  // target options never restrict
+            i += 2;
+            continue;
+        }
+        if (in_target && t != "-o" && t != "--out-interface" && t != "-s" &&
+            t != "--source" && t != "-d" && t != "--destination") {
+            ++i;
+            negate = false;
+            continue;
+        }
+        if ((t == "-o" || t == "--out-interface") && has_value) {
+            rule.has_out = true;
+            rule.out_negated = negate;
+            rule.out_pattern = tokens[i + 1];
+            i += 2;
+        } else if ((t == "-s" || t == "--source") && has_value) {
+            const std::string& value = tokens[i + 1];
+            bool any = false;
+            std::vector<Ipv4Net> nets;
+            for (const auto& part : split_commas(value)) {
+                if (is_any_address(part)) any = true;
+                if (const auto net = parse_ipv4_net(part)) nets.push_back(*net);
+            }
+            if (negate) {
+                note_restriction("! -s " + value);
+            } else if (!any) {
+                if (nets.empty()) {
+                    note_restriction("-s " + value);  // unparsable: restrict
+                } else {
+                    rule.sources.insert(rule.sources.end(), nets.begin(), nets.end());
+                    if (rule.source_text.empty()) rule.source_text = "-s " + value;
+                }
+            }
+            i += 2;
+        } else if ((t == "-d" || t == "--destination") && has_value) {
+            const std::string& value = tokens[i + 1];
+            // A negated -d (for example ! -d 10.0.0.0/8) is not a restriction.
+            if (!negate && !is_any_address(value)) note_restriction("-d " + value);
+            i += 2;
+        } else {
+            // Any other match (-m <module> ..., -p, -i, --dport, ...) restricts,
+            // except the purely informational comment module.
+            std::string text = negate ? "! " : "";
+            std::size_t j = i;
+            while (j < tokens.size() && (j == i || !is_stop_token(tokens[j]))) {
+                if (j > i) text += ' ';
+                text += tokens[j];
+                ++j;
+            }
+            const bool is_comment = t == "-m" && has_value && tokens[i + 1] == "comment";
+            if (!is_comment) note_restriction(text);
+            i = j;
+        }
+        negate = false;
+    }
+    return rule;
+}
+
 }  // namespace
 
+std::optional<Ipv4Net> parse_ipv4_net(const std::string& text) {
+    const auto slash = text.find('/');
+    const std::string addr = text.substr(0, slash);
+    unsigned a = 0, b = 0, c = 0, d = 0;
+    char tail = 0;
+    if (std::sscanf(addr.c_str(), "%u.%u.%u.%u%c", &a, &b, &c, &d, &tail) != 4 ||
+        a > 255 || b > 255 || c > 255 || d > 255) {
+        return std::nullopt;
+    }
+    uint32_t mask = 0xFFFFFFFFu;
+    if (slash != std::string::npos) {
+        const std::string m = text.substr(slash + 1);
+        unsigned ma = 0, mb = 0, mc = 0, md = 0;
+        if (std::sscanf(m.c_str(), "%u.%u.%u.%u%c", &ma, &mb, &mc, &md, &tail) == 4) {
+            mask = (ma << 24) | (mb << 16) | (mc << 8) | md;
+        } else {
+            unsigned len = 0;
+            if (m.empty() || std::sscanf(m.c_str(), "%u%c", &len, &tail) != 1 ||
+                len > 32) {
+                return std::nullopt;
+            }
+            mask = len == 0 ? 0U : (0xFFFFFFFFu << (32U - len));
+        }
+    }
+    const uint32_t ip = (a << 24) | (b << 16) | (c << 8) | d;
+    return Ipv4Net{ip & mask, mask};
+}
+
+std::vector<Ipv4Net> interface_subnets(const std::vector<DumpedInterface>& interfaces,
+                                       const std::vector<std::string>& names) {
+    std::vector<Ipv4Net> out;
+    for (const auto& iface : interfaces) {
+        if (std::find(names.begin(), names.end(), iface.name) == names.end()) continue;
+        for (const auto& addr : iface.ipv4_addresses) {
+            if (const auto net = parse_ipv4_net(addr)) out.push_back(*net);
+        }
+    }
+    return out;
+}
+
 NatCoverageResult nat_coverage_for_interface(const std::string& nat_text,
-                                             const std::string& interface) {
-    NatCoverageResult result;
+                                             const std::string& interface,
+                                             const std::vector<Ipv4Net>& lan_subnets) {
+    std::vector<ParsedNatRule> rules;
     std::istringstream stream(nat_text);
     std::string line;
     while (std::getline(stream, line)) {
         line = trim_line_end(line);
         if (line.rfind("-A ", 0) != 0) continue;
-        const auto tokens = tokenize_rule(line);
+        rules.push_back(parse_nat_rule(tokenize_rule(line)));
+    }
 
-        std::string target;
-        bool negate = false;
-        bool has_out = false;
-        bool out_negated = false;
-        std::string out_pattern;
-        std::string restriction;
-        for (std::size_t i = 2; i < tokens.size(); ++i) {
-            const std::string& t = tokens[i];
-            if (t == "!") {
-                negate = true;
-                continue;
+    // Transitive closure of chains reachable from POSTROUTING.
+    std::set<std::string> reachable{"POSTROUTING"};
+    for (bool grown = true; grown;) {
+        grown = false;
+        for (const auto& rule : rules) {
+            if (reachable.count(rule.chain) != 0 && !rule.target.empty() &&
+                reachable.insert(rule.target).second) {
+                grown = true;
             }
-            const bool has_value = i + 1 < tokens.size();
-            if ((t == "-o" || t == "--out-interface") && has_value) {
-                has_out = true;
-                out_negated = negate;
-                out_pattern = tokens[++i];
-            } else if ((t == "-s" || t == "--source" || t == "-d" ||
-                        t == "--destination") &&
-                       has_value) {
-                const std::string& value = tokens[++i];
-                if ((negate || !is_any_address(value)) && restriction.empty()) {
-                    restriction =
-                        std::string((t == "-s" || t == "--source") ? "-s " : "-d ") +
-                        (negate ? "! " : "") + value;
-                }
-            } else if ((t == "-j" || t == "-g" || t == "--jump") && has_value) {
-                target = tokens[++i];
-            }
-            negate = false;
         }
-        if (target != "MASQUERADE" && target != "SNAT") continue;
+    }
 
-        if (has_out) {
-            const bool matches = iface_pattern_matches(out_pattern, interface);
-            if (matches == out_negated) continue;
+    NatCoverageResult result;
+    for (const auto& rule : rules) {
+        if (reachable.count(rule.chain) == 0) continue;
+        if (rule.target != "MASQUERADE" && rule.target != "SNAT") continue;
+        if (rule.has_out) {
+            const bool matches = iface_pattern_matches(rule.out_pattern, interface);
+            if (matches == rule.out_negated) continue;
+        }
+
+        std::string restriction = rule.restriction;
+        if (restriction.empty() && !rule.sources.empty() && !lan_subnets.empty()) {
+            std::size_t contained = 0;
+            bool overlaps = false;
+            for (const auto& lan : lan_subnets) {
+                bool in = false;
+                for (const auto& src : rule.sources) {
+                    if (net_contains(src, lan)) in = true;
+                    if (net_overlaps(src, lan)) overlaps = true;
+                }
+                if (in) ++contained;
+            }
+            if (!overlaps) continue;  // unrelated to the LAN: does not count
+            if (contained != lan_subnets.size()) restriction = rule.source_text;
         }
         if (restriction.empty()) {
             result.coverage = NatCoverage::covered;
@@ -189,10 +349,11 @@ std::vector<HealthWarning> evaluate_rp_filter_warnings(
 }
 
 std::vector<HealthWarning> evaluate_nat_warnings(
-    const std::vector<BalanceCandidate>& candidates, const std::string& nat_text) {
+    const std::vector<BalanceCandidate>& candidates, const std::string& nat_text,
+    const std::vector<Ipv4Net>& lan_subnets) {
     std::vector<HealthWarning> warnings;
     for (const auto& c : candidates) {
-        const auto cov = nat_coverage_for_interface(nat_text, c.interface);
+        const auto cov = nat_coverage_for_interface(nat_text, c.interface, lan_subnets);
         if (cov.coverage == NatCoverage::covered) continue;
         HealthWarning w;
         w.interface = c.interface;
@@ -202,8 +363,13 @@ std::vector<HealthWarning> evaluate_nat_warnings(
             w.message = "No MASQUERADE/SNAT rule found for outgoing interface " +
                         c.interface +
                         " in the iptables nat table; connections balanced to "
-                        "this WAN may hang. Add e.g. iptables -t nat -A "
-                        "POSTROUTING -o " + c.interface + " -j MASQUERADE.";
+                        "this WAN may hang. Only the iptables nat table of this "
+                        "flavour was checked: NAT done in native nftables "
+                        "(nftables.conf, firewalld) or in the other iptables "
+                        "flavour (legacy vs nft) is not visible, so ignore this "
+                        "warning if NAT is configured there. Otherwise add e.g. "
+                        "iptables -t nat -A POSTROUTING -o " + c.interface +
+                        " -j MASQUERADE.";
         } else {
             w.code = HealthWarningCode::nat_partial;
             w.message = "NAT for " + c.interface +
@@ -216,21 +382,50 @@ std::vector<HealthWarning> evaluate_nat_warnings(
     return warnings;
 }
 
+HostHealthInputs host_health_inputs(const Config& config) {
+    HostHealthInputs inputs;
+    inputs.candidates = balance_candidate_interfaces(config);
+    if (config.route.has_value() && config.route->inbound_interfaces.has_value()) {
+        inputs.inbound_interfaces = *config.route->inbound_interfaces;
+    }
+    return inputs;
+}
+
+std::optional<std::string> NatTableCache::get(const CommandRunner& runner) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (text_ && Clock::now() - read_at_ <= lifetime_) return text_;
+    }
+    const auto nat = runner({"iptables", "-t", "nat", "-S"});
+    if (nat.exit_code != 0 || nat.truncated) return std::nullopt;
+    std::lock_guard<std::mutex> lock(mutex_);
+    text_ = nat.stdout_output;
+    read_at_ = Clock::now();
+    return text_;
+}
+
+void NatTableCache::invalidate() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    text_.reset();
+}
+
 std::vector<HealthWarning> collect_host_health_warnings(
-    const Config& config, FirewallBackend backend, const CommandRunner& runner,
+    const HostHealthInputs& inputs,
+    const std::vector<DumpedInterface>& interfaces, FirewallBackend backend,
+    NatTableCache& nat_cache, const CommandRunner& runner,
     const ProcFileReader& reader) {
     std::vector<HealthWarning> warnings;
-    const auto candidates = balance_candidate_interfaces(config);
-    if (candidates.empty()) return warnings;
+    if (inputs.candidates.empty()) return warnings;
 
     if (backend == FirewallBackend::iptables) {
         try {
-            const auto nat = runner({"iptables", "-t", "nat", "-S"});
-            if (nat.exit_code != 0 || nat.truncated) {
+            const auto nat = nat_cache.get(runner);
+            if (!nat) {
                 Logger::instance().debug(
                     "NAT health check skipped: cannot read iptables nat table");
             } else {
-                auto nat_warnings = evaluate_nat_warnings(candidates, nat.stdout_output);
+                const auto lan = interface_subnets(interfaces, inputs.inbound_interfaces);
+                auto nat_warnings = evaluate_nat_warnings(inputs.candidates, *nat, lan);
                 warnings.insert(warnings.end(), nat_warnings.begin(),
                                 nat_warnings.end());
             }
@@ -242,7 +437,7 @@ std::vector<HealthWarning> collect_host_health_warnings(
             "NAT health check skipped: only supported on the iptables backend");
     }
 
-    auto rp = evaluate_rp_filter_warnings(candidates, reader);
+    auto rp = evaluate_rp_filter_warnings(inputs.candidates, reader);
     warnings.insert(warnings.end(), rp.begin(), rp.end());
     return warnings;
 }

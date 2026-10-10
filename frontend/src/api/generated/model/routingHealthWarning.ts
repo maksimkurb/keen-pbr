@@ -8,8 +8,6 @@
 import type { RoutingHealthWarningCode } from './routingHealthWarningCode';
 
 export interface RoutingHealthWarning {
-  /** - nat_missing: no MASQUERADE/SNAT rule covers the interface (iptables backend only) - nat_partial: only source/destination-restricted NAT rules cover the interface - rp_filter_strict: effective IPv4 rp_filter on the interface is 1 (strict)
-   */
   code: RoutingHealthWarningCode;
   /** Network interface the warning refers to. */
   interface?: string;

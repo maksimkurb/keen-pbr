@@ -188,16 +188,14 @@ def register(registry):
 
             def nat_warnings():
                 routing = context.api("/api/health/routing")
-                if (routing.get("warnings") is None
-                        or routing.get("firewall_backend") != "iptables"):
+                if routing.get("firewall_backend") != "iptables":
                     return False
-                return routing
+                nat = {item["interface"]: item["code"]
+                       for item in routing.get("warnings") or []
+                       if item["code"].startswith("nat_")}
+                return routing if nat == {"wan_pbr": "nat_missing"} else False
 
-            routing = context.wait_for("routing health nat warnings", nat_warnings)
-            nat = {item["interface"]: item["code"]
-                   for item in routing["warnings"]
-                   if item["code"].startswith("nat_")}
-            assert nat == {"wan_pbr": "nat_missing"}, routing["warnings"]
+            context.wait_for("routing health nat warnings", nat_warnings)
             # Warnings are advisory: they never degrade overall health.
             assert_balance_health(context)
         finally:

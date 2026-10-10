@@ -589,13 +589,16 @@ RoutingHealthReport Daemon::cached_routing_health() {
   }
 
   const auto raw_prerouting = firewall_->raw_prerouting_mode();
-  const Config health_config = config_store_.active_config();
   bool queued = false;
   try {
+    // Only the small host-health inputs are copied out of the config; this
+    // sits inside the try so a throw resets routing_health_check_inflight_.
+    HostHealthInputs host_inputs =
+        host_health_inputs(config_store_.active_config());
     queued = routing_test_executor_.try_post(
         "routing-health",
         [this, runtime_snapshot, backend, raw_prerouting, health_revision,
-         runtime_generation, health_config] {
+         runtime_generation, host_inputs = std::move(host_inputs)] {
           try {
             RoutingHealthReport health;
             try {
@@ -607,8 +610,8 @@ RoutingHealthReport Daemon::cached_routing_health() {
                 // Host configuration warnings are non-blocking and are only
                 // evaluated when the cached report is (re)built.
                 health.warnings = collect_host_health_warnings(
-                    health_config, backend, run_command_capture,
-                    read_proc_file);
+                    host_inputs, netlink_.dump_interfaces(), backend,
+                    nat_table_cache_, run_command_capture, read_proc_file);
               }
             } catch (const std::exception& error) {
               health = unavailable_routing_health(
@@ -635,8 +638,10 @@ RoutingHealthReport Daemon::cached_routing_health() {
               routing_health_cache_generation_ = runtime_generation;
               routing_health_cache_state_ = runtime_snapshot.runtime_state;
               routing_health_cache_time_ = std::chrono::steady_clock::now();
-              log_routing_health_warnings_if_changed(
-                  routing_health_cache_->warnings);
+              if (routing_health_cache_->error.empty()) {
+                log_routing_health_warnings_if_changed(
+                    routing_health_cache_->warnings);
+              }
             }
             routing_health_check_inflight_ = false;
           } catch (...) {

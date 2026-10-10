@@ -7,7 +7,14 @@
  */
 
 /**
- * - nat_missing: no MASQUERADE/SNAT rule covers the interface (iptables backend only) - nat_partial: only source/destination-restricted NAT rules cover the interface - rp_filter_strict: effective IPv4 rp_filter on the interface is 1 (strict)
+ * - nat_missing: no MASQUERADE/SNAT rule covers the interface (iptables
+  backend only). Only the iptables nat table of the flavour keen-pbr
+  uses is checked; NAT done in native nftables (nftables.conf,
+  firewalld) or in the other iptables flavour (legacy vs nft) is not
+  visible, so ignore this warning if NAT is configured there.
+- nat_partial: only restricted NAT rules (source/destination or other
+  matches such as mark or protocol) cover the interface
+- rp_filter_strict: effective IPv4 rp_filter on the interface is 1 (strict)
 
  */
 export type RoutingHealthWarningCode = typeof RoutingHealthWarningCode[keyof typeof RoutingHealthWarningCode];

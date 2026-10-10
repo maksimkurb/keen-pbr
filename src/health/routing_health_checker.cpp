@@ -344,17 +344,17 @@ nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
         resp.policy_rules.push_back(std::move(arc));
     }
 
-    if (!r.warnings.empty()) {
+    {
         std::vector<api::RoutingHealthWarningElement> warnings;
         for (const auto& w : r.warnings) {
             api::RoutingHealthWarningElement aw;
             switch (w.code) {
                 case HealthWarningCode::nat_missing:
-                    aw.code = api::Code::NAT_MISSING; break;
+                    aw.code = api::RoutingHealthWarningCode::NAT_MISSING; break;
                 case HealthWarningCode::nat_partial:
-                    aw.code = api::Code::NAT_PARTIAL; break;
+                    aw.code = api::RoutingHealthWarningCode::NAT_PARTIAL; break;
                 case HealthWarningCode::rp_filter_strict:
-                    aw.code = api::Code::RP_FILTER_STRICT; break;
+                    aw.code = api::RoutingHealthWarningCode::RP_FILTER_STRICT; break;
             }
             aw.interface = w.interface;
             aw.outbound = w.outbound;

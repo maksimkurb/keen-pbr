@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesY4IkZx data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesRyCjLf data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -708,10 +708,10 @@ namespace api {
 
     enum class RoutingHealthResponseOverall : int { DEGRADED, ERROR, OK };
 
-    enum class Code : int { NAT_MISSING, NAT_PARTIAL, RP_FILTER_STRICT };
+    enum class RoutingHealthWarningCode : int { NAT_MISSING, NAT_PARTIAL, RP_FILTER_STRICT };
 
     struct RoutingHealthWarningElement {
-        Code code;
+        RoutingHealthWarningCode code;
         std::optional<std::string> interface;
         std::string message;
         std::optional<std::string> outbound;
@@ -870,7 +870,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesY4IkZx {
+    struct KeenPbrTypesRyCjLf {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -937,6 +937,7 @@ namespace api {
         std::optional<RoutingHealthErrorResponse> routing_health_error_response;
         std::optional<RoutingHealthResponse> routing_health_response;
         std::optional<RoutingHealthWarningElement> routing_health_warning;
+        std::optional<RoutingHealthWarningCode> routing_health_warning_code;
         std::optional<RoutingTestEntry> routing_test_entry;
         std::optional<ListMatch> routing_test_list_match;
         std::optional<RoutingTestRequest> routing_test_request;
@@ -1210,8 +1211,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesY4IkZx & x);
-    void to_json(json & j, const KeenPbrTypesY4IkZx & x);
+    void from_json(const json & j, KeenPbrTypesRyCjLf & x);
+    void to_json(json & j, const KeenPbrTypesRyCjLf & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1303,8 +1304,8 @@ namespace api {
     void from_json(const json & j, RoutingHealthResponseOverall & x);
     void to_json(json & j, const RoutingHealthResponseOverall & x);
 
-    void from_json(const json & j, Code & x);
-    void to_json(json & j, const Code & x);
+    void from_json(const json & j, RoutingHealthWarningCode & x);
+    void to_json(json & j, const RoutingHealthWarningCode & x);
 
     void from_json(const json & j, Proto & x);
     void to_json(json & j, const Proto & x);
@@ -2513,7 +2514,7 @@ namespace api {
     }
 
     inline void from_json(const json & j, RoutingHealthWarningElement& x) {
-        x.code = j.at("code").get<Code>();
+        x.code = j.at("code").get<RoutingHealthWarningCode>();
         x.interface = get_stack_optional<std::string>(j, "interface");
         x.message = j.at("message").get<std::string>();
         x.outbound = get_stack_optional<std::string>(j, "outbound");
@@ -2815,7 +2816,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesY4IkZx& x) {
+    inline void from_json(const json & j, KeenPbrTypesRyCjLf& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2882,6 +2883,7 @@ namespace api {
         x.routing_health_error_response = get_stack_optional<RoutingHealthErrorResponse>(j, "RoutingHealthErrorResponse");
         x.routing_health_response = get_stack_optional<RoutingHealthResponse>(j, "RoutingHealthResponse");
         x.routing_health_warning = get_stack_optional<RoutingHealthWarningElement>(j, "RoutingHealthWarning");
+        x.routing_health_warning_code = get_stack_optional<RoutingHealthWarningCode>(j, "RoutingHealthWarningCode");
         x.routing_test_entry = get_stack_optional<RoutingTestEntry>(j, "RoutingTestEntry");
         x.routing_test_list_match = get_stack_optional<ListMatch>(j, "RoutingTestListMatch");
         x.routing_test_request = get_stack_optional<RoutingTestRequest>(j, "RoutingTestRequest");
@@ -2905,7 +2907,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesY4IkZx & x) {
+    inline void to_json(json & j, const KeenPbrTypesRyCjLf & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -2973,6 +2975,7 @@ namespace api {
         j["RoutingHealthErrorResponse"] = x.routing_health_error_response;
         j["RoutingHealthResponse"] = x.routing_health_response;
         j["RoutingHealthWarning"] = x.routing_health_warning;
+        j["RoutingHealthWarningCode"] = x.routing_health_warning_code;
         j["RoutingTestEntry"] = x.routing_test_entry;
         j["RoutingTestListMatch"] = x.routing_test_list_match;
         j["RoutingTestRequest"] = x.routing_test_request;
@@ -3484,19 +3487,19 @@ namespace api {
         }
     }
 
-    inline void from_json(const json & j, Code & x) {
-        if (j == "nat_missing") x = Code::NAT_MISSING;
-        else if (j == "nat_partial") x = Code::NAT_PARTIAL;
-        else if (j == "rp_filter_strict") x = Code::RP_FILTER_STRICT;
-        else { throw std::runtime_error("Cannot deserialize to enumeration \"Code\""); }
+    inline void from_json(const json & j, RoutingHealthWarningCode & x) {
+        if (j == "nat_missing") x = RoutingHealthWarningCode::NAT_MISSING;
+        else if (j == "nat_partial") x = RoutingHealthWarningCode::NAT_PARTIAL;
+        else if (j == "rp_filter_strict") x = RoutingHealthWarningCode::RP_FILTER_STRICT;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RoutingHealthWarningCode\""); }
     }
 
-    inline void to_json(json & j, const Code & x) {
+    inline void to_json(json & j, const RoutingHealthWarningCode & x) {
         switch (x) {
-            case Code::NAT_MISSING: j = "nat_missing"; break;
-            case Code::NAT_PARTIAL: j = "nat_partial"; break;
-            case Code::RP_FILTER_STRICT: j = "rp_filter_strict"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"Code\": " + std::to_string(static_cast<int>(x)));
+            case RoutingHealthWarningCode::NAT_MISSING: j = "nat_missing"; break;
+            case RoutingHealthWarningCode::NAT_PARTIAL: j = "nat_partial"; break;
+            case RoutingHealthWarningCode::RP_FILTER_STRICT: j = "rp_filter_strict"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"RoutingHealthWarningCode\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

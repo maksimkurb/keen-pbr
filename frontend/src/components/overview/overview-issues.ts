@@ -195,6 +195,7 @@ export function collectOverviewIssues({
         tone: "warn",
         title: t(`overview.issues.hostWarning.${warning.code}`, {
           interface: warning.interface ?? warning.outbound ?? "",
+          defaultValue: warning.message,
         }),
         detail: warning.message,
       })

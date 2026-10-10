@@ -620,11 +620,11 @@ RoutingHealthReport routing_health_report_from_api(
              std::vector<api::RoutingHealthWarningElement>{})) {
         HealthWarning warning;
         switch (item.code) {
-            case api::Code::NAT_MISSING:
+            case api::RoutingHealthWarningCode::NAT_MISSING:
                 warning.code = HealthWarningCode::nat_missing; break;
-            case api::Code::NAT_PARTIAL:
+            case api::RoutingHealthWarningCode::NAT_PARTIAL:
                 warning.code = HealthWarningCode::nat_partial; break;
-            case api::Code::RP_FILTER_STRICT:
+            case api::RoutingHealthWarningCode::RP_FILTER_STRICT:
                 warning.code = HealthWarningCode::rp_filter_strict; break;
         }
         warning.interface = item.interface;
@@ -679,9 +679,11 @@ int run_status_command_impl(const Config& config, const std::string& config_path
         fw_state,
         routes.get_routes(),
         rules.get_rules(), netlink);
+    NatTableCache nat_cache;
     report.warnings = collect_host_health_warnings(
-        config, resolve_firewall_backend(firewall_backend_preference(config)),
-        run_command_capture, read_proc_file);
+        host_health_inputs(config), netlink.dump_interfaces(),
+        resolve_firewall_backend(firewall_backend_preference(config)),
+        nat_cache, run_command_capture, read_proc_file);
     return render_status_report(config, config_path, report);
 }
 } // namespace
