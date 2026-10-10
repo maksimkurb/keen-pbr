@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "addr_spec.hpp"
+#include "dnsmasq_selector.hpp"
 #include "icmptest_limits.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
@@ -1706,6 +1707,13 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
                                   "] references unknown DNS server tag \"" + fallback_tag + "\"");
                 }
             }
+        }
+
+        if (const auto selector = configured_dnsmasq_selector(cfg);
+            selector && !parse_dnsmasq_selector(*selector)) {
+            add_issue(issues, "dns.dnsmasq_instance",
+                      "dns.dnsmasq_instance must be uci:<section>, entware:default, "
+                      "systemd:<unit>.service or test:<name>");
         }
 
         const auto dns_rules = cfg.dns->rules.value_or(std::vector<DnsRule>{});

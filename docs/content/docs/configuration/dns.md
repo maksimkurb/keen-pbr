@@ -21,6 +21,7 @@ Use DNS configuration to define server addresses and optionally route domain-bas
 |---|---|---|---|
 | `servers` | array | no | DNS server definitions |
 | `resolver_integration` | string | no | `"none"` or `"dnsmasq"`; when omitted, `"dnsmasq"` is assumed if `rules` is non-empty, otherwise `"none"`. |
+| `dnsmasq_instance` | string | no | Selector of the dnsmasq instance to manage: `uci:<section>` (OpenWrt), `entware:default` (Keenetic), `systemd:<unit>.service` (Debian). Empty or omitted means automatic selection; needed only when several instances are found. |
 | `rules` | array | no | Rules mapping lists to DNS servers (only active when `resolver_integration: "dnsmasq"`). |
 | `fallback` | array of string | no | Upstream DNS server tags for queries that match no rule (only active when `resolver_integration: "dnsmasq"`). |
 | `dns_test_server` | object | no | Deprecated and ignored (replaced by `intercept.dns.marker`) |

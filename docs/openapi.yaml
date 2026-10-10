@@ -1368,6 +1368,15 @@ components:
             non-empty, `dnsmasq` is assumed (upgrade compatibility).
           allOf:
             - $ref: "#/components/schemas/ResolverIntegrationMode"
+        dnsmasq_instance:
+          type: string
+          nullable: true
+          description: >
+            Selector of the dnsmasq instance keen-pbr manages: `uci:<section>` (OpenWrt),
+            `entware:default` (Keenetic), `systemd:<unit>.service` (Debian). Empty or absent
+            means automatic selection. Needed only when `keen-pbr dnsmasq detect` reports
+            DNSMASQ_INSTANCE_AMBIGUOUS.
+          example: "uci:cfg01411c"
         dns_test_server:
           $ref: "#/components/schemas/DnsTestServer"
         system_resolver:

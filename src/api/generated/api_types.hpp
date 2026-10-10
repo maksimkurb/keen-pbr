@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesBQXoJw data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesUsegi9 data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -224,6 +224,7 @@ namespace api {
 
     struct DnsConfigClass {
         std::optional<DnsTestServer> dns_test_server;
+        std::optional<std::string> dnsmasq_instance;
         std::optional<std::vector<std::string>> fallback;
         std::optional<ResolverIntegration> resolver_integration;
         std::optional<std::vector<DnsRuleElement>> rules;
@@ -870,7 +871,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesBQXoJw {
+    struct KeenPbrTypesUsegi9 {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1211,8 +1212,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesBQXoJw & x);
-    void to_json(json & j, const KeenPbrTypesBQXoJw & x);
+    void from_json(const json & j, KeenPbrTypesUsegi9 & x);
+    void to_json(json & j, const KeenPbrTypesUsegi9 & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1599,6 +1600,7 @@ namespace api {
 
     inline void from_json(const json & j, DnsConfigClass& x) {
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "dns_test_server");
+        x.dnsmasq_instance = get_stack_optional<std::string>(j, "dnsmasq_instance");
         x.fallback = get_stack_optional<std::vector<std::string>>(j, "fallback");
         x.resolver_integration = get_stack_optional<ResolverIntegration>(j, "resolver_integration");
         x.rules = get_stack_optional<std::vector<DnsRuleElement>>(j, "rules");
@@ -1609,6 +1611,7 @@ namespace api {
     inline void to_json(json & j, const DnsConfigClass & x) {
         j = json::object();
         j["dns_test_server"] = x.dns_test_server;
+        j["dnsmasq_instance"] = x.dnsmasq_instance;
         j["fallback"] = x.fallback;
         j["resolver_integration"] = x.resolver_integration;
         j["rules"] = x.rules;
@@ -2816,7 +2819,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesBQXoJw& x) {
+    inline void from_json(const json & j, KeenPbrTypesUsegi9& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2907,7 +2910,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesBQXoJw & x) {
+    inline void to_json(json & j, const KeenPbrTypesUsegi9 & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

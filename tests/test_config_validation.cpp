@@ -2227,3 +2227,20 @@ TEST_CASE("balance validation: a test group cannot be a member of another test g
     CHECK(issues.front().message.find("not an interface, table, or blackhole") !=
           std::string::npos);
 }
+
+TEST_CASE("dns.dnsmasq_instance validation") {
+    auto make = [](const char* instance) {
+        return parse_config(std::string(R"({"dns":{"dnsmasq_instance":")") + instance + R"("}})");
+    };
+    CHECK_NOTHROW(validate_config(make("uci:lan")));
+    CHECK_NOTHROW(validate_config(make("")));
+    CHECK_FALSE(configured_dnsmasq_selector(make("")).has_value());
+    CHECK(configured_dnsmasq_selector(make("uci:lan")) == std::optional<std::string>("uci:lan"));
+    try {
+        validate_config(make("lan"));
+        FAIL("expected ConfigValidationError");
+    } catch (const ConfigValidationError& e) {
+        REQUIRE(e.issues().size() == 1);
+        CHECK(e.issues().front().path == "dns.dnsmasq_instance");
+    }
+}
