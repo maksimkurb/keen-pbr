@@ -3,6 +3,8 @@
 #include "../src/daemon/dnsmasq_manager.hpp"
 #include "../src/dns/dnsmasq_gen.hpp"
 
+#include <fstream>
+
 #include <unistd.h>
 
 #include <deque>
@@ -41,10 +43,31 @@ struct FakeDnsmasq {
     std::function<void(FakeDnsmasq&)> on_apply;
     // Answers handed out before `served` (one per probe).
     std::deque<DnsTxtProbeResult> probe_script;
-    // Exit code of the hook `alive` (0 alive, 1 dead, anything else unknown).
-    int alive_exit = 0;
+    // The hook `alive` is no longer called; kept to assert exactly that.
     int alives = 0;
     int probes = 0;
+    // Detection fake.
+    bool running = true;
+    DnsmasqEndpoint endpoint{"127.0.0.1", 53};
+    std::string exe = "/proc/self/exe";
+    DnsmasqErrorCode detect_error = DnsmasqErrorCode::None;
+    DnsmasqErrorCode instance_problem = DnsmasqErrorCode::None;
+    int detects = 0;
+    std::vector<DnsmasqEndpoint> probed_endpoints;
+    // Capability fake.
+    int capability_calls = 0;
+    DnsmasqCapabilityResult capability_result = [] {
+        DnsmasqCapabilityResult r;
+        r.status = DnsmasqCapabilityStatus::Ok;
+        return r;
+    }();
+    // Preflight fake.
+    int preflight_calls = 0;
+    DnsmasqPreflightResult preflight_result = [] {
+        DnsmasqPreflightResult r;
+        r.ok = true;
+        return r;
+    }();
     int sleeps = 0;
     std::vector<std::vector<std::string>> calls;
     ExecCaptureResult hook_result = [] {
@@ -95,9 +118,6 @@ struct FakeDnsmasq {
             calls.push_back(args);
             if (args.size() > 1 && args[1] == "alive") {
                 ++alives;
-                ExecCaptureResult result;
-                result.exit_code = alive_exit;
-                return result;
             }
             if (hook_result.exit_code == 0 && args.size() > 1) {
                 if (args[1] == "apply") {
@@ -115,8 +135,9 @@ struct FakeDnsmasq {
         };
     }
     DnsmasqProbeFn probe() {
-        return [this] {
+        return [this](const DnsmasqEndpoint& ep) {
             ++probes;
+            probed_endpoints.push_back(ep);
             if (!probe_script.empty()) {
                 DnsTxtProbeResult next = probe_script.front();
                 probe_script.pop_front();
@@ -124,6 +145,71 @@ struct FakeDnsmasq {
             }
             return served;
         };
+    }
+    DnsmasqDetectFn detect() {
+        return [this](const DnsmasqDetectOptions& options) {
+            ++detects;
+            DnsmasqDetection det;
+            det.inspect.binary = exe;
+            if (detect_error != DnsmasqErrorCode::None) {
+                det.error = detect_error;
+                det.message = "fake detection error";
+                return det;
+            }
+            DnsmasqInstance inst;
+            inst.selector = DnsmasqSelector{"uci", "test"};
+            inst.hook.selector = inst.selector.str();
+            if (running) {
+                ProcessInfo process;
+                process.pid = 100;
+                process.exe = exe;
+                inst.process = process;
+                inst.endpoint = endpoint;
+                inst.evidence = EndpointEvidence::Responding;
+                if (served.status == DnsTxtProbeStatus::Ok) {
+                    const auto stamp = parse_dnsmasq_config_stamp(served.txt);
+                    if (stamp && !options.expected_hash.empty() &&
+                        stamp->hash == options.expected_hash) {
+                        inst.evidence = EndpointEvidence::StampVerified;
+                        inst.stamp = stamp;
+                    }
+                }
+            } else {
+                inst.problem = DnsmasqErrorCode::NotRunning;
+                inst.problem_detail = "dnsmasq is not running";
+            }
+            if (instance_problem != DnsmasqErrorCode::None) {
+                inst.problem = instance_problem;
+                inst.problem_detail = "fake instance problem";
+            }
+            det.instances.push_back(inst);
+            det.selected = 0;
+            det.selection = DnsmasqSelectionKind::Explicit;
+            det.hook_ok = true;
+            return det;
+        };
+    }
+    DnsmasqCapabilityFn capability() {
+        return [this](const std::string&) {
+            ++capability_calls;
+            return capability_result;
+        };
+    }
+    DnsmasqPreflightFn preflight() {
+        return [this](const DnsmasqInstance&) {
+            ++preflight_calls;
+            return preflight_result;
+        };
+    }
+    DnsmasqManagerDeps deps() {
+        DnsmasqManagerDeps d;
+        d.exec = exec();
+        d.probe = probe();
+        d.clock = clock();
+        d.detect = detect();
+        d.capability = capability();
+        d.preflight = preflight();
+        return d;
     }
     DnsmasqClockFn clock() {
         return [this] { return now_ms; };
@@ -141,7 +227,7 @@ struct Rig {
     FakeDnsmasq fake;
     DnsmasqManager manager;
     explicit Rig(const std::string& hook = "/hook")
-        : manager(hook, fake.exec(), fake.probe(), fake.clock(), fake.timing()) {}
+        : manager(hook, fake.deps(), fake.timing()) {}
 };
 
 class DiscardBuf : public std::streambuf {
@@ -231,7 +317,7 @@ TEST_CASE("dnsmasq manager: first sync applies once without writing files") {
     run_sync(rig, make_config("dnsmasq", "example.com"));
 
     REQUIRE(hook.calls.size() == 1);
-    CHECK(hook.calls[0] == std::vector<std::string>{"/hook", "apply"});
+    CHECK(hook.calls[0] == std::vector<std::string>{"/hook", "apply", "uci:test"});
     CHECK(dir_is_empty(dir.path));
 
     const auto status = manager.status();
@@ -320,7 +406,7 @@ TEST_CASE("dnsmasq manager: switching to none removes the config") {
 
     run_sync(rig, make_config("none", "example.com"));
     REQUIRE(hook.calls.size() == 2);
-    CHECK(hook.calls[1] == std::vector<std::string>{"/hook", "remove"});
+    CHECK(hook.calls[1] == std::vector<std::string>{"/hook", "remove", "uci:test"});
     CHECK(dir_is_empty(dir.path));
     const auto status = manager.status();
     CHECK(status.mode == ResolverIntegrationMode::NONE);
@@ -618,58 +704,50 @@ TEST_CASE("dnsmasq manager: a lost probe answered on the retry changes nothing")
     CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
 }
 
-TEST_CASE("dnsmasq manager: dnsmasq that is alive or unknown but silent is not restarted") {
-    for (const int alive_exit : {0, 2, 5}) {
-        Rig rig;
-        run_sync(rig, make_config("dnsmasq", "example.com"));
-        REQUIRE(rig.fake.applies() == 1);
+TEST_CASE("dnsmasq manager: dnsmasq that is running but silent is not restarted") {
+    Rig rig;
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    REQUIRE(rig.fake.applies() == 1);
 
-        rig.fake.serve_failed("timed out");
-        rig.fake.alive_exit = alive_exit;
-        for (int i = 0; i < 4; ++i) {
-            rig.fake.now_ms += 30'000;
-            run_check(rig);
-        }
-        CHECK(rig.fake.applies() == 1);
-        CHECK(rig.fake.alives == 4);
-        const auto status = rig.manager.status();
-        CHECK(status.state == DnsmasqSyncState::Error);
-        CHECK(status.probe_state == DnsmasqProbeState::QueryFailed);
-        CHECK(status.repair_attempt == 0);
-        CHECK(status.dnsmasq_alive == (alive_exit == 0 ? DnsmasqLiveness::Alive
-                                                      : DnsmasqLiveness::Unknown));
-        CHECK(status.last_error.find("; not restarting it") != std::string::npos);
-        if (alive_exit == 0) {
-            CHECK(status.last_error ==
-                  "dnsmasq is running but does not answer the config check on 127.0.0.1:53: "
-                  "timed out; not restarting it");
-        } else {
-            CHECK(status.last_error.find("could not tell whether dnsmasq is running") !=
-                  std::string::npos);
-        }
-
-        // It answers again with our config: back to ok without any restart.
-        rig.fake.restart_with(config_hash(make_config("dnsmasq", "example.com")));
+    rig.fake.serve_failed("timed out");
+    for (int i = 0; i < 4; ++i) {
+        rig.fake.now_ms += 30'000;
         run_check(rig);
-        CHECK(rig.fake.applies() == 1);
-        CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
     }
+    CHECK(rig.fake.applies() == 1);
+    CHECK(rig.fake.alives == 0);
+    const auto status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Error);
+    CHECK(status.error_code == DnsmasqErrorCode::ProbeFailed);
+    CHECK(status.probe_state == DnsmasqProbeState::QueryFailed);
+    CHECK(status.repair_attempt == 0);
+    CHECK(status.dnsmasq_alive == DnsmasqLiveness::Alive);
+    CHECK(status.last_error ==
+          "dnsmasq uci:test is running but does not answer the config check on 127.0.0.1:53: "
+          "timed out; not restarting it");
+
+    // It answers again with our config: back to ok without any restart.
+    rig.fake.restart_with(config_hash(make_config("dnsmasq", "example.com")));
+    run_check(rig);
+    CHECK(rig.fake.applies() == 1);
+    CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
+    CHECK(rig.manager.status().error_code == DnsmasqErrorCode::None);
 }
 
-TEST_CASE("dnsmasq manager: dead dnsmasq is repaired immediately") {
+TEST_CASE("dnsmasq manager: dnsmasq that disappeared is reported, not restarted") {
     Rig rig;
     run_sync(rig, make_config("dnsmasq", "example.com"));
     REQUIRE(rig.fake.applies() == 1);
 
     rig.fake.serve_failed("connection refused");
-    rig.fake.alive_exit = 1;
-    // `apply` brings dnsmasq back (default fake behaviour).
+    rig.fake.running = false;
     run_check(rig);
-    CHECK(rig.fake.applies() == 2);
+    CHECK(rig.fake.applies() == 1);
+    CHECK(rig.fake.alives == 0);
     const auto status = rig.manager.status();
-    CHECK(status.state == DnsmasqSyncState::Ok);
-    CHECK(status.repair_attempt == 1);
-    CHECK(status.repair_reason == "dnsmasq is not running");
+    CHECK(status.state == DnsmasqSyncState::Error);
+    CHECK(status.error_code == DnsmasqErrorCode::NotRunning);
+    CHECK(status.repair_attempt == 0);
     CHECK(status.dnsmasq_alive == DnsmasqLiveness::Dead);
 }
 
@@ -926,4 +1004,153 @@ TEST_CASE("dnsmasq manager: post failure re-arms on next check request") {
     queue[0]();
     // Sync should have run (it probes dnsmasq)
     CHECK(rig.fake.probes >= 1);
+}
+
+TEST_CASE("dnsmasq manager: failed preflight refuses the apply") {
+    Rig rig;
+    rig.fake.preflight_result.ok = false;
+    rig.fake.preflight_result.detail = "bad option at line 3";
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+
+    CHECK(rig.fake.calls.empty());
+    CHECK(rig.fake.preflight_calls == 1);
+    const auto status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Error);
+    CHECK(status.error_code == DnsmasqErrorCode::PreflightFailed);
+    CHECK(status.preflight == "failed");
+    CHECK(status.last_error.find("bad option at line 3") != std::string::npos);
+}
+
+TEST_CASE("dnsmasq manager: unsupported capability refuses the apply before preflight") {
+    Rig rig;
+    rig.fake.capability_result.status = DnsmasqCapabilityStatus::Unsupported;
+    rig.fake.capability_result.code = DnsmasqErrorCode::ConfScriptUnsupported;
+    rig.fake.capability_result.detail = "no conf-script";
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+
+    CHECK(rig.fake.calls.empty());
+    CHECK(rig.fake.preflight_calls == 0);
+    const auto status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Error);
+    CHECK(status.error_code == DnsmasqErrorCode::ConfScriptUnsupported);
+    CHECK(status.capability == DnsmasqCapabilityStatus::Unsupported);
+}
+
+TEST_CASE("dnsmasq manager: capability is probed once per binary identity") {
+    TempDir dir;
+    const auto exe = dir.path / "dnsmasq";
+    {
+        std::ofstream out(exe);
+        out << "binary one";
+    }
+    Rig rig;
+    rig.fake.exe = exe.string();
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    run_sync(rig, make_config("dnsmasq", "changed.example"));
+    CHECK(rig.fake.applies() == 2);
+    CHECK(rig.fake.capability_calls == 1);
+    CHECK(rig.manager.status().capability == DnsmasqCapabilityStatus::Ok);
+
+    {
+        std::ofstream out(exe);
+        out << "a different, longer binary";
+    }
+    run_sync(rig, make_config("dnsmasq", "third.example"));
+    CHECK(rig.fake.applies() == 3);
+    CHECK(rig.fake.capability_calls == 2);
+}
+
+TEST_CASE("dnsmasq manager: ambiguous detection makes no hook calls") {
+    Rig rig;
+    rig.fake.detect_error = DnsmasqErrorCode::InstanceAmbiguous;
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    run_lifecycle_sync(rig, make_config("dnsmasq", "example.com"));
+    run_check(rig);
+
+    CHECK(rig.fake.calls.empty());
+    const auto status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Error);
+    CHECK(status.error_code == DnsmasqErrorCode::InstanceAmbiguous);
+    CHECK_FALSE(status.endpoint.has_value());
+}
+
+TEST_CASE("dnsmasq manager: a blocked apply runs as an explicit apply once dnsmasq runs") {
+    Rig rig;
+    rig.fake.running = false;
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    CHECK(rig.fake.calls.empty());
+    CHECK(rig.manager.status().error_code == DnsmasqErrorCode::NotRunning);
+
+    rig.fake.running = true;
+    run_check(rig);
+    CHECK(rig.fake.applies() == 1);
+    CHECK(rig.fake.preflight_calls == 1);
+    const auto status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Ok);
+    CHECK(status.error_code == DnsmasqErrorCode::None);
+    CHECK(status.repair_attempt == 0);
+}
+
+TEST_CASE("dnsmasq manager: a repair reuses the cached preflight") {
+    Rig rig;
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    REQUIRE(rig.fake.applies() == 1);
+    REQUIRE(rig.fake.preflight_calls == 1);
+
+    lose_config(rig);
+    run_check(rig);
+    CHECK(rig.fake.applies() == 2);
+    CHECK(rig.fake.preflight_calls == 1);
+    CHECK(rig.manager.status().repair_attempt == 1);
+}
+
+TEST_CASE("dnsmasq manager: the probe goes to the detected endpoint") {
+    Rig rig;
+    rig.fake.endpoint = DnsmasqEndpoint{"127.0.0.1", 5353};
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    REQUIRE_FALSE(rig.fake.probed_endpoints.empty());
+    for (const auto& ep : rig.fake.probed_endpoints) {
+        CHECK(ep == DnsmasqEndpoint{"127.0.0.1", 5353});
+    }
+    const auto status = rig.manager.status();
+    REQUIRE(status.endpoint.has_value());
+    CHECK(status.endpoint->str() == "127.0.0.1:5353");
+    CHECK(status.selector == "uci:test");
+    CHECK(status.pid == 100);
+}
+
+TEST_CASE("dnsmasq manager: routing_resolver follows the integration and the status") {
+    Rig rig;
+    const Config off = make_config("none", "example.com");
+    const Config on = make_config("dnsmasq", "example.com");
+    CHECK(rig.manager.routing_resolver(off).source == RoutingDnsSource::System);
+
+    // Enabled but nothing known yet.
+    auto resolver = rig.manager.routing_resolver(on);
+    CHECK(resolver.source == RoutingDnsSource::Dnsmasq);
+    CHECK(resolver.unavailable.has_value());
+
+    run_sync(rig, on);
+    resolver = rig.manager.routing_resolver(on);
+    CHECK(resolver.source == RoutingDnsSource::Dnsmasq);
+    CHECK(resolver.address == "127.0.0.1");
+    CHECK(resolver.port == 53);
+    CHECK(resolver.instance == "uci:test");
+    CHECK_FALSE(resolver.unavailable.has_value());
+    CHECK_FALSE(resolver.warning.has_value());
+    CHECK(rig.manager.routing_resolver(off).source == RoutingDnsSource::System);
+
+    rig.fake.detect_error = DnsmasqErrorCode::NoDnsInstance;
+    run_lifecycle_sync(rig, on);
+    resolver = rig.manager.routing_resolver(on);
+    REQUIRE(resolver.unavailable.has_value());
+    CHECK(resolver.unavailable->find("DNSMASQ_NO_DNS_INSTANCE") != std::string::npos);
+}
+
+TEST_CASE("dnsmasq manager: switching off in the daemon removes the selected instance") {
+    Rig rig;
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    run_sync(rig, make_config("none", "example.com"));
+    REQUIRE(rig.fake.calls.size() == 2);
+    CHECK(rig.fake.calls[1] == std::vector<std::string>{"/hook", "remove", "uci:test"});
 }

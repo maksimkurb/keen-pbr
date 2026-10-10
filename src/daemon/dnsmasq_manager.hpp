@@ -1,10 +1,15 @@
 #pragma once
 
 #include "../cache/cache_manager.hpp"
+#include "dnsmasq_capability.hpp"
+#include "dnsmasq_detector.hpp"
+#include "dnsmasq_preflight.hpp"
+#include "dnsmasq_types.hpp"
 #include "../config/config.hpp"
 #include "../dns/dns_router.hpp"
 #include "../dns/dns_txt_probe.hpp"
 #include "../dns/dnsmasq_gen.hpp"
+#include "../dns/routing_dns_resolver.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../util/safe_exec.hpp"
 #include "../util/traced_mutex.hpp"
@@ -14,6 +19,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -81,6 +87,16 @@ struct DnsmasqStatus {
     std::optional<DnsmasqLiveness> dnsmasq_alive;
     std::size_t rules{0};
     std::size_t domains{0};
+    DnsmasqErrorCode error_code{DnsmasqErrorCode::None};
+    std::string selector;                                   // "" when none
+    DnsmasqSelectionKind selection{DnsmasqSelectionKind::None};
+    std::optional<DnsmasqEndpoint> endpoint;
+    EndpointEvidence endpoint_evidence{EndpointEvidence::None};
+    std::optional<pid_t> pid;
+    DnsmasqCapabilityStatus capability{DnsmasqCapabilityStatus::NotChecked};
+    std::string preflight{"not_run"};                       // "not_run" | "ok" | "failed" | "skipped"
+    std::size_t instances{0};
+    std::vector<std::string> warnings;
 };
 
 // Runs the platform hook: `args[0]` is the hook path.
@@ -88,10 +104,22 @@ using DnsmasqExecFn = std::function<ExecCaptureResult(const std::vector<std::str
 // Queues a task on a blocking worker; returns false if it was not accepted.
 using DnsmasqPostFn = std::function<bool(std::function<void()>)>;
 
-// Queries the config-hash.keen.pbr TXT record of the local dnsmasq.
-using DnsmasqProbeFn = std::function<DnsTxtProbeResult()>;
+// Queries the config-hash.keen.pbr TXT record at the given endpoint.
+using DnsmasqProbeFn = std::function<DnsTxtProbeResult(const DnsmasqEndpoint&)>;
 // CLOCK_BOOTTIME in milliseconds.
 using DnsmasqClockFn = std::function<std::int64_t()>;
+using DnsmasqDetectFn = std::function<DnsmasqDetection(const DnsmasqDetectOptions&)>;
+using DnsmasqCapabilityFn = std::function<DnsmasqCapabilityResult(const std::string& dnsmasq_path)>;
+using DnsmasqPreflightFn = std::function<DnsmasqPreflightResult(const DnsmasqInstance&)>;
+
+struct DnsmasqManagerDeps {
+    DnsmasqExecFn exec;               // default: safe_exec_capture(args, true, 2048, true)
+    DnsmasqProbeFn probe;             // default: probe_dns_txt(ep.address, ep.port, stamp domain, 1000 ms)
+    DnsmasqClockFn clock;             // default: boottime_now_ms
+    DnsmasqDetectFn detect;           // default: DnsmasqDetector(hook_path).detect
+    DnsmasqCapabilityFn capability;   // default: probe_dnsmasq_capabilities(path)
+    DnsmasqPreflightFn preflight;     // default: run_dnsmasq_preflight(inst)
+};
 
 struct DnsmasqTiming {
     // How long to wait for dnsmasq to serve the new config after `apply`.
@@ -120,9 +148,7 @@ struct DnsmasqTiming {
 class DnsmasqManager {
 public:
     explicit DnsmasqManager(std::string hook_path,
-                            DnsmasqExecFn exec = {},
-                            DnsmasqProbeFn probe = {},
-                            DnsmasqClockFn clock = {},
+                            DnsmasqManagerDeps deps = {},
                             DnsmasqTiming timing = {});
 
     // Blocking and serialized; never throws, failures end up in status().
@@ -158,6 +184,10 @@ public:
 
     DnsmasqStatus status() const;
 
+    // Which resolver the routing test must use for `config`. Thread-safe, cheap
+    // (reads status() only).
+    RoutingDnsResolver routing_resolver(const Config& config) const;
+
 private:
     struct ProbeObservation {
         DnsTxtProbeResult raw;
@@ -179,8 +209,7 @@ private:
     // between a repair, a scheduled repair and doing nothing.  Used by the
     // periodic check and by full syncs whose hash did not change.
     void evaluate_locked(const std::string& hash, ProbeObservation observed) REQUIRES(sync_mutex_);
-    ProbeObservation probe_once();
-    DnsmasqLiveness query_liveness();
+    ProbeObservation probe_once() REQUIRES(sync_mutex_);
     void mark_in_sync(const DnsmasqConfigStamp& stamp, bool external) REQUIRES(sync_mutex_);
     // Handles a diverged dnsmasq: runs the next repair attempt, or schedules it
     // or pauses repairs, according to the budget.
@@ -197,7 +226,7 @@ private:
         REQUIRES(sync_mutex_);
     std::string failure_message(const ProbeObservation& obs,
                                 const std::string& expected_hash,
-                                std::int64_t apply_started_ms) const;
+                                std::int64_t apply_started_ms) const REQUIRES(sync_mutex_);
 
     void sync_dnsmasq(const Config& config,
                       const DnsServerRegistry& registry,
@@ -205,6 +234,14 @@ private:
                       bool explicit_apply,
                       const std::string& reason) REQUIRES(sync_mutex_);
     void sync_disabled() REQUIRES(sync_mutex_);
+
+    // Runs detection, stores it, publishes status. Returns false (and publishes
+    // an Error with a code) when the selected instance cannot be used.
+    bool refresh_detection_locked(const std::string& expected_hash) REQUIRES(sync_mutex_);
+    // Capability (cached) + preflight. Returns false after publishing an Error.
+    bool ensure_ready_to_apply_locked(const std::string& hash, bool allow_cached_preflight)
+        REQUIRES(sync_mutex_);
+    void publish_error(DnsmasqErrorCode code, const std::string& message) REQUIRES(sync_mutex_);
     void run_pending_requests();
     // Returns an empty string on success, otherwise the failure description.
     std::string run_hook(const std::vector<std::string>& args);
@@ -214,6 +251,9 @@ private:
     DnsmasqExecFn exec_;
     DnsmasqProbeFn probe_;
     DnsmasqClockFn clock_;
+    DnsmasqDetectFn detect_;
+    DnsmasqCapabilityFn capability_fn_;
+    DnsmasqPreflightFn preflight_fn_;
     DnsmasqTiming timing_;
     std::atomic<bool> check_armed_{false};
 
@@ -237,6 +277,17 @@ private:
     bool pause_logged_ GUARDED_BY(sync_mutex_){false};
     std::string not_answering_logged_ GUARDED_BY(sync_mutex_);
     ResolverIntegrationMode previous_mode_ GUARDED_BY(sync_mutex_){ResolverIntegrationMode::NONE};
+
+    std::optional<std::string> configured_selector_ GUARDED_BY(sync_mutex_);
+    DnsmasqDetection detection_ GUARDED_BY(sync_mutex_);
+    std::optional<DnsmasqSelector> selected_selector_ GUARDED_BY(sync_mutex_);  // last successfully selected
+    std::optional<DnsmasqEndpoint> endpoint_ GUARDED_BY(sync_mutex_);
+    std::optional<DnsmasqBinaryIdentity> capability_identity_ GUARDED_BY(sync_mutex_);
+    DnsmasqCapabilityResult capability_ GUARDED_BY(sync_mutex_);
+    std::string preflight_ok_hash_ GUARDED_BY(sync_mutex_);
+    bool apply_blocked_ GUARDED_BY(sync_mutex_){false};  // an explicit apply was refused by a gate
+    std::string last_logged_problem_ GUARDED_BY(sync_mutex_);  // log de-duplication
+    std::set<std::string> logged_warnings_ GUARDED_BY(sync_mutex_);
 
     mutable TracedMutex status_mutex_;
     DnsmasqStatus status_ GUARDED_BY(status_mutex_);

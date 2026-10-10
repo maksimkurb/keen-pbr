@@ -12,16 +12,11 @@
 #include <streambuf>
 #include <thread>
 
-#ifndef KEEN_PBR_DNSMASQ_PROBE_ADDRESS
-#define KEEN_PBR_DNSMASQ_PROBE_ADDRESS "127.0.0.1:53"
-#endif
-
 namespace keen_pbr3 {
 
 namespace {
 
 constexpr std::size_t kMaxHookOutputBytes = 2048;
-constexpr const char* kProbeAddress = KEEN_PBR_DNSMASQ_PROBE_ADDRESS;
 constexpr std::chrono::milliseconds kProbeTimeout{1000};
 
 // Discards everything written to it: the generator hashes the bytes itself,
@@ -42,18 +37,6 @@ std::string trim_copy(std::string value) {
 ExecCaptureResult default_exec(const std::vector<std::string>& args) {
     return safe_exec_capture(args, /*suppress_stderr=*/true, kMaxHookOutputBytes,
                              /*merge_stderr=*/true);
-}
-
-DnsTxtProbeResult default_probe() {
-    try {
-        const ParsedDnsAddress address = parse_dns_address_str(kProbeAddress);
-        return probe_dns_txt(address.ip, address.port, kDnsmasqStampDomain, kProbeTimeout);
-    } catch (const std::exception& error) {
-        DnsTxtProbeResult result;
-        result.status = DnsTxtProbeStatus::QueryFailed;
-        result.error = error.what();
-        return result;
-    }
 }
 
 std::string format_unix_ts(std::int64_t ts) {
@@ -83,18 +66,50 @@ std::string format_local_ts(std::int64_t ts) {
 } // namespace
 
 DnsmasqManager::DnsmasqManager(std::string hook_path,
-                               DnsmasqExecFn exec,
-                               DnsmasqProbeFn probe,
-                               DnsmasqClockFn clock,
+                               DnsmasqManagerDeps deps,
                                DnsmasqTiming timing)
     : hook_path_(std::move(hook_path)),
-      exec_(exec ? std::move(exec) : DnsmasqExecFn(default_exec)),
-      probe_(probe ? std::move(probe) : DnsmasqProbeFn(default_probe)),
-      clock_(clock ? std::move(clock) : DnsmasqClockFn(boottime_now_ms)),
       timing_(std::move(timing)) {
+    exec_ = deps.exec ? std::move(deps.exec) : DnsmasqExecFn(default_exec);
+    probe_ = deps.probe ? std::move(deps.probe) : DnsmasqProbeFn([](const DnsmasqEndpoint& ep) {
+        return probe_dns_txt(ep.address, ep.port, kDnsmasqStampDomain, kProbeTimeout);
+    });
+    clock_ = deps.clock ? std::move(deps.clock) : DnsmasqClockFn(boottime_now_ms);
+    if (deps.detect) {
+        detect_ = std::move(deps.detect);
+    } else {
+        const std::string path = hook_path_;
+        detect_ = [path](const DnsmasqDetectOptions& o) { return DnsmasqDetector(path).detect(o); };
+    }
+    capability_fn_ = deps.capability ? std::move(deps.capability)
+        : DnsmasqCapabilityFn([](const std::string& p) { return probe_dnsmasq_capabilities(p); });
+    preflight_fn_ = deps.preflight ? std::move(deps.preflight)
+        : DnsmasqPreflightFn([](const DnsmasqInstance& i) { return run_dnsmasq_preflight(i); });
     if (!timing_.sleep) {
         timing_.sleep = [](std::chrono::milliseconds d) { std::this_thread::sleep_for(d); };
     }
+}
+
+RoutingDnsResolver DnsmasqManager::routing_resolver(const Config& config) const {
+    RoutingDnsResolver r;
+    if (!dnsmasq_integration_enabled(config)) return r;  // System
+    r.source = RoutingDnsSource::Dnsmasq;
+    const DnsmasqStatus s = status();
+    if (!s.endpoint) {
+        r.unavailable =
+            std::string("dnsmasq integration is enabled, but no usable dnsmasq DNS endpoint is known") +
+            (s.error_code != DnsmasqErrorCode::None
+                 ? std::string(" (") + dnsmasq_error_code_name(s.error_code) + ": " + s.last_error + ")"
+                 : std::string());
+        return r;
+    }
+    r.address = s.endpoint->address;
+    r.port = s.endpoint->port;
+    r.instance = s.selector;
+    if (s.state != DnsmasqSyncState::Ok) {
+        r.warning = "dnsmasq does not currently confirm the keen-pbr configuration; its answers may not follow the DNS rules";
+    }
+    return r;
 }
 
 DnsmasqStatus DnsmasqManager::status() const {
@@ -178,9 +193,8 @@ void DnsmasqManager::sync_dnsmasq(const Config& config,
         check_armed_.store(false, std::memory_order_release);
         update_status([](DnsmasqStatus& status) {
             status.mode = ResolverIntegrationMode::DNSMASQ;
-            status.state = DnsmasqSyncState::Error;
-            status.last_error = "no dnsmasq hook for this platform";
         });
+        publish_error(DnsmasqErrorCode::NoHook, "no dnsmasq hook for this platform");
         log.warn("dns.resolver_integration is dnsmasq, but this build has no dnsmasq hook");
         return;
     }
@@ -211,28 +225,145 @@ void DnsmasqManager::sync_dnsmasq(const Config& config,
         status.domains = stats.domains;
     });
 
-    if (!explicit_now) {
+    configured_selector_ = configured_dnsmasq_selector(config);
+    if (!refresh_detection_locked(hash)) {
+        if (explicit_now) {
+            apply_blocked_ = true;
+        }
+        return;
+    }
+    const DnsmasqInstance* inst = detection_.selected_instance();
+
+    // dnsmasq may already serve this exact config (keen-pbr restarted, or
+    // dnsmasq started first): then there is nothing to install or restart.
+    if (!explicit_now && !apply_blocked_) {
         // Same config as before (e.g. lists autoupdate): only repair dnsmasq
         // if it lost the config, within the repair budget.
         evaluate_locked(hash, probe_once());
         return;
     }
-
-    // dnsmasq may already serve this exact config (keen-pbr restarted, or
-    // dnsmasq started first): then there is nothing to install or restart.
-    const ProbeObservation observed = probe_once();
-    if (observed.stamp && observed.stamp->hash == hash) {
-        log.info("dnsmasq already serves keen-pbr config (hash {}); not restarting", hash);
-        mark_in_sync(*observed.stamp, /*external=*/false);
+    if (inst->evidence == EndpointEvidence::StampVerified && inst->stamp) {
+        log.info("dnsmasq {} already serves keen-pbr config (hash {}); not restarting",
+                 inst->selector.str(), hash);
+        mark_in_sync(*inst->stamp, /*external=*/false);
         return;
     }
 
+    if (!ensure_ready_to_apply_locked(hash, /*allow_cached_preflight=*/false)) {
+        apply_blocked_ = true;
+        return;
+    }
+    apply_blocked_ = false;
     apply_and_confirm(hash, ApplyContext{false, reason});
+}
+
+bool DnsmasqManager::refresh_detection_locked(const std::string& expected_hash) {
+    DnsmasqDetectOptions options;
+    options.configured_selector = configured_selector_;
+    options.expected_hash = expected_hash;
+    options.previous_endpoint = endpoint_;
+    detection_ = detect_(options);
+    const DnsmasqInstance* inst = detection_.selected_instance();
+
+    update_status([&](DnsmasqStatus& s) {
+        s.instances = detection_.instances.size();
+        s.warnings = detection_.warnings;
+        if (inst) {
+            s.warnings.insert(s.warnings.end(), inst->warnings.begin(), inst->warnings.end());
+        }
+        s.selection = detection_.selection;
+        s.selector = inst ? inst->selector.str() : std::string{};
+        s.endpoint = inst ? inst->endpoint : std::nullopt;
+        s.endpoint_evidence = inst ? inst->evidence : EndpointEvidence::None;
+        s.pid = (inst && inst->process) ? std::optional<pid_t>(inst->process->pid) : std::nullopt;
+        s.dnsmasq_alive = inst ? (inst->process ? DnsmasqLiveness::Alive : DnsmasqLiveness::Dead)
+                               : DnsmasqLiveness::Unknown;
+    });
+    for (const std::string& warning : status().warnings) {
+        if (logged_warnings_.insert(warning).second) {
+            Logger::instance().warn("dnsmasq: {}", warning);
+        }
+    }
+
+    if (detection_.error != DnsmasqErrorCode::None) {
+        endpoint_.reset();
+        publish_error(detection_.error, detection_.message);
+        return false;
+    }
+    selected_selector_ = inst->selector;
+    endpoint_ = inst->endpoint;
+    if (inst->problem != DnsmasqErrorCode::None) {
+        publish_error(inst->problem, inst->problem_detail);
+        return false;
+    }
+    return true;
+}
+
+bool DnsmasqManager::ensure_ready_to_apply_locked(const std::string& hash,
+                                                  bool allow_cached_preflight) {
+    auto& log = Logger::instance();
+    const DnsmasqInstance* inst = detection_.selected_instance();
+    if (inst == nullptr) {
+        publish_error(DnsmasqErrorCode::NoDnsInstance, "no dnsmasq instance is selected");
+        return false;
+    }
+    if (inst->hook.preflight_skip) {
+        update_status([](DnsmasqStatus& s) {
+            s.capability = DnsmasqCapabilityStatus::NotChecked;
+            s.preflight = "skipped";
+        });
+        return true;
+    }
+    const std::string path = inst->process ? inst->process->exe : detection_.inspect.binary;
+    const auto identity = dnsmasq_binary_identity(path);
+    if (!identity || !capability_identity_ || !(*identity == *capability_identity_)) {
+        capability_ = capability_fn_(path);
+        capability_identity_ = identity;
+        log.info("dnsmasq capability test for {}: {}", path,
+                 capability_status_name(capability_.status));
+    }
+    update_status([&](DnsmasqStatus& s) { s.capability = capability_.status; });
+    if (capability_.status != DnsmasqCapabilityStatus::Ok) {
+        publish_error(capability_.code,
+                      "dnsmasq " + path + " cannot be used: " + capability_.detail);
+        return false;
+    }
+    if (allow_cached_preflight && preflight_ok_hash_ == hash) {
+        return true;
+    }
+    const DnsmasqPreflightResult pf = preflight_fn_(*inst);
+    if (!pf.ok) {
+        update_status([](DnsmasqStatus& s) { s.preflight = "failed"; });
+        publish_error(DnsmasqErrorCode::PreflightFailed,
+                      "dnsmasq --test rejected the configuration with the keen-pbr drop-in; "
+                      "dnsmasq was not restarted: " + pf.detail);
+        return false;
+    }
+    preflight_ok_hash_ = hash;
+    update_status([&](DnsmasqStatus& s) { s.preflight = pf.skipped ? "skipped" : "ok"; });
+    log.info("dnsmasq preflight passed for {} in {} ms", inst->selector.str(),
+             pf.duration.count());
+    return true;
+}
+
+void DnsmasqManager::publish_error(DnsmasqErrorCode code, const std::string& message) {
+    if (last_logged_problem_ != message) {
+        last_logged_problem_ = message;
+        Logger::instance().warn("dnsmasq integration: {}: {}", dnsmasq_error_code_name(code),
+                                message);
+    }
+    publish_state(DnsmasqSyncState::Error, message);
+    update_status([&](DnsmasqStatus& s) { s.error_code = code; });
 }
 
 DnsmasqManager::ProbeObservation DnsmasqManager::probe_once() {
     ProbeObservation observation;
-    observation.raw = probe_();
+    if (!endpoint_) {
+        observation.raw.status = DnsTxtProbeStatus::QueryFailed;
+        observation.raw.error = "no dnsmasq DNS endpoint is known";
+    } else {
+        observation.raw = probe_(*endpoint_);
+    }
     switch (observation.raw.status) {
     case DnsTxtProbeStatus::Ok:
         observation.stamp = parse_dnsmasq_config_stamp(observation.raw.txt);
@@ -267,17 +398,6 @@ DnsmasqManager::ProbeObservation DnsmasqManager::probe_once() {
     return observation;
 }
 
-DnsmasqLiveness DnsmasqManager::query_liveness() {
-    const ExecCaptureResult result = exec_({hook_path_, "alive"});
-    DnsmasqLiveness liveness = DnsmasqLiveness::Unknown;
-    if (!result.timed_out) {
-        if (result.exit_code == 0) liveness = DnsmasqLiveness::Alive;
-        else if (result.exit_code == 1) liveness = DnsmasqLiveness::Dead;
-    }
-    update_status([&](DnsmasqStatus& status) { status.dnsmasq_alive = liveness; });
-    return liveness;
-}
-
 void DnsmasqManager::publish_state(DnsmasqSyncState state,
                                    const std::optional<std::string>& error,
                                    std::optional<std::int64_t> next_repair_ts) {
@@ -294,6 +414,11 @@ void DnsmasqManager::publish_state(DnsmasqSyncState state,
         status.repair_paused = paused;
         status.repair_reason = reason;
         status.next_repair_ts = next_repair_ts;
+        if (state == DnsmasqSyncState::Ok) {
+            status.error_code = DnsmasqErrorCode::None;
+        } else if (state == DnsmasqSyncState::Reconciling) {
+            status.error_code = DnsmasqErrorCode::StampMismatch;
+        }
     });
 }
 
@@ -310,6 +435,8 @@ void DnsmasqManager::mark_in_sync(const DnsmasqConfigStamp& stamp, bool external
     loaded_stamp_ = stamp;
     not_answering_logged_.clear();
     scheduled_logged_attempt_ = 0;
+    last_logged_problem_.clear();
+    apply_blocked_ = false;
 
     // Stable for long enough since the last repair: refill the budget.
     const std::int64_t now = clock_();
@@ -322,6 +449,15 @@ void DnsmasqManager::mark_in_sync(const DnsmasqConfigStamp& stamp, bool external
     }
 
     publish_state(DnsmasqSyncState::Ok, std::string{});
+    // The stamp may come from detection rather than from probe_once().
+    const std::int64_t checked_ts = unix_timestamp_now_seconds();
+    update_status([&](DnsmasqStatus& status) {
+        status.probe_state = DnsmasqProbeState::Ok;
+        status.loaded_hash = stamp.hash;
+        status.loaded_boottime_ms = stamp.boottime_ms;
+        status.loaded_ts = stamp.unix_ts;
+        status.last_check_ts = checked_ts;
+    });
     if (external) {
         update_status([&](DnsmasqStatus& status) {
             status.last_external_reload_ts = stamp.unix_ts;
@@ -338,8 +474,9 @@ std::string DnsmasqManager::failure_message(const ProbeObservation& obs,
                std::string(kDnsmasqStampDomain) +
                " missing); the dnsmasq hook did not install its drop-in where dnsmasq reads it";
     case DnsmasqProbeState::QueryFailed:
-        return std::string("dnsmasq did not answer the config check on ") + kProbeAddress +
-               ": " + obs.raw.error;
+        return "dnsmasq did not answer the config check on " +
+               (endpoint_ ? endpoint_->str() : std::string("(unknown endpoint)")) + ": " +
+               obs.raw.error;
     case DnsmasqProbeState::Invalid:
         return "invalid " + std::string(kDnsmasqStampDomain) + " TXT record: " + obs.raw.txt;
     case DnsmasqProbeState::Ok:
@@ -369,10 +506,14 @@ void DnsmasqManager::apply_and_confirm(const std::string& hash, const ApplyConte
                  context.reason, hash);
     }
 
-    const std::string failure = run_hook({"apply"});
+    if (!selected_selector_) {
+        publish_error(DnsmasqErrorCode::NoDnsInstance, "no dnsmasq instance is selected");
+        return;
+    }
+    const std::string failure = run_hook({"apply", selected_selector_->str()});
     if (!failure.empty()) {
         log.error("dnsmasq hook apply failed: {}", failure);
-        publish_state(DnsmasqSyncState::Error, failure);
+        publish_error(DnsmasqErrorCode::ApplyFailed, failure);
         return;
     }
 
@@ -382,6 +523,7 @@ void DnsmasqManager::apply_and_confirm(const std::string& hash, const ApplyConte
     const auto started = std::chrono::steady_clock::now();
     std::chrono::milliseconds waited{0};
     ProbeObservation last;
+    int misses = 0;
     while (true) {
         last = probe_once();
         if (last.stamp && last.stamp->hash == hash &&
@@ -391,6 +533,21 @@ void DnsmasqManager::apply_and_confirm(const std::string& hash, const ApplyConte
             update_status([&](DnsmasqStatus& status) { status.last_apply_ts = now; });
             log.info("dnsmasq confirmed keen-pbr config (hash {})", hash);
             return;
+        }
+        ++misses;
+        if (misses % 4 == 0) {
+            // dnsmasq may come back on another address after the restart.
+            DnsmasqDetectOptions options;
+            options.configured_selector = configured_selector_;
+            options.expected_hash = hash;
+            options.previous_endpoint = endpoint_;
+            options.probe = true;
+            const DnsmasqDetection detection = detect_(options);
+            const DnsmasqInstance* found = detection.selected_instance();
+            if (found && selected_selector_ && found->selector == *selected_selector_ &&
+                found->endpoint) {
+                endpoint_ = found->endpoint;
+            }
         }
         const auto real_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - started);
@@ -403,7 +560,7 @@ void DnsmasqManager::apply_and_confirm(const std::string& hash, const ApplyConte
 
     const std::string message = failure_message(last, hash, apply_started_ms_);
     log.error("dnsmasq did not confirm keen-pbr config: {}", message);
-    publish_state(DnsmasqSyncState::Error, message);
+    publish_error(DnsmasqErrorCode::ConfigNotLoaded, message);
 }
 
 void DnsmasqManager::repair_locked(const std::string& hash, const std::string& problem) {
@@ -423,7 +580,7 @@ void DnsmasqManager::repair_locked(const std::string& hash, const std::string& p
             pause_logged_ = true;
             log.error("{}", message);
         }
-        publish_state(DnsmasqSyncState::Error, message);
+        publish_error(DnsmasqErrorCode::RepairPaused, message);
         return;
     }
 
@@ -444,6 +601,10 @@ void DnsmasqManager::repair_locked(const std::string& hash, const std::string& p
         }
     }
 
+    if (!ensure_ready_to_apply_locked(hash, /*allow_cached_preflight=*/true)) {
+        return;
+    }
+
     ++repair_attempts_;
     last_repair_started_ms_ = now;
     scheduled_logged_attempt_ = 0;
@@ -459,27 +620,21 @@ void DnsmasqManager::evaluate_locked(const std::string& hash, ProbeObservation o
         observed = probe_once();
     }
     if (observed.state == DnsmasqProbeState::QueryFailed) {
-        // No answer is not a reason to restart a running dnsmasq (it may
-        // listen elsewhere); only a dead one is repaired.
-        const DnsmasqLiveness liveness = query_liveness();
-        if (liveness == DnsmasqLiveness::Dead) {
-            repair_locked(hash, "dnsmasq is not running");
+        // Never restart here (decision D2): re-detect, report, and wait.
+        if (!refresh_detection_locked(hash)) {
+            in_sync_since_ms_ = -1;
             return;
         }
-        const std::string message = liveness == DnsmasqLiveness::Alive
-            ? "dnsmasq is running but does not answer the config check on " +
-                  std::string(kProbeAddress) + ": " + observed.raw.error +
-                  "; not restarting it"
-            : "could not tell whether dnsmasq is running and it does not answer the "
-              "config check on " + std::string(kProbeAddress) + ": " + observed.raw.error +
-              "; not restarting it";
-        if (not_answering_logged_ != message) {
-            not_answering_logged_ = message;
-            log.warn("{}", message);
+        observed = probe_once();  // endpoint_ may have changed
+        if (observed.state == DnsmasqProbeState::QueryFailed) {
+            in_sync_since_ms_ = -1;
+            publish_error(DnsmasqErrorCode::ProbeFailed,
+                          "dnsmasq " + selected_selector_->str() +
+                              " is running but does not answer the config check on " +
+                              (endpoint_ ? endpoint_->str() : std::string("(unknown endpoint)")) +
+                              ": " + observed.raw.error + "; not restarting it");
+            return;
         }
-        in_sync_since_ms_ = -1;
-        publish_state(DnsmasqSyncState::Error, message);
-        return;
     }
     not_answering_logged_.clear();
 
@@ -513,6 +668,25 @@ void DnsmasqManager::check_locked() {
     if (expected_hash_.empty()) {
         return;  // not a dnsmasq-managed state (or no full sync yet)
     }
+    if (!endpoint_ || apply_blocked_) {
+        if (!refresh_detection_locked(expected_hash_)) {
+            return;
+        }
+        const DnsmasqInstance* inst = detection_.selected_instance();
+        if (inst->evidence == EndpointEvidence::StampVerified && inst->stamp) {
+            mark_in_sync(*inst->stamp, /*external=*/false);
+            return;
+        }
+        if (apply_blocked_) {
+            if (!ensure_ready_to_apply_locked(expected_hash_, false)) {
+                return;
+            }
+            apply_blocked_ = false;
+            reset_repair_budget();
+            apply_and_confirm(expected_hash_, ApplyContext{false, "dnsmasq became available"});
+            return;
+        }
+    }
     evaluate_locked(expected_hash_, probe_once());
 }
 
@@ -533,11 +707,53 @@ void DnsmasqManager::sync_disabled() {
     std::string failure;
     if (previous_mode_ == ResolverIntegrationMode::DNSMASQ && !hook_path_.empty()) {
         Logger::instance().info("Removing keen-pbr dnsmasq config: integration disabled");
-        failure = run_hook({"remove"});
-        if (!failure.empty()) {
-            Logger::instance().error("dnsmasq hook remove failed: {}", failure);
+        std::optional<std::string> target;
+        if (selected_selector_) {
+            target = selected_selector_->str();
+        } else {
+            DnsmasqDetectOptions options;
+            options.configured_selector = configured_selector_;
+            options.probe = false;
+            options.probe_all = false;
+            const DnsmasqDetection det = detect_(options);
+            std::vector<std::string> installed;
+            for (const DnsmasqInstance& instance : det.instances) {
+                if (instance.hook.dropin_state == DropinState::Current) {
+                    installed.push_back(instance.selector.str());
+                }
+            }
+            if (installed.size() == 1) {
+                target = installed[0];
+            } else if (installed.size() > 1) {
+                std::string joined;
+                for (const std::string& item : installed) {
+                    joined += (joined.empty() ? "" : ", ") + item;
+                }
+                Logger::instance().warn(
+                    "dnsmasq integration disabled; keen-pbr drop-ins remain in {}; remove them "
+                    "with keen-pbr dnsmasq remove <selector>", joined);
+            }
+        }
+        if (target) {
+            failure = run_hook({"remove", *target});
+            // Exit 3: the instance no longer exists, nothing to remove.
+            if (failure.rfind("hook exited 3", 0) == 0) {
+                failure.clear();
+            }
+            if (!failure.empty()) {
+                Logger::instance().error("dnsmasq hook remove failed: {}", failure);
+            }
         }
     }
+    selected_selector_.reset();
+    endpoint_.reset();
+    detection_ = DnsmasqDetection{};
+    apply_blocked_ = false;
+    preflight_ok_hash_.clear();
+    last_logged_problem_.clear();
+    logged_warnings_.clear();
+    capability_ = DnsmasqCapabilityResult{};
+    capability_identity_.reset();
     expected_hash_.clear();
     loaded_stamp_.reset();
     apply_started_ms_ = -1;
