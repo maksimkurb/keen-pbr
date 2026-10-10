@@ -230,6 +230,56 @@ def stream(args: argparse.Namespace) -> None:
         time.sleep(args.interval)
 
 
+def burst(args: argparse.Namespace) -> None:
+    """Send one UDP datagram per source port: one new flow (conntrack entry,
+    statistic-cascade decision) per datagram, at a deterministic pace."""
+    family = family_for(args.destination)
+    source = args.source or ("0.0.0.0" if family == socket.AF_INET else "::")
+    sent = 0
+    for index, port in enumerate(range(args.first_port, args.first_port + args.count)):
+        with socket.socket(family, socket.SOCK_DGRAM) as probe:
+            probe.bind((source, port))
+            probe.sendto(b"balance-split", (args.destination, args.destination_port))
+        sent += 1
+        if args.pace_every and index % args.pace_every == args.pace_every - 1:
+            time.sleep(args.pace_ms / 1000)
+    print(json.dumps({"sent": sent}))
+
+
+def sink(args: argparse.Namespace) -> None:
+    """Count UDP datagrams per IP family until SIGTERM, then dump JSON."""
+    import signal
+    counts = {"ipv4": 0, "ipv6": 0}
+    ports = {"ipv4": set(), "ipv6": set()}
+    selector = selectors.DefaultSelector()
+    for family, name, host in ((socket.AF_INET, "ipv4", "0.0.0.0"),
+                               (socket.AF_INET6, "ipv6", "::")):
+        listener = socket.socket(family, socket.SOCK_DGRAM)
+        if family == socket.AF_INET6:
+            listener.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 16 * 1024 * 1024)
+        listener.bind((host, args.port))
+        listener.setblocking(False)
+        selector.register(listener, selectors.EVENT_READ, name)
+    stop = []
+    signal.signal(signal.SIGTERM, lambda *_: stop.append(True))
+    open(args.output + ".ready", "w").close()
+    while not stop:
+        for key, _ in selector.select(timeout=0.2):
+            while True:
+                try:
+                    _, peer = key.fileobj.recvfrom(2048)
+                except BlockingIOError:
+                    break
+                counts[key.data] += 1
+                ports[key.data].add(peer[1])
+    result = {name: {"datagrams": counts[name], "flows": len(ports[name])}
+              for name in counts}
+    with open(args.output + ".tmp", "w", encoding="utf-8") as handle:
+        json.dump(result, handle)
+    os.rename(args.output + ".tmp", args.output)
+
+
 def add_client_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--proto", choices=("tcp", "udp"), default="tcp")
     parser.add_argument("--destination", required=True)
@@ -262,6 +312,19 @@ def main() -> None:
     stream_parser.add_argument("--output", required=True)
     stream_parser.add_argument("--interval", type=float, default=0.1)
     stream_parser.set_defaults(handler=stream)
+    burst_parser = commands.add_parser("burst")
+    burst_parser.add_argument("--destination", required=True)
+    burst_parser.add_argument("--destination-port", type=int, required=True)
+    burst_parser.add_argument("--source")
+    burst_parser.add_argument("--first-port", type=int, required=True)
+    burst_parser.add_argument("--count", type=int, required=True)
+    burst_parser.add_argument("--pace-every", type=int, default=50)
+    burst_parser.add_argument("--pace-ms", type=float, default=1)
+    burst_parser.set_defaults(handler=burst)
+    sink_parser = commands.add_parser("sink")
+    sink_parser.add_argument("--port", type=int, required=True)
+    sink_parser.add_argument("--output", required=True)
+    sink_parser.set_defaults(handler=sink)
     args = parser.parse_args()
     args.handler(args)
 

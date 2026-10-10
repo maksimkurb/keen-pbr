@@ -84,6 +84,35 @@ mount_tmpfs() {
   fi
 }
 
+# INTEGRATION_IPTABLES_FLAVOUR=nft|legacy puts a directory of symlinks
+# (iptables*, ip6tables* -> the matching *-nft / *-legacy binaries) first on
+# PATH.  keen-pbr and the harness resolve iptables, ip6tables and their
+# -save/-restore tools through PATH, so this selects the flavour for the whole
+# run without touching host alternatives (the host filesystem is read-only
+# here anyway; the shim directory lives on the sandbox tmpfs).
+select_iptables_flavour() {
+  local flavour=${INTEGRATION_IPTABLES_FLAVOUR:-default} shim_dir=/tmp/kpbr-iptables-flavour
+  [[ "$flavour" != default ]] || return 0
+  [[ "$flavour" == nft || "$flavour" == legacy ]] || die "invalid iptables flavour"
+  mkdir -p "$shim_dir"
+  local tool suffix target
+  for tool in iptables ip6tables; do
+    for suffix in "" -save -restore; do
+      target=$(command -v "$tool-$flavour$suffix" 2>/dev/null) ||
+        die "iptables flavour '$flavour' is not installed: $tool-$flavour$suffix"
+      ln -sf "$target" "$shim_dir/$tool$suffix"
+    done
+  done
+  export PATH="$shim_dir:$PATH"
+  # Legacy iptables needs the host kernel's ip_tables/iptable_mangle modules,
+  # which a rootless sandbox cannot load; fail with an actionable message
+  # instead of a wall of per-feature preflight errors.
+  if [[ "$flavour" == legacy ]] && ! iptables -t mangle -S >/dev/null 2>&1; then
+    die "iptables-legacy is unusable: the host kernel lacks ip_tables/iptable_mangle (run 'modprobe ip_tables iptable_mangle ip6table_mangle' on the host)"
+  fi
+  printf 'KPBR_IT_EVENT backend=harness case=suite stage=iptables_flavour status=%s\n' "$flavour"
+}
+
 prepare_mount_sandbox() {
   local binary_rel root_options repo_options
   case "$source_bin" in
@@ -151,6 +180,8 @@ prepare_mount_sandbox() {
   export HOME=/tmp/home
   export TMPDIR=/tmp
   export PATH="$sandbox_repo/tests/integration/netns/shims:$PATH"
+
+  select_iptables_flavour
 
   [[ -x "$KPBR_BIN" ]] || die "sandbox binary is not executable"
   hostname kpbr-integration >/dev/null 2>&1 || true

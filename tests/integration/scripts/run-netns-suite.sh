@@ -8,6 +8,9 @@ backend=${1:-all}
 binary=${2:-${INTEGRATION_BIN:-}}
 integration_cases=${INTEGRATION_CASES:-all}
 integration_verbose=${INTEGRATION_VERBOSE:-0}
+# nft (default, whatever `iptables` resolves to) or legacy: which iptables
+# flavour the sandbox puts first on PATH.  Sandbox-only; see sandbox.sh.
+iptables_flavour=${INTEGRATION_IPTABLES_FLAVOUR:-default}
 
 host_uid=$(id -u)
 host_gid=$(id -g)
@@ -26,6 +29,8 @@ select_backends() {
   esac
   [[ "$integration_cases" =~ ^(all|[a-z0-9_]+(,[a-z0-9_]+)*)$ ]] ||
     die "INTEGRATION_CASES must be all or comma-separated case names"
+  [[ "$iptables_flavour" =~ ^(default|nft|legacy)$ ]] ||
+    die "INTEGRATION_IPTABLES_FLAVOUR must be default, nft, or legacy"
   [[ "$integration_verbose" == 0 || "$integration_verbose" == 1 ]] ||
     die "INTEGRATION_VERBOSE must be 0 or 1"
 }
@@ -88,6 +93,7 @@ main() {
         KPBR_SOURCE_BIN="$binary" \
         INTEGRATION_CASES="$integration_cases" \
         INTEGRATION_VERBOSE="$integration_verbose" \
+        INTEGRATION_IPTABLES_FLAVOUR="$iptables_flavour" \
         bash "$sandbox_script" "$backend"
 }
 
