@@ -25,7 +25,6 @@ def register(registry):
             config["route"] = {"inbound_interfaces": ["lan0"], "rules": [
                 {"outbound": "auto", "dest_addr": "198.18.0.10/32"},
             ]}
-            config["dns"]["rules"] = []
             context.apply_config(config)
 
             state = context.wait_for(

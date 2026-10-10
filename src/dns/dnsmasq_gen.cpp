@@ -1,198 +1,101 @@
 #include "dnsmasq_gen.hpp"
-#include "keenetic_dns.hpp"
 #include "../crypto/md5.hpp"
 #include "../log/logger.hpp"
 
-#include <chrono>
+#include <charconv>
 #include <functional>
-#include <set>
+#include <streambuf>
+#include <vector>
 
 namespace keen_pbr3 {
 
 namespace {
 
-static constexpr const char* kDnsProbeZone = "check.keen.pbr";
 static constexpr size_t kBatchSize = 50;
 static constexpr size_t kMaxDnsmasqRowLength = 1024;
 static constexpr size_t kMaxDomainNameLength = 255;
-static constexpr size_t kIpsetPrefixLen = sizeof("ipset=") - 1;
-static constexpr size_t kNftsetPrefixLen = sizeof("nftset=") - 1;
 static constexpr size_t kRebindPrefixLen = sizeof("rebind-domain-ok=") - 1;
 static constexpr size_t kServerPrefixLen = sizeof("server=") - 1;
-static constexpr const char* kNftSetPrefix = "/4#inet#KeenPbrTable#";
-static constexpr const char* kNftSetMiddle = ",6#inet#KeenPbrTable#";
-static constexpr size_t kNftSetPrefixLen = sizeof("/4#inet#KeenPbrTable#") - 1;
-static constexpr size_t kNftSetMiddleLen = sizeof(",6#inet#KeenPbrTable#") - 1;
 
-bool dns_config_uses_keenetic_server(const DnsConfig& dns_config) {
-    for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
-        if (server.type.value_or(api::DnsServerType::STATIC) == api::DnsServerType::KEENETIC) {
-            return true;
+// Forwards everything to the wrapped stream buffer while feeding the same
+// bytes into an MD5 state, so the hash covers exactly what was written.
+class HashingStreambuf : public std::streambuf {
+public:
+    explicit HashingStreambuf(std::streambuf* target) : target_(target) {}
+
+    std::string hex_digest() const { return crypto::digest_to_hex(md5_.digest()); }
+
+protected:
+    int_type overflow(int_type ch) override {
+        if (traits_type::eq_int_type(ch, traits_type::eof())) {
+            return traits_type::not_eof(ch);
         }
+        const char c = traits_type::to_char_type(ch);
+        return xsputn(&c, 1) == 1 ? ch : traits_type::eof();
     }
-    return false;
-}
 
-std::string keenetic_static_domain_pattern(const std::string& domain) {
-    if (domain.size() > 2 && domain[0] == '*' && domain[1] == '.') {
-        return "/" + domain.substr(2);
+    std::streamsize xsputn(const char* data, std::streamsize count) override {
+        const std::streamsize written = target_->sputn(data, count);
+        if (written > 0) {
+            md5_.update(reinterpret_cast<const uint8_t*>(data), static_cast<size_t>(written));
+        }
+        return written;
     }
-    return "/" + domain;
+
+private:
+    std::streambuf* target_;
+    crypto::detail::MD5State md5_;
+};
+
+std::string server_address(const DnsServerConfig& server) {
+    std::string addr = server.resolved_ip;
+    if (server.port != 53) {
+        addr += "#" + std::to_string(server.port);
+    }
+    return addr;
 }
 
 } // anonymous namespace
 
 DnsmasqGenerator::DnsmasqGenerator(const DnsServerRegistry& dns_registry,
                                    ListStreamer& list_streamer,
-                                   const RouteConfig& route_config,
                                    const DnsConfig& dns_config,
-                                   const std::map<std::string, ListConfig>& lists,
-                                   ResolverType resolver_type,
-                                   std::string hash_version,
-                                   bool ipv6_enabled)
+                                   const std::map<std::string, ListConfig>& lists)
     : dns_registry_(dns_registry),
       list_streamer_(list_streamer),
-      route_config_(route_config),
       dns_config_(dns_config),
-      lists_(lists),
-      keenetic_static_entries_(dns_config_uses_keenetic_server(dns_config)
-                                   ? get_keenetic_static_dns_entries()
-                                   : std::vector<KeeneticStaticDnsEntry>{}),
-      keenetic_dns_upstreams_(dns_config_uses_keenetic_server(dns_config)
-                                  ? get_keenetic_dns_upstreams()
-                                  : std::vector<KeeneticDnsUpstreamEntry>{}),
-      resolver_type_(resolver_type),
-      hash_version_(std::move(hash_version)),
-      ipv6_enabled_(ipv6_enabled) {}
+      lists_(lists) {}
 
-std::string DnsmasqGenerator::compute_config_hash() {
-    crypto::detail::MD5State md5;
-    generate_directives(
-        nullptr,
-        [&md5](const std::string& line) {
-            md5.update(reinterpret_cast<const uint8_t*>(line.data()), line.size());
-            static constexpr char newline = '\n';
-            md5.update(reinterpret_cast<const uint8_t*>(&newline), 1);
-        });
-    return crypto::digest_to_hex(md5.digest());
-}
+std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stats) {
+    HashingStreambuf hashing(sink.rdbuf());
+    std::ostream out(&hashing);
+    DnsmasqGenStats local_stats;
 
-std::string DnsmasqGenerator::compute_config_hash(
-    const DnsServerRegistry& dns_registry,
-    ListStreamer& list_streamer,
-    const RouteConfig& route_config,
-    const DnsConfig& dns_config,
-    const std::map<std::string, ListConfig>& lists,
-    std::string hash_version,
-    bool ipv6_enabled)
-{
-    return DnsmasqGenerator(dns_registry, list_streamer, route_config,
-                            dns_config, lists, ResolverType::DNSMASQ_IPSET,
-                            std::move(hash_version), ipv6_enabled)
-           .compute_config_hash();
-}
+    out << "# keen-pbr generated, do not edit\n\n";
+    out << "address=/use-application-dns.net/\n\n";
 
-void DnsmasqGenerator::generate_directives(
-    std::ostream* out,
-    const std::function<void(const std::string&)>& hash_record_callback) {
-    if (hash_record_callback) {
-        hash_record_callback("version|" + hash_version_);
-        hash_record_callback(std::string("ipv6-enabled|") + (ipv6_enabled_ ? "1" : "0"));
-    }
-
-    if (out != nullptr) {
-        const char* resolver_name = (resolver_type_ == ResolverType::DNSMASQ_IPSET)
-            ? "dnsmasq-ipset" : "dnsmasq-nftset";
-        *out << "# Generated by keen-pbr (" << resolver_name << ") - do not edit manually\n\n";
-        *out << "address=/use-application-dns.net/\n\n";
-    }
-
-    if (dns_config_.dns_test_server.has_value()) {
-        const auto parsed = parse_dns_address_str(dns_config_.dns_test_server->listen);
-        if (hash_record_callback) {
-            hash_record_callback(
-                "probe-server|" + parsed.ip + "|" + std::to_string(parsed.port));
-        }
-        if (out != nullptr) {
-            *out << "rebind-domain-ok=keen.pbr\n";
-            *out << "server=/" << kDnsProbeZone << "/" << parsed.ip << "#" << parsed.port << "\n\n";
-        }
-    }
-
-    if (!keenetic_static_entries_.empty()) {
-        std::set<std::string> emitted_static_entries;
-        bool wrote_header = false;
-        for (const auto& entry : keenetic_static_entries_) {
-            const std::string domain_pattern = keenetic_static_domain_pattern(entry.domain);
-            const std::string dedupe_key = domain_pattern + "|" + entry.address;
-            if (!emitted_static_entries.insert(dedupe_key).second) {
-                continue;
-            }
-            if (hash_record_callback) {
-                hash_record_callback("keenetic-static|" + domain_pattern + "|" + entry.address);
-            }
-            if (out != nullptr) {
-                if (!wrote_header) {
-                    *out << "# Keenetic static DNS entries\n";
-                    wrote_header = true;
-                }
-                *out << "address=" << domain_pattern << "/" << entry.address << "\n";
+    // Default upstreams: dnsmasq must not read /etc/resolv.conf when keen-pbr
+    // owns the list of unscoped servers.
+    const auto fallback_tags = dns_config_.fallback.value_or(std::vector<std::string>{});
+    if (!fallback_tags.empty()) {
+        out << "no-resolv\n";
+        for (const auto& tag : fallback_tags) {
+            for (const DnsServerConfig* server : dns_registry_.get_servers(tag)) {
+                out << "server=" << server_address(*server) << "\n";
+                local_stats.fallback.push_back(server_address(*server));
             }
         }
-        if (out != nullptr && wrote_header) {
-            *out << "\n";
-        }
+        out << "\n";
     }
 
-    if (out != nullptr && !keenetic_dns_upstreams_.empty()) {
-        *out << "# Keenetic DNS is used:\n";
-        for (const auto& upstream : keenetic_dns_upstreams_) {
-            *out << "# " << upstream.address << " -> " << upstream.kind;
-            if (!upstream.target.empty()) {
-                *out << " | " << upstream.target;
-            }
-            *out << "\n";
-        }
-        *out << "\n";
-    }
-
-    size_t fallback_index = 0;
-    for (const DnsServerConfig* server : dns_registry_.fallback_servers()) {
-        if (hash_record_callback) {
-            hash_record_callback(
-                "fallback-server|" + std::to_string(fallback_index) +
-                "|" + server->resolved_ip +
-                "|" + std::to_string(server->port));
-        }
-        ++fallback_index;
-        if (out != nullptr) {
-            *out << "server=" << server->resolved_ip;
-            if (server->port != 53) {
-                *out << "#" << server->port;
-            }
-            *out << "\n";
-        }
-    }
-    if (out != nullptr && dns_config_.fallback.has_value() && !dns_config_.fallback->empty()) {
-        *out << "\n";
-    }
-
-    std::set<std::string> ipset_lists;
-    for (const auto& rule : route_config_.rules.value_or(std::vector<RouteRule>{})) {
-        if (!route_rule_enabled(rule)) {
-            continue;
-        }
-        for (const auto& list_name : route_rule_lists(rule)) {
-            ipset_lists.insert(list_name);
-        }
-    }
-
+    // The first enabled rule that mentions a list decides its upstream.
     std::map<std::string, std::string> dns_list_servers;
     std::map<std::string, bool> dns_list_allow_rebind;
     for (const auto& rule : dns_config_.rules.value_or(std::vector<DnsRule>{})) {
         if (!dns_rule_enabled(rule)) {
             continue;
         }
+        ++local_stats.rules;
         for (const auto& list_name : rule.list) {
             if (dns_list_servers.find(list_name) == dns_list_servers.end()) {
                 dns_list_servers[list_name] = rule.server;
@@ -202,40 +105,34 @@ void DnsmasqGenerator::generate_directives(
         }
     }
 
-    std::set<std::string> all_lists;
-    all_lists.insert(ipset_lists.begin(), ipset_lists.end());
-    for (const auto& [list_name, _] : dns_list_servers) {
-        all_lists.insert(list_name);
-    }
-
-    for (const auto& list_name : all_lists) {
+    for (const auto& entry : dns_list_servers) {
+        const std::string& list_name = entry.first;
+        const std::string& server_tag = entry.second;
+        DnsmasqListStats& list_stats = local_stats.lists.emplace_back();
+        list_stats.name = list_name;
+        list_stats.server = server_tag;
         auto list_cfg_it = lists_.find(list_name);
         if (list_cfg_it == lists_.end()) {
+            list_stats.skipped = "the list is not defined in lists";
             continue;
         }
 
-        const bool needs_ipset = ipset_lists.count(list_name) > 0;
-
-        std::vector<const DnsServerConfig*> dns_servers;
-        auto dns_it = dns_list_servers.find(list_name);
-        if (dns_it != dns_list_servers.end()) {
-            dns_servers = dns_registry_.get_servers(dns_it->second);
+        const auto dns_servers = dns_registry_.get_servers(server_tag);
+        const bool allow_domain_rebinding = dns_list_allow_rebind[list_name];
+        list_stats.allow_rebind = allow_domain_rebinding;
+        for (const DnsServerConfig* server : dns_servers) {
+            list_stats.upstreams.push_back(server_address(*server));
         }
-
-        const bool allow_domain_rebinding =
-            dns_list_allow_rebind.find(list_name) != dns_list_allow_rebind.end()
-            && dns_list_allow_rebind[list_name];
+        if (dns_servers.empty() && !allow_domain_rebinding) {
+            list_stats.skipped = "DNS server '" + server_tag + "' has no address";
+            continue;
+        }
+        list_stats.url_pending = list_cfg_it->second.url.has_value() &&
+                                 !list_streamer_.has_cached(list_name);
 
         bool wrote_list_header = false;
-        auto ensure_list_header = [&]() {
-            if (out != nullptr && !wrote_list_header) {
-                *out << "# List: " << list_name << "\n";
-                wrote_list_header = true;
-            }
-        };
 
         struct BatchState {
-            bool enabled{false};
             std::string directive_name;
             size_t prefix_len{0};
             size_t suffix_len{0};
@@ -245,19 +142,15 @@ void DnsmasqGenerator::generate_directives(
         };
 
         auto flush_batch = [&](BatchState& batch) {
-            if (out == nullptr || !batch.enabled || batch.count == 0) {
+            if (batch.count == 0) {
                 return;
             }
-            batch.emit_line(*out, batch.domain_path);
+            batch.emit_line(out, batch.domain_path);
             batch.domain_path.clear();
             batch.count = 0;
         };
 
         auto push_batch = [&](BatchState& batch, std::string_view domain) {
-            if (out == nullptr || !batch.enabled) {
-                return;
-            }
-
             std::string next_chunk = batch.domain_path;
             next_chunk += "/";
             next_chunk += domain;
@@ -279,76 +172,30 @@ void DnsmasqGenerator::generate_directives(
             ++batch.count;
         };
 
-        BatchState ipset_batch;
-        if (out != nullptr && needs_ipset) {
-            const std::string set4 = ipset_name_v4(list_name);
-            const std::string set6 = ipset_name_v6(list_name);
-            if (resolver_type_ == ResolverType::DNSMASQ_IPSET) {
-                ipset_batch.enabled = true;
-                ipset_batch.directive_name = "ipset";
-                ipset_batch.prefix_len = kIpsetPrefixLen;
-                ipset_batch.suffix_len = ipv6_enabled_
-                    ? 1 + set4.size() + 1 + set6.size()
-                    : 1 + set4.size();
-                ipset_batch.emit_line =
-                    [set4, set6, ipv6_enabled = ipv6_enabled_](std::ostream& stream, const std::string& domain_path) {
-                        stream << "ipset=" << domain_path << "/" << set4;
-                        if (ipv6_enabled) {
-                            stream << "," << set6;
-                        }
-                        stream << "\n";
-                    };
-            } else {
-                ipset_batch.enabled = true;
-                ipset_batch.directive_name = "nftset";
-                ipset_batch.prefix_len = kNftsetPrefixLen;
-                ipset_batch.suffix_len = ipv6_enabled_
-                    ? kNftSetPrefixLen + set4.size() + kNftSetMiddleLen + set6.size()
-                    : kNftSetPrefixLen + set4.size();
-                ipset_batch.emit_line =
-                    [set4, set6, ipv6_enabled = ipv6_enabled_](std::ostream& stream, const std::string& domain_path) {
-                        stream << "nftset=" << domain_path
-                               << kNftSetPrefix << set4;
-                        if (ipv6_enabled) {
-                            stream << kNftSetMiddle << set6;
-                        }
-                        stream << "\n";
-                    };
-            }
-        }
-
         BatchState rebind_batch;
-        if (out != nullptr && allow_domain_rebinding) {
-            rebind_batch.enabled = true;
-            rebind_batch.directive_name = "rebind-domain-ok";
-            rebind_batch.prefix_len = kRebindPrefixLen;
-            rebind_batch.suffix_len = 1;
-            rebind_batch.emit_line = [](std::ostream& stream, const std::string& domain_path) {
-                stream << "rebind-domain-ok=" << domain_path << "/\n";
-            };
-        }
+        rebind_batch.directive_name = "rebind-domain-ok";
+        rebind_batch.prefix_len = kRebindPrefixLen;
+        rebind_batch.suffix_len = 1;
+        rebind_batch.emit_line = [](std::ostream& stream, const std::string& domain_path) {
+            stream << "rebind-domain-ok=" << domain_path << "/\n";
+        };
 
         std::vector<BatchState> server_batches;
         server_batches.reserve(dns_servers.size());
         for (const DnsServerConfig* server : dns_servers) {
-            std::string server_addr = server->resolved_ip;
-            if (server->port != 53) {
-                server_addr += "#" + std::to_string(server->port);
-            }
+            const std::string server_addr = server_address(*server);
             BatchState server_batch;
-            if (out != nullptr) {
-                server_batch.enabled = true;
-                server_batch.directive_name = "server";
-                server_batch.prefix_len = kServerPrefixLen;
-                server_batch.suffix_len = 1 + server_addr.size();
-                server_batch.emit_line =
-                    [server_addr](std::ostream& stream, const std::string& domain_path) {
-                        stream << "server=" << domain_path << "/" << server_addr << "\n";
-                    };
-            }
+            server_batch.directive_name = "server";
+            server_batch.prefix_len = kServerPrefixLen;
+            server_batch.suffix_len = 1 + server_addr.size();
+            server_batch.emit_line =
+                [server_addr](std::ostream& stream, const std::string& domain_path) {
+                    stream << "server=" << domain_path << "/" << server_addr << "\n";
+                };
             server_batches.push_back(std::move(server_batch));
         }
 
+        size_t list_domains = 0;
         FunctionalVisitor collector([&](EntryType type, std::string_view entry) {
             if (type != EntryType::Domain) {
                 return;
@@ -365,73 +212,74 @@ void DnsmasqGenerator::generate_directives(
                 return;
             }
 
-            if (needs_ipset) {
-                if (hash_record_callback) {
-                    hash_record_callback("domain-route|" + list_name + "|" + bare);
-                }
+            if (!wrote_list_header) {
+                out << "# List: " << list_name << "\n";
+                wrote_list_header = true;
             }
+            ++list_domains;
             if (allow_domain_rebinding) {
-                if (hash_record_callback) {
-                    hash_record_callback("domain-rebind|" + list_name + "|" + bare);
-                }
+                push_batch(rebind_batch, bare);
             }
-            for (size_t server_index = 0; server_index < dns_servers.size(); ++server_index) {
-                const DnsServerConfig* server = dns_servers[server_index];
-                if (hash_record_callback) {
-                    hash_record_callback(
-                        "domain-server|" + list_name + "|" + bare + "|" +
-                        std::to_string(server_index) + "|" + server->resolved_ip + "|" +
-                        std::to_string(server->port));
-                }
-            }
-            if (!needs_ipset && !allow_domain_rebinding && dns_servers.empty()) {
-                return;
-            }
-
-            ensure_list_header();
-            push_batch(ipset_batch, bare);
-            push_batch(rebind_batch, bare);
             for (auto& server_batch : server_batches) {
                 push_batch(server_batch, bare);
             }
         });
         list_streamer_.stream_list_preferring_cache(list_name, list_cfg_it->second, collector);
 
-        flush_batch(ipset_batch);
         flush_batch(rebind_batch);
         for (auto& server_batch : server_batches) {
             flush_batch(server_batch);
         }
-        if (out != nullptr && wrote_list_header) {
-            *out << "\n";
+        if (wrote_list_header) {
+            out << "\n";
+        }
+        local_stats.domains += list_domains;
+        list_stats.domains = list_domains;
+    }
+
+    out.flush();
+    if (stats != nullptr) {
+        *stats = local_stats;
+    }
+    return hashing.hex_digest();
+}
+
+void write_dnsmasq_config_stamp(std::ostream& out, const DnsmasqConfigStamp& stamp) {
+    out << "txt-record=" << kDnsmasqStampDomain << ',' << stamp.hash << '|'
+        << stamp.boottime_ms << '|' << stamp.unix_ts << '\n';
+}
+
+std::optional<DnsmasqConfigStamp> parse_dnsmasq_config_stamp(std::string_view txt) {
+    constexpr size_t kHashLen = 32;
+    if (txt.size() < kHashLen + 1 || txt[kHashLen] != '|') {
+        return std::nullopt;
+    }
+    for (size_t i = 0; i < kHashLen; ++i) {
+        const char c = txt[i];
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) {
+            return std::nullopt;
         }
     }
-}
+    DnsmasqConfigStamp stamp;
+    stamp.hash = std::string(txt.substr(0, kHashLen));
 
-void DnsmasqGenerator::generate(std::ostream& out) {
-    (void)generate_with_hash(out);
-}
-
-std::string DnsmasqGenerator::generate_with_hash(std::ostream& out) {
-    crypto::detail::MD5State md5;
-    generate_directives(
-        &out,
-        [&md5](const std::string& line) {
-            md5.update(reinterpret_cast<const uint8_t*>(line.data()), line.size());
-            static constexpr char newline = '\n';
-            md5.update(reinterpret_cast<const uint8_t*>(&newline), 1);
-        });
-    const std::string hash = crypto::digest_to_hex(md5.digest());
-    const auto now_ts = std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
-    out << "txt-record=config-hash.keen.pbr," << now_ts << "|" << hash << "\n";
-    return hash;
-}
-
-ResolverType DnsmasqGenerator::parse_resolver_type(const std::string& s) {
-    if (s == "dnsmasq-ipset")  return ResolverType::DNSMASQ_IPSET;
-    if (s == "dnsmasq-nftset") return ResolverType::DNSMASQ_NFTSET;
-    throw std::invalid_argument("Unknown resolver type: " + s);
+    const std::string_view rest = txt.substr(kHashLen + 1);
+    const size_t bar = rest.find('|');
+    if (bar == std::string_view::npos) {
+        return std::nullopt;
+    }
+    const auto parse_int = [](std::string_view text, std::int64_t& value) {
+        if (text.empty() || text.front() == '+') {
+            return false;
+        }
+        const auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
+        return ec == std::errc{} && end == text.data() + text.size() && value >= 0;
+    };
+    if (!parse_int(rest.substr(0, bar), stamp.boottime_ms) ||
+        !parse_int(rest.substr(bar + 1), stamp.unix_ts)) {
+        return std::nullopt;
+    }
+    return stamp;
 }
 
 std::string DnsmasqGenerator::strip_wildcard(const std::string& domain) {

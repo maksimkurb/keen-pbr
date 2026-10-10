@@ -76,6 +76,11 @@ LogTarget parse_log_target(std::string_view s) {
         keen_pbr3::format("Unknown log target '{}'. Valid: stderr, syslog, both", s));
 }
 
+LogTarget resolve_log_target(std::string_view cli_value) {
+    if (cli_value.empty()) return LogTarget::both;
+    return parse_log_target(cli_value);
+}
+
 Logger& Logger::instance() {
     static Logger logger;
     return logger;

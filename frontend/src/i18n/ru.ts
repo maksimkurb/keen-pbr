@@ -37,6 +37,7 @@ export const ruTranslation = {
     },
   },
   common: {
+    add: "Добавить",
     documentation: "Документация",
     documentationUrl: "https://keen-pbr.fyi/ru/docs/",
     language: "Язык",
@@ -76,11 +77,17 @@ export const ruTranslation = {
       notFound: "Интерфейс не существует.",
     },
     validation: {
+      required: "Поле обязательно",
       tagNamePattern:
         "Может содержать только a-z, 0-9 и подчёркивание. Максимум 24 символа, должен начинаться с буквы.",
     },
+    ruleNumber: "Правило #{{number}}",
+    rowActions: "Действия",
     selection: {
-      selectAll: "Выбрать все видимые строки",
+      selectedOfTotal: "Выбрано {{count}}/{{total}}",
+      selected: "Выбрано: {{count}}",
+      select: "Выбрать несколько",
+      selectAll: "Выбрать все",
       selectRow: "Выбрать {{rowLabel}}",
     },
   },
@@ -109,7 +116,7 @@ export const ruTranslation = {
     },
     fallback: {
       table: "Таблица маршрутизации {{value}}",
-      blackhole: "Блокировать весь входящий трафик",
+      blackhole: "Блокировать весь трафик",
     },
   },
   language: {
@@ -126,18 +133,19 @@ export const ruTranslation = {
   nav: {
     groups: {
       general: "Общее",
-      internet: "Интернет",
-      networkRules: "Правила трафика",
+      routing: "Маршрутизация",
+      dns: "DNS",
     },
     items: {
       systemMonitor: "Обзор системы",
+      requestsLog: "Журнал запросов",
       settings: "Настройки",
       security: "Безопасность",
-      outbounds: "Outbounds (выходы)",
-      dnsServers: "DNS-серверы",
+      outbounds: "Outbounds",
+      dnsServers: "DNS серверы",
       lists: "Списки",
       routingRules: "Правила маршрутизации",
-      dnsRules: "DNS-правила",
+      dnsRules: "Правила DNS",
     },
   },
   brand: {
@@ -164,20 +172,11 @@ export const ruTranslation = {
       keenRestartRequired: "Несохранённые изменения",
       keenRestartRequiredDescription:
         "Настройки изменены. Примените их для перезапуска keen-pbr.",
-      keenAndDnsmasqRestartRequired: "Конфигурация устарела",
-      keenAndDnsmasqRestartRequiredDescription:
-        "Примените настройки, чтобы синхронизировать keen-pbr и dnsmasq.",
-      dnsmasqRestartRequired: "Конфигурация DNS-сервера устарела",
-      dnsmasqRestartRequiredDescription:
-        "dnsmasq использует устаревший конфиг. Требуется перезапуск.",
-      dnsmasqRestarting: "Перезапуск dnsmasq...",
-      dnsmasqRestartingDescription:
-        "DNS-сервер перезапускается, подождите немного.",
       runtimeReloading: "Перезагрузка keen-pbr...",
       runtimeReloadingDescription: "Текущий этап: {{stage}}",
       runtimeReloadSucceeded: "keen-pbr готов",
       runtimeReloadSucceededDescription:
-        "Маршрутизация и dnsmasq используют ожидаемую конфигурацию.",
+        "Маршрутизация использует ожидаемую конфигурацию.",
       runtimeApplying: "Применение конфигурации keen-pbr...",
       runtimeApplySucceeded: "Конфигурация keen-pbr применена",
       runtimeApplyFailed: "Не удалось применить конфигурацию keen-pbr",
@@ -195,17 +194,9 @@ export const ruTranslation = {
       runtimeReloadFailed: "Не удалось перезагрузить keen-pbr",
       runtimeReloadFailedDescription:
         "Не удалось завершить перезагрузку маршрутизации. Попробуйте применить настройки и перезапустить ещё раз.",
-      dnsmasqUnavailable: "проверка dnsmasq не прошла",
-      dnsmasqUnavailableDescription:
-        "keen-pbr не смог запросить TXT-запись состояния dnsmasq. Если статус не меняется, попробуйте применить и перезапустить.",
-      staleAfterTimeout:
-        "dnsmasq в последний раз перезагружался: {{actualTs}}. Если статус не меняется, перезапустите маршрутизацию.",
     },
     full: {
       unsavedTitle: "Конфигурация не сохранена",
-      staleTitle: "dnsmasq использует устаревший конфиг резолвера",
-      staleDescription:
-        "Ожидаемый хеш резолвера ({{expected}}…) не совпадает с активным хешем dnsmasq ({{actual}}…).",
     },
   },
   lifecycle: {
@@ -215,28 +206,100 @@ export const ruTranslation = {
       reconcile_runtime: "Согласование маршрутизации и межсетевого экрана",
       stop_routing: "Остановка маршрутизации и межсетевого экрана",
       start_routing: "Запуск маршрутизации и межсетевого экрана",
-      reload_dnsmasq: "Перезагрузка dnsmasq",
-      verify_dnsmasq: "Проверка конфигурации dnsmasq",
-      reload_fallback: "Перезагрузка dnsmasq с резервной конфигурацией",
       commit_config: "Сохранение конфигурации",
       restore_config: "Восстановление предыдущей конфигурации",
     },
   },
   overview: {
+    status: {
+      ok: "Всё работает",
+      degraded: "Маршрутизация работает с ограничениями",
+      stopped: "Служба остановлена",
+      issuesPrefix: "Система работает, но есть",
+      issueCount_one: "{{count}} проблема",
+      issueCount_few: "{{count}} проблемы",
+      issueCount_many: "{{count}} проблем",
+      issueCount_other: "{{count}} проблемы",
+      versionLine: "keen-pbr {{version}} · сборка {{build}} · {{os}}",
+      confirmStop: "Остановить службу?",
+      confirmStopAction: "Да, остановить",
+      busy: {
+        start: "Служба запускается…",
+        stop: "Служба останавливается…",
+        restart: "Служба перезапускается…",
+        apply: "Применяется конфигурация…",
+      },
+      busyAction: {
+        start: "Запуск…",
+        stop: "Остановка…",
+        restart: "Перезапуск…",
+        apply: "Применение…",
+      },
+    },
+    diagnostics: {
+      showHealthy: "Показать исправные",
+      noIssues: "Проблем нет",
+      open: "Открыть",
+    },
+    issues: {
+      capabilityUnsupported: "Не поддерживается ядром",
+      capabilityFallback:
+        "Недоступно в ядре; вместо этого используются обычные правила по адресам",
+      kernelCheckFailed: "Проверка ядра не пройдена: {{reason}}",
+      interceptLimited: "Перехват трафика ограничен",
+      interceptWarning: "Предупреждение перехвата трафика",
+      routingCheckFailed: "Не удалось выполнить проверки маршрутизации",
+      chainMissing: "Цепочка межсетевого экрана отсутствует",
+      preroutingMissing: "Цепочка межсетевого экрана не подключена к PREROUTING",
+      firewallRules: "Правила межсетевого экрана не совпадают: {{count}}",
+      routes: "Таблицы маршрутизации не совпадают: {{count}}",
+      policies: "Политики маршрутизации не совпадают: {{count}}",
+      dnsmasqError: "dnsmasq не применил DNS-правила",
+      dnsmasqDead: "dnsmasq не запущен",
+      dnsmasqReconciling: "DNS-правила восстанавливаются",
+      outboundUnavailable: "{{tag}} недоступен",
+      outboundDegraded: "{{tag}} работает с перебоями",
+      groupMembersFailing: "{{tag}}: неисправных участников: {{count}}",
+      hostWarning: {
+        nat_missing: "{{interface}}: для этого WAN нет NAT (MASQUERADE/SNAT)",
+        nat_partial: "{{interface}}: NAT покрывает только часть подсетей",
+        rp_filter_strict: "{{interface}}: строгий rp_filter может отбрасывать ответы",
+        fwmark_mask_conflict: "Стороннее правило использует биты метки пакета, зарезервированные keen-pbr",
+      },
+    },
+    healthy: {
+      firewallOk: "цепочка и хук PREROUTING на месте",
+      firewallPartial: "цепочка неполная",
+      kernelWithRelease: "Проверки ядра ({{release}})",
+      passed: "{{passed}} из {{total}} пройдено",
+    },
+    counters: {
+      title: "Счётчики",
+      collapse: "Свернуть",
+      showAll: "Все {{count}}",
+      short: {
+        dnsPackets: "DNS",
+        dnsMatched: "DNS совп.",
+        l7Packets: "L7",
+        l7Matched: "L7 совп.",
+      },
+      groups: {
+        dns: "DNS",
+        l7: "L7 и маркер",
+        sets: "Наборы",
+        conntrack: "Conntrack",
+        queue: "Очередь",
+      },
+    },
     pageDescription:
       "Обзор состояния маршрутизации, конфигурации и активных outbounds",
     runtime: {
-      title: "Маршрутизация",
-      description: "Управление policy-based routing.",
+      title: "Состояние маршрутизации",
       loadError: "Не удалось загрузить состояние маршрутизации.",
       version: "Версия",
+      build: "Сборка",
       router: "Роутер",
-      status: "Статус маршрутизации",
-      dnsmasqHealthy: "dnsmasq исправен",
-      dnsmasqWaiting: "dnsmasq перезагружается",
-      dnsmasqStale: "dnsmasq требуется перезапуск",
-      dnsmasqUnavailable: "проверка dnsmasq не прошла",
-      dnsmasqUnknown: "статус dnsmasq неизвестен",
+      routingStatus: "Статус маршрутизации",
       actions: {
         start: "Запустить",
         stop: "Остановить",
@@ -244,7 +307,21 @@ export const ruTranslation = {
       },
     },
     outbounds: {
-      title: "Состояние outbounds",
+      title: "Outbounds",
+      summary: "{{configured}} настроено · групп: {{groups}}",
+      online: "Исправны: {{count}}",
+      manage: "Управлять",
+      plainTitle: "Простые outbounds",
+      probePassed: "Сеть доступна",
+      interfaceUp: "Интерфейс поднят; доступность не проверяется",
+      plainActive: "Активен; доступность не проверяется",
+      latency: "{{value}} мс",
+      packetsTitle: "Ответов на пробы: {{received}} из {{attempted}}",
+      columns: {
+        group: "Группа",
+        strategy: "Стратегия",
+        members: "Участники",
+      },
       loadError: "Не удалось загрузить состояние outbounds.",
       emptyTitle: "Outbounds не настроены",
       emptyDescription: "Добавьте outbounds, чтобы увидеть проверки состояния.",
@@ -276,12 +353,13 @@ export const ruTranslation = {
       noChecksDescription:
         "Для диагностики маршрутизации нет записей для отображения.",
       sections: {
-        firewall: "Firewall",
+        firewall: "Межсетевой экран",
         routes: "Маршруты",
         policies: "Политики",
       },
       chain: "chain",
       prerouting: "prerouting",
+      kernel: "ядро",
       defaultRoute: "default",
       ipv4: "IPv4",
       ipv6: "IPv6",
@@ -304,7 +382,7 @@ export const ruTranslation = {
       },
     },
     diagnosticsDownload: {
-      button: "Скачать файл диагностики",
+      button: "Скачать отчёт",
       modal: {
         title: "Внимание, чувствительные данные!",
         description: "Файл диагностики содержит следующие данные:",
@@ -319,22 +397,24 @@ export const ruTranslation = {
         trustWarning:
           "Пожалуйста, передавайте данный файл только тому, кому вы доверяете.",
         hideListsOption: "Скрыть содержимое списков и URL-адреса на списки",
-        downloadAction: "Скачать файл диагностики",
+        downloadAction: "Скачать отчёт",
       },
     },
     dnsCheck: {
       card: {
-        title: "Проверка DNS",
+        title: "Перехват DNS",
         description:
-          "Проверяет, что DNS-разрешение через keen-pbr работает корректно - из этого браузера или с другого устройства.",
+          "Наблюдает DNS-трафик через keen-pbr из этого браузера или с другого устройства; замена синтетического ответа отдельно не проверяется.",
         disabledDescription:
-          "Включите опцию `dns.dns_test_server` в конфигурационном файле, чтобы включить самопроверку DNS.",
+          "Включите перехват DNS в настройках, чтобы запустить самопроверку DNS.",
+        runtimeDisabledDescription:
+          "Перехват DNS недоступен, поэтому самопроверка по домену-маркеру отключена.",
         configuredServers: "Настроенные DNS-серверы",
         noServers:
           "На странице DNS-серверов не определено ни одного DNS-сервера.",
         via: "через {{detour}}",
         checking: "Проверка...",
-        runAgain: "Запустить снова",
+        checkAgain: "Проверить снова",
         testFromPc: "Проверить с другого устройства",
       },
       modal: {
@@ -347,25 +427,150 @@ export const ruTranslation = {
         copyAria: "Скопировать команду",
       },
       status: {
-        disabled: "Встроенный DNS-пробник отключён в конфиге.",
-        browserSuccess: "DNS-запрос из браузера достиг dnsmasq.",
-        manualProbeSuccess: "DNS-запрос от устройства достиг dnsmasq.",
+        disabled: "Перехват DNS отключён в конфигурации.",
+        runtimeDisabled: "Перехват не работает: удержание DNS не активно",
+        browserSuccess: "Перехват DNS-запросов из этого браузера работает",
+        manualProbeSuccess: "Перехватчик увидел DNS-запрос от устройства.",
         browserProbeFail:
-          "Запрос браузера завершился, но DNS-пробник не увидел lookup.",
+          "Запрос браузера завершился, но перехватчик не увидел lookup маркера.",
         sseUnavailable:
           "Поток событий DNS в реальном времени недоступен, поэтому проверка не смогла запуститься.",
         browserFail:
-          "Запрос браузера выполнился, но DNS lookup не был замечен.",
+          "Запрос браузера выполнился, но перехватчик не увидел lookup маркера.",
         sseFail: "Поток событий DNS в реальном времени не подключён.",
+        sseStalled:
+          "Браузер не смог открыть поток событий DNS в реальном времени. Возможно, открыто слишком много вкладок keen-pbr (браузеры разрешают 6 соединений на сайт) — закройте лишние вкладки keen-pbr и повторите.",
+        sseHttp:
+          "Запрос потока событий DNS в реальном времени завершился ошибкой (HTTP {{status}}).",
         browserChecking: "Проверяем DNS-путь браузера...",
         browserUnknown: "Статус DNS в браузере пока неизвестен.",
-        manualSuccess: "DNS-запрос от устройства достиг dnsmasq.",
+        manualSuccess: "Перехватчик увидел DNS-запрос от устройства.",
         manualWaiting: "Ожидание вашей ручной команды nslookup...",
         manualIncomplete: "Ручной тест устройства ещё не завершён.",
       },
     },
+    dnsRules: {
+      server: "DNS-сервер",
+      inactive: "Не активно",
+      rulesAndDomains: "Правила / домены",
+      title: "Правила DNS",
+      state: {
+        ok: "Синхронизирован",
+        applying: "Применяется",
+        reconciling: "Восстановление",
+        error: "Ошибка",
+        disabled: "Отключён",
+      },
+      rules: "DNS-правила",
+      domains: "Домены",
+      lastSync: "Последняя синхронизация",
+      loadedAt: "dnsmasq загрузил конфигурацию",
+      externalReload: "dnsmasq перезапущен вне keen-pbr",
+      disabledDescription: "Интеграция правил DNS отключена.",
+      alive: {
+        label: "Служба dnsmasq",
+        dead: "не запущен",
+        unknown: "неизвестно",
+      },
+      repairScheduled: "Попытка восстановления {{n}}/{{max}} в {{time}}.",
+      repairRestarting: "Перезапуск dnsmasq (попытка {{n}}/{{max}}).",
+      repairPaused:
+        "Автоматическое восстановление остановлено после {{max}} попыток.",
+      repairPausedHint:
+        "Кнопка «Применить» или «Перезапустить» включит его снова.",
+      lastError: "Последняя ошибка",
+    },
+    intercept: {
+      title: "Маршрутизация на основе доменов",
+      rows: {
+        dns: {
+          title: "Перехват DNS",
+          description: "определение доменов по ответам",
+        },
+        dnsHold: {
+          title: "Удержание DNS",
+          description: "ответ ждёт заполнения наборов",
+        },
+        l7: {
+          title: "Перехват L7",
+          description: "TLS SNI · HTTP Host · QUIC",
+        },
+      },
+      description: "Состояние перехвата DNS и L7 на стороне демона.",
+      status: {
+        disabled: "Отключён",
+        running: "Работает",
+        stopped: "Не работает",
+      },
+      dnsHoldActive: "Удержание DNS включено",
+      dnsHoldInactive: "Удержание DNS выключено",
+      l7Active: "L7 включён",
+      l7Inactive: "L7 выключен",
+      summary: {
+        processor: "Обработчик DNS/DPI",
+        dnsHold: "Удержание DNS",
+        dpi: "DPI (SNI/Host)",
+        enabled: "Включено",
+        disabled: "Отключено",
+      },
+      checksTitle: "Проверки ядра",
+      countersTitle: "Счётчики перехвата",
+      moreCounters: "Показать подробные счётчики",
+      supported: "доступно",
+      unsupported: "недоступно",
+      unsupportedWarning: "Некоторые функции перехвата недоступны",
+      diagnosticErrors: "Проверки ядра сообщили об ошибках",
+      capabilities: {
+        nfqueue: "NFQUEUE",
+        nflog: "NFLOG",
+        connbytes: "connbytes",
+        addrtype: "addrtype",
+      },
+      probes: {
+        title: "Проверки ядра",
+        kernel: "Ядро {{release}}",
+        status: {
+          ok: "ок",
+          unsupported: "не поддерживается",
+          error: "ошибка",
+          skipped: "пропущено",
+          not_run: "не выполнялась",
+        },
+      },
+      kernelQueue: {
+        queueTotal: "В очереди",
+        queueDropped: "Отброшено ядром",
+        userDropped: "Отброшено пользователем",
+        idSequence: "Счётчик ядра",
+      },
+      counters: {
+        dnsPackets: "DNS-пакеты",
+        dnsParseErrors: "Ошибки разбора DNS",
+        dnsMatched: "Совпадения DNS",
+        dnsHoldTimeouts: "Тайм-ауты удержания DNS",
+        dnsTcpPartial: "Неполные DNS TCP",
+        markerHits: "Попадания маркера",
+        l7Packets: "L7-пакеты",
+        l7Matched: "Совпадения L7",
+        setAdded: "Добавлено в наборы",
+        setRefreshed: "Обновлено в наборах",
+        setErrors: "Ошибки наборов",
+        conntrackRequests: "Запросы conntrack",
+        conntrackDeleted: "Удалено conntrack",
+        conntrackErrors: "Ошибки conntrack",
+        queueOverruns: "Переполнения очереди",
+        logOverruns: "Переполнения журнала",
+      },
+    },
     routingTest: {
-      title: "Куда пойдёт этот трафик?",
+      protocol: "Протокол",
+      port: "Порт назначения",
+      otherProtocol: "Other",
+      otherCriteria: "Другие критерии",
+      sourceIpPlaceholder: "IP устройства, например 192.168.1.10",
+
+      title: "Куда пойдёт трафик?",
+      description: "Проверка домена или IP-адреса",
       placeholder: "напр. google.com или 1.2.3.4",
       submit: "Проверить маршрут",
       invalidTarget: "Введите корректный домен или IP-адрес.",
@@ -374,13 +579,143 @@ export const ruTranslation = {
       emptyDescription: "Попробуйте другой домен или IP-адрес.",
     },
     routingDiagnostics: {
+      trace: {
+        writeEvidence: {
+          title: "История динамической записи",
+          recorded:
+            "keen-pbr успешно добавлял, обновлял или подтверждал наличие этого IP в наборе.",
+          age: "Последняя сохранённая операция: {{age}} с назад.",
+          nowMissing:
+            "Успешная операция была, но сейчас IP отсутствует. Причина последующего исчезновения в этом кеше не хранится.",
+          no_record:
+            "В кеше нет сохранённой успешной операции для этого IP и набора.",
+          not_tracked:
+            "История динамических записей для этого набора сейчас недоступна.",
+          unavailable: "Данные истории записи не получены.",
+          scope:
+            "Кеш хранит IP и набор, а не домены или DNS-запросы. Он сбрасывается и может вытеснять записи: отсутствие истории не означает, что IP никогда не добавлялся.",
+        },
+
+        allRoutesMatch: "Маршруты совпадают с правилами",
+        routeProblems: "Есть проблемы с маршрутом",
+        ipResults: "Совпало маршрутов: {{count}} из {{total}}",
+        matches: "Совпадает",
+        differs: "Расхождение",
+        pathFor: "Активный путь {{outbound}}",
+
+        outboundUnavailable:
+          "По данным сервиса, outbound {{outbound}} недоступен. Даже совпадение маршрута не подтверждает, что он сможет передать трафик.",
+        dns: "DNS-резолвинг",
+        dnsEmpty: "DNS не вернул IP-адресов для этого домена.",
+        literalIp: "Указан IP {{ip}} — DNS-запрос не требуется.",
+        list: "Определение списка",
+        noListNeeded: "Это правило выбирается по другим критериям, без списка.",
+        rule: "Выбор правила",
+        selectedRule: "Правило #{{rule}} → {{outbound}}",
+        systemRule: "Подходящего правила нет. Используется системный маршрут.",
+        unknownRule: "Не хватает данных для достоверного выбора правила.",
+        firewall: "Проверка межсетевого экрана",
+        step: "Шаг {{step}} из {{total}}",
+        configuredPath: "Текущий путь ожидаемого outbound",
+        expectedSetMissing:
+          "При этом IP отсутствует в IPSet ожидаемого правила.",
+        notConnectivityTest:
+          "Проверка подтверждает маршрут по состоянию межсетевого экрана, но не доступность сайта.",
+        dnsAdvice:
+          "Возможно, обычный DNS-запрос устройства ещё не проходил через роутер. Откройте сайт на устройстве, DNS-трафик которого проходит через роутер, и повторите проверку.",
+        issues: {
+          ok: {
+            title: "Маршрут совпадает с правилом",
+            reason: "Рассчитанный outbound и маршрут межсетевого экрана совпадают.",
+            advice: "",
+          },
+          dns: {
+            title: "Не удалось получить IP-адрес",
+            reason:
+              "Без IP-адреса нельзя проверить его принадлежность наборам, используемым межсетевым экраном.",
+            advice:
+              "Проверьте домен и работу DNS на роутере, затем повторите проверку.",
+          },
+          criteria: {
+            title: "Маршрут пока нельзя определить",
+            reason:
+              "Для выбора правила недостаточно критериев или нельзя оценить адресное семейство/маршрут через шлюз по умолчанию.",
+            advice:
+              "Уточните IP источника, порт источника и DSCP, если правила используют их. Для правил через шлюз по умолчанию эта проверка не устанавливает, является ли адрес напрямую подключённым.",
+          },
+          firewall: {
+            title: "Фактический маршрут неизвестен",
+            reason:
+              "Не удалось достоверно проверить состояние наборов или критерии применённых правил.",
+            advice:
+              "Проверьте состояние сервиса и подробную диагностику. Отсутствие результата проверки не означает, что IP отсутствует в IPSet.",
+          },
+          missing_ipset: {
+            title: "IP отсутствует в нужном IPSet",
+            reason:
+              "Адрес соответствует списку, но отсутствует в IPSet выбранного правила.",
+            advice:
+              "Проверьте применение конфигурации и актуальность списков, затем повторите проверку.",
+          },
+          other_ipset: {
+            title: "IP найден в другом IPSet",
+            reason:
+              "Адрес отсутствует в нужном наборе, но присутствует в наборе другого правила для фактического outbound.",
+            advice:
+              "Проверьте порядок правил и содержимое наборов в подробной диагностике. Членство в наборе само по себе не доказывает, что сработало именно это правило.",
+          },
+          conflicting_ipsets: {
+            title: "IP присутствует в нескольких IPSet",
+            reason:
+              "Адрес есть в нужном наборе и в наборе другого правила, но межсетевой экран выбирает другой outbound.",
+            advice:
+              "Возможно, приоритет имеет более раннее правило. Проверьте порядок и актуальность наборов в подробной диагностике.",
+          },
+          stale_ipset: {
+            title: "IPSet не соответствует спискам",
+            reason:
+              "Адрес найден в наборе для фактического outbound, хотя он не соответствует текущим спискам этого правила.",
+            advice:
+              "Проверьте актуальность списков и применение конфигурации. Возможна устаревшая запись в IPSet.",
+          },
+          mismatch: {
+            title: "Маршрут отличается от ожидаемого",
+            reason:
+              "Рассчитанный outbound и маршрут межсетевого экрана не совпадают. Данных недостаточно, чтобы точно назвать причину.",
+            advice:
+              "Проверьте применённую конфигурацию, порядок правил и подробную диагностику.",
+          },
+        },
+      },
+
+      expectedRouteUnknown: "Недостаточно данных для маршрута {{target}}",
+      ruleDetailsTitle: "Диагностика",
+
+      defaultRoute: "Системный маршрут",
+      unknownRoute: "Не удалось определить",
+      chainTarget: "Цель",
+      chainList: "Список",
+      chainRule: "Правило",
+      noListMatch: "Нет совпадения",
+      activePaths: "Активный путь",
+      expectedRouteTitle: "{{target}} должен идти через {{outbound}}",
+      actualRouteTitle: "По факту: {{outbound}}",
+      ruleConditionsLabel: "Условия правила",
+      routeConfirmed: "Маршрут межсетевого экрана соответствует ожидаемому.",
+      routeUnavailable:
+        "Не удалось определить фактический маршрут по состоянию межсетевого экрана и указанным критериям.",
+      dnsPendingHint:
+        "IP-адреса ещё нет в IP-наборе этого правила. Возможно, обычный DNS-запрос устройства не прошёл через роутер. Откройте сайт на устройстве, DNS-трафик которого проходит через роутер, и повторите проверку.",
+      routeMismatchHint:
+        "Состояние межсетевого экрана отличается от ожидаемого маршрута. Подробности — в диагностике правил.",
+      recheck: "Проверить ещё раз",
+
       noMatchingRule:
-        "Для целевых списков не найдено подходящего правила маршрутизации.",
+        "Для указанных параметров не найдено подходящего правила маршрутизации.",
       resultTitle: "Результат маршрутизации",
-      ruleDetailsTitle: "Диагностика правил",
       ip: "IP",
       resultListMatch: "Совпадение со списком",
-      resultListMatchVia: "{{list}} (через {{via}})",
+      resultListMatchVia: "{{list}} (запись <code>{{via}}</code>)",
       expectedOutbound: "Ожидаемый outbound",
       actualOutbound: "Фактический outbound",
       status: "Статус",
@@ -390,6 +725,7 @@ export const ruTranslation = {
       listMatch: "{{list}}: {{via}}",
       noConditions: "Без дополнительных условий",
       conditions: {
+        dscp: "DSCP",
         lists: "Списки",
         proto: "Протокол",
         sourceIp: "IP источника",
@@ -408,6 +744,125 @@ export const ruTranslation = {
       notInIpsetButShouldBe: "Нет в IPSet, хотя должно быть",
     },
   },
+  requestsLog: {
+    empty: "Запросов пока нет.",
+    gap: "События {{from}}–{{to}} потеряны до доставки.",
+    copyIps: "Скопировать IP-адреса: {{value}}",
+    filters: {
+      count: "{{shown}} из {{total}}",
+      clear: "Сбросить фильтры",
+      noMatches: "Нет запросов, подходящих под фильтры.",
+      invalidIp: "Некорректная CIDR-подсеть; фильтр по IP игнорируется.",
+      hideEmptyAnswers: "Скрыть пустые ответы",
+      placeholder: {
+        device: "192.168.1.*",
+        domain: "*.example.com",
+        ip: "10.0.0.0/8, 192.168.*",
+      },
+      hint: {
+        device:
+          "Шаблоны: * любой текст, ? один символ. Без шаблонов ищет подстроку.",
+        domain:
+          "Шаблоны: * любой текст, ? один символ. Без шаблонов ищет подстроку.",
+        ip: "Точный IP, шаблон (10.0.*, *::1) или CIDR-подсеть (10.0.0.0/8, 2001:db8::/32). Подходит любой из полученных адресов.",
+      },
+    },
+    columns: {
+      device: "Устройство",
+      method: "Метод",
+      domain: "Домен",
+      lists: "Списки",
+      ip: "IP",
+      processingTime: "Время обработки",
+      flags: "Флаги",
+    },
+    timeout: {
+      budget_spent_by_batch: {
+        label: "поздно: очередь",
+        tooltip:
+          "Предыдущие пакеты того же пробуждения израсходовали общий бюджет удержания, поэтому ответ был отпущен до записи в set.",
+      },
+      admission_blocked: {
+        label: "поздно: применение",
+        tooltip:
+          "Дедлайн удержания истёк, пока запись в набор ждала завершения применения правил межсетевого экрана.",
+      },
+      own_write_slow: {
+        label: "поздно: запись",
+        tooltip:
+          "Сама запись в set заняла больше времени, чем дедлайн удержания.",
+      },
+      late_batch_full: {
+        label: "отброшено: очередь полна",
+        tooltip:
+          "Очередь отложенных записей была переполнена, поэтому эти элементы set были отброшены.",
+      },
+      other: {
+        label: "поздно: другое",
+        tooltip: "Дедлайн удержания истёк по другой причине.",
+      },
+    },
+    methods: {
+      dns: "DNS",
+      http: "HTTP Host",
+      sni: "HTTPS SNI",
+      quic: "QUIC",
+      marker: "Маркер DNS",
+    },
+    methodTooltips: {
+      dns: "DNS-ответ",
+      http: "HTTP-запрос (заголовок Host)",
+      sni: "HTTPS-соединение (TLS SNI)",
+      quic: "QUIC-соединение (Initial SNI)",
+      marker: "Маркер проверки DNS",
+    },
+    decimalSeparator: ",",
+    units: { us: "µs", ms: "мс", s: "с" },
+    dnsReasons: {
+      nxdomain: "NXDOMAIN",
+      servfail: "SERVFAIL",
+      refused: "REFUSED",
+      rcode: "RCODE {{code}}",
+      nodata: "нет {{type}}",
+      nodataOther: "запись {{type}}",
+    },
+    dnsTooltips: {
+      nxdomain: "Доменное имя не существует (NXDOMAIN)",
+      servfail: "Ошибка сервера (SERVFAIL)",
+      refused: "Запрос отклонен (REFUSED)",
+      rcode: "Код ошибки DNS {{code}}",
+      nodata: "DNS-сервер ответил NOERROR без записей {{type}} (NODATA)",
+      nodataOther: "DNS-сервер ответил NOERROR без записей {{type}} (NODATA)",
+    },
+    flags: {
+      added_one: "Добавлен {{count}} новый адрес в набор маршрутизации",
+      added_few: "Добавлено {{count}} новых адреса в набор маршрутизации",
+      added_many: "Добавлено {{count}} новых адресов в набор маршрутизации",
+      added_other: "Добавлено {{count}} новых адресов в набор маршрутизации",
+      refreshed_one: "{{count}} адрес уже был в наборе, его срок продлён",
+      refreshed_few: "{{count}} адреса уже были в наборе, их срок продлён",
+      refreshed_many: "{{count}} адресов уже были в наборе, их срок продлён",
+      refreshed_other: "{{count}} адресов уже были в наборе, их срок продлён",
+      errors_one: "{{count}} адрес не удалось записать в набор",
+      errors_few: "{{count}} адреса не удалось записать в набор",
+      errors_many: "{{count}} адресов не удалось записать в набор",
+      errors_other: "{{count}} адресов не удалось записать в набор",
+      not_learned_one:
+        "{{count}} блокирующий или немаршрутизируемый адрес не изучен",
+      not_learned_few:
+        "{{count}} блокирующих или немаршрутизируемых адреса не изучены",
+      not_learned_many:
+        "{{count}} блокирующих или немаршрутизируемых адресов не изучены",
+      not_learned_other:
+        "{{count}} блокирующих или немаршрутизируемых адресов не изучены",
+      not_learned_tooltip:
+        "Блокирующий или немаршрутизируемый ответ (0.0.0.0, ::, loopback) — не добавлен в наборы маршрутизации",
+      seq: "Запрос №{{seq}} (порядковый номер события)",
+      time: "Замечен в {{time}} ({{date}})",
+      parse: "Ответ разобран за {{value}}",
+      setWrite: "Запись в набор заняла {{value}}",
+    },
+  },
   pages: {
     security: {
       title: "Безопасность",
@@ -420,8 +875,25 @@ export const ruTranslation = {
       saved:
         "Настройки сохранены в черновик. Примените новый конфиг, чтобы записать их.",
       webUi: {
+        settingsModeLabel: "Режим настроек",
+        simpleMode: "Простой",
+        advancedMode: "Продвинутый",
+        settingsModeHint:
+          "В продвинутом режиме можно настраивать низкоуровневые параметры маршрутизации (например, маску fwmark, номера очередей и журналов netlink). Не меняйте эти параметры, если не до конца понимаете их смысл, поскольку это может нарушить корректную работу устройства.",
         title: "Веб-интерфейс",
         description: "Настройте отображаемое имя этой установки keen-pbr.",
+      },
+      dns: {
+        disabledTitle: "Управление локальным DNS сервером отключено",
+        disabledDescription:
+          "Включите управление dnsmasq в настройках, чтобы разблокировать настройку DNS-серверов и правил",
+        disabledAction: "Перейти к настройке",
+        title: "Управление локальным DNS сервером",
+        description:
+          "Позволяет указывать вышестоящий DNS-сервер через интерфейс keen-pbr, а также указывать отдельные DNS серверы для разрешения определённых доменов.",
+        resolverIntegrationLabel: "Управлять конфигурацией dnsmasq",
+        resolverIntegrationHint:
+          "Пример: Использовать DNS 8.8.8.8 по умолчанию, но для разрешения доменов *.corp.acme использовать DNS 10.10.10.10",
       },
       general: {
         title: "Общие",
@@ -431,22 +903,25 @@ export const ruTranslation = {
         deviceNameHint:
           "Отображается в заголовке страницы браузера и под логотипом keen-pbr. Оставьте поле пустым, чтобы использовать стандартное оформление.",
         strictEnforcementLabel:
-          "Блокировать трафик при падении outbound (kill-switch)",
+          "Блокировать трафик при недоступности outbound (kill-switch)",
         strictEnforcementHint:
           "Если VPN или интерфейс отключится, трафик по его правилам будет заблокирован, а не отправлен через основную таблицу маршрутизации. Можно переопределить для каждого outbound.",
         skipMarkedPacketsLabel: "Не обрабатывать маркированные пакеты",
         skipMarkedPacketsHint:
-          "Игнорировать пакеты, у которых уже есть fwmark проставленный другими правилами firewall, чтобы policy routing не обрабатывал их повторно.",
+          "Игнорировать пакеты, у которых уже есть fwmark, проставленный другими правилами межсетевого экрана, чтобы keen-pbr не обрабатывал их повторно и не менял их маршрут.",
+        processRouterTrafficLabel: "Обрабатывать собственный трафик роутера",
+        processRouterTrafficHint:
+          "Применять правила маршрутизации и изучать домены для трафика, который генерирует сам роутер. Если отключено, правилами маршрутизируется только транзитный трафик LAN; DNS detour по-прежнему применяется к собственным DNS-запросам роутера.",
         clearDynamicSetsOnApplyLabel:
           "Очищать изученные адреса доменов при применении",
         clearDynamicSetsOnApplyHint:
-          "Очищать динамические наборы firewall, управляемые dnsmasq, при полном применении конфигурации или перезапуске маршрутизации. Отключите, чтобы сохранять адреса до истечения их TTL.",
+          "Очищать динамические ipset, заполненные на основе DNS-ответов и L7, при применении новой конфигурации или перезапуске keen-pbr. Отключите, чтобы сохранять адреса в ipset до истечения их TTL.",
         ipv6EnabledLabel: "Включить поддержку IPv6",
         ipv6EnabledHint:
-          "Создавать IPv6-наборы firewall и IPv6-цели dnsmasq. Отключите на старых прошивках без поддержки IPv6 netfilter.",
-        inboundInterfacesLabel: "Входящие интерфейсы",
+          "Создавать IPv6-наборы межсетевого экрана и изучать IPv6-назначения. Отключите на старых прошивках без поддержки IPv6 netfilter.",
+        inboundInterfacesLabel: "Обрабатываемые (входящие) интерфейсы",
         inboundInterfacesHint:
-          "Policy routing будет применяться только к пакетам, пришедшим через выбранные интерфейсы. Оставьте поле пустым, чтобы обрабатывать трафик с любых интерфейсов.",
+          "Применять правила маршрутизации только для указанных выше интерфейсов. Рекомендуется указывать только LAN-интерфейсы (а также интерфейсы локальных VPN-серверов), чтобы не менять маршрут пакетов, пришедших с WAN. Оставьте поле пустым, чтобы обрабатывать трафик с любых интерфейсов.",
         inboundInterfacesAddAction: "Добавить интерфейс",
         inboundInterfacesLoading: "Загрузка интерфейсов...",
         inboundInterfacesNoAvailable:
@@ -462,6 +937,41 @@ export const ruTranslation = {
         inboundInterfacesStatusMissing: "Отсутствует",
         inboundInterfacesMissingDetail:
           "Этот интерфейс сохранён в конфиге, но сейчас отсутствует в живом списке интерфейсов системы.",
+      },
+      intercept: {
+        title: "Маршрутизация на основе доменов",
+        description:
+          "Настройте способы, которыми keen-pbr будет определять IP-адреса доменов для заполнения ipset",
+        enabledLabel: "Включить маршрутизацию на основе доменов",
+        enabledHint:
+          "Если выключено, то keen-pbr не будет перехватывать DNS или анализировать L7. Правила на основе доменов работать не будут, однако правила на основе IP/CIDR продолжат работать.",
+        minTtlLabel: "Минимальный TTL (миллисекунды)",
+        minTtlHint:
+          "Минимальное время жизни элементов в ipset. При применении значение округляется вниз до целых секунд (1000–4294967295999 мс).",
+        maxTtlLabel: "Максимальный TTL (миллисекунды)",
+        maxTtlHint:
+          "Максимальное время жизни элементов в ipset. При применении значение округляется вниз до целых секунд (1000–4294967295999 мс).",
+        dnsEnabledLabel: "Перехватывать ответы DNS-серверов",
+        dnsEnabledHint:
+          "Перехватывать ответы незашифрованных DNS-серверов на порту 53, анализировать домен и добавлять IP-адрес из ответа в ipset при совпадении со списками.",
+        queueLabel: "Номер NFQUEUE",
+        queueHint: "Номер очереди netlink nfqueue для перехвата DNS-пакетов.",
+        holdTimeoutLabel: "Тайм-аут удержания DNS (миллисекунды)",
+        holdTimeoutHint:
+          "Как долго keen-pbr может удерживать ответ DNS-сервера для заполнения ipset (5–500 мс). Если тайм-аут слишком маленький, keen-pbr может не успеть добавить IP в ipset и пакеты от клиента могут пойти по неправильному маршруту. Если тайм-аут слишком большой, то в случае зависания или краша keen-pbr у клиентов может возникнуть ощущение «медленного открытия сайтов» из-за задержки DNS-ответов.",
+        markerDomainLabel: "Домен-маркер",
+        markerDomainHint: "Домен для синтетического DNS-ответа.",
+        markerAddressLabel: "IPv4-адрес маркера",
+        markerAddressHint: "IPv4-адрес, возвращаемый для домена-маркера.",
+        l7EnabledLabel: "Включить перехват L7",
+        l7EnabledHint:
+          "Анализировать TLS SNI, HTTP и QUIC пакеты для определения доменов и заполнения ipset. Помогает маршрутизировать приложения, которые не используют системные DNS-серверы, используют собственные DoH/DoT или зашитые IP-адреса, если имя домена доступно в L7. Если обнаруженный IP-адрес впервые добавлен в ipset, keen-pbr удаляет conntrack-записи этого клиента к данному IP. Соединение может прерваться; при переподключении трафик пойдёт через корректный маршрут.",
+        nflogGroupLabel: "Группа NFLOG",
+        nflogGroupHint:
+          "Номер журнала netlink nflog для анализа TLS SNI / HTTP / QUIC.",
+        tlsLabel: "TLS SNI",
+        httpLabel: "HTTP Host",
+        quicLabel: "QUIC",
       },
       autoupdate: {
         title: "Автообновление списков",
@@ -479,22 +989,24 @@ export const ruTranslation = {
         title: "Расширенные настройки маршрутизации",
         description:
           "Расширенные настройки - меняйте только если понимаете, что делаете.",
-        fwmarkStartLabel: "Начальное значение firewall mark",
+        fwmarkStartLabel: "Начальное значение fwmark",
         fwmarkStartHint:
           "Начальное значение fwmark для первого outbound. Каждый следующий outbound получает следующее значение в диапазоне.",
-        fwmarkMaskLabel: "Маска firewall mark",
+        fwmarkMaskLabel: "Маска fwmark",
         fwmarkMaskHintPrefix:
           "Битовая маска, определяющая, какие биты используются для fwmark. Должна содержать непрерывный блок hex-цифр",
         fwmarkMaskHintSuffix: "например",
         tableStartLabel: "Начальное значение таблицы маршрутизации IP",
         tableStartHint:
           "ID таблицы маршрутизации для первого outbound. Каждый следующий outbound получает следующий ID.",
-        ipsetHashsizeLabel: "Размер хеш-таблицы IPSet",
+        ipsetHashsizeLabel: "Размер хеш-таблицы IPSet (ipset hashsize)",
         ipsetHashsizeHint:
-          "Необязательная настройка только для iptables для каждого набора hash:net. Оставьте пустым для значения ipset по умолчанию (1024); с nftables не действует. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные dnsmasq адреса.",
-        ipsetMaxelemLabel: "Максимум элементов IPSet",
+          "Начальный размер хеш-таблицы, используемой для поиска адресов в каждом ipset. Для больших списков увеличение может сократить количество коллизий и ускорить поиск, но повышает потребление ОЗУ. Это не ограничение числа записей. Изменение пересоздаёт ipset и очищает изученные адреса.",
+        ipsetMaxelemLabel:
+          "Максимальное количество элементов в ipset (ipset maxelem)",
+        ipsetIptablesOnlyHint: "Настройка доступна только для iptables",
         ipsetMaxelemHint:
-          "Необязательная настройка только для iptables для каждого набора hash:net. Оставьте пустым для значения ipset по умолчанию (65536); с nftables не действует. Изменение при работающем iptables пересоздаёт owned ipset и очищает изученные dnsmasq адреса.",
+          "Максимальное количество IP-адресов или подсетей в каждом ipset. Увеличьте значение, если списки содержат много записей: повышение лимита увеличивает расход ОЗУ. Изменение пересоздаёт ipset и очищает изученные адреса.",
       },
       actions: {
         saving: "Сохранение...",
@@ -503,7 +1015,7 @@ export const ruTranslation = {
     },
     dnsServers: {
       title: "DNS-серверы",
-      description: "Upstream DNS-серверы для разрешения доменных имён.",
+      description: "Вышестоящие DNS-серверы для разрешения доменных имён.",
       keeneticAddress: "Встроенный DNS Keenetic",
       actions: {
         add: "Добавить DNS-сервер",
@@ -511,7 +1023,7 @@ export const ruTranslation = {
       empty: {
         title: "DNS-серверов пока нет",
         description:
-          "Добавьте DNS-сервер, чтобы настроить upstream-разрешение.",
+          "Добавьте DNS-сервер для разрешения доменных имён через вышестоящий сервер.",
       },
       loadErrorDescription:
         "Сейчас не получается загрузить DNS-серверы. Попробуйте обновить страницу.",
@@ -540,7 +1052,7 @@ export const ruTranslation = {
       },
       bulk: {
         selected: "Выбрано: {{count}}",
-        delete: "Удалить выбранные",
+        delete: "Удалить {{count}}",
         confirmDelete:
           "Удалить DNS-серверы: {{tags}}?\nАвтоматически убрать ссылки из правил?",
       },
@@ -557,16 +1069,16 @@ export const ruTranslation = {
       description: "Этот сервер будет доступен в DNS-правилах и как fallback.",
       cardDescription:
         "Выберите тип DNS-сервера и необязательный detour outbound.",
-      editCardTitle: "Изменить {{tag}}",
+      editCardTitle: "Изменить DNS-сервер <entity>{{tag}}</entity>",
       fields: {
         tag: "Название",
         tagHint: "Короткое название сервера для использования в DNS-правилах.",
         type: "Тип DNS",
         typeHint:
-          "Keenetic использует текущий встроенный DNS роутера. Plaintext DNS использует IP-адрес, введённый вручную.",
+          "Keenetic использует текущий встроенный DNS роутера. DNS без шифрования использует IP-адрес, введённый вручную.",
         typeOptions: {
           keenetic: "Keenetic DNS",
-          static: "Plaintext DNS",
+          static: "DNS без шифрования",
         },
         keeneticNotice: {
           description:
@@ -588,10 +1100,8 @@ export const ruTranslation = {
           "Необязательно: отправлять DNS-запросы к этому серверу через конкретный outbound (например, VPN).",
       },
       validation: {
-        tagRequired: "Название обязательно.",
         tagUnique: "Название должно быть уникальным.",
         typeRequired: "Тип DNS обязателен.",
-        addressRequired: "Адрес обязателен.",
         addressInvalid:
           "Адрес должен быть корректным IPv4/IPv6 значением с необязательным портом.",
       },
@@ -614,10 +1124,12 @@ export const ruTranslation = {
           "Правила маршрутизации сохранены в черновик. Примените новый конфиг, чтобы записать их.",
       },
       bulk: {
+        deleteConsequences:
+          "После применения изменений выбранные правила перестанут определять маршрут трафика. Будут использоваться оставшиеся правила и настройки роутера.",
         selected: "Выбрано: {{count}}",
-        enable: "Включить выбранные",
-        disable: "Выключить выбранные",
-        delete: "Удалить выбранные",
+        enable: "Включить {{count}}",
+        disable: "Выключить {{count}}",
+        delete: "Удалить {{count}}",
         confirmDelete:
           "Удалить {{count}} правил(о/а) маршрутизации? Изменение нельзя отменить здесь одним действием.",
       },
@@ -646,10 +1158,36 @@ export const ruTranslation = {
     routingRuleUpsert: {
       createTitle: "Создать правило маршрутизации",
       editTitle: "Изменить правило маршрутизации",
+      editNamedTitle:
+        "Изменить правило маршрутизации <entity>#{{number}}</entity>",
       description:
         "Это правило направляет подходящий трафик в указанный outbound.",
       cardDescription:
-        "Выберите списки и outbound, затем при необходимости сузьте правило по протоколу, портам и адресам.",
+        "Добавляйте условия и выберите outbound для подходящего трафика.",
+      builder: {
+        title: "Условия",
+        description:
+          "Добавляйте условия постепенно. Все добавленные условия должны выполняться одновременно.",
+        chooseFirst: "Выберите первое условие",
+        addAnother: "Добавить ещё одно условие",
+        choose: "Выбрать условие",
+        available: "Доступные условия",
+        allAdded: "Все доступные условия уже добавлены",
+        if: "ЕСЛИ",
+        and: "И",
+        then: "тогда",
+        routeThrough: "Направить трафик в",
+        remove: "Удалить условие «{{condition}}»",
+        descriptions: {
+          list: "IP или домен находится в указанных списках",
+          proto: "TCP или UDP",
+          dscp: "DSCP-метка пакета от 1 до 63.",
+          src_port: "Порт источника соединения.",
+          dest_port: "Порт назначения соединения.",
+          src_addr: "IP-адреса или подсети источника.",
+          dest_addr: "IP-адреса или подсети назначения.",
+        },
+      },
       messages: {
         saved:
           "Правило маршрутизации сохранено в черновик. Примените новый конфиг, чтобы записать его.",
@@ -665,10 +1203,19 @@ export const ruTranslation = {
         atLeastOneCondition:
           "Укажите хотя бы одно условие: список, DSCP, адрес источника/назначения или порт источника/назначения.",
         dscpRange: "DSCP должен быть целым числом от 1 до 63.",
-        outboundRequired: "Тег outbound обязателен.",
       },
       actions: { create: "Создать правило", save: "Сохранить правило" },
       fields: {
+        enabled: "Включить правило",
+        mode: "Тип правила",
+        ruleType: "Типы правил",
+        modeOptions: {
+          normal: "Условная маршрутизация",
+          ipv4: "Шлюз по умолчанию IPv4",
+          ipv6: "Шлюз по умолчанию IPv6",
+        },
+        modeHint:
+          "Правила шлюза по умолчанию сопоставляют нелокальный трафик одного семейства IP и не используют другие условия.",
         lists: "Списки",
         listsPlaceholderDescription:
           "Добавьте один или несколько настроенных списков для этого правила.",
@@ -678,8 +1225,6 @@ export const ruTranslation = {
         any: "Любой",
         anyLower: "любой",
         protocol: "Протокол",
-        protoHint:
-          "Фильтр по протоколу (TCP, UDP и т.д.). Оставьте пустым для «любого».",
         dscp: "DSCP",
         dscpHint:
           "Фильтр по DSCP-метке пакета. Оставьте пустым для любого значения.",
@@ -709,12 +1254,12 @@ export const ruTranslation = {
       },
     },
     outbounds: {
-      title: "Outbounds (выходы)",
+      title: "Outbounds",
       description: "Настроенные outbounds и группы urltest.",
       actions: { new: "Добавить outbound" },
       bulk: {
         selected: "Выбрано: {{count}}",
-        delete: "Удалить выбранные",
+        delete: "Удалить {{count}}",
         confirmDelete:
           "Удалить {{count}} outbound(ов)? Связи проверяются только при сохранении.",
       },
@@ -765,9 +1310,73 @@ export const ruTranslation = {
       },
     },
     outboundUpsert: {
+      noAdditionalSettings:
+        "У данного типа outbound нет дополнительных настроек",
+      typeHints: {
+        interface: "Трафик уходит через выбранный сетевой интерфейс",
+        table:
+          "Трафик направляется в существующую таблицу маршрутизации (ip route table).",
+        urltest:
+          "Выбор outbound с наименьшей задержкой (пинг путём отправки HTTP-запроса)",
+        icmptest:
+          "Выбор outbound с наименьшей задержкой (пинг путём отправки ICMP-пакета)",
+        blackhole: "Весь трафик, направленный в этот outbound, отбрасывается.",
+        ignore:
+          "Трафик не обрабатывается правилами keen-pbr и направляется согласно настройкам роутера.",
+      },
+      advanced: {
+        probesTitle: "Проверки и повторы",
+        circuitBreakerTitle: "Circuit breaker",
+        hasError: "есть ошибки",
+        changed: "изменено",
+        default: "по умолчанию",
+      },
+      conntrack: {
+        label: "Соединения при переключении",
+        hint: "Что делать с установленными соединениями, когда работающий outbound заменяется более быстрым или приоритетным. Соединения через упавший outbound сбрасываются всегда.",
+        preserve: "Сохранять",
+        delete: "Сбрасывать",
+      },
+      ladder: {
+        phrase: {
+          priority:
+            "Весь трафик идёт через самый быстрый работающий outbound ступени 1.",
+          balance:
+            "Новые соединения распределяются между работающими outbound’ами ступени 1 по их весам.",
+          fallbackOne: "Если ни один из них не работает — берётся ступень 2.",
+          fallbackMany:
+            "Если ни один из них не работает — по очереди берутся ступени 2–{{last}}.",
+        },
+        primaryStep: "Основная ступень",
+        backupStep: "Резервная ступень {{index}}",
+        activeNow: "сейчас используется",
+        ifAllDown: "если все недоступны",
+        moveUp: "Выше",
+        moveDown: "Ниже",
+        removeStep: "Удалить ступень",
+        removeMember: "Убрать {{tag}}",
+        add: "Добавить",
+        addStep: "Добавить резервную ступень",
+        noOptions: "Все доступные outbound’ы уже использованы",
+        weight: "Вес",
+        weightHint:
+          "Доля новых соединений этого outbound внутри ступени. Например, веса 7 и 3 дают 70% и 30%. Пусто — вес 1. Учитываются только работающие outbound’ы: если один недоступен, его доля делится между остальными по их весам. Уже установленные соединения не переносятся. Допустимо от 1 до 100.",
+        shareTitle:
+          "Доля новых соединений, когда все outbound’ы ступени работают",
+        pingTarget: "Цель ping",
+        latency: "{{value}} мс",
+        roles: {
+          selected: "выбран",
+          balanced: "в ротации",
+          standby: "в запасе",
+          waiting: "ожидает",
+          degraded: "перебои",
+          unavailable: "недоступен",
+        },
+      },
       createTitle: "Создать outbound",
       editTitle: "Изменить outbound",
-      editCardTitle: "Изменить {{tag}}",
+      editCardTitle: "Изменить outbound <entity>{{tag}}</entity>",
       description:
         "Outbound может быть сетевым интерфейсом, таблицей маршрутизации или группой urltest, которая выбирает самый быстрый вариант.",
       cardDescription: "Настройте interface или urltest outbound.",
@@ -779,14 +1388,30 @@ export const ruTranslation = {
         back: "Назад к outbounds",
       },
       actions: { create: "Создать outbound", save: "Сохранить outbound" },
-      common: {
-        noExtraFields:
-          "Для этого типа не нужны дополнительные поля, кроме тега outbound.",
+      strategy: {
+        cards: {
+          priority: {
+            title: "Самый быстрый",
+            description: "Выбирает outbound с наименьшей задержкой",
+          },
+          balance: {
+            title: "Многопутевая передача",
+            description:
+              "Распределяет соединения между outbound активной ступени",
+          },
+        },
+        label: "Стратегия выбора",
+        hint: "Стратегия «По приоритету» оставляет выбранным один outbound; «Балансировка» распределяет новые соединения между исправными outbound (недоступна на Keenetic).",
+        hintKeenetic:
+          "Балансировка нагрузки отключена на Keenetic; используйте встроенные функции многопутевой маршрутизации маршрутизатора.",
+        options: {
+          priority: "По приоритету",
+          balance: "Балансировка",
+        },
       },
       fields: {
+        aboutType: "Об этом типе",
         tag: "Название",
-        tagHint:
-          "Уникальное название для этого outbound. Используется в правилах и группах.",
         type: "Тип",
         outboundTypes: "Типы outbound",
         typeOptions: {
@@ -799,6 +1424,10 @@ export const ruTranslation = {
         },
       },
       interface: {
+        gatewayPlaceholder: "необязательно, напр. auto или 10.23.0.1",
+        gateway6Placeholder: "необязательно, напр. auto или fe80::1",
+        gatewaysHint:
+          'Укажите "auto", чтобы попытаться определить автоматически',
         title: "Настройки интерфейса",
         description:
           "Укажите исходящий интерфейс и необязательные IPv4/IPv6 шлюзы для этого outbound.",
@@ -806,10 +1435,12 @@ export const ruTranslation = {
         interfacePlaceholder: "Выберите или введите интерфейс",
         interfaceHint:
           "Имя исходящего интерфейса, напр. `tun0`, `eth0`, `wg0`.",
-        gateway: "Шлюз (IPv4)",
-        gatewayHint: "Необязательный IPv4-адрес шлюза для этого outbound.",
-        gateway6: "Шлюз (IPv6)",
-        gateway6Hint: "Необязательный IPv6-адрес шлюза для этого outbound.",
+        gateway: "Шлюз по умолчанию IPv4",
+        gatewayHint:
+          "Необязательный IPv4-шлюз; `auto` автоматически выбирает его из основного маршрута по умолчанию.",
+        gateway6: "Шлюз по умолчанию IPv6",
+        gateway6Hint:
+          "Необязательный IPv6-шлюз; `auto` автоматически выбирает его из основного маршрута по умолчанию.",
       },
       table: {
         title: "Настройки таблицы маршрутизации",
@@ -829,6 +1460,9 @@ export const ruTranslation = {
           "Outbounds типа ignore пропускают подходящий трафик без изменения policy-based routing.",
       },
       urltest: {
+        probeTimeout: "Таймаут проверки (мс)",
+        probeTimeoutHint:
+          "Сколько ждать ответа на каждый запрос проверки (в миллисекундах).",
         groupsTitle: "Группы outbound (urltest)",
         groupsDescription:
           "Добавьте outbounds в группу. Самый быстрый outbound (по urltest-проверке) будет выбран автоматически.",
@@ -905,13 +1539,36 @@ export const ruTranslation = {
         halfOpenHint:
           "Количество попыток проверки в фазе half-open, прежде чем circuit полностью закроется или откроется снова.",
       },
-      strictEnforcement: {
-        label: "Переопределение kill-switch",
-        hint: "Переопределяет глобальную настройку kill-switch для этого outbound.",
-        default: "По умолчанию (как в глобальном конфиге)",
+      killSwitch: {
+        title: "Kill-switch",
+        description:
+          "Что делать с трафиком этого outbound, пока его интерфейс или шлюз недоступен.",
+        inheritNow: "Сейчас: {{value}}",
+        options: {
+          inherit: { title: "Поведение по умолчанию" },
+          off: {
+            title: "Не блокировать",
+            description: "Трафик пойдёт в обход, через основной маршрут.",
+          },
+          reject: {
+            title: "Блокировать с ошибкой",
+            description:
+              "Соединения сразу завершаются ошибкой (unreachable): приложения узнают об этом мгновенно.",
+          },
+          drop: {
+            title: "Блокировать молча",
+            description:
+              "Пакеты отбрасываются (blackhole): приложения ждут тайм-аута.",
+          },
+        },
+        badge: {
+          inherit: "по умолчанию",
+          off: "не блокировать",
+          reject: "блокировать с ошибкой",
+          drop: "блокировать молча",
+        },
       },
       validation: {
-        tagRequired: "Тег обязателен.",
         duplicateTag: 'Тег outbound "{{tag}}" уже существует.',
         missingReference:
           'Outbound "{{outbound}}" ссылается на отсутствующий тег "{{referenced}}".',
@@ -927,10 +1584,12 @@ export const ruTranslation = {
         disableRule: "Выключить правило",
       },
       bulk: {
+        deleteConsequences:
+          "После применения изменений выбранные правила перестанут выбирать DNS-серверы для доменов. Будут использоваться оставшиеся правила и DNS-серверы по умолчанию.",
         selected: "Выбрано: {{count}}",
-        enable: "Включить выбранные",
-        disable: "Выключить выбранные",
-        delete: "Удалить выбранные",
+        enable: "Включить {{count}}",
+        disable: "Выключить {{count}}",
+        delete: "Удалить {{count}}",
         confirmDelete: "Удалить {{count}} DNS-правил(о/а)?",
       },
       messages: {
@@ -946,16 +1605,17 @@ export const ruTranslation = {
           "Нельзя сохранить, потому что итоговые DNS-правила невалидны.",
       },
       fallback: {
-        title: "Основные DNS сервера",
+        title: "Вышестоящие DNS-сервера по умолчанию",
         description:
-          "Упорядоченный список DNS-серверов, которые dnsmasq использует, когда ни одно DNS-правило не подходит.",
-        add: "Добавить основной DNS сервер",
-        placeholderTitle: "Основные DNS сервера не выбраны",
+          "Упорядоченный список DNS-серверов, которые dnsmasq использует, когда ни одно DNS-правило не подходит. Если список задан, dnsmasq игнорирует системные вышестоящие DNS-серверы (no-resolv).",
+        add: "Добавить DNS-сервер по умолчанию",
+        placeholderTitle: "Вышестоящие DNS-сервера по умолчанию не выбраны",
         placeholderDescription:
-          "Добавьте один или несколько DNS-серверов. Их порядок сохраняется и используется в сгенерированном конфиге dnsmasq.",
+          "Необязательно. Оставьте пустым, чтобы для доменов без правил использовались системные вышестоящие DNS-серверы.",
         noneDefined: "На странице DNS-серверы не добавлено ни одного сервера.",
         noneAvailable: "Все DNS-серверы уже выбраны.",
       },
+      integration: {},
       empty: {
         title: "DNS-правил пока нет",
         description:
@@ -964,20 +1624,21 @@ export const ruTranslation = {
       headers: {
         criteria: "Условие",
         serverTag: "DNS-сервер",
-        allowDomainRebinding: "Разрешение rebind",
+        allowDomainRebinding: "Частные IP (rebind)",
         actions: "Действия",
       },
       criteriaLabels: {
         lists: "Списки",
       },
       rebinding: {
-        enabled: "Разрешён",
-        disabled: "Запрещён",
+        enabled: "Частные IP разрешены",
+        disabled: "Частные IP запрещены",
       },
     },
     dnsRuleUpsert: {
       createTitle: "Создать DNS-правило",
       editTitle: "Изменить DNS-правило",
+      editNamedTitle: "Изменить DNS-правило <entity>#{{number}}</entity>",
       description:
         "Это правило определяет, какой DNS-сервер использовать для доменов из конкретного списка.",
       cardDescription: "Укажите имена списков и DNS-сервер для этого правила.",
@@ -989,7 +1650,6 @@ export const ruTranslation = {
         notFound: "Запрошенное DNS-правило не найдено.",
         fixErrors: "Исправьте ошибки валидации перед сохранением.",
         serverRequired: "Правило должно ссылаться на существующий DNS-сервер.",
-        listsRequired: "Правило должно содержать хотя бы один список.",
         unknownLists: "Неизвестные списки: {{lists}}",
         duplicate: "Дублирующееся правило.",
       },
@@ -1013,7 +1673,7 @@ export const ruTranslation = {
           "Выберите списки для этого правила. Совпадающие домены будут использовать этот DNS-сервер.",
         noListsSelected: "Списки не выбраны",
         noLists:
-          "Не найдено ни одного списка. Пожалуйста, сначала создайте его на странице Списки.",
+          "Не найдено ни одного списка. Сначала создайте список на странице «Списки».",
       },
     },
     lists: {
@@ -1031,9 +1691,9 @@ export const ruTranslation = {
           "Создайте первый список, чтобы использовать его в правилах маршрутизации и DNS.",
       },
       headers: {
-        name: "Имя",
+        name: "Название",
         type: "Тип",
-        stats: "Записи",
+        stats: "Домены / IPv4 / IPv6",
         rules: "Исп. в правилах",
         actions: "Действия",
       },
@@ -1058,8 +1718,8 @@ export const ruTranslation = {
       },
       bulk: {
         selected: "Выбрано: {{count}}",
-        refreshSelected: "Обновить выбранные (URL)",
-        deleteSelected: "Удалить выбранные списки",
+        refreshSelected: "Обновить {{count}} (URL)",
+        deleteSelected: "Удалить {{count}}",
         confirmDeleteSimple: "Удалить списки: {{names}}?",
         confirmDeleteWithRefs:
           "Удалить списки: {{names}} и при необходимости убрать ссылки из правил маршрутизации и DNS?",
@@ -1075,7 +1735,10 @@ export const ruTranslation = {
         updateDisabled: "Примените черновик перед обновлением",
       },
       rule: {
-        configured: "Настроен",
+        used_one: "Используется в {{count}} правиле",
+        used_few: "Используется в {{count}} правилах",
+        used_many: "Используется в {{count}} правилах",
+        used_other: "Используется в {{count}} правилах",
       },
       messages: {
         refreshedOne: "Обновление списка завершено.",
@@ -1100,7 +1763,7 @@ export const ruTranslation = {
     listUpsert: {
       createTitle: "Создать список",
       editTitle: "Изменить список",
-      editCardTitle: "Изменить {{name}}",
+      editCardTitle: "Изменить список <entity>{{name}}</entity>",
       fallbackName: "список",
       description:
         "Список может содержать домены и IP, введённые вручную, загруженные по URL или из файла.",
@@ -1129,18 +1792,20 @@ export const ruTranslation = {
         description: "Задайте идентификатор списка перед выбором источника.",
       },
       sourceSwitcher: {
+        confirmTitle: "Сменить тип источника?",
+        confirmAction: "Сменить источник",
         title: "Тип источника",
         description:
           "Выберите источник для редактирования. Старые списки с несколькими сохранёнными источниками останутся видимыми, пока вы не переключитесь.",
         confirmChange:
-          "Переключить тип источника и очистить заполненные сейчас поля?",
+          "Заполненные данные перечисленных источников будут очищены в форме. Изменение вступит в силу после сохранения списка.",
       },
       sourceGroups: {
         url: {
           button: "URL",
           title: "Удалённый URL",
           description:
-            "Загружает записи списка с удалённой точки по HTTP или HTTPS и задаёт время жизни кэша для разрешённых IP.",
+            "Загружает записи списка с удалённого HTTP- или HTTPS-адреса и задаёт срок хранения IP-адресов, полученных при разрешении доменов.",
         },
         file: {
           button: "Файл на устройстве",
@@ -1154,11 +1819,10 @@ export const ruTranslation = {
         },
       },
       fields: {
-        name: "Имя",
-        nameHint: "Стабильный идентификатор для использования в правилах.",
+        name: "Название",
         ttlMs: "Время жизни IP-кэша (мс)",
         ttlMsHint:
-          "Как долго хранить разрешённые IP в ipset. `0` = без таймаута.",
+          "Как долго хранить в ipset IP-адреса, полученные при разрешении доменов. Неуказанное значение, `0` и значения меньше 1000 мс используют глобальный минимум. Большие значения округляются вниз до секунд; DNS TTL может продлить хранение до глобального максимума.",
         detour: "Делать запросы через Outbound",
         detourEmpty: "Не выбрано",
         detourPlaceholder: "Необязательный тег outbound",
@@ -1175,12 +1839,13 @@ export const ruTranslation = {
           "Домены, по одному в строке. `example.com` автоматически включает все поддомены.",
         ipCidrs: "IP CIDR",
         ipCidrsHint:
-          "IP-адреса или диапазоны CIDR, по одному в строке. Напр. `93.184.216.34`, `10.0.0.0/8`.",
+          "IP-адреса или диапазоны CIDR, по одному в строке. Напр. <code>93.184.216.34</code>, <code>10.0.0.0/8</code>.",
       },
       validation: {
-        nameRequired: "Имя обязательно.",
+        inlineRequired: "Заполните домены или IP/CIDR",
         duplicateName: "Список с таким именем уже существует.",
-        invalidTtl: "TTL должен быть неотрицательным целым числом.",
+        invalidTtl:
+          "Введите целое число от 0 до 4 294 967 295 999 мс (максимальный нормализованный тайм-аут: 4 294 967 295 секунд).",
       },
     },
   },

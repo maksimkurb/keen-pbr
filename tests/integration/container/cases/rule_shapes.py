@@ -5,7 +5,6 @@ def shape_config(context):
         {"tag": "block", "type": "blackhole"}, {"tag": "direct", "type": "ignore"},
     ]
     config["lists"] = {"hybrid": {"ip_cidrs": ["10.10.0.0/24", "2001:db8:10::/64"]}}
-    config["dns"]["rules"] = []
     config["route"]["rules"] = [
         {"list": ["hybrid"], "outbound": "wan", "proto": "tcp", "dest_port": "443"},
         {"list": ["hybrid"], "outbound": "block", "proto": "udp",

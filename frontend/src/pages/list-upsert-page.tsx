@@ -1,15 +1,10 @@
-import { useForm } from "@tanstack/react-form"
+import { DeleteImpactDialog } from "@/components/shared/delete-impact-dialog"
+import { validateListSource } from "@/lib/list-source-validation"
+import { RadioGroup } from "@/components/ui/radio-group"
 import { useQueryClient } from "@tanstack/react-query"
-import { useStore } from "@tanstack/react-store"
-import {
-  CheckCircle2Icon,
-  CircleIcon,
-  CloudIcon,
-  FileTextIcon,
-  ScrollTextIcon,
-} from "lucide-react"
+import { CloudIcon, FileTextIcon, ScrollTextIcon } from "lucide-react"
 import { useState } from "react"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 import { toast } from "sonner"
 
@@ -33,66 +28,44 @@ import { ServerValidationAlert } from "@/components/shared/server-validation-ale
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { ButtonGroup } from "@/components/ui/button-group"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  clearFormServerErrors,
-  setFormServerErrors,
-  splitFormApiErrors,
-} from "@/lib/form-api-errors"
-import { cn } from "@/lib/utils"
+import { formatPath, useDraftForm } from "@/lib/draft-form"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { ChoiceButton } from "@/components/ui/choice-button"
 
 type ListDraft = {
   name: string
-  ttlMs: string
+  source: ListSourceGroup | ""
+  ttl_ms: string
   detour: string
   domains: string
-  ipCidrs: string
+  ip_cidrs: string
   url: string
   file: string
 }
 
 type ListSourceGroup = "url" | "file" | "inline"
-type ListFieldName = (typeof LIST_FIELD_NAMES)[keyof typeof LIST_FIELD_NAMES]
 
 const LIST_SOURCE_GROUPS: ListSourceGroup[] = ["url", "file", "inline"]
-const DEFAULT_SOURCE_GROUP: ListSourceGroup = "url"
-const LIST_FIELD_NAMES = {
-  name: "name",
-  ttlMs: "ttlMs",
-  detour: "detour",
-  domains: "domains",
-  ipCidrs: "ipCidrs",
-  url: "url",
-  file: "file",
-} as const
 const LIST_SOURCE_GROUP_ICONS = {
   url: CloudIcon,
   file: FileTextIcon,
   inline: ScrollTextIcon,
 } satisfies Record<ListSourceGroup, typeof CloudIcon>
 const LIST_SOURCE_GROUP_FIELDS = {
-  url: [LIST_FIELD_NAMES.url],
-  file: [LIST_FIELD_NAMES.file],
-  inline: [LIST_FIELD_NAMES.domains, LIST_FIELD_NAMES.ipCidrs],
-} satisfies Record<ListSourceGroup, ListFieldName[]>
+  url: ["url"],
+  file: ["file"],
+  inline: ["domains", "ip_cidrs"],
+} satisfies Record<ListSourceGroup, (keyof ListDraft)[]>
 
 const sampleNewList: ListDraft = {
   name: "",
-  ttlMs: "7200000",
+  source: "",
+  ttl_ms: "7200000",
   detour: "",
   domains: "",
-  ipCidrs: "",
+  ip_cidrs: "",
   url: "",
   file: "",
 }
@@ -170,9 +143,15 @@ export function ListUpsertPage({
       }
       description={t("pages.listUpsert.description")}
       title={
-        mode === "create"
-          ? t("pages.listUpsert.createTitle")
-          : t("pages.listUpsert.editTitle")
+        mode === "create" ? (
+          t("pages.listUpsert.createTitle")
+        ) : (
+          <Trans
+            i18nKey="pages.listUpsert.editCardTitle"
+            values={{ name: draft?.name ?? listId }}
+            components={{ entity: <span className="text-primary" /> }}
+          />
+        )
       }
     >
       <ListForm
@@ -209,86 +188,83 @@ function ListForm({
   const [activeSourceGroups, setActiveSourceGroups] = useState<
     ListSourceGroup[]
   >(() => getActiveSourceGroupsFromDraft(draft))
+  const [pendingSource, setPendingSource] = useState<ListSourceGroup | null>(
+    null
+  )
   const postConfigMutation = usePostConfigMutation()
-  const isMobile = useIsMobile()
-
-  const form = useForm({
-    defaultValues: draft,
-    validators: {
-      onSubmitAsync: async ({ value }) => {
-        clearFormServerErrors(form)
-        const updatedConfig = buildUpdatedConfigForListUpsert(
-          loadedConfig,
-          mode,
-          value,
-          listId
-        )
-
-        try {
-          await postConfigMutation.mutateAsync({ data: updatedConfig })
-          toast.success(
-            mode === "create"
-              ? t("pages.listUpsert.messages.created")
-              : t("pages.listUpsert.messages.updated")
-          )
-          clearFormServerErrors(form)
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() }),
-          ])
-          navigate("/lists")
-          return undefined
-        } catch (error) {
-          const apiError = error as ApiError
-          const result = splitFormApiErrors({
-            error: apiError,
-            fieldNames: Object.values(LIST_FIELD_NAMES),
-            resolvePath: (path) =>
-              resolveListFieldPath(path, value.name || draft.name),
-          })
-
-          setFormServerErrors(form, {
-            form: result.formError ?? undefined,
-            fields: result.fieldErrors,
-            unmapped: result.unmappedErrors,
-          })
-
-          if (result.formError) {
-            toast.error(result.formError, { richColors: true })
-          }
-
-          return {
-            form: result.formError ?? undefined,
-            fields: result.fieldErrors,
-          }
-        }
-      },
-    },
-  })
-
-  const apiErrorMessage = useStore(
-    form.store,
-    (state) =>
-      (state.errorMap.onServer as { form?: string } | undefined)?.form ?? null
-  )
-  const unmappedServerErrors = useStore(
-    form.store,
-    (state) =>
-      (
-        state.errorMap.onServer as
-          | {
-              unmapped?: { path: string; message: string }[]
-            }
-          | undefined
-      )?.unmapped ?? []
-  )
-
   const isCreate = mode === "create"
 
-  const handleSourceGroupSelect = (group: ListSourceGroup) => {
-    const currentValues = form.state.values
+  const form = useDraftForm<ListDraft>(draft, {
+    // The list lives under its name in the `lists` object.
+    apiPrefix: (value) =>
+      formatPath([
+        "lists",
+        isCreate ? value.name.trim() : (listId ?? draft.name).trim(),
+      ]),
+    validate: (value) => {
+      const errors: Record<string, string> = validateListSource(value, t)
+
+      const nameError = getListNameError(
+        value.name,
+        existingListNames,
+        isCreate ? undefined : draft.name,
+        t
+      )
+      if (nameError) {
+        errors.name = nameError
+      }
+
+      if (!value.source && activeSourceGroups.length === 0) {
+        errors.source = t("common.validation.required")
+      }
+
+      const ttlError = getTtlError(value.ttl_ms, t)
+      if (ttlError) {
+        errors.ttl_ms = ttlError
+      }
+
+      return errors
+    },
+  })
+  const { values } = form
+
+  const save = async (value: ListDraft) => {
+    const updatedConfig = buildUpdatedConfigForListUpsert(
+      loadedConfig,
+      mode,
+      value,
+      listId
+    )
+
+    try {
+      await postConfigMutation.mutateAsync({ data: updatedConfig })
+      toast.success(
+        mode === "create"
+          ? t("pages.listUpsert.messages.created")
+          : t("pages.listUpsert.messages.updated")
+      )
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() }),
+      ])
+      navigate("/lists")
+    } catch (error) {
+      const message = form.setApiError(error as ApiError)
+      if (message) {
+        toast.error(message, { richColors: true })
+      }
+    }
+  }
+
+  // The name control also shows errors addressed to the whole list entry.
+  const nameError = form.errorFor("name", { alsoClaims: [""] })
+
+  const handleSourceGroupSelect = (
+    group: ListSourceGroup,
+    confirmed = false
+  ) => {
     const filledActiveGroups = activeSourceGroups.filter((sourceGroup) =>
-      isSourceGroupPopulated(sourceGroup, currentValues)
+      isSourceGroupPopulated(sourceGroup, values)
     )
     const groupsToClear = filledActiveGroups.filter(
       (sourceGroup) => sourceGroup !== group
@@ -302,355 +278,266 @@ function ListForm({
       return
     }
 
-    if (
-      groupsToClear.length > 0 &&
-      !window.confirm(t("pages.listUpsert.sourceSwitcher.confirmChange"))
-    ) {
+    if (groupsToClear.length > 0 && !confirmed) {
+      setPendingSource(group)
       return
     }
+    setPendingSource(null)
 
     setActiveSourceGroups([group])
-    clearFormServerErrors(form)
 
+    form.setValue("source", group)
     for (const sourceGroup of LIST_SOURCE_GROUPS) {
-      if (sourceGroup === group) {
-        continue
-      }
-
+      if (sourceGroup === group) continue
       for (const fieldName of LIST_SOURCE_GROUP_FIELDS[sourceGroup]) {
-        form.setFieldValue(fieldName, "")
+        // Clear errors even when the hidden source value was already empty.
+        form.setValue(fieldName, "")
       }
-    }
-
-    if (group !== "inline") {
-      form.setFieldValue(LIST_FIELD_NAMES.domains, "")
-      form.setFieldValue(LIST_FIELD_NAMES.ipCidrs, "")
     }
   }
 
   return (
-    <form
-      className="space-y-6"
-      onSubmit={(event) => {
-        event.preventDefault()
-        form.handleSubmit()
-      }}
-    >
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("pages.listUpsert.common.title")}</CardTitle>
-          <CardDescription>
-            {t("pages.listUpsert.common.description")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <form className="space-y-6" onSubmit={form.onSubmit(save)}>
+      <DeleteImpactDialog
+        open={pendingSource !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingSource(null)
+        }}
+        title={t("pages.listUpsert.sourceSwitcher.confirmTitle")}
+        description={t("pages.listUpsert.sourceSwitcher.confirmChange")}
+        confirmLabel={t("pages.listUpsert.sourceSwitcher.confirmAction")}
+        onConfirm={() => {
+          if (pendingSource) handleSourceGroupSelect(pendingSource, true)
+        }}
+        impactItems={activeSourceGroups
+          .filter(
+            (group) =>
+              group !== pendingSource && isSourceGroupPopulated(group, values)
+          )
+          .map((group) => ({
+            label: t(`pages.listUpsert.sourceGroups.${group}.button`),
+          }))}
+      />
+      <section className="space-y-4">
+        <div>
           <FieldGroup>
-            <form.Field
-              name={LIST_FIELD_NAMES.name}
-              validators={{
-                onChange: ({ value }) =>
-                  getListNameError(
-                    value,
-                    existingListNames,
-                    isCreate ? undefined : draft.name,
-                    t
-                  ) ?? undefined,
-              }}
-            >
-              {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
+            <Field invalid={Boolean(nameError)}>
+              <FieldLabel htmlFor="list-name">
+                {t("pages.listUpsert.fields.name")}
+              </FieldLabel>
+              <FieldContent>
+                <Input
+                  aria-invalid={Boolean(nameError)}
+                  disabled={!isCreate}
+                  id="list-name"
+                  className="max-w-sm"
+                  onChange={(event) =>
+                    form.setValue("name", event.target.value)
+                  }
+                  value={values.name}
+                />
+                <FieldHint error={nameError} />
+              </FieldContent>
+            </Field>
 
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="list-name">
-                      {t("pages.listUpsert.fields.name")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
-                        disabled={!isCreate}
-                        id="list-name"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.nameHint")}
-                        error={error ?? null}
-                      />
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            </form.Field>
-
-            <form.Field
-              name={LIST_FIELD_NAMES.ttlMs}
-              validators={{
-                onMount: ({ value }) => getTtlError(value, t) ?? undefined,
-                onChange: ({ value }) => getTtlError(value, t) ?? undefined,
-              }}
-            >
-              {(field) => {
-                const error = getFirstFieldError(field.state.meta.errors)
-
-                return (
-                  <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="list-ttl-ms">
-                      {t("pages.listUpsert.fields.ttlMs")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
-                        id="list-ttl-ms"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.ttlMsHint")}
-                        error={error ?? null}
-                      />
-                    </FieldContent>
-                  </Field>
-                )
-              }}
-            </form.Field>
+            <Field invalid={Boolean(form.errorFor("ttl_ms"))}>
+              <FieldLabel htmlFor="list-ttl-ms">
+                {t("pages.listUpsert.fields.ttlMs")}
+              </FieldLabel>
+              <FieldContent>
+                <Input
+                  aria-invalid={Boolean(form.errorFor("ttl_ms"))}
+                  id="list-ttl-ms"
+                  inputMode="numeric"
+                  onChange={(event) =>
+                    form.setValue("ttl_ms", event.target.value)
+                  }
+                  value={values.ttl_ms}
+                />
+                <FieldHint
+                  description={t("pages.listUpsert.fields.ttlMsHint")}
+                  error={form.errorFor("ttl_ms")}
+                />
+              </FieldContent>
+            </Field>
           </FieldGroup>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("pages.listUpsert.sourceSwitcher.title")}</CardTitle>
-          <CardDescription>
-            {t("pages.listUpsert.sourceSwitcher.description")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ButtonGroup
-            className="w-full [&>[data-slot=button]]:flex-1 data-[orientation=vertical]:h-fit data-[orientation=vertical]:[&>[data-slot=button]]:w-full data-[orientation=vertical]:[&>[data-slot=button]]:justify-start data-[orientation=vertical]:[&>[data-slot=button]]:px-3"
-            orientation={isMobile ? "vertical" : "horizontal"}
+      <Field invalid={Boolean(form.errorFor("source"))}>
+        <FieldLabel id="list-source-label">
+          {t("pages.listUpsert.sourceSwitcher.title")}
+        </FieldLabel>
+        <FieldContent>
+          <RadioGroup
+            aria-labelledby="list-source-label"
+            value={activeSourceGroups.length === 1 ? activeSourceGroups[0] : ""}
+            onValueChange={(value) =>
+              handleSourceGroupSelect(value as ListSourceGroup)
+            }
+            className="grid w-full max-w-3xl min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3"
           >
             {LIST_SOURCE_GROUPS.map((group) => {
               const Icon = LIST_SOURCE_GROUP_ICONS[group]
-              const active = activeSourceGroups.includes(group)
-
               return (
-                <Button
-                  aria-pressed={active}
-                  className={cn(
-                    isMobile && "h-auto min-h-11 py-2.5",
-                    active &&
-                      "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  )}
-                  key={group}
-                  onClick={() => handleSourceGroupSelect(group)}
-                  size={isMobile ? "default" : "sm"}
-                  type="button"
-                  variant="outline"
-                >
-                  {isMobile ? (
-                    active ? (
-                      <CheckCircle2Icon className="size-4 text-primary" />
-                    ) : (
-                      <CircleIcon className="size-4 text-muted-foreground" />
-                    )
-                  ) : null}
-                  <Icon className="size-4" />
-                  {t(`pages.listUpsert.sourceGroups.${group}.button`)}
-                </Button>
+                <ChoiceButton value={group} key={group}>
+                  <Icon aria-hidden="true" className="size-5 text-primary" />
+                  <span className="text-sm font-medium">
+                    {t(`pages.listUpsert.sourceGroups.${group}.button`)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {t(`pages.listUpsert.sourceGroups.${group}.description`)}
+                  </span>
+                </ChoiceButton>
               )
             })}
-          </ButtonGroup>
-        </CardContent>
-      </Card>
+          </RadioGroup>
+          <FieldHint error={form.errorFor("source")} />
+        </FieldContent>
+      </Field>
 
       {activeSourceGroups.includes("url") ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {t("pages.listUpsert.sourceGroups.url.title")}
-            </CardTitle>
-            <CardDescription>
-              {t("pages.listUpsert.sourceGroups.url.description")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <section className="space-y-4">
+          <div>
             <FieldGroup>
-              <form.Field name={LIST_FIELD_NAMES.url}>
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="list-url">
-                      {t("pages.listUpsert.fields.url")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        id="list-url"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.urlHint")}
-                      />
-                    </FieldContent>
-                  </Field>
-                )}
-              </form.Field>
+              <Field invalid={Boolean(form.errorFor("url"))}>
+                <FieldLabel htmlFor="list-url">
+                  {t("pages.listUpsert.fields.url")}
+                </FieldLabel>
+                <FieldContent>
+                  <Input
+                    aria-invalid={Boolean(form.errorFor("url"))}
+                    id="list-url"
+                    onChange={(event) =>
+                      form.setValue("url", event.target.value)
+                    }
+                    value={values.url}
+                  />
+                  <FieldHint
+                    description={t("pages.listUpsert.fields.urlHint")}
+                    error={form.errorFor("url")}
+                  />
+                </FieldContent>
+              </Field>
 
-              <form.Field name={LIST_FIELD_NAMES.detour}>
-                {(field) => {
-                  const error = getFirstFieldError(field.state.meta.errors)
-
-                  return (
-                    <Field invalid={Boolean(error)}>
-                      <FieldLabel>
-                        {t("pages.listUpsert.fields.detour")}
-                      </FieldLabel>
-                      <FieldContent>
-                        <OutboundSelect
-                          allowEmpty
-                          ariaInvalid={Boolean(error)}
-                          emptyLabel={t("pages.listUpsert.fields.detourEmpty")}
-                          onValueChange={field.handleChange}
-                          outbounds={outbounds}
-                          placeholder={t(
-                            "pages.listUpsert.fields.detourPlaceholder"
-                          )}
-                          value={field.state.value}
-                        />
-                        <FieldHint
-                          description={t("pages.listUpsert.fields.detourHint")}
-                          error={error}
-                        />
-                      </FieldContent>
-                    </Field>
-                  )
-                }}
-              </form.Field>
+              <Field invalid={Boolean(form.errorFor("detour"))}>
+                <FieldLabel>{t("pages.listUpsert.fields.detour")}</FieldLabel>
+                <FieldContent>
+                  <OutboundSelect
+                    allowEmpty
+                    ariaInvalid={Boolean(form.errorFor("detour"))}
+                    emptyLabel={t("pages.listUpsert.fields.detourEmpty")}
+                    onValueChange={(value) => form.setValue("detour", value)}
+                    outbounds={outbounds}
+                    placeholder={t("pages.listUpsert.fields.detourPlaceholder")}
+                    value={values.detour}
+                  />
+                  <FieldHint
+                    description={t("pages.listUpsert.fields.detourHint")}
+                    error={form.errorFor("detour")}
+                  />
+                </FieldContent>
+              </Field>
             </FieldGroup>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       ) : null}
 
       {activeSourceGroups.includes("file") ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {t("pages.listUpsert.sourceGroups.file.title")}
-            </CardTitle>
-            <CardDescription>
-              {t("pages.listUpsert.sourceGroups.file.description")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <section className="space-y-4">
+          <div>
             <FieldGroup>
-              <form.Field name={LIST_FIELD_NAMES.file}>
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="list-file">
-                      {t("pages.listUpsert.fields.file")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Input
-                        id="list-file"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.fileHint")}
-                      />
-                    </FieldContent>
-                  </Field>
-                )}
-              </form.Field>
+              <Field invalid={Boolean(form.errorFor("file"))}>
+                <FieldLabel htmlFor="list-file">
+                  {t("pages.listUpsert.fields.file")}
+                </FieldLabel>
+                <FieldContent>
+                  <Input
+                    aria-invalid={Boolean(form.errorFor("file"))}
+                    id="list-file"
+                    onChange={(event) =>
+                      form.setValue("file", event.target.value)
+                    }
+                    value={values.file}
+                  />
+                  <FieldHint
+                    description={t("pages.listUpsert.fields.fileHint")}
+                    error={form.errorFor("file")}
+                  />
+                </FieldContent>
+              </Field>
             </FieldGroup>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       ) : null}
 
       {activeSourceGroups.includes("inline") ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {t("pages.listUpsert.sourceGroups.inline.title")}
-            </CardTitle>
-            <CardDescription>
-              {t("pages.listUpsert.sourceGroups.inline.description")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FieldGroup>
-              <form.Field name={LIST_FIELD_NAMES.domains}>
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="list-domains">
-                      {t("pages.listUpsert.fields.domains")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Textarea
-                        className="min-h-24"
-                        id="list-domains"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
+        <section className="space-y-4">
+          <div>
+            <FieldGroup className="grid min-w-0 items-start gap-6 md:grid-cols-2">
+              <Field invalid={Boolean(form.errorFor("domains"))}>
+                <FieldLabel htmlFor="list-domains">
+                  {t("pages.listUpsert.fields.domains")}
+                </FieldLabel>
+                <FieldContent>
+                  <Textarea
+                    className="min-h-24"
+                    aria-invalid={Boolean(form.errorFor("domains"))}
+                    id="list-domains"
+                    onChange={(event) =>
+                      form.setValue("domains", event.target.value)
+                    }
+                    value={values.domains}
+                  />
+                  <FieldHint
+                    description={t("pages.listUpsert.fields.domainsHint")}
+                    error={form.errorFor("domains")}
+                  />
+                </FieldContent>
+              </Field>
+              <Field invalid={Boolean(form.errorFor("ip_cidrs"))}>
+                <FieldLabel htmlFor="list-ip-cidrs">
+                  {t("pages.listUpsert.fields.ipCidrs")}
+                </FieldLabel>
+                <FieldContent>
+                  <Textarea
+                    className="min-h-24"
+                    aria-invalid={Boolean(form.errorFor("ip_cidrs"))}
+                    id="list-ip-cidrs"
+                    onChange={(event) =>
+                      form.setValue("ip_cidrs", event.target.value)
+                    }
+                    value={values.ip_cidrs}
+                  />
+                  <FieldHint
+                    error={form.errorFor("ip_cidrs")}
+                    description={
+                      <Trans
+                        i18nKey="pages.listUpsert.fields.ipCidrsHint"
+                        components={{
+                          code: (
+                            <code className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground" />
+                          ),
+                        }}
                       />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.domainsHint")}
-                      />
-                    </FieldContent>
-                  </Field>
-                )}
-              </form.Field>
-              <form.Field name={LIST_FIELD_NAMES.ipCidrs}>
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor="list-ip-cidrs">
-                      {t("pages.listUpsert.fields.ipCidrs")}
-                    </FieldLabel>
-                    <FieldContent>
-                      <Textarea
-                        className="min-h-24"
-                        id="list-ip-cidrs"
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        value={field.state.value}
-                      />
-                      <FieldHint
-                        description={t("pages.listUpsert.fields.ipCidrsHint")}
-                      />
-                    </FieldContent>
-                  </Field>
-                )}
-              </form.Field>
+                    }
+                  />
+                </FieldContent>
+              </Field>
             </FieldGroup>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       ) : null}
 
-      {apiErrorMessage ? (
+      {form.formError ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
           <AlertDescription className="whitespace-pre-wrap">
-            {apiErrorMessage}
+            {form.formError}
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <ServerValidationAlert errors={unmappedServerErrors} />
+      <ServerValidationAlert errors={form.unmappedErrors()} />
 
       <div className="flex justify-end gap-3">
         <Button
@@ -661,28 +548,21 @@ function ListForm({
         >
           {t("common.cancel")}
         </Button>
-        <form.Subscribe
-          selector={(state) => ({
-            canSubmit: state.canSubmit,
-            isPristine: state.isPristine,
-          })}
+        <Button
+          disabled={
+            postConfigMutation.isPending ||
+            (mode === "edit" && !form.isDirty) ||
+            form.isSubmitting
+          }
+          size="xl"
+          type="submit"
         >
-          {({ canSubmit, isPristine }) => (
-            <Button
-              disabled={
-                postConfigMutation.isPending || isPristine || !canSubmit
-              }
-              size="xl"
-              type="submit"
-            >
-              {postConfigMutation.isPending
-                ? t("pages.listUpsert.actions.saving")
-                : mode === "create"
-                  ? t("pages.listUpsert.actions.create")
-                  : t("pages.listUpsert.actions.save")}
-            </Button>
-          )}
-        </form.Subscribe>
+          {postConfigMutation.isPending
+            ? t("pages.listUpsert.actions.saving")
+            : mode === "create"
+              ? t("pages.listUpsert.actions.create")
+              : t("pages.listUpsert.actions.save")}
+        </Button>
       </div>
     </form>
   )
@@ -701,19 +581,19 @@ function getActiveSourceGroupsFromDraft(draft: ListDraft): ListSourceGroup[] {
 
   if (
     splitLines(draft.domains).length > 0 ||
-    splitLines(draft.ipCidrs).length > 0
+    splitLines(draft.ip_cidrs).length > 0
   ) {
     populatedGroups.push("inline")
   }
 
-  return populatedGroups.length > 0 ? populatedGroups : [DEFAULT_SOURCE_GROUP]
+  return populatedGroups
 }
 
 function isSourceGroupPopulated(group: ListSourceGroup, draft: ListDraft) {
   if (group === "inline") {
     return (
       splitLines(draft.domains).length > 0 ||
-      splitLines(draft.ipCidrs).length > 0
+      splitLines(draft.ip_cidrs).length > 0
     )
   }
 
@@ -730,10 +610,11 @@ function getDraftFromMapEntry(
 
   return {
     name,
-    ttlMs: String(listConfig.ttl_ms ?? 0),
+    source: "",
+    ttl_ms: String(listConfig.ttl_ms ?? 0),
     detour: listConfig.detour ?? "",
     domains: (listConfig.domains ?? []).join("\n"),
-    ipCidrs: (listConfig.ip_cidrs ?? []).join("\n"),
+    ip_cidrs: (listConfig.ip_cidrs ?? []).join("\n"),
     url: listConfig.url ?? "",
     file: listConfig.file ?? "",
   }
@@ -761,11 +642,11 @@ function buildUpdatedConfigForListUpsert(
 
 function getListConfigFromDraft(draft: ListDraft): ListConfig {
   const domains = splitLines(draft.domains)
-  const ipCidrs = splitLines(draft.ipCidrs)
+  const ipCidrs = splitLines(draft.ip_cidrs)
   const trimmedUrl = draft.url.trim()
   const trimmedFile = draft.file.trim()
   const trimmedDetour = draft.detour.trim()
-  const ttlMs = Number.parseInt(draft.ttlMs.trim(), 10)
+  const ttlMs = Number.parseInt(draft.ttl_ms.trim(), 10)
 
   const listConfig: ListConfig = {}
   listConfig.ttl_ms = Number.isNaN(ttlMs) ? 0 : ttlMs
@@ -800,83 +681,30 @@ function splitLines(value: string) {
     .filter(Boolean)
 }
 
-function getFirstFieldError(errors: unknown[]) {
-  const firstError = errors[0]
-  return typeof firstError === "string" ? firstError : null
-}
-
 function getListNameError(
   value: string,
   existingListNames: string[],
-  currentName?: string,
-  t?: (key: string) => string
+  currentName: string | undefined,
+  t: (key: string) => string
 ) {
   const trimmedName = value.trim()
   const duplicateError =
     existingListNames.includes(trimmedName) && trimmedName !== currentName
-      ? (t?.("pages.listUpsert.validation.duplicateName") ??
-        "A list with this name already exists.")
+      ? t("pages.listUpsert.validation.duplicateName")
       : null
 
   return getTagNameValidationError(value, {
-    requiredError:
-      t?.("pages.listUpsert.validation.nameRequired") ?? "Name is required.",
-    invalidError:
-      t?.("common.validation.tagNamePattern") ??
-      "Must match [a-z][a-z0-9_]{0,23}.",
+    requiredError: t("common.validation.required"),
+    invalidError: t("common.validation.tagNamePattern"),
     duplicateError,
   })
 }
 
-function getTtlError(value: string, t?: (key: string) => string) {
+function getTtlError(value: string, t: (key: string) => string) {
   const trimmed = value.trim()
-  if (!/^\d+$/.test(trimmed)) {
-    return (
-      t?.("pages.listUpsert.validation.invalidTtl") ??
-      "TTL must be a non-negative integer."
-    )
+  if (!/^\d+$/.test(trimmed) || Number(trimmed) > 4294967295999) {
+    return t("pages.listUpsert.validation.invalidTtl")
   }
 
   return null
-}
-
-function resolveListFieldPath(
-  path: string,
-  name: string
-): ListFieldName | undefined {
-  const normalizedName = name.trim()
-
-  if (path === "lists") {
-    return LIST_FIELD_NAMES.name
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}`) {
-    return LIST_FIELD_NAMES.name
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.ttl_ms`) {
-    return LIST_FIELD_NAMES.ttlMs
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.domains`) {
-    return LIST_FIELD_NAMES.domains
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.ip_cidrs`) {
-    return LIST_FIELD_NAMES.ipCidrs
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.url`) {
-    return LIST_FIELD_NAMES.url
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.file`) {
-    return LIST_FIELD_NAMES.file
-  }
-
-  if (normalizedName && path === `lists.${normalizedName}.detour`) {
-    return LIST_FIELD_NAMES.detour
-  }
-
-  return undefined
 }

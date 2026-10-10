@@ -19,7 +19,7 @@ KEEN_PBR_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" release "
 KEEN_PBR_GIT_COMMIT="$(git -C "$WORKSPACE" rev-parse HEAD)"
 KEEN_PBR_GIT_BRANCH="${GITHUB_REF_NAME:-$(git -C "$WORKSPACE" branch --show-current)}"
 
-sh "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST"
+sh "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST" keenetic
 
 cd "$ENTWARE_DIR"
 printf '\nsrc-link keenPbr %s/packages/keenetic\n' "$WORKSPACE" >> feeds.conf

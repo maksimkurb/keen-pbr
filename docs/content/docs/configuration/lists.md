@@ -29,11 +29,11 @@ Most users start with a simple domain list such as:
 | `domains` | array of string | no | Inline DNS-compatible domain patterns (supports a leading `*.`) |
 | `ip_cidrs` | array of string | no | Inline IP addresses or CIDR ranges |
 | `file` | string | no | Path to a local list file |
-| `ttl_ms` | integer | no (default: `0`) | How long resolved IPs should stay cached for domain-based lists. Most users can leave this at `0`. |
+| `ttl_ms` | integer | no (default: `0`) | Per-list timeout floor for IPs learned through DNS/L7 interception. Omitted, `0`, and values below 1000 ms use `intercept.min_ttl_ms`; larger values are truncated to seconds. A DNS record TTL may extend the timeout up to `intercept.max_ttl_ms`. |
 
 Inline, local-file, and URL-backed lists use the same domain syntax. A leading
-`*.` and one trailing root dot are normalized away, so `*.google.com` is emitted
-to dnsmasq as `google.com`. DNS service labels containing underscores are allowed;
+`*.` and one trailing root dot are normalized away, so `*.google.com` is normalized
+to `google.com`. DNS service labels containing underscores are allowed;
 whitespace, directive separators, malformed wildcards, and invalid labels are skipped
 in files and rejected in inline configuration.
 
@@ -54,8 +54,8 @@ If you combine multiple sources in a single list entry, all entries are merged, 
 Each list is backed by static and dynamic IP sets.
 
 - Static entries from `ip_cidrs`, `file`, and `url` are loaded immediately.
-- Domain entries are added later, when dnsmasq resolves them.
-- If `ttl_ms` is set, those resolved IPs for domains expire automatically after that time.
+- Domain entries are added later, when DNS/L7 interception observes them.
+- Learned IPs expire using the DNS record TTL, bounded by `intercept.min_ttl_ms` and `intercept.max_ttl_ms`; `ttl_ms` sets the list's floor. It is separate from the refresh interval for remote lists.
 {{% /details %}}
 
 ## List File Format
@@ -66,7 +66,7 @@ Whether loaded from `url` or `file`, keen-pbr expects one entry per line:
 - IPv4 CIDR: `10.0.0.0/8`
 - IPv6 address: `2606:2800:220:1:248:1893:25c8:1946`
 - IPv6 CIDR: `2001:db8::/32`
-- Domain: `example.com` — matches the domain and all its subdomains (dnsmasq `server=/example.com/` semantics)
+- Domain: `example.com` — matches the domain and all its subdomains
   - Wildcard domain: `*.example.org` is equivalent to `example.org`, so **there is no need** to add `*.` before domain. For compatibility, the `*.` prefix is stripped automatically
 - Comments: lines starting with `#` are ignored
 - Empty lines are ignored
@@ -134,4 +134,4 @@ Both entries match the domain and all its subdomains. Writing `*.example.com` is
 }
 ```
 
-All four sources are merged into a single list. `ttl_ms: 86400000` sets a 24-hour TTL for dnsmasq-resolved IPs in the stable dynamic set (`kpbr4d_combined` / `kpbr6d_combined`). Static IPs from `ip_cidrs` and the cached URL/file are loaded into the active A/B iptables set (`kpbr4s_combined` or `kpbr4S_combined`) or the stable nftables set (`kpbr4_combined`) and never expire automatically.
+All four sources are merged into a single list. `ttl_ms: 86400000` sets a 24-hour floor for IPs learned through DNS/L7 interception in the dynamic sets (`kpbr4d_combined` / `kpbr6d_combined`). Static IPs from `ip_cidrs` and the cached URL/file are loaded into the stable sets (`kpbr4_combined` / `kpbr6_combined`) and do not expire automatically. iptables uses a temporary set only while refreshing a static set before swapping it into place.

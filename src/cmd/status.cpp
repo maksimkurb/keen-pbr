@@ -1,11 +1,8 @@
 #include "status.hpp"
 
-#include "../cache/cache_manager.hpp"
 #include "../config/routing_state.hpp"
-#include "../firewall/firewall_verifier.hpp"
+#include "../health/host_health_warnings.hpp"
 #include "../health/routing_health_checker.hpp"
-#include "../lists/list_streamer.hpp"
-#include "../lists/list_set_usage.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
 #include "../routing/policy_rule.hpp"
@@ -22,6 +19,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -114,6 +112,10 @@ void print_detail_if_needed(const std::string& detail, const std::string& indent
     if (!detail.empty()) {
         std::cout << indent << detail << "\n";
     }
+}
+
+bool firewall_verification_unavailable(const RoutingHealthReport& report) {
+    return report.firewall_chain.verification_state == VerificationState::unavailable;
 }
 
 const Outbound* find_outbound(const std::vector<Outbound>& outbounds, const std::string& tag) {
@@ -258,6 +260,39 @@ std::vector<DisplayFirewallRule> build_display_firewall_rules(
         display_rules.push_back(std::move(display));
     }
 
+    return display_rules;
+}
+
+std::vector<DisplayFirewallRule> build_unavailable_firewall_rules(
+    const Config& config,
+    const OutboundMarkMap& marks,
+    const std::string& detail) {
+    std::vector<DisplayFirewallRule> display_rules;
+    for (const auto& state : build_fw_rule_states(config, marks)) {
+        if (state.action_type == RuleActionType::Skip) continue;
+
+        const std::string action = state.action_type == RuleActionType::Mark
+            ? "mark"
+            : (state.action_type == RuleActionType::Drop ? "drop" : "pass");
+        const auto append = [&](const std::string& set_name) {
+            DisplayFirewallRule display;
+            display.set_name = set_name;
+            display.action = action;
+            if (state.action_type == RuleActionType::Mark) {
+                display.expected_fwmark = state.fwmark;
+            }
+            display.status = CheckStatus::missing;
+            display.status_label_override = "UNAVAILABLE";
+            display.detail = detail;
+            display_rules.push_back(std::move(display));
+        };
+
+        if (state.set_names.empty()) {
+            append("<direct>");
+        } else {
+            for (const auto& set_name : state.set_names) append(set_name);
+        }
+    }
     return display_rules;
 }
 
@@ -408,9 +443,10 @@ void print_firewall_section(const std::vector<DisplayFirewallRule>& firewall_rul
     std::cout << "\nFirewall:\n";
     const bool chain_ok = report.firewall_chain.chain_present &&
                           report.firewall_chain.prerouting_hook_present;
+    const bool chain_unavailable = firewall_verification_unavailable(report);
     std::cout << "  "
               << pad_dots("chain   KeenPbrTable / prerouting hook",
-                          chain_ok ? "OK" : "MISSING")
+                          chain_ok ? "OK" : (chain_unavailable ? "UNAVAILABLE" : "MISSING"))
               << "\n";
     if (!chain_ok) {
         print_detail_if_needed(report.firewall_chain.detail, "    ");
@@ -437,6 +473,16 @@ void print_firewall_section(const std::vector<DisplayFirewallRule>& firewall_rul
     }
 }
 
+void print_warnings_section(const RoutingHealthReport& report) {
+    if (report.warnings.empty()) return;
+    std::cout << "\nWarnings:\n";
+    for (const auto& w : report.warnings) {
+        std::cout << "  [" << health_warning_code_name(w.code) << "] ";
+        if (w.interface) std::cout << *w.interface << ": ";
+        std::cout << w.message << "\n";
+    }
+}
+
 void print_overall_summary(const RoutingHealthReport& report,
                            const std::vector<DisplayFirewallRule>& firewall_rules) {
     const int failed = count_failed_checks(report, firewall_rules);
@@ -455,12 +501,17 @@ int render_status_report(const Config& config,
                          const RoutingHealthReport& report) {
     auto marks = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
                                          config.outbounds.value_or(std::vector<Outbound>{}));
-    const auto display_firewall_rules =
+    auto display_firewall_rules =
         build_display_firewall_rules(config, marks, report.firewall_rules);
+    if (report.firewall_rules.empty() && firewall_verification_unavailable(report)) {
+        display_firewall_rules = build_unavailable_firewall_rules(
+            config, marks, report.firewall_chain.detail);
+    }
 
     print_header(report, config_path);
     print_outbound_section(config, marks, report);
     print_firewall_section(display_firewall_rules, report);
+    print_warnings_section(report);
     print_overall_summary(report, display_firewall_rules);
     return count_failed_checks(report, display_firewall_rules) == 0 ? 0 : 1;
 }
@@ -515,6 +566,12 @@ RoutingHealthReport routing_health_report_from_api(
     report.firewall_chain.chain_present = health.firewall.chain_present;
     report.firewall_chain.prerouting_hook_present =
         health.firewall.prerouting_hook_present;
+    report.firewall_chain.verification_state =
+        health.firewall.verification_state == api::VerificationState::VERIFIED
+            ? VerificationState::verified
+            : (health.firewall.verification_state == api::VerificationState::UNAVAILABLE
+                   ? VerificationState::unavailable
+                   : VerificationState::failed);
     report.firewall_chain.detail = health.firewall.detail.value_or("");
 
     for (const auto& item : health.firewall_rules) {
@@ -559,6 +616,24 @@ RoutingHealthReport routing_health_report_from_api(
         check.detail = item.detail.value_or("");
         report.policy_rules.push_back(std::move(check));
     }
+    for (const auto& item : health.warnings.value_or(
+             std::vector<api::RoutingHealthWarningElement>{})) {
+        HealthWarning warning;
+        switch (item.code) {
+            case api::RoutingHealthWarningCode::NAT_MISSING:
+                warning.code = HealthWarningCode::nat_missing; break;
+            case api::RoutingHealthWarningCode::NAT_PARTIAL:
+                warning.code = HealthWarningCode::nat_partial; break;
+            case api::RoutingHealthWarningCode::RP_FILTER_STRICT:
+                warning.code = HealthWarningCode::rp_filter_strict; break;
+            case api::RoutingHealthWarningCode::FWMARK_MASK_CONFLICT:
+                warning.code = HealthWarningCode::fwmark_mask_conflict; break;
+        }
+        warning.interface = item.interface;
+        warning.outbound = item.outbound;
+        warning.message = item.message;
+        report.warnings.push_back(std::move(warning));
+    }
     return report;
 }
 
@@ -574,17 +649,12 @@ RoutingHealthReport routing_health_report_from_json(const nlohmann::json& value)
 } // namespace
 
 namespace {
-int run_status_command_impl(const Config& config, const std::string& config_path,
-                            const std::vector<RuleState>* realized_rules) {
-    const int64_t verify_max_bytes = config.daemon.value_or(DaemonConfig{})
-        .firewall_verify_max_bytes.value_or(static_cast<int64_t>(DEFAULT_FIREWALL_VERIFY_CAPTURE_MAX_BYTES));
-    set_firewall_verifier_capture_max_bytes(static_cast<size_t>(verify_max_bytes));
-    const auto cache_dir = config.daemon.value_or(DaemonConfig{})
-                               .cache_dir.value_or("/var/cache/keen-pbr");
+int run_status_command_impl(const Config& config, const std::string& config_path) {
     auto marks = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
                                          config.outbounds.value_or(std::vector<Outbound>{}));
 
     NetlinkManager netlink;
+    const auto main_routes = netlink.dump_routes_in_table(254);
     const auto urltest_selections = infer_urltest_selections(config, marks, netlink);
     RouteTable routes(netlink, true);
     PolicyRuleManager rules(netlink, true);
@@ -595,58 +665,48 @@ int run_status_command_impl(const Config& config, const std::string& config_path
         marks,
         routes,
         rules,
-        [&netlink](const Outbound& outbound) {
-            return is_interface_outbound_reachable(outbound, netlink);
+        [&main_routes](const Outbound& outbound) {
+            return is_interface_outbound_reachable(outbound, main_routes);
         },
         &urltest_selections,
-        ipv6_decision.enabled);
-
-    CacheManager cache(cache_dir, max_file_size_bytes(config));
-    ListStreamer list_streamer(cache);
-    auto fw_rules = realized_rules != nullptr
-        ? *realized_rules
-        : build_fw_rule_states(config, marks);
-    if (realized_rules == nullptr) {
-        prune_fw_rule_states_to_realized_sets(
-            config,
-            fw_rules,
-            [&list_streamer](const std::string& list_name, const ListConfig& list_cfg) {
-                return analyze_list_set_usage(list_name, list_cfg, list_streamer);
-            },
-            ipv6_decision.enabled);
-    }
+        ipv6_decision.enabled,
+        {},
+        &main_routes);
 
     FirewallState fw_state;
     fw_state.set_outbound_marks(marks);
-    fw_state.set_fwmark_mask(fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{})));
-    fw_state.set_rules(std::move(fw_rules));
-
     RoutingHealthReport report = build_routing_health_report(
         resolve_firewall_backend(firewall_backend_preference(config)),
-        false,
+        RawPreroutingMode{},
         fw_state,
         routes.get_routes(),
-        rules.get_rules(),
-        netlink);
+        rules.get_rules(), netlink);
+    IptablesTableCache nat_cache;
+    const HostHealthInputs health_inputs = host_health_inputs(config);
+    report.warnings = collect_host_health_warnings(
+        health_inputs, netlink.dump_interfaces(),
+        resolve_firewall_backend(firewall_backend_preference(config)),
+        fwmark_conflict_check_enabled(health_inputs)
+            ? PolicyRuleInputs{netlink.dump_policy_rules(0), rules.get_rules()}
+            : PolicyRuleInputs{},
+        nat_cache, run_command_capture, read_proc_file);
     return render_status_report(config, config_path, report);
 }
 } // namespace
 
 int run_status_command(const Config& config, const std::string& config_path) {
-    return run_status_command_impl(config, config_path, nullptr);
+    return run_status_command_impl(config, config_path);
 }
 
 int run_status_command(const Config& config, const std::string& config_path,
-                       const std::vector<RuleState>& realized_rules) {
-    return run_status_command_impl(config, config_path, &realized_rules);
+                       const nlohmann::json& routing_health) {
+    return render_status_report(config, config_path,
+                                routing_health_report_from_json(routing_health));
 }
 
-int run_status_command(const nlohmann::json& response) {
-    if (!response.value("ok", false)) return 1;
-    const auto& result = response.at("result");
-    return render_status_report(result.at("config").get<Config>(),
-                                result.value("config_path", KEEN_PBR_DEFAULT_CONFIG_PATH),
-                                routing_health_report_from_json(result.at("routing_health")));
+int run_status_command(const Config& config, const std::string& config_path,
+                       std::nullptr_t) {
+    return run_status_command_impl(config, config_path);
 }
 
 } // namespace keen_pbr3

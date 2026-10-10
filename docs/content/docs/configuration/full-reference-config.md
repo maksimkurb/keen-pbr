@@ -3,9 +3,9 @@ title: Full Reference Config
 weight: 6
 ---
 
-This page shows one commented JSON example with every supported configuration section and every supported option.
+This page shows one full configuration example with comments, including platform-specific settings marked in the example. Remove settings that are unsupported on your target platform before applying it.
 
-Comments are supported in real keen-pbr config files, so you can use this example directly as a starting point.
+Comments are supported in real keen-pbr config files. Replace sample interfaces, addresses, and file paths with values from your network before applying it.
 
 {{< callout type="info" >}}
 List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` and must be at most 24 characters.
@@ -38,29 +38,29 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Default: true (also when set to null).
     "skip_marked_packets": true,
 
-    // Clear dnsmasq-managed dynamic sets during a full apply or runtime restart.
-    // Default: true (also when set to null).
-    "clear_dynamic_sets_on_apply": true,
+    // Clear interception-learned dynamic sets during a full apply or
+    // runtime restart. Default: false (also when set to null).
+    "clear_dynamic_sets_on_apply": false,
 
     // Optional initial hash table size for ipsets created by the iptables backend.
     // Has no effect with nftables. Minimum: 1; maximum: 2147483648. Omit or set
     // to null to use the ipset default (1024).
     // Changing it while iptables is running recreates owned ipsets and clears
-    // dnsmasq-learned entries.
+    // interception-learned entries.
     "ipset_hashsize": null,
 
     // Optional maximum element count for ipsets created by the iptables backend.
     // Has no effect with nftables. Minimum: 1; maximum: 4294967295. Omit or set
     // to null to use the ipset default (65536).
     // Changing it while iptables is running recreates owned ipsets and clears
-    // dnsmasq-learned entries.
+    // interception-learned entries.
     "ipset_maxelem": null,
 
     // Reuse the currently live list sets during safe runtime refreshes.
     // Default: true; failed preflight falls back to PreserveSets.
     "reuse_static_sets_on_runtime_refresh": true,
 
-    // Install IPv4/IPv6 firewall sets and resolver targets.
+    // Install IPv4/IPv6 firewall sets and DNS-driven targets.
     // Default: true (also when set to null). If the system has no IPv6 support,
     // keen-pbr logs an error and continues in IPv4-only mode.
     "ipv6_enabled": true,
@@ -87,9 +87,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Minimum: 1. Default: 30.
     "exec_timeout_seconds": 30,
 
-    // Maximum time in seconds to wait for resolver configuration generation
-    // after the resolver reload hook completes. Minimum: 1. Default: 120.
-    "resolver_ready_timeout_seconds": 120,
+    // Removed: "resolver_ready_timeout_seconds" belonged to the dnsmasq
+    // integration. It is still accepted but ignored (a warning is logged).
 
     // Grace period in seconds after SIGTERM before a timed-out helper receives
     // SIGKILL. Minimum: 0. Default: 2.
@@ -151,11 +150,15 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Default: no default, required for type="interface".
       "interface": "wg0",
 
-      // Optional IPv4 gateway for the interface outbound.
+      // Optional IPv4 gateway for the interface outbound. Set to "auto" to
+      // discover the unique lowest-metric matching default route in the main
+      // table; omit it for a gatewayless route.
       // Default: null
       "gateway": "10.8.0.1",
 
-      // Optional IPv6 gateway for the interface outbound.
+      // Optional IPv6 gateway for the interface outbound. Set to "auto" to
+      // discover the unique lowest-metric matching default route in the main
+      // table; omit it for a gatewayless route.
       // Default: null
       "gateway6": "2001:db8::1",
 
@@ -175,9 +178,9 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       "type": "interface",
       "tag": "wan",
       "interface": "eth0",
-      // Set a gateway only when it is stable. For a dynamic WAN gateway, use a
-      // table outbound with table=254 (the main routing table) instead.
-      "gateway": "172.12.33.1"
+      // Set a stable gateway explicitly, or use "auto" for a dynamic WAN
+      // gateway discovered from the matching main-table default route.
+      "gateway": "auto"
     },
     
     {
@@ -233,6 +236,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Minimum: 0 ms. Default: 100 for urltest.
       "tolerance_ms": 100,
 
+      // Selection strategy: "priority" (default) keeps one selected child.
+      // "balance" (not on Keenetic) spreads new connections over usable
+      // members of the first healthy group in proportion to their weight.
+      "strategy": "priority",
+
       // Compatibility field for older configs.
       // Urltest always appends terminal IPv4/IPv6 unreachable routes as a kill-switch.
       // This setting currently has no additional effect for urltest outbounds.
@@ -245,21 +253,22 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
       // Ordered outbound groups.
       // Default: no default, required for type="urltest".
-      // Lower weight is preferred before higher weight.
+      // Groups are tried in array order (first group first).
+      // Older configs with "outbounds" and a group-level "weight" are still read
+      // and upgraded to "members" automatically (backup: <config>.bak-pre-members).
       "outbound_groups": [
         {
-          // Relative priority of this group.
-          // Default: 1.
-          "weight": 1,
-
-          // Candidate outbound tags inside this group.
-          // Supported child types: interface, table, blackhole.
-          "outbounds": ["vpn", "wan_as_table"]
+          // Members of this group. Supported types: interface, table, blackhole.
+          "members": [
+            // "weight" (1-100, default 1) is the share of new connections
+            // under strategy "balance"; ignored by "priority".
+            { "outbound": "vpn", "weight": 7 },
+            { "outbound": "wan_as_table", "weight": 3 }
+          ]
         },
         {
           // If the first group is unhealthy, keen-pbr can fall back to this one.
-          "weight": 2,
-          "outbounds": ["wan", "block"]
+          "members": [{ "outbound": "wan" }, { "outbound": "block" }]
         }
       ],
 
@@ -331,12 +340,12 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // changes. Supported values: "preserve" (default) or "delete".
       "conntrack_on_switch": "preserve",
 
-      // Ordered groups of explicit outbound/target pairs. Required for
-      // type="icmptest". Every candidate requires both fields below.
+      // Ordered groups (first tried first) of explicit outbound/target
+      // members. Required for type="icmptest". Every member requires
+      // "outbound" and "target"; "weight" (1-100, default 1) is optional.
       "outbound_groups": [
         {
-          "weight": 1,
-          "candidates": [
+          "members": [
             {
               // Interface or table outbound tag.
               "outbound": "vpn",
@@ -345,7 +354,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
             },
             {
               "outbound": "wan",
-              "target": "9.9.9.9"
+              "target": "9.9.9.9",
+              "weight": 3
             }
           ]
         }
@@ -363,11 +373,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // same effect.
       "domains": ["example.com", "othersite.net"],
 
-      // Time in milliseconds that IPs resolved by dnsmasq for these domains
-      // remain in the dynamic set. 0 keeps them indefinitely.
-      // Set this higher than dnsmasq max-cache-ttl (which is in seconds), with
-      // a safety margin. For max-cache-ttl=300, use at least 2100000 (35 min).
-      // Default: 0 (no timeout); this example uses 24 hours.
+      // Per-list timeout floor for IPs learned through DNS/L7 interception.
+      // Omitted, 0, and values below 1000 ms use intercept.min_ttl_ms.
+      // Values of 1000 ms or more are truncated to whole seconds. A DNS
+      // record TTL may raise the timeout up to intercept.max_ttl_ms. This is
+      // separate from the refresh interval for remote lists.
       "ttl_ms": 86400000
     },
 
@@ -390,11 +400,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Default: null (use the system's normal routing)
       "detour": "auto_select",
 
-      // Time in milliseconds that IPs resolved by dnsmasq for these domains
-      // remain in the dynamic set. 0 keeps them indefinitely.
-      // Set this higher than dnsmasq max-cache-ttl (which is in seconds), with
-      // a safety margin. For max-cache-ttl=300, use at least 2100000 (35 min).
-      // Default: 0 (no timeout); this example uses 24 hours.
+      // Per-list timeout floor for IPs learned through DNS/L7 interception.
+      // Omitted, 0, and values below 1000 ms use intercept.min_ttl_ms.
+      // Values of 1000 ms or more are truncated to whole seconds. A DNS
+      // record TTL may raise the timeout up to intercept.max_ttl_ms. This is
+      // separate from the refresh interval for remote lists.
       "ttl_ms": 86400000
     },
   
@@ -402,11 +412,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Local list file path.
       "file": "/etc/keen-pbr/local.lst",
       
-      // Time in milliseconds that IPs resolved by dnsmasq for these domains
-      // remain in the dynamic set. 0 keeps them indefinitely.
-      // Set this higher than dnsmasq max-cache-ttl (which is in seconds), with
-      // a safety margin. For max-cache-ttl=300, use at least 2100000 (35 min).
-      // Default: 0 (no timeout); this example uses 24 hours.
+      // Per-list timeout floor for IPs learned through DNS/L7 interception.
+      // Omitted, 0, and values below 1000 ms use intercept.min_ttl_ms.
+      // Values of 1000 ms or more are truncated to whole seconds. A DNS
+      // record TTL may raise the timeout up to intercept.max_ttl_ms. This is
+      // separate from the refresh interval for remote lists.
       "ttl_ms": 86400000
     },
 
@@ -424,27 +434,16 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     }
   },
 
-  // DNS configuration.
-  // dns.system_resolver is required for daemon runtime.
+  // DNS configuration. Interception fills dynamic sets without a resolver.
   "dns": {
-    // Resolver used for runtime integration and TXT health checks.
-    // Default: no default, required by the running daemon.
-    "system_resolver": {
-      "address": "127.0.0.1"
-    },
+    // Optional: enable per-list DNS servers via dnsmasq.
+    // Default: "none" (keen-pbr does not touch the system resolver).
+    // Set to "dnsmasq" to route domains from specific lists through chosen DNS servers.
+    "resolver_integration": "none",
 
-    // Optional built-in DNS probe server for the Web UI and troubleshooting.
-    // To check that this computer sends DNS queries through keen-pbr, run:
-    // > nslookup check.keen.pbr
-    // The response should contain answer_ipv4 (127.0.0.88).
+    // Deprecated compatibility field. It is accepted but ignored.
     "dns_test_server": {
-      // IPv4 listen address in host:port form.
-      // Default: no default, required when dns_test_server is present.
-      "listen": "127.0.0.88:12153",
-
-      // IPv4 A-record answer returned by the probe server.
-      // Default: the host part of listen.
-      "answer_ipv4": "127.0.0.88"
+      "listen": "127.0.0.88:12153"
     },
 
     // All supported DNS server styles.
@@ -482,23 +481,24 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       },
 
       {
+        // [Only on Keenetic and Netcraze platforms]
         // Reuse the router's built-in DNS settings through RCI.
         // Configure DoT/DoH on the router first, then add this Keenetic DNS server.
-        // Available only on Keenetic and Netcraze routers.
         "tag": "keenetic_dns",
         "type": "keenetic"
       }
+
     ],
 
-    // Domain-to-DNS-server rules.
+    // Domain-to-DNS-server routing rules (only active when resolver_integration: "dnsmasq").
+    // Maps lists of domains to specific DNS servers for per-list upstream selection.
     "rules": [
       {
-        // Whether this DNS rule is active.
-        // Default: true when omitted or set to null.
+        // Whether this DNS rule is active. Default: true when omitted or null.
         "enabled": true,
 
         // Lists whose domains should be resolved by this server.
-        "list": ["inline_domains", "remote_list"],
+        "list": ["inline_domains"],
 
         // DNS server tag to use.
         "server": "vpn_dns",
@@ -506,27 +506,37 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         // Allow answers that resolve to private/local IP ranges.
         // Default: false.
         "allow_domain_rebinding": false
-      },
-
-      {
-        // Example rule for local services that intentionally resolve to RFC1918 addresses.
-        "list": ["mixed_sources"],
-        "server": "keenetic_dns",
-        "allow_domain_rebinding": true
-      },
-
-      {
-        // Example of a disabled DNS rule kept for later use.
-        "enabled": false,
-        "list": ["inline_domains"],
-        "server": "google_dns"
       }
     ],
 
-    // Upstream DNS servers used when no DNS rule matches.
-    // Default: no upstream servers.
-    // WARNING: if you don't provide at least one DNS server here, your Internet connectivity may fail.
-    "fallback": ["google_dns", "auto_dns", "keenetic_dns"]
+    // Upstream DNS servers used when no DNS rule matches
+    // (only active when resolver_integration: "dnsmasq").
+    // Default: no upstream servers (system/ISP upstreams from resolv.conf are used).
+    "fallback": ["google_dns"]
+  },
+
+  // Traffic interception. All fields below have defaults; capability gaps
+  // disable DNS and L7 independently and are reported by health.
+  "intercept": {
+    "enabled": true,
+    "min_ttl_ms": 300000,
+    "max_ttl_ms": 86400000,
+    "dns": {
+      "enabled": true,
+      "queue_num": 9053,
+      "hold_timeout_ms": 30,
+      "marker": {
+        "domain": "check.keen.pbr",
+        "answer_ipv4": "127.0.0.88"
+      }
+    },
+    "l7": {
+      "enabled": true,
+      "nflog_group": 9054,
+      "tls": true,
+      "http": true,
+      "quic": true
+    }
   },
 
   // Firewall mark allocation.
@@ -552,7 +562,11 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
     // First policy-routing rule priority to allocate.
     // Default: null, which inherits table_start.
-    "rule_priority_start": null
+    "rule_priority_start": null,
+
+    // Apply route rules to, and learn domains from, the router's own traffic.
+    // Default: false (only forwarded LAN traffic; DNS detour is unaffected).
+    "process_router_traffic": false
   },
 
   // Route-processing rules.
@@ -599,6 +613,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         // Supported: single IP, CIDR
         "dest_addr": "203.0.113.0/24",
 
+        // [Only for nftables when combining src_port with a dest_port list]
+        // On iptables, remove src_port when dest_port contains a port list.
         // Match traffic only if source port matches
         // Supported: single port, multiple port comma-separated, range
         "src_port": "1024-65535",
@@ -643,6 +659,22 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         "proto": "tcp/udp",
         "dest_port": "!80,443",
         "outbound": "wan"
+      },
+
+      {
+        // [Only for nftables]
+        // Catch-all for non-local IPv4 traffic. Keep default_gateway rules last.
+        // Forwarded client traffic is covered by default. Set
+        // iproute.process_router_traffic to true to include router-originated traffic.
+        "default_gateway": "ipv4",
+        "outbound": "auto_select"
+      },
+
+      {
+        // [Only for nftables]
+        // Catch-all for non-local IPv6 traffic. Keep default_gateway rules last.
+        "default_gateway": "ipv6",
+        "outbound": "auto_select"
       }
     ]
   },
@@ -666,5 +698,5 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
 - `dns.servers[].detour` supports `interface`, `table`, and `urltest` outbounds, but not `blackhole` or `ignore`.
 - `lists[].detour` is useful when a remote list should be downloaded through a VPN or other non-default path.
-- `route.rules[]` must include at least one matching condition: `list`, `dscp`, `src_port`, `dest_port`, `src_addr`, or `dest_addr`.
+- `route.rules[]` must include at least one matching condition: `list`, `dscp`, `src_port`, `dest_port`, `src_addr`, `dest_addr`, or `default_gateway`.
 - `dns.rules[].allow_domain_rebinding` is mainly for internal domains that intentionally resolve to private IP ranges.

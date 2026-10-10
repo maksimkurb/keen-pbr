@@ -43,6 +43,12 @@ process.stdin.on('end', () => {
   }
   clean(schemas);
 
+  // QuickType names a shared enum after its most specific property ("code")
+  // unless the schema carries a title. Pin names that would be too generic.
+  for (const name of ['RoutingHealthWarningCode']) {
+    schemas[name].title = name;
+  }
+
   // Rewrite \$ref paths from OpenAPI to JSON Schema \$defs format
   function rewriteRefs(obj) {
     if (typeof obj !== 'object' || obj === null) return;

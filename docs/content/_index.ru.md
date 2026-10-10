@@ -337,7 +337,7 @@ toc: false
   {{< hextra/feature-card
     title="Интеграция с DNS"
     icon="server"
-    subtitle="Генерирует директивы dnsmasq <code>server=</code> и <code>ipset=</code>/<code>nftset=</code>, чтобы разрешённые IP-адреса доменов сразу маршрутизировались через нужный outbound."
+    subtitle="Перехватывает DNS и видимые L7-имена и напрямую заполняет динамические наборы; резолвер не настраивается и не требуется."
   >}}
   {{< hextra/feature-card
     title="Два firewall-бэкенда"

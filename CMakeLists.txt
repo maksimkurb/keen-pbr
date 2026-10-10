@@ -75,6 +75,11 @@ add_compile_definitions(JSON_DIAGNOSTICS=1)
 # Options
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
 option(USE_KEENETIC_API "Enable Keenetic RCI integration (DNS server type: keenetic)" OFF)
+# Platform build for Keenetic OS: the firewall backend is always iptables and
+# keen-pbr never balances (the router's own multipath does).  The nftables
+# backend and the route-balance feature are not compiled.  Independent of
+# USE_KEENETIC_API, which only enables the RCI integration.
+option(KEEN_PBR_PLATFORM_KEENETIC "Build for Keenetic OS: iptables only, no nftables backend, no load balancing" OFF)
 option(ENABLE_THREAD_SAFETY_ANALYSIS "Enable Clang thread-safety diagnostics for project targets" OFF)
 set(KEEN_PBR_ROUTE_PROTOCOL "186" CACHE STRING
   "Reserved rtnetlink protocol number used to identify keen-pbr routes (1-255)")
@@ -83,16 +88,19 @@ if(NOT KEEN_PBR_ROUTE_PROTOCOL MATCHES "^[1-9][0-9]*$" OR
   message(FATAL_ERROR "KEEN_PBR_ROUTE_PROTOCOL must be an integer from 1 through 255")
 endif()
 add_compile_definitions(KEEN_PBR_ROUTE_PROTOCOL=${KEEN_PBR_ROUTE_PROTOCOL})
+if(KEEN_PBR_PLATFORM_KEENETIC)
+  add_compile_definitions(KEEN_PBR_PLATFORM_KEENETIC)
+endif()
 set(KEEN_PBR_DEFAULT_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/config.json" CACHE STRING
   "Default config file path used by keen-pbr when --config is not passed")
 set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CACHE STRING
   "Default frontend static root served by API (SPA assets)")
-set(KEEN_PBR_SYSTEM_RESOLVER_HOOK "${CMAKE_INSTALL_FULL_LIBDIR}/keen-pbr/dnsmasq.sh" CACHE STRING
-  "System resolver hook command path compiled into keen-pbr")
 set(KEEN_PBR_CONTROL_SOCKET "/run/keen-pbr/control.sock" CACHE STRING
   "Unix SOCK_STREAM control socket used by operational CLI commands")
-set(KEEN_PBR_RESOLVER_FALLBACK_CONFIG "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/dnsmasq-fallback.conf" CACHE STRING
-  "Static dnsmasq config emitted when the daemon resolver stream is unavailable")
+set(KEEN_PBR_DNSMASQ_HOOK "" CACHE STRING
+  "Path of the platform dnsmasq hook script (apply|remove|status); empty disables dnsmasq management")
+set(KEEN_PBR_DNSMASQ_PROBE_ADDRESS "127.0.0.1:53" CACHE STRING
+  "ip[:port] where the local dnsmasq answers the config-hash.keen.pbr TXT check")
 set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
   "Compile-time target OS identity exposed via /api/health/service (for example: openwrt, keenetic, debian)")
 set(KEEN_PBR_TARGET_VERSION "unknown" CACHE STRING "Target firmware/distribution version")
@@ -265,17 +273,23 @@ set(SOURCES
   src/config/config_writer.cpp
   src/config/routing_state.cpp
   src/config/list_parser.cpp
-  src/runtime/runtime_reconciler.cpp
   src/runtime/conntrack_manager.cpp
-  src/runtime/resolver_coordinator.cpp
   src/runtime/runtime_state_machine.cpp
   src/runtime/operation_coordinator.cpp
   src/runtime/lifecycle_operation.cpp
-  src/firewall/firewall_reconciler.cpp
+  src/firewall/firewall_snapshot.cpp
+  src/firewall/firewall_counters.cpp
+  src/firewall/firewall_physical.cpp
+  src/firewall/firewall_lowering.cpp
+  src/firewall/ip_family.cpp
+  src/firewall/firewall_plan_verifier.cpp
+  src/firewall/firewall_plan.cpp
+  src/firewall/firewall_rule.cpp
   src/lists/ipset.cpp
   src/lists/kernel_set_tester.cpp
   src/lists/list_streamer.cpp
   src/lists/list_set_usage.cpp
+  src/lists/domain_index.cpp
   src/cache/cache_manager.cpp
   src/cmd/status.cpp
   src/cmd/test_routing.cpp
@@ -290,6 +304,7 @@ set(SOURCES
   src/health/url_tester.cpp
   src/health/icmp_tester.cpp
   src/health/routing_health_checker.cpp
+  src/health/host_health_warnings.cpp
   src/health/runtime_outbound_state.cpp
   src/health/runtime_interface_inventory.cpp
   src/keenetic/interface_descriptions.cpp
@@ -298,52 +313,91 @@ set(SOURCES
   src/routing/firewall_state.cpp
   src/firewall/firewall.cpp
   src/firewall/firewall_runtime.cpp
+  src/firewall/firewall_rule_modules.cpp
+  src/firewall/rules/dns_detour.cpp
+  src/firewall/rules/dhcp_bypass.cpp
+  src/firewall/rules/restore_conntrack_mark.cpp
+  src/firewall/rules/skip_established_or_dnat.cpp
+  src/firewall/rules/skip_lan_output.cpp
+  src/firewall/rules/skip_local_replies.cpp
+  src/firewall/rules/skip_marked_packets.cpp
+  src/firewall/rules/inbound_interface_filter.cpp
+  src/firewall/rules/route_targets.cpp
+  src/firewall/rules/route_mark.cpp
+  src/firewall/rules/route_drop.cpp
+  src/firewall/rules/route_pass.cpp
+  src/firewall/rules/intercept_client_scope.cpp
+  src/firewall/rules/intercept_dns_hold.cpp
+  src/firewall/rules/intercept_l7_sniff.cpp
   src/firewall/port_spec_util.cpp
   src/firewall/iptables.cpp
-  src/firewall/nftables.cpp
   src/firewall/ipset_restore_pipe.cpp
-  src/firewall/nft_batch_pipe.cpp
   src/firewall/firewall_verifier.cpp
-  src/firewall/iptables_verifier.cpp
-  src/firewall/nftables_verifier.cpp
   src/dns/dns_server.cpp
   src/dns/keenetic_dns.cpp
-  src/dns/dns_txt_client.cpp
-  src/dns/dns_probe_server.cpp
+  src/dns/dns_wire.cpp
+  src/dns/dns_txt_probe.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
+  src/l7/crypto/sha256.cpp
+  src/l7/crypto/aes128.cpp
+  src/l7/quic_initial.cpp
+  src/l7/tls_client_hello.cpp
+  src/l7/http_host.cpp
+  src/l7/flow_buffer.cpp
   src/ipc/control_protocol.cpp
   src/ipc/control_client.cpp
-  src/ipc/resolver_fallback.cpp
   src/daemon/config_store.cpp
   src/daemon/disk_config_state.cpp
-  src/daemon/config_apply_transaction.cpp
   src/daemon/pid_file.cpp
   src/daemon/daemon_core.cpp
   src/daemon/daemon_runtime.cpp
-  src/daemon/daemon_resolver.cpp
+  src/daemon/daemon_state.cpp
   src/daemon/daemon_api.cpp
-  src/daemon/daemon_dns_probe.cpp
+  src/daemon/daemon_intercept.cpp
   src/daemon/list_service.cpp
-  src/daemon/resolver_health.cpp
-  src/daemon/resolver_apply_confirmation.cpp
-  src/daemon/resolver_stream_wait.cpp
-  src/daemon/resolver_sync_state_machine.cpp
+  src/daemon/dnsmasq_manager.cpp
+  src/daemon/lifecycle_stages.cpp
   src/daemon/runtime_state_store.cpp
-  src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
+  src/netfilter/nl_msg.cpp
+  src/netfilter/nl_socket.cpp
+  src/netfilter/nfqueue.cpp
+  src/netfilter/nflog.cpp
+  src/netfilter/conntrack.cpp
+  src/netfilter/set_writer.cpp
+  src/netfilter/kernel_probe.cpp
+  src/intercept/intercept_processor.cpp
+  src/intercept/dns_tcp_reassembly.cpp
+  src/intercept/set_element_cache.cpp
+  src/intercept/intercept_service.cpp
+  src/intercept/intercept_capabilities.cpp
+  src/intercept/intercept_report.cpp
+  src/intercept/intercept_settings.cpp
+  src/intercept/intercept_snapshot_builder.cpp
   src/util/blocking_executor.cpp
   src/util/firewall_backend_utils.cpp
+  src/util/hostname_validation.cpp
   src/util/ipv6_support.cpp
+  src/util/kernel_capabilities.cpp
   src/util/system_info.cpp
   src/util/traced_mutex.cpp
   src/main.cpp
 )
 
+if(NOT KEEN_PBR_PLATFORM_KEENETIC)
+  list(APPEND SOURCES
+    src/firewall/rules/route_balance.cpp
+    src/firewall/nftables.cpp
+    src/firewall/nft_batch_pipe.cpp
+  )
+endif()
+
 if(WITH_API)
   list(APPEND SOURCES
     src/api/server.cpp
     src/api/handlers.cpp
+    src/api/prometheus_metrics.cpp
     src/api/sse_broadcaster.cpp
     src/api/sse_response.cpp
     src/api/status_stream.cpp
@@ -384,9 +438,9 @@ target_include_directories(keen-pbr PRIVATE
 target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"
-  KEEN_PBR_SYSTEM_RESOLVER_HOOK="${KEEN_PBR_SYSTEM_RESOLVER_HOOK}"
   KEEN_PBR_CONTROL_SOCKET="${KEEN_PBR_CONTROL_SOCKET}"
-  KEEN_PBR_RESOLVER_FALLBACK_CONFIG="${KEEN_PBR_RESOLVER_FALLBACK_CONFIG}"
+  KEEN_PBR_DNSMASQ_HOOK="${KEEN_PBR_DNSMASQ_HOOK}"
+  KEEN_PBR_DNSMASQ_PROBE_ADDRESS="${KEEN_PBR_DNSMASQ_PROBE_ADDRESS}"
   KEEN_PBR_TARGET_OS="${KEEN_PBR_TARGET_OS}"
   KEEN_PBR_TARGET_VERSION="${KEEN_PBR_TARGET_VERSION}"
   KEEN_PBR_TARGET_ARCH="${KEEN_PBR_TARGET_ARCH}"

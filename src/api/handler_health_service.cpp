@@ -51,27 +51,22 @@ api::HealthResponse build_health_response(const ServiceHealthState& service_heal
         resp.os_type = service_health.os_type;
         resp.os_version = service_health.os_version;
         resp.build_variant = service_health.build_variant;
-        resp.resolver_config_hash = service_health.resolver_config_hash;
-        resp.resolver_config_hash_actual = service_health.resolver_config_hash_actual;
-        resp.resolver_config_hash_actual_ts = service_health.resolver_config_hash_actual_ts;
-        resp.resolver_live_status = service_health.resolver_live_status;
-        resp.resolver_config_probe_status = service_health.resolver_config_probe_status;
-        resp.resolver_last_probe_ts = service_health.resolver_last_probe_ts;
         resp.apply_started_ts = service_health.apply_started_ts;
-        resp.resolver_config_sync_state = service_health.resolver_config_sync_state;
 
         if (service_health.lifecycle_operation) {
             resp.lifecycle_operation = lifecycle_operation_json(*service_health.lifecycle_operation)
                                            .get<api::LifecycleOperation>();
         }
 
+        resp.intercept = service_health.intercept;
+        resp.dnsmasq = service_health.dnsmasq;
         resp.config_is_draft = service_health.config_is_draft;
         resp.rollback_available = service_health.rollback_available;
         return resp;
 }
 
 void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
-    // GET /api/health/service - daemon version/status + resolver/config summary
+    // GET /api/health/service - daemon version/status + config summary
     server.get("/api/health/service", [&ctx]() -> std::string {
         return nlohmann::json(build_health_response(ctx.get_service_health())).dump();
     });

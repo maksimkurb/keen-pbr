@@ -21,7 +21,7 @@ public:
     // Domain entries are ignored.
     void on_entry(EntryType type, std::string_view entry) override;
 
-    // No-op (buffer is owned externally, applied later by Firewall::apply())
+    // No-op (buffer is owned externally, applied later by Firewall::apply(plan))
     void finish() override;
 
     // Returns number of entries written to the buffer.

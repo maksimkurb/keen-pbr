@@ -1,11 +1,21 @@
 #include <doctest/doctest.h>
 
 #include "../src/config/config.hpp"
+#include "../src/config/config_writer.hpp"
 #include "../src/config/routing_state.hpp"
 #include "../src/util/system_info.hpp"
+#include "../src/util/firewall_backend_utils.hpp"
+#include "../src/util/kernel_capabilities.hpp"
 
 #include <nlohmann/json.hpp>
 #include <string>
+#include <fstream>
+#include <algorithm>
+#include <cstdio>
+#include <unistd.h>
+#include <filesystem>
+#include <iterator>
+#include <stdexcept>
 
 using namespace keen_pbr3;
 
@@ -26,37 +36,386 @@ Config parse_test_config(const std::string& json_str) {
         fallback_server.address = "127.0.0.1";
         cfg.dns->servers = std::vector<DnsServer>{fallback_server};
     }
-    if (!cfg.dns->fallback.has_value()) {
-        cfg.dns->fallback = std::vector<std::string>{"default_dns"};
-    }
-    if (!cfg.dns->system_resolver.has_value()) {
-        api::SystemResolver resolver;
-        resolver.address = "127.0.0.1";
-        cfg.dns->system_resolver = resolver;
-    }
     validate_config(cfg);
     return cfg;
 }
 
+std::string read_full_reference_config_jsonc(const std::string& locale_suffix) {
+    const std::filesystem::path relative_path =
+        "docs/content/docs/configuration/full-reference-config" + locale_suffix + ".md";
+    std::filesystem::path path = std::filesystem::current_path() / relative_path;
+    if (!std::filesystem::exists(path)) {
+        const std::filesystem::path source_file = __FILE__;
+        path = source_file.parent_path().parent_path() / relative_path;
+    }
+
+    std::ifstream input(path);
+    if (!input.is_open()) {
+        throw std::runtime_error("Cannot open full-reference config documentation: " + path.string());
+    }
+    const std::string document(std::istreambuf_iterator<char>(input), {});
+    const std::string fence = "```json {filename=\"config.json\"}";
+    const auto code_start = document.find(fence);
+    if (code_start == std::string::npos) {
+        throw std::runtime_error("Full-reference config JSONC code block was not found");
+    }
+    const auto body_start = document.find('\n', code_start + fence.size());
+    const auto code_end = document.find("\n```", body_start);
+    if (body_start == std::string::npos || code_end == std::string::npos) {
+        throw std::runtime_error("Full-reference config JSONC code block is incomplete");
+    }
+    return document.substr(body_start + 1, code_end - body_start - 1);
+}
+
+void remove_platform_specific_config(nlohmann::json& config_json, FirewallBackend backend) {
+#ifndef USE_KEENETIC_API
+    auto& dns_servers = config_json["dns"]["servers"];
+    dns_servers.erase(
+        std::remove_if(dns_servers.begin(), dns_servers.end(), [](const auto& server) {
+            return server.value("type", "static") == "keenetic";
+        }),
+        dns_servers.end());
+#endif
+
+    if (backend == FirewallBackend::iptables) {
+        auto& route_rules = config_json["route"]["rules"];
+        for (auto& rule : route_rules) {
+            if (rule.contains("src_port") && rule.contains("dest_port") &&
+                ((rule["src_port"].is_string() &&
+                  rule["src_port"].get<std::string>().find(',') != std::string::npos) ||
+                 (rule["dest_port"].is_string() &&
+                  rule["dest_port"].get<std::string>().find(',') != std::string::npos))) {
+                // iptables cannot combine a port list with both source and destination ports.
+                rule.erase("src_port");
+            }
+        }
+        route_rules.erase(
+            std::remove_if(route_rules.begin(), route_rules.end(), [](const auto& rule) {
+                return rule.contains("default_gateway");
+            }),
+            route_rules.end());
+    }
+}
+
 } // namespace
 
-static std::vector<ConfigValidationIssue> validate_issues(const std::string& json);
+TEST_CASE("full-reference config examples parse and validate in both locales") {
+    for (const auto& locale_suffix : {std::string{}, std::string{".ru"}}) {
+        INFO("locale suffix: " << (locale_suffix.empty() ? "EN" : "RU"));
+        const auto reference_json = nlohmann::json::parse(
+            read_full_reference_config_jsonc(locale_suffix), nullptr, true, true);
+
+        for (const auto backend : {FirewallBackend::nftables, FirewallBackend::iptables}) {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+            if (backend == FirewallBackend::nftables) {
+                continue;
+            }
+#endif
+            auto config_json = reference_json;
+            remove_platform_specific_config(config_json, backend);
+            set_detected_firewall_backend_for_tests(backend);
+            CHECK_NOTHROW(validate_config(parse_config(config_json.dump())));
+        }
+        reset_detected_firewall_backend_for_tests();
+    }
+}
+
+static std::vector<ConfigValidationIssue> validate_issues(
+    const std::string& json, const ConfigValidationContext& context = {});
 
 TEST_CASE("icmptest validation accepts a timing-safe complete probe set") {
     const auto cfg = parse_test_config(R"({"outbounds":[
       {"type":"interface","tag":"wan","interface":"wan"},
       {"type":"icmptest","tag":"auto","interval_ms":60000,
-       "outbound_groups":[{"candidates":[{"outbound":"wan","target":"1.1.1.1"}]}]}
+       "outbound_groups":[{"members":[{"outbound":"wan","target":"1.1.1.1"}]}]}
     ]})");
     REQUIRE(cfg.outbounds);
     REQUIRE(cfg.outbounds->at(1).outbound_groups);
     const auto& group = cfg.outbounds->at(1).outbound_groups->at(0);
     CHECK_FALSE(group.outbounds.has_value());
-    REQUIRE(group.candidates);
-    CHECK(group.candidates->at(0).outbound == "wan");
-    CHECK(group.candidates->at(0).target == "1.1.1.1");
+    CHECK_FALSE(group.candidates.has_value());
+    REQUIRE(group.members);
+    CHECK(group.members->at(0).outbound == "wan");
+    CHECK(group.members->at(0).target == "1.1.1.1");
     CHECK_NOTHROW(parse_test_config(nlohmann::json(cfg).dump()));
 }
+
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("Keenetic platform build rejects balance strategy") {
+    const auto issues = validate_issues(R"({
+      "outbounds":[
+        {"type":"interface","tag":"wan_a","interface":"wan_a"},
+        {"type":"interface","tag":"wan_b","interface":"wan_b"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
+      ]
+    })");
+    bool has_keenetic_error = false;
+    for (const auto& issue : issues) {
+        if (issue.path == "outbounds[2].strategy" &&
+            issue.message.find("load balancing is not available on Keenetic") !=
+                std::string::npos) {
+            has_keenetic_error = true;
+        }
+    }
+    CHECK(has_keenetic_error);
+}
+
+TEST_CASE("Keenetic platform build rejects the nftables backend and resolves auto to iptables") {
+    const auto issues = validate_issues(R"({"daemon":{"firewall_backend":"nftables"}})");
+    bool has_backend_error = false;
+    for (const auto& issue : issues) {
+        if (issue.path == "daemon.firewall_backend" &&
+            issue.message.find("Keenetic supports only the iptables firewall backend") !=
+                std::string::npos) {
+            has_backend_error = true;
+        }
+    }
+    CHECK(has_backend_error);
+
+    SystemInfoTestGuard sys_guard;
+    set_detected_firewall_backend_for_tests(FirewallBackend::nftables);
+    CHECK(resolve_firewall_backend(FirewallBackendPreference::auto_detect) ==
+          FirewallBackend::iptables);
+    CHECK_THROWS_AS(resolve_firewall_backend(FirewallBackendPreference::nftables), FirewallError);
+    reset_detected_firewall_backend_for_tests();
+}
+#else
+TEST_CASE("test-group balance and default gateway rules are parsed") {
+    const auto cfg = parse_test_config(R"({
+      "daemon":{"firewall_backend":"nftables"},
+      "outbounds":[
+        {"type":"interface","tag":"wan_a","interface":"wan_a"},
+        {"type":"interface","tag":"wan_b","interface":"wan_b"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
+      ],
+      "route":{"rules":[
+        {"default_gateway":"ipv4","outbound":"auto"},
+        {"default_gateway":"ipv6","outbound":"auto"}
+      ]}
+    })");
+    CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
+    CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
+}
+
+TEST_CASE("default gateway rejects the iptables backend while balance is accepted") {
+    const auto issues = validate_issues(R"({
+      "daemon":{"firewall_backend":"iptables"},
+      "outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan"]}]}
+      ],
+      "route":{"rules":[{"default_gateway":"ipv4","outbound":"auto"}]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "route.rules[0].default_gateway");
+}
+
+TEST_CASE("auto backend resolves to iptables, accepts balance and rejects default_gateway") {
+    SystemInfoTestGuard sys_guard;
+    set_detected_firewall_backend_for_tests(FirewallBackend::iptables);
+    const auto issues = validate_issues(R"({
+      "daemon":{"firewall_backend":"auto"},
+      "outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan"]}]}
+      ],
+      "route":{"rules":[{"default_gateway":"ipv4","outbound":"auto"}]}
+    })");
+    bool has_balance_error = false;
+    bool has_gateway_error = false;
+    for (const auto& issue : issues) {
+        if (issue.path == "outbounds[1].strategy") has_balance_error = true;
+        if (issue.path == "route.rules[0].default_gateway" &&
+            issue.message.find("auto-detected: iptables") != std::string::npos) {
+            has_gateway_error = true;
+        }
+    }
+    CHECK_FALSE(has_balance_error);
+    CHECK(has_gateway_error);
+    reset_detected_firewall_backend_for_tests();
+}
+
+namespace {
+
+std::string balance_config_json(const std::string& daemon_json) {
+    return R"({)" + daemon_json + R"("outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan"]}]},
+        {"type":"urltest","tag":"prio","url":"http://example.test",
+         "outbound_groups":[{"outbounds":["wan"]}]}
+      ]})";
+}
+
+bool has_raw_balance_issue(const std::vector<ConfigValidationIssue>& issues,
+                           const std::string& path) {
+    for (const auto& issue : issues) {
+        if (issue.path == path &&
+            issue.message.find("raw table") != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
+TEST_CASE("balance is rejected when IPv4 raw PREROUTING is requested") {
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"iptables"},)"),
+        ConfigValidationContext{RawPreroutingMode{true, false}});
+    REQUIRE(issues.size() == 1);
+    CHECK(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+}
+
+TEST_CASE("balance is rejected with raw6 PREROUTING while IPv6 is enabled") {
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"iptables"},)"),
+        ConfigValidationContext{RawPreroutingMode{false, true}});
+    CHECK(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+}
+
+TEST_CASE("raw6 PREROUTING is ignored for balance when IPv6 is disabled") {
+    const auto issues = validate_issues(
+        balance_config_json(
+            R"("daemon":{"firewall_backend":"iptables","ipv6_enabled":false},)"),
+        ConfigValidationContext{RawPreroutingMode{false, true}});
+    CHECK(issues.empty());
+}
+
+TEST_CASE("balance without raw PREROUTING is accepted") {
+    CHECK(validate_issues(balance_config_json(
+              R"("daemon":{"firewall_backend":"iptables"},)")).empty());
+}
+
+TEST_CASE("non-balance strategy is accepted with raw PREROUTING") {
+    const auto issues = validate_issues(
+        R"({"daemon":{"firewall_backend":"iptables"},"outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"urltest","tag":"prio","url":"http://example.test",
+         "outbound_groups":[{"outbounds":["wan"]}]}]})",
+        ConfigValidationContext{RawPreroutingMode{true, true}});
+    CHECK(issues.empty());
+}
+
+TEST_CASE("both raw flags yield exactly one issue per balance outbound") {
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"iptables"},)"),
+        ConfigValidationContext{RawPreroutingMode{true, true}});
+    REQUIRE(issues.size() == 1);
+    CHECK(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+}
+
+TEST_CASE("icmptest balance is rejected with raw IPv4 PREROUTING") {
+    const auto issues = validate_issues(
+        R"({"daemon":{"firewall_backend":"iptables"},"outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"icmptest","tag":"ping","strategy":"balance","interval_ms":60000,
+         "outbound_groups":[{"members":[{"outbound":"wan","target":"1.1.1.1"}]}]}]})",
+        ConfigValidationContext{RawPreroutingMode{true, false}});
+    REQUIRE(issues.size() == 1);
+    CHECK(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+}
+
+TEST_CASE("auto backend resolving to iptables rejects balance with raw PREROUTING") {
+    SystemInfoTestGuard sys_guard;
+    set_detected_firewall_backend_for_tests(FirewallBackend::iptables);
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"auto"},)"),
+        ConfigValidationContext{RawPreroutingMode{true, false}});
+    CHECK(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+    reset_detected_firewall_backend_for_tests();
+}
+
+TEST_CASE("raw PREROUTING flags never conflict with balance on nftables") {
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"nftables"},)"),
+        ConfigValidationContext{RawPreroutingMode{true, true}});
+    CHECK_FALSE(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+}
+
+TEST_CASE("auto backend fallback identifies unavailable detection") {
+    SystemInfoTestGuard sys_guard;
+    set_host_tools_for_tests(HostTools{});
+    const auto issues = validate_issues(R"({
+      "daemon":{"firewall_backend":"auto"},
+      "outbounds":[{"type":"interface","tag":"wan","interface":"wan"}],
+      "route":{"rules":[{"default_gateway":"ipv4","outbound":"wan"}]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].message.find("detection unavailable") != std::string::npos);
+    reset_kernel_capabilities_for_tests();
+    reset_detected_firewall_backend_for_tests();
+}
+
+TEST_CASE("auto backend resolves to nftables and accepts balance") {
+    SystemInfoTestGuard sys_guard;
+    set_detected_firewall_backend_for_tests(FirewallBackend::nftables);
+    const auto cfg = parse_test_config(R"({
+      "daemon":{"firewall_backend":"auto"},
+      "outbounds":[
+        {"type":"interface","tag":"wan_a","interface":"wan_a"},
+        {"type":"interface","tag":"wan_b","interface":"wan_b"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
+      ],
+      "route":{"rules":[
+        {"default_gateway":"ipv4","outbound":"auto"}
+      ]}
+    })");
+    CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
+    CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
+    reset_detected_firewall_backend_for_tests();
+}
+
+TEST_CASE("resolver generation skips runtime backend checks") {
+    SystemInfoTestGuard sys_guard;
+    set_detected_firewall_backend_for_tests(FirewallBackend::iptables);
+    const auto config = parse_config(R"({
+      "daemon":{"firewall_backend":"auto"},
+      "outbounds":[{"type":"interface","tag":"wan","interface":"wan"}],
+      "lists":{"domains":{"domains":["example.com"]}},
+      "dns":{
+        "resolver_integration":"dnsmasq",
+        "servers":[{"tag":"up","address":"1.1.1.1"}],
+        "rules":[{"list":["domains"],"server":"up"}]
+      },
+      "route":{"rules":[{"default_gateway":"ipv4","outbound":"wan"}]}
+    })");
+
+    CHECK_THROWS_AS(validate_config(config), ConfigValidationError);
+    CHECK_NOTHROW(validate_config(config, ConfigValidationMode::ResolverGeneration));
+
+    auto invalid_dns = config;
+    invalid_dns.dns->rules->at(0).server = "missing";
+    CHECK_THROWS_AS(validate_config(invalid_dns, ConfigValidationMode::ResolverGeneration),
+                    ConfigValidationError);
+
+    reset_detected_firewall_backend_for_tests();
+}
+
+TEST_CASE("explicit nftables backend accepts balance") {
+    const auto cfg = parse_test_config(R"({
+      "daemon":{"firewall_backend":"nftables"},
+      "outbounds":[
+        {"type":"interface","tag":"wan_a","interface":"wan_a"},
+        {"type":"interface","tag":"wan_b","interface":"wan_b"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan_a","wan_b"]}]}
+      ],
+      "route":{"rules":[
+        {"default_gateway":"ipv4","outbound":"auto"}
+      ]}
+    })");
+    CHECK(cfg.outbounds->at(2).strategy == api::Strategy::BALANCE);
+    CHECK(cfg.route->rules->at(0).default_gateway == api::DefaultGateway::IPV4);
+}
+
+#endif
 
 TEST_CASE("icmptest migrates the legacy split probe form in memory") {
     const auto cfg = parse_test_config(R"({"outbounds":[
@@ -67,10 +426,11 @@ TEST_CASE("icmptest migrates the legacy split probe form in memory") {
     ]})");
     const auto& group = cfg.outbounds->at(1).outbound_groups->at(0);
     CHECK_FALSE(group.outbounds.has_value());
-    REQUIRE(group.candidates);
-    CHECK(group.candidates->at(0).outbound == "wan");
-    CHECK(group.candidates->at(0).target == "1.1.1.1");
-    CHECK(group.weight == 2);
+    CHECK_FALSE(group.candidates.has_value());
+    CHECK_FALSE(group.weight.has_value());
+    REQUIRE(group.members);
+    CHECK(group.members->at(0).outbound == "wan");
+    CHECK(group.members->at(0).target == "1.1.1.1");
 }
 
 TEST_CASE("icmptest rejects mixed legacy and canonical forms") {
@@ -163,7 +523,8 @@ static std::vector<ConfigValidationIssue> parse_issues(const std::string& json) 
     }
 }
 
-static std::vector<ConfigValidationIssue> validate_issues(const std::string& json) {
+static std::vector<ConfigValidationIssue> validate_issues(
+    const std::string& json, const ConfigValidationContext& context) {
     try {
         auto cfg = parse_config(json);
         if (!cfg.dns.has_value()) {
@@ -175,15 +536,7 @@ static std::vector<ConfigValidationIssue> validate_issues(const std::string& jso
             fallback_server.address = "127.0.0.1";
             cfg.dns->servers = std::vector<DnsServer>{fallback_server};
         }
-        if (!cfg.dns->fallback.has_value()) {
-            cfg.dns->fallback = std::vector<std::string>{"default_dns"};
-        }
-        if (!cfg.dns->system_resolver.has_value()) {
-            api::SystemResolver resolver;
-            resolver.address = "127.0.0.1";
-            cfg.dns->system_resolver = resolver;
-        }
-        validate_config(cfg);
+        validate_config(cfg, ConfigValidationMode::Runtime, context);
         return {};
     } catch (const ConfigValidationError& e) {
         return e.issues();
@@ -389,7 +742,7 @@ TEST_CASE("dns servers: keenetic type is rejected on KeeneticOS 2.x") {
     })");
 
     REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "dns.servers.router_dns.type");
+    CHECK(issues[0].path == "dns.servers[0].type");
     CHECK(issues[0].message.find("requires KeeneticOS 3.x or newer") != std::string::npos);
     CHECK(issues[0].message.find("2.16.D.12.0-12") != std::string::npos);
 }
@@ -493,68 +846,6 @@ TEST_CASE("route rule enabled: parse and serialize cover true false omitted and 
     CHECK(json_null["route"]["rules"][0]["enabled"].is_null());
 }
 
-TEST_CASE("dns rule enabled: parse and serialize cover true false omitted and null") {
-    const auto cfg_true = parse_test_config(R"({
-        "lists":{"ads":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
-            "fallback":["vpn_dns"],
-            "rules":[{"enabled":true,"list":["ads"],"server":"vpn_dns"}]
-        }
-    })");
-    REQUIRE(cfg_true.dns.has_value());
-    REQUIRE(cfg_true.dns->rules.has_value());
-    REQUIRE(cfg_true.dns->rules->size() == 1);
-    CHECK(cfg_true.dns->rules->at(0).enabled == std::optional<bool>(true));
-    const nlohmann::json json_true = cfg_true;
-    CHECK(json_true["dns"]["rules"][0]["enabled"] == true);
-
-    const auto cfg_false = parse_test_config(R"({
-        "lists":{"ads":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
-            "fallback":["vpn_dns"],
-            "rules":[{"enabled":false,"list":["ads"],"server":"vpn_dns"}]
-        }
-    })");
-    REQUIRE(cfg_false.dns.has_value());
-    REQUIRE(cfg_false.dns->rules.has_value());
-    REQUIRE(cfg_false.dns->rules->size() == 1);
-    CHECK(cfg_false.dns->rules->at(0).enabled == std::optional<bool>(false));
-    const nlohmann::json json_false = cfg_false;
-    CHECK(json_false["dns"]["rules"][0]["enabled"] == false);
-
-    const auto cfg_omitted = parse_test_config(R"({
-        "lists":{"ads":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
-            "fallback":["vpn_dns"],
-            "rules":[{"list":["ads"],"server":"vpn_dns"}]
-        }
-    })");
-    REQUIRE(cfg_omitted.dns.has_value());
-    REQUIRE(cfg_omitted.dns->rules.has_value());
-    REQUIRE(cfg_omitted.dns->rules->size() == 1);
-    CHECK_FALSE(cfg_omitted.dns->rules->at(0).enabled.has_value());
-    const nlohmann::json json_omitted = cfg_omitted;
-    CHECK(json_omitted["dns"]["rules"][0]["enabled"].is_null());
-
-    const auto cfg_null = parse_test_config(R"({
-        "lists":{"ads":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
-            "fallback":["vpn_dns"],
-            "rules":[{"enabled":null,"list":["ads"],"server":"vpn_dns"}]
-        }
-    })");
-    REQUIRE(cfg_null.dns.has_value());
-    REQUIRE(cfg_null.dns->rules.has_value());
-    REQUIRE(cfg_null.dns->rules->size() == 1);
-    CHECK_FALSE(cfg_null.dns->rules->at(0).enabled.has_value());
-    const nlohmann::json json_null = cfg_null;
-    CHECK(json_null["dns"]["rules"][0]["enabled"].is_null());
-}
-
 TEST_CASE("dns servers: duplicate server definition is rejected") {
     std::string json = R"({
         "dns":{
@@ -595,19 +886,16 @@ TEST_CASE("dns test server: explicit answer IPv4 parses") {
     CHECK(cfg.dns->dns_test_server->answer_ipv4.value_or("") == "127.0.0.99");
 }
 
-TEST_CASE("dns test server: invalid listen is rejected") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"not-an-ip:53"}}})";
-    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
-}
-
-TEST_CASE("dns test server: ipv6 listen is rejected") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"[::1]:53"}}})";
-    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
-}
-
-TEST_CASE("dns test server: invalid answer IPv4 is rejected") {
-    std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"example.com"}}})";
-    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
+TEST_CASE("dns test server: deprecated and ignored, invalid values no longer rejected") {
+    for (const char* json : {
+             R"({"dns":{"dns_test_server":{"listen":"not-an-ip:53"}}})",
+             R"({"dns":{"dns_test_server":{"listen":"[::1]:53"}}})",
+             R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"example.com"}}})"}) {
+        auto cfg = parse_test_config(json);
+        const auto warnings = config_warnings(cfg);
+        REQUIRE(warnings.size() == 1);
+        CHECK(warnings.front().find("intercept.dns.marker") != std::string::npos);
+    }
 }
 
 TEST_CASE("config validation: accepts system_resolver") {
@@ -622,26 +910,6 @@ TEST_CASE("config validation: accepts system_resolver") {
     })");
 
     CHECK_NOTHROW(validate_config(cfg));
-}
-
-TEST_CASE("config validation: rejects missing system_resolver") {
-    auto cfg = parse_config(R"({
-        "dns": {
-            "servers": [
-                {"tag":"plain_dns","address":"8.8.8.8"}
-            ],
-            "fallback": ["plain_dns"]
-        }
-    })");
-
-    try {
-        validate_config(cfg);
-        FAIL("Expected ConfigValidationError");
-    } catch (const ConfigValidationError& e) {
-        REQUIRE(e.issues().size() == 1);
-        CHECK(e.issues().front().path == "dns.system_resolver");
-        CHECK(e.issues().front().message == "dns.system_resolver must be present");
-    }
 }
 
 TEST_CASE("config validation: allows missing fallback") {
@@ -669,55 +937,6 @@ TEST_CASE("config validation: allows empty fallback array") {
     })");
 
     CHECK_NOTHROW(validate_config(cfg));
-}
-
-TEST_CASE("config validation: rejects unknown fallback tag") {
-    auto cfg = parse_config(R"({
-        "dns": {
-            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
-            "fallback": ["missing_dns"],
-            "system_resolver": {
-                "address": "127.0.0.1"
-            }
-        }
-    })");
-
-    CHECK_THROWS_AS(validate_config(cfg), ConfigValidationError);
-}
-
-TEST_CASE("config validation: rejects duplicate fallback tag") {
-    auto cfg = parse_config(R"({
-        "dns": {
-            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
-            "fallback": ["plain_dns", "plain_dns"],
-            "system_resolver": {
-                "address": "127.0.0.1"
-            }
-        }
-    })");
-
-    CHECK_THROWS_AS(validate_config(cfg), ConfigValidationError);
-}
-
-TEST_CASE("config validation: collects empty system_resolver fields") {
-    Config cfg;
-    cfg.dns = DnsConfig{};
-    DnsServer fallback_server;
-    fallback_server.tag = "default_dns";
-    fallback_server.address = "127.0.0.1";
-    cfg.dns->servers = std::vector<DnsServer>{fallback_server};
-    cfg.dns->fallback = std::vector<std::string>{"default_dns"};
-    api::SystemResolver resolver{};
-    cfg.dns->system_resolver = resolver;
-
-    try {
-        validate_config(cfg);
-        FAIL("Expected ConfigValidationError");
-    } catch (const ConfigValidationError& e) {
-        REQUIRE(e.issues().size() == 1);
-        CHECK(e.issues()[0].path == "dns.system_resolver.address");
-        CHECK(e.issues()[0].message == "dns.system_resolver.address must not be empty");
-    }
 }
 
 TEST_CASE("config validation: accepts legacy system_resolver.type and ignores it") {
@@ -931,6 +1150,7 @@ TEST_CASE("route rule: iptables allows src_port and dest_port ranges together") 
     })"));
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("route rule: nftables allows mixed multiport and dest_port") {
     CHECK_NOTHROW(parse_test_config(R"({
         "daemon":{"firewall_backend":"nftables"},
@@ -940,7 +1160,9 @@ TEST_CASE("route rule: nftables allows mixed multiport and dest_port") {
         ]}
     })"));
 }
+#endif
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("route rule: auto allows mixed multiport and dest_port") {
     CHECK_NOTHROW(parse_test_config(R"({
         "daemon":{"firewall_backend":"auto"},
@@ -950,6 +1172,7 @@ TEST_CASE("route rule: auto allows mixed multiport and dest_port") {
         ]}
     })"));
 }
+#endif
 
 TEST_CASE("route inbound_interfaces: omitted is accepted") {
     CHECK_NOTHROW(parse_test_config(R"({"lists":{"ads":{"domains":["example.com"]}},"outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],"route":{"rules":[{"list":["ads"],"outbound":"vpn"}]}})"));
@@ -1104,6 +1327,15 @@ TEST_CASE("iproute.table_start: value 260 is rejected") {
 
 TEST_CASE("iproute.table_start: value 32000 is rejected") {
     CHECK_THROWS_AS(parse_test_config(R"({"iproute":{"table_start":32000}})"), ConfigError);
+}
+
+TEST_CASE("iproute.process_router_traffic: boolean accepted, default unset") {
+    CHECK_NOTHROW(parse_test_config(R"({"iproute":{"process_router_traffic":true}})"));
+    CHECK_NOTHROW(parse_test_config(R"({"iproute":{"process_router_traffic":false}})"));
+    CHECK_THROWS_AS(
+        parse_test_config(R"({"iproute":{"process_router_traffic":"yes"}})"),
+        ConfigValidationError
+    );
 }
 
 TEST_CASE("iproute.table_start: non-integer value is rejected") {
@@ -1261,10 +1493,12 @@ TEST_CASE("daemon.firewall_backend: accepts iptables") {
     CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::iptables);
 }
 
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("daemon.firewall_backend: accepts nftables") {
     auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"nftables"}})");
     CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::nftables);
 }
+#endif
 
 TEST_CASE("daemon.firewall_backend: rejects non-string value") {
     const auto issues = parse_issues(R"({"daemon":{"firewall_backend":true}})");
@@ -1450,53 +1684,18 @@ TEST_CASE("route rule: unknown list name is rejected") {
     CHECK(issues[0].message.find("unknown list") != std::string::npos);
 }
 
-TEST_CASE("dns rule: unknown server tag is rejected") {
-    const auto issues = validate_issues(R"({
-        "lists":{"domains":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"main","address":"1.1.1.1"}],
-            "fallback":["main"],
-            "rules":[{"list":["domains"],"server":"missing"}]
-        }
-    })");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "dns.rules[0].server");
-    CHECK(issues[0].message.find("unknown DNS server") != std::string::npos);
-}
-
-TEST_CASE("dns rule: unknown list name is rejected") {
-    const auto issues = validate_issues(R"({
-        "lists":{"domains":{"domains":["example.com"]}},
-        "dns":{
-            "servers":[{"tag":"main","address":"1.1.1.1"}],
-            "fallback":["main"],
-            "rules":[{"list":["ghost"],"server":"main"}]
-        }
-    })");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "dns.rules[0].list[0]");
-    CHECK(issues[0].message.find("unknown list") != std::string::npos);
-}
-
 TEST_CASE("interface outbound: empty interface name is rejected") {
     const auto issues = validate_issues(R"({
         "outbounds":[{"tag":"wan","type":"interface","interface":""}]
     })");
     REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "outbounds.wan.interface");
+    CHECK(issues[0].path == "outbounds[0].interface");
 }
 
 TEST_CASE("daemon execution timeout must be positive") {
     const auto issues = validate_issues(R"({"daemon":{"exec_timeout_seconds":0}})");
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "daemon.exec_timeout_seconds");
-}
-
-TEST_CASE("daemon resolver ready timeout must be positive") {
-    const auto issues = validate_issues(
-        R"({"daemon":{"resolver_ready_timeout_seconds":0}})");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "daemon.resolver_ready_timeout_seconds");
 }
 
 TEST_CASE("daemon execution kill grace may be zero but not negative") {
@@ -1524,4 +1723,507 @@ TEST_CASE("device name may be empty and is limited to 128 characters") {
     const auto issues = validate_issues(nlohmann::json{{"device_name", long_name}}.dump());
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "device_name");
+}
+
+TEST_CASE("intercept: defaults are accepted and absent values stay optional") {
+    const auto cfg = parse_test_config(R"({"intercept":{}})");
+    REQUIRE(cfg.intercept.has_value());
+    CHECK_FALSE(cfg.intercept->enabled.has_value());
+    const auto full = parse_test_config(R"({"intercept":{
+      "enabled":true,"min_ttl_ms":300000,"max_ttl_ms":86400000,
+      "dns":{"enabled":true,"queue_num":9053,"hold_timeout_ms":30,
+             "marker":{"domain":"check.keen.pbr","answer_ipv4":"127.0.0.88"}},
+      "l7":{"enabled":true,"nflog_group":9054,"tls":true,"http":true,"quic":true}}})");
+    CHECK(*full.intercept->dns->queue_num == 9053);
+    CHECK(*full.intercept->l7->nflog_group == 9054);
+    CHECK_NOTHROW(parse_test_config(nlohmann::json(full).dump()));
+}
+
+TEST_CASE("intercept: rejects invalid queue/group numbers") {
+    for (const char* bad : {"0", "65536", "-1", "64511", "65023"}) {
+        const auto q = validate_issues(std::string(R"({"intercept":{"dns":{"queue_num":)") + bad + "}}}");
+        REQUIRE(q.size() == 1);
+        CHECK(q[0].path == "intercept.dns.queue_num");
+        const auto g = validate_issues(std::string(R"({"intercept":{"l7":{"nflog_group":)") + bad + "}}}");
+        REQUIRE(g.size() == 1);
+        CHECK(g[0].path == "intercept.l7.nflog_group");
+    }
+    CHECK(validate_issues(R"({"intercept":{"dns":{"queue_num":1},"l7":{"nflog_group":65535}}})").empty());
+}
+
+TEST_CASE("intercept: hold timeout, ttl range and marker are validated") {
+    CHECK(validate_issues(R"({"intercept":{"dns":{"hold_timeout_ms":5}}})").empty());
+    CHECK(validate_issues(R"({"intercept":{"dns":{"hold_timeout_ms":500}}})").empty());
+    for (const char* bad : {"4", "501", "0"}) {
+        const auto issues = validate_issues(
+            std::string(R"({"intercept":{"dns":{"hold_timeout_ms":)") + bad + "}}}");
+        REQUIRE(issues.size() == 1);
+        CHECK(issues[0].path == "intercept.dns.hold_timeout_ms");
+    }
+
+    auto ttl = validate_issues(R"({"intercept":{"min_ttl_ms":600000,"max_ttl_ms":300000}})");
+    REQUIRE(ttl.size() == 1);
+    CHECK(ttl[0].path == "intercept.min_ttl_ms");
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":300000,"max_ttl_ms":300000}})").empty());
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":0}})").size() == 1);
+    // A lone min above the default max is also inconsistent.
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":90000000}})").size() == 1);
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":4294967295999,"max_ttl_ms":4294967295999}})").empty());
+    CHECK_FALSE(validate_issues(R"({"intercept":{"min_ttl_ms":4294967296000}})").empty());
+    const auto global_ttl_overflow = validate_issues(
+        R"({"intercept":{"min_ttl_ms":4294967296000,"max_ttl_ms":4294967296000}})");
+    REQUIRE(global_ttl_overflow.size() == 2);
+    CHECK(global_ttl_overflow[0].path == "intercept.min_ttl_ms");
+    CHECK(global_ttl_overflow[1].path == "intercept.max_ttl_ms");
+    const auto max_ttl_overflow =
+        validate_issues(R"({"intercept":{"min_ttl_ms":1000,"max_ttl_ms":4294967296000}})");
+    REQUIRE(max_ttl_overflow.size() == 1);
+    CHECK(max_ttl_overflow[0].path == "intercept.max_ttl_ms");
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":1001,"max_ttl_ms":1999}})").empty());
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":999}})").size() == 1);
+    CHECK(validate_issues(R"({"intercept":{"min_ttl_ms":1999,"max_ttl_ms":1001}})").size() == 1);
+    CHECK_FALSE(validate_issues(R"({"intercept":{"max_ttl_ms":999}})").empty());
+    CHECK(validate_issues(R"({"lists":{"ttl":{"domains":["example.com"],"ttl_ms":4294967295999}}})").empty());
+    for (const auto* bad : {"-1", "4294967296000"}) {
+        const auto issues = validate_issues(
+            std::string(R"({"lists":{"ttl":{"domains":["example.com"],"ttl_ms":)") + bad + "}}}");
+        REQUIRE(issues.size() == 1);
+        CHECK(issues[0].path == "lists.ttl.ttl_ms");
+    }
+
+    for (const char* bad : {"", "-bad.example", "a..b", "bad domain", "a.b-"}) {
+        const auto issues = validate_issues(
+            std::string(R"({"intercept":{"dns":{"marker":{"domain":")") + bad + R"("}}}})");
+        REQUIRE(issues.size() == 1);
+        CHECK(issues[0].path == "intercept.dns.marker.domain");
+    }
+    CHECK(validate_issues(R"({"intercept":{"dns":{"marker":{"domain":"check.example.org"}}}})").empty());
+
+    const auto ip = validate_issues(R"({"intercept":{"dns":{"marker":{"answer_ipv4":"999.1.1.1"}}}})");
+    REQUIRE(ip.size() == 1);
+    CHECK(ip[0].path == "intercept.dns.marker.answer_ipv4");
+    CHECK(validate_issues(R"({"intercept":{"dns":{"marker":{"answer_ipv4":"::1"}}}})").size() == 1);
+}
+
+TEST_CASE("config warnings: deprecated resolver fields are reported in one warning") {
+    auto cfg = parse_config(R"({
+        "lists": {"l": {"domains": ["example.com"]}},
+        "daemon": {"resolver_ready_timeout_seconds": 30},
+        "dns": {
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "rules": [{"list":["l"],"server":"plain_dns"}],
+            "fallback": ["plain_dns"],
+            "system_resolver": {"address": "127.0.0.1"},
+            "resolver_integration": "dnsmasq"
+        }
+    })");
+    CHECK_NOTHROW(validate_config(cfg));
+    const auto warnings = config_warnings(cfg);
+    REQUIRE(warnings.size() == 1);
+    for (const char* field : {"dns.system_resolver",
+                              "daemon.resolver_ready_timeout_seconds"}) {
+        CAPTURE(field);
+        CHECK(warnings.front().find(field) != std::string::npos);
+    }
+    CHECK(warnings.front().find("dns.rules") == std::string::npos);
+    CHECK(warnings.front().find("ignored: deprecated since 3.0.0") != std::string::npos);
+}
+
+TEST_CASE("config warnings: no deprecation warning without deprecated fields") {
+    auto cfg = parse_config(R"({
+        "dns": {"servers": [{"tag":"plain_dns","address":"8.8.8.8"}]}
+    })");
+    CHECK(config_warnings(cfg).empty());
+    CHECK(config_warnings(parse_config("{}")).empty());
+}
+
+TEST_CASE("config warnings: rules and fallback are ignored when integration is none") {
+    const char* base = R"({
+        "lists": {"l": {"domains": ["example.com"]}},
+        "dns": {
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "resolver_integration": "none",
+            %s
+        }
+    })";
+    auto render = [&](const char* body) {
+        char buf[1024];
+        std::snprintf(buf, sizeof(buf), base, body);
+        return parse_config(buf);
+    };
+    for (const char* body : {R"("rules": [{"list":["l"],"server":"plain_dns"}])",
+                             R"("fallback": ["plain_dns"])"}) {
+        const auto warnings = config_warnings(render(body));
+        REQUIRE(warnings.size() == 1);
+        CHECK(warnings.front() ==
+              "dns.rules/dns.fallback ignored: dns.resolver_integration is \"none\"");
+    }
+    CHECK(config_warnings(render(R"("rules": [], "fallback": [])")).empty());
+}
+
+TEST_CASE("effective resolver integration: explicit value wins, absent follows dns.rules") {
+    auto mode = [](const char* json) {
+        return effective_resolver_integration(parse_config(json));
+    };
+    CHECK(mode(R"({})") == ResolverIntegrationMode::NONE);
+    CHECK(mode(R"({"dns":{"resolver_integration":"none",
+        "rules":[{"list":["l"],"server":"s"}]}})") == ResolverIntegrationMode::NONE);
+    CHECK(mode(R"({"dns":{"resolver_integration":"dnsmasq"}})") ==
+          ResolverIntegrationMode::DNSMASQ);
+    CHECK(mode(R"({"dns":{"rules":[{"list":["l"],"server":"s"}]}})") ==
+          ResolverIntegrationMode::DNSMASQ);
+    CHECK(mode(R"({"dns":{"rules":[]}})") == ResolverIntegrationMode::NONE);
+    CHECK(mode(R"({"dns":{"system_resolver":{"address":"127.0.0.1"}}})") ==
+          ResolverIntegrationMode::NONE);
+    CHECK(std::string(resolver_integration_name(ResolverIntegrationMode::DNSMASQ)) == "dnsmasq");
+    CHECK(std::string(resolver_integration_name(ResolverIntegrationMode::NONE)) == "none");
+}
+
+TEST_CASE("dns rules validation: unknown server, list and fallback tags are rejected") {
+    const std::string lists = R"("lists":{"l":{"domains":["example.com"]}},)";
+    const auto ok = validate_issues("{" + lists +
+        R"("dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
+        "rules":[{"list":["l"],"server":"s"}],"fallback":["s"]}})");
+    CHECK(ok.empty());
+
+    const auto bad_server = validate_issues("{" + lists +
+        R"("dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
+        "rules":[{"list":["l"],"server":"nope"}]}})");
+    REQUIRE(bad_server.size() == 1);
+    CHECK(bad_server[0].path == "dns.rules[0].server");
+    CHECK(bad_server[0].message.find("unknown DNS server tag 'nope'") != std::string::npos);
+
+    const auto bad_list = validate_issues("{" + lists +
+        R"("dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
+        "rules":[{"list":["missing"],"server":"s"}]}})");
+    REQUIRE(bad_list.size() == 1);
+    CHECK(bad_list[0].path == "dns.rules[0].list[0]");
+
+    const auto bad_fallback = validate_issues(
+        R"({"dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],"fallback":["nope"]}})");
+    REQUIRE(bad_fallback.size() == 1);
+    CHECK(bad_fallback[0].path == "dns.fallback[0]");
+    CHECK(bad_fallback[0].message.find("unknown DNS server tag") != std::string::npos);
+}
+
+TEST_CASE("shipped example configs validate and include default local_networks rule") {
+    // Read and parse each shipped example config file
+    std::vector<std::pair<std::string, std::string>> example_configs = {
+        {"config.example.json", "config.example.json"},
+        {"packages/common/config.full.example.json", "packages/common/config.full.example.json"},
+        {"packages/common/config.headless.example.json", "packages/common/config.headless.example.json"},
+        {"packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.full.example.json", "packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.full.example.json"},
+        {"packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.headless.example.json", "packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.headless.example.json"}
+    };
+
+    for (const auto& entry : example_configs) {
+        const std::string& label = entry.first;
+        const std::string& path = entry.second;
+        CAPTURE(label);
+
+        // Read the JSON file
+        std::ifstream file(path);
+        REQUIRE(file.is_open());
+        nlohmann::json json;
+        REQUIRE_NOTHROW(json = nlohmann::json::parse(file));
+
+        // Verify lists contains local_networks
+        REQUIRE(json.contains("lists"));
+        REQUIRE(json["lists"].contains("local_networks"));
+        const auto& local_nets = json["lists"]["local_networks"];
+        REQUIRE(local_nets.contains("ip_cidrs"));
+        REQUIRE(local_nets["ip_cidrs"].is_array());
+        // Check that it contains at least the core local ranges
+        auto cidrs_json = local_nets["ip_cidrs"];
+        std::vector<std::string> cidrs;
+        for (const auto& cidr : cidrs_json) {
+            cidrs.push_back(cidr);
+        }
+        CHECK(std::find(cidrs.begin(), cidrs.end(), "127.0.0.0/8") != cidrs.end());
+        CHECK(std::find(cidrs.begin(), cidrs.end(), "10.0.0.0/8") != cidrs.end());
+        CHECK(std::find(cidrs.begin(), cidrs.end(), "192.168.0.0/16") != cidrs.end());
+
+        // Verify outbounds contains an ignore type with tag direct_local
+        REQUIRE(json.contains("outbounds"));
+        REQUIRE(json["outbounds"].is_array());
+        bool found_direct_local = false;
+        for (const auto& ob : json["outbounds"]) {
+            if (ob.contains("tag") && ob["tag"] == "direct_local") {
+                REQUIRE(ob.contains("type"));
+                CHECK(ob["type"] == "ignore");
+                found_direct_local = true;
+                break;
+            }
+        }
+        CHECK(found_direct_local);
+
+        // Verify route.rules exists and first rule targets local_networks to direct_local
+        REQUIRE(json.contains("route"));
+        REQUIRE(json["route"].contains("rules"));
+        REQUIRE(json["route"]["rules"].is_array());
+        REQUIRE(json["route"]["rules"].size() > 0);
+
+        const auto& first_rule = json["route"]["rules"][0];
+        REQUIRE(first_rule.contains("list"));
+        REQUIRE(first_rule["list"].is_array());
+        CHECK(first_rule["list"][0] == "local_networks");
+        REQUIRE(first_rule.contains("outbound"));
+        CHECK(first_rule["outbound"] == "direct_local");
+
+        // Parse as config and validate it
+        Config cfg = parse_test_config(json.dump());
+        CHECK_NOTHROW(validate_config(cfg));
+    }
+}
+
+// =============================================================================
+// outbound_groups: unified `members` schema and legacy upgrade
+// =============================================================================
+
+namespace {
+
+const char* const kMainFormatConfig = R"({
+  "outbounds":[
+    {"type":"interface","tag":"a","interface":"eth0"},
+    {"type":"interface","tag":"b","interface":"eth1"},
+    {"type":"interface","tag":"c","interface":"eth2"},
+    {"type":"interface","tag":"d","interface":"eth3"},
+    {"type":"urltest","tag":"web","url":"http://example.test",
+     "outbound_groups":[
+       {"weight":3,"outbounds":["c"]},
+       {"weight":1,"outbounds":["a","b"]},
+       {"outbounds":["d"]}]},
+    {"type":"icmptest","tag":"ping","interval_ms":60000,
+     "outbound_groups":[
+       {"weight":2,"candidates":[{"outbound":"c","target":"9.9.9.9"}]},
+       {"candidates":[{"outbound":"a","target":"1.1.1.1"},
+                      {"outbound":"b","target":"2606:4700:4700::1111"}]}]}
+  ]})";
+
+std::vector<std::string> member_tags(const Outbound& outbound, size_t group) {
+    return outbound_group_tags(outbound.outbound_groups->at(group));
+}
+
+} // namespace
+
+TEST_CASE("legacy urltest and icmptest groups normalize to members in weight order") {
+    const auto cfg = parse_test_config(kMainFormatConfig);
+    const auto& web = cfg.outbounds->at(4);
+    REQUIRE(web.outbound_groups->size() == 3);
+    // Stable sort by legacy weight (default 1): [a,b] (1), [d] (1), [c] (3).
+    CHECK(member_tags(web, 0) == std::vector<std::string>{"a", "b"});
+    CHECK(member_tags(web, 1) == std::vector<std::string>{"d"});
+    CHECK(member_tags(web, 2) == std::vector<std::string>{"c"});
+    for (const auto& group : *web.outbound_groups) {
+        CHECK_FALSE(group.outbounds.has_value());
+        CHECK_FALSE(group.candidates.has_value());
+        CHECK_FALSE(group.weight.has_value());
+        for (const auto& member : *group.members) {
+            CHECK_FALSE(member.target.has_value());
+            CHECK_FALSE(member.weight.has_value());
+        }
+    }
+    const auto& ping = cfg.outbounds->at(5);
+    REQUIRE(ping.outbound_groups->size() == 2);
+    CHECK(member_tags(ping, 0) == std::vector<std::string>{"a", "b"});
+    CHECK(member_tags(ping, 1) == std::vector<std::string>{"c"});
+    CHECK(outbound_group_target(ping.outbound_groups->at(0), "b") ==
+          "2606:4700:4700::1111");
+    CHECK(outbound_group_target(ping.outbound_groups->at(1), "c") == "9.9.9.9");
+}
+
+TEST_CASE("upgraded main-format config serializes to members and round-trips") {
+    const auto cfg = parse_test_config(kMainFormatConfig);
+    const auto json = nlohmann::json(cfg);
+    for (const auto& outbound : json["outbounds"]) {
+        if (!outbound.contains("outbound_groups")) continue;
+        for (const auto& group : outbound["outbound_groups"]) {
+            CHECK(group["candidates"].is_null());
+            CHECK(group["outbounds"].is_null());
+            CHECK(group["weight"].is_null());
+            CHECK(group["members"].is_array());
+        }
+    }
+    const auto serialized = json.dump();
+    const auto reparsed = parse_test_config(serialized);
+    CHECK(nlohmann::json(reparsed) == nlohmann::json(cfg));
+    CHECK_FALSE(upgraded_config_text(serialized).has_value());
+}
+
+TEST_CASE("upgraded_config_text decides whether the file needs a rewrite") {
+    const auto upgraded = upgraded_config_text(kMainFormatConfig);
+    REQUIRE(upgraded.has_value());
+    CHECK(upgraded->find("\"members\"") != std::string::npos);
+    CHECK(upgraded->find("\"candidates\"") == std::string::npos);
+    CHECK(upgraded->find("\"weight\"") == std::string::npos);
+    // The written text is itself valid, and needs no further upgrade.
+    CHECK_NOTHROW(parse_test_config(*upgraded));
+    CHECK(nlohmann::json(parse_test_config(*upgraded)) ==
+          nlohmann::json(parse_test_config(kMainFormatConfig)));
+    CHECK_FALSE(upgraded_config_text(*upgraded).has_value());
+    // Canonical, unrelated, and malformed input is left alone.
+    CHECK_FALSE(upgraded_config_text(R"({"outbounds":[
+      {"type":"urltest","tag":"u","outbound_groups":[{"members":[{"outbound":"a"}]}]}]})")
+                    .has_value());
+    CHECK_FALSE(upgraded_config_text("{}").has_value());
+    CHECK_FALSE(upgraded_config_text("not json").has_value());
+}
+
+TEST_CASE("canonical members keep order, target and weight") {
+    const auto cfg = parse_test_config(R"({"outbounds":[
+      {"type":"interface","tag":"a","interface":"eth0"},
+      {"type":"interface","tag":"b","interface":"eth1"},
+      {"type":"urltest","tag":"web","url":"http://example.test",
+       "outbound_groups":[{"members":[{"outbound":"a","weight":7},{"outbound":"b"}]}]}
+    ]})");
+    const auto& group = cfg.outbounds->at(2).outbound_groups->at(0);
+    CHECK(outbound_group_balance_weight(group, "a") == 7);
+    CHECK(outbound_group_balance_weight(group, "b") == 1);
+    CHECK(outbound_group_balance_weight(group, "missing") == 1);
+}
+
+TEST_CASE("outbound_group members are validated") {
+    const auto wrap = [](const std::string& type_fields, const std::string& members) {
+        return R"({"outbounds":[
+          {"type":"interface","tag":"a","interface":"eth0"},
+          {"type":"interface","tag":"b","interface":"eth1"},
+          {)" + type_fields + R"(,"outbound_groups":[)" + members + R"(]}]})";
+    };
+    const std::string urltest = R"("type":"urltest","tag":"u","url":"http://example.test")";
+    const std::string icmptest = R"("type":"icmptest","tag":"u","interval_ms":60000)";
+
+    SUBCASE("mixing members with legacy fields is rejected") {
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a"}],"outbounds":["b"]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a"}],"weight":2})")).empty());
+        CHECK_FALSE(validate_issues(wrap(icmptest,
+            R"({"members":[{"outbound":"a","target":"1.1.1.1"}],
+                "candidates":[{"outbound":"b","target":"1.1.1.1"}]})")).empty());
+    }
+    SUBCASE("weight must be between 1 and 100") {
+        CHECK(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a","weight":1},{"outbound":"b","weight":100}]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a","weight":0}]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a","weight":101}]})")).empty());
+    }
+    SUBCASE("unknown and duplicate members are rejected") {
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"nope"}]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a"}]},{"members":[{"outbound":"a"}]})")).empty());
+    }
+    SUBCASE("icmptest members need a literal target, urltest members must not have one") {
+        CHECK_FALSE(validate_issues(wrap(icmptest,
+            R"({"members":[{"outbound":"a"}]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(icmptest,
+            R"({"members":[{"outbound":"a","target":"example.com"}]})")).empty());
+        CHECK(validate_issues(wrap(icmptest,
+            R"({"members":[{"outbound":"a","target":"1.1.1.1"}]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest,
+            R"({"members":[{"outbound":"a","target":"1.1.1.1"}]})")).empty());
+    }
+    SUBCASE("a group without members is rejected") {
+        CHECK_FALSE(validate_issues(wrap(urltest, R"({"members":[]})")).empty());
+        CHECK_FALSE(validate_issues(wrap(urltest, R"({})")).empty());
+    }
+}
+
+TEST_CASE("upgrade_config_file_if_needed rewrites once and keeps the first backup") {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() /
+                         ("kpbr-upgrade-" + std::to_string(::getpid()));
+    fs::create_directories(dir);
+    const std::string path = (dir / "config.json").string();
+    const auto read = [](const std::string& file) {
+        std::ifstream in(file);
+        return std::string(std::istreambuf_iterator<char>(in), {});
+    };
+    {
+        std::ofstream out(path);
+        out << kMainFormatConfig;
+    }
+    CHECK(upgrade_config_file_if_needed(path, kMainFormatConfig));
+    CHECK(read(path + ".bak-pre-members") == kMainFormatConfig);
+    const auto upgraded = read(path);
+    CHECK(upgraded.find("\"members\"") != std::string::npos);
+    CHECK_NOTHROW(parse_test_config(upgraded));
+    // Already upgraded: nothing to do, file and backup untouched.
+    CHECK_FALSE(upgrade_config_file_if_needed(path, upgraded));
+    CHECK(read(path) == upgraded);
+    // A later legacy rewrite never overwrites the existing backup.
+    CHECK(upgrade_config_file_if_needed(path, R"({"outbounds":[{"type":"urltest","tag":"u","outbound_groups":[{"outbounds":["a"]}]}]})"));
+    CHECK(read(path + ".bak-pre-members") == kMainFormatConfig);
+    fs::remove_all(dir);
+}
+
+TEST_CASE("validation paths address the submitted document by index and key") {
+    const auto issues = validate_issues(R"({
+        "outbounds":[
+            {"type":"interface","tag":"wan","interface":"wan"},
+            {"type":"icmptest","tag":"probe","outbound_groups":[
+                {"members":[{"outbound":"wan","target":"1.1.1.1"}]},
+                {"members":[{"outbound":"wan","target":"not-an-ip"}]}
+            ]}
+        ],
+        "dns":{"servers":[
+            {"tag":"a","address":"1.1.1.1"},
+            {"tag":"b","address":"8.8.8.8","detour":"missing"}
+        ]},
+        "lists":{"bad.name":{"domains":[]}}
+    })");
+    const auto has_path = [&](const std::string& path) {
+        return std::any_of(issues.begin(), issues.end(),
+                           [&](const auto& issue) { return issue.path == path; });
+    };
+    CHECK(has_path("outbounds[1].outbound_groups[1].members[0].target"));
+    CHECK(has_path("outbounds[1].outbound_groups[1].members[0].outbound"));
+    CHECK(has_path("dns.servers[1].detour"));
+    CHECK(has_path("lists[\"bad.name\"]"));
+}
+
+TEST_CASE("legacy migration issues point at the original json location") {
+    const auto issues = validate_issues(R"({
+        "outbounds":[
+            {"type":"interface","tag":"wan","interface":"wan"},
+            {"type":"urltest","tag":"auto","url":"http://example.test",
+             "outbound_groups":[{"members":[{"outbound":"wan"}],"outbounds":["wan"]}]}
+        ]
+    })");
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "outbounds[1].outbound_groups[0]");
+}
+
+// =============================================================================
+// Balance groups sharing or nesting members (pins current behaviour)
+// =============================================================================
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("balance validation: one outbound may be a member of two balance groups") {
+    const auto issues = validate_issues(R"({"outbounds":[
+      {"type":"interface","tag":"wan1","interface":"wan1"},
+      {"type":"interface","tag":"wan2","interface":"wan2"},
+      {"type":"interface","tag":"wan3","interface":"wan3"},
+      {"type":"urltest","tag":"grp_a","url":"http://a.example.test","strategy":"balance",
+       "outbound_groups":[{"outbounds":["wan1","wan2"]}]},
+      {"type":"urltest","tag":"grp_b","url":"http://b.example.test","strategy":"balance",
+       "outbound_groups":[{"outbounds":["wan1","wan3"]}]}
+    ]})");
+    CHECK(issues.empty());
+}
+#endif
+
+TEST_CASE("balance validation: a test group cannot be a member of another test group") {
+    const auto issues = validate_issues(R"({"outbounds":[
+      {"type":"interface","tag":"wan1","interface":"wan1"},
+      {"type":"urltest","tag":"inner","url":"http://a.example.test",
+       "outbound_groups":[{"outbounds":["wan1"]}]},
+      {"type":"urltest","tag":"outer","url":"http://b.example.test",
+       "outbound_groups":[{"outbounds":["inner"]}]}
+    ]})");
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().message.find("not an interface, table, or blackhole") !=
+          std::string::npos);
 }

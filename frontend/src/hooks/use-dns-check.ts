@@ -1,7 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { consumeAuthenticatedSse } from "@/api/authenticated-sse"
+import {
+  getDnsEventHub,
+  parseDnsCheckEvent,
+  type DnsEventFailure,
+} from "@/api/dns-event-hub"
+
+export { parseDnsCheckEvent }
+export type { DnsEventFailure }
 
 export type DnsCheckStatus =
   | "idle"
@@ -17,35 +24,32 @@ type DnsCheckState = {
   showWarning: boolean
 }
 
-type DnsCheckEvent =
-  | { type: "HELLO" }
-  | {
-      type: "DNS"
-      domain?: string | null
-      source_ip?: string | null
-      ecs?: string | null
-    }
-
 type UseDnsCheckReturn = {
   status: DnsCheckStatus
   checkState: DnsCheckState
+  failure: DnsEventFailure | null
   startCheck: (performBrowserRequest: boolean) => void
   reset: () => void
 }
 
 export const DNS_CHECK_DOMAIN_SUFFIX = "check.keen.pbr"
 
+const sseConnectTimeoutMs = 5_000
 const browserCheckTimeoutMs = 5_000
 const pcCheckTimeoutMs = 300_000
 const pcWarningTimeoutMs = 30_000
 
-export function useDnsCheck(): UseDnsCheckReturn {
-  const eventSourceRef = useRef<AbortController | null>(null)
+export function useDnsCheck(
+  markerDomain = DNS_CHECK_DOMAIN_SUFFIX
+): UseDnsCheckReturn {
+  const releaseRef = useRef<(() => void) | null>(null)
   const fetchControllerRef = useRef<AbortController | null>(null)
   const checkTimeoutRef = useRef<number | null>(null)
   const warningTimeoutRef = useRef<number | null>(null)
+  const checkGenerationRef = useRef(0)
 
   const [status, setStatus] = useState<DnsCheckStatus>("idle")
+  const [failure, setFailure] = useState<DnsEventFailure | null>(null)
   const [checkState, setCheckState] = useState<DnsCheckState>({
     randomString: "",
     waiting: false,
@@ -53,9 +57,10 @@ export function useDnsCheck(): UseDnsCheckReturn {
   })
 
   const cleanup = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.abort()
-      eventSourceRef.current = null
+    checkGenerationRef.current += 1
+    if (releaseRef.current) {
+      releaseRef.current()
+      releaseRef.current = null
     }
 
     if (fetchControllerRef.current) {
@@ -80,8 +85,11 @@ export function useDnsCheck(): UseDnsCheckReturn {
     (performBrowserRequest: boolean) => {
       cleanup()
 
+      const generation = checkGenerationRef.current
+      const configuredDomain = normalizeDnsMarkerDomain(markerDomain)
+
       const randomString = Math.random().toString(36).slice(2, 15)
-      const domain = `${randomString}.${DNS_CHECK_DOMAIN_SUFFIX}`
+      const domain = `${randomString}.${configuredDomain}`
 
       setCheckState({
         randomString,
@@ -89,89 +97,123 @@ export function useDnsCheck(): UseDnsCheckReturn {
         showWarning: false,
       })
       setStatus("checking")
+      setFailure(null)
 
       if (!performBrowserRequest) {
         warningTimeoutRef.current = window.setTimeout(() => {
+          if (generation !== checkGenerationRef.current) {
+            return
+          }
           setCheckState((current) => ({ ...current, showWarning: true }))
         }, pcWarningTimeoutMs)
       }
 
-      const eventSource = new AbortController()
-      eventSourceRef.current = eventSource
-
-      let sseConnected = false
-
-      void consumeAuthenticatedSse("/api/dns/test", eventSource.signal, ({ data }) => {
-        const payload = parseDnsCheckEvent(data)
-        if (!payload) {
+      // Keep this check on a marker-domain-scoped stream. A different tab may
+      // run a check at the same time; its marker must not close this stream
+      // before this check's own generated domain is observed.
+      const hub = getDnsEventHub("keen-pbr", domain)
+      const releaseLease = hub.acquireLease()
+      const unsubscribe = hub.subscribe((payload) => {
+        if (generation !== checkGenerationRef.current) {
           return
         }
 
-        if (payload.type === "HELLO") {
-          sseConnected = true
-
-          if (performBrowserRequest) {
-            fetchControllerRef.current = new AbortController()
-            fetch(`https://${domain}`, {
-              signal: fetchControllerRef.current.signal,
-              mode: "no-cors",
-            }).catch((error: unknown) => {
-              if (
-                error &&
-                typeof error === "object" &&
-                "name" in error &&
-                error.name === "AbortError"
-              ) {
-                return
-              }
-            })
-          }
-
-          return
-        }
-
-        if (payload.type !== "DNS" || payload.domain !== domain) {
+        if (
+          payload.source !== "marker" ||
+          payload.domain.toLowerCase() !== domain
+        ) {
           return
         }
 
         cleanup()
+        // A successful marker is terminal for this filtered stream. Release
+        // both refs and abort the request without the normal idle grace period.
+        hub.disconnectNow()
         setCheckState((current) => ({
           ...current,
           waiting: false,
           showWarning: false,
         }))
         setStatus(performBrowserRequest ? "success" : "pc-success")
-      }).catch(() => { /* Let the timeout report the failure. */ })
+      })
+      let offStatus: (() => void) | null = null
+      releaseRef.current = () => {
+        offStatus?.()
+        unsubscribe()
+        releaseLease()
+      }
 
-      checkTimeoutRef.current = window.setTimeout(
-        () => {
-          cleanup()
+      const onConnected = () => {
+        if (generation !== checkGenerationRef.current) {
+          return
+        }
+        if (checkTimeoutRef.current !== null) {
+          window.clearTimeout(checkTimeoutRef.current)
+          checkTimeoutRef.current = null
+        }
+        offStatus?.()
+        offStatus = null
 
-          if (!sseConnected) {
-            setStatus("sse-fail")
-            return
-          }
+        // The stream is open: the connection itself works. Start the
+        // browser lookup now; the marker INTERCEPT event proves the path.
+        if (performBrowserRequest) {
+          fetchControllerRef.current = new AbortController()
+          fetch(`https://${domain}`, {
+            signal: fetchControllerRef.current.signal,
+            mode: "no-cors",
+          }).catch(() => {
+            /* Only the observed INTERCEPT event matters. */
+          })
+        }
 
-          if (performBrowserRequest) {
-            setStatus("browser-fail")
-            return
-          }
+        checkTimeoutRef.current = window.setTimeout(
+          () => {
+            if (generation !== checkGenerationRef.current) {
+              return
+            }
+            cleanup()
 
-          setCheckState((current) => ({
-            ...current,
-            waiting: false,
-            showWarning: true,
-          }))
-        },
-        performBrowserRequest ? browserCheckTimeoutMs : pcCheckTimeoutMs
-      )
+            if (performBrowserRequest) {
+              setStatus("browser-fail")
+              return
+            }
+
+            setCheckState((current) => ({
+              ...current,
+              waiting: false,
+              showWarning: true,
+            }))
+          },
+          performBrowserRequest ? browserCheckTimeoutMs : pcCheckTimeoutMs
+        )
+      }
+
+      if (hub.getStatus() === "connected") {
+        onConnected()
+        return
+      }
+
+      offStatus = hub.onStatus(() => {
+        if (hub.getStatus() === "connected") onConnected()
+      })
+      checkTimeoutRef.current = window.setTimeout(() => {
+        checkTimeoutRef.current = null
+        if (generation !== checkGenerationRef.current) {
+          return
+        }
+        const hubFailure = hub.failure()
+        cleanup()
+        setFailure(hubFailure ?? { kind: "network" })
+        setStatus("sse-fail")
+      }, sseConnectTimeoutMs)
     },
-    [cleanup]
+    [cleanup, markerDomain]
   )
 
   const reset = useCallback(() => {
     cleanup()
     setStatus("idle")
+    setFailure(null)
     setCheckState({
       randomString: "",
       waiting: false,
@@ -182,23 +224,21 @@ export function useDnsCheck(): UseDnsCheckReturn {
   return {
     status,
     checkState,
+    failure,
     startCheck,
     reset,
   }
 }
 
-function parseDnsCheckEvent(data: string): DnsCheckEvent | null {
-  if (!data.trim()) {
-    return null
-  }
+/** Translation key suffix + params for an sse-fail status. */
+export function describeSseFailure(failure: DnsEventFailure | null) {
+  if (failure?.kind === "stalled") return { key: "sseStalled" }
+  if (failure?.kind === "http")
+    return { key: "sseHttp", params: { status: failure.status ?? 0 } }
+  return { key: null }
+}
 
-  try {
-    const parsed = JSON.parse(data) as DnsCheckEvent
-    if (!parsed || typeof parsed !== "object" || !("type" in parsed)) {
-      return null
-    }
-    return parsed
-  } catch {
-    return null
-  }
+export function normalizeDnsMarkerDomain(value: string) {
+  const normalized = value.trim().replace(/\.+$/, "").toLowerCase()
+  return normalized || DNS_CHECK_DOMAIN_SUFFIX
 }

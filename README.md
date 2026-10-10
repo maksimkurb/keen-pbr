@@ -7,7 +7,7 @@
   <p>Route selected traffic through VPN, WAN, or custom IP tables on <strong>OpenWrt</strong>, <strong>Keenetic</strong>, and <strong>Debian</strong> systems.</p>
 
   <p>
-    <a href="https://github.com/maksimkurb/keen-pbr/actions/workflows/build-ci.yml">
+    <a href="https://github.com/maksimkurb/keen-pbr/actions/workflows/ci-packages.yml">
       <img src="https://img.shields.io/github/actions/workflow/status/maksimkurb/keen-pbr/.github%2Fworkflows%2Fci-packages.yml?style=for-the-badge&branch=main" alt="Build status" />
     </a>
     <a href="https://github.com/maksimkurb/keen-pbr/releases">
@@ -33,7 +33,7 @@ It is built for embedded Linux routers and can:
 
 - route traffic through VPN, WAN, blackhole, or custom routing tables
 - use failover chains and health checks to keep traffic on healthy outbounds
-- integrate with `dnsmasq` for domain-based routing
+- learn domain IPs from DNS/L7 interception without configuring or requiring any resolver
 - provide an optional web UI and HTTP API for management and diagnostics
 
 ## Documentation & Installation

@@ -4,6 +4,7 @@ VERSION_RESOLVER := $(abspath build_scripts/resolve-version.sh)
 KEEN_PBR_RELEASE := $(shell bash $(VERSION_RESOLVER) release "$(CURDIR)")
 GCC_BUILD_DIR := cmake-build-gcc
 CLANG_BUILD_DIR := cmake-build-clang
+NETNS_INTEGRATION_BUILD_DIR := cmake-build-netns-integration
 BUILD_JOBS ?= $(shell nproc)
 DIST_DIR := build/dist
 ORVAL_VERSION := $(shell sed -n 's/.*"orval": "\([^"]*\)".*/\1/p' frontend/package.json | head -1)
@@ -21,7 +22,7 @@ CLANG_FEATURE_CMAKE_FLAGS := -DWITH_API=ON -DUSE_KEENETIC_API=ON
         frontend-build \
         frontend-api-generate \
         test \
-        integration-tests integration-tests-iptables integration-tests-nftables \
+        integration-netns-build integration-tests integration-tests-iptables integration-tests-nftables \
         clang-build clang-check clang-tidy \
         generate \
         cross-setup cross-build cross-deploy \
@@ -38,8 +39,10 @@ build: ## Compile the project
 	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS)
 	cmake --build $(GCC_BUILD_DIR)
 
-frontend-build: ## Build frontend assets with bun
-	bash build_scripts/build-frontend.sh "$(abspath .)" "$(abspath frontend/dist)"
+FRONTEND_PLATFORM ?= generic
+
+frontend-build: ## Build frontend assets with bun (FRONTEND_PLATFORM=generic|openwrt|keenetic)
+	bash build_scripts/build-frontend.sh "$(abspath .)" "$(abspath frontend/dist)" "$(FRONTEND_PLATFORM)"
 
 frontend-api-generate: ## Regenerate frontend API client using the Orval version pinned in frontend/package.json
 	cd frontend && bunx --bun orval@$(ORVAL_VERSION) --config ./orval.config.ts --clean
@@ -49,50 +52,77 @@ generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (
 
 test: ## Build and run unit tests (doctest)
 	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS) -DBUILD_TESTS=ON
-	cmake --build $(GCC_BUILD_DIR) --parallel $(BUILD_JOBS) --target keen-pbr-tests crash-diagnostics-smoke
+	cmake --build $(GCC_BUILD_DIR) --parallel $(BUILD_JOBS) --target keen-pbr keen-pbr-tests crash-diagnostics-smoke
 	$(GCC_BUILD_DIR)/tests/keen-pbr-tests
 	$(GCC_BUILD_DIR)/tests/crash-diagnostics-smoke
 	python3 -m unittest tests/integration/test_case_engine.py
-	python3 -m unittest tests/integration/test_qemu_harness.py
+	python3 -m unittest tests/integration/test_netns_harness.py
 	python3 -m unittest tests/integration/test_integration_modules.py
+	python3 -m unittest tests/test_dns_bench.py
 	sh tests/test_keenetic_raw_policy.sh
+	sh tests/test_keenetic_intercept_modules.sh
+	sh tests/test_dnsmasq_migration.sh
+	KEEN_PBR_RESOLVER_BIN="$(GCC_BUILD_DIR)/keen-pbr" sh tests/test_dnsmasq_hooks.sh
+	python3 tests/check_firewall_dependencies.py
 
 INTEGRATION_BACKEND ?= all
-INTEGRATION_DEB ?=
-INTEGRATION_REBUILD ?= 0
+INTEGRATION_BIN ?=
 INTEGRATION_CASES ?= all
 INTEGRATION_VERBOSE ?= 0
 
-integration-tests: ## Run packaged Debian system integration tests (INTEGRATION_BACKEND=all|iptables|nftables)
+NETNS_INTEGRATION_CMAKE_FLAGS := \
+	-DWITH_API=ON \
+	-DKEEN_PBR_TARGET_OS:STRING=debian \
+	-DKEEN_PBR_TARGET_VERSION:STRING=rootless-netns \
+	-DKEEN_PBR_BUILD_VARIANT:STRING=full \
+	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/run/keen-pbr-it/config.json \
+	-DKEEN_PBR_CONTROL_SOCKET:STRING=/run/keen-pbr/control.sock \
+	-DKEEN_PBR_FRONTEND_ROOT:STRING=/mnt/repo/frontend/dist \
+	-DKEEN_PBR_DNSMASQ_HOOK:STRING=/mnt/repo/tests/integration/netns/dnsmasq-hook.sh \
+	-DKEEN_PBR_DNSMASQ_PROBE_ADDRESS:STRING=192.0.2.1:53
+
+integration-netns-build: ## Build the native Debian-flavoured binary for rootless netns integration tests
+	cmake -S . -B $(NETNS_INTEGRATION_BUILD_DIR) $(GCC_CMAKE_FLAGS) $(NETNS_INTEGRATION_CMAKE_FLAGS)
+	cmake --build $(NETNS_INTEGRATION_BUILD_DIR) --parallel $(BUILD_JOBS) --target keen-pbr
+
+ifeq ($(strip $(INTEGRATION_BIN)),)
+INTEGRATION_TEST_BIN := $(abspath $(NETNS_INTEGRATION_BUILD_DIR)/keen-pbr)
+integration-tests: integration-netns-build
+else
+INTEGRATION_TEST_BIN := $(INTEGRATION_BIN)
+endif
+
+integration-tests: ## Run rootless user+network namespace integration tests (no sudo, no QEMU)
 	INTEGRATION_CASES="$(INTEGRATION_CASES)" INTEGRATION_VERBOSE="$(INTEGRATION_VERBOSE)" \
-		bash tests/integration/scripts/run-qemu-suite.sh "$(INTEGRATION_BACKEND)" "$(INTEGRATION_DEB)" "$(INTEGRATION_REBUILD)"
+		bash tests/integration/scripts/run-netns-suite.sh "$(INTEGRATION_BACKEND)" "$(INTEGRATION_TEST_BIN)"
 
-integration-tests-iptables: ## Run packaged Debian integration tests with the iptables backend
-	$(MAKE) integration-tests INTEGRATION_BACKEND=iptables INTEGRATION_DEB="$(INTEGRATION_DEB)" INTEGRATION_REBUILD="$(INTEGRATION_REBUILD)" INTEGRATION_CASES="$(INTEGRATION_CASES)" INTEGRATION_VERBOSE="$(INTEGRATION_VERBOSE)"
+integration-tests-iptables: ## Run rootless integration tests with the iptables backend
+	$(MAKE) integration-tests INTEGRATION_BACKEND=iptables INTEGRATION_BIN="$(INTEGRATION_BIN)" INTEGRATION_CASES="$(INTEGRATION_CASES)" INTEGRATION_VERBOSE="$(INTEGRATION_VERBOSE)"
 
-integration-tests-nftables: ## Run packaged Debian integration tests with the nftables backend
-	$(MAKE) integration-tests INTEGRATION_BACKEND=nftables INTEGRATION_DEB="$(INTEGRATION_DEB)" INTEGRATION_REBUILD="$(INTEGRATION_REBUILD)" INTEGRATION_CASES="$(INTEGRATION_CASES)" INTEGRATION_VERBOSE="$(INTEGRATION_VERBOSE)"
+integration-tests-nftables: ## Run rootless integration tests with the nftables backend
+	$(MAKE) integration-tests INTEGRATION_BACKEND=nftables INTEGRATION_BIN="$(INTEGRATION_BIN)" INTEGRATION_CASES="$(INTEGRATION_CASES)" INTEGRATION_VERBOSE="$(INTEGRATION_VERBOSE)"
 
 clang-build: ## Configure and compile with Clang in a host-only build dir
 	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS)
-	cmake --build $(CLANG_BUILD_DIR) --target keen-pbr
+	cmake --build $(CLANG_BUILD_DIR) --parallel $(BUILD_JOBS) --target keen-pbr
 
 clang-check: ## Compile with Clang thread-safety analysis enabled; never runs binaries
 	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
-	cmake --build $(CLANG_BUILD_DIR) --target keen-pbr keen-pbr-tests thread-safety-smoke
+	cmake --build $(CLANG_BUILD_DIR) --parallel $(BUILD_JOBS) --target keen-pbr keen-pbr-tests thread-safety-smoke
 
 CLANGD_TIDY_ARGS ?=
 
 clang-tidy: ## Run clangd-tidy against project-owned sources using the Clang compile database
 	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
-	bash build_scripts/run-clangd-tidy.sh "$(abspath $(CLANG_BUILD_DIR))" $(CLANGD_TIDY_ARGS)
+	bash build_scripts/run-clangd-tidy.sh "$(abspath $(CLANG_BUILD_DIR))" -j $(BUILD_JOBS) $(CLANGD_TIDY_ARGS)
 
 clean: ## Remove compiled artifacts
+	rm -rf $(NETNS_INTEGRATION_BUILD_DIR)
 	rm -rf $(GCC_BUILD_DIR) $(CLANG_BUILD_DIR) build/cmake-aarch64 build/cross-toolchain build/dist \
 	       build/debian-src-full build/debian-src-headless build/packages
 
 distclean: ## Remove all build artifacts including downloaded SDKs
-	rm -rf build/ $(GCC_BUILD_DIR) $(CLANG_BUILD_DIR)
+	rm -rf build/ $(GCC_BUILD_DIR) $(CLANG_BUILD_DIR) $(NETNS_INTEGRATION_BUILD_DIR)
 
 ## Cross-compilation for aarch64_cortex-a53 + deploy ##########################
 

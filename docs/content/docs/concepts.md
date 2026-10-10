@@ -21,7 +21,9 @@ Named collections of IPs, CIDRs, and domain names. Sources can be combined freel
 
 At startup, IP/CIDR entries are loaded into kernel sets. The iptables backend alternates between `kpbr4s_/kpbr4S_` and `kpbr6s_/kpbr6S_`; nftables keeps stable `kpbr4_`/`kpbr6_` names. Static entries have no timeout.
 
-Domain entries generate dnsmasq `ipset=`/`nftset=` directives so that when a domain is resolved, its IPs are dynamically added to the matching set (`kpbr4d_<list>`, `kpbr6d_<list>`, entries are timing out after `ttl_ms` configured for domain list).
+Domain entries are matched by the DNS/L7 interception service and their
+resolved IPs are added to the matching dynamic set (`kpbr4d_<list>`,
+`kpbr6d_<list>`) with bounded TTL.
 
 See [Lists]({{< relref "/docs/configuration/lists" >}}) for the full reference.
 
@@ -59,11 +61,16 @@ See [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) for the full
 
 ### DNS
 
-Maps domain lists to DNS servers via dnsmasq `server=` directives. When a domain in a list is queried, dnsmasq forwards the query to the assigned DNS server. The response IPs are simultaneously injected into the corresponding ipset/nftset so that subsequent packets are routed correctly.
+keen-pbr does not configure or depend on any resolver (dnsmasq, the Keenetic
+DNS proxy or any other keeps working as set up): NFQUEUE parses DNS responses and NFLOG can learn TLS SNI, HTTP Host,
+and QUIC Initial names. Matching response IPs are injected into the
+corresponding dynamic set so subsequent packets are routed correctly.
 
-Integration is via `conf-file=` (or `conf-script=`): keen-pbr writes `/tmp/keen-pbr-dnsmasq.conf` on startup; dnsmasq reads it on the next reload.
+Optional [dnsmasq management]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}) can route domains from specific lists through different DNS servers (useful for CDN region matching).
 
 See [DNS]({{< relref "/docs/configuration/dns" >}}) for the full reference.
+See the [DNS and L7 interception architecture](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)
+for packet flow, capability gating, and failure behavior.
 
 ---
 
@@ -73,7 +80,9 @@ See [DNS]({{< relref "/docs/configuration/dns" >}}) for the full reference.
 2. **Populate ipsets/nftsets** — IP/CIDR entries are inserted into the inactive A/B iptables sets or stable nftables sets
 3. **Install firewall rules** — create rules in the `iptables` `mangle` table or the `nftables` `inet KeenPbrTable` table that match configured lists and filters, then set the appropriate fwmark in `PREROUTING` / `prerouting`
 4. **Install routing** — create routing tables and `ip rule` entries for each outbound based on assigned fwmarks
-5. **Generate resolver config** — write `/tmp/keen-pbr-dnsmasq.conf` with `server=` + `ipset=`/`nftset=` directives; signal dnsmasq to reload
+5. **Start interception** — attach the DNS NFQUEUE and L7 NFLOG hooks when
+   capabilities are available, then publish the DomainIndex and dynamic-set
+   snapshot
 6. **Start urltest probing** — if any `urltest` outbounds are configured, begin periodic latency probes
 
 ---
@@ -85,7 +94,7 @@ flowchart TD
     subgraph Config["config.json"]
         RoutingOutbounds["Routing outbounds\n(interface, table,\nurltest-selected child)"]
         Lists["Lists\n(IPs, CIDRs, domains)"]
-        DNS["DNS\n(servers + rules)"]
+        DNS["DNS\n(servers + detour)"]
         RouteRules["Route Rules\n(list + filters →\nrouting / drop / pass)"]
     end
 
@@ -97,11 +106,11 @@ flowchart TD
         SystemRouting["System routing\n(default path)"]
     end
 
-    Dnsmasq["dnsmasq\n(ipset= / nftset=)"]
+    Interceptor["DNS NFQUEUE + L7 NFLOG\n(DomainIndex → dynamic sets)"]
 
     Lists -->|"IP/CIDR entries"| Ipsets
-    Lists -->|"domain entries"| Dnsmasq
-    DNS --> Dnsmasq
+    Lists -->|"domain entries"| Interceptor
+    DNS -->|"detour"| FwmarkRules
     Ipsets --> FwmarkRules
     RouteRules --> FwmarkRules
     RoutingOutbounds --> IpRules
@@ -109,7 +118,7 @@ flowchart TD
     FwmarkRules --> IpRules
     FwmarkRules --> SystemRouting
     IpRules --> RoutingTables
-    Dnsmasq -->|"resolved IPs → ipset"| Ipsets
+    Interceptor -->|"resolved IPs → dynamic sets"| Ipsets
 ```
 
 ---
@@ -143,16 +152,15 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant Client
-    participant dnsmasq
-    participant VPN_DNS as VPN DNS (10.8.0.1)
+    participant Interceptor as keen-pbr interception
+    participant Resolver as system resolver
     participant Ipset as ipset kpbr4_my_domains
     participant Firewall
 
-    Client->>dnsmasq: query example.com
-    dnsmasq->>VPN_DNS: forward (server=/example.com/10.8.0.1)
-    VPN_DNS-->>dnsmasq: 93.184.216.34
-    dnsmasq->>Ipset: add 93.184.216.34 (nftset= directive)
-    dnsmasq-->>Client: 93.184.216.34
+    Client->>Resolver: query example.com
+    Resolver-->>Client: DNS response
+    Resolver->>Interceptor: response observed in NFQUEUE
+    Interceptor->>Ipset: add 93.184.216.34 (bounded TTL)
 
     Note over Client,Firewall: Next packet to 93.184.216.34
     Client->>Firewall: packet dest 93.184.216.34

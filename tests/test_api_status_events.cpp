@@ -54,7 +54,6 @@ api::HealthResponse api_service_snapshot() {
   snapshot.os_type = "linux";
   snapshot.os_version = "test";
   snapshot.build_variant = "test";
-  snapshot.resolver_live_status = api::ResolverLiveStatus::HEALTHY;
   snapshot.config_is_draft = false;
   return snapshot;
 }

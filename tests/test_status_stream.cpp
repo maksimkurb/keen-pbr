@@ -25,14 +25,13 @@ TestStatusSnapshot make_snapshot(std::string version = "1",
   snapshot.service.os_type = "linux";
   snapshot.service.os_version = "test";
   snapshot.service.build_variant = "test";
-  snapshot.service.resolver_live_status = api::ResolverLiveStatus::HEALTHY;
   snapshot.service.config_is_draft = false;
   snapshot.outbounds.outbounds.resize(outbound_count);
   for (size_t i = 0; i < outbound_count; ++i) {
     auto &outbound = snapshot.outbounds.outbounds[i];
     outbound.tag = "outbound" + std::to_string(i);
     outbound.type = api::OutboundType::INTERFACE;
-    outbound.status = api::ResolverLiveStatus::HEALTHY;
+    outbound.status = api::RuntimeOutboundStatusEnum::HEALTHY;
   }
   return snapshot;
 }

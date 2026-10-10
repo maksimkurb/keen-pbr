@@ -9,12 +9,23 @@ import type { DnsRule } from './dnsRule';
 import type { DnsServer } from './dnsServer';
 import type { DnsSystemResolver } from './dnsSystemResolver';
 import type { DnsTestServer } from './dnsTestServer';
+import type { ResolverIntegrationMode } from './resolverIntegrationMode';
 
 export interface DnsConfig {
   servers?: DnsServer[];
+  /** Per-list DNS upstream selection. Used only when `resolver_integration` is `dnsmasq`.
+   */
   rules?: DnsRule[];
-  /** Ordered DNS server tags to use when no rule matches. */
+  /** DNS server tags used as dnsmasq's default upstreams. When set, the generated config adds `no-resolv` and unscoped `server=` lines. Used only when `resolver_integration` is `dnsmasq`.
+   */
   fallback?: string[];
+  /** `none` (default) | `dnsmasq`. With `dnsmasq`, keen-pbr generates a dnsmasq config with per-list `server=` lines, installs it via the platform hook and restarts dnsmasq. If absent and `dns.rules` is non-empty, `dnsmasq` is assumed (upgrade compatibility).
+   */
+  resolver_integration?: ResolverIntegrationMode;
   dns_test_server?: DnsTestServer;
+  /**
+     * Ignored since 3.0.0.
+     * @deprecated
+     */
   system_resolver?: DnsSystemResolver;
 }

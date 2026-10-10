@@ -16,11 +16,19 @@ on:
       frontend_artifact_name:
         required: false
         type: string
-        default: "frontend-dist"
+        default: "frontend-dist-keenetic"
+      publish_branch:
+        required: false
+        type: boolean
+        default: false
+      source_ref_name:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   generate-config:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       job-config: ${{ steps.gen.outputs.job-config }}
     steps:
@@ -45,7 +53,7 @@ jobs:
           build_scope = os.environ["BUILD_SCOPE"]
           raw = os.environ.get("CONFIGS_INPUT", "")
           if build_scope == "default":
-              builds = ["mipsel-3.4.config", "aarch64-3.10.config"]
+              builds = ["mipsel-3.4.config"]
           else:
               selected = [item.strip() for item in raw.split(",") if item.strip()]
               builds = [cfg for cfg in all_configs if cfg in selected] if selected else all_configs
@@ -56,6 +64,7 @@ jobs:
                   {
                       "config_file": config,
                       "config_name": config.removesuffix(".config"),
+                      "package_arch": config.split("-", 1)[0],
                   }
               )
 
@@ -64,7 +73,7 @@ jobs:
 
   build:
     name: "build: ${{ matrix.build_env.config_name }}"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [generate-config]
     strategy:
       fail-fast: false
@@ -73,6 +82,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
       - name: Download frontend bundle
         uses: actions/download-artifact@v8
@@ -98,3 +108,17 @@ jobs:
           name: debug-symbols-keenetic-${{ matrix.build_env.config_name }}
           path: build/packages/keenetic-debug
           if-no-files-found: error
+      - name: Publish target to branch repository
+        if: ${{ inputs.publish_branch }}
+        env:
+          RSYNC_HOST: ${{ secrets.RSYNC_HOST || vars.RSYNC_HOST }}
+          RSYNC_USERNAME: ${{ secrets.RSYNC_USERNAME || vars.RSYNC_USERNAME }}
+          RSYNC_SSH_PRIVATE_KEY: ${{ secrets.RSYNC_SSH_PRIVATE_KEY || vars.RSYNC_SSH_PRIVATE_KEY }}
+          RSYNC_TARGET_ROOT: ${{ secrets.RSYNC_TARGET_ROOT || vars.RSYNC_TARGET_ROOT }}
+          RSYNC_PORT: ${{ secrets.RSYNC_PORT || vars.RSYNC_PORT || '22' }}
+        run: |
+          bash build_scripts/publish-rsync-incremental.sh \
+            "${{ inputs.source_ref_name }}" \
+            keenetic \
+            "${{ inputs.keenetic_version }}" \
+            "${{ matrix.build_env.package_arch }}"

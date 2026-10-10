@@ -16,6 +16,7 @@ namespace keen_pbr3 {
 namespace {
 
 constexpr uint32_t kUnreachableRouteMetric = 65535;
+constexpr char kAutoGateway[] = "auto";
 
 const Outbound* find_outbound(const std::vector<Outbound>& outbounds,
                               const std::string& tag) {
@@ -55,9 +56,11 @@ bool route_matches_outbound(const DumpedRoute& route, const Outbound& outbound) 
         return false;
     }
     if (route.family == AF_INET && outbound.gateway.has_value()) {
+        if (*outbound.gateway == kAutoGateway) return true;
         return route.gateway == outbound.gateway;
     }
     if (route.family == AF_INET6 && outbound.gateway6.has_value()) {
+        if (*outbound.gateway6 == kAutoGateway) return true;
         return route.gateway == outbound.gateway6;
     }
     return !route.gateway.has_value();
@@ -186,17 +189,12 @@ bool interface_has_gateway_route(const std::vector<DumpedRoute>& routes,
     return false;
 }
 
-bool outbound_family_available(const Outbound& ob, int family,
-                               const OutboundFamilyAvailabilityFn& family_available) {
-    if (family == AF_INET && ob.gateway.has_value()) return true;
-    if (family == AF_INET6 && ob.gateway6.has_value()) return true;
-    return !family_available || family_available(ob, family);
-}
-
 std::vector<RouteSpec> make_default_routes(
     uint32_t table_id,
     const Outbound& ob,
-    const OutboundFamilyAvailabilityFn& family_available) {
+    const OutboundFamilyAvailabilityFn& family_available,
+    const std::optional<std::string>& gateway4,
+    const std::optional<std::string>& gateway6) {
     std::vector<RouteSpec> routes;
 
     auto build_route = [&](int family, const std::optional<std::string>& gateway) {
@@ -211,22 +209,24 @@ std::vector<RouteSpec> make_default_routes(
 
     const bool has_gateway4 = ob.gateway.has_value();
     const bool has_gateway6 = ob.gateway6.has_value();
+    const bool available4 = !family_available || family_available(ob, AF_INET);
+    const bool available6 = !family_available || family_available(ob, AF_INET6);
 
     if (!has_gateway4 && !has_gateway6) {
-        if (outbound_family_available(ob, AF_INET, family_available)) {
+        if (available4) {
             build_route(AF_INET, std::nullopt);
         }
-        if (outbound_family_available(ob, AF_INET6, family_available)) {
+        if (available6) {
             build_route(AF_INET6, std::nullopt);
         }
         return routes;
     }
 
-    if (has_gateway4) {
-        build_route(AF_INET, ob.gateway);
+    if (has_gateway4 && available4) {
+        build_route(AF_INET, gateway4);
     }
-    if (has_gateway6) {
-        build_route(AF_INET6, ob.gateway6);
+    if (has_gateway6 && available6) {
+        build_route(AF_INET6, gateway6);
     }
     return routes;
 }
@@ -239,10 +239,10 @@ std::vector<RouteSpec> make_family_closure_routes(
     std::vector<RouteSpec> routes;
     const bool has_gateway4 = ob.gateway.has_value();
     const bool has_gateway6 = ob.gateway6.has_value();
-    const bool route4 = has_gateway4 ||
-        (!has_gateway6 && outbound_family_available(ob, AF_INET, family_available));
-    const bool route6 = has_gateway6 ||
-        (!has_gateway4 && outbound_family_available(ob, AF_INET6, family_available));
+    const bool available4 = !family_available || family_available(ob, AF_INET);
+    const bool available6 = !family_available || family_available(ob, AF_INET6);
+    const bool route4 = has_gateway4 ? available4 : (!has_gateway6 && available4);
+    const bool route6 = has_gateway6 ? available6 : (!has_gateway4 && available6);
 
     if (!route4) {
         RouteSpec route;
@@ -296,6 +296,54 @@ static uint32_t safe_table_id(uint32_t table_start, uint32_t offset) {
 
 } // anonymous namespace
 
+InterfaceGatewayDiscovery discover_interface_gateway(
+    const Outbound& outbound,
+    int family,
+    const std::vector<DumpedRoute>& main_routes) {
+    if (family != AF_INET && family != AF_INET6) return {};
+    const auto& configured = family == AF_INET ? outbound.gateway : outbound.gateway6;
+    if (!configured || *configured != kAutoGateway ||
+        outbound.type != OutboundType::INTERFACE) {
+        return {};
+    }
+
+    const auto iface = outbound.interface.value_or("");
+    const auto matches = [&iface, family](const DumpedRoute& route) {
+        return route.table == 254U && route.family == family &&
+               route.destination == "default" && !route.blackhole &&
+               !route.unreachable && route.unicast && route.interface == iface;
+    };
+    bool found = false;
+    uint32_t best_metric = 0;
+    for (const auto& route : main_routes) {
+        if (matches(route) && (!found || route.metric < best_metric)) {
+            best_metric = route.metric;
+            found = true;
+        }
+    }
+    if (!found) return {};
+
+    std::optional<std::string> gateway;
+    bool selected = false;
+    for (const auto& route : main_routes) {
+        if (!matches(route) || route.metric != best_metric) continue;
+        if (route.nexthop_count > 1U) return {};
+        if (!selected) {
+            gateway = route.gateway;
+            selected = true;
+        } else if (route.gateway != gateway) {
+            return {};
+        }
+    }
+    return {true, gateway};
+}
+
+bool interface_outbound_uses_auto_gateway(const Outbound& outbound) {
+    return outbound.type == OutboundType::INTERFACE &&
+           ((outbound.gateway && *outbound.gateway == kAutoGateway) ||
+            (outbound.gateway6 && *outbound.gateway6 == kAutoGateway));
+}
+
 std::map<std::string, uint32_t> build_outbound_table_map(const Config& cfg) {
     auto outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
     std::stable_sort(outbounds.begin(), outbounds.end(), [](const Outbound& left,
@@ -337,7 +385,8 @@ void populate_routing_state(const Config& cfg,
                             OutboundReachabilityFn reachability_check,
                             const std::map<std::string, std::string>* urltest_selections,
                             bool ipv6_enabled,
-                            OutboundFamilyAvailabilityFn family_available) {
+                            OutboundFamilyAvailabilityFn family_available,
+                            const std::vector<DumpedRoute>* main_routes) {
     auto outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
     std::stable_sort(outbounds.begin(), outbounds.end(), [](const Outbound& left, const Outbound& right) {
         const auto rank = [](OutboundType type) {
@@ -377,6 +426,16 @@ void populate_routing_state(const Config& cfg,
     for (const auto& server : cfg.dns.value_or(DnsConfig{}).servers.value_or(std::vector<DnsServer>{})) {
         if (server.detour) internal_detours.insert(*server.detour);
     }
+    std::set<std::string> balance_candidate_tags;
+    for (const auto& outbound : outbounds) {
+        if (!outbound_uses_balance(outbound)) continue;
+        for (const auto& group : outbound.outbound_groups.value_or(
+                 std::vector<OutboundGroup>{})) {
+            for (const auto& tag : outbound_group_tags(group)) {
+                balance_candidate_tags.insert(tag);
+            }
+        }
+    }
     auto add_lookup_and_guard = [&](uint32_t mark, uint32_t table, const Outbound& ob,
                                     bool guard_required) {
         RuleSpec lookup;
@@ -401,6 +460,30 @@ void populate_routing_state(const Config& cfg,
             add_lookup_and_guard(mark->second, table, ob, true);
         }
     };
+    const auto gateway_for_family = [main_routes](const Outbound& ob,
+                                                   int family) {
+        const auto& configured = family == AF_INET ? ob.gateway : ob.gateway6;
+        if (!configured || *configured != "auto") return configured;
+        if (!main_routes) return std::optional<std::string>{};
+        return discover_interface_gateway(ob, family, *main_routes).gateway;
+    };
+    const auto route_family_available = [main_routes, &family_available](
+                                             const Outbound& ob, int family) {
+        const auto& configured = family == AF_INET ? ob.gateway : ob.gateway6;
+        if (configured && *configured == "auto" && !main_routes) {
+            return false;
+        }
+        if (main_routes) {
+            if (configured && *configured == "auto" &&
+                !discover_interface_gateway(ob, family, *main_routes).available) {
+                return false;
+            }
+            if (!is_interface_outbound_family_reachable(ob, family, *main_routes)) {
+                return false;
+            }
+        }
+        return !family_available || family_available(ob, family);
+    };
     for (const auto& ob : outbounds) {
         if (ob.type == OutboundType::INTERFACE) {
             auto mark_it = marks.find(ob.tag);
@@ -408,15 +491,21 @@ void populate_routing_state(const Config& cfg,
 
             const uint32_t table_id = outbound_tables.at(ob.tag);
 
-            const bool strict = strict_enforcement_enabled(cfg, ob);
+            const bool strict = strict_enforcement_enabled(cfg, ob) ||
+                balance_candidate_tags.count(ob.tag) != 0;
             const bool reachable = !reachability_check || reachability_check(ob);
-            if (reachable) {
-                for (const auto& route : make_default_routes(table_id, ob, family_available)) {
+            if (reachable || main_routes) {
+                const auto gateway4 = gateway_for_family(ob, AF_INET);
+                const auto gateway6 = gateway_for_family(ob, AF_INET6);
+                for (const auto& route : make_default_routes(
+                         table_id, ob, route_family_available, gateway4, gateway6)) {
                     add_route_if_enabled(route);
                 }
-                for (const auto& route : make_family_closure_routes(
-                         table_id, ob, family_available)) {
-                    add_route_if_enabled(route);
+                if (reachable || strict) {
+                    for (const auto& route : make_family_closure_routes(
+                             table_id, ob, route_family_available)) {
+                        add_route_if_enabled(route);
+                    }
                 }
             } else if (strict) {
                 for (const auto& route : make_unreachable_routes(table_id)) {
@@ -430,7 +519,8 @@ void populate_routing_state(const Config& cfg,
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
 
-            const bool strict = strict_enforcement_enabled(cfg, ob);
+            const bool strict = strict_enforcement_enabled(cfg, ob) ||
+                balance_candidate_tags.count(ob.tag) != 0;
             const uint32_t table_id = outbound_tables.at(ob.tag);
             add_lookup_and_guard(mark_it->second, table_id, ob, strict);
             add_internal_detour_guard(table_id, ob);
@@ -493,24 +583,28 @@ bool is_interface_outbound_reachable(
         return true;
     }
 
+    return is_interface_outbound_family_reachable(outbound, AF_INET, routes) &&
+           is_interface_outbound_family_reachable(outbound, AF_INET6, routes);
+}
+
+bool is_interface_outbound_family_reachable(
+    const Outbound& outbound,
+    int family,
+    const std::vector<DumpedRoute>& routes) {
+    if (outbound.type != OutboundType::INTERFACE) return true;
+    if (family != AF_INET && family != AF_INET6) return false;
+
     const auto iface = outbound.interface.value_or("");
-    if (iface.empty() || if_nametoindex(iface.c_str()) == 0) {
-        return false;
-    }
-    if (!is_interface_up(iface)) {
+    if (iface.empty() || if_nametoindex(iface.c_str()) == 0 || !is_interface_up(iface)) {
         return false;
     }
 
-    if (outbound.gateway.has_value() &&
-        !interface_has_gateway_route(routes, iface, *outbound.gateway)) {
-        return false;
+    const auto& configured = family == AF_INET ? outbound.gateway : outbound.gateway6;
+    if (!configured) return true;
+    if (*configured == "auto") {
+        return discover_interface_gateway(outbound, family, routes).available;
     }
-    if (outbound.gateway6.has_value() &&
-        !interface_has_gateway_route(routes, iface, *outbound.gateway6)) {
-        return false;
-    }
-
-    return true;
+    return interface_has_gateway_route(routes, iface, *configured);
 }
 
 bool interface_has_routed_ipv6(const DumpedInterface& interface) {
@@ -527,21 +621,10 @@ bool interface_has_routed_ipv6(const DumpedInterface& interface) {
         });
 }
 
-FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg) {
-    FirewallGlobalPrefilter prefilter;
-    prefilter.skip_established_or_dnat = true;
-    prefilter.skip_marked_packets = cfg.daemon.value_or(DaemonConfig{}).skip_marked_packets.value_or(true);
-
-    const auto route_cfg = cfg.route.value_or(RouteConfig{});
-    if (route_cfg.inbound_interfaces.has_value()
-        && !route_cfg.inbound_interfaces->empty()) {
-        prefilter.inbound_interfaces = *route_cfg.inbound_interfaces;
-    }
-
-    return prefilter;
-}
-
-FirewallRuleCriteria build_firewall_rule_criteria(const RouteRule& rule) {
+FirewallRuleCriteria build_firewall_rule_criteria(
+    const RouteRule& rule,
+    const std::vector<DumpedRoute>& main_routes,
+    const std::vector<DumpedInterface>& interfaces) {
     auto strip_neg = [](const std::string& value) -> std::pair<std::string, bool> {
         if (!value.empty() && value.front() == '!') {
             return {value.substr(1), true};
@@ -574,6 +657,41 @@ FirewallRuleCriteria build_firewall_rule_criteria(const RouteRule& rule) {
         AddrSpec spec = parse_addr_spec(rule.dest_addr.value_or(""));
         criteria.negate_dst_addr = spec.negate;
         criteria.dst_addr = std::move(spec.addrs);
+    }
+
+    if (rule.default_gateway.has_value()) {
+        const bool ipv6 = *rule.default_gateway == api::DefaultGateway::IPV6;
+        criteria.default_gateway = ipv6 ? DefaultGatewayFamily::Ipv6
+                                        : DefaultGatewayFamily::Ipv4;
+        std::set<std::string> bypass;
+        const auto add = [&bypass](const std::string& destination) {
+            if (!destination.empty() && destination != "default" &&
+                destination != "0.0.0.0/0" && destination != "::/0") {
+                bypass.insert(destination);
+            }
+        };
+        if (ipv6) {
+            for (const auto* destination : {"::/128", "::1/128", "fe80::/10", "ff00::/8"}) {
+                add(destination);
+            }
+        } else {
+            for (const auto* destination : {"0.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/3"}) {
+                add(destination);
+            }
+        }
+        for (const auto& route : main_routes) {
+            if (route.family == (ipv6 ? AF_INET6 : AF_INET)) {
+                add(route.destination);
+            }
+        }
+        for (const auto& interface : interfaces) {
+            const auto& addresses = ipv6 ? interface.ipv6_addresses
+                                         : interface.ipv4_addresses;
+            for (const auto& address : addresses) {
+                add(address);
+            }
+        }
+        criteria.default_gateway_bypass.assign(bypass.begin(), bypass.end());
     }
 
     return criteria;
@@ -632,155 +750,49 @@ std::vector<RuleState> build_fw_rule_states(
 
     for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
         const auto& rule = route_rules[rule_idx];
-
-        if (!route_rule_enabled(rule)) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = route_rule_lists(rule);
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Skip;
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
-
-        auto decision = resolve_route_action(rule.outbound, all_outbounds);
-
-        if (decision.is_skip) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = route_rule_lists(rule);
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Skip;
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
-
-        if (!decision.outbound.has_value() || !*decision.outbound) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = route_rule_lists(rule);
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Skip;
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
-
-        const Outbound* ob = *decision.outbound;
-
-        if (decision.is_passthrough) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = route_rule_lists(rule);
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Pass;
-
-            for (const auto& list_name : route_rule_lists(rule)) {
-                auto list_cfg_it = lists_map.find(list_name);
-                if (list_cfg_it == lists_map.end()) continue;
-
-                const std::string set4  = "kpbr4_"  + list_name;
-                const std::string set6  = "kpbr6_"  + list_name;
-                const std::string set4d = "kpbr4d_" + list_name;
-                const std::string set6d = "kpbr6d_" + list_name;
-
-                rs.set_names.push_back(set4);
-                rs.set_names.push_back(set6);
-                rs.set_names.push_back(set4d);
-                rs.set_names.push_back(set6d);
-            }
-
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
-
-        const bool is_blackhole = (ob->type == OutboundType::BLACKHOLE);
-
         RuleState rs;
         rs.rule_index = rule_idx;
         rs.list_names = route_rule_lists(rule);
         rs.outbound_tag = rule.outbound;
 
-        if (is_blackhole) {
-            rs.action_type = RuleActionType::Drop;
-        } else {
-            rs.action_type = RuleActionType::Mark;
-            auto mark_it = marks.find(ob->tag);
-            if (mark_it != marks.end()) {
-                rs.fwmark = mark_it->second;
+        rs.action_type = RuleActionType::Skip;
+        if (route_rule_enabled(rule)) {
+            const auto decision = resolve_route_action(rule.outbound, all_outbounds);
+            if (!decision.is_skip && decision.outbound.has_value() &&
+                *decision.outbound != nullptr) {
+                if (decision.is_passthrough) {
+                    rs.action_type = RuleActionType::Pass;
+                } else {
+                    const Outbound* ob = *decision.outbound;
+                    if (ob->type == OutboundType::BLACKHOLE) {
+                        rs.action_type = RuleActionType::Drop;
+                    } else {
+                        rs.action_type = RuleActionType::Mark;
+                        auto mark_it = marks.find(ob->tag);
+                        if (mark_it != marks.end()) {
+                            rs.fwmark = mark_it->second;
+                        }
+                    }
+                }
             }
         }
 
-        for (const auto& list_name : route_rule_lists(rule)) {
-            auto list_cfg_it = lists_map.find(list_name);
-            if (list_cfg_it == lists_map.end()) continue;
+        if (rs.action_type != RuleActionType::Skip) {
+            for (const auto& list_name : rs.list_names) {
+                auto list_cfg_it = lists_map.find(list_name);
+                if (list_cfg_it == lists_map.end()) continue;
 
-            const std::string set4  = "kpbr4_"  + list_name;
-            const std::string set6  = "kpbr6_"  + list_name;
-            const std::string set4d = "kpbr4d_" + list_name;
-            const std::string set6d = "kpbr6d_" + list_name;
-
-            rs.set_names.push_back(set4);
-            rs.set_names.push_back(set6);
-            rs.set_names.push_back(set4d);
-            rs.set_names.push_back(set6d);
+                rs.set_names.push_back("kpbr4_" + list_name);
+                rs.set_names.push_back("kpbr6_" + list_name);
+                rs.set_names.push_back("kpbr4d_" + list_name);
+                rs.set_names.push_back("kpbr6d_" + list_name);
+            }
         }
 
         rule_states.push_back(std::move(rs));
     }
 
     return rule_states;
-}
-
-void prune_fw_rule_states_to_realized_sets(
-    const Config& cfg,
-    std::vector<RuleState>& rule_states,
-    const ListSetUsageFn& list_usage_fn,
-    bool ipv6_enabled) {
-    static const std::map<std::string, ListConfig> empty_lists;
-    const auto& lists_map = cfg.lists ? *cfg.lists : empty_lists;
-    const auto& route_rules =
-        cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
-
-    std::map<std::string, ListSetUsage> usage_cache;
-
-    for (auto& rs : rule_states) {
-        if (rs.action_type == RuleActionType::Skip) {
-            continue;
-        }
-        if (rs.rule_index >= route_rules.size()) {
-            continue;
-        }
-
-        rs.set_names.clear();
-
-        const auto& rule = route_rules[rs.rule_index];
-        rs.criteria = build_firewall_rule_criteria(rule);
-        for (const auto& list_name : route_rule_lists(rule)) {
-            auto list_cfg_it = lists_map.find(list_name);
-            if (list_cfg_it == lists_map.end()) continue;
-
-            auto usage_it = usage_cache.find(list_name);
-            if (usage_it == usage_cache.end()) {
-                usage_it = usage_cache.emplace(
-                    list_name,
-                    list_usage_fn(list_name, list_cfg_it->second)).first;
-            }
-            const auto& usage = usage_it->second;
-
-            if (usage.has_static_entries) {
-                rs.set_names.push_back("kpbr4_" + list_name);
-                if (ipv6_enabled) {
-                    rs.set_names.push_back("kpbr6_" + list_name);
-                }
-            }
-            if (usage.has_domain_entries) {
-                rs.set_names.push_back("kpbr4d_" + list_name);
-                if (ipv6_enabled) {
-                    rs.set_names.push_back("kpbr6d_" + list_name);
-                }
-            }
-        }
-    }
 }
 
 } // namespace keen_pbr3

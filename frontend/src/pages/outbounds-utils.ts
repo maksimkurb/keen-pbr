@@ -1,11 +1,47 @@
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { Outbound } from "@/api/generated/model/outbound"
 import type { OutboundGroup } from "@/api/generated/model/outboundGroup"
+import type { OutboundGroupMember } from "@/api/generated/model/outboundGroupMember"
+
+/**
+ * Members of one group. Reads the canonical `members` and, for configs that
+ * were not upgraded yet, the legacy `candidates` / `outbounds` fields.
+ */
+export function getOutboundGroupMembers(
+  group: OutboundGroup
+): OutboundGroupMember[] {
+  if (group.members) {
+    return group.members
+  }
+  if (group.candidates) {
+    return group.candidates.map((candidate) => ({
+      outbound: candidate.outbound,
+      target: candidate.target,
+    }))
+  }
+  return (group.outbounds ?? []).map((outbound) => ({ outbound }))
+}
 
 export function getOutboundGroupTags(group: OutboundGroup): string[] {
-  return (
-    group.outbounds ?? (group.candidates ?? []).map((item) => item.outbound)
-  )
+  return getOutboundGroupMembers(group).map((member) => member.outbound)
+}
+
+/**
+ * Groups in effective priority order, each in the canonical `members` form.
+ * Legacy configs ordered steps by the group `weight` (default 1, stable); the
+ * daemon upgrades them on load, this keeps the UI correct before that.
+ */
+export function getOrderedOutboundGroups(outbound: Outbound): OutboundGroup[] {
+  return (outbound.outbound_groups ?? [])
+    .map((group, index) => ({
+      members: getOutboundGroupMembers(group),
+      index,
+      weight: group.members ? 1 : (group.weight ?? 1),
+    }))
+    .sort(
+      (left, right) => left.weight - right.weight || left.index - right.index
+    )
+    .map(({ members }) => ({ members }))
 }
 
 export type OutboundDeleteImpact = {
@@ -41,7 +77,7 @@ export function getOutboundDeleteImpact(
         continue
       }
 
-      const remainingGroups = (outbound.outbound_groups ?? [])
+      const remainingGroups = getOrderedOutboundGroups(outbound)
         .map((group) => cleanupGroupReferences(group, deletedTags))
         .filter((group) => getOutboundGroupTags(group).length > 0)
 
@@ -70,8 +106,8 @@ export function getOutboundDeleteImpact(
       continue
     }
 
-    for (const [groupIndex, group] of (
-      outbound.outbound_groups ?? []
+    for (const [groupIndex, group] of getOrderedOutboundGroups(
+      outbound
     ).entries()) {
       const groupTags = getOutboundGroupTags(group)
       const removedTags = groupTags.filter((tag) => deletedTags.has(tag))
@@ -148,7 +184,7 @@ function cleanupOutboundReferences(
 
   return {
     ...outbound,
-    outbound_groups: (outbound.outbound_groups ?? [])
+    outbound_groups: getOrderedOutboundGroups(outbound)
       .map((group) => cleanupGroupReferences(group, deletedTags))
       .filter((group) => getOutboundGroupTags(group).length > 0),
   }
@@ -158,16 +194,9 @@ function cleanupGroupReferences(
   group: OutboundGroup,
   deletedTags: ReadonlySet<string>
 ): OutboundGroup {
-  if (group.candidates) {
-    return {
-      ...group,
-      candidates: group.candidates.filter(
-        (candidate) => !deletedTags.has(candidate.outbound)
-      ),
-    }
-  }
   return {
-    ...group,
-    outbounds: (group.outbounds ?? []).filter((tag) => !deletedTags.has(tag)),
+    members: getOutboundGroupMembers(group).filter(
+      (member) => !deletedTags.has(member.outbound)
+    ),
   }
 }

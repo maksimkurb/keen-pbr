@@ -14,24 +14,6 @@ keen-pbr можно установить на роутерах OpenWrt из ре
 - OpenWrt 25.x и новее: `apk`
 - OpenWrt 24.x и старше: `opkg`
 
-### Замените `dnsmasq` на `dnsmasq-full`
-
-Установите `dnsmasq-full` перед установкой keen-pbr:
-
-{{< callout type="info" >}}
-Для OpenWrt 25.x и новее тоже нужен `dnsmasq-full` вместо стандартного `dnsmasq`.
-У меня нет роутера с `apk`, чтобы проверить точные шаги замены. Если вы знаете правильную процедуру, пожалуйста, отправьте PR с исправлением документации.
-{{< /callout >}}
-
-```bash {filename="bash"}
-# OpenWrt 25.x и новее
-apk --update-cache add dnsmasq-full
-
-# OpenWrt 24.x и старше
-opkg update && cd /tmp/ && opkg download dnsmasq-full
-opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
-```
-
 ### Установите со страницы репозитория
 
 Откройте страницу инструкций репозитория, выберите **OpenWrt** в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
@@ -75,6 +57,11 @@ service keen-pbr restart
 Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета.
 {{< /callout >}}
 
+{{< callout type="warning" >}}
+Для перехвата DNS и L7 нужны модули ядра `nfnetlink_queue`, `nfnetlink_log` и `nft_queue`.
+Пакет автоматически подтягивает `kmod-nfnetlink-queue`, `kmod-nfnetlink-log` и `kmod-nft-queue`. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет `cannot bind netfilter queue/log ... Invalid argument`, а `/api/health/service` называет отсутствующий модуль. `nft_log` входит в `kmod-nft-core`.
+{{< /callout >}}
+
 ### Следующие шаги
 
 Откройте [Быстрый старт]({{< relref "/docs/getting-started/quick-start" >}}) и используйте вкладку **Веб-интерфейс** для самой простой первоначальной настройки. Если вы установили `keen-pbr-headless`, используйте вкладку **JSON / CLI**.
@@ -84,3 +71,15 @@ service keen-pbr restart
 {{< /callout >}}
 
 {{% /steps %}}
+
+## Обновление с интеграции dnsmasq
+
+Старые версии keen-pbr управляли dnsmasq: переносили его upstream-серверы в `dhcp.@dnsmasq[*].kpbr_server`, добавляли `conf-script` и монтирования jail. При обновлении пакета keen-pbr сам отменяет эти изменения:
+
+- upstream-серверы из `kpbr_server` возвращаются в `server` (без дубликатов, в исходном порядке), после чего `kpbr_server` удаляется;
+- записи `addnmount` keen-pbr (`/usr/sbin/keen-pbr`, `/etc/keen-pbr`, `/var/cache/keen-pbr`) и drop-in `keen-pbr.conf` в `confdir` dnsmasq удаляются;
+- UCI `dhcp` фиксируется (commit), dnsmasq перезапускается один раз. Повторный запуск ничего не меняет, а секции dnsmasq, которых keen-pbr не касался, остаются как есть.
+
+dnsmasq не требуется для маршрутизации; per-list DNS-серверы можно включить снова через [`dns.rules`]({{< relref "/docs/configuration/dns#per-list-dns-servers--маршрутизация-доменов-через-разные-dns" >}}), в этом случае keen-pbr повторно добавляет `addnmount`-записи для `/usr/sbin/keen-pbr`, `/etc/keen-pbr`, `/var/cache/keen-pbr` (не `/var/run/keen-pbr`) и tmpfs drop-in `keen-pbr-upstream-dns.conf`. Обратите внимание: cleanup при обновлении удаляет мон­ти­рования только legacy-инсталляций.
+
+Миграцию можно запустить вручную: `/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr`.

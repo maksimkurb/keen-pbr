@@ -6,10 +6,18 @@
  * OpenAPI spec version: 3.0.0
  */
 
+/**
+ * - running: routing runtime is active - degraded: routing runtime is active but DNS interception is
+  enabled in config and the DNS hold is unavailable (see
+  `intercept.reasons`); domain-based routing is not filled
+- stopped: routing runtime is not active
+
+ */
 export type HealthResponseStatus = typeof HealthResponseStatus[keyof typeof HealthResponseStatus];
 
 
 export const HealthResponseStatus = {
   running: 'running',
+  degraded: 'degraded',
   stopped: 'stopped',
 } as const;

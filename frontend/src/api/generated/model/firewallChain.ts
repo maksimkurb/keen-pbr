@@ -5,12 +5,19 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { FirewallChainVerificationState } from './firewallChainVerificationState';
 
 export interface FirewallChain {
   /** Whether the keen-pbr firewall chain exists. */
   chain_present: boolean;
   /** Whether the chain is hooked into PREROUTING. */
   prerouting_hook_present: boolean;
+  /** Verification state of the firewall chain.
+  - verified: chain is properly configured
+  - unavailable: verification not possible (runtime initializing/applying)
+  - failed: chain is missing or misconfigured
+   */
+  verification_state: FirewallChainVerificationState;
   /** Human-readable detail. Omitted when empty. */
   detail?: string;
 }

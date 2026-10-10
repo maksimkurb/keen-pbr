@@ -6,12 +6,31 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { IcmpCandidate } from './icmpCandidate';
+import type { OutboundGroupMember } from './outboundGroupMember';
 
+/**
+ * One tier of a `urltest` or `icmptest` outbound. Tiers are tried in array order (first tier first); the members of a tier are listed in `members`. The legacy fields `outbounds`, `candidates` and `weight` are still accepted when reading a config and are converted to `members` (groups stable-sorted by legacy `weight`) while loading; mixing them with `members` in one group is a validation error.
+
+ */
 export interface OutboundGroup {
-  /** Relative weight for selecting this group when multiple groups are healthy. */
+  /** Ordered members of this tier. Must not be empty. */
+  members?: OutboundGroupMember[];
+  /**
+     * Deprecated. Legacy tier priority (lower values are tried first; equal values keep configuration order). Use the array order of `outbound_groups` instead.
+
+     * @deprecated
+     */
   weight?: number;
-  /** Ordered outbound tags. Required for `urltest` groups. */
+  /**
+     * Deprecated. Legacy ordered outbound tags of a `urltest` group. Use `members` instead.
+
+     * @deprecated
+     */
   outbounds?: string[];
-  /** Ordered ICMP candidates. Required for `icmptest` groups. */
+  /**
+     * Deprecated. Legacy ordered ICMP candidates of an `icmptest` group. Use `members` instead.
+
+     * @deprecated
+     */
   candidates?: IcmpCandidate[];
 }

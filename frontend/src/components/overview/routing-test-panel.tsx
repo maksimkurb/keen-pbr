@@ -1,9 +1,9 @@
+import type { Ref } from "react"
 import { Loader2, Search } from "lucide-react"
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import type { ApiError } from "@/api/client"
 
-import { usePostRoutingTestMutation } from "@/api/mutations"
-import { SectionCard } from "@/components/shared/section-card"
+import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Empty,
@@ -14,30 +14,41 @@ import {
 import {
   InputGroup,
   InputGroupAddon,
-  InputGroupButton,
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group"
 import { Skeleton } from "@/components/ui/skeleton"
 
+import { buildRoutingTestRequest } from "./routing-test-criteria"
+import { RoutingTestCriteriaFields } from "./routing-test-criteria-fields"
+import { getApiErrorMessage } from "@/lib/api-errors"
 import { RoutingDiagnosticsResult } from "./routing-diagnostics-result"
 import { sanitizeRoutingTarget } from "./sanitize-routing-target"
+import { useRoutingTestPanelState } from "./use-routing-test-panel-state"
 
-export function RoutingTestPanel() {
+export function RoutingTestPanel({
+  state,
+  targetInputRef,
+}: {
+  state: ReturnType<typeof useRoutingTestPanelState>
+  targetInputRef?: Ref<HTMLInputElement>
+}) {
   const { t } = useTranslation()
-  const [testTarget, setTestTarget] = useState("")
-  const [routingInputError, setRoutingInputError] = useState<string | null>(
-    null
-  )
+  const {
+    testTarget,
+    setTestTarget,
+    criteria,
+    setCriteria,
+    lastRequestRef,
+    routingInputError,
+    setRoutingInputError,
+    routingTestMutation,
+    runtimeOutboundsQuery,
+    routingDiagnostics,
+  } = state
 
-  const routingTestMutation = usePostRoutingTestMutation()
-  const routingDiagnostics =
-    routingTestMutation.data?.status === 200
-      ? routingTestMutation.data.data
-      : undefined
-
-  return (
-    <SectionCard title={t("overview.routingTest.title")}>
+  const content = (
+    <>
       <form
         className="space-y-3"
         onSubmit={(event) => {
@@ -55,45 +66,48 @@ export function RoutingTestPanel() {
           if (sanitized !== testTarget) {
             setTestTarget(sanitized)
           }
-          routingTestMutation.mutate({ data: { target: sanitized } })
+          const request = buildRoutingTestRequest(sanitized, criteria)
+          lastRequestRef.current = request
+          routingTestMutation.mutate({ data: request })
         }}
       >
-        <InputGroup>
-          <InputGroupAddon>
-            <InputGroupText>
-              <Search className="h-4 w-4" />
-            </InputGroupText>
-          </InputGroupAddon>
-          <InputGroupInput
-            onChange={(event) => setTestTarget(event.target.value)}
-            onKeyDown={(event) => {
-              if (
-                event.key === "Enter" &&
-                testTarget.trim() &&
-                !routingTestMutation.isPending
-              ) {
-                event.preventDefault()
-                const form = event.currentTarget.form
-                form?.requestSubmit()
-              }
-            }}
-            placeholder={t("overview.routingTest.placeholder")}
-            value={testTarget}
-          />
-          <InputGroupAddon align="inline-end">
-            <InputGroupButton
-              className="whitespace-nowrap"
-              disabled={routingTestMutation.isPending}
-              type="submit"
-              variant="default"
-            >
-              {routingTestMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : null}
-              {t("overview.routingTest.submit")}
-            </InputGroupButton>
-          </InputGroupAddon>
-        </InputGroup>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <InputGroup className="h-11 min-w-0 flex-1 sm:h-9">
+            <InputGroupAddon>
+              <InputGroupText>
+                <Search className="h-4 w-4" />
+              </InputGroupText>
+            </InputGroupAddon>
+            <InputGroupInput
+              ref={targetInputRef}
+              onChange={(event) => setTestTarget(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  testTarget.trim() &&
+                  !routingTestMutation.isPending
+                ) {
+                  event.preventDefault()
+                  const form = event.currentTarget.form
+                  form?.requestSubmit()
+                }
+              }}
+              placeholder={t("overview.routingTest.placeholder")}
+              value={testTarget}
+            />
+          </InputGroup>
+          <Button
+            className="h-11 sm:h-9"
+            disabled={routingTestMutation.isPending}
+            type="submit"
+          >
+            {routingTestMutation.isPending ? (
+              <Loader2 className="animate-spin" />
+            ) : null}
+            {t("overview.routingTest.submit")}
+          </Button>
+        </div>
+        <RoutingTestCriteriaFields value={criteria} onChange={setCriteria} />
       </form>
 
       {routingTestMutation.isPending ? (
@@ -112,7 +126,8 @@ export function RoutingTestPanel() {
       {routingTestMutation.isError ? (
         <Alert variant="destructive">
           <AlertDescription>
-            {t("overview.routingTest.requestFailed")}
+            {getApiErrorMessage(routingTestMutation.error as ApiError | null) ||
+              t("overview.routingTest.requestFailed")}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -132,8 +147,28 @@ export function RoutingTestPanel() {
       ) : null}
 
       {routingDiagnostics ? (
-        <RoutingDiagnosticsResult diagnostics={routingDiagnostics} />
+        <div className="space-y-3">
+          <RoutingDiagnosticsResult
+            diagnostics={routingDiagnostics}
+            isRefreshing={routingTestMutation.isPending}
+            onRefresh={() => {
+              routingTestMutation.mutate({
+                data: lastRequestRef.current ?? {
+                  target: routingDiagnostics.target,
+                },
+              })
+              void runtimeOutboundsQuery.refetch()
+            }}
+            runtimeOutbounds={
+              runtimeOutboundsQuery.data?.status === 200
+                ? runtimeOutboundsQuery.data.data.outbounds
+                : []
+            }
+          />
+        </div>
       ) : null}
-    </SectionCard>
+    </>
   )
+
+  return <div className="min-w-0 space-y-3">{content}</div>
 }

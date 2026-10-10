@@ -2,6 +2,7 @@
 
 #include "../log/logger.hpp"
 
+#include <chrono>
 #include <sstream>
 
 namespace keen_pbr3 {
@@ -17,16 +18,13 @@ std::string refresh_flight_key(const Config& config,
                                const OutboundMarkMap& outbound_marks,
                                bool only_uncached,
                                const std::set<std::string>* relevant_lists,
-                               const std::set<std::string>* target_lists,
-                               const std::set<std::string>* dns_relevant_lists) {
+                               const std::set<std::string>* target_lists) {
     nlohmann::json key;
     key["config"] = config;
     key["marks"] = outbound_marks;
     key["only_uncached"] = only_uncached;
     key["relevant"] = relevant_lists ? nlohmann::json(*relevant_lists) : nlohmann::json(nullptr);
     key["targets"] = target_lists ? nlohmann::json(*target_lists) : nlohmann::json(nullptr);
-    key["dns_relevant"] = dns_relevant_lists ? nlohmann::json(*dns_relevant_lists)
-                                               : nlohmann::json(nullptr);
     return key.dump();
 }
 
@@ -72,24 +70,6 @@ std::set<std::string> collect_relevant_list_names(const Config& config) {
         relevant_lists.insert(route_lists.begin(), route_lists.end());
     }
 
-    for (const auto& rule : config.dns.value_or(DnsConfig{}).rules.value_or(std::vector<DnsRule>{})) {
-        if (!dns_rule_enabled(rule)) {
-            continue;
-        }
-        relevant_lists.insert(rule.list.begin(), rule.list.end());
-    }
-
-    return relevant_lists;
-}
-
-std::set<std::string> collect_dns_relevant_list_names(const Config& config) {
-    std::set<std::string> relevant_lists;
-    for (const auto& rule : config.dns.value_or(DnsConfig{}).rules.value_or(std::vector<DnsRule>{})) {
-        if (!dns_rule_enabled(rule)) {
-            continue;
-        }
-        relevant_lists.insert(rule.list.begin(), rule.list.end());
-    }
     return relevant_lists;
 }
 
@@ -113,6 +93,19 @@ bool should_reload_runtime_after_list_refresh(bool routing_runtime_active,
     return routing_runtime_active && refresh_result.any_relevant_changed();
 }
 
+std::chrono::seconds startup_list_retry_delay(unsigned attempt) {
+    switch (attempt) {
+    case 0:
+        return std::chrono::seconds{10};
+    case 1:
+        return std::chrono::seconds{30};
+    case 2:
+        return std::chrono::seconds{120};
+    default:
+        return std::chrono::seconds{300};
+    }
+}
+
 std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
                                                                                const CacheManager& cache_manager) {
     std::map<std::string, api::ListRefreshStateValue> refresh_state;
@@ -131,6 +124,11 @@ std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(c
     return refresh_state;
 }
 
+std::map<std::string, ListRefreshStats> ListService::refresh_stats() const {
+    std::lock_guard<std::mutex> lock(stats_mutex_);
+    return refresh_stats_;
+}
+
 ListService::ListService(const std::filesystem::path& cache_dir, size_t max_file_size_bytes)
     : cache_manager_(cache_dir, max_file_size_bytes) {
 }
@@ -147,33 +145,29 @@ const CacheManager& ListService::cache_manager() const {
 RemoteListsRefreshResult ListService::download_uncached(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
-    const std::set<std::string>* relevant_lists,
-    const std::set<std::string>* dns_relevant_lists) {
+    const std::set<std::string>* relevant_lists) {
     return download_remote_lists(
-        config, outbound_marks, true, relevant_lists, nullptr, dns_relevant_lists);
+        config, outbound_marks, true, relevant_lists, nullptr);
 }
 
 RemoteListsRefreshResult ListService::refresh_remote_lists(const Config& config,
                                                            const OutboundMarkMap& outbound_marks,
                                                            const std::set<std::string>* relevant_lists,
-                                                           const std::set<std::string>* target_lists,
-                                                           const std::set<std::string>* dns_relevant_lists) {
+                                                           const std::set<std::string>* target_lists) {
     return download_remote_lists(
-        config, outbound_marks, false, relevant_lists, target_lists, dns_relevant_lists);
+        config, outbound_marks, false, relevant_lists, target_lists);
 }
 
 RemoteListsRefreshResult ListService::download_remote_lists(const Config& config,
                                                             const OutboundMarkMap& outbound_marks,
                                                             bool only_uncached,
                                                             const std::set<std::string>* relevant_lists,
-                                                            const std::set<std::string>* target_lists,
-                                                            const std::set<std::string>* dns_relevant_lists) {
+                                                            const std::set<std::string>* target_lists) {
     // All entry points converge here. Matching callers join one flight and
     // receive its result; different scopes wait so deterministic cache temp
     // paths are never shared by API, scheduled, and startup refreshes.
     const std::string flight_key =
-        refresh_flight_key(config, outbound_marks, only_uncached, relevant_lists, target_lists,
-                           dns_relevant_lists);
+        refresh_flight_key(config, outbound_marks, only_uncached, relevant_lists, target_lists);
     std::shared_ptr<RefreshFlight> flight;
     bool owner = false;
     {
@@ -229,6 +223,16 @@ RemoteListsRefreshResult ListService::download_remote_lists(const Config& config
             }
 
             const auto download_result = cache_manager_.download(name, *list_cfg.url, CacheDownloadOptions{fwmark});
+            {
+                std::lock_guard<std::mutex> stats_lock(stats_mutex_);
+                auto& stats = refresh_stats_[name];
+                if (download_result.failed()) {
+                    ++stats.errors;
+                } else {
+                    stats.last_success_unix_s = std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                }
+            }
 
             if (download_result.failed()) {
                 result.failed_lists.push_back(name);
@@ -248,9 +252,6 @@ RemoteListsRefreshResult ListService::download_remote_lists(const Config& config
             result.changed_lists.push_back(name);
             if (relevant_lists && relevant_lists->count(name) > 0) {
                 result.relevant_changed_lists.push_back(name);
-            }
-            if (dns_relevant_lists && dns_relevant_lists->count(name) > 0) {
-                result.dns_relevant_changed_lists.push_back(name);
             }
         }
     } catch (...) {

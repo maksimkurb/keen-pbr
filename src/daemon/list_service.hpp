@@ -3,7 +3,9 @@
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
 #include "../util/traced_mutex.hpp"
+#include "list_refresh_stats.hpp"
 
+#include <chrono>
 #include <condition_variable>
 #include <exception>
 #include <map>
@@ -22,7 +24,6 @@ struct RemoteListsRefreshResult {
     std::vector<std::string> changed_lists;
     std::vector<std::string> unchanged_lists;
     std::vector<std::string> relevant_changed_lists;
-    std::vector<std::string> dns_relevant_changed_lists;
     std::vector<std::string> failed_lists;
 
     bool any_refreshed() const {
@@ -35,10 +36,6 @@ struct RemoteListsRefreshResult {
 
     bool any_relevant_changed() const {
         return !relevant_changed_lists.empty();
-    }
-
-    bool any_dns_relevant_changed() const {
-        return !dns_relevant_changed_lists.empty();
     }
 
     bool any_failed() const {
@@ -65,11 +62,14 @@ RemoteListTargetSelection select_remote_list_targets(const Config& config,
                                                      const std::optional<std::string>& requested_name);
 
 std::set<std::string> collect_relevant_list_names(const Config& config);
-std::set<std::string> collect_dns_relevant_list_names(const Config& config);
 std::string format_list_names(const std::vector<std::string>& list_names);
 
 bool should_reload_runtime_after_list_refresh(bool routing_runtime_active,
                                               const RemoteListsRefreshResult& refresh_result);
+
+// Delay before the next background retry of lists that failed to download at
+// startup: 10s, 30s, 2m, then every 5m.  `attempt` counts retries already made.
+std::chrono::seconds startup_list_retry_delay(unsigned attempt);
 
 std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
                                                                                const CacheManager& cache_manager);
@@ -81,16 +81,17 @@ class ListService {
     void ensure_dir();
     const CacheManager& cache_manager() const;
 
+    // Snapshot of per-list refresh telemetry for the metrics endpoint.
+    std::map<std::string, ListRefreshStats> refresh_stats() const;
+
     // Startup only: preserve cached lists and download just the missing ones.
     RemoteListsRefreshResult download_uncached(const Config& config,
                                                const OutboundMarkMap& outbound_marks,
-                                               const std::set<std::string>* relevant_lists = nullptr,
-                                               const std::set<std::string>* dns_relevant_lists = nullptr);
+                                               const std::set<std::string>* relevant_lists = nullptr);
     RemoteListsRefreshResult refresh_remote_lists(const Config& config,
                                                   const OutboundMarkMap& outbound_marks,
                                                   const std::set<std::string>* relevant_lists = nullptr,
-                                                  const std::set<std::string>* target_lists = nullptr,
-                                                  const std::set<std::string>* dns_relevant_lists = nullptr);
+                                                  const std::set<std::string>* target_lists = nullptr);
 
   private:
     struct RefreshFlight {
@@ -105,11 +106,12 @@ class ListService {
                                                    const OutboundMarkMap& outbound_marks,
                                                    bool only_uncached,
                                                    const std::set<std::string>* relevant_lists,
-                                                   const std::set<std::string>* target_lists,
-                                                   const std::set<std::string>* dns_relevant_lists);
+                                                   const std::set<std::string>* target_lists);
 
     mutable TracedMutex mutex_;
     std::mutex refresh_mutex_;
+    mutable std::mutex stats_mutex_;
+    std::map<std::string, ListRefreshStats> refresh_stats_;
     std::condition_variable_any refresh_available_;
     std::shared_ptr<RefreshFlight> refresh_flight_;
     CacheManager cache_manager_;

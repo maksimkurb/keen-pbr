@@ -34,196 +34,14 @@ std::filesystem::path make_temp_dir() {
     return std::filesystem::path(created);
 }
 
-bool udp_socket_available() {
-    const int fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0) {
-        return false;
-    }
-    close(fd);
-    return true;
-}
-
-void push_u16(std::vector<uint8_t>& out, uint16_t value) {
-    out.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
-    out.push_back(static_cast<uint8_t>(value & 0xFF));
-}
-
-void push_u32(std::vector<uint8_t>& out, uint32_t value) {
-    out.push_back(static_cast<uint8_t>((value >> 24) & 0xFF));
-    out.push_back(static_cast<uint8_t>((value >> 16) & 0xFF));
-    out.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
-    out.push_back(static_cast<uint8_t>(value & 0xFF));
-}
-
-size_t find_question_end(const uint8_t* packet, size_t packet_len) {
-    size_t offset = 12;
-    while (offset < packet_len) {
-        const uint8_t len = packet[offset++];
-        if (len == 0) {
-            break;
-        }
-        offset += len;
-    }
-    if (offset + 4 > packet_len) {
-        throw std::runtime_error("truncated DNS question");
-    }
-    return offset + 4;
-}
-
-uint16_t read_qtype(const uint8_t* packet, size_t packet_len) {
-    const size_t end = find_question_end(packet, packet_len);
-    return static_cast<uint16_t>((packet[end - 4] << 8) | packet[end - 3]);
-}
-
-std::vector<uint8_t> build_dns_response(const uint8_t* request,
-                                        size_t request_len,
-                                        const std::vector<std::string>& ipv4_answers,
-                                        const std::vector<std::string>& ipv6_answers) {
-    std::vector<uint8_t> packet;
-    packet.reserve(512);
-
-    const size_t question_end = find_question_end(request, request_len);
-    const uint16_t qtype = read_qtype(request, request_len);
-    const uint16_t answer_count =
-        static_cast<uint16_t>((qtype == 1 ? ipv4_answers.size() : 0) +
-                              (qtype == 28 ? ipv6_answers.size() : 0));
-
-    push_u16(packet, static_cast<uint16_t>((request[0] << 8) | request[1]));
-    push_u16(packet, 0x8180);
-    push_u16(packet, 0x0001);
-    push_u16(packet, answer_count);
-    push_u16(packet, 0x0000);
-    push_u16(packet, 0x0000);
-    packet.insert(packet.end(), request + 12, request + question_end);
-
-    const auto append_answer = [&packet](uint16_t type, const std::string& ip) {
-        push_u16(packet, 0xC00C);
-        push_u16(packet, type);
-        push_u16(packet, 0x0001);
-        push_u32(packet, 0);
-
-        if (type == 1) {
-            in_addr addr {};
-            if (inet_pton(AF_INET, ip.c_str(), &addr) != 1) {
-                throw std::runtime_error("invalid IPv4 answer");
-            }
-            push_u16(packet, 4);
-            const auto* bytes = reinterpret_cast<const uint8_t*>(&addr);
-            packet.insert(packet.end(), bytes, bytes + 4);
-        } else {
-            in6_addr addr {};
-            if (inet_pton(AF_INET6, ip.c_str(), &addr) != 1) {
-                throw std::runtime_error("invalid IPv6 answer");
-            }
-            push_u16(packet, 16);
-            const auto* bytes = reinterpret_cast<const uint8_t*>(&addr);
-            packet.insert(packet.end(), bytes, bytes + 16);
-        }
-    };
-
-    if (qtype == 1) {
-        for (const auto& ip : ipv4_answers) {
-            append_answer(1, ip);
-        }
-    } else if (qtype == 28) {
-        for (const auto& ip : ipv6_answers) {
-            append_answer(28, ip);
-        }
-    }
-
-    return packet;
-}
-
-class TestDnsServer {
+// Replaces the system resolver for the lifetime of the object.
+class ScopedDomainResolver {
 public:
-    TestDnsServer(std::vector<std::string> ipv4_answers,
-                  std::vector<std::string> ipv6_answers)
-        : ipv4_answers_(std::move(ipv4_answers))
-        , ipv6_answers_(std::move(ipv6_answers)) {
-        socket_fd_ = socket(AF_INET, SOCK_DGRAM, 0);
-        if (socket_fd_ < 0) {
-            throw std::runtime_error("socket() failed");
-        }
-
-        sockaddr_in addr {};
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(0);
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-        if (bind(socket_fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) != 0) {
-            close(socket_fd_);
-            throw std::runtime_error("bind() failed");
-        }
-
-        socklen_t len = sizeof(addr);
-        if (getsockname(socket_fd_, reinterpret_cast<sockaddr*>(&addr), &len) != 0) {
-            close(socket_fd_);
-            throw std::runtime_error("getsockname() failed");
-        }
-        port_ = ntohs(addr.sin_port);
-
-        server_thread_ = std::thread([this]() { serve(); });
+    explicit ScopedDomainResolver(std::vector<std::string> ips) {
+        set_domain_resolver_for_tests(
+            [ips = std::move(ips)](const std::string&) { return ips; });
     }
-
-    ~TestDnsServer() {
-        stop_ = true;
-        if (socket_fd_ >= 0) {
-            sockaddr_in addr {};
-            addr.sin_family = AF_INET;
-            addr.sin_port = htons(port_);
-            addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-            (void)sendto(socket_fd_, "", 0, 0, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr));
-        }
-        if (server_thread_.joinable()) {
-            server_thread_.join();
-        }
-        if (socket_fd_ >= 0) {
-            close(socket_fd_);
-            socket_fd_ = -1;
-        }
-    }
-
-    std::string address() const {
-        return "127.0.0.1:" + std::to_string(port_);
-    }
-
-private:
-    void serve() {
-        while (!stop_) {
-            uint8_t buffer[512] = {};
-            sockaddr_in client_addr {};
-            socklen_t client_len = sizeof(client_addr);
-            const ssize_t received = recvfrom(socket_fd_,
-                                              buffer,
-                                              sizeof(buffer),
-                                              0,
-                                              reinterpret_cast<sockaddr*>(&client_addr),
-                                              &client_len);
-            if (received <= 0) {
-                continue;
-            }
-            if (stop_) {
-                break;
-            }
-
-            auto response = build_dns_response(buffer,
-                                               static_cast<size_t>(received),
-                                               ipv4_answers_,
-                                               ipv6_answers_);
-            (void)sendto(socket_fd_,
-                         response.data(),
-                         response.size(),
-                         0,
-                         reinterpret_cast<const sockaddr*>(&client_addr),
-                         client_len);
-        }
-    }
-
-    int socket_fd_{-1};
-    uint16_t port_{0};
-    std::atomic<bool> stop_{false};
-    std::vector<std::string> ipv4_answers_;
-    std::vector<std::string> ipv6_answers_;
-    std::thread server_thread_;
+    ~ScopedDomainResolver() { set_domain_resolver_for_tests(nullptr); }
 };
 
 Config build_test_config() {
@@ -269,22 +87,14 @@ void write_executable(const std::filesystem::path& path, const std::string& cont
 
 } // namespace
 
-TEST_CASE("compute_test_routing resolves domain through configured system resolver") {
-    if (!udp_socket_available()) {
-        DOCTEST_INFO("UDP sockets unavailable in current environment");
-        return;
-    }
-
+TEST_CASE("compute_test_routing resolves domain through the system resolver") {
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir);
     cache.ensure_dir();
 
-    TestDnsServer server({"10.0.0.53"}, {"2001:db8::53"});
+    ScopedDomainResolver resolver({"10.0.0.53", "2001:db8::53"});
 
     Config config = build_test_config();
-    api::SystemResolver system_resolver;
-    system_resolver.address = server.address();
-    config.dns->system_resolver = system_resolver;
 
     const auto list_path = temp_dir / "resolved-ip-list.txt";
     {
@@ -305,9 +115,13 @@ TEST_CASE("compute_test_routing resolves domain through configured system resolv
     RouteRule ip_rule;
     ip_rule.outbound = "vpn";
     ip_rule.list = std::vector<std::string>{"resolved_ips"};
+    ip_rule.proto = "tcp";
+    ip_rule.dest_port = "443";
     RouteRule domain_rule;
-    domain_rule.outbound = "vpn";
+    domain_rule.outbound = "wan";
     domain_rule.list = std::vector<std::string>{"domains"};
+    domain_rule.proto = "udp";
+    domain_rule.dest_port = "80";
     RouteConfig route;
     route.rules = std::vector<RouteRule>{ip_rule, domain_rule};
     config.route = route;
@@ -341,10 +155,30 @@ TEST_CASE("compute_test_routing resolves domain through configured system resolv
         CHECK(ip_row.list_match->via == "www.example.com");
     }
 
+    TestRoutingCriteria tcp443;
+    tcp443.proto = "tcp";
+    tcp443.dest_port = 443;
+    const auto tcp_result = compute_test_routing(
+        config, cache, "www.example.com", tcp443);
+    REQUIRE(tcp_result.entries.size() == 2);
+    CHECK(tcp_result.entries[0].expected_outbound == "vpn");
+    CHECK(tcp_result.entries[0].matched_rule_index == 0);
+    CHECK(tcp_result.entries[1].expected_outbound == "(default)");
+
+    TestRoutingCriteria udp80;
+    udp80.proto = "udp";
+    udp80.dest_port = 80;
+    const auto udp_result = compute_test_routing(
+        config, cache, "www.example.com", udp80);
+    REQUIRE(udp_result.entries.size() == 2);
+    CHECK(udp_result.entries[0].expected_outbound == "wan");
+    CHECK(udp_result.entries[0].matched_rule_index == 1);
+    CHECK(udp_result.entries[1].expected_outbound == "wan");
+
     std::filesystem::remove_all(temp_dir);
 }
 
-TEST_CASE("compute_test_routing falls back to resolv.conf when system resolver is absent") {
+TEST_CASE("compute_test_routing reports no IPs when the system resolver cannot resolve the domain") {
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir);
     cache.ensure_dir();
@@ -396,7 +230,229 @@ TEST_CASE("compute_test_routing includes route rule conditions in diagnostics") 
     std::filesystem::remove_all(temp_dir);
 }
 
-TEST_CASE("compute_test_routing uses realized iptables generation set names") {
+TEST_CASE("compute_test_routing filters expected rules by packet criteria") {
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir / "cache");
+    cache.ensure_dir();
+
+    const auto list_path = temp_dir / "remote.txt";
+    {
+        std::ofstream list(list_path);
+        list << "203.0.113.10/32\n";
+    }
+
+    Config config = build_test_config();
+    ListConfig remote;
+    remote.file = list_path.string();
+    config.lists = std::map<std::string, ListConfig>{{"remote", remote}};
+
+    RouteRule tcp_rule;
+    tcp_rule.outbound = "vpn";
+    tcp_rule.list = std::vector<std::string>{"remote"};
+    tcp_rule.proto = "tcp";
+    tcp_rule.dest_port = "443";
+    RouteRule udp_rule;
+    udp_rule.outbound = "wan";
+    udp_rule.list = std::vector<std::string>{"remote"};
+    udp_rule.proto = "udp";
+    udp_rule.dest_port = "80";
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{tcp_rule, udp_rule};
+    config.route = route;
+
+    TestRoutingCriteria tcp443;
+    tcp443.proto = "tcp";
+    tcp443.dest_port = 443;
+    const auto tcp_result = compute_test_routing(
+        config, cache, "203.0.113.10", tcp443);
+    REQUIRE(tcp_result.entries.size() == 1);
+    CHECK(tcp_result.entries.front().expected_outbound == "vpn");
+    CHECK(tcp_result.entries.front().matched_rule_index == 0);
+    CHECK(tcp_result.entries.front().criteria_match == true);
+    CHECK(tcp_result.rule_diagnostics[0].ip_rows[0].criteria_match == true);
+    CHECK(tcp_result.rule_diagnostics[1].ip_rows[0].criteria_match == false);
+
+    TestRoutingCriteria udp80;
+    udp80.proto = "udp";
+    udp80.dest_port = 80;
+    const auto udp_result = compute_test_routing(
+        config, cache, "203.0.113.10", udp80);
+    CHECK(udp_result.entries.front().expected_outbound == "wan");
+    CHECK(udp_result.entries.front().matched_rule_index == 1);
+
+    TestRoutingCriteria tcp80;
+    tcp80.proto = "tcp";
+    tcp80.dest_port = 80;
+    const auto no_match = compute_test_routing(
+        config, cache, "203.0.113.10", tcp80);
+    CHECK(no_match.entries.front().expected_outbound == "(default)");
+    CHECK_FALSE(no_match.entries.front().matched_rule_index.has_value());
+    CHECK(no_match.entries.front().criteria_match == false);
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("compute_test_routing evaluates source CIDR and negation") {
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir / "cache");
+    cache.ensure_dir();
+
+    const auto list_path = temp_dir / "remote.txt";
+    {
+        std::ofstream list(list_path);
+        list << "203.0.113.10/32\n";
+    }
+    Config config = build_test_config();
+    ListConfig remote;
+    remote.file = list_path.string();
+    config.lists = std::map<std::string, ListConfig>{{"remote", remote}};
+
+    RouteRule local_rule;
+    local_rule.outbound = "local";
+    local_rule.list = std::vector<std::string>{"remote"};
+    local_rule.proto = "tcp";
+    local_rule.dest_port = "443";
+    local_rule.dscp = 46;
+    local_rule.src_addr = "192.168.1.0/24";
+    RouteRule outside_rule = local_rule;
+    outside_rule.outbound = "outside";
+    outside_rule.src_addr = "!192.168.1.0/24";
+    outside_rule.src_port = "!1000-2000";
+    outside_rule.dest_port = "!80";
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{local_rule, outside_rule};
+    config.route = route;
+
+    TestRoutingCriteria local_packet;
+    local_packet.proto = "tcp";
+    local_packet.dest_port = 443;
+    local_packet.src_port = 51514;
+    local_packet.dscp = 46;
+    local_packet.src_addr = "192.168.1.20";
+    const auto local_result = compute_test_routing(
+        config, cache, "203.0.113.10", local_packet);
+    CHECK(local_result.entries.front().expected_outbound == "local");
+    CHECK(local_result.entries.front().matched_rule_index == 0);
+
+    local_packet.src_addr = "10.0.0.20";
+    const auto outside_result = compute_test_routing(
+        config, cache, "203.0.113.10", local_packet);
+    CHECK(outside_result.entries.front().expected_outbound == "outside");
+    CHECK(outside_result.entries.front().matched_rule_index == 1);
+
+    local_packet.src_addr = "2001:db8::20";
+    const auto opposite_family = compute_test_routing(
+        config, cache, "203.0.113.10", local_packet);
+    CHECK(opposite_family.entries.front().expected_outbound == "(unknown)");
+    CHECK_FALSE(opposite_family.entries.front().criteria_match.has_value());
+    CHECK_FALSE(opposite_family.warnings.empty());
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("compute_test_routing reports unknown when packet criteria are incomplete") {
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir / "cache");
+    cache.ensure_dir();
+
+    const auto list_path = temp_dir / "remote.txt";
+    {
+        std::ofstream list(list_path);
+        list << "203.0.113.10/32\n";
+    }
+    Config config = build_test_config();
+    ListConfig remote;
+    remote.file = list_path.string();
+    config.lists = std::map<std::string, ListConfig>{{"remote", remote}};
+    RouteRule source_rule;
+    source_rule.outbound = "vpn";
+    source_rule.list = std::vector<std::string>{"remote"};
+    source_rule.proto = "tcp";
+    source_rule.dest_port = "443";
+    source_rule.src_addr = "192.168.1.0/24";
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{source_rule};
+    config.route = route;
+
+    TestRoutingCriteria incomplete;
+    incomplete.proto = "tcp";
+    incomplete.dest_port = 443;
+    const auto result = compute_test_routing(
+        config, cache, "203.0.113.10", incomplete);
+    REQUIRE(result.entries.size() == 1);
+    CHECK(result.entries.front().expected_outbound == "(unknown)");
+    CHECK_FALSE(result.entries.front().matched_rule_index.has_value());
+    CHECK_FALSE(result.entries.front().criteria_match.has_value());
+    REQUIRE(result.rule_diagnostics.front().ip_rows.size() == 1);
+    CHECK_FALSE(result.rule_diagnostics.front().ip_rows.front().criteria_match.has_value());
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("compute_test_routing keeps no-list and default-gateway actual state honest") {
+    const auto temp_dir = make_temp_dir();
+    const auto empty_bin = temp_dir / "empty-bin";
+    std::filesystem::create_directories(empty_bin);
+    ScopedPathOverride path_override(empty_bin.string());
+
+    CacheManager cache(temp_dir / "cache");
+    cache.ensure_dir();
+    Config config = build_test_config();
+    DaemonConfig daemon;
+    daemon.firewall_backend = api::DaemonConfigFirewallBackend::IPTABLES;
+    config.daemon = daemon;
+    Outbound outbound;
+    outbound.tag = "vpn";
+    outbound.type = OutboundType::TABLE;
+    outbound.table = 100;
+    config.outbounds = std::vector<Outbound>{outbound};
+    RouteRule rule;
+    rule.outbound = "vpn";
+    rule.proto = "tcp";
+    rule.dest_port = "443";
+    rule.dest_addr = "203.0.113.0/24";
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{rule};
+    config.route = route;
+
+    TestRoutingCriteria packet;
+    packet.proto = "tcp";
+    packet.dest_port = 443;
+    const auto no_realized_state = compute_test_routing(
+        config, cache, "203.0.113.10", packet);
+    CHECK(no_realized_state.entries.front().expected_outbound == "vpn");
+    CHECK(no_realized_state.entries.front().actual_outbound == "(unknown)");
+    CHECK_FALSE(no_realized_state.entries.front().ok);
+
+    RuleState realized_rule;
+    realized_rule.rule_index = 0;
+    realized_rule.outbound_tag = "vpn";
+    realized_rule.action_type = RuleActionType::Mark;
+    const std::vector<RuleState> realized_rules{realized_rule};
+    const auto realized_state = compute_test_routing(
+        config, cache, "203.0.113.10", packet, &realized_rules);
+    CHECK(realized_state.entries.front().actual_outbound == "vpn");
+    CHECK(realized_state.entries.front().ok);
+
+    RouteRule gateway_rule;
+    gateway_rule.outbound = "vpn";
+    gateway_rule.default_gateway = api::DefaultGateway::IPV4;
+    route.rules = std::vector<RouteRule>{gateway_rule};
+    config.route = route;
+    const auto ipv6_result = compute_test_routing(
+        config, cache, "2001:db8::10", packet);
+    CHECK(ipv6_result.entries.front().expected_outbound == "(default)");
+    CHECK(ipv6_result.entries.front().criteria_match == false);
+
+    const auto ipv4_result = compute_test_routing(
+        config, cache, "203.0.113.10", packet);
+    CHECK(ipv4_result.entries.front().expected_outbound == "(unknown)");
+    CHECK_FALSE(ipv4_result.entries.front().criteria_match.has_value());
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("compute_test_routing uses realized iptables set names") {
     const auto temp_dir = make_temp_dir();
     const auto bin_dir = temp_dir / "bin";
     const auto invocation_log = temp_dir / "ipset-invocations.txt";
@@ -407,7 +463,7 @@ TEST_CASE("compute_test_routing uses realized iptables generation set names") {
         bin_dir / "ipset",
         "#!/bin/sh\n"
         "echo test >> " + invocation_log.string() + "\n"
-        "if [ \"$1\" = test ] && [ \"$2\" = kpbr4S_remote ] && "
+        "if [ \"$1\" = test ] && [ \"$2\" = kpbr4_remote ] && "
         "[ \"$3\" = 203.0.113.10 ]; then\n"
         "  exit 0\n"
         "fi\n"
@@ -448,13 +504,19 @@ TEST_CASE("compute_test_routing uses realized iptables generation set names") {
     RuleState realized;
     realized.rule_index = 0;
     realized.list_names = {"remote"};
-    realized.set_names = {"kpbr4S_remote"};
+    realized.set_names = {"kpbr4_remote", "kpbr4d_remote"};
     realized.outbound_tag = "vpn";
     realized.action_type = RuleActionType::Mark;
     const std::vector<RuleState> realized_rules{realized};
 
-    const auto result =
-        compute_test_routing(config, cache, "203.0.113.10", &realized_rules);
+    const auto result = compute_test_routing(
+        config, cache, "203.0.113.10", TestRoutingCriteria{}, &realized_rules,
+        [](const std::string& set_name, const std::string& ip) {
+            CHECK(set_name == "kpbr4d_remote");
+            CHECK(ip == "203.0.113.10");
+            return SetWriteEvidence{
+                SetWriteEvidenceStatus::Recorded, std::optional<uint64_t>(7)};
+        });
 
     REQUIRE(result.entries.size() == 1);
     CHECK(result.entries.front().expected_outbound == "vpn");
@@ -467,12 +529,85 @@ TEST_CASE("compute_test_routing uses realized iptables generation set names") {
     CHECK(result.rule_diagnostics.front().ip_rows.front().list_match->list_name == "remote");
     REQUIRE(result.rule_diagnostics.front().ip_rows.front().in_ipset.has_value());
     CHECK(*result.rule_diagnostics.front().ip_rows.front().in_ipset);
+    REQUIRE(result.rule_diagnostics.front().ip_rows.front().set_write_evidence.has_value());
+    CHECK(result.rule_diagnostics.front().ip_rows.front().set_write_evidence->status ==
+          SetWriteEvidenceStatus::Recorded);
+    CHECK(result.rule_diagnostics.front().ip_rows.front().set_write_evidence->age_seconds == 7);
 
     std::ifstream invocations(invocation_log);
     const std::string invocation_contents{
         std::istreambuf_iterator<char>(invocations),
         std::istreambuf_iterator<char>()};
     CHECK(invocation_contents == "test\n");
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("compute_test_routing keeps unknown set membership from proving absence") {
+    const auto temp_dir = make_temp_dir();
+    const auto bin_dir = temp_dir / "bin";
+    std::filesystem::create_directories(bin_dir);
+    write_executable(
+        bin_dir / "ipset",
+        "#!/bin/sh\n"
+        "case \"$2\" in\n"
+        "  kpbr4_true|kpbr6_true) exit 0 ;;\n"
+        "  kpbr4_unknown|kpbr6_unknown) exit 127 ;;\n"
+        "  *) exit 1 ;;\n"
+        "esac\n");
+    ScopedPathOverride path_override(bin_dir.string());
+
+    CacheManager cache(temp_dir / "cache");
+    cache.ensure_dir();
+    Config config = build_test_config();
+    DaemonConfig daemon;
+    daemon.firewall_backend = api::DaemonConfigFirewallBackend::IPTABLES;
+    config.daemon = daemon;
+
+    std::vector<RouteRule> route_rules(8);
+    for (auto& rule : route_rules) rule.outbound = "vpn";
+    RouteConfig route;
+    route.rules = std::move(route_rules);
+    config.route = route;
+
+    const std::vector<std::vector<std::string>> names{
+        {"kpbr4_false", "kpbr4_unknown"},
+        {"kpbr4_true", "kpbr4_unknown"},
+        {"kpbr4_false", "kpbr4_false2"},
+        {"kpbr4_false", "kpbr6_unknown"},
+        {"kpbr6_false", "kpbr6_unknown"},
+        {"kpbr6_true", "kpbr6_unknown"},
+        {"kpbr6_false", "kpbr6_false2"},
+        {"kpbr6_false", "kpbr4_unknown"},
+    };
+    std::vector<RuleState> states;
+    states.reserve(names.size());
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        RuleState state;
+        state.rule_index = i;
+        state.set_names = names[i];
+        state.outbound_tag = "vpn";
+        state.action_type = RuleActionType::Mark;
+        states.push_back(std::move(state));
+    }
+
+    const auto v4 = compute_test_routing(
+        config, cache, "203.0.113.10", &states);
+    REQUIRE(v4.rule_diagnostics.size() == names.size());
+    CHECK_FALSE(v4.rule_diagnostics[0].ip_rows[0].in_ipset.has_value());
+    CHECK(v4.rule_diagnostics[1].ip_rows[0].in_ipset == std::optional<bool>(true));
+    CHECK(v4.rule_diagnostics[2].ip_rows[0].in_ipset == std::optional<bool>(false));
+    // The IPv6 unknown set is not applicable to an IPv4 address.
+    CHECK(v4.rule_diagnostics[3].ip_rows[0].in_ipset == std::optional<bool>(false));
+
+    const auto v6 = compute_test_routing(
+        config, cache, "2001:db8::10", &states);
+    REQUIRE(v6.rule_diagnostics.size() == names.size());
+    CHECK_FALSE(v6.rule_diagnostics[4].ip_rows[0].in_ipset.has_value());
+    CHECK(v6.rule_diagnostics[5].ip_rows[0].in_ipset == std::optional<bool>(true));
+    CHECK(v6.rule_diagnostics[6].ip_rows[0].in_ipset == std::optional<bool>(false));
+    // The IPv4 unknown set is not applicable to an IPv6 address.
+    CHECK(v6.rule_diagnostics[7].ip_rows[0].in_ipset == std::optional<bool>(false));
 
     std::filesystem::remove_all(temp_dir);
 }
@@ -506,4 +641,39 @@ TEST_CASE("daemon test-routing response is rendered as a human-readable table") 
     CHECK(stdout_capture.str().find("Expected Outbound") != std::string::npos);
     CHECK(stdout_capture.str().find("domains (via example.com)") != std::string::npos);
     CHECK(stdout_capture.str().find("{\"") == std::string::npos);
+}
+
+TEST_CASE("compute_test_routing matches domains through DomainIndex semantics") {
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir);
+    cache.ensure_dir();
+    ScopedDomainResolver resolver({"10.0.0.53"});
+
+    Config config = build_test_config();
+
+    ListConfig domains;
+    domains.domains = std::vector<std::string>{"*.Example.COM", "other.test"};
+    ListConfig no_match;
+    no_match.domains = std::vector<std::string>{"badexample.com", "sub.example.com.evil"};
+    config.lists = std::map<std::string, ListConfig>{{"domains", domains}, {"no_match", no_match}};
+    RouteRule rule;
+    rule.outbound = "vpn";
+    rule.list = std::vector<std::string>{"no_match", "domains"};
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{rule};
+    config.route = route;
+
+    // Case-insensitive, wildcard prefix stripped, label-boundary suffix match.
+    const auto result = compute_test_routing(config, cache, "A.B.Example.com");
+    REQUIRE(result.rule_diagnostics.size() == 1);
+    CHECK(result.rule_diagnostics[0].target_in_lists);
+    REQUIRE(result.rule_diagnostics[0].target_match.has_value());
+    CHECK(result.rule_diagnostics[0].target_match->list_name == "domains");
+    CHECK(result.rule_diagnostics[0].target_match->via == "example.com");
+
+    const auto unrelated = compute_test_routing(config, cache, "notexample.com");
+    REQUIRE(unrelated.rule_diagnostics.size() == 1);
+    CHECK_FALSE(unrelated.rule_diagnostics[0].target_in_lists);
+
+    std::filesystem::remove_all(temp_dir);
 }

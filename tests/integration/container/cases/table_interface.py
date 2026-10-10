@@ -8,7 +8,6 @@ def register(registry):
              "gateway": "10.20.0.2"},
         ]
         config["lists"] = {"table_targets": {"ip_cidrs": ["203.0.113.0/24"]}}
-        config["dns"]["rules"] = []
         config["route"] = {"inbound_interfaces": ["lan0"], "rules": [
             {"list": ["table_targets"], "outbound": "main"},
             {"outbound": "cloudflare", "proto": "tcp/udp", "dest_port": "443,80"},

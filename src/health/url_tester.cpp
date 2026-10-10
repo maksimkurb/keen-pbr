@@ -1,6 +1,8 @@
 #include "url_tester.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <thread>
 
 namespace keen_pbr3 {
@@ -23,7 +25,10 @@ URLTestResult URLTester::test_once(const std::string& url, uint32_t fwmark, uint
         const auto response = transport_->perform(request);
         if (response.status_code >= 200 && response.status_code < 300) {
             result.success = true;
-            result.latency_ms = static_cast<uint32_t>(response.elapsed.count());
+            const auto elapsed_us = static_cast<uint32_t>(
+                std::min<int64_t>(response.elapsed.count(), UINT32_MAX));
+            result.latency_us = elapsed_us;
+            result.latency_ms = elapsed_us / 1000;
         } else {
             result.error = "HTTP " + std::to_string(response.status_code);
         }

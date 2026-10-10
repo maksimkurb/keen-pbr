@@ -39,7 +39,7 @@ Config normalize_config_for_api_response(Config config) {
     config.daemon->skip_marked_packets =
         config.daemon->skip_marked_packets.value_or(true);
     config.daemon->clear_dynamic_sets_on_apply =
-        config.daemon->clear_dynamic_sets_on_apply.value_or(true);
+        config.daemon->clear_dynamic_sets_on_apply.value_or(false);
     config.daemon->reuse_static_sets_on_runtime_refresh =
         config.daemon->reuse_static_sets_on_runtime_refresh.value_or(true);
     config.daemon->ipv6_enabled =
@@ -120,7 +120,8 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             staged = parse_config(body);
             const Config visible = ctx.get_visible_config();
             staged.api = visible.api;
-            validate_config(staged);
+            validate_config(staged, ConfigValidationMode::Runtime,
+                            ctx.validation_context());
         } catch (const ConfigValidationError& e) {
             throw ApiError(e.what(), 400, make_validation_error_json(e).dump());
         } catch (const ConfigError& e) {

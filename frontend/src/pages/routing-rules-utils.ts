@@ -3,6 +3,8 @@ import type { RouteRule } from "@/api/generated/model/routeRule"
 import { getApiErrorMessage as getSharedApiErrorMessage } from "@/lib/api-errors"
 
 export type RouteRuleDraft = {
+  /** Mirrors the API `default_gateway`; "normal" means the field is unset. */
+  default_gateway: RouteRuleMode
   enabled: boolean
   list: string[]
   outbound: string
@@ -14,9 +16,37 @@ export type RouteRuleDraft = {
   dest_addr: string
 }
 
+export type RouteRuleMode = "normal" | "ipv4" | "ipv6"
+
+export const routeConditionKeys = [
+  "list",
+  "proto",
+  "src_port",
+  "dest_port",
+  "src_addr",
+  "dest_addr",
+  "dscp",
+] as const
+export type RouteConditionKey = (typeof routeConditionKeys)[number]
+
+export function getActiveRouteConditions(
+  draft: RouteRuleDraft,
+  opened: readonly RouteConditionKey[],
+  errorPaths: readonly string[] = []
+): RouteConditionKey[] {
+  if (draft.default_gateway !== "normal") return []
+  return [...new Set([...opened, ...routeConditionKeys])].filter(
+    (key) =>
+      opened.includes(key) ||
+      (key === "list" ? draft.list.length > 0 : draft[key].trim().length > 0) ||
+      errorPaths.some((path) => path === key || path.startsWith(`${key}[`))
+  )
+}
+
 export const protoOptions = ["", "tcp", "udp", "tcp/udp"] as const
 
 export const emptyRouteRuleDraft: RouteRuleDraft = {
+  default_gateway: "normal",
   enabled: true,
   list: [],
   outbound: "",
@@ -42,6 +72,7 @@ export function getRuleDetails(rule: RouteRule) {
 
 export function toRouteRuleDraft(rule: RouteRule): RouteRuleDraft {
   return {
+    default_gateway: rule.default_gateway ?? "normal",
     enabled: rule.enabled ?? true,
     list: rule.list ?? [],
     outbound: rule.outbound,
@@ -55,6 +86,14 @@ export function toRouteRuleDraft(rule: RouteRule): RouteRuleDraft {
 }
 
 export function normalizeRouteRuleDraft(draft: RouteRuleDraft): RouteRule {
+  if (draft.default_gateway !== "normal") {
+    return {
+      enabled: draft.enabled,
+      outbound: draft.outbound,
+      default_gateway: draft.default_gateway,
+    }
+  }
+
   return {
     enabled: draft.enabled,
     list: draft.list,
@@ -107,11 +146,6 @@ export function setRouteRuleEnabled(
   )
 }
 
-export function getFirstFieldError(errors: unknown[]) {
-  const firstError = errors[0]
-  return typeof firstError === "string" ? firstError : undefined
-}
-
 export function getApiErrorMessage(error: ApiError) {
   return getSharedApiErrorMessage(error)
 }
@@ -127,4 +161,20 @@ function parseOptionalDscp(value: string) {
     return undefined
   }
   return Number(trimmed)
+}
+
+export function validateDscp(value: string, t: (key: string) => string) {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) {
+    return undefined
+  }
+
+  if (!/^\d+$/.test(trimmed)) {
+    return t("pages.routingRuleUpsert.validation.dscpRange")
+  }
+
+  const parsed = Number(trimmed)
+  return parsed >= 1 && parsed <= 63
+    ? undefined
+    : t("pages.routingRuleUpsert.validation.dscpRange")
 }

@@ -24,6 +24,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar-context"
 import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { MobileWarningPanel } from "@/components/layout/mobile-warning-panel"
 import type { LifecycleOperationType } from "@/api/generated/model"
 import type {
   WarningBannerMode,
@@ -38,7 +40,8 @@ export function WarningBanner({
   state: WarningBannerState
 }) {
   const { t } = useTranslation()
-  const { isMobile, open } = useSidebar()
+  const { open, isMobile: sidebarMobile } = useSidebar()
+  const isMobile = useIsMobile(1100)
   const applyConfigMutation = useApplyConfigMutation()
   const discardConfigMutation = useDiscardConfigMutation({
     mutation: {
@@ -87,7 +90,7 @@ export function WarningBanner({
       resizeObserver.disconnect()
       rootStyle.setProperty("--warning-banner-height", "0px")
     }
-  }, [state.isVisible])
+  }, [state.isVisible, isMobile])
 
   if (!state.isVisible) {
     return null
@@ -96,8 +99,7 @@ export function WarningBanner({
   const isLifecycleRunning = state.mode === "lifecycle-running"
   const isLifecycleSuccess = state.mode === "lifecycle-success"
   const isProgressing = isLifecycleRunning || isLifecycleSuccess
-  const isError =
-    state.mode === "dnsmasq-error" || state.mode === "lifecycle-error"
+  const isError = state.mode === "lifecycle-error"
   const handleApplyAndReload = () => {
     if (state.hasDraftConfig) {
       applyConfigMutation.mutate()
@@ -107,14 +109,136 @@ export function WarningBanner({
     restartServiceMutation.mutate()
   }
 
+  const Title = isMobile ? "h2" : AlertTitle
+  const Description = isMobile ? "p" : AlertDescription
+  const content = (
+    <>
+      <div
+        className={
+          isMobile
+            ? "flex flex-col gap-3"
+            : "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        }
+      >
+        <div className="min-w-0 space-y-1">
+          <Title className="font-medium">
+            {t(getWarningBannerTitleKey(state.mode, state.operationType))}
+          </Title>
+          {!isProgressing ? (
+            <Description className={isMobile ? "text-sm" : undefined}>
+              {t(getWarningBannerDescriptionKey(state.mode))}
+            </Description>
+          ) : null}
+        </div>
+
+        {!isProgressing ? (
+          <div
+            className={isMobile ? "flex flex-col gap-2" : "flex shrink-0 gap-2"}
+          >
+            {state.hasDraftConfig ? (
+              <Button
+                disabled={state.isActionDisabled}
+                onClick={() => discardConfigMutation.mutate()}
+                size="lg"
+                variant={isMobile ? "outline" : "ghost"}
+                className={cn("shrink-0", isMobile && "min-h-14 text-base")}
+              >
+                <RotateCcwIcon className="mr-1 h-4 w-4" />
+                {discardConfigMutation.isPending
+                  ? t("warning.actions.discarding")
+                  : t("warning.actions.discard")}
+              </Button>
+            ) : null}
+            {state.rollbackAvailable ? (
+              <Button
+                disabled={state.isActionDisabled}
+                onClick={() => rollbackConfigMutation.mutate()}
+                size="lg"
+                variant="outline"
+                className={cn(
+                  "shrink-0 bg-background hover:bg-background dark:bg-card dark:hover:bg-card",
+                  isMobile && "min-h-14 text-base"
+                )}
+              >
+                <RotateCcwIcon className="mr-1 h-4 w-4" />
+                {rollbackConfigMutation.isPending
+                  ? t("warning.actions.rollingBack")
+                  : t("warning.actions.rollback")}
+              </Button>
+            ) : (
+              <Button
+                disabled={state.isActionDisabled}
+                onClick={handleApplyAndReload}
+                size="lg"
+                variant={isMobile ? "default" : "outline"}
+                className={cn(
+                  "shrink-0",
+                  isMobile && "min-h-14 text-base",
+                  !isMobile &&
+                    "bg-background hover:bg-background dark:bg-card dark:hover:bg-card"
+                )}
+              >
+                <SaveIcon className="mr-1 h-4 w-4" />
+                {state.actionPending
+                  ? t("warning.actions.applyingAndRestarting")
+                  : t("warning.actions.applyAndRestart")}
+              </Button>
+            )}
+            {state.mode === "lifecycle-error" && !state.rollbackAvailable ? (
+              <Button
+                aria-label={t("common.close")}
+                onClick={state.dismissFailure}
+                size="icon-lg"
+                variant="ghost"
+              >
+                <XIcon className="h-4 w-4" />
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      {isProgressing ? (
+        <ol className="space-y-3 text-sm">
+          {state.operationSteps.map((step, index) => (
+            <li
+              className={cn(
+                "relative grid grid-cols-[20px_minmax(0,1fr)] items-center gap-2",
+                index < state.operationSteps.length - 1 &&
+                  "after:absolute after:top-5 after:bottom-[-0.75rem] after:left-[9px] after:w-px after:bg-border"
+              )}
+              key={step.id}
+            >
+              <StepIcon status={step.status} />
+              <span>{step.title}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </>
+  )
+
+  if (isMobile) {
+    return (
+      <MobileWarningPanel
+        containerRef={containerRef}
+        sidebarVisible={!sidebarMobile && open}
+        className={className}
+        mode={state.mode}
+        title={t(getWarningBannerTitleKey(state.mode, state.operationType))}
+        description={t(getWarningBannerDescriptionKey(state.mode))}
+      >
+        {content}
+      </MobileWarningPanel>
+    )
+  }
+
   return (
     <div
       ref={containerRef}
       className={cn(
         "pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-5",
-        !isMobile && open
-          ? "right-4 left-[calc(var(--sidebar-width)+1rem)]"
-          : null,
+        open ? "right-4 left-[calc(var(--sidebar-width)+1rem)]" : null,
         className
       )}
     >
@@ -124,92 +248,7 @@ export function WarningBanner({
         }
         className="pointer-events-auto mx-auto w-full max-w-7xl gap-4 rounded-2xl border border-white/10 px-4 py-4 shadow-[0_10px_30px_hsl(0_0%_0%/0.18),0_24px_80px_hsl(0_0%_0%/0.4)] ring-1 ring-black/5 dark:border-white/12 dark:ring-white/6"
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0 space-y-1">
-            <AlertTitle>
-              {t(getWarningBannerTitleKey(state.mode, state.operationType))}
-            </AlertTitle>
-            {!isProgressing ? (
-              <AlertDescription>
-                {t(getWarningBannerDescriptionKey(state.mode))}
-              </AlertDescription>
-            ) : null}
-          </div>
-
-          {!isProgressing ? (
-            <div className="flex shrink-0 gap-2">
-              {state.hasDraftConfig ? (
-                <Button
-                  disabled={state.isActionDisabled}
-                  onClick={() => discardConfigMutation.mutate()}
-                  size="lg"
-                  variant="ghost"
-                  className="shrink-0"
-                >
-                  <RotateCcwIcon className="mr-1 h-4 w-4" />
-                  {discardConfigMutation.isPending
-                    ? t("warning.actions.discarding")
-                    : t("warning.actions.discard")}
-                </Button>
-              ) : null}
-              {state.rollbackAvailable ? (
-                <Button
-                  disabled={state.isActionDisabled}
-                  onClick={() => rollbackConfigMutation.mutate()}
-                  size="lg"
-                  variant="outline"
-                  className="shrink-0 bg-background hover:bg-background dark:bg-card dark:hover:bg-card"
-                >
-                  <RotateCcwIcon className="mr-1 h-4 w-4" />
-                  {rollbackConfigMutation.isPending
-                    ? t("warning.actions.rollingBack")
-                    : t("warning.actions.rollback")}
-                </Button>
-              ) : (
-                <Button
-                  disabled={state.isActionDisabled}
-                  onClick={handleApplyAndReload}
-                  size="lg"
-                  variant="outline"
-                  className="shrink-0 bg-background hover:bg-background dark:bg-card dark:hover:bg-card"
-                >
-                  <SaveIcon className="mr-1 h-4 w-4" />
-                  {state.actionPending
-                    ? t("warning.actions.applyingAndRestarting")
-                    : t("warning.actions.applyAndRestart")}
-                </Button>
-              )}
-              {state.mode === "lifecycle-error" && !state.rollbackAvailable ? (
-                <Button
-                  aria-label={t("common.close")}
-                  onClick={state.dismissFailure}
-                  size="icon-lg"
-                  variant="ghost"
-                >
-                  <XIcon className="h-4 w-4" />
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
-        {isProgressing ? (
-          <ol className="space-y-3 text-sm">
-            {state.operationSteps.map((step, index) => (
-              <li
-                className={cn(
-                  "relative grid grid-cols-[20px_minmax(0,1fr)] items-center gap-2",
-                  index < state.operationSteps.length - 1 &&
-                    "after:absolute after:top-5 after:bottom-[-0.75rem] after:left-[9px] after:w-px after:bg-border"
-                )}
-                key={step.id}
-              >
-                <StepIcon status={step.status} />
-                <span>{step.title}</span>
-              </li>
-            ))}
-          </ol>
-        ) : null}
+        {content}
       </Alert>
     </div>
   )
@@ -257,12 +296,6 @@ function getWarningBannerTitleKey(
   switch (mode) {
     case "draft":
       return "warning.compact.keenRestartRequired"
-    case "draft-and-dnsmasq":
-      return "warning.compact.keenAndDnsmasqRestartRequired"
-    case "dnsmasq-stale":
-      return "warning.compact.dnsmasqRestartRequired"
-    case "dnsmasq-error":
-      return "warning.compact.dnsmasqUnavailable"
     case "lifecycle-running":
       return getLifecycleOperationTitleKey("running", operationType)
     case "lifecycle-success":
@@ -312,12 +345,6 @@ function getWarningBannerDescriptionKey(mode: WarningBannerMode) {
   switch (mode) {
     case "draft":
       return "warning.compact.keenRestartRequiredDescription"
-    case "draft-and-dnsmasq":
-      return "warning.compact.keenAndDnsmasqRestartRequiredDescription"
-    case "dnsmasq-stale":
-      return "warning.compact.dnsmasqRestartRequiredDescription"
-    case "dnsmasq-error":
-      return "warning.compact.dnsmasqUnavailableDescription"
     case "lifecycle-running":
       return "warning.compact.runtimeReloadingDescription"
     case "lifecycle-success":

@@ -4,15 +4,16 @@
 #include "../src/dns/dns_router.hpp"
 #include "../src/dns/keenetic_dns.hpp"
 #include "../src/cache/cache_manager.hpp"
+#include "../src/crypto/md5.hpp"
 #include "../src/lists/list_streamer.hpp"
 
-#include <map>
 #include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <set>
 #include <sstream>
+#include <streambuf>
 #include <string>
 #include <vector>
 
@@ -25,125 +26,93 @@ struct KeeneticDnsTestStateGuard {
     ~KeeneticDnsTestStateGuard() { reset_keenetic_dns_test_state(); }
 };
 
-} // namespace
-
-// =============================================================================
-// Test helpers
-// =============================================================================
-
-// Build a minimal RouteConfig that references list_name under a route rule.
-static RouteConfig make_route_cfg(const std::string& list_name) {
-    RouteRule rule;
-    rule.list     = std::vector<std::string>{list_name};
-    rule.outbound = "direct";
-    RouteConfig cfg;
-    cfg.rules = std::vector<RouteRule>{rule};
-    return cfg;
+DnsServer make_server(const std::string& tag, const std::string& address) {
+    DnsServer srv;
+    srv.tag = tag;
+    srv.address = address;
+    return srv;
 }
 
-// Build a minimal valid DnsConfig with no rules (one fallback server required by DnsServerRegistry).
-static DnsConfig make_empty_dns_cfg() {
-    DnsServer srv;
-    srv.tag     = "default";
-    srv.address = "127.0.0.1";
-    DnsConfig cfg;
-    cfg.fallback = std::vector<std::string>{"default"};
-    cfg.servers  = std::vector<DnsServer>{srv};
-    return cfg;
-}
-
-// Build a DnsConfig with a single server and a rule mapping list_name to that server.
-static DnsConfig make_dns_cfg(const std::string& list_name,
-                               const std::string& server_tag,
-                               const std::string& server_ip,
-                               bool allow_domain_rebinding = false) {
-    DnsServer srv;
-    srv.tag     = server_tag;
-    srv.address = server_ip;
+DnsRule make_rule(const std::string& list_name, const std::string& server_tag,
+                  bool allow_domain_rebinding = false) {
     DnsRule rule;
-    rule.list   = std::vector<std::string>{list_name};
+    rule.list = std::vector<std::string>{list_name};
     rule.server = server_tag;
     rule.allow_domain_rebinding = allow_domain_rebinding;
+    return rule;
+}
+
+// A DnsConfig with a single server and a rule mapping list_name to it.
+DnsConfig make_dns_cfg(const std::string& list_name,
+                       const std::string& server_tag,
+                       const std::string& server_ip,
+                       bool allow_domain_rebinding = false) {
     DnsConfig cfg;
-    cfg.fallback = std::vector<std::string>{server_tag};
-    cfg.servers  = std::vector<DnsServer>{srv};
-    cfg.rules    = std::vector<DnsRule>{rule};
+    cfg.servers = std::vector<DnsServer>{make_server(server_tag, server_ip)};
+    cfg.rules = std::vector<DnsRule>{make_rule(list_name, server_tag, allow_domain_rebinding)};
     return cfg;
 }
 
-// Build a ListConfig with inline domains.
-static ListConfig make_list_cfg(std::vector<std::string> domains) {
+ListConfig make_list_cfg(std::vector<std::string> domains) {
     ListConfig cfg;
     cfg.domains = std::move(domains);
     return cfg;
 }
 
-// Run generate() and return the full output string.
-static std::string run_generate(DnsmasqGenerator& gen) {
+struct Generated {
+    std::string output;
+    std::string hash;
+    DnsmasqGenStats stats;
+};
+
+Generated run_generate(const DnsConfig& dns_cfg,
+                       const std::map<std::string, ListConfig>& lists) {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+    DnsServerRegistry registry(dns_cfg);
+    DnsmasqGenerator gen(registry, streamer, dns_cfg, lists);
     std::ostringstream oss;
-    gen.generate(oss);
-    return oss.str();
+    Generated result;
+    result.hash = gen.generate(oss, &result.stats);
+    result.output = oss.str();
+    return result;
 }
 
-// Extract the hash from the txt-record line in generate() output.
-static std::string extract_txt_hash(const std::string& output) {
-    const std::string prefix = "txt-record=config-hash.keen.pbr,";
-    auto pos = output.rfind(prefix);  // rfind: TXT line is last
-    if (pos == std::string::npos) return "";
-    pos += prefix.size();
-    auto end = output.find('\n', pos);
-    const std::string payload =
-        output.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
-    const auto delimiter = payload.find('|');
-    if (delimiter == std::string::npos) {
-        return payload;
+std::vector<std::string> lines_with_prefix(const std::string& output, const std::string& prefix) {
+    std::vector<std::string> found;
+    std::istringstream in(output);
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.rfind(prefix, 0) == 0) found.push_back(line);
     }
-    return payload.substr(delimiter + 1);
+    return found;
 }
 
-static std::string extract_txt_payload(const std::string& output) {
-    const std::string prefix = "txt-record=config-hash.keen.pbr,";
-    auto pos = output.rfind(prefix);
-    if (pos == std::string::npos) return "";
-    pos += prefix.size();
-    auto end = output.find('\n', pos);
-    return output.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
-}
-
-static std::vector<std::string> split_domains_from_ipset_line(const std::string& line,
-                                                               const std::string& list_name) {
-    const std::string prefix = "ipset=";
-    const std::string suffix =
-        "/" + DnsmasqGenerator::ipset_name_v4(list_name) + ","
-        + DnsmasqGenerator::ipset_name_v6(list_name);
-
-    if (line.rfind(prefix, 0) != 0 || line.size() < prefix.size() + suffix.size()) {
+// "server=/a/b/c/ip" -> {a, b, c}
+std::vector<std::string> domains_of_server_line(const std::string& line,
+                                                const std::string& server_addr) {
+    const std::string prefix = "server=";
+    const std::string suffix = "/" + server_addr;
+    if (line.rfind(prefix, 0) != 0 || line.size() < prefix.size() + suffix.size() ||
+        line.substr(line.size() - suffix.size()) != suffix) {
         return {};
     }
-    if (line.substr(line.size() - suffix.size()) != suffix) {
-        return {};
-    }
-
     const std::string path = line.substr(prefix.size(), line.size() - prefix.size() - suffix.size());
     std::vector<std::string> domains;
     std::string current;
     for (const char ch : path) {
         if (ch == '/') {
-            if (!current.empty()) {
-                domains.push_back(current);
-                current.clear();
-            }
-            continue;
+            if (!current.empty()) domains.push_back(current);
+            current.clear();
+        } else {
+            current.push_back(ch);
         }
-        current.push_back(ch);
     }
-    if (!current.empty()) {
-        domains.push_back(current);
-    }
+    if (!current.empty()) domains.push_back(current);
     return domains;
 }
 
-static std::string make_domain_with_len(size_t target_len, const std::string& seed) {
+std::string make_domain_with_len(size_t target_len, const std::string& seed) {
     std::string domain = seed;
     while (domain.size() < target_len) {
         const size_t remaining = target_len - domain.size();
@@ -154,358 +123,126 @@ static std::string make_domain_with_len(size_t target_len, const std::string& se
     return domain;
 }
 
-static size_t calc_ipset_line_len(const std::string& list_name,
-                                  const std::vector<size_t>& domain_lengths) {
-    const size_t prefix_len = std::string("ipset=").size();
-    const std::string set4 = DnsmasqGenerator::ipset_name_v4(list_name);
-    const std::string set6 = DnsmasqGenerator::ipset_name_v6(list_name);
-    const size_t suffix_len = 1 + set4.size() + 1 + set6.size();
+} // namespace
 
-    size_t path_len = 0;
-    for (size_t domain_len : domain_lengths) {
-        path_len += 1 + domain_len; // "/<domain>"
+TEST_CASE("dnsmasq gen: first line is the generated header") {
+    const auto gen = run_generate(make_dns_cfg("mylist", "dns1", "1.1.1.1"),
+                                  {{"mylist", make_list_cfg({"example.com"})}});
+    CHECK(gen.output.rfind("# keen-pbr generated, do not edit\n", 0) == 0);
+    CHECK(gen.output.find("address=/use-application-dns.net/\n") != std::string::npos);
+}
+
+TEST_CASE("dnsmasq gen: basic rule emits scoped server= line") {
+    const auto gen = run_generate(make_dns_cfg("mylist", "dns1", "1.1.1.1"),
+                                  {{"mylist", make_list_cfg({"example.com", "other.org"})}});
+    CHECK(gen.output.find("server=/example.com/other.org/1.1.1.1\n") != std::string::npos);
+    CHECK(gen.output.find("no-resolv") == std::string::npos);
+    CHECK(gen.stats.rules == 1);
+    CHECK(gen.stats.domains == 2);
+    CHECK(gen.hash.size() == 32);
+}
+
+TEST_CASE("dnsmasq gen: hash covers exactly the written bytes") {
+    const auto gen = run_generate(make_dns_cfg("mylist", "dns1", "1.1.1.1"),
+                                  {{"mylist", make_list_cfg({"example.com"})}});
+    // Independent MD5 of the output through the same helper used by the generator.
+    crypto::detail::MD5State md5;
+    md5.update(reinterpret_cast<const uint8_t*>(gen.output.data()), gen.output.size());
+    CHECK(gen.hash == crypto::digest_to_hex(md5.digest()));
+}
+
+TEST_CASE("dnsmasq gen: multiple rules and servers") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "1.1.1.1"), make_server("b", "9.9.9.9")};
+    cfg.rules = std::vector<DnsRule>{make_rule("l1", "a"), make_rule("l2", "b")};
+    const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example"})},
+                                        {"l2", make_list_cfg({"two.example"})}});
+    CHECK(gen.output.find("server=/one.example/1.1.1.1\n") != std::string::npos);
+    CHECK(gen.output.find("server=/two.example/9.9.9.9\n") != std::string::npos);
+    CHECK(gen.stats.rules == 2);
+    CHECK(gen.stats.domains == 2);
+}
+
+TEST_CASE("dnsmasq gen: the first enabled rule naming a list decides its upstream") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "1.1.1.1")};
+    cfg.rules = std::vector<DnsRule>{make_rule("l1", "a"), make_rule("l1", "missing")};
+    const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example"})}});
+    // The first rule naming a list wins.
+    CHECK(lines_with_prefix(gen.output, "server=/one.example/").size() == 1);
+}
+
+TEST_CASE("dnsmasq gen: disabled rules are skipped") {
+    auto cfg = make_dns_cfg("mylist", "dns1", "8.8.8.8", true);
+    cfg.rules->at(0).enabled = false;
+    const auto gen = run_generate(cfg, {{"mylist", make_list_cfg({"example.com"})}});
+    CHECK(gen.output.find("server=/example.com/") == std::string::npos);
+    CHECK(gen.output.find("rebind-domain-ok=") == std::string::npos);
+    CHECK(gen.stats.rules == 0);
+    CHECK(gen.stats.domains == 0);
+}
+
+TEST_CASE("dnsmasq gen: wildcard prefix is stripped") {
+    const auto gen = run_generate(make_dns_cfg("wild", "dns1", "1.1.1.1"),
+                                  {{"wild", make_list_cfg({"*.google.com"})}});
+    CHECK(gen.output.find("server=/google.com/1.1.1.1\n") != std::string::npos);
+    CHECK(gen.output.find("*.google.com") == std::string::npos);
+}
+
+TEST_CASE("dnsmasq gen: non-default port uses #port, default port has no suffix") {
+    {
+        const auto gen = run_generate(make_dns_cfg("l", "d", "8.8.8.8:5353"),
+                                      {{"l", make_list_cfg({"example.com"})}});
+        CHECK(gen.output.find("server=/example.com/8.8.8.8#5353\n") != std::string::npos);
     }
-
-    return prefix_len + path_len + suffix_len;
-}
-
-// =============================================================================
-// Dynamic set naming tests (dnsmasq ipset=/nftset= directives)
-// =============================================================================
-//
-// dnsmasq must write resolved IPs into the *dynamic* sets (kpbr4d_* / kpbr6d_*)
-// so that TTL-based expiry can be applied. Static IPs (from ip_cidrs/file/url)
-// are loaded into the static sets (kpbr4_* / kpbr6_*) by the daemon directly.
-
-TEST_CASE("dnsmasq set names: IPv4 dynamic set uses kpbr4d_ prefix") {
-    CHECK(DnsmasqGenerator::ipset_name_v4("mylist") == "kpbr4d_mylist");
-}
-
-TEST_CASE("dnsmasq set names: IPv6 dynamic set uses kpbr6d_ prefix") {
-    CHECK(DnsmasqGenerator::ipset_name_v6("mylist") == "kpbr6d_mylist");
-}
-
-TEST_CASE("dnsmasq set names: list name with underscores and hyphens") {
-    CHECK(DnsmasqGenerator::ipset_name_v4("my-list_01") == "kpbr4d_my-list_01");
-    CHECK(DnsmasqGenerator::ipset_name_v6("my-list_01") == "kpbr6d_my-list_01");
-}
-
-TEST_CASE("dnsmasq set names: static sets do NOT use kpbr4d_ prefix") {
-    // Static set names are constructed in daemon.cpp as "kpbr4_" + list_name
-    // and are distinct from what DnsmasqGenerator emits for dnsmasq directives.
-    const std::string list = "example";
-    const std::string dynamic_v4 = DnsmasqGenerator::ipset_name_v4(list);
-    const std::string dynamic_v6 = DnsmasqGenerator::ipset_name_v6(list);
-    const std::string static_v4  = "kpbr4_"  + list;
-    const std::string static_v6  = "kpbr6_"  + list;
-    CHECK(dynamic_v4 != static_v4);
-    CHECK(dynamic_v6 != static_v6);
-}
-
-// =============================================================================
-// Hash consistency and coverage tests
-// =============================================================================
-
-TEST_CASE("compute_config_hash matches hash embedded in generate() output") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "testlist";
-    const std::string server_tag = "dns1";
-    const std::string server_ip = "8.8.8.8";
-
-    auto dns_cfg   = make_dns_cfg(list_name, server_tag, server_ip);
-    auto route_cfg = make_route_cfg(list_name);
-    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com", "foo.test"})}};
-
-    DnsServerRegistry dns_registry(dns_cfg);
-    DnsmasqGenerator gen(dns_registry, streamer, route_cfg, dns_cfg, lists);
-
-    const std::string instance_hash = gen.compute_config_hash();
-
-    // Re-create generator (list_streamer state is reset)
-    DnsServerRegistry dns_registry2(dns_cfg);
-    DnsmasqGenerator gen2(dns_registry2, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen2);
-    const std::string embedded_hash = extract_txt_hash(output);
-
-    CHECK(!instance_hash.empty());
-    CHECK(instance_hash == embedded_hash);
-}
-
-TEST_CASE("dnsmasq normalizes wildcard inline domains") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-    const std::string list_name = "wildcards";
-    auto route_cfg = make_route_cfg(list_name);
-    auto lists = std::map<std::string, ListConfig>{
-        {list_name, make_list_cfg({"*.google.com"})}};
-    auto dns_cfg = make_empty_dns_cfg();
-    DnsServerRegistry dns_registry(dns_cfg);
-    DnsmasqGenerator gen(dns_registry, streamer, route_cfg, dns_cfg, lists);
-
-    const std::string output = run_generate(gen);
-    CHECK(output.find("/google.com/") != std::string::npos);
-    CHECK(output.find("*.google.com") == std::string::npos);
-}
-
-TEST_CASE("txt-record line is the last line in generate() output") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"alpha.example", "beta.example"})}};
-    auto dns_cfg = make_empty_dns_cfg();
-    DnsServerRegistry dns_registry(dns_cfg);
-    DnsmasqGenerator gen(dns_registry, streamer, route_cfg, dns_cfg, lists);
-
-    const std::string output = run_generate(gen);
-
-    // Find last non-empty line
-    std::string last_line;
-    std::istringstream ss(output);
-    std::string line;
-    while (std::getline(ss, line)) {
-        if (!line.empty()) last_line = line;
+    {
+        const auto gen = run_generate(make_dns_cfg("l", "d", "8.8.8.8"),
+                                      {{"l", make_list_cfg({"example.com"})}});
+        CHECK(gen.output.find("server=/example.com/8.8.8.8\n") != std::string::npos);
+        CHECK(gen.output.find("#53") == std::string::npos);
     }
-
-    CHECK(last_line.rfind("txt-record=config-hash.keen.pbr,", 0) == 0);
 }
 
-TEST_CASE("txt-record payload includes unix timestamp and hash separator") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
+TEST_CASE("dnsmasq gen: IPv6 upstream is written without brackets") {
+    const auto gen = run_generate(make_dns_cfg("l", "d", "[2001:db8::1]:5353"),
+                                  {{"l", make_list_cfg({"example.com"})}});
+    CHECK(gen.output.find("server=/example.com/2001:db8::1#5353\n") != std::string::npos);
 
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"alpha.example"})}};
-    auto dns_cfg = make_empty_dns_cfg();
-    DnsServerRegistry dns_registry(dns_cfg);
-    DnsmasqGenerator gen(dns_registry, streamer, route_cfg, dns_cfg, lists);
-
-    const std::string output = run_generate(gen);
-    const std::string payload = extract_txt_payload(output);
-    const auto delimiter = payload.find('|');
-
-    REQUIRE(delimiter != std::string::npos);
-    const std::string ts = payload.substr(0, delimiter);
-    const std::string hash = payload.substr(delimiter + 1);
-
-    CHECK(!ts.empty());
-    CHECK(std::all_of(ts.begin(), ts.end(), [](unsigned char ch) {
-        return std::isdigit(ch) != 0;
-    }));
-    CHECK(hash.size() == 32);
+    const auto plain = run_generate(make_dns_cfg("l", "d", "2001:db8::1"),
+                                    {{"l", make_list_cfg({"example.com"})}});
+    CHECK(plain.output.find("server=/example.com/2001:db8::1\n") != std::string::npos);
 }
 
-TEST_CASE("hash changes when server IP changes") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    auto dns_cfg1 = make_dns_cfg(list_name, "dns1", "1.1.1.1");
-    auto dns_cfg2 = make_dns_cfg(list_name, "dns1", "9.9.9.9");
-
-    DnsServerRegistry reg1(dns_cfg1);
-    DnsServerRegistry reg2(dns_cfg2);
-    DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg1, lists);
-    DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg2, lists);
-
-    const std::string hash1 = gen1.compute_config_hash();
-    const std::string hash2 = gen2.compute_config_hash();
-
-    CHECK(!hash1.empty());
-    CHECK(!hash2.empty());
-    CHECK(hash1 != hash2);
+TEST_CASE("dnsmasq gen: rebind-domain-ok follows allow_domain_rebinding") {
+    const auto lists = std::map<std::string, ListConfig>{
+        {"mylist", make_list_cfg({"example.com", "*.lan.test"})}};
+    const auto on = run_generate(make_dns_cfg("mylist", "dns1", "8.8.8.8", true), lists);
+    CHECK(on.output.find("rebind-domain-ok=/example.com/lan.test/\n") != std::string::npos);
+    const auto off = run_generate(make_dns_cfg("mylist", "dns1", "8.8.8.8", false), lists);
+    CHECK(off.output.find("rebind-domain-ok=") == std::string::npos);
 }
 
-TEST_CASE("server= directive includes #port when port != 53") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg   = make_dns_cfg(list_name, "dns1", "8.8.8.8:5353");
-    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("server=/example.com/8.8.8.8#5353\n") != std::string::npos);
+TEST_CASE("dnsmasq gen: fallback adds no-resolv and unscoped servers in order") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "1.1.1.1"), make_server("b", "9.9.9.9:5353")};
+    cfg.fallback = std::vector<std::string>{"b", "a"};
+    const auto gen = run_generate(cfg, {});
+    CHECK(gen.output.find("no-resolv\n") != std::string::npos);
+    const auto b = gen.output.find("server=9.9.9.9#5353\n");
+    const auto a = gen.output.find("server=1.1.1.1\n");
+    REQUIRE(a != std::string::npos);
+    REQUIRE(b != std::string::npos);
+    CHECK(b < a);
 }
 
-TEST_CASE("server= directive has no #port suffix for default port 53") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg   = make_dns_cfg(list_name, "dns1", "8.8.8.8");
-    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("server=/example.com/8.8.8.8\n") != std::string::npos);
-    CHECK(output.find("#53") == std::string::npos);
+TEST_CASE("dnsmasq gen: no fallback means no no-resolv") {
+    const auto gen = run_generate(make_dns_cfg("l", "d", "8.8.8.8"),
+                                  {{"l", make_list_cfg({"example.com"})}});
+    CHECK(gen.output.find("no-resolv") == std::string::npos);
+    CHECK(lines_with_prefix(gen.output, "server=").size() == 1);
 }
 
-TEST_CASE("generate-resolver-config includes fallback server directives in configured order") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    DnsServer primary;
-    primary.tag = "primary";
-    primary.address = "1.1.1.1";
-    DnsServer backup;
-    backup.tag = "backup";
-    backup.address = "9.9.9.9:5353";
-
-    DnsConfig dns_cfg;
-    dns_cfg.servers = std::vector<DnsServer>{primary, backup};
-    dns_cfg.fallback = std::vector<std::string>{"primary", "backup"};
-
-    auto route_cfg = make_route_cfg("mylist");
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    const auto primary_pos = output.find("server=1.1.1.1\n");
-    const auto backup_pos = output.find("server=9.9.9.9#5353\n");
-
-    CHECK(primary_pos != std::string::npos);
-    CHECK(backup_pos != std::string::npos);
-    CHECK(primary_pos < backup_pos);
-}
-
-TEST_CASE("hash changes when fallback list order changes") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-
-    DnsServer primary;
-    primary.tag = "primary";
-    primary.address = "1.1.1.1";
-    DnsServer backup;
-    backup.tag = "backup";
-    backup.address = "9.9.9.9";
-
-    DnsConfig dns_cfg1;
-    dns_cfg1.servers = std::vector<DnsServer>{primary, backup};
-    dns_cfg1.fallback = std::vector<std::string>{"primary", "backup"};
-
-    DnsConfig dns_cfg2;
-    dns_cfg2.servers = std::vector<DnsServer>{primary, backup};
-    dns_cfg2.fallback = std::vector<std::string>{"backup", "primary"};
-
-    auto route_cfg = make_route_cfg("mylist");
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg1(dns_cfg1);
-    DnsServerRegistry reg2(dns_cfg2);
-    DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg1, lists);
-    DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg2, lists);
-
-    CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
-}
-
-TEST_CASE("generate-resolver-config includes dns probe server directive when enabled") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    auto route_cfg = make_route_cfg("mylist");
-    auto dns_cfg = make_empty_dns_cfg();
-    DnsTestServer probe_cfg;
-    probe_cfg.listen = "127.0.0.88:53";
-    dns_cfg.dns_test_server = probe_cfg;
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("rebind-domain-ok=keen.pbr\n") != std::string::npos);
-    CHECK(output.find("server=/check.keen.pbr/127.0.0.88#53\n") != std::string::npos);
-}
-
-TEST_CASE("generate-resolver-config blocks firefox doh canary domain") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    auto route_cfg = make_route_cfg("mylist");
-    auto dns_cfg = make_empty_dns_cfg();
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("address=/use-application-dns.net/\n") != std::string::npos);
-}
-
-TEST_CASE("generate-resolver-config omits dns probe server directive when disabled") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    auto route_cfg = make_route_cfg("mylist");
-    auto dns_cfg = make_empty_dns_cfg();
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("rebind-domain-ok=keen.pbr\n") == std::string::npos);
-    CHECK(output.find("server=/check.keen.pbr/") == std::string::npos);
-}
-
-TEST_CASE("generate-resolver-config includes keenetic static dns entries") {
-    KeeneticDnsTestStateGuard guard;
-    set_keenetic_dns_fetcher_for_tests([]() {
-        return std::string(R"({
-          "proxy-status": [
-            {
-              "proxy-name": "System",
-              "proxy-config": "dns_server = 127.0.0.1:40508 . # https://resolver.example/dns-query@dnsm\nstatic_a = my.keenetic.net 78.47.125.180 1\nstatic_aaaa = my.keenetic.net 2001:db8::125 1\nstatic_a = *.lan.example 192.168.1.10 0\n"
-            }
-          ]
-        })");
-    });
-
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    DnsServer keenetic_server;
-    keenetic_server.tag = "keenetic";
-    keenetic_server.type = api::DnsServerType::KEENETIC;
-
-    DnsConfig dns_cfg;
-    dns_cfg.servers = std::vector<DnsServer>{keenetic_server};
-    dns_cfg.fallback = std::vector<std::string>{"keenetic"};
-
-    auto route_cfg = make_route_cfg("mylist");
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("# Keenetic static DNS entries\n") != std::string::npos);
-    CHECK(output.find("address=/my.keenetic.net/78.47.125.180\n") != std::string::npos);
-    CHECK(output.find("address=/my.keenetic.net/2001:db8::125\n") != std::string::npos);
-    CHECK(output.find("address=/lan.example/192.168.1.10\n") != std::string::npos);
-}
-
-TEST_CASE("generate-resolver-config includes all keenetic fallback servers in selected order") {
+TEST_CASE("dnsmasq gen: keenetic-type server expands to its upstreams") {
     KeeneticDnsTestStateGuard guard;
     set_keenetic_dns_fetcher_for_tests([]() {
         return std::string(R"({
@@ -518,565 +255,101 @@ TEST_CASE("generate-resolver-config includes all keenetic fallback servers in se
         })");
     });
 
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
     DnsServer keenetic_server;
     keenetic_server.tag = "keenetic";
     keenetic_server.type = api::DnsServerType::KEENETIC;
 
-    DnsConfig dns_cfg;
-    dns_cfg.servers = std::vector<DnsServer>{keenetic_server};
-    dns_cfg.fallback = std::vector<std::string>{"keenetic"};
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{keenetic_server};
+    cfg.fallback = std::vector<std::string>{"keenetic"};
+    cfg.rules = std::vector<DnsRule>{make_rule("mylist", "keenetic")};
+    const auto gen = run_generate(cfg, {{"mylist", make_list_cfg({"example.com"})}});
 
-    auto route_cfg = make_route_cfg("mylist");
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    const auto dot_pos = output.find("server=127.0.0.1#40500\n");
-    const auto doh_pos = output.find("server=127.0.0.1#40508\n");
+    const auto dot_pos = gen.output.find("server=127.0.0.1#40500\n");
+    const auto doh_pos = gen.output.find("server=127.0.0.1#40508\n");
     CHECK(dot_pos != std::string::npos);
     CHECK(doh_pos != std::string::npos);
     CHECK(dot_pos < doh_pos);
-    CHECK(output.find("server=198.51.100.10\n") == std::string::npos);
-    CHECK(output.find("# Keenetic DNS is used:\n") != std::string::npos);
-    CHECK(output.find("# 127.0.0.1:40500 -> DoT | tls://resolver.example\n") != std::string::npos);
-    CHECK(output.find("# 127.0.0.1:40508 -> DoH | https://resolver.example/dns-query\n") != std::string::npos);
+    CHECK(gen.output.find("server=198.51.100.10\n") == std::string::npos);
+    CHECK(gen.output.find("server=/example.com/127.0.0.1#40500\n") != std::string::npos);
+    CHECK(gen.output.find("server=/example.com/127.0.0.1#40508\n") != std::string::npos);
 }
 
-TEST_CASE("generate-resolver-config includes all keenetic dns rule servers") {
-    KeeneticDnsTestStateGuard guard;
-    set_keenetic_dns_fetcher_for_tests([]() {
-        return std::string(R"({
-          "proxy-status": [
-            {
-              "proxy-name": "System",
-              "proxy-config": "dns_server = 198.51.100.10 .\ndns_server = 127.0.0.1:40500 . # tls://resolver.example\ndns_server = 127.0.0.1:40508 . # https://resolver.example/dns-query@dnsm\n"
-            }
-          ]
-        })");
-    });
+TEST_CASE("dnsmasq gen: hash is deterministic and tracks content") {
+    const auto lists_a = std::map<std::string, ListConfig>{{"l", make_list_cfg({"a.example"})}};
+    const auto lists_b = std::map<std::string, ListConfig>{{"l", make_list_cfg({"b.example"})}};
+    const auto base = make_dns_cfg("l", "d", "1.1.1.1");
 
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
+    const auto first = run_generate(base, lists_a);
+    const auto second = run_generate(base, lists_a);
+    CHECK(first.hash == second.hash);
+    CHECK(first.output == second.output);
 
-    DnsServer keenetic_server;
-    keenetic_server.tag = "keenetic";
-    keenetic_server.type = api::DnsServerType::KEENETIC;
+    CHECK(run_generate(base, lists_b).hash != first.hash);
+    CHECK(run_generate(make_dns_cfg("l", "d", "9.9.9.9"), lists_a).hash != first.hash);
+    CHECK(run_generate(make_dns_cfg("l", "d", "1.1.1.1", true), lists_a).hash != first.hash);
 
-    DnsRule rule;
-    rule.list = std::vector<std::string>{"mylist"};
-    rule.server = "keenetic";
-
-    DnsConfig dns_cfg;
-    dns_cfg.servers = std::vector<DnsServer>{keenetic_server};
-    dns_cfg.fallback = std::vector<std::string>{"keenetic"};
-    dns_cfg.rules = std::vector<DnsRule>{rule};
-
-    auto route_cfg = make_route_cfg("mylist");
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("server=/example.com/127.0.0.1#40500\n") != std::string::npos);
-    CHECK(output.find("server=/example.com/127.0.0.1#40508\n") != std::string::npos);
-    CHECK(output.find("server=/example.com/198.51.100.10\n") == std::string::npos);
+    auto with_fallback = base;
+    with_fallback.fallback = std::vector<std::string>{"d"};
+    CHECK(run_generate(with_fallback, lists_a).hash != first.hash);
 }
 
-TEST_CASE("generate-resolver-config includes rebind-domain-ok directives for dns rules with allow_domain_rebinding enabled") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg   = make_dns_cfg(list_name, "dns1", "8.8.8.8", true);
-    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com", "*.lan.test"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("rebind-domain-ok=/example.com/lan.test/\n") != std::string::npos);
-}
-
-TEST_CASE("generate-resolver-config omits rebind-domain-ok directives for dns rules when allow_domain_rebinding is disabled") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg   = make_dns_cfg(list_name, "dns1", "8.8.8.8", false);
-    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("rebind-domain-ok=/example.com/\n") == std::string::npos);
-}
-
-TEST_CASE("generate-resolver-config ignores disabled dns rules") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg = make_dns_cfg(list_name, "dns1", "8.8.8.8", true);
-    REQUIRE(dns_cfg.rules.has_value());
-    REQUIRE(dns_cfg.rules->size() == 1);
-    dns_cfg.rules->at(0).enabled = false;
-    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("server=/example.com/8.8.8.8\n") == std::string::npos);
-    CHECK(output.find("rebind-domain-ok=/example.com/\n") == std::string::npos);
-}
-
-TEST_CASE("generate-resolver-config ignores disabled route rules for ipset population") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    REQUIRE(route_cfg.rules.has_value());
-    REQUIRE(route_cfg.rules->size() == 1);
-    route_cfg.rules->at(0).enabled = false;
-    auto dns_cfg = make_empty_dns_cfg();
-    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("ipset=/example.com/") == std::string::npos);
-    CHECK(output.find("nftset=/4#inet#KeenPbrTable#") == std::string::npos);
-}
-
-TEST_CASE("dns server registry ignores disabled dns rules during server-tag validation") {
-    DnsServer fallback_server;
-    fallback_server.tag = "fallback";
-    fallback_server.address = "127.0.0.1";
-
-    DnsRule disabled_rule;
-    disabled_rule.enabled = false;
-    disabled_rule.list = std::vector<std::string>{"mylist"};
-    disabled_rule.server = "missing_server";
-
-    DnsConfig dns_cfg;
-    dns_cfg.servers = std::vector<DnsServer>{fallback_server};
-    dns_cfg.fallback = std::vector<std::string>{"fallback"};
-    dns_cfg.rules = std::vector<DnsRule>{disabled_rule};
-
-    CHECK_NOTHROW((void)DnsServerRegistry(dns_cfg));
-}
-
-TEST_CASE("hash changes when domain list content changes") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg = make_empty_dns_cfg();
-    DnsServerRegistry reg1(dns_cfg);
-    DnsServerRegistry reg2(dns_cfg);
-
-    auto lists1 = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"a.example"})}};
-    auto lists2 = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"b.example"})}};
-
-    DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg, lists1);
-    DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg, lists2);
-
-    const std::string hash1 = gen1.compute_config_hash();
-    const std::string hash2 = gen2.compute_config_hash();
-
-    CHECK(!hash1.empty());
-    CHECK(!hash2.empty());
-    CHECK(hash1 != hash2);
-}
-
-
-TEST_CASE("hash is identical for ipset and nftset output modes") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg = make_empty_dns_cfg();
-    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg1(dns_cfg);
-    DnsServerRegistry reg2(dns_cfg);
-
-    const std::string ipset_hash = DnsmasqGenerator::compute_config_hash(
-        reg1, streamer1, route_cfg, dns_cfg, lists);
-    const std::string nftset_hash = DnsmasqGenerator::compute_config_hash(
-        reg2, streamer2, route_cfg, dns_cfg, lists);
-
-    CHECK(!ipset_hash.empty());
-    CHECK(!nftset_hash.empty());
-    CHECK(ipset_hash == nftset_hash);
-}
-
-TEST_CASE("generate output still differs between ipset and nftset modes") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg = make_empty_dns_cfg();
-    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator ipset_gen(reg, streamer1, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
-    DnsmasqGenerator nftset_gen(reg, streamer2, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_NFTSET);
-
-    const std::string ipset_output = run_generate(ipset_gen);
-    const std::string nftset_output = run_generate(nftset_gen);
-
-    CHECK(ipset_output.find("ipset=/example.com/") != std::string::npos);
-    CHECK(nftset_output.find("nftset=/example.com/") != std::string::npos);
-    CHECK(ipset_output != nftset_output);
-}
-
-TEST_CASE("generate output omits IPv6 dnsmasq targets when IPv6 is disabled") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg = make_empty_dns_cfg();
-    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg1(dns_cfg);
-    DnsmasqGenerator ipset_gen(reg1, streamer1, route_cfg, dns_cfg, lists,
-                               ResolverType::DNSMASQ_IPSET,
-                               KEEN_PBR3_VERSION_FULL_STRING,
-                               false);
-    const std::string ipset_output = run_generate(ipset_gen);
-
-    CHECK(ipset_output.find("ipset=/example.com/kpbr4d_mylist\n") != std::string::npos);
-    CHECK(ipset_output.find("kpbr6d_mylist") == std::string::npos);
-
-    DnsServerRegistry reg2(dns_cfg);
-    DnsmasqGenerator nftset_gen(reg2, streamer2, route_cfg, dns_cfg, lists,
-                                ResolverType::DNSMASQ_NFTSET,
-                                KEEN_PBR3_VERSION_FULL_STRING,
-                                false);
-    const std::string nftset_output = run_generate(nftset_gen);
-
-    CHECK(nftset_output.find("nftset=/example.com/4#inet#KeenPbrTable#kpbr4d_mylist\n") != std::string::npos);
-    CHECK(nftset_output.find("kpbr6d_mylist") == std::string::npos);
-}
-
-TEST_CASE("hash changes when IPv6 dnsmasq targets are disabled") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg = make_empty_dns_cfg();
-    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg1(dns_cfg);
-    DnsServerRegistry reg2(dns_cfg);
-
-    const std::string hash_ipv6 = DnsmasqGenerator::compute_config_hash(
-        reg1, streamer1, route_cfg, dns_cfg, lists, KEEN_PBR3_VERSION_FULL_STRING, true);
-    const std::string hash_ipv4_only = DnsmasqGenerator::compute_config_hash(
-        reg2, streamer2, route_cfg, dns_cfg, lists, KEEN_PBR3_VERSION_FULL_STRING, false);
-
-    CHECK(!hash_ipv6.empty());
-    CHECK(!hash_ipv4_only.empty());
-    CHECK(hash_ipv6 != hash_ipv4_only);
-}
-
-TEST_CASE("hash changes when allow_domain_rebinding changes") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg1 = make_dns_cfg(list_name, "dns1", "8.8.8.8", false);
-    auto dns_cfg2 = make_dns_cfg(list_name, "dns1", "8.8.8.8", true);
-    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
-
-    DnsServerRegistry reg1(dns_cfg1);
-    DnsServerRegistry reg2(dns_cfg2);
-    DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg1, lists);
-    DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg2, lists);
-
-    CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
-}
-
-TEST_CASE("hash changes when dns probe server changes") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-    ListStreamer streamer3(cache);
-
-    auto route_cfg = make_route_cfg("mylist");
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-
-    auto dns_cfg1 = make_empty_dns_cfg();
-    auto dns_cfg2 = make_empty_dns_cfg();
-    auto dns_cfg3 = make_empty_dns_cfg();
-
-    DnsTestServer probe1;
-    probe1.listen = "127.0.0.88:53";
-    dns_cfg2.dns_test_server = probe1;
-
-    DnsTestServer probe2;
-    probe2.listen = "127.0.0.99:5300";
-    dns_cfg3.dns_test_server = probe2;
-
-    DnsServerRegistry reg1(dns_cfg1);
-    DnsServerRegistry reg2(dns_cfg2);
-    DnsServerRegistry reg3(dns_cfg3);
-
-    DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg1, lists);
-    DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg2, lists);
-    DnsmasqGenerator gen3(reg3, streamer3, route_cfg, dns_cfg3, lists);
-
-    CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
-    CHECK(gen2.compute_config_hash() != gen3.compute_config_hash());
-}
-
-TEST_CASE("hash changes when keenetic static dns entries change") {
-    KeeneticDnsTestStateGuard guard;
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-
-    DnsServer keenetic_server;
-    keenetic_server.tag = "keenetic";
-    keenetic_server.type = api::DnsServerType::KEENETIC;
-
-    DnsConfig dns_cfg;
-    dns_cfg.servers = std::vector<DnsServer>{keenetic_server};
-    dns_cfg.fallback = std::vector<std::string>{"keenetic"};
-
-    auto route_cfg = make_route_cfg("mylist");
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-
-    set_keenetic_dns_fetcher_for_tests([]() {
-        return std::string(R"({
-          "proxy-status": [
-            {
-              "proxy-name": "System",
-              "proxy-config": "dns_server = 127.0.0.1:40508 . # https://resolver.example/dns-query@dnsm\nstatic_a = my.keenetic.net 78.47.125.180 1\n"
-            }
-          ]
-        })");
-    });
-    DnsServerRegistry reg1(dns_cfg);
-    DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg, lists);
-
-    reset_keenetic_dns_test_state();
-    set_keenetic_dns_fetcher_for_tests([]() {
-        return std::string(R"({
-          "proxy-status": [
-            {
-              "proxy-name": "System",
-              "proxy-config": "dns_server = 127.0.0.1:40508 . # https://resolver.example/dns-query@dnsm\nstatic_a = my.keenetic.net 78.47.125.180 1\nstatic_aaaa = my.keenetic.net 2001:db8::125 1\n"
-            }
-          ]
-        })");
-    });
-    DnsServerRegistry reg2(dns_cfg);
-    DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg, lists);
-
-    CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
-}
-
-TEST_CASE("hash changes when hash version changes") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer1(cache);
-    ListStreamer streamer2(cache);
-
-    auto route_cfg = make_route_cfg("mylist");
-    auto dns_cfg = make_empty_dns_cfg();
-    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
-    DnsServerRegistry reg(dns_cfg);
-
-    const std::string hash1 = DnsmasqGenerator::compute_config_hash(
-        reg, streamer1, route_cfg, dns_cfg, lists, "3.0.0-1");
-    const std::string hash2 = DnsmasqGenerator::compute_config_hash(
-        reg, streamer2, route_cfg, dns_cfg, lists, "3.0.0-2");
-
-    CHECK(hash1 != hash2);
-}
-
-TEST_CASE("ip-only routed list produces no ipset or nftset directives") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "my-ips";
-    RouteConfig route_cfg = make_route_cfg(list_name);
-    DnsConfig dns_cfg = make_empty_dns_cfg();
-
-    ListConfig list_cfg;
-    list_cfg.ip_cidrs = std::vector<std::string>{"10.0.0.1", "192.168.0.0/24"};
-    auto lists = std::map<std::string, ListConfig>{{list_name, list_cfg}};
-
-    DnsServerRegistry reg(dns_cfg);
-
-    DnsmasqGenerator ipset_gen(reg, streamer, route_cfg, dns_cfg, lists,
-                               ResolverType::DNSMASQ_IPSET);
-    const std::string ipset_output = run_generate(ipset_gen);
-    CHECK(ipset_output.find("ipset=") == std::string::npos);
-    CHECK(ipset_output.find("server=/") == std::string::npos);
-
-    DnsmasqGenerator nftset_gen(reg, streamer, route_cfg, dns_cfg, lists,
-                                ResolverType::DNSMASQ_NFTSET);
-    const std::string nftset_output = run_generate(nftset_gen);
-    CHECK(nftset_output.find("nftset=") == std::string::npos);
-    CHECK(nftset_output.find("server=/") == std::string::npos);
-}
-
-TEST_CASE("generate-resolver-config keeps 1000 short domains within batch and line limits") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg = make_empty_dns_cfg();
-
+TEST_CASE("dnsmasq gen: 1000 short domains respect batch and line limits") {
     std::vector<std::string> domains;
-    std::set<std::string> expected_domains;
+    std::set<std::string> expected;
     for (int i = 1; i <= 1000; ++i) {
-        const std::string domain = "d" + std::to_string(i) + ".gg";
-        domains.push_back(domain);
-        expected_domains.insert(domain);
+        domains.push_back("d" + std::to_string(i) + ".gg");
+        expected.insert(domains.back());
     }
-    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg(domains)}};
+    const auto gen = run_generate(make_dns_cfg("mylist", "dns1", "1.1.1.1"),
+                                  {{"mylist", make_list_cfg(domains)}});
 
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
-    const std::string output = run_generate(gen);
-
-    std::istringstream lines(output);
-    std::string line;
-    size_t ipset_lines = 0;
-    std::set<std::string> emitted_domains;
-    while (std::getline(lines, line)) {
-        if (line.rfind("ipset=", 0) == 0) {
-            ++ipset_lines;
-            CHECK(line.size() <= 1024);
-            const auto line_domains = split_domains_from_ipset_line(line, list_name);
-            CHECK(line_domains.size() <= 50);
-            for (const auto& d : line_domains) {
-                emitted_domains.insert(d);
-            }
-        }
+    const auto rows = lines_with_prefix(gen.output, "server=/");
+    CHECK(rows.size() >= 20);
+    std::set<std::string> emitted;
+    for (const auto& row : rows) {
+        CHECK(row.size() <= 1024);
+        const auto row_domains = domains_of_server_line(row, "1.1.1.1");
+        CHECK(row_domains.size() <= 50);
+        emitted.insert(row_domains.begin(), row_domains.end());
     }
-    CHECK(ipset_lines >= 2);
-    CHECK(emitted_domains == expected_domains);
+    CHECK(emitted == expected);
+    CHECK(gen.stats.domains == 1000);
 }
 
-TEST_CASE("generate-resolver-config edge lengths 200..253 split rows safely and keep all domains") {
-    CacheManager cache("/nonexistent/cache");
-    const std::string list_name(80, 'l');
-
+TEST_CASE("dnsmasq gen: long domains split rows below 1024 chars and keep all domains") {
     for (size_t variable_len = 200; variable_len <= 253; ++variable_len) {
         CAPTURE(variable_len);
-
-        ListStreamer streamer(cache);
-        auto route_cfg = make_route_cfg(list_name);
-        auto dns_cfg = make_empty_dns_cfg();
-
         std::vector<std::string> domains;
-        std::set<std::string> expected_domains;
-
-        const std::string variable_domain = make_domain_with_len(variable_len, "a0");
-        domains.push_back(variable_domain);
-        expected_domains.insert(variable_domain);
-
+        std::set<std::string> expected;
+        domains.push_back(make_domain_with_len(variable_len, "a0"));
         for (int i = 1; i <= 9; ++i) {
-            const std::string domain = make_domain_with_len(200, "z" + std::to_string(i));
-            domains.push_back(domain);
-            expected_domains.insert(domain);
+            domains.push_back(make_domain_with_len(200, "z" + std::to_string(i)));
         }
+        expected.insert(domains.begin(), domains.end());
 
-        auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg(domains)}};
-        DnsServerRegistry reg(dns_cfg);
-        DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
-        const std::string output = run_generate(gen);
-
-        std::istringstream lines(output);
-        std::string line;
-        std::set<std::string> emitted_domains;
-        std::vector<size_t> line_domain_counts;
-
-        while (std::getline(lines, line)) {
-            if (line.rfind("ipset=", 0) != 0) {
-                continue;
-            }
-
-            CHECK(line.size() <= 1024);
-            const auto line_domains = split_domains_from_ipset_line(line, list_name);
-            line_domain_counts.push_back(line_domains.size());
-            for (const auto& d : line_domains) {
-                emitted_domains.insert(d);
-            }
+        const auto gen = run_generate(make_dns_cfg("mylist", "dns1", "1.1.1.1"),
+                                      {{"mylist", make_list_cfg(domains)}});
+        std::set<std::string> emitted;
+        for (const auto& row : lines_with_prefix(gen.output, "server=/")) {
+            CHECK(row.size() <= 1024);
+            const auto row_domains = domains_of_server_line(row, "1.1.1.1");
+            emitted.insert(row_domains.begin(), row_domains.end());
         }
-
-        // Manual check for why "2 domains in a line" can be valid:
-        // line_len = len("ipset=") + sum(len("/" + domain_i)) + len("/set4,set6")
-        // For this test list_name (len=80), fixed overhead is 182 chars.
-        // Thus:
-        //   4x200 domains => 182 + 4*201 = 986 (fits)
-        //   (variable + 3x200) fits while variable <= 238 (hits 1024 at 238)
-        //   variable >= 239 forces first chunk to 3 domains.
-        CHECK(calc_ipset_line_len(list_name, {200, 200, 200, 200}) == 986);
-        const bool first_chunk_fits =
-            calc_ipset_line_len(list_name, {variable_len, 200, 200, 200}) <= 1024;
-        CHECK(first_chunk_fits == (variable_len <= 238));
-
-        const std::vector<size_t> expected_counts =
-            (variable_len <= 238) ? std::vector<size_t>{4, 4, 2}
-                                  : std::vector<size_t>{3, 4, 3};
-        CHECK(line_domain_counts == expected_counts);
-        CHECK(emitted_domains == expected_domains);
+        CHECK(emitted == expected);
     }
 }
 
-TEST_CASE("generate-resolver-config ignores domains longer than 255 chars") {
-    CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
-
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg = make_empty_dns_cfg();
-
-    const std::string invalid =
-        std::string(256, 'a') + ".com";
-    auto lists = std::map<std::string, ListConfig>{{
-        list_name, make_list_cfg({"valid.example.com", invalid})
-    }};
-
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
-    const std::string output = run_generate(gen);
-
-    CHECK(output.find("valid.example.com") != std::string::npos);
-    CHECK(output.find(invalid) == std::string::npos);
+TEST_CASE("dnsmasq gen: domains longer than 255 chars are skipped") {
+    const std::string invalid = std::string(256, 'a') + ".com";
+    const auto gen = run_generate(make_dns_cfg("mylist", "dns1", "1.1.1.1"),
+                                  {{"mylist", make_list_cfg({"valid.example.com", invalid})}});
+    CHECK(gen.output.find("valid.example.com") != std::string::npos);
+    CHECK(gen.output.find(invalid) == std::string::npos);
+    CHECK(gen.stats.domains == 1);
 }
 
-TEST_CASE("generate-resolver-config merges cached content with file and inline entries") {
+TEST_CASE("dnsmasq gen: cached content is merged with file and inline entries") {
     const auto temp_root =
         std::filesystem::temp_directory_path() / "keen-pbr-test-dnsmasq-cache-merged";
     std::filesystem::remove_all(temp_root);
@@ -1107,22 +380,17 @@ TEST_CASE("generate-resolver-config merges cached content with file and inline e
         list_cfg.file = local_file;
         list_cfg.domains = std::vector<std::string>{"from-inline.example"};
 
-        const std::string list_name = "mylist";
-        auto route_cfg = make_route_cfg(list_name);
-        auto dns_cfg = make_empty_dns_cfg();
-        auto lists = std::map<std::string, ListConfig>{{list_name, list_cfg}};
-
+        const auto dns_cfg = make_dns_cfg("mylist", "dns1", "1.1.1.1");
+        const std::map<std::string, ListConfig> lists{{"mylist", list_cfg}};
         ListStreamer streamer(cache);
         DnsServerRegistry reg(dns_cfg);
-        DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
-        const std::string output = run_generate(gen);
+        DnsmasqGenerator gen(reg, streamer, dns_cfg, lists);
+        std::ostringstream out;
+        gen.generate(out);
 
-        // The cached URL content is used in place of a re-download, but the
-        // list's local file and inline domains must never be dropped.
-        CHECK(output.find("from-cache.example") != std::string::npos);
-        CHECK(output.find("from-file.example") != std::string::npos);
-        CHECK(output.find("from-inline.example") != std::string::npos);
-
+        CHECK(out.str().find("from-cache.example") != std::string::npos);
+        CHECK(out.str().find("from-file.example") != std::string::npos);
+        CHECK(out.str().find("from-inline.example") != std::string::npos);
         cleanup();
     } catch (...) {
         cleanup();
@@ -1130,65 +398,102 @@ TEST_CASE("generate-resolver-config merges cached content with file and inline e
     }
 }
 
-TEST_CASE("nft resolver stream keeps routed and DNS-only list directives together") {
+TEST_CASE("dnsmasq gen: stats describe every list for the conf-script log") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("vpn", "10.0.0.53"),
+                                         make_server("fb", "1.1.1.1")};
+    cfg.fallback = std::vector<std::string>{"fb"};
+    cfg.rules = std::vector<DnsRule>{make_rule("inline", "vpn"),
+                                     make_rule("remote", "vpn", true),
+                                     make_rule("undefined", "vpn")};
+    ListConfig remote;
+    remote.url = "https://example.com/list.txt";  // never downloaded here
+    const auto result = run_generate(
+        cfg, {{"inline", make_list_cfg({"a.example", "b.example"})},
+              {"remote", remote}});
+
+    CHECK(result.stats.fallback == std::vector<std::string>{"1.1.1.1"});
+    REQUIRE(result.stats.lists.size() == 3);
+    const auto& inline_list = result.stats.lists[0];
+    CHECK(inline_list.name == "inline");
+    CHECK(inline_list.server == "vpn");
+    CHECK(inline_list.upstreams == std::vector<std::string>{"10.0.0.53"});
+    CHECK(inline_list.domains == 2);
+    CHECK(inline_list.skipped.empty());
+    CHECK_FALSE(inline_list.url_pending);
+    const auto& remote_list = result.stats.lists[1];
+    CHECK(remote_list.name == "remote");
+    CHECK(remote_list.url_pending);
+    CHECK(remote_list.allow_rebind);
+    CHECK(remote_list.domains == 0);
+    const auto& undefined_list = result.stats.lists[2];
+    CHECK(undefined_list.name == "undefined");
+    CHECK_FALSE(undefined_list.skipped.empty());
+}
+
+TEST_CASE("dnsmasq stamp: write and parse round trip") {
+    const DnsmasqConfigStamp stamp{"0123456789abcdef0123456789abcdef", 123456789, 1700000000};
+    std::ostringstream out;
+    write_dnsmasq_config_stamp(out, stamp);
+    CHECK(out.str() ==
+          "txt-record=config-hash.keen.pbr,0123456789abcdef0123456789abcdef|123456789|1700000000\n");
+
+    const std::string line = out.str();
+    const std::string value = line.substr(line.find(',') + 1, line.size() - line.find(',') - 2);
+    const auto parsed = parse_dnsmasq_config_stamp(value);
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->hash == stamp.hash);
+    CHECK(parsed->boottime_ms == stamp.boottime_ms);
+    CHECK(parsed->unix_ts == stamp.unix_ts);
+}
+
+TEST_CASE("dnsmasq stamp: strict parser rejects malformed values") {
+    const std::string hash = "0123456789abcdef0123456789abcdef";
+    CHECK(parse_dnsmasq_config_stamp(hash + "|1|2").has_value());
+    CHECK(parse_dnsmasq_config_stamp(hash + "|0|0").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp("").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash).has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|1").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|1|").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "||2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|1|2|3").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|a|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|-1|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|1 |2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|99999999999999999999|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp("0123456789ABCDEF0123456789abcdef|1|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp("0123456789abcdef0123456789abcde|1|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp("0123456789abcdef0123456789abcdefg|1|2").has_value());
+    CHECK_FALSE(parse_dnsmasq_config_stamp(hash + "|1|2\n").has_value());
+}
+
+namespace {
+class DiscardStreamBuf : public std::streambuf {
+protected:
+    int_type overflow(int_type c) override { return traits_type::not_eof(c); }
+    std::streamsize xsputn(const char*, std::streamsize n) override { return n; }
+};
+} // namespace
+
+TEST_CASE("dnsmasq stamp: appended stamp line is not part of the hash") {
+    const DnsConfig dns = make_dns_cfg("mylist", "dns1", "1.1.1.1");
+    const std::map<std::string, ListConfig> lists{{"mylist", make_list_cfg({"example.com"})}};
+
+    // conf-script path: generate() then the stamp, straight to the stream.
+    auto script = run_generate(dns, lists);
+    std::ostringstream script_out;
+    script_out << script.output;
+    write_dnsmasq_config_stamp(script_out, {script.hash, 1, 2});
+
+    // Daemon path: hash computed with nothing stored.
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer(cache);
+    const DnsServerRegistry registry(dns);
+    DnsmasqGenerator gen(registry, streamer, dns, lists);
+    DiscardStreamBuf discard;
+    std::ostream null_out(&discard);
+    CHECK(gen.generate(null_out) == script.hash);
 
-    RouteRule work_route;
-    work_route.list = std::vector<std::string>{"work"};
-    work_route.outbound = "vpn_work";
-    RouteRule home_route;
-    home_route.list = std::vector<std::string>{"cubly_home"};
-    home_route.outbound = "vpn_home";
-    RouteConfig route_cfg;
-    route_cfg.rules = std::vector<RouteRule>{work_route, home_route};
-
-    DnsServer work_server;
-    work_server.tag = "work_dns";
-    work_server.address = "10.3.5.18";
-    DnsServer home_server;
-    home_server.tag = "home_dns";
-    home_server.address = "10.5.0.101";
-    DnsServer tailscale_server;
-    tailscale_server.tag = "tailscale_dns";
-    tailscale_server.address = "100.100.100.100";
-    DnsConfig dns_cfg;
-    dns_cfg.servers = std::vector<DnsServer>{work_server, home_server, tailscale_server};
-    dns_cfg.fallback = std::vector<std::string>{"tailscale_dns"};
-    DnsRule work_dns_rule;
-    work_dns_rule.list = std::vector<std::string>{"work"};
-    work_dns_rule.server = "work_dns";
-    work_dns_rule.allow_domain_rebinding = true;
-    DnsRule home_dns_rule;
-    home_dns_rule.list = std::vector<std::string>{"cubly_home"};
-    home_dns_rule.server = "home_dns";
-    home_dns_rule.allow_domain_rebinding = true;
-    DnsRule tailscale_dns_rule;
-    tailscale_dns_rule.list = std::vector<std::string>{"tailscale"};
-    tailscale_dns_rule.server = "tailscale_dns";
-    tailscale_dns_rule.allow_domain_rebinding = true;
-    dns_cfg.rules = std::vector<DnsRule>{work_dns_rule, home_dns_rule, tailscale_dns_rule};
-
-    const auto lists = std::map<std::string, ListConfig>{
-        {"work", make_list_cfg({"work.example"})},
-        {"cubly_home", make_list_cfg({"home.example"})},
-        {"tailscale", make_list_cfg({"ts.net"})},
-    };
-
-    DnsServerRegistry registry(dns_cfg);
-    DnsmasqGenerator generator(registry, streamer, route_cfg, dns_cfg, lists,
-                                ResolverType::DNSMASQ_NFTSET);
-    const std::string expected_hash = generator.compute_config_hash();
-    const std::string output = run_generate(generator);
-
-    CHECK(output.find("nftset=/work.example/4#inet#KeenPbrTable#kpbr4d_work,6#inet#KeenPbrTable#kpbr6d_work\n") != std::string::npos);
-    CHECK(output.find("nftset=/home.example/4#inet#KeenPbrTable#kpbr4d_cubly_home,6#inet#KeenPbrTable#kpbr6d_cubly_home\n") != std::string::npos);
-    CHECK(output.find("nftset=/ts.net/") == std::string::npos);
-    CHECK(output.find("server=/work.example/10.3.5.18\n") != std::string::npos);
-    CHECK(output.find("server=/home.example/10.5.0.101\n") != std::string::npos);
-    CHECK(output.find("server=/ts.net/100.100.100.100\n") != std::string::npos);
-    CHECK(output.find("rebind-domain-ok=/work.example/\n") != std::string::npos);
-    CHECK(output.find("rebind-domain-ok=/home.example/\n") != std::string::npos);
-    CHECK(output.find("rebind-domain-ok=/ts.net/\n") != std::string::npos);
-    CHECK(extract_txt_hash(output) == expected_hash);
+    CHECK(script_out.str().size() > script.output.size());
+    CHECK(script_out.str().rfind(script.output, 0) == 0);
 }

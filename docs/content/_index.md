@@ -337,7 +337,7 @@ toc: false
   {{< hextra/feature-card
     title="DNS Integration"
     icon="server"
-    subtitle="Generates dnsmasq `server=` and `ipset=` directives so resolved domain IPs are instantly routed through the correct outbound."
+    subtitle="Intercepts DNS and visible L7 names to fill dynamic sets directly; no resolver is configured or required."
   >}}
   {{< hextra/feature-card
     title="Dual Firewall Backend"

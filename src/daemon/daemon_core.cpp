@@ -1,10 +1,15 @@
+#include "../intercept/intercept_report.hpp"
 #include "daemon.hpp"
+#include "../config/config_writer.hpp"
+
+#include "../config/routing_state.hpp"
 
 #include <algorithm>
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstring>
 #include <ctime>
+#include <exception>
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
@@ -21,15 +26,15 @@
 #include <thread>
 #include <unistd.h>
 
-#include "../dns/dns_probe_server.hpp" // IWYU pragma: keep
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
+#include "../health/host_health_warnings.hpp"
+#include "../health/routing_health_checker.hpp"
 #include "../ipc/control_protocol.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
 #include "../util/ipv6_support.hpp"
 #include "../util/safe_exec.hpp"
-#include "../util/time_utils.hpp"
 #include "scheduler.hpp"
 
 #ifdef WITH_API
@@ -46,12 +51,14 @@ namespace {
 constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{150};
 constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY =
     std::chrono::seconds{5};
+constexpr auto INTERFACE_REFRESH_DEBOUNCE_DELAY = std::chrono::milliseconds{1500};
 constexpr std::size_t kMaxConcurrentRoutingTests = 2;
 constexpr std::size_t kMaxPendingControlClients = 64;
 constexpr std::size_t kMaxControlRequestBytes = std::size_t{4} * 1024U;
 constexpr auto kControlIngressTimeout = std::chrono::seconds{1};
 constexpr auto kControlHelloWriteTimeout = std::chrono::milliseconds{100};
 constexpr auto kControlWriteTimeout = std::chrono::seconds{1};
+constexpr auto kRoutingHealthCacheLifetime = std::chrono::seconds{5};
 
 bool send_control_bytes(int fd, std::string_view bytes,
                         std::chrono::steady_clock::duration timeout) noexcept {
@@ -102,6 +109,16 @@ void send_control_response_and_close(int fd,
   close(fd);
 }
 
+RoutingHealthReport unavailable_routing_health(
+    FirewallBackend backend, std::string detail,
+    VerificationState state = VerificationState::unavailable) {
+  RoutingHealthReport report;
+  report.firewall_backend = backend;
+  report.firewall_chain.verification_state = state;
+  report.firewall_chain.detail = std::move(detail);
+  return report;
+}
+
 nlohmann::json control_rule_state_json(const ControlRuntimeSnapshot::Rule &rule) {
   return {{"rule_index", rule.rule_index},
           {"set_names", rule.set_names},
@@ -112,27 +129,19 @@ nlohmann::json control_rule_state_json(const ControlRuntimeSnapshot::Rule &rule)
 
 nlohmann::json control_runtime_state_json(
     const ControlRuntimeSnapshot &snapshot, FirewallBackend backend,
-    bool ipv6_enabled, std::uint64_t generation,
-    const std::string &config_path) {
+    bool ipv6_enabled, bool intercept_dns_hold,
+    std::uint64_t generation, const std::string &config_path) {
   nlohmann::json rules = nlohmann::json::array();
   for (const auto &rule : snapshot.realized_rules)
     rules.push_back(control_rule_state_json(rule));
-  const bool fallback = snapshot.runtime_state == RuntimeState::stopped ||
-                        snapshot.runtime_state == RuntimeState::shutting_down;
   return {{"runtime_state", runtime_state_name(snapshot.runtime_state)},
           {"runtime_state_reason", snapshot.runtime_state_reason},
           {"routing_runtime_active", snapshot.routing_runtime_active},
           {"generation", generation},
           {"firewall_backend", firewall_backend_name(backend)},
           {"ipv6_enabled", ipv6_enabled},
+          {"intercept_dns_hold", intercept_dns_hold},
           {"config_path", config_path},
-          {"resolver_mode", fallback ? "fallback" : "active"},
-          {"resolver_fallback_reason",
-           fallback
-               ? (snapshot.runtime_state == RuntimeState::shutting_down
-                      ? "runtime_shutting_down"
-                      : "runtime_stopped")
-               : ""},
           {"realized_rules", std::move(rules)}};
 }
 
@@ -165,8 +174,7 @@ const Outbound *find_outbound(const std::vector<Outbound> &outbounds,
   return nullptr;
 }
 
-Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts,
-               HookCommandExecutor hook_command_executor)
+Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
     : config_store_(config),
       list_service_(config.daemon.value_or(DaemonConfig{})
                         .cache_dir.value_or("/var/cache/keen-pbr"),
@@ -184,17 +192,14 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts,
       outbound_marks_(allocate_outbound_marks(
           config_.fwmark.value_or(FwmarkConfig{}),
           config_.outbounds.value_or(std::vector<Outbound>{}))),
-      hook_command_executor_(std::move(hook_command_executor)) {
+      dnsmasq_manager_(KEEN_PBR_DNSMASQ_HOOK),
+      routing_runtime_active_(true) {
   if (opts_.use_raw_prerouting || opts_.use_raw6_prerouting) {
     const auto raw_mode = firewall_->raw_prerouting_mode();
     Logger::instance().info(
         "iptables PREROUTING placement: IPv4={}, IPv6={}; OUTPUT=mangle",
         raw_mode.ipv4 ? "raw" : "mangle",
         raw_mode.ipv6 ? "raw" : "mangle");
-  }
-
-  if (!hook_command_executor_) {
-    hook_command_executor_ = default_hook_command_executor;
   }
 
   const auto daemon_config = config_.daemon.value_or(DaemonConfig{});
@@ -224,13 +229,10 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts,
       static_cast<size_t>(verify_max_bytes));
 
   firewall_state_.set_outbound_marks(outbound_marks_);
-  firewall_state_.set_fwmark_mask(
-      fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{})));
   list_service_.ensure_dir();
   scheduler_ = std::make_unique<Scheduler>(*this);
-
 #ifdef WITH_API
-  dns_test_broadcaster_ = std::make_unique<SseBroadcaster>();
+  dns_test_broadcaster_ = std::make_unique<SseBroadcaster>(1024, gap_notice_for_dropped);
 #endif
 }
 
@@ -238,8 +240,6 @@ Daemon::~Daemon() {
   try {
     accept_posted_control_tasks_.store(false, std::memory_order_release);
     lifecycle_executor_.shutdown();
-    resolver_hook_executor_.shutdown();
-    resolver_io_executor_.shutdown();
     routing_test_executor_.shutdown();
     blocking_executor_.shutdown();
     if (rollback_config_fd_ >= 0) {
@@ -545,6 +545,176 @@ void Daemon::finish_routing_test() {
   routing_tests_inflight_.fetch_sub(1, std::memory_order_acq_rel);
 }
 
+RoutingHealthReport Daemon::cached_routing_health() {
+  const auto runtime_snapshot = runtime_state_store_.snapshot();
+  const auto backend = firewall_->backend();
+  const bool runtime_ready =
+      runtime_snapshot.runtime_state != RuntimeState::starting &&
+      runtime_snapshot.runtime_state != RuntimeState::applying &&
+      runtime_snapshot.runtime_state != RuntimeState::stopped &&
+      runtime_snapshot.runtime_state != RuntimeState::shutting_down &&
+      runtime_snapshot.firewall_state.active_firewall() != nullptr;
+  if (!runtime_ready) {
+    const auto detail = runtime_snapshot.runtime_state == RuntimeState::starting
+        ? "routing runtime initialization is in progress"
+        : (runtime_snapshot.runtime_state == RuntimeState::applying
+               ? "routing runtime configuration is being applied"
+               : "active firewall plan unavailable; routing runtime is not ready");
+    return unavailable_routing_health(backend, detail);
+  }
+
+  const auto health_revision =
+      routing_health_revision_.load(std::memory_order_acquire);
+  const auto runtime_generation =
+      runtime_generation_.load(std::memory_order_acquire);
+  {
+    KPBR_LOCK_GUARD(routing_health_mutex_);
+    const auto now = std::chrono::steady_clock::now();
+    const bool cache_matches_current_runtime =
+        is_routing_health_cache_valid(runtime_snapshot);
+    if (cache_matches_current_runtime &&
+        now - routing_health_cache_time_ <= kRoutingHealthCacheLifetime) {
+      return *routing_health_cache_;
+    }
+    if (routing_health_check_inflight_) {
+      // A report from the same revision and runtime generation remains a
+      // valid view while its replacement is being computed off-loop.
+      if (cache_matches_current_runtime) {
+        return *routing_health_cache_;
+      }
+      return unavailable_routing_health(
+          backend, "canonical routing health refresh is pending");
+    }
+    routing_health_check_inflight_ = true;
+  }
+
+  const auto raw_prerouting = firewall_->raw_prerouting_mode();
+  bool queued = false;
+  try {
+    // Only the small host-health inputs are copied out of the config; this
+    // sits inside the try so a throw resets routing_health_check_inflight_.
+    HostHealthInputs host_inputs =
+        host_health_inputs(config_store_.active_config());
+    queued = routing_test_executor_.try_post(
+        "routing-health",
+        [this, runtime_snapshot, backend, raw_prerouting, health_revision,
+         runtime_generation, host_inputs = std::move(host_inputs)] {
+          try {
+            RoutingHealthReport health;
+            try {
+              health = build_routing_health_report(
+                  backend, raw_prerouting, runtime_snapshot.firewall_state,
+                  runtime_snapshot.route_specs,
+                  runtime_snapshot.policy_rule_specs, netlink_);
+              if (health.error.empty()) {
+                // Host configuration warnings are non-blocking and are only
+                // evaluated when the cached report is (re)built.
+                health.warnings = collect_host_health_warnings(
+                    host_inputs, netlink_.dump_interfaces(), backend,
+                    fwmark_conflict_check_enabled(host_inputs)
+                        ? PolicyRuleInputs{netlink_.dump_policy_rules(0),
+                                           runtime_snapshot.policy_rule_specs}
+                        : PolicyRuleInputs{},
+                    host_table_cache_, run_command_capture, read_proc_file);
+              }
+            } catch (const std::exception& error) {
+              health = unavailable_routing_health(
+                  backend,
+                  "canonical routing health check failed: " +
+                      std::string(error.what()),
+                  VerificationState::failed);
+            } catch (...) {
+              health = unavailable_routing_health(
+                  backend, "canonical routing health check failed: unknown error",
+                  VerificationState::failed);
+            }
+
+            const auto current_runtime_snapshot = runtime_state_store_.snapshot();
+            KPBR_LOCK_GUARD(routing_health_mutex_);
+            if (health_revision ==
+                    routing_health_revision_.load(std::memory_order_acquire) &&
+                runtime_generation ==
+                    runtime_generation_.load(std::memory_order_acquire) &&
+                runtime_snapshot.runtime_state ==
+                    current_runtime_snapshot.runtime_state) {
+              routing_health_cache_ = std::move(health);
+              routing_health_cache_revision_ = health_revision;
+              routing_health_cache_generation_ = runtime_generation;
+              routing_health_cache_state_ = runtime_snapshot.runtime_state;
+              routing_health_cache_time_ = std::chrono::steady_clock::now();
+              if (routing_health_cache_->error.empty()) {
+                log_routing_health_warnings_if_changed(
+                    routing_health_cache_->warnings);
+              }
+            }
+            routing_health_check_inflight_ = false;
+          } catch (...) {
+            KPBR_LOCK_GUARD(routing_health_mutex_);
+            routing_health_check_inflight_ = false;
+          }
+        });
+  } catch (...) {
+    const auto current_runtime_snapshot = runtime_state_store_.snapshot();
+    KPBR_LOCK_GUARD(routing_health_mutex_);
+    routing_health_check_inflight_ = false;
+    if (is_routing_health_cache_valid(current_runtime_snapshot)) {
+      return *routing_health_cache_;
+    }
+    return unavailable_routing_health(
+        backend, "canonical routing health worker is unavailable");
+  }
+  if (queued) {
+    const auto current_runtime_snapshot = runtime_state_store_.snapshot();
+    KPBR_LOCK_GUARD(routing_health_mutex_);
+    // Keep serving the same-generation report while the worker refreshes it;
+    // never leak a report across an invalidation or runtime generation change.
+    if (is_routing_health_cache_valid(current_runtime_snapshot)) {
+      return *routing_health_cache_;
+    }
+    return unavailable_routing_health(
+        backend, "canonical routing health refresh is pending");
+  }
+
+  const auto current_runtime_snapshot = runtime_state_store_.snapshot();
+  KPBR_LOCK_GUARD(routing_health_mutex_);
+  routing_health_check_inflight_ = false;
+  if (is_routing_health_cache_valid(current_runtime_snapshot)) {
+    return *routing_health_cache_;
+  }
+  return unavailable_routing_health(
+      backend, "canonical routing health worker is unavailable");
+}
+
+void Daemon::log_routing_health_warnings_if_changed(
+    const std::vector<HealthWarning>& warnings) {
+  auto keys = health_warning_keys(warnings);
+  if (keys == routing_health_logged_warning_keys_) return;
+  routing_health_logged_warning_keys_ = std::move(keys);
+  for (const auto& warning : warnings) {
+    Logger::instance().warn("routing health warning [{}]{}: {}",
+                            health_warning_code_name(warning.code),
+                            warning.interface ? " " + *warning.interface : "",
+                            warning.message);
+  }
+}
+
+void Daemon::invalidate_routing_health_cache() {
+  routing_health_revision_.fetch_add(1, std::memory_order_acq_rel);
+  KPBR_LOCK_GUARD(routing_health_mutex_);
+  routing_health_cache_.reset();
+  routing_health_cache_revision_ = 0;
+  routing_health_cache_generation_ = 0;
+}
+
+bool Daemon::is_routing_health_cache_valid(const RuntimeStateSnapshot& snapshot) const {
+  return routing_health_cache_.has_value() &&
+         routing_health_cache_revision_ ==
+             routing_health_revision_.load(std::memory_order_acquire) &&
+         routing_health_cache_generation_ ==
+             runtime_generation_.load(std::memory_order_acquire) &&
+         routing_health_cache_state_ == snapshot.runtime_state;
+}
+
 void Daemon::handle_ipc_control_socket() {
   while (true) {
     IpcControlRequest accepted;
@@ -560,22 +730,10 @@ void Daemon::handle_ipc_control_socket() {
     nlohmann::json response;
     try {
       const std::string operation = request.at("operation").get<std::string>();
-      const bool resolver_hook_inflight =
-          ipc_resolver_hook_inflight_.load(std::memory_order_acquire);
-      const bool read_only_operation =
-          operation == "status" || operation == "resolver-config-hash" ||
-          operation == "test-routing";
       const bool startup_mutation =
           runtime_state_machine_.state() == RuntimeState::starting &&
           (operation == "download" || operation == "test-routing");
-      if (resolver_hook_inflight && operation != "generate-resolver-config" &&
-          operation != "resolver-config-generated" &&
-          !read_only_operation) {
-        response =
-            ipc::make_error_response(request, "busy",
-                                     "mutating control operations are "
-                                     "unavailable during resolver reload");
-      } else if (startup_mutation) {
+      if (startup_mutation) {
         response = ipc::make_error_response(
             request, "busy",
             "routing runtime initialization is still in progress");
@@ -585,49 +743,46 @@ void Daemon::handle_ipc_control_socket() {
           throw ipc::ControlProtocolError(
               "control peer is not authorized for this operation");
         }
-        if (operation != "status" && operation != "resolver-config-hash" &&
-            operation != "download" && operation != "test-routing" &&
-            operation != "generate-resolver-config" &&
-            operation != "resolver-config-generated") {
+        if (operation != "status" && operation != "download" &&
+            operation != "test-routing") {
           response = ipc::make_error_response(request, "unsupported_operation",
                                               "unsupported control operation");
-        } else if (operation == "resolver-config-generated") {
-          const auto generation = request.value("generation", std::uint64_t{0});
-          const auto hash = request.value("hash", "");
-          if (!accept_resolver_generated_hash(generation, hash)) {
-            response = ipc::make_error_response(
-                request, "stale_generation",
-                "resolver output belongs to a stale runtime generation");
-          } else {
-            response = {{"protocol_version", ipc::kControlProtocolVersion},
-                        {"request_id", request.at("request_id")},
-                        {"ok", true},
-                        {"result", {{"generation", generation}}}};
-          }
-        } else if (operation == "status" ||
-                   operation == "resolver-config-hash" ||
-                   operation == "test-routing" ||
-                   operation == "generate-resolver-config") {
+        } else if (operation == "status" || operation == "test-routing") {
           const bool include_realized_rules =
               operation == "status" || operation == "test-routing";
           const auto snapshot =
               runtime_state_store_.control_snapshot(include_realized_rules);
-          if (snapshot.runtime_state == RuntimeState::applying &&
-              operation != "generate-resolver-config") {
+          if (snapshot.runtime_state == RuntimeState::applying) {
             response = ipc::make_error_response(
                 request, "busy", "runtime configuration is being applied");
           } else {
-            const bool ipv6_enabled = resolver_generation_snapshot_.has_value()
-                                          ? resolver_generation_snapshot_->ipv6_enabled
-                                          : resolve_ipv6_support(config_).enabled;
+            // Status must remain a nonblocking control operation.  The
+            // runtime generation normally supplies the cached decision; a
+            // pre-generation status response uses the conservative display
+            // default instead of probing the firewall on this event loop.
+            const bool ipv6_enabled = generation_snapshot_.has_value()
+                                          ? generation_snapshot_->ipv6_enabled
+                                          : (operation == "status"
+                                                 ? true
+                                                 : resolve_ipv6_support(config_).enabled);
+            const bool intercept_dns_hold =
+                generation_snapshot_.has_value()
+                    ? generation_snapshot_->intercept_dns_hold
+                    : intercept_effective_snapshot().dns_hold;
+            auto result = control_runtime_state_json(
+                snapshot, firewall_->backend(), ipv6_enabled,
+                intercept_dns_hold,
+                runtime_generation_.load(std::memory_order_acquire),
+                config_path_);
+            if (operation == "status") {
+              result["routing_health"] =
+                  routing_health_report_to_json(cached_routing_health());
+            }
             response = {
                 {"protocol_version", ipc::kControlProtocolVersion},
                 {"request_id", request.at("request_id")},
                 {"ok", true},
-                {"result", control_runtime_state_json(
-                               snapshot, firewall_->backend(), ipv6_enabled,
-                               runtime_generation_.load(std::memory_order_acquire),
-                               config_path_)}};
+                {"result", std::move(result)}};
           }
         } else if (operation == "download") {
           bool expected = false;
@@ -651,9 +806,8 @@ void Daemon::handle_ipc_control_socket() {
             reloaded = result.reloaded;
           } else {
             const auto relevant = collect_relevant_list_names(config_);
-            const auto dns_relevant = collect_dns_relevant_list_names(config_);
             refresh = list_service_.refresh_remote_lists(
-                config_, outbound_marks_, &relevant, nullptr, &dns_relevant);
+                config_, outbound_marks_, &relevant, nullptr);
           }
           response = {{"protocol_version", ipc::kControlProtocolVersion},
                       {"request_id", request.at("request_id")},
@@ -950,8 +1104,11 @@ void Daemon::handle_sighup() {
           }
           std::ostringstream contents;
           contents << input.rdbuf();
-          Config candidate = parse_config(contents.str());
-          validate_config(candidate);
+          const std::string disk_text = contents.str();
+          Config candidate = parse_config(disk_text);
+          validate_config(candidate, ConfigValidationMode::Runtime,
+                          validation_context());
+          upgrade_config_file_if_needed(config_path_, disk_text);
           result = apply_validated_config_via_control_task(std::move(candidate),
                                                            "", false);
         } catch (const std::exception &error) {
@@ -979,8 +1136,11 @@ void Daemon::handle_sighup() {
 void Daemon::refresh_iproute_and_firewall_runtime(StatusPublishScope scope) {
   auto &log = Logger::instance();
   try {
-    reconcile_static_routing();
-    apply_firewall(runtime_refresh_firewall_mode());
+    // Refresh routes and firewall rules without re-probing kernel capabilities.
+    // Kernel module probes run only at startup (first probe after process start).
+    const auto main_routes = netlink_.dump_routes_in_table(254);
+    reconcile_static_routing(nullptr, &main_routes);
+    apply_firewall(runtime_refresh_firewall_mode(), false, &main_routes);
     publish_runtime_state(scope);
     log.info("Runtime iproute and firewall refresh complete.");
   } catch (const std::exception &e) {
@@ -1006,10 +1166,43 @@ bool Daemon::is_interface_outbound_in_use(
                      });
 }
 
+bool Daemon::is_auto_gateway_outbound_in_use(
+    const std::string &interface_name) const {
+  const auto outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
+  return std::any_of(outbounds.begin(), outbounds.end(),
+                     [&interface_name](const Outbound &outbound) {
+                       return interface_outbound_uses_auto_gateway(outbound) &&
+                              (interface_name.empty() ||
+                               (outbound.interface.has_value() &&
+                                outbound.interface.value() == interface_name));
+                     });
+}
+
 void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
   auto &log = Logger::instance();
-  if (!event.administrative_state_changed ||
-      !is_interface_outbound_in_use(event.interface_name)) {
+  const auto route_rules = config_.route.value_or(RouteConfig{})
+                               .rules.value_or(std::vector<RouteRule>{});
+  const bool default_gateway_rules = std::any_of(
+      route_rules.begin(), route_rules.end(),
+      [](const RouteRule &rule) { return rule.default_gateway.has_value(); });
+  // Interception without a route.inbound_interfaces allowlist excludes the
+  // outbound/WAN interfaces, default-route ones included, from learning.
+  const auto inbound_interfaces =
+      config_.route.value_or(RouteConfig{}).inbound_interfaces;
+  const bool learning_wan_scope =
+      config_.intercept.value_or(InterceptConfig{}).enabled.value_or(true) &&
+      (!inbound_interfaces.has_value() || inbound_interfaces->empty());
+  const bool auto_gateway_outbound = is_auto_gateway_outbound_in_use();
+  const bool auto_gateway_interface =
+      event.address_changed && !event.interface_name.empty() &&
+      is_auto_gateway_outbound_in_use(event.interface_name);
+  if (!InterfaceMonitor::requires_runtime_refresh(
+          event,
+          is_interface_outbound_in_use(event.interface_name),
+          auto_gateway_outbound,
+          auto_gateway_interface,
+          default_gateway_rules,
+          learning_wan_scope)) {
 #ifdef WITH_API
     if (status_stream_)
       status_stream_->reconcile(StatusUpdate::Interfaces |
@@ -1018,11 +1211,46 @@ void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
     return;
   }
 
-  log.info("Interface {} state changed to {}, iproute and firewall refresh "
-           "triggered",
-           event.interface_name, event.is_up ? "UP" : "DOWN");
-  refresh_iproute_and_firewall_runtime(
-      StatusPublishScope::OutboundsAndInterfaces);
+  std::string reason;
+  if (event.route_changed) {
+    reason = "Main routing table changed";
+  } else if (event.address_changed) {
+    reason = "Interface " + event.interface_name + " addresses changed";
+  } else {
+    reason = "Interface " + event.interface_name + " state changed to " +
+             std::string(event.is_up ? "UP" : "DOWN");
+  }
+
+  // Leading-edge debounce: the first event refreshes at once (a link going
+  // down must leave the balance classifier promptly); events within the
+  // following quiet window are coalesced into one trailing refresh.
+  if (interface_refresh_pending_) {
+    log.trace("interface_event_coalesced", "reason={}", reason);
+    return;
+  }
+  const auto now = std::chrono::steady_clock::now();
+  if (now >= interface_refresh_quiet_until_) {
+    log.info("{}, iproute and firewall refresh triggered", reason);
+    interface_refresh_quiet_until_ = now + INTERFACE_REFRESH_DEBOUNCE_DELAY;
+    refresh_iproute_and_firewall_runtime(
+        StatusPublishScope::OutboundsAndInterfaces);
+    return;
+  }
+  interface_refresh_pending_ = true;
+  interface_refresh_task_id_ = scheduler_->schedule_oneshot(
+      std::max(std::chrono::milliseconds{1},  // 0 would disarm the timerfd
+               std::chrono::duration_cast<std::chrono::milliseconds>(
+                   interface_refresh_quiet_until_ - now)),
+      [this]() {
+        interface_refresh_task_id_ = -1;
+        interface_refresh_pending_ = false;
+        interface_refresh_quiet_until_ =
+            std::chrono::steady_clock::now() + INTERFACE_REFRESH_DEBOUNCE_DELAY;
+        refresh_iproute_and_firewall_runtime(
+            StatusPublishScope::OutboundsAndInterfaces);
+      },
+      "interface-refresh");
+  log.info("{}, iproute and firewall refresh scheduled (coalesced)", reason);
 }
 
 void Daemon::handle_interface_monitor_events(uint32_t events) {
@@ -1182,7 +1410,14 @@ void Daemon::run_event_loop() {
     }
 
     for (int i = 0; i < nfds; ++i) {
-      dispatch_event_fd(events[i].data.fd, events[i].events);
+      const int fd = events[i].data.fd;  // packed struct: copy before use
+      try {
+        dispatch_event_fd(fd, events[i].events);
+      } catch (const std::exception &e) {
+        Logger::instance().error("Event handler for fd {} failed: {}", fd, e.what());
+      } catch (...) {
+        Logger::instance().error("Event handler for fd {} failed: unknown error", fd);
+      }
     }
   }
 }
@@ -1202,20 +1437,27 @@ void Daemon::fail_startup_runtime(std::string error) {
 void Daemon::begin_startup_runtime() {
   auto &log = Logger::instance();
   try {
-    setup_static_routing();
+    // Every kernel/system capability check runs here, once, before anything
+    // is installed: later applies, refreshes and re-binds only read the
+    // answers.  A missing required tool or an unusable balance config fails
+    // startup cleanly instead of leaving static routing behind a failed
+    // firewall.
+    probe_capabilities_at_start();
+    require_balance_support(config_);
+    const auto main_routes = netlink_.dump_routes_in_table(254);
+    setup_static_routing(&main_routes);
     log.info("Static routing tables and ip rules installed.");
 
     log.info("Startup lists: checking local cache; only missing remote lists "
              "will be downloaded.");
     const auto relevant_lists = collect_relevant_list_names(config_);
-    const auto dns_relevant_lists = collect_dns_relevant_list_names(config_);
     const bool queued = blocking_executor_.try_post(
-        "startup-lists", [this, relevant_lists, dns_relevant_lists] {
+        "startup-lists", [this, relevant_lists] {
           std::optional<RemoteListsRefreshResult> refresh_result;
           std::string error;
           try {
             refresh_result = list_service_.download_uncached(
-                config_, outbound_marks_, &relevant_lists, &dns_relevant_lists);
+                config_, outbound_marks_, &relevant_lists);
           } catch (const std::exception &exception) {
             error = exception.what();
           } catch (...) {
@@ -1273,111 +1515,30 @@ void Daemon::continue_startup_after_lists(
   try {
     apply_firewall(FirewallApplyMode::Destructive);
     log.info("Firewall rules and routing applied.");
-    if (result.any_dns_relevant_changed()) {
-      log.info("Startup lists: DNS-relevant list(s) changed: {}",
-               format_list_names(result.dns_relevant_changed_lists));
-    }
 
-    // Publish the desired resolver generation before invoking the system
-    // hook. dnsmasq can then stream the complete managed configuration
-    // through the already-running control socket.
-    apply_started_ts_.store(unix_timestamp_now_seconds(),
-                            std::memory_order_release);
-    update_resolver_config_hash();
+    begin_runtime_generation();
     publish_runtime_state();
 
-    const bool queued =
-        resolver_hook_executor_.try_post("startup-resolver-hook", [this] {
-          bool hook_succeeded = false;
-          std::string hook_error;
-          try {
-            hook_succeeded = run_system_resolver_hook_reload();
-            if (!hook_succeeded)
-              hook_error = "system resolver reload hook failed";
-          } catch (const std::exception &exception) {
-            hook_error = exception.what();
-          } catch (...) {
-            hook_error = "unknown system resolver hook error";
-          }
-          post_control_task(
-              [this, hook_succeeded,
-               hook_error = std::move(hook_error)]() mutable {
-                finish_startup_after_resolver_hook(hook_succeeded,
-                                                   std::move(hook_error));
-              },
-              "startup-after-resolver-hook");
-        });
-    if (!queued) {
-      throw DaemonError("startup resolver hook executor is unavailable");
-    }
-  } catch (const std::exception &exception) {
-    fail_startup_runtime(exception.what());
-  } catch (...) {
-    fail_startup_runtime("unknown firewall or resolver initialization error");
-  }
-}
-
-void Daemon::finish_startup_after_resolver_hook(bool hook_succeeded,
-                                                std::string error) {
-  if (!hook_succeeded) {
-    fail_startup_runtime(error.empty() ? "system resolver reload hook failed"
-                                       : std::move(error));
-    return;
-  }
-
-  try {
-    update_resolver_config_hash();
-    setup_dns_probe();
+    refresh_generation_snapshot();
     register_interface_monitor_fd();
-    if (!has_system_resolver(config_)) {
-      complete_running_runtime("startup complete");
-      schedule_resolver_config_hash_actual_refresh();
-      Logger::instance().info("Routing runtime started.");
-      return;
+    complete_running_runtime("startup complete");
+    log.info("Routing runtime started.");
+    if (!result.failed_lists.empty()) {
+      startup_list_retry_attempt_ = 0;
+      schedule_startup_list_retry();
     }
-
-    const Config candidate = config_;
-    const std::string expected =
-        resolver_sync_.snapshot(unix_timestamp_now_seconds()).expected_hash;
-    const std::int64_t started =
-        apply_started_ts_.load(std::memory_order_acquire);
-    const bool queued = resolver_io_executor_.try_post(
-        "startup-resolver-verification", [this, candidate, expected, started] {
-          std::string verification_error;
-          const bool verified = wait_for_resolver_config_hash_confirmation(
-              candidate, expected, started, verification_error);
-          post_control_task(
-              [this, verified,
-               verification_error = std::move(verification_error)]() mutable {
-                if (!verified) {
-                  fail_startup_runtime(verification_error);
-                  return;
-                }
-                try {
-                  complete_running_runtime("startup complete");
-                  schedule_resolver_config_hash_actual_refresh();
-                  Logger::instance().info("Routing runtime started.");
-                } catch (const std::exception &exception) {
-                  fail_startup_runtime(exception.what());
-                }
-              },
-              "startup-after-resolver-verification");
-        });
-    if (!queued)
-      throw DaemonError(
-          "startup resolver verification executor is unavailable");
   } catch (const std::exception &exception) {
     fail_startup_runtime(exception.what());
   } catch (...) {
-    fail_startup_runtime("unknown startup finalization error");
+    fail_startup_runtime("unknown firewall initialization error");
   }
 }
 
 void Daemon::run() {
   auto &log = Logger::instance();
 
-  // Make the control plane observable before any routing, list download, or
-  // resolver work. Health reports runtime_state=starting until the deferred
+  // Make the control plane observable before any routing or list download
+  // work. Health reports runtime_state=starting until the deferred
   // initialization pipeline completes or reports a concrete failure.
   publish_runtime_state();
 
@@ -1390,76 +1551,109 @@ void Daemon::run() {
 #ifdef WITH_API
   setup_api();
 #endif
+  // Also without the API: the pump logs the DNS hold timeouts.
+  intercept_event_task_id_ = scheduler_->schedule_repeating(
+      std::chrono::milliseconds{100}, [this] { pump_intercept_events(); },
+      "intercept-events");
+
+  intercept_rebind_task_id_ = scheduler_->schedule_repeating(
+      std::chrono::seconds{1}, [this] { tick_intercept_rebind(); },
+      "intercept-rebind");
 
   log.info("Daemon control plane running. PID: {}", getpid());
   post_control_task([this] { begin_startup_runtime(); }, "startup-runtime");
 
-  run_event_loop();
+  // Cleanup below must run even if the loop throws, or routes and firewall
+  // rules are left behind; the error is rethrown once cleanup is done.
+  std::exception_ptr loop_error;
+  try {
+    run_event_loop();
+  } catch (...) {
+    loop_error = std::current_exception();
+  }
+  const auto best_effort = [&log](const char *step, auto &&fn) {
+    try {
+      fn();
+    } catch (const std::exception &e) {
+      log.error("Shutdown step '{}' failed: {}", step, e.what());
+    } catch (...) {
+      log.error("Shutdown step '{}' failed: unknown error", step);
+    }
+  };
 
   log.info("Shutting down...");
-  transition_runtime_or_throw(RuntimeState::shutting_down, "daemon shutdown");
+  best_effort("runtime state", [this] {
+    transition_runtime_or_throw(RuntimeState::shutting_down, "daemon shutdown");
+  });
   publish_runtime_state();
-  try {
-    if (!run_system_resolver_hook("deactivate")) {
-      log.warn("System resolver shutdown hook failed; dnsmasq will use "
-               "fallback on its next restart");
-    }
-  } catch (const std::exception &error) {
-    log.warn("System resolver shutdown hook failed: {}; dnsmasq will use "
-             "fallback on its next restart",
-             error.what());
-  }
-
-  // Some init scripts return before dnsmasq invokes its conf-script. Keep
-  // the control socket alive long enough to answer that final fallback
-  // request instead of closing the connection underneath the helper.
-  drain_shutdown_resolver_callbacks(std::chrono::seconds{1});
-
   event_loop_active_.store(false, std::memory_order_release);
   event_loop_thread_id_.store(std::thread::id{}, std::memory_order_relaxed);
   accept_posted_control_tasks_.store(false, std::memory_order_release);
-  lifecycle_executor_.shutdown();
-  resolver_hook_executor_.shutdown();
-  resolver_io_executor_.shutdown();
-  routing_test_executor_.shutdown();
-  blocking_executor_.shutdown();
+  best_effort("executors", [this] {
+    lifecycle_executor_.shutdown();
+    routing_test_executor_.shutdown();
+    blocking_executor_.shutdown();
+  });
 
 #ifdef WITH_API
-  if (status_stream_) {
-    status_stream_->close_all();
-  }
-  if (dns_test_broadcaster_) {
-    dns_test_broadcaster_->close_all();
-  }
-  if (api_server_) {
-    api_server_->stop();
-  }
+  best_effort("api", [this] {
+    if (status_stream_) {
+      status_stream_->close_all();
+    }
+    if (dns_test_broadcaster_) {
+      dns_test_broadcaster_->close_all();
+    }
+    if (api_server_) {
+      api_server_->stop();
+    }
+  });
 #endif
 
-  teardown_dns_probe();
-
-  if (urltest_manager_) {
-    urltest_manager_->clear();
-  }
-  pending_urltest_conntrack_cleanup_.clear();
-  scheduler_->cancel_all();
-  const uint32_t mark_mask =
-      fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
-  std::set<uint32_t> owned_marks;
-  for (const auto &[tag, mark] : outbound_marks_) {
-    (void)tag;
-    owned_marks.insert(mark);
-  }
-  for (uint32_t mark : owned_marks) {
-    if (!conntrack_manager_.delete_mark(mark, mark_mask)) {
-      log.warn("Best-effort conntrack cleanup failed for mark {:#x}/{:#x}",
-               mark, mark_mask);
+  best_effort("scheduler", [this] {
+    if (urltest_manager_) {
+      urltest_manager_->clear();
     }
-  }
-  policy_rules_.clear();
-  route_table_.clear();
-  firewall_->cleanup();
+    pending_urltest_conntrack_cleanup_.clear();
+    scheduler_->cancel_all();
+  });
+  // Process supervisors (procd: ~5 s) SIGKILL a daemon that is slow to exit,
+  // which would leave the firewall rules behind.  Everything below is
+  // best-effort cleanup, so bound each external command tightly and give the
+  // conntrack flush (which can be slow on a large table) a shared budget.
+  set_safe_exec_timeouts(std::chrono::milliseconds{1500},
+                         std::chrono::milliseconds{200});
+  best_effort("conntrack", [this, &log] {
+    const uint32_t mark_mask =
+        fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
+    std::set<uint32_t> owned_marks;
+    for (const auto &[tag, mark] : outbound_marks_) {
+      (void)tag;
+      owned_marks.insert(mark);
+    }
+    const auto conntrack_deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds{2000};
+    for (uint32_t mark : owned_marks) {
+      if (std::chrono::steady_clock::now() >= conntrack_deadline) {
+        log.warn("Skipping remaining conntrack cleanup: shutdown time budget exhausted");
+        break;
+      }
+      if (!conntrack_manager_.delete_mark(mark, mark_mask)) {
+        log.warn("Best-effort conntrack cleanup failed for mark {:#x}/{:#x}",
+                 mark, mark_mask);
+      }
+    }
+  });
+  best_effort("policy rules", [this] { policy_rules_.clear(); });
+  best_effort("route table", [this] { route_table_.clear(); });
+  best_effort("firewall", [this] { firewall_->cleanup(); });
+  // Rules first, then unbind the queue (see quiesce_intercept_service).
+  best_effort("interception", [this] { stop_intercept_service(); });
+  firewall_state_.clear_active_firewall();
   remove_pid_file();
+
+  if (loop_error) {
+    std::rethrow_exception(loop_error);
+  }
 }
 
 void Daemon::stop() { running_.store(false, std::memory_order_release); }

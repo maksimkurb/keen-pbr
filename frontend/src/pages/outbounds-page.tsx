@@ -24,6 +24,7 @@ import {
 } from "@/api/queries"
 import { selectConfig, selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
@@ -51,6 +52,8 @@ import { getApiErrorMessage } from "@/lib/api-errors"
 import {
   buildUpdatedConfigForOutboundsDelete,
   getOutboundDeleteImpact,
+  getOrderedOutboundGroups,
+  getOutboundGroupMembers,
   getOutboundGroupTags,
   type OutboundDeleteImpact,
 } from "@/pages/outbounds-utils"
@@ -189,16 +192,24 @@ export function OutboundsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-0">
       <PageHeader
         actions={
-          <Button
-            disabled={configMutationPending}
-            onClick={() => navigate("/outbounds/create")}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t("pages.outbounds.actions.new")}
-          </Button>
+          <>
+            <Button
+              className="hidden md:inline-flex"
+              disabled={configMutationPending}
+              onClick={() => navigate("/outbounds/create")}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              {t("pages.outbounds.actions.new")}
+            </Button>
+            <MobileAddFab
+              disabled={configMutationPending}
+              icon={<Plus className="size-4" />}
+              onClick={() => navigate("/outbounds/create")}
+            />
+          </>
         }
         description={t("pages.outbounds.description")}
         title={t("pages.outbounds.title")}
@@ -221,8 +232,10 @@ export function OutboundsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {outboundSelection.hasSelection ? (
+          {outboundSelection.isSelecting ? (
             <BulkSelectionToolbar
+              selection={outboundSelection}
+              disabled={configMutationPending}
               countLabel={t("pages.outbounds.bulk.selected", {
                 count: outboundSelection.selectedCount,
               })}
@@ -234,11 +247,14 @@ export function OutboundsPage() {
                 variant="destructive"
               >
                 <Trash2 className="mr-1 h-4 w-4" />
-                {t("pages.outbounds.bulk.delete")}
+                {t("pages.outbounds.bulk.delete", {
+                  count: outboundSelection.selectedCount,
+                })}
               </Button>
             </BulkSelectionToolbar>
           ) : null}
           <DataTable
+            mobileCards={{ titleColumns: [0, 1], bodyColumns: [3, 2] }}
             headers={[
               t("pages.outbounds.headers.tag"),
               t("pages.outbounds.headers.type"),
@@ -247,12 +263,18 @@ export function OutboundsPage() {
               t("pages.outbounds.headers.actions"),
             ]}
             rows={outboundItems.map((outbound) => [
-              <RuntimeOutboundEntry
-                key={`${outbound.id}-tag`}
-                runtimeState={outbound.runtimeState}
-                title={outbound.tag}
-                t={t}
-              />,
+              outbound.runtimeState?.status === "healthy" ? (
+                <span key={`${outbound.id}-tag`} className="truncate font-medium">
+                  {outbound.tag}
+                </span>
+              ) : (
+                <RuntimeOutboundEntry
+                  key={`${outbound.id}-tag`}
+                  runtimeState={outbound.runtimeState}
+                  title={outbound.tag}
+                  t={t}
+                />
+              ),
               <Badge key={`${outbound.id}-type`} variant="outline">
                 {outbound.type}
               </Badge>,
@@ -271,6 +293,7 @@ export function OutboundsPage() {
                 t={t}
               />,
               <ActionButtons
+                mobileIcons
                 actions={[
                   {
                     disabled: configMutationPending,
@@ -281,6 +304,7 @@ export function OutboundsPage() {
                   {
                     disabled: configMutationPending,
                     icon: <Trash2 className="h-4 w-4" />,
+                    destructive: true,
                     label: t("common.delete"),
                     onClick: () => handleDelete(outbound.id),
                   },
@@ -289,6 +313,8 @@ export function OutboundsPage() {
               />,
             ])}
             selection={{
+              isSelecting: outboundSelection.isSelecting,
+              onStartSelecting: outboundSelection.startSelecting,
               rowIds: outboundRowIds,
               selectedIds: outboundSelection.selectedIds,
               disabled: configMutationPending,
@@ -393,9 +419,12 @@ function getOutboundDeleteImpactItems(
   }
 
   for (const membership of impact.urltestMemberships) {
-    const group = config?.outbounds?.find(
+    const owner = config?.outbounds?.find(
       (outbound) => outbound.tag === membership.outboundTag
-    )?.outbound_groups?.[membership.groupIndex]
+    )
+    const group = owner
+      ? getOrderedOutboundGroups(owner)[membership.groupIndex]
+      : undefined
     const groupTags = group ? getOutboundGroupTags(group) : []
     const remainingTags = groupTags.filter(
       (tag) => !impact.deletedOutboundTags.includes(tag)
@@ -584,7 +613,7 @@ function getOutboundSummary(
 
   if (outbound.type === "urltest") {
     const allOutbounds =
-      outbound.outbound_groups?.flatMap(getOutboundGroupTags) ?? []
+      getOrderedOutboundGroups(outbound).flatMap(getOutboundGroupTags)
     const outbounds = {
       outbounds: allOutbounds.join(", ") || "-",
     }
@@ -597,13 +626,11 @@ function getOutboundSummary(
   }
 
   if (outbound.type === "icmptest") {
-    const candidates =
-      outbound.outbound_groups?.flatMap(
-        (group) =>
-          group.candidates?.map(
-            (candidate) => `${candidate.outbound}(→${candidate.target})`
-          ) ?? []
-      ) ?? []
+    const candidates = getOrderedOutboundGroups(outbound).flatMap((group) =>
+      getOutboundGroupMembers(group).map(
+        (member) => `${member.outbound}(→${member.target ?? "-"})`
+      )
+    )
     return t("pages.outbounds.summary.icmptest", {
       candidates: candidates.join(", ") || "-",
     })

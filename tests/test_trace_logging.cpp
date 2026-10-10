@@ -103,6 +103,14 @@ TEST_CASE("logger external target does not duplicate the internal sink") {
     CHECK_THROWS(parse_log_target("invalid"));
 }
 
+TEST_CASE("log target defaults to both and honours explicit values") {
+    CHECK(resolve_log_target("") == LogTarget::both);
+    CHECK(resolve_log_target("syslog") == LogTarget::syslog_only);
+    CHECK(resolve_log_target("stderr") == LogTarget::stderr_only);
+    CHECK(resolve_log_target("both") == LogTarget::both);
+    CHECK_THROWS(resolve_log_target("invalid"));
+}
+
 TEST_CASE("trace logger includes trace id and event metadata") {
     LoggerCapture capture;
     const auto trace_id = allocate_trace_id();

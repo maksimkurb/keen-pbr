@@ -7,8 +7,9 @@
  */
 
 /**
- * System resolver integration used by daemon runtime. This object is required for service startup, reload, and applied config updates, although non-daemon commands may still parse configs without it.
+ * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
 
+ * @deprecated
  */
 export interface DnsSystemResolver {
   /** IP address or host for the system resolver, with optional port. This is also the resolver endpoint used for TXT lookup of `config-hash.keen.pbr`; if the port is omitted, runtime behavior defaults to 53.

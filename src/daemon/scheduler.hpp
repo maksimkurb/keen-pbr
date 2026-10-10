@@ -62,7 +62,10 @@ private:
         TaskCallback callback;
         bool repeating;
         std::string label;
+        int consecutive_throws{0};
     };
+
+    static constexpr int kMaxConsecutiveThrows = 3;
 
     int create_timerfd(std::chrono::milliseconds initial, std::chrono::milliseconds interval);
     void on_timer(int timer_fd, uint32_t events);

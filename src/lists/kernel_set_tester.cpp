@@ -10,11 +10,14 @@ KernelSetTester::KernelSetTester(FirewallBackend backend)
 std::optional<bool> KernelSetTester::contains(const std::string& set_name,
                                               const std::string& ip) const {
     int exit_code = -1;
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
     if (backend_ == FirewallBackend::nftables) {
         exit_code = safe_exec({"nft", "get", "element", "inet", "KeenPbrTable",
                                set_name, "{", ip, "}"},
                               /*suppress_output=*/true);
-    } else {
+    } else
+#endif
+    {
         exit_code = safe_exec({"ipset", "test", set_name, ip},
                               /*suppress_output=*/true);
     }

@@ -26,10 +26,31 @@
     {
       "type": "blackhole",
       "tag": "block"
+    },
+    {
+      "type": "ignore",
+      "tag": "direct_local"
     }
   ],
 
   "lists": {
+    "local_networks": {
+      "ip_cidrs": [
+        "0.0.0.0/8",
+        "10.0.0.0/8",
+        "100.64.0.0/10",
+        "127.0.0.0/8",
+        "169.254.0.0/16",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "224.0.0.0/4",
+        "240.0.0.0/4",
+        "::1/128",
+        "fc00::/7",
+        "fe80::/10",
+        "ff00::/8"
+      ]
+    },
     "local_list": {
       "domains": [
         "example.com"
@@ -42,12 +63,7 @@
   },
 
   "dns": {
-    "system_resolver": {
-      "address": "127.0.0.1"
-    },
-    "dns_test_server": {
-      "listen": "127.0.0.88:12153"
-    },
+    "resolver_integration": "none",
     "servers": [
       {
         "tag": "quad9",
@@ -72,8 +88,16 @@
     "cron": "0 4 * * 0"
   },
 
+  "intercept": {
+    "enabled": true
+  },
+
   "route": {
     "rules": [
+      {
+        "list": ["local_networks"],
+        "outbound": "direct_local"
+      },
       {
         "list": ["local_list"],
         "dscp": 46,

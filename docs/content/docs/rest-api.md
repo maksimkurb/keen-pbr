@@ -65,11 +65,28 @@ trusted network or an HTTPS reverse proxy.
 
 By default, the API listens on `0.0.0.0:12121`. All endpoints are served at the configured `api.listen` address.
 
+The [OpenAPI document](https://github.com/maksimkurb/keen-pbr/blob/main/docs/openapi.yaml) is the complete request and response schema. The main routes are:
+
+| Route | Purpose |
+|---|---|
+| `GET /api/health/service` | Service, config draft, lifecycle operation, and rollback status. |
+| `POST /api/service/start`, `/stop`, `/restart` | Start, stop, or restart routing asynchronously. |
+| `GET /api/config`, `POST /api/config` | Read or stage a validated config draft. |
+| `POST /api/config/discard`, `/save`, `/rollback` | Discard a draft, persist/apply it, or explicitly roll back a failed apply. |
+| `GET /api/status/events` | Server-Sent Events for service, outbound, and interface status. |
+| `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Current outbound health and system interface inventory. |
+| `GET /api/health/routing`, `POST /api/routing/test` | Cached routing/firewall health and a per-target routing diagnostic. |
+| `POST /api/lists/refresh` | Refresh one or all remote URL lists. |
+| `GET /api/dns/test` | Stream DNS and L7 interception events or run the Web UI DNS marker check. |
+| `GET /api/diagnostics/command-failure` | Read the recent command failure log. |
+| `GET /metrics` | Prometheus text metrics. |
+| `/api/auth/status`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/password`, `/api/auth/settings` | Authentication status and session/password management. |
+
 ---
 
 ## GET /api/health/service
 
-Returns the running daemon version, routing runtime status, and resolver configuration summary.
+Returns the running daemon version and routing runtime status.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/health/service
@@ -80,16 +97,207 @@ curl http://127.0.0.1:12121/api/health/service
 ```json
 {
   "version": "3.0.0",
+  "build": "20261010120000",
   "status": "running",
-  "resolver_config_hash": "a3f7c1d9e2b84560abcdef1234567890",
-  "resolver_config_hash_actual": "a3f7c1d9e2b84560abcdef1234567890",
-  "config_is_draft": false
+  "runtime_state": "running",
+  "runtime_state_reason": "config apply complete",
+  "os_type": "debian",
+  "os_version": "12",
+  "build_variant": "generic",
+  "config_is_draft": false,
+  "rollback_available": false
 }
 ```
 
-`resolver_config_hash` is an MD5 hex digest of the expected domain-to-ipset mapping derived from the current config. `resolver_config_hash_actual` reflects the hash of the config that was last applied to the running system resolver. When these two values differ, the dnsmasq config may be out of date.
+When interception is configured, the same response includes an `intercept`
+object. It reports `dns_hold_active` and `l7_active` independently, capability
+flags (`nfqueue`, `nflog`, `connbytes`), and counters for DNS parsing/holds,
+partial TCP, L7 packets, set updates, conntrack cleanup, and NFQUEUE/NFLOG
+overruns. A missing NFQUEUE capability does not imply that L7 is unavailable,
+and vice versa.
 
 For live outbound runtime state (health, latency, circuit breaker) use `GET /api/runtime/outbounds`.
+
+## GET /metrics
+
+Returns Prometheus text format 0.0.4. It uses the same authentication as the API,
+including when authentication is enabled; scrape it with Basic auth or the
+current Bearer token. It may return `503` if the metrics provider is unavailable:
+
+```bash
+curl -u admin:password http://127.0.0.1:12121/metrics
+```
+
+All durations are floating-point **seconds**. A series that is not meaningful is
+**omitted** instead of being exported as `0` (see "Omitted series" below).
+Every family has `# HELP` and `# TYPE` exactly once; families without samples
+are not printed. This is a breaking change from earlier builds: the old
+`keen_pbr_intercept_*`, `keen_pbr_dns_write_duration_seconds`, netlink timing,
+probe histogram and success-ratio metrics no longer exist.
+
+### Process and configuration
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `keen_pbr_build_info` | gauge | `version`, `commit`, `firewall_backend` | Always `1`; build identity. |
+| `keen_pbr_process_start_time_seconds` | gauge | - | Unix start time; uptime is `time() - keen_pbr_process_start_time_seconds`. |
+| `keen_pbr_active_rules` | gauge | - | Realized firewall rules. |
+| `keen_pbr_config_reload_last_success_timestamp_seconds` | gauge | - | Unix time the runtime last finished applying a configuration (startup counts). Omitted until the first one. |
+| `keen_pbr_config_reload_errors_total` | counter | - | Failed config reloads and applies (parse, validation, prepare or apply failures). |
+| `keen_pbr_list_last_update_timestamp_seconds` | gauge | `list` | Unix time of the last successful check of a remote (URL) list, whether or not its content changed. In-memory: omitted until a refresh succeeded in this process. |
+| `keen_pbr_list_update_errors_total` | counter | `list` | Failed refresh attempts of a remote list. |
+
+### Errors
+
+`keen_pbr_errors_total{subsystem}` is a single counter family; all values are
+always present (zeros included): `firewall_apply` (failed firewall applies),
+`netlink` (route / policy-rule operations), `set_write` (dynamic set writes),
+`conntrack` (cleanup errors), `dns_parse`, `dns_tcp_partial` (DNS-over-TCP
+messages not fully reassembled) and `dns_late_write` (failed deferred DNS
+writes).
+
+### Probes (urltest / icmptest)
+
+Labelled with the child `outbound`, test group `test_outbound`, `interface` and
+`type` (`urltest` or `icmptest`).
+
+| Metric | Type | Meaning |
+|---|---|---|
+| `keen_pbr_probe_attempts_total` | counter | Accepted probe results. |
+| `keen_pbr_probe_successes_total` | counter | Successful probe results. |
+| `keen_pbr_probe_packets_sent_total` | counter | ICMP echo requests sent. `type="icmptest"` only. |
+| `keen_pbr_probe_packets_received_total` | counter | ICMP echo replies received. `type="icmptest"` only. |
+| `keen_pbr_probe_up` | gauge | `1` if the last probe succeeded, `0` if it failed. |
+| `keen_pbr_probe_last_success_timestamp_seconds` | gauge | Unix time of the last successful probe. |
+| `keen_pbr_probe_latency_seconds` | gauge | Latency of the last successful probe: ICMP is the mean of the received replies, URL is the request time. Sub-millisecond precision. |
+| `keen_pbr_probe_latency_min_seconds`, `keen_pbr_probe_latency_max_seconds` | gauge | Fastest and slowest reply of the last successful ICMP probe. `type="icmptest"` only. |
+| `keen_pbr_urltest_selected` | gauge | Labels `group`, `outbound`: `1` for the group's currently selected outbound, `0` for the other members. |
+| `keen_pbr_urltest_selection_changes_total` | counter | Label `group`: selection changes since the group was registered (a config apply registers it again, which resets the counter). |
+
+#### Omitted series
+
+- `probe_up` is omitted before the first probe of an outbound completed.
+- `probe_latency_seconds`, `probe_latency_min_seconds` and
+  `probe_latency_max_seconds` are omitted when the **last** probe failed or no
+  probe completed yet. In Grafana this shows up as a gap, never as a `0`.
+- `probe_last_success_timestamp_seconds` is omitted until the first success.
+- `list_last_update_timestamp_seconds` and
+  `config_reload_last_success_timestamp_seconds` are omitted until the first success.
+
+### Interception
+
+All of these are updated on the DNS / L7 packet paths with a single relaxed
+atomic increment on a pre-allocated counter; labels are fixed array slots that
+are only rendered when `/metrics` is scraped.
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `keen_pbr_intercept_packets_total` | counter | `path` = `dns`, `l7` | Packets inspected. |
+| `keen_pbr_intercept_matches_total` | counter | `path` = `dns`, `l7` | Packets that matched a configured domain list. |
+| `keen_pbr_dns_hold_duration_seconds` | histogram | - | Time a DNS answer was held before its verdict. |
+| `keen_pbr_dns_queue_wait_duration_seconds` | histogram | - | Time a DNS packet waited in the receive queue. |
+| `keen_pbr_dns_hold_timeouts_total` | counter | `cause` = `batch_budget`, `admission_blocked`, `own_write_slow`, `late_batch_full`, `other` | Holds that reached their deadline. |
+| `keen_pbr_dns_late_writes_total` | counter | - | DNS writes completed after the packet was released. |
+| `keen_pbr_queue_overruns_total` | counter | `queue` = `nfqueue`, `nflog` | Kernel queue receive overruns. |
+| `keen_pbr_set_write_duration_seconds` | histogram | `path` = `dns`, `late_dns`, `l7` | Dynamic set write time. Buckets (seconds): 0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, +Inf. |
+| `keen_pbr_set_writes_total` | counter | `kind` = `add`, `refresh` | Elements added (upserted) or timeout-refreshed. |
+| `keen_pbr_set_refresh_total` | counter | `result` = `skipped`, `deferred`, `dropped` | Cached-element refresh outcomes. `dropped` means the refresh queue was full. |
+| `keen_pbr_set_cache_lookups_total` | counter | `result` = `hit`, `miss` | Set cache lookups; a hit avoids a write before the verdict. |
+| `keen_pbr_set_cache_entries` | gauge | - | Remembered dynamic set elements. |
+| `keen_pbr_conntrack_requests_total` | counter | - | Conntrack cleanup requests. |
+| `keen_pbr_conntrack_deleted_total` | counter | - | Conntrack entries deleted. |
+
+The "slow write" share is derived from the `le="0.025"` bucket of
+`keen_pbr_set_write_duration_seconds` (writes slower than 25 ms).
+
+Not exported: per-outbound routed bytes/packets and per-set element counts.
+Both would need the firewall counters or a netlink set dump to be read on every
+scrape (through a subprocess or a kernel dump, with a different mechanism per
+firewall backend), which is deliberately kept out of the daemon.
+
+Prometheus scrape configuration:
+
+```yaml
+scrape_configs:
+  - job_name: keen-pbr
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["router.example:12121"]
+    basic_auth:
+      username: admin
+      password_file: /etc/prometheus/keen-pbr-password
+```
+
+Example queries:
+
+```promql
+# ICMP packet loss over 15 minutes, in percent (no data when nothing was sent)
+100 * clamp(1 - increase(keen_pbr_probe_packets_received_total[15m])
+    / (increase(keen_pbr_probe_packets_sent_total[15m]) > 0), 0, 1)
+
+# Probe success rate over 15 minutes
+100 * increase(keen_pbr_probe_successes_total[15m])
+    / (increase(keen_pbr_probe_attempts_total[15m]) > 0)
+
+# Average and 95th percentile latency per outbound over 1 hour (seconds)
+avg_over_time(keen_pbr_probe_latency_seconds[1h])
+quantile_over_time(0.95, keen_pbr_probe_latency_seconds[1h])
+
+# DNS hold time p99 (seconds)
+histogram_quantile(0.99, sum by (le)
+    (rate(keen_pbr_dns_hold_duration_seconds_bucket[5m])))
+
+# Share of set writes slower than 25 ms, per path
+1 - sum by (path) (rate(keen_pbr_set_write_duration_seconds_bucket{le="0.025"}[5m]))
+  / (sum by (path) (rate(keen_pbr_set_write_duration_seconds_count[5m])) > 0)
+
+# Errors in the last hour by subsystem
+sum by (subsystem) (increase(keen_pbr_errors_total[1h])) > 0
+```
+
+### Grafana dashboard and alerts
+
+Import [keen-pbr-dashboard.json](https://keen-pbr.fyi/grafana/keen-pbr-dashboard.json)
+into Grafana (Dashboards - New - Import). It expects a Prometheus data source
+with UID `prometheus`, and has `job` and `outbound` variables, a 30 s refresh,
+and the rows Status, Outbounds, DNS interception, Sets & lists and Errors. Use a
+scrape interval of 30 s or less: the bar panels compute `increase()` over
+one-minute windows.
+
+Example alerting rules:
+
+```yaml
+groups:
+  - name: keen-pbr
+    rules:
+      - alert: KeenPbrDown
+        expr: up{job="keen-pbr"} == 0
+        for: 2m
+      - alert: KeenPbrOutboundDown
+        expr: keen_pbr_probe_up == 0
+        for: 5m
+        annotations:
+          summary: "{{ $labels.outbound }} probe is failing ({{ $labels.test_outbound }})"
+      - alert: KeenPbrProbeStale
+        # Probes stopped completing (probe interval must be well below 30m).
+        expr: increase(keen_pbr_probe_attempts_total[30m]) == 0
+        for: 10m
+      - alert: KeenPbrErrors
+        expr: sum by (subsystem) (increase(keen_pbr_errors_total[10m])) > 0
+        for: 5m
+      - alert: KeenPbrDnsHoldSlow
+        # 0.03 s is the default hold deadline (intercept hold_timeout_ms: 30).
+        expr: >
+          histogram_quantile(0.99, sum by (le)
+            (rate(keen_pbr_dns_hold_duration_seconds_bucket[5m]))) > 0.03
+        for: 10m
+      - alert: KeenPbrQueueOverruns
+        expr: sum by (queue) (increase(keen_pbr_queue_overruns_total[10m])) > 0
+      - alert: KeenPbrListStale
+        expr: time() - keen_pbr_list_last_update_timestamp_seconds > 86400
+        for: 30m
+```
 
 ---
 
@@ -162,7 +370,7 @@ Error response body:
 
 ## GET /api/config
 
-Returns the current configuration and a flag indicating whether a staged in-memory draft exists.
+Returns the visible configuration and a flag indicating whether a staged in-memory draft exists. The `api` security settings are intentionally omitted. The response also includes per-list refresh state.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/config
@@ -174,12 +382,12 @@ curl http://127.0.0.1:12121/api/config
 {
   "config": {
     "daemon": { "pid_file": "/var/run/keen-pbr.pid", "cache_dir": "/var/cache/keen-pbr" },
-    "api": { "enabled": true, "listen": "127.0.0.1:12121" },
     "outbounds": [],
     "lists": {},
     "route": {}
   },
-  "is_draft": false
+  "is_draft": false,
+  "list_refresh_state": {}
 }
 ```
 
@@ -198,6 +406,8 @@ curl http://127.0.0.1:12121/api/config
 ## POST /api/config
 
 Validates the provided JSON body as a config file and stages it in memory. The config is **not** written to disk and the routing runtime is **not** changed. Use `POST /api/config/save` to persist and apply the staged draft.
+
+The `api` field in the submitted body is ignored; the daemon keeps the security settings already in effect.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/config \
@@ -220,7 +430,7 @@ curl -X POST http://127.0.0.1:12121/api/config \
 {
   "error": "Validation failed",
   "validation_errors": [
-    { "path": "outbounds.vpn.interface", "message": "interface is required" }
+    { "path": "outbounds[0].interface", "message": "interface is required" }
   ]
 }
 ```
@@ -229,21 +439,18 @@ curl -X POST http://127.0.0.1:12121/api/config \
 
 ## POST /api/config/save
 
-Persists the staged config to disk, then applies it to the routing runtime.
+Accepts an asynchronous operation that persists the staged config to disk and then reconciles the routing runtime. HTTP `202` confirms acceptance only; it does not mean the runtime apply has completed.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/config/save
 ```
 
-### Response
+### Accepted response (202)
 
 ```json
 {
-  "status": "ok",
-  "message": "Config saved and applied",
-  "saved": true,
-  "applied": true,
-  "rolled_back": false
+  "operation_id": "op-123",
+  "status": "accepted"
 }
 ```
 
@@ -251,12 +458,11 @@ curl -X POST http://127.0.0.1:12121/api/config/save
 
 ```json
 {
-  "error": "No staged config to save",
-  "saved": false,
-  "applied": false,
-  "rolled_back": false
+  "error": "No staged config to save"
 }
 ```
+
+After acceptance, inspect `GET /api/health/service` and its `lifecycle_operation` field, or subscribe to `/api/status/events`, until the operation reaches a terminal state. Persistence happens before runtime reconciliation. If reconciliation fails after the file was committed, the daemon reports a broken runtime and sets `rollback_available`; it does not automatically restore the prior file or runtime. `POST /api/config/rollback` explicitly restores the retained previous config and reconciles it. On success the runtime becomes active and the staged revision is cleared. `POST /api/config/discard` only discards an unsaved in-memory draft; it does not change the file or runtime.
 
 ---
 
@@ -300,8 +506,12 @@ Resolves the target (if a domain), scans configured route rules against cached l
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/routing/test \
   -H "Content-Type: application/json" \
-  -d '{"target": "example.com"}'
+  -d '{"target": "example.com", "proto": "tcp", "dest_port": 443}'
 ```
+
+The optional packet fields (`proto` (`tcp`, `udp`, or `other`), `dest_port`,
+`src_addr`, `src_port`, and `dscp`) make rule diagnostics packet-specific.
+Leaving them out preserves the target-only list diagnostic.
 
 ### Response
 
@@ -326,7 +536,7 @@ curl -X POST http://127.0.0.1:12121/api/routing/test \
 
 ## GET /api/health/routing
 
-Verifies the live kernel routing and firewall state against the expected configuration. Checks that the firewall chain exists, all rules are present, route tables are populated, and policy rules are in place.
+Returns the daemon's cached canonical report of kernel routing and firewall state. A cold or stale snapshot triggers an off-loop refresh and may temporarily report a pending/degraded result; each request does not synchronously inspect the kernel.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/health/routing
@@ -337,16 +547,17 @@ curl http://127.0.0.1:12121/api/health/routing
 ```json
 {
   "overall": "ok",
-  "firewall_backend": "nftables",
+  "firewall_backend": "iptables",
   "firewall": {
     "chain_present": true,
     "prerouting_hook_present": true,
-    "detail": "chain keen-pbr found in table mangle"
+    "verification_state": "verified",
+    "detail": "chain KeenPbrTable found in table mangle"
   },
   "firewall_rules": [
     {
-      "set_name": "keen-pbr-my_domains",
-      "action": "MARK",
+      "set_name": "<direct>",
+      "action": "mark",
       "expected_fwmark": "0x00010000",
       "actual_fwmark": "0x00010000",
       "status": "ok"
@@ -402,10 +613,17 @@ curl http://127.0.0.1:12121/api/health/routing
 
 ## GET /api/dns/test
 
-Streams DNS queries observed by the built-in `dns.dns_test_server` listener as Server-Sent Events. Each event payload is a JSON object. The connection receives a `HELLO` event immediately, then one `DNS` event per queried name while the connection is open.
+Streams the daemon's traffic interception events as Server-Sent Events. Each
+connection receives `HELLO` first. The default `show=keen-pbr` view delivers
+only marker events and closes after the matching marker; `show=all` (or the
+compatibility alias `show=full`) stays open and delivers DNS, TLS SNI, HTTP
+Host, QUIC Initial, and marker observations, including domains that did not
+match a configured list. The legacy `DNS` events of the removed
+`dns.dns_test_server` probe are no longer emitted. Pass `domain=<generated
+marker>` with the default view to keep unrelated checks from closing it.
 
 ```bash {filename="bash"}
-curl -N http://127.0.0.1:12121/api/dns/test
+curl -N 'http://127.0.0.1:12121/api/dns/test?show=all'
 ```
 
 ### Stream Example
@@ -413,8 +631,6 @@ curl -N http://127.0.0.1:12121/api/dns/test
 ```text
 data: {"type":"HELLO"}
 
-data: {"type":"DNS","domain":"example.com","source_ip":"192.168.1.10","ecs":"203.0.113.0/24"}
-
-data: {"type":"DNS","domain":"connectivity-check.local","source_ip":"192.168.1.11","ecs":null}
+data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","client_ip":"192.168.1.10","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
 
 ```

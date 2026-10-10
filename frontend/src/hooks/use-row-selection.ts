@@ -37,6 +37,7 @@ export function selectVisibleIds(rowIds: Iterable<string>, selected: boolean) {
 }
 
 export function useRowSelection(rowIds: string[]) {
+  const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIdsRaw, setSelectedIdsRaw] = useState<Set<string>>(
     () => new Set()
   )
@@ -47,7 +48,12 @@ export function useRowSelection(rowIds: string[]) {
 
   return {
     selectedIds,
+    isSelecting: selectionMode || selectedIds.size > 0,
+    startSelecting: () => setSelectionMode(true),
+    allVisibleSelected:
+      rowIds.length > 0 && rowIds.every((id) => selectedIds.has(id)),
     selectedCount: selectedIds.size,
+    totalCount: rowIds.length,
     hasSelection: selectedIds.size > 0,
     toggleOne: (rowId: string) => {
       setSelectedIdsRaw((previous) => toggleSelectedId(previous, rowIds, rowId))
@@ -56,6 +62,7 @@ export function useRowSelection(rowIds: string[]) {
       setSelectedIdsRaw(selectVisibleIds(rowIds, selected))
     },
     clear: () => {
+      setSelectionMode(false)
       setSelectedIdsRaw(new Set())
     },
   }

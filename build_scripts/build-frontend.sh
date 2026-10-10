@@ -2,8 +2,17 @@
 
 set -eu
 
-WORKSPACE="${1:?Usage: $0 <workspace-dir> [output-dir]}"
+WORKSPACE="${1:?Usage: $0 <workspace-dir> [output-dir] <platform>}"
 OUTPUT_DIR="${2:-$WORKSPACE/frontend/dist}"
+# Target platform baked into the bundle (frontend/src/lib/platform.ts).
+PLATFORM="${3:-${KEEN_PBR_FRONTEND_PLATFORM:-}}"
+case "$PLATFORM" in
+    generic|openwrt|keenetic) ;;
+    *)
+        echo "ERROR: frontend platform must be generic, openwrt or keenetic (got '$PLATFORM')." >&2
+        exit 1
+        ;;
+esac
 
 ensure_bun() {
     if command -v bun >/dev/null 2>&1; then
@@ -43,9 +52,11 @@ mkdir -p "${TMP_ROOT}" "$OUTPUT_DIR"
 cd "$WORKSPACE/frontend"
 TMPDIR="${TMP_ROOT}" TEMP="${TMP_ROOT}" TMP="${TMP_ROOT}" BUN_INSTALL_CACHE_DIR="${TMP_ROOT}/cache" bun install --frozen-lockfile
 TMPDIR="${TMP_ROOT}" TEMP="${TMP_ROOT}" TMP="${TMP_ROOT}" BUN_INSTALL_CACHE_DIR="${TMP_ROOT}/cache" \
-    KEEN_PBR_FRONTEND_OUT_DIR="$TMP_BUILD_DIR" bun run build
+    VITE_KEEN_PBR_PLATFORM="$PLATFORM" KEEN_PBR_FRONTEND_OUT_DIR="$TMP_BUILD_DIR" bun run build
 
 mkdir -p "$OUTPUT_DIR"
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 cp -a "$TMP_BUILD_DIR"/. "$OUTPUT_DIR"/
+# Lets ensure-frontend-dist.sh tell bundles of different platforms apart.
+printf '%s\n' "$PLATFORM" >"$OUTPUT_DIR/.keen-pbr-platform"

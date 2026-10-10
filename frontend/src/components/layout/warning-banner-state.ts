@@ -14,9 +14,6 @@ const SUCCESS_RETENTION_MS = 1_500
 export type WarningBannerMode =
   | "hidden"
   | "draft"
-  | "draft-and-dnsmasq"
-  | "dnsmasq-stale"
-  | "dnsmasq-error"
   | "lifecycle-running"
   | "lifecycle-success"
   | "lifecycle-error"
@@ -86,9 +83,7 @@ export function useWarningBannerState(): WarningBannerState {
       visibleOperation?.stages.map((stage) => ({
         id: stage.id,
         status: stage.status,
-        title: t(`lifecycle.stages.${stage.id}`, {
-          defaultValue: stage.title,
-        }),
+        title: t(`lifecycle.stages.${stage.id}`),
       })) ?? [],
     [t, visibleOperation]
   )
@@ -116,8 +111,8 @@ export function useWarningBannerState(): WarningBannerState {
 
 export function getWarningBannerMode(
   serviceHealth: HealthResponse | null,
-  retainedOperation: LifecycleOperation | null =
-    serviceHealth?.lifecycle_operation ?? null
+  retainedOperation: LifecycleOperation | null = serviceHealth?.lifecycle_operation ??
+    null
 ): WarningBannerMode {
   if (retainedOperation?.status === "running") return "lifecycle-running"
   if (retainedOperation?.status === "succeeded") return "lifecycle-success"
@@ -126,15 +121,7 @@ export function getWarningBannerMode(
   if (serviceHealth.rollback_available) return "lifecycle-error"
 
   if (serviceHealth.config_is_draft) {
-    return serviceHealth.resolver_config_sync_state === "stale"
-      ? "draft-and-dnsmasq"
-      : "draft"
-  }
-  if (serviceHealth.resolver_config_sync_state === "stale") {
-    return "dnsmasq-stale"
-  }
-  if (serviceHealth.resolver_config_probe_status === "query_failed") {
-    return "dnsmasq-error"
+    return "draft"
   }
   return "hidden"
 }
@@ -152,7 +139,9 @@ export function retainLifecycleOperation(
   }
   if (!previous || previous.id !== incoming.id) return incoming
   const rank = { pending: 0, running: 1, skipped: 2, succeeded: 2, failed: 2 }
-  const previousStages = new Map(previous.stages.map((stage) => [stage.id, stage]))
+  const previousStages = new Map(
+    previous.stages.map((stage) => [stage.id, stage])
+  )
   return {
     ...incoming,
     stages: incoming.stages.map((stage) => {

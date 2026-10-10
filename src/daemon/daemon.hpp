@@ -1,10 +1,16 @@
 #pragma once
 
 #include "../config/config.hpp"
-#include "../dns/dns_txt_client.hpp"
 #include "../firewall/firewall.hpp"
+#include "../firewall/firewall_counters.hpp"
+#include "../health/host_health_warnings.hpp"
+#include "../health/routing_health.hpp"
 #include "../health/url_tester.hpp"
+#include "../intercept/intercept_capabilities.hpp"
+#include "../intercept/intercept_service.hpp"
+#include "../intercept/intercept_settings.hpp"
 #include "../health/icmp_tester.hpp"
+#include "../routing/balance_classifier_state.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/interface_monitor.hpp"
 #include "../routing/netlink.hpp"
@@ -13,16 +19,16 @@
 #include "../runtime/conntrack_manager.hpp"
 #include "../runtime/lifecycle_operation.hpp"
 #include "../runtime/operation_coordinator.hpp"
-#include "../runtime/resolver_coordinator.hpp"
+#include "../intercept/rebind_backoff.hpp"
 #include "../runtime/runtime_state_machine.hpp"
 #include "../util/blocking_executor.hpp"
+#include "../util/time_utils.hpp"
 #include "../util/traced_mutex.hpp"
 #include "config_store.hpp"
+#include "dnsmasq_manager.hpp"
 #include "list_service.hpp"
 #include "pid_file.hpp"
-#include "resolver_sync_state_machine.hpp"
 #include "runtime_state_store.hpp"
-#include "system_resolver_hook.hpp"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -45,9 +51,6 @@ class Firewall;
 class Scheduler;
 class UrltestManager;
 class IcmpTester;
-class DnsProbeServer;
-struct DnsProbeEvent;
-enum class ResolverType;
 
 #ifdef WITH_API
 enum class ConfigOperationState : uint8_t;
@@ -99,9 +102,11 @@ struct PendingUrltestConntrackCleanup {
   uint32_t mark_mask{0};
 };
 
-struct ResolverGenerationSnapshot {
-  ResolverType resolver_type;
+// Per-runtime-generation decisions the control socket reports.
+struct ControlGenerationSnapshot {
   bool ipv6_enabled{true};
+  // The daemon fills the dynamic sets (DNS hold active).
+  bool intercept_dns_hold{false};
   std::uint64_t generation{0};
 };
 
@@ -122,9 +127,7 @@ const Outbound *find_outbound(const std::vector<Outbound> &outbounds,
 // Handles signal dispatch, routing, firewall, urltest, and API lifecycle.
 class Daemon {
 public:
-  Daemon(Config config, std::string config_path, DaemonOptions opts,
-         HookCommandExecutor hook_command_executor =
-             default_hook_command_executor);
+  Daemon(Config config, std::string config_path, DaemonOptions opts);
   ~Daemon();
 
   // Non-copyable, non-movable
@@ -180,6 +183,13 @@ private:
   void handle_ipc_control_socket();
   bool try_begin_routing_test();
   void finish_routing_test();
+  RoutingHealthReport cached_routing_health();
+  void invalidate_routing_health_cache();
+  void log_routing_health_warnings_if_changed(
+      const std::vector<HealthWarning>& warnings)
+      REQUIRES(routing_health_mutex_);
+  bool is_routing_health_cache_valid(const RuntimeStateSnapshot& snapshot) const
+      REQUIRES(routing_health_mutex_);
   void remove_ipc_control_socket() noexcept;
   void wake_control_loop();
   bool is_event_loop_thread() const;
@@ -195,6 +205,7 @@ private:
   void schedule_interface_monitor_reconnect_retry();
   void handle_interface_event(const InterfaceMonitor::Event &event);
   bool is_interface_outbound_in_use(const std::string &interface_name) const;
+  bool is_auto_gateway_outbound_in_use(const std::string &interface_name = "") const;
   void refresh_iproute_and_firewall_runtime(
       StatusPublishScope scope = StatusPublishScope::ServiceAndOutbounds);
   void dispatch_event_fd(int fd, uint32_t events);
@@ -203,18 +214,71 @@ private:
   void continue_startup_after_lists(
       std::optional<RemoteListsRefreshResult> refresh_result,
       std::string error);
-  void finish_startup_after_resolver_hook(bool hook_succeeded,
-                                          std::string error);
   void fail_startup_runtime(std::string error);
+  // The one place kernel/system capabilities are measured (service start):
+  // required tools, the shared KernelCapabilities snapshot, the interception
+  // probe, conntrack filter and NFQUEUE GSO.  Later code only reads the results.
+  // Throws DaemonError when a tool the selected backend needs is missing.
+  void probe_capabilities_at_start();
+  // Rejects a balance config the active firewall backend cannot realize
+  // (iptables without xt_statistic) before anything is mutated.
+  void require_balance_support(const Config &config) const;
+  // Daemon CLI facts (raw PREROUTING placement) that config validation needs.
+  // Uses the mode the firewall was actually built with.
+  ConfigValidationContext validation_context() const {
+    return firewall_ ? ConfigValidationContext{firewall_->raw_prerouting_mode()}
+                     : ConfigValidationContext{};
+  }
 
   // lifecycle and runtime apply
-  void setup_static_routing();
+  void setup_static_routing(const std::vector<DumpedRoute>* main_routes = nullptr);
   void reconcile_static_routing(
-      const std::map<std::string, std::string> *urltest_selections = nullptr);
+      const std::map<std::string, std::string> *urltest_selections = nullptr,
+      const std::vector<DumpedRoute>* main_routes = nullptr);
   FirewallApplyMode runtime_refresh_firewall_mode() const;
+  FirewallBalanceCandidates build_balance_candidates(
+      const std::vector<DumpedRoute>& main_routes,
+      const std::vector<DumpedInterface>& interfaces);
   void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive,
-                      bool force_clear_dynamic_sets = false);
-  void reconcile_lists_only(bool reload_resolver);
+                      bool force_clear_dynamic_sets = false,
+                      const std::vector<DumpedRoute>* main_routes = nullptr,
+                      const Config* quiesce_config = nullptr,
+                      const OutboundMarkMap* quiesce_marks = nullptr);
+  void reconcile_lists_only();
+
+  // Traffic interception (DNS hold / L7 sniff), see daemon_intercept.cpp.
+  InterceptEffective resolve_intercept_effective();
+  void start_intercept_service(InterceptEffective &effective);
+  // Folds what `service`'s listener binds revealed (nfqueue, fail-open,
+  // payload replacement, nflog) into `effective` and the capability cache.
+  void fold_intercept_listener_probe(InterceptEffective &effective,
+                                     const InterceptService &service);
+  // Applies the firewall without interception rules, then stops the service.
+  void quiesce_intercept_service(
+      const std::vector<DumpedRoute> &main_routes,
+      const std::vector<DumpedInterface> &interfaces,
+      const FirewallBalanceCandidates &balance_candidates,
+      const Config &quiesce_config,
+      const OutboundMarkMap &quiesce_marks);
+  void stop_intercept_service();
+  // Called inside the firewall-apply write pause: republishes the previous
+  // domain index with the new set bindings, then builds the new index in the
+  // background (retrying with backoff when that fails).
+  void schedule_intercept_snapshot_update(
+      std::vector<FirewallSetDeclaration> sets,
+      const InterceptEffective &effective);
+  struct InterceptSnapshotJob;
+  void queue_intercept_snapshot_build(
+      std::shared_ptr<const InterceptSnapshotJob> job, unsigned attempt);
+  void retry_intercept_snapshot_build(
+      std::shared_ptr<const InterceptSnapshotJob> job, unsigned attempt);
+  InterceptEffective intercept_effective_snapshot() const;
+  api::InterceptHealthClass build_intercept_health() const;
+  void pump_intercept_events();
+  // Control thread: notices a dead NFQUEUE/NFLOG listener and re-binds it
+  // through apply_firewall() with backoff (see rebind_backoff.hpp).
+  void tick_intercept_rebind();
+  void publish_intercept_rebind_status();
   void register_urltest_outbounds();
   void handle_urltest_selection_change(const std::string &urltest_tag,
                                        const std::string &new_child_tag);
@@ -222,10 +286,11 @@ private:
       const std::string &urltest_tag, std::uint64_t probe_generation,
       std::map<std::string, URLTestResult> results, TraceId trace_id);
   void apply_config(Config config, bool refresh_remote_lists = true);
-  // Candidate application may mutate kernel/resolver state while keeping the
+  // Candidate application may mutate kernel state while keeping the
   // externally visible active snapshot unchanged until its transaction commits.
   void apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
-                                     bool publish_active_snapshot = true);
+                                     bool publish_active_snapshot = true,
+                                     bool defer_dnsmasq_sync = false);
   PreparedRuntimeInputs
   prepare_runtime_inputs(const Config &config,
                          bool refresh_remote_lists = true);
@@ -233,24 +298,44 @@ private:
   void teardown_routing_and_firewall(bool explicit_stop);
   void setup_routing_and_firewall();
   void reconcile_prepared_runtime(PreparedRuntimeInputs prepared);
-  void complete_running_runtime(const char *reason);
-  bool has_system_resolver(const Config &config) const;
+  void complete_running_runtime(const char *reason, bool defer_dnsmasq_sync = false);
   void start_routing_runtime();
   void stop_routing_runtime();
   void restart_routing_runtime();
   bool routing_runtime_active() const;
   void transition_runtime_or_throw(RuntimeState next, const char *reason);
-  bool run_system_resolver_hook(std::string_view action);
-  bool run_system_resolver_hook_reload();
-  bool wait_for_resolver_stream_after(std::uint64_t baseline,
-                                      std::chrono::seconds timeout);
-  void drain_shutdown_resolver_callbacks(std::chrono::milliseconds duration);
+  // Marks the start of a runtime apply and refreshes the control snapshot.
+  void begin_runtime_generation();
   void schedule_lists_autoupdate();
+  // Queues a (coalesced) regeneration of the dnsmasq config for the current
+  // configuration on a blocking worker.
+  // `explicit_apply` (lifecycle operations) installs it even if dnsmasq looks
+  // unchanged and refills the repair budget; `reason` is logged.
+  void schedule_dnsmasq_sync(std::string reason = "lists updated",
+                             bool explicit_apply = false);
+  // Starts the repeating dnsmasq TXT check (replacing a previous one) /
+  // cancels it.  Control-thread only.
+  void start_dnsmasq_check();
+  void stop_dnsmasq_check();
   ListsRefreshExecutionResult execute_remote_list_refresh(
       const std::set<std::string> *target_lists = nullptr,
       std::string_view source = "service");
   void refresh_lists_and_maybe_reload();
   void refresh_lists_and_maybe_reload_async();
+  // Applies a finished list refresh on the control thread: dnsmasq sync,
+  // runtime reload for relevant changes, logging.  May throw if the reload
+  // fails.  `source` only labels the log lines.
+  ListsRefreshExecutionResult apply_list_refresh_result(
+      RemoteListsRefreshResult refresh_result, bool runtime_active,
+      std::string_view source);
+  // Background retry of lists whose startup download failed.
+  void schedule_startup_list_retry();
+  void cancel_startup_list_retry();
+  void run_startup_list_retry();
+  void commit_startup_list_retry_result(
+      std::uint64_t generation,
+      std::optional<RemoteListsRefreshResult> refresh_result, std::string error,
+      TraceId trace_id);
   void commit_lists_refresh_async_result(
       Config config_snapshot, bool runtime_active_snapshot,
       std::uint64_t generation,
@@ -261,20 +346,7 @@ private:
   void write_pid_file();
   void remove_pid_file();
 
-  // state publication and resolver sync
-  void refresh_resolver_config_hash_actual_async();
-  void maybe_schedule_resolver_config_hash_actual_refresh();
-  void schedule_resolver_config_hash_actual_retry();
-  void schedule_keenetic_dns_refresh();
-  bool refresh_keenetic_dns_cache(bool force_refresh);
-  void reset_resolver_actual_state();
-  void commit_resolver_hash_probe_result(
-      const std::string &resolver_addr, std::uint64_t generation,
-      std::optional<ResolverConfigHashProbeResult> probe_result,
-      std::optional<std::int64_t> probe_completed_ts, TraceId trace_id);
-  static bool wait_for_resolver_config_hash_confirmation(
-      const Config &candidate, const std::string &expected_hash,
-      std::int64_t apply_started_ts, std::string &error);
+  // state publication
 
 #ifdef WITH_API
   // API integration
@@ -296,46 +368,27 @@ private:
   refresh_lists_via_api(std::optional<std::string> requested_name);
 #endif
 
-  // DNS probe integration
-  void setup_dns_probe();
-  void teardown_dns_probe();
-  void handle_dns_probe_query_event(const DnsProbeEvent &event);
-  void handle_dns_probe_udp_events(uint32_t events);
-  void handle_dns_probe_tcp_listener_events(uint32_t events);
-  void handle_dns_probe_tcp_client_events(int client_fd, uint32_t events);
-  void handle_dns_probe_tcp_timer_events(uint32_t events);
-
-  ResolverSyncStateMachine resolver_sync_;
-  // Timestamp captured when /api/config/save apply starts (server
-  // authoritative).
-  std::atomic<std::int64_t> apply_started_ts_{0};
-
-  // Recompute resolver_config_hash_ from current config/cache state
-  void update_resolver_config_hash();
-  bool accept_resolver_generated_hash(std::uint64_t generation,
-                                      const std::string &hash);
-  ResolverGenerationSnapshot make_resolver_generation_snapshot();
-  // Schedule (or reschedule) the periodic refresh of
-  // resolver_config_hash_actual_.
-  void schedule_resolver_config_hash_actual_refresh();
+  // Recompute the per-generation control snapshot from the current config.
+  void refresh_generation_snapshot();
+  ControlGenerationSnapshot make_generation_snapshot();
   RuntimeStateSnapshot build_runtime_state_snapshot() const;
   void publish_runtime_state(
       StatusPublishScope scope = StatusPublishScope::ServiceAndOutbounds);
-  void publish_resolver_runtime_state();
   void publish_urltest_runtime_state(const std::string &tag);
 
   // Lists autoupdate state
   int lists_autoupdate_task_id_{-1};
-  // Periodic refresh task for cached Keenetic DNS server values.
-  int keenetic_dns_refresh_task_id_{-1};
-  // Periodic refresh task for the actual resolver config hash / live status.
-  int resolver_config_hash_actual_task_id_{-1};
-  // Short-interval retry while resolver hash is converging after apply.
-  int resolver_config_hash_actual_retry_task_id_{-1};
+  // One-shot retry timer for lists that failed to download at startup.
+  int startup_list_retry_task_id_{-1};
+  unsigned startup_list_retry_attempt_{0};
   // Debounced runtime refresh triggered by SIGUSR1.
   int sigusr1_refresh_task_id_{-1};
   // Retry task for interface monitor netlink reconnect after failure.
   int interface_monitor_reconnect_task_id_{-1};
+  // Debounced runtime refresh triggered by interface events.
+  int interface_refresh_task_id_{-1};
+  bool interface_refresh_pending_{false};
+  std::chrono::steady_clock::time_point interface_refresh_quiet_until_{};
 
   // Epoll state
   int epoll_fd_{-1};
@@ -386,6 +439,11 @@ private:
   ConfigStore config_store_;
   ListService list_service_;
   RuntimeStateStore runtime_state_store_;
+  std::atomic<uint64_t> firewall_apply_errors_{0};
+  // Prometheus telemetry, written on the control path only.
+  const std::int64_t process_start_unix_s_{unix_timestamp_now_seconds()};
+  std::atomic<std::int64_t> config_reload_last_success_s_{0};  // 0 = never
+  std::atomic<uint64_t> config_reload_errors_{0};
   LifecycleOperationStore lifecycle_operation_store_;
   LifecycleOperationCoordinator lifecycle_operations_{
       lifecycle_operation_store_};
@@ -404,8 +462,7 @@ private:
   PolicyRuleManager policy_rules_;
   FirewallState firewall_state_;
   ConntrackManager conntrack_manager_;
-  ResolverCoordinator resolver_coordinator_;
-  std::optional<ResolverGenerationSnapshot> resolver_generation_snapshot_;
+  std::optional<ControlGenerationSnapshot> generation_snapshot_;
   RuntimeStateMachine runtime_state_machine_;
 URLTester url_tester_;
 IcmpTester icmp_tester_;
@@ -416,11 +473,50 @@ IcmpTester icmp_tester_;
   // generation and are cleared whenever the configured groups are rebuilt.
   std::map<std::string, PendingUrltestConntrackCleanup>
       pending_urltest_conntrack_cleanup_;
+  // Last successfully applied balance classifier inputs per test group, so
+  // probe cycles that change nothing skip the firewall rebuild. Cleared
+  // whenever the configured groups are rebuilt.
+  std::map<std::string, BalanceClassifierState> balance_classifier_cache_;
+  // Declared before the executor: queued sync jobs reference it, so the
+  // executor must be torn down first.
+  DnsmasqManager dnsmasq_manager_;
   BlockingExecutor blocking_executor_{2, 64};
-  // Resolver hooks can synchronously call back into resolver config streaming,
-  // so hook execution and resolver I/O must never share a worker.
-  BlockingExecutor resolver_hook_executor_{1, 16};
-  BlockingExecutor resolver_io_executor_{1, 32};
+  // Interception service and its resolved settings.  The service pointer and
+  // the effective settings are read by API threads; everything else is owned
+  // by the control/event-loop thread.
+  mutable TracedMutex intercept_mutex_;
+  std::shared_ptr<InterceptCounters> intercept_counters_{
+      std::make_shared<InterceptCounters>()};
+  std::shared_ptr<InterceptService> intercept_service_
+      GUARDED_BY(intercept_mutex_);
+  InterceptEffective intercept_effective_ GUARDED_BY(intercept_mutex_);
+  // What /health reports about an automatic listener re-bind in progress.
+  struct InterceptRebindStatus {
+    bool active{false};
+    unsigned attempts{0};
+    std::chrono::steady_clock::time_point next_due{};
+  };
+  InterceptRebindStatus intercept_rebind_status_ GUARDED_BY(intercept_mutex_);
+  // Control thread only.  The listeners that were wanted when they failed:
+  // a failed re-bind disables them in the effective settings, but they stay
+  // wanted until an explicit apply takes over.
+  RebindBackoff intercept_rebind_;
+  bool intercept_rebind_want_dns_{false};
+  bool intercept_rebind_want_l7_{false};
+  bool intercept_rebind_in_progress_{false};
+  int intercept_rebind_task_id_{-1};
+  InterceptServiceOptions intercept_service_options_;
+  // Interception capabilities measured once at service start (immutable
+  // afterwards); resolve_intercept_effective only reads them.
+  std::optional<InterceptStartupProbe> intercept_startup_probe_;
+  // What the listener binds revealed (queue/group bind, fail-open, payload
+  // replacement).  Not a kernel capability: a blocking result is forgotten on a
+  // re-bind or config apply so the bind is retried, without any probing.
+  InterceptRuntimeProbe intercept_listener_results_;
+  std::atomic<std::uint64_t> intercept_snapshot_seq_{0};
+  std::uint64_t intercept_forwarded_seq_{0};
+  int intercept_event_task_id_{-1};
+  int dnsmasq_check_task_id_{-1};
   BlockingExecutor lifecycle_executor_{1, 16};
   // An open descriptor pins the pre-apply inode without retaining another
   // parsed or serialized configuration in RAM.
@@ -429,14 +525,32 @@ IcmpTester icmp_tester_;
   // Routing diagnostics are CPU/process-heavy. Two workers allow API and CLI
   // tests to overlap while the small queue keeps resource use bounded.
   BlockingExecutor routing_test_executor_{2, 2};
+  // Control status must not inspect the firewall on the event-loop thread.
+  // A single coalesced job refreshes this short-lived, generation-tagged
+  // report; callers never treat a report from an older runtime as current.
+  mutable TracedMutex routing_health_mutex_;
+  std::optional<RoutingHealthReport> routing_health_cache_
+      GUARDED_BY(routing_health_mutex_);
+  std::uint64_t routing_health_cache_revision_
+      GUARDED_BY(routing_health_mutex_){0};
+  std::uint64_t routing_health_cache_generation_
+      GUARDED_BY(routing_health_mutex_){0};
+  RuntimeState routing_health_cache_state_
+      GUARDED_BY(routing_health_mutex_){RuntimeState::starting};
+  std::chrono::steady_clock::time_point routing_health_cache_time_
+      GUARDED_BY(routing_health_mutex_){};
+  bool routing_health_check_inflight_ GUARDED_BY(routing_health_mutex_){false};
+  // Cached `iptables -t nat -S` output; invalidated on every firewall apply.
+  IptablesTableCache host_table_cache_;
+  // Briefly cached iptables rule counters for /metrics.
+  FirewallCounterCache firewall_counter_cache_;
+  std::vector<std::string> routing_health_logged_warning_keys_
+      GUARDED_BY(routing_health_mutex_);
+  std::atomic<std::uint64_t> routing_health_revision_{1};
   std::atomic<std::uint64_t> runtime_generation_{1};
   std::atomic<bool> remote_list_refresh_inflight_{false};
   std::atomic<bool> ipc_mutation_inflight_{false};
-  std::atomic<bool> ipc_resolver_hook_inflight_{false};
-  std::atomic<bool> resolver_hash_refresh_inflight_{false};
-  std::atomic<std::uint64_t> resolver_stream_completed_{0};
   std::atomic<std::size_t> routing_tests_inflight_{0};
-  TracedMutex system_resolver_hook_mutex_;
 
 #ifdef WITH_API
   std::unique_ptr<ApiServer> api_server_;
@@ -445,9 +559,13 @@ IcmpTester icmp_tester_;
   std::unique_ptr<StatusStream> status_stream_;
 #endif
 
-  std::unique_ptr<DnsProbeServer> dns_probe_server_;
-  HookCommandExecutor hook_command_executor_;
   bool routing_runtime_active_{true};
+  // Unix seconds of the last runtime apply start; 0 when none happened yet.
+  std::atomic<std::int64_t> apply_started_ts_{0};
 };
+
+// Maps a runtime lifecycle reason to the wording used when dnsmasq is
+// restarted because of it.
+std::string dnsmasq_apply_reason(std::string_view lifecycle_reason);
 
 } // namespace keen_pbr3

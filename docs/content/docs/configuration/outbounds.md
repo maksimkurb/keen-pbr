@@ -146,9 +146,11 @@ When a route rule resolves to an `ignore` outbound, keen-pbr installs a matching
 
 Use this when you have several candidate outbounds and want keen-pbr to automatically pick the best available one.
 
-Firewall rules keep the `urltest` outbound's stable mark. Its policy rule points
-at the selected child's routing table, including an existing table used by a
-`table` outbound; firewall rules are not rebuilt on selection changes.
+With the default `priority` strategy, firewall rules keep the `urltest`
+outbound's stable mark. Its policy rule points at the selected child's routing
+table, including an existing table used by a `table` outbound; firewall rules
+are not rebuilt on selection changes. `balance` keeps that stable mark for
+internal detours, but refreshes its balance classifier after each probe sweep.
 
 keen-pbr always appends terminal IPv4 and IPv6 `unreachable` default routes to
 the generated `urltest` fallback table. This table is selected when no child is
@@ -163,17 +165,75 @@ falling through to normal routing.
 | `interval_ms` | integer | no (default: `180000`) | Interval between probes in milliseconds |
 | `probe_timeout_ms` | integer | no (default: `5000`) | Timeout for each individual probe attempt in milliseconds |
 | `tolerance_ms` | integer | no (default: `100`) | Latency tolerance in ms; prevent outbound switching if the latency difference between the current and new best outbound is less than this tolerance |
+| `strategy` | string | no (default: `"priority"`) | `"priority"` selects one child as before. `"balance"` (nftables, or iptables with `xt_statistic`; not on Keenetic) distributes new connections over the usable members of the first healthy group, in proportion to their `weight` (equally by default). |
 | `outbound_groups` | array | yes | Ordered list of outbound groups (see below) |
 | `retry` | object | no | Retry configuration (see below) |
 | `circuit_breaker` | object | no | Circuit breaker configuration (see below) |
 
 ### Outbound Groups
 
-Groups are checked in order. Within the first healthy group, outbounds are selected by the lowest latency. If all outbounds in a group are unhealthy, the next group is evaluated. This lets you define more complex priority rules. For example, you can prefer one of two slower outbounds first, and if both are unavailable, fall back to another outbound that is faster but more expensive.
+`outbound_groups` is an ordered list of steps: the first group is tried first.
+Within the first healthy group, `priority` selects by latency. If all members of
+a group are unhealthy, the next group is evaluated.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `outbounds` | array of string | yes | Ordered list of outbound tags to try |
+| `members` | array of object | yes | Ordered members of this group (see below) |
+
+Each member:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `outbound` | string | yes | Outbound tag (interface, table or blackhole) |
+| `weight` | integer 1-100 | no (default: `1`) | Share of new connections in the `balance` strategy; ignored by `priority`. Members with weights 7 and 3 get 70% and 30% of new connections while both are usable. |
+
+```json { filename="config.json" }
+"outbound_groups": [
+  { "members": [ { "outbound": "wan1", "weight": 7 }, { "outbound": "wan2", "weight": 3 } ] },
+  { "members": [ { "outbound": "backup" } ] }
+]
+```
+
+{{< callout type="info" >}}
+The older form (`outbounds: ["a", "b"]` plus a group-level `weight` as step
+priority, lower first) is still read. When the daemon loads a config that uses
+it, the file is rewritten in the `members` form (groups ordered by their old
+`weight`) after it validated successfully, and the original is kept once as
+`config.json.bak-pre-members` next to it. Comments in the original file are not
+carried over (they stay in the backup). Mixing `members` with the old fields in
+one group is rejected.
+{{< /callout >}}
+
+With `strategy: "balance"`, selection is per connection, not per HTTP request.
+HTTP/2 and QUIC multiplexed traffic stays on the WAN chosen for that connection.
+Each usable member receives `weight / sum of the usable weights` of new
+connections. `tolerance_ms`
+applies only to `priority` selection. For balance groups, `conntrack_on_switch`
+is ignored; only a failed child's conntrack flows are removed when it becomes
+unhealthy. When no candidate is usable, the test group's existing terminal
+fallback blocks marked traffic rather than leaking to the main table.
+
+Balancing works on both firewall backends. nftables alternates new connections
+with `numgen inc` and a verdict map. iptables has no counter match that can be
+reloaded cheaply, so it picks a candidate at random: a cascade of
+`-m statistic --mode random --probability w1/(w1+...+wn)`, `w2/(w2+...+wn)`, ...
+rules (the last candidate unconditional; with equal weights `1/n`, `1/(n-1)`, ...)
+in the mangle classification chain, which gives every usable candidate its
+weighted share. Over a few connections the split is therefore only statistical
+on iptables, while nftables walks a `numgen inc` counter over weight-sized slot
+ranges and is exactly proportional. On both
+backends the chosen mark is saved to the connection (`CONNMARK`) and restored
+for the rest of the flow, so only new connections are balanced. iptables
+balancing needs the `xt_statistic` kernel module; if it cannot be used, applying
+the firewall fails with an error naming the module. It is not available with
+`--use-raw-prerouting` (raw runs before conntrack, so a choice could not be
+kept per connection).
+
+{{< callout type="info" >}}
+Balancing across several WANs needs NAT on every uplink, loose `rp_filter`, and
+an fwmark range that other services do not touch. See
+[Multi-WAN Load Balancing]({{< relref "/docs/configuration/multi-wan" >}}) for a complete Debian/iptables setup.
+{{< /callout >}}
 
 ### Retry Configuration
 
@@ -200,7 +260,8 @@ Groups are checked in order. Within the first healthy group, outbounds are selec
 
 `icmptest` selects candidates like `urltest`, but sends ICMP Echo packets through
 each candidate's fwmark. Every candidate needs one explicit literal IPv4 or IPv6
-destination in its group entry.
+destination in its group member. It supports the same `priority` (default) and
+`balance` strategies.
 
 ```json { filename="config.json" }
 {
@@ -215,19 +276,20 @@ destination in its group entry.
   "tolerance_ms": 10,
   "outbound_groups": [
     {
-      "candidates": [
+      "members": [
         { "outbound": "vpn", "target": "1.1.1.1" },
-        { "outbound": "wan", "target": "9.9.9.9" }
+        { "outbound": "wan", "target": "9.9.9.9", "weight": 3 }
       ]
     }
   ]
 }
 ```
 
-The legacy `outbound_groups[].outbounds` plus top-level `probes` form is accepted
-and migrated in memory when the configuration is loaded. The canonical nested
-form is written on the next explicit configuration save; startup does not rewrite
-the file automatically. Mixing legacy and canonical fields is rejected.
+The older `outbound_groups[].candidates` form and the even older
+`outbound_groups[].outbounds` plus top-level `probes` form are still accepted.
+They are converted to `members` when the configuration is loaded, and the daemon
+rewrites the file in the new form after a successful validation (original kept
+as `<config>.bak-pre-members`). Mixing legacy and canonical fields is rejected.
 
 Attempts are sequential. After one reply or timeout is fully processed, the
 daemon waits `packet_interval_ms` before sending the next request. Therefore the
@@ -258,8 +320,8 @@ capability).
       "probe_timeout_ms": 5000,
       "tolerance_ms": 100,
       "outbound_groups": [
-        { "outbounds": ["vpn1", "vpn2"] },
-        { "outbounds": ["wan"] }
+        { "members": [{ "outbound": "vpn1" }, { "outbound": "vpn2" }] },
+        { "members": [{ "outbound": "wan" }] }
       ],
       "retry": {
         "attempts": 3,

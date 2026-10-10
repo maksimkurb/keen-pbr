@@ -1,100 +1,116 @@
 # Package repository layout
 
-This project publishes package feeds to an rsync host. Each publish uploads a
-complete immutable build directory, then atomically repoints the corresponding
-branch symlink after the upload succeeds.
+keen-pbr publishes package feeds to an rsync host.
 
-## Channels
+Branch builds and release tags deliberately use different publication semantics:
 
-- `<tag>`: release/tag builds.
-- `<branch>`: non-release builds from every branch.
+- branch builds publish individual targets as soon as each target succeeds;
+- release tags remain transactional and only promote `stable` after the complete release matrix succeeds.
 
-Release tags and every branch push are published. Pull requests continue to
-build but are not deployed.
+## Public channels
 
-## Directory structure
+The stable public paths remain symlinks:
+
+```text
+<target-root>/repository/main -> main_<build-number>.release
+<target-root>/repository/<branch> -> <branch>_<build-number>.release
+<target-root>/repository/stable -> stable_<tag>_<build-number>.release
+```
+
+Package URLs therefore stay stable even though immutable release directories are created for every commit/tag.
+
+## Incremental branch release directory
+
+A branch commit is bootstrapped before package jobs start:
+
+```text
+<target-root>/repository/<branch>_<build-number>.release/
+├── index.html
+├── README.md
+├── .release.json
+└── ARTIFACTS_WAL.jsonl
+```
+
+Package jobs then upload only the leaf they own:
+
+```text
+<target-root>/repository/<branch>_<build-number>.release/
+├── openwrt/<openwrt-version>/<arch>/
+├── openwrt-debug/<openwrt-version>/
+├── keenetic/<keenetic-version>/<arch>/
+├── keenetic-debug/<keenetic-version>/<arch>/
+└── debian/<debian-version>/<arch>/
+```
+
+The first successfully published target promotes the branch symlink to the new immutable release directory. Later targets populate that same directory independently.
+
+A generation check under a very small `flock` critical section prevents an older, slower workflow run from moving a branch symlink backwards.
+
+## Artifact WAL
+
+`ARTIFACTS_WAL.jsonl` is the discovery source for the repository HTML page. Every successfully uploaded package target appends one JSON object, for example:
+
+```json
+{"key":"openwrt:25.12.2:aarch64_cortex-a53","platform":"openwrt","version":"25.12.2","arch":"aarch64_cortex-a53","formats":["apk"],"generation":1791234567,"sha":"0123456789abcdef","run_id":12345,"run_attempt":1,"published_at":1791234999}
+```
+
+The WAL append is the only shared mutable operation between target publishers and is protected with `flock`. Package uploads do not share a lock.
+
+The browser reads `.release.json` and `ARTIFACTS_WAL.jsonl`, deduplicates records by `key`, and chooses the newest record by generation/run metadata. This means the repository page does not need to be regenerated whenever another architecture finishes.
+
+## Automatic and manual branch matrices
+
+Normal branch/main/PR builds intentionally exercise only representative targets:
+
+- Debian trixie amd64
+- Keenetic mipsel
+- OpenWrt 25.12.2 aarch64_cortex-a53
+
+A manual `Build packages` workflow run with `build_scope=full` builds the full Debian and Keenetic matrices and uses the same OpenWrt matrix declared by the release workflow.
+
+Branch targets still publish independently in manual full builds.
+
+## Release tags
+
+Release-tag builds keep the existing all-or-nothing behavior:
+
+1. build the complete OpenWrt, Keenetic, and Debian matrices;
+2. collect all artifacts;
+3. publish the complete repository tree;
+4. only then atomically update `stable`.
+
+If any required release target fails, `stable` is not changed.
+
+## Shared assets
+
+Shared repository UI and signing-key files live outside per-commit release directories:
 
 ```text
 <target-root>/assets/
 <target-root>/keys/
-<target-root>/index.html -> redirects to /repository/stable/
-<target-root>/.htaccess -> redirects / to /repository/stable/
-
-<target-root>/repository/<branch>_<build-number>.release/keenetic/<keenetic_version>/<arch>
-<target-root>/repository/<branch>_<build-number>.release/openwrt/<openwrt_version>/<arch>
-<target-root>/repository/<branch>_<build-number>.release/debian/<debian_version>/<arch>
-
-<target-root>/repository/<branch> -> <branch>_<build-number>.release
-
-<target-root>/repository/stable_<tag>_<build-number>.release/...
-<target-root>/repository/stable -> stable_<tag>_<build-number>.release
+<target-root>/index.html
+<target-root>/.htaccess
 ```
 
-Each generated repository uses its live symlink name for package URLs: branch
-builds use `/repository/<branch>/...`, while tag builds use
-`/repository/stable/...`. Updating a tag only replaces the `stable` symlink;
-clients never need to change their repository URL.
-
-Package format folders (`opkg`, `ipk`, `apk`, `deb`) are intentionally omitted.
+The root page redirects to `/repository/stable/`.
 
 ## Version semantics
 
-- `build-number`: the source commit's UTC Unix timestamp.
-- `keenetic_version`: currently `current` (reserved for future compatibility).
-- `openwrt_version`: explicit OpenWrt release line (for example `24.10.4`, `25.12.2`).
-- `debian_version`: explicit Debian release line (`bullseye`, `bookworm`, or `trixie`).
-
-## GitHub Actions
-
-- `.github/workflows/ci-packages.yml`: builds and deploys package artifacts for every branch push.
-- `.github/workflows/release-packages.yml`: builds and deploys release-tag artifacts.
-- `.github/workflows/reusable-publish-rsync.yml`: normalizes artifacts, stages the repository tree, uploads it with rsync, and updates the live branch symlink.
-- `.github/workflows/reusable-publish-repository.yml`: the previous GitHub repository publisher, retained but no longer called.
-
-Every `RSYNC_*` setting can be supplied as either a GitHub Actions secret or a
-repository variable. When both exist, the secret takes precedence. `RSYNC_PORT`
-defaults to SSH port 22 when neither is set.
+- `build-number`: source commit UTC Unix timestamp.
+- `keenetic-version`: currently `current`.
+- `openwrt-version`: explicit OpenWrt release line.
+- `debian-version`: explicit Debian release line.
 
 ## Rsync deployment configuration
 
-Configure the following repository-level GitHub Actions secrets or variables
-before enabling a publish. The names are consumed by
-`.github/workflows/reusable-publish-rsync.yml`.
+The publisher consumes these repository secrets or variables:
 
-| Setting | Purpose | Example (fake) |
-| --- | --- | --- |
-| `RSYNC_HOST` | SSH hostname or IP address | `packages.example.net` |
-| `RSYNC_USERNAME` | SSH account permitted to write the target folder | `keen_pbr_deploy` |
-| `RSYNC_SSH_PRIVATE_KEY` | Private key for the SSH account | `-----BEGIN OPENSSH PRIVATE KEY-----` … |
-| `RSYNC_TARGET_ROOT` | Absolute target folder on the rsync host | `/srv/www/keen-pbr` |
-| `RSYNC_PORT` | SSH/rsync port; defaults to `22` | `2222` |
+| Setting | Purpose |
+| --- | --- |
+| `RSYNC_HOST` | SSH hostname/IP |
+| `RSYNC_USERNAME` | SSH account |
+| `RSYNC_SSH_PRIVATE_KEY` | private SSH key |
+| `RSYNC_TARGET_ROOT` | web repository root |
+| `RSYNC_PORT` | SSH port, default `22` |
 
-Use a secret for `RSYNC_SSH_PRIVATE_KEY`; repository variables are visible to
-people who can manage repository settings and are not appropriate for private
-key material.
-
-For the sample configuration, a build of branch `feature/new-ui` at commit UTC
-timestamp `1786718400` is uploaded to
-`/srv/www/keen-pbr/repository/feature-new-ui_1786718400.release/`, then the symlink
-`/srv/www/keen-pbr/repository/feature-new-ui` is atomically repointed to it. A tag
-`v3.2.0` is published as `repository/stable_v3.2.0_1786718400.release` and
-updates the `repository/stable` symlink to that release directory.
-
-The SSH account needs permission to create directories, write files, and replace
-symlinks below `<RSYNC_TARGET_ROOT>/repository`.
-
-## Generated repository metadata
-
-During publish, repository metadata files are generated in each per-arch leaf folder:
-
-- for `.ipk` feeds: `Packages`, `Packages.manifest`, `Packages.gz`, and optional `Packages.sig`
-- for `.apk` feeds: `packages.adb` (optionally signed when an APK signing key is configured)
-- for `.deb` feeds: `Packages`, `Packages.gz`, `Release`, and optional `Release.gpg` / `InRelease`
-
-When public signing keys are available, they are also published under:
-
-```text
-<target-root>/keys/
-```
-
-`.ipk` metadata is generated by the in-repo helper script `scripts/ipk-make-index.py`.
+The remote host must provide `flock`, `ssh`, and rsync-compatible filesystem semantics. The deploy account needs permission to create release directories and atomically replace symlinks below `<RSYNC_TARGET_ROOT>/repository`.

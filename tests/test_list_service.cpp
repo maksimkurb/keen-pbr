@@ -310,6 +310,15 @@ TEST_CASE("should_reload_runtime_after_list_refresh: only relevant changes "
     CHECK_FALSE(should_reload_runtime_after_list_refresh(true, refresh_result));
 }
 
+TEST_CASE("startup_list_retry_delay: backoff sequence is capped at five minutes") {
+    CHECK(startup_list_retry_delay(0) == std::chrono::seconds{10});
+    CHECK(startup_list_retry_delay(1) == std::chrono::seconds{30});
+    CHECK(startup_list_retry_delay(2) == std::chrono::seconds{120});
+    CHECK(startup_list_retry_delay(3) == std::chrono::seconds{300});
+    CHECK(startup_list_retry_delay(4) == std::chrono::seconds{300});
+    CHECK(startup_list_retry_delay(1000000U) == std::chrono::seconds{300});
+}
+
 TEST_CASE("build_list_refresh_state_map: URL-backed lists expose last_updated "
           "metadata only") {
     const auto temp_dir = make_temp_dir();
@@ -402,16 +411,14 @@ TEST_CASE("download_uncached: preserves cached lists and tracks DNS-relevant cha
     };
 
     const std::set<std::string> relevant_lists{"dns"};
-    const std::set<std::string> dns_relevant_lists{"dns"};
     const auto result = service.refresh_remote_lists(
-        config, OutboundMarkMap{}, &relevant_lists, nullptr, &dns_relevant_lists);
+        config, OutboundMarkMap{}, &relevant_lists, nullptr);
 
     CHECK(result.changed_lists == std::vector<std::string>{"dns", "unused"});
     CHECK(result.relevant_changed_lists == std::vector<std::string>{"dns"});
-    CHECK(result.dns_relevant_changed_lists == std::vector<std::string>{"dns"});
 
     const auto second_result = service.download_uncached(
-        config, OutboundMarkMap{}, &relevant_lists, &dns_relevant_lists);
+        config, OutboundMarkMap{}, &relevant_lists);
     CHECK(second_result.refreshed_lists.empty());
     CHECK(second_result.cached_lists == std::vector<std::string>{"dns", "unused"});
     CHECK(second_result.changed_lists.empty());
@@ -503,7 +510,7 @@ TEST_CASE("refresh_remote_lists: raw-identical 200 response does not change cach
     std::filesystem::remove_all(temp_dir);
 }
 
-TEST_CASE("collect_relevant_list_names: ignores disabled route and dns rules") {
+TEST_CASE("collect_relevant_list_names: ignores disabled route rules") {
     Config config;
 
     ListConfig remote;
@@ -511,8 +518,6 @@ TEST_CASE("collect_relevant_list_names: ignores disabled route and dns rules") {
     config.lists = std::map<std::string, ListConfig>{
         {"route_disabled", remote},
         {"route_enabled", remote},
-        {"dns_disabled", remote},
-        {"dns_enabled", remote},
     };
 
     RouteRule route_disabled;
@@ -528,28 +533,8 @@ TEST_CASE("collect_relevant_list_names: ignores disabled route and dns rules") {
     route_config.rules = std::vector<RouteRule>{route_disabled, route_enabled};
     config.route = route_config;
 
-    DnsRule dns_disabled;
-    dns_disabled.enabled = false;
-    dns_disabled.list = std::vector<std::string>{"dns_disabled"};
-    dns_disabled.server = "dns1";
-
-    DnsRule dns_enabled;
-    dns_enabled.list = std::vector<std::string>{"dns_enabled"};
-    dns_enabled.server = "dns1";
-
-    DnsConfig dns_config;
-    dns_config.rules = std::vector<DnsRule>{dns_disabled, dns_enabled};
-    config.dns = dns_config;
-
     const auto relevant_lists = collect_relevant_list_names(config);
 
     CHECK(relevant_lists.count("route_disabled") == 0);
-    CHECK(relevant_lists.count("dns_disabled") == 0);
     CHECK(relevant_lists.count("route_enabled") == 1);
-    CHECK(relevant_lists.count("dns_enabled") == 1);
-
-    const auto dns_relevant_lists = collect_dns_relevant_list_names(config);
-    CHECK(dns_relevant_lists.count("route_enabled") == 0);
-    CHECK(dns_relevant_lists.count("dns_disabled") == 0);
-    CHECK(dns_relevant_lists.count("dns_enabled") == 1);
 }

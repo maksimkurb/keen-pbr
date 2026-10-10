@@ -3,59 +3,17 @@
 set -e
 
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
-CONFIG_DIR="/etc/keen-pbr"
-CACHE_DIR="/var/cache/keen-pbr"
-CONTROL_DIR="/var/run/keen-pbr"
 FW4_INCLUDE_PATH="/usr/lib/keen-pbr/firewall.sh"
-
-# Paths to bind-mount read-only into the dnsmasq procd jail.  The control socket
-# is recreated whenever keen-pbr starts, so mount its stable parent directory
-# instead of pinning the socket inode that existed when dnsmasq entered its jail.
-JAIL_MOUNTS="$KEEN_PBR_BIN $CONFIG_DIR $CACHE_DIR $CONTROL_DIR"
-
-[ -r /lib/functions.sh ] && . /lib/functions.sh
 
 log_message() {
     local level="$1"
     local message="$2"
 
-    logger -s -t "keen-pbr" -p "user.${level}" "$message"
+    logger -s -t "keen-pbr" -p "user.${level}" "$message" || true
 }
 
 log_info() {
     log_message info "$1"
-}
-
-uci_add_list_if_new() {
-    local package="$1"
-    local config="$2"
-    local option="$3"
-    local value="$4"
-    local current item
-
-    current="$(uci -q get "${package}.${config}.${option}" || true)"
-    for item in $current; do
-        [ "$item" = "$value" ] && return 1
-    done
-
-    uci -q add_list "${package}.${config}.${option}=${value}"
-    log_info "UCI add_list ${package}.${config}.${option}=${value}"
-    return 0
-}
-
-uci_list_contains() {
-    local package="$1"
-    local config="$2"
-    local option="$3"
-    local value="$4"
-    local current item
-
-    current="$(uci -q get "${package}.${config}.${option}" || true)"
-    for item in $current; do
-        [ "$item" = "$value" ] && return 0
-    done
-
-    return 1
 }
 
 uci_option_exists() {
@@ -67,115 +25,7 @@ uci_option_exists() {
 }
 
 dnsmasq_sections() {
-    local section section_type
-
-    config_load dhcp
-    for section in $CONFIG_SECTIONS; do
-        config_get section_type "$section" TYPE
-        [ "$section_type" = "dnsmasq" ] && printf '%s\n' "$section"
-    done
-}
-
-dnsmasq_confdir() {
-    local section="$1"
-    local confdir
-
-    config_load dhcp
-    config_get confdir "$section" confdir
-    printf '%s\n' "${confdir:-/tmp/dnsmasq.${section}.d}"
-}
-
-ensure_jail_mount_targets() {
-    # /var lives on persistent storage on some targets while /var/run is
-    # volatile. Both directories must exist before procd builds the jail.
-    mkdir -p "$CACHE_DIR" "$CONTROL_DIR"
-}
-
-install_mounts_for_section() {
-    local section="$1"
-    local path
-    local changed=1
-
-    for path in $JAIL_MOUNTS; do
-        if uci_add_list_if_new dhcp "$section" addnmount "$path"; then
-            changed=0
-        fi
-    done
-
-    return "$changed"
-}
-
-remove_mounts_for_section() {
-    local section="$1"
-    local path
-    local changed=1
-
-    for path in $JAIL_MOUNTS; do
-        if uci_list_contains dhcp "$section" addnmount "$path"; then
-            if uci -q del_list "dhcp.${section}.addnmount=${path}"; then
-                log_info "UCI del_list dhcp.${section}.addnmount=${path}"
-                changed=0
-            fi
-        fi
-    done
-
-    return "$changed"
-}
-
-backup_list_option_for_section() {
-    local section="$1"
-    local option="$2"
-    local backup_option="$3"
-    local values value
-    local changed=1
-
-    values="$(uci -q get "dhcp.${section}.${option}" || true)"
-    [ -n "$values" ] || return 1
-
-    if uci_option_exists dhcp "$section" "$backup_option" && uci -q delete "dhcp.${section}.${backup_option}"; then
-        log_info "UCI delete dhcp.${section}.${backup_option}"
-        changed=0
-    fi
-    for value in $values; do
-        if uci -q add_list "dhcp.${section}.${backup_option}=${value}"; then
-            log_info "UCI add_list dhcp.${section}.${backup_option}=${value}"
-            changed=0
-        fi
-    done
-    if uci_option_exists dhcp "$section" "$option" && uci -q delete "dhcp.${section}.${option}"; then
-        log_info "UCI delete dhcp.${section}.${option}"
-        changed=0
-    fi
-
-    return "$changed"
-}
-
-restore_list_option_for_section() {
-    local section="$1"
-    local option="$2"
-    local backup_option="$3"
-    local values value
-    local changed=1
-
-    values="$(uci -q get "dhcp.${section}.${backup_option}" || true)"
-    [ -n "$values" ] || return 1
-
-    if uci_option_exists dhcp "$section" "$option" && uci -q delete "dhcp.${section}.${option}"; then
-        log_info "UCI delete dhcp.${section}.${option}"
-        changed=0
-    fi
-    for value in $values; do
-        if uci -q add_list "dhcp.${section}.${option}=${value}"; then
-            log_info "UCI add_list dhcp.${section}.${option}=${value}"
-            changed=0
-        fi
-    done
-    if uci_option_exists dhcp "$section" "$backup_option" && uci -q delete "dhcp.${section}.${backup_option}"; then
-        log_info "UCI delete dhcp.${section}.${backup_option}"
-        changed=0
-    fi
-
-    return "$changed"
+    uci -q -X show dhcp | sed -n "s/^dhcp\\.\\([^.=]*\\)=dnsmasq$/\\1/p"
 }
 
 commit_if_changed() {
@@ -189,56 +39,86 @@ commit_if_changed() {
     fi
 }
 
-dnsmasq_install_persistent() {
-    local section
-    local changed=1
+DNSMASQ_RESTART_CMD="${DNSMASQ_RESTART_CMD:-/etc/init.d/dnsmasq restart}"
 
-    ensure_jail_mount_targets
+list_contains() {
+    local needle="$1"
+    local item
+    shift
 
-    for section in $(dnsmasq_sections); do
-        if backup_list_option_for_section "$section" server kpbr_server; then
-            changed=0
-        fi
-        if install_mounts_for_section "$section"; then
-            changed=0
-        fi
+    for item in "$@"; do
+        [ "$item" = "$needle" ] && return 0
     done
 
-    commit_if_changed dhcp "$changed"
+    return 1
 }
 
-dnsmasq_ensure_runtime_prereqs() {
+# Undo the changes made by the removed dnsmasq integration: put the upstream
+# servers saved in kpbr_server back into server, drop our jail mounts and the
+# conf-script drop-in.  Idempotent; sections without our markers are untouched.
+dnsmasq_migrate_from_keen_pbr() {
     local section
     local changed=1
+    local kpbr_servers current_servers server_item mount_item
+    local confdir conf_path conf_line
 
-    # addnmount targets must exist before procd constructs the dnsmasq jail.
-    # Mounting the directory also makes later control.sock replacement visible
-    # without restarting or rebuilding the jail mount namespace.
-    ensure_jail_mount_targets
+    command -v uci >/dev/null 2>&1 || return 0
+    conf_line="conf-script=${KEEN_PBR_BIN} generate-resolver-config dnsmasq"
 
     for section in $(dnsmasq_sections); do
-        if install_mounts_for_section "$section"; then
+        confdir="$(uci -q get "dhcp.${section}.confdir" || true)"
+        conf_path="${confdir:-/tmp/dnsmasq.${section}.d}/keen-pbr.conf"
+        # The old integration is recognised by kpbr_server or its keen-pbr.conf
+        # drop-in.  Without either, the addnmount entries belong to the current
+        # dnsmasq-hook.sh and must be left alone.
+        legacy=1
+        if uci_option_exists dhcp "$section" kpbr_server || [ -f "$conf_path" ]; then
+            legacy=0
+        fi
+
+        if uci_option_exists dhcp "$section" kpbr_server; then
+            kpbr_servers="$(uci -q get "dhcp.${section}.kpbr_server" || true)"
+            current_servers="$(uci -q get "dhcp.${section}.server" || true)"
+            for server_item in $kpbr_servers; do
+                # shellcheck disable=SC2086
+                if ! list_contains "$server_item" $current_servers; then
+                    uci -q add_list "dhcp.${section}.server=${server_item}" || true
+                    current_servers="${current_servers:+$current_servers }$server_item"
+                    log_info "Restored dhcp.${section}.server=${server_item} from kpbr_server"
+                fi
+            done
+            uci -q delete "dhcp.${section}.kpbr_server" || true
+            log_info "Deleted dhcp.${section}.kpbr_server"
+            changed=0
+        fi
+
+        # Remove only the jail mounts that the old integration added.
+        if [ "$legacy" -eq 0 ]; then
+            for mount_item in $(uci -q get "dhcp.${section}.addnmount" || true); do
+                case "$mount_item" in
+                    /usr/sbin/keen-pbr|/etc/keen-pbr|/var/cache/keen-pbr|/var/run/keen-pbr)
+                        uci -q del_list "dhcp.${section}.addnmount=${mount_item}" || true
+                        log_info "Removed dhcp.${section}.addnmount=${mount_item}"
+                        changed=0
+                        ;;
+                esac
+            done
+        fi
+
+        # Delete the drop-in only if it holds nothing but our conf-script line.
+        if [ -f "$conf_path" ] && grep -qxF "$conf_line" "$conf_path" &&
+           ! grep -vxF "$conf_line" "$conf_path" | grep -q '[^[:space:]]'; then
+            rm -f "$conf_path"
+            log_info "Deleted $conf_path"
             changed=0
         fi
     done
 
-    commit_if_changed dhcp "$changed"
-}
-
-dnsmasq_uninstall_persistent() {
-    local section
-    local changed=1
-
-    for section in $(dnsmasq_sections); do
-        if restore_list_option_for_section "$section" server kpbr_server; then
-            changed=0
-        fi
-        if remove_mounts_for_section "$section"; then
-            changed=0
-        fi
-    done
+    [ "$changed" -eq 0 ] || return 0
 
     commit_if_changed dhcp "$changed"
+    eval "$DNSMASQ_RESTART_CMD" >/dev/null 2>&1 || true
+    return 0
 }
 
 is_fw4() {
@@ -308,11 +188,7 @@ print_help() {
 Usage: $0 <command>
 
 Commands:
-  dnsmasq-sections
-  dnsmasq-confdir <section>
-  dnsmasq-install-persistent
-  dnsmasq-ensure-runtime-prereqs
-  dnsmasq-uninstall-persistent
+  dnsmasq-migrate-from-keen-pbr
   firewall-sync
   firewall-remove
   help
@@ -320,21 +196,8 @@ EOF
 }
 
 case "$1" in
-    dnsmasq-sections)
-        dnsmasq_sections
-        ;;
-    dnsmasq-confdir)
-        [ -n "$2" ] || exit 1
-        dnsmasq_confdir "$2"
-        ;;
-    dnsmasq-install-persistent)
-        dnsmasq_install_persistent
-        ;;
-    dnsmasq-ensure-runtime-prereqs)
-        dnsmasq_ensure_runtime_prereqs
-        ;;
-    dnsmasq-uninstall-persistent)
-        dnsmasq_uninstall_persistent
+    dnsmasq-migrate-from-keen-pbr)
+        dnsmasq_migrate_from_keen_pbr
         ;;
     firewall-sync)
         firewall_sync

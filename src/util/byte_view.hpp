@@ -39,4 +39,23 @@ private:
     std::size_t size_{0};
 };
 
+// Big-endian byte loaders: build from individual bytes, no UB.
+// constexpr-friendly and suitable for inline use in hot paths.
+
+inline constexpr uint16_t load_be16(const uint8_t* p) {
+    return static_cast<uint16_t>((p[0] << 8) | p[1]);
+}
+
+inline constexpr uint32_t load_be32(const uint8_t* p) {
+    return (static_cast<uint32_t>(p[0]) << 24) | (static_cast<uint32_t>(p[1]) << 16) |
+           (static_cast<uint32_t>(p[2]) << 8) | p[3];
+}
+
+inline constexpr uint64_t load_be64(const uint8_t* p) {
+    return (static_cast<uint64_t>(p[0]) << 56) | (static_cast<uint64_t>(p[1]) << 48) |
+           (static_cast<uint64_t>(p[2]) << 40) | (static_cast<uint64_t>(p[3]) << 32) |
+           (static_cast<uint64_t>(p[4]) << 24) | (static_cast<uint64_t>(p[5]) << 16) |
+           (static_cast<uint64_t>(p[6]) << 8) | p[7];
+}
+
 } // namespace keen_pbr3

@@ -53,6 +53,31 @@ inline void set_safe_exec_timeouts(std::chrono::milliseconds timeout,
                                             std::memory_order_release);
 }
 
+// Number of child processes started through safe_exec*.  Tests use it to
+// prove that kernel/system capability probes do not repeat after service
+// start.
+inline std::atomic<std::uint64_t>& safe_exec_spawn_count() {
+    static std::atomic<std::uint64_t> value{0};
+    return value;
+}
+
+#ifdef KEEN_PBR3_TESTING
+// Test-only: sees every command line before it starts (not thread safe).
+inline std::function<void(const std::vector<std::string>&)>& safe_exec_observer_for_tests() {
+    static std::function<void(const std::vector<std::string>&)> observer;
+    return observer;
+}
+#endif
+
+inline void note_safe_exec_spawn(const std::vector<std::string>& args) {
+    safe_exec_spawn_count().fetch_add(1, std::memory_order_relaxed);
+#ifdef KEEN_PBR3_TESTING
+    if (safe_exec_observer_for_tests()) safe_exec_observer_for_tests()(args);
+#else
+    (void)args;
+#endif
+}
+
 inline SafeExecTimeouts safe_exec_timeouts() {
     return {
         std::chrono::milliseconds{safe_exec_timeout_ms_storage().load(std::memory_order_acquire)},
@@ -208,7 +233,19 @@ inline std::string read_temporary_file(FILE* file) {
     return content;
 }
 
-inline void log_failed_pipe_input(const std::string& command, const std::string& input) {
+inline void log_failed_pipe_input(const std::string& command,
+                                  const std::string& input,
+                                  const std::string& response = {}) {
+    if (!response.empty()) {
+        constexpr std::size_t max_response_bytes = 2048;
+        const bool response_truncated = response.size() > max_response_bytes;
+        Logger::instance().error(
+            "safe_exec_pipe_output cmd={} output_bytes={} truncated={}:\n{}",
+            command,
+            response.size(),
+            response_truncated ? "true" : "false",
+            response.substr(0, max_response_bytes));
+    }
     constexpr std::size_t max_preview_bytes = 4096;
     const bool truncated = input.size() > max_preview_bytes;
     const std::string preview = input.substr(0, std::min(input.size(), max_preview_bytes));
@@ -239,6 +276,7 @@ inline int safe_exec(const std::vector<std::string>& args, bool suppress_output 
 inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
                                 const std::string& input) {
     if (args.empty()) return -1;
+    note_safe_exec_spawn(args);
     const std::string command = safe_exec_command_string(args);
     const auto started_at = std::chrono::steady_clock::now();
     Logger::instance().trace("safe_exec_pipe_start",
@@ -351,7 +389,7 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
                                      command,
                                      exit_code,
                                      duration_ms);
-            log_failed_pipe_input(command, input);
+            log_failed_pipe_input(command, input, response);
             record_command_failure(command, exit_code, input, response);
         }
         return exit_code;
@@ -360,7 +398,7 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
                              command,
                              duration_ms,
                              wait_result.timed_out ? "timeout" : "abnormal_exit");
-    log_failed_pipe_input(command, input);
+    log_failed_pipe_input(command, input, response);
     record_command_failure(command, -1, input, response,
                            wait_result.timed_out ? "timeout" : "abnormal_exit");
     return -1;
@@ -375,6 +413,7 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
                                            bool merge_stderr = false) {
     ExecCaptureResult result;
     if (args.empty()) return result;
+    note_safe_exec_spawn(args);
     const std::string command = safe_exec_command_string(args);
     const auto started_at = std::chrono::steady_clock::now();
     Logger::instance().trace("safe_exec_capture_start",

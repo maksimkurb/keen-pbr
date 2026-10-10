@@ -13,6 +13,12 @@ enum class EntryType {
     Domain,
 };
 
+// Address family of an Ip/Cidr entry (an IPv4-mapped IPv6 literal is IPv6).
+enum class EntryFamily {
+    Ipv4,
+    Ipv6,
+};
+
 // Abstract visitor interface for processing list entries one-by-one without storing them.
 class ListEntryVisitor {
 public:

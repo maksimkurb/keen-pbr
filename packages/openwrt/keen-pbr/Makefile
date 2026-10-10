@@ -73,7 +73,7 @@ endif
 CMAKE_OPTIONS += \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/etc/keen-pbr/config.json \
 	-DKEEN_PBR_CONTROL_SOCKET:STRING=/var/run/keen-pbr/control.sock \
-	-DKEEN_PBR_RESOLVER_FALLBACK_CONFIG:STRING=/etc/keen-pbr/dnsmasq-fallback.conf \
+	-DKEEN_PBR_DNSMASQ_HOOK:STRING=/usr/lib/keen-pbr/dnsmasq-hook.sh \
 	-DKEEN_PBR_TARGET_OS:STRING=openwrt \
 	-DKEEN_PBR_TARGET_VERSION:STRING=$(KEEN_PBR_TARGET_VERSION) \
 	-DKEEN_PBR_TARGET_ARCH:STRING=$(KEEN_PBR_TARGET_ARCH) \
@@ -102,17 +102,16 @@ define Package/keen-pbr
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (full)
   VERSION:=$(if $(CONFIG_USE_APK),$(PKG_VERSION)-r$(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE))
-  DEPENDS:=+conntrack +dnsmasq-full +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +(x86_64||aarch64||arm):libunwind +zlib +libzstd
+  DEPENDS:=+conntrack +kmod-nfnetlink-queue +kmod-nfnetlink-log +kmod-nft-queue +kmod-nf-conntrack-netlink +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +(x86_64||aarch64||arm):libunwind +zlib +libzstd
   VARIANT:=full
 endef
 
 define Package/keen-pbr/description
-  Policy-based routing daemon for OpenWRT and Keenetic routers with REST API and WebUI
+  Policy-based routing daemon for OpenWRT and Keenetic routers with REST API and WebUI.
 endef
 
 define Package/keen-pbr/conffiles
 /etc/keen-pbr/config.json
-/etc/keen-pbr/dnsmasq-fallback.conf
 /etc/keen-pbr/local.lst
 endef
 
@@ -128,11 +127,10 @@ define Package/keen-pbr/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/firewall/70-keen-pbr $(1)/etc/hotplug.d/firewall/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/firewall.sh $(1)/usr/lib/keen-pbr/firewall.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/uci.sh $(1)/usr/lib/keen-pbr/uci.sh
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/dnsmasq.sh $(1)/usr/lib/keen-pbr/dnsmasq.sh
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/dnsmasq-hook.sh $(1)/usr/lib/keen-pbr/dnsmasq-hook.sh
 	$(CP) $(PKG_BUILD_DIR)/frontend/dist/. $(1)/usr/share/keen-pbr/frontend/
 	chmod -R a=rX,u+w $(1)/usr/share/keen-pbr/frontend
 	$(INSTALL_CONF) $(KEEN_PBR_FULL_CONFIG) $(1)/etc/keen-pbr/config.json
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/keen-pbr/dnsmasq-fallback.conf $(1)/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
 	$(call KeenPbr/EmitDebugSymbol,$(1)/usr/sbin/keen-pbr)
 endef
@@ -154,7 +152,7 @@ define Package/keen-pbr-headless
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (headless)
   VERSION:=$(if $(CONFIG_USE_APK),$(PKG_VERSION)-r$(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE))
-  DEPENDS:=+conntrack +dnsmasq-full +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +(x86_64||aarch64||arm):libunwind +zlib +libzstd
+  DEPENDS:=+conntrack +kmod-nfnetlink-queue +kmod-nfnetlink-log +kmod-nft-queue +kmod-nf-conntrack-netlink +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +(x86_64||aarch64||arm):libunwind +zlib +libzstd
   VARIANT:=headless
 endef
 
@@ -164,7 +162,6 @@ endef
 
 define Package/keen-pbr-headless/conffiles
 /etc/keen-pbr/config.json
-/etc/keen-pbr/dnsmasq-fallback.conf
 /etc/keen-pbr/local.lst
 endef
 
@@ -179,9 +176,8 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/firewall/70-keen-pbr $(1)/etc/hotplug.d/firewall/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/firewall.sh $(1)/usr/lib/keen-pbr/firewall.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/uci.sh $(1)/usr/lib/keen-pbr/uci.sh
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/dnsmasq.sh $(1)/usr/lib/keen-pbr/dnsmasq.sh
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/dnsmasq-hook.sh $(1)/usr/lib/keen-pbr/dnsmasq-hook.sh
 	$(INSTALL_CONF) $(KEEN_PBR_HEADLESS_CONFIG) $(1)/etc/keen-pbr/config.json
-	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/keen-pbr/dnsmasq-fallback.conf $(1)/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
 	$(call KeenPbr/EmitDebugSymbol,$(1)/usr/sbin/keen-pbr)
 endef

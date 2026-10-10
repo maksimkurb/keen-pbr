@@ -1,6 +1,6 @@
 import uuid
 
-from .dns_common import assert_query_seen, dns_config
+from .dns_common import assert_query_seen, dns_config, set_resolver_upstreams
 
 
 def register(registry):
@@ -10,29 +10,26 @@ def register(registry):
         fail4 = f"fail4-{uuid.uuid4().hex}.leak.test"
         ok6 = f"ok6-{uuid.uuid4().hex}.leak.test"
         fail6 = f"fail6-{uuid.uuid4().hex}.leak.test"
-        lists = {
-            "detour4": {"domains": [ok4, fail4]},
-            "detour6": {"domains": [ok6, fail6]},
-        }
         servers = [
             {"tag": "selected4", "address": "10.20.0.2:15353", "detour": "wan_pbr"},
             {"tag": "selected6", "address": "[2001:db8:20::2]:15354", "detour": "wan_pbr"},
             {"tag": "fallback4", "address": "10.10.0.2:15353"},
             {"tag": "fallback6", "address": "[2001:db8:10::2]:15354"},
         ]
-        rules = [
-            {"list": ["detour4"], "server": "selected4", "allow_domain_rebinding": True},
-            {"list": ["detour6"], "server": "selected6", "allow_domain_rebinding": True},
-        ]
-        context.apply_config(dns_config(context, servers, ["fallback4", "fallback6"],
-                                        rules, lists))
+        context.apply_config(dns_config(context, servers))
+        set_resolver_upstreams(context, "10.20.0.2#15353")
         context.resolve(ok4, "198.18.0.10", "A")
+        set_resolver_upstreams(context, "2001:db8:20::2#15354")
         context.resolve(ok6, "2001:db8:100::10", "AAAA")
         assert_query_seen(context, "pbr", "dns4", ok4, "pbr-v4")
         assert_query_seen(context, "pbr", "dns6", ok6, "pbr-v6")
         assert not [item for kind in ("dns4", "dns6")
                     for item in context.observations("direct", kind)
                     if item.get("qname") in (ok4, ok6)]
+
+        # Both detoured upstreams stay configured while the WAN drops their
+        # traffic: the blocked queries must fail instead of leaking directly.
+        set_resolver_upstreams(context, "10.20.0.2#15353", "2001:db8:20::2#15354")
 
         # Prove both decoys are reachable over the ordinary direct path before
         # using their empty logs as leak evidence.

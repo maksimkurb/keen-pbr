@@ -1,4 +1,5 @@
 #include "daemon.hpp"
+#include "../config/config_writer.hpp"
 #include "../util/safe_exec.hpp"
 
 #include <algorithm>
@@ -11,127 +12,51 @@
 #include "../config/routing_state.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_runtime.hpp"
+#include "../firewall/iptables.hpp"
 #include "../log/logger.hpp"
 #include "../routing/urltest_manager.hpp"
 
-#include <set>
 #include "../routing/routing_reconciler.hpp"
 #include "../util/ipv6_support.hpp"
-#include "../util/time_utils.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
-#include "system_resolver_hook.hpp"
-#include "resolver_stream_wait.hpp"
 
 namespace keen_pbr3 {
 
-bool Daemon::run_system_resolver_hook(std::string_view action) {
-    auto& log = Logger::instance();
+namespace {
+// How often the daemon verifies that dnsmasq still serves the keen-pbr config.
+constexpr auto kDnsmasqCheckInterval = std::chrono::seconds{30};
 
-    std::string command;
-    int exit_code = 0;
-    bool ok = false;
-    const auto args = build_system_resolver_hook_args(config_, action);
-    if (args.empty()) {
-        command.clear();
-        exit_code = 0;
-        ok = true;
-    } else {
-        for (std::size_t index = 0; index < args.size(); ++index) {
-            if (index != 0) command += ' ';
-            command += args[index];
-        }
-        auto execute_hook = [this, args] {
-            KPBR_LOCK_GUARD(system_resolver_hook_mutex_);
-            ipc_resolver_hook_inflight_.store(true, std::memory_order_release);
-            try {
-                const int result = hook_command_executor_(args);
-                ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
-                return result;
-            } catch (...) {
-                ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
-                throw;
-            }
-        };
-        if (is_event_loop_thread()) {
-            // Some runtime reconfiguration paths still originate on the
-            // event-loop thread. Run the external hook on the existing
-            // bounded executor and service only its resolver stream while
-            // waiting. This avoids both deadlock and an extra thread/stack.
-            auto hook_result = resolver_hook_executor_.submit(
-                "system-resolver-hook-command", std::move(execute_hook));
-            while (hook_result.wait_for(std::chrono::milliseconds{10}) !=
-                   std::future_status::ready) {
-                handle_ipc_control_socket();
-            }
-            exit_code = hook_result.get();
-        } else {
-            exit_code = execute_hook();
-        }
-        ok = exit_code == 0;
+class FailedApplyCounter {
+public:
+    explicit FailedApplyCounter(std::atomic<uint64_t>& counter) : counter_(counter) {}
+    ~FailedApplyCounter() {
+        if (!completed_) counter_.fetch_add(1, std::memory_order_relaxed);
     }
+    void complete() { completed_ = true; }
+private:
+    std::atomic<uint64_t>& counter_;
+    bool completed_{false};
+};
+} // namespace
 
-    if (command.empty()) {
-        return true;
+// Maps a runtime lifecycle reason to the wording used when dnsmasq is
+// restarted because of it.
+std::string dnsmasq_apply_reason(std::string_view lifecycle_reason) {
+    if (lifecycle_reason == "startup complete" || lifecycle_reason == "runtime started") {
+        return "keen-pbr runtime started";
     }
-
-    if (!ok) {
-        log.warn("System resolver reload hook failed (exit code: {}): {}",
-                 exit_code,
-                 command);
-        return false;
+    if (lifecycle_reason == "config apply verified" || lifecycle_reason == "config apply complete") {
+        return "config applied";
     }
-
-    log.info("System resolver hook complete: {}", command);
-    return true;
-}
-
-bool Daemon::run_system_resolver_hook_reload() {
-    const auto stream_baseline = resolver_stream_completed_.load(std::memory_order_acquire);
-    if (!run_system_resolver_hook("reload")) {
-        return false;
+    if (lifecycle_reason == "configuration rollback verified") {
+        return "rollback";
     }
-    const auto timeout = resolver_ready_timeout(config_);
-    if (!wait_for_resolver_stream_after(stream_baseline, timeout)) {
-        const auto stream_current =
-            resolver_stream_completed_.load(std::memory_order_acquire);
-        Logger::instance().warn(
-            "Timed out after {} seconds waiting for dnsmasq resolver "
-            "configuration generation to complete after reload (resolver stream "
-            "completions baseline={}, current={})",
-            timeout.count(), stream_baseline, stream_current);
-        return false;
+    if (lifecycle_reason == "runtime restarted" ||
+        lifecycle_reason == "lifecycle operation complete") {
+        return "runtime restarted";
     }
-    // The init script may return before dnsmasq invokes its conf-script. The
-    // completed-stream wait above makes this the true reload boundary.
-    // Recompute only the tiny expected hash afterwards, so confirmation uses
-    // the current list/DNS cache state without retaining the large config.
-    update_resolver_config_hash();
-    return true;
-}
-
-bool Daemon::wait_for_resolver_stream_after(std::uint64_t baseline,
-                                            std::chrono::seconds timeout) {
-    return keen_pbr3::wait_for_resolver_stream_after(
-        baseline, timeout,
-        [this] {
-            return resolver_stream_completed_.load(std::memory_order_acquire);
-        },
-        [this] {
-            if (is_event_loop_thread()) {
-                handle_ipc_control_socket();
-            }
-        },
-        wait_for_resolver_stream_poll,
-        resolver_stream_now);
-}
-
-void Daemon::drain_shutdown_resolver_callbacks(std::chrono::milliseconds duration) {
-    const auto deadline = std::chrono::steady_clock::now() + duration;
-    while (std::chrono::steady_clock::now() < deadline) {
-        handle_ipc_control_socket();
-        std::this_thread::sleep_for(std::chrono::milliseconds{10});
-    }
+    return std::string(lifecycle_reason);
 }
 
 bool Daemon::routing_runtime_active() const {
@@ -147,16 +72,7 @@ void Daemon::transition_runtime_or_throw(RuntimeState next, const char* reason) 
 
 void Daemon::stop_routing_runtime() {
     teardown_routing_and_firewall(true);
-    if (has_system_resolver(config_) && !run_system_resolver_hook("deactivate")) {
-        throw DaemonError("System resolver deactivate hook failed");
-    }
-    refresh_resolver_config_hash_actual_async();
     Logger::instance().info("Routing runtime stopped.");
-}
-
-bool Daemon::has_system_resolver(const Config& config) const {
-    return config.dns.has_value() && config.dns->system_resolver.has_value() &&
-           !config.dns->system_resolver->address.empty();
 }
 
 void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
@@ -165,12 +81,22 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
         return;
     }
 
+    stop_dnsmasq_check();
+    host_table_cache_.invalidate();
+    invalidate_routing_health_cache();
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
+    cancel_startup_list_retry();
 
+    if (interface_refresh_task_id_ >= 0) {
+        scheduler_->cancel(interface_refresh_task_id_);
+        interface_refresh_task_id_ = -1;
+    }
+    interface_refresh_pending_ = false;
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
     pending_urltest_conntrack_cleanup_.clear();
+    balance_classifier_cache_.clear();
     const uint32_t mark_mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
     std::set<uint32_t> owned_marks;
     for (const auto& [tag, mark] : outbound_marks_) {
@@ -186,10 +112,9 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     policy_rules_.clear();
     route_table_.clear();
     firewall_->cleanup();
-    if (keenetic_dns_refresh_task_id_ >= 0) {
-        scheduler_->cancel(keenetic_dns_refresh_task_id_);
-        keenetic_dns_refresh_task_id_ = -1;
-    }
+    // The rules are gone; only now unbind so no queued packet is dropped.
+    stop_intercept_service();
+    firewall_state_.clear_active_firewall();
 
     routing_runtime_active_ = false;
     transition_runtime_or_throw(explicit_stop ? RuntimeState::stopped : RuntimeState::applying,
@@ -200,18 +125,6 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
 
 void Daemon::start_routing_runtime() {
     setup_routing_and_firewall();
-    if (has_system_resolver(config_)) {
-        if (!run_system_resolver_hook_reload()) {
-            throw DaemonError("system resolver reload hook failed");
-        }
-        std::string error;
-        const auto snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-        if (!wait_for_resolver_config_hash_confirmation(
-                config_, snapshot.expected_hash,
-                apply_started_ts_.load(std::memory_order_acquire), error)) {
-            throw DaemonError(error);
-        }
-    }
     complete_running_runtime("runtime started");
     Logger::instance().info("Routing runtime started.");
 }
@@ -223,26 +136,67 @@ void Daemon::setup_routing_and_firewall() {
 
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
 
-    setup_static_routing();
-    (void)refresh_keenetic_dns_cache(true);
-    apply_firewall(FirewallApplyMode::Destructive);
+    const auto main_routes = netlink_.dump_routes_in_table(254);
+    setup_static_routing(&main_routes);
+    apply_firewall(FirewallApplyMode::Destructive, false, &main_routes);
     routing_runtime_active_ = true;
     if (runtime_state_machine_.state() != RuntimeState::applying) {
         transition_runtime_or_throw(RuntimeState::applying, "runtime starting");
     }
     publish_runtime_state();
-    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
-    update_resolver_config_hash();
-    setup_dns_probe();
+    begin_runtime_generation();
 }
 
-void Daemon::complete_running_runtime(const char* reason) {
+void Daemon::complete_running_runtime(const char* reason, bool defer_dnsmasq_sync) {
     register_urltest_outbounds();
-    schedule_keenetic_dns_refresh();
     schedule_lists_autoupdate();
-    refresh_resolver_config_hash_actual_async();
     transition_runtime_or_throw(RuntimeState::running, reason);
+    config_reload_last_success_s_.store(unix_timestamp_now_seconds(), std::memory_order_relaxed);
     publish_runtime_state();
+    // Lifecycle operations are explicit user/boot actions: install the config
+    // (not counted against the automatic repair budget, which they refill).
+    // The sync also handles a switch to dns.resolver_integration=none.
+    // When a persisted config apply defers sync, the caller writes config.json
+    // first, then calls this explicitly after the write succeeds, ensuring
+    // dnsmasq's conf-script reads the updated config from disk.
+    if (!defer_dnsmasq_sync) {
+        schedule_dnsmasq_sync(dnsmasq_apply_reason(reason), /*explicit_apply=*/true);
+    }
+    // While the DNS rules module is off dnsmasq is never probed: no check task.
+    if (dnsmasq_integration_enabled(config_)) {
+        start_dnsmasq_check();
+    } else {
+        stop_dnsmasq_check();
+    }
+}
+
+void Daemon::start_dnsmasq_check() {
+    stop_dnsmasq_check();
+    dnsmasq_check_task_id_ = scheduler_->schedule_repeating(
+        kDnsmasqCheckInterval,
+        [this] {
+            dnsmasq_manager_.request_check(
+                [this](std::function<void()> task) {
+                    return blocking_executor_.try_post("dnsmasq-check", std::move(task));
+                });
+        },
+        "dnsmasq-check");
+}
+
+void Daemon::stop_dnsmasq_check() {
+    if (dnsmasq_check_task_id_ >= 0) {
+        scheduler_->cancel(dnsmasq_check_task_id_);
+        dnsmasq_check_task_id_ = -1;
+    }
+}
+
+void Daemon::schedule_dnsmasq_sync(std::string reason, bool explicit_apply) {
+    dnsmasq_manager_.request_sync(
+        config_, list_service_.cache_manager(),
+        [this](std::function<void()> task) {
+            return blocking_executor_.try_post("dnsmasq-sync", std::move(task));
+        },
+        explicit_apply, std::move(reason));
 }
 
 void Daemon::restart_routing_runtime() {
@@ -252,30 +206,22 @@ void Daemon::restart_routing_runtime() {
 
     teardown_routing_and_firewall(false);
     setup_routing_and_firewall();
-    if (has_system_resolver(config_)) {
-        if (!run_system_resolver_hook_reload()) {
-            throw DaemonError("system resolver reload hook failed");
-        }
-        std::string error;
-        const auto snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-        if (!wait_for_resolver_config_hash_confirmation(
-                config_, snapshot.expected_hash,
-                apply_started_ts_.load(std::memory_order_acquire), error)) {
-            throw DaemonError(error);
-        }
-    }
     complete_running_runtime("runtime restarted");
 }
 
-void Daemon::setup_static_routing() {
-    reconcile_static_routing();
+void Daemon::setup_static_routing(const std::vector<DumpedRoute>* main_routes) {
+    reconcile_static_routing(nullptr, main_routes);
 }
 
 void Daemon::reconcile_static_routing(
-    const std::map<std::string, std::string>* urltest_selections) {
+    const std::map<std::string, std::string>* urltest_selections,
+    const std::vector<DumpedRoute>* main_routes) {
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
     log_ipv6_support_decision_once(ipv6_decision);
     const auto interfaces = netlink_.dump_interfaces();
+    const auto owned_main_routes = main_routes != nullptr
+        ? *main_routes
+        : netlink_.dump_routes_in_table(254);
     RouteTable desired_routes(netlink_, true);
     PolicyRuleManager desired_rules(netlink_, true);
     populate_routing_state(
@@ -283,8 +229,8 @@ void Daemon::reconcile_static_routing(
         outbound_marks_,
         desired_routes,
         desired_rules,
-        [this](const Outbound& outbound) {
-            return is_interface_outbound_reachable(outbound, netlink_);
+        [&owned_main_routes](const Outbound& outbound) {
+            return is_interface_outbound_reachable(outbound, owned_main_routes);
         },
         urltest_selections != nullptr
             ? urltest_selections
@@ -300,7 +246,8 @@ void Daemon::reconcile_static_routing(
                     return interface.name == interface_name;
                 });
             return it != interfaces.end() && interface_has_routed_ipv6(*it);
-        });
+        },
+        &owned_main_routes);
 
     // Inspect the kernel on every apply so a restarted daemon adopts intact
     // state and only removes objects with a verifiable ownership marker.
@@ -311,33 +258,256 @@ void Daemon::reconcile_static_routing(
 }
 
 void Daemon::apply_firewall(FirewallApplyMode mode,
-                            bool force_clear_dynamic_sets) {
-    const FirewallGlobalPrefilter prefilter = build_firewall_global_prefilter(config_);
-    firewall_state_.set_rules(apply_runtime_firewall(
+                            bool force_clear_dynamic_sets,
+                            const std::vector<DumpedRoute>* main_routes,
+                            const Config* quiesce_config,
+                            const OutboundMarkMap* quiesce_marks) {
+    host_table_cache_.invalidate();
+    invalidate_routing_health_cache();
+    // An apply (re)binds the listeners itself and supersedes a pending
+    // automatic re-bind; the next tick starts over if one is still dead.
+    if (!intercept_rebind_in_progress_) {
+        intercept_rebind_.reset();
+        publish_intercept_rebind_status();
+    }
+    {
+        KPBR_LOCK_GUARD(intercept_mutex_);
+        // Any in-flight build belongs to the previous apply attempt. It must
+        // not publish after this attempt fails or changes the set schema.
+        intercept_snapshot_seq_.fetch_add(1, std::memory_order_acq_rel);
+    }
+    const auto owned_main_routes = main_routes != nullptr
+        ? *main_routes
+        : netlink_.dump_routes_in_table(254);
+    const auto interfaces = netlink_.dump_interfaces();
+    const auto balance_candidates = build_balance_candidates(owned_main_routes, interfaces);
+    std::shared_ptr<InterceptService> service_for_apply;
+    {
+        KPBR_LOCK_GUARD(intercept_mutex_);
+        service_for_apply = intercept_service_;
+    }
+    // Prevent an already-published snapshot from writing while this apply
+    // creates, replaces, or retargets sets with the same logical names. The
+    // gates drain admitted writes without holding a mutex across the writer's
+    // potentially slow netlink transaction, so stopping a service cannot
+    // deadlock behind the pause.
+    std::optional<InterceptService::WritePause> writer_pause;
+    if (service_for_apply) {
+        writer_pause.emplace(service_for_apply->pause_writes());
+        service_for_apply->discard_l7_pending();
+        // The published snapshot stays: its domain index is still what the
+        // lists describe, and nothing can write while the pause lasts.  The
+        // element cache must not outlive the sets, though; with writes paused
+        // nothing can repopulate it before the rebind below clears it again.
+        service_for_apply->invalidate_set_cache();
+    }
+    // The old snapshot's set bindings are only valid until this apply changes
+    // the sets.  Unless the new bindings are published before the pause ends
+    // (schedule_intercept_snapshot_update below), drop the snapshot so a failed
+    // or abandoned apply can never resume writes against recreated sets.
+    // Declared after writer_pause: it runs while the pause is still held.
+    struct SnapshotRebindGuard {
+        std::shared_ptr<InterceptService> service;
+        bool rebound{false};
+        ~SnapshotRebindGuard() {
+            if (service && !rebound) service->invalidate_snapshot();
+        }
+    } rebind_guard{service_for_apply};
+
+    // Interception ordering: a service that must go away or rebind is
+    // detached from the rules first (quiesce), a needed service is bound
+    // before any rule queues to it.
+    InterceptEffective intercept = resolve_intercept_effective();
+    {
+        const InterceptServiceOptions wanted = [&intercept] {
+            InterceptServiceOptions options;
+            if (intercept.dns_hold) options.queue_num = intercept.queue_num;
+            if (intercept.l7) options.nflog_group = intercept.nflog_group;
+            options.hold_timeout_ms = intercept.hold_timeout_ms;
+            options.conntrack_cleanup = intercept.conntrack_cleanup;
+            return options;
+        }();
+        bool service_present;
+        bool service_running;
+        bool listener_unbound;
+        {
+            KPBR_LOCK_GUARD(intercept_mutex_);
+            service_present = intercept_service_ != nullptr;
+            service_running = service_present && intercept_service_->running();
+            // A listener that failed to bind at start or died at runtime (NFLOG
+            // failure leaves the hot loop alive for DNS, so running() alone
+            // cannot trigger recovery).  Only parts that are still wanted
+            // count: a part disabled by a probe verdict is not retried here.
+            listener_unbound =
+                service_present &&
+                ((intercept.dns_hold && !intercept_service_->dns_bound()) ||
+                 (intercept.l7 && !intercept_service_->l7_bound()));
+        }
+        const bool options_changed =
+            wanted.queue_num != intercept_service_options_.queue_num ||
+            wanted.nflog_group != intercept_service_options_.nflog_group ||
+            wanted.hold_timeout_ms != intercept_service_options_.hold_timeout_ms ||
+            wanted.conntrack_cleanup != intercept_service_options_.conntrack_cleanup;
+        // An explicit runtime apply must rebind the desired listener while
+        // preserving the normal quiesce/rollback ordering and degraded health
+        // until the replacement is ready.
+        if (service_present &&
+            (!service_running || !intercept.active() || options_changed || listener_unbound)) {
+            quiesce_intercept_service(
+                owned_main_routes, interfaces, balance_candidates,
+                quiesce_config != nullptr ? *quiesce_config : config_,
+                quiesce_marks != nullptr ? *quiesce_marks : outbound_marks_);
+        }
+        if (intercept.active()) {
+            std::shared_ptr<InterceptService> kept_service;
+            {
+                KPBR_LOCK_GUARD(intercept_mutex_);
+                kept_service = intercept_service_;
+            }
+            if (!kept_service) {
+                start_intercept_service(intercept);
+            } else {
+                // The capability re-probe cannot measure listeners (that
+                // takes a bind); the running service's own results are the
+                // authoritative ones, carry_forward is only the fallback.
+                fold_intercept_listener_probe(intercept, *kept_service);
+            }
+            if (intercept.l7 && firewall_->backend() == FirewallBackend::nftables) {
+                (void)enable_conntrack_accounting();
+            }
+        }
+        {
+            KPBR_LOCK_GUARD(intercept_mutex_);
+            intercept_effective_ = intercept;
+        }
+    }
+
+    const auto previous_active = firewall_state_.active_firewall();
+    FailedApplyCounter failed_apply(firewall_apply_errors_);
+    auto active = apply_runtime_firewall(
         config_,
         outbound_marks_,
         list_service_.cache_manager(),
         *firewall_,
         mode,
-        &firewall_state_.get_rules(),
-        force_clear_dynamic_sets));
-    (void)conntrack_manager_.reconcile(
-        ConntrackPolicy{prefilter.skip_established_or_dnat});
+        previous_active.get(),
+        force_clear_dynamic_sets,
+        owned_main_routes,
+        interfaces,
+        &balance_candidates,
+        intercept.firewall_settings());
+    failed_apply.complete();
+    // The apply may have recreated or flushed the dynamic sets: whatever the
+    // interception cache remembered about their elements is no longer true.
+    // (The cache was cleared when the pause began; this also covers a service
+    // that was started during the apply.)
+    {
+        std::shared_ptr<InterceptService> service_after_apply;
+        {
+            KPBR_LOCK_GUARD(intercept_mutex_);
+            service_after_apply = intercept_service_;
+        }
+        if (service_after_apply) service_after_apply->invalidate_set_cache();
+    }
+    // Derived from the plan that was actually applied, never recomputed.
+    const ConntrackPolicy conntrack_policy = conntrack_policy_for_plan(active.plan);
+    auto applied_sets = active.plan.sets;
+    firewall_state_.publish_active_firewall(std::move(active));
+    (void)conntrack_manager_.reconcile(conntrack_policy);
+    // Only after the apply that created the sets succeeded.  Whether the
+    // daemon can write the dynamic sets (set write, nft timeout update) is a
+    // kernel capability, measured once at service start on a scratch set; the
+    // writers report runtime write errors and health shows them, so the apply
+    // does not test the freshly created sets again.
+    if (intercept.active()) {
+        schedule_intercept_snapshot_update(std::move(applied_sets), intercept);
+        rebind_guard.rebound = true;
+    }
 }
 
-void Daemon::reconcile_lists_only(bool reload_resolver) {
+FirewallBalanceCandidates Daemon::build_balance_candidates(
+    const std::vector<DumpedRoute>& main_routes,
+    const std::vector<DumpedInterface>& interfaces) {
+    FirewallBalanceCandidates candidates;
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    (void)main_routes;
+    (void)interfaces;
+    return candidates;  // balancing is not compiled on Keenetic
+#else
+    if (!urltest_manager_) {
+        return candidates;
+    }
+
+    const auto& outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
+    const auto find_outbound = [&outbounds](const std::string& tag) -> const Outbound* {
+        const auto it = std::find_if(outbounds.begin(), outbounds.end(),
+                                     [&tag](const Outbound& outbound) {
+                                         return outbound.tag == tag;
+                                     });
+        return it == outbounds.end() ? nullptr : &*it;
+    };
+
+    for (const auto& group : outbounds) {
+        if (!outbound_uses_balance(group) ||
+            (group.type != OutboundType::URLTEST && group.type != OutboundType::ICMPTEST)) {
+            continue;
+        }
+        const auto state = urltest_manager_->get_state(group.tag);
+        if (!state.has_value()) {
+            continue;
+        }
+        for (const auto& tag : select_test_group_usable_outbounds(*state)) {
+            const Outbound* child = find_outbound(tag);
+            const auto mark = outbound_marks_.find(tag);
+            if (!child || mark == outbound_marks_.end()) {
+                continue;
+            }
+
+            FirewallBalanceCandidate candidate{mark->second};
+            for (const auto& member_group : group.outbound_groups.value_or(
+                     std::vector<OutboundGroup>{})) {
+                const auto members = outbound_group_tags(member_group);
+                if (std::find(members.begin(), members.end(), tag) != members.end()) {
+                    candidate.weight = outbound_group_balance_weight(member_group, tag);
+                    break;
+                }
+            }
+            if (child->type == OutboundType::INTERFACE) {
+                const bool family4 = is_interface_outbound_family_reachable(
+                    *child, AF_INET, main_routes);
+                const bool family6 = is_interface_outbound_family_reachable(
+                    *child, AF_INET6, main_routes);
+                candidate.ipv4 = family4 &&
+                    (child->gateway.has_value() ||
+                     (!child->gateway.has_value() && !child->gateway6.has_value()));
+                candidate.ipv6 = family6 && child->gateway6.has_value();
+                if (!candidate.ipv6 && !child->gateway.has_value()) {
+                    const auto interface_name = child->interface.value_or("");
+                    const auto interface = std::find_if(
+                        interfaces.begin(), interfaces.end(),
+                        [&interface_name](const DumpedInterface& value) {
+                            return value.name == interface_name;
+                        });
+                    candidate.ipv6 = family6 && interface != interfaces.end() &&
+                        interface_has_routed_ipv6(*interface);
+                }
+            }
+            if (candidate.ipv4 || candidate.ipv6) {
+                candidates[group.tag].push_back(candidate);
+            }
+        }
+    }
+    return candidates;
+#endif
+}
+
+void Daemon::reconcile_lists_only() {
     if (!routing_runtime_active_) {
         throw DaemonError("list-only reconcile requires an active routing runtime");
     }
 
     try {
         apply_firewall(FirewallApplyMode::StaticSetsOnly);
-        if (reload_resolver) {
-            update_resolver_config_hash();
-            if (!run_system_resolver_hook_reload()) {
-                throw DaemonError("system resolver reload hook failed");
-            }
-        }
         publish_runtime_state();
     } catch (...) {
         std::string ignored_error;
@@ -366,6 +536,148 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
         const std::string old_child_tag = applied_it == applied_selections.end()
             ? std::string{}
             : applied_it->second;
+
+        const auto configured_outbounds =
+            config_.outbounds.value_or(std::vector<Outbound>{});
+        const auto configured = std::find_if(
+            configured_outbounds.begin(), configured_outbounds.end(),
+            [&urltest_tag](const Outbound& outbound) { return outbound.tag == urltest_tag; });
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+        const bool balance = configured != configured_outbounds.end() &&
+            outbound_uses_balance(*configured);
+        if (balance) {
+            std::set<uint32_t> cleanup_marks;
+            const auto state = urltest_manager_
+                ? urltest_manager_->get_state(urltest_tag)
+                : std::optional<UrltestState>{};
+            const auto child_failed = [&state](const std::string& child_tag) {
+                if (!state.has_value()) return false;
+                const auto breaker = state->circuit_breakers.find(child_tag);
+                if (breaker != state->circuit_breakers.end() &&
+                    breaker->second.state(child_tag) == CircuitState::open) {
+                    return true;
+                }
+                const auto result = state->last_results.find(child_tag);
+                return result != state->last_results.end() && !result->second.success;
+            };
+            // Probe results arrive every cycle; rebuild only when the inputs
+            // of the classifier change, and flush a failed child's
+            // connections once, when it fails. For balance groups, only
+            // failed children's connections are flushed, regardless of
+            // conntrack_on_switch (unlike priority groups).
+            const auto owned_main_routes = netlink_.dump_routes_in_table(254);
+            const auto interfaces = netlink_.dump_interfaces();
+            const auto all_candidates = build_balance_candidates(owned_main_routes, interfaces);
+            BalanceClassifierState classifier;
+            classifier.selected_child = new_child_tag;
+            if (const auto it = all_candidates.find(urltest_tag); it != all_candidates.end()) {
+                classifier.candidates = it->second;
+            }
+            for (const auto& group : configured->outbound_groups.value_or(
+                     std::vector<OutboundGroup>{})) {
+                for (const auto& child_tag : outbound_group_tags(group)) {
+                    if (child_failed(child_tag)) classifier.failed_children.insert(child_tag);
+                }
+            }
+            const auto applied_it = balance_classifier_cache_.find(urltest_tag);
+            const BalanceClassifierState* applied =
+                applied_it == balance_classifier_cache_.end() ? nullptr : &applied_it->second;
+            const auto newly_failed = newly_failed_children(applied, classifier.failed_children);
+            // Usable members of the OTHER balance groups. Only balance groups
+            // matter: priority groups save their own group mark in the
+            // connmark, never a member's mark, so their selection pins no
+            // flow to a member mark.
+            std::map<std::string, std::vector<std::string>> usable_by_balance_group;
+            if (!newly_failed.empty() && urltest_manager_) {
+                for (const auto& other : configured_outbounds) {
+                    if (other.tag == urltest_tag || !outbound_uses_balance(other) ||
+                        (other.type != OutboundType::URLTEST &&
+                         other.type != OutboundType::ICMPTEST)) {
+                        continue;
+                    }
+                    const auto other_state = urltest_manager_->get_state(other.tag);
+                    if (other_state.has_value()) {
+                        usable_by_balance_group[other.tag] =
+                            select_test_group_usable_outbounds(*other_state);
+                    }
+                }
+            }
+            for (const auto& group : configured->outbound_groups.value_or(
+                     std::vector<OutboundGroup>{})) {
+                for (const auto& child_tag : outbound_group_tags(group)) {
+                    const auto mark = outbound_marks_.find(child_tag);
+                    if (mark == outbound_marks_.end()) continue;
+                    if (newly_failed.count(child_tag) != 0) {
+                        // Health is per group but the mark (and so this flush)
+                        // is per outbound. If another balance group still
+                        // balances onto the member, keep its flows: the group
+                        // that drops it last flushes on its own failure edge.
+                        // Trade-off: flows this group pinned to the member
+                        // stay there until they end; doing better needs
+                        // group-aware connmarks.
+                        if (member_usable_in_other_balance_group(
+                                child_tag, urltest_tag, usable_by_balance_group)) {
+                            continue;
+                        }
+                        cleanup_marks.insert(mark->second);
+                    }
+                }
+            }
+            if (applied != nullptr && *applied == classifier && cleanup_marks.empty()) {
+                log.trace("urltest_selection_skip", "tag={} reason=unchanged", urltest_tag);
+                return;
+            }
+
+            auto proposed_selections = applied_selections;
+            proposed_selections[urltest_tag] = new_child_tag;
+            try {
+                // The group mark remains a scalar priority-selected path for
+                // internal DNS/list detours. User route rules are rebuilt as
+                // child-mark balancing classifiers below.
+                reconcile_static_routing(&proposed_selections);
+                apply_firewall(runtime_refresh_firewall_mode());
+                firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
+                const uint32_t mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
+                for (const uint32_t mark : cleanup_marks) {
+                    try {
+                        if (!conntrack_manager_.delete_mark(mark, mask)) {
+                            log.warn("Conntrack cleanup failed for failed balance child mark {}",
+                                     mark);
+                        }
+                    } catch (const std::exception& e) {
+                        log.warn("Conntrack cleanup failed for balance child mark {}: {}", mark,
+                                 e.what());
+                    } catch (...) {
+                        log.warn("Conntrack cleanup failed for balance child mark {}: unknown error",
+                                 mark);
+                    }
+                }
+                publish_runtime_state(StatusPublishScope::Outbounds);
+
+                balance_classifier_cache_[urltest_tag] = std::move(classifier);
+                log.info("Updated balance classifier for test-group '{}' ({} child marks cleaned)",
+                         urltest_tag, cleanup_marks.size());
+            } catch (const std::exception& e) {
+                try {
+                    reconcile_static_routing(&applied_selections);
+                } catch (const std::exception& rollback_error) {
+                    log.error("Test-group '{}' balance update rollback failed: {}", urltest_tag,
+                              rollback_error.what());
+                }
+                log.error("Test-group '{}' balance classifier update failed: {}", urltest_tag,
+                          e.what());
+            } catch (...) {
+                try {
+                    reconcile_static_routing(&applied_selections);
+                } catch (...) {
+                    log.error("Test-group '{}' balance update rollback failed", urltest_tag);
+                }
+                log.error("Test-group '{}' balance classifier update failed: unknown error",
+                          urltest_tag);
+            }
+            return;
+        }
+#endif
 
         // The route is already applied when cleanup is pending.  A later
         // unchanged probe must retry only the targeted conntrack deletion;
@@ -586,6 +898,11 @@ void Daemon::register_urltest_outbounds() {
 }
 
 void Daemon::schedule_lists_autoupdate() {
+    // Idempotent: never leave an earlier timer behind when rescheduling.
+    if (lists_autoupdate_task_id_ >= 0) {
+        scheduler_->cancel(lists_autoupdate_task_id_);
+        lists_autoupdate_task_id_ = -1;
+    }
     if (!config_.lists_autoupdate) return;
     if (!config_.lists_autoupdate->enabled.value_or(false)) return;
     const auto& expr = config_.lists_autoupdate->cron.value_or("");
@@ -602,16 +919,19 @@ void Daemon::schedule_lists_autoupdate() {
     Logger::instance().info("Lists autoupdate scheduled (next: ~{}s)", delay.count());
 }
 
-ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
-    const std::set<std::string>* target_lists,
+ListsRefreshExecutionResult Daemon::apply_list_refresh_result(
+    RemoteListsRefreshResult refresh_result,
+    bool runtime_active,
     std::string_view source) {
     auto& log = Logger::instance();
     ListsRefreshExecutionResult result;
-    const auto relevant_lists = collect_relevant_list_names(config_);
-    const auto dns_relevant_lists = collect_dns_relevant_list_names(config_);
-    result.refresh_result =
-        list_service_.refresh_remote_lists(
-            config_, outbound_marks_, &relevant_lists, target_lists, &dns_relevant_lists);
+    result.refresh_result = std::move(refresh_result);
+
+    if (result.refresh_result.any_changed()) {
+        // Domain lists feed the generated dnsmasq config; the content hash
+        // makes this a no-op when no dns.rules list was affected.
+        schedule_dnsmasq_sync();
+    }
 
     if (!result.refresh_result.changed_lists.empty()) {
         log.info("Lists refresh ({}): updated list(s): {}", source,
@@ -623,11 +943,11 @@ ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
         log.info("Lists refresh ({}): all checked list(s) are up-to-date.", source);
     }
 
-    if (should_reload_runtime_after_list_refresh(routing_runtime_active_, result.refresh_result)) {
+    if (should_reload_runtime_after_list_refresh(runtime_active, result.refresh_result)) {
         log.info("Lists refresh ({}): relevant list(s) changed ({}), reloading runtime",
                  source,
                  format_list_names(result.refresh_result.relevant_changed_lists));
-        reconcile_lists_only(result.refresh_result.any_dns_relevant_changed());
+        reconcile_lists_only();
         result.reloaded = true;
         return result;
     }
@@ -648,15 +968,27 @@ ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
     return result;
 }
 
+ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
+    const std::set<std::string>* target_lists,
+    std::string_view source) {
+    const auto relevant_lists = collect_relevant_list_names(config_);
+    auto refresh_result =
+        list_service_.refresh_remote_lists(
+            config_, outbound_marks_, &relevant_lists, target_lists);
+    return apply_list_refresh_result(
+        std::move(refresh_result), routing_runtime_active_, source);
+}
+
 void Daemon::refresh_lists_and_maybe_reload() {
     auto& log = Logger::instance();
     log.info("Lists autoupdate: checking for updated lists");
 
     try {
-        const auto result = execute_remote_list_refresh(nullptr, "autoupdate");
-        if (!result.reloaded) {
-            schedule_lists_autoupdate();
-        }
+        execute_remote_list_refresh(nullptr, "autoupdate");
+        // The timer is a one-shot that has already fired, and a list-only
+        // reconcile does not reschedule it: always schedule the next run here,
+        // reloaded or not.
+        schedule_lists_autoupdate();
     } catch (const std::exception& e) {
         log.error("Lists autoupdate failed: {}", e.what());
         schedule_lists_autoupdate();
@@ -695,51 +1027,13 @@ void Daemon::commit_lists_refresh_async_result(
                 return;
             }
 
-            ListsRefreshExecutionResult result;
-            result.refresh_result = std::move(*refresh_result);
-
-            if (!result.refresh_result.changed_lists.empty()) {
-                Logger::instance().info("Lists refresh (autoupdate): updated list(s): {}",
-                                        format_list_names(result.refresh_result.changed_lists));
-            } else if (!result.refresh_result.failed_lists.empty()) {
-                Logger::instance().warn("Lists refresh (autoupdate): failed list(s): {}",
-                                        format_list_names(result.refresh_result.failed_lists));
-            } else {
-                Logger::instance().info(
-                    "Lists refresh (autoupdate): all checked list(s) are up-to-date.");
+            try {
+                apply_list_refresh_result(
+                    std::move(*refresh_result), runtime_active_snapshot, "autoupdate");
+            } catch (const std::exception& e) {
+                Logger::instance().error("Lists autoupdate reload failed: {}", e.what());
             }
-
-            if (should_reload_runtime_after_list_refresh(runtime_active_snapshot,
-                                                        result.refresh_result)) {
-                Logger::instance().info(
-                    "Lists refresh (autoupdate): relevant list(s) changed ({}), reloading runtime",
-                    format_list_names(result.refresh_result.relevant_changed_lists));
-                try {
-                    reconcile_lists_only(result.refresh_result.any_dns_relevant_changed());
-                    result.reloaded = true;
-                } catch (const std::exception& e) {
-                    Logger::instance().error("Lists autoupdate reload failed: {}", e.what());
-                    schedule_lists_autoupdate();
-                    return;
-                }
-            } else if (result.refresh_result.any_relevant_changed()) {
-                Logger::instance().info(
-                    "Lists refresh: relevant list(s) changed ({}), but runtime is stopped",
-                    format_list_names(result.refresh_result.relevant_changed_lists));
-            } else if (result.refresh_result.any_changed()) {
-                Logger::instance().info(
-                    "Lists refresh: updated list(s) did not affect runtime config: {}",
-                    format_list_names(result.refresh_result.changed_lists));
-            } else if (result.refresh_result.any_failed()) {
-                Logger::instance().warn("Lists refresh: failed to refresh list(s): {}",
-                                        format_list_names(result.refresh_result.failed_lists));
-            } else {
-                Logger::instance().info("Lists refresh: no list updates");
-            }
-
-            if (!result.reloaded) {
-                schedule_lists_autoupdate();
-            }
+            schedule_lists_autoupdate();
         },
         "lists-refresh-commit");
 }
@@ -761,7 +1055,6 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
     const OutboundMarkMap marks_snapshot = outbound_marks_;
     const bool runtime_active_snapshot = routing_runtime_active_;
     const auto relevant_lists = collect_relevant_list_names(config_snapshot);
-    const auto dns_relevant_lists = collect_dns_relevant_list_names(config_snapshot);
     const auto generation = runtime_generation_.load(std::memory_order_acquire);
     const TraceId trace_id = ensure_trace_id();
 
@@ -772,7 +1065,6 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
          marks_snapshot,
          runtime_active_snapshot,
          relevant_lists,
-         dns_relevant_lists,
          generation,
          trace_id]() mutable {
             ScopedTraceContext trace_scope(trace_id);
@@ -786,8 +1078,7 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
                 refresh_result = list_service_.refresh_remote_lists(config_snapshot,
                                                                    marks_snapshot,
                                                                    &relevant_lists,
-                                                                   nullptr,
-                                                                   &dns_relevant_lists);
+                                                                   nullptr);
             } catch (const std::exception& e) {
                 error = e.what();
             }
@@ -809,10 +1100,148 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
     }
 }
 
+void Daemon::cancel_startup_list_retry() {
+    if (startup_list_retry_task_id_ >= 0) {
+        scheduler_->cancel(startup_list_retry_task_id_);
+        startup_list_retry_task_id_ = -1;
+    }
+}
+
+void Daemon::schedule_startup_list_retry() {
+    cancel_startup_list_retry();
+    const auto delay = startup_list_retry_delay(startup_list_retry_attempt_);
+    startup_list_retry_task_id_ = scheduler_->schedule_oneshot(
+        delay,
+        [this]() {
+            startup_list_retry_task_id_ = -1;
+            run_startup_list_retry();
+        },
+        "startup-list-retry");
+    Logger::instance().info(
+        "Startup lists: retrying failed download(s) in {}s (attempt {})",
+        delay.count(), startup_list_retry_attempt_ + 1);
+}
+
+void Daemon::run_startup_list_retry() {
+    if (!routing_runtime_active_) {
+        return;
+    }
+
+    bool expected = false;
+    if (!remote_list_refresh_inflight_.compare_exchange_strong(expected,
+                                                               true,
+                                                               std::memory_order_acq_rel)) {
+        Logger::instance().trace("lists_refresh_skip",
+                                 "source=startup-retry reason=inflight");
+        schedule_startup_list_retry();
+        return;
+    }
+
+    const Config config_snapshot = config_;
+    const OutboundMarkMap marks_snapshot = outbound_marks_;
+    const auto relevant_lists = collect_relevant_list_names(config_snapshot);
+    const auto generation = runtime_generation_.load(std::memory_order_acquire);
+    const TraceId trace_id = ensure_trace_id();
+
+    const bool enqueued = blocking_executor_.try_post(
+        "startup-list-retry",
+        [this, config_snapshot, marks_snapshot, relevant_lists, generation, trace_id]() mutable {
+            ScopedTraceContext trace_scope(trace_id);
+            std::optional<RemoteListsRefreshResult> refresh_result;
+            std::string error;
+            try {
+                // Cached lists are skipped, so only the failed ones are retried.
+                refresh_result = list_service_.download_uncached(
+                    config_snapshot, marks_snapshot, &relevant_lists);
+            } catch (const std::exception& e) {
+                error = e.what();
+            } catch (...) {
+                error = "unknown list download error";
+            }
+            commit_startup_list_retry_result(
+                generation, std::move(refresh_result), std::move(error), trace_id);
+        },
+        trace_id);
+
+    if (!enqueued) {
+        remote_list_refresh_inflight_.store(false, std::memory_order_release);
+        Logger::instance().trace("lists_refresh_skip",
+                                 "source=startup-retry reason=executor_unavailable");
+        schedule_startup_list_retry();
+    }
+}
+
+void Daemon::commit_startup_list_retry_result(
+    std::uint64_t generation,
+    std::optional<RemoteListsRefreshResult> refresh_result,
+    std::string error,
+    TraceId trace_id) {
+    post_control_task(
+        [this,
+         generation,
+         refresh_result = std::move(refresh_result),
+         error = std::move(error),
+         trace_id]() mutable {
+            ScopedTraceContext trace_scope_inner(trace_id);
+            remote_list_refresh_inflight_.store(false, std::memory_order_release);
+
+            if (generation != runtime_generation_.load(std::memory_order_acquire)) {
+                Logger::instance().trace("lists_refresh_skip",
+                                         "source=startup-retry generation={} reason=stale_runtime",
+                                         generation);
+                return;
+            }
+
+            bool failures_remain = true;
+            if (!error.empty() || !refresh_result.has_value()) {
+                Logger::instance().error("Startup lists retry failed: {}", error);
+            } else {
+                failures_remain = refresh_result->any_failed();
+                try {
+                    apply_list_refresh_result(
+                        std::move(*refresh_result), routing_runtime_active_, "startup-retry");
+                } catch (const std::exception& e) {
+                    Logger::instance().error("Startup lists retry reload failed: {}", e.what());
+                }
+            }
+
+            // The retry timer is a one-shot that has already fired: schedule
+            // the next attempt here while failures remain.
+            if (failures_remain) {
+                ++startup_list_retry_attempt_;
+                schedule_startup_list_retry();
+            } else {
+                startup_list_retry_attempt_ = 0;
+                Logger::instance().info("Startup lists: all remote lists are now available.");
+            }
+        },
+        "startup-list-retry-commit");
+}
+
+void Daemon::require_balance_support(const Config& config) const {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    (void)config;  // config validation rejects balance in this build
+    return;
+#else
+    const auto outbounds = config.outbounds.value_or(std::vector<Outbound>{});
+    const bool uses_balance = std::any_of(
+        outbounds.begin(), outbounds.end(), [](const Outbound& outbound) {
+            return (outbound.type == OutboundType::URLTEST ||
+                    outbound.type == OutboundType::ICMPTEST) &&
+                   outbound_uses_balance(outbound);
+        });
+    require_iptables_balance_support(firewall_->backend(), uses_balance);
+#endif
+}
+
 PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
                                                      bool refresh_remote_lists) {
     TraceSpan span("prepare-runtime-inputs");
-    validate_config(config);
+    validate_config(config, ConfigValidationMode::Runtime, validation_context());
+    // Before the config is committed or any routing/firewall state changes:
+    // a missing kernel match rejects the apply and the old runtime keeps
+    // serving.
+    require_balance_support(config);
 
     PreparedRuntimeInputs prepared;
     prepared.config = config;
@@ -837,21 +1266,10 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
 }
 
 void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
-                                           bool publish_active_snapshot) {
+                                           bool publish_active_snapshot,
+                                           bool defer_dnsmasq_sync) {
     reconcile_prepared_runtime(std::move(prepared));
-    if (has_system_resolver(config_) && !run_system_resolver_hook_reload()) {
-        throw DaemonError("system resolver reload hook failed");
-    }
-    if (has_system_resolver(config_)) {
-        std::string error;
-        const auto snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-        if (!wait_for_resolver_config_hash_confirmation(
-                config_, snapshot.expected_hash,
-                apply_started_ts_.load(std::memory_order_acquire), error)) {
-            throw DaemonError(error);
-        }
-    }
-    complete_running_runtime("config apply complete");
+    complete_running_runtime("config apply complete", defer_dnsmasq_sync);
     if (publish_active_snapshot) {
         config_store_.replace_active(config_, outbound_marks_);
         publish_runtime_state();
@@ -863,33 +1281,31 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         throw DaemonError("reconcile_prepared_runtime must run on the control/event-loop thread");
     }
 
+    const Config old_config = config_;
+    const OutboundMarkMap old_marks = outbound_marks_;
     const auto firewall_policy = firewall_config_apply_policy(
         firewall_->backend(), config_, prepared.config);
     if (firewall_policy.force_clear_dynamic_sets) {
         Logger::instance().warn(
             "iptables ipset capacity changed; recreating owned ipsets and "
-            "clearing dnsmasq-learned entries");
+            "clearing learned entries");
     }
 
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
+    // A config change may alter the interception setup: retry listener binds
+    // that failed.  Capabilities are not probed again (cached from start).
+    intercept_listener_results_.forget_blocking_listener_results();
 
     if (lists_autoupdate_task_id_ >= 0) {
         scheduler_->cancel(lists_autoupdate_task_id_);
         lists_autoupdate_task_id_ = -1;
     }
-    if (keenetic_dns_refresh_task_id_ >= 0) {
-        scheduler_->cancel(keenetic_dns_refresh_task_id_);
-        keenetic_dns_refresh_task_id_ = -1;
+    cancel_startup_list_retry();
+    if (interface_refresh_task_id_ >= 0) {
+        scheduler_->cancel(interface_refresh_task_id_);
+        interface_refresh_task_id_ = -1;
     }
-    if (resolver_config_hash_actual_task_id_ >= 0) {
-        scheduler_->cancel(resolver_config_hash_actual_task_id_);
-        resolver_config_hash_actual_task_id_ = -1;
-    }
-    if (resolver_config_hash_actual_retry_task_id_ >= 0) {
-        scheduler_->cancel(resolver_config_hash_actual_retry_task_id_);
-        resolver_config_hash_actual_retry_task_id_ = -1;
-    }
-
+    interface_refresh_pending_ = false;
     outbound_marks_ = std::move(prepared.outbound_marks);
     config_ = std::move(prepared.config);
     const auto daemon_config = config_.daemon.value_or(DaemonConfig{});
@@ -897,23 +1313,21 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         std::chrono::seconds{daemon_config.exec_timeout_seconds.value_or(30)},
         std::chrono::seconds{daemon_config.exec_kill_grace_seconds.value_or(2)});
     firewall_state_.set_outbound_marks(outbound_marks_);
-    firewall_state_.set_fwmark_mask(fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{})));
-
-    teardown_dns_probe();
-
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
     pending_urltest_conntrack_cleanup_.clear();
-    reconcile_static_routing();
-    (void)refresh_keenetic_dns_cache(true);
+    balance_classifier_cache_.clear();
+    const auto main_routes = netlink_.dump_routes_in_table(254);
+    reconcile_static_routing(nullptr, &main_routes);
     apply_firewall(firewall_policy.mode,
-                   firewall_policy.force_clear_dynamic_sets);
+                   firewall_policy.force_clear_dynamic_sets,
+                   &main_routes,
+                   &old_config,
+                   &old_marks);
     routing_runtime_active_ = true;
     transition_runtime_or_throw(RuntimeState::applying, "config apply");
-    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
-    update_resolver_config_hash();
-    setup_dns_probe();
+    begin_runtime_generation();
     publish_runtime_state();
 }
 
@@ -925,6 +1339,7 @@ void Daemon::apply_config(Config config, bool refresh_remote_lists) {
     try {
         apply_prepared_runtime_inputs(prepare_runtime_inputs(config, refresh_remote_lists));
     } catch (...) {
+        config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
         std::string ignored_error;
         (void)runtime_state_machine_.transition(RuntimeState::broken, "config apply failed", ignored_error);
         throw;
@@ -934,13 +1349,23 @@ void Daemon::apply_config(Config config, bool refresh_remote_lists) {
 void Daemon::reload_from_disk() {
     std::ifstream ifs(config_path_);
     if (!ifs.is_open()) {
+        config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
         throw DaemonError("Cannot open config file: " + config_path_);
     }
 
     std::ostringstream ss;
     ss << ifs.rdbuf();
-    Config next_config = parse_config(ss.str());
-    validate_config(next_config);
+    const std::string disk_text = ss.str();
+    Config next_config;
+    try {
+        next_config = parse_config(disk_text);
+        validate_config(next_config, ConfigValidationMode::Runtime,
+                        validation_context());
+    } catch (...) {
+        config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
+        throw;
+    }
+    upgrade_config_file_if_needed(config_path_, disk_text);
     try {
         apply_config(std::move(next_config));
     } catch (...) {
