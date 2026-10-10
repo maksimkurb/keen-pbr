@@ -53,7 +53,7 @@ generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (
 test: ## Build and run unit tests (doctest)
 	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS) -DBUILD_TESTS=ON
 	cmake --build $(GCC_BUILD_DIR) --parallel $(BUILD_JOBS) --target keen-pbr keen-pbr-tests crash-diagnostics-smoke
-	$(GCC_BUILD_DIR)/tests/keen-pbr-tests
+	KEEN_PBR_TEST_DNSMASQ="$$(command -v dnsmasq || true)" $(GCC_BUILD_DIR)/tests/keen-pbr-tests
 	$(GCC_BUILD_DIR)/tests/crash-diagnostics-smoke
 	python3 -m unittest tests/integration/test_case_engine.py
 	python3 -m unittest tests/integration/test_netns_harness.py

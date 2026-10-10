@@ -25,6 +25,7 @@ add_executable(keen-pbr-tests
   test_dnsmasq_detector.cpp
   test_dnsmasq_capability.cpp
   test_dnsmasq_preflight.cpp
+  test_dnsmasq_real.cpp
   test_test_routing.cpp
   test_keenetic_dns.cpp
   test_dns_wire.cpp
