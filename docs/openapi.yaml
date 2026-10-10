@@ -3093,6 +3093,37 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PolicyRuleCheck"
+        warnings:
+          type: array
+          description: >
+            Non-blocking host configuration warnings (missing NAT, strict
+            rp_filter on balance WANs). They never affect `overall`.
+          items:
+            $ref: "#/components/schemas/RoutingHealthWarning"
+
+    RoutingHealthWarning:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [nat_missing, nat_partial, rp_filter_strict]
+          description: >
+            - nat_missing: no MASQUERADE/SNAT rule covers the interface (iptables backend only)
+            - nat_partial: only source/destination-restricted NAT rules cover the interface
+            - rp_filter_strict: effective IPv4 rp_filter on the interface is 1 (strict)
+          example: "nat_missing"
+        interface:
+          type: string
+          description: Network interface the warning refers to.
+          example: "eth1"
+        outbound:
+          type: string
+          description: Outbound tag the interface belongs to.
+          example: "wan2"
+        message:
+          type: string
+          description: Human-readable explanation.
 
     RoutingHealthErrorResponse:
       type: object

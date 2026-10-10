@@ -256,6 +256,11 @@ export const enTranslation = {
       outboundUnavailable: "{{tag}} is unavailable",
       outboundDegraded: "{{tag}} is degraded",
       groupMembersFailing: "{{tag}}: failing members: {{count}}",
+      hostWarning: {
+        nat_missing: "{{interface}}: no NAT (MASQUERADE/SNAT) for this WAN",
+        nat_partial: "{{interface}}: NAT covers only some source subnets",
+        rp_filter_strict: "{{interface}}: strict rp_filter may drop replies",
+      },
     },
     healthy: {
       firewallOk: "chain and PREROUTING hook in place",

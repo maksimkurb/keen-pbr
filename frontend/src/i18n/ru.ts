@@ -260,6 +260,11 @@ export const ruTranslation = {
       outboundUnavailable: "{{tag}} недоступен",
       outboundDegraded: "{{tag}} работает с перебоями",
       groupMembersFailing: "{{tag}}: неисправных участников: {{count}}",
+      hostWarning: {
+        nat_missing: "{{interface}}: для этого WAN нет NAT (MASQUERADE/SNAT)",
+        nat_partial: "{{interface}}: NAT покрывает только часть подсетей",
+        rp_filter_strict: "{{interface}}: строгий rp_filter может отбрасывать ответы",
+      },
     },
     healthy: {
       firewallOk: "цепочка и хук PREROUTING на месте",

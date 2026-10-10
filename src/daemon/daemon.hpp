@@ -183,6 +183,9 @@ private:
   void finish_routing_test();
   RoutingHealthReport cached_routing_health();
   void invalidate_routing_health_cache();
+  void log_routing_health_warnings_if_changed(
+      const std::vector<HealthWarning>& warnings)
+      REQUIRES(routing_health_mutex_);
   bool is_routing_health_cache_valid(const RuntimeStateSnapshot& snapshot) const
       REQUIRES(routing_health_mutex_);
   void remove_ipc_control_socket() noexcept;
@@ -535,6 +538,8 @@ IcmpTester icmp_tester_;
   std::chrono::steady_clock::time_point routing_health_cache_time_
       GUARDED_BY(routing_health_mutex_){};
   bool routing_health_check_inflight_ GUARDED_BY(routing_health_mutex_){false};
+  std::vector<std::string> routing_health_logged_warning_keys_
+      GUARDED_BY(routing_health_mutex_);
   std::atomic<std::uint64_t> routing_health_revision_{1};
   std::atomic<std::uint64_t> runtime_generation_{1};
   std::atomic<bool> remote_list_refresh_inflight_{false};

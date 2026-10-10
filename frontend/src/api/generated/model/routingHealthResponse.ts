@@ -11,6 +11,7 @@ import type { PolicyRuleCheck } from './policyRuleCheck';
 import type { RouteTableCheck } from './routeTableCheck';
 import type { RoutingHealthResponseFirewallBackend } from './routingHealthResponseFirewallBackend';
 import type { RoutingHealthResponseOverall } from './routingHealthResponseOverall';
+import type { RoutingHealthWarning } from './routingHealthWarning';
 
 export interface RoutingHealthResponse {
   /** - ok: all checks passed - degraded: one or more checks failed - error: an exception prevented checks from completing
@@ -22,4 +23,7 @@ export interface RoutingHealthResponse {
   firewall_rules: FirewallRuleCheck[];
   route_tables: RouteTableCheck[];
   policy_rules: PolicyRuleCheck[];
+  /** Non-blocking host configuration warnings (missing NAT, strict rp_filter on balance WANs). They never affect `overall`.
+   */
+  warnings?: RoutingHealthWarning[];
 }

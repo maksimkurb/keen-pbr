@@ -187,6 +187,18 @@ export function collectOverviewIssues({
         ),
       })
     }
+
+    // Non-blocking host configuration warnings (NAT, rp_filter on balance WANs).
+    routingHealth.warnings?.forEach((warning, index) => {
+      issues.push({
+        key: `host-warning-${warning.code}-${warning.interface ?? index}`,
+        tone: "warn",
+        title: t(`overview.issues.hostWarning.${warning.code}`, {
+          interface: warning.interface ?? warning.outbound ?? "",
+        }),
+        detail: warning.message,
+      })
+    })
   }
 
   if (dnsmasq?.mode === "dnsmasq") {

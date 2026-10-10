@@ -1,6 +1,7 @@
 #include "status.hpp"
 
 #include "../config/routing_state.hpp"
+#include "../health/host_health_warnings.hpp"
 #include "../health/routing_health_checker.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
@@ -472,6 +473,16 @@ void print_firewall_section(const std::vector<DisplayFirewallRule>& firewall_rul
     }
 }
 
+void print_warnings_section(const RoutingHealthReport& report) {
+    if (report.warnings.empty()) return;
+    std::cout << "\nWarnings:\n";
+    for (const auto& w : report.warnings) {
+        std::cout << "  [" << health_warning_code_name(w.code) << "] ";
+        if (w.interface) std::cout << *w.interface << ": ";
+        std::cout << w.message << "\n";
+    }
+}
+
 void print_overall_summary(const RoutingHealthReport& report,
                            const std::vector<DisplayFirewallRule>& firewall_rules) {
     const int failed = count_failed_checks(report, firewall_rules);
@@ -500,6 +511,7 @@ int render_status_report(const Config& config,
     print_header(report, config_path);
     print_outbound_section(config, marks, report);
     print_firewall_section(display_firewall_rules, report);
+    print_warnings_section(report);
     print_overall_summary(report, display_firewall_rules);
     return count_failed_checks(report, display_firewall_rules) == 0 ? 0 : 1;
 }
@@ -604,6 +616,22 @@ RoutingHealthReport routing_health_report_from_api(
         check.detail = item.detail.value_or("");
         report.policy_rules.push_back(std::move(check));
     }
+    for (const auto& item : health.warnings.value_or(
+             std::vector<api::RoutingHealthWarningElement>{})) {
+        HealthWarning warning;
+        switch (item.code) {
+            case api::Code::NAT_MISSING:
+                warning.code = HealthWarningCode::nat_missing; break;
+            case api::Code::NAT_PARTIAL:
+                warning.code = HealthWarningCode::nat_partial; break;
+            case api::Code::RP_FILTER_STRICT:
+                warning.code = HealthWarningCode::rp_filter_strict; break;
+        }
+        warning.interface = item.interface;
+        warning.outbound = item.outbound;
+        warning.message = item.message;
+        report.warnings.push_back(std::move(warning));
+    }
     return report;
 }
 
@@ -651,6 +679,9 @@ int run_status_command_impl(const Config& config, const std::string& config_path
         fw_state,
         routes.get_routes(),
         rules.get_rules(), netlink);
+    report.warnings = collect_host_health_warnings(
+        config, resolve_firewall_backend(firewall_backend_preference(config)),
+        run_command_capture, read_proc_file);
     return render_status_report(config, config_path, report);
 }
 } // namespace

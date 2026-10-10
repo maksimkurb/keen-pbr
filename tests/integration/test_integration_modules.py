@@ -29,6 +29,7 @@ class IntegrationModulesTest(unittest.TestCase):
             "service_lifecycle", "dns_routing_save", "dns_interception",
             "l7_interception", "conntrack_cleanup_client_scope", "urltest_rebuild",
             "route_balance", "route_balance_failover", "route_balance_no_leak",
+            "route_balance_host_warnings",
             "iptables_chain_convergence", "prefilter_skip_marked", "inbound_interface_filter", "restore_conntrack_mark", "skip_established_or_dnat", "local_reply_skip", "forwarded_reply_skip", "output_lan_skip", "firewall_corruption_recovery", "loop_safety_marked_socket", "router_traffic_default_off", "learning_client_scope", "learning_client_scope_dns_rules", "dhcp_bypass", "rule_shapes",
             "route_pass", "route_drop",
             "table_interface", "test_group_table", "multiport_validation",
@@ -43,7 +44,8 @@ class IntegrationModulesTest(unittest.TestCase):
         self.assertEqual(registry.names, expected)
         self.assertEqual(
             tuple(case.name for case in registry.select("all", "nftables")),
-            tuple(name for name in expected if name != "iptables_chain_convergence"))
+            tuple(name for name in expected if name not in {"iptables_chain_convergence",
+                                                 "route_balance_host_warnings"}))
         selected = registry.select("route_dscp,dns_no_leak", "iptables")
         self.assertEqual([case.name for case in selected], ["route_dscp", "dns_no_leak"])
 

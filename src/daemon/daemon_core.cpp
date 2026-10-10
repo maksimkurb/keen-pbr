@@ -28,6 +28,7 @@
 
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
+#include "../health/host_health_warnings.hpp"
 #include "../health/routing_health_checker.hpp"
 #include "../ipc/control_protocol.hpp"
 #include "../log/logger.hpp"
@@ -588,12 +589,13 @@ RoutingHealthReport Daemon::cached_routing_health() {
   }
 
   const auto raw_prerouting = firewall_->raw_prerouting_mode();
+  const Config health_config = config_store_.active_config();
   bool queued = false;
   try {
     queued = routing_test_executor_.try_post(
         "routing-health",
         [this, runtime_snapshot, backend, raw_prerouting, health_revision,
-         runtime_generation] {
+         runtime_generation, health_config] {
           try {
             RoutingHealthReport health;
             try {
@@ -601,6 +603,13 @@ RoutingHealthReport Daemon::cached_routing_health() {
                   backend, raw_prerouting, runtime_snapshot.firewall_state,
                   runtime_snapshot.route_specs,
                   runtime_snapshot.policy_rule_specs, netlink_);
+              if (health.error.empty()) {
+                // Host configuration warnings are non-blocking and are only
+                // evaluated when the cached report is (re)built.
+                health.warnings = collect_host_health_warnings(
+                    health_config, backend, run_command_capture,
+                    read_proc_file);
+              }
             } catch (const std::exception& error) {
               health = unavailable_routing_health(
                   backend,
@@ -626,6 +635,8 @@ RoutingHealthReport Daemon::cached_routing_health() {
               routing_health_cache_generation_ = runtime_generation;
               routing_health_cache_state_ = runtime_snapshot.runtime_state;
               routing_health_cache_time_ = std::chrono::steady_clock::now();
+              log_routing_health_warnings_if_changed(
+                  routing_health_cache_->warnings);
             }
             routing_health_check_inflight_ = false;
           } catch (...) {
@@ -663,6 +674,19 @@ RoutingHealthReport Daemon::cached_routing_health() {
   }
   return unavailable_routing_health(
       backend, "canonical routing health worker is unavailable");
+}
+
+void Daemon::log_routing_health_warnings_if_changed(
+    const std::vector<HealthWarning>& warnings) {
+  auto keys = health_warning_keys(warnings);
+  if (keys == routing_health_logged_warning_keys_) return;
+  routing_health_logged_warning_keys_ = std::move(keys);
+  for (const auto& warning : warnings) {
+    Logger::instance().warn("routing health warning [{}]{}: {}",
+                            health_warning_code_name(warning.code),
+                            warning.interface ? " " + *warning.interface : "",
+                            warning.message);
+  }
 }
 
 void Daemon::invalidate_routing_health_cache() {

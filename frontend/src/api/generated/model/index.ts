@@ -107,6 +107,8 @@ export * from './routingHealthErrorResponseOverall';
 export * from './routingHealthResponse';
 export * from './routingHealthResponseFirewallBackend';
 export * from './routingHealthResponseOverall';
+export * from './routingHealthWarning';
+export * from './routingHealthWarningCode';
 export * from './routingTestEntry';
 export * from './routingTestListMatch';
 export * from './routingTestRequest';

@@ -65,6 +65,30 @@ struct PolicyRuleCheck {
     std::string detail;
 };
 
+// Extend this enum (and the API schema) to add new warning kinds.
+enum class HealthWarningCode {
+    nat_missing,
+    nat_partial,
+    rp_filter_strict
+};
+
+inline const char* health_warning_code_name(HealthWarningCode code) {
+    switch (code) {
+        case HealthWarningCode::nat_missing: return "nat_missing";
+        case HealthWarningCode::nat_partial: return "nat_partial";
+        case HealthWarningCode::rp_filter_strict: return "rp_filter_strict";
+    }
+    return "unknown";
+}
+
+// Non-blocking host configuration warning; never affects overall_ok.
+struct HealthWarning {
+    HealthWarningCode code{HealthWarningCode::nat_missing};
+    std::optional<std::string> interface;
+    std::optional<std::string> outbound;
+    std::string message;
+};
+
 struct RoutingHealthReport {
     bool overall_ok{false};
     std::optional<FirewallBackend> firewall_backend;
@@ -72,6 +96,7 @@ struct RoutingHealthReport {
     std::vector<FirewallRuleCheck> firewall_rules;
     std::vector<RouteTableCheck> route_tables;
     std::vector<PolicyRuleCheck> policy_rules;
+    std::vector<HealthWarning> warnings;
     std::string error;
 };
 
