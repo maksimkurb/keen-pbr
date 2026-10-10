@@ -5,8 +5,12 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { DnsmasqHealthCapability } from './dnsmasqHealthCapability';
 import type { DnsmasqHealthDnsmasqAlive } from './dnsmasqHealthDnsmasqAlive';
+import type { DnsmasqHealthEndpointEvidence } from './dnsmasqHealthEndpointEvidence';
+import type { DnsmasqHealthInstanceSelection } from './dnsmasqHealthInstanceSelection';
 import type { DnsmasqHealthMode } from './dnsmasqHealthMode';
+import type { DnsmasqHealthPreflight } from './dnsmasqHealthPreflight';
 import type { DnsmasqHealthProbeStatus } from './dnsmasqHealthProbeStatus';
 import type { DnsmasqHealthState } from './dnsmasqHealthState';
 
@@ -62,4 +66,16 @@ export interface DnsmasqHealth {
   rules: number;
   /** Number of domains written to the generated config. */
   domains: number;
+  /** Machine-readable reason for `state=error` (DNSMASQ_* codes, see the integration docs). */
+  error_code?: string | null;
+  instance_selector?: string | null;
+  instance_selection?: DnsmasqHealthInstanceSelection;
+  /** DNS endpoint of the selected instance, "ip:port" or "[ipv6]:port". */
+  endpoint?: string | null;
+  endpoint_evidence?: DnsmasqHealthEndpointEvidence;
+  pid?: number | null;
+  capability?: DnsmasqHealthCapability;
+  preflight?: DnsmasqHealthPreflight;
+  instance_count?: number | null;
+  warnings?: string[] | null;
 }

@@ -2561,6 +2561,45 @@ components:
         domains:
           type: integer
           description: Number of domains written to the generated config.
+        error_code:
+          type: string
+          nullable: true
+          description: Machine-readable reason for `state=error` (DNSMASQ_* codes, see the integration docs).
+        instance_selector:
+          type: string
+          nullable: true
+          example: "uci:cfg01411c"
+        instance_selection:
+          type: string
+          enum: [explicit, adopted, automatic]
+          nullable: true
+        endpoint:
+          type: string
+          nullable: true
+          description: DNS endpoint of the selected instance, "ip:port" or "[ipv6]:port".
+        endpoint_evidence:
+          type: string
+          enum: [none, socket_owned, responding, stamp_verified]
+          nullable: true
+        pid:
+          type: integer
+          nullable: true
+        capability:
+          type: string
+          enum: [not_checked, ok, unsupported, failed]
+          nullable: true
+        preflight:
+          type: string
+          enum: [not_run, ok, failed, skipped]
+          nullable: true
+        instance_count:
+          type: integer
+          nullable: true
+        warnings:
+          type: array
+          nullable: true
+          items:
+            type: string
 
     LifecycleOperationAcceptedResponse:
       type: object

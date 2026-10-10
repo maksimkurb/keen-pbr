@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesUsegi9 data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesJVNtkd data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -450,16 +450,31 @@ namespace api {
         std::optional<int64_t> write_errno;
     };
 
+    enum class Capability : int { FAILED, NOT_CHECKED, OK, UNSUPPORTED };
+
     enum class DnsmasqAlive : int { ALIVE, DEAD, UNKNOWN };
+
+    enum class EndpointEvidence : int { NONE, RESPONDING, SOCKET_OWNED, STAMP_VERIFIED };
+
+    enum class InstanceSelection : int { ADOPTED, AUTOMATIC, EXPLICIT };
+
+    enum class Preflight : int { FAILED, NOT_RUN, OK, SKIPPED };
 
     enum class ProbeStatus : int { INVALID, MISSING, NOT_CHECKED, OK, QUERY_FAILED };
 
     enum class State : int { APPLYING, DISABLED, ERROR, OK, RECONCILING };
 
     struct DnsmasqHealth {
+        std::optional<Capability> capability;
         std::optional<std::string> config_hash;
         std::optional<DnsmasqAlive> dnsmasq_alive;
         int64_t domains;
+        std::optional<std::string> endpoint;
+        std::optional<EndpointEvidence> endpoint_evidence;
+        std::optional<std::string> error_code;
+        std::optional<int64_t> instance_count;
+        std::optional<InstanceSelection> instance_selection;
+        std::optional<std::string> instance_selector;
         std::optional<int64_t> last_apply_ts;
         std::optional<int64_t> last_check_ts;
         std::optional<std::string> last_error;
@@ -469,6 +484,8 @@ namespace api {
         std::optional<int64_t> loaded_ts;
         ResolverIntegration mode;
         std::optional<int64_t> next_repair_ts;
+        std::optional<int64_t> pid;
+        std::optional<Preflight> preflight;
         std::optional<ProbeStatus> probe_status;
         std::optional<int64_t> repair_attempt;
         std::optional<int64_t> repair_max_attempts;
@@ -476,6 +493,7 @@ namespace api {
         std::optional<std::string> repair_reason;
         int64_t rules;
         State state;
+        std::optional<std::vector<std::string>> warnings;
     };
 
     struct ValidationErrorElement {
@@ -871,7 +889,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesUsegi9 {
+    struct KeenPbrTypesJVNtkd {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1212,8 +1230,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesUsegi9 & x);
-    void to_json(json & j, const KeenPbrTypesUsegi9 & x);
+    void from_json(const json & j, KeenPbrTypesJVNtkd & x);
+    void to_json(json & j, const KeenPbrTypesJVNtkd & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1257,8 +1275,20 @@ namespace api {
     void from_json(const json & j, DnsTestInterceptEventType & x);
     void to_json(json & j, const DnsTestInterceptEventType & x);
 
+    void from_json(const json & j, Capability & x);
+    void to_json(json & j, const Capability & x);
+
     void from_json(const json & j, DnsmasqAlive & x);
     void to_json(json & j, const DnsmasqAlive & x);
+
+    void from_json(const json & j, EndpointEvidence & x);
+    void to_json(json & j, const EndpointEvidence & x);
+
+    void from_json(const json & j, InstanceSelection & x);
+    void to_json(json & j, const InstanceSelection & x);
+
+    void from_json(const json & j, Preflight & x);
+    void to_json(json & j, const Preflight & x);
 
     void from_json(const json & j, ProbeStatus & x);
     void to_json(json & j, const ProbeStatus & x);
@@ -2042,9 +2072,16 @@ namespace api {
     }
 
     inline void from_json(const json & j, DnsmasqHealth& x) {
+        x.capability = get_stack_optional<Capability>(j, "capability");
         x.config_hash = get_stack_optional<std::string>(j, "config_hash");
         x.dnsmasq_alive = get_stack_optional<DnsmasqAlive>(j, "dnsmasq_alive");
         x.domains = j.at("domains").get<int64_t>();
+        x.endpoint = get_stack_optional<std::string>(j, "endpoint");
+        x.endpoint_evidence = get_stack_optional<EndpointEvidence>(j, "endpoint_evidence");
+        x.error_code = get_stack_optional<std::string>(j, "error_code");
+        x.instance_count = get_stack_optional<int64_t>(j, "instance_count");
+        x.instance_selection = get_stack_optional<InstanceSelection>(j, "instance_selection");
+        x.instance_selector = get_stack_optional<std::string>(j, "instance_selector");
         x.last_apply_ts = get_stack_optional<int64_t>(j, "last_apply_ts");
         x.last_check_ts = get_stack_optional<int64_t>(j, "last_check_ts");
         x.last_error = get_stack_optional<std::string>(j, "last_error");
@@ -2054,6 +2091,8 @@ namespace api {
         x.loaded_ts = get_stack_optional<int64_t>(j, "loaded_ts");
         x.mode = j.at("mode").get<ResolverIntegration>();
         x.next_repair_ts = get_stack_optional<int64_t>(j, "next_repair_ts");
+        x.pid = get_stack_optional<int64_t>(j, "pid");
+        x.preflight = get_stack_optional<Preflight>(j, "preflight");
         x.probe_status = get_stack_optional<ProbeStatus>(j, "probe_status");
         x.repair_attempt = get_stack_optional<int64_t>(j, "repair_attempt");
         x.repair_max_attempts = get_stack_optional<int64_t>(j, "repair_max_attempts");
@@ -2061,13 +2100,21 @@ namespace api {
         x.repair_reason = get_stack_optional<std::string>(j, "repair_reason");
         x.rules = j.at("rules").get<int64_t>();
         x.state = j.at("state").get<State>();
+        x.warnings = get_stack_optional<std::vector<std::string>>(j, "warnings");
     }
 
     inline void to_json(json & j, const DnsmasqHealth & x) {
         j = json::object();
+        j["capability"] = x.capability;
         j["config_hash"] = x.config_hash;
         j["dnsmasq_alive"] = x.dnsmasq_alive;
         j["domains"] = x.domains;
+        j["endpoint"] = x.endpoint;
+        j["endpoint_evidence"] = x.endpoint_evidence;
+        j["error_code"] = x.error_code;
+        j["instance_count"] = x.instance_count;
+        j["instance_selection"] = x.instance_selection;
+        j["instance_selector"] = x.instance_selector;
         j["last_apply_ts"] = x.last_apply_ts;
         j["last_check_ts"] = x.last_check_ts;
         j["last_error"] = x.last_error;
@@ -2077,6 +2124,8 @@ namespace api {
         j["loaded_ts"] = x.loaded_ts;
         j["mode"] = x.mode;
         j["next_repair_ts"] = x.next_repair_ts;
+        j["pid"] = x.pid;
+        j["preflight"] = x.preflight;
         j["probe_status"] = x.probe_status;
         j["repair_attempt"] = x.repair_attempt;
         j["repair_max_attempts"] = x.repair_max_attempts;
@@ -2084,6 +2133,7 @@ namespace api {
         j["repair_reason"] = x.repair_reason;
         j["rules"] = x.rules;
         j["state"] = x.state;
+        j["warnings"] = x.warnings;
     }
 
     inline void from_json(const json & j, ValidationErrorElement& x) {
@@ -2819,7 +2869,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesUsegi9& x) {
+    inline void from_json(const json & j, KeenPbrTypesJVNtkd& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2910,7 +2960,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesUsegi9 & x) {
+    inline void to_json(json & j, const KeenPbrTypesJVNtkd & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3216,6 +3266,24 @@ namespace api {
         }
     }
 
+    inline void from_json(const json & j, Capability & x) {
+        if (j == "failed") x = Capability::FAILED;
+        else if (j == "not_checked") x = Capability::NOT_CHECKED;
+        else if (j == "ok") x = Capability::OK;
+        else if (j == "unsupported") x = Capability::UNSUPPORTED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"Capability\""); }
+    }
+
+    inline void to_json(json & j, const Capability & x) {
+        switch (x) {
+            case Capability::FAILED: j = "failed"; break;
+            case Capability::NOT_CHECKED: j = "not_checked"; break;
+            case Capability::OK: j = "ok"; break;
+            case Capability::UNSUPPORTED: j = "unsupported"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"Capability\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
     inline void from_json(const json & j, DnsmasqAlive & x) {
         if (j == "alive") x = DnsmasqAlive::ALIVE;
         else if (j == "dead") x = DnsmasqAlive::DEAD;
@@ -3229,6 +3297,58 @@ namespace api {
             case DnsmasqAlive::DEAD: j = "dead"; break;
             case DnsmasqAlive::UNKNOWN: j = "unknown"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"DnsmasqAlive\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, EndpointEvidence & x) {
+        if (j == "none") x = EndpointEvidence::NONE;
+        else if (j == "responding") x = EndpointEvidence::RESPONDING;
+        else if (j == "socket_owned") x = EndpointEvidence::SOCKET_OWNED;
+        else if (j == "stamp_verified") x = EndpointEvidence::STAMP_VERIFIED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"EndpointEvidence\""); }
+    }
+
+    inline void to_json(json & j, const EndpointEvidence & x) {
+        switch (x) {
+            case EndpointEvidence::NONE: j = "none"; break;
+            case EndpointEvidence::RESPONDING: j = "responding"; break;
+            case EndpointEvidence::SOCKET_OWNED: j = "socket_owned"; break;
+            case EndpointEvidence::STAMP_VERIFIED: j = "stamp_verified"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"EndpointEvidence\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, InstanceSelection & x) {
+        if (j == "adopted") x = InstanceSelection::ADOPTED;
+        else if (j == "automatic") x = InstanceSelection::AUTOMATIC;
+        else if (j == "explicit") x = InstanceSelection::EXPLICIT;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"InstanceSelection\""); }
+    }
+
+    inline void to_json(json & j, const InstanceSelection & x) {
+        switch (x) {
+            case InstanceSelection::ADOPTED: j = "adopted"; break;
+            case InstanceSelection::AUTOMATIC: j = "automatic"; break;
+            case InstanceSelection::EXPLICIT: j = "explicit"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"InstanceSelection\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, Preflight & x) {
+        if (j == "failed") x = Preflight::FAILED;
+        else if (j == "not_run") x = Preflight::NOT_RUN;
+        else if (j == "ok") x = Preflight::OK;
+        else if (j == "skipped") x = Preflight::SKIPPED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"Preflight\""); }
+    }
+
+    inline void to_json(json & j, const Preflight & x) {
+        switch (x) {
+            case Preflight::FAILED: j = "failed"; break;
+            case Preflight::NOT_RUN: j = "not_run"; break;
+            case Preflight::OK: j = "ok"; break;
+            case Preflight::SKIPPED: j = "skipped"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"Preflight\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

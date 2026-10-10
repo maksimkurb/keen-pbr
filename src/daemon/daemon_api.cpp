@@ -88,6 +88,36 @@ api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
     }
     health.rules = static_cast<std::int64_t>(status.rules);
     health.domains = static_cast<std::int64_t>(status.domains);
+    if (status.error_code != DnsmasqErrorCode::None) {
+        health.error_code = dnsmasq_error_code_name(status.error_code);
+    }
+    if (!status.selector.empty()) health.instance_selector = status.selector;
+    switch (status.selection) {
+    case DnsmasqSelectionKind::None: break;
+    case DnsmasqSelectionKind::Explicit: health.instance_selection = api::InstanceSelection::EXPLICIT; break;
+    case DnsmasqSelectionKind::Adopted: health.instance_selection = api::InstanceSelection::ADOPTED; break;
+    case DnsmasqSelectionKind::Automatic: health.instance_selection = api::InstanceSelection::AUTOMATIC; break;
+    }
+    if (status.endpoint) health.endpoint = status.endpoint->str();
+    switch (status.endpoint_evidence) {
+    case EndpointEvidence::None: health.endpoint_evidence = api::EndpointEvidence::NONE; break;
+    case EndpointEvidence::SocketOwned: health.endpoint_evidence = api::EndpointEvidence::SOCKET_OWNED; break;
+    case EndpointEvidence::Responding: health.endpoint_evidence = api::EndpointEvidence::RESPONDING; break;
+    case EndpointEvidence::StampVerified: health.endpoint_evidence = api::EndpointEvidence::STAMP_VERIFIED; break;
+    }
+    if (status.pid) health.pid = static_cast<std::int64_t>(*status.pid);
+    switch (status.capability) {
+    case DnsmasqCapabilityStatus::NotChecked: health.capability = api::Capability::NOT_CHECKED; break;
+    case DnsmasqCapabilityStatus::Ok: health.capability = api::Capability::OK; break;
+    case DnsmasqCapabilityStatus::Unsupported: health.capability = api::Capability::UNSUPPORTED; break;
+    case DnsmasqCapabilityStatus::Failed: health.capability = api::Capability::FAILED; break;
+    }
+    if (status.preflight == "ok") health.preflight = api::Preflight::OK;
+    else if (status.preflight == "failed") health.preflight = api::Preflight::FAILED;
+    else if (status.preflight == "skipped") health.preflight = api::Preflight::SKIPPED;
+    else if (status.preflight == "not_run") health.preflight = api::Preflight::NOT_RUN;
+    health.instance_count = static_cast<std::int64_t>(status.instances);
+    if (!status.warnings.empty()) health.warnings = status.warnings;
     return health;
 }
 

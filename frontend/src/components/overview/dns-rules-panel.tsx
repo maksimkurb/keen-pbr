@@ -79,6 +79,19 @@ export function DnsRulesPanel({
                 </span>
               </KeyValue>
             ) : null}
+            {health?.instance_selector ? (
+              <KeyValue label={t("overview.dnsRules.instance")}>
+                <span className="font-mono">{health.instance_selector}</span>
+                {health.instance_selection
+                  ? ` (${t(`overview.dnsRules.selection.${health.instance_selection}`)})`
+                  : null}
+              </KeyValue>
+            ) : null}
+            {health?.endpoint ? (
+              <KeyValue label={t("overview.dnsRules.endpoint")}>
+                <span className="font-mono">{health.endpoint}</span>
+              </KeyValue>
+            ) : null}
             {(alive === "dead" || alive === "unknown") && state !== "ok" ? (
               <KeyValue label={t("overview.dnsRules.alive.label")}>
                 {t(`overview.dnsRules.alive.${alive}`)}
@@ -116,7 +129,9 @@ export function DnsRulesPanel({
             </div>
           ) : null}
           {state === "error" &&
-          (health?.last_error || health?.repair_paused) ? (
+          (health?.last_error ||
+            health?.repair_paused ||
+            health?.error_code) ? (
             <div className="px-3.5 pb-3.5">
               <PanelNote tone="bad">
                 <span>
@@ -126,6 +141,13 @@ export function DnsRulesPanel({
                       {t("overview.dnsRules.repairPausedHint")}{" "}
                     </>
                   ) : null}
+                  {health?.error_code ? (
+                    <span className="block">
+                      {t(`overview.dnsRules.errors.${health.error_code}`, {
+                        defaultValue: health.last_error ?? health.error_code,
+                      })}
+                    </span>
+                  ) : null}
                   {health?.last_error
                     ? `${t("overview.dnsRules.lastError")}: ${health.last_error}`
                     : null}
@@ -133,6 +155,11 @@ export function DnsRulesPanel({
               </PanelNote>
             </div>
           ) : null}
+          {health?.warnings?.map((warning) => (
+            <div key={warning} className="px-3.5 pb-3.5">
+              <PanelNote tone="muted">{warning}</PanelNote>
+            </div>
+          ))}
         </>
       )}
     </Panel>
