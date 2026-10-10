@@ -575,7 +575,8 @@ void collect_fwmark_conflicts(const HostHealthInputs& inputs,
                               IptablesTableCache& cache,
                               const CommandRunner& runner,
                               std::vector<HealthWarning>& warnings) {
-    if (inputs.fwmark_mask == 0) return;
+    // Not on Keenetic: firmware chains set marks with full masks (permanent noise).
+    if (!fwmark_conflict_check_enabled(inputs)) return;
 
     std::vector<std::pair<std::string, std::string>> texts;
     if (backend == FirewallBackend::iptables) {

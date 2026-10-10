@@ -682,10 +682,13 @@ int run_status_command_impl(const Config& config, const std::string& config_path
         routes.get_routes(),
         rules.get_rules(), netlink);
     IptablesTableCache nat_cache;
+    const HostHealthInputs health_inputs = host_health_inputs(config);
     report.warnings = collect_host_health_warnings(
-        host_health_inputs(config), netlink.dump_interfaces(),
+        health_inputs, netlink.dump_interfaces(),
         resolve_firewall_backend(firewall_backend_preference(config)),
-        PolicyRuleInputs{netlink.dump_policy_rules(0), rules.get_rules()},
+        fwmark_conflict_check_enabled(health_inputs)
+            ? PolicyRuleInputs{netlink.dump_policy_rules(0), rules.get_rules()}
+            : PolicyRuleInputs{},
         nat_cache, run_command_capture, read_proc_file);
     return render_status_report(config, config_path, report);
 }

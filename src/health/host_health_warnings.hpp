@@ -119,6 +119,18 @@ struct HostHealthInputs {
     std::uint32_t fwmark_mask{0};
 };
 
+// The fwmark overlap check is off on Keenetic (its firmware chains set marks
+// with full masks, which would warn permanently) and when the mask is invalid.
+// When false, callers skip the policy-rule dump and no mangle/raw reads happen.
+inline bool fwmark_conflict_check_enabled(const HostHealthInputs& inputs) {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    (void)inputs;
+    return false;
+#else
+    return inputs.fwmark_mask != 0;
+#endif
+}
+
 // Live policy rules and keen-pbr's tracked ones, gathered by the caller the
 // same way as the interface dump.
 struct PolicyRuleInputs {

@@ -206,6 +206,9 @@ TEST_CASE("routing health JSON serialises warnings without changing overall") {
     CHECK(j.at("warnings")[0].at("message") == "no nat");
 }
 
+// Not on Keenetic: the overlap check is disabled there (see
+// fwmark_conflict_check_enabled).
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
 namespace {
 
 constexpr std::uint32_t kDefaultMask = 0x00FF0000U;
@@ -339,3 +342,5 @@ TEST_CASE("routing health JSON serialises fwmark_mask_conflict") {
     CHECK(j.at("overall") == "ok");
     CHECK(j.at("warnings")[0].at("code") == "fwmark_mask_conflict");
 }
+
+#endif  // KEEN_PBR_PLATFORM_KEENETIC
