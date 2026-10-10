@@ -626,6 +626,8 @@ RoutingHealthReport routing_health_report_from_api(
                 warning.code = HealthWarningCode::nat_partial; break;
             case api::RoutingHealthWarningCode::RP_FILTER_STRICT:
                 warning.code = HealthWarningCode::rp_filter_strict; break;
+            case api::RoutingHealthWarningCode::FWMARK_MASK_CONFLICT:
+                warning.code = HealthWarningCode::fwmark_mask_conflict; break;
         }
         warning.interface = item.interface;
         warning.outbound = item.outbound;
@@ -679,10 +681,11 @@ int run_status_command_impl(const Config& config, const std::string& config_path
         fw_state,
         routes.get_routes(),
         rules.get_rules(), netlink);
-    NatTableCache nat_cache;
+    IptablesTableCache nat_cache;
     report.warnings = collect_host_health_warnings(
         host_health_inputs(config), netlink.dump_interfaces(),
         resolve_firewall_backend(firewall_backend_preference(config)),
+        PolicyRuleInputs{netlink.dump_policy_rules(0), rules.get_rules()},
         nat_cache, run_command_capture, read_proc_file);
     return render_status_report(config, config_path, report);
 }

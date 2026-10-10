@@ -14,7 +14,7 @@
   visible, so ignore this warning if NAT is configured there.
 - nat_partial: only restricted NAT rules (source/destination or other
   matches such as mark or protocol) cover the interface
-- rp_filter_strict: effective IPv4 rp_filter on the interface is 1 (strict)
+- rp_filter_strict: effective IPv4 rp_filter on the interface is 1 (strict) - fwmark_mask_conflict: a foreign iptables MARK/CONNMARK rule (mangle/raw, iptables backend only) or `ip rule` writes or matches mark bits overlapping `fwmark.mask`
 
  */
 export type RoutingHealthWarningCode = typeof RoutingHealthWarningCode[keyof typeof RoutingHealthWarningCode];
@@ -24,4 +24,5 @@ export const RoutingHealthWarningCode = {
   nat_missing: 'nat_missing',
   nat_partial: 'nat_partial',
   rp_filter_strict: 'rp_filter_strict',
+  fwmark_mask_conflict: 'fwmark_mask_conflict',
 } as const;

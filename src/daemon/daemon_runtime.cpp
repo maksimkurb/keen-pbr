@@ -82,7 +82,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     }
 
     stop_dnsmasq_check();
-    nat_table_cache_.invalidate();
+    host_table_cache_.invalidate();
     invalidate_routing_health_cache();
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
     cancel_startup_list_retry();
@@ -262,7 +262,7 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
                             const std::vector<DumpedRoute>* main_routes,
                             const Config* quiesce_config,
                             const OutboundMarkMap* quiesce_marks) {
-    nat_table_cache_.invalidate();
+    host_table_cache_.invalidate();
     invalidate_routing_health_cache();
     // An apply (re)binds the listeners itself and supersedes a pending
     // automatic re-bind; the next tick starts over if one is still dead.

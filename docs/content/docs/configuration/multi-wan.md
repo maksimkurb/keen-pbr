@@ -127,7 +127,7 @@ keen-pbr saves its WAN choice in the conntrack mark under `fwmark.mask` (default
 }
 ```
 
-Check what is already in use with `ip rule show` and `sudo iptables -t mangle -S | grep -i mark`. Config validation reports an error if the mask has too few marks for your outbounds.
+Check what is already in use with `ip rule show` and `sudo iptables -t mangle -S | grep -i mark`. Config validation reports an error if the mask has too few marks for your outbounds. The health page (`GET /api/health/routing`, `keen-pbr status` and the web UI overview) warns about missing NAT, strict `rp_filter` and `fwmark_mask_conflict`: foreign iptables `MARK`/`CONNMARK` rules (mangle and raw, iptables backend only) or `ip rule` entries that write or match bits inside `fwmark.mask`. These warnings never block apply.
 
 ## Known limitation: inbound connections on the second WAN
 
@@ -139,7 +139,7 @@ Balancing only handles connections that LAN clients (and optionally the host) op
 |---|---|
 | Connections hang when they go to one WAN, health checks are fine | Missing NAT on that WAN: `sudo iptables -t nat -S POSTROUTING` must list a `MASQUERADE` for each WAN. |
 | Packets leave but replies never arrive | Strict `rp_filter`: the effective value (`all` vs. per-interface, the larger wins) must be `2` or `0`. |
-| All traffic uses one WAN | Foreign marks (`skip_marked_packets`), a fwmark mask collision, or the other WAN is unhealthy. Inspect `sudo iptables -t mangle -S` and the outbound status in the web UI or API. |
+| All traffic uses one WAN | Foreign marks (`skip_marked_packets`), a fwmark mask collision (the health page shows a `fwmark_mask_conflict` warning naming the rule), or the other WAN is unhealthy. Inspect `sudo iptables -t mangle -S` and the outbound status in the web UI or API. |
 | Config is rejected with a message about `xt_statistic` | `sudo modprobe xt_statistic`, then restart the service. |
 | No iptables rules, `nft` rules appear instead | `firewall_backend` is `auto` and `nft` is installed: set it to `iptables`. |
 

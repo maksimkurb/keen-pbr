@@ -69,7 +69,8 @@ struct PolicyRuleCheck {
 enum class HealthWarningCode {
     nat_missing,
     nat_partial,
-    rp_filter_strict
+    rp_filter_strict,
+    fwmark_mask_conflict
 };
 
 inline const char* health_warning_code_name(HealthWarningCode code) {
@@ -77,6 +78,7 @@ inline const char* health_warning_code_name(HealthWarningCode code) {
         case HealthWarningCode::nat_missing: return "nat_missing";
         case HealthWarningCode::nat_partial: return "nat_partial";
         case HealthWarningCode::rp_filter_strict: return "rp_filter_strict";
+        case HealthWarningCode::fwmark_mask_conflict: return "fwmark_mask_conflict";
     }
     return "unknown";
 }

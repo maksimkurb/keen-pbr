@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <set>
 #include <sstream>
@@ -178,7 +179,154 @@ ParsedNatRule parse_nat_rule(const std::vector<std::string>& tokens) {
     return rule;
 }
 
+std::string hex_bits(std::uint32_t v) {
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "0x%08x", static_cast<unsigned>(v));
+    return buf;
+}
+
+bool parse_u32(const std::string& text, std::uint32_t& out) {
+    if (text.empty()) return false;
+    char* end = nullptr;
+    const unsigned long long v = std::strtoull(text.c_str(), &end, 0);
+    if (end == text.c_str() || *end != '\0' || v > 0xFFFFFFFFULL) return false;
+    out = static_cast<std::uint32_t>(v);
+    return true;
+}
+
+// "V" or "V/M"; has_mask tells which.
+bool parse_value_mask(const std::string& text, std::uint32_t& value,
+                      std::uint32_t& mask, bool& has_mask) {
+    const auto slash = text.find('/');
+    has_mask = slash != std::string::npos;
+    mask = 0xFFFFFFFFU;
+    if (!parse_u32(text.substr(0, slash), value)) return false;
+    return !has_mask || parse_u32(text.substr(slash + 1), mask);
+}
+
+constexpr std::uint32_t kAllBits = 0xFFFFFFFFU;
+
+// Bits touched (written or matched) by one iptables rule line; 0 when the rule
+// has no mark semantics.
+std::uint32_t rule_mark_bits(const std::vector<std::string>& tokens) {
+    std::string target;
+    bool save = false, restore = false;
+    std::uint32_t nfmask = 0, ctmask = 0, mask = 0;
+    bool has_nfmask = false, has_ctmask = false, has_mask = false;
+    std::uint32_t bits = 0;
+    for (std::size_t i = 2; i < tokens.size(); ++i) {
+        const std::string& t = tokens[i];
+        const bool has_value = i + 1 < tokens.size();
+        std::uint32_t v = 0, m = 0;
+        bool hm = false;
+        if ((t == "-j" || t == "-g" || t == "--jump" || t == "--goto") && has_value) {
+            target = tokens[++i];
+        } else if (t == "--mark" && has_value) {
+            // mark / connmark match
+            if (parse_value_mask(tokens[++i], v, m, hm)) bits |= hm ? m : v;
+        } else if (target != "MARK" && target != "CONNMARK") {
+            continue;
+        } else if ((t == "--set-xmark" || t == "--set-mark") && has_value) {
+            if (parse_value_mask(tokens[++i], v, m, hm)) bits |= m;
+        } else if (t == "--or-mark" && has_value) {
+            if (parse_u32(tokens[++i], v)) bits |= v;
+        } else if (t == "--xor-mark" && has_value) {
+            if (parse_u32(tokens[++i], v)) bits |= v;
+        } else if (t == "--and-mark" && has_value) {
+            if (parse_u32(tokens[++i], v)) bits |= ~v;
+        } else if (t == "--save-mark") {
+            save = true;
+        } else if (t == "--restore-mark") {
+            restore = true;
+        } else if (t == "--nfmask" && has_value) {
+            has_nfmask = parse_u32(tokens[++i], nfmask);
+        } else if (t == "--ctmask" && has_value) {
+            has_ctmask = parse_u32(tokens[++i], ctmask);
+        } else if (t == "--mask" && has_value) {
+            has_mask = parse_u32(tokens[++i], mask);
+        }
+    }
+    if (save) bits |= has_ctmask ? ctmask : (has_mask ? mask : kAllBits);
+    if (restore) bits |= has_nfmask ? nfmask : (has_mask ? mask : kAllBits);
+    return bits;
+}
+
 }  // namespace
+
+std::vector<ForeignMarkRule> find_foreign_mark_overlaps(
+    const std::string& iptables_text, std::uint32_t fwmark_mask) {
+    std::vector<ForeignMarkRule> out;
+    std::istringstream stream(iptables_text);
+    std::string line;
+    while (std::getline(stream, line)) {
+        line = trim_line_end(line);
+        if (line.rfind("-A ", 0) != 0) continue;
+        if (line.find("kpbr:v1:") != std::string::npos) continue;
+        const auto tokens = tokenize_rule(line);
+        if (tokens.size() < 2 || tokens[1].rfind("KeenPbr", 0) == 0) continue;
+        const std::uint32_t overlap = rule_mark_bits(tokens) & fwmark_mask;
+        if (overlap == 0) continue;
+        out.push_back({line, overlap});
+    }
+    return out;
+}
+
+std::vector<ForeignPolicyRule> find_foreign_policy_rule_overlaps(
+    const std::vector<DumpedRule>& dumped, const std::vector<RuleSpec>& own_rules,
+    std::uint32_t fwmark_mask) {
+    std::vector<ForeignPolicyRule> out;
+    for (const auto& r : dumped) {
+        if (r.fwmask == 0) continue;  // no fwmark selector
+        const bool own = std::any_of(
+            own_rules.begin(), own_rules.end(), [&](const RuleSpec& s) {
+                return s.priority == r.priority && s.fwmark == r.fwmark &&
+                       s.fwmask == r.fwmask && s.table == r.table;
+            });
+        if (own) continue;
+        const std::uint32_t overlap = r.fwmask & fwmark_mask;
+        if (overlap == 0) continue;
+        const bool dup = std::any_of(out.begin(), out.end(), [&](const auto& x) {
+            return x.priority == r.priority && x.fwmark == r.fwmark &&
+                   x.fwmask == r.fwmask;
+        });
+        if (!dup) out.push_back({r.priority, r.fwmark, r.fwmask, overlap});
+    }
+    return out;
+}
+
+std::vector<HealthWarning> evaluate_fwmark_conflict_warnings(
+    const std::vector<std::pair<std::string, std::string>>& iptables_texts,
+    const std::vector<DumpedRule>& dumped_rules,
+    const std::vector<RuleSpec>& own_rules, std::uint32_t fwmark_mask) {
+    std::vector<HealthWarning> warnings;
+    std::set<std::string> seen;
+    const std::string advice =
+        "; move fwmark.start/fwmark.mask to bits nobody else uses";
+    for (const auto& [label, text] : iptables_texts) {
+        for (const auto& f : find_foreign_mark_overlaps(text, fwmark_mask)) {
+            if (!seen.insert(f.rule).second) continue;
+            HealthWarning w;
+            w.code = HealthWarningCode::fwmark_mask_conflict;
+            w.message = "Foreign iptables " + label + " rule '" + f.rule +
+                        "' uses mark bits " + hex_bits(f.overlap) +
+                        " that overlap fwmark.mask " + hex_bits(fwmark_mask) +
+                        " and can clobber keen-pbr's routing choice" + advice;
+            warnings.push_back(std::move(w));
+        }
+    }
+    for (const auto& r :
+         find_foreign_policy_rule_overlaps(dumped_rules, own_rules, fwmark_mask)) {
+        HealthWarning w;
+        w.code = HealthWarningCode::fwmark_mask_conflict;
+        w.message = "Foreign ip rule priority " + std::to_string(r.priority) +
+                    " fwmark " + hex_bits(r.fwmark) + "/" + hex_bits(r.fwmask) +
+                    " matches mark bits " + hex_bits(r.overlap) +
+                    " that overlap fwmark.mask " + hex_bits(fwmark_mask) + advice;
+        warnings.push_back(std::move(w));
+    }
+    return warnings;
+}
+
 
 std::optional<Ipv4Net> parse_ipv4_net(const std::string& text) {
     const auto slash = text.find('/');
@@ -388,38 +536,88 @@ HostHealthInputs host_health_inputs(const Config& config) {
     if (config.route.has_value() && config.route->inbound_interfaces.has_value()) {
         inputs.inbound_interfaces = *config.route->inbound_interfaces;
     }
+    try {
+        inputs.fwmark_mask = fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
+    } catch (const std::exception& e) {
+        Logger::instance().debug("fwmark overlap check skipped: {}", e.what());
+    }
     return inputs;
 }
 
-std::optional<std::string> NatTableCache::get(const CommandRunner& runner) {
+std::optional<std::string> IptablesTableCache::get(const CommandRunner& runner,
+                                                   const std::string& command,
+                                                   const std::string& table) {
+    const std::string key = command + " " + table;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (text_ && Clock::now() - read_at_ <= lifetime_) return text_;
+        const auto it = entries_.find(key);
+        if (it != entries_.end() && Clock::now() - it->second.read_at <= lifetime_) {
+            return it->second.text;
+        }
     }
-    const auto nat = runner({"iptables", "-t", "nat", "-S"});
-    if (nat.exit_code != 0 || nat.truncated) return std::nullopt;
+    const auto r = runner({command, "-t", table, "-S"});
+    if (r.exit_code != 0 || r.truncated) return std::nullopt;
     std::lock_guard<std::mutex> lock(mutex_);
-    text_ = nat.stdout_output;
-    read_at_ = Clock::now();
-    return text_;
+    entries_[key] = Entry{r.stdout_output, Clock::now()};
+    return r.stdout_output;
 }
 
-void NatTableCache::invalidate() {
+void IptablesTableCache::invalidate() {
     std::lock_guard<std::mutex> lock(mutex_);
-    text_.reset();
+    entries_.clear();
 }
+
+namespace {
+
+void collect_fwmark_conflicts(const HostHealthInputs& inputs,
+                              FirewallBackend backend,
+                              const PolicyRuleInputs& policy_rules,
+                              IptablesTableCache& cache,
+                              const CommandRunner& runner,
+                              std::vector<HealthWarning>& warnings) {
+    if (inputs.fwmark_mask == 0) return;
+
+    std::vector<std::pair<std::string, std::string>> texts;
+    if (backend == FirewallBackend::iptables) {
+        for (const char* command : {"iptables", "ip6tables"}) {
+            for (const char* table : {"mangle", "raw"}) {
+                try {
+                    if (auto text = cache.get(runner, command, table)) {
+                        texts.emplace_back(table, std::move(*text));
+                    }
+                } catch (const std::exception& e) {
+                    Logger::instance().debug(
+                        "fwmark overlap check: cannot read {} {}: {}", command,
+                        table, e.what());
+                }
+            }
+        }
+    } else {
+        Logger::instance().debug(
+            "fwmark overlap firewall check skipped: only supported on the "
+            "iptables backend");
+    }
+    auto found = evaluate_fwmark_conflict_warnings(
+        texts, policy_rules.dumped, policy_rules.own, inputs.fwmark_mask);
+    warnings.insert(warnings.end(), found.begin(), found.end());
+}
+
+}  // namespace
 
 std::vector<HealthWarning> collect_host_health_warnings(
     const HostHealthInputs& inputs,
     const std::vector<DumpedInterface>& interfaces, FirewallBackend backend,
-    NatTableCache& nat_cache, const CommandRunner& runner,
-    const ProcFileReader& reader) {
+    const PolicyRuleInputs& policy_rules, IptablesTableCache& table_cache,
+    const CommandRunner& runner, const ProcFileReader& reader) {
     std::vector<HealthWarning> warnings;
+    // Mark overlap breaks regular marking too, so it is not balance-only.
+    collect_fwmark_conflicts(inputs, backend, policy_rules, table_cache, runner,
+                             warnings);
     if (inputs.candidates.empty()) return warnings;
 
     if (backend == FirewallBackend::iptables) {
         try {
-            const auto nat = nat_cache.get(runner);
+            const auto nat = table_cache.get(runner, "iptables", "nat");
             if (!nat) {
                 Logger::instance().debug(
                     "NAT health check skipped: cannot read iptables nat table");

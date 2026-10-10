@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesRyCjLf data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesBQXoJw data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -708,7 +708,7 @@ namespace api {
 
     enum class RoutingHealthResponseOverall : int { DEGRADED, ERROR, OK };
 
-    enum class RoutingHealthWarningCode : int { NAT_MISSING, NAT_PARTIAL, RP_FILTER_STRICT };
+    enum class RoutingHealthWarningCode : int { FWMARK_MASK_CONFLICT, NAT_MISSING, NAT_PARTIAL, RP_FILTER_STRICT };
 
     struct RoutingHealthWarningElement {
         RoutingHealthWarningCode code;
@@ -870,7 +870,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesRyCjLf {
+    struct KeenPbrTypesBQXoJw {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1211,8 +1211,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesRyCjLf & x);
-    void to_json(json & j, const KeenPbrTypesRyCjLf & x);
+    void from_json(const json & j, KeenPbrTypesBQXoJw & x);
+    void to_json(json & j, const KeenPbrTypesBQXoJw & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -2816,7 +2816,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesRyCjLf& x) {
+    inline void from_json(const json & j, KeenPbrTypesBQXoJw& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2907,7 +2907,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesRyCjLf & x) {
+    inline void to_json(json & j, const KeenPbrTypesBQXoJw & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3488,7 +3488,8 @@ namespace api {
     }
 
     inline void from_json(const json & j, RoutingHealthWarningCode & x) {
-        if (j == "nat_missing") x = RoutingHealthWarningCode::NAT_MISSING;
+        if (j == "fwmark_mask_conflict") x = RoutingHealthWarningCode::FWMARK_MASK_CONFLICT;
+        else if (j == "nat_missing") x = RoutingHealthWarningCode::NAT_MISSING;
         else if (j == "nat_partial") x = RoutingHealthWarningCode::NAT_PARTIAL;
         else if (j == "rp_filter_strict") x = RoutingHealthWarningCode::RP_FILTER_STRICT;
         else { throw std::runtime_error("Cannot deserialize to enumeration \"RoutingHealthWarningCode\""); }
@@ -3496,6 +3497,7 @@ namespace api {
 
     inline void to_json(json & j, const RoutingHealthWarningCode & x) {
         switch (x) {
+            case RoutingHealthWarningCode::FWMARK_MASK_CONFLICT: j = "fwmark_mask_conflict"; break;
             case RoutingHealthWarningCode::NAT_MISSING: j = "nat_missing"; break;
             case RoutingHealthWarningCode::NAT_PARTIAL: j = "nat_partial"; break;
             case RoutingHealthWarningCode::RP_FILTER_STRICT: j = "rp_filter_strict"; break;

@@ -260,6 +260,7 @@ export const enTranslation = {
         nat_missing: "{{interface}}: no NAT (MASQUERADE/SNAT) for this WAN",
         nat_partial: "{{interface}}: NAT covers only some source subnets",
         rp_filter_strict: "{{interface}}: strict rp_filter may drop replies",
+        fwmark_mask_conflict: "A foreign rule uses packet mark bits reserved for keen-pbr",
       },
     },
     healthy: {

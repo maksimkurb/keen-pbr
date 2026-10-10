@@ -264,6 +264,7 @@ export const ruTranslation = {
         nat_missing: "{{interface}}: для этого WAN нет NAT (MASQUERADE/SNAT)",
         nat_partial: "{{interface}}: NAT покрывает только часть подсетей",
         rp_filter_strict: "{{interface}}: строгий rp_filter может отбрасывать ответы",
+        fwmark_mask_conflict: "Стороннее правило использует биты метки пакета, зарезервированные keen-pbr",
       },
     },
     healthy: {

@@ -355,6 +355,8 @@ nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
                     aw.code = api::RoutingHealthWarningCode::NAT_PARTIAL; break;
                 case HealthWarningCode::rp_filter_strict:
                     aw.code = api::RoutingHealthWarningCode::RP_FILTER_STRICT; break;
+                case HealthWarningCode::fwmark_mask_conflict:
+                    aw.code = api::RoutingHealthWarningCode::FWMARK_MASK_CONFLICT; break;
             }
             aw.interface = w.interface;
             aw.outbound = w.outbound;

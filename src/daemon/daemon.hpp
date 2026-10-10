@@ -540,7 +540,7 @@ IcmpTester icmp_tester_;
       GUARDED_BY(routing_health_mutex_){};
   bool routing_health_check_inflight_ GUARDED_BY(routing_health_mutex_){false};
   // Cached `iptables -t nat -S` output; invalidated on every firewall apply.
-  NatTableCache nat_table_cache_;
+  IptablesTableCache host_table_cache_;
   std::vector<std::string> routing_health_logged_warning_keys_
       GUARDED_BY(routing_health_mutex_);
   std::atomic<std::uint64_t> routing_health_revision_{1};

@@ -611,7 +611,9 @@ RoutingHealthReport Daemon::cached_routing_health() {
                 // evaluated when the cached report is (re)built.
                 health.warnings = collect_host_health_warnings(
                     host_inputs, netlink_.dump_interfaces(), backend,
-                    nat_table_cache_, run_command_capture, read_proc_file);
+                    PolicyRuleInputs{netlink_.dump_policy_rules(0),
+                                     runtime_snapshot.policy_rule_specs},
+                    host_table_cache_, run_command_capture, read_proc_file);
               }
             } catch (const std::exception& error) {
               health = unavailable_routing_health(
