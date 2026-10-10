@@ -5,6 +5,7 @@ import {
 } from "@/api/authenticated-sse"
 import {
   DnsTestInterceptEventSource,
+  DnsTestInterceptEventTimeoutCause,
   type DnsTestInterceptEvent,
 } from "@/api/generated/model"
 
@@ -268,7 +269,10 @@ export function dnsEventStreamUrl(
   mode: DnsEventStreamMode,
   markerDomain?: string
 ) {
-  const normalizedDomain = markerDomain?.trim().replace(/\.+$/, "").toLowerCase()
+  const normalizedDomain = markerDomain
+    ?.trim()
+    .replace(/\.+$/, "")
+    .toLowerCase()
   const params = new URLSearchParams({ show: mode })
   if (normalizedDomain) params.set("domain", normalizedDomain)
   return `/api/dns/test?${params.toString()}`
@@ -279,7 +283,10 @@ export function getDnsEventHub(
   mode: DnsEventStreamMode = "keen-pbr",
   markerDomain?: string
 ): DnsEventHub {
-  const normalizedDomain = markerDomain?.trim().replace(/\.+$/, "").toLowerCase()
+  const normalizedDomain = markerDomain
+    ?.trim()
+    .replace(/\.+$/, "")
+    .toLowerCase()
 
   // Generated check domains are unbounded. Keep their hubs transient so a
   // completed check can be collected instead of growing the singleton map
@@ -305,9 +312,11 @@ export function getDnsEventHub(
   return hub
 }
 
-export function parseDnsCheckEvent(
-  data: string
-): DnsTestStreamEvent | null {
+function optionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined
+}
+
+export function parseDnsCheckEvent(data: string): DnsTestStreamEvent | null {
   if (!data.trim()) {
     return null
   }
@@ -366,9 +375,27 @@ export function parseDnsCheckEvent(
       errors: typeof parsed.errors === "number" ? parsed.errors : 0,
       hold_us: typeof parsed.hold_us === "number" ? parsed.hold_us : 0,
       timed_out: parsed.timed_out === true,
-      parse_us: typeof parsed.parse_us === "number" ? parsed.parse_us : undefined,
-      set_write_us:
-        typeof parsed.set_write_us === "number" ? parsed.set_write_us : undefined,
+      cache_hits: optionalNumber(parsed.cache_hits),
+      deferred_refresh: optionalNumber(parsed.deferred_refresh),
+      not_learned: optionalNumber(parsed.not_learned),
+      late_write: parsed.late_write === true ? true : undefined,
+      parse_us: optionalNumber(parsed.parse_us),
+      set_write_us: optionalNumber(parsed.set_write_us),
+      batch_pos: optionalNumber(parsed.batch_pos),
+      batch_size: optionalNumber(parsed.batch_size),
+      queue_wait_us: optionalNumber(parsed.queue_wait_us),
+      budget_left_us: optionalNumber(parsed.budget_left_us),
+      admission_wait_us: optionalNumber(parsed.admission_wait_us),
+      write_elements: optionalNumber(parsed.write_elements),
+      late_batch_elements: optionalNumber(parsed.late_batch_elements),
+      write_errno: optionalNumber(parsed.write_errno),
+      timeout_cause: Object.values(DnsTestInterceptEventTimeoutCause).includes(
+        parsed.timeout_cause as DnsTestInterceptEventTimeoutCause
+      )
+        ? (parsed.timeout_cause as DnsTestInterceptEventTimeoutCause)
+        : undefined,
+      qtype: optionalNumber(parsed.qtype),
+      rcode: optionalNumber(parsed.rcode),
     }
   } catch {
     return null

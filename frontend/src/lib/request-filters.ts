@@ -167,7 +167,7 @@ export function filterRequests<T extends FilterableRow>(
   rows: T[],
   filters: RequestFilters
 ): T[] {
-  if (!hasActiveFilters(filters)) return rows
+  // No early return on default filters: hideEmptyAnswers defaults to on.
   const ipFilter = parseIpFilter(filters.ip)
   const methods = new Set<string>(filters.methods)
   return rows.filter((row) => {
