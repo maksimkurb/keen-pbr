@@ -314,4 +314,15 @@ TEST_CASE("iptables_ipv6_supported: probes ip6tables-restore test script") {
     CHECK(read_file(restore_stdin_path) == "*mangle\nCOMMIT\n");
 }
 
+TEST_CASE("safe_exec_capture_with_timeouts: per-call timeout applies") {
+    SafeExecTimeouts timeouts;
+    timeouts.timeout = std::chrono::milliseconds{200};
+    timeouts.kill_grace = std::chrono::milliseconds{500};
+    const auto started = std::chrono::steady_clock::now();
+    const auto result = safe_exec_capture_with_timeouts({"sleep", "5"}, timeouts, true);
+    const auto elapsed = std::chrono::steady_clock::now() - started;
+    CHECK(result.timed_out);
+    CHECK(elapsed < std::chrono::seconds{3});
+}
+
 } // namespace keen_pbr3

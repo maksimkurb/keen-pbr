@@ -262,6 +262,11 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
                                            bool suppress_stderr,
                                            size_t max_bytes,
                                            bool merge_stderr);
+inline ExecCaptureResult safe_exec_capture_with_timeouts(const std::vector<std::string>& args,
+                                                         SafeExecTimeouts timeouts,
+                                                         bool suppress_stderr,
+                                                         size_t max_bytes,
+                                                         bool merge_stderr);
 
 // Execute a command with arguments directly via fork()+execvp(), bypassing
 // the shell entirely. This prevents shell injection attacks.
@@ -407,10 +412,13 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
 // Execute a command with arguments and capture its stdout output. When
 // merge_stderr is true, stderr is captured into stdout_output as well.
 // Returns output, exit status and whether capture exceeded max_bytes.
-inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
-                                           bool suppress_stderr = false,
-                                           size_t max_bytes = 0,
-                                           bool merge_stderr = false) {
+// Same as safe_exec_capture, but with explicit per-call timeouts instead of
+// the process-global ones.
+inline ExecCaptureResult safe_exec_capture_with_timeouts(const std::vector<std::string>& args,
+                                                         SafeExecTimeouts timeouts,
+                                                         bool suppress_stderr = false,
+                                                         size_t max_bytes = 0,
+                                                         bool merge_stderr = false) {
     ExecCaptureResult result;
     if (args.empty()) return result;
     note_safe_exec_spawn(args);
@@ -485,7 +493,6 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
     }
 
     prepare_parent_process_group(pid);
-    const auto timeouts = safe_exec_timeouts();
     const auto deadline = started_at + timeouts.timeout;
 
     // Parent: read captured output without allowing a silent or stalled child
@@ -567,6 +574,13 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
                                result.timed_out ? "timeout" : "");
     }
     return result;
+}
+
+inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
+                                           bool suppress_stderr = false,
+                                           size_t max_bytes = 0,
+                                           bool merge_stderr = false) {
+    return safe_exec_capture_with_timeouts(args, safe_exec_timeouts(), suppress_stderr, max_bytes, merge_stderr);
 }
 
 } // namespace keen_pbr3
