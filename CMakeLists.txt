@@ -358,6 +358,9 @@ set(SOURCES
   src/daemon/list_service.cpp
   src/daemon/dnsmasq_manager.cpp
   src/daemon/dnsmasq_types.cpp
+  src/daemon/dnsmasq_hook_protocol.cpp
+  src/daemon/dnsmasq_proc.cpp
+  src/daemon/dnsmasq_conf.cpp
   src/config/dnsmasq_selector.cpp
   src/daemon/lifecycle_stages.cpp
   src/daemon/runtime_state_store.cpp
