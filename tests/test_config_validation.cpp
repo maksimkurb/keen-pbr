@@ -2195,3 +2195,35 @@ TEST_CASE("legacy migration issues point at the original json location") {
     REQUIRE_FALSE(issues.empty());
     CHECK(issues.front().path == "outbounds[1].outbound_groups[0]");
 }
+
+// =============================================================================
+// Balance groups sharing or nesting members (pins current behaviour)
+// =============================================================================
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("balance validation: one outbound may be a member of two balance groups") {
+    const auto issues = validate_issues(R"({"outbounds":[
+      {"type":"interface","tag":"wan1","interface":"wan1"},
+      {"type":"interface","tag":"wan2","interface":"wan2"},
+      {"type":"interface","tag":"wan3","interface":"wan3"},
+      {"type":"urltest","tag":"grp_a","url":"http://a.example.test","strategy":"balance",
+       "outbound_groups":[{"outbounds":["wan1","wan2"]}]},
+      {"type":"urltest","tag":"grp_b","url":"http://b.example.test","strategy":"balance",
+       "outbound_groups":[{"outbounds":["wan1","wan3"]}]}
+    ]})");
+    CHECK(issues.empty());
+}
+#endif
+
+TEST_CASE("balance validation: a test group cannot be a member of another test group") {
+    const auto issues = validate_issues(R"({"outbounds":[
+      {"type":"interface","tag":"wan1","interface":"wan1"},
+      {"type":"urltest","tag":"inner","url":"http://a.example.test",
+       "outbound_groups":[{"outbounds":["wan1"]}]},
+      {"type":"urltest","tag":"outer","url":"http://b.example.test",
+       "outbound_groups":[{"outbounds":["inner"]}]}
+    ]})");
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().message.find("not an interface, table, or blackhole") !=
+          std::string::npos);
+}
