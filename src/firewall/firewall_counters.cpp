@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <iterator>
 
+#include "../log/logger.hpp"
+
 namespace keen_pbr3 {
 namespace {
 
@@ -139,8 +141,8 @@ FirewallCounterIndex build_firewall_counter_index(const FirewallPlan& plan,
     if (outbound == index.mark_outbound.end()) continue;
     try {
       index.balance_comment_outbound[rule.key.comment()] = outbound->second;
-    } catch (const std::exception&) {
-      // A key without a representable comment has no rule to read.
+    } catch (const std::exception& error) {
+      Logger::instance().debug("balance rule comment not representable: {}", error.what());
     }
   }
   return index;
