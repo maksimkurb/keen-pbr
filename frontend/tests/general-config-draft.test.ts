@@ -88,12 +88,43 @@ describe("settings draft mirrors the config document", () => {
 
     const disabledDraft = {
       ...draft,
-      dns: { resolver_integration: "none" },
+      dns: { resolver_integration: "none", dnsmasq_instance: "" },
     }
     const updated = buildUpdatedConfig(configWithDns, disabledDraft)
     expect(updated.dns?.resolver_integration).toBe("none")
     expect(updated.dns?.servers).toEqual(configWithDns.dns?.servers)
     expect(updated.dns?.rules).toEqual(configWithDns.dns?.rules)
     expect(updated.dns?.fallback).toEqual(configWithDns.dns?.fallback)
+  })
+
+  test("dnsmasq_instance round-trips through the draft", () => {
+    const configWithInstance = {
+      ...config,
+      dns: { resolver_integration: "dnsmasq", dnsmasq_instance: "uci:lan" },
+    } as ConfigObject
+    const draft = getDraftFromConfig(configWithInstance)
+    expect(draft.dns.dnsmasq_instance).toBe("uci:lan")
+    expect(buildUpdatedConfig(configWithInstance, draft)).toEqual(
+      configWithInstance
+    )
+  })
+
+  test("empty dnsmasq_instance is omitted from the saved config", () => {
+    const configWithInstance = {
+      ...config,
+      dns: { resolver_integration: "dnsmasq", dnsmasq_instance: "uci:lan" },
+    } as ConfigObject
+    const draft = getDraftFromConfig(configWithInstance)
+    draft.dns.dnsmasq_instance = ""
+    const updated = buildUpdatedConfig(configWithInstance, draft)
+    expect(updated.dns).not.toHaveProperty("dnsmasq_instance")
+    expect(updated.dns?.resolver_integration).toBe("dnsmasq")
+  })
+
+  test("non-empty dnsmasq_instance is saved verbatim", () => {
+    const draft = getDraftFromConfig(config)
+    draft.dns.dnsmasq_instance = "uci:lan"
+    const updated = buildUpdatedConfig(config, draft)
+    expect(updated.dns?.dnsmasq_instance).toBe("uci:lan")
   })
 })

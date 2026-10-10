@@ -58,7 +58,7 @@ describe("resolver integration settings", () => {
     const draft = getDraftFromConfig(config)
     const off = buildUpdatedConfig(config, {
       ...draft,
-      dns: { resolver_integration: "none" },
+      dns: { resolver_integration: "none", dnsmasq_instance: "" },
     })
     expect(off.dns?.resolver_integration).toBe("none")
     expect(off.dns?.servers).toEqual(config.dns?.servers)
@@ -69,7 +69,7 @@ describe("resolver integration settings", () => {
 
     const on = buildUpdatedConfig(off, {
       ...getDraftFromConfig(off),
-      dns: { resolver_integration: "dnsmasq" },
+      dns: { resolver_integration: "dnsmasq", dnsmasq_instance: "" },
     })
     expect(on.dns?.resolver_integration).toBe("dnsmasq")
   })

@@ -75,6 +75,7 @@ export type SettingsDraft = {
   }
   dns: {
     resolver_integration: ResolverIntegrationMode
+    dnsmasq_instance: string
   }
   intercept: {
     enabled: boolean
@@ -113,7 +114,7 @@ const fallbackDraft: SettingsDraft = {
   lists_autoupdate: { enabled: false, cron: "0 4 * * 0" },
   fwmark: { start: "0x00010000", mask: "0xffff0000" },
   iproute: { table_start: "150", process_router_traffic: false },
-  dns: { resolver_integration: "none" },
+  dns: { resolver_integration: "none", dnsmasq_instance: "" },
   intercept: {
     enabled: true,
     min_ttl_ms: "300000",
@@ -740,6 +741,21 @@ function LoadedGeneralConfigPage({
               }
             />
           </Field>
+          {form.values.dns.resolver_integration === "dnsmasq" && (
+            <div className="mt-6">
+              <AdvancedTextField
+                field={form.field("dns.dnsmasq_instance")}
+                hint={t("pages.settings.dns.dnsmasqInstanceHint")}
+                id="dnsmasq-instance"
+                inputProps={{
+                  placeholder: t(
+                    "pages.settings.dns.dnsmasqInstancePlaceholder"
+                  ),
+                }}
+                label={t("pages.settings.dns.dnsmasqInstanceLabel")}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -996,6 +1012,7 @@ export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
     },
     dns: {
       resolver_integration: effectiveResolverIntegration(config),
+      dnsmasq_instance: config.dns?.dnsmasq_instance ?? "",
     },
     intercept: {
       enabled: intercept?.enabled ?? fallback.intercept.enabled,
@@ -1037,13 +1054,29 @@ export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
   }
 }
 
+// An empty dnsmasq_instance means automatic selection, so the key is omitted.
+function buildUpdatedDns(
+  config: ConfigObject,
+  draft: SettingsDraft
+): NonNullable<ConfigObject["dns"]> {
+  const dns = { ...config.dns }
+  delete dns.dnsmasq_instance
+  const instance = draft.dns.dnsmasq_instance.trim()
+  return {
+    ...dns,
+    ...(effectiveResolverIntegration(config) === draft.dns.resolver_integration
+      ? {}
+      : { resolver_integration: draft.dns.resolver_integration }),
+    ...(instance === "" ? {} : { dnsmasq_instance: instance }),
+  }
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function buildUpdatedConfig(
   config: ConfigObject,
   draft: SettingsDraft
 ): ConfigObject {
   const { daemon, intercept } = draft
-  const resolverIntegration = draft.dns.resolver_integration
   const tableStart = parseStrictDecimalToNumber(draft.iproute.table_start)
   const marker = {
     ...config.intercept?.dns?.marker,
@@ -1085,12 +1118,7 @@ export function buildUpdatedConfig(
       enabled: draft.lists_autoupdate.enabled,
       cron: draft.lists_autoupdate.cron.trim(),
     },
-    dns: {
-      ...config.dns,
-      ...(effectiveResolverIntegration(config) === resolverIntegration
-        ? {}
-        : { resolver_integration: resolverIntegration }),
-    },
+    dns: buildUpdatedDns(config, draft),
     intercept: {
       ...config.intercept,
       enabled: intercept.enabled,
