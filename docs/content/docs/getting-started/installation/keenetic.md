@@ -3,13 +3,13 @@ title: Keenetic / NetCraze
 weight: 1
 ---
 
-keen-pbr can be installed on Keenetic / NetCraze routers via Entware's `opkg` package manager.
+keen-pbr can be installed on Keenetic / NetCraze routers via {{< term "Entware" >}}'s `opkg` package manager.
 
 {{% steps %}}
 
 ### Install Entware on the router
 
-First, ensure that Entware is installed on your router. Please consult the official router manual for [Keenetic](https://support.keenetic.com/?lang=en) or [NetCraze](https://support.netcraze.ru/?lang=en):
+First, ensure that {{< term "Entware" >}} is installed on your router. Please consult the official router manual for [Keenetic](https://support.keenetic.com/?lang=en) or [NetCraze](https://support.netcraze.ru/?lang=en):
 
 1. Find your router's manual.
 2. In the search field, search for "Installing the Entware repository on a USB drive".
@@ -28,7 +28,7 @@ Open your router's configuration page, navigate to **Management** -> **System se
 
 ### Configure DoH/DoT on the router
 
-It is recommended to set up DoH/DoT DNS servers on your router to protect yourself from DNS spoofing attacks.
+It is recommended to set up {{< term "DoH" >}}/DoT DNS servers on your router to protect yourself from DNS spoofing attacks.
 
 Consult the official Keenetic documentation on how to do it: [DoH and DoT proxy servers for DNS requests encryption](https://support.keenetic.com/titan/kn-1811/en/25049.html).
 
@@ -62,7 +62,7 @@ If the service is **alive**, continue to the next step.
 
 ### Enable `dns-override`
 
-After installing `keen-pbr`, you have to enable `dns-override` so that all DNS requests from LAN clients are forwarded to Entware:
+After installing `keen-pbr`, you have to enable `dns-override` so that all DNS requests from LAN clients are forwarded to {{< term "Entware" >}}:
 
 1. Open http://my.keenetic.net/a (if this link does not open, open `http://<router-ip>/a` instead)
 2. Run the commands `opkg dns-override` and then `system configuration save`
@@ -76,48 +76,42 @@ You can also configure keen-pbr manually by modifying the configuration file: `/
 
 ### Choose RAW or mangle PREROUTING
 
-This choice is specific to Keenetic / NetCraze. Keenetic can periodically rebuild
-its `mangle` table, for example after a DHCP lease renewal. The normal mangle
-integration is then briefly absent until keen-pbr reapplies it. RAW is independent
-of that rebuild, but runs before Keenetic's **Connection Policies** > **Policy
-Bindings** rules. The platform's iptables replacement behaviour is also discussed in the
-[Keenetic Community forum](https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/).
+This choice exists only on Keenetic / NetCraze. keen-pbr sets {{< term "fwmark" >}} in one of two firewall tables:
+
+- **{{< term "mangle" >}}**: Keenetic rebuilds this table from time to time (for example after a DHCP lease renewal), and keen-pbr's rules are briefly missing until keen-pbr restores them;
+- **raw**: Keenetic does not touch it, but rules from **Connection Policies** > **Policy Bindings** run later and overwrite keen-pbr's fwmark.
+
+See also the [Keenetic Community forum thread](https://forum.keenetic.ru/topic/20631-keenetic-ndms-%D0%BE%D1%87%D0%B8%D1%89%D0%B0%D0%B5%D1%82-iptables-%D0%B2%D0%BE-%D0%B2%D1%80%D0%B5%D0%BC%D1%8F-%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%D0%B0-%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B/) about Keenetic rebuilding iptables.
 
 | Mode | Benefit | Trade-off |
 |---|---|---|
-| **RAW** (default when available) | PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and a kill switch has fewer opportunities for packets to leak through the ordinary route. | After keen-pbr sets its `fwmark` in RAW, Keenetic's **Connection Policies** > **Policy Bindings** rules overwrite it. RAW mode therefore works only for devices assigned the **Default policy**. |
-| **mangle** | keen-pbr runs after Keenetic's Connection Policy marks, so it can override routing for devices with a non-default policy. | When Keenetic rebuilds its routing table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow. |
+| **RAW** (default when available) | PBR remains active across a Keenetic mangle rebuild. Long-running, sensitive flows such as gaming sessions avoid rebuild-related breaks, and packets have fewer chances to bypass the VPN. | After keen-pbr sets its `fwmark` in RAW, Keenetic's **Connection Policies** > **Policy Bindings** rules overwrite it. RAW mode therefore works only for devices assigned the **Default policy**. |
+| **mangle** | keen-pbr runs after Keenetic sets its own fwmarks for Connection Policy, so it can override routing for devices with a non-default policy. | When Keenetic rebuilds its `mangle` table (usually about every five minutes), keen-pbr rules disappear briefly. A few packets can use the ordinary route before keen-pbr restores them, disrupting a gaming session or another sensitive flow. |
 
 {{< callout type="info" >}}
 For the most predictable Keenetic setup, do not assign **Connection Policies** to devices in Keenetic. Instead, create the equivalent per-device [keen-pbr route rules]({{< relref "/docs/configuration/route-rules" >}}) using the `src_addr` (**Source address**) field. This keeps routing policy in keen-pbr and avoids conflicts with Keenetic policy bindings.
 {{< /callout >}}
 
-The package default is `auto`: it probes IPv4 and IPv6 independently, using RAW
-for each supported family and mangle for the other. Locally generated traffic
-always remains in mangle OUTPUT. `enable`, `ipv4-only`, and `ipv6-only` are
-available when a family must be forced; forced capability failures stop startup.
+By default keen-pbr checks separately for IPv4 and IPv6 whether RAW is available, and uses it if so; otherwise mangle. The system log shows the selected mode after the service starts:
 
-To see which mode was selected, restart the service and look for these messages
-in the device system log:
+```text
+IPv4 raw PREROUTING available
+WARNING: IPv6 raw PREROUTING unavailable: ...
+```
 
-Messages identify IPv4 and IPv6 capability resolution and the resulting daemon
-flags (`--use-raw-prerouting` and `--use-raw6-prerouting`).
-
-To always use mangle, edit `/opt/etc/keen-pbr/defaults`:
+To always use mangle, add this line to `/opt/etc/keen-pbr/defaults`:
 
 ```sh
 KEEN_PBR_RAW_PREROUTING="disable"
 ```
 
-Then restart the service:
+and restart the service:
 
 ```sh
 /opt/etc/init.d/S80keen-pbr restart
 ```
 
-Set `KEEN_PBR_RAW_PREROUTING="enable"` to require RAW for every enabled family;
-use `ipv4-only` or `ipv6-only` to force one family. The service fails to start
-instead of falling back to mangle if a forced capability is unavailable.
+The other values of this variable are described in [CLI]({{< relref "/docs/cli#--use-raw-prerouting" >}}).
 
 Basic commands:
 
@@ -141,12 +135,12 @@ Go to the [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) page
 
 ## Upgrading from the dnsmasq integration
 
-Older keen-pbr versions added a managed block with a `conf-script` line to `/opt/etc/dnsmasq.conf`. This integration was removed; on package upgrade (and removal) `/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh` cleans up:
+Older keen-pbr versions always added their own block to `/opt/etc/dnsmasq.conf`. The current version does not need it, and on upgrade the package cleans up by itself:
 
-- the keen-pbr managed block (and a bare `conf-script` line) is removed from `/opt/etc/dnsmasq.conf`; the original file is saved once as `/opt/etc/dnsmasq.conf.keen-pbr.bak`;
-- a `# BEGIN keen-pbr fallback upstream` block added by an earlier upgrade is removed when it still matches the packaged fallback servers exactly (a modified block is kept). With the dnsmasq upstream integration the fallback servers are used only while keen-pbr is not running (they are never added to `dnsmasq.conf`). If dnsmasq would be left with no upstream at all (no `server=`/`resolv-file=` line and no integration), that marked block is kept or written instead. **Review it**, or replace it with your own upstream; enabling the integration removes it;
-- dnsmasq is restarted once. Running the script again changes nothing.
+- removes the keen-pbr block from `/opt/etc/dnsmasq.conf`, keeping a copy of the original file as `/opt/etc/dnsmasq.conf.keen-pbr.bak`;
+- if dnsmasq would be left without any DNS server to forward to, adds a `# BEGIN keen-pbr fallback upstream` block with public DNS servers. **Review it** and replace it with your own servers if needed;
+- restarts dnsmasq once.
 
-Alternatively, remove Entware dnsmasq and use the built-in Keenetic DNS proxy (ndnproxy): keen-pbr does not need a particular resolver.
+You can also remove {{< term "Entware" >}} dnsmasq altogether and use the built-in Keenetic DNS proxy: keen-pbr works with any resolver.
 
-Per-list DNS servers ([`dns.rules`]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}})) need Entware `dnsmasq-full` as the LAN resolver; enabling them adds the `# BEGIN keen-pbr upstream dns` conf-dir block to `/opt/etc/dnsmasq.conf`.
+[Per-list DNS servers]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}) need Entware `dnsmasq-full` as the LAN resolver. When you enable them, keen-pbr adds a `# BEGIN keen-pbr upstream dns` block to `/opt/etc/dnsmasq.conf`.

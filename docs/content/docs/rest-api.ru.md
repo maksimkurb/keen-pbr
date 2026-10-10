@@ -39,7 +39,7 @@ keen-pbr hash-password
 
 Чтобы включить аутентификацию и сразу записать новый хеш в выбранный
 `config.json`, выполните `keen-pbr --config /path/to/config.json hash-password --update`.
-Команда атомарно обновит файл и напомнит о необходимости перезапуска службы,
+Команда атомарно обновит файл и напомнит о необходимости перезапуска сервиса,
 поскольку она изменяет файл вне работающего демона. Изменения аутентификации и
 CORS, сделанные через веб-интерфейс, сохраняются и вступают в силу сразу, без
 применения отложенного черновика конфигурации маршрутизации.
@@ -48,8 +48,7 @@ CORS, сделанные через веб-интерфейс, сохраняю�
 веб-интерфейс использует его в заголовке страницы браузера и под логотипом
 keen-pbr, чтобы различать устройства.
 
-Для хеширования пароля используется реализация Argon2id из Monocypher. Хеши
-PBKDF2 из предыдущих версий не поддерживаются — их необходимо создать заново.
+Пароль хранится в виде хеша Argon2id. Хеши из старых версий keen-pbr не подходят: если пароль задавался в старой версии, задайте его заново.
 API конфигурации никогда не возвращает и не принимает сохранённый хеш. Веб-интерфейс
 получает только состояние через `GET /api/auth/password`, а новый пароль в открытом
 виде отправляет только в `POST /api/auth/settings`; хеширование выполняет демон.
@@ -71,11 +70,11 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 
 | Маршрут | Назначение |
 |---|---|
-| `GET /api/health/service` | Состояние службы, черновика конфигурации, операции жизненного цикла и отката. |
+| `GET /api/health/service` | Состояние сервиса, черновика конфигурации, операции жизненного цикла и отката. |
 | `POST /api/service/start`, `/stop`, `/restart` | Асинхронный запуск, остановка или перезапуск маршрутизации. |
 | `GET /api/config`, `POST /api/config` | Чтение или подготовка проверенного черновика конфигурации. |
 | `POST /api/config/discard`, `/save`, `/rollback` | Отмена черновика, сохранение и применение либо явный откат неудачного применения. |
-| `GET /api/status/events` | Поток Server-Sent Events о состоянии службы, outbounds и интерфейсов. |
+| `GET /api/status/events` | Поток Server-Sent Events о состоянии сервиса, outbounds и интерфейсов. |
 | `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Текущее состояние outbounds и список системных интерфейсов. |
 | `GET /api/health/routing`, `POST /api/routing/test` | Кэшированная диагностика маршрутизации/firewall и проверка маршрута для цели. |
 | `POST /api/lists/refresh` | Обновление одного или всех удалённых списков URL. |
@@ -114,7 +113,7 @@ curl http://127.0.0.1:12121/api/health/service
 При включённом перехвате этот ответ также содержит объект `intercept`. В нём
 раздельно указаны `dns_hold_active` и `l7_active`, возможности
 (`nfqueue`, `nflog`, `connbytes`) и счётчики DNS-разбора/hold, частичных TCP,
-L7-пакетов, обновлений наборов, очистки conntrack и переполнений NFQUEUE/NFLOG.
+L7-пакетов, обновлений наборов, очистки {{< term "conntrack" >}} и переполнений {{< term "NFQUEUE" >}}/NFLOG.
 Недоступность NFQUEUE не означает недоступность L7 и наоборот.
 
 Для текущего состояния outbounds во время выполнения (здоровье, задержка, circuit breaker) используйте `GET /api/runtime/outbounds`.
@@ -131,10 +130,7 @@ curl -u admin:password http://127.0.0.1:12121/metrics
 
 Все длительности — числа с плавающей точкой в **секундах**. Серия, не имеющая
 смысла, **не публикуется** (а не выводится как `0`). `# HELP` и `# TYPE`
-выводятся один раз на семейство, пустые семейства не печатаются. Это
-несовместимое изменение: прежние `keen_pbr_intercept_*`,
-`keen_pbr_dns_write_duration_seconds`, метрики времени netlink, гистограмма
-проб и `probe_success_ratio` удалены.
+выводятся один раз на семейство, пустые семейства не печатаются.
 
 ### Процесс и конфигурация
 
@@ -165,22 +161,22 @@ curl -u admin:password http://127.0.0.1:12121/metrics
 |---|---|---|
 | `keen_pbr_probe_attempts_total` | counter | Принятые результаты проб. |
 | `keen_pbr_probe_successes_total` | counter | Успешные результаты проб. |
-| `keen_pbr_probe_packets_sent_total` | counter | Отправленные ICMP echo-запросы. Только `type="icmptest"`. |
+| `keen_pbr_probe_packets_sent_total` | counter | Отправленные {{< term "ICMP" >}} echo-запросы. Только `type="icmptest"`. |
 | `keen_pbr_probe_packets_received_total` | counter | Полученные ICMP echo-ответы. Только `type="icmptest"`. |
-| `keen_pbr_probe_up` | gauge | `1` — последняя проба успешна, `0` — неуспешна. |
-| `keen_pbr_probe_last_success_timestamp_seconds` | gauge | Unix-время последней успешной пробы. |
-| `keen_pbr_probe_latency_seconds` | gauge | Задержка последней успешной пробы: для ICMP — среднее по полученным ответам, для URL — время запроса. Точность лучше миллисекунды. |
-| `keen_pbr_probe_latency_min_seconds`, `keen_pbr_probe_latency_max_seconds` | gauge | Самый быстрый и самый медленный ответ последней успешной ICMP-пробы. Только `type="icmptest"`. |
+| `keen_pbr_probe_up` | gauge | `1` — последняя проверка успешна, `0` — неуспешна. |
+| `keen_pbr_probe_last_success_timestamp_seconds` | gauge | Unix-время последней успешной проверки. |
+| `keen_pbr_probe_latency_seconds` | gauge | Задержка последней успешной проверки: для ICMP — среднее по полученным ответам, для URL — время запроса. Точность лучше миллисекунды. |
+| `keen_pbr_probe_latency_min_seconds`, `keen_pbr_probe_latency_max_seconds` | gauge | Самый быстрый и самый медленный ответ последней успешной ICMP-проверки. Только `type="icmptest"`. |
 | `keen_pbr_urltest_selected` | gauge | Метки `group`, `outbound`: `1` у выбранного сейчас outbound группы, `0` у остальных. |
 | `keen_pbr_urltest_selection_changes_total` | counter | Метка `group`: число смен выбора с момента регистрации группы (применение конфигурации регистрирует её заново и сбрасывает счётчик). |
 
 #### Когда серии не публикуются
 
-- `probe_up` — пока не завершилась первая проба.
+- `probe_up` — пока не завершилась первая проверка.
 - `probe_latency_seconds`, `probe_latency_min_seconds`, `probe_latency_max_seconds` —
-  если **последняя** проба неуспешна или проб ещё не было. В Grafana это разрыв
+  если **последняя** проверка неуспешна или проверок ещё не было. В Grafana это разрыв
   линии, а не `0`.
-- `probe_last_success_timestamp_seconds` — до первой успешной пробы.
+- `probe_last_success_timestamp_seconds` — до первой успешной проверки.
 - `list_last_update_timestamp_seconds` и
   `config_reload_last_success_timestamp_seconds` — до первого успеха.
 
@@ -204,7 +200,7 @@ curl -u admin:password http://127.0.0.1:12121/metrics
 | `keen_pbr_set_refresh_total` | counter | `result` = `skipped`, `deferred`, `dropped` | Исходы обновления кэшированных элементов; `dropped` — очередь была заполнена. |
 | `keen_pbr_set_cache_lookups_total` | counter | `result` = `hit`, `miss` | Обращения к кэшу наборов; попадание избавляет от записи до вердикта. |
 | `keen_pbr_set_cache_entries` | gauge | - | Запомненные элементы динамических наборов. |
-| `keen_pbr_conntrack_requests_total` | counter | - | Запросы очистки conntrack. |
+| `keen_pbr_conntrack_requests_total` | counter | - | Запросы очистки {{< term "conntrack" >}}. |
 | `keen_pbr_conntrack_deleted_total` | counter | - | Удалённые записи conntrack. |
 
 Доля «медленных» записей вычисляется по bucket `le="0.025"` метрики
@@ -278,7 +274,7 @@ groups:
         expr: keen_pbr_probe_up == 0
         for: 5m
         annotations:
-          summary: "Проба {{ $labels.outbound }} неуспешна ({{ $labels.test_outbound }})"
+          summary: "Проверка {{ $labels.outbound }} неуспешна ({{ $labels.test_outbound }})"
       - alert: KeenPbrProbeStale
         # Пробы перестали завершаться (интервал проб должен быть заметно меньше 30м).
         expr: increase(keen_pbr_probe_attempts_total[30m]) == 0
@@ -509,6 +505,10 @@ curl -X POST http://127.0.0.1:12121/api/routing/test \
   -d '{"target": "example.com", "proto": "tcp", "dest_port": 443}'
 ```
 
+Необязательные поля пакета (`proto` — `tcp`, `udp` или `other`, `dest_port`,
+`src_addr`, `src_port` и `dscp`) нужны, чтобы проверить правила с фильтрами по
+портам, адресам и {{< term "DSCP" >}}. Без них проверяется только попадание цели в списки.
+
 ### Ответ
 
 ```json
@@ -612,9 +612,8 @@ curl http://127.0.0.1:12121/api/health/routing
 Транслирует события перехвата как Server-Sent Events. Соединение получает
 `HELLO`. По умолчанию `show=keen-pbr` выдаёт только marker-события и закрывается
 после подходящего marker; `show=all` (или совместимый псевдоним `show=full`)
-остаётся открытым и выдаёт наблюдения DNS, TLS SNI, HTTP Host, QUIC Initial и
-marker, включая домены без совпадения со списками. Старые события `DNS` от
-удалённого `dns.dns_test_server` больше не выдаются. Параметр
+остаётся открытым и выдаёт наблюдения DNS, TLS {{< term "SNI" >}}, HTTP Host, {{< term "QUIC" >}} Initial и
+marker, включая домены без совпадения со списками. Параметр
 `domain=<сгенерированный marker>` в представлении по умолчанию изолирует
 проверки друг от друга.
 

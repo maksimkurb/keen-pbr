@@ -54,6 +54,6 @@ systemctl restart keen-pbr
 
 ## Обновление с интеграции dnsmasq
 
-Старые версии keen-pbr устанавливали в каталог конфигурации dnsmasq drop-in `keen-pbr.conf` со строкой `conf-script=/usr/lib/keen-pbr/dnsmasq.sh ...`. Интеграция удалена; при обновлении пакет удаляет этот drop-in, если в нём только строка keen-pbr. Остальная конфигурация dnsmasq не затрагивается. После этого перезапустите dnsmasq, если он запущен.
+Старые версии keen-pbr всегда добавляли в каталог конфигурации dnsmasq файл `keen-pbr.conf` со строкой `conf-script`. Текущей версии он не нужен: при обновлении пакет удаляет этот файл, если в нём нет ничего, кроме этой строки. Остальная конфигурация dnsmasq не меняется. Если dnsmasq запущен, перезапустите его после обновления.
 
-Per-list DNS-серверы ([`dns.rules`]({{< relref "/docs/configuration/dns#per-list-dns-servers--маршрутизация-доменов-через-разные-dns" >}})) используют новый drop-in `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf`.
+Если вы включите [отдельные DNS-серверы для списков]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}), keen-pbr будет использовать другой файл: `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf`.

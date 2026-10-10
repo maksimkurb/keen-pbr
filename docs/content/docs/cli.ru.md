@@ -14,13 +14,13 @@ aliases:
 Usage: keen-pbr [options] <command>
 
 Options:
-  --config <path>    Путь к JSON файлу конфигурации
-  --log-level <lvl>  Уровень логов: error, warn, info, verbose, debug
-  --no-api           Отключить REST API во время выполнения
-  --use-raw-prerouting  Использовать raw PREROUTING для пересылаемого IPv4 (только iptables)
-  --use-raw6-prerouting Использовать raw PREROUTING для пересылаемого IPv6 (только iptables)
-  --version         Показать версию и выйти
-  --help            Показать эту справку и выйти
+  --config <path>    Path to JSON config file
+  --log-level <lvl>  Log level: error, warn, info, verbose, debug
+  --no-api           Disable REST API at runtime
+  --use-raw-prerouting  Use raw PREROUTING for IPv4 forwarded traffic (iptables only)
+  --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only)
+  --version          Show version and exit
+  --help             Show this help and exit
 
 Commands:
   service
@@ -41,36 +41,27 @@ Commands:
 | `--log-level <lvl>` | Детализация логов: `error`, `warn`, `info`, `verbose` или `debug`. |
 | `--log-target <target>` | Назначение логов: `stderr`, `syslog` или `both`. По умолчанию для всех команд используется `both`. Пакетные сервисные файлы (systemd, OpenWrt procd, init-скрипт Keenetic) передают `--log-target syslog`, чтобы логи не дублировались, когда stdout/stderr дополнительно перехватываются системой инициализации. |
 | `--no-api` | Отключить REST API, даже если он включён в конфиге. |
-| `--use-raw-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv4-трафика; доступно только с iptables. |
+| `--use-raw-prerouting` | Использовать raw {{< term "PREROUTING" >}} для классификации пересылаемого IPv4-трафика; доступно только с iptables. |
 | `--use-raw6-prerouting` | Использовать raw PREROUTING для классификации пересылаемого IPv6-трафика; доступно только с iptables. |
 | `--version` | Вывести версию и выйти. |
 | `--help` | Вывести справку и выйти. |
 
 ### `--use-raw-prerouting`
 
-Этот флаг переносит классификацию только пересылаемого IPv4-трафика из `mangle
-PREROUTING` в `raw PREROUTING`. Локально сгенерированный трафик остаётся в
-`mangle OUTPUT`, а IPv6 настраивается независимо флагом
-`--use-raw6-prerouting`.
+Флаг нужен в основном на Keenetic / NetCraze, где прошивка время от времени пересобирает таблицу `mangle` и правила keen-pbr ненадолго пропадают. С этим флагом keen-pbr ставит правила для транзитного IPv4-трафика в таблицу `raw`, которую прошивка не трогает. Для IPv6 есть отдельный флаг `--use-raw6-prerouting`. Трафик самого роутера всегда обрабатывается в `mangle OUTPUT`.
 
-На Keenetic / NetCraze init-скрипт независимо проверяет и при
-необходимости загружает `iptable_raw.ko` и `ip6table_raw.ko`. По умолчанию
-`KEEN_PBR_RAW_PREROUTING="auto"`: каждая семья использует RAW только после
-успешной проверки, иначе для неё используется mangle. Чтобы всегда
-использовать mangle, добавьте в `/opt/etc/keen-pbr/defaults`:
+На Keenetic / NetCraze флаги выставляет скрипт запуска. Режим задаётся переменной `KEEN_PBR_RAW_PREROUTING` в `/opt/etc/keen-pbr/defaults`:
 
-```sh
-KEEN_PBR_RAW_PREROUTING="disable"
-```
+| Значение | Что делает |
+|---|---|
+| `auto` (по умолчанию) | Для IPv4 и IPv6 отдельно проверяет, работает ли `raw`, и использует его, если работает, иначе `mangle` |
+| `disable` | Всегда использовать `mangle` |
+| `enable` | Требовать `raw` для IPv4 и IPv6. Если `raw` недоступен, сервис не запустится |
+| `ipv4-only`, `ipv6-only` | Требовать `raw` только для одного семейства адресов |
 
-Затем перезапустите сервис. Значение `auto` проверяет IPv4 и IPv6 независимо:
-доступное семейство использует RAW, недоступное — mangle. Значения `enable`,
-`ipv4-only` и `ipv6-only` требуют RAW для соответствующего семейства и не
-допускают переход на mangle при ошибке проверки. RAW работает до conntrack и
-намеренно не использует CONNMARK. Сравнение последствий для Keenetic приведено в
-[инструкции по установке Keenetic / NetCraze]({{< relref "/docs/getting-started/installation/keenetic" >}}).
+После изменения перезапустите сервис. Чем отличаются режимы на практике, описано в [инструкции по установке Keenetic / NetCraze]({{< relref "/docs/getting-started/installation/keenetic" >}}).
 
-Проверить обе возможности RAW можно так:
+Проверить, доступен ли `raw`:
 
 ```sh
 ls -l "/lib/modules/$(uname -r)/iptable_raw.ko"
@@ -88,14 +79,14 @@ ip6tables -t raw -S
 | `service` | Запустить сервис маршрутизации на переднем плане. |
 | `status` | Показать состояние маршрутизации, таблиц маршрутизации, правил и верификации firewall, затем выйти. |
 | `download` | Загрузить все списки с URL в кэш, затем выйти. |
-| `generate-resolver-config dnsmasq` | Вывести конфигурацию dnsmasq для per-list DNS-серверов в stdout. |
+| `generate-resolver-config dnsmasq` | Вывести в stdout конфигурацию dnsmasq для отдельных DNS-серверов списков. |
 | `dnsmasq detect [--json]` | Показать экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr. |
-| `dnsmasq remove <selector>` | Удалить drop-in и принадлежащие keen-pbr настройки из одного экземпляра dnsmasq. |
+| `dnsmasq remove <selector>` | Удалить {{< term "drop-in" >}} и принадлежащие keen-pbr настройки из одного экземпляра dnsmasq. |
 | `test-routing <ip-or-domain>` | Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. |
 
 ### `generate-resolver-config dnsmasq`
 
-Когда включена `dns.resolver_integration: "dnsmasq"`, эта команда выводит сгенерированную конфигурацию dnsmasq в stdout. Конфигурация включает сопоставления домен-сервер, исключения rebind и fallback-серверы.
+Когда включена `dns.resolver_integration: "dnsmasq"`, эта команда выводит сгенерированную конфигурацию dnsmasq в stdout. В ней соответствия «домен → сервер», исключения защиты от {{< term "DNS rebinding" >}} и резервные (`fallback`) серверы.
 
 **Использование:**
 
@@ -120,9 +111,9 @@ rebind-domain-ok=/openai.com/www.openai.com/...
 **Поведение:**
 - Всегда завершается с кодом 0, даже при ошибках; ошибки выводятся в виде строк комментариев `# keen-pbr: ...`.
 - Когда `resolver_integration: "none"` (по умолчанию), вывод пуст; динамические наборы заполняются перехватом.
-- Используется внутри platform hook: dnsmasq читает конфиг через эту команду (см. `conf-script=keen-pbr generate-resolver-config dnsmasq` в drop-in).
+- Используется hook-скриптом платформы: dnsmasq читает конфиг через эту команду (см. `conf-script=keen-pbr generate-resolver-config dnsmasq` в {{< term "drop-in" >}}).
 
-### `dnsmasq detect` и `remove`
+### `dnsmasq detect` и `remove` {#dnsmasq-detect-and-remove}
 
 Просмотр и очистка интеграции с dnsmasq без демона. Ни одной из команд не нужен управляющий сокет.
 
@@ -131,7 +122,7 @@ keen-pbr dnsmasq detect [--json]
 keen-pbr dnsmasq remove <selector>
 ```
 
-**`detect`** выводит все экземпляры dnsmasq, о которых сообщает platform hook: запущен ли, DNS-адрес и чем он подтверждён, слушающие сокеты, установлен ли drop-in keen-pbr и какую конфигурацию загрузил dnsmasq, а также проблемы. В последней строке указано, какой экземпляр выбрал keen-pbr и как (`explicit`, `adopted` или `automatic`), либо почему выбрать не удалось.
+**`detect`** выводит все экземпляры dnsmasq, о которых сообщает hook-скрипт платформы: запущен ли, DNS-адрес и чем он подтверждён, слушающие сокеты, установлен ли {{< term "drop-in" >}} keen-pbr и какую конфигурацию загрузил dnsmasq, а также проблемы. В последней строке указано, какой экземпляр выбрал keen-pbr и как (`explicit`, `adopted` или `automatic`), либо почему выбрать не удалось.
 
 ```text
 dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)
@@ -152,7 +143,7 @@ Selection: uci:cfg01411c (adopted)
 - Код возврата `0`, если экземпляр выбран и проблем нет, иначе `1`.
 - Если выбор неоднозначен, в конце выводится подсказка задать `dns.dnsmasq_instance`.
 
-**`remove <selector>`** через platform hook удаляет из одного экземпляра drop-in keen-pbr и настройки, которые добавил keen-pbr (например, записи `addnmount`, учтённые в `keen_pbr_addnmount` на OpenWrt), и перезапускает этот экземпляр. Всё, что точно не принадлежит keen-pbr, остаётся нетронутым. Команда нужна для остатков, которые показывает `detect` (например, после отключения интеграции при остановленном keen-pbr).
+**`remove <selector>`** через hook-скрипт платформы удаляет из одного экземпляра drop-in keen-pbr и настройки, которые добавил keen-pbr (например, записи `addnmount`, учтённые в `keen_pbr_addnmount` на OpenWrt), и перезапускает этот экземпляр. Всё, что точно не принадлежит keen-pbr, остаётся нетронутым. Команда нужна для остатков, которые показывает `detect` (например, после отключения интеграции при остановленном keen-pbr).
 
 - Нужны права root. Код возврата `64`, если селектор не указан или некорректен.
 - Если интеграция для этого экземпляра всё ещё включена, команда напечатает примечание: демон может установить drop-in снова при следующей синхронизации. Сначала отключите интеграцию.
@@ -197,11 +188,11 @@ Outbounds:
 
 Firewall:
   chain   KeenPbrTable / prerouting hook ............................... OK
-    rule    kpbr4_generic -> MARK 0x00010000 ........................ MISSING
-     правило не найдено в цепочке prerouting nftables
+  rule    kpbr4_generic -> MARK 0x00010000 ........................ MISSING
+    rule not found in nftables prerouting chain
 
-Overall: DEGRADED (2 проверки не пройдено)
-Статус: OK / MISSING / MISMATCH / ERROR
+Overall: DEGRADED (2 check(s) failed)
+Status values: OK / MISSING / MISMATCH / ERROR
 ```
 
 Загрузить все списки с URL:

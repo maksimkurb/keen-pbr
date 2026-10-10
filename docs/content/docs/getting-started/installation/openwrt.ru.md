@@ -74,12 +74,8 @@ service keen-pbr restart
 
 ## Обновление с интеграции dnsmasq
 
-Старые версии keen-pbr управляли dnsmasq: переносили его upstream-серверы в `dhcp.@dnsmasq[*].kpbr_server`, добавляли `conf-script` и монтирования jail. При обновлении пакета keen-pbr сам отменяет эти изменения:
+Старые версии keen-pbr всегда перенастраивали dnsmasq: переносили его DNS-серверы в свою опцию `kpbr_server` и добавляли свои настройки. При обновлении пакет сам всё возвращает: переносит DNS-серверы обратно в `server`, удаляет настройки keen-pbr и один раз перезапускает dnsmasq. Секции dnsmasq, которые keen-pbr не трогал, остаются как есть.
 
-- upstream-серверы из `kpbr_server` возвращаются в `server` (без дубликатов, в исходном порядке), после чего `kpbr_server` удаляется;
-- записи `addnmount` keen-pbr (`/usr/sbin/keen-pbr`, `/etc/keen-pbr`, `/var/cache/keen-pbr`) и drop-in `keen-pbr.conf` в `confdir` dnsmasq удаляются;
-- UCI `dhcp` фиксируется (commit), dnsmasq перезапускается один раз. Повторный запуск ничего не меняет, а секции dnsmasq, которых keen-pbr не касался, остаются как есть.
+Для маршрутизации dnsmasq не нужен. Если вы включите [отдельные DNS-серверы для списков]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}), keen-pbr снова добавит в dnsmasq нужные ему настройки.
 
-dnsmasq не требуется для маршрутизации; per-list DNS-серверы можно включить снова через [`dns.rules`]({{< relref "/docs/configuration/dns#per-list-dns-servers--маршрутизация-доменов-через-разные-dns" >}}), в этом случае keen-pbr повторно добавляет `addnmount`-записи для `/usr/sbin/keen-pbr`, `/etc/keen-pbr`, `/var/cache/keen-pbr` (не `/var/run/keen-pbr`) и tmpfs drop-in `keen-pbr-upstream-dns.conf`. Обратите внимание: cleanup при обновлении удаляет мон­ти­рования только legacy-инсталляций.
-
-Миграцию можно запустить вручную: `/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr`.
+Чтобы повторить очистку вручную, выполните `/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr`.

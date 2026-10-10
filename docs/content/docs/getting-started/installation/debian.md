@@ -54,6 +54,6 @@ If pre-built packages are not yet available for your platform, see [Build from S
 
 ## Upgrading from the dnsmasq integration
 
-Older keen-pbr versions installed a `keen-pbr.conf` drop-in with a `conf-script=/usr/lib/keen-pbr/dnsmasq.sh ...` line into the dnsmasq configuration directory. The integration was removed; the package upgrade deletes that drop-in when it contains only the keen-pbr line. Other dnsmasq configuration is not touched. Restart dnsmasq afterwards if it is running.
+Older keen-pbr versions always added the file `keen-pbr.conf` with a `conf-script` line to the dnsmasq configuration directory. The current version does not need it: on upgrade the package deletes this file if it contains nothing but that line. The rest of your dnsmasq configuration is not touched. If dnsmasq is running, restart it after the upgrade.
 
-Per-list DNS servers ([`dns.rules`]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}})) use a new drop-in `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf`.
+If you enable [per-list DNS servers]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}), keen-pbr uses a different file: `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf`.

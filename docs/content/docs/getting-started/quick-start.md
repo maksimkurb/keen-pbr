@@ -7,7 +7,7 @@ This guide helps you finish a first working setup that sends selected sites thro
 
 If you installed the full package, the Web UI is the easiest place to start. If you installed `keen-pbr-headless` or prefer editing files directly, use the JSON / CLI tab.
 
-To complete your minimal installation you will need to configure the following things:
+A minimal setup takes four steps:
 
 ```mermaid
 
@@ -89,7 +89,7 @@ Go to **Routing rules** and route `my_sites` through the `vpn` outbound.
     - For Windows PC, open Command Prompt and run `ipconfig /flushdns`.
     - For Linux PC, open Terminal and run `sudo resolvectl flush-caches`.
     - For mobile devices just reconnect to your WiFi.
-3. Open a website from your list (`ipconfig.co`) and check that IP is differs from the other "my IP" website (e.g. `wtfismyip.com`)
+3. Open a website from your list (`ifconfig.co`) and check that it shows a different IP than an ordinary "my IP" website (e.g. `wtfismyip.com`)
 
 {{% /steps %}}
 

@@ -19,17 +19,15 @@ Named collections of IPs, CIDRs, and domain names. Sources can be combined freel
 - **Inline domains** (`domains`) — loaded directly from config
 - **Local file** (`file`) — read from disk
 
-At startup, IP/CIDR entries are loaded into kernel sets. The iptables backend alternates between `kpbr4s_/kpbr4S_` and `kpbr6s_/kpbr6S_`; nftables keeps stable `kpbr4_`/`kpbr6_` names. Static entries have no timeout.
+At startup, IP addresses and subnets from lists are loaded into kernel sets ({{< term "ipset" >}} or nftables sets) named like `kpbr4_<list>` and `kpbr6_<list>`. These entries stay until the list changes. With iptables, keen-pbr keeps two sets per list (`kpbr4s_`/`kpbr4S_`) and swaps between them on update, so rules are never left without data.
 
-Domain entries are matched by the DNS/L7 interception service and their
-resolved IPs are added to the matching dynamic set (`kpbr4d_<list>`,
-`kpbr6d_<list>`) with bounded TTL.
+IP addresses of domains are collected from DNS replies and connections passing through the router and added to separate `kpbr4d_<list>` and `kpbr6d_<list>` sets. These are called **dynamic sets**: each address in them is kept for a limited time ({{< term "TTL" >}}) and then removed.
 
 See [Lists]({{< relref "/docs/configuration/lists" >}}) for the full reference.
 
 ### Outbounds
 
-Named egress targets. Five types:
+Named egress targets. Six types:
 
 | Type | Description |
 |---|---|
@@ -37,53 +35,54 @@ Named egress targets. Five types:
 | `table` | Defer to an existing kernel routing table |
 | `blackhole` | Drop matching traffic |
 | `ignore` | Pass through without modification (uses default route) |
-| `urltest` | Adaptive selection: probes candidate outbounds by latency, picks the fastest within a tolerance window; includes circuit breaker to prevent flapping |
+| `urltest` | Automatic selection: checks links with an HTTP request and picks the fastest one or spreads connections between them; an unstable link is temporarily excluded |
+| `icmptest` | Same as `urltest`, but links are checked with ping ({{< term "ICMP" >}}) |
 
-`interface` and `table` outbounds get fwmarks and policy-routing entries. `urltest` selects among child outbounds that do. `blackhole` becomes a firewall drop rule, and `ignore` becomes a firewall pass-through rule.
+`interface` and `table` outbounds get fwmarks and policy-routing entries. `urltest` and `icmptest` pick one of their links, which are such outbounds. `blackhole` becomes a firewall drop rule, and `ignore` becomes a firewall pass-through rule.
 
-When a rule points to `ignore`, keen-pbr installs a matching firewall verdict that stops further keen-pbr rule processing and leaves the packet unmarked. No routing table or `ip rule` is created for that match, so the packet continues through the system's normal routing path. Because route rules are first-match wins, `ignore` is mainly used to carve out exceptions before broader rules below it.
+Traffic sent to `ignore` gets no {{< term "fwmark" >}}, and the rules below are not checked for it, so it follows the router's normal routing. `ignore` is used for exceptions: put such a rule above a broader one.
 
 See [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) for the full reference.
 
 ### Route Rules
 
 An ordered list of match → action pairs. Each rule can match traffic by:
-- **List membership** — IP is in a named ipset/nftset
+- **List membership** — IP is in a named {{< term "ipset" >}}/nftset
 - **Protocol** (`proto`) — `tcp`, `udp`
 - **Port filters** (`src_port`, `dest_port`) — single, list, range, or negation
-- **Address filters** (`src_addr`, `dest_addr`) — CIDR, list, or negation
+- **Address filters** (`src_addr`, `dest_addr`) — {{< term "CIDR" >}}, list, or negation
 
 If a rule specifies multiple match fields, a packet must satisfy ALL specified conditions for the rule to match.
 
-First matching rule wins. Unmatched traffic is left unmarked and follows the system's normal routing.
+First matching rule wins. Unmatched traffic gets no {{< term "fwmark" >}} and follows the system's normal routing.
 
 See [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) for the full reference.
 
 ### DNS
 
-keen-pbr does not configure or depend on any resolver (dnsmasq, the Keenetic
-DNS proxy or any other keeps working as set up): NFQUEUE parses DNS responses and NFLOG can learn TLS SNI, HTTP Host,
-and QUIC Initial names. Matching response IPs are injected into the
-corresponding dynamic set so subsequent packets are routed correctly.
+Domain routing does not need any resolver setup: dnsmasq, the Keenetic DNS proxy or any other resolver keeps working as you set it up. keen-pbr reads DNS replies passing through the router and site names in TLS, HTTP and {{< term "QUIC" >}} connections, and adds matching IPs to the list's set so the following packets are routed correctly.
 
-Optional [dnsmasq management]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}) can route domains from specific lists through different DNS servers (useful for CDN region matching).
+With [per-list DNS servers]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}) (via dnsmasq), domains from specific lists can be resolved through other DNS servers, for example to get CDN addresses for the right region.
 
 See [DNS]({{< relref "/docs/configuration/dns" >}}) for the full reference.
-See the [DNS and L7 interception architecture](https://github.com/maksimkurb/keen-pbr/blob/main/docs/dns-interception.md)
-for packet flow, capability gating, and failure behavior.
 
 ---
+
+## fwmark and conntrack
+
+keen-pbr relies on two standard Linux kernel mechanisms. Knowing their names helps when reading logs and searching for help.
+
+- **fwmark** (firewall mark) is a number the kernel attaches to a packet. keen-pbr's firewall rules set a {{< term "fwmark" >}} on matching packets, and `ip rule` entries such as `fwmark 0x00010000 lookup 150` send packets with that mark to the outbound's routing table. Each outbound gets its own fwmark from the range set in [`fwmark`]({{< relref "/docs/configuration/advanced#fwmark" >}}).
+- **conntrack** (connection tracking) is the kernel's table of open connections. keen-pbr copies a packet's fwmark into the connection's mark (**connmark**) and restores it on later packets, so a whole connection keeps the same route even after the outbound or the lists change. When keen-pbr needs connections to move to another link, it deletes their {{< term "conntrack" >}} entries.
 
 ## How It Works — Startup Sequence
 
 1. **Load lists** — download remote URLs (using cache if unavailable), read local files and inline entries
-2. **Populate ipsets/nftsets** — IP/CIDR entries are inserted into the inactive A/B iptables sets or stable nftables sets
-3. **Install firewall rules** — create rules in the `iptables` `mangle` table or the `nftables` `inet KeenPbrTable` table that match configured lists and filters, then set the appropriate fwmark in `PREROUTING` / `prerouting`
+2. **Fill sets** — IP addresses and subnets are loaded into ipsets or nftables sets
+3. **Install firewall rules** — create rules in the `iptables` `mangle` table or the `nftables` `inet KeenPbrTable` table that match configured lists and filters, then set the appropriate {{< term "fwmark" >}} in `PREROUTING` / `prerouting`
 4. **Install routing** — create routing tables and `ip rule` entries for each outbound based on assigned fwmarks
-5. **Start interception** — attach the DNS NFQUEUE and L7 NFLOG hooks when
-   capabilities are available, then publish the DomainIndex and dynamic-set
-   snapshot
-6. **Start urltest probing** — if any `urltest` outbounds are configured, begin periodic latency probes
+5. **Start interception** — keen-pbr starts reading DNS replies and site names in connections (if the kernel supports it)
+6. **Start link checks** — if `urltest` or `icmptest` outbounds are configured, periodic checks begin
 
 ---
 
@@ -92,21 +91,21 @@ for packet flow, capability gating, and failure behavior.
 ```mermaid
 flowchart TD
     subgraph Config["config.json"]
-        RoutingOutbounds["Routing outbounds\n(interface, table,\nurltest-selected child)"]
+        RoutingOutbounds["Routing outbounds\n(interface, table,\nlink chosen by urltest)"]
         Lists["Lists\n(IPs, CIDRs, domains)"]
         DNS["DNS\n(servers + detour)"]
         RouteRules["Route Rules\n(list + filters →\nrouting / drop / pass)"]
     end
 
     subgraph Kernel["Linux Kernel"]
-        Ipsets["ipsets / nftsets\n(static A/B + stable dynamic sets)"]
+        Ipsets["ipsets / nftsets\n(list IPs + learned domain IPs)"]
         FwmarkRules["Firewall rules\n(PREROUTING →\nmark, drop, or pass)"]
         IpRules["ip rules\n(fwmark → table)"]
         RoutingTables["Routing tables\n(table → interfaces)"]
         SystemRouting["System routing\n(default path)"]
     end
 
-    Interceptor["DNS NFQUEUE + L7 NFLOG\n(DomainIndex → dynamic sets)"]
+    Interceptor["keen-pbr interception\n(DNS replies, TLS/HTTP/QUIC names)"]
 
     Lists -->|"IP/CIDR entries"| Ipsets
     Lists -->|"domain entries"| Interceptor
@@ -154,15 +153,15 @@ sequenceDiagram
     participant Client
     participant Interceptor as keen-pbr interception
     participant Resolver as system resolver
-    participant Ipset as ipset kpbr4_my_domains
+    participant Ipset as ipset kpbr4d_my_domains
     participant Firewall
 
     Client->>Resolver: query example.com
     Resolver-->>Client: DNS response
-    Resolver->>Interceptor: response observed in NFQUEUE
+    Resolver->>Interceptor: keen-pbr reads the reply
     Interceptor->>Ipset: add 93.184.216.34 (bounded TTL)
 
     Note over Client,Firewall: Next packet to 93.184.216.34
     Client->>Firewall: packet dest 93.184.216.34
-    Firewall->>Firewall: match ipset kpbr4_my_domains → set fwmark
+    Firewall->>Firewall: match ipset kpbr4d_my_domains → set fwmark
 ```

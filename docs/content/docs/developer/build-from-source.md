@@ -118,7 +118,7 @@ The Debian packaging flow:
 - builds the frontend with `bun` for the full package
 - compiles dedicated native binaries with Debian install paths under `/etc/keen-pbr` and `/usr/share/keen-pbr/frontend`
 - installs a `systemd` unit at `/lib/systemd/system/keen-pbr.service`
-- does not auto-enable or auto-start the service during package installation
+- enables and starts the service on package installation
 
 ## Router Package Builds
 
@@ -126,7 +126,7 @@ For router targets, use the Docker-backed package build targets from the root `M
 
 ### Entware (for Keenetic and Netcraze routers)
 
-Build an Entware package:
+Build an {{< term "Entware" >}} package:
 
 ```bash {filename="bash"}
 make keenetic-packages KEENETIC_CONFIG=mipsel-3.4 KEENETIC_VERSION=current

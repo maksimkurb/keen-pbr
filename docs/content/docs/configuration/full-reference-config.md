@@ -38,26 +38,24 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Default: true (also when set to null).
     "skip_marked_packets": true,
 
-    // Clear interception-learned dynamic sets during a full apply or
-    // runtime restart. Default: false (also when set to null).
+    // Clear the dynamic sets (domain IPs from DNS replies and connections) on
+    // every config apply or service restart. Default: false (also when set to null).
     "clear_dynamic_sets_on_apply": false,
 
     // Optional initial hash table size for ipsets created by the iptables backend.
     // Has no effect with nftables. Minimum: 1; maximum: 2147483648. Omit or set
     // to null to use the ipset default (1024).
-    // Changing it while iptables is running recreates owned ipsets and clears
-    // interception-learned entries.
+    // Changing it recreates the sets and empties the dynamic sets.
     "ipset_hashsize": null,
 
     // Optional maximum element count for ipsets created by the iptables backend.
     // Has no effect with nftables. Minimum: 1; maximum: 4294967295. Omit or set
     // to null to use the ipset default (65536).
-    // Changing it while iptables is running recreates owned ipsets and clears
-    // interception-learned entries.
+    // Changing it recreates the sets and empties the dynamic sets.
     "ipset_maxelem": null,
 
-    // Reuse the currently live list sets during safe runtime refreshes.
-    // Default: true; failed preflight falls back to PreserveSets.
+    // Do not refill list sets on SIGUSR1, urltest/icmptest switches and
+    // interface changes; only rules are updated. Default: true.
     "reuse_static_sets_on_runtime_refresh": true,
 
     // Install IPv4/IPv6 firewall sets and DNS-driven targets.
@@ -167,7 +165,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Default: inherit daemon.strict_enforcement.
       "strict_enforcement": true,
 
-      // Per-outbound terminal action override for strict enforcement.
+      // Overrides daemon.strict_enforcement_action for this outbound.
       // Supported values: "unreachable" or "blackhole".
       // Default: inherit daemon.strict_enforcement_action.
       "strict_enforcement_action": "unreachable"
@@ -242,8 +240,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       "strategy": "priority",
 
       // Compatibility field for older configs.
-      // Urltest always appends terminal IPv4/IPv6 unreachable routes as a kill-switch.
-      // This setting currently has no additional effect for urltest outbounds.
+      // It has no effect: urltest always blocks traffic when no link works.
       "strict_enforcement": true,
 
       // Handling of established conntrack flows when a healthy child changes.
@@ -515,8 +512,8 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     "fallback": ["google_dns"]
   },
 
-  // Traffic interception. All fields below have defaults; capability gaps
-  // disable DNS and L7 independently and are reported by health.
+  // Traffic interception. All fields below have defaults. If the kernel lacks
+  // something, only that part (DNS or L7) is turned off; see the status page.
   "intercept": {
     "enabled": true,
     "min_ttl_ms": 300000,

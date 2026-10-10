@@ -48,34 +48,20 @@ The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, an
 
 ### `--use-raw-prerouting`
 
-This disabled-by-default option is intended for systems such as KeeneticOS where
-an external firewall manager periodically replaces the `mangle` table. It moves
-only IPv4 forwarded-traffic classification from `mangle PREROUTING` to `raw
-PREROUTING`; locally generated traffic remains in `mangle OUTPUT`, and IPv6
-can be selected independently with `--use-raw6-prerouting`.
+This flag is mainly for Keenetic / NetCraze, where the firmware periodically rebuilds the `mangle` table and keen-pbr's rules briefly disappear. With this flag keen-pbr puts the rules for forwarded IPv4 traffic into the `raw` table, which the firmware leaves alone. IPv6 has a separate flag, `--use-raw6-prerouting`. The router's own traffic is always handled in `mangle OUTPUT`.
 
-On Keenetic, the service independently probes and loads `iptable_raw.ko` and
-`ip6table_raw.ko` at startup. It enables each flag automatically only after that
-family's raw table probe succeeds; otherwise it logs a warning and keeps that
-family on the normal mangle path. Raw PREROUTING deliberately does not use
-connmark acceleration: each forwarded packet is classified directly.
+On Keenetic / NetCraze the start script sets these flags. The mode is set with `KEEN_PBR_RAW_PREROUTING` in `/opt/etc/keen-pbr/defaults`:
 
-To force the Keenetic package to keep using mangle PREROUTING, set the following
-in `/opt/etc/keen-pbr/defaults`, then restart the service:
+| Value | What it does |
+|---|---|
+| `auto` (default) | Checks separately for IPv4 and IPv6 whether `raw` works, and uses it if so; otherwise `mangle` |
+| `disable` | Always use `mangle` |
+| `enable` | Require `raw` for IPv4 and IPv6. If `raw` is unavailable, the service does not start |
+| `ipv4-only`, `ipv6-only` | Require `raw` for one address family only |
 
-```sh
-KEEN_PBR_RAW_PREROUTING="disable"
-```
+Restart the service after changing it. The practical difference between the modes is described in [Keenetic / NetCraze installation]({{< relref "/docs/getting-started/installation/keenetic" >}}).
 
-The default value is `auto`: IPv4 and IPv6 capabilities are probed independently,
-so one family can use RAW while the other remains in mangle. Set it to `enable`
-to require RAW for every enabled family; `ipv4-only` and `ipv6-only` force one
-family. The service fails to start rather than falling back for a forced family.
-RAW PREROUTING intentionally runs before conntrack and does not use CONNMARK
-acceleration. For the Keenetic-specific RAW versus mangle trade-off, see
-[Keenetic / NetCraze installation]({{< relref "/docs/getting-started/installation/keenetic" >}}).
-
-Troubleshoot the required capability with:
+To check whether `raw` is available:
 
 ```sh
 ls -l "/lib/modules/$(uname -r)/iptable_raw.ko"
@@ -95,12 +81,12 @@ ip6tables -t raw -S
 | `download` | Download all URL-backed lists into cache, then exit. |
 | `generate-resolver-config dnsmasq` | Print dnsmasq configuration for per-list DNS servers to stdout. |
 | `dnsmasq detect [--json]` | List dnsmasq instances, their DNS endpoints and the instance keen-pbr uses. |
-| `dnsmasq remove <selector>` | Remove keen-pbr's drop-in and owned settings from one dnsmasq instance. |
+| `dnsmasq remove <selector>` | Remove the file and settings keen-pbr added to one dnsmasq instance. |
 | `test-routing <ip-or-domain>` | Compare expected and actual routing for the given IP or domain. |
 
 ### `generate-resolver-config dnsmasq`
 
-When `dns.resolver_integration: "dnsmasq"` is enabled, this command prints the generated dnsmasq configuration to stdout. The configuration includes domain-to-server mappings, rebind exceptions, and fallback servers.
+When `dns.resolver_integration: "dnsmasq"` is enabled, this command prints the generated dnsmasq configuration to stdout. It contains domain-to-server mappings, {{< term "DNS rebinding" >}} protection exceptions, and `fallback` servers.
 
 **Usage:**
 
@@ -125,7 +111,7 @@ rebind-domain-ok=/openai.com/www.openai.com/...
 **Behavior:**
 - Always exits with status 0, even on errors; errors are printed as `# keen-pbr: ...` comment lines.
 - When `resolver_integration: "none"` (default), the output is empty; the dynamic sets are filled by interception.
-- Used internally by the platform hook: dnsmasq reads the config via this command (see `conf-script=keen-pbr generate-resolver-config dnsmasq` in the drop-in).
+- Used internally by the platform hook: dnsmasq reads the config via this command (see `conf-script=keen-pbr generate-resolver-config dnsmasq` in the {{< term "drop-in" >}}).
 
 ### `dnsmasq detect` and `remove`
 
@@ -136,7 +122,7 @@ keen-pbr dnsmasq detect [--json]
 keen-pbr dnsmasq remove <selector>
 ```
 
-**`detect`** lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr's drop-in is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (`explicit`, `adopted` or `automatic`), or why it could not choose.
+**`detect`** lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr's {{< term "drop-in" >}} is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (`explicit`, `adopted` or `automatic`), or why it could not choose.
 
 ```text
 dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)

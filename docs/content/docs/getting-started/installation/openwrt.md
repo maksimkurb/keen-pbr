@@ -74,12 +74,8 @@ If pre-built packages are not yet available for your platform, see [Build from S
 
 ## Upgrading from the dnsmasq integration
 
-Older keen-pbr versions managed dnsmasq: they moved its upstream servers to `dhcp.@dnsmasq[*].kpbr_server`, added `conf-script` and jail mounts. On package upgrade keen-pbr undoes those changes automatically:
+Older keen-pbr versions always reconfigured dnsmasq: they moved its DNS servers into their own `kpbr_server` option and added their own settings. On upgrade the package undoes this by itself: it moves the DNS servers back to `server`, removes the keen-pbr settings, and restarts dnsmasq once. dnsmasq sections that keen-pbr never touched stay as they are.
 
-- the upstream servers saved in `kpbr_server` are restored into `server` (no duplicates, original order), then `kpbr_server` is deleted;
-- the keen-pbr `addnmount` entries (`/usr/sbin/keen-pbr`, `/etc/keen-pbr`, `/var/cache/keen-pbr`) and the `keen-pbr.conf` drop-in in the dnsmasq `confdir` are removed;
-- UCI `dhcp` is committed and dnsmasq is restarted once. A second run changes nothing, and dnsmasq sections that were never touched by keen-pbr are left alone.
+dnsmasq is not needed for routing. If you enable [per-list DNS servers]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}), keen-pbr adds the settings it needs to dnsmasq again.
 
-dnsmasq is not required for routing; per-list DNS servers can be enabled again via [`dns.rules`]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}), in which case keen-pbr re-adds `addnmount` entries for `/usr/sbin/keen-pbr`, `/etc/keen-pbr`, `/var/cache/keen-pbr` (not `/var/run/keen-pbr`) and a tmpfs drop-in `keen-pbr-upstream-dns.conf`. Note that upgrade cleanup only removes mounts of legacy installs.
-
-You can re-run the migration manually with `/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr`.
+To repeat the cleanup manually, run `/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr`.

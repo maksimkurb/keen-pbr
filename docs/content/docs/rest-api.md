@@ -47,8 +47,7 @@ immediately, without applying a pending routing configuration draft.
 `device_name` is optional and may be empty. When set, the WebUI uses it in the
 browser page title and beneath the keen-pbr logo to distinguish devices.
 
-Password verifiers use Monocypher's Argon2id implementation. Verifiers from
-older PBKDF2-based releases are not accepted and must be regenerated.
+The password is stored as an Argon2id hash. Hashes from older keen-pbr versions do not work: if the password was set in an older version, set it again.
 The config API never returns or accepts the stored verifier. The WebUI reads
 only `GET /api/auth/password` state and sends a new clear-text password only to
 the write-only `POST /api/auth/settings` operation; hashing happens in the daemon.
@@ -112,7 +111,7 @@ curl http://127.0.0.1:12121/api/health/service
 When interception is configured, the same response includes an `intercept`
 object. It reports `dns_hold_active` and `l7_active` independently, capability
 flags (`nfqueue`, `nflog`, `connbytes`), and counters for DNS parsing/holds,
-partial TCP, L7 packets, set updates, conntrack cleanup, and NFQUEUE/NFLOG
+partial TCP, L7 packets, set updates, {{< term "conntrack" >}} cleanup, and {{< term "NFQUEUE" >}}/NFLOG
 overruns. A missing NFQUEUE capability does not imply that L7 is unavailable,
 and vice versa.
 
@@ -131,9 +130,7 @@ curl -u admin:password http://127.0.0.1:12121/metrics
 All durations are floating-point **seconds**. A series that is not meaningful is
 **omitted** instead of being exported as `0` (see "Omitted series" below).
 Every family has `# HELP` and `# TYPE` exactly once; families without samples
-are not printed. This is a breaking change from earlier builds: the old
-`keen_pbr_intercept_*`, `keen_pbr_dns_write_duration_seconds`, netlink timing,
-probe histogram and success-ratio metrics no longer exist.
+are not printed.
 
 ### Process and configuration
 
@@ -165,7 +162,7 @@ Labelled with the child `outbound`, test group `test_outbound`, `interface` and
 |---|---|---|
 | `keen_pbr_probe_attempts_total` | counter | Accepted probe results. |
 | `keen_pbr_probe_successes_total` | counter | Successful probe results. |
-| `keen_pbr_probe_packets_sent_total` | counter | ICMP echo requests sent. `type="icmptest"` only. |
+| `keen_pbr_probe_packets_sent_total` | counter | {{< term "ICMP" >}} echo requests sent. `type="icmptest"` only. |
 | `keen_pbr_probe_packets_received_total` | counter | ICMP echo replies received. `type="icmptest"` only. |
 | `keen_pbr_probe_up` | gauge | `1` if the last probe succeeded, `0` if it failed. |
 | `keen_pbr_probe_last_success_timestamp_seconds` | gauge | Unix time of the last successful probe. |
@@ -211,7 +208,7 @@ The "slow write" share is derived from the `le="0.025"` bucket of
 `keen_pbr_set_write_duration_seconds` (writes slower than 25 ms).
 
 Not exported: per-outbound routed bytes/packets and per-set element counts.
-Both would need the firewall counters or a netlink set dump to be read on every
+Both would need the firewall counters or a {{< term "netlink" >}} set dump to be read on every
 scrape (through a subprocess or a kernel dump, with a different mechanism per
 firewall backend), which is deliberately kept out of the daemon.
 
@@ -509,9 +506,9 @@ curl -X POST http://127.0.0.1:12121/api/routing/test \
   -d '{"target": "example.com", "proto": "tcp", "dest_port": 443}'
 ```
 
-The optional packet fields (`proto` (`tcp`, `udp`, or `other`), `dest_port`,
-`src_addr`, `src_port`, and `dscp`) make rule diagnostics packet-specific.
-Leaving them out preserves the target-only list diagnostic.
+The optional packet fields (`proto`: `tcp`, `udp`, or `other`; `dest_port`,
+`src_addr`, `src_port`, and `dscp`) let you test rules that filter by port,
+address, or {{< term "DSCP" >}}. Without them, only list membership of the target is checked.
 
 ### Response
 
@@ -616,10 +613,9 @@ curl http://127.0.0.1:12121/api/health/routing
 Streams the daemon's traffic interception events as Server-Sent Events. Each
 connection receives `HELLO` first. The default `show=keen-pbr` view delivers
 only marker events and closes after the matching marker; `show=all` (or the
-compatibility alias `show=full`) stays open and delivers DNS, TLS SNI, HTTP
-Host, QUIC Initial, and marker observations, including domains that did not
-match a configured list. The legacy `DNS` events of the removed
-`dns.dns_test_server` probe are no longer emitted. Pass `domain=<generated
+compatibility alias `show=full`) stays open and delivers DNS, TLS {{< term "SNI" >}}, HTTP
+Host, {{< term "QUIC" >}} Initial, and marker observations, including domains that did not
+match a configured list. Pass `domain=<generated
 marker>` with the default view to keep unrelated checks from closing it.
 
 ```bash {filename="bash"}
