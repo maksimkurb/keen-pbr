@@ -2,6 +2,7 @@
 
 #include "../firewall/firewall.hpp"
 
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -34,6 +35,23 @@ inline std::set<std::string> newly_failed_children(const BalanceClassifierState*
         if (applied->failed_children.count(child) == 0) result.insert(child);
     }
     return result;
+}
+
+// Whether a balance group other than `own_group` still balances new connections
+// onto `child`. `usable_by_balance_group` maps each balance group's tag to its
+// currently usable members (select_test_group_usable_outbounds). Health is kept
+// per group, but a member's mark and the conntrack flush are per outbound, so a
+// flush is only safe once no other balance group uses the member.
+inline bool member_usable_in_other_balance_group(
+    const std::string& child, const std::string& own_group,
+    const std::map<std::string, std::vector<std::string>>& usable_by_balance_group) {
+    for (const auto& [group, usable] : usable_by_balance_group) {
+        if (group == own_group) continue;
+        for (const auto& tag : usable) {
+            if (tag == child) return true;
+        }
+    }
+    return false;
 }
 
 } // namespace keen_pbr3

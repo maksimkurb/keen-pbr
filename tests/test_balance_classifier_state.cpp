@@ -42,10 +42,10 @@ TEST_CASE("balance classifier state: a failed child is flushed once") {
 // ---------------------------------------------------------------------------
 // Outbounds shared by two balance groups (open question W6).
 //
-// Pins CURRENT behaviour, which is believed to be a bug: probe health is kept
-// per group (UrltestState inside UrltestManager), but the connmark a balance
-// classifier saves, and the conntrack flush that follows a failure, are keyed
-// by the member OUTBOUND's mark. The flush is inline in
+// Probe health is kept per group (UrltestState inside UrltestManager), but the
+// connmark a balance classifier saves, and the conntrack flush that follows a
+// failure, are keyed by the member OUTBOUND's mark. A failed member is
+// therefore flushed only when no other balance group still uses it. The flush is inline in
 // Daemon::handle_urltest_selection_change (src/daemon/daemon_runtime.cpp),
 // so these tests drive the same building blocks (UrltestState,
 // newly_failed_children, allocate_outbound_marks, ConntrackManager with a
@@ -140,12 +140,22 @@ struct SharedMemberFixture {
     }
 
     // One handle_urltest_selection_change() cycle for a group: flush the marks
-    // of members that newly failed, using the global fwmark mask.
+    // of members that newly failed and that no other balance group still
+    // uses, with the global fwmark mask. `others` are the other balance
+    // groups' current states.
     BalanceClassifierState cycle(const UrltestState& state,
-                                 const BalanceClassifierState* applied) {
+                                 const BalanceClassifierState* applied,
+                                 const std::vector<const UrltestState*>& others = {}) {
+        std::map<std::string, std::vector<std::string>> usable_by_group;
+        for (const auto* other : others) {
+            usable_by_group[other->config.tag] = select_test_group_usable_outbounds(*other);
+        }
         BalanceClassifierState classifier;
         classifier.failed_children = failed_children_of(state);
         for (const auto& child : newly_failed_children(applied, classifier.failed_children)) {
+            if (member_usable_in_other_balance_group(child, state.config.tag, usable_by_group)) {
+                continue;
+            }
             REQUIRE(conntrack.delete_mark(marks.at(child), fwmark_mask_value(fwmark)));
         }
         return classifier;
@@ -182,20 +192,35 @@ TEST_CASE("shared member: health is kept per group, so two groups can disagree a
           std::vector<std::string>{"wan1", "wan3"});
 }
 
-TEST_CASE("shared member: group A dropping wan1 flushes wan1's mark although group B keeps it") {
+TEST_CASE("shared member: group A dropping wan1 keeps wan1's flows while group B still uses it") {
     SharedMemberFixture fx;
     const auto b_up = group_state(fx.grp_b, {{"wan1", true}, {"wan3", true}});
     const auto a_up = group_state(fx.grp_a, {{"wan1", true}, {"wan2", true}});
     const auto a_down = group_state(fx.grp_a, {{"wan1", false}, {"wan2", true}});
 
-    // Both groups healthy: nothing flushed.
-    const auto applied_a = fx.cycle(a_up, nullptr);
-    (void)fx.cycle(b_up, nullptr);
+    const auto applied_a = fx.cycle(a_up, nullptr, {&b_up});
     CHECK(fx.conntrack_commands.empty());
 
-    // Group A's own probes fail wan1; group B still sees it healthy.
-    const auto after_a = fx.cycle(a_down, &applied_a);
-    // The flush is per mark/mask, not per group: both families, wan1's mark.
+    // Group A's own probes fail wan1; group B still balances onto it.
+    const auto after_a = fx.cycle(a_down, &applied_a, {&b_up});
+    CHECK(fx.conntrack_commands.empty());
+    CHECK(after_a.failed_children == std::set<std::string>{"wan1"});
+}
+
+TEST_CASE("shared member: wan1 is flushed once when the last group using it drops it") {
+    SharedMemberFixture fx;
+    const auto a_up = group_state(fx.grp_a, {{"wan1", true}, {"wan2", true}});
+    const auto b_up = group_state(fx.grp_b, {{"wan1", true}, {"wan3", true}});
+    const auto a_down = group_state(fx.grp_a, {{"wan1", false}, {"wan2", true}});
+    const auto b_down = group_state(fx.grp_b, {{"wan1", false}, {"wan3", true}});
+
+    const auto applied_a = fx.cycle(a_up, nullptr, {&b_up});
+    const auto applied_b = fx.cycle(b_up, nullptr, {&a_up});
+    (void)fx.cycle(a_down, &applied_a, {&b_up});
+    CHECK(fx.conntrack_commands.empty());
+
+    // B drops wan1 too: A no longer uses it, so B's failure edge flushes.
+    (void)fx.cycle(b_down, &applied_b, {&a_down});
     REQUIRE(fx.conntrack_commands.size() == 2);
     CHECK(fx.conntrack_commands[0] ==
           std::vector<std::string>{"conntrack", "-D", "-f", "ipv4", "--mark",
@@ -203,11 +228,15 @@ TEST_CASE("shared member: group A dropping wan1 flushes wan1's mark although gro
     CHECK(fx.conntrack_commands[1] ==
           std::vector<std::string>{"conntrack", "-D", "-f", "ipv6", "--mark",
                                    fx.mark_arg("wan1")});
-    // Group B still lists wan1 as usable, so the flush also killed flows
-    // that grp_b legitimately balanced onto a healthy wan1.
-    CHECK(select_test_group_usable_outbounds(b_up) ==
-          std::vector<std::string>{"wan1", "wan3"});
-    CHECK(after_a.failed_children == std::set<std::string>{"wan1"});
+}
+
+TEST_CASE("shared member: helper ignores the asking group and groups not using the member") {
+    const std::map<std::string, std::vector<std::string>> usable{
+        {"grp_a", {"wan1"}}, {"grp_b", {"wan3"}}};
+    CHECK_FALSE(member_usable_in_other_balance_group("wan1", "grp_a", usable));
+    CHECK(member_usable_in_other_balance_group("wan1", "grp_b", usable));
+    CHECK_FALSE(member_usable_in_other_balance_group("wan2", "grp_b", usable));
+    CHECK_FALSE(member_usable_in_other_balance_group("wan1", "grp_a", {}));
 }
 
 TEST_CASE("shared member: a still-failed member is flushed once, then not on later cycles") {
@@ -219,13 +248,18 @@ TEST_CASE("shared member: a still-failed member is flushed once, then not on lat
     CHECK(fx.conntrack_commands.size() == 2);
 }
 
-TEST_CASE("shared member: both groups failing wan1 flush its mark once per group") {
+TEST_CASE("shared member: both groups handling a simultaneous failure may flush twice (harmless)") {
     SharedMemberFixture fx;
+    const auto a_up = group_state(fx.grp_a, {{"wan1", true}, {"wan2", true}});
+    const auto b_up = group_state(fx.grp_b, {{"wan1", true}, {"wan3", true}});
     const auto a_down = group_state(fx.grp_a, {{"wan1", false}, {"wan2", true}});
     const auto b_down = group_state(fx.grp_b, {{"wan1", false}, {"wan3", true}});
-    (void)fx.cycle(a_down, nullptr);
-    (void)fx.cycle(b_down, nullptr);
-    // No cross-group dedup: the same mark/mask is deleted twice (4 commands).
+    const auto applied_a = fx.cycle(a_up, nullptr, {&b_up});
+    const auto applied_b = fx.cycle(b_up, nullptr, {&a_up});
+    // Both groups' probes committed before either handler ran: each sees the
+    // other as already lacking wan1, so each flushes (no cross-group dedup).
+    (void)fx.cycle(a_down, &applied_a, {&b_down});
+    (void)fx.cycle(b_down, &applied_b, {&a_down});
     REQUIRE(fx.conntrack_commands.size() == 4);
     CHECK(fx.conntrack_commands[0] == fx.conntrack_commands[2]);
     CHECK(fx.conntrack_commands[1] == fx.conntrack_commands[3]);

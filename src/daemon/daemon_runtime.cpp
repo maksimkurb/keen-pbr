@@ -583,12 +583,42 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
             const BalanceClassifierState* applied =
                 applied_it == balance_classifier_cache_.end() ? nullptr : &applied_it->second;
             const auto newly_failed = newly_failed_children(applied, classifier.failed_children);
+            // Usable members of the OTHER balance groups. Only balance groups
+            // matter: priority groups save their own group mark in the
+            // connmark, never a member's mark, so their selection pins no
+            // flow to a member mark.
+            std::map<std::string, std::vector<std::string>> usable_by_balance_group;
+            if (!newly_failed.empty() && urltest_manager_) {
+                for (const auto& other : configured_outbounds) {
+                    if (other.tag == urltest_tag || !outbound_uses_balance(other) ||
+                        (other.type != OutboundType::URLTEST &&
+                         other.type != OutboundType::ICMPTEST)) {
+                        continue;
+                    }
+                    const auto other_state = urltest_manager_->get_state(other.tag);
+                    if (other_state.has_value()) {
+                        usable_by_balance_group[other.tag] =
+                            select_test_group_usable_outbounds(*other_state);
+                    }
+                }
+            }
             for (const auto& group : configured->outbound_groups.value_or(
                      std::vector<OutboundGroup>{})) {
                 for (const auto& child_tag : outbound_group_tags(group)) {
                     const auto mark = outbound_marks_.find(child_tag);
                     if (mark == outbound_marks_.end()) continue;
                     if (newly_failed.count(child_tag) != 0) {
+                        // Health is per group but the mark (and so this flush)
+                        // is per outbound. If another balance group still
+                        // balances onto the member, keep its flows: the group
+                        // that drops it last flushes on its own failure edge.
+                        // Trade-off: flows this group pinned to the member
+                        // stay there until they end; doing better needs
+                        // group-aware connmarks.
+                        if (member_usable_in_other_balance_group(
+                                child_tag, urltest_tag, usable_by_balance_group)) {
+                            continue;
+                        }
                         cleanup_marks.insert(mark->second);
                     }
                 }
