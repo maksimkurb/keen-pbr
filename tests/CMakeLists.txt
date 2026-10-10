@@ -18,6 +18,7 @@ add_executable(keen-pbr-tests
   test_dns_server.cpp
   test_dnsmasq_gen.cpp
   test_dnsmasq_manager.cpp
+  test_dnsmasq_types.cpp
   test_test_routing.cpp
   test_keenetic_dns.cpp
   test_dns_wire.cpp
@@ -160,6 +161,8 @@ add_executable(keen-pbr-tests
   ../src/cmd/test_routing.cpp
   ../src/daemon/list_service.cpp
   ../src/daemon/dnsmasq_manager.cpp
+  ../src/daemon/dnsmasq_types.cpp
+  ../src/config/dnsmasq_selector.cpp
   ../src/daemon/lifecycle_stages.cpp
   ../src/daemon/pid_file.cpp
   ../src/http/http_client.cpp

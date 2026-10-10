@@ -357,6 +357,8 @@ set(SOURCES
   src/daemon/daemon_intercept.cpp
   src/daemon/list_service.cpp
   src/daemon/dnsmasq_manager.cpp
+  src/daemon/dnsmasq_types.cpp
+  src/config/dnsmasq_selector.cpp
   src/daemon/lifecycle_stages.cpp
   src/daemon/runtime_state_store.cpp
   src/daemon/scheduler.cpp
