@@ -566,8 +566,14 @@ int main(int argc, char *argv[]) {
       keen_pbr3::CacheManager cache(cache_dir,
                                     keen_pbr3::max_file_size_bytes(config));
       if (opts.run_test_routing) {
+        const auto resolver =
+            state.contains("dnsmasq_resolver")
+                ? keen_pbr3::routing_dns_resolver_from_json(state.at("dnsmasq_resolver"))
+                : std::nullopt;
+        const keen_pbr3::RoutingDnsResolver effective =
+            resolver ? *resolver : keen_pbr3::default_routing_dns_resolver(config);
         return keen_pbr3::run_test_routing_command(
-            config, cache, opts.test_routing_target, rules);
+            config, cache, opts.test_routing_target, rules, &effective);
       }
       return 0;
     }

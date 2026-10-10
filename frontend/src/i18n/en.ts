@@ -629,6 +629,11 @@ export const enTranslation = {
           "The service reports outbound {{outbound}} as unavailable. A matching route does not confirm that it can carry traffic.",
         dns: "DNS resolution",
         dnsEmpty: "DNS returned no IP addresses for this domain.",
+        dnsResolverDnsmasq:
+          "Resolved by dnsmasq {{endpoint}} ({{instance}})",
+        dnsResolverSystem: "Resolved by the router's system resolver",
+        dnsClientNote:
+          "This check uses the router's DNS. Devices that use DoH, DoT or their own DNS server may get different addresses.",
         literalIp: "IP {{ip}} was supplied directly; no DNS query is needed.",
         list: "List matching",
         noListNeeded: "This rule uses other criteria, without a list.",

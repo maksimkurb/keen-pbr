@@ -2,6 +2,7 @@
 
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
+#include "../dns/routing_dns_resolver.hpp"
 #include "../routing/firewall_state.hpp"
 
 #include <functional>
@@ -86,6 +87,15 @@ struct RuleDiagnostic {
     std::vector<RuleIpDiagnostic> ip_rows;
 };
 
+struct TestRoutingDnsInfo {
+    std::string resolver;                    // "system" | "dnsmasq" | "test"
+    std::optional<std::string> endpoint;     // "192.168.1.1:53" / "[::1]:53"
+    std::optional<std::string> instance;     // selector
+    std::optional<std::string> a_status;     // dns_query_status_name(); dnsmasq only
+    std::optional<std::string> aaaa_status;
+    std::vector<std::string> cname_chain;
+};
+
 struct TestRoutingResult {
     std::string target;
     bool is_domain{false};
@@ -95,7 +105,12 @@ struct TestRoutingResult {
     bool no_matching_rule{false};
     std::optional<std::string> dns_error;
     std::vector<std::string> warnings;
+    std::optional<TestRoutingDnsInfo> dns;   // set for domain targets
 };
+
+// Default when the caller has no resolver: system if the integration is off,
+// otherwise Dnsmasq with `unavailable` set.
+RoutingDnsResolver default_routing_dns_resolver(const Config& config);
 
 // Test hook: replaces the system resolver used to resolve a domain target.
 // Pass an empty function to restore the default behavior.
@@ -116,7 +131,8 @@ TestRoutingResult compute_test_routing(const Config& config,
                                         const std::string& target,
                                         const TestRoutingCriteria& criteria,
                                         const std::vector<RuleState>* realized_rule_states = nullptr,
-                                        SetWriteEvidenceLookup set_write_evidence_lookup = {});
+                                        SetWriteEvidenceLookup set_write_evidence_lookup = {},
+                                        const RoutingDnsResolver* dns_resolver = nullptr);
 
 // Print table and return 0 if all entries match, 1 otherwise.
 int run_test_routing_command(const Config& config,
@@ -125,7 +141,8 @@ int run_test_routing_command(const Config& config,
 int run_test_routing_command(const Config& config,
                              const CacheManager& cache,
                              const std::string& target,
-                             const std::vector<RuleState>& realized_rule_states);
+                             const std::vector<RuleState>& realized_rule_states,
+                             const RoutingDnsResolver* dns_resolver = nullptr);
 
 // Render a test-routing response obtained from the daemon control socket.
 int run_test_routing_command(const nlohmann::json& response);

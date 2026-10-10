@@ -134,6 +134,29 @@ void register_test_routing_handler(ApiServer& server, ApiContext& ctx) {
         resp.no_matching_rule = result.no_matching_rule;
         resp.resolved_ips = result.resolved_ips;
         resp.warnings     = result.warnings;
+        if (result.dns) {
+            api::RoutingTestDns d;
+            if (result.dns->resolver == "dnsmasq") d.resolver = api::Resolver::DNSMASQ;
+            else if (result.dns->resolver == "test") d.resolver = api::Resolver::TEST;
+            else d.resolver = api::Resolver::SYSTEM;
+            d.endpoint = result.dns->endpoint;
+            d.instance = result.dns->instance;
+            const auto status = [](const std::optional<std::string>& s) -> std::optional<api::AStatus> {
+                if (!s) return std::nullopt;
+                static const std::pair<const char*, api::AStatus> table[] = {
+                    {"ok", api::AStatus::OK}, {"nodata", api::AStatus::NODATA},
+                    {"nxdomain", api::AStatus::NXDOMAIN}, {"servfail", api::AStatus::SERVFAIL},
+                    {"refused", api::AStatus::REFUSED}, {"rcode", api::AStatus::RCODE},
+                    {"timeout", api::AStatus::TIMEOUT}, {"network_error", api::AStatus::NETWORK_ERROR},
+                    {"malformed", api::AStatus::MALFORMED}};
+                for (const auto& [name, value] : table) if (*s == name) return value;
+                return std::nullopt;
+            };
+            d.a_status = status(result.dns->a_status);
+            d.aaaa_status = status(result.dns->aaaa_status);
+            d.cname_chain = result.dns->cname_chain;
+            resp.dns = std::move(d);
+        }
 
         for (const auto& entry : result.entries) {
             api::RoutingTestEntry e;

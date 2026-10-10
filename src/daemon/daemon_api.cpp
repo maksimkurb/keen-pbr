@@ -619,6 +619,8 @@ void Daemon::setup_api() {
     const auto compute_test_routing_with_criteria =
         [this](const std::string& target, const TestRoutingCriteria& criteria) {
             const Config active_config = config_store_.active_config();
+            const RoutingDnsResolver dns_resolver =
+                dnsmasq_manager_.routing_resolver(active_config);
             const auto runtime_snapshot = runtime_state_store_.snapshot();
             const auto realized_rules = runtime_snapshot.firewall_state.get_rules();
             std::shared_ptr<InterceptService> intercept_service;
@@ -635,7 +637,7 @@ void Daemon::setup_api() {
             }
             auto pending = routing_test_executor_.try_submit(
                 "api-test-routing",
-                [this, active_config, realized_rules, target, criteria,
+                [this, active_config, dns_resolver, realized_rules, target, criteria,
                  intercept_service, intercept_snapshot] {
                     try {
                         auto result = compute_test_routing(
@@ -654,7 +656,8 @@ void Daemon::setup_api() {
                                 return make_set_write_evidence(
                                     intercept_service->lookup_set_write_evidence(
                                         intercept_snapshot, set_name, ip));
-                            });
+                            },
+                            &dns_resolver);
                         finish_routing_test();
                         return result;
                     } catch (...) {

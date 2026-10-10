@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesJVNtkd data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesKWYddm data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -746,6 +746,19 @@ namespace api {
         std::optional<std::vector<RoutingHealthWarningElement>> warnings;
     };
 
+    enum class AStatus : int { MALFORMED, NETWORK_ERROR, NODATA, NXDOMAIN, OK, RCODE, REFUSED, SERVFAIL, TIMEOUT };
+
+    enum class Resolver : int { DNSMASQ, SYSTEM, TEST };
+
+    struct RoutingTestDns {
+        std::optional<AStatus> a_status;
+        std::optional<AStatus> aaaa_status;
+        std::optional<std::vector<std::string>> cname_chain;
+        std::optional<std::string> endpoint;
+        std::optional<std::string> instance;
+        Resolver resolver;
+    };
+
     struct ListMatch {
         std::string list;
         std::string via;
@@ -799,6 +812,7 @@ namespace api {
     };
 
     struct RoutingTestResponse {
+        std::optional<RoutingTestDns> dns;
         std::optional<std::string> dns_error;
         bool is_domain;
         bool no_matching_rule;
@@ -889,7 +903,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesJVNtkd {
+    struct KeenPbrTypesKWYddm {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -957,6 +971,7 @@ namespace api {
         std::optional<RoutingHealthResponse> routing_health_response;
         std::optional<RoutingHealthWarningElement> routing_health_warning;
         std::optional<RoutingHealthWarningCode> routing_health_warning_code;
+        std::optional<RoutingTestDns> routing_test_dns;
         std::optional<RoutingTestEntry> routing_test_entry;
         std::optional<ListMatch> routing_test_list_match;
         std::optional<RoutingTestRequest> routing_test_request;
@@ -1179,6 +1194,9 @@ namespace api {
     void from_json(const json & j, RoutingHealthResponse & x);
     void to_json(json & j, const RoutingHealthResponse & x);
 
+    void from_json(const json & j, RoutingTestDns & x);
+    void to_json(json & j, const RoutingTestDns & x);
+
     void from_json(const json & j, ListMatch & x);
     void to_json(json & j, const ListMatch & x);
 
@@ -1230,8 +1248,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesJVNtkd & x);
-    void to_json(json & j, const KeenPbrTypesJVNtkd & x);
+    void from_json(const json & j, KeenPbrTypesKWYddm & x);
+    void to_json(json & j, const KeenPbrTypesKWYddm & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1337,6 +1355,12 @@ namespace api {
 
     void from_json(const json & j, RoutingHealthWarningCode & x);
     void to_json(json & j, const RoutingHealthWarningCode & x);
+
+    void from_json(const json & j, AStatus & x);
+    void to_json(json & j, const AStatus & x);
+
+    void from_json(const json & j, Resolver & x);
+    void to_json(json & j, const Resolver & x);
 
     void from_json(const json & j, Proto & x);
     void to_json(json & j, const Proto & x);
@@ -2602,6 +2626,25 @@ namespace api {
         j["warnings"] = x.warnings;
     }
 
+    inline void from_json(const json & j, RoutingTestDns& x) {
+        x.a_status = get_stack_optional<AStatus>(j, "a_status");
+        x.aaaa_status = get_stack_optional<AStatus>(j, "aaaa_status");
+        x.cname_chain = get_stack_optional<std::vector<std::string>>(j, "cname_chain");
+        x.endpoint = get_stack_optional<std::string>(j, "endpoint");
+        x.instance = get_stack_optional<std::string>(j, "instance");
+        x.resolver = j.at("resolver").get<Resolver>();
+    }
+
+    inline void to_json(json & j, const RoutingTestDns & x) {
+        j = json::object();
+        j["a_status"] = x.a_status;
+        j["aaaa_status"] = x.aaaa_status;
+        j["cname_chain"] = x.cname_chain;
+        j["endpoint"] = x.endpoint;
+        j["instance"] = x.instance;
+        j["resolver"] = x.resolver;
+    }
+
     inline void from_json(const json & j, ListMatch& x) {
         x.list = j.at("list").get<std::string>();
         x.via = j.at("via").get<std::string>();
@@ -2705,6 +2748,7 @@ namespace api {
     }
 
     inline void from_json(const json & j, RoutingTestResponse& x) {
+        x.dns = get_stack_optional<RoutingTestDns>(j, "dns");
         x.dns_error = get_stack_optional<std::string>(j, "dns_error");
         x.is_domain = j.at("is_domain").get<bool>();
         x.no_matching_rule = j.at("no_matching_rule").get<bool>();
@@ -2717,6 +2761,7 @@ namespace api {
 
     inline void to_json(json & j, const RoutingTestResponse & x) {
         j = json::object();
+        j["dns"] = x.dns;
         j["dns_error"] = x.dns_error;
         j["is_domain"] = x.is_domain;
         j["no_matching_rule"] = x.no_matching_rule;
@@ -2869,7 +2914,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesJVNtkd& x) {
+    inline void from_json(const json & j, KeenPbrTypesKWYddm& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2937,6 +2982,7 @@ namespace api {
         x.routing_health_response = get_stack_optional<RoutingHealthResponse>(j, "RoutingHealthResponse");
         x.routing_health_warning = get_stack_optional<RoutingHealthWarningElement>(j, "RoutingHealthWarning");
         x.routing_health_warning_code = get_stack_optional<RoutingHealthWarningCode>(j, "RoutingHealthWarningCode");
+        x.routing_test_dns = get_stack_optional<RoutingTestDns>(j, "RoutingTestDns");
         x.routing_test_entry = get_stack_optional<RoutingTestEntry>(j, "RoutingTestEntry");
         x.routing_test_list_match = get_stack_optional<ListMatch>(j, "RoutingTestListMatch");
         x.routing_test_request = get_stack_optional<RoutingTestRequest>(j, "RoutingTestRequest");
@@ -2960,7 +3006,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesJVNtkd & x) {
+    inline void to_json(json & j, const KeenPbrTypesKWYddm & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3029,6 +3075,7 @@ namespace api {
         j["RoutingHealthResponse"] = x.routing_health_response;
         j["RoutingHealthWarning"] = x.routing_health_warning;
         j["RoutingHealthWarningCode"] = x.routing_health_warning_code;
+        j["RoutingTestDns"] = x.routing_test_dns;
         j["RoutingTestEntry"] = x.routing_test_entry;
         j["RoutingTestListMatch"] = x.routing_test_list_match;
         j["RoutingTestRequest"] = x.routing_test_request;
@@ -3625,6 +3672,50 @@ namespace api {
             case RoutingHealthWarningCode::NAT_PARTIAL: j = "nat_partial"; break;
             case RoutingHealthWarningCode::RP_FILTER_STRICT: j = "rp_filter_strict"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RoutingHealthWarningCode\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, AStatus & x) {
+        if (j == "malformed") x = AStatus::MALFORMED;
+        else if (j == "network_error") x = AStatus::NETWORK_ERROR;
+        else if (j == "nodata") x = AStatus::NODATA;
+        else if (j == "nxdomain") x = AStatus::NXDOMAIN;
+        else if (j == "ok") x = AStatus::OK;
+        else if (j == "rcode") x = AStatus::RCODE;
+        else if (j == "refused") x = AStatus::REFUSED;
+        else if (j == "servfail") x = AStatus::SERVFAIL;
+        else if (j == "timeout") x = AStatus::TIMEOUT;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"AStatus\""); }
+    }
+
+    inline void to_json(json & j, const AStatus & x) {
+        switch (x) {
+            case AStatus::MALFORMED: j = "malformed"; break;
+            case AStatus::NETWORK_ERROR: j = "network_error"; break;
+            case AStatus::NODATA: j = "nodata"; break;
+            case AStatus::NXDOMAIN: j = "nxdomain"; break;
+            case AStatus::OK: j = "ok"; break;
+            case AStatus::RCODE: j = "rcode"; break;
+            case AStatus::REFUSED: j = "refused"; break;
+            case AStatus::SERVFAIL: j = "servfail"; break;
+            case AStatus::TIMEOUT: j = "timeout"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"AStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, Resolver & x) {
+        if (j == "dnsmasq") x = Resolver::DNSMASQ;
+        else if (j == "system") x = Resolver::SYSTEM;
+        else if (j == "test") x = Resolver::TEST;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"Resolver\""); }
+    }
+
+    inline void to_json(json & j, const Resolver & x) {
+        switch (x) {
+            case Resolver::DNSMASQ: j = "dnsmasq"; break;
+            case Resolver::SYSTEM: j = "system"; break;
+            case Resolver::TEST: j = "test"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"Resolver\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

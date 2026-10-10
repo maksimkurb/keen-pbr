@@ -2,6 +2,7 @@
 
 #include "../src/cache/cache_manager.hpp"
 #include "../src/cmd/test_routing.hpp"
+#include "fake_dns_server.hpp"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -675,5 +676,111 @@ TEST_CASE("compute_test_routing matches domains through DomainIndex semantics") 
     REQUIRE(unrelated.rule_diagnostics.size() == 1);
     CHECK_FALSE(unrelated.rule_diagnostics[0].target_in_lists);
 
+    std::filesystem::remove_all(temp_dir);
+}
+
+namespace {
+
+RoutingDnsResolver dnsmasq_resolver_at(std::uint16_t port) {
+    RoutingDnsResolver r;
+    r.source = RoutingDnsSource::Dnsmasq;
+    r.address = "127.0.0.1";
+    r.port = port;
+    r.instance = "uci:test";
+    return r;
+}
+
+std::uint16_t qtype_of(const fake_dns::Bytes& query) {
+    std::size_t pos = 12;
+    while (pos < query.size() && query[pos] != 0) pos += 1u + query[pos];
+    pos += 1;
+    return static_cast<std::uint16_t>((query[pos] << 8) | query[pos + 1]);
+}
+
+TestRoutingResult routing_with_resolver(const RoutingDnsResolver& resolver) {
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir);
+    cache.ensure_dir();
+    const Config config = build_test_config();
+    auto result = compute_test_routing(config, cache, "example.test", TestRoutingCriteria{},
+                                       nullptr, {}, &resolver);
+    std::filesystem::remove_all(temp_dir);
+    return result;
+}
+
+} // namespace
+
+TEST_CASE("compute_test_routing resolves A and AAAA through dnsmasq") {
+    FakeDnsServer srv([](const fake_dns::Bytes& q, bool) {
+        return qtype_of(q) == 28
+            ? fake_dns::make_reply(q, 0, {fake_dns::aaaa_rr("2001:db8::1")})
+            : fake_dns::make_reply(q, 0, {fake_dns::a_rr("192.0.2.10")});
+    });
+    const auto result = routing_with_resolver(dnsmasq_resolver_at(srv.port()));
+    REQUIRE(result.resolved_ips.size() == 2);
+    CHECK(result.resolved_ips[0] == "192.0.2.10");
+    CHECK(result.resolved_ips[1] == "2001:db8::1");
+    REQUIRE(result.dns.has_value());
+    CHECK(result.dns->resolver == "dnsmasq");
+    CHECK(result.dns->endpoint == "127.0.0.1:" + std::to_string(srv.port()));
+    CHECK(result.dns->instance == "uci:test");
+    CHECK_FALSE(result.dns_error.has_value());
+}
+
+TEST_CASE("compute_test_routing tolerates AAAA NODATA from dnsmasq") {
+    FakeDnsServer srv([](const fake_dns::Bytes& q, bool) {
+        return qtype_of(q) == 28
+            ? fake_dns::make_reply(q, 0)
+            : fake_dns::make_reply(q, 0, {fake_dns::a_rr("192.0.2.10")});
+    });
+    const auto result = routing_with_resolver(dnsmasq_resolver_at(srv.port()));
+    CHECK(result.resolved_ips.size() == 1);
+    CHECK_FALSE(result.dns_error.has_value());
+    CHECK(result.warnings.empty());
+}
+
+TEST_CASE("compute_test_routing reports NXDOMAIN from dnsmasq") {
+    FakeDnsServer srv([](const fake_dns::Bytes& q, bool) {
+        return fake_dns::make_reply(q, 3);
+    });
+    const auto result = routing_with_resolver(dnsmasq_resolver_at(srv.port()));
+    CHECK(result.resolved_ips.empty());
+    REQUIRE(result.dns_error.has_value());
+    CHECK(result.dns_error->find("nxdomain") != std::string::npos);
+}
+
+TEST_CASE("compute_test_routing does not query when dnsmasq is unavailable") {
+    std::atomic<int> queries{0};
+    FakeDnsServer srv([&queries](const fake_dns::Bytes& q, bool) {
+        ++queries;
+        return fake_dns::make_reply(q, 0, {fake_dns::a_rr("192.0.2.10")});
+    });
+    auto resolver = dnsmasq_resolver_at(srv.port());
+    resolver.unavailable = "no endpoint";
+    const auto result = routing_with_resolver(resolver);
+    CHECK(result.resolved_ips.empty());
+    REQUIRE(result.dns_error.has_value());
+    CHECK(result.dns_error->rfind("DNS resolution skipped:", 0) == 0);
+    CHECK(queries.load() == 0);
+}
+
+TEST_CASE("default_routing_dns_resolver follows the integration setting") {
+    Config off = build_test_config();
+    off.dns->resolver_integration = ResolverIntegrationMode::NONE;
+    CHECK(default_routing_dns_resolver(off).source == RoutingDnsSource::System);
+
+    Config on = build_test_config();
+    on.dns->resolver_integration = ResolverIntegrationMode::DNSMASQ;
+    const auto r = default_routing_dns_resolver(on);
+    CHECK(r.source == RoutingDnsSource::Dnsmasq);
+    CHECK(r.unavailable.has_value());
+}
+
+TEST_CASE("compute_test_routing leaves dns unset for IP targets") {
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir);
+    cache.ensure_dir();
+    const auto result = compute_test_routing(build_test_config(), cache, "192.0.2.1");
+    CHECK_FALSE(result.dns.has_value());
     std::filesystem::remove_all(temp_dir);
 }

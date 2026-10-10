@@ -774,6 +774,10 @@ void Daemon::handle_ipc_control_socket() {
                 intercept_dns_hold,
                 runtime_generation_.load(std::memory_order_acquire),
                 config_path_);
+            if (operation == "test-routing") {
+              result["dnsmasq_resolver"] =
+                  routing_dns_resolver_to_json(dnsmasq_manager_.routing_resolver(config_));
+            }
             if (operation == "status") {
               result["routing_health"] =
                   routing_health_report_to_json(cached_routing_health());

@@ -2354,6 +2354,36 @@ components:
           description: Per-IP routing test results.
           items:
             $ref: "#/components/schemas/RoutingTestEntry"
+        dns:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RoutingTestDns"
+
+    RoutingTestDns:
+      type: object
+      required: [resolver]
+      properties:
+        resolver:
+          type: string
+          enum: [system, dnsmasq, test]
+        endpoint:
+          type: string
+          nullable: true
+        instance:
+          type: string
+          nullable: true
+        a_status:
+          type: string
+          nullable: true
+          enum: [ok, nodata, nxdomain, servfail, refused, rcode, timeout, network_error, malformed]
+        aaaa_status:
+          type: string
+          nullable: true
+          enum: [ok, nodata, nxdomain, servfail, refused, rcode, timeout, network_error, malformed]
+        cname_chain:
+          type: array
+          items:
+            type: string
 
     # -------------------------------------------------------------------------
     # Internal: cache metadata (not exposed via API paths)

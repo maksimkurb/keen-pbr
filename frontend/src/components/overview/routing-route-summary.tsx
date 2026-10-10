@@ -126,13 +126,37 @@ export function RoutingRouteSummary({
     {
       title: t("overview.routingDiagnostics.trace.dns"),
       tone: dnsMissing ? "warn" : diagnostics.is_domain ? "ok" : "neutral",
-      content: dnsMissing
-        ? t("overview.routingDiagnostics.trace.dnsEmpty")
-        : diagnostics.is_domain
-          ? codes(diagnostics.resolved_ips)
-          : t("overview.routingDiagnostics.trace.literalIp", {
-              ip: diagnostics.target,
-            }),
+      content: dnsMissing ? (
+        <div className="space-y-1">
+          <p>{t("overview.routingDiagnostics.trace.dnsEmpty")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("overview.routingDiagnostics.trace.dnsClientNote")}
+          </p>
+        </div>
+      ) : diagnostics.is_domain ? (
+        <div className="space-y-1">
+          {codes(diagnostics.resolved_ips)}
+          {diagnostics.dns?.resolver === "dnsmasq" ? (
+            <p className="text-xs text-muted-foreground">
+              {t("overview.routingDiagnostics.trace.dnsResolverDnsmasq", {
+                endpoint: diagnostics.dns.endpoint ?? "",
+                instance: diagnostics.dns.instance ?? "",
+              })}
+            </p>
+          ) : diagnostics.dns?.resolver === "system" ? (
+            <p className="text-xs text-muted-foreground">
+              {t("overview.routingDiagnostics.trace.dnsResolverSystem")}
+            </p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            {t("overview.routingDiagnostics.trace.dnsClientNote")}
+          </p>
+        </div>
+      ) : (
+        t("overview.routingDiagnostics.trace.literalIp", {
+          ip: diagnostics.target,
+        })
+      ),
     },
     {
       title: t("overview.routingDiagnostics.trace.list"),

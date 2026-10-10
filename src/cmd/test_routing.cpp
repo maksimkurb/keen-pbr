@@ -1,6 +1,7 @@
 #include "test_routing.hpp"
 
 #include "../config/routing_state.hpp"
+#include "../dns/dns_client.hpp"
 #include "../lists/domain_index.hpp"
 #include "../lists/ipset.hpp"
 #include "../lists/kernel_set_tester.hpp"
@@ -16,6 +17,7 @@
 #include <array>
 #include <atomic>
 #include <cctype>
+#include <chrono>
 #include <cstring>
 #include <functional>
 #include <iostream>
@@ -312,6 +314,71 @@ std::vector<std::string> resolve_domain_with_system_resolver(const std::string& 
                                              *aaaa_error));
     }
 
+    return ips;
+}
+
+template <typename T>
+void append_unique_strings(std::vector<std::string>& out, const T& items) {
+    for (const auto& item : items) {
+        if (std::find(out.begin(), out.end(), item) == out.end()) out.push_back(item);
+    }
+}
+
+std::vector<std::string> resolve_domain_for_routing_test(const std::string& domain,
+                                                         const RoutingDnsResolver& resolver,
+                                                         TestRoutingResult& result) {
+    TestRoutingDnsInfo info;
+    if (domain_resolver_override()) {
+        info.resolver = "test";
+        result.dns = info;
+        return domain_resolver_override()(domain);
+    }
+    if (resolver.source == RoutingDnsSource::System) {
+        info.resolver = "system";
+        result.dns = info;
+        auto ips = resolve_domain_with_system_resolver(domain, result.warnings);
+        if (ips.empty() && !result.warnings.empty()) result.dns_error = result.warnings.front();
+        return ips;
+    }
+    info.resolver = "dnsmasq";
+    info.endpoint = (resolver.address.find(':') != std::string::npos
+                         ? "[" + resolver.address + "]" : resolver.address) +
+                    ":" + std::to_string(resolver.port);
+    if (!resolver.instance.empty()) info.instance = resolver.instance;
+    if (resolver.unavailable) {
+        result.dns = info;
+        result.dns_error = "DNS resolution skipped: " + *resolver.unavailable;
+        result.warnings.push_back(*result.dns_error);
+        return {};
+    }
+    if (resolver.warning) result.warnings.push_back(*resolver.warning);
+    const auto timeout = std::chrono::milliseconds(2000);
+    const auto a = dns_query(resolver.address, resolver.port, domain, kDnsTypeA, kDnsClassIN, timeout);
+    const auto aaaa = dns_query(resolver.address, resolver.port, domain, kDnsTypeAAAA, kDnsClassIN, timeout);
+    info.a_status = dns_query_status_name(a.status);
+    info.aaaa_status = dns_query_status_name(aaaa.status);
+    append_unique_strings(info.cname_chain, a.cname_chain);
+    append_unique_strings(info.cname_chain, aaaa.cname_chain);
+    std::vector<std::string> ips;
+    append_unique_strings(ips, a.addresses);
+    append_unique_strings(ips, aaaa.addresses);
+    const std::pair<const char*, const DnsQueryResult*> queries[] = {{"A", &a}, {"AAAA", &aaaa}};
+    for (const auto& [label, r] : queries) {
+        if (r->status != DnsQueryStatus::Ok && r->status != DnsQueryStatus::NoData) {
+            result.warnings.push_back(keen_pbr3::format(
+                "{} query for '{}' via dnsmasq {} failed: {}{}", label, domain, *info.endpoint,
+                dns_query_status_name(r->status), r->error.empty() ? "" : ": " + r->error));
+        }
+    }
+    if (ips.empty()) {
+        result.dns_error =
+            (a.status == DnsQueryStatus::NoData && aaaa.status == DnsQueryStatus::NoData)
+                ? keen_pbr3::format("dnsmasq {} returned no A/AAAA records for '{}'", *info.endpoint, domain)
+                : keen_pbr3::format("DNS resolution failed for '{}' via dnsmasq {}: A {}, AAAA {}",
+                                    domain, *info.endpoint, dns_query_status_name(a.status),
+                                    dns_query_status_name(aaaa.status));
+    }
+    result.dns = info;
     return ips;
 }
 
@@ -666,6 +733,14 @@ struct PerIpRoutingResult {
 
 } // namespace
 
+RoutingDnsResolver default_routing_dns_resolver(const Config& config) {
+    RoutingDnsResolver r;
+    if (effective_resolver_integration(config) != ResolverIntegrationMode::DNSMASQ) return r;
+    r.source = RoutingDnsSource::Dnsmasq;
+    r.unavailable = "dnsmasq integration is enabled, but the daemon did not report a usable dnsmasq DNS endpoint";
+    return r;
+}
+
 void set_domain_resolver_for_tests(
     std::function<std::vector<std::string>(const std::string& domain)> resolver) {
     domain_resolver_override() = std::move(resolver);
@@ -684,7 +759,8 @@ TestRoutingResult compute_test_routing(const Config& config,
                                         const std::string& target,
                                         const TestRoutingCriteria& packet,
                                         const std::vector<RuleState>* realized_rule_states,
-                                        SetWriteEvidenceLookup set_write_evidence_lookup) {
+                                        SetWriteEvidenceLookup set_write_evidence_lookup,
+                                        const RoutingDnsResolver* dns_resolver) {
     TestRoutingResult result;
     result.target = target;
     result.is_domain = !is_ip_address(target);
@@ -696,10 +772,9 @@ TestRoutingResult compute_test_routing(const Config& config,
 
     if (result.is_domain) {
         domain_cands = domain_candidates(lowercase_copy(target));
-        ips = resolve_domain_with_system_resolver(target, result.warnings);
-        if (ips.empty() && !result.warnings.empty()) {
-            result.dns_error = result.warnings.front();
-        }
+        const RoutingDnsResolver effective =
+            dns_resolver != nullptr ? *dns_resolver : default_routing_dns_resolver(config);
+        ips = resolve_domain_for_routing_test(target, effective, result);
         result.resolved_ips = ips;
     } else {
         ips.push_back(target);
@@ -892,6 +967,16 @@ int render_test_routing_result(const TestRoutingResult& result) {
     }
 
     std::cout << "Target: " << result.target << "\n";
+    if (result.is_domain) {
+        if (result.dns && result.dns->resolver == "dnsmasq") {
+            std::cout << "DNS resolver: dnsmasq " << result.dns->endpoint.value_or("")
+                      << (result.dns->instance ? " (" + *result.dns->instance + ")" : std::string())
+                      << "\n";
+        } else {
+            std::cout << "DNS resolver: system resolver\n";
+        }
+        std::cout << "Note: devices that use DoH, DoT or their own DNS server may resolve this domain differently.\n";
+    }
     if (!result.resolved_ips.empty()) {
         std::cout << "Resolved IPs: ";
         for (size_t i = 0; i < result.resolved_ips.size(); ++i) {
@@ -949,16 +1034,33 @@ int run_test_routing_command(const Config& config,
 int run_test_routing_command(const Config& config,
                               const CacheManager& cache,
                               const std::string& target,
-                              const std::vector<RuleState>& realized_rule_states) {
-    return render_test_routing_result(
-        compute_test_routing(config, cache, target, &realized_rule_states));
+                              const std::vector<RuleState>& realized_rule_states,
+                              const RoutingDnsResolver* dns_resolver) {
+    return render_test_routing_result(compute_test_routing(
+        config, cache, target, TestRoutingCriteria{}, &realized_rule_states, {}, dns_resolver));
 }
 
 int run_test_routing_command(const nlohmann::json& response) {
     const auto& payload = response.at("result");
     TestRoutingResult result;
     result.target = payload.value("target", "");
+    result.is_domain = payload.value("is_domain", false);
     result.resolved_ips = payload.value("resolved_ips", std::vector<std::string>{});
+    if (payload.contains("dns") && payload.at("dns").is_object()) {
+        const auto& d = payload.at("dns");
+        TestRoutingDnsInfo info;
+        info.resolver = d.value("resolver", "system");
+        const auto opt = [&](const char* key) -> std::optional<std::string> {
+            if (d.contains(key) && d.at(key).is_string()) return d.at(key).get<std::string>();
+            return std::nullopt;
+        };
+        info.endpoint = opt("endpoint");
+        info.instance = opt("instance");
+        info.a_status = opt("a_status");
+        info.aaaa_status = opt("aaaa_status");
+        info.cname_chain = d.value("cname_chain", std::vector<std::string>{});
+        result.dns = std::move(info);
+    }
     result.warnings = payload.value("warnings", std::vector<std::string>{});
     if (payload.contains("dns_error") && !payload.at("dns_error").is_null()) {
         result.dns_error = payload.at("dns_error").get<std::string>();
