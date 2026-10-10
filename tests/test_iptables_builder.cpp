@@ -438,6 +438,16 @@ public:
     return IptablesFirewall::has_xt_comment_registration(contents);
   }
 
+  using Flavour = IptablesFirewall::Flavour;
+  using XtCommentProbeIo = IptablesFirewall::XtCommentProbeIo;
+  static Flavour parse_flavour(const std::string &out) {
+    return IptablesFirewall::parse_flavour(out);
+  }
+  static bool probe_xt_comment_decision(bool ipv6, const std::string &path,
+                                        const XtCommentProbeIo &io) {
+    return IptablesFirewall::probe_xt_comment_decision(ipv6, path, io);
+  }
+
   static bool probe_xt_comment_from_registration(
       const IptablesFirewall &firewall, bool ipv6,
       const std::string &registration_path) {
@@ -2031,6 +2041,16 @@ TEST_CASE("consecutive RulesOnly applies rewrite the same chains while reusing t
   std::filesystem::remove_all(sandbox);
 }
 
+// Fake iptables/ip6tables reporting the legacy flavour, so the registration
+// tests exercise the legacy path regardless of the host's iptables.
+static void write_legacy_flavour_tools(const std::filesystem::path &dir) {
+  for (const char *name : {"iptables", "ip6tables"}) {
+    write_executable(dir / name,
+                     "#!/bin/sh\n"
+                     "echo 'iptables v1.8.9 (legacy)'\n");
+  }
+}
+
 TEST_CASE("xt_comment registration parser requires an exact token") {
   CHECK(T::has_xt_comment_registration("comment\n"));
   CHECK(T::has_xt_comment_registration("state\tcomment\t\n"));
@@ -2046,6 +2066,9 @@ TEST_CASE("xt_comment preflight fails closed for missing or unreadable registrat
                         std::to_string(static_cast<long long>(getpid())));
   std::filesystem::remove_all(sandbox);
   std::filesystem::create_directories(sandbox / "directory");
+  write_legacy_flavour_tools(sandbox);
+  PathGuard path_guard;
+  REQUIRE(setenv("PATH", sandbox.string().c_str(), 1) == 0);
 
   IptablesFirewall firewall;
   CHECK_FALSE(T::probe_xt_comment_from_registration(
@@ -2089,6 +2112,7 @@ TEST_CASE("xt_comment preflight keeps family registration independent") {
                        "'\n"
                        "exit 0\n");
 
+  write_legacy_flavour_tools(sandbox);
   PathGuard path_guard;
   const char *old_path = std::getenv("PATH");
   const std::string path = sandbox.string() + ":" +
@@ -2131,6 +2155,7 @@ TEST_CASE("xt_comment restore grammar failure is a safe fallback") {
       "fi\n"
       "exit 0\n");
 
+  write_legacy_flavour_tools(sandbox);
   PathGuard path_guard;
   const char *old_path = std::getenv("PATH");
   const std::string path = sandbox.string() + ":" +
@@ -2144,6 +2169,98 @@ TEST_CASE("xt_comment restore grammar failure is a safe fallback") {
   std::ostringstream log;
   log << log_input.rdbuf();
   CHECK(log.str().find("probe-restore") != std::string::npos);
+  std::filesystem::remove_all(sandbox);
+}
+
+TEST_CASE("iptables flavour parser reads the -V suffix") {
+  using F = T::Flavour;
+  CHECK(T::parse_flavour("iptables v1.8.13 (nf_tables)\n") == F::nf_tables);
+  CHECK(T::parse_flavour("ip6tables v1.8.10 (nf_tables)") == F::nf_tables);
+  CHECK(T::parse_flavour("iptables v1.8.9 (legacy)\n") == F::legacy);
+  CHECK(T::parse_flavour("iptables v1.4.21\n") == F::unknown);
+  CHECK(T::parse_flavour("") == F::unknown);
+  CHECK(T::parse_flavour("garbage (nf_table)") == F::unknown);
+}
+
+TEST_CASE("xt_comment probe decision depends on the iptables flavour") {
+  const auto sandbox = std::filesystem::temp_directory_path() /
+                       ("keen-pbr-iptables-comment-flavour-" +
+                        std::to_string(static_cast<long long>(getpid())));
+  std::filesystem::remove_all(sandbox);
+  std::filesystem::create_directories(sandbox);
+  const std::string with_file = (sandbox / "matches").string();
+  const std::string without_file = (sandbox / "absent").string();
+  {
+    std::ofstream f(sandbox / "matches");
+    f << "comment\n";
+  }
+
+  struct Calls {
+    int restore_runs{0};
+    std::vector<std::string> last_args;
+  };
+  const auto make_io = [](T::Flavour flavour, int restore_status, Calls &calls) {
+    T::XtCommentProbeIo io;
+    io.flavour = [flavour](bool) { return flavour; };
+    io.restore = [&calls, restore_status](const std::vector<std::string> &args,
+                                          const std::string &) {
+      ++calls.restore_runs;
+      calls.last_args = args;
+      return restore_status;
+    };
+    return io;
+  };
+
+  SUBCASE("legacy without the proc file is unsupported and runs no restore") {
+    Calls calls;
+    CHECK_FALSE(T::probe_xt_comment_decision(
+        false, without_file, make_io(T::Flavour::legacy, 0, calls)));
+    CHECK(calls.restore_runs == 0);
+  }
+  SUBCASE("legacy with the proc file keeps the failing-modprobe grammar check") {
+    Calls calls;
+    CHECK(T::probe_xt_comment_decision(
+        false, with_file, make_io(T::Flavour::legacy, 0, calls)));
+    CHECK(calls.restore_runs == 1);
+    CHECK(calls.last_args.back() == "--modprobe=/bin/false");
+    Calls failing;
+    CHECK_FALSE(T::probe_xt_comment_decision(
+        false, with_file, make_io(T::Flavour::legacy, 1, failing)));
+  }
+  SUBCASE("unknown flavour behaves as legacy") {
+    Calls calls;
+    CHECK_FALSE(T::probe_xt_comment_decision(
+        false, without_file, make_io(T::Flavour::unknown, 0, calls)));
+    CHECK(calls.restore_runs == 0);
+  }
+  SUBCASE("nft with the proc file accepts it without a restore") {
+    Calls calls;
+    CHECK(T::probe_xt_comment_decision(
+        true, with_file, make_io(T::Flavour::nf_tables, 1, calls)));
+    CHECK(calls.restore_runs == 0);
+  }
+  SUBCASE("nft without the proc file and passing restore --test is supported") {
+    Calls calls;
+    CHECK(T::probe_xt_comment_decision(
+        false, without_file, make_io(T::Flavour::nf_tables, 0, calls)));
+    CHECK(calls.restore_runs == 1);
+    REQUIRE(calls.last_args.size() == 3);
+    CHECK(calls.last_args[0] == "iptables-restore");
+    CHECK(calls.last_args[1] == "--test");
+    CHECK(calls.last_args[2] == "--noflush");
+  }
+  SUBCASE("nft ip6 without the proc file uses ip6tables-restore") {
+    Calls calls;
+    CHECK(T::probe_xt_comment_decision(
+        true, without_file, make_io(T::Flavour::nf_tables, 0, calls)));
+    CHECK(calls.last_args[0] == "ip6tables-restore");
+  }
+  SUBCASE("nft without the proc file and failing restore --test is unsupported") {
+    Calls calls;
+    CHECK_FALSE(T::probe_xt_comment_decision(
+        false, without_file, make_io(T::Flavour::nf_tables, 2, calls)));
+    CHECK(calls.restore_runs == 1);
+  }
   std::filesystem::remove_all(sandbox);
 }
 

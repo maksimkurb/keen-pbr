@@ -571,31 +571,116 @@ bool IptablesFirewall::has_xt_comment_registration(
   return false;
 }
 
+IptablesFirewall::Flavour
+IptablesFirewall::parse_flavour(const std::string &version_output) {
+  // "iptables v1.8.13 (nf_tables)" / "iptables v1.8.9 (legacy)".
+  if (version_output.find("(nf_tables)") != std::string::npos) {
+    return Flavour::nf_tables;
+  }
+  if (version_output.find("(legacy)") != std::string::npos) {
+    return Flavour::legacy;
+  }
+  return Flavour::unknown;
+}
+
+IptablesFirewall::XtCommentProbeIo
+IptablesFirewall::default_xt_comment_probe_io() {
+  XtCommentProbeIo io;
+  io.flavour = [](bool ipv6) {
+    const auto result = safe_exec_capture({ipv6 ? "ip6tables" : "iptables", "-V"},
+                                          /*suppress_stderr=*/true);
+    if (result.exit_code != 0 || result.timed_out) return Flavour::unknown;
+    return parse_flavour(result.stdout_output);
+  };
+  io.restore = [](const std::vector<std::string> &args,
+                  const std::string &script) {
+    return safe_exec_pipe_stdin(args, script);
+  };
+  return io;
+}
+
 bool IptablesFirewall::probe_xt_comment_from_registration(
     bool ipv6, const std::string &registration_path) {
-  // The proc registration is the only read-only evidence that the kernel has
-  // the match registered.  Do not create a temporary rule: restore --test
-  // does not commit and, on legacy backends, may skip the kernel commit path.
-  std::ifstream registration(registration_path);
-  if (!registration) {
+  return probe_xt_comment_decision(ipv6, registration_path,
+                                   default_xt_comment_probe_io());
+}
+
+bool IptablesFirewall::probe_xt_comment_decision(
+    bool ipv6, const std::string &registration_path,
+    const XtCommentProbeIo &io) {
+  // Two paths, chosen by the iptables flavour (detected once, here, at
+  // service start):
+  //
+  // legacy (or unknown, e.g. Keenetic): /proc/net/*_tables_matches lists the
+  //   registered matches while ip_tables/ip6_tables is loaded, and is the only
+  //   read-only evidence.  No rule-based probe is used: legacy restore --test
+  //   may skip the kernel commit path, so it proves nothing about the kernel.
+  //   A userspace grammar check with a failing modprobe follows.
+  //
+  // nf_tables (iptables-nft): xt matches are reached through nft_compat and
+  //   ip_tables is usually not loaded, so the proc file is normally absent.
+  //   If it exists and lists `comment` it is accepted.  Otherwise
+  //   `iptables-restore --test` is used: the nft backend sends the batch to
+  //   the kernel for validation (without committing it), which makes
+  //   nft_compat autoload and validate xt_comment.  modprobe is left allowed
+  //   on purpose; with it disabled the probe would not be meaningful.
+  const char *command = ipv6 ? "ip6tables-restore" : "iptables-restore";
+  const char *family = ipv6 ? "IPv6" : "IPv4";
+  const Flavour flavour = io.flavour(ipv6);
+
+  std::string contents_str;
+  bool registration_readable = false;
+  bool registration_failed = false;
+  {
+    std::ifstream registration(registration_path);
+    if (registration) {
+      std::ostringstream contents;
+      contents << registration.rdbuf();
+      if (registration.bad() || (registration.fail() && !registration.eof())) {
+        registration_failed = true;
+      } else {
+        registration_readable = true;
+        contents_str = contents.str();
+      }
+    }
+  }
+  const bool registered =
+      registration_readable && has_xt_comment_registration(contents_str);
+
+  if (flavour == Flavour::nf_tables) {
+    if (registered) return true;
+    const std::string probe_script =
+        "*mangle\n"
+        ":KpbrXtCommentProbe - [0:0]\n"
+        "-A KpbrXtCommentProbe -m comment --comment kpbr:probe -j RETURN\n"
+        "COMMIT\n";
+    const int status = io.restore({command, "--test", "--noflush"},
+                                  probe_script);
+    if (status == 0) return true;
     Logger::instance().warn(
-        "{} is unavailable; omitting ownership comments for {} rules",
-        registration_path, ipv6 ? "IPv6" : "IPv4");
+        "{} (nf_tables) rejected the xt_comment restore --test probe; "
+        "omitting ownership comments for {} rules",
+        command, family);
     return false;
   }
-  std::ostringstream contents;
-  contents << registration.rdbuf();
-  if (registration.bad() || (registration.fail() && !registration.eof())) {
+
+  if (registration_failed) {
     Logger::instance().warn(
         "failed to read {}; omitting ownership comments for {} rules",
-        registration_path, ipv6 ? "IPv6" : "IPv4");
+        registration_path, family);
     return false;
   }
-  if (!has_xt_comment_registration(contents.str())) {
+  if (!registration_readable) {
+    Logger::instance().warn(
+        "{} is unavailable; omitting ownership comments for {} rules",
+        registration_path, family);
+    return false;
+  }
+  if (!registered) {
     Logger::instance().warn(
         "{} has no exact xt_comment registration; omitting ownership "
         "comments for {} rules",
-        registration_path, ipv6 ? "IPv6" : "IPv4");
+        registration_path, family);
     return false;
   }
 
@@ -603,22 +688,20 @@ bool IptablesFirewall::probe_xt_comment_from_registration(
   // failing modprobe command prevents an unavailable extension from being
   // loaded as a side effect; the proc registration check above remains the
   // kernel capability gate.  Both checks run before any apply mutation.
-  const char *command = ipv6 ? "ip6tables-restore" : "iptables-restore";
   const std::string probe_script =
       "*mangle\n"
       ":KpbrXtCommentProbe - [0:0]\n"
       "-A KpbrXtCommentProbe -m comment --comment kpbr:v1:probe -j RETURN\n"
       "COMMIT\n";
-  const int status = safe_exec_pipe_stdin(
-      {command, "--test", "--noflush", "--modprobe=/bin/false"},
-      probe_script);
+  const int status = io.restore(
+      {command, "--test", "--noflush", "--modprobe=/bin/false"}, probe_script);
   if (status == 0) {
     return true;
   }
   Logger::instance().warn(
       "{} failed the read-only xt_comment restore grammar preflight; "
       "omitting ownership comments for {} rules",
-      command, ipv6 ? "IPv6" : "IPv4");
+      command, family);
   return false;
 }
 

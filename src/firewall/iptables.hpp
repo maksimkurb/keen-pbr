@@ -6,6 +6,7 @@
 #include "firewall_rule.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -64,8 +65,9 @@ public:
   // `ipv6_backend` likewise replaces the ip6tables availability probe.  The
   // comment override also applies at once, so expected_ruleset() can be
   // built without prepare_apply() (which inspects the live system).
-  // xt_comment support of one family: /proc registration plus the restore
-  // grammar check.  Run once at service start (probe_kernel_capabilities);
+  // xt_comment support of one family, flavour-aware: legacy = /proc
+  // registration plus the restore grammar check; nf_tables = proc registration
+  // or a kernel-validated `restore --test`.  Run once at service start (probe_kernel_capabilities);
   // prepare_apply only reads that answer.
   static bool probe_xt_comment_support(bool ipv6);
   // Whether the restore binary accepts `-j NFLOG --nflog-size` (>= 1.6.0).
@@ -203,6 +205,26 @@ private:
   static bool probe_xt_comment_from_registration(
       bool ipv6, const std::string &registration_path);
   static bool has_xt_comment_registration(const std::string &contents);
+
+  // Which iptables userspace/kernel backend a binary drives.  `unknown`
+  // (no recognizable suffix, e.g. Keenetic's iptables 1.4.x) is handled as
+  // legacy so existing behaviour is unchanged.
+  enum class Flavour { legacy, nf_tables, unknown };
+  // Pure parser for `iptables -V` / `ip6tables -V` output.
+  static Flavour parse_flavour(const std::string &version_output);
+  // Process seams of the xt_comment probe (injectable for tests).
+  struct XtCommentProbeIo {
+    // Flavour of iptables (ipv6=false) or ip6tables (ipv6=true).
+    std::function<Flavour(bool ipv6)> flavour;
+    // Runs `<args>` with `script` on stdin; returns the exit code.
+    std::function<int(const std::vector<std::string> &args,
+                      const std::string &script)>
+        restore;
+  };
+  static XtCommentProbeIo default_xt_comment_probe_io();
+  static bool probe_xt_comment_decision(bool ipv6,
+                                        const std::string &registration_path,
+                                        const XtCommentProbeIo &io);
   bool comments_supported_for_family(bool ipv6) const {
     return ipv6 ? comment_v6_supported_ : comment_v4_supported_;
   }

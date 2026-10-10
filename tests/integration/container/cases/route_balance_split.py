@@ -4,7 +4,7 @@ N new UDP flows (distinct source ports, so distinct 5-tuples and one conntrack
 entry plus one classification decision each) are sent from the client through
 the router.  A counting sink in every WAN namespace is the independent
 observation; on iptables the Prometheus classification counters are
-cross-checked against it.  The tolerance is +-2 percentage points: at N=10000
+cross-checked against it (both iptables flavours).  The tolerance is +-2 percentage points: at N=10000
 the standard error of a binomial share is at most 0.5 pp, so 2 pp is ~4 sigma.
 """
 
@@ -120,19 +120,18 @@ def check_kernel_counters(context, wans, family, destination, before, counted):
              zip(wans, after["packets"], before["packets"])}
     assert delta == counted, ("iptables rule counters disagree with WAN-side count",
                               delta, counted)
-    # Comment-less rules (nft-flavoured iptables has no
-    # /proc/net/ip_tables_matches) cannot be attributed to an outbound, so the
-    # Prometheus counters only exist on the legacy flavour.
-    if after["metrics"]:
-        def metric_delta():
-            now = metrics_counts()
-            return {wan.tag: now.get((wan.tag, family), 0) -
-                    before["metrics"].get((wan.tag, family), 0) for wan in wans}
+    # Rules carry ownership comments on both iptables flavours (the xt_comment
+    # probe is flavour-aware), so the Prometheus counters must exist and agree
+    # with the WAN-side sinks.
+    def metric_delta():
+        now = metrics_counts()
+        return {wan.tag: now.get((wan.tag, family), 0) -
+                before["metrics"].get((wan.tag, family), 0) for wan in wans}
 
-        measured = context.wait_for("classification counters", lambda: (
-            metric_delta() if sum(metric_delta().values()) >= FLOWS else False), timeout=20)
-        assert measured == counted, ("metrics disagree with WAN-side count", measured, counted)
-        print("KPBR_BALANCE_SPLIT metrics_crosscheck=ok", flush=True)
+    measured = context.wait_for("classification counters", lambda: (
+        metric_delta() if sum(metric_delta().values()) >= FLOWS else False), timeout=20)
+    assert measured == counted, ("metrics disagree with WAN-side count", measured, counted)
+    print("KPBR_BALANCE_SPLIT metrics_crosscheck=ok", flush=True)
 
 
 def start_sink(wan, run_id):
