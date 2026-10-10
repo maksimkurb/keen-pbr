@@ -219,9 +219,10 @@ private:
   // (iptables without xt_statistic) before anything is mutated.
   void require_balance_support(const Config &config) const;
   // Daemon CLI facts (raw PREROUTING placement) that config validation needs.
+  // Uses the mode the firewall was actually built with.
   ConfigValidationContext validation_context() const {
-    return ConfigValidationContext{
-        RawPreroutingMode{opts_.use_raw_prerouting, opts_.use_raw6_prerouting}};
+    return firewall_ ? ConfigValidationContext{firewall_->raw_prerouting_mode()}
+                     : ConfigValidationContext{};
   }
 
   // lifecycle and runtime apply

@@ -302,6 +302,35 @@ TEST_CASE("non-balance strategy is accepted with raw PREROUTING") {
     CHECK(issues.empty());
 }
 
+TEST_CASE("both raw flags yield exactly one issue per balance outbound") {
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"iptables"},)"),
+        ConfigValidationContext{RawPreroutingMode{true, true}});
+    REQUIRE(issues.size() == 1);
+    CHECK(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+}
+
+TEST_CASE("icmptest balance is rejected with raw IPv4 PREROUTING") {
+    const auto issues = validate_issues(
+        R"({"daemon":{"firewall_backend":"iptables"},"outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"icmptest","tag":"ping","strategy":"balance","interval_ms":60000,
+         "outbound_groups":[{"members":[{"outbound":"wan","target":"1.1.1.1"}]}]}]})",
+        ConfigValidationContext{RawPreroutingMode{true, false}});
+    REQUIRE(issues.size() == 1);
+    CHECK(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+}
+
+TEST_CASE("auto backend resolving to iptables rejects balance with raw PREROUTING") {
+    SystemInfoTestGuard sys_guard;
+    set_detected_firewall_backend_for_tests(FirewallBackend::iptables);
+    const auto issues = validate_issues(
+        balance_config_json(R"("daemon":{"firewall_backend":"auto"},)"),
+        ConfigValidationContext{RawPreroutingMode{true, false}});
+    CHECK(has_raw_balance_issue(issues, "outbounds[1].strategy"));
+    reset_detected_firewall_backend_for_tests();
+}
+
 TEST_CASE("raw PREROUTING flags never conflict with balance on nftables") {
     const auto issues = validate_issues(
         balance_config_json(R"("daemon":{"firewall_backend":"nftables"},)"),

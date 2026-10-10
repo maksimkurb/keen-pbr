@@ -585,10 +585,12 @@ int main(int argc, char *argv[]) {
       config_text = contents.str();
       return keen_pbr3::parse_config(config_text);
     }();
-    keen_pbr3::validate_config(
-        config, keen_pbr3::ConfigValidationMode::Runtime,
-        keen_pbr3::ConfigValidationContext{
-            {opts.use_raw_prerouting, opts.use_raw6_prerouting}});
+    // Deliberately no raw-PREROUTING context here: a balance config combined
+    // with --use-raw-prerouting must not abort launch.  The daemon still
+    // starts (startup then fails in apply_firewall and is published as a
+    // failed runtime state) so the API/web UI stay reachable for fixing the
+    // config; later saves and applies are checked with the raw mode.
+    keen_pbr3::validate_config(config);
     // Persist a legacy->members upgrade only for the real daemon start, after
     // the config parsed and validated.
     if (opts.run_service) {
