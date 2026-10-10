@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# Kernel module for the iptables backend (not needed with nftables).
-ExecStartPre=-/bin/sh -c 'command -v nft >/dev/null 2>&1 || modprobe xt_multiport'
+# Kernel modules for the iptables backend (multiport matching, statistic-based load balancing, connmark); not needed with nftables.
+ExecStartPre=-/bin/sh -c 'command -v nft >/dev/null 2>&1 || modprobe -a xt_multiport xt_statistic xt_connmark'
 ExecStart=/usr/sbin/keen-pbr --config /etc/keen-pbr/config.json --pid-file /var/run/keen-pbr.pid --log-target syslog service
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
