@@ -263,12 +263,18 @@ export function OutboundsPage() {
               t("pages.outbounds.headers.actions"),
             ]}
             rows={outboundItems.map((outbound) => [
-              <RuntimeOutboundEntry
-                key={`${outbound.id}-tag`}
-                runtimeState={outbound.runtimeState}
-                title={outbound.tag}
-                t={t}
-              />,
+              outbound.runtimeState?.status === "healthy" ? (
+                <span key={`${outbound.id}-tag`} className="truncate font-medium">
+                  {outbound.tag}
+                </span>
+              ) : (
+                <RuntimeOutboundEntry
+                  key={`${outbound.id}-tag`}
+                  runtimeState={outbound.runtimeState}
+                  title={outbound.tag}
+                  t={t}
+                />
+              ),
               <Badge key={`${outbound.id}-type`} variant="outline">
                 {outbound.type}
               </Badge>,
