@@ -163,7 +163,8 @@ struct Rr {
     Bytes owner;  // empty => pointer to question
 };
 
-Bytes dns_response(const std::string& qname, uint16_t rcode, const std::vector<Rr>& answers) {
+Bytes dns_response(const std::string& qname, uint16_t rcode, const std::vector<Rr>& answers,
+                   uint16_t qtype = 1) {
     Bytes m;
     put16(m, 0x1234);
     put16(m, static_cast<uint16_t>(0x8180 | rcode));
@@ -172,7 +173,7 @@ Bytes dns_response(const std::string& qname, uint16_t rcode, const std::vector<R
     put16(m, 0);
     put16(m, 0);
     append(m, enc(qname));
-    put16(m, 1);
+    put16(m, qtype);
     put16(m, 1);
     for (const Rr& r : answers) {
         if (r.owner.empty()) {
@@ -481,6 +482,30 @@ TEST_CASE("intercept: DNS qtype and rcode are recorded in events") {
     REQUIRE(events.size() >= 2);
     CHECK(events[1].qtype == 1);
     CHECK(events[1].rcode == 3);
+}
+
+TEST_CASE("intercept: empty answers are logged only for address queries or errors") {
+    Fixture f;
+    // NODATA for A and AAAA explains a missing route: logged.
+    f.proc.on_dns_packet(view(dns_packet(dns_response("a.example.com", 0, {}, 1))),
+                         Fixture::deadline(), true);
+    f.proc.on_dns_packet(view(dns_packet(dns_response("aaaa.example.com", 0, {}, 28))),
+                         Fixture::deadline(), true);
+    // NODATA for HTTPS (65): noise, not logged.
+    f.proc.on_dns_packet(view(dns_packet(dns_response("https.example.com", 0, {}, 65))),
+                         Fixture::deadline(), true);
+    // An error for HTTPS is still logged.
+    f.proc.on_dns_packet(view(dns_packet(dns_response("fail.example.com", 2, {}, 65))),
+                         Fixture::deadline(), true);
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 3);
+    CHECK(events[0].domain == "a.example.com");
+    CHECK(events[1].domain == "aaaa.example.com");
+    CHECK(events[1].qtype == 28);
+    CHECK(events[2].domain == "fail.example.com");
+    CHECK(events[2].qtype == 65);
+    CHECK(events[2].rcode == 2);
+    CHECK(f.writer.calls == 0);
 }
 
 TEST_CASE("intercept: TTL clamping") {

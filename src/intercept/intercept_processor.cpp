@@ -722,7 +722,12 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns_message(
     };
 
     if (response_.rcode != 0 || response_.addresses.empty()) {
-        add_dns_observation(stage_event(InterceptSource::dns));
+        // An empty NOERROR answer to a type other than A/AAAA (HTTPS, SVCB,
+        // ...) explains nothing about routing; browsers send one per lookup.
+        const bool address_query = response_.qtype == 1 || response_.qtype == 28;
+        if (response_.rcode != 0 || address_query) {
+            add_dns_observation(stage_event(InterceptSource::dns));
+        }
         return {};
     }
 
