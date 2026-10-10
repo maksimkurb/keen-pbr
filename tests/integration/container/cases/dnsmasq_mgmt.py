@@ -63,6 +63,21 @@ def register(registry):
     def dnsmasq_rules_ipv6(context):
         _rules_case(context, SELECTED6, "2001:db8:10::2#15354", "dns6", "pbr-v6")
 
+    @registry.case("dnsmasq_instance_selected")
+    def dnsmasq_instance_selected(context):
+        listed = f"instance-{uuid.uuid4().hex}.fixture.test"
+        set_resolver_upstreams(context, "10.10.0.2#15353")
+        config = dnsmasq_rules_config(
+            context, [SELECTED4],
+            [{"list": ["scoped"], "server": "selected4"}],
+            {"scoped": {"domains": [listed]}})
+        context.apply_config(config)
+        wait_hook_calls(context, STARTUP + ["apply"])
+        wait_dnsmasq_state(context, "ok")
+        health = context.api("/api/health/service")["dnsmasq"]
+        assert health["instance_selector"] == "test:netns", health
+        assert health["endpoint"] == "192.0.2.1:53", health
+
     @registry.case("dnsmasq_fallback")
     def dnsmasq_fallback(context):
         name = f"fallback-{uuid.uuid4().hex}.fixture.test"
