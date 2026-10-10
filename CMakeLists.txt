@@ -362,6 +362,7 @@ set(SOURCES
   src/daemon/dnsmasq_hook_protocol.cpp
   src/daemon/dnsmasq_proc.cpp
   src/daemon/dnsmasq_conf.cpp
+  src/daemon/dnsmasq_detector.cpp
   src/daemon/dnsmasq_capability.cpp
   src/daemon/dnsmasq_preflight.cpp
   src/config/dnsmasq_selector.cpp

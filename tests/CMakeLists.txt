@@ -22,6 +22,7 @@ add_executable(keen-pbr-tests
   test_dnsmasq_hook_protocol.cpp
   test_dnsmasq_proc.cpp
   test_dnsmasq_conf.cpp
+  test_dnsmasq_detector.cpp
   test_dnsmasq_capability.cpp
   test_dnsmasq_preflight.cpp
   test_test_routing.cpp
@@ -172,6 +173,7 @@ add_executable(keen-pbr-tests
   ../src/daemon/dnsmasq_hook_protocol.cpp
   ../src/daemon/dnsmasq_proc.cpp
   ../src/daemon/dnsmasq_conf.cpp
+  ../src/daemon/dnsmasq_detector.cpp
   ../src/daemon/dnsmasq_capability.cpp
   ../src/daemon/dnsmasq_preflight.cpp
   ../src/config/dnsmasq_selector.cpp
