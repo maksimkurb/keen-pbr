@@ -229,6 +229,12 @@ the firewall fails with an error naming the module. It is not available with
 `--use-raw-prerouting` (raw runs before conntrack, so a choice could not be
 kept per connection).
 
+{{< callout type="info" >}}
+Balancing across several WANs needs NAT on every uplink, loose `rp_filter`, and
+an fwmark range that other services do not touch. See
+[Multi-WAN Load Balancing](../multi-wan/) for a complete Debian/iptables setup.
+{{< /callout >}}
+
 ### Retry Configuration
 
 | Field | Type | Required | Description |
