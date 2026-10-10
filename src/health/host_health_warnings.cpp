@@ -3,11 +3,14 @@
 #include "../log/logger.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <set>
 #include <sstream>
+#include <string_view>
+#include <system_error>
 
 namespace keen_pbr3 {
 
@@ -194,6 +197,27 @@ bool parse_u32(const std::string& text, std::uint32_t& out) {
     return true;
 }
 
+// Plain decimal digits only, at most `max`.
+bool parse_decimal(std::string_view text, uint32_t max, uint32_t& out) {
+    if (text.empty()) return false;
+    const auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), out);
+    return ec == std::errc{} && end == text.data() + text.size() && out <= max;
+}
+
+// "a.b.c.d" with each octet 0..255.
+bool parse_dotted_quad(std::string_view text, uint32_t& a, uint32_t& b, uint32_t& c,
+                       uint32_t& d) {
+    uint32_t* parts[4] = {&a, &b, &c, &d};
+    for (int i = 0; i < 4; ++i) {
+        const auto dot = i < 3 ? text.find('.') : text.size();
+        if (dot == std::string_view::npos || !parse_decimal(text.substr(0, dot), 255, *parts[i])) {
+            return false;
+        }
+        text.remove_prefix(i < 3 ? dot + 1 : dot);
+    }
+    return true;
+}
+
 // "V" or "V/M"; has_mask tells which.
 bool parse_value_mask(const std::string& text, std::uint32_t& value,
                       std::uint32_t& mask, bool& has_mask) {
@@ -329,22 +353,19 @@ std::vector<HealthWarning> evaluate_fwmark_conflict_warnings(
 std::optional<Ipv4Net> parse_ipv4_net(const std::string& text) {
     const auto slash = text.find('/');
     const std::string addr = text.substr(0, slash);
-    unsigned a = 0, b = 0, c = 0, d = 0;
-    char tail = 0;
-    if (std::sscanf(addr.c_str(), "%u.%u.%u.%u%c", &a, &b, &c, &d, &tail) != 4 ||
-        a > 255 || b > 255 || c > 255 || d > 255) {
+    uint32_t a = 0, b = 0, c = 0, d = 0;
+    if (!parse_dotted_quad(addr, a, b, c, d)) {
         return std::nullopt;
     }
     uint32_t mask = 0xFFFFFFFFu;
     if (slash != std::string::npos) {
         const std::string m = text.substr(slash + 1);
-        unsigned ma = 0, mb = 0, mc = 0, md = 0;
-        if (std::sscanf(m.c_str(), "%u.%u.%u.%u%c", &ma, &mb, &mc, &md, &tail) == 4) {
+        uint32_t ma = 0, mb = 0, mc = 0, md = 0;
+        if (parse_dotted_quad(m, ma, mb, mc, md)) {
             mask = (ma << 24) | (mb << 16) | (mc << 8) | md;
         } else {
-            unsigned len = 0;
-            if (m.empty() || std::sscanf(m.c_str(), "%u%c", &len, &tail) != 1 ||
-                len > 32) {
+            uint32_t len = 0;
+            if (!parse_decimal(m, 32, len)) {
                 return std::nullopt;
             }
             mask = len == 0 ? 0U : (0xFFFFFFFFu << (32U - len));

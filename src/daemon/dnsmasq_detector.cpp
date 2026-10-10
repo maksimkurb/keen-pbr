@@ -8,13 +8,13 @@
 
 #include <arpa/inet.h>
 #include <ifaddrs.h>
+#include <linux/limits.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include <algorithm>
-#include <climits>
 #include <cstdlib>
 #include <exception>
 

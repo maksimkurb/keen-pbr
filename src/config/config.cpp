@@ -1517,8 +1517,9 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
         try {
             effective_backend = resolve_firewall_backend(backend_pref);
             backend_detected = true;
-        } catch (const std::exception&) {
+        } catch (const std::exception& e) {
             // Unknown: validate for the more restrictive backend.
+            Logger::instance().debug("firewall backend detection failed: {}", e.what());
         }
         const std::string backend_note =
             backend_pref == FirewallBackendPreference::auto_detect

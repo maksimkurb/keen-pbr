@@ -1,6 +1,7 @@
 #include "nfqueue.hpp"
 
 #include "uapi_compat.hpp"
+#include "../log/logger.hpp"
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -342,8 +343,9 @@ void probe_nfqueue_gso(uint16_t avoid_queue) {
     try {
         // The bind itself carries the GSO request and records the answer.
         NfQueue spare(options);
-    } catch (const std::exception&) {
+    } catch (const std::exception& e) {
         // Module missing or no privileges: unknown, the first real bind tries.
+        Logger::instance().debug("nfqueue GSO probe failed: {}", e.what());
     }
 }
 

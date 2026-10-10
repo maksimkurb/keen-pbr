@@ -1,6 +1,7 @@
 #include "conntrack.hpp"
 
 #include "uapi_compat.hpp"
+#include "../log/logger.hpp"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -321,8 +322,9 @@ void probe_conntrack_kernel_filter() {
             (dump.complete() && dump.kernel_filter_mismatches() != 0)) {
             note_conntrack_kernel_filter_unsupported();
         }
-    } catch (const std::exception&) {
+    } catch (const std::exception& e) {
         // No ctnetlink socket: nothing learned.
+        Logger::instance().debug("conntrack kernel filter probe failed: {}", e.what());
     }
 }
 

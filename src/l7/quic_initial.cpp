@@ -145,7 +145,7 @@ bool decrypt_initial_datagram(ByteView udp_payload, QuicInitialPacketInfo& info,
             return !first;
         }
         const uint32_t ver = load_be32(pkt.data() + 1);
-        QuicVersion version{};
+        QuicVersion version = QuicVersion::V1;
         if (!supported_version(ver, version)) {
             return !first;
         }

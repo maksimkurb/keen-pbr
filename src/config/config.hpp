@@ -170,7 +170,7 @@ inline ResolverIntegrationMode effective_resolver_integration(const Config& conf
 inline std::optional<std::string> configured_dnsmasq_selector(const Config& config) {
     if (!config.dns || !config.dns->dnsmasq_instance) return std::nullopt;
     if (config.dns->dnsmasq_instance->empty()) return std::nullopt;
-    return *config.dns->dnsmasq_instance;
+    return config.dns->dnsmasq_instance;
 }
 
 inline const char* resolver_integration_name(ResolverIntegrationMode mode) {
