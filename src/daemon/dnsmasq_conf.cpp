@@ -8,7 +8,6 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
-#include <sstream>
 
 namespace keen_pbr3 {
 

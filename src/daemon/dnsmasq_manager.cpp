@@ -1,6 +1,5 @@
 #include "dnsmasq_manager.hpp"
 
-#include "../dns/dns_server.hpp"
 #include "../dns/dnsmasq_gen.hpp"
 #include "../log/logger.hpp"
 #include "../util/time_utils.hpp"

@@ -67,7 +67,7 @@ std::optional<ProcessInfo> read_process_info(const std::string& proc_root, pid_t
         std::ifstream f(base + "/cmdline", std::ios::binary);
         if (!f) return std::nullopt;
         std::string data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-        if (data.size() > 64 * 1024) data.resize(64 * 1024);
+        if (data.size() > std::size_t{64} * 1024) data.resize(std::size_t{64} * 1024);
         if (data.empty()) return std::nullopt;
         std::size_t start = 0;
         while (start < data.size()) {
@@ -162,7 +162,7 @@ std::optional<DnsmasqEndpoint> parse_proc_net_address(const std::string& hex, in
     } else if (family == 6) {
         if (addr_hex.size() != 32) return std::nullopt;
         unsigned char bytes[16];
-        for (int i = 0; i < 4; ++i) {
+        for (std::size_t i = 0; i < 4; ++i) {
             unsigned long v = 0;
             if (!parse_hex(addr_hex.substr(8 * i, 8), v)) return std::nullopt;
             const std::uint32_t w = static_cast<std::uint32_t>(v);

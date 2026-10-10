@@ -228,9 +228,7 @@ std::uint32_t rule_mark_bits(const std::vector<std::string>& tokens) {
             continue;
         } else if ((t == "--set-xmark" || t == "--set-mark") && has_value) {
             if (parse_value_mask(tokens[++i], v, m, hm)) bits |= m;
-        } else if (t == "--or-mark" && has_value) {
-            if (parse_u32(tokens[++i], v)) bits |= v;
-        } else if (t == "--xor-mark" && has_value) {
+        } else if ((t == "--or-mark" || t == "--xor-mark") && has_value) {
             if (parse_u32(tokens[++i], v)) bits |= v;
         } else if (t == "--and-mark" && has_value) {
             if (parse_u32(tokens[++i], v)) bits |= ~v;
