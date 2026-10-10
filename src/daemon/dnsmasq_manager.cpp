@@ -264,14 +264,18 @@ bool DnsmasqManager::refresh_detection_locked(const std::string& expected_hash) 
     options.previous_endpoint = endpoint_;
     detection_ = detect_(options);
     const DnsmasqInstance* inst = detection_.selected_instance();
+    // Read guarded state here: thread-safety analysis does not see the lock inside the lambda.
+    const std::size_t instance_count = detection_.instances.size();
+    std::vector<std::string> warnings = detection_.warnings;
+    const auto selection = detection_.selection;
 
     update_status([&](DnsmasqStatus& s) {
-        s.instances = detection_.instances.size();
-        s.warnings = detection_.warnings;
+        s.instances = instance_count;
+        s.warnings = std::move(warnings);
         if (inst) {
             s.warnings.insert(s.warnings.end(), inst->warnings.begin(), inst->warnings.end());
         }
-        s.selection = detection_.selection;
+        s.selection = selection;
         s.selector = inst ? inst->selector.str() : std::string{};
         s.endpoint = inst ? inst->endpoint : std::nullopt;
         s.endpoint_evidence = inst ? inst->evidence : EndpointEvidence::None;
@@ -322,7 +326,8 @@ bool DnsmasqManager::ensure_ready_to_apply_locked(const std::string& hash,
         log.info("dnsmasq capability test for {}: {}", path,
                  capability_status_name(capability_.status));
     }
-    update_status([&](DnsmasqStatus& s) { s.capability = capability_.status; });
+    const DnsmasqCapabilityStatus capability_status = capability_.status;
+    update_status([&](DnsmasqStatus& s) { s.capability = capability_status; });
     if (capability_.status != DnsmasqCapabilityStatus::Ok) {
         publish_error(capability_.code,
                       "dnsmasq " + path + " cannot be used: " + capability_.detail);
