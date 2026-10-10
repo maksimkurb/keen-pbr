@@ -20,6 +20,7 @@
 #include "config/config_writer.hpp"
 #include "cache/cache_manager.hpp"
 #include "auth/password.hpp"
+#include "cmd/dnsmasq_cmd.hpp"
 #include "cmd/status.hpp"
 #include "cmd/test_routing.hpp"
 #include "dns/dnsmasq_gen.hpp"
@@ -74,6 +75,8 @@ struct CliOptions {
   bool download_reload{false};
   bool resolver_config_hash{false};
   bool run_status{false};
+  bool run_dnsmasq{false};
+  std::vector<std::string> dnsmasq_args;
   bool run_test_routing{false};
   std::string test_routing_target;
   bool show_help{false};
@@ -116,6 +119,8 @@ void print_usage(const char *argv0) {
             << "  generate-resolver-config dnsmasq   Print the dnsmasq config generated "
                "from dns.rules/dns.fallback (cached lists only; used as "
                "dnsmasq conf-script, always exits 0)\n"
+            << "  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses\n"
+            << "  dnsmasq remove <selector>          Remove keen-pbr's drop-in and owned settings from one dnsmasq instance\n"
             << "  hash-password [--update]           Generate an authentication password hash; --update writes config.json\n";
 }
 
@@ -174,6 +179,10 @@ CliOptions parse_args(int argc, char *argv[]) {
       // reported as a comment line later.
       if (i + 1 < argc) opts.resolver_type = argv[++i];
       opts.generate_resolver_config = true;
+    } else if (std::strcmp(argv[i], "dnsmasq") == 0) {
+      opts.run_dnsmasq = true;
+      for (++i; i < argc; ++i) opts.dnsmasq_args.emplace_back(argv[i]);
+      break;
     } else if (std::strcmp(argv[i], "download") == 0) {
       opts.download_lists = true;
     } else if (std::strcmp(argv[i], "--reload") == 0) {
@@ -353,7 +362,7 @@ int main(int argc, char *argv[]) {
 
     if (!opts.download_lists && !opts.generate_resolver_config &&
         !opts.resolver_config_hash && !opts.run_service && !opts.run_status &&
-        !opts.run_test_routing && !opts.hash_password) {
+        !opts.run_test_routing && !opts.hash_password && !opts.run_dnsmasq) {
       print_usage(argv[0]);
       return 0;
     }
@@ -384,6 +393,11 @@ int main(int argc, char *argv[]) {
       std::cout << "Authentication password updated in " << opts.config_path << ".\n"
                 << "Restart the keen-pbr service for authentication changes to take effect.\n";
       return 0;
+    }
+
+    if (opts.run_dnsmasq) {
+      return keen_pbr3::run_dnsmasq_command(opts.dnsmasq_args, opts.config_path,
+                                            KEEN_PBR_DNSMASQ_HOOK);
     }
 
     if (opts.generate_resolver_config) {
