@@ -112,16 +112,21 @@ DnsTxtProbeResult parse_dns_txt_response(const std::uint8_t* data,
         response.qname != strip_trailing_dot(name)) {
         return failed("DNS response question mismatch");
     }
+    const auto finish = [&response](DnsTxtProbeResult r) {
+        r.answered = true;
+        r.rcode = response.rcode;
+        return r;
+    };
     if (response.truncated) {
-        return failed("DNS response truncated");
+        return finish(failed("DNS response truncated"));
     }
     if (response.rcode == 3) {  // NXDOMAIN
         DnsTxtProbeResult result;
         result.status = DnsTxtProbeStatus::Missing;
-        return result;
+        return finish(std::move(result));
     }
     if (response.rcode != 0) {
-        return failed("DNS rcode " + std::to_string(response.rcode));
+        return finish(failed("DNS rcode " + std::to_string(response.rcode)));
     }
 
     // parse_response() validated the structure; walk the answers for TXT.
@@ -129,14 +134,14 @@ DnsTxtProbeResult parse_dns_txt_response(const std::uint8_t* data,
     std::size_t pos = response.question_end;
     for (std::uint16_t i = 0; i < ancount; ++i) {
         if (!skip_name(data, size, pos) || pos + 10 > size) {
-            return failed("malformed DNS response");
+            return finish(failed("malformed DNS response"));
         }
         const std::uint16_t type = load_be16(data + pos);
         const std::uint16_t cls = load_be16(data + pos + 2);
         const std::size_t rdlen = load_be16(data + pos + 8);
         pos += 10;
         if (pos + rdlen > size) {
-            return failed("malformed DNS response");
+            return finish(failed("malformed DNS response"));
         }
         if (type == kTypeTxt && cls == kClassIn) {
             DnsTxtProbeResult result;
@@ -145,18 +150,18 @@ DnsTxtProbeResult parse_dns_txt_response(const std::uint8_t* data,
             while (offset < rdlen) {
                 const std::size_t chunk = data[pos + offset++];
                 if (offset + chunk > rdlen) {
-                    return failed("malformed DNS TXT record");
+                    return finish(failed("malformed DNS TXT record"));
                 }
                 result.txt.append(reinterpret_cast<const char*>(data + pos + offset), chunk);
                 offset += chunk;
             }
-            return result;
+            return finish(std::move(result));
         }
         pos += rdlen;
     }
     DnsTxtProbeResult result;
     result.status = DnsTxtProbeStatus::Missing;
-    return result;
+    return finish(std::move(result));
 }
 
 DnsTxtProbeResult probe_dns_txt(const std::string& address,

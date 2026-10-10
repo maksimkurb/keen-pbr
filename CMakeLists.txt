@@ -337,6 +337,7 @@ set(SOURCES
   src/dns/keenetic_dns.cpp
   src/dns/dns_wire.cpp
   src/dns/dns_txt_probe.cpp
+  src/dns/dns_client.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
   src/l7/crypto/sha256.cpp
@@ -361,6 +362,8 @@ set(SOURCES
   src/daemon/dnsmasq_hook_protocol.cpp
   src/daemon/dnsmasq_proc.cpp
   src/daemon/dnsmasq_conf.cpp
+  src/daemon/dnsmasq_capability.cpp
+  src/daemon/dnsmasq_preflight.cpp
   src/config/dnsmasq_selector.cpp
   src/daemon/lifecycle_stages.cpp
   src/daemon/runtime_state_store.cpp

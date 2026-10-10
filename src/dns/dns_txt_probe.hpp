@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,6 +20,10 @@ struct DnsTxtProbeResult {
     DnsTxtProbeStatus status{DnsTxtProbeStatus::QueryFailed};
     std::string txt;    // TXT character-strings of the first answer, concatenated
     std::string error;  // set for QueryFailed
+    // True when a response with our id and question arrived (any rcode, even
+    // truncated). False for timeouts, socket errors and malformed packets.
+    bool answered{false};
+    std::optional<std::uint8_t> rcode;
 };
 
 // Builds a recursive IN TXT query for `name` (no TCP length prefix).

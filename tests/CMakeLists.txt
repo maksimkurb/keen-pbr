@@ -22,10 +22,13 @@ add_executable(keen-pbr-tests
   test_dnsmasq_hook_protocol.cpp
   test_dnsmasq_proc.cpp
   test_dnsmasq_conf.cpp
+  test_dnsmasq_capability.cpp
+  test_dnsmasq_preflight.cpp
   test_test_routing.cpp
   test_keenetic_dns.cpp
   test_dns_wire.cpp
   test_dns_txt_probe.cpp
+  test_dns_client.cpp
   test_nfnetlink.cpp
   test_l7_crypto.cpp
   test_l7_quic.cpp
@@ -146,6 +149,7 @@ add_executable(keen-pbr-tests
   ../src/dns/keenetic_dns.cpp
   ../src/dns/dns_wire.cpp
   ../src/dns/dns_txt_probe.cpp
+  ../src/dns/dns_client.cpp
   ../src/l7/crypto/sha256.cpp
   ../src/l7/crypto/aes128.cpp
   ../src/l7/quic_initial.cpp
@@ -168,6 +172,8 @@ add_executable(keen-pbr-tests
   ../src/daemon/dnsmasq_hook_protocol.cpp
   ../src/daemon/dnsmasq_proc.cpp
   ../src/daemon/dnsmasq_conf.cpp
+  ../src/daemon/dnsmasq_capability.cpp
+  ../src/daemon/dnsmasq_preflight.cpp
   ../src/config/dnsmasq_selector.cpp
   ../src/daemon/lifecycle_stages.cpp
   ../src/daemon/pid_file.cpp
