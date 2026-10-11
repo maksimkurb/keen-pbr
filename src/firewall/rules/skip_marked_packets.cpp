@@ -1,4 +1,5 @@
 #include "../firewall_rule_modules.hpp"
+#include "../../config/config_defaults.hpp"
 
 #include <utility>
 
@@ -12,7 +13,7 @@ bool skip_marked_packets_enabled(const FirewallBuildContext& context) {
   if (context.config == nullptr || !context.config->daemon.has_value()) {
     return true;
   }
-  return context.config->daemon->skip_marked_packets.value_or(true);
+  return context.config->daemon->skip_marked_packets.value_or(config_defaults::skip_marked_packets);
 }
 }
 

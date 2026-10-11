@@ -1,5 +1,6 @@
 #include "../intercept/intercept_report.hpp"
 #include "daemon.hpp"
+#include "../config/config_defaults.hpp"
 #include "../config/config_writer.hpp"
 
 #include "../config/routing_state.hpp"
@@ -162,7 +163,7 @@ steady_duration_ms(std::chrono::steady_clock::time_point started_at) {
 RawPreroutingMode resolved_raw_prerouting_mode(const Config &config,
                                                const DaemonOptions &options) {
   const bool ipv6_enabled =
-      config.daemon.value_or(DaemonConfig{}).ipv6_enabled.value_or(true);
+      config.daemon.value_or(DaemonConfig{}).ipv6_enabled.value_or(config_defaults::ipv6_enabled);
   return {options.use_raw_prerouting,
           options.use_raw6_prerouting && ipv6_enabled};
 }
@@ -1182,7 +1183,8 @@ void Daemon::refresh_iproute_and_firewall_runtime(
 
 FirewallApplyMode Daemon::runtime_refresh_firewall_mode() const {
   return config_.daemon.value_or(DaemonConfig{})
-                 .reuse_static_sets_on_runtime_refresh.value_or(true)
+                 .reuse_static_sets_on_runtime_refresh.value_or(
+                     config_defaults::reuse_static_sets_on_runtime_refresh)
              ? FirewallApplyMode::RulesOnly
              : FirewallApplyMode::PreserveSets;
 }
@@ -1222,7 +1224,8 @@ void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
   const auto inbound_interfaces =
       config_.route.value_or(RouteConfig{}).inbound_interfaces;
   const bool learning_wan_scope =
-      config_.intercept.value_or(InterceptConfig{}).enabled.value_or(true) &&
+      config_.intercept.value_or(InterceptConfig{}).enabled.value_or(
+          config_defaults::intercept_enabled) &&
       (!inbound_interfaces.has_value() || inbound_interfaces->empty());
   const bool auto_gateway_outbound = is_auto_gateway_outbound_in_use();
   const bool auto_gateway_interface =

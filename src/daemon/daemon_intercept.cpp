@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "../config/config_defaults.hpp"
 #include "../firewall/firewall_runtime.hpp"
 #include "../intercept/intercept_report.hpp"
 #include "../intercept/intercept_snapshot_builder.hpp"
@@ -100,7 +101,7 @@ void Daemon::probe_capabilities_at_start() {
   if (queue_available) {
     nfnl::probe_nfqueue_gso(static_cast<std::uint16_t>(
         config_.intercept.value_or(InterceptConfig{}).dns
-            .value_or(InterceptDnsConfig{}).queue_num.value_or(9053)));
+            .value_or(InterceptDnsConfig{}).queue_num.value_or(config_defaults::intercept_dns_queue_num)));
   }
   log.info("Kernel capability probes done; they are not repeated until restart "
            "(conntrack pre-filter unsupported={}, NFQUEUE GSO rejected={})",
@@ -112,7 +113,8 @@ InterceptEffective Daemon::resolve_intercept_effective() {
     // Both inputs are answers cached at service start; nothing is probed here.
     const bool ipv6_enabled = resolve_ipv6_support(config_).enabled;
     InterceptCapabilities capabilities;
-    if (config_.intercept.value_or(InterceptConfig{}).enabled.value_or(true) &&
+    if (config_.intercept.value_or(InterceptConfig{}).enabled.value_or(
+            config_defaults::intercept_enabled) &&
         intercept_startup_probe_.has_value()) {
         capabilities = intercept_startup_probe_->for_ipv6(ipv6_enabled);
         // Listener bind results are not kernel capabilities: they come from the

@@ -1,6 +1,7 @@
 #include "routing_state.hpp"
 
 #include "addr_spec.hpp"
+#include "config_defaults.hpp"
 #include "../routing/target.hpp"
 
 #include <arpa/inet.h>
@@ -70,7 +71,7 @@ bool strict_enforcement_enabled(const Config& cfg, const Outbound& ob) {
     if (ob.strict_enforcement.has_value()) {
         return *ob.strict_enforcement;
     }
-    return cfg.daemon.value_or(DaemonConfig{}).strict_enforcement.value_or(false);
+    return cfg.daemon.value_or(DaemonConfig{}).strict_enforcement.value_or(config_defaults::strict_enforcement);
 }
 
 RuleAction strict_enforcement_action(const Config& cfg, const Outbound& ob) {
@@ -362,7 +363,7 @@ std::map<std::string, uint32_t> build_outbound_table_map(const Config& cfg) {
     });
 
     const uint32_t table_start = static_cast<uint32_t>(
-        cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
+        cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(config_defaults::table_start));
     uint32_t table_offset = 0;
     std::map<std::string, uint32_t> tables;
     for (const auto& outbound : outbounds) {
@@ -403,7 +404,7 @@ void populate_routing_state(const Config& cfg,
     });
     const auto outbound_tables = build_outbound_table_map(cfg);
     const uint32_t table_start = static_cast<uint32_t>(
-        cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
+        cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(config_defaults::table_start));
     const uint32_t fwmark_mask = fwmark_mask_value(cfg.fwmark.value_or(FwmarkConfig{}));
     std::vector<RouteSpec> planned_routes;
     std::vector<RuleSpec> planned_rules;

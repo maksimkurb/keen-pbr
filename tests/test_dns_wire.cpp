@@ -376,19 +376,19 @@ TEST_CASE("dns_wire: tcp_single_message") {
 }
 
 TEST_CASE("dns_wire: is_marker_name") {
-    CHECK(is_marker_name("check.keen.pbr", "check.keen.pbr"));
-    CHECK(is_marker_name("x.check.keen.pbr", "check.keen.pbr"));
-    CHECK(is_marker_name("X.Check.Keen.PBR", "check.keen.pbr"));
-    CHECK_FALSE(is_marker_name("notcheck.keen.pbr", "check.keen.pbr"));
-    CHECK_FALSE(is_marker_name("keen.pbr", "check.keen.pbr"));
-    CHECK_FALSE(is_marker_name("", "check.keen.pbr"));
+    CHECK(is_marker_name("check.keen-pbr.fyi", "check.keen-pbr.fyi"));
+    CHECK(is_marker_name("x.check.keen-pbr.fyi", "check.keen-pbr.fyi"));
+    CHECK(is_marker_name("X.Check.Keen-PBR.FYI", "check.keen-pbr.fyi"));
+    CHECK_FALSE(is_marker_name("notcheck.keen-pbr.fyi", "check.keen-pbr.fyi"));
+    CHECK_FALSE(is_marker_name("keen-pbr.fyi", "check.keen-pbr.fyi"));
+    CHECK_FALSE(is_marker_name("", "check.keen-pbr.fyi"));
 }
 
 TEST_CASE("dns_wire: build_marker_packet IPv4") {
     Bytes dns = header(0xBEEF, 0x8183 | 0x0100, 1, 0); // QR RD RA NXDOMAIN
     dns[2] = 0x81;
     dns[3] = 0x83;
-    append(dns, question("check.keen.pbr", 1));
+    append(dns, question("check.keen-pbr.fyi", 1));
     const Bytes orig = ipv4_udp(dns, 53, 40000);
 
     auto layout = parse_packet_layout(view(orig));
@@ -407,7 +407,7 @@ TEST_CASE("dns_wire: build_marker_packet IPv4") {
     CHECK(r2.id == 0xBEEF);
     CHECK((r2.flags & 0x0100) != 0);
     CHECK((r2.flags & 0x0400) != 0);
-    CHECK(r2.qname == "check.keen.pbr");
+    CHECK(r2.qname == "check.keen-pbr.fyi");
     REQUIRE(r2.addresses.size() == 1);
     CHECK(r2.addresses[0].family == 4);
     CHECK(r2.addresses[0].addr[0] == 127);
@@ -424,7 +424,7 @@ TEST_CASE("dns_wire: build_marker_packet IPv4") {
 
 TEST_CASE("dns_wire: build_marker_packet keeps question case (0x20 randomization)") {
     Bytes dns = header(0x0101, 0x8183, 1, 0);
-    const Bytes q = question("cHeCk.KeEn.PbR", 1);
+    const Bytes q = question("cHeCk.KeEn-PbR.fYi", 1);
     append(dns, q);
     const Bytes orig = ipv4_udp(dns, 53, 40000);
 
@@ -432,7 +432,7 @@ TEST_CASE("dns_wire: build_marker_packet keeps question case (0x20 randomization
     REQUIRE(layout);
     ParsedResponse resp;
     REQUIRE(parse_response(ByteView(orig.data() + layout->payload_offset, layout->payload_len), resp));
-    CHECK(is_marker_name(resp.qname, "check.keen.pbr"));
+    CHECK(is_marker_name(resp.qname, "check.keen-pbr.fyi"));
 
     auto out = build_marker_packet(view(orig), *layout, resp, {127, 0, 0, 88});
     REQUIRE(out);
@@ -442,7 +442,7 @@ TEST_CASE("dns_wire: build_marker_packet keeps question case (0x20 randomization
 
 TEST_CASE("dns_wire: build_marker_packet IPv6 AAAA gives NODATA") {
     Bytes dns = header(0x0042, 0x8183, 1, 0);
-    append(dns, question("check.keen.pbr", 28));
+    append(dns, question("check.keen-pbr.fyi", 28));
     const Bytes orig = ipv6_packet(dns, 53, 41000);
 
     auto layout = parse_packet_layout(view(orig));
@@ -465,7 +465,7 @@ TEST_CASE("dns_wire: build_marker_packet IPv6 AAAA gives NODATA") {
 
 TEST_CASE("dns_wire: build_marker_packet rejects IPv6 extension headers and TCP") {
     Bytes dns = header(1, 0x8183, 1, 0);
-    append(dns, question("check.keen.pbr", 1));
+    append(dns, question("check.keen-pbr.fyi", 1));
     const Bytes orig = ipv6_packet(dns, 53, 41000, 0);
     auto layout = parse_packet_layout(view(orig));
     REQUIRE(layout);

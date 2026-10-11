@@ -1,4 +1,5 @@
 #include "daemon.hpp"
+#include "../config/config_defaults.hpp"
 #include "../config/config_writer.hpp"
 #include "../util/safe_exec.hpp"
 
@@ -903,7 +904,7 @@ void Daemon::schedule_lists_autoupdate() {
         lists_autoupdate_task_id_ = -1;
     }
     if (!config_.lists_autoupdate) return;
-    if (!config_.lists_autoupdate->enabled.value_or(false)) return;
+    if (!config_.lists_autoupdate->enabled.value_or(config_defaults::lists_autoupdate_enabled)) return;
     const auto& expr = config_.lists_autoupdate->cron.value_or("");
     auto next = cron_next(expr);
     const auto now = std::chrono::system_clock::now();

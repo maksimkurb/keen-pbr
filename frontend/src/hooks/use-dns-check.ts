@@ -32,7 +32,7 @@ type UseDnsCheckReturn = {
   reset: () => void
 }
 
-export const DNS_CHECK_DOMAIN_SUFFIX = "check.keen.pbr"
+export const DNS_CHECK_DOMAIN_SUFFIX = "check.keen-pbr.fyi"
 
 const sseConnectTimeoutMs = 5_000
 const browserCheckTimeoutMs = 5_000

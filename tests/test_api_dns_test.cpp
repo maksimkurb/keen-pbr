@@ -101,7 +101,7 @@ TEST_CASE("dns test SSE validates show and default marker view closes after a ma
     std::atomic<bool> request_done{false};
     std::thread request([&] {
         result = client.Get(
-            "/api/dns/test?show=keen-pbr&domain=check.keen.pbr",
+            "/api/dns/test?show=keen-pbr&domain=check.keen-pbr.fyi",
             [](const httplib::Response& response) { return response.status == 200; },
             [&](const char* data, size_t length) {
                 body.append(data, length);
@@ -125,8 +125,8 @@ TEST_CASE("dns test SSE validates show and default marker view closes after a ma
     broadcaster.publish(R"({"type":"INTERCEPT","source":"marker","domain":"other.keen.pbr"})",
                         {"marker", "other.keen.pbr"});
     CHECK(broadcaster.has_subscribers());
-    broadcaster.publish(R"({"type":"INTERCEPT","source":"marker","domain":"check.keen.pbr"})",
-                        {"marker", "check.keen.pbr"});
+    broadcaster.publish(R"({"type":"INTERCEPT","source":"marker","domain":"check.keen-pbr.fyi"})",
+                        {"marker", "check.keen-pbr.fyi"});
     for (int i = 0; i < 100 && broadcaster.has_subscribers(); ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
@@ -192,8 +192,8 @@ TEST_CASE("dns test SSE full alias remains continuous through marker events") {
         CHECK(subscribed);
         return;
     }
-    broadcaster.publish(R"({"type":"INTERCEPT","source":"marker","domain":"check.keen.pbr"})",
-                        {"marker", "check.keen.pbr"});
+    broadcaster.publish(R"({"type":"INTERCEPT","source":"marker","domain":"check.keen-pbr.fyi"})",
+                        {"marker", "check.keen-pbr.fyi"});
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     CHECK(broadcaster.has_subscribers());
     broadcaster.publish(R"({"type":"INTERCEPT","source":"dns","domain":"other.example"})",
@@ -238,7 +238,7 @@ TEST_CASE("dns test SSE filter uses meta and does not require valid JSON") {
     }
 
     // Publish non-JSON message with marker meta: verifies filter uses meta only
-    broadcaster.publish("not valid json", {"marker", "check.keen.pbr"});
+    broadcaster.publish("not valid json", {"marker", "check.keen-pbr.fyi"});
     for (int i = 0; i < 100 && broadcaster.has_subscribers(); ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }

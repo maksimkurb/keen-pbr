@@ -2,6 +2,7 @@
 #include "firewall_physical.hpp"
 #include "firewall_rule_modules.hpp"
 
+#include "../config/config_defaults.hpp"
 #include "../config/list_parser.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_set_usage.hpp"
@@ -231,7 +232,7 @@ FirewallPlan build_firewall_plan(const FirewallPlanBuildInputs& inputs) {
   plan.fwmark_mask = inputs.fwmark_mask;
   const bool process_router_traffic =
       inputs.config.iproute.value_or(IprouteConfig{})
-          .process_router_traffic.value_or(false);
+          .process_router_traffic.value_or(config_defaults::process_router_traffic);
   plan.process_router_traffic = process_router_traffic;
   for (const auto& [list_name, usage] : inputs.list_usage) {
     (void)usage;
@@ -323,7 +324,8 @@ ActiveFirewall apply_runtime_firewall(
 
     firewall.set_ipv6_enabled(ipv6_decision.enabled);
     firewall.set_clear_dynamic_sets_on_apply(
-        config.daemon.value_or(DaemonConfig{}).clear_dynamic_sets_on_apply.value_or(false));
+        config.daemon.value_or(DaemonConfig{}).clear_dynamic_sets_on_apply.value_or(
+            config_defaults::clear_dynamic_sets_on_apply));
     if (force_clear_dynamic_sets) {
       firewall.set_clear_dynamic_sets_on_apply(true);
     }

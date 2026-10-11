@@ -229,7 +229,7 @@ TEST_CASE("effective intercept: defaults with full capabilities enable both part
     CHECK(eff.hold_timeout_ms == 30);
     CHECK(eff.min_ttl_ms == 300000);
     CHECK(eff.max_ttl_ms == 86400000);
-    CHECK(eff.marker_domain == "check.keen.pbr");
+    CHECK(eff.marker_domain == "check.keen-pbr.fyi");
     CHECK(eff.marker_ipv4 == std::array<uint8_t, 4>{127, 0, 0, 88});
     const auto settings = eff.firewall_settings();
     REQUIRE(settings.has_value());

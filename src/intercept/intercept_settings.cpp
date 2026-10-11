@@ -1,5 +1,7 @@
 #include "intercept_settings.hpp"
 
+#include "../config/config_defaults.hpp"
+
 #include <arpa/inet.h>
 
 namespace keen_pbr3 {
@@ -65,22 +67,23 @@ InterceptEffective resolve_effective_intercept(const Config& config,
     const InterceptL7Config l7 = ic.l7.value_or(InterceptL7Config{});
     const auto marker = dns.marker.value_or(api::Marker{});
 
-    eff.config_enabled = ic.enabled.value_or(true);
-    eff.dns_requested = dns.enabled.value_or(true);
-    eff.queue_num = static_cast<uint16_t>(dns.queue_num.value_or(9053));
-    eff.nflog_group = static_cast<uint16_t>(l7.nflog_group.value_or(9054));
-    eff.hold_timeout_ms = static_cast<int>(dns.hold_timeout_ms.value_or(30));
-    eff.min_ttl_ms = static_cast<uint64_t>(ic.min_ttl_ms.value_or(300000));
-    eff.max_ttl_ms = static_cast<uint64_t>(ic.max_ttl_ms.value_or(86400000));
-    eff.marker_domain = marker.domain.value_or("check.keen.pbr");
+    eff.config_enabled = ic.enabled.value_or(config_defaults::intercept_enabled);
+    eff.dns_requested = dns.enabled.value_or(config_defaults::intercept_dns_enabled);
+    eff.queue_num = static_cast<uint16_t>(dns.queue_num.value_or(config_defaults::intercept_dns_queue_num));
+    eff.nflog_group = static_cast<uint16_t>(l7.nflog_group.value_or(config_defaults::intercept_l7_nflog_group));
+    eff.hold_timeout_ms = static_cast<int>(dns.hold_timeout_ms.value_or(config_defaults::intercept_dns_hold_timeout_ms));
+    eff.min_ttl_ms = static_cast<uint64_t>(ic.min_ttl_ms.value_or(config_defaults::intercept_min_ttl_ms));
+    eff.max_ttl_ms = static_cast<uint64_t>(ic.max_ttl_ms.value_or(config_defaults::intercept_max_ttl_ms));
+    eff.marker_domain = marker.domain.value_or(std::string(config_defaults::intercept_marker_domain));
     in_addr addr{};
-    if (inet_pton(AF_INET, marker.answer_ipv4.value_or("127.0.0.88").c_str(), &addr) == 1) {
+    if (inet_pton(AF_INET, marker.answer_ipv4
+                                   .value_or(std::string(config_defaults::intercept_marker_answer_ipv4)).c_str(), &addr) == 1) {
         const auto* bytes = reinterpret_cast<const uint8_t*>(&addr);
         eff.marker_ipv4 = {bytes[0], bytes[1], bytes[2], bytes[3]};
     }
-    eff.tls = l7.tls.value_or(true);
-    eff.http = l7.http.value_or(true);
-    eff.quic = l7.quic.value_or(true);
+    eff.tls = l7.tls.value_or(config_defaults::intercept_l7_tls);
+    eff.http = l7.http.value_or(config_defaults::intercept_l7_http);
+    eff.quic = l7.quic.value_or(config_defaults::intercept_l7_quic);
 
     if (!eff.config_enabled) {
         return eff;
@@ -95,7 +98,7 @@ InterceptEffective resolve_effective_intercept(const Config& config,
         probe.set_backend.blocks() ? probe.set_backend : probe.set_write;
     const char* sets_name = probe.set_backend.blocks() ? "set backend" : "set write";
 
-    if (dns.enabled.value_or(true)) {
+    if (dns.enabled.value_or(config_defaults::intercept_dns_enabled)) {
         if (!sets_usable) {
             eff.reasons.push_back(std::string("dns hold disabled: ") + sets_name +
                                   " probe failed: " + describe(sets_probe));
@@ -110,7 +113,7 @@ InterceptEffective resolve_effective_intercept(const Config& config,
                                                                : " (" + capabilities.reason + ")"));
         }
     }
-    if (l7.enabled.value_or(true) && (eff.tls || eff.http || eff.quic)) {
+    if (l7.enabled.value_or(config_defaults::intercept_l7_enabled) && (eff.tls || eff.http || eff.quic)) {
         if (!sets_usable) {
             eff.reasons.push_back(std::string("l7 sniffing disabled: ") + sets_name +
                                   " probe failed: " + describe(sets_probe));

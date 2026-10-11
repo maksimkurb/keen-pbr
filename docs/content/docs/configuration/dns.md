@@ -179,12 +179,12 @@ Change these settings only when the defaults do not suit you:
 | `dns.enabled` | boolean | `true` | Read DNS replies (UDP and TCP) |
 | `dns.queue_num` | integer | `9053` | {{< term "NFQUEUE" >}} number. Change it only if another program uses it |
 | `dns.hold_timeout_ms` | integer | `30` | How long to wait for addresses to be written before passing the DNS reply to the client. If time runs out, the reply goes out without waiting |
-| `dns.marker` | object | `check.keen.pbr` / `127.0.0.88` | Test domain: if the client's DNS goes through the router, it resolves to `127.0.0.88` |
+| `dns.marker` | object | `check.keen-pbr.fyi` / `127.0.0.88` | Test domain: if the client's DNS goes through the router, it resolves to `127.0.0.88` |
 | `l7.enabled` | boolean | `true` | Read site names in connections |
 | `l7.nflog_group` | integer | `9054` | {{< term "NFLOG" >}} group number. Change it only if another program uses it |
 | `l7.tls` / `http` / `quic` | boolean | `true` | Which protocols to read |
 
-The `dns.dns_test_server` field from earlier versions has no effect. To check DNS, use `nslookup check.keen.pbr` or the DNS check widget in the web UI.
+The `dns.dns_test_server` field from earlier versions has no effect. To check DNS, use `nslookup check.keen-pbr.fyi` or the DNS check widget in the web UI.
 
 ### Kernel requirements
 

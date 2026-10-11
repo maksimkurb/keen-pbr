@@ -523,7 +523,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       "queue_num": 9053,
       "hold_timeout_ms": 30,
       "marker": {
-        "domain": "check.keen.pbr",
+        "domain": "check.keen-pbr.fyi",
         "answer_ipv4": "127.0.0.88"
       }
     },

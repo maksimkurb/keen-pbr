@@ -86,14 +86,14 @@ describe("DNS interception SSE events", () => {
   })
 
   test("normalizes configured marker domains for generated checks", () => {
-    expect(normalizeDnsMarkerDomain(" Check.Keen.PBR... ")).toBe(
-      "check.keen.pbr"
+    expect(normalizeDnsMarkerDomain(" Check.Keen-PBR.FYI... ")).toBe(
+      "check.keen-pbr.fyi"
     )
   })
 
   test("builds isolated marker stream URLs", () => {
-    expect(dnsEventStreamUrl("keen-pbr", " Foo.Check.Keen.PBR... ")).toBe(
-      "/api/dns/test?show=keen-pbr&domain=foo.check.keen.pbr"
+    expect(dnsEventStreamUrl("keen-pbr", " Foo.Check.Keen-PBR.FYI... ")).toBe(
+      "/api/dns/test?show=keen-pbr&domain=foo.check.keen-pbr.fyi"
     )
     expect(dnsEventStreamUrl("full")).toBe("/api/dns/test?show=full")
   })

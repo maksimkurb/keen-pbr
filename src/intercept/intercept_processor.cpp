@@ -673,7 +673,9 @@ InterceptProcessor::DnsDecision InterceptProcessor::handle_dns_message(
             bump(counters_.dns_parse_errors);
             return {};
         }
-        if (response_.qtype == 28) {  // AAAA query type
+        // The marker is answered for every query type, AAAA included.
+        if (response_.qtype == 28 &&  // AAAA query type
+            !dns_wire::is_marker_name(response_.qname, snap->marker_domain)) {
             bump(counters_.dns_aaaa_ignored);
             return {};
         }

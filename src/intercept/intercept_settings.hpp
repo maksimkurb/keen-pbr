@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../config/config.hpp"
+#include "../config/config_defaults.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_rule_modules.hpp"
 #include "intercept_capabilities.hpp"
@@ -27,7 +28,7 @@ struct InterceptEffective {
     // built; the netfilter writer consumes whole seconds.
     uint64_t min_ttl_ms{300000};
     uint64_t max_ttl_ms{86400000};
-    std::string marker_domain{"check.keen.pbr"};
+    std::string marker_domain{config_defaults::intercept_marker_domain};
     std::array<uint8_t, 4> marker_ipv4{127, 0, 0, 88};
     bool tls{true};
     bool http{true};

@@ -1732,7 +1732,7 @@ TEST_CASE("intercept: defaults are accepted and absent values stay optional") {
     const auto full = parse_test_config(R"({"intercept":{
       "enabled":true,"min_ttl_ms":300000,"max_ttl_ms":86400000,
       "dns":{"enabled":true,"queue_num":9053,"hold_timeout_ms":30,
-             "marker":{"domain":"check.keen.pbr","answer_ipv4":"127.0.0.88"}},
+             "marker":{"domain":"check.keen-pbr.fyi","answer_ipv4":"127.0.0.88"}},
       "l7":{"enabled":true,"nflog_group":9054,"tls":true,"http":true,"quic":true}}})");
     CHECK(*full.intercept->dns->queue_num == 9053);
     CHECK(*full.intercept->l7->nflog_group == 9054);

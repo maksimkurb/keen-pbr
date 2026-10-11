@@ -168,7 +168,7 @@ jq . /etc/keen-pbr/config.json
 
 1. Make sure the user device is using the router DNS.
    - Open `http://<router-ip>:12121/` and look at the DNS Check widget. The marker request should reach the router resolver and return `127.0.0.88`.
-   - Alternatively, run this from your PC: `nslookup check.keen.pbr`. It should return `127.0.0.88`.
+   - Alternatively, run this from your PC: `nslookup check.keen-pbr.fyi`. It should return `127.0.0.88`.
 2. Run a routing test:
    - Open `http://<router-ip>:12121/` and enter a domain or IP into the "Where does this traffic go?" widget.
    - Alternatively, run this from the router or server:
@@ -190,10 +190,14 @@ Domain routing does not need any particular resolver: keen-pbr reads DNS replies
 Open `http://<router-ip>:12121/` and check DNS Check. If Web UI is unavailable, run this from the client device:
 
 ```bash {filename="bash"}
-nslookup check.keen.pbr
+nslookup check.keen-pbr.fyi
 ```
 
-Expected response: `127.0.0.88`. If there is no response, the device is not using the router DNS, the resolver is not answering, or DNS interception is unavailable.
+Expected response: `127.0.0.88`. The domain also has a real public address, so the answer tells you what happened:
+
+- `127.0.0.88`: the request went through the router and keen-pbr saw it.
+- Any other address: DNS works, but bypasses the router (for example, the browser or OS uses its own secure DNS), or DNS interception is unavailable.
+- No answer or an error: the device has no working DNS, or the router resolver is not answering.
 
 ### Check the Router Resolver
 

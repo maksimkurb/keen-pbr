@@ -65,7 +65,7 @@ function fakeConsume() {
 
 const intercept = {
   type: "INTERCEPT",
-  domain: "a.check.keen.pbr",
+  domain: "a.check.keen-pbr.fyi",
   source: "marker",
 }
 const flush = () => new Promise((r) => setTimeout(r, 0))

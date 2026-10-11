@@ -769,7 +769,7 @@ TEST_CASE("intercept: DNS deadline is checked again after writer admission") {
 
 TEST_CASE("intercept: marker replacement") {
     Fixture f;
-    const Bytes pkt = dns_packet(dns_response("check.keen.pbr", 3, {}));
+    const Bytes pkt = dns_packet(dns_response("check.keen-pbr.fyi", 3, {}));
     {
         const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
         REQUIRE(d.replace);
@@ -990,7 +990,7 @@ TEST_CASE("intercept: L7 toggles disable protocols") {
 
 TEST_CASE("intercept: events ring is bounded and monotonic") {
     Fixture f;
-    const Bytes pkt = dns_packet(dns_response("check.keen.pbr", 3, {}));
+    const Bytes pkt = dns_packet(dns_response("check.keen-pbr.fyi", 3, {}));
     const int total = static_cast<int>(InterceptProcessor::kEventCapacity) + 44;
     for (int i = 0; i < total; ++i) f.proc.on_dns_packet(view(pkt), Fixture::deadline(), false);
     const auto all = f.proc.events_since(0, 1000);
@@ -2111,6 +2111,30 @@ TEST_CASE("intercept: IPv6 disabled + AAAA query → accept, no writer calls, no
     CHECK(f.counters.dns_matched == 0);
     const auto events = f.proc.events_since(0, 10);
     CHECK(events.empty());
+}
+
+TEST_CASE("intercept: IPv6 disabled + AAAA marker query → still answered as marker") {
+    Fixture f;
+    f.snap->ipv6_enabled = false;
+    f.proc.set_snapshot(f.snap);
+
+    const Bytes pkt = dns_packet(dns_response("x.check.keen-pbr.fyi", 3, {}, 28));
+    const auto d = f.proc.on_dns_packet(view(pkt), Fixture::deadline(), true);
+
+    REQUIRE(d.replace);
+    REQUIRE(d.replacement != nullptr);
+    const auto layout = dns_wire::parse_packet_layout(view(*d.replacement));
+    REQUIRE(layout.has_value());
+    dns_wire::ParsedResponse r;
+    REQUIRE(dns_wire::parse_response(
+        ByteView(d.replacement->data() + layout->payload_offset, layout->payload_len), r));
+    CHECK(r.rcode == 0);
+    CHECK(r.addresses.empty());
+    CHECK(f.counters.dns_aaaa_ignored == 0);
+    CHECK(f.counters.marker_hits == 1);
+    const auto events = f.proc.events_since(0, 10);
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].source == InterceptSource::marker);
 }
 
 TEST_CASE("intercept: IPv6 enabled + AAAA query → learned to IPv6 sets") {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../config/config_defaults.hpp"
 #include "../dns/dns_wire.hpp"
 #include "dns_tcp_reassembly.hpp"
 #include "../l7/flow_buffer.hpp"
@@ -39,7 +40,7 @@ struct InterceptSnapshot {
     // a list still describes the list of the new configuration.
     std::vector<std::string> list_signatures;
     uint32_t max_ttl_s{86400};
-    std::string marker_domain{"check.keen.pbr"};
+    std::string marker_domain{config_defaults::intercept_marker_domain};
     std::array<uint8_t, 4> marker_ipv4{127, 0, 0, 88};
     bool ipv6_enabled{true};  // whether IPv6 sets are available; defaults to true (fail-open)
     bool tls{true};

@@ -1,5 +1,6 @@
 #include "daemon.hpp"
 #include "lifecycle_stages.hpp"
+#include "../config/config_defaults.hpp"
 #include "../config/config_writer.hpp"
 
 #ifdef WITH_API
@@ -889,7 +890,7 @@ void Daemon::setup_api() {
             const auto active = snapshot.firewall_state.active_firewall();
             if (active) {
                 const bool ipv6 = config_store_.active_config().daemon.value_or(DaemonConfig{})
-                                      .ipv6_enabled.value_or(true);
+                                      .ipv6_enabled.value_or(config_defaults::ipv6_enabled);
                 daemon.firewall_counters = firewall_counter_cache_.get(active.get(), [&]() {
                     return collect_iptables_counters(
                         run_command_capture,

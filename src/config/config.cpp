@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "addr_spec.hpp"
+#include "config_defaults.hpp"
 #include "dnsmasq_selector.hpp"
 #include "icmptest_limits.hpp"
 #include "routing_state.hpp"
@@ -71,8 +72,6 @@ void add_issue(std::vector<ConfigValidationIssue>& issues,
 }
 
 constexpr int64_t kTtlMillisecondsPerSecond = 1000;
-constexpr int64_t kDefaultMinTtlMilliseconds = 300000;
-constexpr int64_t kDefaultMaxTtlMilliseconds = 86400000;
 constexpr int64_t kMinTtlMilliseconds = kTtlMillisecondsPerSecond;
 constexpr int64_t kMaxTtlMilliseconds =
     static_cast<int64_t>(std::numeric_limits<uint32_t>::max()) *
@@ -927,11 +926,11 @@ uint32_t parse_fwmark_hex_or_throw(const std::optional<std::string>& raw,
 }
 
 uint32_t parse_fwmark_start_or_throw(const FwmarkConfig& fwmark_cfg) {
-    return parse_fwmark_hex_or_throw(fwmark_cfg.start, 0x00010000, "fwmark.start");
+    return parse_fwmark_hex_or_throw(fwmark_cfg.start, config_defaults::fwmark_start, "fwmark.start");
 }
 
 uint32_t parse_fwmark_mask_or_throw(const FwmarkConfig& fwmark_cfg) {
-    return parse_fwmark_hex_or_throw(fwmark_cfg.mask, 0x00FF0000, "fwmark.mask");
+    return parse_fwmark_hex_or_throw(fwmark_cfg.mask, config_defaults::fwmark_mask, "fwmark.mask");
 }
 
 namespace {
@@ -1154,7 +1153,7 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
     }
 
     if (cfg.lists_autoupdate) {
-        const bool enabled = cfg.lists_autoupdate->enabled.value_or(false);
+        const bool enabled = cfg.lists_autoupdate->enabled.value_or(config_defaults::lists_autoupdate_enabled);
         const std::string cron = cfg.lists_autoupdate->cron.value_or("");
         if (enabled && cron.empty()) {
             add_issue(issues, "lists_autoupdate.cron",
@@ -1182,8 +1181,8 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
                               " is reserved by Keenetic NDM");
             }
         };
-        const int64_t min_ttl = ic.min_ttl_ms.value_or(kDefaultMinTtlMilliseconds);
-        const int64_t max_ttl = ic.max_ttl_ms.value_or(kDefaultMaxTtlMilliseconds);
+        const int64_t min_ttl = ic.min_ttl_ms.value_or(config_defaults::intercept_min_ttl_ms);
+        const int64_t max_ttl = ic.max_ttl_ms.value_or(config_defaults::intercept_max_ttl_ms);
         if (ic.min_ttl_ms.has_value() && min_ttl < kMinTtlMilliseconds) {
             add_issue(issues, "intercept.min_ttl_ms",
                       "intercept.min_ttl_ms must be >= 1000 milliseconds");
@@ -1471,7 +1470,7 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
 
     {
         const uint32_t table_start = static_cast<uint32_t>(
-            cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
+            cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(config_defaults::table_start));
         if (is_reserved_table(table_start)) {
             add_issue(issues, "iproute.table_start",
                       "iproute.table_start " + std::to_string(table_start) +
@@ -1549,7 +1548,7 @@ void validate_config(const Config& cfg, ConfigValidationMode mode,
             // Balancing needs conntrack mark restore/save, which raw PREROUTING
             // lacks.  Mirror the effective placement the daemon will use.
             const bool ipv6_enabled =
-                cfg.daemon.value_or(DaemonConfig{}).ipv6_enabled.value_or(true);
+                cfg.daemon.value_or(DaemonConfig{}).ipv6_enabled.value_or(config_defaults::ipv6_enabled);
             const bool raw_ipv4 = context.raw_prerouting.ipv4;
             const bool raw_ipv6 = context.raw_prerouting.ipv6 && ipv6_enabled;
             if (raw_ipv4 || raw_ipv6) {
