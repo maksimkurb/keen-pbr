@@ -9,6 +9,9 @@ Type=simple
 ExecStartPre=-/bin/sh -c 'command -v nft >/dev/null 2>&1 || modprobe -a xt_multiport xt_statistic xt_connmark'
 ExecStart=/usr/sbin/keen-pbr --config /etc/keen-pbr/config.json --pid-file /var/run/keen-pbr.pid --log-target syslog service
 ExecReload=/bin/kill -HUP $MAINPID
+# Runs after every exit, also after kill -9 or a crash: removes firewall rules
+# the daemon left behind (a clean stop leaves none; finding any is logged).
+ExecStopPost=-/usr/lib/keen-pbr/cleanup-firewall.sh --reason stop
 Restart=on-failure
 RestartSec=5s
 

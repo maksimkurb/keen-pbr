@@ -1,8 +1,9 @@
 #!/bin/sh
-# keen-pbr dnsmasq hook (Debian): dnsmasq-hook.sh inspect|apply <selector>|remove <selector>|status|alive
+# keen-pbr dnsmasq hook (Debian): dnsmasq-hook.sh inspect|apply <selector>|remove <selector>|uninstall|status|alive
 #
 # Installs /etc/dnsmasq.d/keen-pbr-upstream-dns.conf (written only when its
-# content differs) and restarts dnsmasq.
+# content differs) and restarts dnsmasq.  `uninstall` (package removal) needs
+# no selector and never runs keen-pbr.
 #
 # `alive` exits 0 when dnsmasq is active, 1 when it is not and 2 when that
 # cannot be told (no systemctl).
@@ -20,6 +21,8 @@ DEFAULT_CONF="${DEFAULT_CONF:-/etc/dnsmasq.conf}"
 DNSMASQ_BIN="${DNSMASQ_BIN:-}"
 LOCK_DIR="${LOCK_DIR:-/tmp/keen-pbr-dnsmasq-hook.lock}"
 LOCK_TRIES="${LOCK_TRIES:-30}"
+# `uninstall` gives up waiting sooner and then goes on without the lock.
+UNINSTALL_LOCK_TRIES="${UNINSTALL_LOCK_TRIES:-5}"
 
 log() {
     logger -t keen-pbr "dnsmasq-hook: $1" >/dev/null 2>&1 || true
@@ -35,7 +38,8 @@ die() {
 
 release_lock() { rm -rf "$LOCK_DIR"; }
 
-acquire_lock() {
+# take_lock <tries>: returns 1 when a live owner still holds the lock.
+take_lock() {
     _tries=0
     while ! mkdir "$LOCK_DIR" 2>/dev/null; do
         _owner="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
@@ -46,12 +50,16 @@ acquire_lock() {
             continue
         fi
         _tries=$((_tries + 1))
-        [ "$_tries" -ge "$LOCK_TRIES" ] && die 4 "another dnsmasq-hook operation is running"
+        [ "$_tries" -ge "$1" ] && return 1
         sleep 1
     done
     echo "$$" > "$LOCK_DIR/pid"
     trap release_lock EXIT
     trap 'release_lock; exit 130' INT TERM
+}
+
+acquire_lock() {
+    take_lock "$LOCK_TRIES" || die 4 "another dnsmasq-hook operation is running"
 }
 
 # write_line_atomic <file> <line>: writes "<line>\n" only when the content differs.
@@ -73,7 +81,7 @@ dropin_state() {
 }
 
 usage() {
-    echo "usage: $0 inspect | apply <selector> | remove <selector> | status | alive [<selector>]" >&2
+    echo "usage: $0 inspect | apply <selector> | remove <selector> | uninstall | status | alive [<selector>]" >&2
     exit 64
 }
 
@@ -107,6 +115,42 @@ do_inspect() {
 
 do_restart() {
     eval "$RESTART_CMD" >/dev/null 2>&1 || die 1 "failed to restart dnsmasq"
+}
+
+# own_dropin <file>: the file holds only conf-script lines that run keen-pbr
+# (any version), nothing written by somebody else.
+own_dropin() {
+    [ -f "$1" ] || return 1
+    awk '
+        /^[ \t]*$/ { next }
+        /^conf-script=[^ ]*keen-pbr/ { found = 1; next }
+        { foreign = 1 }
+        END { exit((found && !foreign) ? 0 : 1) }
+    ' "$1"
+}
+
+# Package removal.  Never runs keen-pbr (it may be broken or already gone),
+# does not stop at the first failure and does not wait forever for the lock:
+# the daemon is stopped by then, so a held lock is only a stuck hook.  Also
+# removes the drop-in of the old integration (keen-pbr.conf).  keen-pbr never
+# changes dnsmasq's own upstream servers, so removing the drop-in restores them.
+do_uninstall() {
+    take_lock "$UNINSTALL_LOCK_TRIES" || log "uninstall: the lock is held; continuing without it"
+    _status=0
+    _changed=0
+    for _f in "$CONF_FILE" "$DNSMASQ_CONF_DIR/keen-pbr.conf"; do
+        own_dropin "$_f" || continue
+        if rm -f "$_f"; then
+            log "removed $_f"
+            _changed=1
+        else
+            _status=1
+        fi
+    done
+    if [ "$_changed" -eq 1 ] && command -v dnsmasq >/dev/null 2>&1; then
+        eval "$RESTART_CMD" >/dev/null 2>&1 || { log "uninstall: failed to restart dnsmasq"; _status=1; }
+    fi
+    return "$_status"
 }
 
 do_alive() {
@@ -146,6 +190,10 @@ case "${1:-}" in
             log "removed $CONF_FILE"
             do_restart
         fi
+        ;;
+    uninstall)
+        do_uninstall
+        exit $?
         ;;
     status)
         if [ -f "$CONF_FILE" ]; then echo installed; else echo not-installed; fi

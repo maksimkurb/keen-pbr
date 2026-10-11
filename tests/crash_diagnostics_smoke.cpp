@@ -6,6 +6,9 @@
 #include <string>
 #include <thread>
 
+#include <csignal>
+
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -35,6 +38,16 @@ int run_child(const char* report_path, bool worker) {
         return 2;
     }
     keen_pbr3::crash_diagnostics::install_terminate_handler();
+    // The cleanup command must run with the signal mask cleared, as the
+    // daemon blocks its signals for signalfd.
+    if (!keen_pbr3::crash_diagnostics::set_crash_cleanup_command(
+            std::string(report_path) + ".cleanup.sh")) {
+        return 2;
+    }
+    sigset_t blocked;
+    sigemptyset(&blocked);
+    sigaddset(&blocked, SIGTERM);
+    (void)sigprocmask(SIG_BLOCK, &blocked, nullptr);
     if (worker) {
         std::thread thread([] {
             if (!keen_pbr3::crash_diagnostics::install_for_current_thread()) {
@@ -84,7 +97,30 @@ bool contains_all(const std::string& text) {
            text.find("=== KPBR-CRASH v1 END ===") != std::string::npos;
 }
 
+// The cleanup command records its arguments and its blocked-signal mask.
+bool write_cleanup_script(const std::string& report_path) {
+    const std::string script = report_path + ".cleanup.sh";
+    std::ofstream out(script);
+    out << "#!/bin/sh\n"
+        << "echo \"$*\" > '" << report_path << ".cleanup.out'\n"
+        << "grep '^SigBlk:' /proc/self/status >> '" << report_path << ".cleanup.out'\n";
+    out.close();
+    return out && chmod(script.c_str(), 0700) == 0;
+}
+
+bool cleanup_ran(const std::string& report_path, const std::string& file_text) {
+    const std::string out = read_file(report_path + ".cleanup.out");
+    return out.find("--reason crash\n") == 0 &&
+           out.find("SigBlk:\t0000000000000000") != std::string::npos &&
+           file_text.find("cleanup status=exited code=0") != std::string::npos;
+}
+
 int run_one(const char* self_path, const std::string& report_path, bool worker) {
+    (void)std::remove((report_path + ".cleanup.out").c_str());
+    if (!write_cleanup_script(report_path)) {
+        std::perror("cleanup script");
+        return 2;
+    }
     int pipe_fds[2];
     if (pipe(pipe_fds) != 0) {
         std::perror("pipe");
@@ -123,11 +159,13 @@ int run_one(const char* self_path, const std::string& report_path, bool worker) 
 
     const std::string file_text = read_file(report_path);
     if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV &&
-        contains_all(stderr_text) && contains_all(file_text)) {
+        contains_all(stderr_text) && contains_all(file_text) &&
+        cleanup_ran(report_path, file_text)) {
         return 0;
     }
     std::cerr << "crash smoke failed (worker=" << worker << ")\nstderr:\n"
-              << stderr_text << "\nfile:\n" << file_text;
+              << stderr_text << "\nfile:\n" << file_text << "\ncleanup output:\n"
+              << read_file(report_path + ".cleanup.out");
     return 1;
 }
 
@@ -151,6 +189,8 @@ int main(int argc, char* argv[]) {
     const int worker_result = main_result == 0 ? run_one(argv[0], report_path, true) : 1;
     (void)std::remove(report_path.c_str());
     (void)std::remove((report_path + ".current").c_str());
+    (void)std::remove((report_path + ".cleanup.sh").c_str());
+    (void)std::remove((report_path + ".cleanup.out").c_str());
     (void)rmdir(directory);
     return main_result == 0 && worker_result == 0 ? 0 : 1;
 }

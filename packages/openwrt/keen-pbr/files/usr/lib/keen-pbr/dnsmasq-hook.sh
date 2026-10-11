@@ -3,6 +3,7 @@
 #   dnsmasq-hook.sh inspect
 #   dnsmasq-hook.sh apply <selector>     selector: uci:<dhcp section name as in `uci -X show dhcp`>
 #   dnsmasq-hook.sh remove <selector>
+#   dnsmasq-hook.sh uninstall            (package removal: every section, no selector)
 #   dnsmasq-hook.sh status               (v1 compatibility)
 #   dnsmasq-hook.sh alive [<selector>]   (v1 compatibility; the daemon no longer calls it)
 #
@@ -11,7 +12,8 @@
 # entry it adds in keen_pbr_addnmount), and restarts that instance only.
 # remove deletes only the exact drop-in and the addnmount entries listed in
 # keen_pbr_addnmount. Entries that existed before keen-pbr added them are never
-# claimed. Exit codes: 0 ok, 1 failure, 2 dnsmasq not installed, 3 unknown
+# claimed. uninstall does the same for every section without running keen-pbr.
+# Exit codes: 0 ok, 1 failure, 2 dnsmasq not installed, 3 unknown
 # selector, 4 locked, 64 usage.
 
 KEEN_PBR_BIN="${KEEN_PBR_BIN:-/usr/sbin/keen-pbr}"
@@ -28,6 +30,8 @@ RUNTIME_CONF_BASE="${RUNTIME_CONF_BASE:-/var/etc/dnsmasq.conf}"
 DNSMASQ_BIN="${DNSMASQ_BIN:-}"
 LOCK_DIR="${LOCK_DIR:-/tmp/keen-pbr-dnsmasq-hook.lock}"
 LOCK_TRIES="${LOCK_TRIES:-30}"
+# `uninstall` gives up waiting sooner and then goes on without the lock.
+UNINSTALL_LOCK_TRIES="${UNINSTALL_LOCK_TRIES:-5}"
 CONF_NAME="keen-pbr-upstream-dns.conf"
 JAIL_MOUNTS="$KEEN_PBR_BIN $CONFIG_DIR $CACHE_DIR"
 OWN_OPT="keen_pbr_addnmount"
@@ -46,13 +50,14 @@ die() {
 }
 
 usage() {
-    echo "usage: $0 inspect | apply <selector> | remove <selector> | status | alive [<selector>]" >&2
+    echo "usage: $0 inspect | apply <selector> | remove <selector> | uninstall | status | alive [<selector>]" >&2
     exit 64
 }
 
 release_lock() { rm -rf "$LOCK_DIR"; }
 
-acquire_lock() {
+# take_lock <tries>: returns 1 when a live owner still holds the lock.
+take_lock() {
     _tries=0
     while ! mkdir "$LOCK_DIR" 2>/dev/null; do
         _owner="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
@@ -63,12 +68,16 @@ acquire_lock() {
             continue
         fi
         _tries=$((_tries + 1))
-        [ "$_tries" -ge "$LOCK_TRIES" ] && die 4 "another dnsmasq-hook operation is running"
+        [ "$_tries" -ge "$1" ] && return 1
         sleep 1
     done
     echo "$$" > "$LOCK_DIR/pid"
     trap release_lock EXIT
     trap 'release_lock; exit 130' INT TERM
+}
+
+acquire_lock() {
+    take_lock "$LOCK_TRIES" || die 4 "another dnsmasq-hook operation is running"
 }
 
 # write_line_atomic <file> <line>: writes "<line>\n" only when the content differs.
@@ -225,6 +234,55 @@ do_remove() {
     log "removed from uci:$_s"
 }
 
+# own_dropin <file>: the file holds only conf-script lines that run keen-pbr
+# (any version), nothing written by somebody else.
+own_dropin() {
+    [ -f "$1" ] || return 1
+    awk '
+        /^[ \t]*$/ { next }
+        /^conf-script=[^ ]*keen-pbr/ { found = 1; next }
+        { foreign = 1 }
+        END { exit((found && !foreign) ? 0 : 1) }
+    ' "$1"
+}
+
+# Package removal.  Never runs keen-pbr (it may be broken or already gone),
+# does not stop at the first failure and does not wait forever for the lock:
+# the daemon is stopped by then, so a held lock is only a stuck hook.
+# The jail mounts are removed even when dhcp has uncommitted changes (they get
+# committed too): a mount of a path the package deletes can keep the jailed
+# dnsmasq from starting.  keen-pbr never changes the upstream servers, so
+# removing the drop-in gives every instance its own upstreams back.
+do_uninstall() {
+    take_lock "$UNINSTALL_LOCK_TRIES" || log "uninstall: the lock is held; continuing without it"
+    _status=0
+    _changed=0
+    _commit=0
+    for _s in $(dnsmasq_sections); do
+        _f="$(section_confdir "$_s")/$CONF_NAME"
+        if own_dropin "$_f"; then
+            if rm -f "$_f"; then _changed=1; else _status=1; fi
+        fi
+        _owned="$("$UCI" -q get "dhcp.$_s.$OWN_OPT" 2>/dev/null || true)"
+        [ -n "$_owned" ] || continue
+        for _m in $_owned; do
+            "$UCI" -q del_list "dhcp.$_s.addnmount=$_m" || _status=1
+        done
+        "$UCI" -q delete "dhcp.$_s.$OWN_OPT" || _status=1
+        _commit=1
+    done
+    if [ "$_commit" -eq 1 ]; then
+        "$UCI" -q commit dhcp || _status=1
+        log "uninstall: removed the jail mounts keen-pbr added"
+        _changed=1
+    fi
+    if [ "$_changed" -eq 1 ]; then
+        eval "$RESTART_CMD" >/dev/null 2>&1 || { log "uninstall: failed to restart dnsmasq"; _status=1; }
+    fi
+    log "uninstalled"
+    return "$_status"
+}
+
 do_status() {
     _want="$(conf_line)"
     for _s in $(dnsmasq_sections); do
@@ -262,6 +320,7 @@ case "${1:-}" in
     inspect) do_inspect ;;
     apply) do_apply "${2:-}" ;;
     remove) do_remove "${2:-}" ;;
+    uninstall) do_uninstall ;;
     status) do_status ;;
     alive) do_alive ;;
     *) usage ;;

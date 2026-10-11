@@ -3,13 +3,19 @@
 [ "$PKG_UPGRADE" = "1" ] && exit 0
 [ -n "$IPKG_INSTROOT" ] && exit 0
 
+# Never runs keen-pbr itself (a broken binary or config must not block or
+# break the removal); every step is best effort.
+
+/etc/init.d/keen-pbr stop >/dev/null 2>&1 || true
 /etc/init.d/keen-pbr disable >/dev/null 2>&1 || true
 
-# Package removal: drop the dnsmasq integration (conf-script drop-in, jail mounts).
-/usr/lib/keen-pbr/dnsmasq-hook.sh remove >/dev/null 2>&1 || true
-
-# If migrating away from keen-pbr, restore dnsmasq configuration for any remaining integration.
-# This is the same idempotent migration as in postinst.
+# Undo the old dnsmasq integration (restores the servers it moved away).
 /usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr >/dev/null 2>&1 || true
+
+# Take keen-pbr out of every dnsmasq instance (drop-in and jail mounts).
+/usr/lib/keen-pbr/dnsmasq-hook.sh uninstall >/dev/null 2>&1 || true
+
+# Remove firewall rules a crashed daemon may have left behind.
+/usr/lib/keen-pbr/cleanup-firewall.sh >/dev/null 2>&1 || true
 
 exit 0

@@ -19,6 +19,8 @@ PROG=/usr/sbin/keen-pbr
 CONFIG=/etc/keen-pbr/config.json
 UCI_HELPER=/usr/lib/keen-pbr/uci.sh
 PIDFILE=/var/run/keen-pbr.pid
+CLEANUP_FIREWALL=/usr/lib/keen-pbr/cleanup-firewall.sh
+STOP_WAIT_SECONDS=15
 
 script_name() {
     basename "${initscript:-$0}"
@@ -86,6 +88,35 @@ start_service() {
     procd_set_param command "$PROG" --config "$CONFIG" --pid-file "$PIDFILE" --log-target syslog service
     procd_set_param respawn
     procd_close_instance
+}
+
+daemon_alive() {
+    local pid
+
+    [ -s "$PIDFILE" ] || return 1
+    read -r pid < "$PIDFILE" || return 1
+    [ -n "$pid" ] && [ -d "/proc/$pid" ]
+}
+
+# procd calls this after it was asked to stop the instance, without waiting
+# for the process to exit.  A clean stop removes the firewall rules and then
+# the PID file; after kill -9 or a crash the rules are still there, and
+# cleanup-firewall.sh removes them (logging a warning).  It runs only once no
+# keen-pbr is alive: it would otherwise pull the rules from under it.
+service_stopped() {
+    local waited=0
+
+    while daemon_alive; do
+        if [ "$waited" -ge "$STOP_WAIT_SECONDS" ]; then
+            logger -t keen-pbr -p user.warning \
+                "keen-pbr is still running after stop; its firewall rules are left in place"
+            return 0
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    [ -x "$CLEANUP_FIREWALL" ] && "$CLEANUP_FIREWALL" --reason stop
+    return 0
 }
 
 reload_service() {

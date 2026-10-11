@@ -46,6 +46,13 @@ bool install_for_current_thread() noexcept;
 
 void install_terminate_handler() noexcept;
 
+// Makes the crash handler run `<path> --reason crash` after the report is
+// written and wait for it (bounded) before the process dies, so the command
+// finishes before a supervisor respawns the service.  Arm it only while this
+// process owns state that must not outlive it; an empty path disarms.
+// Returns false when the path is too long (the handler is then disarmed).
+bool set_crash_cleanup_command(const std::string& path) noexcept;
+
 std::string format_register_dump_for_test(
     RegisterArch arch,
     std::initializer_list<RegisterValue> values);

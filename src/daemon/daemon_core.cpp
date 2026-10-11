@@ -26,6 +26,7 @@
 #include <thread>
 #include <unistd.h>
 
+#include "../crash/crash_diagnostics.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
 #include "../health/host_health_warnings.hpp"
@@ -1727,8 +1728,20 @@ void Daemon::write_pid_file() {
   } catch (const std::exception &error) {
     throw DaemonError(error.what());
   }
+  // This process is now the only instance: from here on a crash leaves its
+  // firewall rules behind, so the crash handler removes them.  A rejected
+  // second instance never gets here and cannot touch the active one's rules.
+  if (!crash_diagnostics::set_crash_cleanup_command(
+          KEEN_PBR_CLEANUP_FIREWALL_SCRIPT)) {
+    Logger::instance().warn("Crash firewall cleanup disabled: path too long");
+  }
 }
 
-void Daemon::remove_pid_file() { pid_file_.remove(); }
+void Daemon::remove_pid_file() {
+  // The firewall is already cleaned up, and another instance may start once
+  // the PID file is gone.
+  (void)crash_diagnostics::set_crash_cleanup_command("");
+  pid_file_.remove();
+}
 
 } // namespace keen_pbr3

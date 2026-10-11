@@ -13,6 +13,8 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <time.h>
 #include <ucontext.h>
 #include <unistd.h>
 
@@ -59,6 +61,11 @@ std::array<char, 4096> g_current_path{};
 std::array<char, 2048> g_metadata_line{};
 std::size_t g_metadata_length = 0;
 volatile std::sig_atomic_t g_handler_active = 0;
+// set_crash_cleanup_command() fills the path while disarmed, then arms.
+std::array<char, 4096> g_cleanup_path{};
+int g_cleanup_armed = 0;
+constexpr int kCleanupTimeoutMs = 20000;
+constexpr int kCleanupPollMs = 100;
 
 void write_all_fd(int fd, const char* data, std::size_t size) noexcept {
     if (fd < 0) {
@@ -485,6 +492,58 @@ pid_t current_tid() noexcept {
     _exit(128 + signum);
 }
 
+// Runs the cleanup command from the crash handler.  vfork + execve run no
+// atfork handlers and allocate nothing, so a heap or lock the crash left
+// broken does not matter.  The child gets an empty signal mask (the daemon
+// blocks its signals for signalfd) and its own session.
+void run_crash_cleanup() noexcept {
+    if (__atomic_load_n(&g_cleanup_armed, __ATOMIC_ACQUIRE) == 0) {
+        return;
+    }
+    write_literal("cleanup command=");
+    write_cstr(g_cleanup_path.data());
+    write_literal("\n");
+    static char reason_flag[] = "--reason";
+    static char reason[] = "crash";
+    static char path_env[] = "PATH=/opt/sbin:/opt/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+    char* const argv[] = {g_cleanup_path.data(), reason_flag, reason, nullptr};
+    char* const envp[] = {path_env, nullptr};
+    // posix_spawn is not async-signal-safe; the child only calls
+    // async-signal-safe functions before execve.
+    // NOLINTNEXTLINE(bugprone-unsafe-functions,clang-analyzer-security.insecureAPI.vfork)
+    const pid_t pid = ::vfork();
+    if (pid == 0) {
+        sigset_t none;
+        sigemptyset(&none);
+        (void)::sigprocmask(SIG_SETMASK, &none, nullptr);
+        (void)::setsid();
+        (void)::execve(argv[0], argv, envp);
+        _exit(127);
+    }
+    if (pid < 0) {
+        write_literal("cleanup status=spawn-failed\n");
+        return;
+    }
+    const struct timespec poll_interval{0, kCleanupPollMs * 1000000L};
+    for (int waited = 0; waited < kCleanupTimeoutMs; waited += kCleanupPollMs) {
+        int status = 0;
+        const pid_t done = ::waitpid(pid, &status, WNOHANG);
+        if (done == pid) {
+            write_literal("cleanup status=exited code=");
+            write_unsigned(WIFEXITED(status) ? static_cast<std::uintptr_t>(WEXITSTATUS(status))
+                                             : static_cast<std::uintptr_t>(128 + WTERMSIG(status)));
+            write_literal("\n");
+            return;
+        }
+        if (done < 0 && errno != EINTR) {
+            write_literal("cleanup status=wait-failed\n");
+            return;
+        }
+        (void)::nanosleep(&poll_interval, nullptr);
+    }
+    write_literal("cleanup status=timeout\n");
+}
+
 void crash_handler(int signum, siginfo_t* info, void* context_ptr) noexcept {
     if (__atomic_exchange_n(&g_handler_active, 1, __ATOMIC_RELAXED) != 0) {
         write_literal("nested-crash active=1\n=== KPBR-CRASH v1 END ===\n");
@@ -525,6 +584,7 @@ void crash_handler(int signum, siginfo_t* info, void* context_ptr) noexcept {
     if (sp == 0) {
         write_stack_snapshot(unwind_sp);
     }
+    run_crash_cleanup();
     write_literal("status nested=0\n=== KPBR-CRASH v1 END ===\n");
     finish_with_signal(signum);
 }
@@ -620,6 +680,18 @@ bool initialize(const CrashReporterConfig& config) {
 
 void install_terminate_handler() noexcept {
     std::set_terminate(terminate_handler);
+}
+
+bool set_crash_cleanup_command(const std::string& path) noexcept {
+    __atomic_store_n(&g_cleanup_armed, 0, __ATOMIC_RELEASE);
+    if (path.empty()) {
+        return true;
+    }
+    if (!copy_path(g_cleanup_path, path)) {
+        return false;
+    }
+    __atomic_store_n(&g_cleanup_armed, 1, __ATOMIC_RELEASE);
+    return true;
 }
 
 std::string format_register_dump_for_test(

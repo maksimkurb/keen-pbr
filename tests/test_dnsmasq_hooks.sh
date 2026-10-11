@@ -1,5 +1,5 @@
 #!/bin/sh
-# Functional tests for the per-platform dnsmasq hooks (apply|remove|status|alive).
+# Functional tests for the per-platform dnsmasq hooks (apply|remove|uninstall|status|alive).
 
 set -eu
 
@@ -266,6 +266,41 @@ EOT
         fail "owrt: alive (pidof fallback)"
 }
 
+# Package removal: every section, no selector, never keen-pbr itself.
+test_openwrt_uninstall() {
+    run() { PATH="$fake_bin:$PATH" UCI="$fake_bin/uci" sh "$owrt_hook" "$@"; }
+    f1="$TMP_ROOT/dnsmasq.cfg01.d/keen-pbr-upstream-dns.conf"
+    f2="$tmp_root/owrt/x/guest.d/keen-pbr-upstream-dns.conf"
+    run apply uci:cfg01 || fail "owrt uninstall: apply cfg01 failed"
+    run apply uci:guest || fail "owrt uninstall: apply guest failed"
+    # A drop-in from an older version is ours too.
+    printf 'conf-script=/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry\n' > "$f2"
+    reset_restarts; c=$(commits)
+    # Pending dhcp changes and a held lock do not stop the removal.
+    mkdir "$LOCK_DIR"; echo $$ > "$LOCK_DIR/pid"
+    FAKE_UCI_CHANGES="dhcp.cfg01.foo=bar" UNINSTALL_LOCK_TRIES=1 run uninstall ||
+        fail "owrt uninstall: failed"
+    [ -d "$LOCK_DIR" ] || fail "owrt uninstall: removed somebody else's lock"
+    rm -rf "$LOCK_DIR"
+    [ ! -e "$f1" ] && [ ! -e "$f2" ] || fail "owrt uninstall: drop-ins left"
+    grep -qxF "dhcp.cfg01.addnmount=$CONFIG_DIR" "$FAKE_UCI_DB" || fail "owrt uninstall: dropped a pre-existing mount"
+    ! grep -q 'addnmount=/usr/sbin/keen-pbr' "$FAKE_UCI_DB" || fail "owrt uninstall: bin mount left"
+    ! grep -q "addnmount=$CACHE_DIR" "$FAKE_UCI_DB" || fail "owrt uninstall: cache mount left"
+    ! grep -q 'keen_pbr_addnmount' "$FAKE_UCI_DB" || fail "owrt uninstall: ownership list left"
+    [ "$(commits)" = "$((c + 1))" ] || fail "owrt uninstall: should commit once"
+    [ "$(restarts)" = 1 ] || fail "owrt uninstall: should restart once"
+    [ "$(tail -n 1 "$tmp_root/restart.log")" = restart ] || fail "owrt uninstall: should restart every instance"
+
+    # A foreign drop-in stays; nothing left means no restart and no commit.
+    mkdir -p "$(dirname "$f1")"
+    printf 'conf-script=/usr/lib/keen-pbr/x\nserver=9.9.9.9\n' > "$f1"
+    reset_restarts; c=$(commits)
+    run uninstall || fail "owrt uninstall: second run failed"
+    [ -f "$f1" ] || fail "owrt uninstall: removed a foreign drop-in"
+    [ "$(restarts)" = 0 ] && [ "$(commits)" = "$c" ] || fail "owrt uninstall: idempotent run restarted/committed"
+    rm -f "$f1"
+}
+
 # --- Keenetic ------------------------------------------------------------------
 
 test_keenetic() {
@@ -424,6 +459,55 @@ server=8.8.4.4'
         fail "keenetic: pidof must not override the init script"
 }
 
+test_keenetic_uninstall() {
+    run() { sh "$keen_hook" "$@"; }
+    f="$TMP_CONF_DIR/keen-pbr-upstream-dns.conf"
+    : > "$INIT_SCRIPT"
+    printf 'server=8.8.8.8\nserver=8.8.4.4\n' > "$kroot/fallback.conf"
+    export FALLBACK_CONF="$kroot/fallback.conf"
+    fb_begin='# BEGIN keen-pbr fallback upstream (added on upgrade; replace or remove)'
+
+    # dnsmasq has its own upstream: only keen-pbr's parts go.
+    printf 'user=nobody\nserver=1.1.1.1\n' > "$DNSMASQ_CONF"
+    cp "$DNSMASQ_CONF" "$kroot/conf.before"
+    run apply entware:default || fail "keenetic uninstall: apply failed"
+    reset_restarts
+    mkdir "$LOCK_DIR"; echo $$ > "$LOCK_DIR/pid"
+    UNINSTALL_LOCK_TRIES=1 run uninstall || fail "keenetic uninstall: failed"
+    rm -rf "$LOCK_DIR"
+    [ ! -e "$f" ] || fail "keenetic uninstall: drop-in left"
+    # apply adds a blank line before its block; removal leaves it.
+    [ "$(grep -v '^$' "$DNSMASQ_CONF")" = "$(cat "$kroot/conf.before")" ] ||
+        fail "keenetic uninstall: dnsmasq.conf not restored"
+    [ "$(restarts)" = 1 ] || fail "keenetic uninstall: should restart once"
+
+    # Nothing installed: nothing changes, even without an upstream.
+    printf 'user=nobody\nserver=/lan/192.168.1.1\n' > "$DNSMASQ_CONF"
+    cp "$DNSMASQ_CONF" "$kroot/conf.before"
+    reset_restarts
+    run uninstall || fail "keenetic uninstall: idempotent run failed"
+    cmp -s "$DNSMASQ_CONF" "$kroot/conf.before" || fail "keenetic uninstall: touched a dnsmasq.conf keen-pbr never changed"
+    [ "$(restarts)" = 0 ] || fail "keenetic uninstall: idempotent run restarted"
+
+    # Only keen-pbr supplied the upstream: the fallback servers are written back.
+    run apply entware:default || fail "keenetic uninstall: apply (no upstream) failed"
+    reset_restarts
+    run uninstall || fail "keenetic uninstall: run (no upstream) failed"
+    ! grep -q 'keen-pbr upstream dns' "$DNSMASQ_CONF" || fail "keenetic uninstall: block left"
+    grep -qxF "$fb_begin" "$DNSMASQ_CONF" || fail "keenetic uninstall: fallback block missing"
+    grep -qxF 'server=8.8.4.4' "$DNSMASQ_CONF" || fail "keenetic uninstall: fallback servers missing"
+    grep -qxF 'server=/lan/192.168.1.1' "$DNSMASQ_CONF" || fail "keenetic uninstall: user config lost"
+    [ "$(restarts)" = 1 ] || fail "keenetic uninstall: should restart once"
+    # A reinstall drops the block again.
+    run apply entware:default || fail "keenetic uninstall: reinstall failed"
+    ! grep -q 'keen-pbr fallback upstream' "$DNSMASQ_CONF" || fail "keenetic uninstall: reinstall kept the fallback block"
+
+    # Without dnsmasq-fallback.conf the built-in servers are used.
+    FALLBACK_CONF=/nonexistent run uninstall || fail "keenetic uninstall: run (no fallback file) failed"
+    grep -qxF 'server=8.8.8.8' "$DNSMASQ_CONF" || fail "keenetic uninstall: built-in fallback missing"
+    unset FALLBACK_CONF
+}
+
 # --- Debian --------------------------------------------------------------------
 
 test_debian() {
@@ -498,6 +582,28 @@ test_debian() {
     fi
 }
 
+test_debian_uninstall() {
+    run() { PATH="$droot/bin:$PATH" sh "$deb_hook" "$@"; }
+    f="$DNSMASQ_CONF_DIR/keen-pbr-upstream-dns.conf"
+    legacy="$DNSMASQ_CONF_DIR/keen-pbr.conf"
+    run apply systemd:dnsmasq.service || fail "debian uninstall: apply failed"
+    printf 'conf-script=/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry\n' > "$legacy"
+    printf 'server=9.9.9.9\n' > "$DNSMASQ_CONF_DIR/user.conf"
+    reset_restarts
+    mkdir "$LOCK_DIR"; echo $$ > "$LOCK_DIR/pid"
+    UNINSTALL_LOCK_TRIES=1 run uninstall || fail "debian uninstall: failed"
+    rm -rf "$LOCK_DIR"
+    [ ! -e "$f" ] && [ ! -e "$legacy" ] || fail "debian uninstall: drop-ins left"
+    [ -f "$DNSMASQ_CONF_DIR/user.conf" ] || fail "debian uninstall: removed a user file"
+    [ "$(restarts)" = 1 ] || fail "debian uninstall: should restart once"
+    # A foreign file under our name stays.
+    echo 'server=1.1.1.1' > "$f"
+    reset_restarts
+    run uninstall || fail "debian uninstall: second run failed"
+    [ -f "$f" ] && [ "$(restarts)" = 0 ] || fail "debian uninstall: touched a foreign drop-in"
+    rm -f "$f" "$DNSMASQ_CONF_DIR/user.conf"
+}
+
 test_resolver_generation() {
     resolver_bin=${KEEN_PBR_RESOLVER_BIN:-}
     [ -n "$resolver_bin" ] || return 0
@@ -551,10 +657,13 @@ EOF
 
 echo "Testing OpenWrt dnsmasq hook..."
 test_openwrt
+test_openwrt_uninstall
 echo "Testing Keenetic dnsmasq hook..."
 test_keenetic
+test_keenetic_uninstall
 echo "Testing Debian dnsmasq hook..."
 test_debian
+test_debian_uninstall
 echo "Testing resolver generation..."
 test_resolver_generation
 

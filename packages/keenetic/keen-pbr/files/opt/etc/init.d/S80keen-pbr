@@ -13,6 +13,8 @@ PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/u
 IPSET_PROBE_SET="kpbr_probe_hash_net"
 IPSET_COMPONENTS_MESSAGE="ipset kernel modules are not available. Make sure that you followed the installation process and installed all required components: Netfilter Subsystem Kernel Modules and Xtables-addons Extension Package for Netfilter."
 KEENETIC_RCI_STARTUP_ATTEMPTS=15
+CLEANUP_FIREWALL="${CLEANUP_FIREWALL:-/opt/usr/lib/keen-pbr/cleanup-firewall.sh}"
+STOP_WAIT_SECONDS=15
 
 log() {
     logger -s -t "keen-pbr" "$1"
@@ -374,6 +376,25 @@ prepare_stop() {
     enable_hwnat
 }
 
+# After a clean stop the daemon has removed its firewall rules; after kill -9
+# or a crash they are still there.  cleanup-firewall.sh removes them (and logs
+# a warning when it finds any) once the daemon is gone.  It runs only when no
+# keen-pbr is alive: it would otherwise pull the rules from under it.
+cleanup_after_stop() {
+    local waited=0
+
+    while pidof "$PROCS" >/dev/null 2>&1; do
+        if [ "$waited" -ge "$STOP_WAIT_SECONDS" ]; then
+            log_warn "keen-pbr is still running after stop; its firewall rules are left in place"
+            return 0
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    [ -x "$CLEANUP_FIREWALL" ] && "$CLEANUP_FIREWALL" --reason stop
+    return 0
+}
+
 case "$1" in
     reload)
         signal_service HUP
@@ -391,4 +412,15 @@ case "$1" in
         ;;
 esac
 
-. /opt/etc/init.d/rc.func
+# rc.func dispatches the action.  It runs in a subshell so the cleanup below
+# still runs when it exits.
+( . /opt/etc/init.d/rc.func )
+rc=$?
+
+case "$1" in
+    stop|kill)
+        cleanup_after_stop
+        ;;
+esac
+
+exit "$rc"
