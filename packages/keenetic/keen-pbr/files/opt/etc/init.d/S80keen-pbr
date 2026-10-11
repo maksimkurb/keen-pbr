@@ -22,10 +22,8 @@ log_error() {
     logger -s -t "keen-pbr" -p "user.err" "$1"
 }
 
-is_module_loaded() {
-    local module="$1"
-
-    lsmod | grep -q "^${module}[[:space:]]"
+log_warn() {
+    logger -s -t "keen-pbr" -p "user.warning" "WARNING: $1"
 }
 
 module_path_for() {
@@ -34,43 +32,52 @@ module_path_for() {
     printf '/lib/modules/%s/%s.ko\n' "$(uname -r)" "$module"
 }
 
-ensure_kernel_module_loaded() {
-    local module="$1"
-    local module_path="$2"
-    local missing_message="$3"
-    local failure_message="$4"
+# Loaded modules always appear in sysfs.  HINT ("file:name") catches modules
+# built into the firmware: present when the file lists that exact line, or,
+# with an empty name, when the file exists.
+kernel_module_present() {
+    local module="$1" hint="$2" file name
 
-    if is_module_loaded "$module"; then
-        return 0
+    [ -d "${KERNEL_MODULE_SYSFS:-/sys/module}/$module" ] && return 0
+    [ -n "$hint" ] || return 1
+    file="${hint%:*}"
+    name="${hint##*:}"
+    if [ -z "$name" ]; then
+        [ -e "$file" ]
+    else
+        grep -qx "$name" "$file" 2>/dev/null
     fi
-
-    if [ ! -f "$module_path" ]; then
-        log_error "$missing_message"
-        return 0
-    fi
-
-    if ! insmod "$module_path" 2>/dev/null; then
-        log_error "$failure_message"
-        return 0
-    fi
-
-    return 0
 }
 
-try_kernel_module_loaded() {
-    local module="$1"
-    local module_path
+# load_kernel_module LEVEL MODULE HINT EFFECT
+# LEVEL: required (logs an error), optional (logs a warning) or probe (the
+# caller reports the failure itself).  Already present modules are silent.
+# Returns 0 when present or loaded, 1 when the .ko is missing, 2 when insmod
+# fails.
+load_kernel_module() {
+    local level="$1" module="$2" hint="$3" effect="$4" path output
 
-    if is_module_loaded "$module"; then
-        return 0
-    fi
+    kernel_module_present "$module" "$hint" && return 0
 
-    module_path="$(module_path_for "$module")"
-    if [ ! -f "$module_path" ]; then
+    path="$(module_path_for "$module")"
+    if [ ! -f "$path" ]; then
+        report_module_failure "$level" \
+            "kernel module $module is not loaded and $path does not exist: $effect"
         return 1
     fi
+    if ! output="$(insmod "$path" 2>&1)"; then
+        report_module_failure "$level" \
+            "failed to load kernel module $path${output:+ ($output)}: $effect"
+        return 2
+    fi
+    log "Loaded kernel module $path"
+}
 
-    insmod "$module_path" 2>/dev/null
+report_module_failure() {
+    case "$1" in
+        required) log_error "$2" ;;
+        optional) log_warn "$2" ;;
+    esac
 }
 
 ipset_hash_net_available() {
@@ -131,65 +138,50 @@ wait_for_keenetic_rci() {
 }
 
 ensure_ipset_modules_loaded() {
-    if ipset_hash_net_available; then
-        try_kernel_module_loaded xt_set >/dev/null 2>&1 || true
-        return 0
-    fi
-
-    try_kernel_module_loaded nfnetlink >/dev/null 2>&1 || true
-    try_kernel_module_loaded ip_set >/dev/null 2>&1 || true
-    try_kernel_module_loaded ip_set_hash_net >/dev/null 2>&1 || true
-    try_kernel_module_loaded xt_set >/dev/null 2>&1 || true
-
-    if ipset_hash_net_available; then
-        return 0
-    fi
-
-    log_error "$IPSET_COMPONENTS_MESSAGE Required probe failed: ipset create $IPSET_PROBE_SET hash:net family inet -exist"
-}
-
-ensure_xt_multiport_loaded() {
-    local module_path
-
-    module_path="$(module_path_for xt_multiport)"
-
-    ensure_kernel_module_loaded \
-        xt_multiport \
-        "$module_path" \
-        "xt_multiport module not loaded and not found at $module_path. You can safely ignore this message if you are running a NDMS version lower than 3.x" \
-        "Failed to load xt_multiport from $module_path"
-}
-
-ensure_xt_dscp_loaded() {
-    local module_path
-
-    module_path="$(module_path_for xt_dscp)"
-
-    ensure_kernel_module_loaded \
-        xt_dscp \
-        "$module_path" \
-        "xt_dscp module not loaded and not found at $module_path" \
-        "Failed to load xt_dscp from $module_path"
-}
-
-# DNS hold (NFQUEUE) and L7 capture (NFLOG, connbytes).  Loaded only here, at
-# service start; best effort, a missing module degrades interception (the
-# daemon reports it in /api/health/service) but never stops the service.
-ensure_intercept_modules_loaded() {
     local module
 
-    for module in nfnetlink_queue xt_NFQUEUE nfnetlink_log xt_NFLOG xt_connbytes; do
-        if ! try_kernel_module_loaded "$module" >/dev/null 2>&1; then
-            log "WARNING: kernel module $module is not loaded and was not found at $(module_path_for "$module"); ignore this if it is built into the firmware, otherwise DNS/L7 interception is unavailable. Install the Keenetic component opkg-kmod-netfilter (Netfilter Subsystem Kernel Modules)"
-        fi
-    done
+    if ! ipset_hash_net_available; then
+        for module in nfnetlink ip_set ip_set_hash_net; do
+            load_kernel_module required "$module" "" "ipset lists are unavailable" || break
+        done
+        ipset_hash_net_available ||
+            log_error "$IPSET_COMPONENTS_MESSAGE Required probe failed: ipset create $IPSET_PROBE_SET hash:net family inet -exist"
+    fi
+    load_kernel_module required xt_set /proc/net/ip_tables_matches:set \
+        "routing rules cannot match ipset lists"
+}
+
+# Rule matches used only by some configs; the daemon reports rules that fail
+# to apply.
+ensure_rule_match_modules_loaded() {
+    load_kernel_module optional xt_multiport /proc/net/ip_tables_matches:multiport \
+        "rules with port lists cannot be applied"
+    load_kernel_module optional xt_dscp /proc/net/ip_tables_matches:dscp \
+        "rules with DSCP matches cannot be applied"
+    # Without it the daemon falls back to plain -d broadcast/multicast matches.
+    load_kernel_module optional xt_addrtype /proc/net/ip_tables_matches:addrtype \
+        "router-output broadcast/multicast skips use plain destination matches"
+}
+
+# DNS hold (NFQUEUE, conntrack) and L7 capture (NFLOG, connbytes).  Loaded
+# only here, at service start; a missing module degrades interception (the
+# daemon reports it in /api/health/service) but never stops the service.
+ensure_intercept_modules_loaded() {
+    local effect="DNS/L7 interception is unavailable; install the Keenetic component opkg-kmod-netfilter (Netfilter Subsystem Kernel Modules)"
+
+    load_kernel_module optional nfnetlink_queue /proc/net/netfilter/nfnetlink_queue: "$effect"
+    load_kernel_module optional xt_NFQUEUE /proc/net/ip_tables_targets:NFQUEUE "$effect"
+    load_kernel_module optional xt_conntrack /proc/net/ip_tables_matches:conntrack "$effect"
+    load_kernel_module optional nfnetlink_log /proc/net/netfilter/nfnetlink_log: "$effect"
+    load_kernel_module optional xt_NFLOG /proc/net/ip_tables_targets:NFLOG "$effect"
+    load_kernel_module optional xt_connbytes /proc/net/ip_tables_matches:connbytes "$effect"
+    return 0
 }
 
 check_runtime_dependencies() {
     check_netfilter_addons_component
     ensure_ipset_modules_loaded
-    ensure_xt_multiport_loaded
-    ensure_xt_dscp_loaded
+    ensure_rule_match_modules_loaded
     ensure_intercept_modules_loaded
 }
 
@@ -221,35 +213,30 @@ keen_pbr_ipv6_enabled() {
 # on-disk module, while the command probe remains authoritative after insmod.
 raw_family_available() {
     local family="$1"
-    local command registry module loaded=0
+    local command registry module rc
     RAW_FAMILY_PROBE_REASON=""
     if [ "$family" = "ipv6" ]; then
         command="ip6tables"
         registry="/proc/net/ip6_tables_names"
-        module="$(module_path_for ip6table_raw)"
+        module="ip6table_raw"
     else
         command="iptables"
         registry="/proc/net/ip_tables_names"
-        module="$(module_path_for iptable_raw)"
+        module="iptable_raw"
     fi
 
     if grep -qx raw "$registry" 2>/dev/null &&
        "$command" -t raw -S >/dev/null 2>&1; then
         return 0
     fi
-    if [ -f "$module" ]; then
-        if insmod "$module" >/dev/null 2>&1; then
-            loaded=1
-        fi
-    fi
+    load_kernel_module probe "$module" "" ""
+    rc=$?
     if ! grep -qx raw "$registry" 2>/dev/null; then
-        if [ ! -f "$module" ]; then
-            RAW_FAMILY_PROBE_REASON="module missing: $module"
-        elif [ "$loaded" = 1 ]; then
-            RAW_FAMILY_PROBE_REASON="module loaded but raw is absent from $registry"
-        else
-            RAW_FAMILY_PROBE_REASON="module load failed: $module"
-        fi
+        case "$rc" in
+            1) RAW_FAMILY_PROBE_REASON="module missing: $(module_path_for "$module")" ;;
+            2) RAW_FAMILY_PROBE_REASON="module load failed: $(module_path_for "$module")" ;;
+            *) RAW_FAMILY_PROBE_REASON="module loaded but raw is absent from $registry" ;;
+        esac
         return 1
     fi
     if ! "$command" -t raw -S >/dev/null 2>&1; then
@@ -269,7 +256,7 @@ enable_raw_prerouting_if_available() {
     case "$raw_mode" in
         auto|enable|disable|ipv4-only|ipv6-only) ;;
         *)
-            log "WARNING: invalid KEEN_PBR_RAW_PREROUTING=${KEEN_PBR_RAW_PREROUTING}; using auto"
+            log_warn "invalid KEEN_PBR_RAW_PREROUTING=${KEEN_PBR_RAW_PREROUTING}; using auto"
             raw_mode="auto"
             ;;
     esac
@@ -285,7 +272,7 @@ enable_raw_prerouting_if_available() {
                 raw4=1
                 log "IPv4 raw PREROUTING available"
             else
-                log "WARNING: IPv4 raw PREROUTING unavailable: $RAW_FAMILY_PROBE_REASON"
+                log_warn "IPv4 raw PREROUTING unavailable: $RAW_FAMILY_PROBE_REASON"
             fi
             ;;
     esac
@@ -295,7 +282,7 @@ enable_raw_prerouting_if_available() {
                 raw6=1
                 log "IPv6 raw PREROUTING available"
             elif [ "$ipv6_enabled" = 1 ]; then
-                log "WARNING: IPv6 raw PREROUTING unavailable: $RAW_FAMILY_PROBE_REASON"
+                log_warn "IPv6 raw PREROUTING unavailable: $RAW_FAMILY_PROBE_REASON"
             else
                 log "IPv6 disabled; skipping IPv6 raw capability requirement"
             fi

@@ -10,9 +10,12 @@ trap 'rm -f "$tmp_script" "$tmp_config"' EXIT
 # Load the real policy resolver functions without executing the init script's
 # rc.func dispatch. Capability probing is replaced below with deterministic
 # family results, so this remains a host-side policy matrix test.
+awk '/^(kernel_module_present|load_kernel_module|report_module_failure)\(\)/ { keep=1 }
+     keep { print }
+     keep && /^}/ { keep=0 }' "$init_script" > "$tmp_script"
 awk '/^ipv6_runtime_enabled\(\)/ { in_helpers=1 }
      /^enable_hwnat\(\)/ { exit }
-     in_helpers { print }' "$init_script" > "$tmp_script"
+     in_helpers { print }' "$init_script" >> "$tmp_script"
 . "$tmp_script"
 
 probe_case() {
@@ -20,6 +23,7 @@ probe_case() {
     expected_reason="$2"
     probe_output=$(PROBE_REGISTERED="$registered" sh -c '
         . "$1"
+        KERNEL_MODULE_SYSFS=/nonexistent
         module_path_for() { printf "/missing/%s.ko\\n" "$1"; }
         insmod() { return 1; }
         grep() {
@@ -45,6 +49,7 @@ probe_case 1 "raw registered in /proc/net/ip_tables_names but iptables -t raw -S
 probe_case 0 "module missing: /missing/iptable_raw.ko"
 
 log() { :; }
+log_warn() { :; }
 log_error() { :; }
 module_path_for() { printf '/missing/%s.ko\n' "$1"; }
 insmod() { return 1; }
