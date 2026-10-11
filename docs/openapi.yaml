@@ -629,19 +629,16 @@ components:
         cache_dir:
           type: string
           description: Directory for cached list data.
-          default: "/var/cache/keen-pbr"
           example: "/var/cache/keen-pbr"
         firewall_backend:
           type: string
           description: Firewall backend selection.
           enum: [auto, iptables, nftables]
-          default: auto
           example: auto
         firewall_verify_max_bytes:
           type: integer
           minimum: 0
           description: Max stdout bytes captured per firewall verification command (0 = unlimited).
-          default: 262144
           example: 262144
         skip_marked_packets:
           type: boolean
@@ -660,7 +657,6 @@ components:
             when clients query DNS again, so clearing them makes domain routes
             stop working until the next lookup. List-only and preserve-set
             reconciles never clear dynamic entries.
-          default: false
           example: false
         ipset_hashsize:
           type: integer
@@ -694,7 +690,6 @@ components:
             and interface state changes) should rebuild rules while reusing the
             currently live static list sets. Defaults to `true` when omitted or
             set to `null`; failed preflight falls back to PreserveSets.
-          default: true
           example: true
         ipv6_enabled:
           type: boolean
@@ -704,7 +699,6 @@ components:
             dynamic set targets. Defaults to `true` when omitted or set to `null`.
             If enabled but the system lacks IPv6 support, keen-pbr logs an error and
             continues in IPv4-only mode.
-          default: true
           example: true
         strict_enforcement:
           type: boolean
@@ -712,36 +706,30 @@ components:
             Default strict routing enforcement for interface outbounds. When enabled,
             an unreachable default route is installed if the outbound gateway/interface
             cannot be confirmed reachable.
-          default: false
           example: true
         strict_enforcement_action:
           type: string
           enum: [unreachable, blackhole]
-          default: unreachable
           description: Terminal RPDB action used by strict enforcement.
         max_file_size_bytes:
           type: integer
           description: >
             Maximum allowed size in bytes for downloaded remote content such as URL-backed
             lists. Defaults to 8 MiB.
-          default: 8388608
           example: 8388608
         exec_timeout_seconds:
           type: integer
           minimum: 1
-          default: 30
           description: Deadline for privileged helper and hook processes.
         resolver_ready_timeout_seconds:
           type: integer
           minimum: 1
-          default: 120
           deprecated: true
           description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq."
 
         exec_kill_grace_seconds:
           type: integer
           minimum: 0
-          default: 2
           description: Grace period after SIGTERM before a timed-out helper receives SIGKILL.
 
     ApiConfig:
@@ -749,32 +737,26 @@ components:
       properties:
         enabled:
           type: boolean
-          default: false
           example: true
         listen:
           type: string
           description: Address and port for the HTTP API.
-          default: "0.0.0.0:12121"
           example: "0.0.0.0:12121"
         max_request_body_bytes:
           type: integer
           minimum: 1024
-          default: 1048576
           description: Maximum HTTP request body size in bytes.
         read_timeout_seconds:
           type: integer
           minimum: 1
-          default: 15
           description: Maximum time spent reading an HTTP request.
         write_timeout_seconds:
           type: integer
           minimum: 1
-          default: 15
           description: Maximum time spent writing an HTTP response.
         keep_alive_timeout_seconds:
           type: integer
           minimum: 1
-          default: 20
           description: Idle timeout for an HTTP keep-alive connection.
         authentication:
           $ref: "#/components/schemas/AuthenticationConfig"
@@ -786,7 +768,6 @@ components:
       properties:
         enabled:
           type: boolean
-          default: false
 
     CorsConfig:
       type: object
@@ -866,7 +847,6 @@ components:
       properties:
         device_name:
           type: string
-          default: ""
           maxLength: 128
         daemon:
           $ref: "#/components/schemas/DaemonConfig"
@@ -911,12 +891,10 @@ components:
       properties:
         attempts:
           type: integer
-          default: 3
           example: 3
         interval_ms:
           type: integer
           description: Delay between retry attempts in milliseconds.
-          default: 1000
           example: 1000
 
     CircuitBreakerConfig:
@@ -927,28 +905,24 @@ components:
           minimum: 1
           maximum: 20
           description: Number of consecutive failures before opening the circuit.
-          default: 5
           example: 5
         success_threshold:
           type: integer
           minimum: 1
           maximum: 20
           description: Number of consecutive successes in half-open state to close the circuit.
-          default: 2
           example: 2
         timeout_ms:
           type: integer
           minimum: 1
           maximum: 86400000
           description: Time in milliseconds before the circuit transitions from open to half-open.
-          default: 30000
           example: 30000
         half_open_max_requests:
           type: integer
           minimum: 1
           maximum: 10
           description: Maximum number of probe requests allowed in half-open state.
-          default: 1
           example: 1
 
     OutboundGroup:
@@ -973,7 +947,6 @@ components:
             Deprecated. Legacy tier priority (lower values are tried first;
             equal values keep configuration order). Use the array order of
             `outbound_groups` instead.
-          default: 1
           example: 1
         outbounds:
           type: array
@@ -1011,7 +984,6 @@ components:
           type: integer
           minimum: 1
           maximum: 100
-          default: 1
           description: >
             Share of new connections for this member when the outbound uses
             the `balance` strategy: each usable member of the active tier
@@ -1096,26 +1068,22 @@ components:
           minimum: 1
           maximum: 10
           description: ICMP echo requests sent per candidate probe run. Used with `icmptest`.
-          default: 3
           example: 3
         max_failed:
           type: integer
           minimum: 0
           description: Maximum failed ICMP packets allowed in a successful run. Used with `icmptest`.
-          default: 0
           example: 0
         packet_interval_ms:
           type: integer
           minimum: 100
           maximum: 1000
           description: Pause after one ICMP attempt finishes and before the next starts. Used with `icmptest`.
-          default: 200
           example: 200
         max_rtt_ms:
           type: integer
           minimum: 1
           description: ICMP replies slower than this are counted as failed. Used with `icmptest`.
-          default: 500
           example: 500
         interval_ms:
           type: integer
@@ -1139,7 +1107,6 @@ components:
           example: 10
         strategy:
           $ref: "#/components/schemas/TestGroupStrategy"
-          default: priority
           description: >
             `priority` keeps the stable test-group mark and routes it through one
             selected child. `balance` distributes new connections by member weight
@@ -1147,7 +1114,6 @@ components:
             xt_statistic module; disabled on Keenetic).
         conntrack_on_switch:
           $ref: "#/components/schemas/ConntrackOnSwitch"
-          default: preserve
           description: >
             URLTEST/ICMPTEST conntrack handling when a healthy selected child is
             replaced for latency or priority reasons. `preserve` keeps established
@@ -1221,7 +1187,6 @@ components:
             truncated to whole seconds. DNS record TTL can raise the timeout
             above this floor, up to `intercept.max_ttl_ms`. The normalized
             timeout must fit in an unsigned 32-bit number of seconds.
-          default: 0
           example: 86400000
         detour:
           type: string
@@ -1246,7 +1211,6 @@ components:
           type: string
           description: DNS server source type.
           enum: [static, keenetic]
-          default: static
           example: "static"
         address:
           type: string
@@ -1288,7 +1252,6 @@ components:
           example: "vpn-dns"
         allow_domain_rebinding:
           type: boolean
-          default: false
           description: >
             Allow DNS responses for matched domains to resolve to internal/private
             network addresses (for example 10.0.0.0/8, 172.16.0.0/12,
@@ -1316,7 +1279,6 @@ components:
     ResolverIntegrationMode:
       type: string
       enum: [none, dnsmasq]
-      default: none
       description: >
         `none` (default) leaves the system resolver untouched. `dnsmasq` makes
         keen-pbr generate a dnsmasq config with per-list `server=` lines,
@@ -1477,13 +1439,11 @@ components:
         start:
           type: string
           description: First fwmark value to assign to outbounds as hex string.
-          default: "0x00010000"
           example: "0x00010000"
         mask:
           type: string
           description: >
             Fwmark bitmask as hex string. Must contain one or more consecutive F nibbles (e.g. 0x000F0000, 0x00FF0000).
-          default: "0x00FF0000"
           example: "0x00FF0000"
 
     IprouteConfig:
@@ -1492,7 +1452,6 @@ components:
         table_start:
           type: integer
           description: First routing table ID to allocate for outbounds.
-          default: 150
           example: 150
         rule_priority_start:
           type: integer
@@ -1506,7 +1465,6 @@ components:
             When `false` (default), only forwarded LAN traffic is routed by route rules and
             observed by DNS interception and L7 sniffing; DNS detour rules still apply to
             router-originated DNS.
-          default: false
           example: false
 
     ListsAutoupdateConfig:
@@ -1515,7 +1473,6 @@ components:
         enabled:
           type: boolean
           description: Whether automatic list refresh is enabled.
-          default: false
           example: true
         cron:
           type: string
@@ -1530,12 +1487,10 @@ components:
         domain:
           type: string
           description: Domain answered synthetically by the daemon to prove that DNS interception works.
-          default: "check.keen.pbr"
-          example: "check.keen.pbr"
+          example: "check.keen-pbr.fyi"
         answer_ipv4:
           type: string
           description: IPv4 address returned in the synthetic marker `A` answer.
-          default: "127.0.0.88"
           example: "127.0.0.88"
 
     InterceptDnsConfig:
@@ -1546,21 +1501,18 @@ components:
           description: >
             Hold DNS responses in an NFQUEUE and add the resolved addresses to
             the dynamic sets before the client receives them.
-          default: true
           example: true
         queue_num:
           type: integer
           minimum: 1
           maximum: 65535
           description: NFQUEUE number. 64511 and 65023 are used by Keenetic NDM and are rejected.
-          default: 9053
           example: 9053
         hold_timeout_ms:
           type: integer
           minimum: 5
           maximum: 500
           description: Maximum time a DNS response is held before it is released unchanged.
-          default: 30
           example: 30
         marker:
           $ref: "#/components/schemas/InterceptMarkerConfig"
@@ -1571,29 +1523,24 @@ components:
         enabled:
           type: boolean
           description: Learn destinations from TLS SNI, HTTP Host and QUIC Initial packets (NFLOG).
-          default: true
           example: true
         nflog_group:
           type: integer
           minimum: 1
           maximum: 65535
           description: NFLOG group. 64511 and 65023 are used by Keenetic NDM and are rejected.
-          default: 9054
           example: 9054
         tls:
           type: boolean
           description: Inspect TLS ClientHello SNI.
-          default: true
           example: true
         http:
           type: boolean
           description: Inspect HTTP Host headers.
-          default: true
           example: true
         quic:
           type: boolean
           description: Inspect QUIC Initial packets.
-          default: true
           example: true
 
     InterceptConfig:
@@ -1605,7 +1552,6 @@ components:
       properties:
         enabled:
           type: boolean
-          default: true
           example: true
         min_ttl_ms:
           type: integer
@@ -1617,14 +1563,12 @@ components:
             `max_ttl_ms`. Values are truncated to whole seconds at the runtime
             boundary; the normalized timeout must fit in an unsigned 32-bit
             number of seconds.
-          default: 300000
           example: 300000
         max_ttl_ms:
           type: integer
           minimum: 1000
           maximum: 4294967295999
           description: Global upper bound for learned set element timeouts in milliseconds. Values are truncated to whole seconds at the runtime boundary.
-          default: 86400000
           example: 86400000
         dns:
           $ref: "#/components/schemas/InterceptDnsConfig"
@@ -2057,7 +2001,6 @@ components:
       properties:
         device_name:
           type: string
-          default: ""
           maxLength: 128
           description: Optional human-readable device name shown in the WebUI and page title.
         daemon:

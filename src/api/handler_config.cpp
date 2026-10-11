@@ -31,20 +31,9 @@ nlohmann::json make_validation_error_json(const ConfigValidationError& error) {
 
 } // namespace
 
+// Unset fields stay unset: the web UI saves the document it received, so a
+// default filled in here would end up written to the config file.
 Config normalize_config_for_api_response(Config config) {
-    if (!config.daemon.has_value()) {
-        config.daemon = DaemonConfig{};
-    }
-
-    config.daemon->skip_marked_packets =
-        config.daemon->skip_marked_packets.value_or(true);
-    config.daemon->clear_dynamic_sets_on_apply =
-        config.daemon->clear_dynamic_sets_on_apply.value_or(false);
-    config.daemon->reuse_static_sets_on_runtime_refresh =
-        config.daemon->reuse_static_sets_on_runtime_refresh.value_or(true);
-    config.daemon->ipv6_enabled =
-        config.daemon->ipv6_enabled.value_or(true);
-
     if (config.api && config.api->authentication) {
         config.api->authentication->password_hash.reset();
     }

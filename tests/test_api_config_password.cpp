@@ -145,6 +145,14 @@ TEST_CASE("ipset capacity defaults stay absent in API config responses") {
     CHECK(serialized.find("ipset_maxelem") == std::string::npos);
 }
 
+TEST_CASE("unset daemon defaults stay absent in API config responses") {
+    const auto response = normalize_config_for_api_response(Config{});
+    CHECK_FALSE(response.daemon.has_value());
+    const auto serialized = serialize_config_pretty(response);
+    CHECK(serialized.find("skip_marked_packets") == std::string::npos);
+    CHECK(serialized.find("ipv6_enabled") == std::string::npos);
+}
+
 TEST_CASE("configured ipset capacities are preserved in API serialization") {
     Config config;
     config.daemon = DaemonConfig{};

@@ -100,21 +100,25 @@ export type SettingsDraft = {
   }
 }
 
-const fallbackDraft: SettingsDraft = {
-  device_name: "",
+/**
+ * The daemon's defaults for the settings on this page, copied from
+ * src/config/config_defaults.hpp; change both together. Text and number fields
+ * of an unset value stay empty and show the default as a placeholder; switches
+ * show the default. Nothing is written to the config unless the user sets it.
+ * The cron schedule has no daemon default: it is only a suggestion.
+ */
+const defaults = {
   daemon: {
-    strict_enforcement: true,
+    strict_enforcement: false,
     skip_marked_packets: true,
     clear_dynamic_sets_on_apply: false,
     ipv6_enabled: true,
-    ipset_hashsize: "",
-    ipset_maxelem: "",
+    ipset_hashsize: "1024",
+    ipset_maxelem: "65536",
   },
-  route: { inbound_interfaces: [] },
   lists_autoupdate: { enabled: false, cron: "0 4 * * 0" },
-  fwmark: { start: "0x00010000", mask: "0xffff0000" },
+  fwmark: { start: "0x00010000", mask: "0x00ff0000" },
   iproute: { table_start: "150", process_router_traffic: false },
-  dns: { resolver_integration: "none", dnsmasq_instance: "" },
   intercept: {
     enabled: true,
     min_ttl_ms: "300000",
@@ -123,7 +127,7 @@ const fallbackDraft: SettingsDraft = {
       enabled: true,
       queue_num: "9053",
       hold_timeout_ms: "30",
-      marker: { domain: "check.keen.pbr", answer_ipv4: "127.0.0.88" },
+      marker: { domain: "check.keen-pbr.fyi", answer_ipv4: "127.0.0.88" },
     },
     l7: {
       enabled: true,
@@ -133,7 +137,7 @@ const fallbackDraft: SettingsDraft = {
       quic: true,
     },
   },
-}
+} as const
 
 export function GeneralConfigPage() {
   const { t } = useTranslation()
@@ -307,6 +311,7 @@ function LoadedGeneralConfigPage({
             <div className="grid gap-6 md:grid-cols-2">
               <NumberSettingField
                 field={form.field("intercept.min_ttl_ms")}
+                placeholder={defaults.intercept.min_ttl_ms}
                 id="intercept-min-ttl"
                 label={t("pages.settings.intercept.minTtlLabel")}
                 hint={t("pages.settings.intercept.minTtlHint")}
@@ -315,6 +320,7 @@ function LoadedGeneralConfigPage({
               />
               <NumberSettingField
                 field={form.field("intercept.max_ttl_ms")}
+                placeholder={defaults.intercept.max_ttl_ms}
                 id="intercept-max-ttl"
                 label={t("pages.settings.intercept.maxTtlLabel")}
                 hint={t("pages.settings.intercept.maxTtlHint")}
@@ -335,6 +341,7 @@ function LoadedGeneralConfigPage({
             <div className="grid gap-6 md:grid-cols-2">
               <NumberSettingField
                 field={form.field("intercept.dns.hold_timeout_ms")}
+                placeholder={defaults.intercept.dns.hold_timeout_ms}
                 id="intercept-dns-timeout"
                 label={t("pages.settings.intercept.holdTimeoutLabel")}
                 hint={t("pages.settings.intercept.holdTimeoutHint")}
@@ -343,6 +350,7 @@ function LoadedGeneralConfigPage({
                 <div className="[&_[data-slot=field-description]]:text-amber-700 dark:[&_[data-slot=field-description]]:text-amber-400 [&_[data-slot=field-label]]:text-amber-700 dark:[&_[data-slot=field-label]]:text-amber-400">
                   <NumberSettingField
                     field={form.field("intercept.dns.queue_num")}
+                    placeholder={defaults.intercept.dns.queue_num}
                     id="intercept-dns-queue"
                     label={
                       <span className="inline-flex items-center gap-2">
@@ -363,6 +371,7 @@ function LoadedGeneralConfigPage({
               <div className="grid gap-6 md:grid-cols-2 [&_[data-slot=field-description]]:text-amber-700 dark:[&_[data-slot=field-description]]:text-amber-400 [&_[data-slot=field-label]]:text-amber-700 dark:[&_[data-slot=field-label]]:text-amber-400">
                 <TextSettingField
                   field={form.field("intercept.dns.marker.domain")}
+                  placeholder={defaults.intercept.dns.marker.domain}
                   id="intercept-marker-domain"
                   label={
                     <span className="inline-flex items-center gap-2">
@@ -374,6 +383,7 @@ function LoadedGeneralConfigPage({
                 />
                 <TextSettingField
                   field={form.field("intercept.dns.marker.answer_ipv4")}
+                  placeholder={defaults.intercept.dns.marker.answer_ipv4}
                   id="intercept-marker-address"
                   label={
                     <span className="inline-flex items-center gap-2">
@@ -399,6 +409,7 @@ function LoadedGeneralConfigPage({
               <div className="[&_[data-slot=field-description]]:text-amber-700 dark:[&_[data-slot=field-description]]:text-amber-400 [&_[data-slot=field-label]]:text-amber-700 dark:[&_[data-slot=field-label]]:text-amber-400">
                 <NumberSettingField
                   field={form.field("intercept.l7.nflog_group")}
+                  placeholder={defaults.intercept.l7.nflog_group}
                   id="intercept-l7-group"
                   label={
                     <span className="inline-flex items-center gap-2">
@@ -553,7 +564,11 @@ function LoadedGeneralConfigPage({
                 {t("pages.settings.autoupdate.cronLabel")}
               </FieldLabel>
               <FieldContent>
-                <Input id="general-cron" {...bindInput(cron)} />
+                <Input
+                  id="general-cron"
+                  placeholder={defaults.lists_autoupdate.cron}
+                  {...bindInput(cron)}
+                />
                 <FieldHint
                   description={
                     <>
@@ -618,7 +633,7 @@ function LoadedGeneralConfigPage({
                 inputMode: "numeric",
                 max: 4294967295,
                 min: 1,
-                placeholder: "65536",
+                placeholder: defaults.daemon.ipset_maxelem,
                 type: "number",
               }}
               label={t("pages.settings.advanced.ipsetMaxelemLabel")}
@@ -643,7 +658,7 @@ function LoadedGeneralConfigPage({
                     inputMode: "numeric",
                     max: 2147483648,
                     min: 1,
-                    placeholder: "1024",
+                    placeholder: defaults.daemon.ipset_hashsize,
                     type: "number",
                   }}
                   label={
@@ -659,7 +674,10 @@ function LoadedGeneralConfigPage({
                     field={form.field("fwmark.start")}
                     hint={t("pages.settings.advanced.fwmarkStartHint")}
                     id="fwmark-start"
-                    inputProps={{ className: "max-w-sm" }}
+                    inputProps={{
+                      placeholder: defaults.fwmark.start,
+                      className: "max-w-sm",
+                    }}
                     label={
                       <span className="inline-flex items-center gap-2">
                         {t("pages.settings.advanced.fwmarkStartLabel")}
@@ -681,7 +699,10 @@ function LoadedGeneralConfigPage({
                       </>
                     }
                     id="fwmark-mask"
-                    inputProps={{ className: "max-w-sm" }}
+                    inputProps={{
+                      placeholder: defaults.fwmark.mask,
+                      className: "max-w-sm",
+                    }}
                     label={
                       <span className="inline-flex items-center gap-2">
                         {t("pages.settings.advanced.fwmarkMaskLabel")}
@@ -698,7 +719,10 @@ function LoadedGeneralConfigPage({
                   field={form.field("iproute.table_start")}
                   hint={t("pages.settings.advanced.tableStartHint")}
                   id="table-start"
-                  inputProps={{ inputMode: "numeric" }}
+                  inputProps={{
+                    placeholder: defaults.iproute.table_start,
+                    inputMode: "numeric",
+                  }}
                   label={
                     <span className="inline-flex items-center gap-2">
                       {t("pages.settings.advanced.tableStartLabel")}
@@ -892,17 +916,19 @@ function TextSettingField({
   hint,
   id,
   label,
+  placeholder,
 }: {
   field: FieldBinding<string>
   hint?: string
   id: string
   label: ReactNode
+  placeholder?: string
 }) {
   return (
     <Field invalid={Boolean(field.error)}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <FieldContent>
-        <Input id={id} {...bindInput(field)} />
+        <Input id={id} placeholder={placeholder} {...bindInput(field)} />
         <FieldHint description={hint} error={field.error} />
       </FieldContent>
     </Field>
@@ -921,6 +947,7 @@ function NumberSettingField({
   hint?: string
   id: string
   label: ReactNode
+  placeholder?: string
   max?: number
   min?: number
 }) {
@@ -933,6 +960,7 @@ function NumberSettingField({
           inputMode="numeric"
           max={max}
           min={min}
+          placeholder={placeholder}
           type="number"
           {...bindInput(field)}
         />
@@ -972,83 +1000,62 @@ export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
   const dns = intercept?.dns
   const marker = dns?.marker
   const l7 = intercept?.l7
-  const fallback = fallbackDraft
   return {
-    device_name: config.device_name ?? fallback.device_name,
+    device_name: config.device_name ?? "",
     daemon: {
       strict_enforcement:
-        config.daemon?.strict_enforcement ?? fallback.daemon.strict_enforcement,
+        config.daemon?.strict_enforcement ?? defaults.daemon.strict_enforcement,
       skip_marked_packets:
         config.daemon?.skip_marked_packets ??
-        fallback.daemon.skip_marked_packets,
+        defaults.daemon.skip_marked_packets,
       clear_dynamic_sets_on_apply:
         config.daemon?.clear_dynamic_sets_on_apply ??
-        fallback.daemon.clear_dynamic_sets_on_apply,
-      ipv6_enabled: config.daemon?.ipv6_enabled ?? fallback.daemon.ipv6_enabled,
-      ipset_hashsize: toStringInt(config.daemon?.ipset_hashsize, ""),
-      ipset_maxelem: toStringInt(config.daemon?.ipset_maxelem, ""),
+        defaults.daemon.clear_dynamic_sets_on_apply,
+      ipv6_enabled: config.daemon?.ipv6_enabled ?? defaults.daemon.ipv6_enabled,
+      ipset_hashsize: toStringInt(config.daemon?.ipset_hashsize),
+      ipset_maxelem: toStringInt(config.daemon?.ipset_maxelem),
     },
     route: {
-      inbound_interfaces:
-        config.route?.inbound_interfaces ?? fallback.route.inbound_interfaces,
+      inbound_interfaces: config.route?.inbound_interfaces ?? [],
     },
     lists_autoupdate: {
       enabled:
-        config.lists_autoupdate?.enabled ?? fallback.lists_autoupdate.enabled,
-      cron: config.lists_autoupdate?.cron ?? fallback.lists_autoupdate.cron,
+        config.lists_autoupdate?.enabled ?? defaults.lists_autoupdate.enabled,
+      cron: config.lists_autoupdate?.cron ?? defaults.lists_autoupdate.cron,
     },
     fwmark: {
-      start: toHex32(config.fwmark?.start, fallback.fwmark.start),
-      mask: toHex32(config.fwmark?.mask, fallback.fwmark.mask),
+      start: toHex32(config.fwmark?.start),
+      mask: toHex32(config.fwmark?.mask),
     },
     iproute: {
-      table_start: toStringInt(
-        config.iproute?.table_start,
-        fallback.iproute.table_start
-      ),
+      table_start: toStringInt(config.iproute?.table_start),
       process_router_traffic:
         config.iproute?.process_router_traffic ??
-        fallback.iproute.process_router_traffic,
+        defaults.iproute.process_router_traffic,
     },
     dns: {
       resolver_integration: effectiveResolverIntegration(config),
       dnsmasq_instance: config.dns?.dnsmasq_instance ?? "",
     },
     intercept: {
-      enabled: intercept?.enabled ?? fallback.intercept.enabled,
-      min_ttl_ms: toStringInt(
-        intercept?.min_ttl_ms,
-        fallback.intercept.min_ttl_ms
-      ),
-      max_ttl_ms: toStringInt(
-        intercept?.max_ttl_ms,
-        fallback.intercept.max_ttl_ms
-      ),
+      enabled: intercept?.enabled ?? defaults.intercept.enabled,
+      min_ttl_ms: toStringInt(intercept?.min_ttl_ms),
+      max_ttl_ms: toStringInt(intercept?.max_ttl_ms),
       dns: {
-        enabled: dns?.enabled ?? fallback.intercept.dns.enabled,
-        queue_num: toStringInt(
-          dns?.queue_num,
-          fallback.intercept.dns.queue_num
-        ),
-        hold_timeout_ms: toStringInt(
-          dns?.hold_timeout_ms,
-          fallback.intercept.dns.hold_timeout_ms
-        ),
+        enabled: dns?.enabled ?? defaults.intercept.dns.enabled,
+        queue_num: toStringInt(dns?.queue_num),
+        hold_timeout_ms: toStringInt(dns?.hold_timeout_ms),
         marker: {
-          domain: marker?.domain ?? fallback.intercept.dns.marker.domain,
-          answer_ipv4:
-            marker?.answer_ipv4 ?? fallback.intercept.dns.marker.answer_ipv4,
+          domain: marker?.domain ?? "",
+          answer_ipv4: marker?.answer_ipv4 ?? "",
         },
       },
       l7: {
-        enabled: l7?.enabled ?? fallback.intercept.l7.enabled,
-        nflog_group: toStringInt(
-          l7?.nflog_group,
-          fallback.intercept.l7.nflog_group
-        ),
-        tls: l7?.tls ?? fallback.intercept.l7.tls,
-        http: l7?.http ?? fallback.intercept.l7.http,
-        quic: l7?.quic ?? fallback.intercept.l7.quic,
+        enabled: l7?.enabled ?? defaults.intercept.l7.enabled,
+        nflog_group: toStringInt(l7?.nflog_group),
+        tls: l7?.tls ?? defaults.intercept.l7.tls,
+        http: l7?.http ?? defaults.intercept.l7.http,
+        quic: l7?.quic ?? defaults.intercept.l7.quic,
       },
     },
   }
@@ -1077,91 +1084,181 @@ export function buildUpdatedConfig(
   draft: SettingsDraft
 ): ConfigObject {
   const { daemon, intercept } = draft
-  const tableStart = parseStrictDecimalToNumber(draft.iproute.table_start)
-  const marker = {
-    ...config.intercept?.dns?.marker,
-    domain: intercept.dns.marker.domain.trim(),
-    answer_ipv4: intercept.dns.marker.answer_ipv4.trim(),
-  }
+  const old = config.intercept
+  const autoupdate = draft.lists_autoupdate
 
-  return {
+  return pruned(config, {
     ...config,
-    device_name: draft.device_name.trim(),
-    daemon: {
+    device_name: optionalText(draft.device_name),
+    daemon: pruned(config.daemon, {
       ...config.daemon,
-      strict_enforcement: daemon.strict_enforcement,
-      skip_marked_packets: daemon.skip_marked_packets,
-      clear_dynamic_sets_on_apply: daemon.clear_dynamic_sets_on_apply,
-      ipv6_enabled: daemon.ipv6_enabled,
+      strict_enforcement: keepOrChanged(
+        config.daemon?.strict_enforcement,
+        daemon.strict_enforcement,
+        defaults.daemon.strict_enforcement
+      ),
+      skip_marked_packets: keepOrChanged(
+        config.daemon?.skip_marked_packets,
+        daemon.skip_marked_packets,
+        defaults.daemon.skip_marked_packets
+      ),
+      clear_dynamic_sets_on_apply: keepOrChanged(
+        config.daemon?.clear_dynamic_sets_on_apply,
+        daemon.clear_dynamic_sets_on_apply,
+        defaults.daemon.clear_dynamic_sets_on_apply
+      ),
+      ipv6_enabled: keepOrChanged(
+        config.daemon?.ipv6_enabled,
+        daemon.ipv6_enabled,
+        defaults.daemon.ipv6_enabled
+      ),
       ipset_hashsize: toOptionalBackendInteger(daemon.ipset_hashsize),
       ipset_maxelem: toOptionalBackendInteger(daemon.ipset_maxelem),
-    },
-    route: {
+    }),
+    route: pruned(config.route, {
       ...config.route,
-      inbound_interfaces: draft.route.inbound_interfaces,
-    },
-    fwmark: {
+      inbound_interfaces:
+        config.route?.inbound_interfaces != null ||
+        draft.route.inbound_interfaces.length > 0
+          ? draft.route.inbound_interfaces
+          : undefined,
+    }),
+    fwmark: pruned(config.fwmark, {
       ...config.fwmark,
-      start: draft.fwmark.start.trim(),
-      mask: draft.fwmark.mask.trim(),
-    },
-    iproute: {
+      start: optionalText(draft.fwmark.start),
+      mask: optionalText(draft.fwmark.mask),
+    }),
+    iproute: pruned(config.iproute, {
       ...config.iproute,
-      table_start: toBackendIntegerValue(
-        tableStart,
-        draft.iproute.table_start.trim()
+      table_start: toOptionalBackendInteger(draft.iproute.table_start),
+      process_router_traffic: keepOrChanged(
+        config.iproute?.process_router_traffic,
+        draft.iproute.process_router_traffic,
+        defaults.iproute.process_router_traffic
       ),
-      process_router_traffic: draft.iproute.process_router_traffic,
-    },
-    lists_autoupdate: {
+    }),
+    lists_autoupdate: pruned(config.lists_autoupdate, {
       ...config.lists_autoupdate,
-      enabled: draft.lists_autoupdate.enabled,
-      cron: draft.lists_autoupdate.cron.trim(),
-    },
-    dns: buildUpdatedDns(config, draft),
-    intercept: {
-      ...config.intercept,
-      enabled: intercept.enabled,
+      enabled: keepOrChanged(
+        config.lists_autoupdate?.enabled,
+        autoupdate.enabled,
+        defaults.lists_autoupdate.enabled
+      ),
+      // The daemon requires a schedule once updates are on.
+      cron: autoupdate.enabled
+        ? autoupdate.cron.trim()
+        : keepOrChanged(
+            config.lists_autoupdate?.cron,
+            autoupdate.cron.trim(),
+            defaults.lists_autoupdate.cron
+          ),
+    }),
+    dns: pruned(config.dns, buildUpdatedDns(config, draft)),
+    intercept: pruned(old, {
+      ...old,
+      enabled: keepOrChanged(
+        old?.enabled,
+        intercept.enabled,
+        defaults.intercept.enabled
+      ),
       min_ttl_ms: toOptionalBackendInteger(intercept.min_ttl_ms),
       max_ttl_ms: toOptionalBackendInteger(intercept.max_ttl_ms),
-      dns: {
-        ...config.intercept?.dns,
-        enabled: intercept.dns.enabled,
+      dns: pruned(old?.dns, {
+        ...old?.dns,
+        enabled: keepOrChanged(
+          old?.dns?.enabled,
+          intercept.dns.enabled,
+          defaults.intercept.dns.enabled
+        ),
         queue_num: toOptionalBackendInteger(intercept.dns.queue_num),
         hold_timeout_ms: toOptionalBackendInteger(
           intercept.dns.hold_timeout_ms
         ),
-        marker,
-      },
-      l7: {
-        ...config.intercept?.l7,
-        enabled: intercept.l7.enabled,
+        marker: pruned(old?.dns?.marker, {
+          ...old?.dns?.marker,
+          domain: optionalText(intercept.dns.marker.domain),
+          answer_ipv4: optionalText(intercept.dns.marker.answer_ipv4),
+        }),
+      }),
+      l7: pruned(old?.l7, {
+        ...old?.l7,
+        enabled: keepOrChanged(
+          old?.l7?.enabled,
+          intercept.l7.enabled,
+          defaults.intercept.l7.enabled
+        ),
         nflog_group: toOptionalBackendInteger(intercept.l7.nflog_group),
-        tls: intercept.l7.tls,
-        http: intercept.l7.http,
-        quic: intercept.l7.quic,
-      },
-    },
-  }
+        tls: keepOrChanged(
+          old?.l7?.tls,
+          intercept.l7.tls,
+          defaults.intercept.l7.tls
+        ),
+        http: keepOrChanged(
+          old?.l7?.http,
+          intercept.l7.http,
+          defaults.intercept.l7.http
+        ),
+        quic: keepOrChanged(
+          old?.l7?.quic,
+          intercept.l7.quic,
+          defaults.intercept.l7.quic
+        ),
+      }),
+    }),
+  }) as ConfigObject
 }
 
-function toHex32(value: string | undefined, fallback: string) {
+// A switch is written when the config already had it or the user moved it
+// off the default; an untouched default stays out of the file.
+function keepOrChanged<T>(
+  previous: T | null | undefined,
+  value: T,
+  fallback: T
+): T | undefined {
+  return previous != null || value !== fallback ? value : undefined
+}
+
+function optionalText(raw: string): string | undefined {
+  const trimmed = raw.trim()
+  return trimmed === "" ? undefined : trimmed
+}
+
+// Drops unset keys; a section left empty is dropped too unless the config
+// already had it.
+function pruned<T extends object>(
+  previous: object | null | undefined,
+  next: T
+): T | undefined {
+  const out: Record<string, unknown> = { ...next }
+  for (const key of Object.keys(out)) {
+    if (out[key] === undefined) {
+      delete out[key]
+    }
+  }
+  if (previous == null && Object.keys(out).length === 0) {
+    return undefined
+  }
+  return out as T
+}
+
+// Invalid input is kept as typed so the daemon's validation error shows it.
+function toHex32(value: string | undefined) {
   if (!value) {
-    return fallback
+    return ""
   }
 
   const trimmed = value.trim()
   if (!/^0x[0-9a-fA-F]+$/.test(trimmed)) {
-    return fallback
+    return trimmed
   }
 
   const normalized = trimmed.slice(2).replace(/^0+/, "") || "0"
   return `0x${normalized.padStart(8, "0")}`
 }
 
-function toStringInt(value: number | null | undefined, fallback: string) {
+function toStringInt(value: number | null | undefined) {
   if (!Number.isInteger(value)) {
-    return fallback
+    return ""
   }
 
   return String(value)
@@ -1174,14 +1271,6 @@ function parseStrictDecimalToNumber(value: string) {
   }
 
   return Number.parseInt(trimmed, 10)
-}
-
-function toBackendIntegerValue(parsed: number | null, raw: string): number {
-  if (parsed !== null) {
-    return parsed
-  }
-
-  return raw as unknown as number
 }
 
 function toOptionalBackendInteger(raw: string): number | undefined {

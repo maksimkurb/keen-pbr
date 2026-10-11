@@ -64,6 +64,42 @@ describe("settings draft mirrors the config document", () => {
     expect(getDraftFromConfig(config).dns.resolver_integration).toBe("none")
   })
 
+  test("saving an untouched draft of a minimal config adds no defaults", () => {
+    const minimal = { outbounds: [] } as unknown as ConfigObject
+    const draft = getDraftFromConfig(minimal)
+    expect(draft.intercept.dns.marker.domain).toBe("")
+    expect(draft.fwmark.start).toBe("")
+    expect(draft.daemon.ipv6_enabled).toBe(true)
+    expect(buildUpdatedConfig(minimal, draft)).toEqual(minimal)
+  })
+
+  test("only settings moved off their default are written", () => {
+    const minimal = {} as ConfigObject
+    const draft = getDraftFromConfig(minimal)
+    draft.intercept.l7.quic = false
+    draft.intercept.dns.hold_timeout_ms = "50"
+    expect(buildUpdatedConfig(minimal, draft)).toEqual({
+      intercept: { dns: { hold_timeout_ms: 50 }, l7: { quic: false } },
+    } as ConfigObject)
+  })
+
+  test("clearing a field removes it from the config", () => {
+    const draft = getDraftFromConfig(config)
+    draft.intercept.dns.marker.domain = ""
+    draft.fwmark.start = " "
+    const updated = buildUpdatedConfig(config, draft)
+    expect(updated.intercept?.dns?.marker).toEqual({ answer_ipv4: "127.0.0.9" })
+    expect(updated.fwmark).toEqual({ mask: "0x00ff0000" })
+  })
+
+  test("turning on list updates writes the default schedule", () => {
+    const draft = getDraftFromConfig({} as ConfigObject)
+    draft.lists_autoupdate.enabled = true
+    expect(
+      buildUpdatedConfig({} as ConfigObject, draft).lists_autoupdate
+    ).toEqual({ enabled: true, cron: "0 4 * * 0" })
+  })
+
   test("editing a simple setting preserves advanced routing parameters", () => {
     const draft = getDraftFromConfig(config)
     draft.device_name = "new name"
