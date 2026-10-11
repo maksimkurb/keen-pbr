@@ -98,8 +98,9 @@ KernelCapabilities probe_kernel_capabilities(const HostTools& tools) {
 #ifndef KEEN_PBR_PLATFORM_KEENETIC
         caps.xt_statistic = probe_iptables_statistic();
 #endif
-        caps.xt_comment_v4 = IptablesFirewall::probe_xt_comment_support(false);
         caps.iptables_nf_tables = IptablesFirewall::probe_nf_tables_flavour();
+        caps.xt_comment_v4 = IptablesFirewall::probe_xt_comment_support(
+            false, caps.iptables_nf_tables);
         caps.nflog_size_v4 = IptablesFirewall::probe_nflog_size_support(false);
     }
     if (tools.ip6tables && tools.ip6tables_restore && caps.system_ipv6) {

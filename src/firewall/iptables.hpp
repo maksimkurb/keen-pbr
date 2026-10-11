@@ -72,6 +72,8 @@ public:
   // or a kernel-validated `restore --test`.  Run once at service start (probe_kernel_capabilities);
   // prepare_apply only reads that answer.
   static bool probe_xt_comment_support(bool ipv6);
+  // Same, for a flavour the caller already probed (probe_nf_tables_flavour).
+  static bool probe_xt_comment_support(bool ipv6, bool nf_tables);
   // Whether the restore binary accepts `-j NFLOG --nflog-size` (>= 1.6.0).
   static bool probe_nflog_size_support(bool ipv6);
   // `iptables -V` reports the nf_tables flavour.

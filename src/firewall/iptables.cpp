@@ -552,6 +552,18 @@ bool IptablesFirewall::probe_xt_comment_support(bool ipv6) {
   return probe_xt_comment_from_registration(ipv6, registration_path);
 }
 
+bool IptablesFirewall::probe_xt_comment_support(bool ipv6, bool nf_tables) {
+  // Reuses a flavour already probed, so `iptables -V` runs once at start.
+  auto io = default_xt_comment_probe_io();
+  io.flavour = [nf_tables](bool) {
+    return nf_tables ? Flavour::nf_tables : Flavour::legacy;
+  };
+  return probe_xt_comment_decision(
+      ipv6,
+      ipv6 ? "/proc/net/ip6_tables_matches" : "/proc/net/ip_tables_matches",
+      io);
+}
+
 bool IptablesFirewall::has_xt_comment_registration(
     const std::string &contents) {
   // /proc/net/*_tables_matches is a whitespace-separated registration list.
