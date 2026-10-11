@@ -12,6 +12,7 @@ import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import {
   useGetConfig,
+  useGetConfigDefaults,
   useGetHealthRouting,
   useGetRuntimeInterfaces,
 } from "@/api/queries"
@@ -100,49 +101,75 @@ export type SettingsDraft = {
   }
 }
 
+// The daemon has no default schedule; this is only a suggestion.
+const suggestedCron = "0 4 * * 0"
+
 /**
- * The daemon's defaults for the settings on this page, copied from
- * src/config/config_defaults.hpp; change both together. Text and number fields
- * of an unset value stay empty and show the default as a placeholder; switches
- * show the default. Nothing is written to the config unless the user sets it.
- * The cron schedule has no daemon default: it is only a suggestion.
+ * The daemon's defaults for the settings on this page, from
+ * GET /api/config/defaults. Text and number fields of an unset value stay
+ * empty and show the default as a placeholder; switches show the default.
+ * Nothing is written to the config unless the user sets it.
  */
-const defaults = {
-  daemon: {
-    strict_enforcement: false,
-    skip_marked_packets: true,
-    clear_dynamic_sets_on_apply: false,
-    ipv6_enabled: true,
-    ipset_hashsize: "1024",
-    ipset_maxelem: "65536",
-  },
-  lists_autoupdate: { enabled: false, cron: "0 4 * * 0" },
-  fwmark: { start: "0x00010000", mask: "0x00ff0000" },
-  iproute: { table_start: "150", process_router_traffic: false },
-  intercept: {
-    enabled: true,
-    min_ttl_ms: "300000",
-    max_ttl_ms: "86400000",
-    dns: {
-      enabled: true,
-      queue_num: "9053",
-      hold_timeout_ms: "30",
-      marker: { domain: "check.keen-pbr.fyi", answer_ipv4: "127.0.0.88" },
+export type SettingsDefaults = ReturnType<typeof toSettingsDefaults>
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function toSettingsDefaults(doc: ConfigObject) {
+  const { daemon, fwmark, iproute, lists_autoupdate, intercept } = doc
+  const dns = intercept?.dns
+  const l7 = intercept?.l7
+  return {
+    daemon: {
+      strict_enforcement: daemon?.strict_enforcement ?? false,
+      skip_marked_packets: daemon?.skip_marked_packets ?? false,
+      clear_dynamic_sets_on_apply: daemon?.clear_dynamic_sets_on_apply ?? false,
+      ipv6_enabled: daemon?.ipv6_enabled ?? false,
+      ipset_hashsize: toStringInt(daemon?.ipset_hashsize),
+      ipset_maxelem: toStringInt(daemon?.ipset_maxelem),
     },
-    l7: {
-      enabled: true,
-      nflog_group: "9054",
-      tls: true,
-      http: true,
-      quic: true,
+    lists_autoupdate: {
+      enabled: lists_autoupdate?.enabled ?? false,
+      cron: suggestedCron,
     },
-  },
-} as const
+    fwmark: { start: toHex32(fwmark?.start), mask: toHex32(fwmark?.mask) },
+    iproute: {
+      table_start: toStringInt(iproute?.table_start),
+      process_router_traffic: iproute?.process_router_traffic ?? false,
+    },
+    intercept: {
+      enabled: intercept?.enabled ?? false,
+      min_ttl_ms: toStringInt(intercept?.min_ttl_ms),
+      max_ttl_ms: toStringInt(intercept?.max_ttl_ms),
+      dns: {
+        enabled: dns?.enabled ?? false,
+        queue_num: toStringInt(dns?.queue_num),
+        hold_timeout_ms: toStringInt(dns?.hold_timeout_ms),
+        marker: {
+          domain: dns?.marker?.domain ?? "",
+          answer_ipv4: dns?.marker?.answer_ipv4 ?? "",
+        },
+      },
+      l7: {
+        enabled: l7?.enabled ?? false,
+        nflog_group: toStringInt(l7?.nflog_group),
+        tls: l7?.tls ?? false,
+        http: l7?.http ?? false,
+        quic: l7?.quic ?? false,
+      },
+    },
+  }
+}
 
 export function GeneralConfigPage() {
   const { t } = useTranslation()
   const configQuery = useGetConfig()
+  const defaultsQuery = useGetConfigDefaults({
+    query: { staleTime: Infinity },
+  })
   const loadedConfig = selectConfig(configQuery.data)
+  const defaults =
+    defaultsQuery.data?.status === 200
+      ? toSettingsDefaults(defaultsQuery.data.data)
+      : undefined
 
   return (
     <div className="space-y-6">
@@ -151,26 +178,31 @@ export function GeneralConfigPage() {
         title={t("pages.settings.title")}
       />
 
-      {configQuery.isLoading ? (
+      {configQuery.isLoading || defaultsQuery.isLoading ? (
         <GeneralConfigPageSkeleton />
-      ) : configQuery.isError || !loadedConfig ? (
+      ) : configQuery.isError || !loadedConfig || !defaults ? (
         <ListPlaceholder
           description={t("common.loadErrorDescription")}
           title={t("common.unableToLoadData")}
           variant="error"
         />
       ) : (
-        <LoadedGeneralConfigPage loadedConfig={loadedConfig} />
+        <LoadedGeneralConfigPage
+          defaults={defaults}
+          loadedConfig={loadedConfig}
+        />
       )}
     </div>
   )
 }
 
 type LoadedGeneralConfigPageProps = {
+  defaults: SettingsDefaults
   loadedConfig: ConfigObject
 }
 
 function LoadedGeneralConfigPage({
+  defaults,
   loadedConfig,
 }: LoadedGeneralConfigPageProps) {
   const { t } = useTranslation()
@@ -190,10 +222,12 @@ function LoadedGeneralConfigPage({
 
   const postConfigMutation = usePostConfigMutation()
 
-  const form = useDraftForm<SettingsDraft>(getDraftFromConfig(loadedConfig))
+  const form = useDraftForm<SettingsDraft>(
+    getDraftFromConfig(loadedConfig, defaults)
+  )
 
   const save = async (value: SettingsDraft) => {
-    const updatedConfig = buildUpdatedConfig(loadedConfig, value)
+    const updatedConfig = buildUpdatedConfig(loadedConfig, value, defaults)
 
     try {
       await postConfigMutation.mutateAsync({ data: updatedConfig })
@@ -213,7 +247,7 @@ function LoadedGeneralConfigPage({
       queryClient.invalidateQueries({ queryKey: queryKeys.healthRouting() }),
     ])
 
-    form.reset(getDraftFromConfig(updatedConfig))
+    form.reset(getDraftFromConfig(updatedConfig, defaults))
   }
 
   const isPending = form.isSubmitting
@@ -223,7 +257,7 @@ function LoadedGeneralConfigPage({
       : []
 
   const handleCancel = () => {
-    form.reset(getDraftFromConfig(loadedConfig))
+    form.reset(getDraftFromConfig(loadedConfig, defaults))
   }
 
   const cron = form.field("lists_autoupdate.cron")
@@ -995,7 +1029,10 @@ function AdvancedTextField({
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function getDraftFromConfig(config: ConfigObject): SettingsDraft {
+export function getDraftFromConfig(
+  config: ConfigObject,
+  defaults: SettingsDefaults
+): SettingsDraft {
   const intercept = config.intercept
   const dns = intercept?.dns
   const marker = dns?.marker
@@ -1081,7 +1118,8 @@ function buildUpdatedDns(
 // eslint-disable-next-line react-refresh/only-export-components
 export function buildUpdatedConfig(
   config: ConfigObject,
-  draft: SettingsDraft
+  draft: SettingsDraft,
+  defaults: SettingsDefaults
 ): ConfigObject {
   const { daemon, intercept } = draft
   const old = config.intercept

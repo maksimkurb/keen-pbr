@@ -300,6 +300,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/config/defaults:
+    get:
+      summary: Get config defaults
+      description: >
+        Returns a config object holding the value the daemon uses for each
+        setting that is not set. Only settings with a fixed default are
+        present. The web UI shows them as placeholders; they are never
+        written to the config.
+      operationId: getConfigDefaults
+      responses:
+        "200":
+          description: Defaults for unset settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigObject"
+
   /api/config/save:
     post:
       summary: Apply staged config

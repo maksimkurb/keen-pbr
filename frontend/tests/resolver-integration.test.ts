@@ -6,6 +6,7 @@ import {
   buildUpdatedConfig,
   getDraftFromConfig,
 } from "../src/pages/general-config-page"
+import { defaults } from "./settings-defaults"
 
 describe("resolver integration settings", () => {
   test("infers dnsmasq from non-empty DNS rules and defaults to none otherwise", () => {
@@ -55,11 +56,15 @@ describe("resolver integration settings", () => {
       },
     }
 
-    const draft = getDraftFromConfig(config)
-    const off = buildUpdatedConfig(config, {
-      ...draft,
-      dns: { resolver_integration: "none", dnsmasq_instance: "" },
-    })
+    const draft = getDraftFromConfig(config, defaults)
+    const off = buildUpdatedConfig(
+      config,
+      {
+        ...draft,
+        dns: { resolver_integration: "none", dnsmasq_instance: "" },
+      },
+      defaults
+    )
     expect(off.dns?.resolver_integration).toBe("none")
     expect(off.dns?.servers).toEqual(config.dns?.servers)
     expect(off.dns?.rules).toEqual(config.dns?.rules)
@@ -67,10 +72,14 @@ describe("resolver integration settings", () => {
     expect(off.dns?.system_resolver).toEqual(config.dns?.system_resolver)
     expect(off.dns?.dns_test_server).toEqual(config.dns?.dns_test_server)
 
-    const on = buildUpdatedConfig(off, {
-      ...getDraftFromConfig(off),
-      dns: { resolver_integration: "dnsmasq", dnsmasq_instance: "" },
-    })
+    const on = buildUpdatedConfig(
+      off,
+      {
+        ...getDraftFromConfig(off, defaults),
+        dns: { resolver_integration: "dnsmasq", dnsmasq_instance: "" },
+      },
+      defaults
+    )
     expect(on.dns?.resolver_integration).toBe("dnsmasq")
   })
 })

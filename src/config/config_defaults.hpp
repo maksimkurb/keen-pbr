@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <string_view>
 
-// What the daemon uses for a config value that is not set. The web UI keeps
-// its own copy for placeholders (frontend/src/pages/general-config-page.tsx);
-// change both together.
+// What the daemon uses for a config value that is not set. GET
+// /api/config/defaults serves them to the web UI (make_config_defaults()):
+// a new default goes here and there.
 namespace keen_pbr3::config_defaults {
 
 // daemon
@@ -14,6 +14,9 @@ constexpr bool skip_marked_packets = true;
 constexpr bool clear_dynamic_sets_on_apply = false;
 constexpr bool reuse_static_sets_on_runtime_refresh = true;
 constexpr bool ipv6_enabled = true;
+// Not passed to ipset when unset; these are ipset's own defaults.
+constexpr int64_t ipset_hashsize = 1024;
+constexpr int64_t ipset_maxelem = 65536;
 
 // fwmark
 constexpr uint32_t fwmark_start = 0x00010000;

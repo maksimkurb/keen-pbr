@@ -32,6 +32,7 @@ import type {
   AuthSettingsRequest,
   AuthSettingsResponse,
   AuthStatusResponse,
+  ConfigObject,
   ConfigStateResponse,
   ConfigUpdateResponse,
   DraftConfig,
@@ -1567,6 +1568,119 @@ export const usePostConfig = <TError = ErrorResponse,
       > => {
       return useMutation(getPostConfigMutationOptions(options), queryClient);
     }
+
+/**
+ * Returns a config object holding the value the daemon uses for each setting that is not set. Only settings with a fixed default are present. The web UI shows them as placeholders; they are never written to the config.
+
+ * @summary Get config defaults
+ */
+export type getConfigDefaultsResponse200 = {
+  data: ConfigObject
+  status: 200
+}
+
+export type getConfigDefaultsResponseSuccess = (getConfigDefaultsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getConfigDefaultsResponse = (getConfigDefaultsResponseSuccess)
+
+export const getGetConfigDefaultsUrl = () => {
+
+
+
+
+  return `/api/config/defaults`
+}
+
+export const getConfigDefaults = async ( options?: RequestInit): Promise<getConfigDefaultsResponse> => {
+
+  return apiFetch<getConfigDefaultsResponse>(getGetConfigDefaultsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConfigDefaultsQueryKey = () => {
+    return [
+    `/api/config/defaults`
+    ] as const;
+    }
+
+
+export const getGetConfigDefaultsQueryOptions = <TData = Awaited<ReturnType<typeof getConfigDefaults>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConfigDefaultsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConfigDefaults>>> = ({ signal }) => getConfigDefaults({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetConfigDefaultsQueryResult = NonNullable<Awaited<ReturnType<typeof getConfigDefaults>>>
+export type GetConfigDefaultsQueryError = unknown
+
+
+export function useGetConfigDefaults<TData = Awaited<ReturnType<typeof getConfigDefaults>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getConfigDefaults>>,
+          TError,
+          Awaited<ReturnType<typeof getConfigDefaults>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetConfigDefaults<TData = Awaited<ReturnType<typeof getConfigDefaults>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getConfigDefaults>>,
+          TError,
+          Awaited<ReturnType<typeof getConfigDefaults>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetConfigDefaults<TData = Awaited<ReturnType<typeof getConfigDefaults>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get config defaults
+ */
+
+export function useGetConfigDefaults<TData = Awaited<ReturnType<typeof getConfigDefaults>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetConfigDefaultsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
 
 /**
  * Persists the currently staged in-memory config to disk and then applies it to the routing runtime.

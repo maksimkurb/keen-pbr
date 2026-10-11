@@ -3,9 +3,17 @@ import { describe, expect, test } from "bun:test"
 import type { ConfigObject } from "../src/api/generated/model/configObject"
 import { getIn } from "../src/lib/draft-form-core"
 import {
-  buildUpdatedConfig,
-  getDraftFromConfig,
+  buildUpdatedConfig as buildWithDefaults,
+  getDraftFromConfig as draftWithDefaults,
 } from "../src/pages/general-config-page"
+import { defaults } from "./settings-defaults"
+
+const getDraftFromConfig = (config: ConfigObject) =>
+  draftWithDefaults(config, defaults)
+const buildUpdatedConfig = (
+  config: ConfigObject,
+  draft: Parameters<typeof buildWithDefaults>[1]
+) => buildWithDefaults(config, draft, defaults)
 
 const config = {
   device_name: "router",
@@ -98,6 +106,12 @@ describe("settings draft mirrors the config document", () => {
     expect(
       buildUpdatedConfig({} as ConfigObject, draft).lists_autoupdate
     ).toEqual({ enabled: true, cron: "0 4 * * 0" })
+  })
+
+  test("defaults become placeholders and switch values", () => {
+    expect(defaults.intercept.dns.queue_num).toBe("9053")
+    expect(defaults.fwmark.mask).toBe("0x00ff0000")
+    expect(defaults.daemon.skip_marked_packets).toBe(true)
   })
 
   test("editing a simple setting preserves advanced routing parameters", () => {

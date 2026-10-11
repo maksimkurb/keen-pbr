@@ -8,6 +8,8 @@
 #include "../src/api/handler_config.hpp"
 #include "../src/api/server.hpp"
 #include "../src/api/sse_broadcaster.hpp"
+#include "../src/config/config_defaults.hpp"
+#include "../src/intercept/intercept_settings.hpp"
 
 namespace keen_pbr3 {
 
@@ -151,6 +153,26 @@ TEST_CASE("unset daemon defaults stay absent in API config responses") {
     const auto serialized = serialize_config_pretty(response);
     CHECK(serialized.find("skip_marked_packets") == std::string::npos);
     CHECK(serialized.find("ipv6_enabled") == std::string::npos);
+}
+
+TEST_CASE("config defaults document matches what the daemon uses for unset values") {
+    const Config defaults = make_config_defaults();
+
+    // Intercept: the document resolves exactly like an empty config.
+    const InterceptCapabilities caps;
+    CHECK(resolve_effective_intercept(defaults, FirewallBackend::iptables, caps) ==
+          resolve_effective_intercept(Config{}, FirewallBackend::iptables, caps));
+
+    REQUIRE(defaults.fwmark.has_value());
+    CHECK(std::stoul(defaults.fwmark->start.value(), nullptr, 16) ==
+          config_defaults::fwmark_start);
+    CHECK(std::stoul(defaults.fwmark->mask.value(), nullptr, 16) ==
+          config_defaults::fwmark_mask);
+    CHECK(defaults.daemon->skip_marked_packets == config_defaults::skip_marked_packets);
+    CHECK(defaults.iproute->table_start == config_defaults::table_start);
+    // Nothing that is not a scalar setting default.
+    CHECK_FALSE(defaults.outbounds.has_value());
+    CHECK_FALSE(defaults.lists_autoupdate->cron.has_value());
 }
 
 TEST_CASE("configured ipset capacities are preserved in API serialization") {

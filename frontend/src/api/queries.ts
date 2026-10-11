@@ -1,5 +1,6 @@
 export {
   getConfig,
+  getConfigDefaults,
   getAuthPasswordStatus,
   getDnsTest,
   getHealthRouting,
@@ -7,6 +8,7 @@ export {
   getRuntimeInterfaces,
   getRuntimeOutbounds,
   getGetConfigQueryOptions,
+  getGetConfigDefaultsQueryOptions,
   getGetAuthPasswordStatusQueryOptions,
   getGetDnsTestQueryOptions,
   getGetHealthRoutingQueryOptions,
@@ -14,6 +16,7 @@ export {
   getGetRuntimeInterfacesQueryOptions,
   getGetRuntimeOutboundsQueryOptions,
   useGetConfig,
+  useGetConfigDefaults,
   useGetAuthPasswordStatus,
   useGetDnsTest,
   useGetHealthRouting,
