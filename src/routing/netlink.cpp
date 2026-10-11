@@ -10,6 +10,7 @@
 #include <memory>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <tuple>
 
 #include <netlink/cache.h>
 #include <netlink/errno.h>
@@ -426,6 +427,30 @@ void NetlinkManager::delete_rule_for_family(const RuleSpec& spec, int family) {
 
 NetlinkMetricsSnapshot NetlinkManager::metrics_snapshot() const {
     return {impl_->errors.load(std::memory_order_relaxed)};
+}
+
+bool same_routes(const std::vector<DumpedRoute>& a,
+                 const std::vector<DumpedRoute>& b) {
+    if (a.size() != b.size()) {
+        return false;
+    }
+    const auto key = [](const DumpedRoute& route) {
+        return std::tie(route.family, route.destination, route.table,
+                        route.metric, route.interface, route.gateway,
+                        route.blackhole, route.unreachable, route.protocol,
+                        route.nexthop_count, route.unicast);
+    };
+    const auto less = [&key](const DumpedRoute& lhs, const DumpedRoute& rhs) {
+        return key(lhs) < key(rhs);
+    };
+    auto sorted_a = a;
+    auto sorted_b = b;
+    std::sort(sorted_a.begin(), sorted_a.end(), less);
+    std::sort(sorted_b.begin(), sorted_b.end(), less);
+    return std::equal(sorted_a.begin(), sorted_a.end(), sorted_b.begin(),
+                      [&key](const DumpedRoute& lhs, const DumpedRoute& rhs) {
+                          return key(lhs) == key(rhs);
+                      });
 }
 
 std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,

@@ -51,7 +51,13 @@ namespace {
 constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{150};
 constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY =
     std::chrono::seconds{5};
+// Minimum gap between two interface-triggered refreshes.
 constexpr auto INTERFACE_REFRESH_DEBOUNCE_DELAY = std::chrono::milliseconds{1500};
+// Quiet time after the last event before a refresh, capped by the max delay
+// from the first event.  Keenetic reinstalls routes as delete+add pairs, so a
+// refresh started on the first event would see a half-rebuilt table.
+constexpr auto INTERFACE_REFRESH_SETTLE_DELAY = std::chrono::milliseconds{250};
+constexpr auto INTERFACE_REFRESH_MAX_DELAY = std::chrono::milliseconds{1500};
 constexpr std::size_t kMaxConcurrentRoutingTests = 2;
 constexpr std::size_t kMaxPendingControlClients = 64;
 constexpr std::size_t kMaxControlRequestBytes = std::size_t{4} * 1024U;
@@ -1137,16 +1143,37 @@ void Daemon::handle_sighup() {
 #endif
 }
 
-void Daemon::refresh_iproute_and_firewall_runtime(StatusPublishScope scope) {
+void Daemon::refresh_iproute_and_firewall_runtime(
+    StatusPublishScope scope, bool skip_if_main_routes_unchanged) {
   auto &log = Logger::instance();
   try {
     // Refresh routes and firewall rules without re-probing kernel capabilities.
     // Kernel module probes run only at startup (first probe after process start).
     const auto main_routes = netlink_.dump_routes_in_table(254);
+    if (skip_if_main_routes_unchanged && applied_main_routes_ &&
+        same_routes(*applied_main_routes_, main_routes)) {
+      log.info("Main routing table unchanged since the last apply; refresh "
+               "skipped.");
+      return;
+    }
     reconcile_static_routing(nullptr, &main_routes);
     apply_firewall(runtime_refresh_firewall_mode(), false, &main_routes);
+    applied_main_routes_ = main_routes;
     publish_runtime_state(scope);
     log.info("Runtime iproute and firewall refresh complete.");
+    // SIGUSR1 and interface events schedule this same refresh; Keenetic fires
+    // both on every WAN DHCP renewal.  Whatever is still pending was requested
+    // before this refresh read the system state, so it is covered.  Kept on
+    // failure, so the pending one retries.
+    if (sigusr1_refresh_task_id_ >= 0) {
+      scheduler_->cancel(sigusr1_refresh_task_id_);
+      sigusr1_refresh_task_id_ = -1;
+      log.info("Pending SIGUSR1 refresh covered by this refresh.");
+    }
+    if (interface_refresh_pending_) {
+      cancel_interface_refresh();
+      log.info("Pending interface refresh covered by this refresh.");
+    }
   } catch (const std::exception &e) {
     log.error("Runtime iproute and firewall refresh failed: {}", e.what());
   }
@@ -1216,7 +1243,10 @@ void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
   }
 
   std::string reason;
-  if (event.route_changed) {
+  if (event.resync) {
+    reason = "Interface monitor missed events (netlink queue overflow)";
+    log.warn("{}; resyncing", reason);
+  } else if (event.route_changed) {
     reason = "Main routing table changed";
   } else if (event.address_changed) {
     reason = "Interface " + event.interface_name + " addresses changed";
@@ -1225,36 +1255,59 @@ void Daemon::handle_interface_event(const InterfaceMonitor::Event &event) {
              std::string(event.is_up ? "UP" : "DOWN");
   }
 
-  // Leading-edge debounce: the first event refreshes at once (a link going
-  // down must leave the balance classifier promptly); events within the
-  // following quiet window are coalesced into one trailing refresh.
-  if (interface_refresh_pending_) {
-    log.trace("interface_event_coalesced", "reason={}", reason);
-    return;
-  }
+  // The refresh never runs inside the netlink receive loop: a burst would
+  // overflow the socket while it runs.  A link going down is due at once (it
+  // must leave the balance classifier promptly); anything else waits for its
+  // burst to settle.  Both respect the minimum gap between refreshes.
   const auto now = std::chrono::steady_clock::now();
-  if (now >= interface_refresh_quiet_until_) {
-    log.info("{}, iproute and firewall refresh triggered", reason);
-    interface_refresh_quiet_until_ = now + INTERFACE_REFRESH_DEBOUNCE_DELAY;
-    refresh_iproute_and_firewall_runtime(
-        StatusPublishScope::OutboundsAndInterfaces);
-    return;
+  const bool was_pending = interface_refresh_pending_;
+  if (!was_pending) {
+    interface_refresh_window_start_ = now;
+    interface_refresh_route_only_ = true;
+  }
+  interface_refresh_route_only_ =
+      interface_refresh_route_only_ && event.route_changed;
+  const bool link_down = event.administrative_state_changed && !event.is_up;
+  auto due = link_down
+                 ? now
+                 : std::min(now + INTERFACE_REFRESH_SETTLE_DELAY,
+                            interface_refresh_window_start_ +
+                                INTERFACE_REFRESH_MAX_DELAY);
+  due = std::max(due, interface_refresh_quiet_until_);
+  if (was_pending) {
+    log.trace("interface_event_coalesced", "reason={}", reason);
+    if (due == interface_refresh_due_) {
+      return;
+    }
+    scheduler_->cancel(interface_refresh_task_id_);
+  } else {
+    log.info("{}, iproute and firewall refresh scheduled", reason);
   }
   interface_refresh_pending_ = true;
+  interface_refresh_due_ = due;
   interface_refresh_task_id_ = scheduler_->schedule_oneshot(
       std::max(std::chrono::milliseconds{1},  // 0 would disarm the timerfd
-               std::chrono::duration_cast<std::chrono::milliseconds>(
-                   interface_refresh_quiet_until_ - now)),
-      [this]() {
-        interface_refresh_task_id_ = -1;
-        interface_refresh_pending_ = false;
-        interface_refresh_quiet_until_ =
-            std::chrono::steady_clock::now() + INTERFACE_REFRESH_DEBOUNCE_DELAY;
-        refresh_iproute_and_firewall_runtime(
-            StatusPublishScope::OutboundsAndInterfaces);
-      },
-      "interface-refresh");
-  log.info("{}, iproute and firewall refresh scheduled (coalesced)", reason);
+               std::chrono::duration_cast<std::chrono::milliseconds>(due - now)),
+      [this]() { run_interface_refresh(); }, "interface-refresh");
+}
+
+void Daemon::run_interface_refresh() {
+  interface_refresh_task_id_ = -1;
+  interface_refresh_pending_ = false;
+  interface_refresh_quiet_until_ =
+      std::chrono::steady_clock::now() + INTERFACE_REFRESH_DEBOUNCE_DELAY;
+  // NDM rewrites main with the same routes on every DHCP renewal; skip
+  // the refresh when only routes changed and main ended up as applied.
+  refresh_iproute_and_firewall_runtime(StatusPublishScope::OutboundsAndInterfaces,
+                                       interface_refresh_route_only_);
+}
+
+void Daemon::cancel_interface_refresh() {
+  if (interface_refresh_task_id_ >= 0) {
+    scheduler_->cancel(interface_refresh_task_id_);
+    interface_refresh_task_id_ = -1;
+  }
+  interface_refresh_pending_ = false;
 }
 
 void Daemon::handle_interface_monitor_events(uint32_t events) {

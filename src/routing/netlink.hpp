@@ -101,6 +101,10 @@ struct DumpedRoute {
     bool unicast{true};                 // True only for RTN_UNICAST routes
 };
 
+// True when both dumps hold the same routes; dump order is not significant.
+bool same_routes(const std::vector<DumpedRoute>& a,
+                 const std::vector<DumpedRoute>& b);
+
 // A policy rule dumped from the kernel (read-only snapshot)
 struct DumpedRule {
     uint32_t priority{0};

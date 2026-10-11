@@ -87,11 +87,7 @@ void Daemon::teardown_routing_and_firewall(bool explicit_stop) {
     runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
     cancel_startup_list_retry();
 
-    if (interface_refresh_task_id_ >= 0) {
-        scheduler_->cancel(interface_refresh_task_id_);
-        interface_refresh_task_id_ = -1;
-    }
-    interface_refresh_pending_ = false;
+    cancel_interface_refresh();
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
@@ -139,6 +135,7 @@ void Daemon::setup_routing_and_firewall() {
     const auto main_routes = netlink_.dump_routes_in_table(254);
     setup_static_routing(&main_routes);
     apply_firewall(FirewallApplyMode::Destructive, false, &main_routes);
+    applied_main_routes_ = main_routes;
     routing_runtime_active_ = true;
     if (runtime_state_machine_.state() != RuntimeState::applying) {
         transition_runtime_or_throw(RuntimeState::applying, "runtime starting");
@@ -216,6 +213,7 @@ void Daemon::setup_static_routing(const std::vector<DumpedRoute>* main_routes) {
 void Daemon::reconcile_static_routing(
     const std::map<std::string, std::string>* urltest_selections,
     const std::vector<DumpedRoute>* main_routes) {
+    applied_main_routes_.reset();
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
     log_ipv6_support_decision_once(ipv6_decision);
     const auto interfaces = netlink_.dump_interfaces();
@@ -262,6 +260,7 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
                             const std::vector<DumpedRoute>* main_routes,
                             const Config* quiesce_config,
                             const OutboundMarkMap* quiesce_marks) {
+    applied_main_routes_.reset();
     host_table_cache_.invalidate();
     invalidate_routing_health_cache();
     // An apply (re)binds the listeners itself and supersedes a pending
@@ -1301,11 +1300,7 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
         lists_autoupdate_task_id_ = -1;
     }
     cancel_startup_list_retry();
-    if (interface_refresh_task_id_ >= 0) {
-        scheduler_->cancel(interface_refresh_task_id_);
-        interface_refresh_task_id_ = -1;
-    }
-    interface_refresh_pending_ = false;
+    cancel_interface_refresh();
     outbound_marks_ = std::move(prepared.outbound_marks);
     config_ = std::move(prepared.config);
     const auto daemon_config = config_.daemon.value_or(DaemonConfig{});
@@ -1325,6 +1320,7 @@ void Daemon::reconcile_prepared_runtime(PreparedRuntimeInputs prepared) {
                    &main_routes,
                    &old_config,
                    &old_marks);
+    applied_main_routes_ = main_routes;
     routing_runtime_active_ = true;
     transition_runtime_or_throw(RuntimeState::applying, "config apply");
     begin_runtime_generation();

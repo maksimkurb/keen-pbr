@@ -207,7 +207,10 @@ private:
   bool is_interface_outbound_in_use(const std::string &interface_name) const;
   bool is_auto_gateway_outbound_in_use(const std::string &interface_name = "") const;
   void refresh_iproute_and_firewall_runtime(
-      StatusPublishScope scope = StatusPublishScope::ServiceAndOutbounds);
+      StatusPublishScope scope = StatusPublishScope::ServiceAndOutbounds,
+      bool skip_if_main_routes_unchanged = false);
+  void run_interface_refresh();
+  void cancel_interface_refresh();
   void dispatch_event_fd(int fd, uint32_t events);
   void run_event_loop();
   void begin_startup_runtime();
@@ -388,7 +391,15 @@ private:
   // Debounced runtime refresh triggered by interface events.
   int interface_refresh_task_id_{-1};
   bool interface_refresh_pending_{false};
+  // True while every event coalesced into the pending refresh was a
+  // main-table route change.
+  bool interface_refresh_route_only_{true};
+  std::chrono::steady_clock::time_point interface_refresh_window_start_{};
+  std::chrono::steady_clock::time_point interface_refresh_due_{};
   std::chrono::steady_clock::time_point interface_refresh_quiet_until_{};
+  // Main table the installed routing and firewall were built from; reset by
+  // any apply that does not record it.
+  std::optional<std::vector<DumpedRoute>> applied_main_routes_;
 
   // Epoll state
   int epoll_fd_{-1};

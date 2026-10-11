@@ -21,6 +21,9 @@ public:
         bool route_changed{false};
         bool address_changed{false};
         bool default_route_changed{false};
+        // The kernel dropped notifications (receive queue overflow); the
+        // monitor resynced its own state, but whatever changed is unknown.
+        bool resync{false};
     };
     using InterfaceStateCallback = std::function<void(const Event&)>;
 
@@ -35,7 +38,8 @@ public:
         // learning_wan_scope: interception learns from every client interface
         // except the outbound/WAN ones, which include the main-table
         // default-route interfaces.
-        return ((default_gateway_rules || learning_wan_scope) &&
+        return event.resync ||
+               ((default_gateway_rules || learning_wan_scope) &&
                 event.default_route_changed) ||
                (event.administrative_state_changed && interface_outbound_in_use) ||
                (event.route_changed && auto_gateway_outbound) ||
@@ -53,6 +57,10 @@ public:
     int fd() const;
     void handle_events();
     void reconnect();
+
+    // Drops route notifications for every table except main, in the kernel.
+    // Returns false when the socket refused the filter.
+    static bool attach_main_table_route_filter(int fd) noexcept;
 
 private:
     struct Impl;
