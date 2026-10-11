@@ -99,6 +99,7 @@ KernelCapabilities probe_kernel_capabilities(const HostTools& tools) {
         caps.xt_statistic = probe_iptables_statistic();
 #endif
         caps.xt_comment_v4 = IptablesFirewall::probe_xt_comment_support(false);
+        caps.iptables_nf_tables = IptablesFirewall::probe_nf_tables_flavour();
         caps.nflog_size_v4 = IptablesFirewall::probe_nflog_size_support(false);
     }
     if (tools.ip6tables && tools.ip6tables_restore && caps.system_ipv6) {
@@ -116,9 +117,11 @@ KernelCapabilities probe_kernel_capabilities(const HostTools& tools) {
 
     Logger::instance().info(
         "Kernel capabilities (probed once): ipv6 system={} iptables={} nftables={}; "
-        "xt_comment v4={} v6={}; nflog_size v4={} v6={}; xt_statistic={}",
+        "xt_comment v4={} v6={}; nflog_size v4={} v6={}; xt_statistic={}; "
+        "iptables nf_tables={}",
         caps.system_ipv6, caps.iptables_ipv6, caps.nftables_ipv6, caps.xt_comment_v4,
-        caps.xt_comment_v6, caps.nflog_size_v4, caps.nflog_size_v6, caps.xt_statistic);
+        caps.xt_comment_v6, caps.nflog_size_v4, caps.nflog_size_v6, caps.xt_statistic,
+        caps.iptables_nf_tables);
     return caps;
 }
 

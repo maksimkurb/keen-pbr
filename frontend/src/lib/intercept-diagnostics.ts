@@ -1,6 +1,9 @@
-import type { InterceptProbeFeatureStatus } from "@/api/generated/model"
+import type {
+  InterceptProbeFeatureStatus,
+  XtExtensionHealth,
+} from "@/api/generated/model"
 
-export type KernelEntryKind = "capability" | "probe"
+export type KernelEntryKind = "capability" | "probe" | "extension"
 
 export type KernelDiagnosticEntry = {
   key: string
@@ -11,6 +14,8 @@ export type KernelDiagnosticEntry = {
   reason?: string
   /** A missing capability that has a fallback: a warning, never an error. */
   advisory?: boolean
+  /** extension entries: the iptables extension and its kernel module. */
+  extension?: XtExtensionHealth
 }
 
 export type KernelBadgeState = "healthy" | "neutral" | "degraded"
@@ -37,6 +42,7 @@ export function mapKernelDiagnosticEntries(
     nflog: boolean
     connbytes: boolean
     addrtype?: boolean
+    xt_extensions?: XtExtensionHealth[]
   },
   probes: ReadonlyArray<{
     feature: string
@@ -58,8 +64,12 @@ export function mapKernelDiagnosticEntries(
     relevant: relevant as boolean,
   }))
   // addrtype serves the router-output skip rules (always built), and has a
-  // `-d` address-match fallback, so it only ever warns.
-  if (capabilities.addrtype !== undefined) {
+  // `-d` address-match fallback, so it only ever warns.  The extension list
+  // below covers it when present.
+  if (
+    capabilities.addrtype !== undefined &&
+    capabilities.xt_extensions === undefined
+  ) {
     capabilityEntries.push({
       key: "capability:addrtype",
       kind: "capability",
@@ -69,6 +79,19 @@ export function mapKernelDiagnosticEntries(
       advisory: true,
     })
   }
+  // iptables extensions of the routing rules: a missing one the current rules
+  // use fails the firewall apply (error); an unused one only warns.
+  const extensionEntries: KernelDiagnosticEntry[] = (
+    capabilities.xt_extensions ?? []
+  ).map((extension) => ({
+    key: `extension:${extension.kind}:${extension.name}`,
+    kind: "extension",
+    feature: extension.name,
+    status: extension.available ? "ok" : "unsupported",
+    relevant: true,
+    advisory: !extension.required,
+    extension,
+  }))
   const probeEntries: KernelDiagnosticEntry[] = probes.map((probe) => ({
     key: `probe:${probe.feature}`,
     kind: "probe",
@@ -82,7 +105,7 @@ export function mapKernelDiagnosticEntries(
         !["nfqueue", "nflog", "connbytes"].includes(probe.feature)),
     reason: probe.reason,
   }))
-  return [...capabilityEntries, ...probeEntries]
+  return [...capabilityEntries, ...extensionEntries, ...probeEntries]
 }
 
 /**

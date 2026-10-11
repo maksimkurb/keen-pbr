@@ -8,6 +8,7 @@ import type {
 import {
   isHealthyInterceptStatus,
   mapKernelDiagnosticEntries,
+  type KernelDiagnosticEntry,
 } from "@/lib/intercept-diagnostics"
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string
@@ -69,17 +70,25 @@ export function collectOverviewIssues({
         title:
           entry.kind === "capability"
             ? t(`overview.intercept.capabilities.${entry.feature}`)
-            : humanizeFeature(entry.feature),
+            : entry.kind === "extension" && entry.extension
+              ? t("overview.intercept.xtExtension", {
+                  kind: entry.extension.kind,
+                  name: entry.extension.name,
+                  module: entry.extension.kernel_module,
+                })
+              : humanizeFeature(entry.feature),
         detail:
-          entry.kind === "capability"
-            ? entry.advisory
-              ? t("overview.issues.capabilityFallback")
-              : t("overview.issues.capabilityUnsupported")
-            : t("overview.issues.kernelCheckFailed", {
-                reason:
-                  entry.reason ??
-                  t(`overview.intercept.probes.status.${entry.status}`),
-              }),
+          entry.kind === "extension"
+            ? describeMissingExtension(entry, t)
+            : entry.kind === "capability"
+              ? entry.advisory
+                ? t("overview.issues.capabilityFallback")
+                : t("overview.issues.capabilityUnsupported")
+              : t("overview.issues.kernelCheckFailed", {
+                  reason:
+                    entry.reason ??
+                    t(`overview.intercept.probes.status.${entry.status}`),
+                }),
       })
     }
   }
@@ -416,6 +425,17 @@ function summarizeEntries(entries: string[]) {
   const shown = entries.slice(0, MAX_DETAIL_ENTRIES).join("; ")
   const rest = entries.length - MAX_DETAIL_ENTRIES
   return rest > 0 ? `${shown}; +${rest}` : shown
+}
+
+function describeMissingExtension(
+  entry: KernelDiagnosticEntry,
+  t: TranslateFn
+) {
+  if (!entry.advisory) return t("overview.issues.xtExtensionRequired")
+  // Without addrtype the skip rules fall back to plain address matches.
+  if (entry.feature === "addrtype")
+    return t("overview.issues.capabilityFallback")
+  return t("overview.issues.xtExtensionUnused")
 }
 
 function humanizeFeature(feature: string) {

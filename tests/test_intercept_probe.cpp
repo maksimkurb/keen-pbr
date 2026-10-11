@@ -760,3 +760,61 @@ TEST_CASE("service health is degraded while the enabled DNS hold is unavailable"
                              "DNS interception unavailable"));
     }
 }
+
+namespace {
+
+std::vector<std::string> xt_names(const std::vector<const XtExtension*>& extensions) {
+    std::vector<std::string> names;
+    for (const XtExtension* extension : extensions) names.emplace_back(extension->name);
+    return names;
+}
+
+} // namespace
+
+TEST_CASE("intercept probe: routing xt extensions are checked after one modprobe each") {
+    FakeMatches matches;
+    matches.write("set\nmark\nconnmark\nconntrack\ntcp\nudp\ncomment\nstatistic\naddrtype\n");
+    const auto targets = matches.dir / "targets";
+    std::ofstream(targets) << "MARK\nCONNMARK\n";
+    Script script;
+    script.answer = healthy_kernel;
+    auto env = script.env();
+    matches.apply(env);
+    env.ip_targets = env.ip6_targets = targets.string();
+    std::vector<std::string> loaded;
+    env.modprobe = [&](const std::string& module) {
+        loaded.push_back(module);
+        if (module == "xt_dscp") matches.write(matches.text() + "dscp\n");
+    };
+    const auto caps = probe_intercept_capabilities(FirewallBackend::iptables, true, env);
+    REQUIRE(caps.xt_checked);
+    CHECK(xt_names(caps.xt_missing) == std::vector<std::string>{"multiport"});
+    CHECK(std::count(loaded.begin(), loaded.end(), "xt_multiport") == 1);
+    CHECK(std::count(loaded.begin(), loaded.end(), "xt_dscp") == 1);
+    // Routing extensions never limit interception.
+    CHECK(caps.reason.find("multiport") == std::string::npos);
+
+    SUBCASE("health marks only used extensions as required, and only for legacy iptables") {
+        const XtExtension* multiport = caps.xt_missing.front();
+        const auto health = xt_extension_health(caps.xt_missing, {multiport}, true);
+        REQUIRE(health.size() == routing_xt_extensions().size());
+        for (const auto& item : health) {
+            CHECK(item.available == (item.name != "multiport"));
+            CHECK(item.required == (item.name == "multiport"));
+        }
+        CHECK(health.front().kernel_module == "xt_set");
+        for (const auto& item : xt_extension_health(caps.xt_missing, {multiport}, false)) {
+            CHECK_FALSE(item.required);
+        }
+    }
+}
+
+TEST_CASE("intercept probe: unreadable xt listings report nothing about routing extensions") {
+    Script script;
+    script.answer = healthy_kernel;
+    auto env = script.env();
+    env.ip_targets = env.ip6_targets = env.ip_matches = env.ip6_matches = "/nonexistent/proc";
+    const auto caps = probe_intercept_capabilities(FirewallBackend::iptables, true, env);
+    CHECK_FALSE(caps.xt_checked);
+    CHECK(caps.xt_missing.empty());
+}

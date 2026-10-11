@@ -119,6 +119,7 @@ add_executable(keen-pbr-tests
   ../src/firewall/firewall_snapshot.cpp
   ../src/firewall/firewall_counters.cpp
   ../src/firewall/firewall_physical.cpp
+  ../src/firewall/xt_extensions.cpp
   ../src/firewall/firewall_lowering.cpp
   ../src/firewall/ip_family.cpp
   ../src/firewall/firewall_plan_verifier.cpp

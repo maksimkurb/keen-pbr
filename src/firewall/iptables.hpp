@@ -9,10 +9,12 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -72,12 +74,22 @@ public:
   static bool probe_xt_comment_support(bool ipv6);
   // Whether the restore binary accepts `-j NFLOG --nflog-size` (>= 1.6.0).
   static bool probe_nflog_size_support(bool ipv6);
+  // `iptables -V` reports the nf_tables flavour.
+  static bool probe_nf_tables_flavour();
 
   // The startup interception probe's xt_addrtype verdict (modprobe + /proc,
   // run once at service start).  Both families share the module.
   void set_addrtype_support(bool supported) override {
     addrtype_supported_ = supported;
   }
+
+  void set_xt_extension_support(XtExtensionSupport support) override {
+    xt_support_ = std::move(support);
+  }
+  std::vector<const XtExtension *> xt_extensions_in_use() const override;
+  // Records `used` for health and throws FirewallError naming the extensions
+  // the startup probe found missing (when enforced).
+  void require_xt_extensions(std::vector<const XtExtension *> used);
 
   void override_capabilities_for_fixtures(
       std::optional<bool> comments_supported,
@@ -274,6 +286,11 @@ private:
   bool nflog_size_v6_supported_{true};
   // `-m addrtype` (xt_addrtype); set once from the startup probe.
   bool addrtype_supported_{true};
+  // Routing extensions the startup probe found missing.
+  XtExtensionSupport xt_support_;
+  // Routing extensions of the last compiled plan, read by health threads.
+  mutable std::mutex xt_in_use_mutex_;
+  std::vector<const XtExtension *> xt_in_use_;
   RawPreroutingMode raw_prerouting_{};
 
 #ifdef KEEN_PBR3_TESTING

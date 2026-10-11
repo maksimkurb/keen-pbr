@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -511,6 +512,43 @@ public:
     return line;
   }
 
+  // Compiles `plan` and returns {extensions named by the rendered rules,
+  // extensions routing_xt_extensions_used derived}, both as "m:name"/"t:NAME".
+  static std::pair<std::set<std::string>, std::set<std::string>>
+  rendered_and_derived_xt(const FirewallPlan &plan) {
+    IptablesFirewall fw;
+    fw.compile_plan(plan, FirewallApplyMode::Destructive);
+    std::set<std::string> rendered;
+    for (const auto &chain : fw.pending_ruleset_.chains) {
+      for (const auto &rule : chain.rules) {
+        std::istringstream words(render_iptables_rule(rule, "C"));
+        std::string word, previous, proto;
+        while (words >> word) {
+          if (previous == "-m") rendered.insert("m:" + word);
+          if (previous == "-j" && std::isupper(static_cast<unsigned char>(word[0])) &&
+              word != "ACCEPT" && word != "DROP" && word != "RETURN" &&
+              word.rfind("KeenPbr", 0) != 0) {
+            rendered.insert("t:" + word);
+          }
+          if (previous == "-p") proto = word;
+          // `-p tcp --dport N` loads the protocol's implicit match.
+          if ((word == "--dport" || word == "--sport") && !proto.empty()) {
+            rendered.insert("m:" + proto);
+          }
+          previous = word;
+        }
+      }
+    }
+    std::set<std::string> derived;
+    for (const XtExtension *extension :
+         routing_xt_extensions_used(fw.pending_ruleset_)) {
+      derived.insert(std::string(extension->target ? "t:" : "m:") +
+                     extension->name);
+    }
+    REQUIRE(fw.xt_extensions_in_use().size() == derived.size());
+    return {rendered, derived};
+  }
+
   static size_t pending_set_count_after_duplicate_create() {
     IptablesFirewall firewall;
     firewall.create_ipset("kpbr4_shared", AF_INET);
@@ -529,6 +567,68 @@ public:
     return false;
   }
 };
+
+TEST_CASE("derived xt extensions match what the rendered iptables rules load") {
+  PrefilterFixture prefilter;
+  prefilter.skip_established_or_dnat = true;
+  prefilter.restore_conntrack_mark = true;
+  prefilter.conntrack_mark_mask = 0x00ff0000u;
+  prefilter.inbound_interfaces = std::vector<std::string>{"br0"};
+
+  using RuleDesc = IptablesBuilderTest::RuleDesc;
+  RuleDesc ports;
+  ports.ipv6 = false;
+  ports.action = RuleDesc::Mark;
+  ports.fwmark = 0x00010000u;
+  ports.set_name = "list_a";
+  ports.filter.proto = L4Proto::Tcp;
+  ports.filter.dst_port = PortSpec("80,443");
+  ports.filter.dscp = 46;
+  RuleDesc single = ports;
+  single.set_name.clear();
+  single.filter.proto = L4Proto::Udp;
+  single.filter.dst_port = PortSpec("53");
+  single.filter.dscp.reset();
+
+  const auto [rendered, derived] = IptablesBuilderTest::rendered_and_derived_xt(
+      IptablesBuilderTest::plan_from({ports, single}, prefilter, 0x00ff0000u));
+  CHECK(rendered == derived);
+  for (const char *expected : {"m:set", "m:multiport", "m:udp", "m:dscp",
+                               "m:conntrack", "t:MARK"}) {
+    CHECK_MESSAGE(derived.count(expected) == 1, expected);
+  }
+}
+
+TEST_CASE("xt extension gate rejects a plan only for missing, used extensions") {
+  const auto &all = routing_xt_extensions();
+  const auto find = [&all](const char *name, bool target) {
+    for (const auto &extension : all) {
+      if (extension.target == target && std::string(extension.name) == name) {
+        return &extension;
+      }
+    }
+    FAIL("unknown extension " << name);
+    return static_cast<const XtExtension *>(nullptr);
+  };
+  const XtExtension *multiport = find("multiport", false);
+  const XtExtension *mark_target = find("MARK", true);
+
+  IptablesFirewall fw;
+  fw.set_xt_extension_support({true, true, {multiport}});
+  CHECK_NOTHROW(fw.require_xt_extensions({mark_target}));
+  CHECK_THROWS_WITH_AS(fw.require_xt_extensions({mark_target, multiport}),
+                       doctest::Contains("match multiport (xt_multiport)"),
+                       FirewallError);
+  // The failed plan's extensions stay visible to the health report.
+  CHECK(fw.xt_extensions_in_use() ==
+        std::vector<const XtExtension *>{mark_target, multiport});
+
+  // nf_tables-backed iptables, or unreadable listings: report only.
+  fw.set_xt_extension_support({true, false, {multiport}});
+  CHECK_NOTHROW(fw.require_xt_extensions({multiport}));
+  fw.set_xt_extension_support({false, false, {}});
+  CHECK_NOTHROW(fw.require_xt_extensions({multiport}));
+}
 
 #ifndef KEEN_PBR_PLATFORM_KEENETIC
 TEST_CASE("balance support gate reads the startup snapshot and never probes") {

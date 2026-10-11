@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { InterceptCapabilitiesHealthPayloadReplacement } from './interceptCapabilitiesHealthPayloadReplacement';
+import type { XtExtensionHealth } from './xtExtensionHealth';
 
 export interface InterceptCapabilitiesHealth {
   nfqueue: boolean;
@@ -23,4 +24,7 @@ export interface InterceptCapabilitiesHealth {
   /** ctnetlink answered a dump request, so conntrack entries of re-resolved destinations can be cleaned up. Interception works without it.
    */
   conntrack_cleanup?: boolean;
+  /** iptables backend only: every iptables extension the routing rules can use, checked once at service start (/proc listing after a modprobe). Absent for nftables and when the kernel listings could not be read.
+   */
+  xt_extensions?: XtExtensionHealth[];
 }

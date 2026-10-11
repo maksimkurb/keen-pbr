@@ -399,6 +399,25 @@ InterceptCapabilities probe_intercept_capabilities(FirewallBackend backend,
             "xt_addrtype unavailable: router-output broadcast/multicast skips use "
             "plain destination address matches");
     }
+    // The routing rules' extensions: same check, reported per extension.
+    // Unreadable listings (x_tables not loaded) say nothing about them.
+    caps.xt_checked = std::ifstream(env.ip_matches).good() &&
+                      std::ifstream(env.ip_targets).good();
+    if (caps.xt_checked) {
+        std::string missing_xt;
+        for (const auto& extension : routing_xt_extensions()) {
+            if (prober.available({extension.name, extension.module, extension.target,
+                                  extension.name})) {
+                continue;
+            }
+            caps.xt_missing.push_back(&extension);
+            if (!missing_xt.empty()) missing_xt += ", ";
+            missing_xt += xt_extension_label(extension);
+        }
+        if (!missing_xt.empty()) {
+            Logger::instance().warn("iptables extensions unavailable: {}", missing_xt);
+        }
+    }
 
     for (const auto& item : missing) {
         if (!caps.reason.empty()) caps.reason += ", ";

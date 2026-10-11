@@ -1,6 +1,7 @@
 #pragma once
 
 #include "port_spec_util.hpp"
+#include "xt_extensions.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -203,6 +204,19 @@ public:
   // iptables: whether the kernel has `-m addrtype`, as measured once by the
   // startup probe.  Backends without the concept ignore it.
   virtual void set_addrtype_support(bool supported) { (void)supported; }
+
+  // iptables: the routing extensions the startup probe found missing.  A rule
+  // needing one of them fails compile before anything is changed (when
+  // enforced).  Backends without xt extensions ignore it.
+  virtual void set_xt_extension_support(XtExtensionSupport support) {
+    (void)support;
+  }
+
+  // iptables: routing extensions the last compiled plan uses, whether or not
+  // its apply succeeded.  Thread-safe.  Empty for other backends.
+  virtual std::vector<const XtExtension *> xt_extensions_in_use() const {
+    return {};
+  }
 
   // Physical set names are stable and equal to the logical names:
   // kpbr4_<list> / kpbr6_<list> (static), kpbr4d_<list> / kpbr6d_<list>

@@ -15,7 +15,7 @@ awk '/^(kernel_module_present|load_kernel_module|report_module_failure|ensure_in
 . "$tmp_script"
 
 KERNEL_MODULE_SYSFS="$tmp_dir/sys"
-mkdir -p "$KERNEL_MODULE_SYSFS/nfnetlink_log" "$tmp_dir/lib"
+mkdir -p "$KERNEL_MODULE_SYSFS/xt_NFQUEUE" "$tmp_dir/lib"
 LOGGED=""
 module_path_for() { printf '%s/lib/%s.ko\n' "$tmp_dir" "$1"; }
 insmod() {
@@ -31,32 +31,31 @@ log_error() { LOGGED="$LOGGED|error:$1"; }
 
 fail() { printf '%s: [%s]\n' "$1" "$LOGGED" >&2; exit 1; }
 
-# nfnetlink_log is loaded, xt_conntrack is built in (listed in the matches
-# file), nfnetlink_queue and xt_NFQUEUE load, xt_NFLOG fails to load and
-# xt_connbytes has no .ko at all.
+# xt_NFQUEUE is loaded, xt_connbytes is built in (listed in the matches file),
+# nfnetlink_queue loads, xt_NFLOG fails to load and nfnetlink_log has no .ko.
 : > "$tmp_dir/lib/nfnetlink_queue.ko"
-: > "$tmp_dir/lib/xt_NFQUEUE.ko"
 : > "$tmp_dir/lib/xt_NFLOG.ko"
-printf 'conntrack\n' > "$tmp_dir/matches"
-sed "s#/proc/net/ip_tables_matches#$tmp_dir/matches#g" "$tmp_script" > "$tmp_script.2"
+mkdir -p "$tmp_dir/proc/netfilter"
+printf 'connbytes\n' > "$tmp_dir/proc/ip_tables_matches"
+sed "s#/proc/net/#$tmp_dir/proc/#g" "$tmp_script" > "$tmp_script.2"
 . "$tmp_script.2"
 rm -f "$tmp_script.2"
 
 ensure_intercept_modules_loaded || fail "must never fail"
 
 inserted=$(cat "$tmp_dir/inserted")
-[ "$inserted" = " nfnetlink_queue xt_NFQUEUE" ] ||
+[ "$inserted" = " nfnetlink_queue" ] ||
     fail "unexpected insmod calls$inserted"
 case "$LOGGED" in
-    *"info:Loaded kernel module $tmp_dir/lib/nfnetlink_queue.ko"*"info:Loaded kernel module $tmp_dir/lib/xt_NFQUEUE.ko"*) ;;
-    *) fail "missing load messages" ;;
+    *"info:Loaded kernel module $tmp_dir/lib/nfnetlink_queue.ko"*) ;;
+    *) fail "missing load message" ;;
 esac
 case "$LOGGED" in
-    *"warn:failed to load kernel module $tmp_dir/lib/xt_NFLOG.ko (Unknown symbol in module)"*"warn:kernel module xt_connbytes is not loaded"*) ;;
+    *"warn:kernel module nfnetlink_log is not loaded"*"warn:failed to load kernel module $tmp_dir/lib/xt_NFLOG.ko (Unknown symbol in module)"*) ;;
     *) fail "missing warnings" ;;
 esac
 case "$LOGGED" in
-    *nfnetlink_log*|*xt_conntrack*|*error:*) fail "unexpected message" ;;
+    *xt_NFQUEUE*|*xt_connbytes*|*error:*) fail "unexpected message" ;;
 esac
 
 # Required modules log errors; probe modules leave reporting to the caller.

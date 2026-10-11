@@ -84,6 +84,13 @@ void Daemon::probe_capabilities_at_start() {
   // never re-probed at apply).
   firewall_->set_addrtype_support(
       startup_probe.for_ipv6(ipv6_supported).addrtype);
+  // Same for the routing rules' extensions: a rule needing a missing one
+  // fails the apply with a clear error instead of a bare restore failure.
+  const auto& firewall_caps = startup_probe.for_ipv6(ipv6_supported);
+  firewall_->set_xt_extension_support(
+      {firewall_caps.xt_checked,
+       firewall_caps.xt_checked && !capabilities->iptables_nf_tables,
+       firewall_caps.xt_missing});
   intercept_startup_probe_ = std::move(startup_probe);
 
   // Kernel facts that need a netlink conversation: ctnetlink dump pre-filter
@@ -121,7 +128,10 @@ InterceptEffective Daemon::resolve_intercept_effective() {
     }
     // The addrtype verdict is a firewall fact, valid even with interception off.
     if (intercept_startup_probe_.has_value()) {
-        capabilities.addrtype = intercept_startup_probe_->for_ipv6(ipv6_enabled).addrtype;
+        const auto& firewall_caps = intercept_startup_probe_->for_ipv6(ipv6_enabled);
+        capabilities.addrtype = firewall_caps.addrtype;
+        capabilities.xt_checked = firewall_caps.xt_checked;
+        capabilities.xt_missing = firewall_caps.xt_missing;
     }
     auto effective = resolve_effective_intercept(config_, backend, capabilities);
     for (const auto& reason : effective.reasons) {
@@ -409,6 +419,11 @@ api::InterceptHealthClass Daemon::build_intercept_health() const {
         service ? service->snapshot_ready() : false);
     if (running && effective.dns_hold && health.counters) {
         health.kernel_queue = read_kernel_queue(effective.queue_num);
+    }
+    if (effective.capabilities.xt_checked) {
+        health.capabilities.xt_extensions = xt_extension_health(
+            effective.capabilities.xt_missing, firewall_->xt_extensions_in_use(),
+            !kernel_capabilities()->iptables_nf_tables);
     }
     InterceptRebindStatus rebind;
     {

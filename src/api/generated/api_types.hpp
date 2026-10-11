@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesKWYddm data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes4MPh45 data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -526,6 +526,16 @@ namespace api {
 
     enum class PayloadReplacement : int { SUPPORTED, UNKNOWN, UNSUPPORTED };
 
+    enum class Kind : int { MATCH, TARGET };
+
+    struct XtExtensionHealthElement {
+        bool available;
+        std::string kernel_module;
+        Kind kind;
+        std::string name;
+        bool required;
+    };
+
     struct Capabilities {
         bool addrtype;
         bool connbytes;
@@ -534,6 +544,7 @@ namespace api {
         bool nflog;
         bool nfqueue;
         std::optional<PayloadReplacement> payload_replacement;
+        std::optional<std::vector<XtExtensionHealthElement>> xt_extensions;
     };
 
     struct DnsWriteLatency {
@@ -903,7 +914,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesKWYddm {
+    struct KeenPbrTypes4MPh45 {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -993,6 +1004,7 @@ namespace api {
         std::optional<StatusEventSnapshot> status_event_snapshot;
         std::optional<Strategy> test_group_strategy;
         std::optional<ValidationErrorElement> validation_error;
+        std::optional<XtExtensionHealthElement> xt_extension_health;
     };
 }
 }
@@ -1140,6 +1152,9 @@ namespace api {
     void from_json(const json & j, FirewallRuleCheck & x);
     void to_json(json & j, const FirewallRuleCheck & x);
 
+    void from_json(const json & j, XtExtensionHealthElement & x);
+    void to_json(json & j, const XtExtensionHealthElement & x);
+
     void from_json(const json & j, Capabilities & x);
     void to_json(json & j, const Capabilities & x);
 
@@ -1248,8 +1263,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesKWYddm & x);
-    void to_json(json & j, const KeenPbrTypesKWYddm & x);
+    void from_json(const json & j, KeenPbrTypes4MPh45 & x);
+    void to_json(json & j, const KeenPbrTypes4MPh45 & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1319,6 +1334,9 @@ namespace api {
 
     void from_json(const json & j, PayloadReplacement & x);
     void to_json(json & j, const PayloadReplacement & x);
+
+    void from_json(const json & j, Kind & x);
+    void to_json(json & j, const Kind & x);
 
     void from_json(const json & j, InterceptProbeFeatureStatus & x);
     void to_json(json & j, const InterceptProbeFeatureStatus & x);
@@ -2216,6 +2234,23 @@ namespace api {
         j["status"] = x.status;
     }
 
+    inline void from_json(const json & j, XtExtensionHealthElement& x) {
+        x.available = j.at("available").get<bool>();
+        x.kernel_module = j.at("kernel_module").get<std::string>();
+        x.kind = j.at("kind").get<Kind>();
+        x.name = j.at("name").get<std::string>();
+        x.required = j.at("required").get<bool>();
+    }
+
+    inline void to_json(json & j, const XtExtensionHealthElement & x) {
+        j = json::object();
+        j["available"] = x.available;
+        j["kernel_module"] = x.kernel_module;
+        j["kind"] = x.kind;
+        j["name"] = x.name;
+        j["required"] = x.required;
+    }
+
     inline void from_json(const json & j, Capabilities& x) {
         x.addrtype = j.at("addrtype").get<bool>();
         x.connbytes = j.at("connbytes").get<bool>();
@@ -2224,6 +2259,7 @@ namespace api {
         x.nflog = j.at("nflog").get<bool>();
         x.nfqueue = j.at("nfqueue").get<bool>();
         x.payload_replacement = get_stack_optional<PayloadReplacement>(j, "payload_replacement");
+        x.xt_extensions = get_stack_optional<std::vector<XtExtensionHealthElement>>(j, "xt_extensions");
     }
 
     inline void to_json(json & j, const Capabilities & x) {
@@ -2235,6 +2271,7 @@ namespace api {
         j["nflog"] = x.nflog;
         j["nfqueue"] = x.nfqueue;
         j["payload_replacement"] = x.payload_replacement;
+        j["xt_extensions"] = x.xt_extensions;
     }
 
     inline void from_json(const json & j, DnsWriteLatency& x) {
@@ -2914,7 +2951,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesKWYddm& x) {
+    inline void from_json(const json & j, KeenPbrTypes4MPh45& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3004,9 +3041,10 @@ namespace api {
         x.status_event_snapshot = get_stack_optional<StatusEventSnapshot>(j, "StatusEventSnapshot");
         x.test_group_strategy = get_stack_optional<Strategy>(j, "TestGroupStrategy");
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
+        x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesKWYddm & x) {
+    inline void to_json(json & j, const KeenPbrTypes4MPh45 & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3097,6 +3135,7 @@ namespace api {
         j["StatusEventSnapshot"] = x.status_event_snapshot;
         j["TestGroupStrategy"] = x.test_group_strategy;
         j["ValidationError"] = x.validation_error;
+        j["XtExtensionHealth"] = x.xt_extension_health;
     }
 
     inline void from_json(const json & j, CheckStatus & x) {
@@ -3468,6 +3507,20 @@ namespace api {
             case PayloadReplacement::UNKNOWN: j = "unknown"; break;
             case PayloadReplacement::UNSUPPORTED: j = "unsupported"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"PayloadReplacement\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, Kind & x) {
+        if (j == "match") x = Kind::MATCH;
+        else if (j == "target") x = Kind::TARGET;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"Kind\""); }
+    }
+
+    inline void to_json(json & j, const Kind & x) {
+        switch (x) {
+            case Kind::MATCH: j = "match"; break;
+            case Kind::TARGET: j = "target"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"Kind\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

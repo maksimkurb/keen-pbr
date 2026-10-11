@@ -146,3 +146,5 @@ export * from './statusEventSnapshotData';
 export * from './statusEventSnapshotType';
 export * from './testGroupStrategy';
 export * from './validationError';
+export * from './xtExtensionHealth';
+export * from './xtExtensionHealthKind';

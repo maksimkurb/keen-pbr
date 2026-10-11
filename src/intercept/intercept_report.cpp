@@ -1,5 +1,6 @@
 #include "intercept_report.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 
@@ -52,6 +53,26 @@ const char* intercept_source_name(InterceptSource source) {
     case InterceptSource::marker: return "marker";
     }
     return "dns";
+}
+
+std::vector<api::XtExtensionHealthElement> xt_extension_health(
+    const std::vector<const XtExtension*>& missing,
+    const std::vector<const XtExtension*>& in_use, bool module_needed) {
+    const auto contains = [](const std::vector<const XtExtension*>& list,
+                             const XtExtension* extension) {
+        return std::find(list.begin(), list.end(), extension) != list.end();
+    };
+    std::vector<api::XtExtensionHealthElement> out;
+    for (const auto& extension : routing_xt_extensions()) {
+        api::XtExtensionHealthElement item;
+        item.name = extension.name;
+        item.kind = extension.target ? api::Kind::TARGET : api::Kind::MATCH;
+        item.kernel_module = extension.module;
+        item.available = !contains(missing, &extension);
+        item.required = module_needed && contains(in_use, &extension);
+        out.push_back(std::move(item));
+    }
+    return out;
 }
 
 api::InterceptHealthClass make_intercept_health(const InterceptEffective& effective,

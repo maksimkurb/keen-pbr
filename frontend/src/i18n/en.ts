@@ -239,6 +239,10 @@ export const enTranslation = {
     },
     issues: {
       capabilityUnsupported: "Not supported by the kernel",
+      xtExtensionRequired:
+        "Kernel module is missing and the current rules need it: the firewall rules cannot be applied",
+      xtExtensionUnused:
+        "Kernel module is missing; the current rules do not use it",
       capabilityFallback:
         "Not available in the kernel; plain address rules are used instead",
       kernelCheckFailed: "Kernel check failed: {{reason}}",
@@ -548,6 +552,7 @@ export const enTranslation = {
         connbytes: "connbytes",
         addrtype: "addrtype",
       },
+      xtExtension: "iptables {{kind}} {{name}} ({{module}})",
       probes: {
         title: "Kernel probes",
         kernel: "Kernel {{release}}",

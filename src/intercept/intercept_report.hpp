@@ -19,6 +19,13 @@ api::InterceptHealthClass make_intercept_health(const InterceptEffective& effect
                                                 uint64_t events_seq,
                                                 bool snapshot_ready = true);
 
+// `capabilities.xt_extensions`: every routing iptables extension with its
+// startup availability; `required` when the current rules use it and
+// `module_needed` (legacy iptables needs the xt module for every extension).
+std::vector<api::XtExtensionHealthElement> xt_extension_health(
+    const std::vector<const XtExtension*>& missing,
+    const std::vector<const XtExtension*>& in_use, bool module_needed);
+
 // Overall service status: `running` becomes `degraded` while interception is
 // enabled in config but the DNS hold is unavailable.  `stopped` stays as is.
 api::HealthResponseStatus aggregate_service_status(api::HealthResponseStatus base,

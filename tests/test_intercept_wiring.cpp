@@ -61,12 +61,28 @@ struct FakeProc {
         for (const auto& name : names) out << name << "\n";
     }
     void fill_all() {
-        for (const auto* targets : {&env.ip_targets, &env.ip6_targets}) {
-            write(*targets, {"ERROR", "NFQUEUE", "NFLOG", "MARK"});
+        std::vector<std::string> targets{"ERROR", "NFQUEUE", "NFLOG"};
+        std::vector<std::string> matches{"connbytes"};
+        for (const auto& extension : routing_xt_extensions()) {
+            (extension.target ? targets : matches).emplace_back(extension.name);
         }
-        for (const auto* matches : {&env.ip_matches, &env.ip6_matches}) {
-            write(*matches, {"conntrack", "connbytes", "mark", "addrtype"});
+        for (const auto* path : {&env.ip_targets, &env.ip6_targets}) write(*path, targets);
+        for (const auto* path : {&env.ip_matches, &env.ip6_matches}) write(*path, matches);
+    }
+
+    // modprobe calls for interception modules; the routing extensions' own
+    // checks are covered in test_intercept_probe.cpp.
+    std::vector<std::string> intercept_modprobed() const {
+        std::vector<std::string> out;
+        for (const auto& module : modprobed) {
+            const auto& all = routing_xt_extensions();
+            if (std::none_of(all.begin(), all.end(), [&module](const XtExtension& extension) {
+                    return module == extension.module;
+                })) {
+                out.push_back(module);
+            }
         }
+        return out;
     }
 };
 
@@ -132,7 +148,7 @@ TEST_CASE("intercept probe: missing modules are modprobed once and re-read") {
     const auto caps = probe_intercept_capabilities(FirewallBackend::iptables, true, proc.env);
     CHECK(caps.nflog);
     CHECK(caps.nfqueue);
-    CHECK(proc.modprobed == std::vector<std::string>{"xt_NFLOG"});
+    CHECK(proc.intercept_modprobed() == std::vector<std::string>{"xt_NFLOG"});
 }
 
 TEST_CASE("intercept probe: modules that stay missing are reported") {
@@ -145,7 +161,7 @@ TEST_CASE("intercept probe: modules that stay missing are reported") {
     CHECK(caps.nflog);
     CHECK_FALSE(caps.connbytes);
     CHECK(caps.reason.find("connbytes") != std::string::npos);
-    CHECK(proc.modprobed == std::vector<std::string>{"xt_connbytes"});
+    CHECK(proc.intercept_modprobed() == std::vector<std::string>{"xt_connbytes"});
 }
 
 TEST_CASE("intercept probe: NFQUEUE needs the conntrack match") {

@@ -599,6 +599,10 @@ IptablesFirewall::default_xt_comment_probe_io() {
   return io;
 }
 
+bool IptablesFirewall::probe_nf_tables_flavour() {
+  return default_xt_comment_probe_io().flavour(false) == Flavour::nf_tables;
+}
+
 bool IptablesFirewall::probe_xt_comment_from_registration(
     bool ipv6, const std::string &registration_path) {
   return probe_xt_comment_decision(ipv6, registration_path,
@@ -1452,6 +1456,37 @@ void require_iptables_balance_support(FirewallBackend backend,
 }
 #endif
 
+std::vector<const XtExtension *> IptablesFirewall::xt_extensions_in_use() const {
+  std::lock_guard<std::mutex> lock(xt_in_use_mutex_);
+  return xt_in_use_;
+}
+
+// Pre-mutation gate: iptables-restore applies a table in one transaction, so
+// a single rule with a missing extension would reject the whole table with a
+// bare "Couldn't load match" error.  Reads the startup probe; probes nothing.
+void IptablesFirewall::require_xt_extensions(
+    std::vector<const XtExtension *> used) {
+  std::string missing;
+  for (const XtExtension *extension : used) {
+    if (std::find(xt_support_.missing.begin(), xt_support_.missing.end(),
+                  extension) == xt_support_.missing.end()) {
+      continue;
+    }
+    if (!missing.empty()) missing += ", ";
+    missing += xt_extension_label(*extension);
+  }
+  {
+    std::lock_guard<std::mutex> lock(xt_in_use_mutex_);
+    xt_in_use_ = std::move(used);
+  }
+  if (missing.empty() || !xt_support_.enforce) return;
+  throw FirewallError(
+      "the firewall rules need iptables extensions the kernel does not have: " +
+      missing +
+      ". Load the kernel modules (on Keenetic install the Netfilter Subsystem "
+      "Kernel Modules component) and restart the service");
+}
+
 void IptablesFirewall::compile_plan(const FirewallPlan& plan,
                                     FirewallApplyMode mode) {
   (void)mode;
@@ -1464,6 +1499,7 @@ void IptablesFirewall::compile_plan(const FirewallPlan& plan,
   }
   pending_ruleset_ =
       lower_firewall_plan(plan, lowering_context(plan.fwmark_mask));
+  require_xt_extensions(routing_xt_extensions_used(pending_ruleset_));
 #ifndef KEEN_PBR_PLATFORM_KEENETIC
   // Defensive second line (the config gate rejects first): balancing needs
   // xt_statistic, per the answer stored at service start.

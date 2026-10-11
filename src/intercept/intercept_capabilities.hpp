@@ -64,6 +64,11 @@ struct InterceptCapabilities {
     // broadcast/multicast skips fall back to `-d` address matches without it.
     // nftables (`fib daddr type`) always has it.
     bool addrtype{true};
+    // iptables extensions of the routing rules (firewall/xt_extensions.hpp)
+    // still missing after the startup modprobe.  `xt_checked` is false when
+    // the /proc listings could not be read and for nftables.
+    bool xt_checked{false};
+    std::vector<const XtExtension*> xt_missing;
     // Human readable list of what is missing (empty when everything is there).
     std::string reason;
     // Functional probe results; see InterceptRuntimeProbe.

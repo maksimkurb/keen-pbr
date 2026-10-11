@@ -151,27 +151,35 @@ ensure_ipset_modules_loaded() {
         "routing rules cannot match ipset lists"
 }
 
-# Rule matches used only by some configs; the daemon reports rules that fail
-# to apply.
-ensure_rule_match_modules_loaded() {
+# Every routing rule set uses these; a missing one fails the firewall apply.
+# The rest only matter for configs that use them, and the daemon rejects such a
+# config with the module name (see the kernel checks in the web UI).
+ensure_routing_modules_loaded() {
+    local effect="the firewall rules cannot be applied"
+
+    load_kernel_module required xt_mark /proc/net/ip_tables_targets:MARK "$effect"
+    load_kernel_module required xt_connmark /proc/net/ip_tables_targets:CONNMARK "$effect"
+    load_kernel_module required xt_conntrack /proc/net/ip_tables_matches:conntrack "$effect"
+    load_kernel_module required xt_tcpudp /proc/net/ip_tables_matches:tcp "$effect"
     load_kernel_module optional xt_multiport /proc/net/ip_tables_matches:multiport \
-        "rules with port lists cannot be applied"
+        "a config with port lists cannot be applied"
     load_kernel_module optional xt_dscp /proc/net/ip_tables_matches:dscp \
-        "rules with DSCP matches cannot be applied"
+        "a config with DSCP matches cannot be applied"
+    load_kernel_module optional xt_comment /proc/net/ip_tables_matches:comment \
+        "firewall rules are created without ownership comments"
     # Without it the daemon falls back to plain -d broadcast/multicast matches.
     load_kernel_module optional xt_addrtype /proc/net/ip_tables_matches:addrtype \
         "router-output broadcast/multicast skips use plain destination matches"
 }
 
-# DNS hold (NFQUEUE, conntrack) and L7 capture (NFLOG, connbytes).  Loaded
-# only here, at service start; a missing module degrades interception (the
-# daemon reports it in /api/health/service) but never stops the service.
+# DNS hold (NFQUEUE) and L7 capture (NFLOG, connbytes).  Loaded only here, at
+# service start; a missing module degrades interception (the daemon reports it
+# in /api/health/service) but never stops the service.
 ensure_intercept_modules_loaded() {
     local effect="DNS/L7 interception is unavailable; install the Keenetic component opkg-kmod-netfilter (Netfilter Subsystem Kernel Modules)"
 
     load_kernel_module optional nfnetlink_queue /proc/net/netfilter/nfnetlink_queue: "$effect"
     load_kernel_module optional xt_NFQUEUE /proc/net/ip_tables_targets:NFQUEUE "$effect"
-    load_kernel_module optional xt_conntrack /proc/net/ip_tables_matches:conntrack "$effect"
     load_kernel_module optional nfnetlink_log /proc/net/netfilter/nfnetlink_log: "$effect"
     load_kernel_module optional xt_NFLOG /proc/net/ip_tables_targets:NFLOG "$effect"
     load_kernel_module optional xt_connbytes /proc/net/ip_tables_matches:connbytes "$effect"
@@ -181,7 +189,7 @@ ensure_intercept_modules_loaded() {
 check_runtime_dependencies() {
     check_netfilter_addons_component
     ensure_ipset_modules_loaded
-    ensure_rule_match_modules_loaded
+    ensure_routing_modules_loaded
     ensure_intercept_modules_loaded
 }
 

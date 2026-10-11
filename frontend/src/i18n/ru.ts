@@ -243,6 +243,10 @@ export const ruTranslation = {
     },
     issues: {
       capabilityUnsupported: "Не поддерживается ядром",
+      xtExtensionRequired:
+        "Модуль ядра отсутствует, а текущие правила его используют: правила межсетевого экрана не применятся",
+      xtExtensionUnused:
+        "Модуль ядра отсутствует; текущие правила его не используют",
       capabilityFallback:
         "Недоступно в ядре; вместо этого используются обычные правила по адресам",
       kernelCheckFailed: "Проверка ядра не пройдена: {{reason}}",
@@ -556,6 +560,7 @@ export const ruTranslation = {
         connbytes: "connbytes",
         addrtype: "addrtype",
       },
+      xtExtension: "iptables {{kind}} {{name}} ({{module}})",
       probes: {
         title: "Проверки ядра",
         kernel: "Ядро {{release}}",

@@ -55,6 +55,9 @@ struct KernelCapabilities {
     // iptables `-m statistic --mode random` (load balancing).  One module
     // serves IPv4 and IPv6.
     bool xt_statistic{false};
+    // `iptables -V` says "(nf_tables)": the binary translates most extensions
+    // to native nft expressions, so a missing xt module is not fatal there.
+    bool iptables_nf_tables{false};
 
     bool firewall_ipv6(FirewallBackend backend) const {
         return backend == FirewallBackend::iptables ? iptables_ipv6 : nftables_ipv6;

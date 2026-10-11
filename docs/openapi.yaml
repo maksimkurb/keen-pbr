@@ -1668,6 +1668,41 @@ components:
             ctnetlink answered a dump request, so conntrack entries of
             re-resolved destinations can be cleaned up. Interception works
             without it.
+        xt_extensions:
+          type: array
+          description: >
+            iptables backend only: every iptables extension the routing rules
+            can use, checked once at service start (/proc listing after a
+            modprobe). Absent for nftables and when the kernel listings could
+            not be read.
+          items:
+            $ref: "#/components/schemas/XtExtensionHealth"
+
+    XtExtensionHealth:
+      type: object
+      required: [name, kind, kernel_module, available, required]
+      properties:
+        name:
+          type: string
+          description: Extension name as iptables spells it.
+          example: "multiport"
+        kind:
+          type: string
+          enum: [match, target]
+        kernel_module:
+          type: string
+          description: Kernel module that registers the extension.
+          example: "xt_multiport"
+        available:
+          type: boolean
+          description: The kernel listed the extension at service start.
+        required:
+          type: boolean
+          description: >
+            The current firewall rules use the extension and the iptables
+            binary needs the kernel module for it (legacy iptables). A
+            required extension that is not available makes the firewall
+            apply fail.
 
     InterceptProbeFeature:
       type: object
