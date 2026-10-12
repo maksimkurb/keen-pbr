@@ -976,6 +976,7 @@ function NumberSettingField({
   label,
   max,
   min,
+  placeholder,
 }: {
   field: FieldBinding<string>
   hint?: string
@@ -1267,7 +1268,7 @@ function pruned<T extends object>(
   previous: object | null | undefined,
   next: T
 ): T | undefined {
-  const out: Record<string, unknown> = { ...next }
+  const out = { ...next } as Record<string, unknown>
   for (const key of Object.keys(out)) {
     if (out[key] === undefined) {
       delete out[key]
