@@ -2,6 +2,7 @@
 #include "../crypto/md5.hpp"
 #include "../log/logger.hpp"
 
+#include <algorithm>
 #include <charconv>
 #include <functional>
 #include <streambuf>
@@ -55,6 +56,19 @@ std::string server_address(const DnsServerConfig& server) {
     return addr;
 }
 
+std::string no_address_reason(const std::vector<std::string>& servers) {
+    std::string quoted;
+    for (const auto& tag : servers) {
+        if (!quoted.empty()) {
+            quoted += ", ";
+        }
+        quoted += "'" + tag + "'";
+    }
+    return (servers.size() == 1 ? "DNS server " + quoted + " has"
+                                : "DNS servers " + quoted + " have") +
+           std::string(" no address");
+}
+
 } // anonymous namespace
 
 DnsmasqGenerator::DnsmasqGenerator(const DnsServerRegistry& dns_registry,
@@ -88,43 +102,57 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
         out << "\n";
     }
 
-    // The first enabled rule that mentions a list decides its upstream.
-    std::map<std::string, std::string> dns_list_servers;
-    std::map<std::string, bool> dns_list_allow_rebind;
+    // Every enabled rule naming a list adds its server's upstreams, in rule
+    // order and without repeating an address.  dnsmasq treats all server=
+    // rows of a domain as one group (fastest answer wins, the others are the
+    // failover), at the cost of one server record per domain and upstream.
+    struct ListUpstreams {
+        std::vector<std::string> servers;     // dns.rules server tags
+        std::vector<std::string> addresses;   // their resolved upstreams
+        bool allow_rebind = false;
+    };
+    std::map<std::string, ListUpstreams> dns_lists;
     for (const auto& rule : dns_config_.rules.value_or(std::vector<DnsRule>{})) {
         if (!dns_rule_enabled(rule)) {
             continue;
         }
         ++local_stats.rules;
         for (const auto& list_name : rule.list) {
-            if (dns_list_servers.find(list_name) == dns_list_servers.end()) {
-                dns_list_servers[list_name] = rule.server;
-                dns_list_allow_rebind[list_name] =
-                    rule.allow_domain_rebinding.value_or(false);
+            ListUpstreams& upstreams = dns_lists[list_name];
+            upstreams.allow_rebind =
+                upstreams.allow_rebind || rule.allow_domain_rebinding.value_or(false);
+            if (std::find(upstreams.servers.begin(), upstreams.servers.end(), rule.server) !=
+                upstreams.servers.end()) {
+                continue;
+            }
+            upstreams.servers.push_back(rule.server);
+            for (const DnsServerConfig* server : dns_registry_.get_servers(rule.server)) {
+                std::string address = server_address(*server);
+                if (std::find(upstreams.addresses.begin(), upstreams.addresses.end(), address) ==
+                    upstreams.addresses.end()) {
+                    upstreams.addresses.push_back(std::move(address));
+                }
             }
         }
     }
 
-    for (const auto& entry : dns_list_servers) {
+    for (const auto& entry : dns_lists) {
         const std::string& list_name = entry.first;
-        const std::string& server_tag = entry.second;
+        const ListUpstreams& upstreams = entry.second;
         DnsmasqListStats& list_stats = local_stats.lists.emplace_back();
         list_stats.name = list_name;
-        list_stats.server = server_tag;
+        list_stats.servers = upstreams.servers;
+        list_stats.upstreams = upstreams.addresses;
+        list_stats.allow_rebind = upstreams.allow_rebind;
         auto list_cfg_it = lists_.find(list_name);
         if (list_cfg_it == lists_.end()) {
             list_stats.skipped = "the list is not defined in lists";
             continue;
         }
 
-        const auto dns_servers = dns_registry_.get_servers(server_tag);
-        const bool allow_domain_rebinding = dns_list_allow_rebind[list_name];
-        list_stats.allow_rebind = allow_domain_rebinding;
-        for (const DnsServerConfig* server : dns_servers) {
-            list_stats.upstreams.push_back(server_address(*server));
-        }
-        if (dns_servers.empty() && !allow_domain_rebinding) {
-            list_stats.skipped = "DNS server '" + server_tag + "' has no address";
+        const bool allow_domain_rebinding = upstreams.allow_rebind;
+        if (upstreams.addresses.empty() && !allow_domain_rebinding) {
+            list_stats.skipped = no_address_reason(upstreams.servers);
             continue;
         }
         list_stats.url_pending = list_cfg_it->second.url.has_value() &&
@@ -181,9 +209,8 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
         };
 
         std::vector<BatchState> server_batches;
-        server_batches.reserve(dns_servers.size());
-        for (const DnsServerConfig* server : dns_servers) {
-            const std::string server_addr = server_address(*server);
+        server_batches.reserve(upstreams.addresses.size());
+        for (const std::string& server_addr : upstreams.addresses) {
             BatchState server_batch;
             server_batch.directive_name = "server";
             server_batch.prefix_len = kServerPrefixLen;

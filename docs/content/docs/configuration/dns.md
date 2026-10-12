@@ -75,6 +75,10 @@ When `resolver_integration` is `"dnsmasq"`, keen-pbr configures dnsmasq so that 
 | `server` | string | required | DNS server tag to use for domains in these lists |
 | `allow_domain_rebinding` | bool | false | Allow private-IP answers (RFC1918) for these domains → `rebind-domain-ok` in dnsmasq |
 
+**Several DNS servers for one list.** Add one rule per server for the same list. The list's domains get the servers of every enabled rule, in rule order. dnsmasq queries all of them, then keeps using the one that answered first, and switches to another when it stops answering. Rebinding is allowed when any of these rules allows it.
+
+dnsmasq keeps a separate record (about 200 bytes) for every domain and server pair. Each extra server adds that much memory for every domain of the list, so two servers for a list of 10,000 domains take about 4 MB instead of 2 MB.
+
 ### Installation by platform
 
 dnsmasq is not installed by keen-pbr; install it yourself when you need this feature.

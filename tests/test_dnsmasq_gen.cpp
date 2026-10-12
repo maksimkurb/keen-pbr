@@ -163,13 +163,49 @@ TEST_CASE("dnsmasq gen: multiple rules and servers") {
     CHECK(gen.stats.domains == 2);
 }
 
-TEST_CASE("dnsmasq gen: the first enabled rule naming a list decides its upstream") {
+TEST_CASE("dnsmasq gen: every enabled rule naming a list adds its upstreams") {
     DnsConfig cfg;
-    cfg.servers = std::vector<DnsServer>{make_server("a", "1.1.1.1")};
-    cfg.rules = std::vector<DnsRule>{make_rule("l1", "a"), make_rule("l1", "missing")};
+    cfg.servers = std::vector<DnsServer>{make_server("a", "8.8.8.8"),
+                                         make_server("b", "1.1.1.1"),
+                                         make_server("dup", "8.8.8.8")};
+    cfg.rules = std::vector<DnsRule>{make_rule("l1", "a"), make_rule("l1", "b"),
+                                     make_rule("l1", "a"), make_rule("l1", "dup")};
+    auto disabled = make_rule("l1", "c");
+    disabled.enabled = false;
+    cfg.rules->push_back(disabled);
+    const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example", "two.example"})}});
+
+    // One row per upstream, in rule order; a repeated tag or address adds nothing.
+    CHECK(lines_with_prefix(gen.output, "server=/") ==
+          std::vector<std::string>{"server=/one.example/two.example/8.8.8.8",
+                                   "server=/one.example/two.example/1.1.1.1"});
+    REQUIRE(gen.stats.lists.size() == 1);
+    CHECK(gen.stats.lists[0].servers == std::vector<std::string>{"a", "b", "dup"});
+    CHECK(gen.stats.lists[0].upstreams == std::vector<std::string>{"8.8.8.8", "1.1.1.1"});
+    CHECK(gen.stats.domains == 2);
+}
+
+TEST_CASE("dnsmasq gen: rebinding is allowed when any rule for the list allows it") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "8.8.8.8"), make_server("b", "1.1.1.1")};
+    cfg.rules = std::vector<DnsRule>{make_rule("l1", "a"), make_rule("l1", "b", true)};
     const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example"})}});
-    // The first rule naming a list wins.
-    CHECK(lines_with_prefix(gen.output, "server=/one.example/").size() == 1);
+    CHECK(gen.output.find("rebind-domain-ok=/one.example/\n") != std::string::npos);
+    CHECK(lines_with_prefix(gen.output, "server=/one.example/").size() == 2);
+}
+
+TEST_CASE("dnsmasq gen: a server without an address does not hide the others") {
+    DnsConfig cfg;
+    cfg.servers = std::vector<DnsServer>{make_server("a", "8.8.8.8")};
+    cfg.rules = std::vector<DnsRule>{make_rule("l1", "missing"), make_rule("l1", "a"),
+                                     make_rule("l2", "missing")};
+    const auto gen = run_generate(cfg, {{"l1", make_list_cfg({"one.example"})},
+                                        {"l2", make_list_cfg({"two.example"})}});
+    CHECK(lines_with_prefix(gen.output, "server=/") ==
+          std::vector<std::string>{"server=/one.example/8.8.8.8"});
+    REQUIRE(gen.stats.lists.size() == 2);
+    CHECK(gen.stats.lists[0].skipped.empty());
+    CHECK(gen.stats.lists[1].skipped == "DNS server 'missing' has no address");
 }
 
 TEST_CASE("dnsmasq gen: disabled rules are skipped") {
@@ -416,7 +452,7 @@ TEST_CASE("dnsmasq gen: stats describe every list for the conf-script log") {
     REQUIRE(result.stats.lists.size() == 3);
     const auto& inline_list = result.stats.lists[0];
     CHECK(inline_list.name == "inline");
-    CHECK(inline_list.server == "vpn");
+    CHECK(inline_list.servers == std::vector<std::string>{"vpn"});
     CHECK(inline_list.upstreams == std::vector<std::string>{"10.0.0.53"});
     CHECK(inline_list.domains == 2);
     CHECK(inline_list.skipped.empty());

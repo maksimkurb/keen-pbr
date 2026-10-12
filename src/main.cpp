@@ -531,7 +531,7 @@ int main(int argc, char *argv[]) {
             continue;
           }
           log.info("generate-resolver-config: list '{}' -> {} ({}): {} domains{}",
-                   list.name, list.server,
+                   list.name, join(list.servers),
                    list.upstreams.empty() ? std::string("no upstream")
                                           : join(list.upstreams),
                    list.domains,

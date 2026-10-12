@@ -18,8 +18,8 @@ namespace keen_pbr3 {
 // What happened to one list referenced by dns.rules.
 struct DnsmasqListStats {
     std::string name;
-    std::string server;                  // dns.rules server tag
-    std::vector<std::string> upstreams;  // its resolved addresses
+    std::vector<std::string> servers;    // dns.rules server tags, in rule order
+    std::vector<std::string> upstreams;  // their resolved addresses, deduplicated
     size_t domains = 0;                  // domains written for the list
     bool allow_rebind = false;
     bool url_pending = false;            // URL source declared but not downloaded yet
@@ -53,7 +53,8 @@ std::optional<DnsmasqConfigStamp> parse_dnsmasq_config_stamp(std::string_view tx
 // Generates the dnsmasq config used for per-list upstream selection
 // (dns.resolver_integration = dnsmasq): scoped server= rows for the domains
 // of every enabled dns.rules entry plus optional default upstreams from
-// dns.fallback.
+// dns.fallback.  A list named by several rules gets the upstreams of all of
+// them; rebinding is allowed when any of those rules allows it.
 class DnsmasqGenerator {
 public:
     DnsmasqGenerator(const DnsServerRegistry& dns_registry,
