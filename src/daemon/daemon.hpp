@@ -6,6 +6,7 @@
 #include "../firewall/firewall_counters.hpp"
 #include "../health/host_health_warnings.hpp"
 #include "../health/routing_health.hpp"
+#include "../health/service_health.hpp"
 #include "../health/url_tester.hpp"
 #include "../intercept/intercept_capabilities.hpp"
 #include "../intercept/intercept_service.hpp"
@@ -190,6 +191,14 @@ private:
   make_routing_test_job(const std::string &target,
                         const TestRoutingCriteria &criteria);
   RoutingHealthReport cached_routing_health();
+  ServiceHealthState service_health_state();
+  api::RuntimeOutboundsResponse runtime_outbounds_state();
+  // Classified health issues (GET /api/health/issues and `keen-pbr status`).
+  api::HealthIssuesResponse health_issues();
+  api::HealthIssuesResponse
+  health_issues_from(const ServiceHealthState &service,
+                     const RoutingHealthReport &routing,
+                     const api::RuntimeOutboundsResponse &outbounds);
   void invalidate_routing_health_cache();
   void log_routing_health_warnings_if_changed(
       const std::vector<HealthWarning>& warnings)

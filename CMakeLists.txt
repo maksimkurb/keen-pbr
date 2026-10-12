@@ -309,6 +309,8 @@ set(SOURCES
   src/health/routing_health_checker.cpp
   src/health/host_health_warnings.cpp
   src/health/runtime_outbound_state.cpp
+  src/health/health_issues.cpp
+  src/health/service_health.cpp
   src/health/runtime_interface_inventory.cpp
   src/keenetic/interface_descriptions.cpp
   src/routing/urltest_manager.cpp

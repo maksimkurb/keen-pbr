@@ -8,6 +8,7 @@
 #include "../config/config.hpp"
 #include "../daemon/config_store.hpp"
 #include "../health/routing_health.hpp"
+#include "../health/service_health.hpp"
 #include "sse_broadcaster.hpp"
 #include "status_stream.hpp"
 #include "../runtime/lifecycle_operation.hpp"
@@ -39,21 +40,6 @@ struct LifecycleRequest {
     LifecycleOperationType type{LifecycleOperationType::Restart};
     std::optional<Config> config;
     std::uint64_t staged_revision{0};
-};
-
-struct ServiceHealthState {
-    api::HealthResponseStatus status{api::HealthResponseStatus::STOPPED};
-    std::string runtime_state;
-    std::string runtime_state_reason;
-    std::string os_type{"unknown"};
-    std::string os_version{"unknown"};
-    std::string build_variant{"unknown"};
-    std::optional<std::int64_t> apply_started_ts;
-    bool config_is_draft{false};
-    bool rollback_available{false};
-    std::optional<LifecycleOperationSnapshot> lifecycle_operation;
-    std::optional<api::InterceptHealthClass> intercept;
-    std::optional<api::DnsmasqHealth> dnsmasq;
 };
 
 struct ListRefreshOperationResult {
@@ -107,6 +93,9 @@ struct ApiContext {
     // Daemon facts (e.g. raw PREROUTING placement) that config validation
     // needs; unset in embedders/tests that do not know them.
     std::function<ConfigValidationContext()> validation_context_fn;
+
+    // Classified health issues; unset in fixtures that do not serve them.
+    std::function<api::HealthIssuesResponse()> get_health_issues_fn;
 
     ConfigValidationContext validation_context() const {
         return validation_context_fn ? validation_context_fn()

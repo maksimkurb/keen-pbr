@@ -19,6 +19,7 @@ export {
   useGetConfigDefaults,
   useGetAuthPasswordStatus,
   useGetDnsTest,
+  useGetHealthIssues,
   useGetHealthRouting,
   useGetHealthService,
   useGetRuntimeInterfaces,

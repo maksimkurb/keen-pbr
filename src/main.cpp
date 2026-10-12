@@ -632,7 +632,7 @@ int main(int argc, char *argv[]) {
         return keen_pbr3::run_status_command(config, config_path, nullptr);
       }
       return keen_pbr3::run_status_command(config, config_path,
-                                           state.at("routing_health"));
+                                           state.at("routing_health"), state);
     }
 
     // Parse directly from the file and destroy the stream before the daemon is

@@ -77,7 +77,7 @@ ip6tables -t raw -S
 | Команда | Описание |
 |---|---|
 | `service` | Запустить сервис маршрутизации на переднем плане. |
-| `status` | Показать состояние маршрутизации, таблиц маршрутизации, правил и верификации firewall, затем выйти. |
+| `status` | Показать состояние службы, outbound'ов, маршрутизации, firewall и проверок ядра, затем список проблем, как на главной странице веб-интерфейса, и выйти. Код выхода 1, если какая-то проверка не прошла или есть проблема уровня «ошибка». |
 | `download` | Загрузить все списки с URL в кэш, затем выйти. |
 | `generate-resolver-config dnsmasq` | Вывести в stdout конфигурацию dnsmasq для отдельных DNS-серверов списков. |
 | `dnsmasq detect [--json]` | Показать экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr. |
@@ -176,22 +176,43 @@ keen-pbr status
 
 ```text
 keen-pbr status - config: /etc/keen-pbr/config.json
+Service: running (runtime running: startup complete) - keen-pbr 3.4.0 (build 20261012064940)
 Firewall backend: nftables
 
 Outbounds:
   corp_vpn [interface] iface=corp_vpn fwmark=0x00010000 table=402
+    state ........................................................... HEALTHY
     route   table=402 default dev corp_vpn ............................... OK
     rule    0x00010000/0x00ff0000 -> table=402 pri=402 ........... OK [v4+v6]
-  auto_vpn [urltest] fwmark=0x00060000 table=407
-    route   table=407 default dev corp_vpn ............................... OK
-    rule    0x00060000/0x00ff0000 -> table=407 pri=407 ........... OK [v4+v6]
+  auto_vpn [urltest] fwmark=0x00060000 table=402
+    state ........................................................... HEALTHY
+    member  corp_vpn (corp_vpn) 41 ms ................................ ACTIVE
+    member  backup_vpn (wg1) ....................................... DEGRADED
+      probe failed: timeout
+    route   table=402 default dev corp_vpn ............................... OK
+    rule    0x00060000/0x00ff0000 -> table=402 pri=407 ........... OK [v4+v6]
 
 Firewall:
   chain   KeenPbrTable / prerouting hook ............................... OK
   rule    kpbr4_generic -> MARK 0x00010000 ........................ MISSING
     rule not found in nftables prerouting chain
+  rule    kpbr4_auto -> MARK 0x00060000 selected=corp_vpn .............. OK
 
-Overall: DEGRADED (2 check(s) failed)
+Kernel 6.12.94:
+  capability nfqueue ................................................... OK
+  probe      set_write ................................................. OK
+  probe      conntrack ................................................. OK
+
+Interception: running, DNS hold active, L7 active
+dnsmasq: ok, alive, 127.0.0.1:53 (uci:cfg01411c), 3 rules, 16 domains
+
+Issues:
+  ERROR  Firewall rules do not match: 1
+         kpbr4_generic: rule not found in nftables prerouting chain
+  WARN   auto_vpn: failing members: 1
+         backup_vpn · degraded · probe failed: timeout
+
+Overall: DEGRADED (1 check(s) failed, 1 error(s), 1 warning(s))
 Status values: OK / MISSING / MISMATCH / ERROR
 ```
 

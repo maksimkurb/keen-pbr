@@ -60,6 +60,37 @@ case OutboundType::ICMPTEST: return "icmptest";
     return "unknown";
 }
 
+// Service, outbound and issue health the daemon reports next to the routing
+// health; each part is absent when the daemon did not send it.
+struct DaemonHealthDetails {
+    std::optional<api::HealthResponse> service;
+    std::optional<api::RuntimeOutboundsResponse> outbounds;
+    std::optional<api::HealthIssuesResponse> issues;
+};
+
+template <typename T>
+std::optional<T> optional_from_json(const nlohmann::json& state, const char* key) {
+    if (!state.contains(key) || state.at(key).is_null()) return std::nullopt;
+    try {
+        return state.at(key).get<T>();
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
+}
+
+template <typename Enum>
+std::string api_enum_name(Enum value) {
+    return nlohmann::json(value).get<std::string>();
+}
+
+std::string upper(std::string text) {
+    for (auto& c : text) {
+        if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 'a' + 'A');
+        if (c == '_') c = ' ';
+    }
+    return text;
+}
+
 struct UrltestRuleInfo {
     std::string urltest_tag;
     std::optional<uint32_t> own_mark;
@@ -360,8 +391,30 @@ int count_failed_checks(const RoutingHealthReport& report,
     return failed;
 }
 
-void print_header(const RoutingHealthReport& report, const std::string& config_path) {
+void print_service_header(const api::HealthResponse& service) {
+    std::cout << "Service: " << api_enum_name(service.status);
+    if (service.runtime_state) {
+        std::cout << " (runtime " << api_enum_name(*service.runtime_state);
+        if (service.runtime_state_reason && !service.runtime_state_reason->empty()) {
+            std::cout << ": " << *service.runtime_state_reason;
+        }
+        std::cout << ")";
+    }
+    std::cout << " - keen-pbr " << service.version << " (build " << service.build << ")\n";
+    if (service.config_is_draft) {
+        std::cout << "Config: unsaved draft changes are pending\n";
+    }
+    if (service.lifecycle_operation) {
+        const auto& operation = *service.lifecycle_operation;
+        std::cout << "Operation: " << api_enum_name(operation.type) << " "
+                  << api_enum_name(operation.status) << "\n";
+    }
+}
+
+void print_header(const RoutingHealthReport& report, const std::string& config_path,
+                  const DaemonHealthDetails* details) {
     std::cout << "keen-pbr status - config: " << config_path << "\n";
+    if (details && details->service) print_service_header(*details->service);
     if (report.firewall_backend.has_value()) {
         std::cout << "Firewall backend: " << firewall_backend_name(*report.firewall_backend) << "\n";
     } else {
@@ -373,9 +426,33 @@ void print_header(const RoutingHealthReport& report, const std::string& config_p
     }
 }
 
+void print_outbound_runtime(const api::RuntimeOutboundStateElement& state) {
+    std::string desc = "state";
+    if (state.detail && !state.detail->empty()) desc += "   " + *state.detail;
+    std::cout << "    " << pad_dots(desc, upper(api_enum_name(state.status))) << "\n";
+    const bool is_group = state.type == api::OutboundType::URLTEST ||
+                          state.type == api::OutboundType::ICMPTEST;
+    if (!is_group) return;
+    for (const auto& member : state.interfaces) {
+        std::string member_desc = "member  " + member.outbound_tag;
+        if (member.interface_name) member_desc += " (" + *member.interface_name + ")";
+        if (member.latency_ms) member_desc += keen_pbr3::format(" {} ms", *member.latency_ms);
+        if (member.packets_received && member.packets_sent) {
+            member_desc += keen_pbr3::format(" {}/{} replies", *member.packets_received,
+                                             *member.packets_sent);
+        }
+        std::cout << "    " << pad_dots(member_desc, upper(api_enum_name(member.status)))
+                  << "\n";
+        if (member.detail && !member.detail->empty()) {
+            print_detail_if_needed(*member.detail, "      ");
+        }
+    }
+}
+
 void print_outbound_section(const Config& config,
                             const OutboundMarkMap& marks,
-                            const RoutingHealthReport& report) {
+                            const RoutingHealthReport& report,
+                            const DaemonHealthDetails* details) {
     std::map<std::string, std::vector<const RouteTableCheck*>> routes_by_outbound;
     for (const auto& rt : report.route_tables) {
         for (const auto& outbound : config.outbounds.value_or(std::vector<Outbound>{})) {
@@ -438,6 +515,12 @@ void print_outbound_section(const Config& config,
                       << (table_id ? " table=" + std::to_string(*table_id) : "");
         }
         std::cout << "\n";
+
+        if (details && details->outbounds) {
+            for (const auto& state : details->outbounds->outbounds) {
+                if (state.tag == ob.tag) print_outbound_runtime(state);
+            }
+        }
 
         auto rt_it = routes_by_outbound.find(ob.tag);
         if (rt_it != routes_by_outbound.end()) {
@@ -507,6 +590,74 @@ void print_firewall_section(const std::vector<DisplayFirewallRule>& firewall_rul
     }
 }
 
+std::string kernel_check_label(const api::KernelCheckElement& check) {
+    if (check.status == "ok") return "OK";
+    if (check.status == "skipped") return "SKIPPED";
+    if (check.status == "not_run") return "NOT RUN";
+    return check.advisory ? "WARN" : "ERROR";
+}
+
+void print_kernel_section(const DaemonHealthDetails& details) {
+    if (!details.issues || details.issues->kernel_checks.empty()) return;
+    std::optional<std::string> release;
+    if (details.service && details.service->intercept) {
+        release = details.service->intercept->kernel_release;
+    }
+    std::cout << "\nKernel" << (release ? " " + *release : std::string()) << ":\n";
+    for (const auto& check : details.issues->kernel_checks) {
+        std::string desc = keen_pbr3::format("{:<11}", check.kind) + check.feature;
+        if (check.kind == "extension") {
+            desc = keen_pbr3::format("{:<11}", check.extension_kind.value_or("extension")) +
+                   check.feature;
+            if (check.kernel_module) desc += " (" + *check.kernel_module + ")";
+        }
+        std::cout << "  " << pad_dots(desc, kernel_check_label(check)) << "\n";
+        if (check.status != "ok" && check.status != "skipped" && check.reason) {
+            print_detail_if_needed(*check.reason, "    ");
+        }
+    }
+}
+
+void print_services_section(const DaemonHealthDetails& details) {
+    if (!details.service) return;
+    const auto& service = *details.service;
+    if (service.intercept) {
+        const auto& intercept = *service.intercept;
+        std::cout << "\nInterception: ";
+        if (!intercept.enabled) {
+            std::cout << "disabled\n";
+        } else {
+            std::cout << (intercept.running ? "running" : "not running")
+                      << ", DNS hold " << (intercept.dns_hold_active ? "active" : "inactive")
+                      << ", L7 " << (intercept.l7_active ? "active" : "inactive") << "\n";
+        }
+    }
+    if (service.dnsmasq && service.dnsmasq->mode == api::ResolverIntegration::DNSMASQ) {
+        const auto& dnsmasq = *service.dnsmasq;
+        std::cout << "dnsmasq: " << api_enum_name(dnsmasq.state);
+        if (dnsmasq.dnsmasq_alive) std::cout << ", " << api_enum_name(*dnsmasq.dnsmasq_alive);
+        if (dnsmasq.endpoint) std::cout << ", " << *dnsmasq.endpoint;
+        if (dnsmasq.instance_selector) std::cout << " (" << *dnsmasq.instance_selector << ")";
+        std::cout << keen_pbr3::format(", {} rules, {} domains\n", dnsmasq.rules, dnsmasq.domains);
+    }
+}
+
+void print_issues_section(const api::HealthIssuesResponse& issues) {
+    if (issues.issues.empty()) return;
+    std::cout << "\nIssues:\n";
+    for (const auto& issue : issues.issues) {
+        const char* label = issue.severity == api::Severity::ERROR ? "ERROR" : "WARN ";
+        std::cout << "  " << label << "  " << issue.title << "\n";
+        if (issue.entries && !issue.entries->empty()) {
+            for (const auto& entry : *issue.entries) {
+                std::cout << "         " << entry << "\n";
+            }
+        } else if (issue.detail && !issue.detail->empty()) {
+            std::cout << "         " << *issue.detail << "\n";
+        }
+    }
+}
+
 void print_warnings_section(const RoutingHealthReport& report) {
     if (report.warnings.empty()) return;
     std::cout << "\nWarnings:\n";
@@ -517,22 +668,52 @@ void print_warnings_section(const RoutingHealthReport& report) {
     }
 }
 
+struct IssueCounts {
+    int errors{0};
+    int warnings{0};
+};
+
+IssueCounts count_issues(const DaemonHealthDetails* details) {
+    IssueCounts counts;
+    if (!details || !details->issues) return counts;
+    for (const auto& issue : details->issues->issues) {
+        if (issue.severity == api::Severity::ERROR) {
+            ++counts.errors;
+        } else {
+            ++counts.warnings;
+        }
+    }
+    return counts;
+}
+
 void print_overall_summary(const RoutingHealthReport& report,
-                           const std::vector<DisplayFirewallRule>& firewall_rules) {
+                           const std::vector<DisplayFirewallRule>& firewall_rules,
+                           const DaemonHealthDetails* details) {
     const int failed = count_failed_checks(report, firewall_rules);
+    const IssueCounts issues = count_issues(details);
+    std::vector<std::string> parts;
+    if (failed > 0) parts.push_back(keen_pbr3::format("{} check(s) failed", failed));
+    if (issues.errors > 0) parts.push_back(keen_pbr3::format("{} error(s)", issues.errors));
+    if (issues.warnings > 0) parts.push_back(keen_pbr3::format("{} warning(s)", issues.warnings));
+    std::string summary;
+    for (const auto& part : parts) {
+        summary += (summary.empty() ? "" : ", ") + part;
+    }
+
     std::cout << "\nOverall: ";
     if (!report.error.empty()) {
         std::cout << "ERROR\n";
-    } else if (failed == 0) {
-        std::cout << "OK\n";
+    } else if (failed == 0 && issues.errors == 0) {
+        std::cout << "OK" << (summary.empty() ? "" : " (" + summary + ")") << "\n";
     } else {
-        std::cout << "DEGRADED (" << failed << " check(s) failed)\n";
+        std::cout << "DEGRADED (" << summary << ")\n";
     }
 }
 
 int render_status_report(const Config& config,
                          const std::string& config_path,
-                         const RoutingHealthReport& report) {
+                         const RoutingHealthReport& report,
+                         const DaemonHealthDetails* details = nullptr) {
     auto marks = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
                                          config.outbounds.value_or(std::vector<Outbound>{}));
     auto display_firewall_rules =
@@ -542,12 +723,23 @@ int render_status_report(const Config& config,
             config, marks, report.firewall_chain.detail);
     }
 
-    print_header(report, config_path);
-    print_outbound_section(config, marks, report);
+    print_header(report, config_path, details);
+    print_outbound_section(config, marks, report, details);
     print_firewall_section(display_firewall_rules, report);
-    print_warnings_section(report);
-    print_overall_summary(report, display_firewall_rules);
-    return count_failed_checks(report, display_firewall_rules) == 0 ? 0 : 1;
+    if (details) {
+        print_kernel_section(*details);
+        print_services_section(*details);
+    }
+    if (details && details->issues) {
+        // The daemon's issue list already carries the host warnings.
+        print_issues_section(*details->issues);
+    } else {
+        print_warnings_section(report);
+    }
+    print_overall_summary(report, display_firewall_rules, details);
+    const bool failed = count_failed_checks(report, display_firewall_rules) != 0 ||
+                        count_issues(details).errors != 0;
+    return failed ? 1 : 0;
 }
 
 CheckStatus check_status_from_api(api::CheckStatus status) {
@@ -736,6 +928,18 @@ int run_status_command(const Config& config, const std::string& config_path,
                        const nlohmann::json& routing_health) {
     return render_status_report(config, config_path,
                                 routing_health_report_from_json(routing_health));
+}
+
+int run_status_command(const Config& config, const std::string& config_path,
+                       const nlohmann::json& routing_health,
+                       const nlohmann::json& daemon_state) {
+    DaemonHealthDetails details;
+    details.service = optional_from_json<api::HealthResponse>(daemon_state, "service");
+    details.outbounds =
+        optional_from_json<api::RuntimeOutboundsResponse>(daemon_state, "outbounds");
+    details.issues = optional_from_json<api::HealthIssuesResponse>(daemon_state, "issues");
+    return render_status_report(config, config_path,
+                                routing_health_report_from_json(routing_health), &details);
 }
 
 int run_status_command(const Config& config, const std::string& config_path,

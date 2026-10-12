@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes4MPh45 data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesS4QB8Y data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -15,6 +15,8 @@
 #include <map>
 #include <optional>
 #include <nlohmann/json.hpp>
+
+#include <unordered_map>
 
 #ifndef NLOHMANN_OPT_HELPER
 #define NLOHMANN_OPT_HELPER
@@ -524,6 +526,40 @@ namespace api {
         CheckStatus status;
     };
 
+    enum class Code : int { DNSMASQ_ERROR, DNSMASQ_RECONCILING, FIREWALL_CHAIN_MISSING, FIREWALL_PREROUTING_MISSING, FIREWALL_RULES, GROUP_MEMBERS_FAILING, HOST_WARNING, INTERCEPT_LIMITED, INTERCEPT_WARNING, KERNEL_CAPABILITY, KERNEL_PROBE, OUTBOUND_DEGRADED, OUTBOUND_UNAVAILABLE, POLICY_RULES, ROUTE_TABLES, ROUTING_CHECK_FAILED, XT_EXTENSION };
+
+    enum class DetailCode : int { CAPABILITY_FALLBACK, CAPABILITY_UNSUPPORTED, DNSMASQ_DEAD, KERNEL_CHECK_FAILED, XT_EXTENSION_REQUIRED, XT_EXTENSION_UNUSED };
+
+    enum class Severity : int { ERROR, WARNING };
+
+    struct HealthIssue {
+        Code code;
+        std::optional<std::string> detail;
+        std::optional<DetailCode> detail_code;
+        std::optional<std::vector<std::string>> entries;
+        std::string key;
+        std::optional<std::string> outbound;
+        std::map<std::string, std::string> params;
+        Severity severity;
+        std::string title;
+    };
+
+    struct KernelCheckElement {
+        bool advisory;
+        std::optional<std::string> extension_kind;
+        std::string feature;
+        std::optional<std::string> kernel_module;
+        std::string key;
+        std::string kind;
+        std::optional<std::string> reason;
+        std::string status;
+    };
+
+    struct HealthIssuesResponse {
+        std::vector<HealthIssue> issues;
+        std::vector<KernelCheckElement> kernel_checks;
+    };
+
     enum class PayloadReplacement : int { SUPPORTED, UNKNOWN, UNSUPPORTED };
 
     enum class Kind : int { MATCH, TARGET };
@@ -914,7 +950,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypes4MPh45 {
+    struct KeenPbrTypesS4QB8Y {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -947,6 +983,10 @@ namespace api {
         std::optional<FirewallChain> firewall_chain;
         std::optional<FirewallRuleCheck> firewall_rule_check;
         std::optional<Fwmark> fwmark_config;
+        std::optional<HealthIssue> health_issue;
+        std::optional<Code> health_issue_code;
+        std::optional<DetailCode> health_issue_detail_code;
+        std::optional<HealthIssuesResponse> health_issues_response;
         std::optional<HealthResponse> health_response;
         std::optional<IcmpCandidateElement> icmp_candidate;
         std::optional<Capabilities> intercept_capabilities_health;
@@ -960,6 +1000,7 @@ namespace api {
         std::optional<InterceptProbeFeatureElement> intercept_probe_feature;
         std::optional<DnsWriteLatency> intercept_write_latency;
         std::optional<Iproute> iproute_config;
+        std::optional<KernelCheckElement> kernel_check;
         std::optional<LifecycleOperation> lifecycle_operation;
         std::optional<LifecycleOperationAcceptedResponse> lifecycle_operation_accepted_response;
         std::optional<LifecycleOperationStageElement> lifecycle_operation_stage;
@@ -1152,6 +1193,15 @@ namespace api {
     void from_json(const json & j, FirewallRuleCheck & x);
     void to_json(json & j, const FirewallRuleCheck & x);
 
+    void from_json(const json & j, HealthIssue & x);
+    void to_json(json & j, const HealthIssue & x);
+
+    void from_json(const json & j, KernelCheckElement & x);
+    void to_json(json & j, const KernelCheckElement & x);
+
+    void from_json(const json & j, HealthIssuesResponse & x);
+    void to_json(json & j, const HealthIssuesResponse & x);
+
     void from_json(const json & j, XtExtensionHealthElement & x);
     void to_json(json & j, const XtExtensionHealthElement & x);
 
@@ -1263,8 +1313,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypes4MPh45 & x);
-    void to_json(json & j, const KeenPbrTypes4MPh45 & x);
+    void from_json(const json & j, KeenPbrTypesS4QB8Y & x);
+    void to_json(json & j, const KeenPbrTypesS4QB8Y & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1331,6 +1381,15 @@ namespace api {
 
     void from_json(const json & j, VerificationState & x);
     void to_json(json & j, const VerificationState & x);
+
+    void from_json(const json & j, Code & x);
+    void to_json(json & j, const Code & x);
+
+    void from_json(const json & j, DetailCode & x);
+    void to_json(json & j, const DetailCode & x);
+
+    void from_json(const json & j, Severity & x);
+    void to_json(json & j, const Severity & x);
 
     void from_json(const json & j, PayloadReplacement & x);
     void to_json(json & j, const PayloadReplacement & x);
@@ -2234,6 +2293,65 @@ namespace api {
         j["status"] = x.status;
     }
 
+    inline void from_json(const json & j, HealthIssue& x) {
+        x.code = j.at("code").get<Code>();
+        x.detail = get_stack_optional<std::string>(j, "detail");
+        x.detail_code = get_stack_optional<DetailCode>(j, "detail_code");
+        x.entries = get_stack_optional<std::vector<std::string>>(j, "entries");
+        x.key = j.at("key").get<std::string>();
+        x.outbound = get_stack_optional<std::string>(j, "outbound");
+        x.params = j.at("params").get<std::map<std::string, std::string>>();
+        x.severity = j.at("severity").get<Severity>();
+        x.title = j.at("title").get<std::string>();
+    }
+
+    inline void to_json(json & j, const HealthIssue & x) {
+        j = json::object();
+        j["code"] = x.code;
+        j["detail"] = x.detail;
+        j["detail_code"] = x.detail_code;
+        j["entries"] = x.entries;
+        j["key"] = x.key;
+        j["outbound"] = x.outbound;
+        j["params"] = x.params;
+        j["severity"] = x.severity;
+        j["title"] = x.title;
+    }
+
+    inline void from_json(const json & j, KernelCheckElement& x) {
+        x.advisory = j.at("advisory").get<bool>();
+        x.extension_kind = get_stack_optional<std::string>(j, "extension_kind");
+        x.feature = j.at("feature").get<std::string>();
+        x.kernel_module = get_stack_optional<std::string>(j, "kernel_module");
+        x.key = j.at("key").get<std::string>();
+        x.kind = j.at("kind").get<std::string>();
+        x.reason = get_stack_optional<std::string>(j, "reason");
+        x.status = j.at("status").get<std::string>();
+    }
+
+    inline void to_json(json & j, const KernelCheckElement & x) {
+        j = json::object();
+        j["advisory"] = x.advisory;
+        j["extension_kind"] = x.extension_kind;
+        j["feature"] = x.feature;
+        j["kernel_module"] = x.kernel_module;
+        j["key"] = x.key;
+        j["kind"] = x.kind;
+        j["reason"] = x.reason;
+        j["status"] = x.status;
+    }
+
+    inline void from_json(const json & j, HealthIssuesResponse& x) {
+        x.issues = j.at("issues").get<std::vector<HealthIssue>>();
+        x.kernel_checks = j.at("kernel_checks").get<std::vector<KernelCheckElement>>();
+    }
+
+    inline void to_json(json & j, const HealthIssuesResponse & x) {
+        j = json::object();
+        j["issues"] = x.issues;
+        j["kernel_checks"] = x.kernel_checks;
+    }
+
     inline void from_json(const json & j, XtExtensionHealthElement& x) {
         x.available = j.at("available").get<bool>();
         x.kernel_module = j.at("kernel_module").get<std::string>();
@@ -2951,7 +3069,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes4MPh45& x) {
+    inline void from_json(const json & j, KeenPbrTypesS4QB8Y& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -2984,6 +3102,10 @@ namespace api {
         x.firewall_chain = get_stack_optional<FirewallChain>(j, "FirewallChain");
         x.firewall_rule_check = get_stack_optional<FirewallRuleCheck>(j, "FirewallRuleCheck");
         x.fwmark_config = get_stack_optional<Fwmark>(j, "FwmarkConfig");
+        x.health_issue = get_stack_optional<HealthIssue>(j, "HealthIssue");
+        x.health_issue_code = get_stack_optional<Code>(j, "HealthIssueCode");
+        x.health_issue_detail_code = get_stack_optional<DetailCode>(j, "HealthIssueDetailCode");
+        x.health_issues_response = get_stack_optional<HealthIssuesResponse>(j, "HealthIssuesResponse");
         x.health_response = get_stack_optional<HealthResponse>(j, "HealthResponse");
         x.icmp_candidate = get_stack_optional<IcmpCandidateElement>(j, "IcmpCandidate");
         x.intercept_capabilities_health = get_stack_optional<Capabilities>(j, "InterceptCapabilitiesHealth");
@@ -2997,6 +3119,7 @@ namespace api {
         x.intercept_probe_feature = get_stack_optional<InterceptProbeFeatureElement>(j, "InterceptProbeFeature");
         x.intercept_write_latency = get_stack_optional<DnsWriteLatency>(j, "InterceptWriteLatency");
         x.iproute_config = get_stack_optional<Iproute>(j, "IprouteConfig");
+        x.kernel_check = get_stack_optional<KernelCheckElement>(j, "KernelCheck");
         x.lifecycle_operation = get_stack_optional<LifecycleOperation>(j, "LifecycleOperation");
         x.lifecycle_operation_accepted_response = get_stack_optional<LifecycleOperationAcceptedResponse>(j, "LifecycleOperationAcceptedResponse");
         x.lifecycle_operation_stage = get_stack_optional<LifecycleOperationStageElement>(j, "LifecycleOperationStage");
@@ -3044,7 +3167,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes4MPh45 & x) {
+    inline void to_json(json & j, const KeenPbrTypesS4QB8Y & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3078,6 +3201,10 @@ namespace api {
         j["FirewallChain"] = x.firewall_chain;
         j["FirewallRuleCheck"] = x.firewall_rule_check;
         j["FwmarkConfig"] = x.fwmark_config;
+        j["HealthIssue"] = x.health_issue;
+        j["HealthIssueCode"] = x.health_issue_code;
+        j["HealthIssueDetailCode"] = x.health_issue_detail_code;
+        j["HealthIssuesResponse"] = x.health_issues_response;
         j["HealthResponse"] = x.health_response;
         j["IcmpCandidate"] = x.icmp_candidate;
         j["InterceptCapabilitiesHealth"] = x.intercept_capabilities_health;
@@ -3091,6 +3218,7 @@ namespace api {
         j["InterceptProbeFeature"] = x.intercept_probe_feature;
         j["InterceptWriteLatency"] = x.intercept_write_latency;
         j["IprouteConfig"] = x.iproute_config;
+        j["KernelCheck"] = x.kernel_check;
         j["LifecycleOperation"] = x.lifecycle_operation;
         j["LifecycleOperationAcceptedResponse"] = x.lifecycle_operation_accepted_response;
         j["LifecycleOperationStage"] = x.lifecycle_operation_stage;
@@ -3491,6 +3619,92 @@ namespace api {
             case VerificationState::UNAVAILABLE: j = "unavailable"; break;
             case VerificationState::VERIFIED: j = "verified"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"VerificationState\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, Code & x) {
+        static std::unordered_map<std::string, Code> enumValues {
+            {"dnsmasq_error", Code::DNSMASQ_ERROR},
+            {"dnsmasq_reconciling", Code::DNSMASQ_RECONCILING},
+            {"firewall_chain_missing", Code::FIREWALL_CHAIN_MISSING},
+            {"firewall_prerouting_missing", Code::FIREWALL_PREROUTING_MISSING},
+            {"firewall_rules", Code::FIREWALL_RULES},
+            {"group_members_failing", Code::GROUP_MEMBERS_FAILING},
+            {"host_warning", Code::HOST_WARNING},
+            {"intercept_limited", Code::INTERCEPT_LIMITED},
+            {"intercept_warning", Code::INTERCEPT_WARNING},
+            {"kernel_capability", Code::KERNEL_CAPABILITY},
+            {"kernel_probe", Code::KERNEL_PROBE},
+            {"outbound_degraded", Code::OUTBOUND_DEGRADED},
+            {"outbound_unavailable", Code::OUTBOUND_UNAVAILABLE},
+            {"policy_rules", Code::POLICY_RULES},
+            {"route_tables", Code::ROUTE_TABLES},
+            {"routing_check_failed", Code::ROUTING_CHECK_FAILED},
+            {"xt_extension", Code::XT_EXTENSION},
+        };
+        auto iter = enumValues.find(j.get<std::string>());
+        if (iter != enumValues.end()) {
+            x = iter->second;
+        }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"Code\""); }
+    }
+
+    inline void to_json(json & j, const Code & x) {
+        switch (x) {
+            case Code::DNSMASQ_ERROR: j = "dnsmasq_error"; break;
+            case Code::DNSMASQ_RECONCILING: j = "dnsmasq_reconciling"; break;
+            case Code::FIREWALL_CHAIN_MISSING: j = "firewall_chain_missing"; break;
+            case Code::FIREWALL_PREROUTING_MISSING: j = "firewall_prerouting_missing"; break;
+            case Code::FIREWALL_RULES: j = "firewall_rules"; break;
+            case Code::GROUP_MEMBERS_FAILING: j = "group_members_failing"; break;
+            case Code::HOST_WARNING: j = "host_warning"; break;
+            case Code::INTERCEPT_LIMITED: j = "intercept_limited"; break;
+            case Code::INTERCEPT_WARNING: j = "intercept_warning"; break;
+            case Code::KERNEL_CAPABILITY: j = "kernel_capability"; break;
+            case Code::KERNEL_PROBE: j = "kernel_probe"; break;
+            case Code::OUTBOUND_DEGRADED: j = "outbound_degraded"; break;
+            case Code::OUTBOUND_UNAVAILABLE: j = "outbound_unavailable"; break;
+            case Code::POLICY_RULES: j = "policy_rules"; break;
+            case Code::ROUTE_TABLES: j = "route_tables"; break;
+            case Code::ROUTING_CHECK_FAILED: j = "routing_check_failed"; break;
+            case Code::XT_EXTENSION: j = "xt_extension"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"Code\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, DetailCode & x) {
+        if (j == "capability_fallback") x = DetailCode::CAPABILITY_FALLBACK;
+        else if (j == "capability_unsupported") x = DetailCode::CAPABILITY_UNSUPPORTED;
+        else if (j == "dnsmasq_dead") x = DetailCode::DNSMASQ_DEAD;
+        else if (j == "kernel_check_failed") x = DetailCode::KERNEL_CHECK_FAILED;
+        else if (j == "xt_extension_required") x = DetailCode::XT_EXTENSION_REQUIRED;
+        else if (j == "xt_extension_unused") x = DetailCode::XT_EXTENSION_UNUSED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"DetailCode\""); }
+    }
+
+    inline void to_json(json & j, const DetailCode & x) {
+        switch (x) {
+            case DetailCode::CAPABILITY_FALLBACK: j = "capability_fallback"; break;
+            case DetailCode::CAPABILITY_UNSUPPORTED: j = "capability_unsupported"; break;
+            case DetailCode::DNSMASQ_DEAD: j = "dnsmasq_dead"; break;
+            case DetailCode::KERNEL_CHECK_FAILED: j = "kernel_check_failed"; break;
+            case DetailCode::XT_EXTENSION_REQUIRED: j = "xt_extension_required"; break;
+            case DetailCode::XT_EXTENSION_UNUSED: j = "xt_extension_unused"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"DetailCode\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, Severity & x) {
+        if (j == "error") x = Severity::ERROR;
+        else if (j == "warning") x = Severity::WARNING;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"Severity\""); }
+    }
+
+    inline void to_json(json & j, const Severity & x) {
+        switch (x) {
+            case Severity::ERROR: j = "error"; break;
+            case Severity::WARNING: j = "warning"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"Severity\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

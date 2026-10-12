@@ -31,12 +31,15 @@
 #include "../crash/crash_diagnostics.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
+#include "../health/health_issues.hpp"
 #include "../health/host_health_warnings.hpp"
+#include "../health/runtime_outbound_state.hpp"
 #include "../health/routing_health_checker.hpp"
 #include "../ipc/control_protocol.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
 #include "../util/safe_exec.hpp"
+#include "../util/system_info.hpp"
 #include "scheduler.hpp"
 
 #ifdef WITH_API
@@ -606,6 +609,93 @@ Daemon::make_routing_test_job(const std::string &target,
   };
 }
 
+ServiceHealthState Daemon::service_health_state() {
+  const auto runtime_snapshot = runtime_state_store_.service_snapshot();
+  const auto &system_info = cached_system_info();
+  ServiceHealthState service_health;
+  service_health.status = runtime_snapshot.routing_runtime_active
+                              ? api::HealthResponseStatus::RUNNING
+                              : api::HealthResponseStatus::STOPPED;
+  service_health.status = aggregate_service_status(
+      service_health.status, intercept_effective_snapshot());
+  service_health.runtime_state =
+      runtime_state_name(runtime_snapshot.runtime_state);
+  service_health.runtime_state_reason = runtime_snapshot.runtime_state_reason;
+  service_health.os_type = system_info.os_type;
+  service_health.os_version = system_info.os_version;
+  service_health.build_variant = system_info.build_variant;
+  service_health.apply_started_ts = runtime_snapshot.apply_started_ts;
+  service_health.config_is_draft = config_store_.config_is_draft();
+  service_health.rollback_available =
+      rollback_available_.load(std::memory_order_acquire);
+  service_health.lifecycle_operation = lifecycle_operation_store_.snapshot();
+  service_health.intercept = build_intercept_health();
+  service_health.dnsmasq = to_dnsmasq_health(dnsmasq_manager_.status());
+  return service_health;
+}
+
+api::RuntimeOutboundsResponse Daemon::runtime_outbounds_state() {
+  const Config config_snapshot = config_store_.active_config();
+  const auto runtime_snapshot = runtime_state_store_.outbound_snapshot();
+
+  if (runtime_snapshot.runtime_state == RuntimeState::starting) {
+    api::RuntimeOutboundsResponse response;
+    for (const auto &outbound :
+         config_snapshot.outbounds.value_or(std::vector<Outbound>{})) {
+      api::RuntimeOutboundStateElement state;
+      state.tag = outbound.tag;
+      state.type = outbound.type;
+      state.status = api::RuntimeOutboundStatusEnum::UNKNOWN;
+      response.outbounds.push_back(std::move(state));
+    }
+    return response;
+  }
+
+  return build_runtime_outbounds_response(
+      config_snapshot, runtime_snapshot.outbound_marks,
+      runtime_snapshot.policy_rule_specs,
+      runtime_snapshot.applied_urltest_selections, netlink_,
+      [&runtime_snapshot](const std::string &tag) -> std::optional<UrltestState> {
+        auto it = runtime_snapshot.urltest_states.find(tag);
+        if (it == runtime_snapshot.urltest_states.end()) {
+          return std::nullopt;
+        }
+        return it->second;
+      });
+}
+
+api::HealthIssuesResponse Daemon::health_issues() {
+  const auto service = service_health_state();
+  const auto routing = cached_routing_health();
+  const auto outbounds = runtime_outbounds_state();
+  return health_issues_from(service, routing, outbounds);
+}
+
+api::HealthIssuesResponse
+Daemon::health_issues_from(const ServiceHealthState &service,
+                           const RoutingHealthReport &routing,
+                           const api::RuntimeOutboundsResponse &outbounds) {
+  const InterceptConfig intercept_config =
+      config_store_.active_config().intercept.value_or(InterceptConfig{});
+  const bool intercept_enabled =
+      intercept_config.enabled.value_or(config_defaults::intercept_enabled);
+
+  HealthIssueInputs inputs;
+  inputs.service_running = service.status == api::HealthResponseStatus::RUNNING ||
+                           service.status == api::HealthResponseStatus::DEGRADED;
+  inputs.routing_health = &routing;
+  if (service.intercept) inputs.intercept = &*service.intercept;
+  inputs.requested_dns =
+      intercept_enabled && intercept_config.dns.value_or(InterceptDnsConfig{})
+                               .enabled.value_or(config_defaults::intercept_dns_enabled);
+  inputs.requested_l7 =
+      intercept_enabled && intercept_config.l7.value_or(InterceptL7Config{})
+                               .enabled.value_or(config_defaults::intercept_l7_enabled);
+  if (service.dnsmasq) inputs.dnsmasq = &*service.dnsmasq;
+  inputs.outbounds = &outbounds.outbounds;
+  return collect_health_issues(inputs);
+}
+
 RoutingHealthReport Daemon::cached_routing_health() {
   const auto runtime_snapshot = runtime_state_store_.snapshot();
   const auto backend = firewall_->backend();
@@ -861,13 +951,12 @@ void Daemon::handle_ipc_control_socket() {
             }
           }
         } else if (operation == "status") {
-          const auto snapshot = runtime_state_store_.control_snapshot(true);
+          const auto snapshot = runtime_state_store_.control_snapshot(false);
           if (snapshot.runtime_state == RuntimeState::applying) {
             response = ipc::make_error_response(
                 request, "busy", "runtime configuration is being applied");
           } else {
-            // Status must remain a nonblocking control operation.  The
-            // runtime generation normally supplies the cached decision; a
+            // The runtime generation normally supplies the cached decision; a
             // pre-generation status response uses the conservative display
             // default instead of probing the firewall on this event loop.
             const bool ipv6_enabled = generation_snapshot_.has_value()
@@ -882,13 +971,39 @@ void Daemon::handle_ipc_control_socket() {
                 intercept_dns_hold,
                 runtime_generation_.load(std::memory_order_acquire),
                 config_path_);
-            result["routing_health"] =
-                routing_health_report_to_json(cached_routing_health());
-            response = {
-                {"protocol_version", ipc::kControlProtocolVersion},
-                {"request_id", request.at("request_id")},
-                {"ok", true},
-                {"result", std::move(result)}};
+            // The health pieces dump routes over netlink, so they are
+            // gathered on the routing-test executor, which sends the reply.
+            if (routing_test_executor_.try_post(
+                    "ipc-status",
+                    [this, client, request, result = std::move(result)]() mutable {
+                      nlohmann::json reply;
+                      try {
+                        const auto service = service_health_state();
+                        const auto routing = cached_routing_health();
+                        const auto outbounds = runtime_outbounds_state();
+                        result["routing_health"] =
+                            routing_health_report_to_json(routing);
+                        result["service"] = build_health_response(service);
+                        result["outbounds"] = outbounds;
+                        result["issues"] =
+                            health_issues_from(service, routing, outbounds);
+                        reply = {{"protocol_version", ipc::kControlProtocolVersion},
+                                 {"request_id", request.at("request_id")},
+                                 {"ok", true},
+                                 {"result", std::move(result)}};
+                      } catch (const std::exception &error) {
+                        reply = ipc::make_error_response(
+                            request, "status_failed", error.what());
+                      } catch (...) {
+                        reply = ipc::make_error_response(
+                            request, "status_failed", "unknown error");
+                      }
+                      send_control_response_and_close(client, reply);
+                    })) {
+              continue;
+            }
+            response = ipc::make_error_response(
+                request, "busy", "status executor queue is full");
           }
         } else if (operation == "download") {
           bool expected = false;

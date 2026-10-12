@@ -38,6 +38,7 @@ import type {
   DraftConfig,
   ErrorResponse,
   GetDnsTestParams,
+  HealthIssuesResponse,
   HealthResponse,
   LifecycleOperationAcceptedResponse,
   ListRefreshRequest,
@@ -2172,6 +2173,119 @@ export function useGetHealthRouting<TData = Awaited<ReturnType<typeof getHealthR
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetHealthRoutingQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+/**
+ * Problems found in the service, kernel, routing and outbound health, each classified as an error or a warning, and the kernel checks that apply to the current configuration. The web UI overview and `keen-pbr status` show this same list.
+
+ * @summary Health issues and kernel checks
+ */
+export type getHealthIssuesResponse200 = {
+  data: HealthIssuesResponse
+  status: 200
+}
+
+export type getHealthIssuesResponseSuccess = (getHealthIssuesResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getHealthIssuesResponse = (getHealthIssuesResponseSuccess)
+
+export const getGetHealthIssuesUrl = () => {
+
+
+
+
+  return `/api/health/issues`
+}
+
+export const getHealthIssues = async ( options?: RequestInit): Promise<getHealthIssuesResponse> => {
+
+  return apiFetch<getHealthIssuesResponse>(getGetHealthIssuesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetHealthIssuesQueryKey = () => {
+    return [
+    `/api/health/issues`
+    ] as const;
+    }
+
+
+export const getGetHealthIssuesQueryOptions = <TData = Awaited<ReturnType<typeof getHealthIssues>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHealthIssuesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHealthIssues>>> = ({ signal }) => getHealthIssues({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetHealthIssuesQueryResult = NonNullable<Awaited<ReturnType<typeof getHealthIssues>>>
+export type GetHealthIssuesQueryError = unknown
+
+
+export function useGetHealthIssues<TData = Awaited<ReturnType<typeof getHealthIssues>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHealthIssues>>,
+          TError,
+          Awaited<ReturnType<typeof getHealthIssues>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetHealthIssues<TData = Awaited<ReturnType<typeof getHealthIssues>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHealthIssues>>,
+          TError,
+          Awaited<ReturnType<typeof getHealthIssues>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetHealthIssues<TData = Awaited<ReturnType<typeof getHealthIssues>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Health issues and kernel checks
+ */
+
+export function useGetHealthIssues<TData = Awaited<ReturnType<typeof getHealthIssues>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetHealthIssuesQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

@@ -1,15 +1,9 @@
 import type {
-  DnsmasqHealth,
-  InterceptHealth,
-  RouteTableCheck,
+  HealthIssue,
+  KernelCheck,
   RoutingHealthResponse,
   RuntimeOutboundState,
 } from "@/api/generated/model"
-import {
-  isHealthyInterceptStatus,
-  mapKernelDiagnosticEntries,
-  type KernelDiagnosticEntry,
-} from "@/lib/intercept-diagnostics"
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string
 
@@ -27,269 +21,48 @@ export type OverviewHealthySummary = {
   detail: string
 }
 
-const MAX_DETAIL_ENTRIES = 3
+const OUTBOUND_ISSUE_CODES = new Set<HealthIssue["code"]>([
+  "outbound_unavailable",
+  "outbound_degraded",
+  "group_members_failing",
+])
 
-export function collectOverviewIssues({
-  serviceRunning,
-  routingHealth,
-  routingHealthError,
-  intercept,
-  requestedDns,
-  requestedL7,
-  dnsmasq,
-  runtimeOutbounds,
-  t,
-}: {
-  serviceRunning: boolean
-  routingHealth?: RoutingHealthResponse
-  routingHealthError?: string | null
-  intercept?: InterceptHealth
-  requestedDns: boolean
-  requestedL7: boolean
-  dnsmasq?: DnsmasqHealth
-  runtimeOutbounds: RuntimeOutboundState[]
+/**
+ * Translates the daemon's classified health issues (GET /api/health/issues).
+ * The daemon decides which problems exist and how severe they are, so the
+ * overview and `keen-pbr status` agree; this only picks the wording.
+ */
+export function mapHealthIssues(
+  issues: ReadonlyArray<HealthIssue>,
   t: TranslateFn
-}): OverviewIssue[] {
-  const issues: OverviewIssue[] = []
+): OverviewIssue[] {
+  return issues.map((issue) => ({
+    key: issue.key,
+    tone: issue.severity === "error" ? "bad" : "warn",
+    title: translateTitle(issue, t),
+    detail: translateDetail(issue, t),
+    href:
+      issue.outbound && OUTBOUND_ISSUE_CODES.has(issue.code)
+        ? `/outbounds/${encodeURIComponent(issue.outbound)}/edit`
+        : undefined,
+  }))
+}
 
-  if (intercept) {
-    const kernelEntries = mapKernelDiagnosticEntries(
-      intercept.capabilities,
-      intercept.probes ?? [],
-      requestedDns,
-      requestedL7
-    )
-    for (const entry of kernelEntries) {
-      if (!entry.relevant || isHealthyInterceptStatus(entry.status)) {
-        continue
-      }
-      const failed = entry.status === "error" || entry.status === "unsupported"
-      issues.push({
-        key: entry.key,
-        tone: failed && !entry.advisory ? "bad" : "warn",
-        title:
-          entry.kind === "capability"
-            ? t(`overview.intercept.capabilities.${entry.feature}`)
-            : entry.kind === "extension" && entry.extension
-              ? t("overview.intercept.xtExtension", {
-                  kind: entry.extension.kind,
-                  name: entry.extension.name,
-                  module: entry.extension.kernel_module,
-                })
-              : humanizeFeature(entry.feature),
-        detail:
-          entry.kind === "extension"
-            ? describeMissingExtension(entry, t)
-            : entry.kind === "capability"
-              ? entry.advisory
-                ? t("overview.issues.capabilityFallback")
-                : t("overview.issues.capabilityUnsupported")
-              : t("overview.issues.kernelCheckFailed", {
-                  reason:
-                    entry.reason ??
-                    t(`overview.intercept.probes.status.${entry.status}`),
-                }),
-      })
-    }
-  }
-
-  if (!serviceRunning) {
-    return issues
-  }
-
-  if (intercept?.enabled) {
-    intercept.reasons.forEach((reason, index) => {
-      issues.push({
-        key: `intercept-reason-${index}`,
-        tone: "warn",
-        title: t("overview.issues.interceptLimited"),
-        detail: reason,
-      })
-    })
-  }
-  intercept?.warnings?.forEach((warning, index) => {
-    issues.push({
-      key: `intercept-warning-${index}`,
-      tone: "warn",
-      title: t("overview.issues.interceptWarning"),
-      detail: warning,
-    })
-  })
-
-  if (routingHealthError) {
-    issues.push({
-      key: "routing-error",
-      tone: "bad",
-      title: t("overview.issues.routingCheckFailed"),
-      detail: routingHealthError,
-    })
-  }
-
-  if (routingHealth) {
-    const { firewall } = routingHealth
-    if (firewall.verification_state !== "unavailable") {
-      if (!firewall.chain_present) {
-        issues.push({
-          key: "firewall-chain",
-          tone: "bad",
-          title: t("overview.issues.chainMissing"),
-          detail: firewall.detail,
-        })
-      } else if (!firewall.prerouting_hook_present) {
-        issues.push({
-          key: "firewall-prerouting",
-          tone: "bad",
-          title: t("overview.issues.preroutingMissing"),
-          detail: firewall.detail,
-        })
-      }
-    }
-
-    const badRules = routingHealth.firewall_rules.filter(
-      (rule) => rule.status !== "ok"
-    )
-    if (badRules.length > 0) {
-      issues.push({
-        key: "firewall-rules",
-        tone: "bad",
-        title: t("overview.issues.firewallRules", { count: badRules.length }),
-        detail: summarizeEntries(
-          badRules.map((rule) =>
-            [rule.set_name, rule.detail ?? rule.status].join(": ")
-          )
-        ),
-      })
-    }
-
-    const badRoutes = routingHealth.route_tables.filter(
-      (table) => table.status !== "ok"
-    )
-    if (badRoutes.length > 0) {
-      issues.push({
-        key: "route-tables",
-        tone: "bad",
-        title: t("overview.issues.routes", { count: badRoutes.length }),
-        detail: summarizeEntries(
-          badRoutes.map(
-            (table) =>
-              `${table.outbound_tag} (${t("overview.routing.tableLabel", {
-                value: table.table_id,
-              })}): ${describeRouteMismatch(table, t)}`
-          )
-        ),
-      })
-    }
-
-    const badPolicies = routingHealth.policy_rules.filter(
-      (policy) => policy.status !== "ok"
-    )
-    if (badPolicies.length > 0) {
-      issues.push({
-        key: "policy-rules",
-        tone: "bad",
-        title: t("overview.issues.policies", { count: badPolicies.length }),
-        detail: summarizeEntries(
-          badPolicies.map(
-            (policy) =>
-              `${policy.fwmark}/${policy.fwmask}: ${policy.detail ?? policy.status}`
-          )
-        ),
-      })
-    }
-
-    // Non-blocking host configuration warnings (NAT, rp_filter on balance WANs).
-    routingHealth.warnings?.forEach((warning, index) => {
-      issues.push({
-        key: `host-warning-${warning.code}-${warning.interface ?? index}`,
-        tone: "warn",
-        title: t(`overview.issues.hostWarning.${warning.code}`, {
-          interface: warning.interface ?? warning.outbound ?? "",
-          defaultValue: warning.message,
-        }),
-        detail: warning.message,
-      })
-    })
-  }
-
-  if (dnsmasq?.mode === "dnsmasq") {
-    if (dnsmasq.state === "error") {
-      issues.push({
-        key: "dnsmasq",
-        tone: "bad",
-        title: t("overview.issues.dnsmasqError"),
-        detail:
-          dnsmasq.last_error ??
-          dnsmasq.repair_reason ??
-          (dnsmasq.dnsmasq_alive === "dead"
-            ? t("overview.issues.dnsmasqDead")
-            : undefined),
-      })
-    } else if (dnsmasq.state === "reconciling") {
-      issues.push({
-        key: "dnsmasq",
-        tone: "warn",
-        title: t("overview.issues.dnsmasqReconciling"),
-        detail: dnsmasq.repair_reason ?? undefined,
-      })
-    }
-  }
-
-  for (const outbound of runtimeOutbounds) {
-    const failingMembers = outbound.interfaces.filter(
-      (member) =>
-        member.status === "degraded" || member.status === "unavailable"
-    )
-    const isGroup = outbound.type === "urltest" || outbound.type === "icmptest"
-
-    if (outbound.status === "unavailable" || outbound.status === "degraded") {
-      issues.push({
-        key: `outbound-${outbound.tag}`,
-        tone: outbound.status === "unavailable" ? "bad" : "warn",
-        title: t(
-          outbound.status === "unavailable"
-            ? "overview.issues.outboundUnavailable"
-            : "overview.issues.outboundDegraded",
-          { tag: outbound.tag }
-        ),
-        detail:
-          outbound.detail ??
-          (isGroup ? describeMembers(failingMembers, t) : undefined),
-        href: `/outbounds/${encodeURIComponent(outbound.tag)}/edit`,
-      })
-      continue
-    }
-
-    // A healthy group can still contain failing children; routing works but
-    // the user has less redundancy than configured.
-    if (isGroup && failingMembers.length > 0) {
-      issues.push({
-        key: `outbound-${outbound.tag}-members`,
-        tone: "warn",
-        title: t("overview.issues.groupMembersFailing", {
-          tag: outbound.tag,
-          count: failingMembers.length,
-        }),
-        detail: describeMembers(failingMembers, t),
-        href: `/outbounds/${encodeURIComponent(outbound.tag)}/edit`,
-      })
-    }
-  }
-
-  return issues
+/** ok and skipped need no attention; not_run is unknown and stays visible. */
+export function isHealthyKernelCheck(check: KernelCheck): boolean {
+  return check.status === "ok" || check.status === "skipped"
 }
 
 export function collectHealthySummaries({
   routingHealth,
-  intercept,
-  requestedDns,
-  requestedL7,
+  kernelChecks,
+  kernelRelease,
   runtimeOutbounds,
   t,
 }: {
   routingHealth?: RoutingHealthResponse
-  intercept?: InterceptHealth
-  requestedDns: boolean
-  requestedL7: boolean
+  kernelChecks: ReadonlyArray<KernelCheck>
+  kernelRelease?: string
   runtimeOutbounds: RuntimeOutboundState[]
   t: TranslateFn
 }): OverviewHealthySummary[] {
@@ -327,29 +100,17 @@ export function collectHealthySummaries({
     )
   }
 
-  if (intercept) {
-    const relevant = mapKernelDiagnosticEntries(
-      intercept.capabilities,
-      intercept.probes ?? [],
-      requestedDns,
-      requestedL7
-    ).filter((entry) => entry.relevant)
-    if (relevant.length > 0) {
-      summaries.push({
-        key: "kernel",
-        title: intercept.kernel_release
-          ? t("overview.healthy.kernelWithRelease", {
-              release: intercept.kernel_release,
-            })
-          : t("overview.intercept.checksTitle"),
-        detail: t("overview.healthy.passed", {
-          passed: relevant.filter((entry) =>
-            isHealthyInterceptStatus(entry.status)
-          ).length,
-          total: relevant.length,
-        }),
-      })
-    }
+  if (kernelChecks.length > 0) {
+    summaries.push({
+      key: "kernel",
+      title: kernelRelease
+        ? t("overview.healthy.kernelWithRelease", { release: kernelRelease })
+        : t("overview.intercept.checksTitle"),
+      detail: t("overview.healthy.passed", {
+        passed: kernelChecks.filter(isHealthyKernelCheck).length,
+        total: kernelChecks.length,
+      }),
+    })
   }
 
   if (runtimeOutbounds.length > 0) {
@@ -368,6 +129,82 @@ export function collectHealthySummaries({
   return summaries
 }
 
+function translateTitle(issue: HealthIssue, t: TranslateFn): string {
+  const params = issue.params
+  switch (issue.code) {
+    case "kernel_capability":
+      return t(`overview.intercept.capabilities.${params.feature}`, {
+        defaultValue: issue.title,
+      })
+    case "xt_extension":
+      return t("overview.intercept.xtExtension", {
+        kind: params.kind,
+        name: params.name,
+        module: params.module,
+      })
+    case "kernel_probe":
+      return issue.title
+    case "intercept_limited":
+      return t("overview.issues.interceptLimited")
+    case "intercept_warning":
+      return t("overview.issues.interceptWarning")
+    case "routing_check_failed":
+      return t("overview.issues.routingCheckFailed")
+    case "firewall_chain_missing":
+      return t("overview.issues.chainMissing")
+    case "firewall_prerouting_missing":
+      return t("overview.issues.preroutingMissing")
+    case "firewall_rules":
+      return t("overview.issues.firewallRules", { count: Number(params.count) })
+    case "route_tables":
+      return t("overview.issues.routes", { count: Number(params.count) })
+    case "policy_rules":
+      return t("overview.issues.policies", { count: Number(params.count) })
+    case "host_warning":
+      return t(`overview.issues.hostWarning.${params.warning}`, {
+        interface: params.interface ?? "",
+        defaultValue: issue.title,
+      })
+    case "dnsmasq_error":
+      return t("overview.issues.dnsmasqError")
+    case "dnsmasq_reconciling":
+      return t("overview.issues.dnsmasqReconciling")
+    case "outbound_unavailable":
+      return t("overview.issues.outboundUnavailable", { tag: params.tag })
+    case "outbound_degraded":
+      return t("overview.issues.outboundDegraded", { tag: params.tag })
+    case "group_members_failing":
+      return t("overview.issues.groupMembersFailing", {
+        tag: params.tag,
+        count: Number(params.count),
+      })
+  }
+  return issue.title
+}
+
+function translateDetail(
+  issue: HealthIssue,
+  t: TranslateFn
+): string | undefined {
+  switch (issue.detail_code) {
+    case "capability_unsupported":
+      return t("overview.issues.capabilityUnsupported")
+    case "capability_fallback":
+      return t("overview.issues.capabilityFallback")
+    case "xt_extension_required":
+      return t("overview.issues.xtExtensionRequired")
+    case "xt_extension_unused":
+      return t("overview.issues.xtExtensionUnused")
+    case "kernel_check_failed":
+      return t("overview.issues.kernelCheckFailed", {
+        reason: issue.params.reason,
+      })
+    case "dnsmasq_dead":
+      return t("overview.issues.dnsmasqDead")
+  }
+  return issue.detail
+}
+
 function countSummary(
   key: string,
   title: string,
@@ -382,63 +219,4 @@ function countSummary(
       total: entries.length,
     }),
   }
-}
-
-function describeMembers(
-  members: RuntimeOutboundState["interfaces"],
-  t: TranslateFn
-) {
-  return summarizeEntries(
-    members.map((member) =>
-      [
-        member.outbound_tag,
-        t(`runtime.interfaceStatus.${member.status}`).toLowerCase(),
-        member.detail,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    )
-  )
-}
-
-function describeRouteMismatch(table: RouteTableCheck, t: TranslateFn) {
-  const issues: string[] = []
-  if (!table.table_exists) {
-    issues.push(t("overview.routing.issues.tableMissing"))
-  }
-  if (!table.default_route_present) {
-    issues.push(t("overview.routing.issues.defaultRouteMissing"))
-  }
-  if (!table.interface_matches) {
-    issues.push(t("overview.routing.issues.interfaceMismatch"))
-  }
-  if (!table.gateway_matches) {
-    issues.push(t("overview.routing.issues.gatewayMismatch"))
-  }
-  if (issues.length > 0) {
-    return issues.join(", ")
-  }
-  return table.detail ?? table.status
-}
-
-function summarizeEntries(entries: string[]) {
-  const shown = entries.slice(0, MAX_DETAIL_ENTRIES).join("; ")
-  const rest = entries.length - MAX_DETAIL_ENTRIES
-  return rest > 0 ? `${shown}; +${rest}` : shown
-}
-
-function describeMissingExtension(
-  entry: KernelDiagnosticEntry,
-  t: TranslateFn
-) {
-  if (!entry.advisory) return t("overview.issues.xtExtensionRequired")
-  // Without addrtype the skip rules fall back to plain address matches.
-  if (entry.feature === "addrtype")
-    return t("overview.issues.capabilityFallback")
-  return t("overview.issues.xtExtensionUnused")
-}
-
-function humanizeFeature(feature: string) {
-  const text = feature.replace(/_/g, " ")
-  return text.charAt(0).toUpperCase() + text.slice(1)
 }

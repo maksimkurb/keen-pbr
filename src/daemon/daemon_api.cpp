@@ -14,17 +14,13 @@
 
 #include "../api/handlers.hpp"
 #include "../api/handler_config.hpp"
-#include "../api/handler_health_service.hpp"
 #include "../api/prometheus_metrics.hpp"
 #include "../api/server.hpp"
 #include "../api/status_stream.hpp"
 #include "../config/routing_state.hpp"
 #include "../health/runtime_interface_inventory.hpp"
-#include "../intercept/intercept_report.hpp"
-#include "../health/runtime_outbound_state.hpp"
 #include "../keenetic/interface_descriptions.hpp"
 #include "../log/logger.hpp"
-#include "../util/system_info.hpp"
 #include "../util/time_utils.hpp"
 
 #ifndef KEEN_PBR_FRONTEND_ROOT
@@ -45,80 +41,6 @@ const char* config_operation_state_name(ConfigOperationState state) {
         return "reloading";
     }
     return "unknown";
-}
-
-api::DnsmasqHealth to_dnsmasq_health(const DnsmasqStatus& status) {
-    api::DnsmasqHealth health;
-    health.mode = status.mode;
-    switch (status.state) {
-    case DnsmasqSyncState::Disabled: health.state = api::State::DISABLED; break;
-    case DnsmasqSyncState::Ok: health.state = api::State::OK; break;
-    case DnsmasqSyncState::Applying: health.state = api::State::APPLYING; break;
-    case DnsmasqSyncState::Reconciling: health.state = api::State::RECONCILING; break;
-    case DnsmasqSyncState::Error: health.state = api::State::ERROR; break;
-    }
-    if (!status.config_hash.empty()) health.config_hash = status.config_hash;
-    switch (status.probe_state) {
-    case DnsmasqProbeState::NotChecked: health.probe_status = api::ProbeStatus::NOT_CHECKED; break;
-    case DnsmasqProbeState::Ok: health.probe_status = api::ProbeStatus::OK; break;
-    case DnsmasqProbeState::Missing: health.probe_status = api::ProbeStatus::MISSING; break;
-    case DnsmasqProbeState::Invalid: health.probe_status = api::ProbeStatus::INVALID; break;
-    case DnsmasqProbeState::QueryFailed: health.probe_status = api::ProbeStatus::QUERY_FAILED; break;
-    }
-    if (!status.loaded_hash.empty()) health.loaded_hash = status.loaded_hash;
-    health.loaded_boottime_ms = status.loaded_boottime_ms;
-    health.loaded_ts = status.loaded_ts;
-    health.last_check_ts = status.last_check_ts;
-    health.last_external_reload_ts = status.last_external_reload_ts;
-    health.last_apply_ts = status.last_apply_ts;
-    if (!status.last_error.empty()) health.last_error = status.last_error;
-    if (status.state != DnsmasqSyncState::Disabled) {
-        health.repair_attempt = status.repair_attempt;
-        health.repair_max_attempts = status.repair_max_attempts;
-        health.repair_paused = status.repair_paused;
-    }
-    if (!status.repair_reason.empty()) health.repair_reason = status.repair_reason;
-    health.next_repair_ts = status.next_repair_ts;
-    if (status.dnsmasq_alive) {
-        switch (*status.dnsmasq_alive) {
-        case DnsmasqLiveness::Alive: health.dnsmasq_alive = api::DnsmasqAlive::ALIVE; break;
-        case DnsmasqLiveness::Dead: health.dnsmasq_alive = api::DnsmasqAlive::DEAD; break;
-        case DnsmasqLiveness::Unknown: health.dnsmasq_alive = api::DnsmasqAlive::UNKNOWN; break;
-        }
-    }
-    health.rules = static_cast<std::int64_t>(status.rules);
-    health.domains = static_cast<std::int64_t>(status.domains);
-    if (status.error_code != DnsmasqErrorCode::None) {
-        health.error_code = dnsmasq_error_code_name(status.error_code);
-    }
-    if (!status.selector.empty()) health.instance_selector = status.selector;
-    switch (status.selection) {
-    case DnsmasqSelectionKind::None: break;
-    case DnsmasqSelectionKind::Explicit: health.instance_selection = api::InstanceSelection::EXPLICIT; break;
-    case DnsmasqSelectionKind::Adopted: health.instance_selection = api::InstanceSelection::ADOPTED; break;
-    case DnsmasqSelectionKind::Automatic: health.instance_selection = api::InstanceSelection::AUTOMATIC; break;
-    }
-    if (status.endpoint) health.endpoint = status.endpoint->str();
-    switch (status.endpoint_evidence) {
-    case EndpointEvidence::None: health.endpoint_evidence = api::EndpointEvidence::NONE; break;
-    case EndpointEvidence::SocketOwned: health.endpoint_evidence = api::EndpointEvidence::SOCKET_OWNED; break;
-    case EndpointEvidence::Responding: health.endpoint_evidence = api::EndpointEvidence::RESPONDING; break;
-    case EndpointEvidence::StampVerified: health.endpoint_evidence = api::EndpointEvidence::STAMP_VERIFIED; break;
-    }
-    if (status.pid) health.pid = static_cast<std::int64_t>(*status.pid);
-    switch (status.capability) {
-    case DnsmasqCapabilityStatus::NotChecked: health.capability = api::Capability::NOT_CHECKED; break;
-    case DnsmasqCapabilityStatus::Ok: health.capability = api::Capability::OK; break;
-    case DnsmasqCapabilityStatus::Unsupported: health.capability = api::Capability::UNSUPPORTED; break;
-    case DnsmasqCapabilityStatus::Failed: health.capability = api::Capability::FAILED; break;
-    }
-    if (status.preflight == "ok") health.preflight = api::Preflight::OK;
-    else if (status.preflight == "failed") health.preflight = api::Preflight::FAILED;
-    else if (status.preflight == "skipped") health.preflight = api::Preflight::SKIPPED;
-    else if (status.preflight == "not_run") health.preflight = api::Preflight::NOT_RUN;
-    health.instance_count = static_cast<std::int64_t>(status.instances);
-    if (!status.warnings.empty()) health.warnings = status.warnings;
-    return health;
 }
 
 } // namespace
@@ -666,61 +588,13 @@ void Daemon::setup_api() {
             (void)build_fw_rule_states(config, marks);
         },
         [this]() {
-            const auto runtime_snapshot = runtime_state_store_.service_snapshot();
-            const auto& system_info = cached_system_info();
-            ServiceHealthState service_health;
-            service_health.status = runtime_snapshot.routing_runtime_active
-                ? api::HealthResponseStatus::RUNNING
-                : api::HealthResponseStatus::STOPPED;
-            service_health.status = aggregate_service_status(
-                service_health.status, intercept_effective_snapshot());
-            service_health.runtime_state = runtime_state_name(runtime_snapshot.runtime_state);
-            service_health.runtime_state_reason = runtime_snapshot.runtime_state_reason;
-            service_health.os_type = system_info.os_type;
-            service_health.os_version = system_info.os_version;
-            service_health.build_variant = system_info.build_variant;
-            service_health.apply_started_ts = runtime_snapshot.apply_started_ts;
-            service_health.config_is_draft = config_store_.config_is_draft();
-            service_health.rollback_available =
-                rollback_available_.load(std::memory_order_acquire);
-            service_health.lifecycle_operation = lifecycle_operation_store_.snapshot();
-            service_health.intercept = build_intercept_health();
-            service_health.dnsmasq = to_dnsmasq_health(dnsmasq_manager_.status());
-            return service_health;
+            return service_health_state();
         },
         [this]() {
             return cached_routing_health();
         },
         [this]() {
-            const Config config_snapshot = config_store_.active_config();
-            const auto runtime_snapshot = runtime_state_store_.outbound_snapshot();
-
-            if (runtime_snapshot.runtime_state == RuntimeState::starting) {
-                api::RuntimeOutboundsResponse response;
-                for (const auto& outbound :
-                     config_snapshot.outbounds.value_or(std::vector<Outbound>{})) {
-                    api::RuntimeOutboundStateElement state;
-                    state.tag = outbound.tag;
-                    state.type = outbound.type;
-                    state.status = api::RuntimeOutboundStatusEnum::UNKNOWN;
-                    response.outbounds.push_back(std::move(state));
-                }
-                return response;
-            }
-
-            return build_runtime_outbounds_response(
-                config_snapshot,
-                runtime_snapshot.outbound_marks,
-                runtime_snapshot.policy_rule_specs,
-                runtime_snapshot.applied_urltest_selections,
-                netlink_,
-                [&runtime_snapshot](const std::string& tag) -> std::optional<UrltestState> {
-                    auto it = runtime_snapshot.urltest_states.find(tag);
-                    if (it == runtime_snapshot.urltest_states.end()) {
-                        return std::nullopt;
-                    }
-                    return it->second;
-                });
+            return runtime_outbounds_state();
         },
         [this]() {
             auto response = build_runtime_interface_inventory_response_or_empty(netlink_);
@@ -859,6 +733,7 @@ void Daemon::setup_api() {
     };
     api_ctx_->compute_test_routing_with_criteria_fn = compute_test_routing_with_criteria;
     api_ctx_->validation_context_fn = [this]() { return validation_context(); };
+    api_ctx_->get_health_issues_fn = [this]() { return health_issues(); };
     status_stream_ = std::make_unique<StatusStream>(
         [this]() {
             return build_health_response(api_ctx_->get_service_health());

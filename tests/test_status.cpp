@@ -124,3 +124,51 @@ TEST_CASE("status reports unavailable when legacy daemon omits health") {
     CHECK(output.find("UNAVAILABLE") != std::string::npos);
     CHECK(output.find("active firewall plan unavailable") != std::string::npos);
 }
+
+TEST_CASE("status shows daemon issues, kernel checks and service state") {
+    const nlohmann::json state = {
+        {"service",
+         {{"status", "running"},
+          {"runtime_state", "running"},
+          {"runtime_state_reason", "startup complete"},
+          {"version", "3.4.0"},
+          {"build", "1"},
+          {"build_variant", "generic"},
+          {"os_type", "linux"},
+          {"os_version", "1"},
+          {"config_is_draft", false},
+          {"rollback_available", false}}},
+        {"issues",
+         {{"issues",
+           {{{"key", "outbound-vpn"},
+             {"severity", "error"},
+             {"code", "outbound_unavailable"},
+             {"params", {{"tag", "vpn"}}},
+             {"title", "vpn is unavailable"},
+             {"detail", "interface down"}},
+            {{"key", "host-warning-nat_missing-eth1"},
+             {"severity", "warning"},
+             {"code", "host_warning"},
+             {"params", {{"warning", "nat_missing"}, {"interface", "eth1"}}},
+             {"title", "eth1: no NAT (MASQUERADE/SNAT) for this WAN"}}}},
+          {"kernel_checks",
+           {{{"key", "probe:set_write"},
+             {"kind", "probe"},
+             {"feature", "set_write"},
+             {"status", "ok"},
+             {"advisory", false}}}}}}};
+
+    CoutCapture capture;
+    const int result = run_status_command(
+        Config{}, "/tmp/status-test.json", health_response("nftables", true, true), state);
+    const std::string output = capture.output.str();
+
+    CHECK(result == 1);
+    CHECK(output.find("Service: running (runtime running: startup complete)") !=
+          std::string::npos);
+    CHECK(output.find("probe      set_write") != std::string::npos);
+    CHECK(output.find("ERROR  vpn is unavailable") != std::string::npos);
+    CHECK(output.find("interface down") != std::string::npos);
+    CHECK(output.find("WARN   eth1: no NAT") != std::string::npos);
+    CHECK(output.find("Overall: DEGRADED (1 error(s), 1 warning(s))") != std::string::npos);
+}

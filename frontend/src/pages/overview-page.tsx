@@ -11,6 +11,7 @@ import {
 } from "@/hooks/use-dns-check"
 import {
   useGetConfig,
+  useGetHealthIssues,
   useGetHealthRouting,
   useGetHealthService,
   useGetRuntimeOutbounds,
@@ -29,7 +30,7 @@ import { DnsRulesPanel } from "@/components/overview/dns-rules-panel"
 import { InterceptPanel } from "@/components/overview/intercept-panel"
 import {
   collectHealthySummaries,
-  collectOverviewIssues,
+  mapHealthIssues,
 } from "@/components/overview/overview-issues"
 import { OutboundsOverviewPanel } from "@/components/overview/outbounds-overview-panel"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
@@ -70,6 +71,24 @@ export function OverviewPage() {
     },
   })
   const runtimeOutboundsQuery = useGetRuntimeOutbounds()
+  const healthIssuesQuery = useGetHealthIssues({
+    query: {
+      refetchOnMount: "always",
+      refetchInterval: 45_000,
+      refetchIntervalInBackground: false,
+    },
+  })
+  // The issues are derived from the other three sources; refresh them
+  // whenever one of those changes (the status stream updates two of them).
+  const { refetch: refetchHealthIssues } = healthIssuesQuery
+  useEffect(() => {
+    void refetchHealthIssues()
+  }, [
+    refetchHealthIssues,
+    serviceHealthQuery.dataUpdatedAt,
+    routingHealthQuery.dataUpdatedAt,
+    runtimeOutboundsQuery.dataUpdatedAt,
+  ])
 
   const serviceHealth =
     serviceHealthQuery.data?.status === 200
@@ -103,47 +122,36 @@ export function OverviewPage() {
   const routingHealthErrorMessage = routingHealthQuery.isError
     ? getRoutingHealthErrorMessage(routingHealthQuery.error, t)
     : null
+  const healthIssues =
+    healthIssuesQuery.data?.status === 200
+      ? healthIssuesQuery.data.data
+      : undefined
 
-  const issues = useMemo(
-    () =>
-      collectOverviewIssues({
-        serviceRunning: isServiceRunning,
-        routingHealth,
-        routingHealthError: routingHealthErrorMessage,
-        intercept: serviceHealth?.intercept,
-        requestedDns: requestedInterceptDns,
-        requestedL7: requestedInterceptL7,
-        dnsmasq: serviceHealth?.dnsmasq,
-        runtimeOutbounds,
-        t,
-      }),
-    [
-      isServiceRunning,
-      routingHealth,
-      routingHealthErrorMessage,
-      serviceHealth?.intercept,
-      serviceHealth?.dnsmasq,
-      requestedInterceptDns,
-      requestedInterceptL7,
-      runtimeOutbounds,
-      t,
-    ]
-  )
+  const issues = useMemo(() => {
+    const mapped = mapHealthIssues(healthIssues?.issues ?? [], t)
+    if (routingHealthErrorMessage) {
+      mapped.unshift({
+        key: "routing-error",
+        tone: "bad",
+        title: t("overview.issues.routingCheckFailed"),
+        detail: routingHealthErrorMessage,
+      })
+    }
+    return mapped
+  }, [healthIssues, routingHealthErrorMessage, t])
   const healthySummaries = useMemo(
     () =>
       collectHealthySummaries({
         routingHealth,
-        intercept: serviceHealth?.intercept,
-        requestedDns: requestedInterceptDns,
-        requestedL7: requestedInterceptL7,
+        kernelChecks: healthIssues?.kernel_checks ?? [],
+        kernelRelease: serviceHealth?.intercept?.kernel_release ?? undefined,
         runtimeOutbounds,
         t,
       }),
     [
       routingHealth,
-      serviceHealth?.intercept,
-      requestedInterceptDns,
-      requestedInterceptL7,
+      healthIssues,
+      serviceHealth?.intercept?.kernel_release,
       runtimeOutbounds,
       t,
     ]

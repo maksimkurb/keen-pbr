@@ -23,6 +23,14 @@ void register_health_routing_handler(ApiServer& server, ApiContext& ctx) {
             throw ApiError("Routing health check failed", 500, nlohmann::json(err).dump());
         }
     });
+
+    // GET /api/health/issues - the overview's classified problems.
+    server.get("/api/health/issues", [&ctx]() -> std::string {
+        if (!ctx.get_health_issues_fn) {
+            throw ApiError("Health issues are not available", 503);
+        }
+        return nlohmann::json(ctx.get_health_issues_fn()).dump();
+    });
 }
 
 } // namespace keen_pbr3

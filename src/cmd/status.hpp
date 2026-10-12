@@ -19,6 +19,12 @@ int run_status_command(const Config& config, const std::string& config_path);
 int run_status_command(const Config& config, const std::string& config_path,
                        const nlohmann::json& routing_health);
 
+// As above, plus the service, outbound and issue health of the daemon status
+// response (`service`, `outbounds`, `issues` in daemon_state).
+int run_status_command(const Config& config, const std::string& config_path,
+                       const nlohmann::json& routing_health,
+                       const nlohmann::json& daemon_state);
+
 // A daemon from before canonical control health was available has no report;
 // retain the useful offline route/policy display and mark firewall health
 // unavailable instead of rejecting the response.

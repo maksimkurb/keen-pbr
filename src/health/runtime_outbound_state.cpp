@@ -1,5 +1,3 @@
-#ifdef WITH_API
-
 #include "runtime_outbound_state.hpp"
 
 #include "../config/routing_state.hpp"
@@ -410,4 +408,3 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response_from_routes(
 
 } // namespace keen_pbr3
 
-#endif // WITH_API

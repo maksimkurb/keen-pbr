@@ -447,6 +447,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/RoutingHealthErrorResponse"
 
+  /api/health/issues:
+    get:
+      summary: Health issues and kernel checks
+      description: >
+        Problems found in the service, kernel, routing and outbound health,
+        each classified as an error or a warning, and the kernel checks that
+        apply to the current configuration. The web UI overview and
+        `keen-pbr status` show this same list.
+      operationId: getHealthIssues
+      responses:
+        "200":
+          description: Classified health issues
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthIssuesResponse"
+
   /api/runtime/outbounds:
     get:
       summary: Live outbound and interface runtime state
@@ -3206,6 +3223,122 @@ components:
         - rp_filter_strict: effective IPv4 rp_filter on the interface is 1 (strict)
         - fwmark_mask_conflict: a foreign iptables MARK/CONNMARK rule (mangle/raw, iptables backend only) or `ip rule` writes or matches mark bits overlapping `fwmark.mask`
       example: "nat_missing"
+
+    HealthIssuesResponse:
+      type: object
+      required: [issues, kernel_checks]
+      properties:
+        issues:
+          type: array
+          description: Problems ordered as the overview shows them; empty when healthy.
+          items:
+            $ref: "#/components/schemas/HealthIssue"
+        kernel_checks:
+          type: array
+          description: Kernel checks that apply to the current configuration.
+          items:
+            $ref: "#/components/schemas/KernelCheck"
+
+    HealthIssue:
+      type: object
+      required: [key, severity, code, title, params]
+      properties:
+        key:
+          type: string
+          description: Stable identifier of the issue.
+          example: "outbound-vpn"
+        severity:
+          type: string
+          enum: [error, warning]
+        code:
+          $ref: "#/components/schemas/HealthIssueCode"
+        params:
+          type: object
+          description: >
+            Values for the translated title and detail, for example `tag`,
+            `count`, `feature`, `interface`, `kind`, `name`, `module`, `reason`.
+          additionalProperties:
+            type: string
+        title:
+          type: string
+          description: English title.
+          example: "vpn is unavailable"
+        detail:
+          type: string
+          description: English or raw technical detail.
+        detail_code:
+          $ref: "#/components/schemas/HealthIssueDetailCode"
+        entries:
+          type: array
+          description: The failing items an issue summarizes (rules, tables, members).
+          items:
+            type: string
+        outbound:
+          type: string
+          description: Outbound tag the issue is about.
+
+    HealthIssueCode:
+      type: string
+      enum:
+        - kernel_capability
+        - xt_extension
+        - kernel_probe
+        - intercept_limited
+        - intercept_warning
+        - routing_check_failed
+        - firewall_chain_missing
+        - firewall_prerouting_missing
+        - firewall_rules
+        - route_tables
+        - policy_rules
+        - host_warning
+        - dnsmasq_error
+        - dnsmasq_reconciling
+        - outbound_unavailable
+        - outbound_degraded
+        - group_members_failing
+
+    HealthIssueDetailCode:
+      type: string
+      description: Set when `detail` is a fixed, translatable sentence.
+      enum:
+        - capability_unsupported
+        - capability_fallback
+        - xt_extension_required
+        - xt_extension_unused
+        - kernel_check_failed
+        - dnsmasq_dead
+
+    KernelCheck:
+      type: object
+      required: [key, kind, feature, status, advisory]
+      properties:
+        key:
+          type: string
+          example: "extension:match:multiport"
+        kind:
+          type: string
+          description: One of `capability`, `extension`, `probe`.
+          example: "probe"
+        feature:
+          type: string
+          description: Capability or probe name, or the iptables extension name.
+          example: "nfqueue"
+        status:
+          type: string
+          description: One of `ok`, `unsupported`, `error`, `skipped`, `not_run`.
+          example: "ok"
+        advisory:
+          type: boolean
+          description: A failure only warns (a fallback exists or the rules do not use it).
+        reason:
+          type: string
+        extension_kind:
+          type: string
+          description: Extension checks only, `match` or `target`.
+        kernel_module:
+          type: string
+          description: Extension checks only, the kernel module that provides it.
 
     RoutingHealthErrorResponse:
       type: object
