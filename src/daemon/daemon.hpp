@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../cmd/test_routing.hpp"
 #include "../config/config.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_counters.hpp"
@@ -183,6 +184,11 @@ private:
   void handle_ipc_control_socket();
   bool try_begin_routing_test();
   void finish_routing_test();
+  // Snapshot the active config and runtime state for one routing test. The
+  // returned job runs the test off the event loop (API and control socket).
+  std::function<TestRoutingResult()>
+  make_routing_test_job(const std::string &target,
+                        const TestRoutingCriteria &criteria);
   RoutingHealthReport cached_routing_health();
   void invalidate_routing_health_cache();
   void log_routing_health_warnings_if_changed(

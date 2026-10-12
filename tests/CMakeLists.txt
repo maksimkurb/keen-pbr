@@ -171,6 +171,7 @@ add_executable(keen-pbr-tests
   ../src/lists/domain_index.cpp
   ../src/config/list_parser.cpp
   ../src/cmd/test_routing.cpp
+  ../src/cmd/test_routing_json.cpp
   ../src/daemon/list_service.cpp
   ../src/daemon/dnsmasq_manager.cpp
   ../src/daemon/dnsmasq_types.cpp

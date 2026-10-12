@@ -26,7 +26,7 @@ Commands:
   service
   status
   download
-  test-routing <ip-or-domain>
+  test-routing <ip-or-domain> [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
   dnsmasq detect [--json]
   dnsmasq remove <selector>
 ```
@@ -82,7 +82,7 @@ ip6tables -t raw -S
 | `generate-resolver-config dnsmasq` | Print dnsmasq configuration for per-list DNS servers to stdout. |
 | `dnsmasq detect [--json]` | List dnsmasq instances, their DNS endpoints and the instance keen-pbr uses. |
 | `dnsmasq remove <selector>` | Remove the file and settings keen-pbr added to one dnsmasq instance. |
-| `test-routing <ip-or-domain>` | Compare expected and actual routing for the given IP or domain. |
+| `test-routing <ip-or-domain> [packet options]` | Compare expected and actual routing for the given IP or domain. The daemon runs the check, the same way as the routing test in the web UI. |
 
 ### `generate-resolver-config dnsmasq`
 
@@ -226,3 +226,19 @@ IP                        | List Match               | Expected Outbound  | Actu
 2001:4860:4860::8888      | google (via google.com)  | corp_vpn           | corp_vpn           | OK
 142.250.74.14             | google (via google.com)  | corp_vpn           | corp_vpn           | OK
 ```
+
+By default only list membership is checked. To also match rules that use ports, protocol, source address or DSCP, describe the packet:
+
+| Flag | Description |
+|---|---|
+| `--proto <tcp\|udp\|other>` | Packet protocol. |
+| `--src-addr <ip>` | Source address of the client sending the packet. |
+| `--src-port <port>` | Source port. |
+| `--dest-port <port>` | Destination port. |
+| `--dscp <0-63>` | DSCP value. A packet without `--dscp` is treated as DSCP 0. |
+
+```bash {filename="bash"}
+keen-pbr test-routing google.com --proto tcp --dest-port 443 --src-addr 192.168.1.10
+```
+
+If a rule depends on a field you did not give (for example `src_addr`), that IP shows `(unknown)`.

@@ -26,7 +26,7 @@ Commands:
   service
   status
   download
-  test-routing <ip-or-domain>
+  test-routing <ip-or-domain> [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
   dnsmasq detect [--json]
   dnsmasq remove <selector>
 ```
@@ -82,7 +82,7 @@ ip6tables -t raw -S
 | `generate-resolver-config dnsmasq` | Вывести в stdout конфигурацию dnsmasq для отдельных DNS-серверов списков. |
 | `dnsmasq detect [--json]` | Показать экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr. |
 | `dnsmasq remove <selector>` | Удалить {{< term "drop-in" >}} и принадлежащие keen-pbr настройки из одного экземпляра dnsmasq. |
-| `test-routing <ip-or-domain>` | Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. |
+| `test-routing <ip-or-domain> [параметры пакета]` | Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. Проверку выполняет служба, так же как проверку маршрутизации в веб-интерфейсе. |
 
 ### `generate-resolver-config dnsmasq`
 
@@ -226,3 +226,19 @@ IP                        | List Match               | Expected Outbound  | Actu
 2001:4860:4860::8888      | google (via google.com)  | corp_vpn           | corp_vpn           | OK
 142.250.74.14             | google (via google.com)  | corp_vpn           | corp_vpn           | OK
 ```
+
+По умолчанию проверяется только попадание в списки. Чтобы учесть и правила с портами, протоколом, адресом источника или DSCP, опишите пакет:
+
+| Флаг | Описание |
+|---|---|
+| `--proto <tcp\|udp\|other>` | Протокол пакета. |
+| `--src-addr <ip>` | Адрес клиента, который отправляет пакет. |
+| `--src-port <port>` | Порт источника. |
+| `--dest-port <port>` | Порт назначения. |
+| `--dscp <0-63>` | Значение DSCP. Без `--dscp` пакет считается с DSCP 0. |
+
+```bash {filename="bash"}
+keen-pbr test-routing google.com --proto tcp --dest-port 443 --src-addr 192.168.1.10
+```
+
+Если правило зависит от поля, которое вы не указали (например, `src_addr`), для этого IP будет `(unknown)`.

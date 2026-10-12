@@ -295,6 +295,7 @@ set(SOURCES
   src/cmd/dnsmasq_cmd.cpp
   src/cmd/status.cpp
   src/cmd/test_routing.cpp
+  src/cmd/test_routing_json.cpp
   src/routing/target.cpp
   src/routing/netlink.cpp
   src/routing/interface_monitor.cpp

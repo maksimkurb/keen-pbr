@@ -1,6 +1,6 @@
+#include <charconv>
 #include <cstdlib>
 #include <cstring>
-#include <ctime>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -79,6 +79,9 @@ struct CliOptions {
   std::vector<std::string> dnsmasq_args;
   bool run_test_routing{false};
   std::string test_routing_target;
+  // Optional packet fields for test-routing, in the API request shape.
+  nlohmann::json test_routing_packet = nlohmann::json::object();
+  keen_pbr3::TestRoutingCriteria test_routing_criteria;
   bool show_help{false};
   bool show_version{false};
   bool hash_password{false};
@@ -114,14 +117,34 @@ void print_usage(const char *argv0) {
                "status and exit\n"
             << "  download                           Download all configured "
                "lists to cache and exit\n"
-            << "  test-routing <ip-or-domain>        Test expected vs actual "
+            << "  test-routing <ip-or-domain> [packet options]\n"
+            << "                                     Test expected vs actual "
                "routing for an IP or domain\n"
+            << "      --proto <tcp|udp|other>        Packet protocol\n"
+            << "      --src-addr <ip>                Packet source address\n"
+            << "      --src-port <port>              Packet source port\n"
+            << "      --dest-port <port>             Packet destination port\n"
+            << "      --dscp <0-63>                  Packet DSCP (default: 0)\n"
             << "  generate-resolver-config dnsmasq   Print the dnsmasq config generated "
                "from dns.rules/dns.fallback (cached lists only; used as "
                "dnsmasq conf-script, always exits 0)\n"
             << "  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses\n"
             << "  dnsmasq remove <selector>          Remove keen-pbr's drop-in and owned settings from one dnsmasq instance\n"
             << "  hash-password [--update]           Generate an authentication password hash; --update writes config.json\n";
+}
+
+long parse_cli_integer(const char *flag, const char *text, long minimum,
+                       long maximum) {
+  long value = 0;
+  const char *end = text + std::strlen(text);
+  const auto parsed = std::from_chars(text, end, value);
+  if (parsed.ec != std::errc{} || parsed.ptr != end || value < minimum ||
+      value > maximum) {
+    std::cerr << "Error: " << flag << " must be an integer between " << minimum
+              << " and " << maximum << "\n";
+    std::exit(1);
+  }
+  return value;
 }
 
 CliOptions parse_args(int argc, char *argv[]) {
@@ -198,6 +221,43 @@ CliOptions parse_args(int argc, char *argv[]) {
       }
       opts.test_routing_target = argv[++i];
       opts.run_test_routing = true;
+    } else if (std::strcmp(argv[i], "--proto") == 0 ||
+               std::strcmp(argv[i], "--src-addr") == 0 ||
+               std::strcmp(argv[i], "--src-port") == 0 ||
+               std::strcmp(argv[i], "--dest-port") == 0 ||
+               std::strcmp(argv[i], "--dscp") == 0) {
+      const char *flag = argv[i];
+      if (i + 1 >= argc) {
+        std::cerr << "Error: " << flag << " requires an argument\n";
+        std::exit(1);
+      }
+      const char *value = argv[++i];
+      auto &packet = opts.test_routing_packet;
+      auto &criteria = opts.test_routing_criteria;
+      if (std::strcmp(flag, "--proto") == 0) {
+        if (std::strcmp(value, "tcp") != 0 && std::strcmp(value, "udp") != 0 &&
+            std::strcmp(value, "other") != 0) {
+          std::cerr << "Error: --proto must be tcp, udp or other\n";
+          std::exit(1);
+        }
+        packet["proto"] = value;
+        criteria.proto = value;
+      } else if (std::strcmp(flag, "--src-addr") == 0) {
+        packet["src_addr"] = value;
+        criteria.src_addr = value;
+      } else if (std::strcmp(flag, "--src-port") == 0) {
+        const long port = parse_cli_integer(flag, value, 1, 65535);
+        packet["src_port"] = port;
+        criteria.src_port = static_cast<std::uint16_t>(port);
+      } else if (std::strcmp(flag, "--dest-port") == 0) {
+        const long port = parse_cli_integer(flag, value, 1, 65535);
+        packet["dest_port"] = port;
+        criteria.dest_port = static_cast<std::uint16_t>(port);
+      } else {
+        const long dscp = parse_cli_integer(flag, value, 0, 63);
+        packet["dscp"] = dscp;
+        criteria.dscp = static_cast<std::uint8_t>(dscp);
+      }
     } else if (std::strcmp(argv[i], "hash-password") == 0) {
       opts.hash_password = true;
     } else if (std::strcmp(argv[i], "--update") == 0) {
@@ -207,6 +267,11 @@ CliOptions parse_args(int argc, char *argv[]) {
       print_usage(argv[0]);
       std::exit(1);
     }
+  }
+  if (!opts.test_routing_packet.empty() && !opts.run_test_routing) {
+    std::cerr << "Error: --proto, --src-addr, --src-port, --dest-port and "
+                 "--dscp are only supported with test-routing\n";
+    std::exit(1);
   }
   return opts;
 }
@@ -251,8 +316,8 @@ void set_signal_action(int signum, void (*handler)(int)) {
 }
 
 nlohmann::json request_control_state(const std::string &operation,
-                                     const std::string &target = "",
-                                     nlohmann::json fields = nlohmann::json::object()) {
+                                     nlohmann::json fields = nlohmann::json::object(),
+                                     int total_read_timeout_ms = 5000) {
   constexpr std::chrono::milliseconds backoff[] = {
       std::chrono::milliseconds{0}, std::chrono::milliseconds{100},
       std::chrono::milliseconds{300}, std::chrono::milliseconds{700}};
@@ -265,11 +330,10 @@ nlohmann::json request_control_state(const std::string &operation,
       fields["request_id"] =
           "cli-" + operation + "-" + std::to_string(getpid());
       fields["operation"] = operation;
-      if (!target.empty()) fields["target"] = target;
       auto response = keen_pbr3::ipc::request_control(
           KEEN_PBR_CONTROL_SOCKET,
           fields,
-          1000, 5000);
+          1000, total_read_timeout_ms);
       const auto code = response.value("error", nlohmann::json::object())
                             .value("code", "");
       if (code != "busy")
@@ -284,25 +348,14 @@ nlohmann::json request_control_state(const std::string &operation,
       "control socket remained busy after retries");
 }
 
-std::vector<keen_pbr3::RuleState>
-parse_realized_rules(const nlohmann::json &result) {
-  std::vector<keen_pbr3::RuleState> rules;
-  for (const auto &item :
-       result.value("realized_rules", nlohmann::json::array())) {
-    const int action = item.value("action_type", 3);
-    if (action < static_cast<int>(keen_pbr3::RuleActionType::Mark) ||
-        action > static_cast<int>(keen_pbr3::RuleActionType::Skip)) {
-      throw std::runtime_error("Invalid realized control rule action");
-    }
-    keen_pbr3::RuleState rule{};
-    rule.rule_index = item.value("rule_index", std::size_t{0});
-    rule.set_names = item.value("set_names", std::vector<std::string>{});
-    rule.outbound_tag = item.value("outbound_tag", "");
-    rule.action_type = static_cast<keen_pbr3::RuleActionType>(action);
-    rule.fwmark = item.value("fwmark", std::uint32_t{0});
-    rules.push_back(std::move(rule));
-  }
-  return rules;
+// The daemon resolves the domain and probes the firewall sets, which can
+// take longer than the other control operations.
+constexpr int kTestRoutingReadTimeoutMs = 30000;
+
+nlohmann::json test_routing_request_body(const CliOptions &opts) {
+  nlohmann::json body = opts.test_routing_packet;
+  body["target"] = opts.test_routing_target;
+  return body;
 }
 
 keen_pbr3::Config load_committed_config(const std::string &path) {
@@ -550,7 +603,12 @@ int main(int argc, char *argv[]) {
                  {"request_id", "cli-" + operation},
                  {"operation", operation},
                  {"reload", opts.download_reload}})
-          : request_control_state(operation, opts.test_routing_target);
+          : (opts.run_test_routing
+                 ? request_control_state(
+                       operation,
+                       {{"routing_test", test_routing_request_body(opts)}},
+                       kTestRoutingReadTimeoutMs)
+                 : request_control_state(operation));
       if (!response.value("ok", false)) {
         const auto& error = response.value("error", nlohmann::json::object());
         std::cerr << "keen-pbr " << operation << ": "
@@ -562,34 +620,19 @@ int main(int argc, char *argv[]) {
         std::cout << response.dump() << '\n';
         return 0;
       }
+      if (opts.run_test_routing) {
+        return keen_pbr3::run_test_routing_command(response,
+                                                   opts.test_routing_criteria);
+      }
       const auto &state = response.at("result");
       const auto config_path = state.value(
           "config_path", std::string(KEEN_PBR_DEFAULT_CONFIG_PATH));
       const auto config = load_committed_config(config_path);
-      if (opts.run_status) {
-        if (!state.contains("routing_health") || state.at("routing_health").is_null()) {
-          return keen_pbr3::run_status_command(config, config_path,
-                                               nullptr);
-        }
-        return keen_pbr3::run_status_command(
-            config, config_path, state.at("routing_health"));
+      if (!state.contains("routing_health") || state.at("routing_health").is_null()) {
+        return keen_pbr3::run_status_command(config, config_path, nullptr);
       }
-      const auto rules = parse_realized_rules(state);
-      const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
-                                 .cache_dir.value_or("/var/cache/keen-pbr");
-      keen_pbr3::CacheManager cache(cache_dir,
-                                    keen_pbr3::max_file_size_bytes(config));
-      if (opts.run_test_routing) {
-        const auto resolver =
-            state.contains("dnsmasq_resolver")
-                ? keen_pbr3::routing_dns_resolver_from_json(state.at("dnsmasq_resolver"))
-                : std::nullopt;
-        const keen_pbr3::RoutingDnsResolver effective =
-            resolver ? *resolver : keen_pbr3::default_routing_dns_resolver(config);
-        return keen_pbr3::run_test_routing_command(
-            config, cache, opts.test_routing_target, rules, &effective);
-      }
-      return 0;
+      return keen_pbr3::run_status_command(config, config_path,
+                                           state.at("routing_health"));
     }
 
     // Parse directly from the file and destroy the stream before the daemon is

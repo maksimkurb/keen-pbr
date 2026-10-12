@@ -1,4 +1,5 @@
 #include "test_routing.hpp"
+#include "test_routing_json.hpp"
 
 #include "../config/routing_state.hpp"
 #include "../dns/dns_client.hpp"
@@ -514,10 +515,8 @@ std::optional<bool> match_rule_criteria(const RouteRule& rule,
         result = combine_match(result, address_match);
     }
     if (criteria.dscp.has_value()) {
-        result = combine_match(result,
-                               packet.dscp.has_value()
-                                   ? std::optional<bool>{*criteria.dscp == *packet.dscp}
-                                   : std::nullopt);
+        // A packet without a DSCP marking carries DSCP 0.
+        result = combine_match(result, *criteria.dscp == packet.dscp.value_or(0));
     }
 
     return result;
@@ -958,7 +957,23 @@ TestRoutingResult compute_test_routing(const Config& config,
 }
 
 namespace {
-int render_test_routing_result(const TestRoutingResult& result) {
+std::string describe_packet_criteria(const TestRoutingCriteria& criteria) {
+    std::vector<std::string> parts;
+    if (criteria.proto) parts.push_back("proto=" + *criteria.proto);
+    if (criteria.src_addr) parts.push_back("src_addr=" + *criteria.src_addr);
+    if (criteria.src_port) parts.push_back("src_port=" + std::to_string(*criteria.src_port));
+    if (criteria.dest_port) parts.push_back("dest_port=" + std::to_string(*criteria.dest_port));
+    if (criteria.dscp) parts.push_back("dscp=" + std::to_string(*criteria.dscp));
+    std::string out;
+    for (const auto& part : parts) {
+        if (!out.empty()) out += ' ';
+        out += part;
+    }
+    return out;
+}
+
+int render_test_routing_result(const TestRoutingResult& result,
+                               const TestRoutingCriteria& criteria = {}) {
     for (const auto& w : result.warnings) {
         std::cerr << "Warning: " << w << "\n";
     }
@@ -967,6 +982,9 @@ int render_test_routing_result(const TestRoutingResult& result) {
     }
 
     std::cout << "Target: " << result.target << "\n";
+    if (criteria.has_any()) {
+        std::cout << "Packet: " << describe_packet_criteria(criteria) << "\n";
+    }
     if (result.is_domain) {
         if (result.dns && result.dns->resolver == "dnsmasq") {
             std::cout << "DNS resolver: dnsmasq " << result.dns->endpoint.value_or("")
@@ -1031,54 +1049,10 @@ int run_test_routing_command(const Config& config,
     return render_test_routing_result(compute_test_routing(config, cache, target));
 }
 
-int run_test_routing_command(const Config& config,
-                              const CacheManager& cache,
-                              const std::string& target,
-                              const std::vector<RuleState>& realized_rule_states,
-                              const RoutingDnsResolver* dns_resolver) {
-    return render_test_routing_result(compute_test_routing(
-        config, cache, target, TestRoutingCriteria{}, &realized_rule_states, {}, dns_resolver));
-}
-
-int run_test_routing_command(const nlohmann::json& response) {
-    const auto& payload = response.at("result");
-    TestRoutingResult result;
-    result.target = payload.value("target", "");
-    result.is_domain = payload.value("is_domain", false);
-    result.resolved_ips = payload.value("resolved_ips", std::vector<std::string>{});
-    if (payload.contains("dns") && payload.at("dns").is_object()) {
-        const auto& d = payload.at("dns");
-        TestRoutingDnsInfo info;
-        info.resolver = d.value("resolver", "system");
-        const auto opt = [&](const char* key) -> std::optional<std::string> {
-            if (d.contains(key) && d.at(key).is_string()) return d.at(key).get<std::string>();
-            return std::nullopt;
-        };
-        info.endpoint = opt("endpoint");
-        info.instance = opt("instance");
-        info.a_status = opt("a_status");
-        info.aaaa_status = opt("aaaa_status");
-        info.cname_chain = d.value("cname_chain", std::vector<std::string>{});
-        result.dns = std::move(info);
-    }
-    result.warnings = payload.value("warnings", std::vector<std::string>{});
-    if (payload.contains("dns_error") && !payload.at("dns_error").is_null()) {
-        result.dns_error = payload.at("dns_error").get<std::string>();
-    }
-    for (const auto& item : payload.value("entries", nlohmann::json::array())) {
-        TestRoutingEntry entry;
-        entry.ip = item.value("ip", "");
-        entry.expected_outbound = item.value("expected_outbound", "(unknown)");
-        entry.actual_outbound = item.value("actual_outbound", "(unknown)");
-        entry.ok = item.value("ok", false);
-        if (item.contains("list_match") && item.at("list_match").is_object()) {
-            entry.list_match = ListMatchInfo{
-                item.at("list_match").value("list_name", ""),
-                item.at("list_match").value("via", "")};
-        }
-        result.entries.push_back(std::move(entry));
-    }
-    return render_test_routing_result(result);
+int run_test_routing_command(const nlohmann::json& response,
+                             const TestRoutingCriteria& criteria) {
+    return render_test_routing_result(
+        test_routing_result_from_json(response.at("result")), criteria);
 }
 
 } // namespace keen_pbr3

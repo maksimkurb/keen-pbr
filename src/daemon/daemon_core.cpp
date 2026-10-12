@@ -27,6 +27,7 @@
 #include <thread>
 #include <unistd.h>
 
+#include "../cmd/test_routing_json.hpp"
 #include "../crash/crash_diagnostics.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
@@ -35,7 +36,6 @@
 #include "../ipc/control_protocol.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
-#include "../util/ipv6_support.hpp"
 #include "../util/safe_exec.hpp"
 #include "scheduler.hpp"
 
@@ -125,6 +125,21 @@ RoutingHealthReport unavailable_routing_health(
   report.firewall_chain.verification_state = state;
   report.firewall_chain.detail = std::move(detail);
   return report;
+}
+
+SetWriteEvidence make_set_write_evidence(
+    const std::optional<SetElementCache::Lookup>& lookup) {
+  if (!lookup.has_value()) {
+    return {SetWriteEvidenceStatus::NotTracked, std::nullopt};
+  }
+  if (lookup->state == SetElementCache::State::Unknown) {
+    return {SetWriteEvidenceStatus::NoRecord, std::nullopt};
+  }
+  const int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count();
+  const int64_t age_ms = std::max<int64_t>(0, now_ms - lookup->written_at_ms);
+  return {SetWriteEvidenceStatus::Recorded,
+          static_cast<uint64_t>(age_ms / 1000)};
 }
 
 nlohmann::json control_rule_state_json(const ControlRuntimeSnapshot::Rule &rule) {
@@ -553,6 +568,44 @@ void Daemon::finish_routing_test() {
   routing_tests_inflight_.fetch_sub(1, std::memory_order_acq_rel);
 }
 
+std::function<TestRoutingResult()>
+Daemon::make_routing_test_job(const std::string &target,
+                              const TestRoutingCriteria &criteria) {
+  Config active_config = config_store_.active_config();
+  RoutingDnsResolver dns_resolver =
+      dnsmasq_manager_.routing_resolver(active_config);
+  auto realized_rules =
+      runtime_state_store_.snapshot().firewall_state.get_rules();
+  std::shared_ptr<InterceptService> intercept_service;
+  std::shared_ptr<const InterceptSnapshot> intercept_snapshot;
+  {
+    KPBR_LOCK_GUARD(intercept_mutex_);
+    intercept_service = intercept_service_;
+    if (intercept_service) {
+      intercept_snapshot = intercept_service->current_snapshot();
+    }
+  }
+  return [this, active_config = std::move(active_config),
+          dns_resolver = std::move(dns_resolver),
+          realized_rules = std::move(realized_rules), target, criteria,
+          intercept_service, intercept_snapshot] {
+    return compute_test_routing(
+        active_config, list_service_.cache_manager(), target, criteria,
+        &realized_rules,
+        [intercept_service, intercept_snapshot](const std::string &set_name,
+                                                const std::string &ip) {
+          if (!intercept_service || !intercept_snapshot ||
+              !intercept_service->running()) {
+            return SetWriteEvidence{};
+          }
+          return make_set_write_evidence(
+              intercept_service->lookup_set_write_evidence(intercept_snapshot,
+                                                           set_name, ip));
+        },
+        &dns_resolver);
+  };
+}
+
 RoutingHealthReport Daemon::cached_routing_health() {
   const auto runtime_snapshot = runtime_state_store_.snapshot();
   const auto backend = firewall_->backend();
@@ -755,11 +808,60 @@ void Daemon::handle_ipc_control_socket() {
             operation != "test-routing") {
           response = ipc::make_error_response(request, "unsupported_operation",
                                               "unsupported control operation");
-        } else if (operation == "status" || operation == "test-routing") {
-          const bool include_realized_rules =
-              operation == "status" || operation == "test-routing";
-          const auto snapshot =
-              runtime_state_store_.control_snapshot(include_realized_rules);
+        } else if (operation == "test-routing") {
+          // Same job as POST /api/routing/test. It runs on the routing-test
+          // executor, which sends the response and closes the client.
+          if (runtime_state_store_.control_snapshot(false).runtime_state ==
+              RuntimeState::applying) {
+            response = ipc::make_error_response(
+                request, "busy", "runtime configuration is being applied");
+          } else {
+            TestRoutingRequest test_request;
+            try {
+              test_request = parse_test_routing_request(
+                  request.value("routing_test", nlohmann::json::object()));
+            } catch (const TestRoutingRequestError &error) {
+              response = ipc::make_error_response(request, "invalid_request",
+                                                  error.what());
+              send_control_response_and_close(client, response);
+              continue;
+            }
+            auto job = make_routing_test_job(test_request.target,
+                                             test_request.criteria);
+            if (!try_begin_routing_test()) {
+              response = ipc::make_error_response(
+                  request, "busy", "too many routing tests are already running");
+            } else if (routing_test_executor_.try_post(
+                           "ipc-test-routing",
+                           [this, job = std::move(job), client, request] {
+                             nlohmann::json reply;
+                             try {
+                               reply = {
+                                   {"protocol_version",
+                                    ipc::kControlProtocolVersion},
+                                   {"request_id", request.at("request_id")},
+                                   {"ok", true},
+                                   {"result", test_routing_result_to_json(job())}};
+                             } catch (const std::exception &error) {
+                               reply = ipc::make_error_response(
+                                   request, "routing_test_failed", error.what());
+                             } catch (...) {
+                               reply = ipc::make_error_response(
+                                   request, "routing_test_failed",
+                                   "unknown error");
+                             }
+                             finish_routing_test();
+                             send_control_response_and_close(client, reply);
+                           })) {
+              continue;
+            } else {
+              finish_routing_test();
+              response = ipc::make_error_response(
+                  request, "busy", "routing test executor queue is full");
+            }
+          }
+        } else if (operation == "status") {
+          const auto snapshot = runtime_state_store_.control_snapshot(true);
           if (snapshot.runtime_state == RuntimeState::applying) {
             response = ipc::make_error_response(
                 request, "busy", "runtime configuration is being applied");
@@ -770,9 +872,7 @@ void Daemon::handle_ipc_control_socket() {
             // default instead of probing the firewall on this event loop.
             const bool ipv6_enabled = generation_snapshot_.has_value()
                                           ? generation_snapshot_->ipv6_enabled
-                                          : (operation == "status"
-                                                 ? true
-                                                 : resolve_ipv6_support(config_).enabled);
+                                          : true;
             const bool intercept_dns_hold =
                 generation_snapshot_.has_value()
                     ? generation_snapshot_->intercept_dns_hold
@@ -782,14 +882,8 @@ void Daemon::handle_ipc_control_socket() {
                 intercept_dns_hold,
                 runtime_generation_.load(std::memory_order_acquire),
                 config_path_);
-            if (operation == "test-routing") {
-              result["dnsmasq_resolver"] =
-                  routing_dns_resolver_to_json(dnsmasq_manager_.routing_resolver(config_));
-            }
-            if (operation == "status") {
-              result["routing_health"] =
-                  routing_health_report_to_json(cached_routing_health());
-            }
+            result["routing_health"] =
+                routing_health_report_to_json(cached_routing_health());
             response = {
                 {"protocol_version", ipc::kControlProtocolVersion},
                 {"request_id", request.at("request_id")},

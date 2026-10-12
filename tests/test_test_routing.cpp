@@ -2,6 +2,7 @@
 
 #include "../src/cache/cache_manager.hpp"
 #include "../src/cmd/test_routing.hpp"
+#include "../src/cmd/test_routing_json.hpp"
 #include "fake_dns_server.hpp"
 
 #include <arpa/inet.h>
@@ -351,6 +352,45 @@ TEST_CASE("compute_test_routing evaluates source CIDR and negation") {
     std::filesystem::remove_all(temp_dir);
 }
 
+TEST_CASE("compute_test_routing treats an omitted DSCP as zero") {
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir / "cache");
+    cache.ensure_dir();
+
+    const auto list_path = temp_dir / "remote.txt";
+    {
+        std::ofstream list(list_path);
+        list << "203.0.113.10/32\n";
+    }
+    Config config = build_test_config();
+    ListConfig remote;
+    remote.file = list_path.string();
+    config.lists = std::map<std::string, ListConfig>{{"remote", remote}};
+    RouteRule dscp_rule;
+    dscp_rule.outbound = "wan";
+    dscp_rule.dscp = 44;
+    RouteRule list_rule;
+    list_rule.outbound = "vpn";
+    list_rule.list = std::vector<std::string>{"remote"};
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{dscp_rule, list_rule};
+    config.route = route;
+
+    TestRoutingCriteria packet;
+    packet.proto = "tcp";
+    packet.dest_port = 443;
+    const auto unmarked = compute_test_routing(config, cache, "203.0.113.10", packet);
+    CHECK(unmarked.entries.front().expected_outbound == "vpn");
+    CHECK(unmarked.entries.front().matched_rule_index == 1);
+
+    packet.dscp = 44;
+    const auto marked = compute_test_routing(config, cache, "203.0.113.10", packet);
+    CHECK(marked.entries.front().expected_outbound == "wan");
+    CHECK(marked.entries.front().matched_rule_index == 0);
+
+    std::filesystem::remove_all(temp_dir);
+}
+
 TEST_CASE("compute_test_routing reports unknown when packet criteria are incomplete") {
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir / "cache");
@@ -618,27 +658,34 @@ TEST_CASE("daemon test-routing response is rendered as a human-readable table") 
         {"ok", true},
         {"result",
          {{"target", "example.com"},
+          {"is_domain", true},
+          {"no_matching_rule", false},
           {"resolved_ips", {"203.0.113.10"}},
           {"warnings", nlohmann::json::array()},
           {"dns_error", nullptr},
-          {"entries",
+          {"rule_diagnostics", nlohmann::json::array()},
+          {"results",
            {{{"ip", "203.0.113.10"},
              {"expected_outbound", "vpn"},
              {"actual_outbound", "vpn"},
              {"ok", true},
-             {"list_match", {{"list_name", "domains"}, {"via", "example.com"}}}}}}}}};
+             {"list_match", {{"list", "domains"}, {"via", "example.com"}}}}}}}}};
 
     std::ostringstream stdout_capture;
     std::ostringstream stderr_capture;
     auto* previous_stdout = std::cout.rdbuf(stdout_capture.rdbuf());
     auto* previous_stderr = std::cerr.rdbuf(stderr_capture.rdbuf());
-    const int exit_code = run_test_routing_command(response);
+    TestRoutingCriteria criteria;
+    criteria.proto = "tcp";
+    criteria.dest_port = 443;
+    const int exit_code = run_test_routing_command(response, criteria);
     std::cout.rdbuf(previous_stdout);
     std::cerr.rdbuf(previous_stderr);
 
     CHECK(exit_code == 0);
     CHECK(stderr_capture.str().empty());
     CHECK(stdout_capture.str().find("Target: example.com") != std::string::npos);
+    CHECK(stdout_capture.str().find("Packet: proto=tcp dest_port=443") != std::string::npos);
     CHECK(stdout_capture.str().find("Expected Outbound") != std::string::npos);
     CHECK(stdout_capture.str().find("domains (via example.com)") != std::string::npos);
     CHECK(stdout_capture.str().find("{\"") == std::string::npos);
@@ -783,4 +830,64 @@ TEST_CASE("compute_test_routing leaves dns unset for IP targets") {
     const auto result = compute_test_routing(build_test_config(), cache, "192.0.2.1");
     CHECK_FALSE(result.dns.has_value());
     std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("parse_test_routing_request accepts packet fields and rejects bad ones") {
+    const auto request = parse_test_routing_request(
+        {{"target", "203.0.113.10"}, {"proto", "udp"}, {"dest_port", 53},
+         {"src_addr", "192.168.1.10"}, {"src_port", 5353}, {"dscp", 44}});
+    CHECK(request.target == "203.0.113.10");
+    CHECK(request.criteria.proto == std::optional<std::string>("udp"));
+    CHECK(request.criteria.dest_port == std::optional<uint16_t>(53));
+    CHECK(request.criteria.src_addr == std::optional<std::string>("192.168.1.10"));
+    CHECK(request.criteria.src_port == std::optional<uint16_t>(5353));
+    CHECK(request.criteria.dscp == std::optional<uint8_t>(44));
+
+    CHECK_FALSE(parse_test_routing_request({{"target", "example.com"}}).criteria.has_any());
+    CHECK_THROWS_AS(parse_test_routing_request({{"target", ""}}), TestRoutingRequestError);
+    CHECK_THROWS_AS(parse_test_routing_request({{"target", "x"}, {"proto", "icmp"}}),
+                    TestRoutingRequestError);
+    CHECK_THROWS_AS(parse_test_routing_request({{"target", "x"}, {"dscp", 64}}),
+                    TestRoutingRequestError);
+    CHECK_THROWS_AS(parse_test_routing_request({{"target", "x"}, {"dest_port", 0}}),
+                    TestRoutingRequestError);
+    CHECK_THROWS_AS(parse_test_routing_request(
+                        {{"target", "203.0.113.10"}, {"src_addr", "2001:db8::1"}}),
+                    TestRoutingRequestError);
+    CHECK_THROWS_AS(parse_test_routing_request(nlohmann::json::array()),
+                    TestRoutingRequestError);
+}
+
+TEST_CASE("test-routing result survives the API JSON round trip") {
+    TestRoutingResult result;
+    result.target = "example.com";
+    result.is_domain = true;
+    result.resolved_ips = {"203.0.113.10"};
+    result.warnings = {"w"};
+    result.dns = TestRoutingDnsInfo{"dnsmasq", "127.0.0.1:53", "uci:x", "ok", "nodata", {}};
+    TestRoutingEntry entry;
+    entry.ip = "203.0.113.10";
+    entry.expected_outbound = "vpn";
+    entry.actual_outbound = "vpn";
+    entry.ok = true;
+    entry.matched_rule_index = 3;
+    entry.criteria_match = true;
+    entry.list_match = ListMatchInfo{"domains", "example.com"};
+    result.entries.push_back(entry);
+
+    const auto json = test_routing_result_to_json(result);
+    CHECK(json.at("results").at(0).at("list_match").at("list") == "domains");
+
+    const auto back = test_routing_result_from_json(json);
+    CHECK(back.target == "example.com");
+    CHECK(back.is_domain);
+    CHECK(back.warnings == std::vector<std::string>{"w"});
+    REQUIRE(back.dns.has_value());
+    CHECK(back.dns->resolver == "dnsmasq");
+    CHECK(back.dns->aaaa_status == std::optional<std::string>("nodata"));
+    REQUIRE(back.entries.size() == 1);
+    CHECK(back.entries[0].expected_outbound == "vpn");
+    CHECK(back.entries[0].matched_rule_index == std::optional<int>(3));
+    REQUIRE(back.entries[0].list_match.has_value());
+    CHECK(back.entries[0].list_match->via == "example.com");
 }

@@ -138,13 +138,10 @@ TestRoutingResult compute_test_routing(const Config& config,
 int run_test_routing_command(const Config& config,
                               const CacheManager& cache,
                               const std::string& target);
-int run_test_routing_command(const Config& config,
-                             const CacheManager& cache,
-                             const std::string& target,
-                             const std::vector<RuleState>& realized_rule_states,
-                             const RoutingDnsResolver* dns_resolver = nullptr);
 
 // Render a test-routing response obtained from the daemon control socket.
-int run_test_routing_command(const nlohmann::json& response);
+// criteria are the packet fields the request carried, echoed in the header.
+int run_test_routing_command(const nlohmann::json& response,
+                             const TestRoutingCriteria& criteria = {});
 
 } // namespace keen_pbr3
