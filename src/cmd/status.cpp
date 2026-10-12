@@ -62,6 +62,8 @@ case OutboundType::ICMPTEST: return "icmptest";
 
 struct UrltestRuleInfo {
     std::string urltest_tag;
+    std::optional<uint32_t> own_mark;
+    std::vector<std::string> child_tags;
     std::map<uint32_t, std::string> child_tags_by_mark;
 };
 
@@ -194,10 +196,14 @@ std::map<std::string, UrltestRuleInfo> build_urltest_rule_info_by_set(
 
         UrltestRuleInfo info;
         info.urltest_tag = outbound->tag;
+        if (const auto own_it = marks.find(outbound->tag); own_it != marks.end()) {
+            info.own_mark = own_it->second;
+        }
 
         if (outbound->outbound_groups) {
             for (const auto& group : *outbound->outbound_groups) {
                 for (const auto& child_tag : outbound_group_tags(group)) {
+                    info.child_tags.push_back(child_tag);
                     auto mark_it = marks.find(child_tag);
                     if (mark_it != marks.end()) {
                         info.child_tags_by_mark.emplace(mark_it->second, child_tag);
@@ -206,7 +212,7 @@ std::map<std::string, UrltestRuleInfo> build_urltest_rule_info_by_set(
             }
         }
 
-        if (info.child_tags_by_mark.empty()) {
+        if (info.child_tags_by_mark.empty() && !info.own_mark) {
             continue;
         }
 
@@ -218,14 +224,38 @@ std::map<std::string, UrltestRuleInfo> build_urltest_rule_info_by_set(
     return infos;
 }
 
+// A urltest/icmptest outbound marks traffic with its own fwmark; its lookup
+// policy rule points at the selected child's table.
+std::optional<std::string> selected_child_by_policy_rule(
+    const UrltestRuleInfo& info,
+    const std::map<std::string, uint32_t>& outbound_tables,
+    const std::vector<PolicyRuleCheck>& policy_rules) {
+    const auto rule = std::find_if(
+        policy_rules.begin(), policy_rules.end(), [&](const PolicyRuleCheck& pr) {
+            return pr.fwmark == *info.own_mark && pr.expected_action == "lookup";
+        });
+    if (rule == policy_rules.end()) {
+        return std::nullopt;
+    }
+    for (const auto& child_tag : info.child_tags) {
+        const auto table = outbound_tables.find(child_tag);
+        if (table != outbound_tables.end() && table->second == rule->expected_table) {
+            return child_tag;
+        }
+    }
+    return std::nullopt;
+}
+
 std::vector<DisplayFirewallRule> build_display_firewall_rules(
     const Config& config,
     const OutboundMarkMap& marks,
-    const std::vector<FirewallRuleCheck>& checks) {
+    const std::vector<FirewallRuleCheck>& checks,
+    const std::vector<PolicyRuleCheck>& policy_rules) {
     std::vector<DisplayFirewallRule> display_rules;
     display_rules.reserve(checks.size());
 
     const auto urltest_rule_info_by_set = build_urltest_rule_info_by_set(config, marks);
+    const auto outbound_tables = build_outbound_table_map(config);
 
     for (const auto& check : checks) {
         DisplayFirewallRule display{
@@ -242,8 +272,12 @@ std::vector<DisplayFirewallRule> build_display_firewall_rules(
         if (info_it != urltest_rule_info_by_set.end() &&
             check.action == "mark" &&
             check.actual_fwmark.has_value()) {
+            const auto& info = info_it->second;
             const auto child_it = info_it->second.child_tags_by_mark.find(*check.actual_fwmark);
-            if (child_it != info_it->second.child_tags_by_mark.end()) {
+            if (info.own_mark && *check.actual_fwmark == *info.own_mark) {
+                display.selected_outbound =
+                    selected_child_by_policy_rule(info, outbound_tables, policy_rules);
+            } else if (child_it != info_it->second.child_tags_by_mark.end()) {
                 display.selected_outbound = child_it->second;
                 display.expected_fwmark = check.actual_fwmark;
                 display.status = CheckStatus::ok;
@@ -502,7 +536,7 @@ int render_status_report(const Config& config,
     auto marks = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
                                          config.outbounds.value_or(std::vector<Outbound>{}));
     auto display_firewall_rules =
-        build_display_firewall_rules(config, marks, report.firewall_rules);
+        build_display_firewall_rules(config, marks, report.firewall_rules, report.policy_rules);
     if (report.firewall_rules.empty() && firewall_verification_unavailable(report)) {
         display_firewall_rules = build_unavailable_firewall_rules(
             config, marks, report.firewall_chain.detail);
