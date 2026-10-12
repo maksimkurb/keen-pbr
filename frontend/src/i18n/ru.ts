@@ -485,11 +485,6 @@ export const ruTranslation = {
       lastError: "Последняя ошибка",
       instance: "Экземпляр dnsmasq",
       endpoint: "DNS-адрес",
-      selection: {
-        explicit: "задан в настройках",
-        adopted: "уже используется keen-pbr",
-        automatic: "единственный найденный",
-      },
       errors: {
         DNSMASQ_NO_HOOK: "Эта сборка не умеет управлять dnsmasq.",
         DNSMASQ_HOOK_FAILED: "Ошибка вспомогательного скрипта dnsmasq.",

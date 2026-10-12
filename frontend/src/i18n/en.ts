@@ -477,11 +477,6 @@ export const enTranslation = {
       lastError: "Last error",
       instance: "dnsmasq instance",
       endpoint: "DNS endpoint",
-      selection: {
-        explicit: "set in settings",
-        adopted: "already used by keen-pbr",
-        automatic: "the only one found",
-      },
       errors: {
         DNSMASQ_NO_HOOK: "This build cannot manage dnsmasq.",
         DNSMASQ_HOOK_FAILED: "The dnsmasq helper script failed.",

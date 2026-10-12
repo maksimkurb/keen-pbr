@@ -82,9 +82,6 @@ export function DnsRulesPanel({
             {health?.instance_selector ? (
               <KeyValue label={t("overview.dnsRules.instance")}>
                 <span className="font-mono">{health.instance_selector}</span>
-                {health.instance_selection
-                  ? ` (${t(`overview.dnsRules.selection.${health.instance_selection}`)})`
-                  : null}
               </KeyValue>
             ) : null}
             {health?.endpoint ? (
