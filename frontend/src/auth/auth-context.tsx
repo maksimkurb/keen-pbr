@@ -31,13 +31,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const requireAuth = () => setState((current) => ({ ...current, authenticated: false, loading: false }))
     void check().catch(() => setState({ enabled: false, authenticated: false, deviceName: "", loading: false }))
-    const interval = window.setInterval(() => void check().catch(() => {}), 5_000)
+    const interval = window.setInterval(() => void check().catch(() => {}), 60_000)
     const onFocus = () => void check().catch(() => {})
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") onFocus()
+    }
     window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onVisibilityChange)
     window.addEventListener("keen-pbr-auth-required", requireAuth)
     return () => {
       window.clearInterval(interval)
       window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
       window.removeEventListener("keen-pbr-auth-required", requireAuth)
     }
   }, [])

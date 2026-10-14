@@ -331,7 +331,6 @@ function OutboundForm({
     }
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.healthService() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.healthRouting() }),
     ])
     navigate("/outbounds")

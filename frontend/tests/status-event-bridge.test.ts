@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { QueryClient } from "@tanstack/react-query"
 
 import {
+  getGetConfigQueryKey,
+  getGetHealthRoutingQueryKey,
   getGetHealthServiceQueryKey,
   getGetRuntimeInterfacesQueryKey,
   getGetRuntimeOutboundsQueryKey,
@@ -9,6 +11,7 @@ import {
 import {
   applyStatusEvent,
   getTerminalConfigLifecycleOperationKey,
+  invalidateAfterTerminalConfigOperation,
 } from "../src/api/status-event-cache"
 
 const service = (version: string) => ({ version })
@@ -151,4 +154,20 @@ describe("status event cache bridge", () => {
     ).toBe("rollback-1:failed")
   })
 
+  test("a terminal apply invalidates config and routing health", () => {
+    const client = new QueryClient()
+    client.setQueryData(getGetConfigQueryKey(), { cached: true })
+    client.setQueryData(getGetHealthRoutingQueryKey(), { cached: true })
+    client.setQueryData(getGetHealthServiceQueryKey(), { cached: true })
+    invalidateAfterTerminalConfigOperation(client)
+    expect(client.getQueryState(getGetConfigQueryKey())?.isInvalidated).toBe(
+      true
+    )
+    expect(
+      client.getQueryState(getGetHealthRoutingQueryKey())?.isInvalidated
+    ).toBe(true)
+    expect(
+      client.getQueryState(getGetHealthServiceQueryKey())?.isInvalidated
+    ).toBe(false)
+  })
 })

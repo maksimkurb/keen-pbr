@@ -13,9 +13,9 @@ import { queryKeys } from "@/api/query-keys"
 import {
   useGetConfig,
   useGetConfigDefaults,
-  useGetHealthRouting,
   useGetRuntimeInterfaces,
 } from "@/api/queries"
+import { useRoutingHealthQuery } from "@/api/routing-health"
 import {
   Field,
   FieldContent,
@@ -215,7 +215,7 @@ function LoadedGeneralConfigPage({
   })
   const queryClient = useQueryClient()
   const runtimeInterfacesQuery = useGetRuntimeInterfaces()
-  const routingHealthQuery = useGetHealthRouting()
+  const routingHealthQuery = useRoutingHealthQuery()
   const usesNftables =
     routingHealthQuery.data?.status === 200 &&
     routingHealthQuery.data.data.firewall_backend === "nftables"
@@ -243,7 +243,6 @@ function LoadedGeneralConfigPage({
 
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.healthService() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.healthRouting() }),
     ])
 

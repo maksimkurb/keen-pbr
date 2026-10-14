@@ -12,10 +12,10 @@ import {
 import {
   useGetConfig,
   useGetHealthIssues,
-  useGetHealthRouting,
   useGetHealthService,
   useGetRuntimeOutbounds,
 } from "@/api/queries"
+import { useRoutingHealthQuery } from "@/api/routing-health"
 import { selectConfig } from "@/api/selectors"
 import { useAuth } from "@/auth/auth-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -63,7 +63,7 @@ export function OverviewPage() {
 
   const serviceHealthQuery = useGetHealthService()
   const configQuery = useGetConfig()
-  const routingHealthQuery = useGetHealthRouting({
+  const routingHealthQuery = useRoutingHealthQuery({
     query: {
       refetchOnMount: "always",
       refetchInterval: 45_000,
@@ -78,17 +78,22 @@ export function OverviewPage() {
       refetchIntervalInBackground: false,
     },
   })
-  // The issues are derived from the other three sources; refresh them
-  // whenever one of those changes (the status stream updates two of them).
+  // The issues embed the routing report, so re-read them when a new one
+  // arrives. The first report after mount is skipped: the issues query has
+  // just been refetched on mount as well.
   const { refetch: refetchHealthIssues } = healthIssuesQuery
+  const routingUpdatedAt = routingHealthQuery.dataUpdatedAt
+  const lastRoutingUpdatedAtRef = useRef(routingUpdatedAt)
+  const mountRoutingSeenRef = useRef(false)
   useEffect(() => {
+    if (routingUpdatedAt === lastRoutingUpdatedAtRef.current) return
+    lastRoutingUpdatedAtRef.current = routingUpdatedAt
+    if (!mountRoutingSeenRef.current) {
+      mountRoutingSeenRef.current = true
+      return
+    }
     void refetchHealthIssues()
-  }, [
-    refetchHealthIssues,
-    serviceHealthQuery.dataUpdatedAt,
-    routingHealthQuery.dataUpdatedAt,
-    runtimeOutboundsQuery.dataUpdatedAt,
-  ])
+  }, [refetchHealthIssues, routingUpdatedAt])
 
   const serviceHealth =
     serviceHealthQuery.data?.status === 200

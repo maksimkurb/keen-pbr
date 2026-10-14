@@ -1,6 +1,9 @@
 import { QueryClient } from "@tanstack/react-query"
 
 import {
+  getGetConfigQueryKey,
+  getGetHealthIssuesQueryKey,
+  getGetHealthRoutingQueryKey,
   getGetHealthServiceQueryKey,
   getGetRuntimeInterfacesQueryKey,
   getGetRuntimeOutboundsQueryKey,
@@ -103,4 +106,29 @@ export function getTerminalConfigLifecycleOperationKey(
   }
 
   return `${operation.id}:${operation.status}`
+}
+
+/** Query keys whose data is owned by the status stream. */
+export function statusStreamQueryKeys() {
+  return [
+    getGetHealthServiceQueryKey(),
+    getGetRuntimeOutboundsQueryKey(),
+    getGetRuntimeInterfacesQueryKey(),
+  ] as const
+}
+
+/**
+ * An apply/rollback finished: resync the config and re-read what the new
+ * runtime changed that the stream does not carry (routing health).
+ */
+export function invalidateAfterTerminalConfigOperation(
+  queryClient: QueryClient
+) {
+  for (const queryKey of [
+    getGetConfigQueryKey(),
+    getGetHealthRoutingQueryKey(),
+    getGetHealthIssuesQueryKey(),
+  ]) {
+    void queryClient.invalidateQueries({ queryKey })
+  }
 }

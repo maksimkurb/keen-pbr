@@ -119,13 +119,7 @@ export function OutboundsPage() {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
           queryClient.invalidateQueries({
-            queryKey: queryKeys.healthService(),
-          }),
-          queryClient.invalidateQueries({
             queryKey: queryKeys.healthRouting(),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.runtimeOutbounds(),
           }),
         ])
       },

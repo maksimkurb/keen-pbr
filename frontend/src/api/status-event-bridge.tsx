@@ -1,11 +1,16 @@
 import { useEffect, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
-import { getGetConfigQueryKey } from "@/api/generated/keen-api"
 import {
   applyStatusEvent,
   getTerminalConfigLifecycleOperationKey,
+  invalidateAfterTerminalConfigOperation,
+  statusStreamQueryKeys,
 } from "@/api/status-event-cache"
+import {
+  markStatusQueriesStale,
+  setStatusConnectionState,
+} from "@/api/status-connection"
 import { consumeAuthenticatedSse } from "@/api/authenticated-sse"
 
 const HIDDEN_DISCONNECT_DELAY_MS = 60_000
@@ -19,10 +24,16 @@ export function StatusEventBridge() {
     let hiddenTimer: ReturnType<typeof setTimeout> | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
+    const markDown = () => {
+      setStatusConnectionState("down")
+      markStatusQueriesStale(queryClient, statusStreamQueryKeys())
+    }
+
     const settle = (controller: AbortController) => {
       if (source !== controller || controller.signal.aborted) return
 
       source = null
+      markDown()
       if (reconnectTimer !== null) clearTimeout(reconnectTimer)
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null
@@ -37,6 +48,7 @@ export function StatusEventBridge() {
         reconnectTimer = null
       }
       source = new AbortController()
+      setStatusConnectionState("connecting")
       const controller = source
       void consumeAuthenticatedSse(
         "/api/status/events",
@@ -49,6 +61,7 @@ export function StatusEventBridge() {
           }
 
           applyStatusEvent(queryClient, data)
+          if (event === "snapshot") setStatusConnectionState("live")
           const terminalOperationKey =
             getTerminalConfigLifecycleOperationKey(data)
           if (
@@ -56,9 +69,7 @@ export function StatusEventBridge() {
             terminalOperationKey !== lastConfigResyncOperationRef.current
           ) {
             lastConfigResyncOperationRef.current = terminalOperationKey
-            void queryClient.invalidateQueries({
-              queryKey: getGetConfigQueryKey(),
-            })
+            invalidateAfterTerminalConfigOperation(queryClient)
           }
         }
       ).then(
@@ -68,6 +79,7 @@ export function StatusEventBridge() {
     }
 
     const disconnect = () => {
+      if (source !== null) markDown()
       source?.abort()
       source = null
       if (reconnectTimer !== null) clearTimeout(reconnectTimer)
