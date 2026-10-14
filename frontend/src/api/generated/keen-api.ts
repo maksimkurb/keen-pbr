@@ -2641,7 +2641,7 @@ export function useGetRuntimeInterfaces<TData = Awaited<ReturnType<typeof getRun
 
 
 /**
- * Streams named Server-Sent Events for service health, runtime outbounds, and system interfaces. Every connection receives a snapshot first. Later events contain the complete dataset that changed. Heartbeat comments are sent every 15 seconds; reconnecting starts with a fresh snapshot and no event replay is performed.
+ * Streams named Server-Sent Events for service health, runtime outbounds, system interfaces, and classified health issues (`issues`, the same data as `/api/health/issues`). Every connection receives a snapshot first. Later events contain the complete dataset that changed. Heartbeat comments are sent every 15 seconds; reconnecting starts with a fresh snapshot and no event replay is performed.
 
  * @summary Stream live WebUI status
  */

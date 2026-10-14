@@ -3,6 +3,7 @@ import { QueryClient } from "@tanstack/react-query"
 
 import {
   getGetConfigQueryKey,
+  getGetHealthIssuesQueryKey,
   getGetHealthRoutingQueryKey,
   getGetHealthServiceQueryKey,
   getGetRuntimeInterfacesQueryKey,
@@ -169,5 +170,41 @@ describe("status event cache bridge", () => {
     expect(
       client.getQueryState(getGetHealthServiceQueryKey())?.isInvalidated
     ).toBe(false)
+  })
+
+  test("snapshot and issues events fill the health issues cache", () => {
+    const client = new QueryClient()
+    applyStatusEvent(
+      client,
+      JSON.stringify({
+        type: "snapshot",
+        data: {
+          service: service("1"),
+          outbounds: outbounds("wan"),
+          interfaces: interfaces("eth0"),
+          issues: { issues: [{ key: "a" }], kernel_checks: [] },
+        },
+      })
+    )
+    expect(client.getQueryData(getGetHealthIssuesQueryKey())).toMatchObject({
+      data: { issues: [{ key: "a" }] },
+      status: 200,
+    })
+    const servicesBefore = client.getQueryData(getGetHealthServiceQueryKey())
+    expect(
+      applyStatusEvent(
+        client,
+        JSON.stringify({
+          type: "issues",
+          data: { issues: [], kernel_checks: [] },
+        })
+      )
+    ).toBe(true)
+    expect(client.getQueryData(getGetHealthIssuesQueryKey())).toMatchObject({
+      data: { issues: [] },
+    })
+    expect(client.getQueryData(getGetHealthServiceQueryKey())).toBe(
+      servicesBefore
+    )
   })
 })

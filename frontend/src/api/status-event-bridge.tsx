@@ -55,7 +55,13 @@ export function StatusEventBridge() {
         controller.signal,
         ({ event, data }) => {
           if (
-            !["snapshot", "service", "outbounds", "interfaces"].includes(event)
+            ![
+              "snapshot",
+              "service",
+              "outbounds",
+              "interfaces",
+              "issues",
+            ].includes(event)
           ) {
             return
           }

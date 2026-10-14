@@ -27,10 +27,12 @@ std::string make_named_sse_frame(const std::string &event,
 StatusStream::StatusStream(ServiceBuilder service_builder,
                            OutboundsBuilder outbounds_builder,
                            InterfacesBuilder interfaces_builder,
+                           IssuesBuilder issues_builder,
                            size_t max_queue_size)
     : service_builder_(std::move(service_builder)),
       outbounds_builder_(std::move(outbounds_builder)),
       interfaces_builder_(std::move(interfaces_builder)),
+      issues_builder_(std::move(issues_builder)),
       broadcaster_(max_queue_size) {}
 
 void StatusStream::rebuild(StatusUpdate updates) {
@@ -43,6 +45,9 @@ void StatusStream::rebuild(StatusUpdate updates) {
   if (has_status_update(updates, StatusUpdate::Interfaces)) {
     interfaces_ = serialize(interfaces_builder_());
   }
+  if (has_status_update(updates, StatusUpdate::Issues)) {
+    issues_ = serialize(issues_builder_());
+  }
 }
 
 SseBroadcaster::SubscriptionPtr StatusStream::subscribe() {
@@ -52,6 +57,7 @@ SseBroadcaster::SubscriptionPtr StatusStream::subscribe() {
     initialized_ = true;
   }
   const auto serialized_snapshot = "{\"interfaces\":" + interfaces_ +
+                                   ",\"issues\":" + issues_ +
                                    ",\"outbounds\":" + outbounds_ +
                                    ",\"service\":" + service_ + "}";
   const auto payload = make_event_payload("snapshot", serialized_snapshot);
@@ -66,6 +72,7 @@ void StatusStream::unsubscribe(
     service_.clear();
     outbounds_.clear();
     interfaces_.clear();
+    issues_.clear();
     initialized_ = false;
   }
 }
@@ -73,6 +80,11 @@ void StatusStream::unsubscribe(
 void StatusStream::reconcile(StatusUpdate updates) {
   if (updates == StatusUpdate::None) {
     return;
+  }
+  // The issues are derived from the service and the outbounds.
+  if (has_status_update(updates, StatusUpdate::Service) ||
+      has_status_update(updates, StatusUpdate::Outbounds)) {
+    updates = updates | StatusUpdate::Issues;
   }
   std::vector<std::string> frames;
 
@@ -107,6 +119,14 @@ void StatusStream::reconcile(StatusUpdate updates) {
             "interfaces", make_event_payload("interfaces", interfaces_)));
       }
     }
+    if (has_status_update(updates, StatusUpdate::Issues)) {
+      const auto issues = serialize(issues_builder_());
+      if (issues != issues_) {
+        issues_ = issues;
+        frames.push_back(make_named_sse_frame(
+            "issues", make_event_payload("issues", issues_)));
+      }
+    }
   }
   for (const auto &frame : frames) {
     broadcaster_.publish(frame);
@@ -119,6 +139,7 @@ void StatusStream::close_all() {
   service_.clear();
   outbounds_.clear();
   interfaces_.clear();
+  issues_.clear();
   initialized_ = false;
 }
 

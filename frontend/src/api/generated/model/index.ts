@@ -144,6 +144,8 @@ export * from './runtimeOutboundStateType';
 export * from './runtimeOutboundStatus';
 export * from './statusEventInterfaces';
 export * from './statusEventInterfacesType';
+export * from './statusEventIssues';
+export * from './statusEventIssuesType';
 export * from './statusEventOutbounds';
 export * from './statusEventOutboundsType';
 export * from './statusEventService';

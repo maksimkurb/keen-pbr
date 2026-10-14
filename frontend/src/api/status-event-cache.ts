@@ -7,15 +7,18 @@ import {
   getGetHealthServiceQueryKey,
   getGetRuntimeInterfacesQueryKey,
   getGetRuntimeOutboundsQueryKey,
+  type getHealthIssuesResponseSuccess,
   type getHealthServiceResponseSuccess,
   type getRuntimeInterfacesResponseSuccess,
   type getRuntimeOutboundsResponseSuccess,
 } from "@/api/generated/keen-api"
 import type {
+  HealthIssuesResponse,
   HealthResponse,
   RuntimeInterfaceInventoryResponse,
   RuntimeOutboundsResponse,
   StatusEventInterfaces,
+  StatusEventIssues,
   StatusEventOutbounds,
   StatusEventService,
   StatusEventSnapshot,
@@ -26,6 +29,7 @@ type StatusEvent =
   | StatusEventService
   | StatusEventOutbounds
   | StatusEventInterfaces
+  | StatusEventIssues
 
 function response<T>(data: T) {
   return { data, status: 200 as const, headers: new Headers() }
@@ -58,11 +62,18 @@ export function applyStatusEvent(
       response(data)
     )
 
+  const setIssues = (data: HealthIssuesResponse) =>
+    queryClient.setQueryData<getHealthIssuesResponseSuccess>(
+      getGetHealthIssuesQueryKey(),
+      response(data)
+    )
+
   switch (event?.type) {
     case "snapshot":
       setService(event.data.service)
       setOutbounds(event.data.outbounds)
       setInterfaces(event.data.interfaces)
+      setIssues(event.data.issues)
       break
     case "service":
       setService(event.data)
@@ -72,6 +83,9 @@ export function applyStatusEvent(
       break
     case "interfaces":
       setInterfaces(event.data)
+      break
+    case "issues":
+      setIssues(event.data)
       break
     default:
       return false
@@ -114,6 +128,7 @@ export function statusStreamQueryKeys() {
     getGetHealthServiceQueryKey(),
     getGetRuntimeOutboundsQueryKey(),
     getGetRuntimeInterfacesQueryKey(),
+    getGetHealthIssuesQueryKey(),
   ] as const
 }
 
@@ -127,7 +142,6 @@ export function invalidateAfterTerminalConfigOperation(
   for (const queryKey of [
     getGetConfigQueryKey(),
     getGetHealthRoutingQueryKey(),
-    getGetHealthIssuesQueryKey(),
   ]) {
     void queryClient.invalidateQueries({ queryKey })
   }

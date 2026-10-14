@@ -65,7 +65,8 @@ TEST_CASE("status events endpoint returns SSE headers and snapshot first") {
   StatusStream status_stream(
       [] { return api_service_snapshot(); },
       [] { return api::RuntimeOutboundsResponse{}; },
-      [] { return api::RuntimeInterfaceInventoryResponse{}; });
+      [] { return api::RuntimeInterfaceInventoryResponse{}; },
+      [] { return api::HealthIssuesResponse{}; });
   auto context = make_status_context(dns_broadcaster, status_stream);
   ApiConfig config;
   config.listen = std::string("127.0.0.1:18193");

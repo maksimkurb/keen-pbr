@@ -14,6 +14,7 @@ struct TestStatusSnapshot {
   api::HealthResponse service;
   api::RuntimeOutboundsResponse outbounds;
   api::RuntimeInterfaceInventoryResponse interfaces;
+  api::HealthIssuesResponse issues;
 };
 
 TestStatusSnapshot make_snapshot(std::string version = "1",
@@ -55,7 +56,8 @@ TEST_CASE("status stream queues one snapshot before changes") {
   auto current = make_snapshot();
   StatusStream stream([&] { return current.service; },
                       [&] { return current.outbounds; },
-                      [&] { return current.interfaces; });
+                      [&] { return current.interfaces; },
+                      [&] { return current.issues; });
   auto subscription = stream.subscribe();
 
   const auto first = pop(subscription);
@@ -72,7 +74,8 @@ TEST_CASE(
   auto current = make_snapshot();
   StatusStream stream([&] { return current.service; },
                       [&] { return current.outbounds; },
-                      [&] { return current.interfaces; });
+                      [&] { return current.interfaces; },
+                      [&] { return current.issues; });
   auto subscription = stream.subscribe();
   (void)pop(subscription);
 
@@ -91,7 +94,8 @@ TEST_CASE("status stream closes slow and shutdown subscribers") {
   auto current = make_snapshot();
   StatusStream stream([&] { return current.service; },
                       [&] { return current.outbounds; },
-                      [&] { return current.interfaces; }, 1);
+                      [&] { return current.interfaces; },
+                      [&] { return current.issues; }, 1);
   auto slow = stream.subscribe();
   current.service.version = "2";
   stream.reconcile(StatusUpdate::Service);
@@ -125,7 +129,8 @@ TEST_CASE("status stream does no work without subscribers") {
       [&] {
         ++interface_builds;
         return current.interfaces;
-      });
+      },
+      [&] { return current.issues; });
 
   stream.reconcile(StatusUpdate::All);
   CHECK(service_builds == 0);
@@ -163,6 +168,100 @@ TEST_CASE("status stream does no work without subscribers") {
   CHECK(outbound_builds == 2);
   CHECK(interface_builds == 2);
   CHECK(pop(replacement).find("\"version\":\"3\"") != std::string::npos);
+}
+
+TEST_CASE("status stream snapshot carries the issues") {
+  auto current = make_snapshot();
+  api::HealthIssue issue{};
+  issue.key = "test-issue";
+  current.issues.issues.push_back(issue);
+  StatusStream stream([&] { return current.service; },
+                      [&] { return current.outbounds; },
+                      [&] { return current.interfaces; },
+                      [&] { return current.issues; });
+  auto subscription = stream.subscribe();
+  const auto snapshot = pop(subscription);
+  CHECK(snapshot.find("\"issues\":{\"issues\":[{") != std::string::npos);
+  CHECK(snapshot.find("test-issue") != std::string::npos);
+}
+
+TEST_CASE("status stream emits issues only when the derived issues change") {
+  auto current = make_snapshot();
+  // Issues derive from the outbounds: one issue per outbound that is not
+  // healthy.
+  const auto build_issues = [&] {
+    api::HealthIssuesResponse issues;
+    for (const auto &outbound : current.outbounds.outbounds) {
+      if (outbound.status != api::RuntimeOutboundStatusEnum::HEALTHY) {
+        api::HealthIssue issue{};
+        issue.key = "outbound-" + outbound.tag;
+        issues.issues.push_back(issue);
+      }
+    }
+    return issues;
+  };
+  StatusStream stream([&] { return current.service; },
+                      [&] { return current.outbounds; },
+                      [&] { return current.interfaces; }, build_issues);
+  auto subscription = stream.subscribe();
+  (void)pop(subscription);
+
+  // Outbounds change, issues do not: no issues event.
+  current.outbounds = make_snapshot("1", 1).outbounds;
+  stream.reconcile(StatusUpdate::Outbounds);
+  CHECK(pop(subscription).rfind("event: outbounds\n", 0) == 0);
+  CHECK(queued(subscription) == 0);
+
+  // Outbounds change and so do the issues.
+  current.outbounds.outbounds[0].status =
+      api::RuntimeOutboundStatusEnum::UNAVAILABLE;
+  stream.reconcile(StatusUpdate::Outbounds);
+  CHECK(pop(subscription).rfind("event: outbounds\n", 0) == 0);
+  CHECK(pop(subscription).rfind("event: issues\n", 0) == 0);
+  CHECK(queued(subscription) == 0);
+
+  // A service change is enough to re-evaluate the issues.
+  current.service.version = "2";
+  stream.reconcile(StatusUpdate::Service);
+  CHECK(pop(subscription).rfind("event: service\n", 0) == 0);
+  CHECK(queued(subscription) == 0);
+}
+
+TEST_CASE("status stream issues-only reconcile runs only the issues builder") {
+  auto current = make_snapshot();
+  int service_builds = 0;
+  int outbound_builds = 0;
+  int issue_builds = 0;
+  StatusStream stream(
+      [&] {
+        ++service_builds;
+        return current.service;
+      },
+      [&] {
+        ++outbound_builds;
+        return current.outbounds;
+      },
+      [&] { return current.interfaces; },
+      [&] {
+        ++issue_builds;
+        return current.issues;
+      });
+  auto subscription = stream.subscribe();
+  (void)pop(subscription);
+  const int service_before = service_builds;
+  const int outbound_before = outbound_builds;
+
+  api::HealthIssue issue{};
+  issue.key = "routing";
+  current.issues.issues.push_back(issue);
+  stream.reconcile(StatusUpdate::Issues);
+  CHECK(pop(subscription).rfind("event: issues\n", 0) == 0);
+  CHECK(issue_builds == 2);
+  CHECK(service_builds == service_before);
+  CHECK(outbound_builds == outbound_before);
+
+  stream.reconcile(StatusUpdate::Issues);
+  CHECK(queued(subscription) == 0);
 }
 
 #endif

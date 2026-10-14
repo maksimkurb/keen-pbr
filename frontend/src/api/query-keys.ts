@@ -18,24 +18,19 @@ export const queryKeys = {
   dnsTest: getGetDnsTestQueryKey,
 }
 
-// Service health and runtime outbounds are not listed here: the daemon pushes
-// them over the status stream (draft stage/discard reconcile the service
-// event, apply/rollback/start/stop publish the runtime state).
-export const invalidationKeysAfterConfigMutation = [
-  queryKeys.config(),
-  queryKeys.healthIssues(),
-] as const
+// Service health, runtime outbounds and health issues are not listed here: the
+// daemon pushes them over the status stream (draft stage/discard reconcile the
+// service event, apply/rollback/start/stop publish the runtime state).
+export const invalidationKeysAfterConfigMutation = [queryKeys.config()] as const
 
 export const invalidationKeysAfterRuntimeActionMutation = [
   queryKeys.healthRouting(),
-  queryKeys.healthIssues(),
   queryKeys.config(),
 ] as const
 
 // Routing health is re-read by the status bridge once the apply finishes; the
 // POST only accepts the operation.
 export const invalidationKeysAfterApplyConfigMutation = [
-  queryKeys.healthIssues(),
   queryKeys.config(),
 ] as const
 
@@ -43,7 +38,6 @@ export const invalidationKeysAfterApplyConfigMutation = [
 // outbounds are kept (served from the stream cache while it is live).
 export const invalidationKeysAfterListRefreshMutation = [
   queryKeys.healthService(),
-  queryKeys.healthIssues(),
   queryKeys.runtimeOutbounds(),
   queryKeys.config(),
 ] as const

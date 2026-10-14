@@ -5,6 +5,7 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { HealthIssuesResponse } from './healthIssuesResponse';
 import type { HealthResponse } from './healthResponse';
 import type { RuntimeInterfaceInventoryResponse } from './runtimeInterfaceInventoryResponse';
 import type { RuntimeOutboundsResponse } from './runtimeOutboundsResponse';
@@ -13,4 +14,5 @@ export type StatusEventSnapshotData = {
   service: HealthResponse;
   outbounds: RuntimeOutboundsResponse;
   interfaces: RuntimeInterfaceInventoryResponse;
+  issues: HealthIssuesResponse;
 };

@@ -743,6 +743,9 @@ void Daemon::setup_api() {
         },
         [this]() {
             return api_ctx_->get_runtime_interfaces();
+        },
+        [this]() {
+            return stream_health_issues();
         });
     api_ctx_->status_stream = status_stream_.get();
     lifecycle_operation_store_.set_publish_callback([this]() {

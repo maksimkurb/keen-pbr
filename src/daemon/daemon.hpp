@@ -191,10 +191,15 @@ private:
   make_routing_test_job(const std::string &target,
                         const TestRoutingCriteria &criteria);
   RoutingHealthReport cached_routing_health();
+  // The cached report for the current runtime, or the "pending/unavailable"
+  // report the API would show. Never queues a refresh.
+  RoutingHealthReport peek_routing_health();
   ServiceHealthState service_health_state();
   api::RuntimeOutboundsResponse runtime_outbounds_state();
   // Classified health issues (GET /api/health/issues and `keen-pbr status`).
   api::HealthIssuesResponse health_issues();
+  // Same issues from the live inputs and a non-refreshing routing view.
+  api::HealthIssuesResponse stream_health_issues();
   api::HealthIssuesResponse
   health_issues_from(const ServiceHealthState &service,
                      const RoutingHealthReport &routing,

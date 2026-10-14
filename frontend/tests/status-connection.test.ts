@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { QueryClient } from "@tanstack/react-query"
 
-import { getGetHealthServiceQueryKey } from "../src/api/generated/keen-api"
+import {
+  getGetHealthIssuesQueryKey,
+  getGetHealthServiceQueryKey,
+} from "../src/api/generated/keen-api"
 import {
   createStatusStreamQueryFn,
   markStatusQueriesStale,
@@ -32,6 +35,26 @@ describe("status stream query function", () => {
     client.setQueryData(getGetHealthServiceQueryKey(), { cached: true })
     setStatusConnectionState("live")
     expect(await pending).toEqual({ cached: true })
+    expect(fetched).toBe(0)
+  })
+
+  test("the issues query is served from the stream cache as well", async () => {
+    const client = new QueryClient()
+    client.setQueryData(getGetHealthIssuesQueryKey(), { issues: true })
+    setStatusConnectionState("live")
+    let fetched = 0
+    const queryFn = createStatusStreamQueryFn(async () => {
+      fetched += 1
+      return { rest: true }
+    })
+    expect(
+      await queryFn({
+        client,
+        queryKey: getGetHealthIssuesQueryKey(),
+        signal: new AbortController().signal,
+        meta: undefined,
+      } as never)
+    ).toEqual({ issues: true })
     expect(fetched).toBe(0)
   })
 

@@ -18,7 +18,8 @@ enum class StatusUpdate : std::uint8_t {
   Service = 1U << 0U,
   Outbounds = 1U << 1U,
   Interfaces = 1U << 2U,
-  All = (1U << 0U) | (1U << 1U) | (1U << 2U),
+  Issues = 1U << 3U,
+  All = (1U << 0U) | (1U << 1U) | (1U << 2U) | (1U << 3U),
 };
 
 constexpr StatusUpdate operator|(StatusUpdate lhs, StatusUpdate rhs) {
@@ -36,10 +37,12 @@ public:
   using OutboundsBuilder = std::function<api::RuntimeOutboundsResponse()>;
   using InterfacesBuilder =
       std::function<api::RuntimeInterfaceInventoryResponse()>;
+  using IssuesBuilder = std::function<api::HealthIssuesResponse()>;
 
   StatusStream(ServiceBuilder service_builder,
                OutboundsBuilder outbounds_builder,
                InterfacesBuilder interfaces_builder,
+               IssuesBuilder issues_builder,
                size_t max_queue_size = 128);
 
   SseBroadcaster::SubscriptionPtr subscribe();
@@ -53,11 +56,13 @@ private:
   ServiceBuilder service_builder_;
   OutboundsBuilder outbounds_builder_;
   InterfacesBuilder interfaces_builder_;
+  IssuesBuilder issues_builder_;
   SseBroadcaster broadcaster_;
   TracedMutex mutex_;
   std::string service_ GUARDED_BY(mutex_);
   std::string outbounds_ GUARDED_BY(mutex_);
   std::string interfaces_ GUARDED_BY(mutex_);
+  std::string issues_ GUARDED_BY(mutex_);
   bool initialized_ GUARDED_BY(mutex_){false};
 };
 

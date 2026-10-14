@@ -664,6 +664,14 @@ api::RuntimeOutboundsResponse Daemon::runtime_outbounds_state() {
       });
 }
 
+api::HealthIssuesResponse Daemon::stream_health_issues() {
+  // Peek only: a status stream rebuild must never start a routing refresh.
+  const auto service = service_health_state();
+  const auto routing = peek_routing_health();
+  const auto outbounds = runtime_outbounds_state();
+  return health_issues_from(service, routing, outbounds);
+}
+
 api::HealthIssuesResponse Daemon::health_issues() {
   const auto service = service_health_state();
   const auto routing = cached_routing_health();
@@ -696,22 +704,53 @@ Daemon::health_issues_from(const ServiceHealthState &service,
   return collect_health_issues(inputs);
 }
 
-RoutingHealthReport Daemon::cached_routing_health() {
-  const auto runtime_snapshot = runtime_state_store_.snapshot();
-  const auto backend = firewall_->backend();
+namespace {
+
+// Report to show while the routing runtime cannot be inspected, or nullopt
+// when it is ready for a canonical health check.
+std::optional<RoutingHealthReport>
+routing_health_if_runtime_not_ready(const RuntimeStateSnapshot &runtime_snapshot,
+                                    FirewallBackend backend) {
   const bool runtime_ready =
       runtime_snapshot.runtime_state != RuntimeState::starting &&
       runtime_snapshot.runtime_state != RuntimeState::applying &&
       runtime_snapshot.runtime_state != RuntimeState::stopped &&
       runtime_snapshot.runtime_state != RuntimeState::shutting_down &&
       runtime_snapshot.firewall_state.active_firewall() != nullptr;
-  if (!runtime_ready) {
-    const auto detail = runtime_snapshot.runtime_state == RuntimeState::starting
-        ? "routing runtime initialization is in progress"
-        : (runtime_snapshot.runtime_state == RuntimeState::applying
-               ? "routing runtime configuration is being applied"
-               : "active firewall plan unavailable; routing runtime is not ready");
-    return unavailable_routing_health(backend, detail);
+  if (runtime_ready) {
+    return std::nullopt;
+  }
+  const auto detail = runtime_snapshot.runtime_state == RuntimeState::starting
+      ? "routing runtime initialization is in progress"
+      : (runtime_snapshot.runtime_state == RuntimeState::applying
+             ? "routing runtime configuration is being applied"
+             : "active firewall plan unavailable; routing runtime is not ready");
+  return unavailable_routing_health(backend, detail);
+}
+
+} // namespace
+
+RoutingHealthReport Daemon::peek_routing_health() {
+  const auto runtime_snapshot = runtime_state_store_.snapshot();
+  const auto backend = firewall_->backend();
+  if (auto not_ready =
+          routing_health_if_runtime_not_ready(runtime_snapshot, backend)) {
+    return std::move(*not_ready);
+  }
+  KPBR_LOCK_GUARD(routing_health_mutex_);
+  if (is_routing_health_cache_valid(runtime_snapshot)) {
+    return *routing_health_cache_;
+  }
+  return unavailable_routing_health(
+      backend, "canonical routing health refresh is pending");
+}
+
+RoutingHealthReport Daemon::cached_routing_health() {
+  const auto runtime_snapshot = runtime_state_store_.snapshot();
+  const auto backend = firewall_->backend();
+  if (auto not_ready =
+          routing_health_if_runtime_not_ready(runtime_snapshot, backend)) {
+    return std::move(*not_ready);
   }
 
   const auto health_revision =
@@ -781,24 +820,37 @@ RoutingHealthReport Daemon::cached_routing_health() {
             }
 
             const auto current_runtime_snapshot = runtime_state_store_.snapshot();
-            KPBR_LOCK_GUARD(routing_health_mutex_);
-            if (health_revision ==
-                    routing_health_revision_.load(std::memory_order_acquire) &&
-                runtime_generation ==
-                    runtime_generation_.load(std::memory_order_acquire) &&
-                runtime_snapshot.runtime_state ==
-                    current_runtime_snapshot.runtime_state) {
-              routing_health_cache_ = std::move(health);
-              routing_health_cache_revision_ = health_revision;
-              routing_health_cache_generation_ = runtime_generation;
-              routing_health_cache_state_ = runtime_snapshot.runtime_state;
-              routing_health_cache_time_ = std::chrono::steady_clock::now();
-              if (routing_health_cache_->error.empty()) {
-                log_routing_health_warnings_if_changed(
-                    routing_health_cache_->warnings);
+            bool stored = false;
+            {
+              KPBR_LOCK_GUARD(routing_health_mutex_);
+              if (health_revision ==
+                      routing_health_revision_.load(std::memory_order_acquire) &&
+                  runtime_generation ==
+                      runtime_generation_.load(std::memory_order_acquire) &&
+                  runtime_snapshot.runtime_state ==
+                      current_runtime_snapshot.runtime_state) {
+                routing_health_cache_ = std::move(health);
+                routing_health_cache_revision_ = health_revision;
+                routing_health_cache_generation_ = runtime_generation;
+                routing_health_cache_state_ = runtime_snapshot.runtime_state;
+                routing_health_cache_time_ = std::chrono::steady_clock::now();
+                if (routing_health_cache_->error.empty()) {
+                  log_routing_health_warnings_if_changed(
+                      routing_health_cache_->warnings);
+                }
+                stored = true;
               }
+              routing_health_check_inflight_ = false;
             }
-            routing_health_check_inflight_ = false;
+#ifdef WITH_API
+            // The issues embed this report; publish outside the cache lock
+            // because the stream's builders read the cache again.
+            if (stored && status_stream_) {
+              status_stream_->reconcile(StatusUpdate::Issues);
+            }
+#else
+            (void)stored;
+#endif
           } catch (...) {
             KPBR_LOCK_GUARD(routing_health_mutex_);
             routing_health_check_inflight_ = false;

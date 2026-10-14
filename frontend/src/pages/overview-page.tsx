@@ -71,29 +71,7 @@ export function OverviewPage() {
     },
   })
   const runtimeOutboundsQuery = useGetRuntimeOutbounds()
-  const healthIssuesQuery = useGetHealthIssues({
-    query: {
-      refetchOnMount: "always",
-      refetchInterval: 45_000,
-      refetchIntervalInBackground: false,
-    },
-  })
-  // The issues embed the routing report, so re-read them when a new one
-  // arrives. The first report after mount is skipped: the issues query has
-  // just been refetched on mount as well.
-  const { refetch: refetchHealthIssues } = healthIssuesQuery
-  const routingUpdatedAt = routingHealthQuery.dataUpdatedAt
-  const lastRoutingUpdatedAtRef = useRef(routingUpdatedAt)
-  const mountRoutingSeenRef = useRef(false)
-  useEffect(() => {
-    if (routingUpdatedAt === lastRoutingUpdatedAtRef.current) return
-    lastRoutingUpdatedAtRef.current = routingUpdatedAt
-    if (!mountRoutingSeenRef.current) {
-      mountRoutingSeenRef.current = true
-      return
-    }
-    void refetchHealthIssues()
-  }, [refetchHealthIssues, routingUpdatedAt])
+  const healthIssuesQuery = useGetHealthIssues()
 
   const serviceHealth =
     serviceHealthQuery.data?.status === 200
