@@ -2754,7 +2754,7 @@ export function useGetStatusEvents<TData = Awaited<ReturnType<typeof getStatusEv
 
 
 /**
- * Streams the daemon's traffic interception events as Server-Sent Events. Each connection receives `HELLO` first. By default only DNS marker events used by the dashboard self-check are delivered. Set `show=all` (or the compatibility alias `show=full`) to receive every observed DNS, TLS SNI, HTTP Host, QUIC Initial, and marker event, including parsed DNS responses that did not match a configured list. The DNS marker domain (`intercept.dns.marker`) is answered by the interceptor and reported as an `INTERCEPT` event with `source` `marker`.
+ * Streams the daemon's traffic interception events as Server-Sent Events. Each connection receives `HELLO` first. By default only DNS marker events used by the dashboard self-check are delivered. Set `show=all` (or the compatibility alias `show=full`) to receive every observed DNS, TLS SNI, HTTP Host, QUIC Initial, and marker event, including parsed DNS responses that did not match a configured list. The DNS marker domain (`intercept.dns.marker`) is answered by the interceptor and reported as an `INTERCEPT` event with `source` `marker`. `show=all` requires API authentication to be enabled; without it the request is refused with `403`.
 
  * @summary Stream DNS test queries
  */
@@ -2768,10 +2768,15 @@ export type getDnsTestResponse400 = {
   status: 400
 }
 
+export type getDnsTestResponse403 = {
+  data: ErrorResponse
+  status: 403
+}
+
 export type getDnsTestResponseSuccess = (getDnsTestResponse200) & {
   headers: Headers;
 };
-export type getDnsTestResponseError = (getDnsTestResponse400) & {
+export type getDnsTestResponseError = (getDnsTestResponse400 | getDnsTestResponse403) & {
   headers: Headers;
 };
 

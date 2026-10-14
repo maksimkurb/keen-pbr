@@ -27,7 +27,8 @@ export type RequestFlag = {
   key: RequestFlagKey
   label: string
   tooltip: string
-  tone: "danger" | "neutral"
+  /** positive/info reuse the SNI/HTTP method colors. */
+  tone: "danger" | "positive" | "info" | "neutral"
 }
 
 export type RequestFlagRow = Pick<
@@ -78,7 +79,7 @@ export function buildRequestFlags(
       key: "added",
       label: `+${row.added}`,
       tooltip: t("requestsLog.flags.added", { count: row.added }),
-      tone: "neutral",
+      tone: "positive",
     })
   }
   if (row.refreshed > 0) {
@@ -86,7 +87,7 @@ export function buildRequestFlags(
       key: "refreshed",
       label: `↻${row.refreshed}`,
       tooltip: t("requestsLog.flags.refreshed", { count: row.refreshed }),
-      tone: "neutral",
+      tone: "info",
     })
   }
   if (row.errors > 0) {

@@ -618,8 +618,12 @@ Host, {{< term "QUIC" >}} Initial, and marker observations, including domains th
 match a configured list. Pass `domain=<generated
 marker>` with the default view to keep unrelated checks from closing it.
 
+`show=all` exposes the traffic of every client, so it requires API
+authentication to be enabled. Without it the endpoint answers `403`; the
+default marker view stays available.
+
 ```bash {filename="bash"}
-curl -N 'http://127.0.0.1:12121/api/dns/test?show=all'
+curl -N -u admin:password 'http://127.0.0.1:12121/api/dns/test?show=all'
 ```
 
 ### Stream Example

@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test"
 
 import {
+  allAnswerKinds,
   allRequestMethods,
+  answerKind,
+  hasActiveFilters,
+  isUnlearnableIp,
   emptyRequestFilters,
   filterRequests,
   ipMatches,
@@ -90,7 +94,7 @@ describe("filterRequests", () => {
     { type: "GAP" },
   ]
   test("no filters returns all", () => {
-    expect(filterRequests(rows, emptyRequestFilters)).toBe(rows)
+    expect(filterRequests(rows, emptyRequestFilters)).toEqual(rows)
   })
   test("methods multi-select", () => {
     const out = filterRequests(rows, {
@@ -120,9 +124,113 @@ describe("filterRequests", () => {
       }).length
     ).toBe(1)
   })
+  test("device accepts a CIDR subnet", () => {
+    const devices = (device: string) =>
+      filterRequests(rows, { ...emptyRequestFilters, device }).map(
+        (r) => r.client_ip
+      )
+    expect(devices("192.168.1.16/28")).toEqual(["192.168.1.20", undefined])
+    expect(devices("192.168.1.0/24")).toEqual([
+      "192.168.1.10",
+      "192.168.1.20",
+      undefined,
+    ])
+    expect(devices("10.0.0.0/8")).toEqual([undefined])
+    expect(devices("192.168.1.0/33").length).toBe(3)
+  })
   test("invalid IP filter is ignored", () => {
     expect(
       filterRequests(rows, { ...emptyRequestFilters, ip: "10.0.0.0/99" }).length
     ).toBe(3)
+  })
+})
+
+describe("isUnlearnableIp", () => {
+  test("matches dns_wire::is_learnable_address", () => {
+    for (const ip of ["0.0.0.0", "127.0.0.1", "127.255.0.9", "::", "::1"]) {
+      expect(isUnlearnableIp(ip)).toBe(true)
+    }
+    for (const ip of ["1.1.1.1", "0.0.0.1", "128.0.0.1", "::2", "fe80::1"]) {
+      expect(isUnlearnableIp(ip)).toBe(false)
+    }
+    expect(isUnlearnableIp("garbage")).toBe(false)
+  })
+})
+
+describe("answer kinds and actions", () => {
+  const dns = (extra: Record<string, unknown>) => ({
+    type: "DNS",
+    source: "dns",
+    ips: [] as string[],
+    lists: [] as string[],
+    added: 0,
+    refreshed: 0,
+    errors: 0,
+    ...extra,
+  })
+  const rows = [
+    dns({ domain: "routed", ips: ["1.2.3.4"], lists: ["vpn"], added: 1 }),
+    dns({
+      domain: "refreshed",
+      ips: ["1.2.3.5"],
+      lists: ["vpn"],
+      refreshed: 1,
+    }),
+    dns({ domain: "plain", ips: ["1.2.3.6"] }),
+    dns({ domain: "blocked", ips: ["0.0.0.0", "::"] }),
+    dns({ domain: "mixed", ips: ["0.0.0.0", "5.5.5.5"] }),
+    dns({ domain: "empty" }),
+    dns({ domain: "nx", rcode: 3 }),
+    dns({ domain: "fail", rcode: 2 }),
+    dns({ domain: "late", ips: ["1.2.3.7"], timed_out: true }),
+    { type: "DNS", source: "sni", domain: "l7", ips: [] as string[] },
+  ]
+  const domains = (filters: Partial<typeof emptyRequestFilters>) =>
+    filterRequests(rows, { ...emptyRequestFilters, ...filters }).map(
+      (r) => r.domain
+    )
+
+  test("classifies DNS replies", () => {
+    expect(rows.map(answerKind)).toEqual([
+      "addresses",
+      "addresses",
+      "addresses",
+      "blocked",
+      "addresses",
+      "empty",
+      "nxdomain",
+      "error",
+      "addresses",
+      null,
+    ])
+  })
+  test("empty answers start hidden; L7 events ignore answer kinds", () => {
+    expect(domains({})).not.toContain("empty")
+    expect(domains({ answers: allAnswerKinds })).toContain("empty")
+    expect(domains({ answers: [] })).toEqual(["l7"])
+    expect(domains({ answers: ["blocked"] })).toEqual(["blocked", "l7"])
+  })
+  test("actions show rows with any checked action", () => {
+    expect(domains({})).toContain("plain")
+    expect(
+      domains({ actions: ["listed", "added", "refreshed", "problem"] })
+    ).toEqual(["routed", "refreshed", "late"])
+    expect(domains({ actions: ["listed"] })).toEqual(["routed", "refreshed"])
+    expect(domains({ actions: ["refreshed", "problem"] })).toEqual([
+      "refreshed",
+      "late",
+    ])
+    expect(domains({ actions: ["none"] })).not.toContain("routed")
+    expect(domains({ actions: ["none"] })).toContain("plain")
+    expect(domains({ actions: [] })).toEqual([])
+  })
+  test("active filters", () => {
+    expect(hasActiveFilters(emptyRequestFilters)).toBe(false)
+    expect(
+      hasActiveFilters({ ...emptyRequestFilters, actions: ["listed"] })
+    ).toBe(true)
+    expect(
+      hasActiveFilters({ ...emptyRequestFilters, answers: allAnswerKinds })
+    ).toBe(true)
   })
 })

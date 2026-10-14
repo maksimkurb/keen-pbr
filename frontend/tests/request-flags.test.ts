@@ -53,7 +53,8 @@ describe("buildRequestFlags", () => {
     ])
     expect(flags.find((f) => f.key === "errors")?.tone).toBe("danger")
     expect(flags.find((f) => f.key === "timeout")?.tone).toBe("danger")
-    expect(flags.find((f) => f.key === "added")?.tone).toBe("neutral")
+    expect(flags.find((f) => f.key === "added")?.tone).toBe("positive")
+    expect(flags.find((f) => f.key === "refreshed")?.tone).toBe("info")
   })
 
   test("english tooltips contain the values", () => {

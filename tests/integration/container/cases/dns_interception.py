@@ -40,10 +40,14 @@ def _query(context, qtype, server="192.0.2.1", port=53, name="alias.cname.test",
 
 
 class _EventReader(threading.Thread):
-    """Collects INTERCEPT events from /api/dns/test?show=all in the background."""
+    """Collects INTERCEPT events from /api/dns/test?show=all in the background.
 
-    def __init__(self):
+    The full view requires API authentication, so the case enables it first.
+    """
+
+    def __init__(self, headers):
         super().__init__(daemon=True)
+        self.headers = headers
         self.events = []
         self.ready = threading.Event()
         self.stop_flag = threading.Event()
@@ -51,7 +55,8 @@ class _EventReader(threading.Thread):
     def run(self):
         try:
             response = urllib.request.urlopen(
-                urllib.request.Request(API + "/api/dns/test?show=all"), timeout=2)
+                urllib.request.Request(API + "/api/dns/test?show=all",
+                                       headers=self.headers), timeout=2)
         except OSError:
             self.ready.set()
             return
@@ -121,7 +126,8 @@ def register(registry):
 
         # Hold cache: the same answer again must not wait for any set write (the
         # element is already cached) and the address must stay in the set.
-        reader = _EventReader()
+        context.set_api_authentication("integration-secret")
+        reader = _EventReader(context.api_headers())
         reader.start()
         assert reader.ready.wait(5), "event stream did not start"
         try:
@@ -145,6 +151,7 @@ def register(registry):
             assert context.dynamic_set_contains(list_name="learned")
         finally:
             reader.stop_flag.set()
+            context.set_api_authentication(None)
 
         result6 = _query(context, 28)
         assert result6["qtype"] == 28, result6

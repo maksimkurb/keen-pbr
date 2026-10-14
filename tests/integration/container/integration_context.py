@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import pathlib
@@ -53,6 +54,8 @@ def parse_observations(output: str, tokens: set[str] | None = None) -> list[dict
 class SystemContext:
     def __init__(self, backend: str, ssh_key: str | None = None) -> None:
         self.backend = backend
+        # Basic-auth password for API calls while a case enables authentication.
+        self.api_password: str | None = None
         self.ssh_key = ssh_key or os.environ.get("KPBR_SSH_KEY", "/root/.ssh/kpbr-integration")
 
     def run(self, *args: str, check: bool = True, timeout: int | float = 30):
@@ -78,13 +81,30 @@ class SystemContext:
     def api(self, path: str, method: str = "GET", payload=None):
         data = None if payload is None else json.dumps(payload).encode()
         request = urllib.request.Request(API + path, data=data, method=method,
-                                         headers={"Content-Type": "application/json"})
+                                         headers=self.api_headers())
         try:
             with urllib.request.urlopen(request, timeout=8) as response:
                 return json.load(response)
         except urllib.error.HTTPError as error:
             body = error.read().decode(errors="replace")
             raise AssertionError(f"{method} {path} returned HTTP {error.code}: {body}") from error
+
+    def api_headers(self) -> dict:
+        headers = {"Content-Type": "application/json"}
+        if self.api_password:
+            token = base64.b64encode(f"admin:{self.api_password}".encode()).decode()
+            headers["Authorization"] = "Basic " + token
+        return headers
+
+    def set_api_authentication(self, password: str | None):
+        """Enables API authentication with `password`, or disables it for None."""
+        if password is not None:
+            self.api("/api/auth/password", "POST", {"password": password})
+        self.api("/api/auth/settings", "POST", {
+            "authentication": {"enabled": password is not None},
+            "cors": {"allowed_origins": []},
+        })
+        self.api_password = password
 
     def wait_for(self, description, predicate, timeout: float = 35,
                  interval: float = 0.25):

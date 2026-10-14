@@ -105,6 +105,9 @@ public:
     // Returns true if the server is currently listening.
     bool listening() const;
 
+    // True when API authentication is enabled in the applied settings.
+    bool auth_enabled() const;
+
     // Apply authentication, CORS, and WebUI identity settings without
     // restarting the listening socket. Auth changes revoke active sessions.
     void update_runtime_config(const ApiConfig& config, std::string device_name);

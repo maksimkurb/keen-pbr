@@ -11,6 +11,7 @@
 #include "api/handlers.hpp"
 #include "api/server.hpp"
 #include "api/sse_broadcaster.hpp"
+#include "auth/password.hpp"
 
 namespace keen_pbr3 {
 
@@ -161,17 +162,43 @@ TEST_CASE("SseBroadcaster with a gap builder drops and reports instead of closin
     CHECK(sub->messages[1] == "7");
 }
 
+TEST_CASE("dns test SSE full view requires enabled authentication") {
+    SseBroadcaster broadcaster;
+    auto context = make_dns_test_context(broadcaster);
+    ApiConfig config;
+    config.listen = std::string("127.0.0.1:18198");
+    ApiServer server(config);
+    register_dns_test_handler(server, context);
+    server.start();
+
+    httplib::Client client("127.0.0.1", 18198);
+    client.set_read_timeout(2, 0);
+    for (const char* show : {"all", "full"}) {
+        const auto refused = client.Get(std::string("/api/dns/test?show=") + show);
+        REQUIRE(refused);
+        CHECK(refused->status == 403);
+        CHECK(refused->body.find("Authentication must be enabled") != std::string::npos);
+    }
+    CHECK_FALSE(broadcaster.has_subscribers());
+    server.stop();
+}
+
 TEST_CASE("dns test SSE full alias remains continuous through marker events") {
     SseBroadcaster broadcaster;
     auto context = make_dns_test_context(broadcaster);
     ApiConfig config;
     config.listen = std::string("127.0.0.1:18196");
+    config.authentication = AuthenticationConfig{};
+    config.authentication->enabled = true;
+    config.authentication->password_hash = auth::generate_password_hash("secret");
     ApiServer server(config);
     register_dns_test_handler(server, context);
     server.start();
 
     httplib::Client client("127.0.0.1", 18196);
     client.set_read_timeout(2, 0);
+    // admin:secret
+    client.set_default_headers({{"Authorization", "Basic YWRtaW46c2VjcmV0"}});
     std::string body;
     std::thread request([&] {
         (void)client.Get(

@@ -772,30 +772,58 @@ export const enTranslation = {
     },
   },
   requestsLog: {
+    authRequired: {
+      title: "keen-pbr authentication required",
+      description:
+        "The requests log shows the traffic of every client on the network, so it is available only with authentication enabled. Set an administrator password.",
+      action: "Go to settings",
+    },
     empty: "No requests observed yet.",
     gap: "Events {{from}}–{{to}} were lost before delivery.",
     copyIps: "Copy IP addresses: {{value}}",
+    copyValue: "Copy: {{value}}",
+    resizeColumn: "Resize column {{column}}",
     filters: {
       count: "{{shown}} of {{total}}",
       clear: "Clear filters",
       noMatches: "No requests match the filters.",
+      invalidDevice: "Invalid CIDR subnet; the client filter is ignored.",
       invalidIp: "Invalid CIDR subnet; the IP filter is ignored.",
-      hideEmptyAnswers: "Hide empty answers",
+      kinds: "Filters",
+      groups: {
+        method: "Method",
+        actions: "keen-pbr actions",
+        answers: "DNS answer type",
+      },
+      actions: {
+        listed: "Found in lists",
+        added: "Addresses added",
+        refreshed: "Addresses refreshed",
+        problem: "Write errors or timeout",
+        none: "No action",
+      },
+      answers: {
+        addresses: "With addresses",
+        blocked: "Blocked (0.0.0.0, ::, loopback)",
+        empty: "Empty (NODATA)",
+        nxdomain: "NXDOMAIN",
+        error: "Errors (SERVFAIL, REFUSED…)",
+      },
       placeholder: {
-        device: "192.168.1.*",
+        device: "192.168.1.0/24, 192.168.1.*",
         domain: "*.example.com",
         ip: "10.0.0.0/8, 192.168.*",
       },
       hint: {
         device:
-          "Wildcards: * any text, ? one character. Without wildcards, matches a substring.",
+          "Exact IP, wildcard (192.168.1.*) or CIDR subnet (192.168.1.0/24, fd00::/8). Without wildcards, matches a substring.",
         domain:
           "Wildcards: * any text, ? one character. Without wildcards, matches a substring.",
         ip: "Exact IP, wildcard (10.0.*, *::1) or CIDR subnet (10.0.0.0/8, 2001:db8::/32). Matches any resolved address.",
       },
     },
     columns: {
-      device: "Device",
+      device: "Client",
       method: "Method",
       domain: "Domain",
       lists: "Lists",

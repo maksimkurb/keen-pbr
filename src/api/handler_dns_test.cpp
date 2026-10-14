@@ -39,7 +39,7 @@ std::string make_hello_payload() {
     return payload.dump();
 }
 
-DnsTestView view_for(const httplib::Request& request) {
+DnsTestView view_for(const httplib::Request& request, bool auth_enabled) {
     std::optional<std::string> marker_domain;
     if (request.has_param("domain")) {
         marker_domain = normalize_marker_domain(request.get_param_value("domain"));
@@ -64,6 +64,12 @@ DnsTestView view_for(const httplib::Request& request) {
         return {marker_filter, true};
     }
     if (show == "all" || show == "full") {
+        // The full view exposes every client's DNS and L7 traffic, so it is
+        // never served by an unauthenticated API.
+        if (!auth_enabled) {
+            throw ApiError(
+                "Authentication must be enabled to stream all requests", 403);
+        }
         return {};
     }
 
@@ -76,8 +82,9 @@ DnsTestView view_for(const httplib::Request& request) {
 
 void register_dns_test_handler(ApiServer& server, ApiContext& ctx) {
     server.get_stream("/api/dns/test",
-                      [&ctx](const httplib::Request& request, httplib::Response& res) {
-        const auto view = view_for(request);
+                      [&ctx, &server](const httplib::Request& request,
+                                      httplib::Response& res) {
+        const auto view = view_for(request, server.auth_enabled());
         auto subscription = ctx.dns_test_broadcaster.subscribe(
             {make_hello_payload()}, view.filter, view.close_after_match);
         Logger::instance().trace("sse_open", "path=/api/dns/test");

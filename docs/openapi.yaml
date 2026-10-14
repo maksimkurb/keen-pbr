@@ -552,6 +552,8 @@ paths:
         including parsed DNS responses that did not match a configured list.
         The DNS marker domain (`intercept.dns.marker`) is answered by the
         interceptor and reported as an `INTERCEPT` event with `source` `marker`.
+        `show=all` requires API authentication to be enabled; without it the
+        request is refused with `403`.
       operationId: getDnsTest
       parameters:
         - name: show
@@ -586,6 +588,14 @@ paths:
                 data: {"type":"INTERCEPT","seq":42,"ts_ms":1712345678123,"source":"dns","domain":"example.com","lists":["streaming"],"ips":["203.0.113.7"],"added":1,"refreshed":0,"errors":0,"hold_us":180,"timed_out":false}
         "400":
           description: Invalid `show` or marker-domain query parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: >
+            `show=all` (or `full`) was requested while API authentication is
+            disabled.
           content:
             application/json:
               schema:

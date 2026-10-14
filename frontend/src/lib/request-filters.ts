@@ -8,20 +8,74 @@ export const allRequestMethods: RequestMethod[] = [
   "marker",
 ]
 
+/**
+ * keen-pbr actions on a request. A row is shown when any of its actions is
+ * checked; a row without any action counts as "none".
+ */
+export type RequestAction =
+  | "listed"
+  | "added"
+  | "refreshed"
+  | "problem"
+  | "none"
+
+export const allRequestActions: RequestAction[] = [
+  "listed",
+  "added",
+  "refreshed",
+  "problem",
+  "none",
+]
+
+/** What a DNS reply carried. Every DNS event has exactly one kind. */
+export type AnswerKind =
+  | "addresses"
+  | "blocked"
+  | "empty"
+  | "nxdomain"
+  | "error"
+
+export const allAnswerKinds: AnswerKind[] = [
+  "addresses",
+  "blocked",
+  "empty",
+  "nxdomain",
+  "error",
+]
+
+/** Empty (NODATA) answers are noise for routing, so they start hidden. */
+export const defaultAnswerKinds: AnswerKind[] = allAnswerKinds.filter(
+  (kind) => kind !== "empty"
+)
+
 export type RequestFilters = {
   device: string
   methods: RequestMethod[]
+  actions: RequestAction[]
+  answers: AnswerKind[]
   domain: string
   ip: string
-  hideEmptyAnswers: boolean
 }
 
 export const emptyRequestFilters: RequestFilters = {
   device: "",
   methods: allRequestMethods,
+  actions: allRequestActions,
+  answers: defaultAnswerKinds,
   domain: "",
   ip: "",
-  hideEmptyAnswers: true,
+}
+
+const sameSet = <T>(a: readonly T[], b: readonly T[]) =>
+  a.length === b.length && a.every((item) => b.includes(item))
+
+/** Number of checkbox groups (method, action, answer) changed from default. */
+export function changedKindGroups(filters: RequestFilters): number {
+  return (
+    Number(!sameSet(filters.methods, allRequestMethods)) +
+    Number(!sameSet(filters.actions, allRequestActions)) +
+    Number(!sameSet(filters.answers, defaultAnswerKinds))
+  )
 }
 
 export function hasActiveFilters(filters: RequestFilters): boolean {
@@ -29,8 +83,7 @@ export function hasActiveFilters(filters: RequestFilters): boolean {
     filters.device.trim() !== "" ||
     filters.domain.trim() !== "" ||
     filters.ip.trim() !== "" ||
-    filters.methods.length !== allRequestMethods.length ||
-    filters.hideEmptyAnswers !== true
+    changedKindGroups(filters) > 0
   )
 }
 
@@ -152,14 +205,63 @@ export function ipMatches(filter: IpFilter, ip: string): boolean {
   return (parsed.value & filter.mask) === filter.network
 }
 
+/**
+ * Answer addresses keen-pbr never learns into sets (blocking or unroutable
+ * replies): 0.0.0.0, ::, 127.0.0.0/8 and ::1. Mirrors
+ * dns_wire::is_learnable_address.
+ */
+export function isUnlearnableIp(text: string): boolean {
+  const ip = parseIp(text)
+  if (ip === null) return false
+  if (ip.version === 4) return ip.value === 0n || ip.value >> 24n === 127n
+  return ip.value === 0n || ip.value === 1n
+}
+
 export type FilterableRow = {
   type?: string
   client_ip?: string
   source?: string
   domain?: string
+  lists?: string[]
   ips?: string[]
   qtype?: number
   rcode?: number
+  added?: number
+  refreshed?: number
+  errors?: number
+  timed_out?: boolean
+}
+
+/** The answer kind of a DNS event; null for L7 events. */
+export function answerKind(row: FilterableRow): AnswerKind | null {
+  if (row.source !== "dns") return null
+  const rcode = row.rcode ?? 0
+  if (rcode === 3) return "nxdomain"
+  if (rcode !== 0) return "error"
+  const ips = row.ips ?? []
+  if (ips.length === 0) return "empty"
+  return ips.every(isUnlearnableIp) ? "blocked" : "addresses"
+}
+
+/** True when the row shows the given keen-pbr action. */
+export function hasAction(row: FilterableRow, action: RequestAction): boolean {
+  const added = row.added ?? 0
+  const refreshed = row.refreshed ?? 0
+  const errors = row.errors ?? 0
+  switch (action) {
+    case "listed":
+      return (row.lists ?? []).length > 0
+    case "added":
+      return added > 0
+    case "refreshed":
+      return refreshed > 0
+    case "problem":
+      return errors > 0 || row.timed_out === true
+    case "none":
+      return allRequestActions.every(
+        (other) => other === "none" || !hasAction(row, other)
+      )
+  }
 }
 
 /** Gap rows are never filtered out: lost events may have matched anything. */
@@ -167,12 +269,15 @@ export function filterRequests<T extends FilterableRow>(
   rows: T[],
   filters: RequestFilters
 ): T[] {
-  // No early return on default filters: hideEmptyAnswers defaults to on.
+  // No early return on default filters: empty answers start hidden.
+  const deviceFilter = parseIpFilter(filters.device)
   const ipFilter = parseIpFilter(filters.ip)
   const methods = new Set<string>(filters.methods)
+  const answers = new Set<string>(filters.answers)
+  const actions = new Set<string>(filters.actions)
   return rows.filter((row) => {
     if (row.type === "GAP") return true
-    if (!wildcardMatch(filters.device, row.client_ip ?? "")) return false
+    if (!ipMatches(deviceFilter, row.client_ip ?? "")) return false
     if (
       methods.size < allRequestMethods.length &&
       !methods.has(row.source ?? "")
@@ -183,13 +288,14 @@ export function filterRequests<T extends FilterableRow>(
     if (ipFilter.kind !== "none" && ipFilter.kind !== "invalid") {
       if (!(row.ips ?? []).some((ip) => ipMatches(ipFilter, ip))) return false
     }
-    // Hide empty answers: DNS events with no addresses and rcode 0 (NODATA)
-    if (filters.hideEmptyAnswers) {
-      if (row.source === "dns" && (row.ips ?? []).length === 0) {
-        const rcode = row.rcode ?? 0
-        if (rcode === 0) return false
-      }
+    if (
+      actions.size < allRequestActions.length &&
+      !filters.actions.some((action) => hasAction(row, action))
+    ) {
+      return false
     }
+    const kind = answerKind(row)
+    if (kind !== null && !answers.has(kind)) return false
     return true
   })
 }

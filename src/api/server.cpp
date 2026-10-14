@@ -1027,6 +1027,11 @@ void ApiServer::stop() {
     }
 }
 
+bool ApiServer::auth_enabled() const {
+    const std::lock_guard lock(impl_->auth_mutex);
+    return impl_->auth_enabled;
+}
+
 bool ApiServer::listening() const {
     return impl_->is_listening.load(std::memory_order_acquire) && impl_->server.is_running();
 }
