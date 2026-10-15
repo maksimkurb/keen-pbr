@@ -54,7 +54,7 @@ export function RoutingTestCriteriaFields({
             <SelectTrigger
               id="routing-test-protocol"
               aria-label={t("overview.routingTest.protocol")}
-              className="h-full flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 data-[size=default]:h-full"
+              className="h-full flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 data-[size=default]:h-full dark:bg-transparent dark:hover:bg-transparent"
             >
               <SelectValue />
             </SelectTrigger>
