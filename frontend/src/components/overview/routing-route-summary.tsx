@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import type { ReactNode } from "react"
 import { Trans, useTranslation } from "react-i18next"
+import { Link } from "wouter"
 import type {
   RoutingTestResponse,
   RuntimeOutboundState,
@@ -201,6 +202,15 @@ export function RoutingRouteSummary({
             const { rule, result } = group[0]
             return (
               <div key={index}>
+                {/* Group label on top, like the firewall step's groups. */}
+                {group.length < entries.length ? (
+                  <p className="mb-1 text-xs text-muted-foreground">
+                    {t("overview.routingDiagnostics.trace.ipGroup", {
+                      count: group.length,
+                      total: entries.length,
+                    })}
+                  </p>
+                ) : null}
                 <p>
                   {rule
                     ? t("overview.routingDiagnostics.trace.selectedRule", {
@@ -222,14 +232,6 @@ export function RoutingRouteSummary({
                       )
                       .join(" · ") ||
                       t("overview.routingDiagnostics.noConditions")}
-                  </p>
-                ) : null}
-                {group.length > 1 ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t("overview.routingDiagnostics.trace.ipResults", {
-                      count: group.length,
-                      total: group.length,
-                    })}
                   </p>
                 ) : null}
               </div>
@@ -268,9 +270,9 @@ export function RoutingRouteSummary({
                   return (
                     <li key={index} className="space-y-1.5 py-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        {group.length > 1 ? (
+                        {group.length < entries.length ? (
                           <span className="text-xs text-muted-foreground">
-                            {t("overview.routingDiagnostics.trace.ipResults", {
+                            {t("overview.routingDiagnostics.trace.ipGroup", {
                               count: group.length,
                               total: entries.length,
                             })}
@@ -317,24 +319,18 @@ export function RoutingRouteSummary({
                           </dd>
                         </div>
                       </dl>
-                      {issue === "firewall" &&
-                      group.some(({ row }) => row?.in_ipset === false) ? (
-                        <p className="text-xs">
-                          {t(
-                            "overview.routingDiagnostics.trace.expectedSetMissing"
-                          )}
-                        </p>
-                      ) : null}
                       {issue !== "ok" && group.some(({ row }) => row) ? (
-                        <div
-                          className="space-y-1 text-xs"
+                        <ul
+                          className="list-disc space-y-0.5 pl-4 text-xs"
                           data-testid="set-write-evidence"
                         >
-                          <p className="font-medium text-foreground">
-                            {t(
-                              "overview.routingDiagnostics.trace.writeEvidence.title"
-                            )}
-                          </p>
+                          {group.some(({ row }) => row?.in_ipset === false) ? (
+                            <li>
+                              {t(
+                                "overview.routingDiagnostics.trace.expectedSetMissing"
+                              )}
+                            </li>
+                          ) : null}
                           {Array.from(
                             new Map(
                               group
@@ -350,7 +346,7 @@ export function RoutingRouteSummary({
                                 ])
                             ).values()
                           ).map((row, index) => (
-                            <p key={index}>
+                            <li key={index}>
                               {t(
                                 `overview.routingDiagnostics.trace.writeEvidence.${row?.set_write_evidence?.status ?? "unavailable"}`
                               )}
@@ -362,9 +358,9 @@ export function RoutingRouteSummary({
                               row.in_ipset === false
                                 ? ` ${t("overview.routingDiagnostics.trace.writeEvidence.nowMissing")}`
                                 : ""}
-                            </p>
+                            </li>
                           ))}
-                        </div>
+                        </ul>
                       ) : null}
                     </li>
                   )
@@ -372,38 +368,76 @@ export function RoutingRouteSummary({
               </ul>
             </>
           ) : null}
-          {Array.from(issueGroups.entries()).map(([issue, group]) => (
-            <div key={issue} className="space-y-1">
-              {issueGroups.size > 1 ? (
-                <p className="font-medium text-foreground">
-                  {t(`overview.routingDiagnostics.trace.issues.${issue}.title`)}
-                </p>
-              ) : null}
-              {group.length > 1 ? (
-                <p className="text-xs text-muted-foreground">
-                  {t("overview.routingDiagnostics.trace.ipResults", {
-                    count: group.length,
-                    total: entries.length,
-                  })}
-                </p>
-              ) : null}
-              <p>
-                {t(`overview.routingDiagnostics.trace.issues.${issue}.reason`)}
-              </p>
-              {issue !== "missing_ipset" && issue !== "other_ipset" ? (
+          {Array.from(issueGroups.entries()).map(([issue, group]) => {
+            // DNS advice only fits addresses learned through a domain, not
+            // entries that a static IP list put into the set.
+            const learnedFromDomain =
+              issue === "missing_ipset" &&
+              diagnostics.is_domain &&
+              group.some(
+                (entry) =>
+                  entry.listMatch && entry.listMatch.via !== entry.result.ip
+              )
+            return (
+              <div key={issue} className="space-y-1">
+                {issueGroups.size > 1 ? (
+                  <p className="font-medium text-foreground">
+                    {t(
+                      `overview.routingDiagnostics.trace.issues.${issue}.title`
+                    )}
+                  </p>
+                ) : null}
+                {group.length < entries.length ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t("overview.routingDiagnostics.trace.ipGroup", {
+                      count: group.length,
+                      total: entries.length,
+                    })}
+                  </p>
+                ) : null}
                 <p>
                   {t(
-                    `overview.routingDiagnostics.trace.issues.${issue}.advice`
+                    learnedFromDomain
+                      ? "overview.routingDiagnostics.trace.issues.missing_ipset.reasonDomain"
+                      : `overview.routingDiagnostics.trace.issues.${issue}.reason`
                   )}
                 </p>
-              ) : null}
-            </div>
-          ))}
-          {entries.some((entry) => entry.issue !== "ok" && entry.row) ? (
-            <p className="text-xs">
-              {t("overview.routingDiagnostics.trace.writeEvidence.scope")}
-            </p>
-          ) : null}
+                {learnedFromDomain ? (
+                  <ol className="list-decimal space-y-1 pl-5">
+                    <li>
+                      {t(
+                        "overview.routingDiagnostics.trace.issues.missing_ipset.steps.open"
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        "overview.routingDiagnostics.trace.issues.missing_ipset.steps.flush"
+                      )}
+                    </li>
+                    <li>
+                      <Trans
+                        i18nKey="overview.routingDiagnostics.trace.issues.missing_ipset.steps.dns"
+                        components={{
+                          log: (
+                            <Link
+                              className="font-medium text-foreground underline underline-offset-2"
+                              href="/requests-log"
+                            />
+                          ),
+                        }}
+                      />
+                    </li>
+                  </ol>
+                ) : issue !== "other_ipset" ? (
+                  <p>
+                    {t(
+                      `overview.routingDiagnostics.trace.issues.${issue}.advice`
+                    )}
+                  </p>
+                ) : null}
+              </div>
+            )
+          })}
           {allOk ? (
             <p className="text-xs">
               {t("overview.routingDiagnostics.trace.notConnectivityTest")}
@@ -504,15 +538,7 @@ export function RoutingRouteSummary({
               )}
             </span>
             <div className="trace-content min-w-0 pb-5">
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <h4 className="text-sm font-semibold">{step.title}</h4>
-                <span className="text-xs text-muted-foreground">
-                  {t("overview.routingDiagnostics.trace.step", {
-                    step: index + 1,
-                    total: steps.length,
-                  })}
-                </span>
-              </div>
+              <h4 className="text-sm font-semibold">{step.title}</h4>
               <div className="wrap-break-words mt-1 text-sm text-muted-foreground">
                 {step.content}
               </div>
@@ -524,22 +550,41 @@ export function RoutingRouteSummary({
         {runtimeOutbounds
           .filter((state) => routeTags.has(state.tag))
           .map((state) => {
-            const paths = state.interfaces
-              .filter((item) => item.status === "active")
+            const active = state.interfaces.filter(
+              (item) => item.status === "active"
+            )
+            // A plain interface outbound names its interface; a group names
+            // the members it currently uses.
+            const direct = active.every(
+              (item) => item.outbound_tag === state.tag
+            )
+            const interfaces = active
+              .map((item) => item.interface_name)
+              .filter(Boolean)
+              .join(", ")
+            const members = active
               .map((item) =>
                 item.interface_name
-                  ? `${item.outbound_tag} → ${item.interface_name}`
+                  ? t("overview.routingDiagnostics.trace.pathMember", {
+                      outbound: item.outbound_tag,
+                      interface: item.interface_name,
+                    })
                   : item.outbound_tag
               )
               .join(", ")
             return (
               <div key={state.tag} className="text-xs text-muted-foreground">
-                {paths ? (
+                {active.length > 0 && (!direct || interfaces) ? (
                   <p className="wrap-break-words">
-                    {t("overview.routingDiagnostics.trace.pathFor", {
-                      outbound: state.tag,
-                    })}
-                    : {paths}
+                    {direct
+                      ? t("overview.routingDiagnostics.trace.pathInterface", {
+                          outbound: state.tag,
+                          interfaces,
+                        })
+                      : t("overview.routingDiagnostics.trace.pathGroup", {
+                          outbound: state.tag,
+                          members,
+                        })}
                   </p>
                 ) : null}
                 {state.status === "unavailable" ? (

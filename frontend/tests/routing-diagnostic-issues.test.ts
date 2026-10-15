@@ -53,7 +53,19 @@ test("no DNS answer takes precedence over synthetic unknown firewall result", ()
 })
 test("a known missing set differs from an unavailable membership check", () => {
   expect(classify()).toBe("missing_ipset")
-  expect(classify({ ...result, actual_outbound: "(unknown)" })).toBe("firewall")
+  // Known absence from the set stays a missing set when the actual outbound
+  // is unknown; only an unanswered membership check is a firewall issue.
+  expect(classify({ ...result, actual_outbound: "(unknown)" })).toBe(
+    "missing_ipset"
+  )
+  expect(
+    classify({ ...result, actual_outbound: "(unknown)" }, [
+      {
+        ...selectedRule,
+        ip_rows: [{ ...selectedRule.ip_rows[0], in_ipset: null }],
+      },
+    ])
+  ).toBe("firewall")
   expect(
     classify(result, [
       {

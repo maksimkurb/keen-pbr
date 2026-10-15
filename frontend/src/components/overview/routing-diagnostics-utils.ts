@@ -39,6 +39,14 @@ export function getRoutingDiagnosticIssue(
           row.criteria_match !== false
       )
   )
+  // "Not in the set" is a definite answer even when the actual outbound is
+  // unknown: report the missing set, not a failed check.
+  if (
+    result.actual_outbound === "(unknown)" &&
+    row?.in_lists &&
+    row.in_ipset === false
+  )
+    return "missing_ipset"
   if (result.actual_outbound === "(unknown)") return "firewall"
   if (result.ok) return "ok"
   if (row?.in_lists && row.in_ipset === false) {

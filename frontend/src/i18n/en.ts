@@ -603,27 +603,23 @@ export const enTranslation = {
     routingDiagnostics: {
       trace: {
         writeEvidence: {
-          title: "Dynamic write history",
-          recorded:
-            "keen-pbr successfully added, refreshed or confirmed this IP in the set.",
-          age: "Latest retained operation: {{age}} s ago.",
-          nowMissing:
-            "A successful operation was recorded, but the IP is absent now. This cache does not record why it later disappeared.",
-          no_record:
-            "No successful operation for this IP and set is retained in the cache.",
-          not_tracked:
-            "Dynamic write history for this set is currently unavailable.",
-          unavailable: "Write history was not provided.",
-          scope:
-            "The cache stores IPs and sets, not domains or DNS queries. It can be reset or evict records: missing history does not mean the IP was never added.",
+          recorded: "keen-pbr has already added or refreshed this IP in the ipset.",
+          age: "Last time {{age}} s ago.",
+          nowMissing: "It is not in the ipset now, and why it left is unknown.",
+          no_record: "keen-pbr has no record of adding this IP to the ipset.",
+          not_tracked: "Writes are not tracked for this ipset.",
+          unavailable: "Could not get the write history.",
         },
 
         allRoutesMatch: "The routes match the rules",
         routeProblems: "Route problems detected",
         ipResults: "Matching routes: {{count}} of {{total}}",
+        ipGroup: "For {{count}} of {{total}} IPs",
         matches: "Matches",
         differs: "Mismatch",
-        pathFor: "Active path for {{outbound}}",
+        pathInterface: "{{outbound}} traffic leaves through interface {{interfaces}}.",
+        pathGroup: "{{outbound}} currently uses {{members}}.",
+        pathMember: "{{outbound}} (interface {{interface}})",
 
         outboundUnavailable:
           "The service reports outbound {{outbound}} as unavailable. A matching route does not confirm that it can carry traffic.",
@@ -643,10 +639,8 @@ export const enTranslation = {
         unknownRule:
           "There is not enough information to select a rule reliably.",
         firewall: "Firewall check",
-        step: "Step {{step}} of {{total}}",
         configuredPath: "Current path of the expected outbound",
-        expectedSetMissing:
-          "The IP is also absent from the expected rule’s IPSet.",
+        expectedSetMissing: "The IP is not in this rule’s ipset.",
         notConnectivityTest:
           "This checks the route from firewall state, not website connectivity.",
         dnsAdvice:
@@ -672,15 +666,21 @@ export const enTranslation = {
           },
           firewall: {
             title: "The actual route is unknown",
-            reason:
-              "Live set membership or applied rule criteria could not be checked reliably.",
+            reason: "The sets or rule conditions on the router could not be checked.",
             advice:
-              "Check service status and detailed diagnostics. An unavailable check does not mean the IP is absent from an IPSet.",
+              "Check the service status and the Diagnostics section below. Since the check failed, it is not certain that the IP is missing from the set.",
           },
           missing_ipset: {
-            title: "IP missing from the expected IPSet",
-            reason:
-              "The address matches the list but is absent from the selected rule’s IPSet.",
+            title: "IP not in the expected ipset",
+            reason: "The address is in the list but not in the selected rule’s ipset.",
+            reasonDomain:
+              "The domain is in the list, but its IPs are not in the rule’s ipset yet. keen-pbr adds addresses when a client looks the domain up through the router’s DNS.",
+            steps: {
+              open: "Open this site on the client device and run the check again.",
+              flush:
+                "Still missing — clear the DNS cache on the device and in the browser, then try again.",
+              dns: "Still missing — make sure the device does not use third-party DNS (DoH, DoT or its own DNS server) that keen-pbr cannot intercept. To check, open the keen-pbr home page from that device and look at the “Domain-based routing” section, and see the <log>requests log</log>.",
+            },
             advice:
               "Check applied configuration and list updates, then try again.",
           },

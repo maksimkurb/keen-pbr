@@ -2,6 +2,7 @@ import { expect, test } from "bun:test"
 import { createInstance } from "i18next"
 import { I18nextProvider } from "react-i18next"
 import { renderToStaticMarkup } from "react-dom/server"
+import { Router } from "wouter"
 import type {
   RoutingTestResponse,
   RoutingTestRuleDiagnostic,
@@ -46,36 +47,42 @@ const diagnostics: RoutingTestResponse = {
 function render(value: RoutingTestResponse) {
   return renderToStaticMarkup(
     <I18nextProvider i18n={i18n}>
-      <RoutingRouteSummary
-        diagnostics={value}
-        runtimeOutbounds={[
-          {
-            tag: "vpn",
-            type: "urltest",
-            status: "healthy",
-            interfaces: [
-              {
-                outbound_tag: "warp",
-                interface_name: "vpn_cf",
-                status: "active",
-              },
-              {
-                outbound_tag: "backup",
-                interface_name: "vpn_backup",
-                status: "backup",
-              },
-            ],
-          },
-          {
-            tag: "wan",
-            type: "interface",
-            status: "healthy",
-            interfaces: [
-              { outbound_tag: "wan", interface_name: "eth1", status: "active" },
-            ],
-          },
-        ]}
-      />
+      <Router ssrPath="/">
+        <RoutingRouteSummary
+          diagnostics={value}
+          runtimeOutbounds={[
+            {
+              tag: "vpn",
+              type: "urltest",
+              status: "healthy",
+              interfaces: [
+                {
+                  outbound_tag: "warp",
+                  interface_name: "vpn_cf",
+                  status: "active",
+                },
+                {
+                  outbound_tag: "backup",
+                  interface_name: "vpn_backup",
+                  status: "backup",
+                },
+              ],
+            },
+            {
+              tag: "wan",
+              type: "interface",
+              status: "healthy",
+              interfaces: [
+                {
+                  outbound_tag: "wan",
+                  interface_name: "eth1",
+                  status: "active",
+                },
+              ],
+            },
+          ]}
+        />
+      </Router>
     </I18nextProvider>
   )
 }
@@ -122,15 +129,17 @@ test("summary explains expected route, active candidates and missing-IPSet misma
   expect(html).toContain("google.com")
   expect(html).toContain("google (entry <code")
   expect(html).toMatch(/<code[^>]*>google\.com<\/code>/)
-  expect(html).toContain("warp → vpn_cf")
+  expect(html).toContain("vpn currently uses warp (interface vpn_cf).")
   expect(html).not.toContain("vpn_backup")
-  expect(html).toContain("wan → eth1")
+  expect(html).toContain("wan traffic leaves through interface eth1.")
   expect(html).not.toContain(
     "Check applied configuration and list updates, then try again."
   )
-  expect(html).toContain("Step 1 of 4")
+  expect(html).not.toContain("Step 1 of 4")
   expect(html).toContain("DNS resolution")
-  expect(html).toContain("IP missing from the expected IPSet")
+  expect(html).toContain("IP not in the expected ipset")
+  expect(html).toContain("Open this site on the client device")
+  expect(html).toContain('href="/requests-log"')
   expect(html).not.toContain("overview.routingDiagnostics")
   expect(html).not.toContain("<table")
 })
@@ -146,8 +155,11 @@ test("successful and unknown routes do not claim DNS is pending", () => {
     ...diagnostics,
     results: [{ ...result, actual_outbound: "(unknown)" }],
   })
-  expect(unknown).toContain("The actual route is unknown")
-  expect(unknown).not.toContain("The device’s DNS query may not have passed")
+  // The set check still answered "not in the set": that is a missing set
+  // with the domain advice, not a failed check.
+  expect(unknown).toContain("IP not in the expected ipset")
+  expect(unknown).not.toContain("could not be checked")
+  expect(unknown).toContain("Open this site on the client device")
 })
 
 test("unavailable outbound is reported separately from a matching firewall route", () => {
@@ -178,8 +190,11 @@ test("a missing static IP-list entry is not blamed on DNS propagation", () => {
     ...diagnostics,
     results: [{ ...result, list_match: { list: "static", via: result.ip } }],
   })
-  expect(html).toContain("IP missing from the expected IPSet")
-  expect(html).not.toContain("The device’s DNS query may not have passed")
+  expect(html).toContain("IP not in the expected ipset")
+  expect(html).not.toContain("Open this site on the client device")
+  expect(html).toContain(
+    "Check applied configuration and list updates, then try again."
+  )
 })
 
 test("multiple IPs share one trace and one failed route makes firewall step warn", () => {
@@ -226,7 +241,11 @@ test("route trace keeps IPs in DNS and groups firewall outcomes without repeatin
   const firewall = html.split(">Firewall check<")[1]
   expect(firewall).toContain("Expected Outbound:")
   expect(firewall).toContain("Actual Outbound:")
-  expect(firewall).toContain("Matching routes: 2 of 2")
+  // Both IPs mismatch: the headline counts real matches, and a group that
+  // covers every IP needs no "for N of M IPs" label.
+  expect(firewall).toContain("Matching routes: 0 of 2")
+  expect(firewall).not.toContain("Matching routes: 2 of 2")
+  expect(firewall).not.toContain("For 2 of 2 IPs")
   expect(firewall).not.toContain(result.ip)
   expect(firewall).not.toContain(secondIp)
   expect(html.match(/google \(entry <code/g)).toHaveLength(1)
@@ -269,13 +288,10 @@ test("a retained successful operation is distinct from current kernel absence", 
     ],
   })
   expect(html).toContain(
-    "keen-pbr successfully added, refreshed or confirmed this IP in the set."
+    "keen-pbr has already added or refreshed this IP in the ipset."
   )
-  expect(html).toContain("Latest retained operation: 0 s ago.")
-  expect(html).toContain(
-    "A successful operation was recorded, but the IP is absent now."
-  )
-  expect(html).not.toContain("The device’s DNS query may not have passed")
+  expect(html).toContain("Last time 0 s ago.")
+  expect(html).toContain("It is not in the ipset now")
 })
 
 test("no retained operation is not presented as proof that an IP was never added", () => {
@@ -291,12 +307,9 @@ test("no retained operation is not presented as proof that an IP was never added
     ],
   })
   expect(html).toContain(
-    "No successful operation for this IP and set is retained in the cache."
+    "keen-pbr has no record of adding this IP to the ipset."
   )
-  expect(html).toContain(
-    "missing history does not mean the IP was never added."
-  )
-  expect(html).not.toContain("Latest retained operation:")
+  expect(html).not.toContain("Last time")
 })
 
 test("untracked history remains distinct from an empty tracked cache", () => {
@@ -311,10 +324,6 @@ test("untracked history remains distinct from an empty tracked cache", () => {
       },
     ],
   })
-  expect(html).toContain(
-    "Dynamic write history for this set is currently unavailable."
-  )
-  expect(html).not.toContain(
-    "No successful operation for this IP and set is retained"
-  )
+  expect(html).toContain("Writes are not tracked for this ipset.")
+  expect(html).not.toContain("keen-pbr has no record of adding")
 })
