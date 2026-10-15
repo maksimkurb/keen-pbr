@@ -29,7 +29,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!body.enabled || !body.authenticated) sessionStorage.removeItem(tokenKey)
       setState({ enabled: body.enabled, authenticated: body.authenticated, deviceName: body.device_name, loading: false })
     }
-    const requireAuth = () => setState((current) => ({ ...current, authenticated: false, loading: false }))
+    // A 401 means authentication is enabled, even if the last status check
+    // (or a stream opened before it got enabled) saw it disabled.
+    const requireAuth = () => setState((current) => ({ ...current, enabled: true, authenticated: false, loading: false }))
     void check().catch(() => setState({ enabled: false, authenticated: false, deviceName: "", loading: false }))
     const interval = window.setInterval(() => void check().catch(() => {}), 60_000)
     const onFocus = () => void check().catch(() => {})

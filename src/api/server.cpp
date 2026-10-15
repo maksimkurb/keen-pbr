@@ -410,6 +410,7 @@ struct ApiServer::Impl {
     unsigned failed_logins{0};
     std::chrono::steady_clock::time_point failure_window{};
     std::uint64_t security_generation{0};
+    std::function<bool(const httplib::Request&)> request_authenticated;
 };
 
 ApiServerLimits api_server_limits(const ApiConfig& config) {
@@ -480,6 +481,7 @@ ApiServer::ApiServer(const ApiConfig& config, std::string device_name)
         }
         return valid;
     };
+    impl_->request_authenticated = request_authenticated;
     auto apply_cors = [this](const httplib::Request& req, httplib::Response& res) {
         const auto origin = req.get_header_value("Origin");
         if (origin.empty()) return true;
@@ -679,6 +681,45 @@ void ApiServer::update_runtime_config(const ApiConfig& config,
         impl_->failed_logins = 0;
         impl_->failure_window = {};
     }
+}
+
+ApiServer::StreamAuthorization ApiServer::stream_authorization(const httplib::Request& request) {
+    bool enabled = false;
+    std::uint64_t generation = 0;
+    {
+        const std::lock_guard lock(impl_->auth_mutex);
+        enabled = impl_->auth_enabled;
+        generation = impl_->security_generation;
+    }
+    if (!enabled) {
+        // Opened without credentials: it must not outlive that state.
+        return [impl = impl_.get()] {
+            const std::lock_guard lock(impl->auth_mutex);
+            return !impl->auth_enabled;
+        };
+    }
+    // Re-checks what the pre-routing handler checked, using the Basic cache
+    // for a cheap answer; false also covers a change racing with this call.
+    if (!impl_->request_authenticated(request)) {
+        return [] { return false; };
+    }
+    const auto header = request.get_header_value("Authorization");
+    constexpr std::string_view bearer = "Bearer ";
+    std::string token_hash;
+    if (header.compare(0, bearer.size(), bearer.data(), bearer.size()) == 0) {
+        token_hash = auth::blake2b_hex(header.substr(bearer.size()));
+    }
+    return [impl = impl_.get(), generation, token_hash = std::move(token_hash)] {
+        const std::lock_guard lock(impl->auth_mutex);
+        if (!impl->auth_enabled || impl->security_generation != generation) return false;
+        if (token_hash.empty()) {
+            // Basic credentials are tied to the password, i.e. the generation.
+            return true;
+        }
+        return std::chrono::system_clock::now() < impl->session_expires &&
+               !impl->session_token_hash.empty() &&
+               auth::constant_time_equal(token_hash, impl->session_token_hash);
+    };
 }
 
 void ApiServer::get(const std::string& path, RouteHandler handler) {

@@ -108,6 +108,14 @@ public:
     // True when API authentication is enabled in the applied settings.
     bool auth_enabled() const;
 
+    // Predicate for a long-lived response opened by `request`: it stays true
+    // while the credentials the stream was opened with remain valid (same
+    // password, same UI session, not expired) and, for a stream opened without
+    // authentication, while authentication stays disabled. Cheap enough to
+    // call once per heartbeat; it never verifies a password.
+    using StreamAuthorization = std::function<bool()>;
+    StreamAuthorization stream_authorization(const httplib::Request& request);
+
     // Apply authentication, CORS, and WebUI identity settings without
     // restarting the listening socket. Auth changes revoke active sessions.
     void update_runtime_config(const ApiConfig& config, std::string device_name);

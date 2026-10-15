@@ -10,12 +10,13 @@
 namespace keen_pbr3 {
 
 void register_status_events_handler(ApiServer &server, ApiContext &ctx) {
-  server.get_stream("/api/status/events", [&ctx](const httplib::Request &,
-                                                 httplib::Response &res) {
+  server.get_stream("/api/status/events", [&ctx, &server](const httplib::Request &request,
+                                                         httplib::Response &res) {
     auto subscription = ctx.status_stream->subscribe();
-    set_sse_response(res, subscription, [&ctx, subscription] {
-      ctx.status_stream->unsubscribe(subscription);
-    });
+    set_sse_response(
+        res, subscription,
+        [&ctx, subscription] { ctx.status_stream->unsubscribe(subscription); },
+        {}, server.stream_authorization(request));
   });
 }
 

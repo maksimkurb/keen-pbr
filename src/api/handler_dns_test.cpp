@@ -99,7 +99,8 @@ void register_dns_test_handler(ApiServer& server, ApiContext& ctx) {
                 const auto frame = make_sse_frame(message);
                 Logger::instance().trace("sse_event", "path=/api/dns/test bytes={}", frame.size());
                 return frame;
-            });
+            },
+            server.stream_authorization(request));
     });
 }
 
