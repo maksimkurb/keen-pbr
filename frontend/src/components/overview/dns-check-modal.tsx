@@ -78,7 +78,7 @@ export function DnsCheckModal({
         }
       }}
       open={open}
-      className="sm:max-w-100"
+      className="sm:max-w-xl"
       title={t("overview.dnsCheck.modal.title")}
       description={t("overview.dnsCheck.modal.description")}
     >
