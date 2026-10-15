@@ -34,10 +34,11 @@ export const invalidationKeysAfterApplyConfigMutation = [
   queryKeys.config(),
 ] as const
 
-// A list refresh can change what the runtime reports, so service and
-// outbounds are kept (served from the stream cache while it is live).
+// The refresh POST returns after any runtime reload: reconcile_lists_only()
+// publishes service and outbounds over the stream before that, so only the
+// list refresh state (in config) and the reloaded firewall's routing health
+// are re-read here.
 export const invalidationKeysAfterListRefreshMutation = [
-  queryKeys.healthService(),
-  queryKeys.runtimeOutbounds(),
+  queryKeys.healthRouting(),
   queryKeys.config(),
 ] as const
