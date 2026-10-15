@@ -61,7 +61,6 @@ test: ## Build and run unit tests (doctest)
 	python3 -m unittest tests/test_dns_bench.py
 	sh tests/test_keenetic_raw_policy.sh
 	sh tests/test_keenetic_kernel_modules.sh
-	sh tests/test_dnsmasq_migration.sh
 	sh tests/test_cleanup_firewall.sh
 	KEEN_PBR_RESOLVER_BIN="$(GCC_BUILD_DIR)/keen-pbr" sh tests/test_dnsmasq_hooks.sh
 	python3 tests/check_firewall_dependencies.py

@@ -38,6 +38,11 @@ struct DnsmasqGenStats {
 // it loaded the keen-pbr config and tells which one.
 constexpr std::string_view kDnsmasqStampDomain = "config-hash.keen.pbr";
 
+// Hash carried by the stamp of the output printed while keen-pbr does not
+// manage dnsmasq (integration off, or the config unreadable): lets the daemon
+// tell that output from the generated one.
+constexpr std::string_view kDnsmasqOffStampHash = "00000000000000000000000000000000";
+
 struct DnsmasqConfigStamp {
     std::string hash;          // lowercase hex MD5 returned by generate()
     std::int64_t boottime_ms;  // CLOCK_BOOTTIME when the conf-script ran (ordering)
@@ -46,6 +51,10 @@ struct DnsmasqConfigStamp {
 
 // Writes `txt-record=config-hash.keen.pbr,<hash>|<boottime_ms>|<unix_ts>\n`.
 void write_dnsmasq_config_stamp(std::ostream& out, const DnsmasqConfigStamp& stamp);
+
+// Copies the server= lines of a dnsmasq-fallback.conf to `out`; returns how
+// many were written.  A missing or unreadable file writes nothing.
+std::size_t write_dnsmasq_fallback_servers(std::ostream& out, const std::string& path);
 
 // Strict parser of the TXT value `<hash>|<boottime_ms>|<unix_ts>`.
 std::optional<DnsmasqConfigStamp> parse_dnsmasq_config_stamp(std::string_view txt);

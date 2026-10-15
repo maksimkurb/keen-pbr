@@ -18,24 +18,23 @@
 
 #include "config/config.hpp"
 #include "config/config_writer.hpp"
-#include "cache/cache_manager.hpp"
 #include "auth/password.hpp"
 #include "cmd/dnsmasq_cmd.hpp"
+#include "cmd/resolver_config.hpp"
 #include "cmd/status.hpp"
 #include "cmd/test_routing.hpp"
-#include "dns/dnsmasq_gen.hpp"
 #include "crash/crash_diagnostics.hpp"
 #include "daemon/daemon.hpp"
-#include "dns/dns_router.hpp"
 #include "http/curl_runtime.hpp"
 #include "ipc/control_client.hpp"
 #include "log/logger.hpp"
-#include "lists/list_streamer.hpp"
 #include "util/daemon_signals.hpp"
-#include "util/time_utils.hpp"
 
 #ifndef KEEN_PBR_DEFAULT_CONFIG_PATH
 #define KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json"
+#endif
+#ifndef KEEN_PBR_RESOLVER_FALLBACK_CONFIG
+#define KEEN_PBR_RESOLVER_FALLBACK_CONFIG "/etc/keen-pbr/dnsmasq-fallback.conf"
 #endif
 #ifndef KEEN_PBR_TARGET_OS
 #define KEEN_PBR_TARGET_OS "linux"
@@ -129,7 +128,7 @@ void print_usage(const char *argv0) {
                "from dns.rules/dns.fallback (cached lists only; used as "
                "dnsmasq conf-script, always exits 0)\n"
             << "  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses\n"
-            << "  dnsmasq remove <selector>          Remove keen-pbr's drop-in and owned settings from one dnsmasq instance\n"
+            << "  dnsmasq remove <selector>          Restart one dnsmasq instance without keen-pbr's generated config (OpenWrt: also return the moved servers)\n"
             << "  hash-password [--update]           Generate an authentication password hash; --update writes config.json\n";
 }
 
@@ -455,130 +454,11 @@ int main(int argc, char *argv[]) {
 
     if (opts.generate_resolver_config) {
       // Runs inside dnsmasq's startup (conf-script): stdout is parsed by
-      // dnsmasq, a failing script would stop DNS for the whole LAN, so always
-      // exit 0 and report problems as a comment line (details go to stderr).
+      // dnsmasq and a failing script would stop DNS for the whole LAN.
       std::ios::sync_with_stdio(false);
-      if (opts.resolver_type != "dnsmasq") {
-        std::cout << "# keen-pbr: unsupported resolver type\n";
-        std::cout.flush();
-        return 0;
-      }
-      try {
-        const keen_pbr3::Config config = [&opts] {
-          std::ifstream config_stream(opts.config_path);
-          if (!config_stream.is_open()) {
-            throw std::runtime_error("Cannot open config file: " + opts.config_path);
-          }
-          return keen_pbr3::parse_config(config_stream);
-        }();
-        keen_pbr3::validate_config(
-            config, keen_pbr3::ConfigValidationMode::ResolverGeneration);
-        if (keen_pbr3::effective_resolver_integration(config) ==
-            keen_pbr3::ResolverIntegrationMode::NONE) {
-          std::cout << "# keen-pbr: dns.resolver_integration is none\n";
-          std::cout.flush();
-          return 0;
-        }
-        const auto dns = config.dns.value_or(keen_pbr3::DnsConfig{});
-        const auto lists =
-            config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{});
-        const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
-                                   .cache_dir.value_or("/var/cache/keen-pbr");
-        // CacheManager's constructor does not touch the disk; only cached
-        // lists are read and nothing is downloaded.
-        keen_pbr3::CacheManager cache(cache_dir,
-                                      keen_pbr3::max_file_size_bytes(config));
-        keen_pbr3::ListStreamer streamer(cache);
-        const keen_pbr3::DnsServerRegistry registry(dns);
-        keen_pbr3::DnsmasqGenerator generator(registry, streamer, dns, lists);
-        auto &log = keen_pbr3::Logger::instance();
-        // Who ran us: dnsmasq (conf-script), the daemon, or a shell. Inside
-        // the dnsmasq jail the PIDs are the jail's own (dnsmasq is 1) and
-        // /proc may be missing, hence the "?" fallback.
-        const auto parent_name = [] {
-          std::ifstream comm("/proc/" + std::to_string(::getppid()) + "/comm");
-          std::string name;
-          return std::getline(comm, name) && !name.empty() ? name
-                                                           : std::string("?");
-        }();
-        log.info("generate-resolver-config dnsmasq: pid {}, parent {} ({}), "
-                 "config {}, list cache {}",
-                 static_cast<long>(::getpid()), static_cast<long>(::getppid()),
-                 parent_name, opts.config_path, cache_dir);
-        const auto join = [](const std::vector<std::string> &items) {
-          std::string out;
-          for (const auto &item : items) {
-            if (!out.empty()) out += ", ";
-            out += item;
-          }
-          return out;
-        };
-        keen_pbr3::DnsmasqGenStats stats;
-        const std::string hash = generator.generate(std::cout, &stats);
-        // Runs as dnsmasq's conf-script: these lines (syslog there) are the
-        // only trace of what dnsmasq was given.
-        if (stats.fallback.empty()) {
-          log.info("generate-resolver-config: no dns.fallback, dnsmasq keeps "
-                   "its own upstream servers");
-        } else {
-          log.info("generate-resolver-config: default upstreams (no-resolv): {}",
-                   join(stats.fallback));
-        }
-        for (const auto &list : stats.lists) {
-          if (!list.skipped.empty()) {
-            log.warn("generate-resolver-config: list '{}' skipped: {}",
-                     list.name, list.skipped);
-            continue;
-          }
-          log.info("generate-resolver-config: list '{}' -> {} ({}): {} domains{}",
-                   list.name, join(list.servers),
-                   list.upstreams.empty() ? std::string("no upstream")
-                                          : join(list.upstreams),
-                   list.domains,
-                   list.allow_rebind ? ", rebind allowed" : "");
-          if (list.url_pending) {
-            log.warn("generate-resolver-config: list '{}': its URL source is "
-                     "not downloaded yet, its domains are missing from this "
-                     "dnsmasq config",
-                     list.name);
-          }
-        }
-        log.info("generate-resolver-config: done, {} rules, {} lists, {} "
-                 "domains, config hash {}",
-                 stats.rules, stats.lists.size(), stats.domains, hash);
-        // The stamp is written after (and not covered by) the hash, so the
-        // daemon can compute the same hash in memory.
-        keen_pbr3::write_dnsmasq_config_stamp(
-            std::cout, {hash, keen_pbr3::boottime_now_ms(),
-                        keen_pbr3::unix_timestamp_now_seconds()});
-        std::cout.flush();
-      } catch (...) {
-        std::string message;
-        try {
-          throw;
-        } catch (const keen_pbr3::ConfigValidationError &e) {
-          // what() repeats the first issue; list each issue once with its path.
-          for (const auto &issue : e.issues()) {
-            if (!message.empty()) message += "; ";
-            message += issue.path + ": " + issue.message;
-          }
-          if (message.empty()) message = e.what();
-        } catch (const std::exception &e) {
-          message = e.what();
-        } catch (...) {
-          message = "unknown error";
-        }
-        // dnsmasq runs this as conf-script and discards stderr, so the failure
-        // goes through the logger (syslog there, the terminal when run by hand).
-        keen_pbr3::Logger::instance().error(
-            "generate-resolver-config failed: {}", message);
-        for (char &c : message) {
-          if (c == '\n' || c == '\r') c = ' ';
-        }
-        std::cout << "# keen-pbr: generate-resolver-config failed: " << message << '\n';
-        std::cout.flush();
-      }
-      return 0;
+      return keen_pbr3::run_generate_resolver_config(
+          opts.resolver_type, opts.config_path, KEEN_PBR_RESOLVER_FALLBACK_CONFIG,
+          std::cout);
     }
 
     // Deprecated no-op stub: old installs may still call it.

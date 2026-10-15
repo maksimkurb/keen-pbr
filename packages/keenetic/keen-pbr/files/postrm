@@ -2,9 +2,9 @@
 
 cat <<'EOF2'
 keen-pbr has been removed.
-Its dnsmasq settings were removed from /opt/etc/dnsmasq.conf. If dnsmasq had no
-upstream DNS server left, the fallback servers were added there in a block
-marked "keen-pbr fallback upstream": replace them with your own if you like.
+Its entry was removed from /opt/etc/dnsmasq.conf. If dnsmasq had no upstream DNS
+server left, the fallback servers were added there in a block marked
+"keen-pbr fallback upstream": replace them with your own if you like.
 EOF2
 
 exit 0

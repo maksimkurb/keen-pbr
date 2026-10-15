@@ -126,8 +126,6 @@ HookInspectParse parse_hook_inspect_output(std::string_view text) {
             r.static_endpoint = *ep;
         } else if (key == "preflight") {
             if (value == "skip") r.preflight_skip = true;
-        } else if (key == "owned_mounts") {
-            r.owned_mounts = split_spaces(value);
         } else if (key == "missing_mounts") {
             r.missing_mounts = split_spaces(value);
         }

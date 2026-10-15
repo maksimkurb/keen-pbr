@@ -17,6 +17,7 @@ add_executable(keen-pbr-tests
   test_addr_spec.cpp
   test_dns_server.cpp
   test_dnsmasq_gen.cpp
+  test_resolver_config.cpp
   test_dnsmasq_manager.cpp
   test_dnsmasq_types.cpp
   test_dnsmasq_hook_protocol.cpp
@@ -114,6 +115,7 @@ add_executable(keen-pbr-tests
   ../src/health/routing_health_checker.cpp
   ../src/health/host_health_warnings.cpp
   ../src/cmd/dnsmasq_cmd.cpp
+  ../src/cmd/resolver_config.cpp
   ../src/cmd/status.cpp
   ../src/routing/firewall_state.cpp
   ../src/runtime/operation_coordinator.cpp

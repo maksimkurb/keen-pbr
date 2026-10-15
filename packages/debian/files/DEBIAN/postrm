@@ -8,11 +8,9 @@ fi
 
 cat <<'EOF'
 keen-pbr has been removed.
-keen-pbr does not manage your DNS resolver any more. If upstream DNS servers are
-not configured in your dnsmasq settings, internet access may stop working.
-Configure upstream DNS servers manually if they are not set yet.
-
-Hint: add "server=8.8.8.8" (or other DNS servers) to the /etc/dnsmasq.conf file.
+The keen-pbr entry was removed from dnsmasq. If dnsmasq had no upstream DNS
+server of its own, /etc/dnsmasq.d/keen-pbr.conf was left with the fallback
+servers: replace them with your own or delete the file.
 EOF
 
 exit 0

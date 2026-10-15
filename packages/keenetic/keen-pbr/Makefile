@@ -68,6 +68,7 @@ CMAKE_OPTIONS += \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/opt/etc/keen-pbr/config.json \
 	-DKEEN_PBR_CONTROL_SOCKET:STRING=/tmp/keen-pbr/control.sock \
 	-DKEEN_PBR_DNSMASQ_HOOK:STRING=/opt/usr/lib/keen-pbr/dnsmasq-hook.sh \
+	-DKEEN_PBR_RESOLVER_FALLBACK_CONFIG:STRING=/opt/etc/keen-pbr/dnsmasq-fallback.conf \
 	-DKEEN_PBR_CLEANUP_FIREWALL_SCRIPT:STRING=/opt/usr/lib/keen-pbr/cleanup-firewall.sh \
 	-DKEEN_PBR_TARGET_OS:STRING=keenetic \
 	-DKEEN_PBR_TARGET_VERSION:STRING=$(KEEN_PBR_TARGET_VERSION) \
@@ -122,13 +123,12 @@ define Package/keen-pbr/install
 	$(INSTALL_DIR) $(1)/opt/usr/share/keen-pbr/frontend
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/$(KEEN_PBR_STAGED_BINDIR)/keen-pbr $(1)/opt/usr/bin/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d/S80keen-pbr
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/init.d/S55keen-pbr-dnsmasq $(1)/opt/etc/init.d/S55keen-pbr-dnsmasq
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/defaults
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/dnsmasq-fallback.conf $(1)/opt/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq-hook.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq-hook.sh
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.recommended.conf $(1)/opt/usr/lib/keen-pbr/dnsmasq.recommended.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/common/cleanup-firewall.sh $(1)/opt/usr/lib/keen-pbr/cleanup-firewall.sh
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh
 	$(CP) $(PKG_BUILD_DIR)/frontend/dist/. $(1)/opt/usr/share/keen-pbr/frontend/
 	chmod -R a=rX,u+w $(1)/opt/usr/share/keen-pbr/frontend
@@ -181,13 +181,12 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_DIR) $(1)/opt/usr/lib/keen-pbr
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/$(KEEN_PBR_STAGED_BINDIR)/keen-pbr $(1)/opt/usr/bin/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d/S80keen-pbr
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/init.d/S55keen-pbr-dnsmasq $(1)/opt/etc/init.d/S55keen-pbr-dnsmasq
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/defaults
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/dnsmasq-fallback.conf $(1)/opt/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq-hook.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq-hook.sh
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.recommended.conf $(1)/opt/usr/lib/keen-pbr/dnsmasq.recommended.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/common/cleanup-firewall.sh $(1)/opt/usr/lib/keen-pbr/cleanup-firewall.sh
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh
 	$(INSTALL_CONF) $(KEEN_PBR_HEADLESS_CONFIG) $(1)/opt/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/opt/etc/keen-pbr/local.lst

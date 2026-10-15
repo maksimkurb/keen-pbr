@@ -6,17 +6,6 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload >/dev/null 2>&1 || true
 fi
 
-# Migrate from the removed dnsmasq integration: clean up any drop-in configuration
-# that contains the keen-pbr conf-script line. This is idempotent and safe.
-conf_line="conf-script=/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry"
-for conf_path in /etc/dnsmasq.d/keen-pbr.conf /etc/dnsmasq/conf.d/keen-pbr.conf /etc/dnsmasq-conf.d/keen-pbr.conf; do
-    # Remove the drop-in only if it holds nothing but our conf-script line.
-    if [ -f "$conf_path" ] && grep -qxF "$conf_line" "$conf_path" &&
-       ! grep -vxF "$conf_line" "$conf_path" | grep -q '[^[:space:]]'; then
-        rm -f "$conf_path"
-    fi
-done
-
 # keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically
 # installed.  Since 3.4.0 the dependency is gone and "apt autoremove" would
 # remove dnsmasq even though a migrated config still uses it.  $2 is the

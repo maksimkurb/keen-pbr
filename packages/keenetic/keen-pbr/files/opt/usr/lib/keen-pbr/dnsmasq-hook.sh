@@ -1,35 +1,46 @@
 #!/bin/sh
-# keen-pbr dnsmasq hook (Keenetic/Entware): dnsmasq-hook.sh inspect|apply <selector>|remove <selector>|uninstall|status|alive
+# keen-pbr dnsmasq hook (Keenetic/Entware):
+#   dnsmasq-hook.sh inspect | apply <selector> | remove <selector> | uninstall |
+#                   install-recommended-config | status | alive
 #
-# The conf-script drop-in lives in tmpfs (/tmp); the only persistent change is
-# a managed block in /opt/etc/dnsmasq.conf that includes that directory, and it
-# is written once (only when missing).  The conf-script is dnsmasq.sh, which
-# prints keen-pbr's config while the daemon runs and the fallback upstreams
-# otherwise.
+# The conf-script entry lives in /opt/etc/dnsmasq.conf, in a managed block, and
+# stays there.  On every dnsmasq start dnsmasq.sh runs `keen-pbr
+# generate-resolver-config dnsmasq`, which reads config.json and prints either
+# the generated config or the fallback servers.  So switching the integration
+# on or off never edits dnsmasq's config; it only restarts dnsmasq.
+#
+#   apply <selector>   appends the managed block when it is missing (once),
+#                      restarts dnsmasq.  Extra arguments are ignored.
+#   remove <selector>  integration switched off: changes no file, restarts dnsmasq.
+#   uninstall          package removal (never runs keen-pbr): removes the block;
+#                      when dnsmasq.conf then has no-resolv and no upstream of
+#                      its own, leaves the fallback servers in a marked block.
+#   install-recommended-config
+#                      replaces dnsmasq.conf with dnsmasq.recommended.conf after
+#                      `dnsmasq --test` accepts it; the old file is kept as
+#                      dnsmasq.conf.backup-keenpbr.
 #
 # `alive` exits 0 when the Entware dnsmasq runs, 1 when it definitely does not
 # and 2 when that cannot be told.
-#
-# `uninstall` (package removal) needs no selector and never runs keen-pbr: it
-# removes everything above and makes sure dnsmasq keeps an upstream server.
 
 DNSMASQ_SH="${DNSMASQ_SH:-/opt/usr/lib/keen-pbr/dnsmasq.sh}"
 DNSMASQ_CONF="${DNSMASQ_CONF:-/opt/etc/dnsmasq.conf}"
+RECOMMENDED_CONF="${RECOMMENDED_CONF:-/opt/usr/lib/keen-pbr/dnsmasq.recommended.conf}"
+BACKUP_CONF="${BACKUP_CONF:-$DNSMASQ_CONF.backup-keenpbr}"
 FALLBACK_CONF="${FALLBACK_CONF:-/opt/etc/keen-pbr/dnsmasq-fallback.conf}"
 INIT_SCRIPT="${INIT_SCRIPT:-/opt/etc/init.d/S56dnsmasq}"
 RESTART_CMD="${RESTART_CMD:-$INIT_SCRIPT restart}"
 ALIVE_CMD="${ALIVE_CMD:-$INIT_SCRIPT check}"
-TMP_CONF_DIR="${TMP_CONF_DIR:-/tmp/keen-pbr/dnsmasq.d}"
 DNSMASQ_BIN="${DNSMASQ_BIN:-/opt/sbin/dnsmasq}"
 SELECTOR="entware:default"
 LOCK_DIR="${LOCK_DIR:-/tmp/keen-pbr-dnsmasq-hook.lock}"
 LOCK_TRIES="${LOCK_TRIES:-30}"
 # `uninstall` gives up waiting sooner and then goes on without the lock.
 UNINSTALL_LOCK_TRIES="${UNINSTALL_LOCK_TRIES:-5}"
-CONF_NAME="keen-pbr-upstream-dns.conf"
-BEGIN_MARK="# BEGIN keen-pbr upstream dns"
-END_MARK="# END keen-pbr upstream dns"
-FALLBACK_BEGIN_MARK="# BEGIN keen-pbr fallback upstream (added on upgrade; replace or remove)"
+BEGIN_MARK="# BEGIN keen-pbr managed block"
+NOTICE_LINE="# Do not remove the following line, it is required for keen-pbr to function properly."
+END_MARK="# END keen-pbr managed block"
+FALLBACK_BEGIN_MARK="# BEGIN keen-pbr fallback upstream (added on removal; replace or remove)"
 FALLBACK_END_MARK="# END keen-pbr fallback upstream"
 # Used by `uninstall` when dnsmasq-fallback.conf is missing or has no servers.
 DEFAULT_FALLBACK_SERVERS="server=8.8.8.8
@@ -47,12 +58,23 @@ die() {
     exit "$code"
 }
 
-block_present() {
-    [ -f "$DNSMASQ_CONF" ] && grep -qxF "$BEGIN_MARK" "$DNSMASQ_CONF"
+conf_line() { printf 'conf-script=%s dnsmasq-config-entry' "$DNSMASQ_SH"; }
+
+# Prints the managed block (4 lines).
+block_text() {
+    printf '%s\n%s\n%s\n%s\n' "$BEGIN_MARK" "$NOTICE_LINE" "$(conf_line)" "$END_MARK"
 }
 
-conf_line() { printf 'conf-script=%s dnsmasq-config-entry' "$DNSMASQ_SH"; }
-write_conf() { write_line_atomic "$TMP_CONF_DIR/$CONF_NAME" "$(conf_line)"; }
+# block_present <file>: the file has a managed block with our conf-script line.
+block_present() {
+    [ -f "$1" ] || return 1
+    awk -v begin="$BEGIN_MARK" -v end="$END_MARK" -v script="$(conf_line)" '
+        $0 == begin { inside = 1; has = 0; next }
+        inside && $0 == script { has = 1; next }
+        inside && $0 == end { if (has) found = 1; inside = 0; next }
+        END { exit found ? 0 : 1 }
+    ' "$1"
+}
 
 release_lock() { rm -rf "$LOCK_DIR"; }
 
@@ -80,26 +102,8 @@ acquire_lock() {
     take_lock "$LOCK_TRIES" || die 4 "another dnsmasq-hook operation is running"
 }
 
-# write_line_atomic <file> <line>: writes "<line>\n" only when the content differs.
-# Returns 0 when unchanged or written, 1 on error.
-write_line_atomic() {
-    if [ -f "$1" ] && [ "$(cat "$1" 2>/dev/null)" = "$2" ]; then
-        return 0
-    fi
-    mkdir -p "$(dirname "$1")" || return 1
-    printf '%s\n' "$2" > "$1.kpbr.$$" || { rm -f "$1.kpbr.$$"; return 1; }
-    mv -f "$1.kpbr.$$" "$1" || { rm -f "$1.kpbr.$$"; return 1; }
-}
-
-# dropin_state <file> <expected-line>: prints absent|current|foreign
-dropin_state() {
-    if [ ! -e "$1" ]; then echo absent; return 0; fi
-    if [ "$(cat "$1" 2>/dev/null)" = "$2" ]; then echo current; return 0; fi
-    echo foreign
-}
-
 usage() {
-    echo "usage: $0 inspect | apply <selector> | remove <selector> | uninstall | status | alive [<selector>]" >&2
+    echo "usage: $0 inspect | apply <selector> | remove <selector> | uninstall | install-recommended-config | status | alive [<selector>]" >&2
     exit 64
 }
 
@@ -117,8 +121,8 @@ do_inspect() {
     printf 'binary=%s\n' "$DNSMASQ_BIN"
     _en=1
     grep -q '^ENABLED=no' "$INIT_SCRIPT" 2>/dev/null && _en=0
-    _f="$TMP_CONF_DIR/$CONF_NAME"
-    if block_present; then _st=current; else _st="$(dropin_state "$_f" "$(conf_line)")"; fi
+    _st=absent
+    block_present "$DNSMASQ_CONF" && _st=current
     printf '[instance]\n'
     printf 'selector=%s\n' "$SELECTOR"
     printf 'enabled=%s\n' "$_en"
@@ -126,51 +130,25 @@ do_inspect() {
     printf 'match_conf_file=%s\n' "$DNSMASQ_CONF"
     printf 'default_conf_file=%s\n' "$DNSMASQ_CONF"
     printf 'dropin_include=managed\n'
-    printf 'dropin_dir=%s\n' "$TMP_CONF_DIR"
-    printf 'dropin_file=%s\n' "$_f"
     printf 'dropin_content=%s\n' "$(conf_line)"
     printf 'dropin_state=%s\n' "$_st"
 }
 
-# migrate-dnsmasq.sh may have written a marked fallback upstream block (when
-# dnsmasq had no other upstream).  The conf-script supplies the fallback servers
-# while keen-pbr is down, so the permanent block would only bypass the per-list
-# upstreams: drop it when it is exactly what the migration wrote.
-drop_fallback_block() {
-    [ -f "$FALLBACK_CONF" ] || return 0
-    tmp="$DNSMASQ_CONF.keen-pbr.tmp"
-    rc=0
-    awk -v begin="# BEGIN keen-pbr fallback upstream (added on upgrade; replace or remove)" \
-        -v end="# END keen-pbr fallback upstream" '
-        NR == FNR { if ($0 ~ /^[ \t]*server=/) allowed[$0] = 1; next }
-        $0 == begin {
-            if (inside) printf "%s", buffered
-            inside = 1; keep = 0; buffered = $0 ORS; next
-        }
-        inside {
-            buffered = buffered $0 ORS
-            if ($0 ~ /^# BEGIN /) keep = 1
-            else if ($0 != end && !($0 in allowed)) keep = 1
-            if ($0 == end) {
-                if (keep) printf "%s", buffered
-                else removed = 1
-                inside = 0; buffered = ""
-            }
-            next
-        }
-        { print }
-        END { if (inside) printf "%s", buffered; exit(removed ? 10 : 0) }
-    ' "$FALLBACK_CONF" "$DNSMASQ_CONF" > "$tmp" || rc=$?
-    if [ "$rc" = 10 ]; then
-        cat "$tmp" > "$DNSMASQ_CONF"
-        log "removed the fallback upstream block from $DNSMASQ_CONF"
-    fi
-    rm -f "$tmp"
-    return 0
-}
-
 do_restart() {
     eval "$RESTART_CMD" >/dev/null 2>&1 || die 1 "failed to restart dnsmasq"
+}
+
+# Appends the managed block when it is missing; nothing is written otherwise.
+ensure_block() {
+    block_present "$DNSMASQ_CONF" && return 0
+    if grep -qxF "$BEGIN_MARK" "$DNSMASQ_CONF"; then
+        die 1 "the keen-pbr block in $DNSMASQ_CONF is damaged; restore it or remove it and run apply again"
+    fi
+    {
+        printf '\n'
+        block_text
+    } >> "$DNSMASQ_CONF" || die 1 "cannot update $DNSMASQ_CONF"
+    log "added the managed block to $DNSMASQ_CONF"
 }
 
 do_apply() {
@@ -179,86 +157,36 @@ do_apply() {
         die 2 "dnsmasq is not installed (opkg install dnsmasq-full)"
     fi
     acquire_lock
-    if [ "$(dropin_state "$TMP_CONF_DIR/$CONF_NAME" "$(conf_line)")" = foreign ]; then
-        die 1 "$TMP_CONF_DIR/$CONF_NAME exists and was not written by keen-pbr"
-    fi
-    write_conf || die 1 "cannot write $TMP_CONF_DIR/$CONF_NAME"
-    if ! block_present; then
-        {
-            printf '\n%s\n' "$BEGIN_MARK"
-            printf 'conf-dir=%s,*.conf\n' "$TMP_CONF_DIR"
-            printf '%s\n' "$END_MARK"
-        } >> "$DNSMASQ_CONF" || die 1 "cannot update $DNSMASQ_CONF"
-        log "added managed block to $DNSMASQ_CONF"
-    fi
-    drop_fallback_block
+    ensure_block
     do_restart
     log "applied"
-}
-
-# Returns 0 when the block was removed, 1 when there was none, 2 on error.
-remove_block() {
-    block_present || return 1
-    tmp="$DNSMASQ_CONF.keen-pbr.tmp"
-    awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
-        $0 == b { skip = 1; next }
-        skip && $0 == e { skip = 0; next }
-        !skip { print }
-    ' "$DNSMASQ_CONF" > "$tmp" || { rm -f "$tmp"; return 2; }
-    cat "$tmp" > "$DNSMASQ_CONF" || { rm -f "$tmp"; return 2; }
-    rm -f "$tmp"
-    log "removed managed block from $DNSMASQ_CONF"
 }
 
 do_remove() {
     check_selector "$1"
     acquire_lock
-    changed=0
-    if [ "$(dropin_state "$TMP_CONF_DIR/$CONF_NAME" "$(conf_line)")" = current ]; then
-        rm -f "$TMP_CONF_DIR/$CONF_NAME"
-        changed=1
-    fi
-    rc=0
-    remove_block || rc=$?
-    case "$rc" in
-        0) changed=1 ;;
-        2) die 1 "cannot update $DNSMASQ_CONF" ;;
-    esac
-    [ "$changed" -eq 1 ] || return 0
     if [ -f "$INIT_SCRIPT" ]; then
         do_restart
     fi
     log "removed"
 }
 
-# own_dropin <file>: the file holds only conf-script lines that run keen-pbr's
-# scripts (any version), nothing written by somebody else.
-own_dropin() {
-    [ -f "$1" ] || return 1
-    awk '
-        /^[ \t]*$/ { next }
-        /^conf-script=[^ ]*keen-pbr/ { found = 1; next }
-        { foreign = 1 }
-        END { exit((found && !foreign) ? 0 : 1) }
-    ' "$1"
+# Prints dnsmasq.conf without the managed block.  When $1 is non-empty it is
+# printed in the block's place (lines separated by a backslash and "n").
+strip_block() {
+    awk -v b="$BEGIN_MARK" -v e="$END_MARK" -v repl="$1" '
+        $0 == b { skip = 1; if (repl != "") print repl; next }
+        skip && $0 == e { skip = 0; next }
+        !skip { print }
+    ' "$DNSMASQ_CONF"
 }
 
-# While the integration was installed, keen-pbr's conf-script supplied the
-# upstream servers and `apply` dropped the fallback block an upgrade had added.
-# Once the block is gone dnsmasq could be left with no upstream at all, so the
-# fallback servers are written back (in the same marked block) when nothing in
-# dnsmasq.conf provides one.  Per-domain server=/x/y lines are not an upstream.
-# Called only after the block was removed: a dnsmasq.conf keen-pbr never
-# changed is left alone.  Returns 0 when dnsmasq.conf was changed.
-restore_fallback_upstream() {
-    [ -f "$DNSMASQ_CONF" ] || return 1
-    grep -q '^[[:space:]]*\(server=[^/]\|resolv-file=\|servers-file=\)' "$DNSMASQ_CONF" &&
-        return 1
-    servers="$(grep '^[[:space:]]*server=' "$FALLBACK_CONF" 2>/dev/null || true)"
-    [ -n "$servers" ] || servers="$DEFAULT_FALLBACK_SERVERS"
-    printf '\n%s\n%s\n%s\n' "$FALLBACK_BEGIN_MARK" "$servers" "$FALLBACK_END_MARK" \
-        >> "$DNSMASQ_CONF" || return 1
-    log "dnsmasq had no upstream left; added the fallback servers to $DNSMASQ_CONF"
+# no-resolv is set and nothing gives dnsmasq an upstream: no unscoped server=
+# and no servers-file=.  Per-domain server=/x/y lines are not an upstream.
+needs_fallback_upstream() {
+    printf '%s\n' "$1" | grep -q '^[[:space:]]*no-resolv' || return 1
+    printf '%s\n' "$1" | grep -q '^[[:space:]]*\(server=[^/]\|servers-file=\)' && return 1
+    return 0
 }
 
 # Package removal.  Never runs keen-pbr (it may be broken or already gone),
@@ -266,22 +194,65 @@ restore_fallback_upstream() {
 # the daemon is stopped by then, so a held lock is only a stuck hook.
 do_uninstall() {
     take_lock "$UNINSTALL_LOCK_TRIES" || log "uninstall: the lock is held; continuing without it"
-    changed=0
     status=0
-    if own_dropin "$TMP_CONF_DIR/$CONF_NAME"; then
-        if rm -f "$TMP_CONF_DIR/$CONF_NAME"; then changed=1; else status=1; fi
-    fi
-    rc=0
-    remove_block || rc=$?
-    case "$rc" in
-        0) changed=1; restore_fallback_upstream || true ;;
-        2) log "uninstall: cannot update $DNSMASQ_CONF"; status=1 ;;
-    esac
-    if [ "$changed" -eq 1 ] && [ -f "$INIT_SCRIPT" ]; then
-        eval "$RESTART_CMD" >/dev/null 2>&1 || { log "uninstall: failed to restart dnsmasq"; status=1; }
+    if [ -f "$DNSMASQ_CONF" ] && grep -qxF "$BEGIN_MARK" "$DNSMASQ_CONF"; then
+        stripped="$(strip_block "")"
+        repl=""
+        if needs_fallback_upstream "$stripped"; then
+            servers="$(grep '^[[:space:]]*server=' "$FALLBACK_CONF" 2>/dev/null || true)"
+            [ -n "$servers" ] || servers="$DEFAULT_FALLBACK_SERVERS"
+            # awk -v turns "\n" into a newline.
+            repl="$FALLBACK_BEGIN_MARK"
+            for srv in $servers; do repl="$repl\\n$srv"; done
+            repl="$repl\\n$FALLBACK_END_MARK"
+            log "dnsmasq has no upstream of its own; leaving the fallback servers in $DNSMASQ_CONF"
+        fi
+        tmp="$DNSMASQ_CONF.keen-pbr.tmp"
+        if strip_block "$repl" > "$tmp" && cat "$tmp" > "$DNSMASQ_CONF"; then
+            log "removed the managed block from $DNSMASQ_CONF"
+            if [ -f "$INIT_SCRIPT" ]; then
+                eval "$RESTART_CMD" >/dev/null 2>&1 || { log "uninstall: failed to restart dnsmasq"; status=1; }
+            fi
+        else
+            log "uninstall: cannot update $DNSMASQ_CONF"
+            status=1
+        fi
+        rm -f "$tmp"
     fi
     log "uninstalled"
     return "$status"
+}
+
+# Replaces dnsmasq.conf with the recommended one.  Nothing changes unless
+# `dnsmasq --test` accepts the new file.
+do_install_recommended() {
+    if [ ! -x "$DNSMASQ_BIN" ] || [ ! -f "$INIT_SCRIPT" ]; then
+        die 2 "dnsmasq is not installed (opkg install dnsmasq-full)"
+    fi
+    [ -f "$RECOMMENDED_CONF" ] || die 1 "$RECOMMENDED_CONF is missing"
+    acquire_lock
+    if [ -f "$DNSMASQ_CONF" ] && cmp -s "$RECOMMENDED_CONF" "$DNSMASQ_CONF"; then
+        echo "$DNSMASQ_CONF already has the recommended settings; nothing changed."
+        return 0
+    fi
+    candidate="$DNSMASQ_CONF.keen-pbr-new.$$"
+    cp "$RECOMMENDED_CONF" "$candidate" || { rm -f "$candidate"; die 1 "cannot write $candidate"; }
+    if ! out="$("$DNSMASQ_BIN" --test --conf-file="$candidate" 2>&1)"; then
+        rm -f "$candidate"
+        printf '%s\n' "$out" >&2
+        die 1 "dnsmasq rejected the recommended settings; $DNSMASQ_CONF was not changed"
+    fi
+    if [ -f "$DNSMASQ_CONF" ]; then
+        cp "$DNSMASQ_CONF" "$BACKUP_CONF" || { rm -f "$candidate"; die 1 "cannot write $BACKUP_CONF"; }
+    fi
+    mv -f "$candidate" "$DNSMASQ_CONF" || { rm -f "$candidate"; die 1 "cannot replace $DNSMASQ_CONF"; }
+    log "installed the recommended dnsmasq settings"
+    do_restart
+    if [ -f "$BACKUP_CONF" ]; then
+        echo "Replaced $DNSMASQ_CONF with the recommended settings. The previous file is saved as $BACKUP_CONF."
+    else
+        echo "Wrote the recommended settings to $DNSMASQ_CONF."
+    fi
 }
 
 # Exit 0: the Entware dnsmasq runs, 1: it does not, 2: unknown.
@@ -310,8 +281,9 @@ case "${1:-}" in
     apply) do_apply "${2:-}" ;;
     remove) do_remove "${2:-}" ;;
     uninstall) do_uninstall ;;
+    install-recommended-config) do_install_recommended ;;
     status)
-        if block_present || [ -f "$TMP_CONF_DIR/$CONF_NAME" ]; then
+        if block_present "$DNSMASQ_CONF"; then
             echo installed
         else
             echo not-installed

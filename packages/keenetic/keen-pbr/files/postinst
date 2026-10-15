@@ -5,11 +5,6 @@ echo "------------------------"
 
 mkdir -p /opt/usr/lib/keen-pbr
 
-# Migrate from the removed dnsmasq integration: clean up the dnsmasq
-# configuration and restore any servers that were managed by keen-pbr.
-# This is idempotent and safe to call even if the integration was never used.
-/opt/usr/lib/keen-pbr/migrate-dnsmasq.sh >/dev/null 2>&1 || true
-
 # keen-pbr 3.3.x depended on dnsmasq, so opkg installed it as a dependency
 # that "opkg autoremove" may delete.  Since 3.4.0 the dependency is gone, but a
 # config written by 3.3.x still manages dnsmasq.  opkg does not tell a

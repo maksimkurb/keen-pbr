@@ -222,7 +222,7 @@ system configuration save
 ```
 
 {{% details title="After upgrading from an older keen-pbr" closed="true" %}}
-Older keen-pbr versions always configured dnsmasq. The package upgrade removes those settings and restores your DNS servers; see [Upgrading from 3.3.x]({{< relref "/docs/changelog#upgrading-from-33x" >}}). On Keenetic, review the `# BEGIN keen-pbr fallback upstream` block in `/opt/etc/dnsmasq.conf` if it is there. If dnsmasq refuses to start, check that no `conf-script=...keen-pbr...` line is left in its configuration.
+Older keen-pbr versions always configured dnsmasq, and management stays on after the upgrade; see [Upgrading from 3.3.x]({{< relref "/docs/changelog#upgrading-from-33x" >}}). If dnsmasq refuses to start after you removed keen-pbr by hand, check that no `conf-script=...keen-pbr...` line is left in its configuration.
 {{% /details %}}
 
 ### Measuring DNS interception loss
@@ -283,16 +283,16 @@ When `dns.resolver_integration: "dnsmasq"` is enabled, domains from specific lis
    ```bash {filename="bash"}
    keen-pbr generate-resolver-config dnsmasq
    ```
-   Expected: domain-to-server mappings, `fallback` servers, and {{< term "DNS rebinding" >}} protection exceptions. If output is empty, check that `resolver_integration: "dnsmasq"` is set and at least one rule is configured.
+   Expected: domain-to-server mappings, `fallback` servers, and {{< term "DNS rebinding" >}} protection exceptions. If the output holds only a `management is switched off` comment and `server=` lines, check that `resolver_integration: "dnsmasq"` is set and at least one rule is configured.
 
 3. **Check the dnsmasq drop-in file:**
 
    {{< tabs >}}
    {{< tab name="OpenWrt" selected=true >}}
    ```bash {filename="bash"}
-   cat /tmp/dnsmasq.d/keen-pbr-upstream-dns.conf
+   cat /tmp/dnsmasq.d/keen-pbr.conf
    # or in a dnsmasq-specific confdir:
-   cat /tmp/dnsmasq.*/keen-pbr-upstream-dns.conf
+   cat /tmp/dnsmasq.*/keen-pbr.conf
    ```
    {{< /tab >}}
    {{< tab name="Keenetic / Entware" >}}
@@ -302,7 +302,7 @@ When `dns.resolver_integration: "dnsmasq"` is enabled, domains from specific lis
    {{< /tab >}}
    {{< tab name="Debian" >}}
    ```bash {filename="bash"}
-   cat /etc/dnsmasq.d/keen-pbr-upstream-dns.conf
+   cat /etc/dnsmasq.d/keen-pbr.conf
    ```
    {{< /tab >}}
    {{< /tabs >}}

@@ -96,7 +96,6 @@ struct HookInstanceRecord {
     DropinState dropin_state{DropinState::Absent};
     std::optional<DnsmasqEndpoint> static_endpoint;
     bool preflight_skip{false};              // only the netns harness sets this
-    std::vector<std::string> owned_mounts;   // OpenWrt: keen_pbr_addnmount
     std::vector<std::string> missing_mounts; // OpenWrt: required but absent
 };
 

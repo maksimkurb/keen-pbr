@@ -78,8 +78,10 @@ keen-pbr does not need dnsmasq for routing, but OpenWrt already uses it as the s
 
 ### Turn it on {#dnsmasq-install}
 
-In the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. keen-pbr adds `addnmount` entries to the dnsmasq section in `/etc/config/dhcp` so that the sandboxed dnsmasq can run keen-pbr.
+In the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. keen-pbr adds three `addnmount` entries to the dnsmasq section in `/etc/config/dhcp`, so that the sandboxed dnsmasq can run keen-pbr.
+
+While management is on and **Default DNS servers** are set, keen-pbr takes the servers without a domain out of the list in `/etc/config/dhcp` (LuCI **DNS forwardings**). Per-domain servers such as `/lan/192.168.1.1` stay. The removed servers return when you turn management off or clear the default servers.
 
 ### Return to how it was {#dnsmasq-rollback}
 
-Turn off **Manage dnsmasq configuration** and apply the config. keen-pbr removes the `addnmount` entries it added and restarts dnsmasq. Nothing else in `/etc/config/dhcp` is touched.
+Turn off **Manage dnsmasq configuration** and apply the config. keen-pbr restarts dnsmasq and returns the removed servers. Removing the package also removes the `addnmount` entries it added.

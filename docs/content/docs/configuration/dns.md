@@ -94,11 +94,13 @@ dnsmasq keeps a separate record (about 200 bytes) for every domain and server pa
 
 keen-pbr does not install dnsmasq; install it yourself when you need this feature. Step-by-step install and rollback are on the installation pages: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq" >}}). What keen-pbr changes on each platform:
 
-**OpenWrt**: install `dnsmasq`. keen-pbr adds `addnmount` entries to the dnsmasq section in `/etc/config/dhcp` so that the sandboxed dnsmasq can run keen-pbr. When you disable the feature, keen-pbr removes only the entries it added.
+**OpenWrt**: install `dnsmasq`. keen-pbr adds three `addnmount` entries to the dnsmasq section in `/etc/config/dhcp`, so that the sandboxed dnsmasq can run keen-pbr. While management is on and default DNS servers are set, keen-pbr takes the servers without a domain out of `/etc/config/dhcp`; per-domain servers stay. Turning management off or clearing the default servers returns them. Removing the package removes the added entries.
 
-**Keenetic (Entware)**: install `dnsmasq-full` (replaces the built-in ndnproxy as the LAN resolver). keen-pbr adds a marked block with `conf-dir=/tmp/keen-pbr/dnsmasq.d,*.conf` to `/opt/etc/dnsmasq.conf`, and the `S55keen-pbr-dnsmasq` script recreates the file in that directory at boot. If dnsmasq is not installed, the status page shows an error.
+**Keenetic (Entware)**: install `dnsmasq-full` (replaces the built-in ndnproxy as the LAN resolver). The first time you turn management on, keen-pbr adds a marked block with one `conf-script` line to `/opt/etc/dnsmasq.conf`. `install-recommended-config` adds the same block. If dnsmasq is not installed, the status page shows an error.
 
-**Debian**: install `dnsmasq`. keen-pbr creates `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf` containing a single `conf-script` line.
+**Debian**: install `dnsmasq`. The first time you turn management on, keen-pbr creates `/etc/dnsmasq.d/keen-pbr.conf` with one `conf-script` line.
+
+Keenetic and Debian also ship `install-recommended-config` (see the installation pages). It replaces the main dnsmasq config with recommended settings, saves the previous file next to it, and restarts dnsmasq.
 
 ### Choosing the dnsmasq instance
 
@@ -160,19 +162,19 @@ The code is shown in `GET /api/health/service` (`error_code`) and in the Web UI.
 
 ### How it works
 
-keen-pbr never writes the generated dnsmasq config to flash. Instead:
-1. keen-pbr generates a config (per-list domain rules, fallback servers, etc.)
-2. keen-pbr places a one-line {{< term "drop-in" >}} (`conf-script=keen-pbr generate-resolver-config dnsmasq`) in a directory in RAM (tmpfs)
-3. dnsmasq runs that command at start and reads the config from its output
-4. dnsmasq is restarted only when the generated config changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in [Checks before every restart](#checks-before-every-restart) have passed
+keen-pbr never writes the generated dnsmasq config to flash. dnsmasq's configuration holds one {{< term "drop-in" >}} line (`conf-script=keen-pbr generate-resolver-config dnsmasq`). Each time dnsmasq starts, it runs that command and reads the per-list rules and default DNS servers from its output.
+
+- With **Manage dnsmasq configuration** on, dnsmasq is restarted when this output changes (list update, settings change, or once after keen-pbr starts), and only after the checks described in [Checks before every restart](#checks-before-every-restart) have passed.
+- With it off, the output is the servers from `dnsmasq-fallback.conf` (Keenetic: `/opt/etc/keen-pbr/`, Debian and OpenWrt: `/etc/keen-pbr/`). They are added to dnsmasq's own servers; clear the file to avoid that. On OpenWrt the file is empty by default.
+- With it on but no default DNS servers set, dnsmasq also gets the servers from `dnsmasq-fallback.conf`.
 
 ### On stop, disable, or uninstall
 
-- **Stopping keen-pbr**: dnsmasq is NOT restarted; per-list DNS servers keep working.
-- **Disabling the feature** (`resolver_integration: "none"`): when you switch it off while keen-pbr runs, the {{< term "drop-in" >}} is removed from the selected instance and that instance is restarted (reverts to system/ISP upstreams). While the feature is off keen-pbr never touches dnsmasq, not even at startup, so if you disable the feature and then restart keen-pbr, or remove the integration from the config while keen-pbr is stopped, the drop-in stays. It is harmless (with the integration off it prints only a comment). `keen-pbr dnsmasq detect` shows such leftovers and `keen-pbr dnsmasq remove <selector>` deletes them. See [`dnsmasq` commands]({{< relref "/docs/cli#dnsmasq-detect-and-remove" >}}).
+- **Stopping keen-pbr**: dnsmasq is not restarted; per-list DNS servers keep working, also after a dnsmasq or router restart.
+- **Disabling the feature** (`resolver_integration: "none"`): keen-pbr restarts dnsmasq, which then uses the servers from `dnsmasq-fallback.conf`. On OpenWrt the server list returns to `/etc/config/dhcp`. If you turned it off by editing the config while keen-pbr was stopped, the first start restarts dnsmasq once. See [`dnsmasq` commands]({{< relref "/docs/cli#dnsmasq-detect-and-remove" >}}).
 - **dnsmasq is not running**: keen-pbr never starts a stopped dnsmasq. If dnsmasq crashes on a system without a service supervisor ({{< term "Entware" >}}), start it manually; keen-pbr re-applies its configuration once dnsmasq is running again.
-- **dnsmasq loses the config** (restarted by something else, drop-in gone): keen-pbr restarts it at most 3 times (immediately, then after 5 and 10 minutes) and then pauses automatic repair; `state` in `/api/health/service` shows `reconciling` or `error` with the reason. Applying the configuration or restarting keen-pbr re-arms it. A dnsmasq that is running but does not answer the config check is never restarted.
-- **Uninstalling the package**: the drop-in and any persistent changes to dnsmasq config are removed from every instance, and dnsmasq is restarted. This works even when keen-pbr itself is broken or misconfigured, because the removal scripts never run it. On {{< term "Entware" >}}, if dnsmasq would be left without any upstream DNS server, the servers from `dnsmasq-fallback.conf` are added to `/opt/etc/dnsmasq.conf` in a block marked `keen-pbr fallback upstream`. Firewall rules left behind by a keen-pbr that crashed are removed as well.
+- **dnsmasq loses the config** (restarted with other settings): keen-pbr restarts it at most 3 times (immediately, then after 5 and 10 minutes) and then pauses automatic repair; `state` in `/api/health/service` shows `reconciling` or `error` with the reason. Applying the configuration or restarting keen-pbr re-arms it. A dnsmasq that is running but does not answer the config check is never restarted.
+- **Uninstalling the package**: keen-pbr removes its entry from dnsmasq, returns the OpenWrt server list, and restarts dnsmasq. This works even when keen-pbr itself is broken, because the removal scripts never run it. If dnsmasq would be left without any upstream DNS server (it has `no-resolv` and no `server=` line of its own), the servers from `dnsmasq-fallback.conf` stay in a block marked `keen-pbr fallback upstream` in `/opt/etc/dnsmasq.conf` (Keenetic) or in `/etc/dnsmasq.d/keen-pbr.conf` (Debian). Replace them with your own. Firewall rules left behind by a keen-pbr that crashed are removed as well.
 
 ### Troubleshooting
 

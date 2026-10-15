@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <fstream>
 #include <functional>
 #include <streambuf>
 #include <vector>
@@ -274,6 +275,21 @@ std::string DnsmasqGenerator::generate(std::ostream& sink, DnsmasqGenStats* stat
 void write_dnsmasq_config_stamp(std::ostream& out, const DnsmasqConfigStamp& stamp) {
     out << "txt-record=" << kDnsmasqStampDomain << ',' << stamp.hash << '|'
         << stamp.boottime_ms << '|' << stamp.unix_ts << '\n';
+}
+
+std::size_t write_dnsmasq_fallback_servers(std::ostream& out, const std::string& path) {
+    std::ifstream in(path);
+    std::size_t count = 0;
+    std::string line;
+    while (std::getline(in, line)) {
+        const auto first = line.find_first_not_of(" \t");
+        if (first == std::string::npos || line.compare(first, 7, "server=") != 0) {
+            continue;
+        }
+        out << line.substr(first) << '\n';
+        ++count;
+    }
+    return count;
 }
 
 std::optional<DnsmasqConfigStamp> parse_dnsmasq_config_stamp(std::string_view txt) {

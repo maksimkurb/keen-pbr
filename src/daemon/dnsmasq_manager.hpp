@@ -138,12 +138,16 @@ struct DnsmasqTiming {
 };
 
 // Computes the hash of the dnsmasq config for dns.resolver_integration=dnsmasq
-// entirely in memory (nothing is written to disk) and, when it changes, runs
-// the OS-specific hook `apply`, which makes dnsmasq call `keen-pbr
-// generate-resolver-config dnsmasq` and restarts it.  The generated config
-// carries a TXT stamp (config-hash.keen.pbr) that is queried to confirm dnsmasq
-// really loaded it.  `remove` undoes that when the integration is switched off
-// inside the running daemon; while it is off dnsmasq is not touched at all.
+// entirely in memory (nothing is written to disk) and, when dnsmasq does not
+// serve it, runs the OS-specific hook `apply`: it makes sure dnsmasq's
+// configuration has the conf-script entry (`keen-pbr generate-resolver-config
+// dnsmasq`, installed once and kept) and restarts dnsmasq.  The conf-script
+// output carries a TXT stamp (config-hash.keen.pbr) that is queried to confirm
+// dnsmasq really loaded it; the output printed while management is off carries
+// kDnsmasqOffStampHash.  Switching the integration off inside the running
+// daemon runs the hook `remove`, which only restarts dnsmasq (OpenWrt also
+// returns the servers it moved aside).  When it is off at startup dnsmasq is
+// left alone unless it still runs a generated config.
 // All work is blocking and is meant to run on a BlockingExecutor worker.
 class DnsmasqManager {
 public:
@@ -234,6 +238,8 @@ private:
                       bool explicit_apply,
                       const std::string& reason) REQUIRES(sync_mutex_);
     void sync_disabled() REQUIRES(sync_mutex_);
+    std::string remove_from_dnsmasq(std::optional<std::string> known_target,
+                                    bool require_managed_output) REQUIRES(sync_mutex_);
 
     // Runs detection, stores it, publishes status. Returns false (and publishes
     // an Error with a code) when the selected instance cannot be used.
@@ -277,6 +283,10 @@ private:
     bool pause_logged_ GUARDED_BY(sync_mutex_){false};
     std::string not_answering_logged_ GUARDED_BY(sync_mutex_);
     ResolverIntegrationMode previous_mode_ GUARDED_BY(sync_mutex_){ResolverIntegrationMode::NONE};
+    // The first sync after start has run (selects the startup behaviour while off).
+    bool first_sync_done_ GUARDED_BY(sync_mutex_){false};
+    // dns.fallback was non-empty at the last sync (passed to the hook's apply).
+    bool default_upstreams_ GUARDED_BY(sync_mutex_){false};
 
     std::optional<std::string> configured_selector_ GUARDED_BY(sync_mutex_);
     DnsmasqDetection detection_ GUARDED_BY(sync_mutex_);

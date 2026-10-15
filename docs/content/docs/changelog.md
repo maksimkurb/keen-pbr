@@ -28,7 +28,6 @@ After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need 
 Check after the upgrade:
 
 - **Keenetic: kernel modules.** Domains are now detected by interception. Install the **Netfilter Subsystem Kernel Modules** component if you have not. Then open the status page in the Web UI and run the DNS check.
-- **Keenetic: dnsmasq.** The old keen-pbr block is removed from `/opt/etc/dnsmasq.conf`; the original file is saved as `/opt/etc/dnsmasq.conf.keen-pbr.bak`. If dnsmasq had no DNS server left, the package adds a `# BEGIN keen-pbr fallback upstream` block with public DNS servers. If you turn dnsmasq management off, replace it with your own servers.
 - **Changed defaults.**
   - `daemon.clear_dynamic_sets_on_apply` is now `false`: domain addresses survive a config apply.
   - A list's `ttl_ms` is now a lower bound; the upper bound is `intercept.max_ttl_ms`.

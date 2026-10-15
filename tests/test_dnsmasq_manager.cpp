@@ -168,10 +168,12 @@ struct FakeDnsmasq {
                 inst.evidence = EndpointEvidence::Responding;
                 if (served.status == DnsTxtProbeStatus::Ok) {
                     const auto stamp = parse_dnsmasq_config_stamp(served.txt);
-                    if (stamp && !options.expected_hash.empty() &&
-                        stamp->hash == options.expected_hash) {
-                        inst.evidence = EndpointEvidence::StampVerified;
+                    if (stamp) {
                         inst.stamp = stamp;
+                        if (!options.expected_hash.empty() &&
+                            stamp->hash == options.expected_hash) {
+                            inst.evidence = EndpointEvidence::StampVerified;
+                        }
                     }
                 }
             } else {
@@ -318,7 +320,8 @@ TEST_CASE("dnsmasq manager: first sync applies once without writing files") {
     run_sync(rig, make_config("dnsmasq", "example.com"));
 
     REQUIRE(hook.calls.size() == 1);
-    CHECK(hook.calls[0] == std::vector<std::string>{"/hook", "apply", "uci:test"});
+    CHECK(hook.calls[0] ==
+          std::vector<std::string>{"/hook", "apply", "uci:test", "--default-upstreams=no"});
     CHECK(dir_is_empty(dir.path));
 
     const auto status = manager.status();
@@ -585,7 +588,7 @@ TEST_CASE("dnsmasq manager: apply with TXT still missing points at the drop-in")
     CHECK(status.probe_state == DnsmasqProbeState::Missing);
     CHECK(status.last_error ==
           "dnsmasq is running without the keen-pbr config (TXT config-hash.keen.pbr missing); "
-          "the dnsmasq hook did not install its drop-in where dnsmasq reads it");
+          "dnsmasq did not run the keen-pbr conf-script");
 }
 
 TEST_CASE("dnsmasq manager: dnsmasq reloading a different config is reported") {
@@ -1154,4 +1157,95 @@ TEST_CASE("dnsmasq manager: switching off in the daemon removes the selected ins
     run_sync(rig, make_config("none", "example.com"));
     REQUIRE(rig.fake.calls.size() == 2);
     CHECK(rig.fake.calls[1] == std::vector<std::string>{"/hook", "remove", "uci:test"});
+}
+
+namespace {
+
+Config make_config_with_default_servers() {
+    return parse_config(R"({
+        "lists": {"l": {"domains": ["example.com"]}},
+        "dns": {
+            "servers": [{"tag":"up","address":"1.1.1.1"}],
+            "rules": [{"list":["l"],"server":"up"}],
+            "fallback": ["up"],
+            "resolver_integration": "dnsmasq"
+        }
+    })");
+}
+
+std::string stamp_text(const std::string& hash) {
+    return hash + "|" + std::to_string(2'000'000) + "|" + std::to_string(1'700'000'100);
+}
+
+}  // namespace
+
+TEST_CASE("dnsmasq manager: apply tells the hook whether default DNS servers are set") {
+    Rig rig;
+    run_sync(rig, make_config_with_default_servers());
+    REQUIRE(rig.fake.calls.size() == 1);
+    CHECK(rig.fake.calls[0] ==
+          std::vector<std::string>{"/hook", "apply", "uci:test", "--default-upstreams=yes"});
+
+    // Clearing them changes the generated config, so the hook runs again.
+    run_sync(rig, make_config("dnsmasq", "example.com"));
+    REQUIRE(rig.fake.calls.size() == 2);
+    CHECK(rig.fake.calls[1].back() == "--default-upstreams=no");
+}
+
+TEST_CASE("dnsmasq manager: switching on while dnsmasq runs the off output restarts once") {
+    Rig rig;
+    const auto config = make_config("dnsmasq", "example.com");
+    rig.fake.serve_stamp(std::string(kDnsmasqOffStampHash), rig.fake.now_ms, rig.fake.unix_ts);
+    run_sync(rig, config);
+    CHECK(rig.fake.applies() == 1);
+    CHECK(rig.manager.status().state == DnsmasqSyncState::Ok);
+
+    // Nothing else happens on the following checks.
+    run_check(rig);
+    run_check(rig);
+    CHECK(rig.fake.applies() == 1);
+}
+
+TEST_CASE("dnsmasq manager: dnsmasq stuck on the off output is reported as such") {
+    Rig rig;
+    const auto config = make_config("dnsmasq", "example.com");
+    rig.fake.target_hash = config_hash(config);
+    rig.fake.on_apply = [](FakeDnsmasq& fake) {
+        fake.restart_with(std::string(kDnsmasqOffStampHash));
+    };
+    run_sync(rig, config);
+    const auto status = rig.manager.status();
+    CHECK(status.state == DnsmasqSyncState::Error);
+    CHECK(status.last_error.find("fallback output") != std::string::npos);
+}
+
+TEST_CASE("dnsmasq manager: off at startup leaves dnsmasq alone when it runs the off output") {
+    Rig rig;
+    rig.fake.serve_stamp(std::string(kDnsmasqOffStampHash), rig.fake.now_ms, rig.fake.unix_ts);
+    run_sync(rig, make_config("none", "example.com"));
+    CHECK(rig.fake.calls.empty());
+    CHECK(rig.fake.detects == 1);
+    run_sync(rig, make_config("none", "example.com"));
+    CHECK(rig.fake.calls.empty());
+    CHECK(rig.fake.detects == 1);
+}
+
+TEST_CASE("dnsmasq manager: off at startup restarts once when dnsmasq still runs a generated config") {
+    Rig rig;
+    rig.fake.serve_stamp(config_hash(make_config("dnsmasq", "example.com")), rig.fake.now_ms,
+                         rig.fake.unix_ts);
+    run_sync(rig, make_config("none", "example.com"));
+    REQUIRE(rig.fake.calls.size() == 1);
+    CHECK(rig.fake.calls[0] == std::vector<std::string>{"/hook", "remove", "uci:test"});
+    // Later syncs while off do nothing more.
+    run_sync(rig, make_config("none", "example.com"));
+    CHECK(rig.fake.calls.size() == 1);
+}
+
+TEST_CASE("dnsmasq manager: off at startup ignores a missing dnsmasq") {
+    Rig rig;
+    rig.fake.detect_error = DnsmasqErrorCode::NotInstalled;
+    run_sync(rig, make_config("none", "example.com"));
+    CHECK(rig.fake.calls.empty());
+    CHECK(rig.manager.status().state == DnsmasqSyncState::Disabled);
 }

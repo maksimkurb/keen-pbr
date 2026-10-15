@@ -81,7 +81,7 @@ ip6tables -t raw -S
 | `download` | Download all URL-backed lists into cache, then exit. |
 | `generate-resolver-config dnsmasq` | Print dnsmasq configuration for per-list DNS servers to stdout. |
 | `dnsmasq detect [--json]` | List dnsmasq instances, their DNS endpoints and the instance keen-pbr uses. |
-| `dnsmasq remove <selector>` | Remove the file and settings keen-pbr added to one dnsmasq instance. |
+| `dnsmasq remove <selector>` | Restart one dnsmasq instance without keen-pbr's config. |
 | `test-routing <ip-or-domain> [packet options]` | Compare expected and actual routing for the given IP or domain. The daemon runs the check, the same way as the routing test in the web UI. |
 
 ### `generate-resolver-config dnsmasq`
@@ -110,8 +110,9 @@ rebind-domain-ok=/openai.com/www.openai.com/...
 
 **Behavior:**
 - Always exits with status 0, even on errors; errors are printed as `# keen-pbr: ...` comment lines.
-- When `resolver_integration: "none"` (default), the output is empty; the dynamic sets are filled by interception.
-- Used internally by the platform hook: dnsmasq reads the config via this command (see `conf-script=keen-pbr generate-resolver-config dnsmasq` in the {{< term "drop-in" >}}).
+- When `resolver_integration: "none"` (default), or the config cannot be read, the output is only the `server=` lines from `dnsmasq-fallback.conf`; the dynamic sets are filled by interception.
+- With `"dnsmasq"` and no `fallback` servers, those `server=` lines are added to the output.
+- dnsmasq reads the config via this command (see `conf-script=keen-pbr generate-resolver-config dnsmasq` in the {{< term "drop-in" >}}).
 
 ### `dnsmasq detect` and `remove`
 
@@ -143,10 +144,10 @@ Selection: uci:cfg01411c (adopted)
 - Exit code `0` when an instance is selected and has no problem, `1` otherwise.
 - If the choice is ambiguous, the output ends with a hint to set `dns.dnsmasq_instance`.
 
-**`remove <selector>`** deletes keen-pbr's drop-in and the settings keen-pbr added (for example the `addnmount` entries recorded in `keen_pbr_addnmount` on OpenWrt) from one instance, using the platform hook, and restarts that instance. It never removes anything that is not provably keen-pbr's. Use it for leftovers shown by `detect` (for example, after switching the integration off while keen-pbr was not running).
+**`remove <selector>`** restarts one instance so that it stops using keen-pbr's config; on OpenWrt it also returns the server list moved aside. Use it when `detect` shows an instance that still runs keen-pbr's config after you switched the integration off.
 
 - Must run as root. Exit code `64` for a missing or invalid selector.
-- If the integration is still enabled for this instance, the command prints a note: the daemon may install the drop-in again on its next sync. Disable the integration first.
+- If the integration is still enabled for this instance, the command prints a note: the daemon may apply its config to dnsmasq again on its next sync. Disable the integration first.
 
 ## Signals
 

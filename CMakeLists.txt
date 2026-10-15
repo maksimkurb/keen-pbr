@@ -99,6 +99,8 @@ set(KEEN_PBR_CONTROL_SOCKET "/run/keen-pbr/control.sock" CACHE STRING
   "Unix SOCK_STREAM control socket used by operational CLI commands")
 set(KEEN_PBR_DNSMASQ_HOOK "" CACHE STRING
   "Path of the platform dnsmasq hook script (apply|remove|status); empty disables dnsmasq management")
+set(KEEN_PBR_RESOLVER_FALLBACK_CONFIG "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/dnsmasq-fallback.conf" CACHE STRING
+  "dnsmasq-fallback.conf: server= lines printed to dnsmasq while keen-pbr does not manage it")
 set(KEEN_PBR_CLEANUP_FIREWALL_SCRIPT "" CACHE STRING
   "Path of cleanup-firewall.sh, run by the crash handler of the service; empty disables it")
 set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
@@ -293,6 +295,7 @@ set(SOURCES
   src/lists/domain_index.cpp
   src/cache/cache_manager.cpp
   src/cmd/dnsmasq_cmd.cpp
+  src/cmd/resolver_config.cpp
   src/cmd/status.cpp
   src/cmd/test_routing.cpp
   src/cmd/test_routing_json.cpp
@@ -454,6 +457,7 @@ target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"
   KEEN_PBR_CONTROL_SOCKET="${KEEN_PBR_CONTROL_SOCKET}"
   KEEN_PBR_DNSMASQ_HOOK="${KEEN_PBR_DNSMASQ_HOOK}"
+  KEEN_PBR_RESOLVER_FALLBACK_CONFIG="${KEEN_PBR_RESOLVER_FALLBACK_CONFIG}"
   KEEN_PBR_CLEANUP_FIREWALL_SCRIPT="${KEEN_PBR_CLEANUP_FIREWALL_SCRIPT}"
   KEEN_PBR_TARGET_OS="${KEEN_PBR_TARGET_OS}"
   KEEN_PBR_TARGET_VERSION="${KEEN_PBR_TARGET_VERSION}"

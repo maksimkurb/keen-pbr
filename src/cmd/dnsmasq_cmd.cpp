@@ -100,7 +100,7 @@ int run_remove(const std::vector<std::string>& args, const std::string& config_p
         const auto configured = configured_dnsmasq_selector(*config);
         if (!configured || *configured == selector->str()) {
             std::cout << "note: dns.resolver_integration is dnsmasq; the daemon may "
-                         "install the drop-in again on its next sync\n";
+                         "apply its config to dnsmasq again on its next sync\n";
         }
     }
     std::cout.flush();

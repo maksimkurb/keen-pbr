@@ -222,7 +222,7 @@ system configuration save
 ```
 
 {{% details title="После обновления со старой версии keen-pbr" closed="true" %}}
-Старые версии keen-pbr всегда настраивали dnsmasq. При обновлении пакет сам убирает эти настройки и возвращает ваши DNS-серверы, подробности в разделе [Обновление с 3.3.x]({{< relref "/docs/changelog#upgrading-from-33x" >}}). На Keenetic проверьте блок `# BEGIN keen-pbr fallback upstream` в `/opt/etc/dnsmasq.conf`, если он там есть. Если dnsmasq не запускается, убедитесь, что в его конфигурации не осталось строки `conf-script=...keen-pbr...`.
+Старые версии keen-pbr всегда настраивали dnsmasq, и после обновления управление остаётся включённым, подробности в разделе [Обновление с 3.3.x]({{< relref "/docs/changelog#upgrading-from-33x" >}}). Если dnsmasq не запускается после того, как вы удалили keen-pbr вручную, убедитесь, что в его конфигурации не осталось строки `conf-script=...keen-pbr...`.
 {{% /details %}}
 
 ### Измерение потерь при DNS-перехвате
@@ -283,16 +283,16 @@ keen-pbr не разрешает имена для клиентов, поэто�
    ```bash {filename="bash"}
    keen-pbr generate-resolver-config dnsmasq
    ```
-   Ожидается: соответствия «домен → сервер», резервные (`fallback`) серверы и исключения защиты от {{< term "DNS rebinding" >}}. Если вывод пуст, проверьте, что установлен `resolver_integration: "dnsmasq"` и настроено хотя бы одно правило.
+   Ожидается: соответствия «домен → сервер», резервные (`fallback`) серверы и исключения защиты от {{< term "DNS rebinding" >}}. Если в выводе только комментарий о выключенном управлении и строки `server=`, проверьте, что установлен `resolver_integration: "dnsmasq"` и настроено хотя бы одно правило.
 
 3. **Проверьте файл drop-in dnsmasq:**
 
    {{< tabs >}}
    {{< tab name="OpenWrt" selected=true >}}
    ```bash {filename="bash"}
-   cat /tmp/dnsmasq.d/keen-pbr-upstream-dns.conf
+   cat /tmp/dnsmasq.d/keen-pbr.conf
    # или в dnsmasq-confdir по платформе:
-   cat /tmp/dnsmasq.*/keen-pbr-upstream-dns.conf
+   cat /tmp/dnsmasq.*/keen-pbr.conf
    ```
    {{< /tab >}}
    {{< tab name="Keenetic / Entware" >}}
@@ -302,7 +302,7 @@ keen-pbr не разрешает имена для клиентов, поэто�
    {{< /tab >}}
    {{< tab name="Debian" >}}
    ```bash {filename="bash"}
-   cat /etc/dnsmasq.d/keen-pbr-upstream-dns.conf
+   cat /etc/dnsmasq.d/keen-pbr.conf
    ```
    {{< /tab >}}
    {{< /tabs >}}

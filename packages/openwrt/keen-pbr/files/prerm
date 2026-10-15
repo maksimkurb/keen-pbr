@@ -9,10 +9,10 @@
 /etc/init.d/keen-pbr stop >/dev/null 2>&1 || true
 /etc/init.d/keen-pbr disable >/dev/null 2>&1 || true
 
-# Undo the old dnsmasq integration (restores the servers it moved away).
-/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr >/dev/null 2>&1 || true
+/etc/init.d/keen-pbr-dnsmasq disable >/dev/null 2>&1 || true
 
-# Take keen-pbr out of every dnsmasq instance (drop-in and jail mounts).
+# Take keen-pbr out of every dnsmasq instance: gives the servers back and
+# removes the drop-in and the jail mounts.
 /usr/lib/keen-pbr/dnsmasq-hook.sh uninstall >/dev/null 2>&1 || true
 
 # Remove firewall rules a crashed daemon may have left behind.

@@ -135,20 +135,25 @@ keen-pbr does not need dnsmasq for routing. Install it only if you want to send 
    ```bash {filename="bash"}
    opkg install dnsmasq-full
    ```
-2. Open http://my.keenetic.net/a (if the link does not open, use `http://<router-ip>/a`) and run:
+2. To apply the recommended dnsmasq settings, run this over SSH:
+   ```bash {filename="bash"}
+   /opt/usr/lib/keen-pbr/dnsmasq-hook.sh install-recommended-config
+   ```
+   It replaces `/opt/etc/dnsmasq.conf` and saves the previous file as `/opt/etc/dnsmasq.conf.backup-keenpbr`. `my.keenetic.net` keeps resolving.
+3. Open http://my.keenetic.net/a (if the link does not open, use `http://<router-ip>/a`) and run:
    ```
    opkg dns-override
    system configuration save
    ```
    Run these commands only after dnsmasq is installed. Without dnsmasq, `dns-override` leaves the LAN without DNS.
-3. Reboot the router. **This is required:** without a reboot LAN clients keep using the built-in DNS proxy, and dnsmasq does not get their queries.
-4. In the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. The DNS servers and DNS rules pages become available.
+4. Reboot the router. **This is required:** without a reboot LAN clients keep using the built-in DNS proxy, and dnsmasq does not get their queries.
+5. In the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. The DNS servers and DNS rules pages become available.
 
 ### Return to how it was {#dnsmasq-rollback}
 
 Do the steps in this order, so the LAN keeps DNS all the time:
 
-1. In the Web UI, turn off **Manage dnsmasq configuration** (**General** > **Local DNS server management**) and apply the config. dnsmasq keeps running, so DNS keeps working.
+1. In the Web UI, turn off **Manage dnsmasq configuration** (**General** > **Local DNS server management**) and apply the config. dnsmasq keeps running and uses the servers from `/opt/etc/keen-pbr/dnsmasq-fallback.conf`, so DNS keeps working. If dnsmasq has servers of its own, these are added to them; clear the file to avoid that.
 2. In the web CLI (http://my.keenetic.net/a) run:
    ```
    no opkg dns-override
@@ -159,3 +164,10 @@ Do the steps in this order, so the LAN keeps DNS all the time:
    ```bash {filename="bash"}
    opkg remove dnsmasq-full
    ```
+
+To keep dnsmasq with its previous settings after `install-recommended-config`, put the saved file back instead of removing the package:
+
+```bash {filename="bash"}
+cp /opt/etc/dnsmasq.conf.backup-keenpbr /opt/etc/dnsmasq.conf
+/opt/etc/init.d/S56dnsmasq restart
+```
