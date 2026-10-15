@@ -3,9 +3,9 @@ import { useQueryClient } from "@tanstack/react-query"
 
 import {
   applyStatusEvent,
-  getTerminalConfigLifecycleOperationKey,
-  invalidateAfterTerminalConfigOperation,
+  observeConfigRevision,
   statusStreamQueryKeys,
+  type ConfigRevisionTracker,
 } from "@/api/status-event-cache"
 import {
   markStatusQueriesStale,
@@ -17,7 +17,7 @@ const HIDDEN_DISCONNECT_DELAY_MS = 60_000
 
 export function StatusEventBridge() {
   const queryClient = useQueryClient()
-  const lastConfigResyncOperationRef = useRef<string | null>(null)
+  const configRevisionRef = useRef<ConfigRevisionTracker>({ last: null })
 
   useEffect(() => {
     let source: AbortController | null = null
@@ -63,6 +63,7 @@ export function StatusEventBridge() {
               "issues",
               "routing",
               "auth",
+              "config",
             ].includes(event)
           ) {
             return
@@ -70,15 +71,7 @@ export function StatusEventBridge() {
 
           applyStatusEvent(queryClient, data)
           if (event === "snapshot") setStatusConnectionState("live")
-          const terminalOperationKey =
-            getTerminalConfigLifecycleOperationKey(data)
-          if (
-            terminalOperationKey &&
-            terminalOperationKey !== lastConfigResyncOperationRef.current
-          ) {
-            lastConfigResyncOperationRef.current = terminalOperationKey
-            invalidateAfterTerminalConfigOperation(queryClient)
-          }
+          observeConfigRevision(queryClient, configRevisionRef.current, data)
         }
       ).then(
         () => settle(controller),

@@ -11,6 +11,7 @@ import type { RoutingHealthResponse } from './routingHealthResponse';
 import type { RuntimeInterfaceInventoryResponse } from './runtimeInterfaceInventoryResponse';
 import type { RuntimeOutboundsResponse } from './runtimeOutboundsResponse';
 import type { StatusAuthState } from './statusAuthState';
+import type { StatusConfigState } from './statusConfigState';
 
 export type StatusEventSnapshotData = {
   service: HealthResponse;
@@ -19,4 +20,5 @@ export type StatusEventSnapshotData = {
   issues: HealthIssuesResponse;
   routing: RoutingHealthResponse;
   auth: StatusAuthState;
+  config: StatusConfigState;
 };

@@ -72,7 +72,7 @@ The [OpenAPI document](https://github.com/maksimkurb/keen-pbr/blob/main/docs/ope
 | `POST /api/service/start`, `/stop`, `/restart` | Start, stop, or restart routing asynchronously. |
 | `GET /api/config`, `POST /api/config` | Read or stage a validated config draft. |
 | `POST /api/config/discard`, `/save`, `/rollback` | Discard a draft, persist/apply it, or explicitly roll back a failed apply. |
-| `GET /api/status/events` | Server-Sent Events for service, outbound, interface, and health issue, and routing health, and authentication status (`snapshot`, `service`, `outbounds`, `interfaces`, `issues`, `routing`, `auth`). The REST endpoints, including `GET /api/health/issues`, `GET /api/health/routing`, and `GET /api/auth/status`, stay available. |
+| `GET /api/status/events` | Server-Sent Events for service, outbound, interface, and health issue, and routing health, authentication status, and config changes (`snapshot`, `service`, `outbounds`, `interfaces`, `issues`, `routing`, `auth`, `config`). The `config` event only carries a revision that changes with the active config, the draft, or the list refresh state; read the data with `GET /api/config`. The REST endpoints, including `GET /api/health/issues`, `GET /api/health/routing`, and `GET /api/auth/status`, stay available. |
 | `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Current outbound health and system interface inventory. |
 | `GET /api/health/routing`, `POST /api/routing/test` | Cached routing/firewall health and a per-target routing diagnostic. |
 | `POST /api/lists/refresh` | Refresh one or all remote URL lists. |

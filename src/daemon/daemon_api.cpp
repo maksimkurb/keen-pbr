@@ -757,7 +757,16 @@ void Daemon::setup_api() {
             const auto state = api_server_->auth_state();
             return nlohmann::json{{"enabled", state.enabled},
                                   {"device_name", state.device_name}};
+        },
+        [this]() {
+            return nlohmann::json{{"revision", config_store_.revision()}};
         }});
+    // Any change of the active config, the draft, or the list refresh state
+    // moves the revision; clients refetch /api/config when it does.
+    config_store_.set_change_callback([this]() {
+        if (status_stream_) status_stream_->reconcile(StatusUpdate::Config);
+    });
+    list_service_.set_change_callback([this]() { config_store_.touch(); });
     // A freshly opened dashboard should not show a report older than one
     // refresh interval; the worker pushes the result when it is ready.
     status_stream_->set_subscribe_hook([this]() {

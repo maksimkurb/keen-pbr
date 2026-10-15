@@ -15,8 +15,7 @@ import {
 } from "../src/api/status-auth"
 import {
   applyStatusEvent,
-  getTerminalConfigLifecycleOperationKey,
-  invalidateAfterTerminalConfigOperation,
+  observeConfigRevision,
   statusStreamQueryKeys,
 } from "../src/api/status-event-cache"
 
@@ -94,87 +93,68 @@ describe("status event cache bridge", () => {
     })
   })
 
-  test("only terminal config lifecycle events request a config resync", () => {
-    expect(
-      getTerminalConfigLifecycleOperationKey(
-        JSON.stringify({
-          type: "service",
-          data: {
-            lifecycle_operation: {
-              id: "apply-1",
-              type: "apply_config",
-              status: "running",
-            },
-          },
-        })
-      )
-    ).toBeNull()
+  test("config revision changes invalidate the config query, the first value only seeds", () => {
+    const client = new QueryClient()
+    const tracker = { last: null as number | null }
+    client.setQueryData(getGetConfigQueryKey(), { cached: true })
+    const invalidated = () =>
+      client.getQueryState(getGetConfigQueryKey())?.isInvalidated
+    const snapshot = (revision: number) =>
+      JSON.stringify({ type: "snapshot", data: { config: { revision } } })
+    const event = (revision: number) =>
+      JSON.stringify({ type: "config", data: { revision } })
 
-    expect(
-      getTerminalConfigLifecycleOperationKey(
-        JSON.stringify({
-          type: "service",
-          data: {
-            lifecycle_operation: {
-              id: "start-1",
-              type: "start",
-              status: "succeeded",
-            },
-          },
-        })
-      )
-    ).toBeNull()
+    // First value after the first connect: remembered, not invalidated.
+    expect(observeConfigRevision(client, tracker, snapshot(5))).toBe(false)
+    expect(invalidated()).toBe(false)
+    expect(tracker.last).toBe(5)
 
-    expect(
-      getTerminalConfigLifecycleOperationKey(
-        JSON.stringify({
-          type: "service",
-          data: {
-            lifecycle_operation: {
-              id: "apply-1",
-              type: "apply_config",
-              status: "succeeded",
-            },
-          },
-        })
-      )
-    ).toBe("apply-1:succeeded")
+    // Same value again (e.g. a reconnect with no change): nothing to do.
+    expect(observeConfigRevision(client, tracker, snapshot(5))).toBe(false)
+    expect(observeConfigRevision(client, tracker, event(5))).toBe(false)
+    expect(invalidated()).toBe(false)
 
-    expect(
-      getTerminalConfigLifecycleOperationKey(
-        JSON.stringify({
-          type: "snapshot",
-          data: {
-            service: {
-              lifecycle_operation: {
-                id: "rollback-1",
-                type: "rollback_config",
-                status: "failed",
-              },
-            },
-            outbounds: {},
-            interfaces: {},
-          },
-        })
-      )
-    ).toBe("rollback-1:failed")
+    // A pushed change invalidates.
+    expect(observeConfigRevision(client, tracker, event(6))).toBe(true)
+    expect(invalidated()).toBe(true)
+    expect(tracker.last).toBe(6)
   })
 
-  test("a terminal apply invalidates config only", () => {
+  test("a snapshot that differs from the last seen revision invalidates", () => {
     const client = new QueryClient()
+    const tracker = { last: 3 as number | null }
     client.setQueryData(getGetConfigQueryKey(), { cached: true })
-    client.setQueryData(getGetHealthRoutingQueryKey(), { cached: true })
-    client.setQueryData(getGetHealthServiceQueryKey(), { cached: true })
-    invalidateAfterTerminalConfigOperation(client)
+    expect(
+      observeConfigRevision(
+        client,
+        tracker,
+        JSON.stringify({ type: "snapshot", data: { config: { revision: 4 } } })
+      )
+    ).toBe(true)
     expect(client.getQueryState(getGetConfigQueryKey())?.isInvalidated).toBe(
       true
     )
+  })
+
+  test("events without a revision and other datasets are ignored", () => {
+    const client = new QueryClient()
+    const tracker = { last: 1 as number | null }
+    expect(observeConfigRevision(client, tracker, "not json")).toBe(false)
     expect(
-      client.getQueryState(getGetHealthRoutingQueryKey())?.isInvalidated
+      observeConfigRevision(
+        client,
+        tracker,
+        JSON.stringify({ type: "service", data: { version: "1" } })
+      )
     ).toBe(false)
     expect(
-      client.getQueryState(getGetHealthServiceQueryKey())?.isInvalidated
+      observeConfigRevision(
+        client,
+        tracker,
+        JSON.stringify({ type: "snapshot", data: { service: {} } })
+      )
     ).toBe(false)
+    expect(tracker.last).toBe(1)
   })
 
   test("snapshot and auth events update the pushed auth state", () => {

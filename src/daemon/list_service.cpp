@@ -142,6 +142,11 @@ const CacheManager& ListService::cache_manager() const {
     return cache_manager_;
 }
 
+void ListService::set_change_callback(std::function<void()> callback) {
+    std::lock_guard<std::mutex> lock(stats_mutex_);
+    change_callback_ = std::move(callback);
+}
+
 RemoteListsRefreshResult ListService::download_uncached(
     const Config& config,
     const OutboundMarkMap& outbound_marks,
@@ -273,6 +278,15 @@ RemoteListsRefreshResult ListService::download_remote_lists(const Config& config
     }
     flight->completed.notify_all();
     refresh_available_.notify_all();
+
+    if (!result.changed_lists.empty()) {
+        std::function<void()> callback;
+        {
+            std::lock_guard<std::mutex> lock(stats_mutex_);
+            callback = change_callback_;
+        }
+        if (callback) callback();
+    }
     return result;
 }
 

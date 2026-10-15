@@ -8,6 +8,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <exception>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -81,6 +82,11 @@ class ListService {
     void ensure_dir();
     const CacheManager& cache_manager() const;
 
+    // Called (with no ListService lock held) after a refresh updated at least
+    // one cached list, i.e. changed the list refresh state. Set before
+    // refreshes run concurrently.
+    void set_change_callback(std::function<void()> callback);
+
     // Snapshot of per-list refresh telemetry for the metrics endpoint.
     std::map<std::string, ListRefreshStats> refresh_stats() const;
 
@@ -111,6 +117,7 @@ class ListService {
     mutable TracedMutex mutex_;
     std::mutex refresh_mutex_;
     mutable std::mutex stats_mutex_;
+    std::function<void()> change_callback_;
     std::map<std::string, ListRefreshStats> refresh_stats_;
     std::condition_variable_any refresh_available_;
     std::shared_ptr<RefreshFlight> refresh_flight_;

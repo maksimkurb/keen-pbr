@@ -68,6 +68,7 @@ TEST_CASE("status events endpoint returns SSE headers and snapshot first") {
       [] { return api::RuntimeInterfaceInventoryResponse{}; },
       [] { return api::HealthIssuesResponse{}; },
       [] { return nlohmann::json::object(); },
+      [] { return nlohmann::json::object(); },
       [] { return nlohmann::json::object(); }});
   auto context = make_status_context(dns_broadcaster, status_stream);
   ApiConfig config;

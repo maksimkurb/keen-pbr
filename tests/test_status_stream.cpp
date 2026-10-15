@@ -17,6 +17,7 @@ struct TestStatusSnapshot {
   api::HealthIssuesResponse issues;
   nlohmann::json routing = {{"overall", "ok"}};
   nlohmann::json auth = {{"enabled", false}, {"device_name", ""}};
+  nlohmann::json config = {{"revision", 1}};
 };
 
 StatusStream::Builders builders_for(TestStatusSnapshot &current) {
@@ -25,7 +26,8 @@ StatusStream::Builders builders_for(TestStatusSnapshot &current) {
           [&] { return current.interfaces; },
           [&] { return current.issues; },
           [&] { return current.routing; },
-          [&] { return current.auth; }};
+          [&] { return current.auth; },
+          [&] { return current.config; }};
 }
 
 TestStatusSnapshot make_snapshot(std::string version = "1",
@@ -340,6 +342,25 @@ TEST_CASE("status stream carries the auth state and emits only changes") {
   const auto frame = pop(subscription);
   CHECK(frame.rfind("event: auth\n", 0) == 0);
   CHECK(frame.find("\"device_name\":\"Office\"") != std::string::npos);
+  CHECK(queued(subscription) == 0);
+}
+
+TEST_CASE("status stream carries the config revision and emits each change") {
+  auto current = make_snapshot();
+  current.config = {{"revision", 7}};
+  StatusStream stream(builders_for(current));
+  auto subscription = stream.subscribe();
+  CHECK(pop(subscription).find("\"config\":{\"revision\":7}") !=
+        std::string::npos);
+
+  stream.reconcile(StatusUpdate::Config);
+  CHECK(queued(subscription) == 0);
+
+  current.config = {{"revision", 8}};
+  stream.reconcile(StatusUpdate::Config);
+  const auto frame = pop(subscription);
+  CHECK(frame.rfind("event: config\n", 0) == 0);
+  CHECK(frame.find("\"data\":{\"revision\":8}") != std::string::npos);
   CHECK(queued(subscription) == 0);
 }
 

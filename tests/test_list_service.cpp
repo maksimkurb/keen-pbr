@@ -510,6 +510,32 @@ TEST_CASE("refresh_remote_lists: raw-identical 200 response does not change cach
     std::filesystem::remove_all(temp_dir);
 }
 
+TEST_CASE("refresh_remote_lists: signals a change only when a list was updated") {
+    CurlGlobalGuard curl_guard;
+    TestHttpServer server({
+        {"/same.txt", HttpResponse{200, "OK", "example.com\n", {"ETag: first"}}},
+    });
+
+    const auto temp_dir = make_temp_dir();
+    ListService service(temp_dir);
+    service.ensure_dir();
+    int changes = 0;
+    service.set_change_callback([&changes] { ++changes; });
+
+    ListConfig remote;
+    remote.url = server.url("/same.txt");
+    Config config;
+    config.lists = std::map<std::string, ListConfig>{{"remote", remote}};
+
+    (void)service.refresh_remote_lists(config, OutboundMarkMap{});
+    CHECK(changes == 1);
+    // A raw-identical response leaves the refresh state alone.
+    (void)service.refresh_remote_lists(config, OutboundMarkMap{});
+    CHECK(changes == 1);
+
+    std::filesystem::remove_all(temp_dir);
+}
+
 TEST_CASE("collect_relevant_list_names: ignores disabled route rules") {
     Config config;
 

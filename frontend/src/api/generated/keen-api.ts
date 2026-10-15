@@ -2641,7 +2641,7 @@ export function useGetRuntimeInterfaces<TData = Awaited<ReturnType<typeof getRun
 
 
 /**
- * Streams named Server-Sent Events for service health, runtime outbounds, system interfaces, classified health issues (`issues`, the same data as `/api/health/issues`), and routing health (`routing`, the same data as `/api/health/routing`), and the public authentication state (`auth`, `enabled` and `device_name` from `/api/auth/status`). The daemon re-checks routing health about every 45 seconds while at least one stream is open. Every connection receives a snapshot first. Later events contain the complete dataset that changed. Heartbeat comments are sent every 15 seconds; reconnecting starts with a fresh snapshot and no event replay is performed.
+ * Streams named Server-Sent Events for service health, runtime outbounds, system interfaces, classified health issues (`issues`, the same data as `/api/health/issues`), and routing health (`routing`, the same data as `/api/health/routing`), and the public authentication state (`auth`, `enabled` and `device_name` from `/api/auth/status`). The daemon re-checks routing health about every 45 seconds while at least one stream is open. A `config` event (`revision`) is sent whenever the active config, the staged draft, or the list refresh state changes; clients refetch `/api/config` when the value changes. Every connection receives a snapshot first. Later events contain the complete dataset that changed. Heartbeat comments are sent every 15 seconds; reconnecting starts with a fresh snapshot and no event replay is performed.
 
  * @summary Stream live WebUI status
  */

@@ -529,7 +529,10 @@ paths:
         `/api/health/routing`), and the public authentication state (`auth`,
         `enabled` and `device_name` from `/api/auth/status`). The daemon
         re-checks routing health about every 45 seconds while at least one
-        stream is open. Every connection receives a snapshot first.
+        stream is open. A `config` event (`revision`) is sent whenever the
+        active config, the staged draft, or the list refresh state changes;
+        clients refetch `/api/config` when the value changes. Every connection
+        receives a snapshot first.
         Later events contain the complete dataset that changed. Heartbeat
         comments are sent every 15 seconds; reconnecting starts with a fresh
         snapshot and no event replay is performed.
@@ -543,7 +546,7 @@ paths:
                 type: string
               example: |-
                 event: snapshot
-                data: {"type":"snapshot","data":{"service":{},"outbounds":{"outbounds":[]},"interfaces":{"interfaces":[]},"issues":{"issues":[]},"routing":{},"auth":{"enabled":false,"device_name":""}}}
+                data: {"type":"snapshot","data":{"service":{},"outbounds":{"outbounds":[]},"interfaces":{"interfaces":[]},"issues":{"issues":[]},"routing":{},"auth":{"enabled":false,"device_name":""},"config":{"revision":1}}}
 
   /api/dns/test:
     get:
@@ -625,7 +628,7 @@ components:
           enum: [snapshot]
         data:
           type: object
-          required: [service, outbounds, interfaces, issues, routing, auth]
+          required: [service, outbounds, interfaces, issues, routing, auth, config]
           properties:
             service:
               $ref: "#/components/schemas/HealthResponse"
@@ -639,6 +642,8 @@ components:
               $ref: "#/components/schemas/RoutingHealthResponse"
             auth:
               $ref: "#/components/schemas/StatusAuthState"
+            config:
+              $ref: "#/components/schemas/StatusConfigState"
 
     StatusAuthState:
       type: object
@@ -649,6 +654,18 @@ components:
         device_name:
           type: string
           description: Optional human-readable device name used by the WebUI.
+
+    StatusConfigState:
+      type: object
+      required: [revision]
+      properties:
+        revision:
+          type: integer
+          format: int64
+          description: >
+            Changes whenever the active config, the staged draft, or the list
+            refresh state changes. Monotonic within one daemon process; only
+            inequality with the previously seen value is meaningful.
 
     StatusEventService:
       type: object
@@ -689,6 +706,16 @@ components:
           enum: [issues]
         data:
           $ref: "#/components/schemas/HealthIssuesResponse"
+
+    StatusEventConfig:
+      type: object
+      required: [type, data]
+      properties:
+        type:
+          type: string
+          enum: [config]
+        data:
+          $ref: "#/components/schemas/StatusConfigState"
 
     StatusEventAuth:
       type: object

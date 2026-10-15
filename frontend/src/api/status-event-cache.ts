@@ -22,6 +22,7 @@ import type {
   RuntimeOutboundsResponse,
   StatusAuthState,
   StatusEventAuth,
+  StatusEventConfig,
   StatusEventInterfaces,
   StatusEventIssues,
   StatusEventOutbounds,
@@ -38,6 +39,7 @@ type StatusEvent =
   | StatusEventIssues
   | StatusEventRouting
   | StatusEventAuth
+  | StatusEventConfig
 
 function response<T>(data: T) {
   return { data, status: 200 as const, headers: new Headers() }
@@ -124,33 +126,40 @@ export function applyStatusEvent(
   return true
 }
 
-export function getTerminalConfigLifecycleOperationKey(
+/** The last config revision the stream reported, across reconnects. */
+export type ConfigRevisionTracker = { last: number | null }
+
+/**
+ * Invalidates the config query when the stream reports a revision other than
+ * the last one seen. The first value only seeds the tracker; a snapshot after
+ * a reconnect that differs from the last revision means the config changed
+ * while the stream was down.
+ */
+export function observeConfigRevision(
+  queryClient: QueryClient,
+  tracker: ConfigRevisionTracker,
   rawData: string
-): string | null {
+): boolean {
   let event: StatusEvent | null
   try {
     event = JSON.parse(rawData) as StatusEvent
   } catch {
-    return null
+    return false
   }
-
-  const service =
+  const revision =
     event?.type === "snapshot"
-      ? event.data.service
-      : event?.type === "service"
-        ? event.data
-        : null
-  const operation = service?.lifecycle_operation
-  if (
-    !operation ||
-    (operation.type !== "apply_config" &&
-      operation.type !== "rollback_config") ||
-    (operation.status !== "succeeded" && operation.status !== "failed")
-  ) {
-    return null
-  }
+      ? event.data.config?.revision
+      : event?.type === "config"
+        ? event.data.revision
+        : undefined
+  if (typeof revision !== "number") return false
 
-  return `${operation.id}:${operation.status}`
+  const changed = tracker.last !== null && tracker.last !== revision
+  tracker.last = revision
+  if (changed) {
+    void queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() })
+  }
+  return changed
 }
 
 /** Query keys whose data is owned by the status stream. */
@@ -162,11 +171,4 @@ export function statusStreamQueryKeys() {
     getGetHealthIssuesQueryKey(),
     getGetHealthRoutingQueryKey(),
   ] as const
-}
-
-/** An apply/rollback finished: resync the config. */
-export function invalidateAfterTerminalConfigOperation(
-  queryClient: QueryClient
-) {
-  void queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() })
 }

@@ -23,8 +23,9 @@ enum class StatusUpdate : std::uint8_t {
   Issues = 1U << 3U,
   Routing = 1U << 4U,
   Auth = 1U << 5U,
+  Config = 1U << 6U,
   All = (1U << 0U) | (1U << 1U) | (1U << 2U) | (1U << 3U) | (1U << 4U) |
-        (1U << 5U),
+        (1U << 5U) | (1U << 6U),
 };
 
 constexpr StatusUpdate operator|(StatusUpdate lhs, StatusUpdate rhs) {
@@ -47,6 +48,9 @@ public:
   using RoutingBuilder = std::function<nlohmann::json()>;
   // {"enabled", "device_name"}: GET /api/auth/status without `authenticated`.
   using AuthBuilder = std::function<nlohmann::json()>;
+  // {"revision"}: changes whenever the active/staged config or the list
+  // refresh state changes; clients refetch GET /api/config on a new value.
+  using ConfigBuilder = std::function<nlohmann::json()>;
   // Called after every subscribe, outside the stream's lock.
   using SubscribeHook = std::function<void()>;
 
@@ -57,6 +61,7 @@ public:
     IssuesBuilder issues;
     RoutingBuilder routing;
     AuthBuilder auth;
+    ConfigBuilder config;
   };
 
   explicit StatusStream(Builders builders, size_t max_queue_size = 128);
@@ -82,6 +87,7 @@ private:
   std::string issues_ GUARDED_BY(mutex_);
   std::string routing_ GUARDED_BY(mutex_);
   std::string auth_ GUARDED_BY(mutex_);
+  std::string config_ GUARDED_BY(mutex_);
   bool initialized_ GUARDED_BY(mutex_){false};
 };
 
