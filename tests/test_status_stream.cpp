@@ -16,6 +16,7 @@ struct TestStatusSnapshot {
   api::RuntimeInterfaceInventoryResponse interfaces;
   api::HealthIssuesResponse issues;
   nlohmann::json routing = {{"overall", "ok"}};
+  nlohmann::json auth = {{"enabled", false}, {"device_name", ""}};
 };
 
 StatusStream::Builders builders_for(TestStatusSnapshot &current) {
@@ -23,7 +24,8 @@ StatusStream::Builders builders_for(TestStatusSnapshot &current) {
           [&] { return current.outbounds; },
           [&] { return current.interfaces; },
           [&] { return current.issues; },
-          [&] { return current.routing; }};
+          [&] { return current.routing; },
+          [&] { return current.auth; }};
 }
 
 TestStatusSnapshot make_snapshot(std::string version = "1",
@@ -319,6 +321,26 @@ TEST_CASE("status stream reports subscribers and runs the subscribe hook") {
   CHECK(stream.has_subscribers());
   stream.unsubscribe(subscription);
   CHECK_FALSE(stream.has_subscribers());
+}
+
+TEST_CASE("status stream carries the auth state and emits only changes") {
+  auto current = make_snapshot();
+  current.auth = {{"enabled", true}, {"device_name", "Home"}};
+  StatusStream stream(builders_for(current));
+  auto subscription = stream.subscribe();
+  const auto snapshot = pop(subscription);
+  CHECK(snapshot.find("\"auth\":{\"device_name\":\"Home\","
+                      "\"enabled\":true}") != std::string::npos);
+
+  stream.reconcile(StatusUpdate::Auth);
+  CHECK(queued(subscription) == 0);
+
+  current.auth = {{"enabled", true}, {"device_name", "Office"}};
+  stream.reconcile(StatusUpdate::Auth);
+  const auto frame = pop(subscription);
+  CHECK(frame.rfind("event: auth\n", 0) == 0);
+  CHECK(frame.find("\"device_name\":\"Office\"") != std::string::npos);
+  CHECK(queued(subscription) == 0);
 }
 
 #endif

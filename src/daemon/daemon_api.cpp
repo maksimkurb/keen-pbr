@@ -50,6 +50,14 @@ const char* config_operation_state_name(ConfigOperationState state) {
 
 } // namespace
 
+void Daemon::apply_api_runtime_config() {
+    if (!api_server_) return;
+    api_server_->update_runtime_config(config_.api.value_or(ApiConfig{}),
+                                       config_.device_name.value_or(""));
+    // The stream carries the enabled flag and the device name.
+    if (status_stream_) status_stream_->reconcile(StatusUpdate::Auth);
+}
+
 std::string Daemon::submit_lifecycle_operation(LifecycleRequest request) {
     if (request.type == LifecycleOperationType::RollbackConfig &&
         !rollback_available_.load(std::memory_order_acquire)) {
@@ -170,11 +178,7 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
                 reconcile_prepared_runtime(std::move(prepared));
                 config_store_.replace_active_and_clear_staged_if_revision(
                     config_, outbound_marks_, staged_revision);
-                if (api_server_) {
-                    api_server_->update_runtime_config(
-                        config_.api.value_or(ApiConfig{}),
-                        config_.device_name.value_or(""));
-                }
+                apply_api_runtime_config();
             });
 
 
@@ -211,11 +215,7 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             run_control("reconcile_runtime", [this, prepared = std::move(prepared)]() mutable {
                 reconcile_prepared_runtime(std::move(prepared));
                 config_store_.replace_active(config_, outbound_marks_);
-                if (api_server_) {
-                    api_server_->update_runtime_config(
-                        config_.api.value_or(ApiConfig{}),
-                        config_.device_name.value_or(""));
-                }
+                apply_api_runtime_config();
             });
 
 
@@ -674,10 +674,7 @@ void Daemon::setup_api() {
                             validation_context());
                 write_config_atomically(config_path_, serialize_config_pretty(config_));
 
-                if (api_server_) {
-                    api_server_->update_runtime_config(
-                        *config_.api, config_.device_name.value_or(""));
-                }
+                apply_api_runtime_config();
                 config_store_.replace_active(config_, outbound_marks_);
 
                 if (const auto staged = config_store_.staged_snapshot()) {
@@ -755,6 +752,11 @@ void Daemon::setup_api() {
         [this]() {
             // Peek only: a stream rebuild must never start a refresh.
             return routing_health_report_to_json(peek_routing_health());
+        },
+        [this]() {
+            const auto state = api_server_->auth_state();
+            return nlohmann::json{{"enabled", state.enabled},
+                                  {"device_name", state.device_name}};
         }});
     // A freshly opened dashboard should not show a report older than one
     // refresh interval; the worker pushes the result when it is ready.

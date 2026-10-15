@@ -10,6 +10,10 @@ import {
   getGetRuntimeOutboundsQueryKey,
 } from "../src/api/generated/keen-api"
 import {
+  getStreamAuthState,
+  subscribeStreamAuthState,
+} from "../src/api/status-auth"
+import {
   applyStatusEvent,
   getTerminalConfigLifecycleOperationKey,
   invalidateAfterTerminalConfigOperation,
@@ -171,6 +175,54 @@ describe("status event cache bridge", () => {
     expect(
       client.getQueryState(getGetHealthServiceQueryKey())?.isInvalidated
     ).toBe(false)
+  })
+
+  test("snapshot and auth events update the pushed auth state", () => {
+    const client = new QueryClient()
+    let notified = 0
+    const unsubscribe = subscribeStreamAuthState(() => {
+      notified += 1
+    })
+    applyStatusEvent(
+      client,
+      JSON.stringify({
+        type: "snapshot",
+        data: {
+          service: service("1"),
+          outbounds: outbounds("wan"),
+          interfaces: interfaces("eth0"),
+          auth: { enabled: true, device_name: "Home" },
+        },
+      })
+    )
+    expect(getStreamAuthState()).toEqual({ enabled: true, deviceName: "Home" })
+    expect(notified).toBe(1)
+
+    // An identical value does not notify.
+    applyStatusEvent(
+      client,
+      JSON.stringify({
+        type: "auth",
+        data: { enabled: true, device_name: "Home" },
+      })
+    )
+    expect(notified).toBe(1)
+
+    expect(
+      applyStatusEvent(
+        client,
+        JSON.stringify({
+          type: "auth",
+          data: { enabled: true, device_name: "Office" },
+        })
+      )
+    ).toBe(true)
+    expect(getStreamAuthState()).toEqual({
+      enabled: true,
+      deviceName: "Office",
+    })
+    expect(notified).toBe(2)
+    unsubscribe()
   })
 
   test("routing health is a stream-owned query", () => {

@@ -52,6 +52,9 @@ void StatusStream::rebuild(StatusUpdate updates) {
   if (has_status_update(updates, StatusUpdate::Routing)) {
     routing_ = builders_.routing().dump();
   }
+  if (has_status_update(updates, StatusUpdate::Auth)) {
+    auth_ = builders_.auth().dump();
+  }
 }
 
 SseBroadcaster::SubscriptionPtr StatusStream::subscribe() {
@@ -62,7 +65,8 @@ SseBroadcaster::SubscriptionPtr StatusStream::subscribe() {
       rebuild(StatusUpdate::All);
       initialized_ = true;
     }
-    const auto serialized_snapshot = "{\"interfaces\":" + interfaces_ +
+    const auto serialized_snapshot = "{\"auth\":" + auth_ +
+                                     ",\"interfaces\":" + interfaces_ +
                                      ",\"issues\":" + issues_ +
                                      ",\"outbounds\":" + outbounds_ +
                                      ",\"routing\":" + routing_ +
@@ -85,6 +89,7 @@ void StatusStream::unsubscribe(
     interfaces_.clear();
     issues_.clear();
     routing_.clear();
+    auth_.clear();
     initialized_ = false;
   }
 }
@@ -147,6 +152,14 @@ void StatusStream::reconcile(StatusUpdate updates) {
             "routing", make_event_payload("routing", routing_)));
       }
     }
+    if (has_status_update(updates, StatusUpdate::Auth)) {
+      const auto auth = builders_.auth().dump();
+      if (auth != auth_) {
+        auth_ = auth;
+        frames.push_back(
+            make_named_sse_frame("auth", make_event_payload("auth", auth_)));
+      }
+    }
   }
   for (const auto &frame : frames) {
     broadcaster_.publish(frame);
@@ -161,6 +174,7 @@ void StatusStream::close_all() {
   interfaces_.clear();
   issues_.clear();
   routing_.clear();
+  auth_.clear();
   initialized_ = false;
 }
 

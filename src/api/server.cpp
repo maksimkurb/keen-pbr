@@ -1068,6 +1068,11 @@ void ApiServer::stop() {
     }
 }
 
+ApiServer::AuthState ApiServer::auth_state() const {
+    const std::lock_guard lock(impl_->auth_mutex);
+    return {impl_->auth_enabled, impl_->device_name};
+}
+
 bool ApiServer::auth_enabled() const {
     const std::lock_guard lock(impl_->auth_mutex);
     return impl_->auth_enabled;

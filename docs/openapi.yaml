@@ -526,9 +526,10 @@ paths:
         Streams named Server-Sent Events for service health, runtime outbounds,
         system interfaces, classified health issues (`issues`, the same data as
         `/api/health/issues`), and routing health (`routing`, the same data as
-        `/api/health/routing`). The daemon re-checks routing health about
-        every 45 seconds while at least one stream is open. Every connection
-        receives a snapshot first.
+        `/api/health/routing`), and the public authentication state (`auth`,
+        `enabled` and `device_name` from `/api/auth/status`). The daemon
+        re-checks routing health about every 45 seconds while at least one
+        stream is open. Every connection receives a snapshot first.
         Later events contain the complete dataset that changed. Heartbeat
         comments are sent every 15 seconds; reconnecting starts with a fresh
         snapshot and no event replay is performed.
@@ -542,7 +543,7 @@ paths:
                 type: string
               example: |-
                 event: snapshot
-                data: {"type":"snapshot","data":{"service":{},"outbounds":{"outbounds":[]},"interfaces":{"interfaces":[]},"issues":{"issues":[]},"routing":{}}}
+                data: {"type":"snapshot","data":{"service":{},"outbounds":{"outbounds":[]},"interfaces":{"interfaces":[]},"issues":{"issues":[]},"routing":{},"auth":{"enabled":false,"device_name":""}}}
 
   /api/dns/test:
     get:
@@ -624,7 +625,7 @@ components:
           enum: [snapshot]
         data:
           type: object
-          required: [service, outbounds, interfaces, issues, routing]
+          required: [service, outbounds, interfaces, issues, routing, auth]
           properties:
             service:
               $ref: "#/components/schemas/HealthResponse"
@@ -636,6 +637,18 @@ components:
               $ref: "#/components/schemas/HealthIssuesResponse"
             routing:
               $ref: "#/components/schemas/RoutingHealthResponse"
+            auth:
+              $ref: "#/components/schemas/StatusAuthState"
+
+    StatusAuthState:
+      type: object
+      required: [enabled, device_name]
+      properties:
+        enabled:
+          type: boolean
+        device_name:
+          type: string
+          description: Optional human-readable device name used by the WebUI.
 
     StatusEventService:
       type: object
@@ -676,6 +689,16 @@ components:
           enum: [issues]
         data:
           $ref: "#/components/schemas/HealthIssuesResponse"
+
+    StatusEventAuth:
+      type: object
+      required: [type, data]
+      properties:
+        type:
+          type: string
+          enum: [auth]
+        data:
+          $ref: "#/components/schemas/StatusAuthState"
 
     StatusEventRouting:
       type: object

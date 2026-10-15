@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/react-query"
 
+import { setStreamAuthState } from "@/api/status-auth"
 import {
   getGetConfigQueryKey,
   getGetHealthIssuesQueryKey,
@@ -19,6 +20,8 @@ import type {
   RoutingHealthResponse,
   RuntimeInterfaceInventoryResponse,
   RuntimeOutboundsResponse,
+  StatusAuthState,
+  StatusEventAuth,
   StatusEventInterfaces,
   StatusEventIssues,
   StatusEventOutbounds,
@@ -34,6 +37,7 @@ type StatusEvent =
   | StatusEventInterfaces
   | StatusEventIssues
   | StatusEventRouting
+  | StatusEventAuth
 
 function response<T>(data: T) {
   return { data, status: 200 as const, headers: new Headers() }
@@ -78,6 +82,15 @@ export function applyStatusEvent(
       response(data)
     )
 
+  const setAuth = (data: StatusAuthState | undefined) => {
+    if (data) {
+      setStreamAuthState({
+        enabled: data.enabled,
+        deviceName: data.device_name,
+      })
+    }
+  }
+
   switch (event?.type) {
     case "snapshot":
       setService(event.data.service)
@@ -85,6 +98,7 @@ export function applyStatusEvent(
       setInterfaces(event.data.interfaces)
       setIssues(event.data.issues)
       setRouting(event.data.routing)
+      setAuth(event.data.auth)
       break
     case "service":
       setService(event.data)
@@ -100,6 +114,9 @@ export function applyStatusEvent(
       break
     case "routing":
       setRouting(event.data)
+      break
+    case "auth":
+      setAuth(event.data)
       break
     default:
       return false

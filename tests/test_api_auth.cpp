@@ -316,5 +316,16 @@ TEST_CASE("authenticated streams close when their credentials are revoked") {
     server.stop();
 }
 
+TEST_CASE("API exposes the public auth state") {
+    const auto config = auth_config(18203, "secret");
+    ApiServer server(config, "Home router");
+    CHECK(server.auth_state().enabled);
+    CHECK(server.auth_state().device_name == "Home router");
+    ApiConfig disabled;
+    server.update_runtime_config(disabled, "Office");
+    CHECK_FALSE(server.auth_state().enabled);
+    CHECK(server.auth_state().device_name == "Office");
+}
+
 } // namespace keen_pbr3
 #endif

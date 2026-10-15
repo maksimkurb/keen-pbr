@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesJW0Wvy data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesMyPBgG data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -916,6 +916,18 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
+    struct StatusAuthState {
+        std::string device_name;
+        bool enabled;
+    };
+
+    enum class StatusEventAuthType : int { AUTH };
+
+    struct StatusEventAuth {
+        StatusAuthState data;
+        StatusEventAuthType type;
+    };
+
     enum class StatusEventInterfacesType : int { INTERFACES };
 
     struct StatusEventInterfaces {
@@ -952,6 +964,7 @@ namespace api {
     };
 
     struct Data {
+        StatusAuthState auth;
         RuntimeInterfaceInventoryResponse interfaces;
         HealthIssuesResponse issues;
         RuntimeOutboundsResponse outbounds;
@@ -966,7 +979,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesJW0Wvy {
+    struct KeenPbrTypesMyPBgG {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1055,6 +1068,8 @@ namespace api {
         std::optional<RuntimeOutboundsResponse> runtime_outbounds_response;
         std::optional<RuntimeOutboundStateElement> runtime_outbound_state;
         std::optional<RuntimeOutboundStatusEnum> runtime_outbound_status;
+        std::optional<StatusAuthState> status_auth_state;
+        std::optional<StatusEventAuth> status_event_auth;
         std::optional<StatusEventInterfaces> status_event_interfaces;
         std::optional<StatusEventIssues> status_event_issues;
         std::optional<StatusEventOutbounds> status_event_outbounds;
@@ -1316,6 +1331,12 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
+    void from_json(const json & j, StatusAuthState & x);
+    void to_json(json & j, const StatusAuthState & x);
+
+    void from_json(const json & j, StatusEventAuth & x);
+    void to_json(json & j, const StatusEventAuth & x);
+
     void from_json(const json & j, StatusEventInterfaces & x);
     void to_json(json & j, const StatusEventInterfaces & x);
 
@@ -1337,8 +1358,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesJW0Wvy & x);
-    void to_json(json & j, const KeenPbrTypesJW0Wvy & x);
+    void from_json(const json & j, KeenPbrTypesMyPBgG & x);
+    void to_json(json & j, const KeenPbrTypesMyPBgG & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1477,6 +1498,9 @@ namespace api {
 
     void from_json(const json & j, RuntimeOutboundStatusEnum & x);
     void to_json(json & j, const RuntimeOutboundStatusEnum & x);
+
+    void from_json(const json & j, StatusEventAuthType & x);
+    void to_json(json & j, const StatusEventAuthType & x);
 
     void from_json(const json & j, StatusEventInterfacesType & x);
     void to_json(json & j, const StatusEventInterfacesType & x);
@@ -3042,6 +3066,28 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
+    inline void from_json(const json & j, StatusAuthState& x) {
+        x.device_name = j.at("device_name").get<std::string>();
+        x.enabled = j.at("enabled").get<bool>();
+    }
+
+    inline void to_json(json & j, const StatusAuthState & x) {
+        j = json::object();
+        j["device_name"] = x.device_name;
+        j["enabled"] = x.enabled;
+    }
+
+    inline void from_json(const json & j, StatusEventAuth& x) {
+        x.data = j.at("data").get<StatusAuthState>();
+        x.type = j.at("type").get<StatusEventAuthType>();
+    }
+
+    inline void to_json(json & j, const StatusEventAuth & x) {
+        j = json::object();
+        j["data"] = x.data;
+        j["type"] = x.type;
+    }
+
     inline void from_json(const json & j, StatusEventInterfaces& x) {
         x.data = j.at("data").get<RuntimeInterfaceInventoryResponse>();
         x.type = j.at("type").get<StatusEventInterfacesType>();
@@ -3098,6 +3144,7 @@ namespace api {
     }
 
     inline void from_json(const json & j, Data& x) {
+        x.auth = j.at("auth").get<StatusAuthState>();
         x.interfaces = j.at("interfaces").get<RuntimeInterfaceInventoryResponse>();
         x.issues = j.at("issues").get<HealthIssuesResponse>();
         x.outbounds = j.at("outbounds").get<RuntimeOutboundsResponse>();
@@ -3107,6 +3154,7 @@ namespace api {
 
     inline void to_json(json & j, const Data & x) {
         j = json::object();
+        j["auth"] = x.auth;
         j["interfaces"] = x.interfaces;
         j["issues"] = x.issues;
         j["outbounds"] = x.outbounds;
@@ -3125,7 +3173,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesJW0Wvy& x) {
+    inline void from_json(const json & j, KeenPbrTypesMyPBgG& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3214,6 +3262,8 @@ namespace api {
         x.runtime_outbounds_response = get_stack_optional<RuntimeOutboundsResponse>(j, "RuntimeOutboundsResponse");
         x.runtime_outbound_state = get_stack_optional<RuntimeOutboundStateElement>(j, "RuntimeOutboundState");
         x.runtime_outbound_status = get_stack_optional<RuntimeOutboundStatusEnum>(j, "RuntimeOutboundStatus");
+        x.status_auth_state = get_stack_optional<StatusAuthState>(j, "StatusAuthState");
+        x.status_event_auth = get_stack_optional<StatusEventAuth>(j, "StatusEventAuth");
         x.status_event_interfaces = get_stack_optional<StatusEventInterfaces>(j, "StatusEventInterfaces");
         x.status_event_issues = get_stack_optional<StatusEventIssues>(j, "StatusEventIssues");
         x.status_event_outbounds = get_stack_optional<StatusEventOutbounds>(j, "StatusEventOutbounds");
@@ -3225,7 +3275,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesJW0Wvy & x) {
+    inline void to_json(json & j, const KeenPbrTypesMyPBgG & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;
@@ -3315,6 +3365,8 @@ namespace api {
         j["RuntimeOutboundsResponse"] = x.runtime_outbounds_response;
         j["RuntimeOutboundState"] = x.runtime_outbound_state;
         j["RuntimeOutboundStatus"] = x.runtime_outbound_status;
+        j["StatusAuthState"] = x.status_auth_state;
+        j["StatusEventAuth"] = x.status_event_auth;
         j["StatusEventInterfaces"] = x.status_event_interfaces;
         j["StatusEventIssues"] = x.status_event_issues;
         j["StatusEventOutbounds"] = x.status_event_outbounds;
@@ -4127,6 +4179,18 @@ namespace api {
             case RuntimeOutboundStatusEnum::UNAVAILABLE: j = "unavailable"; break;
             case RuntimeOutboundStatusEnum::UNKNOWN: j = "unknown"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RuntimeOutboundStatusEnum\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, StatusEventAuthType & x) {
+        if (j == "auth") x = StatusEventAuthType::AUTH;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"StatusEventAuthType\""); }
+    }
+
+    inline void to_json(json & j, const StatusEventAuthType & x) {
+        switch (x) {
+            case StatusEventAuthType::AUTH: j = "auth"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"StatusEventAuthType\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

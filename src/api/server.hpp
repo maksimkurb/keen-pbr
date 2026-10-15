@@ -108,6 +108,14 @@ public:
     // True when API authentication is enabled in the applied settings.
     bool auth_enabled() const;
 
+    // The public part of the auth state (GET /api/auth/status minus
+    // `authenticated`).
+    struct AuthState {
+        bool enabled{false};
+        std::string device_name;
+    };
+    AuthState auth_state() const;
+
     // Predicate for a long-lived response opened by `request`: it stays true
     // while the credentials the stream was opened with remain valid (same
     // password, same UI session, not expired) and, for a stream opened without

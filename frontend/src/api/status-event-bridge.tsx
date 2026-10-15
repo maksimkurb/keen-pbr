@@ -62,6 +62,7 @@ export function StatusEventBridge() {
               "interfaces",
               "issues",
               "routing",
+              "auth",
             ].includes(event)
           ) {
             return

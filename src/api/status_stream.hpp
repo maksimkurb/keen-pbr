@@ -22,7 +22,9 @@ enum class StatusUpdate : std::uint8_t {
   Interfaces = 1U << 2U,
   Issues = 1U << 3U,
   Routing = 1U << 4U,
-  All = (1U << 0U) | (1U << 1U) | (1U << 2U) | (1U << 3U) | (1U << 4U),
+  Auth = 1U << 5U,
+  All = (1U << 0U) | (1U << 1U) | (1U << 2U) | (1U << 3U) | (1U << 4U) |
+        (1U << 5U),
 };
 
 constexpr StatusUpdate operator|(StatusUpdate lhs, StatusUpdate rhs) {
@@ -43,6 +45,8 @@ public:
   using IssuesBuilder = std::function<api::HealthIssuesResponse()>;
   // The same JSON as GET /api/health/routing.
   using RoutingBuilder = std::function<nlohmann::json()>;
+  // {"enabled", "device_name"}: GET /api/auth/status without `authenticated`.
+  using AuthBuilder = std::function<nlohmann::json()>;
   // Called after every subscribe, outside the stream's lock.
   using SubscribeHook = std::function<void()>;
 
@@ -52,6 +56,7 @@ public:
     InterfacesBuilder interfaces;
     IssuesBuilder issues;
     RoutingBuilder routing;
+    AuthBuilder auth;
   };
 
   explicit StatusStream(Builders builders, size_t max_queue_size = 128);
@@ -76,6 +81,7 @@ private:
   std::string interfaces_ GUARDED_BY(mutex_);
   std::string issues_ GUARDED_BY(mutex_);
   std::string routing_ GUARDED_BY(mutex_);
+  std::string auth_ GUARDED_BY(mutex_);
   bool initialized_ GUARDED_BY(mutex_){false};
 };
 

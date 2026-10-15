@@ -74,7 +74,7 @@ Chrome и Firefox. При входе и Basic-аутентификации па�
 | `POST /api/service/start`, `/stop`, `/restart` | Асинхронный запуск, остановка или перезапуск маршрутизации. |
 | `GET /api/config`, `POST /api/config` | Чтение или подготовка проверенного черновика конфигурации. |
 | `POST /api/config/discard`, `/save`, `/rollback` | Отмена черновика, сохранение и применение либо явный откат неудачного применения. |
-| `GET /api/status/events` | Поток Server-Sent Events о состоянии сервиса, outbounds, интерфейсов, проблем и диагностики маршрутизации (`snapshot`, `service`, `outbounds`, `interfaces`, `issues`, `routing`). REST-эндпоинты, включая `GET /api/health/issues` и `GET /api/health/routing`, остаются доступны. |
+| `GET /api/status/events` | Поток Server-Sent Events о состоянии сервиса, outbounds, интерфейсов, проблем и диагностики маршрутизации и состояния аутентификации (`snapshot`, `service`, `outbounds`, `interfaces`, `issues`, `routing`, `auth`). REST-эндпоинты, включая `GET /api/health/issues`, `GET /api/health/routing` и `GET /api/auth/status`, остаются доступны. |
 | `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Текущее состояние outbounds и список системных интерфейсов. |
 | `GET /api/health/routing`, `POST /api/routing/test` | Кэшированная диагностика маршрутизации/firewall и проверка маршрута для цели. |
 | `POST /api/lists/refresh` | Обновление одного или всех удалённых списков URL. |

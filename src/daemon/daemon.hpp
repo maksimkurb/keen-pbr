@@ -384,6 +384,9 @@ private:
                                        bool require_runtime_stopped);
   ConfigApplyResult apply_validated_config_via_control_task(
       Config config, std::string saved_config_json, bool persist_config = true);
+  // Applies config_.api and the device name to the API server and pushes the
+  // auth state to the status stream.
+  void apply_api_runtime_config();
   std::string submit_lifecycle_operation(LifecycleRequest request);
   void execute_lifecycle_operation(std::string operation_id,
                                    LifecycleRequest request);
