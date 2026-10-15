@@ -524,9 +524,11 @@ paths:
       summary: Stream live WebUI status
       description: >
         Streams named Server-Sent Events for service health, runtime outbounds,
-        system interfaces, and classified health issues (`issues`, the same
-        data as `/api/health/issues`). Every connection receives a snapshot
-        first.
+        system interfaces, classified health issues (`issues`, the same data as
+        `/api/health/issues`), and routing health (`routing`, the same data as
+        `/api/health/routing`). The daemon re-checks routing health about
+        every 45 seconds while at least one stream is open. Every connection
+        receives a snapshot first.
         Later events contain the complete dataset that changed. Heartbeat
         comments are sent every 15 seconds; reconnecting starts with a fresh
         snapshot and no event replay is performed.
@@ -540,7 +542,7 @@ paths:
                 type: string
               example: |-
                 event: snapshot
-                data: {"type":"snapshot","data":{"service":{},"outbounds":{"outbounds":[]},"interfaces":{"interfaces":[]},"issues":{"issues":[]}}}
+                data: {"type":"snapshot","data":{"service":{},"outbounds":{"outbounds":[]},"interfaces":{"interfaces":[]},"issues":{"issues":[]},"routing":{}}}
 
   /api/dns/test:
     get:
@@ -622,7 +624,7 @@ components:
           enum: [snapshot]
         data:
           type: object
-          required: [service, outbounds, interfaces, issues]
+          required: [service, outbounds, interfaces, issues, routing]
           properties:
             service:
               $ref: "#/components/schemas/HealthResponse"
@@ -632,6 +634,8 @@ components:
               $ref: "#/components/schemas/RuntimeInterfaceInventoryResponse"
             issues:
               $ref: "#/components/schemas/HealthIssuesResponse"
+            routing:
+              $ref: "#/components/schemas/RoutingHealthResponse"
 
     StatusEventService:
       type: object
@@ -672,6 +676,16 @@ components:
           enum: [issues]
         data:
           $ref: "#/components/schemas/HealthIssuesResponse"
+
+    StatusEventRouting:
+      type: object
+      required: [type, data]
+      properties:
+        type:
+          type: string
+          enum: [routing]
+        data:
+          $ref: "#/components/schemas/RoutingHealthResponse"
 
     # -------------------------------------------------------------------------
     # /api/config — configuration object schema

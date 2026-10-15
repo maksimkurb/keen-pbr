@@ -329,10 +329,7 @@ function OutboundForm({
       form.setApiError(error as ApiError)
       return
     }
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.healthRouting() }),
-    ])
+    await queryClient.invalidateQueries({ queryKey: queryKeys.config() })
     navigate("/outbounds")
   }
 

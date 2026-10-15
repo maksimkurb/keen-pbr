@@ -7,6 +7,7 @@
  */
 import type { HealthIssuesResponse } from './healthIssuesResponse';
 import type { HealthResponse } from './healthResponse';
+import type { RoutingHealthResponse } from './routingHealthResponse';
 import type { RuntimeInterfaceInventoryResponse } from './runtimeInterfaceInventoryResponse';
 import type { RuntimeOutboundsResponse } from './runtimeOutboundsResponse';
 
@@ -15,4 +16,5 @@ export type StatusEventSnapshotData = {
   outbounds: RuntimeOutboundsResponse;
   interfaces: RuntimeInterfaceInventoryResponse;
   issues: HealthIssuesResponse;
+  routing: RoutingHealthResponse;
 };

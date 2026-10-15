@@ -745,6 +745,21 @@ RoutingHealthReport Daemon::peek_routing_health() {
       backend, "canonical routing health refresh is pending");
 }
 
+void Daemon::request_routing_health_refresh(
+    std::chrono::steady_clock::duration max_age) {
+  const auto runtime_snapshot = runtime_state_store_.snapshot();
+  {
+    KPBR_LOCK_GUARD(routing_health_mutex_);
+    if (is_routing_health_cache_valid(runtime_snapshot) &&
+        std::chrono::steady_clock::now() - routing_health_cache_time_ <=
+            max_age) {
+      return;
+    }
+  }
+  // Queues the off-loop check when the report is stale and none is running.
+  (void)cached_routing_health();
+}
+
 RoutingHealthReport Daemon::cached_routing_health() {
   const auto runtime_snapshot = runtime_state_store_.snapshot();
   const auto backend = firewall_->backend();
@@ -843,10 +858,11 @@ RoutingHealthReport Daemon::cached_routing_health() {
               routing_health_check_inflight_ = false;
             }
 #ifdef WITH_API
-            // The issues embed this report; publish outside the cache lock
-            // because the stream's builders read the cache again.
+            // Publish the report and the issues derived from it outside the
+            // cache lock because the stream's builders read the cache again.
             if (stored && status_stream_) {
-              status_stream_->reconcile(StatusUpdate::Issues);
+              status_stream_->reconcile(StatusUpdate::Routing |
+                                        StatusUpdate::Issues);
             }
 #else
             (void)stored;

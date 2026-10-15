@@ -8,6 +8,7 @@ import {
   getGetRuntimeInterfacesQueryKey,
   getGetRuntimeOutboundsQueryKey,
   type getHealthIssuesResponseSuccess,
+  type getHealthRoutingResponseSuccess,
   type getHealthServiceResponseSuccess,
   type getRuntimeInterfacesResponseSuccess,
   type getRuntimeOutboundsResponseSuccess,
@@ -15,11 +16,13 @@ import {
 import type {
   HealthIssuesResponse,
   HealthResponse,
+  RoutingHealthResponse,
   RuntimeInterfaceInventoryResponse,
   RuntimeOutboundsResponse,
   StatusEventInterfaces,
   StatusEventIssues,
   StatusEventOutbounds,
+  StatusEventRouting,
   StatusEventService,
   StatusEventSnapshot,
 } from "@/api/generated/model"
@@ -30,6 +33,7 @@ type StatusEvent =
   | StatusEventOutbounds
   | StatusEventInterfaces
   | StatusEventIssues
+  | StatusEventRouting
 
 function response<T>(data: T) {
   return { data, status: 200 as const, headers: new Headers() }
@@ -68,12 +72,19 @@ export function applyStatusEvent(
       response(data)
     )
 
+  const setRouting = (data: RoutingHealthResponse) =>
+    queryClient.setQueryData<getHealthRoutingResponseSuccess>(
+      getGetHealthRoutingQueryKey(),
+      response(data)
+    )
+
   switch (event?.type) {
     case "snapshot":
       setService(event.data.service)
       setOutbounds(event.data.outbounds)
       setInterfaces(event.data.interfaces)
       setIssues(event.data.issues)
+      setRouting(event.data.routing)
       break
     case "service":
       setService(event.data)
@@ -86,6 +97,9 @@ export function applyStatusEvent(
       break
     case "issues":
       setIssues(event.data)
+      break
+    case "routing":
+      setRouting(event.data)
       break
     default:
       return false
@@ -129,20 +143,13 @@ export function statusStreamQueryKeys() {
     getGetRuntimeOutboundsQueryKey(),
     getGetRuntimeInterfacesQueryKey(),
     getGetHealthIssuesQueryKey(),
+    getGetHealthRoutingQueryKey(),
   ] as const
 }
 
-/**
- * An apply/rollback finished: resync the config and re-read what the new
- * runtime changed that the stream does not carry (routing health).
- */
+/** An apply/rollback finished: resync the config. */
 export function invalidateAfterTerminalConfigOperation(
   queryClient: QueryClient
 ) {
-  for (const queryKey of [
-    getGetConfigQueryKey(),
-    getGetHealthRoutingQueryKey(),
-  ]) {
-    void queryClient.invalidateQueries({ queryKey })
-  }
+  void queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() })
 }

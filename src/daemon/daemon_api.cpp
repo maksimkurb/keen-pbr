@@ -1,5 +1,6 @@
 #include "daemon.hpp"
 #include "lifecycle_stages.hpp"
+#include "scheduler.hpp"
 #include "../config/config_defaults.hpp"
 #include "../config/config_writer.hpp"
 
@@ -18,6 +19,7 @@
 #include "../api/server.hpp"
 #include "../api/status_stream.hpp"
 #include "../config/routing_state.hpp"
+#include "../health/routing_health_checker.hpp"
 #include "../health/runtime_interface_inventory.hpp"
 #include "../keenetic/interface_descriptions.hpp"
 #include "../log/logger.hpp"
@@ -30,6 +32,9 @@
 namespace keen_pbr3 {
 
 namespace {
+
+// How often the routing report is re-checked while a status stream is open.
+constexpr auto kRoutingHealthStreamRefreshInterval = std::chrono::seconds{45};
 
 const char* config_operation_state_name(ConfigOperationState state) {
     switch (state) {
@@ -734,7 +739,7 @@ void Daemon::setup_api() {
     api_ctx_->compute_test_routing_with_criteria_fn = compute_test_routing_with_criteria;
     api_ctx_->validation_context_fn = [this]() { return validation_context(); };
     api_ctx_->get_health_issues_fn = [this]() { return health_issues(); };
-    status_stream_ = std::make_unique<StatusStream>(
+    status_stream_ = std::make_unique<StatusStream>(StatusStream::Builders{
         [this]() {
             return build_health_response(api_ctx_->get_service_health());
         },
@@ -746,7 +751,25 @@ void Daemon::setup_api() {
         },
         [this]() {
             return stream_health_issues();
-        });
+        },
+        [this]() {
+            // Peek only: a stream rebuild must never start a refresh.
+            return routing_health_report_to_json(peek_routing_health());
+        }});
+    // A freshly opened dashboard should not show a report older than one
+    // refresh interval; the worker pushes the result when it is ready.
+    status_stream_->set_subscribe_hook([this]() {
+        request_routing_health_refresh(kRoutingHealthStreamRefreshInterval);
+    });
+    routing_health_stream_task_id_ = scheduler_->schedule_repeating(
+        kRoutingHealthStreamRefreshInterval,
+        [this]() {
+            // Cheap: queues the check on the routing executor, off the loop.
+            if (status_stream_ && status_stream_->has_subscribers()) {
+                request_routing_health_refresh(std::chrono::seconds{0});
+            }
+        },
+        "routing-health-stream");
     api_ctx_->status_stream = status_stream_.get();
     lifecycle_operation_store_.set_publish_callback([this]() {
         if (status_stream_) status_stream_->reconcile(StatusUpdate::Service);

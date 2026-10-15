@@ -8,6 +8,8 @@
 #include "../util/traced_mutex.hpp"
 
 #include <cstdint>
+#include <nlohmann/json.hpp>
+
 #include <functional>
 #include <string>
 
@@ -19,7 +21,8 @@ enum class StatusUpdate : std::uint8_t {
   Outbounds = 1U << 1U,
   Interfaces = 1U << 2U,
   Issues = 1U << 3U,
-  All = (1U << 0U) | (1U << 1U) | (1U << 2U) | (1U << 3U),
+  Routing = 1U << 4U,
+  All = (1U << 0U) | (1U << 1U) | (1U << 2U) | (1U << 3U) | (1U << 4U),
 };
 
 constexpr StatusUpdate operator|(StatusUpdate lhs, StatusUpdate rhs) {
@@ -38,13 +41,24 @@ public:
   using InterfacesBuilder =
       std::function<api::RuntimeInterfaceInventoryResponse()>;
   using IssuesBuilder = std::function<api::HealthIssuesResponse()>;
+  // The same JSON as GET /api/health/routing.
+  using RoutingBuilder = std::function<nlohmann::json()>;
+  // Called after every subscribe, outside the stream's lock.
+  using SubscribeHook = std::function<void()>;
 
-  StatusStream(ServiceBuilder service_builder,
-               OutboundsBuilder outbounds_builder,
-               InterfacesBuilder interfaces_builder,
-               IssuesBuilder issues_builder,
-               size_t max_queue_size = 128);
+  struct Builders {
+    ServiceBuilder service;
+    OutboundsBuilder outbounds;
+    InterfacesBuilder interfaces;
+    IssuesBuilder issues;
+    RoutingBuilder routing;
+  };
 
+  explicit StatusStream(Builders builders, size_t max_queue_size = 128);
+
+  // Must be set before the stream is used by more than one thread.
+  void set_subscribe_hook(SubscribeHook hook);
+  bool has_subscribers();
   SseBroadcaster::SubscriptionPtr subscribe();
   void unsubscribe(const SseBroadcaster::SubscriptionPtr &subscription);
   void reconcile(StatusUpdate updates);
@@ -53,16 +67,15 @@ public:
 private:
   void rebuild(StatusUpdate updates) REQUIRES(mutex_);
 
-  ServiceBuilder service_builder_;
-  OutboundsBuilder outbounds_builder_;
-  InterfacesBuilder interfaces_builder_;
-  IssuesBuilder issues_builder_;
+  Builders builders_;
+  SubscribeHook subscribe_hook_;
   SseBroadcaster broadcaster_;
   TracedMutex mutex_;
   std::string service_ GUARDED_BY(mutex_);
   std::string outbounds_ GUARDED_BY(mutex_);
   std::string interfaces_ GUARDED_BY(mutex_);
   std::string issues_ GUARDED_BY(mutex_);
+  std::string routing_ GUARDED_BY(mutex_);
   bool initialized_ GUARDED_BY(mutex_){false};
 };
 

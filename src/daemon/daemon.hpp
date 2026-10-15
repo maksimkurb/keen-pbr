@@ -194,6 +194,9 @@ private:
   // The cached report for the current runtime, or the "pending/unavailable"
   // report the API would show. Never queues a refresh.
   RoutingHealthReport peek_routing_health();
+  // Queues an off-loop routing check unless a report newer than `max_age` is
+  // cached or a check is already running. Never blocks.
+  void request_routing_health_refresh(std::chrono::steady_clock::duration max_age);
   ServiceHealthState service_health_state();
   api::RuntimeOutboundsResponse runtime_outbounds_state();
   // Classified health issues (GET /api/health/issues and `keen-pbr status`).
@@ -547,6 +550,7 @@ IcmpTester icmp_tester_;
   std::atomic<std::uint64_t> intercept_snapshot_seq_{0};
   std::uint64_t intercept_forwarded_seq_{0};
   int intercept_event_task_id_{-1};
+  int routing_health_stream_task_id_{-1};
   int dnsmasq_check_task_id_{-1};
   BlockingExecutor lifecycle_executor_{1, 16};
   // An open descriptor pins the pre-apply inode without retaining another

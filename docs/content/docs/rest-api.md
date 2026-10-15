@@ -72,7 +72,7 @@ The [OpenAPI document](https://github.com/maksimkurb/keen-pbr/blob/main/docs/ope
 | `POST /api/service/start`, `/stop`, `/restart` | Start, stop, or restart routing asynchronously. |
 | `GET /api/config`, `POST /api/config` | Read or stage a validated config draft. |
 | `POST /api/config/discard`, `/save`, `/rollback` | Discard a draft, persist/apply it, or explicitly roll back a failed apply. |
-| `GET /api/status/events` | Server-Sent Events for service, outbound, interface, and health issue status (`snapshot`, `service`, `outbounds`, `interfaces`, `issues`). The REST endpoints, including `GET /api/health/issues`, stay available. |
+| `GET /api/status/events` | Server-Sent Events for service, outbound, interface, and health issue, and routing health status (`snapshot`, `service`, `outbounds`, `interfaces`, `issues`, `routing`). The REST endpoints, including `GET /api/health/issues` and `GET /api/health/routing`, stay available. |
 | `GET /api/runtime/outbounds`, `/api/runtime/interfaces` | Current outbound health and system interface inventory. |
 | `GET /api/health/routing`, `POST /api/routing/test` | Cached routing/firewall health and a per-target routing diagnostic. |
 | `POST /api/lists/refresh` | Refresh one or all remote URL lists. |

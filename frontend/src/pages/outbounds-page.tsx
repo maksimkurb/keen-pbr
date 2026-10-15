@@ -116,12 +116,7 @@ export function OutboundsPage() {
     mutation: {
       onSuccess: async () => {
         // success — nothing to show here (toasts handled on error)
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.healthRouting(),
-          }),
-        ])
+        await queryClient.invalidateQueries({ queryKey: queryKeys.config() })
       },
       onError: (error) => {
         toast.error(getApiErrorMessage(error as ApiError), {

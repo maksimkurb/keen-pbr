@@ -12,10 +12,10 @@ import {
 import {
   useGetConfig,
   useGetHealthIssues,
+  useGetHealthRouting,
   useGetHealthService,
   useGetRuntimeOutbounds,
 } from "@/api/queries"
-import { useRoutingHealthQuery } from "@/api/routing-health"
 import { selectConfig } from "@/api/selectors"
 import { useAuth } from "@/auth/auth-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -63,13 +63,7 @@ export function OverviewPage() {
 
   const serviceHealthQuery = useGetHealthService()
   const configQuery = useGetConfig()
-  const routingHealthQuery = useRoutingHealthQuery({
-    query: {
-      refetchOnMount: "always",
-      refetchInterval: 45_000,
-      refetchIntervalInBackground: false,
-    },
-  })
+  const routingHealthQuery = useGetHealthRouting()
   const runtimeOutboundsQuery = useGetRuntimeOutbounds()
   const healthIssuesQuery = useGetHealthIssues()
 

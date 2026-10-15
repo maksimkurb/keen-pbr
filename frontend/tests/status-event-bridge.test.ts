@@ -13,6 +13,7 @@ import {
   applyStatusEvent,
   getTerminalConfigLifecycleOperationKey,
   invalidateAfterTerminalConfigOperation,
+  statusStreamQueryKeys,
 } from "../src/api/status-event-cache"
 
 const service = (version: string) => ({ version })
@@ -155,7 +156,7 @@ describe("status event cache bridge", () => {
     ).toBe("rollback-1:failed")
   })
 
-  test("a terminal apply invalidates config and routing health", () => {
+  test("a terminal apply invalidates config only", () => {
     const client = new QueryClient()
     client.setQueryData(getGetConfigQueryKey(), { cached: true })
     client.setQueryData(getGetHealthRoutingQueryKey(), { cached: true })
@@ -166,10 +167,50 @@ describe("status event cache bridge", () => {
     )
     expect(
       client.getQueryState(getGetHealthRoutingQueryKey())?.isInvalidated
-    ).toBe(true)
+    ).toBe(false)
     expect(
       client.getQueryState(getGetHealthServiceQueryKey())?.isInvalidated
     ).toBe(false)
+  })
+
+  test("routing health is a stream-owned query", () => {
+    expect(statusStreamQueryKeys()).toContainEqual(
+      getGetHealthRoutingQueryKey()
+    )
+  })
+
+  test("snapshot and routing events fill the routing health cache", () => {
+    const client = new QueryClient()
+    applyStatusEvent(
+      client,
+      JSON.stringify({
+        type: "snapshot",
+        data: {
+          service: service("1"),
+          outbounds: outbounds("wan"),
+          interfaces: interfaces("eth0"),
+          issues: { issues: [], kernel_checks: [] },
+          routing: { overall: "ok", firewall_backend: "nftables" },
+        },
+      })
+    )
+    expect(client.getQueryData(getGetHealthRoutingQueryKey())).toMatchObject({
+      data: { overall: "ok" },
+      status: 200,
+    })
+    const servicesBefore = client.getQueryData(getGetHealthServiceQueryKey())
+    expect(
+      applyStatusEvent(
+        client,
+        JSON.stringify({ type: "routing", data: { overall: "degraded" } })
+      )
+    ).toBe(true)
+    expect(client.getQueryData(getGetHealthRoutingQueryKey())).toMatchObject({
+      data: { overall: "degraded" },
+    })
+    expect(client.getQueryData(getGetHealthServiceQueryKey())).toBe(
+      servicesBefore
+    )
   })
 
   test("snapshot and issues events fill the health issues cache", () => {

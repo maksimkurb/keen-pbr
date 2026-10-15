@@ -148,6 +148,8 @@ export * from './statusEventIssues';
 export * from './statusEventIssuesType';
 export * from './statusEventOutbounds';
 export * from './statusEventOutboundsType';
+export * from './statusEventRouting';
+export * from './statusEventRoutingType';
 export * from './statusEventService';
 export * from './statusEventServiceType';
 export * from './statusEventSnapshot';

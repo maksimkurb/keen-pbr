@@ -71,7 +71,8 @@ void Daemon::publish_runtime_state(StatusPublishScope scope) {
     }
 #ifdef WITH_API
     if (status_stream_) {
-        StatusUpdate updates = StatusUpdate::Outbounds;
+        // The invalidation above turns the routing report into "pending".
+        StatusUpdate updates = StatusUpdate::Outbounds | StatusUpdate::Routing;
         if (scope == StatusPublishScope::ServiceAndOutbounds) {
             updates = updates | StatusUpdate::Service;
         } else if (scope == StatusPublishScope::OutboundsAndInterfaces) {

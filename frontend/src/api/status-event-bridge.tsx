@@ -61,6 +61,7 @@ export function StatusEventBridge() {
               "outbounds",
               "interfaces",
               "issues",
+              "routing",
             ].includes(event)
           ) {
             return

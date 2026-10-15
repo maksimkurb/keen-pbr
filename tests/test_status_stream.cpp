@@ -15,7 +15,16 @@ struct TestStatusSnapshot {
   api::RuntimeOutboundsResponse outbounds;
   api::RuntimeInterfaceInventoryResponse interfaces;
   api::HealthIssuesResponse issues;
+  nlohmann::json routing = {{"overall", "ok"}};
 };
+
+StatusStream::Builders builders_for(TestStatusSnapshot &current) {
+  return {[&] { return current.service; },
+          [&] { return current.outbounds; },
+          [&] { return current.interfaces; },
+          [&] { return current.issues; },
+          [&] { return current.routing; }};
+}
 
 TestStatusSnapshot make_snapshot(std::string version = "1",
                                  size_t outbound_count = 0) {
@@ -54,10 +63,7 @@ size_t queued(const SseBroadcaster::SubscriptionPtr &subscription) {
 
 TEST_CASE("status stream queues one snapshot before changes") {
   auto current = make_snapshot();
-  StatusStream stream([&] { return current.service; },
-                      [&] { return current.outbounds; },
-                      [&] { return current.interfaces; },
-                      [&] { return current.issues; });
+  StatusStream stream(builders_for(current));
   auto subscription = stream.subscribe();
 
   const auto first = pop(subscription);
@@ -72,10 +78,7 @@ TEST_CASE("status stream queues one snapshot before changes") {
 TEST_CASE(
     "status stream suppresses identical data and names each changed dataset") {
   auto current = make_snapshot();
-  StatusStream stream([&] { return current.service; },
-                      [&] { return current.outbounds; },
-                      [&] { return current.interfaces; },
-                      [&] { return current.issues; });
+  StatusStream stream(builders_for(current));
   auto subscription = stream.subscribe();
   (void)pop(subscription);
 
@@ -92,10 +95,7 @@ TEST_CASE(
 
 TEST_CASE("status stream closes slow and shutdown subscribers") {
   auto current = make_snapshot();
-  StatusStream stream([&] { return current.service; },
-                      [&] { return current.outbounds; },
-                      [&] { return current.interfaces; },
-                      [&] { return current.issues; }, 1);
+  StatusStream stream(builders_for(current), 1);
   auto slow = stream.subscribe();
   current.service.version = "2";
   stream.reconcile(StatusUpdate::Service);
@@ -117,20 +117,20 @@ TEST_CASE("status stream does no work without subscribers") {
   int service_builds = 0;
   int outbound_builds = 0;
   int interface_builds = 0;
-  StatusStream stream(
-      [&] {
-        ++service_builds;
-        return current.service;
-      },
-      [&] {
-        ++outbound_builds;
-        return current.outbounds;
-      },
-      [&] {
-        ++interface_builds;
-        return current.interfaces;
-      },
-      [&] { return current.issues; });
+  auto builders = builders_for(current);
+  builders.service = [&] {
+    ++service_builds;
+    return current.service;
+  };
+  builders.outbounds = [&] {
+    ++outbound_builds;
+    return current.outbounds;
+  };
+  builders.interfaces = [&] {
+    ++interface_builds;
+    return current.interfaces;
+  };
+  StatusStream stream(std::move(builders));
 
   stream.reconcile(StatusUpdate::All);
   CHECK(service_builds == 0);
@@ -175,10 +175,7 @@ TEST_CASE("status stream snapshot carries the issues") {
   api::HealthIssue issue{};
   issue.key = "test-issue";
   current.issues.issues.push_back(issue);
-  StatusStream stream([&] { return current.service; },
-                      [&] { return current.outbounds; },
-                      [&] { return current.interfaces; },
-                      [&] { return current.issues; });
+  StatusStream stream(builders_for(current));
   auto subscription = stream.subscribe();
   const auto snapshot = pop(subscription);
   CHECK(snapshot.find("\"issues\":{\"issues\":[{") != std::string::npos);
@@ -200,9 +197,9 @@ TEST_CASE("status stream emits issues only when the derived issues change") {
     }
     return issues;
   };
-  StatusStream stream([&] { return current.service; },
-                      [&] { return current.outbounds; },
-                      [&] { return current.interfaces; }, build_issues);
+  auto builders = builders_for(current);
+  builders.issues = build_issues;
+  StatusStream stream(std::move(builders));
   auto subscription = stream.subscribe();
   (void)pop(subscription);
 
@@ -232,20 +229,20 @@ TEST_CASE("status stream issues-only reconcile runs only the issues builder") {
   int service_builds = 0;
   int outbound_builds = 0;
   int issue_builds = 0;
-  StatusStream stream(
-      [&] {
-        ++service_builds;
-        return current.service;
-      },
-      [&] {
-        ++outbound_builds;
-        return current.outbounds;
-      },
-      [&] { return current.interfaces; },
-      [&] {
-        ++issue_builds;
-        return current.issues;
-      });
+  auto builders = builders_for(current);
+  builders.service = [&] {
+    ++service_builds;
+    return current.service;
+  };
+  builders.outbounds = [&] {
+    ++outbound_builds;
+    return current.outbounds;
+  };
+  builders.issues = [&] {
+    ++issue_builds;
+    return current.issues;
+  };
+  StatusStream stream(std::move(builders));
   auto subscription = stream.subscribe();
   (void)pop(subscription);
   const int service_before = service_builds;
@@ -262,6 +259,66 @@ TEST_CASE("status stream issues-only reconcile runs only the issues builder") {
 
   stream.reconcile(StatusUpdate::Issues);
   CHECK(queued(subscription) == 0);
+}
+
+TEST_CASE("status stream snapshot carries the routing report") {
+  auto current = make_snapshot();
+  current.routing = {{"overall", "degraded"}, {"firewall_backend", "nftables"}};
+  StatusStream stream(builders_for(current));
+  auto subscription = stream.subscribe();
+  const auto snapshot = pop(subscription);
+  CHECK(snapshot.find("\"routing\":{\"firewall_backend\":\"nftables\","
+                      "\"overall\":\"degraded\"}") != std::string::npos);
+}
+
+TEST_CASE("status stream emits routing only when the report changes") {
+  auto current = make_snapshot();
+  int routing_builds = 0;
+  int service_builds = 0;
+  auto builders = builders_for(current);
+  builders.routing = [&] {
+    ++routing_builds;
+    return current.routing;
+  };
+  builders.service = [&] {
+    ++service_builds;
+    return current.service;
+  };
+  StatusStream stream(std::move(builders));
+  auto subscription = stream.subscribe();
+  (void)pop(subscription);
+  const int service_before = service_builds;
+
+  // The worker completing with an identical report publishes nothing.
+  stream.reconcile(StatusUpdate::Routing | StatusUpdate::Issues);
+  CHECK(queued(subscription) == 0);
+  CHECK(routing_builds == 2);
+
+  current.routing = {{"overall", "degraded"}};
+  stream.reconcile(StatusUpdate::Routing | StatusUpdate::Issues);
+  const auto frame = pop(subscription);
+  CHECK(frame.rfind("event: routing\n", 0) == 0);
+  CHECK(frame.find("\"data\":{\"overall\":\"degraded\"}") != std::string::npos);
+  CHECK(queued(subscription) == 0);
+  // Routing is independent of the service dataset.
+  CHECK(service_builds == service_before);
+
+  // Service/Outbounds updates alone do not rebuild the routing report.
+  stream.reconcile(StatusUpdate::Service);
+  CHECK(routing_builds == 3);
+}
+
+TEST_CASE("status stream reports subscribers and runs the subscribe hook") {
+  auto current = make_snapshot();
+  StatusStream stream(builders_for(current));
+  int hook_calls = 0;
+  stream.set_subscribe_hook([&] { ++hook_calls; });
+  CHECK_FALSE(stream.has_subscribers());
+  auto subscription = stream.subscribe();
+  CHECK(hook_calls == 1);
+  CHECK(stream.has_subscribers());
+  stream.unsubscribe(subscription);
+  CHECK_FALSE(stream.has_subscribers());
 }
 
 #endif

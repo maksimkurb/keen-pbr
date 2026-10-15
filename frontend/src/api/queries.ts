@@ -1,9 +1,11 @@
 import {
   getHealthIssues,
+  getHealthRouting,
   getHealthService,
   getRuntimeInterfaces,
   getRuntimeOutbounds,
   useGetHealthIssues as useGeneratedHealthIssues,
+  useGetHealthRouting as useGeneratedHealthRouting,
   useGetHealthService as useGeneratedHealthService,
   useGetRuntimeInterfaces as useGeneratedRuntimeInterfaces,
   useGetRuntimeOutbounds as useGeneratedRuntimeOutbounds,
@@ -33,10 +35,9 @@ export {
   useGetConfigDefaults,
   useGetAuthPasswordStatus,
   useGetDnsTest,
-  useGetHealthRouting,
 } from "@/api/generated/keen-api"
 
-// Service, outbounds, interfaces and issues are pushed by the status stream. Their
+// Service, outbounds, interfaces, issues and routing health are pushed by the status stream. Their
 // queries read what the stream wrote and only hit REST while it is down.
 const statusStreamQueryOptions = {
   staleTime: Infinity,
@@ -125,6 +126,27 @@ export function useGetHealthIssues<
       ...statusStreamQueryOptions,
       queryFn: createStatusStreamQueryFn((signal) =>
         getHealthIssues({ signal })
+      ),
+      ...options?.query,
+    },
+  })
+}
+
+export function useGetHealthRouting<
+  TData = Awaited<ReturnType<typeof getHealthRouting>>,
+  TError = unknown,
+>(
+  options?: StatusQueryOptions<
+    Awaited<ReturnType<typeof getHealthRouting>>,
+    TError,
+    TData
+  >
+): UseQueryResult<TData, TError> {
+  return useGeneratedHealthRouting({
+    query: {
+      ...statusStreamQueryOptions,
+      queryFn: createStatusStreamQueryFn((signal) =>
+        getHealthRouting({ signal })
       ),
       ...options?.query,
     },
