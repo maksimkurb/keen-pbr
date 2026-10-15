@@ -114,7 +114,9 @@ export function RoutingDiagnosticsResult({
                               key={`rule-head-${rule.rule_index}`}
                               className="min-w-52 text-center align-top"
                             >
-                              <div className="space-y-1 py-1">
+                              {/* Capped width: long conditions wrap inside
+                                  their own column. */}
+                              <div className="mx-auto max-w-64 space-y-1 py-1 whitespace-normal">
                                 <div className="font-semibold">
                                   #{rule.rule_index + 1}
                                 </div>
@@ -215,7 +217,7 @@ function RuleConditions({
           <dt className="text-foreground">
             {t(`overview.routingDiagnostics.conditions.${condition.key}`)}:
           </dt>
-          <dd className="wrap-break-words min-w-0 whitespace-normal">
+          <dd className="min-w-0 [overflow-wrap:anywhere] whitespace-normal">
             {condition.value}
           </dd>
         </div>

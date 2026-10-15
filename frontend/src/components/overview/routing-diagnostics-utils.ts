@@ -114,22 +114,33 @@ export function getRuleConditions(rule: RouteRule): RuleCondition[] {
     conditions.push({ key: "proto", value: rule.proto })
   }
   if (hasText(rule.src_addr)) {
-    conditions.push({ key: "sourceIp", value: rule.src_addr })
+    conditions.push({ key: "sourceIp", value: spaceList(rule.src_addr) })
   }
   if (hasText(rule.dest_addr)) {
-    conditions.push({ key: "destinationIp", value: rule.dest_addr })
+    conditions.push({ key: "destinationIp", value: spaceList(rule.dest_addr) })
   }
   if (hasText(rule.src_port)) {
-    conditions.push({ key: "sourcePort", value: rule.src_port })
+    conditions.push({ key: "sourcePort", value: spaceList(rule.src_port) })
   }
   if (hasText(rule.dest_port)) {
-    conditions.push({ key: "destinationPort", value: rule.dest_port })
+    conditions.push({
+      key: "destinationPort",
+      value: spaceList(rule.dest_port),
+    })
   }
   if (rule.dscp != null) {
     conditions.push({ key: "dscp", value: String(rule.dscp) })
   }
 
   return conditions
+}
+
+// "a,b" -> "a, b": gives long address and port lists a place to wrap.
+function spaceList(value: string): string {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .join(", ")
 }
 
 function hasText(value: string | undefined): value is string {

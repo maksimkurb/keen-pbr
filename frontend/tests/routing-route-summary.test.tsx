@@ -116,6 +116,19 @@ test("server-selected rule takes priority when earlier rule fails packet criteri
   expect(getExpectedRoutingRule([earlier, rule], result)).toBe(rule)
 })
 
+test("address and port lists in rule conditions get a space to wrap at", () => {
+  expect(
+    getRuleConditions({
+      outbound: "vpn",
+      dest_addr: "188.235.151.99,185.199.108.153",
+      dest_port: "80, 443",
+    })
+  ).toEqual([
+    { key: "destinationIp", value: "188.235.151.99, 185.199.108.153" },
+    { key: "destinationPort", value: "80, 443" },
+  ])
+})
+
 test("DSCP appears in the explanation of rule conditions", () => {
   expect(getRuleConditions({ outbound: "vpn", dscp: 46 })).toContainEqual({
     key: "dscp",
