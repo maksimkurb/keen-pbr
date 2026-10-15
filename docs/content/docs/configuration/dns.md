@@ -5,6 +5,17 @@ weight: 4
 
 Domain-based routing works without any DNS configuration: keen-pbr reads DNS replies and TLS/HTTP/QUIC traffic itself and fills the sets of your lists (see [DNS interception](#dns-interception)). You do not need to set up a resolver for this: dnsmasq, the Keenetic DNS proxy, unbound or anything else keeps working as you set it up.
 
+## Do I need dnsmasq? {#do-i-need-dnsmasq}
+
+**No, not for routing.** Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough.
+
+**Yes, if you want:**
+
+- separate DNS servers for the domains of some lists, for example a CDN that should answer for your VPN's region, or domains that resolve only inside the VPN;
+- your own default DNS servers (`fallback`) managed by keen-pbr.
+
+Both work only through dnsmasq. Setup and rollback by platform: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq" >}}). In the Web UI the switch is **General** > **Local DNS server management** > **Manage dnsmasq configuration**.
+
 The settings on this page are needed in two cases:
 
 - to define DNS servers and the outbound used to reach them (`detour`);
@@ -23,7 +34,7 @@ The settings on this page are needed in two cases:
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `servers` | array | no | DNS server definitions |
-| `resolver_integration` | string | no | `"none"` or `"dnsmasq"`; when omitted, `"dnsmasq"` is assumed if `rules` is non-empty, otherwise `"none"`. |
+| `resolver_integration` | string | no | `"none"` (default) or `"dnsmasq"`. In the Web UI: **Manage dnsmasq configuration**. Configs from 3.3.x (no `version` field) keep `"dnsmasq"`. |
 | `dnsmasq_instance` | string | no | Selector of the dnsmasq instance to manage: `uci:<section>` (OpenWrt), `entware:default` (Keenetic), `systemd:<unit>.service` (Debian). Empty or omitted means automatic selection; needed only when several instances are found. |
 | `rules` | array | no | Rules mapping lists to DNS servers (only active when `resolver_integration: "dnsmasq"`). |
 | `fallback` | array of string | no | Upstream DNS server tags for queries that match no rule (only active when `resolver_integration: "dnsmasq"`). |
@@ -81,7 +92,7 @@ dnsmasq keeps a separate record (about 200 bytes) for every domain and server pa
 
 ### Installation by platform
 
-dnsmasq is not installed by keen-pbr; install it yourself when you need this feature.
+keen-pbr does not install dnsmasq; install it yourself when you need this feature. Step-by-step install and rollback are on the installation pages: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq" >}}). What keen-pbr changes on each platform:
 
 **OpenWrt**: install `dnsmasq`. keen-pbr adds `addnmount` entries to the dnsmasq section in `/etc/config/dhcp` so that the sandboxed dnsmasq can run keen-pbr. When you disable the feature, keen-pbr removes only the entries it added.
 
@@ -127,8 +138,8 @@ The code is shown in `GET /api/health/service` (`error_code`) and in the Web UI.
 |---|---|---|
 | `DNSMASQ_NO_HOOK` | This build has no dnsmasq hook. | Use a package built for your platform. |
 | `DNSMASQ_HOOK_FAILED` | The hook's `inspect` call failed or printed something unreadable. | Run `keen-pbr dnsmasq detect`; check that the hook and keen-pbr are from the same version. |
-| `DNSMASQ_NOT_INSTALLED` | dnsmasq is not installed. | Install dnsmasq (see above). It is optional: without it per-list DNS servers are unavailable. |
-| `DNSMASQ_NO_DNS_INSTANCE` | No enabled instance serves DNS. | Enable an instance with DNS, or set `dns.resolver_integration` to `none`. |
+| `DNSMASQ_NOT_INSTALLED` | dnsmasq is not installed. | Install dnsmasq (see above), or, if you do not need it, turn off **Manage dnsmasq configuration** in the Web UI (`dns.resolver_integration: "none"`). |
+| `DNSMASQ_NO_DNS_INSTANCE` | No enabled instance serves DNS. | Enable an instance with DNS, or turn off **Manage dnsmasq configuration** in the Web UI (`dns.resolver_integration: "none"`). |
 | `DNSMASQ_INSTANCE_NOT_FOUND` | `dns.dnsmasq_instance` names an instance that does not exist. | Fix the selector; `keen-pbr dnsmasq detect` lists valid ones. |
 | `DNSMASQ_INSTANCE_AMBIGUOUS` | Several instances qualify. | Set `dns.dnsmasq_instance`. |
 | `DNSMASQ_NOT_RUNNING` | The selected instance is not running. | Start dnsmasq yourself. keen-pbr never starts it, and re-applies its configuration once dnsmasq runs again. |

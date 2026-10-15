@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
+import { Link } from "wouter"
 
 import type { DnsmasqHealth } from "@/api/generated/model"
 import { Badge } from "@/components/ui/badge"
@@ -140,9 +141,18 @@ export function DnsRulesPanel({
                   ) : null}
                   {health?.error_code ? (
                     <span className="block">
-                      {t(`overview.dnsRules.errors.${health.error_code}`, {
-                        defaultValue: health.last_error ?? health.error_code,
-                      })}
+                      <Trans
+                        i18nKey={`overview.dnsRules.errors.${health.error_code}`}
+                        defaults={health.last_error ?? health.error_code}
+                        components={{
+                          settings: (
+                            <Link
+                              className="underline underline-offset-2"
+                              href="/general#dnsmasq-management"
+                            />
+                          ),
+                        }}
+                      />
                     </span>
                   ) : null}
                   {health?.last_error

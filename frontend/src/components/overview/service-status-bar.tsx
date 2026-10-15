@@ -168,6 +168,15 @@ export function ServiceStatusBar({
               build: health.build,
               os: `${health.os_type} ${health.os_version}`.trim(),
             })}
+            {" · "}
+            <a
+              className="underline underline-offset-2 hover:text-foreground"
+              href={t("common.changelogUrl")}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {t("overview.status.whatsNew")}
+            </a>
           </div>
         ) : null}
       </div>

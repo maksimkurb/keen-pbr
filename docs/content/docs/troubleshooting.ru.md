@@ -222,7 +222,7 @@ system configuration save
 ```
 
 {{% details title="После обновления со старой версии keen-pbr" closed="true" %}}
-Старые версии keen-pbr всегда настраивали dnsmasq. При обновлении пакет сам убирает эти настройки и возвращает ваши DNS-серверы, подробности — в разделе «Обновление с интеграции dnsmasq» на странице установки для вашей платформы. На Keenetic проверьте блок `# BEGIN keen-pbr fallback upstream` в `/opt/etc/dnsmasq.conf`, если он там есть. Если dnsmasq не запускается, убедитесь, что в его конфигурации не осталось строки `conf-script=...keen-pbr...`.
+Старые версии keen-pbr всегда настраивали dnsmasq. При обновлении пакет сам убирает эти настройки и возвращает ваши DNS-серверы, подробности в разделе [Обновление с 3.3.x]({{< relref "/docs/changelog#upgrading-from-33x" >}}). На Keenetic проверьте блок `# BEGIN keen-pbr fallback upstream` в `/opt/etc/dnsmasq.conf`, если он там есть. Если dnsmasq не запускается, убедитесь, что в его конфигурации не осталось строки `conf-script=...keen-pbr...`.
 {{% /details %}}
 
 ### Измерение потерь при DNS-перехвате

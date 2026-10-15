@@ -1,4 +1,5 @@
 #include <doctest/doctest.h>
+#include <keen-pbr/version.hpp>
 
 #include "../src/config/config.hpp"
 #include "../src/config/config_writer.hpp"
@@ -1826,7 +1827,7 @@ TEST_CASE("config warnings: deprecated resolver fields are reported in one warni
         CHECK(warnings.front().find(field) != std::string::npos);
     }
     CHECK(warnings.front().find("dns.rules") == std::string::npos);
-    CHECK(warnings.front().find("ignored: deprecated since 3.0.0") != std::string::npos);
+    CHECK(warnings.front().find("ignored: deprecated since 3.4.0") != std::string::npos);
 }
 
 TEST_CASE("config warnings: no deprecation warning without deprecated fields") {
@@ -1855,28 +1856,78 @@ TEST_CASE("config warnings: rules and fallback are ignored when integration is n
                              R"("fallback": ["plain_dns"])"}) {
         const auto warnings = config_warnings(render(body));
         REQUIRE(warnings.size() == 1);
-        CHECK(warnings.front() ==
-              "dns.rules/dns.fallback ignored: dns.resolver_integration is \"none\"");
+        CHECK(warnings.front().find("not used because dnsmasq management is off") !=
+              std::string::npos);
     }
     CHECK(config_warnings(render(R"("rules": [], "fallback": [])")).empty());
 }
 
-TEST_CASE("effective resolver integration: explicit value wins, absent follows dns.rules") {
+TEST_CASE("effective resolver integration: the field value, or none") {
     auto mode = [](const char* json) {
         return effective_resolver_integration(parse_config(json));
     };
-    CHECK(mode(R"({})") == ResolverIntegrationMode::NONE);
-    CHECK(mode(R"({"dns":{"resolver_integration":"none",
+    // Versioned configs are not inferred: absent means none.
+    CHECK(mode(R"({"version":"3.4.0"})") == ResolverIntegrationMode::NONE);
+    CHECK(mode(R"({"version":"3.4.0","dns":{"rules":[{"list":["l"],"server":"s"}],
+        "fallback":["s"]}})") == ResolverIntegrationMode::NONE);
+    CHECK(mode(R"({"version":"3.4.0","dns":{"resolver_integration":"none",
         "rules":[{"list":["l"],"server":"s"}]}})") == ResolverIntegrationMode::NONE);
-    CHECK(mode(R"({"dns":{"resolver_integration":"dnsmasq"}})") ==
+    CHECK(mode(R"({"version":"3.4.0","dns":{"resolver_integration":"dnsmasq"}})") ==
           ResolverIntegrationMode::DNSMASQ);
-    CHECK(mode(R"({"dns":{"rules":[{"list":["l"],"server":"s"}]}})") ==
-          ResolverIntegrationMode::DNSMASQ);
-    CHECK(mode(R"({"dns":{"rules":[]}})") == ResolverIntegrationMode::NONE);
-    CHECK(mode(R"({"dns":{"system_resolver":{"address":"127.0.0.1"}}})") ==
-          ResolverIntegrationMode::NONE);
     CHECK(std::string(resolver_integration_name(ResolverIntegrationMode::DNSMASQ)) == "dnsmasq");
     CHECK(std::string(resolver_integration_name(ResolverIntegrationMode::NONE)) == "none");
+}
+
+TEST_CASE("config version: configs without a version keep dnsmasq management") {
+    auto mode = [](const char* json) {
+        return effective_resolver_integration(parse_config(json));
+    };
+    // 3.3.x always managed dnsmasq, even with only default upstreams.
+    CHECK(mode(R"({})") == ResolverIntegrationMode::DNSMASQ);
+    CHECK(mode(R"({"dns":{"servers":[{"tag":"s","address":"8.8.8.8"}],
+        "fallback":["s"]}})") == ResolverIntegrationMode::DNSMASQ);
+    CHECK(mode(R"({"dns":{"rules":[{"list":["l"],"server":"s"}]}})") ==
+          ResolverIntegrationMode::DNSMASQ);
+    // An explicit choice is respected.
+    CHECK(mode(R"({"dns":{"resolver_integration":"none"}})") ==
+          ResolverIntegrationMode::NONE);
+    // Older versioned configs are migrated too.
+    CHECK(mode(R"({"version":"3.3.1"})") == ResolverIntegrationMode::DNSMASQ);
+    // The loaded config is stamped with the running version.
+    CHECK(parse_config("{}").version == std::string(KEEN_PBR3_VERSION_STRING));
+    CHECK(parse_config(R"({"version":"3.3.1"})").version ==
+          std::string(KEEN_PBR3_VERSION_STRING));
+}
+
+TEST_CASE("config version: current and newer configs are not migrated") {
+    const std::string current = KEEN_PBR3_VERSION_STRING;
+    const auto cfg = parse_config(R"({"version":")" + current + R"("})");
+    CHECK(effective_resolver_integration(cfg) == ResolverIntegrationMode::NONE);
+    CHECK(cfg.version == current);
+    CHECK(config_warnings(cfg).empty());
+
+    // Derived from the running version, so a release bump needs no edit here.
+    const std::string next_major = std::to_string(KEEN_PBR3_VERSION_MAJOR + 1) + ".0.0";
+    const auto newer = parse_config(R"({"version":")" + next_major + R"("})");
+    CHECK(effective_resolver_integration(newer) == ResolverIntegrationMode::NONE);
+    CHECK(newer.version == next_major);
+    const auto warnings = config_warnings(newer);
+    REQUIRE(warnings.size() == 1);
+    CHECK(warnings.front().find("newer than this") != std::string::npos);
+}
+
+TEST_CASE("config version: malformed values are rejected") {
+    for (const char* version : {R"("3.4")", R"("v3.4.0")", R"("3.4.0-rc1")", R"("")",
+                                R"("3.4.x")", "340", "true"}) {
+        CAPTURE(version);
+        CHECK_THROWS_AS(parse_config(std::string(R"({"version":)") + version + "}"),
+                        ConfigValidationError);
+    }
+}
+
+TEST_CASE("config version: upgrading does not ask for a rewrite of the file") {
+    CHECK_FALSE(upgraded_config_text("{}").has_value());
+    CHECK_FALSE(upgraded_config_text(R"({"dns":{"fallback":["s"]}})").has_value());
 }
 
 TEST_CASE("dns rules validation: unknown server, list and fallback tags are rejected") {

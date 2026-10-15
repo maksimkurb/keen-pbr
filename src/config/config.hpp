@@ -152,18 +152,14 @@ inline bool outbound_uses_balance(const Outbound& outbound) {
 #endif
 }
 
-// Effective resolver integration mode of a configuration.  An explicit
-// dns.resolver_integration always wins.  When the field is absent (configs
-// written before the option existed) a config that defines non-empty dns.rules
-// keeps using dnsmasq, everything else runs without a resolver integration.
+// Effective resolver integration mode of a configuration: the field value, or
+// none.  Configs written before 3.4.0 get "dnsmasq" filled in by the version
+// upgrade in parse_config(), so no inference happens here.
 inline ResolverIntegrationMode effective_resolver_integration(const Config& config) {
-    if (!config.dns.has_value()) return ResolverIntegrationMode::NONE;
-    if (config.dns->resolver_integration.has_value()) {
+    if (config.dns.has_value() && config.dns->resolver_integration.has_value()) {
         return *config.dns->resolver_integration;
     }
-    const bool has_rules = !config.dns->rules.value_or(std::vector<DnsRule>{}).empty();
-    return has_rules ? ResolverIntegrationMode::DNSMASQ
-                     : ResolverIntegrationMode::NONE;
+    return ResolverIntegrationMode::NONE;
 }
 
 // dns.dnsmasq_instance, or nullopt when absent or empty.

@@ -17,12 +17,10 @@ graph LR;
     A["1. Add outbounds"]
     B["`2. Add lists
 (optional)`"]
-    C["3. Configure DNS servers"]
-    D["4. Add routing rules"]
+    C["3. Add routing rules"]
 
     A==>B;
     B==>C;
-    C==>D;
 ```
 
 {{< tabs >}}
@@ -116,6 +114,7 @@ Example minimal config:
 
 ```json {filename="config.json"}
 {
+  "version": "3.4.0",
   // Outbounds is where your traffic can go
   "outbounds": [
     {
@@ -191,7 +190,6 @@ What this example does:
 - Adds a list called `my_sites` with `ifconfig.co`
 - Adds a list called `always_out` with `120.131.22.11`
 - Adds lists called `my_remote_list` and `my_local_file_list` that are not used in any rules, but listed here just for example
-- Sends DNS lookups for `my_sites` through `vpn_dns`
 - Sends traffic for all domains from `my_sites` through `vpn`
 - Sends traffic for all IPs from `always_out` through `out`
 

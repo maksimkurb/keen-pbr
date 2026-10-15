@@ -52,8 +52,23 @@ systemctl restart keen-pbr
 
 {{% /steps %}}
 
-## Обновление с интеграции dnsmasq
+## Отдельные DNS-серверы для списков (dnsmasq) {#dnsmasq}
 
-Старые версии keen-pbr всегда добавляли в каталог конфигурации dnsmasq файл `keen-pbr.conf` со строкой `conf-script`. Текущей версии он не нужен: при обновлении пакет удаляет этот файл, если в нём нет ничего, кроме этой строки. Остальная конфигурация dnsmasq не меняется. Если dnsmasq запущен, перезапустите его после обновления.
+Для маршрутизации keen-pbr не нужен dnsmasq. Ставьте его, если хотите отдельные DNS-серверы для некоторых списков или свои DNS-серверы по умолчанию. Подробнее: [Нужен ли dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
 
-Если вы включите [отдельные DNS-серверы для списков]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}), keen-pbr будет использовать другой файл: `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf`.
+### Установка dnsmasq {#dnsmasq-install}
+
+```bash {filename="bash"}
+apt install dnsmasq
+```
+
+Затем в веб-интерфейсе откройте **Общее** > **Управление локальным DNS-сервером** и включите **Управлять конфигурацией dnsmasq**. keen-pbr создаст `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf`. Если система ещё не использует dnsmasq, направьте на него системный резолвер или DHCP-сервер.
+
+### Вернуть как было {#dnsmasq-rollback}
+
+1. Выключите **Управлять конфигурацией dnsmasq** и примените конфигурацию. keen-pbr удалит свой файл и перезапустит dnsmasq.
+2. Верните системный резолвер, который был до dnsmasq.
+3. Удалите пакет:
+   ```bash {filename="bash"}
+   apt remove dnsmasq
+   ```

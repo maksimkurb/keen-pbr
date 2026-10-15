@@ -7,7 +7,7 @@
  */
 
 /**
- * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
+ * Ignored since 3.4.0: DNS-based sets are filled by interception, not by a system resolver.
 
  * @deprecated
  */

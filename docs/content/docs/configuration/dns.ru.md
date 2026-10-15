@@ -5,6 +5,17 @@ weight: 4
 
 Маршрутизация по доменам работает и без настроек DNS: keen-pbr сам читает DNS-ответы и TLS/HTTP/QUIC-трафик и заполняет наборы ваших списков (см. [DNS-перехват](#dns-перехват)). Резолвер для этого настраивать не нужно: dnsmasq, DNS-прокси Keenetic, unbound и любой другой работают так, как вы их настроили.
 
+## Нужен ли dnsmasq? {#do-i-need-dnsmasq}
+
+**Для маршрутизации нет.** Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере.
+
+**Да, если вам нужны:**
+
+- отдельные DNS-серверы для доменов некоторых списков, например CDN, который должен отвечать для региона вашего VPN, или домены, которые резолвятся только внутри VPN;
+- свои DNS-серверы по умолчанию (`fallback`), которыми управляет keen-pbr.
+
+И то и другое работает только через dnsmasq. Установка и откат по платформам: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq" >}}). В веб-интерфейсе переключатель называется **Общее** > **Управление локальным DNS-сервером** > **Управлять конфигурацией dnsmasq**.
+
 Настройки на этой странице нужны в двух случаях:
 
 - задать DNS-серверы и указать, через какой outbound к ним обращаться (`detour`);
@@ -23,7 +34,7 @@ weight: 4
 | Поле | Тип | Обязательное | Описание |
 |---|---|---|---|
 | `servers` | array | нет | Определения DNS-серверов |
-| `resolver_integration` | string | нет | `"none"` или `"dnsmasq"`; если опущено, `"dnsmasq"` используется если `rules` не пусто, иначе `"none"`. |
+| `resolver_integration` | string | нет | `"none"` (по умолчанию) или `"dnsmasq"`. В веб-интерфейсе: **Управлять конфигурацией dnsmasq**. Конфиги от 3.3.x (без поля `version`) остаются на `"dnsmasq"`. |
 | `dnsmasq_instance` | string | нет | Селектор управляемого экземпляра dnsmasq: `uci:<секция>` (OpenWrt), `entware:default` (Keenetic), `systemd:<юнит>.service` (Debian). Пусто или не задано: автоматический выбор; нужен только если найдено несколько экземпляров. |
 | `rules` | array | нет | Правила маршрутизации списков на DNS-серверы (активны только при `resolver_integration: "dnsmasq"`). |
 | `fallback` | array of string | нет | Теги upstream DNS-серверов для запросов, не совпавших с правилом (активны только при `resolver_integration: "dnsmasq"`). |
@@ -81,7 +92,7 @@ dnsmasq хранит отдельную запись (около 200 байт) �
 
 ### Установка по платформам
 
-dnsmasq не устанавливается keen-pbr; установите его самостоятельно, если нужна эта функция.
+keen-pbr не устанавливает dnsmasq; поставьте его сами, если нужна эта функция. Пошаговая установка и откат есть на страницах установки: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq" >}}). Что keen-pbr меняет на каждой платформе:
 
 **OpenWrt**: установите `dnsmasq`. keen-pbr добавляет в секцию dnsmasq в `/etc/config/dhcp` записи `addnmount`, чтобы dnsmasq из своей песочницы мог запустить keen-pbr. При отключении функции keen-pbr удаляет только те записи, которые добавил сам.
 
@@ -128,8 +139,8 @@ keen-pbr сам находит адрес, на котором отвечает 
 |---|---|---|
 | `DNSMASQ_NO_HOOK` | В этой сборке нет hook-скрипта для dnsmasq. | Используйте пакет, собранный для вашей платформы. |
 | `DNSMASQ_HOOK_FAILED` | Вызов `inspect` у hook-скрипта завершился ошибкой или вывел нечитаемый ответ. | Запустите `keen-pbr dnsmasq detect`; проверьте, что hook-скрипт и keen-pbr одной версии. |
-| `DNSMASQ_NOT_INSTALLED` | dnsmasq не установлен. | Установите dnsmasq (см. выше). Он необязателен: без него отдельные DNS-серверы для списков недоступны. |
-| `DNSMASQ_NO_DNS_INSTANCE` | Нет включённого экземпляра с DNS. | Включите экземпляр с DNS или поставьте `dns.resolver_integration` в `none`. |
+| `DNSMASQ_NOT_INSTALLED` | dnsmasq не установлен. | Установите dnsmasq (см. выше) или, если он не нужен, выключите **Управлять конфигурацией dnsmasq** в веб-интерфейсе (`dns.resolver_integration: "none"`). |
+| `DNSMASQ_NO_DNS_INSTANCE` | Нет включённого экземпляра с DNS. | Включите экземпляр с DNS или выключите **Управлять конфигурацией dnsmasq** в веб-интерфейсе (`dns.resolver_integration: "none"`). |
 | `DNSMASQ_INSTANCE_NOT_FOUND` | `dns.dnsmasq_instance` указывает на несуществующий экземпляр. | Исправьте селектор; допустимые покажет `keen-pbr dnsmasq detect`. |
 | `DNSMASQ_INSTANCE_AMBIGUOUS` | Подходит несколько экземпляров. | Задайте `dns.dnsmasq_instance`. |
 | `DNSMASQ_NOT_RUNNING` | Выбранный экземпляр не запущен. | Запустите dnsmasq сами. keen-pbr его не запускает и применит конфигурацию, как только dnsmasq снова заработает. |

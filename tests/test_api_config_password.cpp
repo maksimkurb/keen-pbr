@@ -4,6 +4,7 @@
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>
+#include <keen-pbr/version.hpp>
 
 #include "../src/api/handler_config.hpp"
 #include "../src/api/server.hpp"
@@ -103,6 +104,41 @@ TEST_CASE("POST /api/config accepts balance when the daemon does not use raw PRE
     (void)post_balance_config(18192, RawPreroutingMode{}, &status, &staged);
     CHECK(status == 200);
     CHECK(staged == 1);
+}
+
+TEST_CASE("POST /api/config stamps the running version on the staged config") {
+    SseBroadcaster broadcaster;
+    ApiConfig api_config;
+    api_config.listen = "127.0.0.1:18193";
+    ApiServer server(api_config);
+    std::optional<Config> staged;
+    ApiContext ctx{
+        "/tmp/keen-pbr-test-config.json",
+        broadcaster,
+        []() { return Config{}; },
+        []() { return false; },
+        [&staged](Config config) { staged = std::move(config); },
+        []() -> std::optional<StagedConfigSnapshot> { return std::nullopt; },
+        []() {},
+        [](const Config&) {},
+    };
+    register_config_handler(server, ctx);
+    server.start();
+    httplib::Client client("127.0.0.1", 18193);
+    // Without a version, and with an old one: both are saved as current.
+    const auto bare = client.Post("/api/config", R"({"dns":{"resolver_integration":"none"}})",
+                                  "application/json");
+    REQUIRE(bare != nullptr);
+    CHECK(bare->status == 200);
+    REQUIRE(staged.has_value());
+    CHECK(staged->version == std::string(KEEN_PBR3_VERSION_STRING));
+    staged.reset();
+    const auto old = client.Post("/api/config", R"({"version":"3.3.1"})", "application/json");
+    server.stop();
+    REQUIRE(old != nullptr);
+    CHECK(old->status == 200);
+    REQUIRE(staged.has_value());
+    CHECK(staged->version == std::string(KEEN_PBR3_VERSION_STRING));
 }
 
 TEST_CASE("config API responses never contain the password verifier") {

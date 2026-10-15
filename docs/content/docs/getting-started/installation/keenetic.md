@@ -60,17 +60,9 @@ Example:
 
 If the service is **alive**, continue to the next step.
 
-### Enable `dns-override`
-
-After installing `keen-pbr`, you have to enable `dns-override` so that all DNS requests from LAN clients are forwarded to {{< term "Entware" >}}:
-
-1. Open http://my.keenetic.net/a (if this link does not open, open `http://<router-ip>/a` instead)
-2. Run the commands `opkg dns-override` and then `system configuration save`
-3. Reboot the router. **_This is very important_: without a reboot, the option will not become active.**
-
 ### Configure the service
 
-After you reboot the router, you can open http://my.keenetic.net:12121 to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).
+Open http://my.keenetic.net:12121 to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).
 
 You can also configure keen-pbr manually by modifying the configuration file: `/opt/etc/keen-pbr/config.json`.
 
@@ -133,14 +125,37 @@ Go to the [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) page
 
 {{% /steps %}}
 
-## Upgrading from the dnsmasq integration
+## Separate DNS servers for lists (dnsmasq) {#dnsmasq}
 
-Older keen-pbr versions always added their own block to `/opt/etc/dnsmasq.conf`. The current version does not need it, and on upgrade the package cleans up by itself:
+keen-pbr does not need dnsmasq for routing. Install it only if you want to send the domains of some lists to separate DNS servers, or set your own default DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
 
-- removes the keen-pbr block from `/opt/etc/dnsmasq.conf`, keeping a copy of the original file as `/opt/etc/dnsmasq.conf.keen-pbr.bak`;
-- if dnsmasq would be left without any DNS server to forward to, adds a `# BEGIN keen-pbr fallback upstream` block with public DNS servers. **Review it** and replace it with your own servers if needed;
-- restarts dnsmasq once.
+### Install dnsmasq {#dnsmasq-install}
 
-You can also remove {{< term "Entware" >}} dnsmasq altogether and use the built-in Keenetic DNS proxy: keen-pbr works with any resolver.
+1. Install the package over SSH. Entware has only `dnsmasq-full`; the name `dnsmasq` resolves to it:
+   ```bash {filename="bash"}
+   opkg install dnsmasq-full
+   ```
+2. Open http://my.keenetic.net/a (if the link does not open, use `http://<router-ip>/a`) and run:
+   ```
+   opkg dns-override
+   system configuration save
+   ```
+   Run these commands only after dnsmasq is installed. Without dnsmasq, `dns-override` leaves the LAN without DNS.
+3. Reboot the router. **This is required:** without a reboot LAN clients keep using the built-in DNS proxy, and dnsmasq does not get their queries.
+4. In the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. The DNS servers and DNS rules pages become available.
 
-[Per-list DNS servers]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}) need Entware `dnsmasq-full` as the LAN resolver. When you enable them, keen-pbr adds a `# BEGIN keen-pbr upstream dns` block to `/opt/etc/dnsmasq.conf`.
+### Return to how it was {#dnsmasq-rollback}
+
+Do the steps in this order, so the LAN keeps DNS all the time:
+
+1. In the Web UI, turn off **Manage dnsmasq configuration** (**General** > **Local DNS server management**) and apply the config. dnsmasq keeps running, so DNS keeps working.
+2. In the web CLI (http://my.keenetic.net/a) run:
+   ```
+   no opkg dns-override
+   system configuration save
+   ```
+3. Reboot the router. **This is required.**
+4. Remove the package:
+   ```bash {filename="bash"}
+   opkg remove dnsmasq-full
+   ```

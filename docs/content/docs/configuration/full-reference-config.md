@@ -13,6 +13,10 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
 ```json {filename="config.json"}
 {
+  // keen-pbr version this config was written for (X.Y.Z).
+  // Set automatically when you save from the Web UI; keep it when editing by hand.
+  "version": "3.4.0",
+
   // Optional device label shown in the browser title and beneath the keen-pbr logo.
   // Maximum length: 128 characters. Default: empty (the standard keen-pbr
   // branding is used).

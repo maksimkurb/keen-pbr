@@ -40,6 +40,7 @@ export const ruTranslation = {
     add: "Добавить",
     documentation: "Документация",
     documentationUrl: "https://keen-pbr.fyi/ru/docs/",
+    changelogUrl: "https://keen-pbr.fyi/ru/docs/changelog/",
     language: "Язык",
     theme: "Тема",
     enabled: "Включено",
@@ -221,6 +222,7 @@ export const ruTranslation = {
       issueCount_many: "{{count}} проблем",
       issueCount_other: "{{count}} проблемы",
       versionLine: "keen-pbr {{version}} · сборка {{build}} · {{os}}",
+      whatsNew: "Что нового?",
       confirmStop: "Остановить службу?",
       confirmStopAction: "Да, остановить",
       busy: {
@@ -488,8 +490,8 @@ export const ruTranslation = {
       errors: {
         DNSMASQ_NO_HOOK: "Эта сборка не умеет управлять dnsmasq.",
         DNSMASQ_HOOK_FAILED: "Ошибка вспомогательного скрипта dnsmasq.",
-        DNSMASQ_NOT_INSTALLED: "dnsmasq не установлен. Он не обязателен; установите его, чтобы работали DNS-правила.",
-        DNSMASQ_NO_DNS_INSTANCE: "Нет включённого экземпляра dnsmasq, обслуживающего DNS.",
+        DNSMASQ_NOT_INSTALLED: "dnsmasq не установлен. Если отдельные DNS-серверы для списков не нужны, <settings>выключите «Управлять конфигурацией dnsmasq»</settings> в разделе «Общее». Иначе установите dnsmasq.",
+        DNSMASQ_NO_DNS_INSTANCE: "Нет включённого экземпляра dnsmasq, который обслуживает DNS. Если dnsmasq не нужен, <settings>выключите «Управлять конфигурацией dnsmasq»</settings> в разделе «Общее».",
         DNSMASQ_INSTANCE_NOT_FOUND: "Экземпляр dnsmasq, указанный в настройках, не найден.",
         DNSMASQ_INSTANCE_AMBIGUOUS: "Найдено несколько экземпляров dnsmasq. Выберите один в настройках.",
         DNSMASQ_NOT_RUNNING: "dnsmasq не запущен. keen-pbr его не запускает; запустите dnsmasq, и keen-pbr применит правила.",
@@ -949,11 +951,11 @@ export const ruTranslation = {
         description: "Настройте отображаемое имя этой установки keen-pbr.",
       },
       dns: {
-        disabledTitle: "Управление локальным DNS сервером отключено",
+        disabledTitle: "Управление локальным DNS-сервером отключено",
         disabledDescription:
           "Включите управление dnsmasq в настройках, чтобы разблокировать настройку DNS-серверов и правил",
         disabledAction: "Перейти к настройке",
-        title: "Управление локальным DNS сервером",
+        title: "Управление локальным DNS-сервером",
         description:
           "Позволяет указывать вышестоящий DNS-сервер через интерфейс keen-pbr, а также указывать отдельные DNS серверы для разрешения определённых доменов.",
         resolverIntegrationLabel: "Управлять конфигурацией dnsmasq",

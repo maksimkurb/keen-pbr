@@ -60,7 +60,7 @@ export interface DaemonConfig {
      */
   exec_timeout_seconds?: number;
   /**
-     * Ignored since 3.0.0: keen-pbr no longer manages dnsmasq.
+     * Ignored since 3.4.0: the old dnsmasq readiness wait is gone.
      * @deprecated
      * @minimum 1
      */

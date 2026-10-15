@@ -1,4 +1,5 @@
 {
+  "version": "3.4.0",
   "daemon": {
     "pid_file": "/var/run/keen-pbr.pid",
     "cache_dir": "/var/cache/keen-pbr",
@@ -51,6 +52,7 @@
   },
 
   "dns": {
+    "resolver_integration": "none",
     "servers": [
       {
         "tag": "quad9",

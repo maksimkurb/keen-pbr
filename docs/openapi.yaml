@@ -847,7 +847,7 @@ components:
           type: integer
           minimum: 1
           deprecated: true
-          description: "Ignored since 3.0.0: keen-pbr no longer manages dnsmasq."
+          description: "Ignored since 3.4.0: the old dnsmasq readiness wait is gone."
 
         exec_kill_grace_seconds:
           type: integer
@@ -967,6 +967,15 @@ components:
       type: object
       description: Editable routing configuration. API security settings are managed separately through /api/auth/settings.
       properties:
+        version:
+          type: string
+          pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+          description: >
+            keen-pbr version the configuration was written for (`X.Y.Z`). Used to
+            upgrade older configs in memory on load. A config without it is
+            treated as written by 3.3.x. The daemon sets it to its own version
+            when a config is saved.
+          example: "3.4.0"
         device_name:
           type: string
           maxLength: 128
@@ -1411,7 +1420,7 @@ components:
       deprecated: true
       required: [address]
       description: >
-        Ignored since 3.0.0: keen-pbr no longer manages dnsmasq; DNS-based sets are filled by interception.
+        Ignored since 3.4.0: DNS-based sets are filled by interception, not by a system resolver.
       properties:
         address:
           type: string
@@ -1465,7 +1474,7 @@ components:
           $ref: "#/components/schemas/DnsTestServer"
         system_resolver:
           deprecated: true
-          description: "Ignored since 3.0.0."
+          description: "Ignored since 3.4.0."
           allOf:
             - $ref: "#/components/schemas/DnsSystemResolver"
 
@@ -2121,6 +2130,15 @@ components:
       type: object
       description: keen-pbr configuration file.
       properties:
+        version:
+          type: string
+          pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+          description: >
+            keen-pbr version the configuration was written for (`X.Y.Z`). Used to
+            upgrade older configs in memory on load. A config without it is
+            treated as written by 3.3.x. The daemon sets it to its own version
+            when a config is saved.
+          example: "3.4.0"
         device_name:
           type: string
           maxLength: 128

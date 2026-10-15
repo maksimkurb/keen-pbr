@@ -72,10 +72,14 @@ service keen-pbr restart
 
 {{% /steps %}}
 
-## Обновление с интеграции dnsmasq
+## Отдельные DNS-серверы для списков (dnsmasq) {#dnsmasq}
 
-Старые версии keen-pbr всегда перенастраивали dnsmasq: переносили его DNS-серверы в свою опцию `kpbr_server` и добавляли свои настройки. При обновлении пакет сам всё возвращает: переносит DNS-серверы обратно в `server`, удаляет настройки keen-pbr и один раз перезапускает dnsmasq. Секции dnsmasq, которые keen-pbr не трогал, остаются как есть.
+Для маршрутизации keen-pbr не нужен dnsmasq, но в OpenWrt он и так работает системным резолвером. Нужно ли отдать его под управление keen-pbr, читайте в разделе [Нужен ли dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
 
-Для маршрутизации dnsmasq не нужен. Если вы включите [отдельные DNS-серверы для списков]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}), keen-pbr снова добавит в dnsmasq нужные ему настройки.
+### Включение {#dnsmasq-install}
 
-Чтобы повторить очистку вручную, выполните `/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr`.
+В веб-интерфейсе откройте **Общее** > **Управление локальным DNS-сервером** и включите **Управлять конфигурацией dnsmasq**. keen-pbr добавит записи `addnmount` в секцию dnsmasq в `/etc/config/dhcp`, чтобы dnsmasq в песочнице мог запускать keen-pbr.
+
+### Вернуть как было {#dnsmasq-rollback}
+
+Выключите **Управлять конфигурацией dnsmasq** и примените конфигурацию. keen-pbr удалит добавленные записи `addnmount` и перезапустит dnsmasq. Остальное в `/etc/config/dhcp` он не трогает.

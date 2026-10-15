@@ -52,8 +52,23 @@ If pre-built packages are not yet available for your platform, see [Build from S
 
 {{% /steps %}}
 
-## Upgrading from the dnsmasq integration
+## Separate DNS servers for lists (dnsmasq) {#dnsmasq}
 
-Older keen-pbr versions always added the file `keen-pbr.conf` with a `conf-script` line to the dnsmasq configuration directory. The current version does not need it: on upgrade the package deletes this file if it contains nothing but that line. The rest of your dnsmasq configuration is not touched. If dnsmasq is running, restart it after the upgrade.
+keen-pbr does not need dnsmasq for routing. Install it only if you want separate DNS servers for some lists or your own default DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
 
-If you enable [per-list DNS servers]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}), keen-pbr uses a different file: `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf`.
+### Install dnsmasq {#dnsmasq-install}
+
+```bash {filename="bash"}
+apt install dnsmasq
+```
+
+Then, in the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. keen-pbr creates `/etc/dnsmasq.d/keen-pbr-upstream-dns.conf`. Point the system resolver (or your DHCP server) at dnsmasq if it is not already used.
+
+### Return to how it was {#dnsmasq-rollback}
+
+1. Turn off **Manage dnsmasq configuration** and apply the config. keen-pbr removes its file and restarts dnsmasq.
+2. Restore the system resolver you used before dnsmasq.
+3. Remove the package:
+   ```bash {filename="bash"}
+   apt remove dnsmasq
+   ```

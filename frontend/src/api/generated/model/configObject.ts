@@ -21,6 +21,12 @@ import type { RouteConfig } from './routeConfig';
  */
 export interface ConfigObject {
   /**
+     * keen-pbr version the configuration was written for (`X.Y.Z`). Used to upgrade older configs in memory on load. A config without it is treated as written by 3.3.x. The daemon sets it to its own version when a config is saved.
+
+     * @pattern ^[0-9]+\.[0-9]+\.[0-9]+$
+     */
+  version?: string;
+  /**
      * Optional human-readable device name shown in the WebUI and page title.
      * @maxLength 128
      */

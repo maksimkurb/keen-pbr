@@ -40,6 +40,7 @@ export const enTranslation = {
     add: "Add",
     documentation: "Documentation",
     documentationUrl: "https://keen-pbr.fyi/docs/",
+    changelogUrl: "https://keen-pbr.fyi/docs/changelog/",
     language: "Language",
     theme: "Theme",
     enabled: "Enabled",
@@ -217,6 +218,7 @@ export const enTranslation = {
       issueCount_one: "{{count}} problem",
       issueCount_other: "{{count}} problems",
       versionLine: "keen-pbr {{version}} · build {{build}} · {{os}}",
+      whatsNew: "What's new?",
       confirmStop: "Stop the service?",
       confirmStopAction: "Yes, stop",
       busy: {
@@ -480,8 +482,8 @@ export const enTranslation = {
       errors: {
         DNSMASQ_NO_HOOK: "This build cannot manage dnsmasq.",
         DNSMASQ_HOOK_FAILED: "The dnsmasq helper script failed.",
-        DNSMASQ_NOT_INSTALLED: "dnsmasq is not installed. It is optional; install it to use DNS rules.",
-        DNSMASQ_NO_DNS_INSTANCE: "No enabled dnsmasq instance serves DNS.",
+        DNSMASQ_NOT_INSTALLED: "dnsmasq is not installed. If you do not need separate DNS servers for lists, <settings>turn off \"Manage dnsmasq configuration\"</settings> in General. Otherwise install dnsmasq.",
+        DNSMASQ_NO_DNS_INSTANCE: "No enabled dnsmasq instance serves DNS. If you do not need dnsmasq, <settings>turn off \"Manage dnsmasq configuration\"</settings> in General.",
         DNSMASQ_INSTANCE_NOT_FOUND: "The dnsmasq instance set in settings does not exist.",
         DNSMASQ_INSTANCE_AMBIGUOUS: "Several dnsmasq instances were found. Choose one in settings.",
         DNSMASQ_NOT_RUNNING: "dnsmasq is not running. keen-pbr does not start it; start it and keen-pbr will apply the rules.",

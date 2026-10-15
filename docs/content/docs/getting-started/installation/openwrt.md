@@ -72,10 +72,14 @@ If pre-built packages are not yet available for your platform, see [Build from S
 
 {{% /steps %}}
 
-## Upgrading from the dnsmasq integration
+## Separate DNS servers for lists (dnsmasq) {#dnsmasq}
 
-Older keen-pbr versions always reconfigured dnsmasq: they moved its DNS servers into their own `kpbr_server` option and added their own settings. On upgrade the package undoes this by itself: it moves the DNS servers back to `server`, removes the keen-pbr settings, and restarts dnsmasq once. dnsmasq sections that keen-pbr never touched stay as they are.
+keen-pbr does not need dnsmasq for routing, but OpenWrt already uses it as the system resolver. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}) to decide whether you want keen-pbr to manage it.
 
-dnsmasq is not needed for routing. If you enable [per-list DNS servers]({{< relref "/docs/configuration/dns#per-list-dns-servers-dnsmasq" >}}), keen-pbr adds the settings it needs to dnsmasq again.
+### Turn it on {#dnsmasq-install}
 
-To repeat the cleanup manually, run `/usr/lib/keen-pbr/uci.sh dnsmasq-migrate-from-keen-pbr`.
+In the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. keen-pbr adds `addnmount` entries to the dnsmasq section in `/etc/config/dhcp` so that the sandboxed dnsmasq can run keen-pbr.
+
+### Return to how it was {#dnsmasq-rollback}
+
+Turn off **Manage dnsmasq configuration** and apply the config. keen-pbr removes the `addnmount` entries it added and restarts dnsmasq. Nothing else in `/etc/config/dhcp` is touched.

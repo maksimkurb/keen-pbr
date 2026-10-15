@@ -17,6 +17,21 @@ for conf_path in /etc/dnsmasq.d/keen-pbr.conf /etc/dnsmasq/conf.d/keen-pbr.conf 
     fi
 done
 
+# keen-pbr 3.3.x depended on dnsmasq, so apt marked it as automatically
+# installed.  Since 3.4.0 the dependency is gone and "apt autoremove" would
+# remove dnsmasq even though a migrated config still uses it.  $2 is the
+# previously configured version (empty on a fresh install).
+case "$1" in
+    configure)
+        if [ -n "$2" ] && dpkg --compare-versions "$2" lt 3.4.0; then
+            if dpkg-query -W -f='${Status}' dnsmasq 2>/dev/null | grep -q 'install ok installed'; then
+                apt-mark manual dnsmasq >/dev/null 2>&1 || true
+            fi
+            echo "What's new in 3.4.0: https://keen-pbr.fyi/docs/changelog/#v3-4-0"
+        fi
+        ;;
+esac
+
 if command -v systemctl >/dev/null 2>&1; then
     systemctl enable keen-pbr >/dev/null 2>&1 || true
     systemctl start keen-pbr >/dev/null 2>&1 || true

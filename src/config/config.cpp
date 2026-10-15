@@ -18,6 +18,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <keen-pbr/version.hpp>
 #include "../log/logger.hpp"
 #include "../util/cron.hpp"
 
@@ -815,6 +816,118 @@ void validate_route_inbound_interfaces(const json& root, std::vector<ConfigValid
     }
 }
 
+
+// --- Version-gated upgrades ---------------------------------------------
+//
+// Each step is tied to the release that introduced it and rewrites the JSON
+// root in memory only.  The config file on disk is never touched by this.
+
+struct SemVer {
+    int major = 0;
+    int minor = 0;
+    int patch = 0;
+};
+
+bool operator<(const SemVer& a, const SemVer& b) {
+    if (a.major != b.major) return a.major < b.major;
+    if (a.minor != b.minor) return a.minor < b.minor;
+    return a.patch < b.patch;
+}
+
+std::optional<SemVer> parse_semver(const std::string& text) {
+    SemVer out;
+    int* parts[3] = {&out.major, &out.minor, &out.patch};
+    size_t pos = 0;
+    for (int index = 0; index < 3; ++index) {
+        if (pos >= text.size()) return std::nullopt;
+        long value = 0;
+        size_t digits = 0;
+        while (pos < text.size() &&
+               std::isdigit(static_cast<unsigned char>(text[pos])) != 0) {
+            value = value * 10 + (text[pos] - '0');
+            if (value > 100000) return std::nullopt;
+            ++pos;
+            ++digits;
+        }
+        if (digits == 0) return std::nullopt;
+        *parts[index] = static_cast<int>(value);
+        if (index < 2) {
+            if (pos >= text.size() || text[pos] != '.') return std::nullopt;
+            ++pos;
+        }
+    }
+    if (pos != text.size()) return std::nullopt;
+    return out;
+}
+
+SemVer current_semver() {
+    return SemVer{KEEN_PBR3_VERSION_MAJOR, KEEN_PBR3_VERSION_MINOR,
+                  KEEN_PBR3_VERSION_PATCH};
+}
+
+// Pre-3.4.0 keen-pbr always managed dnsmasq.  3.4.0 made that opt-in, so a
+// config that does not say otherwise keeps the old behaviour.
+void migrate_resolver_integration_340(json& root, const std::string& from) {
+    json& dns = root["dns"];
+    if (!dns.is_object()) {
+        if (!dns.is_null()) return;
+        dns = json::object();
+    }
+    if (dns.contains("resolver_integration") && !dns["resolver_integration"].is_null()) {
+        return;
+    }
+    dns["resolver_integration"] = "dnsmasq";
+    Logger::instance().info(
+        "Config {}: dnsmasq management stays on, as in 3.3.x. "
+        "Turn it off in Settings -> DNS if you do not need it.",
+        from);
+}
+
+struct MigrationStep {
+    SemVer introduced_in;
+    void (*run)(json& root, const std::string& from);
+};
+
+const MigrationStep kMigrationSteps[] = {
+    {{3, 4, 0}, &migrate_resolver_integration_340},
+};
+
+// Validates `version`, applies the steps newer than it and stamps the current
+// version.  A newer config is left alone (downgrade) and keeps its version so
+// config_warnings() can report it.
+void migrate_config_version(json& root,
+                            std::vector<ConfigValidationIssue>& issues) {
+    if (!root.is_object()) return;
+
+    const auto found = root.find("version");
+    const bool has_version = found != root.end() && !found->is_null();
+    SemVer from{3, 3, 0};  // no version: written before versioning existed
+    if (has_version) {
+        std::optional<SemVer> parsed;
+        if (found->is_string()) parsed = parse_semver(found->get<std::string>());
+        if (!parsed) {
+            add_issue(issues, "version",
+                      "version must look like 3.4.0 (major.minor.patch)");
+            return;
+        }
+        from = *parsed;
+    }
+
+    const SemVer current = current_semver();
+    if (current < from) return;
+
+    const std::string from_text =
+        has_version ? "is version " + found->get<std::string>()
+                    : std::string("has no version (written by 3.3.x)");
+
+    for (const auto& step : kMigrationSteps) {
+        if (!has_version || from < step.introduced_in) {
+            step.run(root, from_text);
+        }
+    }
+    root["version"] = KEEN_PBR3_VERSION_STRING;
+}
+
 } // namespace
 
 ConfigValidationError::ConfigValidationError(std::vector<ConfigValidationIssue> issues)
@@ -941,6 +1054,7 @@ Config parse_config_json(json parsed_json) {
 
     migrate_legacy_icmptest(parsed_json, issues);
     migrate_legacy_group_members(parsed_json, issues);
+    migrate_config_version(parsed_json, issues);
 
     validate_optional_hex_string_field(
         parsed_json, "fwmark", "start", "fwmark.start", issues);
@@ -1777,14 +1891,26 @@ std::vector<std::string> config_warnings(const Config& config) {
             if (!list.empty()) list += ", ";
             list += name;
         }
-        warnings.push_back(list + " ignored: deprecated since 3.0.0");
+        warnings.push_back(list + " ignored: deprecated since 3.4.0");
     }
     if (config.dns.has_value() &&
         effective_resolver_integration(config) == ResolverIntegrationMode::NONE &&
         (!config.dns->rules.value_or(std::vector<DnsRule>{}).empty() ||
          !config.dns->fallback.value_or(std::vector<std::string>{}).empty())) {
         warnings.push_back(
-            "dns.rules/dns.fallback ignored: dns.resolver_integration is \"none\"");
+            "DNS rules and default DNS servers are not used because dnsmasq "
+            "management is off (dns.resolver_integration is \"none\"). "
+            "Turn it on in Settings -> DNS to use them.");
+    }
+    if (config.version.has_value()) {
+        const auto config_version = parse_semver(*config.version);
+        if (config_version && current_semver() < *config_version) {
+            warnings.push_back(
+                "Config was written by keen-pbr " + *config.version +
+                ", newer than this " + KEEN_PBR3_VERSION_STRING +
+                ". It was not upgraded; settings this version does not know "
+                "are ignored.");
+        }
     }
     if (config.dns.has_value() && config.dns->dns_test_server.has_value()) {
         warnings.push_back(

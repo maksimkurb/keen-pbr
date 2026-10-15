@@ -9,18 +9,17 @@ import {
 import { defaults } from "./settings-defaults"
 
 describe("resolver integration settings", () => {
-  test("infers dnsmasq from non-empty DNS rules and defaults to none otherwise", () => {
+  test("is the saved value, or none when the field is absent", () => {
     expect(
       effectiveResolverIntegration({
-        dns: { rules: [{ list: ["video"], server: "wan" }] },
+        dns: { rules: [{ list: ["video"], server: "wan" }], fallback: ["wan"] },
       })
-    ).toBe("dnsmasq")
+    ).toBe("none")
     expect(effectiveResolverIntegration({ dns: { servers: [] } })).toBe("none")
-    expect(effectiveResolverIntegration({ dns: { rules: [] } })).toBe("none")
     expect(effectiveResolverIntegration(undefined)).toBe("none")
   })
 
-  test("an explicit mode wins over the rules-based inference", () => {
+  test("an explicit mode is returned as is", () => {
     expect(
       effectiveResolverIntegration({
         dns: {
@@ -34,6 +33,19 @@ describe("resolver integration settings", () => {
         dns: { resolver_integration: "dnsmasq" },
       })
     ).toBe("dnsmasq")
+  })
+
+  test("saving settings keeps the config version", () => {
+    const config: ConfigObject = {
+      version: "3.4.0",
+      dns: { resolver_integration: "dnsmasq" },
+    }
+    const updated = buildUpdatedConfig(
+      config,
+      getDraftFromConfig(config, defaults),
+      defaults
+    )
+    expect(updated.version).toBe("3.4.0")
   })
 
   test("system_resolver alone no longer enables dnsmasq", () => {

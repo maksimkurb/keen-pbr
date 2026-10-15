@@ -222,7 +222,7 @@ system configuration save
 ```
 
 {{% details title="After upgrading from an older keen-pbr" closed="true" %}}
-Older keen-pbr versions always configured dnsmasq. The package upgrade removes those settings and restores your DNS servers; see "Upgrading from the dnsmasq integration" on the installation page for your platform. On Keenetic, review the `# BEGIN keen-pbr fallback upstream` block in `/opt/etc/dnsmasq.conf` if it is there. If dnsmasq refuses to start, check that no `conf-script=...keen-pbr...` line is left in its configuration.
+Older keen-pbr versions always configured dnsmasq. The package upgrade removes those settings and restores your DNS servers; see [Upgrading from 3.3.x]({{< relref "/docs/changelog#upgrading-from-33x" >}}). On Keenetic, review the `# BEGIN keen-pbr fallback upstream` block in `/opt/etc/dnsmasq.conf` if it is there. If dnsmasq refuses to start, check that no `conf-script=...keen-pbr...` line is left in its configuration.
 {{% /details %}}
 
 ### Measuring DNS interception loss

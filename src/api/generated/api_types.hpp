@@ -372,6 +372,7 @@ namespace api {
         std::optional<ListsAutoupdate> lists_autoupdate;
         std::optional<std::vector<OutboundElement>> outbounds;
         std::optional<Route> route;
+        std::optional<std::string> version;
     };
 
     struct Config {
@@ -385,6 +386,7 @@ namespace api {
         std::optional<ListsAutoupdate> lists_autoupdate;
         std::optional<std::vector<OutboundElement>> outbounds;
         std::optional<Route> route;
+        std::optional<std::string> version;
     };
 
     struct ListRefreshStateValue {
@@ -2090,6 +2092,7 @@ namespace api {
         x.lists_autoupdate = get_stack_optional<ListsAutoupdate>(j, "lists_autoupdate");
         x.outbounds = get_stack_optional<std::vector<OutboundElement>>(j, "outbounds");
         x.route = get_stack_optional<Route>(j, "route");
+        x.version = get_stack_optional<std::string>(j, "version");
     }
 
     inline void to_json(json & j, const ConfigObject & x) {
@@ -2105,6 +2108,7 @@ namespace api {
         j["lists_autoupdate"] = x.lists_autoupdate;
         j["outbounds"] = x.outbounds;
         j["route"] = x.route;
+        j["version"] = x.version;
     }
 
     inline void from_json(const json & j, Config& x) {
@@ -2118,6 +2122,7 @@ namespace api {
         x.lists_autoupdate = get_stack_optional<ListsAutoupdate>(j, "lists_autoupdate");
         x.outbounds = get_stack_optional<std::vector<OutboundElement>>(j, "outbounds");
         x.route = get_stack_optional<Route>(j, "route");
+        x.version = get_stack_optional<std::string>(j, "version");
     }
 
     inline void to_json(json & j, const Config & x) {
@@ -2132,6 +2137,7 @@ namespace api {
         j["lists_autoupdate"] = x.lists_autoupdate;
         j["outbounds"] = x.outbounds;
         j["route"] = x.route;
+        j["version"] = x.version;
     }
 
     inline void from_json(const json & j, ListRefreshStateValue& x) {

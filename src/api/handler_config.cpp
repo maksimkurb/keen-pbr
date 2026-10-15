@@ -7,6 +7,7 @@
 #include "../config/config.hpp"
 #include "../config/config_defaults.hpp"
 #include "../util/format_compat.hpp"
+#include <keen-pbr/version.hpp>
 #include <nlohmann/json.hpp>
 
 #include <functional>
@@ -158,6 +159,8 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         Config staged;
         try {
             staged = parse_config(body);
+            // A saved config is always stamped with the running version.
+            staged.version = KEEN_PBR3_VERSION_STRING;
             const Config visible = ctx.get_visible_config();
             staged.api = visible.api;
             validate_config(staged, ConfigValidationMode::Runtime,

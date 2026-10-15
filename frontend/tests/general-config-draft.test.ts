@@ -128,6 +128,7 @@ describe("settings draft mirrors the config document", () => {
     const configWithDns = {
       ...config,
       dns: {
+        resolver_integration: "dnsmasq",
         servers: [{ tag: "home", address: "1.1.1.1" }],
         rules: [{ list: ["video"], server: "home" }],
         fallback: ["home"],

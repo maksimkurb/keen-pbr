@@ -43,19 +43,10 @@ export function findOutboundByTag(
   return selectOutbounds(config).find((outbound) => outbound.tag === tag)
 }
 
+// The saved value, or "none". Configs written before 3.4.0 get "dnsmasq"
+// filled in by the daemon when it loads them, so nothing is inferred here.
 export function effectiveResolverIntegration(
   config?: ConfigObject | null
 ): ResolverIntegrationMode {
-  const dns = config?.dns
-  if (!dns) {
-    return "none"
-  }
-
-  if (dns.resolver_integration) {
-    return dns.resolver_integration
-  }
-
-  return (dns.rules?.length ?? 0) > 0
-    ? "dnsmasq"
-    : "none"
+  return config?.dns?.resolver_integration ?? "none"
 }

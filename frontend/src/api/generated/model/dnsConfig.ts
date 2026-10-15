@@ -27,7 +27,7 @@ export interface DnsConfig {
   dnsmasq_instance?: string | null;
   dns_test_server?: DnsTestServer;
   /**
-     * Ignored since 3.0.0.
+     * Ignored since 3.4.0.
      * @deprecated
      */
   system_resolver?: DnsSystemResolver;

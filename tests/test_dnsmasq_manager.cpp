@@ -296,9 +296,10 @@ bool dir_is_empty(const std::filesystem::path& dir) {
 
 constexpr std::int64_t kRepairDelayMs = 5 * 60 * 1000;
 
-// No dns.rules and no explicit resolver_integration: the DNS rules module is off.
+// A current-version config with no resolver_integration: the module is off.
 Config make_config_without_dns_rules() {
     return parse_config(R"({
+        "version": "3.4.0",
         "lists": {"l": {"domains": ["example.com"]}},
         "dns": {"servers": [{"tag":"up","address":"1.1.1.1"}]}
     })");
