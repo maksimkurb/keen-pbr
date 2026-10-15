@@ -628,3 +628,64 @@ TEST_CASE("intercept: nfnetlink_queue parsing") {
     CHECK_FALSE(parse_nfnetlink_queue("", 0).has_value());
     CHECK_FALSE(parse_nfnetlink_queue("junk line\n", 0).has_value());
 }
+
+namespace {
+
+InterceptIndexBasis make_index_basis() {
+    InterceptIndexBasis basis;
+    basis.sets = {{"kpbr4_a", FirewallFamily::ipv4, 300},
+                  {"kpbr6_a", FirewallFamily::ipv6, 300}};
+    InterceptListBinding binding;
+    binding.name = "a";
+    binding.target.set_v4 = "kpbr4_a";
+    binding.target.set_v6 = "kpbr6_a";
+    binding.target.min_ttl_s = 300;
+    binding.signature = "{}";
+    basis.bindings.push_back(binding);
+    basis.ipv6_enabled = true;
+    basis.effective.dns_hold = true;
+    return basis;
+}
+
+} // namespace
+
+TEST_CASE("intercept index survives a RulesOnly apply with identical state") {
+    const auto published = make_index_basis();
+    auto next = make_index_basis();
+    std::reverse(next.sets.begin(), next.sets.end());  // declaration order is irrelevant
+    CHECK(intercept_index_survives_apply(FirewallApplyMode::RulesOnly, published, next));
+}
+
+TEST_CASE("intercept index is rebuilt when RulesOnly fell back or another mode ran") {
+    const auto published = make_index_basis();
+    for (const auto mode : {FirewallApplyMode::PreserveSets, FirewallApplyMode::StaticSetsOnly,
+                            FirewallApplyMode::Destructive}) {
+        CHECK_FALSE(intercept_index_survives_apply(mode, published, make_index_basis()));
+    }
+}
+
+TEST_CASE("intercept index is rebuilt when set declarations differ") {
+    const auto published = make_index_basis();
+    auto added = make_index_basis();
+    added.sets.push_back({"kpbr4_b", FirewallFamily::ipv4, 300});
+    CHECK_FALSE(intercept_index_survives_apply(FirewallApplyMode::RulesOnly, published, added));
+    auto timeout = make_index_basis();
+    timeout.sets[0].timeout = 60;
+    CHECK_FALSE(intercept_index_survives_apply(FirewallApplyMode::RulesOnly, published, timeout));
+}
+
+TEST_CASE("intercept index is rebuilt when bindings, effective settings or IPv6 mode differ") {
+    const auto published = make_index_basis();
+    auto signature = make_index_basis();
+    signature.bindings[0].signature = "{\"changed\":1}";
+    CHECK_FALSE(intercept_index_survives_apply(FirewallApplyMode::RulesOnly, published, signature));
+    auto ttl = make_index_basis();
+    ttl.bindings[0].target.min_ttl_s = 60;
+    CHECK_FALSE(intercept_index_survives_apply(FirewallApplyMode::RulesOnly, published, ttl));
+    auto effective = make_index_basis();
+    effective.effective.l7 = true;
+    CHECK_FALSE(intercept_index_survives_apply(FirewallApplyMode::RulesOnly, published, effective));
+    auto ipv6 = make_index_basis();
+    ipv6.ipv6_enabled = false;
+    CHECK_FALSE(intercept_index_survives_apply(FirewallApplyMode::RulesOnly, published, ipv6));
+}

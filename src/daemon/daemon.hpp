@@ -9,6 +9,7 @@
 #include "../health/service_health.hpp"
 #include "../health/url_tester.hpp"
 #include "../intercept/intercept_capabilities.hpp"
+#include "../intercept/intercept_snapshot_builder.hpp"
 #include "../intercept/intercept_service.hpp"
 #include "../intercept/intercept_settings.hpp"
 #include "../health/icmp_tester.hpp"
@@ -527,6 +528,15 @@ IcmpTester icmp_tester_;
   std::shared_ptr<InterceptService> intercept_service_
       GUARDED_BY(intercept_mutex_);
   InterceptEffective intercept_effective_ GUARDED_BY(intercept_mutex_);
+  // What the domain index currently published to `service` was built for. Set
+  // only when a background build published, cleared when an apply begins or
+  // the service stops, so it proves the index matches the sets and the lists.
+  struct PublishedInterceptIndex {
+    std::shared_ptr<InterceptService> service;
+    InterceptIndexBasis basis;
+  };
+  std::optional<PublishedInterceptIndex> intercept_published_index_
+      GUARDED_BY(intercept_mutex_);
   // What /health reports about an automatic listener re-bind in progress.
   struct InterceptRebindStatus {
     bool active{false};

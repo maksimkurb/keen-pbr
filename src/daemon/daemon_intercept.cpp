@@ -270,6 +270,7 @@ void Daemon::stop_intercept_service() {
         KPBR_LOCK_GUARD(intercept_mutex_);
         service.swap(intercept_service_);
         intercept_snapshot_seq_.fetch_add(1, std::memory_order_acq_rel);
+        intercept_published_index_.reset();
         intercept_service_options_ = InterceptServiceOptions{};
         intercept_forwarded_seq_ = 0;
     }
@@ -288,6 +289,7 @@ struct Daemon::InterceptSnapshotJob {
     std::vector<FirewallSetDeclaration> sets;
     bool ipv6_enabled{false};
     InterceptEffective effective;
+    InterceptIndexBasis basis;
 };
 
 namespace {
@@ -335,6 +337,7 @@ void Daemon::schedule_intercept_snapshot_update(std::vector<FirewallSetDeclarati
     job->sets = std::move(sets);
     job->ipv6_enabled = ipv6_enabled;
     job->effective = effective;
+    job->basis = make_intercept_index_basis(config_, job->sets, ipv6_enabled, effective);
     queue_intercept_snapshot_build(std::move(job), 0);
 }
 
@@ -361,6 +364,8 @@ void Daemon::queue_intercept_snapshot_build(std::shared_ptr<const InterceptSnaps
                         return;  // superseded by a newer apply or a stop
                     }
                     job->service->update_snapshot(snapshot);
+                    intercept_published_index_ =
+                        PublishedInterceptIndex{job->service, job->basis};
                 }
                 Logger::instance().info(
                     "Interception snapshot updated: {} list(s), {} domain(s)",

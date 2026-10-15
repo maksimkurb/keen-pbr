@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../config/config.hpp"
+#include "../firewall/firewall.hpp"
 #include "../firewall/firewall_plan.hpp"
 #include "../lists/list_streamer.hpp"
 #include "intercept_processor.hpp"
@@ -28,6 +29,32 @@ std::vector<InterceptListBinding> build_intercept_bindings(
     const std::vector<FirewallSetDeclaration>& sets,
     bool ipv6_enabled,
     const InterceptEffective& effective);
+
+// What a published domain index was built for: the set declarations, the
+// per-list bindings (which carry the list definition signatures), the effective
+// interception settings and the IPv6 mode.  Two equal bases describe the same
+// index content bound to the same sets.
+struct InterceptIndexBasis {
+    std::vector<FirewallSetDeclaration> sets;
+    std::vector<InterceptListBinding> bindings;
+    InterceptEffective effective;
+    bool ipv6_enabled{false};
+};
+
+InterceptIndexBasis make_intercept_index_basis(
+    const Config& config,
+    const std::vector<FirewallSetDeclaration>& sets,
+    bool ipv6_enabled,
+    const InterceptEffective& effective);
+
+// True when the index published for `published` (and the set element cache of
+// the writers) is provably still valid after an apply that realized `next`:
+// the backend really applied RulesOnly (a fallback to PreserveSets reports its
+// own mode and may recreate sets), and nothing the index or the set bindings
+// depend on differs.
+bool intercept_index_survives_apply(FirewallApplyMode applied_mode,
+                                    const InterceptIndexBasis& published,
+                                    const InterceptIndexBasis& next);
 
 // Republishes `previous` for a new configuration without rebuilding the
 // DomainIndex.  Every indexed list gets the binding of the NEW configuration

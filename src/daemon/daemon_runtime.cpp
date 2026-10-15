@@ -270,11 +270,16 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         intercept_rebind_.reset();
         publish_intercept_rebind_status();
     }
+    // What the published domain index was built for; taken (and cleared) here
+    // so any apply that does not prove it unchanged leaves it cleared.
+    std::optional<PublishedInterceptIndex> published_index;
     {
         KPBR_LOCK_GUARD(intercept_mutex_);
         // Any in-flight build belongs to the previous apply attempt. It must
         // not publish after this attempt fails or changes the set schema.
         intercept_snapshot_seq_.fetch_add(1, std::memory_order_acq_rel);
+        published_index = std::move(intercept_published_index_);
+        intercept_published_index_.reset();
     }
     const auto owned_main_routes = main_routes != nullptr
         ? *main_routes
@@ -297,10 +302,24 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         service_for_apply->discard_l7_pending();
         // The published snapshot stays: its domain index is still what the
         // lists describe, and nothing can write while the pause lasts.  The
-        // element cache must not outlive the sets, though; with writes paused
-        // nothing can repopulate it before the rebind below clears it again.
-        service_for_apply->invalidate_set_cache();
+        // element cache must not outlive recreated sets, though; with writes
+        // paused nothing can repopulate it before it is cleared again below.
+        // RulesOnly leaves the sets alone unless it falls back, which is only
+        // known after the apply: the cache guard below covers that.
+        if (mode != FirewallApplyMode::RulesOnly) {
+            service_for_apply->invalidate_set_cache();
+        }
     }
+    // Clears the element cache when the apply fails or is not proven to have
+    // kept the sets as they were. Declared after writer_pause: it runs while
+    // the pause is still held.
+    struct SetCacheGuard {
+        std::shared_ptr<InterceptService> service;
+        bool sets_kept{false};
+        ~SetCacheGuard() {
+            if (service && !sets_kept) service->invalidate_set_cache();
+        }
+    } cache_guard{service_for_apply};
     // The old snapshot's set bindings are only valid until this apply changes
     // the sets.  Unless the new bindings are published before the pause ends
     // (schedule_intercept_snapshot_update below), drop the snapshot so a failed
@@ -397,17 +416,43 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
         &balance_candidates,
         intercept.firewall_settings());
     failed_apply.complete();
-    // The apply may have recreated or flushed the dynamic sets: whatever the
-    // interception cache remembered about their elements is no longer true.
-    // (The cache was cleared when the pause began; this also covers a service
-    // that was started during the apply.)
+    std::shared_ptr<InterceptService> service_after_apply;
     {
-        std::shared_ptr<InterceptService> service_after_apply;
-        {
-            KPBR_LOCK_GUARD(intercept_mutex_);
-            service_after_apply = intercept_service_;
+        KPBR_LOCK_GUARD(intercept_mutex_);
+        service_after_apply = intercept_service_;
+    }
+    const bool ipv6_enabled = firewall_->ipv6_enabled();
+    // A scheduled refresh (DHCP renew, netfilter.d hook) applies RulesOnly:
+    // the sets keep their names, schemas and contents, and the lists did not
+    // change, so the element cache and the domain index (rebuilt by streaming
+    // every list from the flash cache) are still exactly right.  That is only
+    // true when the backend really applied RulesOnly (a preflight failure
+    // falls back to PreserveSets, which may recreate sets), the same service
+    // that owns the published index is still running, and the set
+    // declarations, per-list bindings and effective interception settings
+    // match what that index was built for.  Anything else takes the full
+    // path below.  The rules themselves are always reapplied.
+    bool intercept_state_kept = false;
+    if (intercept.active() && published_index.has_value() && service_after_apply &&
+        service_after_apply == service_for_apply &&
+        service_after_apply == published_index->service &&
+        service_after_apply->snapshot_ready()) {
+        intercept_state_kept = intercept_index_survives_apply(
+            active.result.mode, published_index->basis,
+            make_intercept_index_basis(config_, active.plan.sets, ipv6_enabled, intercept));
+    }
+    if (intercept_state_kept) {
+        cache_guard.sets_kept = true;
+        rebind_guard.rebound = true;
+        KPBR_LOCK_GUARD(intercept_mutex_);
+        if (intercept_service_ == service_after_apply) {
+            intercept_published_index_ = std::move(published_index);
         }
-        if (service_after_apply) service_after_apply->invalidate_set_cache();
+    } else if (service_after_apply) {
+        // The apply may have recreated or flushed the dynamic sets: whatever
+        // the interception cache remembered about their elements is no longer
+        // true. (This also covers a service that was started during the apply.)
+        service_after_apply->invalidate_set_cache();
     }
     // Derived from the plan that was actually applied, never recomputed.
     const ConntrackPolicy conntrack_policy = conntrack_policy_for_plan(active.plan);
@@ -419,7 +464,7 @@ void Daemon::apply_firewall(FirewallApplyMode mode,
     // kernel capability, measured once at service start on a scratch set; the
     // writers report runtime write errors and health shows them, so the apply
     // does not test the freshly created sets again.
-    if (intercept.active()) {
+    if (intercept.active() && !intercept_state_kept) {
         schedule_intercept_snapshot_update(std::move(applied_sets), intercept);
         rebind_guard.rebound = true;
     }

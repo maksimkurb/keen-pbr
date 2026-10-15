@@ -4,7 +4,9 @@
 #include "../lists/domain_index.hpp"
 
 #include <nlohmann/json.hpp>
+#include <algorithm>
 #include <set>
+#include <tuple>
 
 namespace keen_pbr3 {
 
@@ -65,6 +67,29 @@ std::vector<InterceptListBinding> build_intercept_bindings(
 
 namespace {
 
+std::vector<std::tuple<std::string, FirewallFamily, uint32_t>> sorted_declarations(
+    const std::vector<FirewallSetDeclaration>& sets) {
+    std::vector<std::tuple<std::string, FirewallFamily, uint32_t>> out;
+    out.reserve(sets.size());
+    for (const auto& set : sets) out.emplace_back(set.name, set.family, set.timeout);
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+bool same_bindings(const std::vector<InterceptListBinding>& a,
+                   const std::vector<InterceptListBinding>& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (a[i].name != b[i].name || a[i].signature != b[i].signature ||
+            a[i].target.set_v4 != b[i].target.set_v4 ||
+            a[i].target.set_v6 != b[i].target.set_v6 ||
+            a[i].target.min_ttl_s != b[i].target.min_ttl_s) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void apply_effective_settings(InterceptSnapshot& snapshot, const InterceptEffective& effective,
                               bool ipv6_enabled) {
     snapshot.max_ttl_s = ttl_seconds_from_ms(effective.max_ttl_ms);
@@ -77,6 +102,26 @@ void apply_effective_settings(InterceptSnapshot& snapshot, const InterceptEffect
 }
 
 } // namespace
+
+InterceptIndexBasis make_intercept_index_basis(
+    const Config& config,
+    const std::vector<FirewallSetDeclaration>& sets,
+    bool ipv6_enabled,
+    const InterceptEffective& effective) {
+    return InterceptIndexBasis{sets,
+                               build_intercept_bindings(config, sets, ipv6_enabled, effective),
+                               effective, ipv6_enabled};
+}
+
+bool intercept_index_survives_apply(FirewallApplyMode applied_mode,
+                                    const InterceptIndexBasis& published,
+                                    const InterceptIndexBasis& next) {
+    return applied_mode == FirewallApplyMode::RulesOnly &&
+           published.ipv6_enabled == next.ipv6_enabled &&
+           published.effective == next.effective &&
+           sorted_declarations(published.sets) == sorted_declarations(next.sets) &&
+           same_bindings(published.bindings, next.bindings);
+}
 
 std::shared_ptr<const InterceptSnapshot> rebind_intercept_snapshot(
     const InterceptSnapshot* previous,

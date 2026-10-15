@@ -53,7 +53,7 @@ namespace keen_pbr3 {
 
 namespace {
 
-constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{150};
+constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{350};
 constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY =
     std::chrono::seconds{5};
 // Minimum gap between two interface-triggered refreshes.
