@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-const brandPanelClassName = "bg-[#1A2D35] text-white"
+const brandPanelClassName = "bg-brand text-white"
 
 export function LoginPage() {
   const { deviceName, login } = useAuth()
@@ -112,7 +112,7 @@ export function LoginPage() {
         </form>
       </section>
 
-      <footer className="border-t border-border bg-background px-5 pt-4 pb-[max(1.125rem,env(safe-area-inset-bottom))] text-foreground md:col-start-1 md:row-start-2 md:border-white/10 md:bg-[#1A2D35] md:px-6 md:pt-4.5 md:pb-5.5 md:text-white">
+      <footer className="border-t border-border bg-background px-5 pt-4 pb-[max(1.125rem,env(safe-area-inset-bottom))] text-foreground md:col-start-1 md:row-start-2 md:border-white/10 md:bg-brand md:px-6 md:pt-4.5 md:pb-5.5 md:text-white">
         <DocumentationLink className="text-muted-foreground md:border-white/15 md:bg-white/5 md:text-white/65 md:hover:bg-white/10 md:hover:text-white" />
 
         <div className="mt-3.5 grid grid-cols-1 gap-3.5 md:grid-cols-2 md:gap-2.5 [&_[data-slot=select-trigger]]:!bg-background md:[&_[data-slot=select-trigger]]:!border-white/15 md:[&_[data-slot=select-trigger]]:!bg-white/5 md:[&_[data-slot=select-trigger]]:!text-white md:[&_[data-slot=select-trigger]_svg]:!text-white/60 [&_p]:!text-muted-foreground md:[&_p]:!text-white/55">
