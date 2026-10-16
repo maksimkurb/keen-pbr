@@ -302,7 +302,8 @@ When `dns.resolver_integration: "dnsmasq"` is enabled, domains from specific lis
    {{< /tab >}}
    {{< tab name="Debian" >}}
    ```bash {filename="bash"}
-   cat /etc/dnsmasq.d/keen-pbr.conf
+   grep -A 3 "BEGIN keen-pbr" /etc/dnsmasq.conf
+   cat /etc/keen-pbr/dnsmasq.d/keen-pbr.conf
    ```
    {{< /tab >}}
    {{< /tabs >}}

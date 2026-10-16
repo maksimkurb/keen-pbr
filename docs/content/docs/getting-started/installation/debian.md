@@ -70,7 +70,7 @@ To apply the recommended dnsmasq settings, run:
 
 It replaces `/etc/dnsmasq.conf` and saves the previous file as `/etc/dnsmasq.conf.backup-keenpbr`. dnsmasq then answers only your local networks and takes its servers from keen-pbr.
 
-Then, in the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. keen-pbr creates `/etc/dnsmasq.d/keen-pbr.conf`. Point the system resolver (or your DHCP server) at dnsmasq if it is not already used.
+Then, in the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. keen-pbr adds a marked block to `/etc/dnsmasq.conf`; the recommended config already has it. Point the system resolver (or your DHCP server) at dnsmasq if it is not already used.
 
 ### Return to how it was {#dnsmasq-rollback}
 

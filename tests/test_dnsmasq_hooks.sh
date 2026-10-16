@@ -668,9 +668,16 @@ deb_setup() {
     rm -rf "$droot"
     mkdir -p "$droot/etc/dnsmasq.d" "$droot/bin"
     export DNSMASQ_CONF_DIR="$droot/etc/dnsmasq.d" DEFAULT_CONF="$droot/etc/dnsmasq.conf"
+    export KEEN_CONF_DIR="$droot/etc/keen-pbr/dnsmasq.d"
+    unset LEGACY_CONF
+    printf 'user=dnsmasq\n' > "$DEFAULT_CONF"
     export RECOMMENDED_CONF="$droot/recommended.conf" FALLBACK_CONF="$droot/fallback.conf"
     export LOCK_DIR="$tmp_root/hook.lock"
-    f="$DNSMASQ_CONF_DIR/keen-pbr.conf"
+    f="$KEEN_CONF_DIR/keen-pbr.conf"
+    legacy="$DNSMASQ_CONF_DIR/keen-pbr.conf"
+    block="# BEGIN keen-pbr managed block
+conf-dir=$KEEN_CONF_DIR/,*.conf
+# END keen-pbr managed block"
     want='conf-script=/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry'
     backup="$DEFAULT_CONF.backup-keenpbr"
     printf 'server=8.8.8.8\nserver=8.8.4.4\n' > "$FALLBACK_CONF"
@@ -678,9 +685,10 @@ deb_setup() {
     chmod +x "$droot/bin/dnsmasq"
     export DNSMASQ_BIN="$droot/bin/dnsmasq"
     run() { PATH="$droot/bin:$PATH" sh "$deb_hook" "$@"; }
-    fb_body='# keen-pbr fallback upstream (added on removal; replace or remove)
+    fb_body='# BEGIN keen-pbr fallback upstream (added on removal; replace or remove)
 server=8.8.8.8
-server=8.8.4.4'
+server=8.8.4.4
+# END keen-pbr fallback upstream'
 }
 
 test_debian() {
@@ -694,6 +702,8 @@ test_debian() {
     printf '%s\n' "$out" | grep -qxF 'hook_version=2' || fail "debian: inspect hook_version"
     printf '%s\n' "$out" | grep -qxF 'selector=systemd:dnsmasq.service' || fail "debian: inspect selector"
     printf '%s\n' "$out" | grep -qxF 'main_pid=1234' || fail "debian: inspect main_pid"
+    printf '%s\n' "$out" | grep -qxF 'dropin_include=managed' || fail "debian: inspect include"
+    printf '%s\n' "$out" | grep -qxF "dropin_dir=$KEEN_CONF_DIR" || fail "debian: inspect folder"
     printf '%s\n' "$out" | grep -qxF "dropin_file=$f" || fail "debian: inspect drop-in name"
     printf '%s\n' "$out" | grep -qxF "dropin_content=$want" || fail "debian: inspect drop-in content"
     printf '%s\n' "$out" | grep -qxF 'dropin_state=absent' || fail "debian: inspect state before apply"
@@ -702,27 +712,51 @@ test_debian() {
     reset_restarts
     run apply systemd:dnsmasq.service --default-upstreams=yes || fail "debian: apply failed"
     [ "$(cat "$f")" = "$want" ] || fail "debian: conf file wrong"
+    [ "$(sed -n '2,$p' "$DEFAULT_CONF" | grep -c '^# BEGIN keen-pbr managed block')" = 1 ] || fail "debian: block not added once"
+    grep -qxF "conf-dir=$KEEN_CONF_DIR/,*.conf" "$DEFAULT_CONF" || fail "debian: conf-dir line missing"
     [ "$(restarts)" = 1 ] || fail "debian: apply should restart once"
     [ "$(run status)" = installed ] || fail "debian: status"
     run inspect | grep -qxF 'dropin_state=current' || fail "debian: inspect state after apply"
 
-    # Second apply writes nothing; the restart still happens.
-    touch -t 200001010000 "$f"
+    # Second apply writes nothing (no second block either); the restart still happens.
+    touch -t 200001010000 "$f" "$DEFAULT_CONF"
     run apply systemd:dnsmasq.service || fail "debian: second apply failed"
-    [ "$(touched "$f")" = 0 ] || fail "debian: second apply rewrote file"
+    [ "$(touched "$f" "$DEFAULT_CONF")" = 0 ] || fail "debian: second apply rewrote a file"
+    [ "$(grep -c '^# BEGIN keen-pbr managed block' "$DEFAULT_CONF")" = 1 ] || fail "debian: second apply added another block"
     [ "$(restarts)" = 2 ] || fail "debian: second apply should restart again"
 
-    # Remove (integration off): the drop-in stays, one restart.
+    # Remove (integration off): no file changes, one restart.
+    touch -t 200001010000 "$f" "$DEFAULT_CONF"
     run remove systemd:dnsmasq.service || fail "debian: remove failed"
-    [ "$(cat "$f")" = "$want" ] || fail "debian: remove changed the drop-in"
-    [ "$(touched "$f")" = 0 ] || fail "debian: remove rewrote the drop-in"
+    [ "$(cat "$f")" = "$want" ] || fail "debian: remove changed the entry"
+    [ "$(touched "$f" "$DEFAULT_CONF")" = 0 ] || fail "debian: remove rewrote a file"
     [ "$(restarts)" = 3 ] || fail "debian: remove should restart once"
 
-    # Foreign drop-in is not overwritten.
+    # Foreign file under our name is not overwritten.
     echo other > "$f"
-    [ "$(rc_of run apply systemd:dnsmasq.service)" = 1 ] || fail "debian: foreign drop-in should exit 1"
-    [ "$(cat "$f")" = other ] || fail "debian: foreign drop-in overwritten"
+    [ "$(rc_of run apply systemd:dnsmasq.service)" = 1 ] || fail "debian: foreign entry should exit 1"
+    [ "$(cat "$f")" = other ] || fail "debian: foreign entry overwritten"
+    run inspect | grep -qxF 'dropin_state=foreign' || fail "debian: inspect should report foreign"
     rm -f "$f"
+
+    # A damaged block (no conf-dir line) is not papered over.
+    printf '# BEGIN keen-pbr managed block\n# END keen-pbr managed block\n' > "$DEFAULT_CONF"
+    [ "$(rc_of run apply systemd:dnsmasq.service)" = 1 ] || fail "debian: damaged block should exit 1"
+    printf 'user=dnsmasq\n' > "$DEFAULT_CONF"
+
+    # 3.3.1 entry: removed when it holds only keen-pbr lines.
+    rm -rf "$KEEN_CONF_DIR"
+    printf '%s\n' "$want" > "$legacy"
+    run inspect | grep -qxF 'dropin_state=absent' || fail "debian: legacy entry should need apply"
+    run apply systemd:dnsmasq.service || fail "debian: apply with legacy entry failed"
+    [ ! -e "$legacy" ] || fail "debian: legacy entry not removed"
+    [ "$(cat "$f")" = "$want" ] || fail "debian: entry missing after migration"
+    # ...but a legacy file with foreign content stays and is reported.
+    printf '%s\nserver=1.1.1.1\n' "$want" > "$legacy"
+    [ "$(rc_of run apply systemd:dnsmasq.service)" = 1 ] || fail "debian: foreign legacy file should exit 1"
+    [ "$(wc -l < "$legacy")" = 2 ] || fail "debian: foreign legacy file changed"
+    run inspect | grep -qxF 'dropin_state=foreign' || fail "debian: inspect should report foreign legacy"
+    rm -f "$legacy"
 
     # alive: 0 active, 1 inactive/failed, 2 unknown.
     [ "$(ALIVE_CMD=true rc_of run alive)" = 0 ] || fail "debian: alive (ALIVE_CMD ok)"
@@ -751,58 +785,83 @@ test_debian_missing_dnsmasq() {
 
 test_debian_uninstall() {
     deb_setup
+    printf 'user=dnsmasq\n' > "$DEFAULT_CONF"
     run apply systemd:dnsmasq.service || fail "debian uninstall: apply failed"
 
-    # dnsmasq.conf uses resolv.conf: the drop-in is deleted.
-    printf 'user=dnsmasq\nconf-dir=/etc/dnsmasq.d/,*.conf\n' > "$DEFAULT_CONF"
+    # dnsmasq.conf uses resolv.conf: block, entry and folder go away.
     reset_restarts
     mkdir "$LOCK_DIR"; echo $$ > "$LOCK_DIR/pid"
     UNINSTALL_LOCK_TRIES=1 run uninstall || fail "debian uninstall: failed"
     [ -d "$LOCK_DIR" ] || fail "debian uninstall: removed somebody else's lock"
     rm -rf "$LOCK_DIR"
-    [ ! -e "$f" ] || fail "debian uninstall: drop-in left"
+    [ ! -e "$f" ] && [ ! -d "$KEEN_CONF_DIR" ] || fail "debian uninstall: entry or folder left"
+    ! grep -q 'keen-pbr' "$DEFAULT_CONF" || fail "debian uninstall: block left: $(cat "$DEFAULT_CONF")"
+    grep -qx 'user=dnsmasq' "$DEFAULT_CONF" || fail "debian uninstall: user lines lost"
     [ "$(restarts)" = 1 ] || fail "debian uninstall: should restart once"
     reset_restarts
+    touch -t 200001010000 "$DEFAULT_CONF"
     run uninstall || fail "debian uninstall: second run failed"
     [ "$(restarts)" = 0 ] || fail "debian uninstall: second run restarted"
+    [ "$(touched "$DEFAULT_CONF")" = 0 ] || fail "debian uninstall: second run wrote dnsmasq.conf"
 
-    # no-resolv and no upstream: the file stays with the fallback servers.
+    # no-resolv and no upstream: the fallback servers stay in a marked block.
     printf 'no-resolv\nserver=/lan/192.168.1.1\n' > "$DEFAULT_CONF"
     run apply systemd:dnsmasq.service || fail "debian uninstall: apply (no-resolv) failed"
     reset_restarts
     run uninstall || fail "debian uninstall: run (no-resolv) failed"
-    [ "$(cat "$f")" = "$fb_body" ] || fail "debian uninstall: expected the marked fallback servers, got: $(cat "$f")"
+    [ ! -e "$f" ] || fail "debian uninstall: entry left (no-resolv)"
+    grep -qxF "$(printf '%s' "$fb_body" | sed -n 1p)" "$DEFAULT_CONF" || fail "debian uninstall: fallback block missing: $(cat "$DEFAULT_CONF")"
+    [ "$(sed -n '/^# BEGIN keen-pbr fallback/,/^# END keen-pbr fallback/p' "$DEFAULT_CONF")" = "$fb_body" ] || fail "debian uninstall: wrong fallback block"
+    ! grep -q 'managed block' "$DEFAULT_CONF" || fail "debian uninstall: managed block left (no-resolv)"
     [ "$(restarts)" = 1 ] || fail "debian uninstall: no-resolv case should restart once"
-    # A reinstall takes the leftover over.
-    run inspect | grep -qxF 'dropin_state=absent' || fail "debian uninstall: the leftover file should count as absent"
+    reset_restarts
+    run uninstall || fail "debian uninstall: repeat (no-resolv) failed"
+    [ "$(grep -c 'BEGIN keen-pbr fallback' "$DEFAULT_CONF")" = 1 ] && [ "$(restarts)" = 0 ] || fail "debian uninstall: repeat changed something"
+    # A reinstall adds the managed block again.
     run apply systemd:dnsmasq.service || fail "debian uninstall: reinstall failed"
-    [ "$(cat "$f")" = "$want" ] || fail "debian uninstall: reinstall did not restore the drop-in"
+    [ "$(cat "$f")" = "$want" ] || fail "debian uninstall: reinstall did not restore the entry"
+    grep -q 'managed block' "$DEFAULT_CONF" || fail "debian uninstall: reinstall did not add the block"
 
-    # no-resolv with an upstream in dnsmasq.conf or another drop-in: deleted.
+    # no-resolv with an upstream in dnsmasq.conf or another drop-in: nothing added.
     printf 'no-resolv\nserver=1.1.1.1\n' > "$DEFAULT_CONF"
+    run apply systemd:dnsmasq.service || fail "debian uninstall: apply (own upstream) failed"
     run uninstall || fail "debian uninstall: run (own upstream) failed"
-    [ ! -e "$f" ] || fail "debian uninstall: kept the drop-in although dnsmasq has an upstream"
+    ! grep -q 'keen-pbr' "$DEFAULT_CONF" || fail "debian uninstall: added fallback although dnsmasq has an upstream"
     printf 'no-resolv\n' > "$DEFAULT_CONF"
     printf 'server=9.9.9.9\n' > "$DNSMASQ_CONF_DIR/user.conf"
     run apply systemd:dnsmasq.service || fail "debian uninstall: apply (user drop-in) failed"
     run uninstall || fail "debian uninstall: run (user drop-in) failed"
-    [ ! -e "$f" ] || fail "debian uninstall: kept the drop-in next to a user upstream"
+    ! grep -q 'keen-pbr' "$DEFAULT_CONF" || fail "debian uninstall: added fallback next to a user upstream"
     [ -f "$DNSMASQ_CONF_DIR/user.conf" ] || fail "debian uninstall: removed a user file"
     rm -f "$DNSMASQ_CONF_DIR/user.conf"
 
-    # A foreign file under our name stays.
-    echo 'server=1.1.1.1' > "$f"
+    # The 3.3.1 entry with no-resolv: removed, fallback servers added at the end.
+    printf 'no-resolv\n' > "$DEFAULT_CONF"
+    rm -rf "$KEEN_CONF_DIR"
+    printf '%s\n' "$want" > "$legacy"
+    run uninstall || fail "debian uninstall: legacy run failed"
+    [ ! -e "$legacy" ] || fail "debian uninstall: legacy entry left"
+    grep -qxF 'server=8.8.8.8' "$DEFAULT_CONF" || fail "debian uninstall: legacy case lacks fallback servers"
+    # A foreign legacy file stays.
+    printf 'user=dnsmasq\n' > "$DEFAULT_CONF"
+    echo 'server=1.1.1.1' > "$legacy"
     reset_restarts
     run uninstall || fail "debian uninstall: foreign run failed"
-    [ -f "$f" ] && [ "$(restarts)" = 0 ] || fail "debian uninstall: touched a foreign drop-in"
-    rm -f "$f"
+    [ -f "$legacy" ] && [ "$(restarts)" = 0 ] || fail "debian uninstall: touched a foreign legacy file"
+    rm -f "$legacy"
+
+    # A foreign file under our name stays, with its folder.
+    mkdir -p "$KEEN_CONF_DIR"; echo 'server=1.1.1.1' > "$f"
+    run uninstall || fail "debian uninstall: foreign entry run failed"
+    [ -f "$f" ] || fail "debian uninstall: removed a foreign entry"
+    rm -rf "$KEEN_CONF_DIR"
 
     # An empty dnsmasq-fallback.conf: the built-in servers keep DNS working.
     printf 'no-resolv\n' > "$DEFAULT_CONF"
     : > "$FALLBACK_CONF"
     run apply systemd:dnsmasq.service || fail "debian uninstall: apply (empty fallback) failed"
     run uninstall || fail "debian uninstall: run (empty fallback) failed"
-    grep -qxF 'server=8.8.8.8' "$f" || fail "debian uninstall: built-in fallback missing"
+    grep -qxF 'server=8.8.8.8' "$DEFAULT_CONF" || fail "debian uninstall: built-in fallback missing"
 }
 
 test_debian_recommended() {
@@ -810,42 +869,49 @@ test_debian_recommended() {
     cp "$deb_recommended" "$RECOMMENDED_CONF"
     ! grep -q 'max-cache-ttl\|ipset' "$deb_recommended" || fail "debian recommended: ipset-era settings left"
     grep -q '^no-resolv' "$deb_recommended" || fail "debian recommended: no-resolv missing"
-    grep -q '^conf-dir=/etc/dnsmasq.d' "$deb_recommended" || fail "debian recommended: the drop-in directory is not included"
+    grep -qxF '# BEGIN keen-pbr managed block' "$deb_recommended" &&
+        grep -qxF 'conf-dir=/etc/keen-pbr/dnsmasq.d/,*.conf' "$deb_recommended" &&
+        grep -qxF '# END keen-pbr managed block' "$deb_recommended" || fail "debian recommended: the managed block is missing"
 
-    # Identical file and the drop-in already there: nothing is written.
+    # Identical file and the entry already there: nothing is written.
+    sed "s#/etc/keen-pbr/dnsmasq.d#$KEEN_CONF_DIR#" "$deb_recommended" > "$RECOMMENDED_CONF"
     cp "$RECOMMENDED_CONF" "$DEFAULT_CONF"
     run apply systemd:dnsmasq.service || fail "debian recommended: apply failed"
+    cmp -s "$DEFAULT_CONF" "$RECOMMENDED_CONF" || fail "debian recommended: apply changed the recommended config"
     touch -t 200001010000 "$DEFAULT_CONF" "$f"
     reset_restarts
     out=$(run install-recommended-config) || fail "debian recommended: identical run failed"
     case "$out" in *"nothing changed"*) ;; *) fail "debian recommended: identical run should say so: $out" ;; esac
     [ "$(touched "$DEFAULT_CONF" "$f")" = 0 ] || fail "debian recommended: wrote files for an identical config"
     [ ! -e "$backup" ] && [ "$(restarts)" = 0 ] || fail "debian recommended: backup or restart for an identical config"
-    rm -f "$f"
+    rm -rf "$KEEN_CONF_DIR"
 
-    # dnsmasq --test fails: everything stays.
+    # dnsmasq --test fails: everything stays, including the missing folder.
     printf 'user=dnsmasq\nserver=1.1.1.1\n' > "$DEFAULT_CONF"
     cp "$DEFAULT_CONF" "$droot/conf.before"
-    { cat "$deb_recommended"; echo bad-option; } > "$RECOMMENDED_CONF"
+    { cat "$RECOMMENDED_CONF"; echo bad-option; } > "$droot/rec.bad"
+    cp "$droot/rec.bad" "$RECOMMENDED_CONF"
     rc=0; out=$(run install-recommended-config 2>&1) || rc=$?
     [ "$rc" != 0 ] || fail "debian recommended: a rejected file should fail"
-    case "$out" in *"bad option at line 3"*) ;; *) fail "debian recommended: dnsmasq's output not shown: $out" ;; esac
+    case "$out" in *"bad option at line"*) ;; *) fail "debian recommended: dnsmasq's output not shown: $out" ;; esac
     cmp -s "$DEFAULT_CONF" "$droot/conf.before" || fail "debian recommended: changed dnsmasq.conf after a failed test"
-    [ ! -e "$backup" ] && [ ! -e "$f" ] && [ "$(restarts)" = 0 ] || fail "debian recommended: side effects after a failed test"
+    [ ! -e "$backup" ] && [ ! -e "$f" ] && [ ! -d "$KEEN_CONF_DIR" ] && [ "$(restarts)" = 0 ] || fail "debian recommended: side effects after a failed test"
 
-    # Success: backup, new file, the drop-in, one restart.
-    cp "$deb_recommended" "$RECOMMENDED_CONF"
+    # Success: the folder file exists during the test, backup, new file, one restart.
+    sed "s#/etc/keen-pbr/dnsmasq.d#$KEEN_CONF_DIR#" "$deb_recommended" > "$RECOMMENDED_CONF"
+    printf '#!/bin/sh\nfor a in "$@"; do case "$a" in --conf-file=*) c="${a#--conf-file=}" ;; esac; done\nd=$(sed -n "s/^conf-dir=\\(.*\\)\\/,\\*.conf$/\\1/p" "$c")\n[ -f "$d/keen-pbr.conf" ] || { echo "dnsmasq: no entry in $d" >&2; exit 1; }\nexit 0\n' > "$droot/bin/dnsmasq"
     out=$(run install-recommended-config) || fail "debian recommended: install failed"
     cmp -s "$DEFAULT_CONF" "$RECOMMENDED_CONF" || fail "debian recommended: dnsmasq.conf is not the recommended file"
     cmp -s "$backup" "$droot/conf.before" || fail "debian recommended: the backup is not the old file"
-    [ "$(cat "$f")" = "$want" ] || fail "debian recommended: the drop-in was not created"
+    [ "$(cat "$f")" = "$want" ] || fail "debian recommended: the entry file was not created"
+    grep -qxF "conf-dir=$KEEN_CONF_DIR/,*.conf" "$DEFAULT_CONF" || fail "debian recommended: the block is missing from dnsmasq.conf"
     [ "$(restarts)" = 1 ] || fail "debian recommended: install should restart once"
     case "$out" in *"$backup"*) ;; *) fail "debian recommended: the output should name the backup: $out" ;; esac
 
-    # Identical file but no drop-in: only the drop-in is created.
-    rm -f "$f"; rm -f "$backup"
-    run install-recommended-config >/dev/null || fail "debian recommended: drop-in-only run failed"
-    [ "$(cat "$f")" = "$want" ] || fail "debian recommended: the drop-in was not recreated"
+    # Identical file but no entry file: only the entry is created.
+    rm -rf "$KEEN_CONF_DIR"; rm -f "$backup"
+    run install-recommended-config >/dev/null || fail "debian recommended: entry-only run failed"
+    [ "$(cat "$f")" = "$want" ] || fail "debian recommended: the entry was not recreated"
     [ ! -e "$backup" ] || fail "debian recommended: backup for an unchanged config"
 }
 
