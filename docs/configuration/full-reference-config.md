@@ -447,7 +447,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Which dnsmasq instance to use: "uci:<section>" (OpenWrt),
     // "entware:default" (Keenetic) or "systemd:<unit>.service" (Debian).
     // Default: empty, the instance is chosen automatically. Fill it in only if
-    // `keen-pbr dnsmasq detect` finds several instances.
+    // `keen-pbr resolver dnsmasq detect` finds several instances.
     "dnsmasq_instance": "uci:cfg01411c",
 
     // All supported DNS server styles.

@@ -2066,7 +2066,7 @@
  keen-pbr уже стоит ровно в одном экземпляре. Он и продолжает использоваться. Если drop-in найден в нескольких, выбор останавливается с ошибкой &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Автоматически&lt;/strong&gt;: поле пустое, ничего не установлено, и ровно один включённый экземпляр обслуживает DNS (&lt;code&gt;port&lt;/code&gt; не равен &lt;code&gt;0&lt;/code&gt;). Если таких нет, результат &lt;code&gt;DNSMASQ_NO_DNS_INSTANCE&lt;/code&gt;; если несколько, &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;Если выбор неоднозначен, keen-pbr ничего не меняет и не трогает уже установленные drop-in. Посмотрите кандидатов командой &lt;code&gt;keen-pbr dnsmasq detect&lt;/code&gt; и задайте экземпляр в &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Управление локальным DNS-сервером&lt;/strong&gt; &amp;gt; &lt;strong&gt;Экземпляр dnsmasq&lt;/strong&gt; (или &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; в &lt;code&gt;config.json&lt;/code&gt;). Если drop-in keen-pbr стоит ещё и в невыбранном экземпляре, &lt;code&gt;detect&lt;/code&gt; и журнал покажут предупреждение с командой для его удаления (&lt;code&gt;keen-pbr dnsmasq remove &amp;lt;селектор&amp;gt;&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;Если выбор неоднозначен, keen-pbr ничего не меняет и не трогает уже установленные drop-in. Посмотрите кандидатов командой &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt; и задайте экземпляр в &lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Управление локальным DNS-сервером&lt;/strong&gt; &amp;gt; &lt;strong&gt;Экземпляр dnsmasq&lt;/strong&gt; (или &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; в &lt;code&gt;config.json&lt;/code&gt;). Если drop-in keen-pbr стоит ещё и в невыбранном экземпляре, &lt;code&gt;detect&lt;/code&gt; и журнал покажут предупреждение. Удалите файл drop-in, который назван в предупреждении, и перезапустите этот экземпляр dnsmasq.&lt;/p&gt;
 &lt;h4&gt;Определение DNS-адреса&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;определение-dns-адреса&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%be%d0%bf%d1%80%d0%b5%d0%b4%d0%b5%d0%bb%d0%b5%d0%bd%d0%b8%d0%b5-dns-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;keen-pbr сам находит адрес, на котором отвечает выбранный dnsmasq: читает конфигурацию, которую dnsmasq действительно загрузил, и проверяет адрес DNS-запросом. Если dnsmasq не обслуживает DNS (&lt;code&gt;port=0&lt;/code&gt;, нет DNS-сокета или он работает в другом 
   &lt;abbr title=&#34;Изолированная копия сетевого стека Linux со своими интерфейсами, маршрутами и firewall.&#34;&gt;network namespace&lt;/abbr&gt;
@@ -2096,7 +2096,7 @@
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_HOOK_FAILED&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;Вызов &lt;code&gt;inspect&lt;/code&gt; у hook-скрипта завершился ошибкой или вывел нечитаемый ответ.&lt;/td&gt;
-					&lt;td&gt;Запустите &lt;code&gt;keen-pbr dnsmasq detect&lt;/code&gt;; проверьте, что hook-скрипт и keen-pbr одной версии.&lt;/td&gt;
+					&lt;td&gt;Запустите &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt;; проверьте, что hook-скрипт и keen-pbr одной версии.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_NOT_INSTALLED&lt;/code&gt;&lt;/td&gt;
@@ -2111,7 +2111,7 @@
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_INSTANCE_NOT_FOUND&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; указывает на несуществующий экземпляр.&lt;/td&gt;
-					&lt;td&gt;Исправьте селектор; допустимые покажет &lt;code&gt;keen-pbr dnsmasq detect&lt;/code&gt;.&lt;/td&gt;
+					&lt;td&gt;Исправьте селектор; допустимые покажет &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt;.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;&lt;/td&gt;
@@ -2209,7 +2209,7 @@
 &lt;h3&gt;При остановке, отключении или удалении&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;при-остановке-отключении-или-удалении&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%bf%d1%80%d0%b8-%d0%be%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%ba%d0%b5-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b8-%d0%b8%d0%bb%d0%b8-%d1%83%d0%b4%d0%b0%d0%bb%d0%b5%d0%bd%d0%b8%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Остановка keen-pbr&lt;/strong&gt;: dnsmasq не перезапускается. Отдельные DNS-серверы для списков продолжают работать, в том числе после перезапуска dnsmasq или роутера.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Отключение функции&lt;/strong&gt; (&lt;code&gt;resolver_integration: &amp;quot;none&amp;quot;&lt;/code&gt;): keen-pbr перезапускает dnsmasq, и тот переходит на серверы из &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;. На OpenWrt список серверов возвращается в &lt;code&gt;/etc/config/dhcp&lt;/code&gt;. Если вы выключили управление, правя конфиг при остановленном keen-pbr, первый старт один раз перезапустит dnsmasq. См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/cli/#dnsmasq-detect-and-remove&#34;&gt;команды &lt;code&gt;dnsmasq&lt;/code&gt;&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Отключение функции&lt;/strong&gt; (&lt;code&gt;resolver_integration: &amp;quot;none&amp;quot;&lt;/code&gt;): keen-pbr перезапускает dnsmasq, и тот переходит на серверы из &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;. На OpenWrt список серверов возвращается в &lt;code&gt;/etc/config/dhcp&lt;/code&gt;. Если вы выключили управление, правя конфиг при остановленном keen-pbr, первый старт один раз перезапустит dnsmasq. Проверить результат можно командой &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/cli/#resolver-dnsmasq-detect&#34;&gt;&lt;code&gt;resolver dnsmasq detect&lt;/code&gt;&lt;/a&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;dnsmasq не запущен&lt;/strong&gt;: keen-pbr никогда не запускает остановленный dnsmasq. Если dnsmasq упал в системе без супервизора служб (
   &lt;abbr title=&#34;Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.&#34;&gt;Entware&lt;/abbr&gt;
 ), запустите его вручную; keen-pbr применит свою конфигурацию заново, как только dnsmasq снова заработает.&lt;/li&gt;
@@ -3132,7 +3132,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Какой экземпляр dnsmasq использовать: &amp;#34;uci:&amp;lt;секция&amp;gt;&amp;#34; (OpenWrt),
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// &amp;#34;entware:default&amp;#34; (Keenetic) или &amp;#34;systemd:&amp;lt;юнит&amp;gt;.service&amp;#34; (Debian).
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// По умолчанию: пусто, экземпляр выбирается автоматически. Заполняйте,
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// только если `keen-pbr dnsmasq detect` нашёл несколько экземпляров.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// только если `keen-pbr resolver dnsmasq detect` нашёл несколько экземпляров.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;dnsmasq_instance&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;uci:cfg01411c&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Все поддерживаемые типы DNS-серверов.

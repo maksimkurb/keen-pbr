@@ -287,7 +287,7 @@ keen-pbr не отвечает на DNS-запросы клиентов, поэ�
 **Команда.**
 
 ```bash {filename="bash"}
-keen-pbr dnsmasq detect
+keen-pbr resolver dnsmasq detect
 ```
 
 Команда показывает найденные экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr. В нормальном состоянии у keen-pbr написано `installed`, а в строке `problem` — `none`. Если dnsmasq не установлен, а отдельные DNS-серверы не нужны, выключите **Управлять конфигурацией dnsmasq**. Иначе установите dnsmasq.

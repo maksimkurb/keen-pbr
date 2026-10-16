@@ -2069,7 +2069,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
  is already installed in exactly one instance. That instance keeps being used. If the drop-in is found in several instances, selection stops with &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Automatic&lt;/strong&gt;: the field is empty, nothing is installed yet, and exactly one enabled instance has DNS (&lt;code&gt;port&lt;/code&gt; is not &lt;code&gt;0&lt;/code&gt;). With none, the result is &lt;code&gt;DNSMASQ_NO_DNS_INSTANCE&lt;/code&gt;; with several, &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run &lt;code&gt;keen-pbr dnsmasq detect&lt;/code&gt; to see the candidates, then set it under &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt; &amp;gt; &lt;strong&gt;dnsmasq instance&lt;/strong&gt; (or &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; in &lt;code&gt;config.json&lt;/code&gt;). If keen-pbr&amp;rsquo;s drop-in is also installed in an instance that is not selected, &lt;code&gt;detect&lt;/code&gt; and the logs show a warning with the command that removes it (&lt;code&gt;keen-pbr dnsmasq remove &amp;lt;selector&amp;gt;&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt; to see the candidates, then set it under &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt; &amp;gt; &lt;strong&gt;dnsmasq instance&lt;/strong&gt; (or &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; in &lt;code&gt;config.json&lt;/code&gt;). If keen-pbr&amp;rsquo;s drop-in is also installed in an instance that is not selected, &lt;code&gt;detect&lt;/code&gt; and the logs show a warning. Delete the drop-in file named in the warning and restart that dnsmasq instance.&lt;/p&gt;
 &lt;h4&gt;DNS endpoint detection&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns-endpoint-detection&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#dns-endpoint-detection&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;keen-pbr finds the address the selected dnsmasq answers on by itself: it reads the configuration dnsmasq actually loaded and checks the address with a DNS query. If dnsmasq does not serve DNS (&lt;code&gt;port=0&lt;/code&gt;, no DNS socket, or another 
   &lt;abbr title=&#34;An isolated copy of the Linux network stack with its own interfaces, routes and firewall.&#34;&gt;network namespace&lt;/abbr&gt;
@@ -2099,7 +2099,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_HOOK_FAILED&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;The hook&amp;rsquo;s &lt;code&gt;inspect&lt;/code&gt; call failed or printed something unreadable.&lt;/td&gt;
-					&lt;td&gt;Run &lt;code&gt;keen-pbr dnsmasq detect&lt;/code&gt;; check that the hook and keen-pbr are from the same version.&lt;/td&gt;
+					&lt;td&gt;Run &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt;; check that the hook and keen-pbr are from the same version.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_NOT_INSTALLED&lt;/code&gt;&lt;/td&gt;
@@ -2114,7 +2114,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_INSTANCE_NOT_FOUND&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; names an instance that does not exist.&lt;/td&gt;
-					&lt;td&gt;Fix the selector; &lt;code&gt;keen-pbr dnsmasq detect&lt;/code&gt; lists valid ones.&lt;/td&gt;
+					&lt;td&gt;Fix the selector; &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt; lists valid ones.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;&lt;/td&gt;
@@ -2214,7 +2214,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
 &lt;h3&gt;On stop, disable, or uninstall&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;on-stop-disable-or-uninstall&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#on-stop-disable-or-uninstall&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Stopping keen-pbr&lt;/strong&gt;: dnsmasq is not restarted; per-list DNS servers keep working, also after a dnsmasq or router restart.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Disabling the feature&lt;/strong&gt; (&lt;code&gt;resolver_integration: &amp;quot;none&amp;quot;&lt;/code&gt;): keen-pbr restarts dnsmasq, which then uses the servers from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;. On OpenWrt the server list returns to &lt;code&gt;/etc/config/dhcp&lt;/code&gt;. If you turned it off by editing the config while keen-pbr was stopped, the first start restarts dnsmasq once. See &lt;a href=&#34;https://keen-pbr.fyi/docs/cli/#dnsmasq-detect-and-remove&#34;&gt;&lt;code&gt;dnsmasq&lt;/code&gt; commands&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Disabling the feature&lt;/strong&gt; (&lt;code&gt;resolver_integration: &amp;quot;none&amp;quot;&lt;/code&gt;): keen-pbr restarts dnsmasq, which then uses the servers from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;. On OpenWrt the server list returns to &lt;code&gt;/etc/config/dhcp&lt;/code&gt;. If you turned it off by editing the config while keen-pbr was stopped, the first start restarts dnsmasq once. To check the result, see &lt;a href=&#34;https://keen-pbr.fyi/docs/cli/#resolver-dnsmasq-detect&#34;&gt;&lt;code&gt;resolver dnsmasq detect&lt;/code&gt;&lt;/a&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;dnsmasq is not running&lt;/strong&gt;: keen-pbr never starts a stopped dnsmasq. If dnsmasq crashes on a system without a service supervisor (
   &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
 ), start it manually; keen-pbr re-applies its configuration once dnsmasq is running again.&lt;/li&gt;
@@ -3132,7 +3132,7 @@ range that other software does not use. See &lt;a href=&#34;https://keen-pbr.fyi
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Which dnsmasq instance to use: &amp;#34;uci:&amp;lt;section&amp;gt;&amp;#34; (OpenWrt),
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// &amp;#34;entware:default&amp;#34; (Keenetic) or &amp;#34;systemd:&amp;lt;unit&amp;gt;.service&amp;#34; (Debian).
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Default: empty, the instance is chosen automatically. Fill it in only if
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// `keen-pbr dnsmasq detect` finds several instances.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// `keen-pbr resolver dnsmasq detect` finds several instances.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;dnsmasq_instance&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;uci:cfg01411c&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// All supported DNS server styles.

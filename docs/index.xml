@@ -3543,7 +3543,7 @@ graph LR;
  is already installed in exactly one instance. That instance keeps being used. If the drop-in is found in several instances, selection stops with &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Automatic&lt;/strong&gt;: the field is empty, nothing is installed yet, and exactly one enabled instance has DNS (&lt;code&gt;port&lt;/code&gt; is not &lt;code&gt;0&lt;/code&gt;). With none, the result is &lt;code&gt;DNSMASQ_NO_DNS_INSTANCE&lt;/code&gt;; with several, &lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;.&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run &lt;code&gt;keen-pbr dnsmasq detect&lt;/code&gt; to see the candidates, then set it under &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt; &amp;gt; &lt;strong&gt;dnsmasq instance&lt;/strong&gt; (or &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; in &lt;code&gt;config.json&lt;/code&gt;). If keen-pbr&amp;rsquo;s drop-in is also installed in an instance that is not selected, &lt;code&gt;detect&lt;/code&gt; and the logs show a warning with the command that removes it (&lt;code&gt;keen-pbr dnsmasq remove &amp;lt;selector&amp;gt;&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt; to see the candidates, then set it under &lt;strong&gt;General&lt;/strong&gt; &amp;gt; &lt;strong&gt;Settings&lt;/strong&gt; &amp;gt; &lt;strong&gt;Local DNS server management&lt;/strong&gt; &amp;gt; &lt;strong&gt;dnsmasq instance&lt;/strong&gt; (or &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; in &lt;code&gt;config.json&lt;/code&gt;). If keen-pbr&amp;rsquo;s drop-in is also installed in an instance that is not selected, &lt;code&gt;detect&lt;/code&gt; and the logs show a warning. Delete the drop-in file named in the warning and restart that dnsmasq instance.&lt;/p&gt;
 &lt;h4&gt;DNS endpoint detection&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns-endpoint-detection&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#dns-endpoint-detection&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;p&gt;keen-pbr finds the address the selected dnsmasq answers on by itself: it reads the configuration dnsmasq actually loaded and checks the address with a DNS query. If dnsmasq does not serve DNS (&lt;code&gt;port=0&lt;/code&gt;, no DNS socket, or another 
   &lt;abbr title=&#34;An isolated copy of the Linux network stack with its own interfaces, routes and firewall.&#34;&gt;network namespace&lt;/abbr&gt;
@@ -3573,7 +3573,7 @@ graph LR;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_HOOK_FAILED&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;The hook&amp;rsquo;s &lt;code&gt;inspect&lt;/code&gt; call failed or printed something unreadable.&lt;/td&gt;
-					&lt;td&gt;Run &lt;code&gt;keen-pbr dnsmasq detect&lt;/code&gt;; check that the hook and keen-pbr are from the same version.&lt;/td&gt;
+					&lt;td&gt;Run &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt;; check that the hook and keen-pbr are from the same version.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_NOT_INSTALLED&lt;/code&gt;&lt;/td&gt;
@@ -3588,7 +3588,7 @@ graph LR;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_INSTANCE_NOT_FOUND&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;dns.dnsmasq_instance&lt;/code&gt; names an instance that does not exist.&lt;/td&gt;
-					&lt;td&gt;Fix the selector; &lt;code&gt;keen-pbr dnsmasq detect&lt;/code&gt; lists valid ones.&lt;/td&gt;
+					&lt;td&gt;Fix the selector; &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt; lists valid ones.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;DNSMASQ_INSTANCE_AMBIGUOUS&lt;/code&gt;&lt;/td&gt;
@@ -3688,7 +3688,7 @@ graph LR;
 &lt;h3&gt;On stop, disable, or uninstall&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;on-stop-disable-or-uninstall&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#on-stop-disable-or-uninstall&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Stopping keen-pbr&lt;/strong&gt;: dnsmasq is not restarted; per-list DNS servers keep working, also after a dnsmasq or router restart.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Disabling the feature&lt;/strong&gt; (&lt;code&gt;resolver_integration: &amp;quot;none&amp;quot;&lt;/code&gt;): keen-pbr restarts dnsmasq, which then uses the servers from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;. On OpenWrt the server list returns to &lt;code&gt;/etc/config/dhcp&lt;/code&gt;. If you turned it off by editing the config while keen-pbr was stopped, the first start restarts dnsmasq once. See &lt;a href=&#34;https://keen-pbr.fyi/docs/cli/#dnsmasq-detect-and-remove&#34;&gt;&lt;code&gt;dnsmasq&lt;/code&gt; commands&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Disabling the feature&lt;/strong&gt; (&lt;code&gt;resolver_integration: &amp;quot;none&amp;quot;&lt;/code&gt;): keen-pbr restarts dnsmasq, which then uses the servers from &lt;code&gt;dnsmasq-fallback.conf&lt;/code&gt;. On OpenWrt the server list returns to &lt;code&gt;/etc/config/dhcp&lt;/code&gt;. If you turned it off by editing the config while keen-pbr was stopped, the first start restarts dnsmasq once. To check the result, see &lt;a href=&#34;https://keen-pbr.fyi/docs/cli/#resolver-dnsmasq-detect&#34;&gt;&lt;code&gt;resolver dnsmasq detect&lt;/code&gt;&lt;/a&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;dnsmasq is not running&lt;/strong&gt;: keen-pbr never starts a stopped dnsmasq. If dnsmasq crashes on a system without a service supervisor (
   &lt;abbr title=&#34;A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.&#34;&gt;Entware&lt;/abbr&gt;
 ), start it manually; keen-pbr re-applies its configuration once dnsmasq is running again.&lt;/li&gt;
@@ -3740,9 +3740,8 @@ graph LR;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      --src-port &amp;lt;port&amp;gt;              Packet source port
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      --dest-port &amp;lt;port&amp;gt;             Packet destination port
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      --dscp &amp;lt;0-63&amp;gt;                  Packet DSCP (default: 0)
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  dnsmasq remove &amp;lt;selector&amp;gt;          Restart one dnsmasq instance without keen-pbr&amp;#39;s generated config (OpenWrt: also return the moved servers)
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  resolver dnsmasq print-config      Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  resolver dnsmasq detect [--json]   List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  hash-password [--update]           Generate an authentication password hash; --update writes config.json&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
@@ -3879,7 +3878,7 @@ graph LR;
 					&lt;td&gt;Download all URL-backed lists into the cache and exit. With &lt;code&gt;--reload&lt;/code&gt; the service applies the lists that changed right away.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;generate-resolver-config dnsmasq&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;resolver dnsmasq print-config&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;Print the dnsmasq configuration for per-list DNS servers.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
@@ -3887,12 +3886,8 @@ graph LR;
 					&lt;td&gt;Create a password hash for logging in to the web UI and API.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;dnsmasq detect [--json]&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;resolver dnsmasq detect [--json]&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;List dnsmasq instances, their DNS endpoints and the instance keen-pbr uses.&lt;/td&gt;
-			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;dnsmasq remove &amp;lt;selector&amp;gt;&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Restart one dnsmasq instance without keen-pbr&amp;rsquo;s config.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;test-routing &amp;lt;ip-or-domain&amp;gt; [packet options]&lt;/code&gt;&lt;/td&gt;
@@ -3900,14 +3895,14 @@ graph LR;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;h3&gt;&lt;code&gt;generate-resolver-config dnsmasq&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;generate-resolver-config-dnsmasq&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#generate-resolver-config-dnsmasq&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;When &lt;code&gt;dns.resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt; is enabled, this command prints the dnsmasq configuration built by keen-pbr. Lists are taken from the cache only; nothing is downloaded. It contains domain-to-server mappings, 
+&lt;h3&gt;&lt;code&gt;resolver dnsmasq print-config&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;resolver-dnsmasq-print-config&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#resolver-dnsmasq-print-config&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;When &lt;code&gt;dns.resolver_integration: &amp;quot;dnsmasq&amp;quot;&lt;/code&gt; is enabled, this command prints the dnsmasq configuration built by keen-pbr. Lists are taken from the cache only; nothing is downloaded. It contains domain-to-server mappings, 
   &lt;abbr title=&#34;An attack in which a public domain resolves to a private address. dnsmasq can block such answers.&#34;&gt;DNS rebinding&lt;/abbr&gt;
  protection exceptions, and &lt;code&gt;fallback&lt;/code&gt; servers.&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Usage:&lt;/strong&gt;&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;keen-pbr generate-resolver-config dnsmasq&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;keen-pbr resolver dnsmasq print-config&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -3969,12 +3964,11 @@ graph LR;
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;p&gt;Without &lt;code&gt;--update&lt;/code&gt; the command prints &lt;code&gt;Password hash: &amp;lt;hash&amp;gt;&lt;/code&gt;, which you paste into &lt;code&gt;api.authentication.password_hash&lt;/code&gt; yourself. With &lt;code&gt;--update&lt;/code&gt; it writes &lt;code&gt;api.enabled: true&lt;/code&gt;, &lt;code&gt;api.authentication.enabled: true&lt;/code&gt; and the hash into &lt;code&gt;config.json&lt;/code&gt;. Then restart the service: &lt;code&gt;Restart the keen-pbr service for authentication changes to take effect.&lt;/code&gt;&lt;/p&gt;
-&lt;h3&gt;&lt;code&gt;dnsmasq detect&lt;/code&gt; and &lt;code&gt;remove&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq-detect-and-remove&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#dnsmasq-detect-and-remove&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Inspect and clean up the dnsmasq integration without the daemon. Neither command needs the control socket.&lt;/p&gt;
+&lt;h3&gt;&lt;code&gt;resolver dnsmasq detect&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;resolver-dnsmasq-detect&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#resolver-dnsmasq-detect&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Inspect the dnsmasq integration without the daemon. The command does not need the control socket.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;keen-pbr dnsmasq detect &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;--json&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;keen-pbr dnsmasq remove &amp;lt;selector&amp;gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;keen-pbr resolver dnsmasq detect &lt;span class=&#34;o&#34;&gt;[&lt;/span&gt;--json&lt;span class=&#34;o&#34;&gt;]&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -3986,7 +3980,7 @@ graph LR;
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;&lt;strong&gt;&lt;code&gt;detect&lt;/code&gt;&lt;/strong&gt; lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr&amp;rsquo;s 
+&lt;p&gt;The command lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr&amp;rsquo;s 
   &lt;abbr title=&#34;A small extra configuration file that a program reads in addition to its main config.&#34;&gt;drop-in&lt;/abbr&gt;
  is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (&lt;code&gt;explicit&lt;/code&gt;, &lt;code&gt;adopted&lt;/code&gt; or &lt;code&gt;automatic&lt;/code&gt;), or why it could not choose.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
@@ -4018,11 +4012,6 @@ graph LR;
 &lt;li&gt;&lt;code&gt;--json&lt;/code&gt; prints the same data as one JSON object (&lt;code&gt;selected&lt;/code&gt;, &lt;code&gt;selection&lt;/code&gt;, &lt;code&gt;error_code&lt;/code&gt;, &lt;code&gt;message&lt;/code&gt;, &lt;code&gt;warnings&lt;/code&gt;, &lt;code&gt;instances[]&lt;/code&gt;).&lt;/li&gt;
 &lt;li&gt;Exit code &lt;code&gt;0&lt;/code&gt; when an instance is selected and has no problem, &lt;code&gt;1&lt;/code&gt; otherwise.&lt;/li&gt;
 &lt;li&gt;If the choice is ambiguous, the output ends with a hint to set &lt;code&gt;dns.dnsmasq_instance&lt;/code&gt;.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;&lt;strong&gt;&lt;code&gt;remove &amp;lt;selector&amp;gt;&lt;/code&gt;&lt;/strong&gt; restarts one instance so that it stops using keen-pbr&amp;rsquo;s config; on OpenWrt it also returns the server list moved aside. Use it when &lt;code&gt;detect&lt;/code&gt; shows an instance that still runs keen-pbr&amp;rsquo;s config after you switched the integration off.&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;Must run as root. Exit code &lt;code&gt;64&lt;/code&gt; for a missing or invalid selector.&lt;/li&gt;
-&lt;li&gt;If the integration is still enabled for this instance, the command prints a note: the daemon may apply its config to dnsmasq again on its next sync. Disable the integration first.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Signals&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;signals&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#signals&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;You can control the running &lt;code&gt;keen-pbr&lt;/code&gt; service with signals:&lt;/p&gt;
@@ -6455,7 +6444,7 @@ address, or
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Which dnsmasq instance to use: &amp;#34;uci:&amp;lt;section&amp;gt;&amp;#34; (OpenWrt),
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// &amp;#34;entware:default&amp;#34; (Keenetic) or &amp;#34;systemd:&amp;lt;unit&amp;gt;.service&amp;#34; (Debian).
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// Default: empty, the instance is chosen automatically. Fill it in only if
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// `keen-pbr dnsmasq detect` finds several instances.
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// `keen-pbr resolver dnsmasq detect` finds several instances.
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;dnsmasq_instance&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;uci:cfg01411c&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;c1&#34;&gt;// All supported DNS server styles.
@@ -7590,7 +7579,7 @@ address, or
 &lt;p&gt;&lt;strong&gt;Command.&lt;/strong&gt;&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;keen-pbr dnsmasq detect&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;keen-pbr resolver dnsmasq detect&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -8198,7 +8187,7 @@ Tailscale runs as a subnet router or exit node.&lt;/p&gt;
     &lt;a href=&#34;#v3-4-0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;What&amp;rsquo;s new&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;whats-new&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#whats-new&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Domain lists work without a resolver setup.&lt;/strong&gt; keen-pbr reads DNS replies passing through the router and the site names in TLS, HTTP and QUIC connections, and fills the sets of your lists itself. The first connection to a site already takes the right route. If the kernel lacks a feature, only that part (DNS or connections) is turned off, and the status page says why. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#dns-interception&#34;&gt;DNS&lt;/a&gt;.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;dnsmasq is optional.&lt;/strong&gt; It is needed only for separate DNS servers for some lists or for your own default DNS servers. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq&#34;&gt;Do I need dnsmasq?&lt;/a&gt;. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New commands: &lt;code&gt;keen-pbr dnsmasq detect&lt;/code&gt; and &lt;code&gt;keen-pbr dnsmasq remove&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;dnsmasq is optional.&lt;/strong&gt; It is needed only for separate DNS servers for some lists or for your own default DNS servers. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/#do-i-need-dnsmasq&#34;&gt;Do I need dnsmasq?&lt;/a&gt;. keen-pbr can pick the dnsmasq instance, shows its state in the Web UI and repairs it when it loses the config. New command: &lt;code&gt;keen-pbr resolver dnsmasq detect&lt;/code&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Load balancing across several links&lt;/strong&gt; (&lt;code&gt;strategy: &amp;quot;balance&amp;quot;&lt;/code&gt; in a &lt;code&gt;urltest&lt;/code&gt; outbound) with a weight for each link. A connection stays on the link it started on. It is not available in the Keenetic build. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/multi-wan/&#34;&gt;Multi-WAN Load Balancing&lt;/a&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Automatic gateway detection&lt;/strong&gt; for interface outbounds (&lt;code&gt;&amp;quot;gateway&amp;quot;: &amp;quot;auto&amp;quot;&lt;/code&gt;), and editing the default gateway in the Web UI. See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/outbounds/#interface&#34;&gt;interface&lt;/a&gt;.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;All internet traffic through failover or balancing&lt;/strong&gt;: the new &lt;code&gt;default_gateway&lt;/code&gt; route rule condition (nftables only). See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/route-rules/#failover-or-balancing-for-all-internet-traffic&#34;&gt;Route rules&lt;/a&gt;.&lt;/li&gt;

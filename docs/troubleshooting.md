@@ -287,7 +287,7 @@ This usually means the resolver is not running or could not apply its configurat
 **Command.**
 
 ```bash {filename="bash"}
-keen-pbr dnsmasq detect
+keen-pbr resolver dnsmasq detect
 ```
 
 The command shows the dnsmasq instances found, their DNS addresses, and the instance keen-pbr uses. In a healthy state keen-pbr is shown as `installed`, and the `problem` line says `none`. If dnsmasq is not installed and you do not need per-list DNS servers, turn off **Manage dnsmasq configuration**. Otherwise install dnsmasq.

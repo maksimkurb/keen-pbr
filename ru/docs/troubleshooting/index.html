@@ -48,7 +48,7 @@
 В каждом разделе ниже порядок один: симптом, проверка в веб-интерфейсе, проверка командой, исправление.
 Быстрая проверка через веб-интерфейс Откройте http://&lt;ip-роутера&gt;:12121/ и перейдите в Общее &gt; Обзор системы.
 Строка состояния вверху. «Всё работает» означает, что проблем нет. «Служба остановлена» означает, что маршрутизация выключена: нажмите Запустить. «Система работает, но есть N проблем(ы)» или «Маршрутизация работает с ограничениями» означает, что надо смотреть панель Диагностика. Панель Outbounds. Outbound — это канал, через который пойдёт трафик: VPN-интерфейс, провайдер или блокировка. Каждый канал должен быть в состоянии «Исправен». «Деградирован» значит, что канал работает частично, «Недоступен» значит, что он не работает. Панель Диагностика. Если всё в порядке, там написано «Проблем нет». Чтобы увидеть и исправные пункты, включите переключатель Показать исправные. Что означают сообщения об ошибках, смотрите в разделе Сообщения в «Диагностике». Кнопка Куда пойдёт трафик? (Ctrl&#43;Alt&#43;K) в заголовке страницы. Введите домен или IP-адрес и нажмите Проверить маршрут: keen-pbr покажет, по какому правилу и через какой outbound пойдёт трафик. Панель Маршрутизация на основе доменов с виджетом проверки DNS. Нажмите Проверить снова: «Перехват DNS-запросов из этого браузера работает» означает, что с DNS всё в порядке. То же самое выводит команда на роутере:">
-	<meta itemprop="wordCount" content="3346">
+	<meta itemprop="wordCount" content="3347">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Устранение неполадок">
 	<meta name="twitter:description" content="Сначала посмотрите на страницу Общее &gt; Обзор системы в веб-интерфейсе: там видно, работает ли служба и что именно сломано. Если этого мало, читайте системный журнал: keen-pbr пишет в него причину каждой ошибки.
@@ -1760,7 +1760,7 @@
 <p><strong>Команда.</strong></p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr dnsmasq detect</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr resolver dnsmasq detect</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"

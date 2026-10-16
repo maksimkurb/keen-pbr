@@ -11,7 +11,7 @@
 <title>Использование CLI keen-pbr – keen-pbr</title>
   <meta name="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.
 Команды status, download и test-routing обращаются к работающему сервису. Если сервис не запущен, они завершаются с ошибкой и кодом 1. Сначала запустите сервис (на роутере он стартует вместе с системой).
-Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) generate-resolver-config dnsmasq Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses dnsmasq remove &lt;selector&gt; Restart one dnsmasq instance without keen-pbr&#39;s generated config (OpenWrt: also return the moved servers) hash-password [--update] Generate an authentication password hash; --update writes config.json Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/cli/" itemprop="url" />
+Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) resolver dnsmasq print-config Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) resolver dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses hash-password [--update] Generate an authentication password hash; --update writes config.json Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/cli/" itemprop="url" />
 
 <meta property="og:title" content="Использование CLI keen-pbr">
 <meta
@@ -48,9 +48,8 @@ Commands:
       --src-port &lt;port&gt;              Packet source port
       --dest-port &lt;port&gt;             Packet destination port
       --dscp &lt;0-63&gt;                  Packet DSCP (default: 0)
-  generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
-  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
-  dnsmasq remove &lt;selector&gt;          Restart one dnsmasq instance without keen-pbr&#39;s generated config (OpenWrt: also return the moved servers)
+  resolver dnsmasq print-config      Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
+  resolver dnsmasq detect [--json]   List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
   hash-password [--update]           Generate an authentication password hash; --update writes config.json
   
     
@@ -74,13 +73,13 @@ Commands:
 	<meta itemprop="name" content="Использование CLI keen-pbr">
 	<meta itemprop="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.
 Команды status, download и test-routing обращаются к работающему сервису. Если сервис не запущен, они завершаются с ошибкой и кодом 1. Сначала запустите сервис (на роутере он стартует вместе с системой).
-Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) generate-resolver-config dnsmasq Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses dnsmasq remove &lt;selector&gt; Restart one dnsmasq instance without keen-pbr&#39;s generated config (OpenWrt: also return the moved servers) hash-password [--update] Generate an authentication password hash; --update writes config.json Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
-	<meta itemprop="wordCount" content="1492">
+Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) resolver dnsmasq print-config Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) resolver dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses hash-password [--update] Generate an authentication password hash; --update writes config.json Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
+	<meta itemprop="wordCount" content="1391">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Использование CLI keen-pbr">
 	<meta name="twitter:description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и проверять решения маршрутизации.
 Команды status, download и test-routing обращаются к работающему сервису. Если сервис не запущен, они завершаются с ошибкой и кодом 1. Сначала запустите сервис (на роутере он стартует вместе с системой).
-Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) generate-resolver-config dnsmasq Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses dnsmasq remove &lt;selector&gt; Restart one dnsmasq instance without keen-pbr&#39;s generated config (OpenWrt: also return the moved servers) hash-password [--update] Generate an authentication password hash; --update writes config.json Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
+Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file (default: &lt;KEEN_PBR_DEFAULT_CONFIG_PATH&gt;) --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug (default: info) --log-target &lt;target&gt; Log destination: stderr, syslog, or both (default: both) --pid-file &lt;path&gt; Override daemon.pid_file when running the service command --crash-report &lt;path&gt; Last-crash report path (default: /tmp/keen-pbr-crash.log) --no-api Disable REST API at runtime --use-raw-prerouting Use raw PREROUTING for IPv4 forwarded traffic (iptables only) --use-raw6-prerouting Use raw PREROUTING for IPv6 forwarded traffic (iptables only) --version Show version and exit --help Show this help and exit Commands: service Start the routing service (foreground) status Show routing/firewall status and exit download Download all configured lists to cache and exit test-routing &lt;ip-or-domain&gt; [packet options] Test expected vs actual routing for an IP or domain --proto &lt;tcp|udp|other&gt; Packet protocol --src-addr &lt;ip&gt; Packet source address --src-port &lt;port&gt; Packet source port --dest-port &lt;port&gt; Packet destination port --dscp &lt;0-63&gt; Packet DSCP (default: 0) resolver dnsmasq print-config Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0) resolver dnsmasq detect [--json] List dnsmasq instances, their DNS endpoints and which one keen-pbr uses hash-password [--update] Generate an authentication password hash; --update writes config.json Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
 
     <link rel="preload" href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" as="style" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
     <link href="/css/compiled/main.min.56b1ce86338d43d54f51a07f86b088e17a9a295aae777592fc225ebf42a4c636.css" rel="stylesheet" integrity="sha256-VrHOhjONQ9VPUaB/hrCI4XqaKVqud3WS/CJev0KkxjY=" />
@@ -972,7 +971,7 @@ Commands:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#generate-resolver-config-dnsmasq">generate-resolver-config dnsmasq
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#resolver-dnsmasq-print-config">resolver dnsmasq print-config
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -980,7 +979,7 @@ Commands:
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dnsmasq-detect-and-remove">dnsmasq detect и remove
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#resolver-dnsmasq-detect">resolver dnsmasq detect
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1101,9 +1100,8 @@ Commands:
 </span></span><span class="line"><span class="cl">      --src-port &lt;port&gt;              Packet source port
 </span></span><span class="line"><span class="cl">      --dest-port &lt;port&gt;             Packet destination port
 </span></span><span class="line"><span class="cl">      --dscp &lt;0-63&gt;                  Packet DSCP (default: 0)
-</span></span><span class="line"><span class="cl">  generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
-</span></span><span class="line"><span class="cl">  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
-</span></span><span class="line"><span class="cl">  dnsmasq remove &lt;selector&gt;          Restart one dnsmasq instance without keen-pbr&#39;s generated config (OpenWrt: also return the moved servers)
+</span></span><span class="line"><span class="cl">  resolver dnsmasq print-config      Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
+</span></span><span class="line"><span class="cl">  resolver dnsmasq detect [--json]   List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
 </span></span><span class="line"><span class="cl">  hash-password [--update]           Generate an authentication password hash; --update writes config.json</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
@@ -1242,7 +1240,7 @@ Commands:
 					<td>Загрузить все списки с URL в кэш и выйти. С <code>--reload</code> сервис сразу применяет списки, которые изменились.</td>
 			</tr>
 			<tr>
-					<td><code>generate-resolver-config dnsmasq</code></td>
+					<td><code>resolver dnsmasq print-config</code></td>
 					<td>Вывести конфигурацию dnsmasq для отдельных DNS-серверов списков.</td>
 			</tr>
 			<tr>
@@ -1250,12 +1248,8 @@ Commands:
 					<td>Создать хеш пароля для входа в веб-интерфейс и API.</td>
 			</tr>
 			<tr>
-					<td><code>dnsmasq detect [--json]</code></td>
+					<td><code>resolver dnsmasq detect [--json]</code></td>
 					<td>Показать экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr.</td>
-			</tr>
-			<tr>
-					<td><code>dnsmasq remove &lt;selector&gt;</code></td>
-					<td>Перезапустить один экземпляр dnsmasq без конфигурации keen-pbr.</td>
 			</tr>
 			<tr>
 					<td><code>test-routing &lt;ip-or-domain&gt; [параметры пакета]</code></td>
@@ -1263,14 +1257,14 @@ Commands:
 			</tr>
 	</tbody>
 </table>
-<h3><code>generate-resolver-config dnsmasq</code><span class="hx:absolute hx:-mt-20" id="generate-resolver-config-dnsmasq"></span>
-    <a href="#generate-resolver-config-dnsmasq" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Когда включена <code>dns.resolver_integration: &quot;dnsmasq&quot;</code>, эта команда печатает конфигурацию dnsmasq, которую собрал keen-pbr. Списки берутся только из кэша, ничего не скачивается. В ней соответствия «домен → сервер», исключения защиты от 
+<h3><code>resolver dnsmasq print-config</code><span class="hx:absolute hx:-mt-20" id="resolver-dnsmasq-print-config"></span>
+    <a href="#resolver-dnsmasq-print-config" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Когда включена <code>dns.resolver_integration: &quot;dnsmasq&quot;</code>, эта команда печатает конфигурацию dnsmasq, которую собрал keen-pbr. Списки берутся только из кэша, ничего не скачивается. В ней соответствия «домен → сервер», исключения защиты от 
   <abbr title="Атака, при которой публичный домен указывает на адрес в локальной сети. dnsmasq умеет блокировать такие ответы.">DNS rebinding</abbr>
  и резервные (<code>fallback</code>) серверы.</p>
 <p><strong>Использование:</strong></p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr generate-resolver-config dnsmasq</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr resolver dnsmasq print-config</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1332,12 +1326,11 @@ Commands:
 </div>
 </div>
 <p>Без <code>--update</code> команда печатает <code>Password hash: &lt;хеш&gt;</code>, который вы вставляете в <code>api.authentication.password_hash</code> сами. С <code>--update</code> она записывает в <code>config.json</code> <code>api.enabled: true</code>, <code>api.authentication.enabled: true</code> и хеш. После этого перезапустите сервис: <code>Restart the keen-pbr service for authentication changes to take effect.</code></p>
-<h3><code>dnsmasq detect</code> и <code>remove</code><span class="hx:absolute hx:-mt-20" id="dnsmasq-detect-and-remove"></span>
-    <a href="#dnsmasq-detect-and-remove" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Просмотр и очистка интеграции с dnsmasq без демона. Ни одной из команд не нужен управляющий сокет.</p>
+<h3><code>resolver dnsmasq detect</code><span class="hx:absolute hx:-mt-20" id="resolver-dnsmasq-detect"></span>
+    <a href="#resolver-dnsmasq-detect" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Просмотр интеграции с dnsmasq без демона. Команде не нужен управляющий сокет.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr dnsmasq detect <span class="o">[</span>--json<span class="o">]</span>
-</span></span><span class="line"><span class="cl">keen-pbr dnsmasq remove &lt;selector&gt;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr resolver dnsmasq detect <span class="o">[</span>--json<span class="o">]</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1349,7 +1342,7 @@ Commands:
   </button>
 </div>
 </div>
-<p><strong><code>detect</code></strong> выводит все экземпляры dnsmasq, о которых сообщает hook-скрипт платформы: запущен ли, DNS-адрес и чем он подтверждён, слушающие сокеты, установлен ли 
+<p>Команда выводит все экземпляры dnsmasq, о которых сообщает hook-скрипт платформы: запущен ли, DNS-адрес и чем он подтверждён, слушающие сокеты, установлен ли 
   <abbr title="Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.">drop-in</abbr>
  keen-pbr и какую конфигурацию загрузил dnsmasq, а также проблемы. В последней строке указано, какой экземпляр выбрал keen-pbr и как (<code>explicit</code>, <code>adopted</code> или <code>automatic</code>), либо почему выбрать не удалось.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1381,11 +1374,6 @@ Commands:
 <li><code>--json</code> печатает те же данные одним JSON-объектом (<code>selected</code>, <code>selection</code>, <code>error_code</code>, <code>message</code>, <code>warnings</code>, <code>instances[]</code>).</li>
 <li>Код возврата <code>0</code>, если экземпляр выбран и проблем нет, иначе <code>1</code>.</li>
 <li>Если выбор неоднозначен, в конце выводится подсказка задать <code>dns.dnsmasq_instance</code>.</li>
-</ul>
-<p><strong><code>remove &lt;selector&gt;</code></strong> перезапускает один экземпляр, чтобы он перестал использовать конфигурацию keen-pbr; на OpenWrt ещё возвращает убранный список серверов. Команда нужна, если после отключения интеграции <code>detect</code> показывает экземпляр, который всё ещё работает с конфигурацией keen-pbr.</p>
-<ul>
-<li>Нужны права root. Код возврата <code>64</code>, если селектор не указан или некорректен.</li>
-<li>Если интеграция для этого экземпляра всё ещё включена, команда напечатает примечание: демон может снова применить свою конфигурацию к dnsmasq при следующей синхронизации. Сначала отключите интеграцию.</li>
 </ul>
 <h2>Сигналы<span class="hx:absolute hx:-mt-20" id="сигналы"></span>
     <a href="#%d1%81%d0%b8%d0%b3%d0%bd%d0%b0%d0%bb%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Запущенным сервисом <code>keen-pbr</code> можно управлять сигналами:</p>

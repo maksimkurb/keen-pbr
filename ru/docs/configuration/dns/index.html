@@ -35,7 +35,7 @@
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе DNS-перехват.
 Нужен ли dnsmasq? Для маршрутизации нет. Перехват работает с любым резолвером: DNS-прокси Keenetic, unbound, dnsmasq или другим. Если провайдер подменяет DNS-ответы, обычно хватает DoH/DoT на роутере (DoH и DoT — зашифрованный DNS).">
-	<meta itemprop="wordCount" content="2535">
+	<meta itemprop="wordCount" content="2545">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Домены из ваших списков работают без настройки DNS. keen-pbr сам читает обычные DNS-ответы (порт 53), которые проходят через роутер, и имена сайтов в начале TLS-, HTTP- и QUIC-соединений (это называется L7: имя сайта берётся из первых пакетов соединения). Подробности в разделе DNS-перехват.
@@ -1502,7 +1502,7 @@
  keen-pbr уже стоит ровно в одном экземпляре. Он и продолжает использоваться. Если drop-in найден в нескольких, выбор останавливается с ошибкой <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
 <li><strong>Автоматически</strong>: поле пустое, ничего не установлено, и ровно один включённый экземпляр обслуживает DNS (<code>port</code> не равен <code>0</code>). Если таких нет, результат <code>DNSMASQ_NO_DNS_INSTANCE</code>; если несколько, <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
 </ol>
-<p>Если выбор неоднозначен, keen-pbr ничего не меняет и не трогает уже установленные drop-in. Посмотрите кандидатов командой <code>keen-pbr dnsmasq detect</code> и задайте экземпляр в <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Управление локальным DNS-сервером</strong> &gt; <strong>Экземпляр dnsmasq</strong> (или <code>dns.dnsmasq_instance</code> в <code>config.json</code>). Если drop-in keen-pbr стоит ещё и в невыбранном экземпляре, <code>detect</code> и журнал покажут предупреждение с командой для его удаления (<code>keen-pbr dnsmasq remove &lt;селектор&gt;</code>).</p>
+<p>Если выбор неоднозначен, keen-pbr ничего не меняет и не трогает уже установленные drop-in. Посмотрите кандидатов командой <code>keen-pbr resolver dnsmasq detect</code> и задайте экземпляр в <strong>Общее</strong> &gt; <strong>Настройки</strong> &gt; <strong>Управление локальным DNS-сервером</strong> &gt; <strong>Экземпляр dnsmasq</strong> (или <code>dns.dnsmasq_instance</code> в <code>config.json</code>). Если drop-in keen-pbr стоит ещё и в невыбранном экземпляре, <code>detect</code> и журнал покажут предупреждение. Удалите файл drop-in, который назван в предупреждении, и перезапустите этот экземпляр dnsmasq.</p>
 <h4>Определение DNS-адреса<span class="hx:absolute hx:-mt-20" id="определение-dns-адреса"></span>
     <a href="#%d0%be%d0%bf%d1%80%d0%b5%d0%b4%d0%b5%d0%bb%d0%b5%d0%bd%d0%b8%d0%b5-dns-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h4><p>keen-pbr сам находит адрес, на котором отвечает выбранный dnsmasq: читает конфигурацию, которую dnsmasq действительно загрузил, и проверяет адрес DNS-запросом. Если dnsmasq не обслуживает DNS (<code>port=0</code>, нет DNS-сокета или он работает в другом 
   <abbr title="Изолированная копия сетевого стека Linux со своими интерфейсами, маршрутами и firewall.">network namespace</abbr>
@@ -1532,7 +1532,7 @@
 			<tr>
 					<td><code>DNSMASQ_HOOK_FAILED</code></td>
 					<td>Вызов <code>inspect</code> у hook-скрипта завершился ошибкой или вывел нечитаемый ответ.</td>
-					<td>Запустите <code>keen-pbr dnsmasq detect</code>; проверьте, что hook-скрипт и keen-pbr одной версии.</td>
+					<td>Запустите <code>keen-pbr resolver dnsmasq detect</code>; проверьте, что hook-скрипт и keen-pbr одной версии.</td>
 			</tr>
 			<tr>
 					<td><code>DNSMASQ_NOT_INSTALLED</code></td>
@@ -1547,7 +1547,7 @@
 			<tr>
 					<td><code>DNSMASQ_INSTANCE_NOT_FOUND</code></td>
 					<td><code>dns.dnsmasq_instance</code> указывает на несуществующий экземпляр.</td>
-					<td>Исправьте селектор; допустимые покажет <code>keen-pbr dnsmasq detect</code>.</td>
+					<td>Исправьте селектор; допустимые покажет <code>keen-pbr resolver dnsmasq detect</code>.</td>
 			</tr>
 			<tr>
 					<td><code>DNSMASQ_INSTANCE_AMBIGUOUS</code></td>
@@ -1645,7 +1645,7 @@
 <h3>При остановке, отключении или удалении<span class="hx:absolute hx:-mt-20" id="при-остановке-отключении-или-удалении"></span>
     <a href="#%d0%bf%d1%80%d0%b8-%d0%be%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%ba%d0%b5-%d0%be%d1%82%d0%ba%d0%bb%d1%8e%d1%87%d0%b5%d0%bd%d0%b8%d0%b8-%d0%b8%d0%bb%d0%b8-%d1%83%d0%b4%d0%b0%d0%bb%d0%b5%d0%bd%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><ul>
 <li><strong>Остановка keen-pbr</strong>: dnsmasq не перезапускается. Отдельные DNS-серверы для списков продолжают работать, в том числе после перезапуска dnsmasq или роутера.</li>
-<li><strong>Отключение функции</strong> (<code>resolver_integration: &quot;none&quot;</code>): keen-pbr перезапускает dnsmasq, и тот переходит на серверы из <code>dnsmasq-fallback.conf</code>. На OpenWrt список серверов возвращается в <code>/etc/config/dhcp</code>. Если вы выключили управление, правя конфиг при остановленном keen-pbr, первый старт один раз перезапустит dnsmasq. См. <a href="/ru/docs/cli/#dnsmasq-detect-and-remove">команды <code>dnsmasq</code></a>.</li>
+<li><strong>Отключение функции</strong> (<code>resolver_integration: &quot;none&quot;</code>): keen-pbr перезапускает dnsmasq, и тот переходит на серверы из <code>dnsmasq-fallback.conf</code>. На OpenWrt список серверов возвращается в <code>/etc/config/dhcp</code>. Если вы выключили управление, правя конфиг при остановленном keen-pbr, первый старт один раз перезапустит dnsmasq. Проверить результат можно командой <a href="/ru/docs/cli/#resolver-dnsmasq-detect"><code>resolver dnsmasq detect</code></a>.</li>
 <li><strong>dnsmasq не запущен</strong>: keen-pbr никогда не запускает остановленный dnsmasq. Если dnsmasq упал в системе без супервизора служб (
   <abbr title="Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.">Entware</abbr>
 ), запустите его вручную; keen-pbr применит свою конфигурацию заново, как только dnsmasq снова заработает.</li>

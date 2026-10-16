@@ -35,7 +35,7 @@ Do I need dnsmasq?
 	<meta itemprop="name" content="DNS">
 	<meta itemprop="description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
 Do I need dnsmasq? No, not for routing. Interception works with any resolver: the Keenetic DNS proxy, unbound, dnsmasq or anything else. If your ISP spoofs DNS answers, DoH/DoT on the router is usually enough (DoH and DoT are encrypted DNS).">
-	<meta itemprop="wordCount" content="2935">
+	<meta itemprop="wordCount" content="2946">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="DNS">
 	<meta name="twitter:description" content="Domains from your lists work without any DNS setup. keen-pbr itself reads the plain DNS replies (port 53) that pass through the router, and the site names at the start of TLS, HTTP and QUIC connections (this is called L7: the site name is read from the first packets of a connection). Details are in DNS interception.
@@ -1503,7 +1503,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
  is already installed in exactly one instance. That instance keeps being used. If the drop-in is found in several instances, selection stops with <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
 <li><strong>Automatic</strong>: the field is empty, nothing is installed yet, and exactly one enabled instance has DNS (<code>port</code> is not <code>0</code>). With none, the result is <code>DNSMASQ_NO_DNS_INSTANCE</code>; with several, <code>DNSMASQ_INSTANCE_AMBIGUOUS</code>.</li>
 </ol>
-<p>When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run <code>keen-pbr dnsmasq detect</code> to see the candidates, then set it under <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong> &gt; <strong>dnsmasq instance</strong> (or <code>dns.dnsmasq_instance</code> in <code>config.json</code>). If keen-pbr&rsquo;s drop-in is also installed in an instance that is not selected, <code>detect</code> and the logs show a warning with the command that removes it (<code>keen-pbr dnsmasq remove &lt;selector&gt;</code>).</p>
+<p>When the choice is ambiguous, keen-pbr does not guess: it modifies nothing and leaves existing drop-ins alone. Run <code>keen-pbr resolver dnsmasq detect</code> to see the candidates, then set it under <strong>General</strong> &gt; <strong>Settings</strong> &gt; <strong>Local DNS server management</strong> &gt; <strong>dnsmasq instance</strong> (or <code>dns.dnsmasq_instance</code> in <code>config.json</code>). If keen-pbr&rsquo;s drop-in is also installed in an instance that is not selected, <code>detect</code> and the logs show a warning. Delete the drop-in file named in the warning and restart that dnsmasq instance.</p>
 <h4>DNS endpoint detection<span class="hx:absolute hx:-mt-20" id="dns-endpoint-detection"></span>
     <a href="#dns-endpoint-detection" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>keen-pbr finds the address the selected dnsmasq answers on by itself: it reads the configuration dnsmasq actually loaded and checks the address with a DNS query. If dnsmasq does not serve DNS (<code>port=0</code>, no DNS socket, or another 
   <abbr title="An isolated copy of the Linux network stack with its own interfaces, routes and firewall.">network namespace</abbr>
@@ -1533,7 +1533,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 			<tr>
 					<td><code>DNSMASQ_HOOK_FAILED</code></td>
 					<td>The hook&rsquo;s <code>inspect</code> call failed or printed something unreadable.</td>
-					<td>Run <code>keen-pbr dnsmasq detect</code>; check that the hook and keen-pbr are from the same version.</td>
+					<td>Run <code>keen-pbr resolver dnsmasq detect</code>; check that the hook and keen-pbr are from the same version.</td>
 			</tr>
 			<tr>
 					<td><code>DNSMASQ_NOT_INSTALLED</code></td>
@@ -1548,7 +1548,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 			<tr>
 					<td><code>DNSMASQ_INSTANCE_NOT_FOUND</code></td>
 					<td><code>dns.dnsmasq_instance</code> names an instance that does not exist.</td>
-					<td>Fix the selector; <code>keen-pbr dnsmasq detect</code> lists valid ones.</td>
+					<td>Fix the selector; <code>keen-pbr resolver dnsmasq detect</code> lists valid ones.</td>
 			</tr>
 			<tr>
 					<td><code>DNSMASQ_INSTANCE_AMBIGUOUS</code></td>
@@ -1648,7 +1648,7 @@ Do I need dnsmasq? No, not for routing. Interception works with any resolver: th
 <h3>On stop, disable, or uninstall<span class="hx:absolute hx:-mt-20" id="on-stop-disable-or-uninstall"></span>
     <a href="#on-stop-disable-or-uninstall" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
 <li><strong>Stopping keen-pbr</strong>: dnsmasq is not restarted; per-list DNS servers keep working, also after a dnsmasq or router restart.</li>
-<li><strong>Disabling the feature</strong> (<code>resolver_integration: &quot;none&quot;</code>): keen-pbr restarts dnsmasq, which then uses the servers from <code>dnsmasq-fallback.conf</code>. On OpenWrt the server list returns to <code>/etc/config/dhcp</code>. If you turned it off by editing the config while keen-pbr was stopped, the first start restarts dnsmasq once. See <a href="/docs/cli/#dnsmasq-detect-and-remove"><code>dnsmasq</code> commands</a>.</li>
+<li><strong>Disabling the feature</strong> (<code>resolver_integration: &quot;none&quot;</code>): keen-pbr restarts dnsmasq, which then uses the servers from <code>dnsmasq-fallback.conf</code>. On OpenWrt the server list returns to <code>/etc/config/dhcp</code>. If you turned it off by editing the config while keen-pbr was stopped, the first start restarts dnsmasq once. To check the result, see <a href="/docs/cli/#resolver-dnsmasq-detect"><code>resolver dnsmasq detect</code></a>.</li>
 <li><strong>dnsmasq is not running</strong>: keen-pbr never starts a stopped dnsmasq. If dnsmasq crashes on a system without a service supervisor (
   <abbr title="A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.">Entware</abbr>
 ), start it manually; keen-pbr re-applies its configuration once dnsmasq is running again.</li>
