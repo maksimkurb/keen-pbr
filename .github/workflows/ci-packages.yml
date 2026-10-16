@@ -7,6 +7,8 @@ on:
       - 'dev'
       - 'dev-*'
     paths:
+      - '.github/workflows/**'
+      - '.github/builder/**'
       - 'build_scripts/**'
       - 'cmake/**'
       - 'docker/**'
