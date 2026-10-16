@@ -38,12 +38,7 @@ What changed in each keen-pbr release, and what to do when you upgrade.
 
 After the upgrade, dnsmasq management stays on, as in 3.3.x. If you do not need it, turn off **Manage dnsmasq configuration** in the Web UI (**General** > **Settings** > **Local DNS server management**) and follow the rollback steps: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq-rollback" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq-rollback" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq-rollback" >}}). Without it, DNS rules and default DNS servers stop working.
 
-**Keenetic.** keen-pbr 3.3.x installed `dnsmasq-full` as a dependency, and opkg removes it during the upgrade. When it is removed, the installer asks in the terminal what to do:
-
-- `1`: keep dnsmasq. Right after opkg finishes, `dnsmasq-full` is installed again, with its progress printed in the same terminal.
-- `2`: stop using dnsmasq. dnsmasq management is turned off.
-
-If you installed `dnsmasq-full` yourself, opkg keeps it and there is no question. If the install fails, install the package by hand, record the choice with `keen-pbr dnsmasq finish-upgrade keep` and restart the service: `/opt/etc/init.d/S80keen-pbr restart`.
+**Keenetic.** keen-pbr 3.3.x installed `dnsmasq-full` as a dependency, and opkg may remove it during the upgrade. If it is gone, the Web UI opens a window with two ways out: install it again with `opkg install dnsmasq-full`, or turn off **Manage dnsmasq configuration**.
 
 Check after the upgrade:
 

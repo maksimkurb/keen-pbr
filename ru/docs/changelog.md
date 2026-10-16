@@ -38,12 +38,7 @@
 
 После обновления управление dnsmasq остаётся включённым, как в 3.3.x. Если dnsmasq вам не нужен, выключите **Управлять конфигурацией dnsmasq** в веб-интерфейсе (**Общее** > **Настройки** > **Управление локальным DNS-сервером**) и выполните шаги отката: [Keenetic]({{< relref "/docs/getting-started/installation/keenetic#dnsmasq-rollback" >}}), [OpenWrt]({{< relref "/docs/getting-started/installation/openwrt#dnsmasq-rollback" >}}), [Debian]({{< relref "/docs/getting-started/installation/debian#dnsmasq-rollback" >}}). Без него не работают DNS-правила и основные DNS-серверы.
 
-**Keenetic.** keen-pbr 3.3.x ставил `dnsmasq-full` как зависимость, и при обновлении opkg его удаляет. Если пакет удалён, установщик спросит в терминале, что делать:
-
-- `1` — оставить dnsmasq. Сразу после завершения opkg пакет `dnsmasq-full` установится снова, ход установки печатается в том же терминале.
-- `2` — не использовать dnsmasq. Управление dnsmasq выключится.
-
-Если вы ставили `dnsmasq-full` сами, opkg его не удаляет и вопроса не будет. Если установка не удалась, установите пакет вручную и запишите выбор командой `keen-pbr dnsmasq finish-upgrade keep`, затем перезапустите сервис: `/opt/etc/init.d/S80keen-pbr restart`.
+**Keenetic.** keen-pbr 3.3.x ставил `dnsmasq-full` как зависимость, и при обновлении opkg может его удалить. Если пакета нет, веб-интерфейс откроет окно с двумя вариантами: установить его снова командой `opkg install dnsmasq-full` или выключить **Управлять конфигурацией dnsmasq**.
 
 Что проверить после обновления:
 

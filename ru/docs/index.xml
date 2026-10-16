@@ -3732,7 +3732,6 @@ graph LR;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  dnsmasq remove &amp;lt;selector&amp;gt;          Restart one dnsmasq instance without keen-pbr&amp;#39;s generated config (OpenWrt: also return the moved servers)
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  dnsmasq finish-upgrade &amp;lt;keep|off&amp;gt;  After an upgrade from 3.3.x: keep dnsmasq management on or turn it off, and stamp the config version
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  hash-password [--update]           Generate an authentication password hash; --update writes config.json&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
@@ -3885,10 +3884,6 @@ graph LR;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;dnsmasq remove &amp;lt;selector&amp;gt;&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;Перезапустить один экземпляр dnsmasq без конфигурации keen-pbr.&lt;/td&gt;
-			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;dnsmasq finish-upgrade &amp;lt;keep|off&amp;gt;&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;После обновления с 3.3.x оставить управление dnsmasq (&lt;code&gt;keep&lt;/code&gt;) или выключить его (&lt;code&gt;off&lt;/code&gt;). Записывает в конфиг поле &lt;code&gt;version&lt;/code&gt;. Затем перезапустите сервис.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;test-routing &amp;lt;ip-or-domain&amp;gt; [параметры пакета]&lt;/code&gt;&lt;/td&gt;
@@ -8229,12 +8224,7 @@ Tailscale работает как subnet router или exit node.&lt;/p&gt;
 &lt;/ul&gt;
 &lt;h3&gt;Обновление с 3.3.x&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;upgrading-from-33x&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#upgrading-from-33x&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;После обновления управление dnsmasq остаётся включённым, как в 3.3.x. Если dnsmasq вам не нужен, выключите &lt;strong&gt;Управлять конфигурацией dnsmasq&lt;/strong&gt; в веб-интерфейсе (&lt;strong&gt;Общее&lt;/strong&gt; &amp;gt; &lt;strong&gt;Настройки&lt;/strong&gt; &amp;gt; &lt;strong&gt;Управление локальным DNS-сервером&lt;/strong&gt;) и выполните шаги отката: &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/installation/keenetic/#dnsmasq-rollback&#34;&gt;Keenetic&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/installation/openwrt/#dnsmasq-rollback&#34;&gt;OpenWrt&lt;/a&gt;, &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/installation/debian/#dnsmasq-rollback&#34;&gt;Debian&lt;/a&gt;. Без него не работают DNS-правила и основные DNS-серверы.&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;Keenetic.&lt;/strong&gt; keen-pbr 3.3.x ставил &lt;code&gt;dnsmasq-full&lt;/code&gt; как зависимость, и при обновлении opkg его удаляет. Если пакет удалён, установщик спросит в терминале, что делать:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;code&gt;1&lt;/code&gt; — оставить dnsmasq. Сразу после завершения opkg пакет &lt;code&gt;dnsmasq-full&lt;/code&gt; установится снова, ход установки печатается в том же терминале.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;2&lt;/code&gt; — не использовать dnsmasq. Управление dnsmasq выключится.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;Если вы ставили &lt;code&gt;dnsmasq-full&lt;/code&gt; сами, opkg его не удаляет и вопроса не будет. Если установка не удалась, установите пакет вручную и запишите выбор командой &lt;code&gt;keen-pbr dnsmasq finish-upgrade keep&lt;/code&gt;, затем перезапустите сервис: &lt;code&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Keenetic.&lt;/strong&gt; keen-pbr 3.3.x ставил &lt;code&gt;dnsmasq-full&lt;/code&gt; как зависимость, и при обновлении opkg может его удалить. Если пакета нет, веб-интерфейс откроет окно с двумя вариантами: установить его снова командой &lt;code&gt;opkg install dnsmasq-full&lt;/code&gt; или выключить &lt;strong&gt;Управлять конфигурацией dnsmasq&lt;/strong&gt;.&lt;/p&gt;
 &lt;p&gt;Что проверить после обновления:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Keenetic: модули ядра.&lt;/strong&gt; Домены теперь определяются перехватом. Если компонент &lt;strong&gt;Модули ядра подсистемы Netfilter&lt;/strong&gt; ещё не установлен, установите его. Затем откройте страницу состояния в веб-интерфейсе и запустите проверку DNS.&lt;/li&gt;
