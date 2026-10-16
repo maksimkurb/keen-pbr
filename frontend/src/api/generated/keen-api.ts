@@ -32,10 +32,13 @@ import type {
   AuthSettingsRequest,
   AuthSettingsResponse,
   AuthStatusResponse,
+  ConfigObject,
   ConfigStateResponse,
   ConfigUpdateResponse,
   DraftConfig,
   ErrorResponse,
+  GetDnsTestParams,
+  HealthIssuesResponse,
   HealthResponse,
   LifecycleOperationAcceptedResponse,
   ListRefreshRequest,
@@ -52,6 +55,126 @@ import { apiFetch } from '../client';
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
+
+/**
+ * Returns Prometheus text exposition format 0.0.4. Uses the same API authentication as other protected endpoints. The metrics provider may be unavailable during startup or when metrics support is disabled.
+
+ * @summary Prometheus metrics
+ */
+export type getMetricsResponse200 = {
+  data: string
+  status: 200
+}
+
+export type getMetricsResponse503 = {
+  data: string
+  status: 503
+}
+
+export type getMetricsResponseSuccess = (getMetricsResponse200) & {
+  headers: Headers;
+};
+export type getMetricsResponseError = (getMetricsResponse503) & {
+  headers: Headers;
+};
+
+export type getMetricsResponse = (getMetricsResponseSuccess | getMetricsResponseError)
+
+export const getGetMetricsUrl = () => {
+
+
+
+
+  return `/metrics`
+}
+
+export const getMetrics = async ( options?: RequestInit): Promise<getMetricsResponse> => {
+
+  return apiFetch<getMetricsResponse>(getGetMetricsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMetricsQueryKey = () => {
+    return [
+    `/metrics`
+    ] as const;
+    }
+
+
+export const getGetMetricsQueryOptions = <TData = Awaited<ReturnType<typeof getMetrics>>, TError = string>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMetricsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMetrics>>> = ({ signal }) => getMetrics({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMetricsQueryResult = NonNullable<Awaited<ReturnType<typeof getMetrics>>>
+export type GetMetricsQueryError = string
+
+
+export function useGetMetrics<TData = Awaited<ReturnType<typeof getMetrics>>, TError = string>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMetrics>>,
+          TError,
+          Awaited<ReturnType<typeof getMetrics>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMetrics<TData = Awaited<ReturnType<typeof getMetrics>>, TError = string>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMetrics>>,
+          TError,
+          Awaited<ReturnType<typeof getMetrics>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMetrics<TData = Awaited<ReturnType<typeof getMetrics>>, TError = string>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Prometheus metrics
+ */
+
+export function useGetMetrics<TData = Awaited<ReturnType<typeof getMetrics>>, TError = string>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMetricsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
 
 
 
@@ -743,7 +866,7 @@ export const usePostAuthSettings = <TError = void,
     }
 
 /**
- * Returns the running daemon version, routing runtime status, and resolver/config summary for the daemon. Outbound runtime diagnostics are exposed via `/api/runtime/outbounds`.
+ * Returns the running daemon version, routing runtime status, and config summary for the daemon. Outbound runtime diagnostics are exposed via `/api/runtime/outbounds`.
 
  * @summary Service health and outbound status
  */
@@ -856,7 +979,7 @@ export function useGetHealthService<TData = Awaited<ReturnType<typeof getHealthS
 
 
 /**
- * Applies keen-pbr routing/firewall runtime state and runs dnsmasq registration hooks to activate the managed resolver config without stopping the API process.
+ * Applies keen-pbr routing/firewall runtime state without stopping the API process.
 
  * @summary Start routing runtime
  */
@@ -947,7 +1070,7 @@ export const usePostServiceStart = <TError = void,
     }
 
 /**
- * Removes keen-pbr routing/firewall runtime state and runs dnsmasq deactivation hooks to load fallback resolver config while keeping the API process running.
+ * Removes keen-pbr routing/firewall runtime state while keeping the API process running.
 
  * @summary Stop routing runtime
  */
@@ -1038,7 +1161,7 @@ export const usePostServiceStop = <TError = void,
     }
 
 /**
- * Re-applies keen-pbr routing/firewall runtime state and dnsmasq registration hooks for the managed resolver config.
+ * Re-applies keen-pbr routing/firewall runtime state.
 
  * @summary Restart routing runtime
  */
@@ -1448,6 +1571,119 @@ export const usePostConfig = <TError = ErrorResponse,
     }
 
 /**
+ * Returns a config object holding the value the daemon uses for each setting that is not set. Only settings with a fixed default are present. The web UI shows them as placeholders; they are never written to the config.
+
+ * @summary Get config defaults
+ */
+export type getConfigDefaultsResponse200 = {
+  data: ConfigObject
+  status: 200
+}
+
+export type getConfigDefaultsResponseSuccess = (getConfigDefaultsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getConfigDefaultsResponse = (getConfigDefaultsResponseSuccess)
+
+export const getGetConfigDefaultsUrl = () => {
+
+
+
+
+  return `/api/config/defaults`
+}
+
+export const getConfigDefaults = async ( options?: RequestInit): Promise<getConfigDefaultsResponse> => {
+
+  return apiFetch<getConfigDefaultsResponse>(getGetConfigDefaultsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConfigDefaultsQueryKey = () => {
+    return [
+    `/api/config/defaults`
+    ] as const;
+    }
+
+
+export const getGetConfigDefaultsQueryOptions = <TData = Awaited<ReturnType<typeof getConfigDefaults>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConfigDefaultsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConfigDefaults>>> = ({ signal }) => getConfigDefaults({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetConfigDefaultsQueryResult = NonNullable<Awaited<ReturnType<typeof getConfigDefaults>>>
+export type GetConfigDefaultsQueryError = unknown
+
+
+export function useGetConfigDefaults<TData = Awaited<ReturnType<typeof getConfigDefaults>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getConfigDefaults>>,
+          TError,
+          Awaited<ReturnType<typeof getConfigDefaults>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetConfigDefaults<TData = Awaited<ReturnType<typeof getConfigDefaults>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getConfigDefaults>>,
+          TError,
+          Awaited<ReturnType<typeof getConfigDefaults>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetConfigDefaults<TData = Awaited<ReturnType<typeof getConfigDefaults>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get config defaults
+ */
+
+export function useGetConfigDefaults<TData = Awaited<ReturnType<typeof getConfigDefaults>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getConfigDefaults>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetConfigDefaultsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+/**
  * Persists the currently staged in-memory config to disk and then applies it to the routing runtime.
 
  * @summary Apply staged config
@@ -1645,7 +1881,7 @@ export const usePostConfigDiscard = <TError = ErrorResponse,
     }
 
 /**
- * Atomically restores the previous config inode retained in memory by the daemon and reconciles routing and dnsmasq against it. Available only after a committed apply fails before the transaction is verified.
+ * Atomically restores the previous config inode retained in memory by the daemon and reconciles routing against it. Available only after a committed apply fails before the transaction is verified.
 
  * @summary Roll back a failed configuration apply
  */
@@ -1937,6 +2173,119 @@ export function useGetHealthRouting<TData = Awaited<ReturnType<typeof getHealthR
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetHealthRoutingQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+/**
+ * Problems found in the service, kernel, routing and outbound health, each classified as an error or a warning, and the kernel checks that apply to the current configuration. The web UI overview and `keen-pbr status` show this same list.
+
+ * @summary Health issues and kernel checks
+ */
+export type getHealthIssuesResponse200 = {
+  data: HealthIssuesResponse
+  status: 200
+}
+
+export type getHealthIssuesResponseSuccess = (getHealthIssuesResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getHealthIssuesResponse = (getHealthIssuesResponseSuccess)
+
+export const getGetHealthIssuesUrl = () => {
+
+
+
+
+  return `/api/health/issues`
+}
+
+export const getHealthIssues = async ( options?: RequestInit): Promise<getHealthIssuesResponse> => {
+
+  return apiFetch<getHealthIssuesResponse>(getGetHealthIssuesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetHealthIssuesQueryKey = () => {
+    return [
+    `/api/health/issues`
+    ] as const;
+    }
+
+
+export const getGetHealthIssuesQueryOptions = <TData = Awaited<ReturnType<typeof getHealthIssues>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHealthIssuesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHealthIssues>>> = ({ signal }) => getHealthIssues({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetHealthIssuesQueryResult = NonNullable<Awaited<ReturnType<typeof getHealthIssues>>>
+export type GetHealthIssuesQueryError = unknown
+
+
+export function useGetHealthIssues<TData = Awaited<ReturnType<typeof getHealthIssues>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHealthIssues>>,
+          TError,
+          Awaited<ReturnType<typeof getHealthIssues>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetHealthIssues<TData = Awaited<ReturnType<typeof getHealthIssues>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHealthIssues>>,
+          TError,
+          Awaited<ReturnType<typeof getHealthIssues>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetHealthIssues<TData = Awaited<ReturnType<typeof getHealthIssues>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Health issues and kernel checks
+ */
+
+export function useGetHealthIssues<TData = Awaited<ReturnType<typeof getHealthIssues>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthIssues>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetHealthIssuesQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -2292,7 +2641,7 @@ export function useGetRuntimeInterfaces<TData = Awaited<ReturnType<typeof getRun
 
 
 /**
- * Streams named Server-Sent Events for service health, runtime outbounds, and system interfaces. Every connection receives a snapshot first. Later events contain the complete dataset that changed. Heartbeat comments are sent every 15 seconds; reconnecting starts with a fresh snapshot and no event replay is performed.
+ * Streams named Server-Sent Events for service health, runtime outbounds, system interfaces, classified health issues (`issues`, the same data as `/api/health/issues`), and routing health (`routing`, the same data as `/api/health/routing`), and the public authentication state (`auth`, `enabled` and `device_name` from `/api/auth/status`). The daemon re-checks routing health about every 45 seconds while at least one stream is open. A `config` event (`revision`) is sent whenever the active config, the staged draft, or the list refresh state changes; clients refetch `/api/config` when the value changes. Every connection receives a snapshot first. Later events contain the complete dataset that changed. Heartbeat comments are sent every 15 seconds; reconnecting starts with a fresh snapshot and no event replay is performed.
 
  * @summary Stream live WebUI status
  */
@@ -2405,7 +2754,7 @@ export function useGetStatusEvents<TData = Awaited<ReturnType<typeof getStatusEv
 
 
 /**
- * Streams DNS query names observed by the built-in `dns.test_server` listener as Server-Sent Events. Each connection receives `HELLO` first, then one event per queried DNS name.
+ * Streams the daemon's traffic interception events as Server-Sent Events. Each connection receives `HELLO` first. By default only DNS marker events used by the dashboard self-check are delivered. Set `show=all` (or the compatibility alias `show=full`) to receive every observed DNS, TLS SNI, HTTP Host, QUIC Initial, and marker event, including parsed DNS responses that did not match a configured list. The DNS marker domain (`intercept.dns.marker`) is answered by the interceptor and reported as an `INTERCEPT` event with `source` `marker`. `show=all` requires API authentication to be enabled; without it the request is refused with `403`.
 
  * @summary Stream DNS test queries
  */
@@ -2414,24 +2763,43 @@ export type getDnsTestResponse200 = {
   status: 200
 }
 
+export type getDnsTestResponse400 = {
+  data: ErrorResponse
+  status: 400
+}
+
+export type getDnsTestResponse403 = {
+  data: ErrorResponse
+  status: 403
+}
+
 export type getDnsTestResponseSuccess = (getDnsTestResponse200) & {
   headers: Headers;
 };
-;
+export type getDnsTestResponseError = (getDnsTestResponse400 | getDnsTestResponse403) & {
+  headers: Headers;
+};
 
-export type getDnsTestResponse = (getDnsTestResponseSuccess)
+export type getDnsTestResponse = (getDnsTestResponseSuccess | getDnsTestResponseError)
 
-export const getGetDnsTestUrl = () => {
+export const getGetDnsTestUrl = (params?: GetDnsTestParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/dns/test`
+  return stringifiedParams.length > 0 ? `/api/dns/test?${stringifiedParams}` : `/api/dns/test`
 }
 
-export const getDnsTest = async ( options?: RequestInit): Promise<getDnsTestResponse> => {
+export const getDnsTest = async (params?: GetDnsTestParams, options?: RequestInit): Promise<getDnsTestResponse> => {
 
-  return apiFetch<getDnsTestResponse>(getGetDnsTestUrl(),
+  return apiFetch<getDnsTestResponse>(getGetDnsTestUrl(params),
   {
     ...options,
     method: 'GET'
@@ -2444,23 +2812,23 @@ export const getDnsTest = async ( options?: RequestInit): Promise<getDnsTestResp
 
 
 
-export const getGetDnsTestQueryKey = () => {
+export const getGetDnsTestQueryKey = (params?: GetDnsTestParams,) => {
     return [
-    `/api/dns/test`
+    `/api/dns/test`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetDnsTestQueryOptions = <TData = Awaited<ReturnType<typeof getDnsTest>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+export const getGetDnsTestQueryOptions = <TData = Awaited<ReturnType<typeof getDnsTest>>, TError = ErrorResponse>(params?: GetDnsTestParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetDnsTestQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetDnsTestQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDnsTest>>> = ({ signal }) => getDnsTest({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDnsTest>>> = ({ signal }) => getDnsTest(params, { signal, ...requestOptions });
 
 
 
@@ -2470,11 +2838,11 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetDnsTestQueryResult = NonNullable<Awaited<ReturnType<typeof getDnsTest>>>
-export type GetDnsTestQueryError = unknown
+export type GetDnsTestQueryError = ErrorResponse
 
 
-export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>> & Pick<
+export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = ErrorResponse>(
+ params: undefined |  GetDnsTestParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getDnsTest>>,
           TError,
@@ -2483,8 +2851,8 @@ export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TE
       >, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>> & Pick<
+export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = ErrorResponse>(
+ params?: GetDnsTestParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getDnsTest>>,
           TError,
@@ -2493,20 +2861,20 @@ export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TE
       >, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = ErrorResponse>(
+ params?: GetDnsTestParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Stream DNS test queries
  */
 
-export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TError = ErrorResponse>(
+ params?: GetDnsTestParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDnsTest>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetDnsTestQueryOptions(options)
+  const queryOptions = getGetDnsTestQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

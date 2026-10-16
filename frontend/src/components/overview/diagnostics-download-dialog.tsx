@@ -10,13 +10,7 @@ import type {
 import type { DnsCheckStatus } from "@/hooks/use-dns-check"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { ResponsiveDialog } from "@/components/shared/responsive-dialog"
 import { Label } from "@/components/ui/label"
 import { authenticatedFetch } from "@/api/client"
 
@@ -73,58 +67,44 @@ export function DiagnosticsDownloadDialog({
   ])
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {t("overview.diagnosticsDownload.modal.title")}
-          </DialogTitle>
-          <DialogDescription>
-            {t("overview.diagnosticsDownload.modal.description")}
-          </DialogDescription>
-        </DialogHeader>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("overview.diagnosticsDownload.modal.title")}
+      description={t("overview.diagnosticsDownload.modal.description")}
+    >
+      <div className="space-y-3 text-sm">
+        <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
+          <li>{t("overview.diagnosticsDownload.modal.items.config")}</li>
+          <li>{t("overview.diagnosticsDownload.modal.items.serviceHealth")}</li>
+          <li>{t("overview.diagnosticsDownload.modal.items.routingHealth")}</li>
+          <li>{t("overview.diagnosticsDownload.modal.items.outbounds")}</li>
+          <li>{t("overview.diagnosticsDownload.modal.items.names")}</li>
+        </ol>
 
-        <div className="space-y-3 text-sm">
-          <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-            <li>{t("overview.diagnosticsDownload.modal.items.config")}</li>
-            <li>
-              {t("overview.diagnosticsDownload.modal.items.serviceHealth")}
-            </li>
-            <li>
-              {t("overview.diagnosticsDownload.modal.items.routingHealth")}
-            </li>
-            <li>{t("overview.diagnosticsDownload.modal.items.outbounds")}</li>
-            <li>{t("overview.diagnosticsDownload.modal.items.names")}</li>
-          </ol>
+        <p className="text-sm text-muted-foreground">
+          {t("overview.diagnosticsDownload.modal.trustWarning")}
+        </p>
 
-          <p className="text-sm text-muted-foreground">
-            {t("overview.diagnosticsDownload.modal.trustWarning")}
-          </p>
+        <Label className="flex cursor-pointer items-start gap-2 text-sm">
+          <Checkbox
+            checked={hideListsContent}
+            onCheckedChange={(checked) => setHideListsContent(Boolean(checked))}
+          />
+          <span>{t("overview.diagnosticsDownload.modal.hideListsOption")}</span>
+        </Label>
 
-          <Label className="flex cursor-pointer items-start gap-2 text-sm">
-            <Checkbox
-              checked={hideListsContent}
-              onCheckedChange={(checked) =>
-                setHideListsContent(Boolean(checked))
-              }
-            />
-            <span>
-              {t("overview.diagnosticsDownload.modal.hideListsOption")}
-            </span>
-          </Label>
-
-          <Button
-            className="w-full"
-            onClick={() => {
-              void downloadDiagnosticsFile(diagnosticsPayload)
-              onOpenChange(false)
-            }}
-          >
-            {t("overview.diagnosticsDownload.modal.downloadAction")}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        <Button
+          className="w-full"
+          onClick={() => {
+            void downloadDiagnosticsFile(diagnosticsPayload)
+            onOpenChange(false)
+          }}
+        >
+          {t("overview.diagnosticsDownload.modal.downloadAction")}
+        </Button>
+      </div>
+    </ResponsiveDialog>
   )
 }
 

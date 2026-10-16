@@ -25,14 +25,6 @@ Config parse_minimal_config(const std::string& json) {
         fallback_server.address = "127.0.0.1";
         cfg.dns->servers = std::vector<DnsServer>{fallback_server};
     }
-    if (!cfg.dns->fallback.has_value()) {
-        cfg.dns->fallback = std::vector<std::string>{"default_dns"};
-    }
-    if (!cfg.dns->system_resolver.has_value()) {
-        api::SystemResolver resolver;
-        resolver.address = "127.0.0.1";
-        cfg.dns->system_resolver = resolver;
-    }
     validate_config(cfg);
     return cfg;
 }
@@ -130,117 +122,6 @@ TEST_CASE("build_fw_rule_states: disabled route rule is skipped while enabled ru
     }));
 }
 
-TEST_CASE("build_firewall_global_prefilter: missing inbound_interfaces keeps interface restriction disabled") {
-    auto cfg = parse_minimal_config(R"({
-        "outbounds":[
-            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
-        ],
-        "lists":{
-            "local":{"ip_cidrs":["192.168.0.0/16"]}
-        },
-        "route":{
-            "rules":[
-                {"list":["local"],"outbound":"wan"}
-            ]
-        }
-    })");
-
-    const auto prefilter = build_firewall_global_prefilter(cfg);
-    CHECK(prefilter.skip_established_or_dnat);
-    CHECK(prefilter.skip_marked_packets);
-    CHECK_FALSE(prefilter.has_inbound_interfaces());
-    CHECK_FALSE(prefilter.inbound_interfaces.has_value());
-}
-
-TEST_CASE("build_firewall_global_prefilter: empty inbound_interfaces keeps interface restriction disabled") {
-    auto cfg = parse_minimal_config(R"({
-        "outbounds":[
-            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
-        ],
-        "lists":{
-            "local":{"ip_cidrs":["192.168.0.0/16"]}
-        },
-        "route":{
-            "inbound_interfaces":[],
-            "rules":[
-                {"list":["local"],"outbound":"wan"}
-            ]
-        }
-    })");
-
-    const auto prefilter = build_firewall_global_prefilter(cfg);
-    CHECK(prefilter.skip_established_or_dnat);
-    CHECK(prefilter.skip_marked_packets);
-    CHECK_FALSE(prefilter.has_inbound_interfaces());
-    CHECK_FALSE(prefilter.inbound_interfaces.has_value());
-}
-
-TEST_CASE("build_firewall_global_prefilter: inbound_interfaces enables interface restriction") {
-    auto cfg = parse_minimal_config(R"({
-        "outbounds":[
-            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
-        ],
-        "lists":{
-            "local":{"ip_cidrs":["192.168.0.0/16"]}
-        },
-        "route":{
-            "inbound_interfaces":["br0","wg0"],
-            "rules":[
-                {"list":["local"],"outbound":"wan"}
-            ]
-        }
-    })");
-
-    const auto prefilter = build_firewall_global_prefilter(cfg);
-    CHECK(prefilter.skip_established_or_dnat);
-    CHECK(prefilter.skip_marked_packets);
-    REQUIRE(prefilter.inbound_interfaces.has_value());
-    CHECK(prefilter.has_inbound_interfaces());
-    CHECK(*prefilter.inbound_interfaces == std::vector<std::string>({"br0", "wg0"}));
-}
-
-TEST_CASE("build_firewall_global_prefilter: daemon.skip_marked_packets false disables marked-packet bypass") {
-    auto cfg = parse_minimal_config(R"({
-        "daemon":{"skip_marked_packets":false},
-        "outbounds":[
-            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
-        ],
-        "lists":{
-            "local":{"ip_cidrs":["192.168.0.0/16"]}
-        },
-        "route":{
-            "rules":[
-                {"list":["local"],"outbound":"wan"}
-            ]
-        }
-    })");
-
-    const auto prefilter = build_firewall_global_prefilter(cfg);
-    CHECK(prefilter.skip_established_or_dnat);
-    CHECK_FALSE(prefilter.skip_marked_packets);
-}
-
-TEST_CASE("build_firewall_global_prefilter: daemon.skip_marked_packets null keeps marked-packet bypass enabled") {
-    auto cfg = parse_minimal_config(R"({
-        "daemon":{"skip_marked_packets":null},
-        "outbounds":[
-            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
-        ],
-        "lists":{
-            "local":{"ip_cidrs":["192.168.0.0/16"]}
-        },
-        "route":{
-            "rules":[
-                {"list":["local"],"outbound":"wan"}
-            ]
-        }
-    })");
-
-    const auto prefilter = build_firewall_global_prefilter(cfg);
-    CHECK(prefilter.skip_established_or_dnat);
-    CHECK(prefilter.skip_marked_packets);
-}
-
 TEST_CASE("build_fw_rule_states: urltest keeps its stable mark across selections") {
     auto cfg = parse_minimal_config(R"({
         "outbounds":[
@@ -292,81 +173,6 @@ TEST_CASE("build_fw_rule_states: selector-only route rule without list still bec
     CHECK(states[0].fwmark != 0);
 }
 
-TEST_CASE("prune_fw_rule_states_to_realized_sets: removes nonexistent pass-through set variants") {
-    auto cfg = parse_minimal_config(R"({
-        "outbounds":[
-            {"tag":"direct","type":"ignore"}
-        ],
-        "lists":{
-            "local":{"ip_cidrs":["192.168.0.0/16"]}
-        },
-        "route":{
-            "rules":[
-                {"list":["local"],"outbound":"direct"}
-            ]
-        }
-    })");
-
-    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
-                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
-    auto states = build_fw_rule_states(cfg, marks);
-
-    prune_fw_rule_states_to_realized_sets(
-        cfg,
-        states,
-        [](const std::string&, const ListConfig&) {
-            ListSetUsage usage;
-            usage.has_static_entries = true;
-            usage.has_domain_entries = false;
-            return usage;
-        });
-
-    REQUIRE(states.size() == 1);
-    CHECK(states[0].action_type == RuleActionType::Pass);
-    CHECK(states[0].set_names == std::vector<std::string>({
-        "kpbr4_local", "kpbr6_local"
-    }));
-}
-
-TEST_CASE("prune_fw_rule_states_to_realized_sets: matches runtime selectors and ipv6 filtering") {
-    auto cfg = parse_minimal_config(R"({
-        "outbounds":[
-            {"tag":"vpn","type":"interface","interface":"wg0","gateway":"10.8.0.1"}
-        ],
-        "lists":{
-            "local":{"ip_cidrs":["192.168.0.0/16"],"domains":["example.com"]}
-        },
-        "route":{
-            "rules":[
-                {"list":["local"],"src_addr":"!192.0.2.1","dest_port":"443","outbound":"vpn"}
-            ]
-        }
-    })");
-
-    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
-                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
-    auto states = build_fw_rule_states(cfg, marks);
-
-    prune_fw_rule_states_to_realized_sets(
-        cfg,
-        states,
-        [](const std::string&, const ListConfig&) {
-            ListSetUsage usage;
-            usage.has_static_entries = true;
-            usage.has_domain_entries = true;
-            return usage;
-        },
-        false);
-
-    REQUIRE(states.size() == 1);
-    CHECK(states[0].set_names == std::vector<std::string>({
-        "kpbr4_local", "kpbr4d_local"
-    }));
-    CHECK(states[0].criteria.src_addr == std::vector<std::string>({"192.0.2.1"}));
-    CHECK(states[0].criteria.negate_src_addr);
-    CHECK(states[0].criteria.dst_port.to_config_string() == "443");
-}
-
 TEST_CASE("infer_urltest_selection_from_routes: accepts equivalent dual-stack defaults") {
     auto cfg = parse_minimal_config(R"({
         "outbounds":[
@@ -416,6 +222,207 @@ TEST_CASE("infer_urltest_selection_from_routes: rejects conflicting metric-zero 
     routes[1].family = AF_INET6;
 
     CHECK_FALSE(infer_urltest_selection_from_routes(outbounds, urltest, routes).has_value());
+}
+
+TEST_CASE("infer_urltest_selection_from_routes: auto gateway matches resolved next-hop") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"vpn","type":"interface","interface":"wg0","gateway":"auto"},
+            {"tag":"auto","type":"urltest","url":"http://example.com",
+             "outbound_groups":[{"outbounds":["vpn"]}]}
+        ]
+    })");
+
+    const auto& outbounds = *cfg.outbounds;
+    const auto& urltest = outbounds[1];
+    DumpedRoute route;
+    route.destination = "default";
+    route.interface = "wg0";
+    route.gateway = "192.0.2.1";
+    route.family = AF_INET;
+
+    CHECK(infer_urltest_selection_from_routes(outbounds, urltest, {route}) ==
+          std::optional<std::string>{"vpn"});
+}
+
+TEST_CASE("discover_interface_gateway: selects the unique lowest-metric main default") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[{"tag":"wan","type":"interface","interface":"eth-test",
+                      "gateway":"auto","gateway6":"auto"}]
+    })");
+    const auto& outbound = cfg.outbounds->front();
+    DumpedRoute high;
+    high.destination = "default";
+    high.table = 254;
+    high.family = AF_INET;
+    high.interface = "eth-test";
+    high.gateway = "192.0.2.1";
+    high.metric = 100;
+    high.nexthop_count = 1;
+    DumpedRoute low = high;
+    low.gateway = "192.0.2.254";
+    low.metric = 10;
+
+    const auto discovery = discover_interface_gateway(
+        outbound, AF_INET, {high, low});
+    CHECK(discovery.available);
+    CHECK(discovery.gateway == std::optional<std::string>{"192.0.2.254"});
+
+    DumpedRoute ipv6 = high;
+    ipv6.family = AF_INET6;
+    ipv6.gateway = "2001:db8::1";
+    const auto ipv6_discovery = discover_interface_gateway(
+        outbound, AF_INET6, {ipv6});
+    CHECK(ipv6_discovery.available);
+    CHECK(ipv6_discovery.gateway == std::optional<std::string>{"2001:db8::1"});
+}
+
+TEST_CASE("discover_interface_gateway: rejects ambiguity, multipath, and missing routes") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[{"tag":"wan","type":"interface","interface":"eth-test",
+                      "gateway":"auto","gateway6":"auto"}]
+    })");
+    const auto& outbound = cfg.outbounds->front();
+    DumpedRoute first;
+    first.destination = "default";
+    first.table = 254;
+    first.family = AF_INET;
+    first.interface = "eth-test";
+    first.gateway = "192.0.2.1";
+    first.metric = 10;
+    first.nexthop_count = 1;
+
+    DumpedRoute distinct = first;
+    distinct.gateway = "192.0.2.2";
+    CHECK_FALSE(discover_interface_gateway(outbound, AF_INET, {first, distinct}).available);
+
+    DumpedRoute lower = first;
+    lower.metric = 1;
+    lower.gateway = "192.0.2.3";
+    DumpedRoute higher_ambiguous = first;
+    higher_ambiguous.metric = 100;
+    DumpedRoute higher_ambiguous_distinct = higher_ambiguous;
+    higher_ambiguous_distinct.gateway = "192.0.2.4";
+    for (const auto routes : {std::vector<DumpedRoute>{higher_ambiguous,
+                                                        higher_ambiguous_distinct,
+                                                        lower},
+                              std::vector<DumpedRoute>{lower, higher_ambiguous,
+                                                       higher_ambiguous_distinct}}) {
+        const auto result = discover_interface_gateway(outbound, AF_INET, routes);
+        CHECK(result.available);
+        CHECK(result.gateway == std::optional<std::string>{"192.0.2.3"});
+    }
+
+    DumpedRoute multipath = first;
+    multipath.nexthop_count = 2;
+    CHECK_FALSE(discover_interface_gateway(outbound, AF_INET, {multipath}).available);
+
+    DumpedRoute non_unicast = first;
+    non_unicast.unicast = false;
+    CHECK_FALSE(discover_interface_gateway(outbound, AF_INET, {non_unicast}).available);
+
+    DumpedRoute higher_multipath = multipath;
+    higher_multipath.metric = 100;
+    for (const auto routes : {std::vector<DumpedRoute>{higher_multipath, lower},
+                              std::vector<DumpedRoute>{lower, higher_multipath}}) {
+        CHECK(discover_interface_gateway(outbound, AF_INET, routes).available);
+    }
+
+    DumpedRoute gatewayless = first;
+    gatewayless.gateway.reset();
+    const auto gatewayless_result = discover_interface_gateway(
+        outbound, AF_INET, {gatewayless});
+    CHECK(gatewayless_result.available);
+    CHECK_FALSE(gatewayless_result.gateway.has_value());
+
+    DumpedRoute wrong_table = first;
+    wrong_table.table = 200;
+    CHECK_FALSE(discover_interface_gateway(outbound, AF_INET, {wrong_table}).available);
+}
+
+TEST_CASE("discover_interface_gateway: matches router WAN defaults and point-to-point routes") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"ethernet","type":"interface","interface":"eth1","gateway":"auto"},
+            {"tag":"l2tp","type":"interface","interface":"l2tp-wan2","gateway":"auto"}
+        ]
+    })");
+    const auto& ethernet = cfg.outbounds->at(0);
+    const auto& l2tp = cfg.outbounds->at(1);
+
+    DumpedRoute ethernet_default;
+    ethernet_default.destination = "default";
+    ethernet_default.table = 254;
+    ethernet_default.family = AF_INET;
+    ethernet_default.interface = "eth1";
+    ethernet_default.gateway = "212.13.160.1";
+    ethernet_default.unicast = true;
+    ethernet_default.nexthop_count = 1;
+
+    DumpedRoute l2tp_default = ethernet_default;
+    l2tp_default.interface = "l2tp-wan2";
+    l2tp_default.gateway = "77.74.65.226";
+    l2tp_default.metric = 5;
+
+    const auto ethernet_result = discover_interface_gateway(
+        ethernet, AF_INET, {ethernet_default, l2tp_default});
+    REQUIRE(ethernet_result.available);
+    CHECK(ethernet_result.gateway == std::optional<std::string>{"212.13.160.1"});
+
+    const auto l2tp_result = discover_interface_gateway(
+        l2tp, AF_INET, {ethernet_default, l2tp_default});
+    REQUIRE(l2tp_result.available);
+    CHECK(l2tp_result.gateway == std::optional<std::string>{"77.74.65.226"});
+
+    DumpedRoute point_to_point = l2tp_default;
+    point_to_point.gateway.reset();
+    const auto point_to_point_result = discover_interface_gateway(
+        l2tp, AF_INET, {point_to_point});
+    CHECK(point_to_point_result.available);
+    CHECK_FALSE(point_to_point_result.gateway.has_value());
+}
+
+TEST_CASE("populate_routing_state: auto gateway resolves per family and keeps strict fallback") {
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
+        "daemon":{"strict_enforcement":true},
+        "outbounds":[{"tag":"wan","type":"interface","interface":"lo",
+                      "gateway":"auto"}]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    DumpedRoute main_route;
+    main_route.destination = "default";
+    main_route.table = 254;
+    main_route.family = AF_INET;
+    main_route.interface = "lo";
+    main_route.gateway = "192.0.2.1";
+    main_route.metric = 10;
+    main_route.nexthop_count = 1;
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+    const std::vector<DumpedRoute> main_routes{main_route};
+    populate_routing_state(
+        cfg, marks, routes, rules, [](const Outbound&) { return true; }, nullptr,
+        true, {}, &main_routes);
+
+    const auto* resolved = find_route(routes.get_routes(), 100, false, false, 0,
+                                      std::optional<std::string>{"lo"});
+    REQUIRE(resolved != nullptr);
+    CHECK(resolved->gateway == std::optional<std::string>{"192.0.2.1"});
+    CHECK(find_route(routes.get_routes(), 100, false, true, kUnreachableRouteMetric) != nullptr);
+
+    RouteTable unavailable_routes(netlink, true);
+    PolicyRuleManager unavailable_rules(netlink, true);
+    const std::vector<DumpedRoute> no_main_routes;
+    populate_routing_state(
+        cfg, marks, unavailable_routes, unavailable_rules,
+        [](const Outbound&) { return true; }, nullptr, true, {}, &no_main_routes);
+    CHECK(find_route(unavailable_routes.get_routes(), 100, false, false) == nullptr);
+    CHECK(find_route(unavailable_routes.get_routes(), 100, false, true,
+                     kUnreachableRouteMetric) != nullptr);
 }
 
 TEST_CASE("populate_routing_state: strict enforcement installs unreachable default when down") {
@@ -1089,13 +1096,14 @@ TEST_CASE("populate_routing_state: non-strict urltest relies on terminal RPDB gu
                         }) == 1);
 }
 
-TEST_CASE("populate_routing_state: test group points its stable mark at a selected table outbound") {
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("populate_routing_state: balance test group keeps its stable mark for detours") {
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},
         "outbounds":[
             {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"},
             {"tag":"external","type":"table","table":200},
-            {"tag":"auto","type":"icmptest",
+            {"tag":"auto","type":"icmptest","strategy":"balance",
              "outbound_groups":[{"candidates":[
                  {"outbound":"wan","target":"1.1.1.1"},
                  {"outbound":"external","target":"8.8.8.8"}
@@ -1123,3 +1131,4 @@ TEST_CASE("populate_routing_state: test group points its stable mark at a select
         return route.table != 200;
     }));
 }
+#endif

@@ -15,9 +15,16 @@ enum class CheckStatus {
     mismatch
 };
 
+enum class VerificationState {
+    verified,    // firewall chain is properly configured
+    unavailable, // verification not possible (runtime initializing/applying, snapshot unavailable)
+    failed       // firewall chain is missing or misconfigured
+};
+
 struct FirewallChainCheck {
     bool chain_present{false};
     bool prerouting_hook_present{false};
+    VerificationState verification_state{VerificationState::failed};
     std::string detail;
 };
 
@@ -58,6 +65,32 @@ struct PolicyRuleCheck {
     std::string detail;
 };
 
+// Extend this enum (and the API schema) to add new warning kinds.
+enum class HealthWarningCode {
+    nat_missing,
+    nat_partial,
+    rp_filter_strict,
+    fwmark_mask_conflict
+};
+
+inline const char* health_warning_code_name(HealthWarningCode code) {
+    switch (code) {
+        case HealthWarningCode::nat_missing: return "nat_missing";
+        case HealthWarningCode::nat_partial: return "nat_partial";
+        case HealthWarningCode::rp_filter_strict: return "rp_filter_strict";
+        case HealthWarningCode::fwmark_mask_conflict: return "fwmark_mask_conflict";
+    }
+    return "unknown";
+}
+
+// Non-blocking host configuration warning; never affects overall_ok.
+struct HealthWarning {
+    HealthWarningCode code{HealthWarningCode::nat_missing};
+    std::optional<std::string> interface;
+    std::optional<std::string> outbound;
+    std::string message;
+};
+
 struct RoutingHealthReport {
     bool overall_ok{false};
     std::optional<FirewallBackend> firewall_backend;
@@ -65,6 +98,7 @@ struct RoutingHealthReport {
     std::vector<FirewallRuleCheck> firewall_rules;
     std::vector<RouteTableCheck> route_tables;
     std::vector<PolicyRuleCheck> policy_rules;
+    std::vector<HealthWarning> warnings;
     std::string error;
 };
 

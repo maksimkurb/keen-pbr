@@ -8,6 +8,7 @@
 #include "../util/traced_mutex.hpp"
 
 #include <functional>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -17,12 +18,29 @@ namespace keen_pbr3 {
 
 class Scheduler;
 
+// Per-child probe telemetry, written under the manager lock when a sweep is
+// committed (never on a packet path).  Latencies are microseconds; the
+// optionals are empty until the first probe and after a failed probe.
+struct ProbeMetrics {
+    uint64_t attempts{0};
+    uint64_t successes{0};
+    uint64_t packets_sent{0};      // ICMP only
+    uint64_t packets_received{0};  // ICMP only
+    std::optional<bool> last_up;                 // result of the last probe
+    std::optional<int64_t> last_success_unix_s;  // wall clock of the last success
+    std::optional<uint64_t> latency_us;          // last probe, success only
+    std::optional<uint64_t> latency_min_us;      // ICMP, last probe, success only
+    std::optional<uint64_t> latency_max_us;      // ICMP, last probe, success only
+};
+
 // Per-urltest outbound state: test results, circuit breakers, selected child.
 struct UrltestState {
     Outbound config;
     std::map<std::string, URLTestResult> last_results;
+    std::map<std::string, ProbeMetrics> probe_metrics;
     std::map<std::string, CircuitBreaker> circuit_breakers;
     std::string selected_outbound;
+    uint64_t selection_changes{0};
     int scheduler_task_id{-1};
     bool probe_inflight{false};
     std::uint64_t generation{0};
@@ -30,6 +48,10 @@ struct UrltestState {
 
 // Pure selection policy shared by URLTEST and ICMPTEST.
 std::string select_test_group_outbound(const UrltestState& state);
+
+// Usable children in the first (lowest weight) healthy group, in configured
+// order. Balance mode distributes new connections across exactly this set.
+std::vector<std::string> select_test_group_usable_outbounds(const UrltestState& state);
 
 // Callback invoked after every accepted probe sweep. Emitting unchanged
 // selections lets the daemon retry a previously failed routing transaction.

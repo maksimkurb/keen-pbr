@@ -1,10 +1,8 @@
 import { toast } from "sonner"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
-import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
-import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
@@ -26,11 +24,7 @@ import { UpsertPage } from "@/components/shared/upsert-page"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useListUsageSubtitle } from "@/hooks/use-list-usage-subtitle"
-import {
-  clearFormServerErrors,
-  setFormServerErrors,
-  splitFormApiErrors,
-} from "@/lib/form-api-errors"
+import { useDraftForm } from "@/lib/draft-form"
 import {
   Select,
   SelectContent,
@@ -42,19 +36,10 @@ import {
 } from "@/components/ui/select"
 import {
   buildUpdatedConfigWithRules,
+  type DnsRuleDraft,
   getRuleDraft,
   validateRules,
 } from "@/pages/dns-rules-utils"
-
-const DNS_RULE_FIELD_NAMES = {
-  enabled: "rule.enabled",
-  server: "rule.server",
-  lists: "rule.lists",
-  allowDomainRebinding: "rule.allowDomainRebinding",
-} as const
-
-type DnsRuleFieldName =
-  (typeof DNS_RULE_FIELD_NAMES)[keyof typeof DNS_RULE_FIELD_NAMES]
 
 export function DnsRuleUpsertPage({
   mode,
@@ -160,112 +145,84 @@ function DnsRuleForm({
     mode === "edit" ? parsedRuleIndex : undefined
   )
   const postConfigMutation = usePostConfigMutation()
-  const form = useForm({
-    defaultValues: {
-      rule:
-        mode === "edit" && existingRule
-          ? getRuleDraft(existingRule)
-          : {
-              enabled: true,
-              server: serverTags[0] ?? "",
-              lists: [],
-              allowDomainRebinding: false,
-            },
-    },
-    validators: {
-      onSubmitAsync: async ({ value }) => {
-        const nextRules = rules.map((rule) => getRuleDraft(rule))
 
-        if (mode === "edit") {
-          if (!existingRule || Number.isNaN(parsedRuleIndex)) {
-            toast.error(t("pages.dnsRuleUpsert.validation.notFound"), {
-              richColors: true,
-            })
-            return undefined
-          }
-
-          nextRules[parsedRuleIndex] = value.rule
-        } else {
-          nextRules.push(value.rule)
+  const draft =
+    mode === "edit" && existingRule
+      ? getRuleDraft(existingRule)
+      : {
+          enabled: true,
+          server: serverTags[0] ?? "",
+          list: [],
+          allow_domain_rebinding: false,
         }
 
-        clearFormServerErrors(form)
-
-        const validation = validateRules(nextRules, serverTags, listOptions)
-        if (Object.keys(validation).length > 0) {
-          const currentIndex =
-            mode === "edit" ? parsedRuleIndex : nextRules.length - 1
-          const currentError = validation[currentIndex]
-          if (!currentError) {
-            return undefined
-          }
-
-          const fieldErrors: Record<string, string> = {}
-          if (currentError.server) {
-            fieldErrors[DNS_RULE_FIELD_NAMES.server] = currentError.server
-          }
-          if (currentError.lists) {
-            fieldErrors[DNS_RULE_FIELD_NAMES.lists] = currentError.lists
-          }
-
-          setFormServerErrors(form, {
-            form: currentError.duplicate,
-            fields: fieldErrors,
-          })
-          return {
-            form: currentError.duplicate,
-            fields: fieldErrors,
-          }
-        }
-
-        try {
-          await postConfigMutation.mutateAsync({
-            data: buildUpdatedConfigWithRules(
-              loadedConfig,
-              loadedConfig.dns?.fallback ?? [],
-              nextRules
-            ),
-          })
-          await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
-          toast.success(t("pages.dnsRuleUpsert.messages.saved"))
-          clearFormServerErrors(form)
-          navigate("/dns-rules")
-          return undefined
-        } catch (error) {
-          const result = splitFormApiErrors({
-            error: error as ApiError,
-            fieldNames: Object.values(DNS_RULE_FIELD_NAMES),
-            resolvePath: resolveDnsRuleFieldPath,
-          })
-
-          setFormServerErrors(form, {
-            form: result.formError ?? undefined,
-            fields: result.fieldErrors,
-            unmapped: result.unmappedErrors,
-          })
-          if (result.formError) {
-            toast.error(result.formError, { richColors: true })
-          }
-
-          return {
-            form: result.formError ?? undefined,
-            fields: result.fieldErrors,
-          }
-        }
-      },
-    },
+  const form = useDraftForm<DnsRuleDraft>(draft, {
+    // Index the rule has in the array that is sent (new ones are appended).
+    apiPrefix: `dns.rules[${mode === "edit" ? parsedRuleIndex : rules.length}]`,
   })
-  const unmappedServerErrors = useStore(
-    form.store,
-    (state) =>
-      (
-        state.errorMap.onServer as
-          | {
-              unmapped?: { path: string; message: string }[]
-            }
-          | undefined
-      )?.unmapped ?? []
-  )
+  const { values } = form
+
+  const save = async (value: DnsRuleDraft) => {
+    const nextRules = rules.map((rule) => getRuleDraft(rule))
+
+    if (mode === "edit") {
+      if (!existingRule || Number.isNaN(parsedRuleIndex)) {
+        toast.error(t("pages.dnsRuleUpsert.validation.notFound"), {
+          richColors: true,
+        })
+        return
+      }
+
+      nextRules[parsedRuleIndex] = value
+    } else {
+      nextRules.push(value)
+    }
+
+    const validation = validateRules(nextRules, serverTags, listOptions)
+    if (Object.keys(validation).length > 0) {
+      const currentIndex =
+        mode === "edit" ? parsedRuleIndex : nextRules.length - 1
+      const currentError = validation[currentIndex]
+      if (!currentError) {
+        return
+      }
+
+      const fieldErrors: Record<string, string> = {}
+      if (currentError.server) {
+        fieldErrors.server = currentError.server
+      }
+      if (currentError.lists) {
+        fieldErrors.list = currentError.lists
+      }
+
+      form.setServerErrors({
+        form: currentError.duplicate,
+        fields: fieldErrors,
+      })
+      return
+    }
+
+    try {
+      await postConfigMutation.mutateAsync({
+        data: buildUpdatedConfigWithRules(
+          loadedConfig,
+          loadedConfig.dns?.fallback ?? [],
+          nextRules
+        ),
+      })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
+      toast.success(t("pages.dnsRuleUpsert.messages.saved"))
+      navigate("/dns-rules")
+    } catch (error) {
+      const message = form.setApiError(error as ApiError)
+      if (message) {
+        toast.error(message, { richColors: true })
+      }
+    }
+  }
+
+  // The server control also shows errors addressed to the whole rule.
+  const serverError = form.errorFor("server", { alsoClaims: [""] })
 
   return (
     <UpsertPage
@@ -277,160 +234,132 @@ function DnsRuleForm({
       }
       description={t("pages.dnsRuleUpsert.description")}
       title={
-        mode === "create"
-          ? t("pages.dnsRuleUpsert.createTitle")
-          : t("pages.dnsRuleUpsert.editTitle")
+        mode === "create" ? (
+          t("pages.dnsRuleUpsert.createTitle")
+        ) : (
+          <Trans
+            i18nKey="pages.dnsRuleUpsert.editNamedTitle"
+            values={{ number: parsedRuleIndex + 1 }}
+            components={{ entity: <span className="text-primary" /> }}
+          />
+        )
       }
     >
-      <form
-        className="space-y-6"
-        onSubmit={(event) => {
-          event.preventDefault()
-          form.handleSubmit()
-        }}
-      >
+      <form className="space-y-6" onSubmit={form.onSubmit(save)}>
         <FieldGroup>
-          <form.Field name={DNS_RULE_FIELD_NAMES.enabled}>
-            {(field) => (
-              <Field>
-                <FieldContent>
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      checked={field.state.value}
-                      id="dns-rule-enabled"
-                      onCheckedChange={(checked) =>
-                        field.handleChange(checked === true)
-                      }
-                    />
-                    <FieldLabel
-                      className="cursor-pointer flex-col items-start gap-0"
-                      htmlFor="dns-rule-enabled"
-                    >
-                      {t("common.enabled")}
-                    </FieldLabel>
-                  </div>
-                </FieldContent>
-              </Field>
-            )}
-          </form.Field>
+          <Field>
+            <FieldContent>
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  checked={values.enabled}
+                  id="dns-rule-enabled"
+                  onCheckedChange={(checked) =>
+                    form.setValue("enabled", checked === true)
+                  }
+                />
+                <FieldLabel
+                  className="cursor-pointer flex-col items-start gap-0"
+                  htmlFor="dns-rule-enabled"
+                >
+                  {t("common.enabled")}
+                </FieldLabel>
+              </div>
+            </FieldContent>
+          </Field>
 
-          <form.Field name={DNS_RULE_FIELD_NAMES.server}>
-            {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
-              return (
-                <Field invalid={Boolean(error)}>
-                  <FieldLabel>
-                    {t("pages.dnsRuleUpsert.fields.serverTag")}
-                  </FieldLabel>
-                  <FieldContent>
-                    <Select
-                      items={serverSelectItems}
-                      onValueChange={(server) =>
-                        field.handleChange(server ?? "")
-                      }
-                      value={field.state.value}
-                    >
-                      <SelectTrigger aria-invalid={Boolean(error)}>
-                        <SelectValue
-                          placeholder={t(
-                            "pages.dnsRuleUpsert.fields.selectServer"
-                          )}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>
-                            {t("pages.dnsRuleUpsert.fields.dnsServers")}
-                          </SelectLabel>
-                          {serverTags.map((serverTag) => (
-                            <SelectItem key={serverTag} value={serverTag}>
-                              {serverTag}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <FieldHint
-                      description={
-                        serverTags.length === 0
-                          ? t("pages.dnsRuleUpsert.fields.noServers")
-                          : undefined
-                      }
-                      error={error}
-                    />
-                  </FieldContent>
-                </Field>
-              )
-            }}
-          </form.Field>
-
-          <form.Field name={DNS_RULE_FIELD_NAMES.lists}>
-            {(field) => {
-              const error = getFirstFieldError(field.state.meta.errors)
-              return (
-                <Field invalid={Boolean(error)}>
-                  <FieldLabel>
-                    {t("pages.dnsRuleUpsert.fields.listNames")}
-                  </FieldLabel>
-                  <FieldContent>
-                    <MultiSelectList
-                      name={DNS_RULE_FIELD_NAMES.lists}
-                      onChange={field.handleChange}
-                      options={listOptions}
-                      error={error}
-                      placeholderDescription={t(
-                        "pages.dnsRuleUpsert.fields.listPlaceholderDescription"
-                      )}
-                      placeholderTitle={t(
-                        "pages.dnsRuleUpsert.fields.noListsSelected"
-                      )}
-                      usageSubtitle={listUsageSubtitle}
-                      value={field.state.value}
-                    />
-                    <FieldHint
-                      description={
-                        listOptions.length === 0
-                          ? t("pages.dnsRuleUpsert.fields.noLists")
-                          : undefined
-                      }
-                    />
-                  </FieldContent>
-                </Field>
-              )
-            }}
-          </form.Field>
-
-          <form.Field name={DNS_RULE_FIELD_NAMES.allowDomainRebinding}>
-            {(field) => (
-              <Field>
-                <FieldContent>
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      checked={field.state.value}
-                      id="allow-domain-rebinding"
-                      onCheckedChange={(checked) =>
-                        field.handleChange(checked === true)
-                      }
-                    />
-                    <FieldLabel
-                      className="cursor-pointer flex-col items-start gap-0"
-                      htmlFor="allow-domain-rebinding"
-                    >
-                      {t("pages.dnsRuleUpsert.fields.allowDomainRebinding")}
-                    </FieldLabel>
-                  </div>
-                  <FieldHint
-                    description={t(
-                      "pages.dnsRuleUpsert.fields.allowDomainRebindingHint"
-                    )}
+          <Field invalid={Boolean(serverError)}>
+            <FieldLabel>{t("pages.dnsRuleUpsert.fields.serverTag")}</FieldLabel>
+            <FieldContent>
+              <Select
+                items={serverSelectItems}
+                onValueChange={(server) =>
+                  form.setValue("server", server ?? "")
+                }
+                value={values.server}
+              >
+                <SelectTrigger aria-invalid={Boolean(serverError)}>
+                  <SelectValue
+                    placeholder={t("pages.dnsRuleUpsert.fields.selectServer")}
                   />
-                </FieldContent>
-              </Field>
-            )}
-          </form.Field>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>
+                      {t("pages.dnsRuleUpsert.fields.dnsServers")}
+                    </SelectLabel>
+                    {serverTags.map((serverTag) => (
+                      <SelectItem key={serverTag} value={serverTag}>
+                        {serverTag}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FieldHint
+                description={
+                  serverTags.length === 0
+                    ? t("pages.dnsRuleUpsert.fields.noServers")
+                    : undefined
+                }
+                error={serverError}
+              />
+            </FieldContent>
+          </Field>
+
+          <Field invalid={Boolean(form.errorFor("list"))}>
+            <FieldLabel>{t("pages.dnsRuleUpsert.fields.listNames")}</FieldLabel>
+            <FieldContent>
+              <MultiSelectList
+                name="list"
+                onChange={(newLists) => form.setValue("list", newLists)}
+                options={listOptions}
+                error={form.errorFor("list")}
+                placeholderDescription={t(
+                  "pages.dnsRuleUpsert.fields.listPlaceholderDescription"
+                )}
+                placeholderTitle={t(
+                  "pages.dnsRuleUpsert.fields.noListsSelected"
+                )}
+                usageSubtitle={listUsageSubtitle}
+                value={values.list}
+              />
+              <FieldHint
+                description={
+                  listOptions.length === 0
+                    ? t("pages.dnsRuleUpsert.fields.noLists")
+                    : undefined
+                }
+              />
+            </FieldContent>
+          </Field>
+
+          <Field>
+            <FieldContent>
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  checked={values.allow_domain_rebinding}
+                  id="allow-domain-rebinding"
+                  onCheckedChange={(checked) =>
+                    form.setValue("allow_domain_rebinding", checked === true)
+                  }
+                />
+                <FieldLabel
+                  className="cursor-pointer flex-col items-start gap-0"
+                  htmlFor="allow-domain-rebinding"
+                >
+                  {t("pages.dnsRuleUpsert.fields.allowDomainRebinding")}
+                </FieldLabel>
+              </div>
+              <FieldHint
+                description={t(
+                  "pages.dnsRuleUpsert.fields.allowDomainRebindingHint"
+                )}
+              />
+            </FieldContent>
+          </Field>
         </FieldGroup>
 
-        <ServerValidationAlert errors={unmappedServerErrors} />
+        <ServerValidationAlert errors={form.unmappedErrors()} />
 
         <div className="flex justify-end gap-3">
           <Button
@@ -441,57 +370,21 @@ function DnsRuleForm({
           >
             {t("common.cancel")}
           </Button>
-          <form.Subscribe
-            selector={(state) => ({
-              canSubmit: state.canSubmit,
-              isPristine: state.isPristine,
-            })}
+          <Button
+            disabled={
+              postConfigMutation.isPending ||
+              (mode === "edit" && !form.isDirty) ||
+              form.isSubmitting
+            }
+            size="xl"
+            type="submit"
           >
-            {({ canSubmit, isPristine }) => (
-              <Button
-                disabled={
-                  postConfigMutation.isPending || isPristine || !canSubmit
-                }
-                size="xl"
-                type="submit"
-              >
-                {mode === "create"
-                  ? t("pages.dnsRuleUpsert.actions.create")
-                  : t("pages.dnsRuleUpsert.actions.save")}
-              </Button>
-            )}
-          </form.Subscribe>
+            {mode === "create"
+              ? t("pages.dnsRuleUpsert.actions.create")
+              : t("pages.dnsRuleUpsert.actions.save")}
+          </Button>
         </div>
       </form>
     </UpsertPage>
   )
-}
-
-function getFirstFieldError(errors: unknown[]) {
-  const firstError = errors[0]
-  return typeof firstError === "string" ? firstError : undefined
-}
-
-function resolveDnsRuleFieldPath(path: string): DnsRuleFieldName | undefined {
-  if (path === "dns.rules") {
-    return DNS_RULE_FIELD_NAMES.server
-  }
-
-  if (/^dns\.rules(?:\[\d+\]|\.\d+)?$/.test(path)) {
-    return DNS_RULE_FIELD_NAMES.server
-  }
-
-  if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.server$/.test(path)) {
-    return DNS_RULE_FIELD_NAMES.server
-  }
-
-  if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
-    return DNS_RULE_FIELD_NAMES.lists
-  }
-
-  if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.allow_domain_rebinding$/.test(path)) {
-    return DNS_RULE_FIELD_NAMES.allowDomainRebinding
-  }
-
-  return undefined
 }

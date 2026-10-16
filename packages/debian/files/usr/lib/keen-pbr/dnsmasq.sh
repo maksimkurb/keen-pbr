@@ -1,142 +1,46 @@
 #!/bin/sh
 
-set -eu
+# dnsmasq conf-script entry point (dnsmasq runs it at its own start).
+# dnsmasq-config-entry runs `keen-pbr generate-resolver-config dnsmasq`, which
+# reads config.json and prints keen-pbr's config, or the servers of
+# dnsmasq-fallback.conf while management is off.  If the binary is missing or
+# fails, the fallback servers are printed here, so dnsmasq always gets an answer.
 
-KEEN_PBR_BIN="/usr/sbin/keen-pbr"
-DNSMASQ_FALLBACK_FILE="/etc/keen-pbr/dnsmasq-fallback.conf"
-STATE_DIR="/tmp/keen-pbr"
-ACTIVE_FILE="${STATE_DIR}/active"
-
-log_message() {
-    local level="$1"
-    local message="$2"
-
-    logger -s -t "keen-pbr" -p "user.${level}" "$message"
-}
-
-log_warn() {
-    log_message warn "$1"
-}
+KEEN_PBR_BIN="${KEEN_PBR_BIN:-/usr/sbin/keen-pbr}"
+FALLBACK_CONF="${FALLBACK_CONF:-/etc/keen-pbr/dnsmasq-fallback.conf}"
 
 log_info() {
-    log_message info "$1"
+    logger -s -t "keen-pbr" -p "user.info" "$1"
 }
 
-log_error() {
-    log_message err "$1"
+emit_fallback() {
+    if [ -f "$FALLBACK_CONF" ]; then
+        grep '^[[:space:]]*server=' "$FALLBACK_CONF" || true
+    fi
 }
 
-ensure_xt_multiport_loaded() {
-    if command -v nft >/dev/null 2>&1; then
+emit_config_entry() {
+    if [ -x "$KEEN_PBR_BIN" ] && "$KEEN_PBR_BIN" generate-resolver-config dnsmasq; then
         return 0
     fi
-
-    if lsmod | grep -q '^xt_multiport[[:space:]]'; then
-        return 0
-    fi
-
-    if command -v modprobe >/dev/null 2>&1 && modprobe xt_multiport 2>/dev/null; then
-        return 0
-    fi
-
-    module_path="$(find "/lib/modules/$(uname -r)" -type f \
-        -name 'xt_multiport.ko*' 2>/dev/null | head -n 1 || true)"
-
-    if [ -n "$module_path" ]; then
-        log_error "Failed to load xt_multiport from $module_path"
-    else
-        log_error "xt_multiport module not loaded and not found under /lib/modules/$(uname -r)"
-    fi
-
-    return 0
-}
-
-fallback_conf_line() {
-    printf 'conf-file=%s\n' "$DNSMASQ_FALLBACK_FILE"
-}
-
-active_conf_line() {
-    "$KEEN_PBR_BIN" generate-resolver-config dnsmasq
-}
-
-is_active() {
-    [ -r "$ACTIVE_FILE" ] || return 1
-
-    active_state="$(tr -d '[:space:]' < "$ACTIVE_FILE" 2>/dev/null || true)"
-    [ "$active_state" = "Y" ]
-}
-
-set_active_state() {
-    mkdir -p "$STATE_DIR"
-    printf '%s\n' "$1" > "$ACTIVE_FILE"
-}
-
-emit_dnsmasq_config_entry() {
-    if is_active; then
-        active_conf_line
-        log_info "Produced dnsmasq keen-pbr managed config"
-    else
-        fallback_conf_line
-        log_info "Produced dnsmasq fallback config entry"
-    fi
-}
-
-activate_dnsmasq() {
-    ensure_xt_multiport_loaded
-    set_active_state "Y"
-    log_info "Marked keen-pbr dnsmasq state as active"
-    restart_dnsmasq
-}
-
-deactivate_dnsmasq() {
-    set_active_state "N"
-    log_info "Marked keen-pbr dnsmasq state as inactive"
-    restart_dnsmasq
-}
-
-restart_dnsmasq() {
-    if command -v systemctl >/dev/null 2>&1; then
-        systemctl restart dnsmasq >/dev/null 2>&1 || true
-    elif command -v service >/dev/null 2>&1; then
-        service dnsmasq restart >/dev/null 2>&1 || true
-    fi
-}
-
-print_help() {
-    cat <<EOF
-Usage: $0 <command>
-
-Commands:
-  dnsmasq-config-entry   Print the dnsmasq config entry for the current active state.
-  activate               Mark keen-pbr dnsmasq state active and restart dnsmasq.
-  deactivate             Mark keen-pbr dnsmasq state inactive and restart dnsmasq.
-  restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
-  reload                 Switch to managed config and restart; used by the system resolver hook.
-  help                   Show this help text.
-EOF
+    log_info "keen-pbr did not produce a dnsmasq config; using the fallback upstream servers"
+    emit_fallback
 }
 
 case "${1:-}" in
     dnsmasq-config-entry)
-        emit_dnsmasq_config_entry
-        ;;
-    activate)
-        activate_dnsmasq
-        ;;
-    deactivate)
-        deactivate_dnsmasq
-        ;;
-    restart-dnsmasq)
-        restart_dnsmasq
-        ;;
-    reload)
-        activate_dnsmasq
+        emit_config_entry
         ;;
     help|-h|--help)
-        print_help
+        cat <<EOT
+Usage: $0 dnsmasq-config-entry
+
+Prints keen-pbr's dnsmasq config, or the servers from dnsmasq-fallback.conf
+while keen-pbr management is off.
+EOT
         ;;
     *)
-        print_help >&2
+        echo "Unknown command. Use 'help' for usage information." >&2
         exit 1
         ;;
 esac

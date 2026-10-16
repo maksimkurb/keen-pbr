@@ -1,9 +1,19 @@
 #include "firewall_state.hpp"
 
+#include <utility>
+
 namespace keen_pbr3 {
 
-void FirewallState::set_rules(std::vector<RuleState> rules) {
-    rules_ = std::move(rules);
+void FirewallState::publish_active_firewall(ActiveFirewall active) {
+    active_ = std::make_shared<const ActiveFirewall>(std::move(active));
+}
+
+std::shared_ptr<const ActiveFirewall> FirewallState::active_firewall() const {
+    return active_;
+}
+
+void FirewallState::clear_active_firewall() {
+    active_.reset();
 }
 
 void FirewallState::set_urltest_selection(const std::string& urltest_tag,
@@ -12,7 +22,8 @@ void FirewallState::set_urltest_selection(const std::string& urltest_tag,
 }
 
 const std::vector<RuleState>& FirewallState::get_rules() const {
-    return rules_;
+    static const std::vector<RuleState> empty;
+    return active_ ? active_->rule_states : empty;
 }
 
 const OutboundMarkMap& FirewallState::get_outbound_marks() const {
@@ -21,14 +32,6 @@ const OutboundMarkMap& FirewallState::get_outbound_marks() const {
 
 void FirewallState::set_outbound_marks(OutboundMarkMap marks) {
     outbound_marks_ = std::move(marks);
-}
-
-uint32_t FirewallState::get_fwmark_mask() const {
-    return fwmark_mask_;
-}
-
-void FirewallState::set_fwmark_mask(uint32_t fwmark_mask) {
-    fwmark_mask_ = fwmark_mask;
 }
 
 const std::map<std::string, std::string>& FirewallState::get_urltest_selections() const {

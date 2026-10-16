@@ -1,29 +1,44 @@
 #include "firewall_backend_utils.hpp"
 
-#include "safe_exec.hpp"
+#include "kernel_capabilities.hpp"
 
 namespace keen_pbr3 {
 
 namespace {
 
-const char* firewall_backend_command(FirewallBackend backend) {
-    switch (backend) {
-        case FirewallBackend::iptables:
-            return "iptables";
-        case FirewallBackend::nftables:
-            return "nft";
-    }
-
-    throw FirewallError("Unexpected firewall backend value");
+#ifdef KEEN_PBR3_TESTING
+std::optional<FirewallBackend>& detected_firewall_backend_override_for_tests() {
+    static std::optional<FirewallBackend> override;
+    return override;
 }
+#endif
 
 } // namespace
 
 bool firewall_backend_command_exists(FirewallBackend backend) {
-    return safe_exec({"which", firewall_backend_command(backend)}, /*suppress_output=*/true) == 0;
+    // Cached PATH lookup from service start; no process is started.
+    const HostTools& tools = host_tools();
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    return backend == FirewallBackend::iptables && tools.iptables;
+#else
+    return backend == FirewallBackend::nftables ? tools.nft : tools.iptables;
+#endif
 }
 
 FirewallBackend detect_firewall_backend() {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    // Fixed backend on Keenetic: no detection, nftables is not compiled.
+    if (!firewall_backend_command_exists(FirewallBackend::iptables)) {
+        throw FirewallError("iptables not found");
+    }
+    return FirewallBackend::iptables;
+#else
+#ifdef KEEN_PBR3_TESTING
+    if (detected_firewall_backend_override_for_tests().has_value()) {
+        return *detected_firewall_backend_override_for_tests();
+    }
+#endif
+
     if (firewall_backend_command_exists(FirewallBackend::nftables)) {
         return FirewallBackend::nftables;
     }
@@ -32,6 +47,7 @@ FirewallBackend detect_firewall_backend() {
     }
 
     throw FirewallError("No supported firewall backend found (need nft or iptables)");
+#endif
 }
 
 FirewallBackend resolve_firewall_backend(FirewallBackendPreference backend_pref) {
@@ -44,13 +60,27 @@ FirewallBackend resolve_firewall_backend(FirewallBackendPreference backend_pref)
             }
             return FirewallBackend::iptables;
         case FirewallBackendPreference::nftables:
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+            throw FirewallError("Keenetic supports only the iptables firewall backend");
+#else
             if (!firewall_backend_command_exists(FirewallBackend::nftables)) {
                 throw FirewallError("nftables backend requested but nft not found");
             }
             return FirewallBackend::nftables;
+#endif
     }
 
     throw FirewallError("Unexpected firewall backend value");
 }
+
+#ifdef KEEN_PBR3_TESTING
+void set_detected_firewall_backend_for_tests(std::optional<FirewallBackend> backend) {
+    detected_firewall_backend_override_for_tests() = backend;
+}
+
+void reset_detected_firewall_backend_for_tests() {
+    detected_firewall_backend_override_for_tests().reset();
+}
+#endif
 
 } // namespace keen_pbr3

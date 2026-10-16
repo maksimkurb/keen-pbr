@@ -2,16 +2,26 @@ import { authenticatedFetch } from "@/api/client"
 
 export type SseMessage = { event: string; data: string }
 
+export class SseHttpError extends Error {
+  status: number
+  constructor(status: number) {
+    super(`SSE request failed (${status})`)
+    this.name = "SseHttpError"
+    this.status = status
+  }
+}
+
 export async function consumeAuthenticatedSse(
   url: string,
   signal: AbortSignal,
-  onMessage: (message: SseMessage) => void
+  onMessage: (message: SseMessage) => void,
+  onOpen?: () => void
 ) {
   const response = await authenticatedFetch(url, {
     signal,
   })
-  if (!response.ok || !response.body)
-    throw new Error(`SSE request failed (${response.status})`)
+  if (!response.ok || !response.body) throw new SseHttpError(response.status)
+  onOpen?.()
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()

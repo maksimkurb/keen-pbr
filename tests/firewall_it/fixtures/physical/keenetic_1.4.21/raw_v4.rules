@@ -1,0 +1,25 @@
+-P PREROUTING ACCEPT
+-P OUTPUT ACCEPT
+-N KeenPbrRaw
+-N KeenPbrRaw_A
+-N KeenPbrRaw_B
+-A PREROUTING -j KeenPbrRaw
+-A KeenPbrRaw -j KeenPbrRaw_B
+-A KeenPbrRaw_A -m mark ! --mark 0x0 -j ACCEPT
+-A KeenPbrRaw_A ! -i br0 -j RETURN
+-A KeenPbrRaw_A -m dscp --dscp 0x2c -j MARK --set-xmark 0x10000/0xff0000
+-A KeenPbrRaw_A -m dscp --dscp 0x2c -j RETURN
+-A KeenPbrRaw_A -m set --match-set kpbr4S_vpn_local dst -j MARK --set-xmark 0x50000/0xff0000
+-A KeenPbrRaw_A -m set --match-set kpbr4S_vpn_local dst -j RETURN
+-A KeenPbrRaw_B -m mark ! --mark 0x0 -j ACCEPT
+-A KeenPbrRaw_B ! -i br0 -j RETURN
+-A KeenPbrRaw_B -m dscp --dscp 0x2c -j MARK --set-xmark 0x10000/0xff0000
+-A KeenPbrRaw_B -m dscp --dscp 0x2c -j RETURN
+-A KeenPbrRaw_B -m set --match-set kpbr4S_vpn_local dst -j MARK --set-xmark 0x50000/0xff0000
+-A KeenPbrRaw_B -m set --match-set kpbr4S_vpn_local dst -j RETURN
+-A KeenPbrRaw_B -m set --match-set kpbr4d_vpn_local dst -j MARK --set-xmark 0x50000/0xff0000
+-A KeenPbrRaw_B -m set --match-set kpbr4d_vpn_local dst -j RETURN
+-A KeenPbrRaw_B -m set --match-set kpbr4d_direct dst -j MARK --set-xmark 0x10000/0xff0000
+-A KeenPbrRaw_B -m set --match-set kpbr4d_direct dst -j RETURN
+-A KeenPbrRaw_B -m set --match-set kpbr4S_minecraft dst -j MARK --set-xmark 0x30000/0xff0000
+-A KeenPbrRaw_B -m set --match-set kpbr4S_minecraft dst -j RETURN

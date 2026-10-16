@@ -7,7 +7,7 @@
  */
 
 export interface ValidationError {
-  /** Dot-style config path associated with the validation failure. */
+  /** Exact path of the offending value inside the submitted config document. Object keys are separated by dots (`fwmark.mask`, `lists.my_list.url`), array elements are addressed by index (`outbounds[3].outbound_groups[0].members[1].target`, `dns.servers[1].detour`, `route.rules[2].dest_port`), and a key that is not a plain identifier is written as `["key"]`. */
   path?: string;
   /** Human-readable validation message. */
   message: string;

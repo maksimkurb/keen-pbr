@@ -52,6 +52,22 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(value.splitlines()[:3], ["0", "1", "2"])
         self.assertIn("truncated", value)
 
+    def test_missing_optional_capability_skips_never_passes(self):
+        registry = Registry()
+        calls = []
+        registry.case("needs", requires=("numgen",))(lambda _: calls.append("needs"))
+        registry.case("plain")(lambda _: calls.append("plain"))
+        events = []
+        results = Runner("nftables", registry.select("all", "nftables"), object(),
+                         lambda *_: None, lambda *_: None, lambda *_: "",
+                         Reporter(events.append), missing_optional={"numgen"}).run()
+        self.assertEqual(calls, ["plain"])
+        self.assertEqual([(r.case, r.status) for r in results],
+                         [("needs", "skip"), ("plain", "pass")])
+        self.assertIn("status=skip reason=missing_optional_capability:numgen",
+                      " ".join(events))
+        self.assertEqual(aggregate_status(results), 0)
+
     def test_aggregate_success(self):
         registry = Registry()
         registry.case("ok")(lambda _: None)

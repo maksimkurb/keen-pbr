@@ -4,8 +4,8 @@ import i18n from "@/i18n"
 export type DnsRuleDraft = {
   enabled: boolean
   server: string
-  lists: string[]
-  allowDomainRebinding: boolean
+  list: string[]
+  allow_domain_rebinding: boolean
 }
 
 export type RuleErrors = {
@@ -23,8 +23,8 @@ export function getRuleDraft(rule?: {
   return {
     enabled: rule?.enabled ?? true,
     server: rule?.server ?? "",
-    lists: rule?.list ?? [],
-    allowDomainRebinding: rule?.allow_domain_rebinding ?? false,
+    list: rule?.list ?? [],
+    allow_domain_rebinding: rule?.allow_domain_rebinding ?? false,
   }
 }
 
@@ -41,8 +41,8 @@ export function buildUpdatedConfigWithRules(
       rules: rules.map((rule) => ({
         enabled: rule.enabled,
         server: rule.server,
-        list: rule.lists,
-        allow_domain_rebinding: rule.allowDomainRebinding,
+        list: rule.list,
+        allow_domain_rebinding: rule.allow_domain_rebinding,
       })),
     },
   }
@@ -75,14 +75,14 @@ export function validateRules(
     }
 
     const nextRuleErrors: RuleErrors = {}
-    const parsedLists = rule.lists
+    const parsedLists = rule.list
 
     if (!rule.server || !serverTagSet.has(rule.server)) {
       nextRuleErrors.server = t("pages.dnsRuleUpsert.validation.serverRequired")
     }
 
     if (parsedLists.length === 0) {
-      nextRuleErrors.lists = t("pages.dnsRuleUpsert.validation.listsRequired")
+      nextRuleErrors.lists = t("common.validation.required")
     }
 
     const missingLists = parsedLists.filter(

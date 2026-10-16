@@ -54,7 +54,6 @@ api::HealthResponse api_service_snapshot() {
   snapshot.os_type = "linux";
   snapshot.os_version = "test";
   snapshot.build_variant = "test";
-  snapshot.resolver_live_status = api::ResolverLiveStatus::HEALTHY;
   snapshot.config_is_draft = false;
   return snapshot;
 }
@@ -63,10 +62,14 @@ api::HealthResponse api_service_snapshot() {
 
 TEST_CASE("status events endpoint returns SSE headers and snapshot first") {
   SseBroadcaster dns_broadcaster;
-  StatusStream status_stream(
+  StatusStream status_stream(StatusStream::Builders{
       [] { return api_service_snapshot(); },
       [] { return api::RuntimeOutboundsResponse{}; },
-      [] { return api::RuntimeInterfaceInventoryResponse{}; });
+      [] { return api::RuntimeInterfaceInventoryResponse{}; },
+      [] { return api::HealthIssuesResponse{}; },
+      [] { return nlohmann::json::object(); },
+      [] { return nlohmann::json::object(); },
+      [] { return nlohmann::json::object(); }});
   auto context = make_status_context(dns_broadcaster, status_stream);
   ApiConfig config;
   config.listen = std::string("127.0.0.1:18193");

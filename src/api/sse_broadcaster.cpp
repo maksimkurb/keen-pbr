@@ -6,16 +6,19 @@
 
 namespace keen_pbr3 {
 
-SseBroadcaster::SseBroadcaster(size_t max_queue_size)
-    : max_queue_size_(max_queue_size) {}
+SseBroadcaster::SseBroadcaster(size_t max_queue_size, GapBuilder gap_builder)
+    : max_queue_size_(max_queue_size), gap_builder_(std::move(gap_builder)) {}
 
 SseBroadcaster::SubscriptionPtr SseBroadcaster::subscribe() {
     return subscribe({});
 }
 
 SseBroadcaster::SubscriptionPtr SseBroadcaster::subscribe(
-    std::vector<std::string> initial_messages) {
+    std::vector<std::string> initial_messages, MessageFilter filter,
+    bool close_after_filtered_message) {
     auto subscription = std::make_shared<Subscription>();
+    subscription->filter = std::move(filter);
+    subscription->close_after_filtered_message = close_after_filtered_message;
     {
         KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
         subscription->messages.insert(subscription->messages.end(),
@@ -50,7 +53,7 @@ bool SseBroadcaster::has_subscribers() {
     return !subscriptions_.empty();
 }
 
-void SseBroadcaster::publish(const std::string& message) {
+void SseBroadcaster::publish(const std::string& message, const SseMessageMeta& meta) {
     KPBR_LOCK_GUARD(mutex_);
     Logger::instance().trace("sse_publish", "subscriptions={} bytes={}", subscriptions_.size(), message.size());
 
@@ -66,11 +69,40 @@ void SseBroadcaster::publish(const std::string& message) {
             KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
             if (subscription->closed) {
                 keep = false;
+            } else if (subscription->filter && !subscription->filter(message, meta)) {
+                // The subscriber remains active; this mode simply ignores
+                // events outside its view.
+                keep = true;
+            } else if (gap_builder_) {
+                // Room for the pending notice plus this message?
+                const size_t need = subscription->dropped > 0 ? 2 : 1;
+                if (subscription->messages.size() + need > max_queue_size_) {
+                    if (subscription->dropped++ == 0) subscription->first_dropped = message;
+                    subscription->last_dropped = message;
+                } else {
+                    if (subscription->dropped > 0) {
+                        std::string notice = gap_builder_(subscription->first_dropped,
+                                                          subscription->last_dropped);
+                        if (!notice.empty()) subscription->messages.push_back(std::move(notice));
+                        subscription->dropped = 0;
+                        subscription->first_dropped.clear();
+                        subscription->last_dropped.clear();
+                    }
+                    subscription->messages.push_back(message);
+                    if (subscription->close_after_filtered_message) {
+                        subscription->closed = true;
+                        keep = false;
+                    }
+                }
             } else if (subscription->messages.size() >= max_queue_size_) {
                 subscription->closed = true;
                 keep = false;
             } else {
                 subscription->messages.push_back(message);
+                if (subscription->close_after_filtered_message) {
+                    subscription->closed = true;
+                    keep = false;
+                }
             }
         }
         subscription->cv.notify_all();

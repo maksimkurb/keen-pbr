@@ -7,11 +7,18 @@ type ActionButton = Omit<
   ComponentProps<typeof IconButtonWithTooltip>,
   "children"
 > & {
+  destructive?: boolean
   group?: string
   icon?: ReactNode
 }
 
-export function ActionButtons({ actions }: { actions: ActionButton[] }) {
+export function ActionButtons({
+  actions,
+  mobileIcons = false,
+}: {
+  actions: ActionButton[]
+  mobileIcons?: boolean
+}) {
   const renderedActions: ReactNode[] = []
 
   for (let actionIndex = 0; actionIndex < actions.length; ) {
@@ -45,17 +52,38 @@ export function ActionButtons({ actions }: { actions: ActionButton[] }) {
   }
 
   return (
-    <div className="ml-auto inline-flex justify-end gap-2">
-      {renderedActions}
-    </div>
+    <>
+      {mobileIcons ? (
+        <div className="inline-flex justify-end md:hidden">
+          {actions
+            .filter((action) => !action.onDragStart)
+            .map((action, index) => renderAction(action, index, true))}
+        </div>
+      ) : null}
+      <div
+        className={
+          mobileIcons
+            ? "ml-auto hidden justify-end gap-2 md:inline-flex"
+            : "ml-auto inline-flex justify-end gap-2"
+        }
+      >
+        {renderedActions}
+      </div>
+    </>
   )
 }
 
-function renderAction(action: ActionButton, actionIndex: number) {
+function renderAction(
+  action: ActionButton,
+  actionIndex: number,
+  mobile = false
+) {
   const {
+    destructive,
     group: _group,
     icon,
     label,
+    className,
     size = "icon-sm",
     variant = "outline",
     ...props
@@ -67,8 +95,13 @@ function renderAction(action: ActionButton, actionIndex: number) {
       {...props}
       key={`${label}-${actionIndex}`}
       label={label}
-      size={size}
-      variant={variant}
+      size={mobile ? "icon" : size}
+      variant={mobile ? "ghost" : variant}
+      className={
+        mobile
+          ? `size-11 ${destructive ? "text-destructive hover:text-destructive" : ""} ${className ?? ""}`
+          : className
+      }
     >
       {icon}
     </IconButtonWithTooltip>

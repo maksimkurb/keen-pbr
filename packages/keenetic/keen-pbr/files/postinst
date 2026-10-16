@@ -1,73 +1,44 @@
 #!/bin/sh
 
-DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
-DNSMASQ_TEMPLATE="/opt/usr/lib/keen-pbr/dnsmasq.conf.template"
-DNSMASQ_BACKUP="/opt/etc/dnsmasq.conf.backup-pre-keen-pbr"
-
 echo "keen-pbr installation"
 echo "------------------------"
 
 mkdir -p /opt/usr/lib/keen-pbr
 
-has_keen_pbr_managed_block() {
-    [ -f "$DNSMASQ_CONF" ] || return 1
-
-    awk '
-        $0 == "# BEGIN keen-pbr managed block" {
-            if ((getline notice) > 0 &&
-                notice == "# Do not remove the following line, it is required for keen-pbr to function properly." &&
-                (getline config) > 0 &&
-                config == "conf-script=/opt/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry" &&
-                (getline end) > 0 &&
-                end == "# END keen-pbr managed block") {
-                found = 1
-            }
-        }
-        END { exit found ? 0 : 1 }
-    ' "$DNSMASQ_CONF"
-}
-
-answer=""
-if [ -f "$DNSMASQ_TEMPLATE" ] && ! has_keen_pbr_managed_block; then
-    if [ -n "${KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS:-}" ]; then
-        answer="$KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS"
-    elif [ -t 0 ] && [ -t 1 ]; then
-        echo "Tip: set KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS=Y or N to automate keen-pbr installation."
-        while :; do
-            printf "Replace %s with recommended keen-pbr dnsmasq defaults? [y/n]: " "$DNSMASQ_CONF"
-            read answer || answer=""
-            case "$answer" in
-                y|Y|n|N)
-                    break
-                    ;;
-                *)
-                    echo "Please enter Y or N."
-                    ;;
-            esac
-        done
-    else
-        echo "Tip: set KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS=Y or N to automate keen-pbr installation."
+# keen-pbr 3.3.x depended on dnsmasq, so opkg installed it as a dependency
+# that "opkg autoremove" may delete.  Since 3.4.0 the dependency is gone, but a
+# config written by 3.3.x still manages dnsmasq.  opkg does not tell a
+# postinst the old version, so the check is the config: a 3.3.x config has no
+# "version" field.
+KEEN_PBR_CONFIG="/opt/etc/keen-pbr/config.json"
+KEEN_PBR_OPKG_STATUS="/opt/lib/opkg/status"
+if [ -f "$KEEN_PBR_CONFIG" ] && ! grep -q '"version"' "$KEEN_PBR_CONFIG"; then
+    # Package state is read from opkg's status file: opkg holds its own lock
+    # while this script runs, so calling opkg here would fail.
+    keen_pbr_pkg_installed() {
+        awk -v pkg="$1" '
+            $1 == "Package:" { cur = $2 }
+            $1 == "Status:" && cur == pkg && $NF == "installed" { found = 1 }
+            END { exit found ? 0 : 1 }
+        ' "$KEEN_PBR_OPKG_STATUS" 2>/dev/null
+    }
+    for keen_pbr_dnsmasq_pkg in dnsmasq dnsmasq-full; do
+        if keen_pbr_pkg_installed "$keen_pbr_dnsmasq_pkg"; then
+            # Retry in the background until opkg releases its lock.
+            (
+                keen_pbr_try=0
+                while [ "$keen_pbr_try" -lt 30 ]; do
+                    sleep 2
+                    opkg flag user "$keen_pbr_dnsmasq_pkg" >/dev/null 2>&1 && exit 0
+                    keen_pbr_try=$((keen_pbr_try + 1))
+                done
+            ) >/dev/null 2>&1 &
+        fi
+    done
+    if [ "$PKG_UPGRADE" = "1" ]; then
+        echo "What's new in 3.4.0: https://keen-pbr.fyi/docs/changelog/#v3-4-0"
     fi
 fi
-
-case "$answer" in
-    y|Y)
-        if [ -f "$DNSMASQ_CONF" ]; then
-            printf "Backing up existing %s to %s\n" "$DNSMASQ_CONF" "$DNSMASQ_BACKUP"
-            cp "$DNSMASQ_CONF" "$DNSMASQ_BACKUP"
-        fi
-        printf "Installing recommended keen-pbr dnsmasq base config to %s\n" "$DNSMASQ_CONF"
-        cp "$DNSMASQ_TEMPLATE" "$DNSMASQ_CONF"
-        ;;
-    n|N)
-        echo "Keeping existing dnsmasq base config unchanged."
-        ;;
-    "")
-        ;;
-    *)
-        printf "Ignoring invalid KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS value: %s. Use Y or N.\n" "$answer"
-        ;;
-esac
 
 echo ""
 /opt/etc/init.d/S80keen-pbr start || echo "Failed to start keen-pbr service"

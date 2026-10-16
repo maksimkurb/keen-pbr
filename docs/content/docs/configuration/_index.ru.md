@@ -14,9 +14,9 @@ keen-pbr хранит настройки в едином JSON-файле кон�
 Если установлен полный пакет, первоначальную настройку удобнее сделать через веб-интерфейс и вернуться к этому разделу позже. Большинству пользователей достаточно четырёх разделов конфигурации:
 
 - [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — куда должен идти трафик
-- [Списки]({{< relref "/docs/configuration/lists" >}}) — сайты или диапазоны IP для сопоставления
+- [Списки]({{< relref "/docs/configuration/lists" >}}) — сайты и диапазоны IP, которые нужно маршрутизировать
 - [Правила маршрутизации]({{< relref "/docs/configuration/route-rules" >}}) — какие списки через какой outbound
-- [DNS]({{< relref "/docs/configuration/dns" >}}) — какой DNS-сервер использовать для этих списков
+- [DNS]({{< relref "/docs/configuration/dns" >}}) — определения DNS-серверов и DNS-перехват
 
 ## Практический пример
 
@@ -44,30 +44,6 @@ keen-pbr хранит настройки в едином JSON-файле кон�
       "domains": ["google.com"]
     }
   },
-  "dns": {
-    "system_resolver": {
-      "type": "dnsmasq-nftset",
-      "address": "127.0.0.1"
-    },
-    "servers": [
-      {
-        "tag": "vpn_dns",
-        "address": "10.8.0.1",
-        "detour": "vpn"
-      },
-      {
-        "tag": "default_dns",
-        "address": "1.1.1.1"
-      }
-    ],
-    "rules": [
-      {
-        "list": ["my_sites"],
-        "server": "vpn_dns"
-      }
-    ],
-    "fallback": ["default_dns"]
-  },
   "route": {
     "rules": [
       {
@@ -82,9 +58,9 @@ keen-pbr хранит настройки в едином JSON-файле кон�
 ## Базовая конфигурация
 
 - [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — задайте VPN и обычное интернет-соединение
-- [Списки]({{< relref "/docs/configuration/lists" >}}) — задайте сайты, домены или диапазоны IP для сопоставления
+- [Списки]({{< relref "/docs/configuration/lists" >}}) — задайте сайты, домены или диапазоны IP, которые нужно маршрутизировать
 - [Правила маршрутизации]({{< relref "/docs/configuration/route-rules" >}}) — свяжите каждый список с outbound
-- [DNS]({{< relref "/docs/configuration/dns" >}}) — настройте DNS-сервер для доменов из списков
+- [DNS]({{< relref "/docs/configuration/dns" >}}) — определения DNS-серверов и DNS-перехват
 
 ## Расширенная конфигурация
 

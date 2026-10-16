@@ -14,24 +14,6 @@ keen-pbr можно установить на роутерах OpenWrt из ре
 - OpenWrt 25.x и новее: `apk`
 - OpenWrt 24.x и старше: `opkg`
 
-### Замените `dnsmasq` на `dnsmasq-full`
-
-Установите `dnsmasq-full` перед установкой keen-pbr:
-
-{{< callout type="info" >}}
-Для OpenWrt 25.x и новее тоже нужен `dnsmasq-full` вместо стандартного `dnsmasq`.
-У меня нет роутера с `apk`, чтобы проверить точные шаги замены. Если вы знаете правильную процедуру, пожалуйста, отправьте PR с исправлением документации.
-{{< /callout >}}
-
-```bash {filename="bash"}
-# OpenWrt 25.x и новее
-apk --update-cache add dnsmasq-full
-
-# OpenWrt 24.x и старше
-opkg update && cd /tmp/ && opkg download dnsmasq-full
-opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
-```
-
 ### Установите со страницы репозитория
 
 Откройте страницу инструкций репозитория, выберите **OpenWrt** в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
@@ -75,6 +57,11 @@ service keen-pbr restart
 Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета.
 {{< /callout >}}
 
+{{< callout type="warning" >}}
+Для перехвата DNS и L7 нужны модули ядра `nfnetlink_queue`, `nfnetlink_log` и `nft_queue`.
+Пакет автоматически подтягивает `kmod-nfnetlink-queue`, `kmod-nfnetlink-log` и `kmod-nft-queue`. Если вы ставили старую сборку или удалили их, установите вручную; иначе демон пишет `cannot bind netfilter queue/log ... Invalid argument`, а `/api/health/service` называет отсутствующий модуль. `nft_log` входит в `kmod-nft-core`.
+{{< /callout >}}
+
 ### Следующие шаги
 
 Откройте [Быстрый старт]({{< relref "/docs/getting-started/quick-start" >}}) и используйте вкладку **Веб-интерфейс** для самой простой первоначальной настройки. Если вы установили `keen-pbr-headless`, используйте вкладку **JSON / CLI**.
@@ -84,3 +71,17 @@ service keen-pbr restart
 {{< /callout >}}
 
 {{% /steps %}}
+
+## Отдельные DNS-серверы для списков (dnsmasq) {#dnsmasq}
+
+Для маршрутизации keen-pbr не нужен dnsmasq, но в OpenWrt он и так работает системным резолвером. Нужно ли отдать его под управление keen-pbr, читайте в разделе [Нужен ли dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
+
+### Включение {#dnsmasq-install}
+
+В веб-интерфейсе откройте **Общее** > **Управление локальным DNS-сервером** и включите **Управлять конфигурацией dnsmasq**. keen-pbr добавит три записи `addnmount` в секцию dnsmasq в `/etc/config/dhcp`, чтобы dnsmasq в песочнице мог запускать keen-pbr.
+
+Пока управление включено и заданы **Основные DNS-серверы**, keen-pbr убирает из списка в `/etc/config/dhcp` (в LuCI **DNS forwardings**) серверы без домена. Серверы для отдельных доменов, например `/lan/192.168.1.1`, остаются. Убранные серверы вернутся, когда вы выключите управление или очистите основные серверы.
+
+### Вернуть как было {#dnsmasq-rollback}
+
+Выключите **Управлять конфигурацией dnsmasq** и примените конфигурацию. keen-pbr перезапустит dnsmasq и вернёт убранные серверы. Записи `addnmount` исчезнут при удалении пакета.

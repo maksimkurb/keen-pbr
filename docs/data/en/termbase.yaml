@@ -1,0 +1,91 @@
+# Glossary for the {{< term >}} shortcode. Match is on `term` or `abbr`, case-insensitive.
+- term: fwmark
+  abbr: fwmark
+  definition: 'Firewall mark: a number the Linux kernel attaches to a packet. keen-pbr sets it in the firewall, and ip rule uses it to pick a routing table.'
+- term: conntrack
+  abbr: conntrack
+  definition: 'Connection tracking: the Linux kernel''s table of open connections. Each entry can carry its own mark (connmark).'
+- term: connmark
+  abbr: connmark
+  definition: 'Connection mark: a mark stored on a conntrack entry. keen-pbr copies the fwmark into it so every packet of a connection follows the same route.'
+- term: ipset
+  abbr: ipset
+  definition: A named set of IP addresses or subnets in the Linux kernel, used by iptables rules to match many addresses at once.
+- term: nftset
+  abbr: nftset
+  definition: A named set of IP addresses or subnets inside nftables, the nftables counterpart of ipset.
+- term: netfilter
+  abbr: netfilter
+  definition: The packet filtering framework in the Linux kernel. iptables and nftables are its user-space tools.
+- term: mangle
+  abbr: mangle
+  definition: The iptables table for changing packet metadata, such as setting a fwmark, before routing.
+- term: PREROUTING
+  abbr: PREROUTING
+  definition: The firewall hook that sees incoming packets before the routing decision. keen-pbr sets fwmarks here.
+- term: policy routing
+  abbr: policy routing
+  definition: Routing that chooses a routing table by rules (ip rule) instead of only by destination address, for example by fwmark.
+- term: NAT
+  abbr: NAT
+  definition: 'Network Address Translation: rewriting packet addresses, for example replacing LAN addresses with the router''s WAN address.'
+- term: MASQUERADE
+  abbr: MASQUERADE
+  definition: A NAT rule that replaces the source address with the address of the outgoing interface.
+- term: reverse path filter
+  abbr: reverse path filter
+  definition: A kernel check (rp_filter) that drops a packet if the reply to it would not leave through the interface it arrived on.
+- term: NFQUEUE
+  abbr: NFQUEUE
+  definition: A netfilter mechanism that passes packets to a user-space program and waits for its verdict. keen-pbr uses it to hold DNS replies briefly.
+- term: NFLOG
+  abbr: NFLOG
+  definition: A netfilter mechanism that sends copies of packets to a user-space program without delaying them.
+- term: netlink
+  abbr: netlink
+  definition: The Linux kernel interface programs use to read and change routes, rules, sets and other network settings.
+- term: CIDR
+  abbr: CIDR
+  definition: 'Subnet notation: an address and prefix length, for example 192.168.1.0/24.'
+- term: DNS rebinding
+  abbr: DNS rebinding
+  definition: An attack in which a public domain resolves to a private address. dnsmasq can block such answers.
+- term: DNS over HTTPS
+  abbr: DoH
+  definition: 'DNS over HTTPS: encrypted DNS. The router cannot read these queries.'
+- term: DNS over TLS
+  abbr: DoT
+  definition: 'DNS over TLS: encrypted DNS. The router cannot read these queries.'
+- term: Differentiated Services Code Point
+  abbr: DSCP
+  definition: A 6-bit field in the IP header used to mark traffic classes for QoS.
+- term: Quality of Service
+  abbr: QoS
+  definition: Traffic prioritization, for example giving calls priority over downloads.
+- term: Time To Live
+  abbr: TTL
+  definition: How long a DNS answer may be cached, in seconds.
+- term: Server Name Indication
+  abbr: SNI
+  definition: The site name a client sends unencrypted at the start of a TLS connection.
+- term: QUIC
+  abbr: QUIC
+  definition: A transport protocol over UDP used by HTTP/3.
+- term: Internet Control Message Protocol
+  abbr: ICMP
+  definition: Service protocol for network diagnostics. ping uses ICMP Echo.
+- term: Round-trip time
+  abbr: RTT
+  definition: Time from sending a request until its reply arrives.
+- term: network namespace
+  abbr: network namespace
+  definition: An isolated copy of the Linux network stack with its own interfaces, routes and firewall.
+- term: drop-in
+  abbr: drop-in
+  definition: A small extra configuration file that a program reads in addition to its main config.
+- term: Entware
+  abbr: Entware
+  definition: A package repository for routers. On Keenetic, keen-pbr and dnsmasq are installed from it.
+- term: RCI
+  abbr: RCI
+  definition: The Keenetic router's built-in configuration API.

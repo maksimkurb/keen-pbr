@@ -16,6 +16,10 @@ public:
     using std::runtime_error::runtime_error;
 };
 
+struct NetlinkMetricsSnapshot {
+    uint64_t errors{0};
+};
+
 enum class RouteType {
     unicast,
     blackhole,
@@ -93,7 +97,13 @@ struct DumpedRoute {
     int family{0};                      // AF_INET or AF_INET6
     uint32_t metric{0};                 // Route metric/priority
     uint8_t protocol{0};                // rtm_protocol ownership marker
+    uint32_t nexthop_count{0};          // Number of kernel nexthops (0 when unavailable)
+    bool unicast{true};                 // True only for RTN_UNICAST routes
 };
+
+// True when both dumps hold the same routes; dump order is not significant.
+bool same_routes(const std::vector<DumpedRoute>& a,
+                 const std::vector<DumpedRoute>& b);
 
 // A policy rule dumped from the kernel (read-only snapshot)
 struct DumpedRule {
@@ -145,6 +155,8 @@ public:
     // Policy rule operations
     RuleAddResult add_rule_for_family(const RuleSpec& spec, int family) override;
     void delete_rule_for_family(const RuleSpec& spec, int family) override;
+
+    NetlinkMetricsSnapshot metrics_snapshot() const;
 
     // Dump all routes in a specific routing table from the kernel.
     // family: 0 (AF_UNSPEC) to get both IPv4 and IPv6 routes.

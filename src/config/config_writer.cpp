@@ -1,5 +1,8 @@
 #include "config_writer.hpp"
 
+#include "config.hpp"
+#include "../log/logger.hpp"
+
 #include <cerrno>
 #include <array>
 #include <cstring>
@@ -159,6 +162,29 @@ void write_config_atomically_from_fd(const std::string& config_path,
                                      int source_fd) {
     if (source_fd < 0) throw std::invalid_argument("Invalid rollback config descriptor");
     write_config_atomically_impl(config_path, [source_fd](int fd) { copy_all(fd, source_fd); });
+}
+
+bool upgrade_config_file_if_needed(const std::string& config_path,
+                                   const std::string& original_text) {
+    try {
+        const auto upgraded = upgraded_config_text(original_text);
+        if (!upgraded) return false;
+        const std::string backup_path = config_path + ".bak-pre-members";
+        std::error_code ec;
+        if (!std::filesystem::exists(backup_path, ec)) {
+            write_config_atomically(backup_path, original_text);
+        }
+        write_config_atomically(config_path, *upgraded);
+        Logger::instance().info(
+            "Config {} used a legacy outbound_groups format and was upgraded to "
+            "'members' (original kept in {})",
+            config_path, backup_path);
+        return true;
+    } catch (const std::exception& error) {
+        Logger::instance().warn("Could not upgrade legacy config {}: {}",
+                                config_path, error.what());
+        return false;
+    }
 }
 
 } // namespace keen_pbr3

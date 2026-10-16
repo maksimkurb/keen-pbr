@@ -8,6 +8,7 @@
 namespace keen_pbr3 {
 
 Config normalize_config_for_api_response(Config config);
+Config make_config_defaults();
 void protect_config_password_hash(Config& candidate, const Config& visible);
 std::string serialize_config_pretty(const Config& config);
 void register_config_handler(ApiServer& server, ApiContext& ctx);

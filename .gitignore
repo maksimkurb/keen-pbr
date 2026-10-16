@@ -4,6 +4,7 @@ progress.txt
 scripts/ralph
 build/
 .codex
+.claude
 
 # CMake
 CMakeCache.txt

@@ -1,0 +1,14 @@
+#!/bin/sh /etc/rc.common
+# Runs before dnsmasq (START=19): /tmp is empty after a boot, and keen-pbr's
+# dnsmasq entry lives there.  Writes it back; touches nothing else and restarts
+# nothing.
+
+START=18
+
+start() {
+    /usr/lib/keen-pbr/dnsmasq-hook.sh boot >/dev/null 2>&1 || true
+}
+
+stop() {
+    return 0
+}

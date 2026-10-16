@@ -4,7 +4,7 @@ import type { ComponentProps } from "react"
 import {
   LayoutGridIcon,
   LogOutIcon,
-  ShieldIcon,
+  NetworkIcon,
   WaypointsIcon,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -23,7 +23,6 @@ import {
 import { useSidebar } from "@/components/ui/sidebar-context"
 import { useAuth } from "@/auth/auth-context"
 import { Button } from "@/components/ui/button"
-
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const { isMobile, toggleSidebar } = useSidebar()
   const { t } = useTranslation()
@@ -41,6 +40,10 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
             url: "/",
           },
           {
+            title: t("nav.items.requestsLog"),
+            url: "/requests-log",
+          },
+          {
             title: t("nav.items.settings"),
             url: "/general",
           },
@@ -51,7 +54,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         ],
       },
       {
-        title: t("nav.groups.internet"),
+        title: t("nav.groups.routing"),
         url: "#",
         icon: WaypointsIcon,
         items: [
@@ -60,23 +63,23 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
             url: "/outbounds",
           },
           {
-            title: t("nav.items.dnsServers"),
-            url: "/dns-servers",
-          },
-        ],
-      },
-      {
-        title: t("nav.groups.networkRules"),
-        url: "#",
-        icon: ShieldIcon,
-        items: [
-          {
             title: t("nav.items.lists"),
             url: "/lists",
           },
           {
             title: t("nav.items.routingRules"),
             url: "/routing-rules",
+          },
+        ],
+      },
+      {
+        title: t("nav.groups.dns"),
+        url: "#",
+        icon: NetworkIcon,
+        items: [
+          {
+            title: t("nav.items.dnsServers"),
+            url: "/dns-servers",
           },
           {
             title: t("nav.items.dnsRules"),

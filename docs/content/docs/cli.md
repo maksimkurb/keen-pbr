@@ -6,7 +6,7 @@ aliases:
   - /docs/advanced/signals/
 ---
 
-`keen-pbr` can run the service, inspect live routing state, download list data, and print generated resolver configuration.
+`keen-pbr` can run the service, inspect live routing state, download list data, and test routing decisions.
 
 ## Usage
 
@@ -26,9 +26,9 @@ Commands:
   service
   status
   download
-  generate-resolver-config <res>
-  resolver-config-hash
-  test-routing <ip-or-domain>
+  test-routing <ip-or-domain> [--proto ...] [--src-addr ...] [--src-port ...] [--dest-port ...] [--dscp ...]
+  dnsmasq detect [--json]
+  dnsmasq remove <selector>
 ```
 
 The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, and `/opt/etc/keen-pbr/config.json` on Keenetic / NetCraze.
@@ -39,7 +39,7 @@ The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, an
 |---|---|
 | `--config <path>` | Path to the JSON config file. |
 | `--log-level <lvl>` | Log verbosity: `error`, `warn`, `info`, `verbose`, or `debug`. |
-| `--log-target <target>` | External log destination: `stderr`, `syslog`, or `both`. Defaults to `syslog` for `service` and `stderr` for interactive commands. |
+| `--log-target <target>` | External log destination: `stderr`, `syslog`, or `both`. Defaults to `both` for every command. The packaged service files (systemd, OpenWrt procd, Keenetic init script) pass `--log-target syslog` so logs are not duplicated when stdout/stderr are also captured by the init system. |
 | `--no-api` | Disable the REST API even if enabled in config. |
 | `--use-raw-prerouting` | Opt in to raw-table IPv4 forwarded-traffic classification; available only with iptables. |
 | `--use-raw6-prerouting` | Opt in to raw-table IPv6 forwarded-traffic classification; available only with iptables. |
@@ -48,34 +48,20 @@ The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, an
 
 ### `--use-raw-prerouting`
 
-This disabled-by-default option is intended for systems such as KeeneticOS where
-an external firewall manager periodically replaces the `mangle` table. It moves
-only IPv4 forwarded-traffic classification from `mangle PREROUTING` to `raw
-PREROUTING`; locally generated traffic remains in `mangle OUTPUT`, and IPv6
-can be selected independently with `--use-raw6-prerouting`.
+This flag is mainly for Keenetic / NetCraze, where the firmware periodically rebuilds the `mangle` table and keen-pbr's rules briefly disappear. With this flag keen-pbr puts the rules for forwarded IPv4 traffic into the `raw` table, which the firmware leaves alone. IPv6 has a separate flag, `--use-raw6-prerouting`. The router's own traffic is always handled in `mangle OUTPUT`.
 
-On Keenetic, the service independently probes and loads `iptable_raw.ko` and
-`ip6table_raw.ko` at startup. It enables each flag automatically only after that
-family's raw table probe succeeds; otherwise it logs a warning and keeps that
-family on the normal mangle path. Raw PREROUTING deliberately does not use
-connmark acceleration: each forwarded packet is classified directly.
+On Keenetic / NetCraze the start script sets these flags. The mode is set with `KEEN_PBR_RAW_PREROUTING` in `/opt/etc/keen-pbr/defaults`:
 
-To force the Keenetic package to keep using mangle PREROUTING, set the following
-in `/opt/etc/keen-pbr/defaults`, then restart the service:
+| Value | What it does |
+|---|---|
+| `auto` (default) | Checks separately for IPv4 and IPv6 whether `raw` works, and uses it if so; otherwise `mangle` |
+| `disable` | Always use `mangle` |
+| `enable` | Require `raw` for IPv4 and IPv6. If `raw` is unavailable, the service does not start |
+| `ipv4-only`, `ipv6-only` | Require `raw` for one address family only |
 
-```sh
-KEEN_PBR_RAW_PREROUTING="disable"
-```
+Restart the service after changing it. The practical difference between the modes is described in [Keenetic / NetCraze installation]({{< relref "/docs/getting-started/installation/keenetic" >}}).
 
-The default value is `auto`: IPv4 and IPv6 capabilities are probed independently,
-so one family can use RAW while the other remains in mangle. Set it to `enable`
-to require RAW for every enabled family; `ipv4-only` and `ipv6-only` force one
-family. The service fails to start rather than falling back for a forced family.
-RAW PREROUTING intentionally runs before conntrack and does not use CONNMARK
-acceleration. For the Keenetic-specific RAW versus mangle trade-off, see
-[Keenetic / NetCraze installation]({{< relref "/docs/getting-started/installation/keenetic" >}}).
-
-Troubleshoot the required capability with:
+To check whether `raw` is available:
 
 ```sh
 ls -l "/lib/modules/$(uname -r)/iptable_raw.ko"
@@ -91,11 +77,77 @@ ip6tables -t raw -S
 | Command | Description |
 |---|---|
 | `service` | Start the routing service in the foreground. |
-| `status` | Show routing, route table, rule, and firewall verification status, then exit. |
+| `status` | Show service, outbound, routing, firewall and kernel health, then the issue list the web UI overview shows, and exit. Exits with 1 when any check failed or any issue is an error. |
 | `download` | Download all URL-backed lists into cache, then exit. |
-| `generate-resolver-config <res>` | Print generated resolver config to stdout. Supported resolvers: `dnsmasq-ipset`, `dnsmasq-nftset`. |
-| `resolver-config-hash` | Print the MD5 hash of the generated domain-to-ipset mapping, then exit. |
-| `test-routing <ip-or-domain>` | Compare expected and actual routing for the given IP or domain. |
+| `generate-resolver-config dnsmasq` | Print dnsmasq configuration for per-list DNS servers to stdout. |
+| `dnsmasq detect [--json]` | List dnsmasq instances, their DNS endpoints and the instance keen-pbr uses. |
+| `dnsmasq remove <selector>` | Restart one dnsmasq instance without keen-pbr's config. |
+| `test-routing <ip-or-domain> [packet options]` | Compare expected and actual routing for the given IP or domain. The daemon runs the check, the same way as the routing test in the web UI. |
+
+### `generate-resolver-config dnsmasq`
+
+When `dns.resolver_integration: "dnsmasq"` is enabled, this command prints the generated dnsmasq configuration to stdout. It contains domain-to-server mappings, {{< term "DNS rebinding" >}} protection exceptions, and `fallback` servers.
+
+**Usage:**
+
+```bash
+keen-pbr generate-resolver-config dnsmasq
+```
+
+**Output:** Dnsmasq configuration directives.
+
+```text
+# Generated by keen-pbr - do not edit manually
+
+address=/use-application-dns.net/
+
+server=192.168.1.1
+
+# List: ai_services
+server=/openai.com/www.openai.com/.../1.1.1.1
+rebind-domain-ok=/openai.com/www.openai.com/...
+```
+
+**Behavior:**
+- Always exits with status 0, even on errors; errors are printed as `# keen-pbr: ...` comment lines.
+- When `resolver_integration: "none"` (default), or the config cannot be read, the output is only the `server=` lines from `dnsmasq-fallback.conf`; the dynamic sets are filled by interception.
+- With `"dnsmasq"` and no `fallback` servers, those `server=` lines are added to the output.
+- dnsmasq reads the config via this command (see `conf-script=keen-pbr generate-resolver-config dnsmasq` in the {{< term "drop-in" >}}).
+
+### `dnsmasq detect` and `remove`
+
+Inspect and clean up the dnsmasq integration without the daemon. Neither command needs the control socket.
+
+```bash
+keen-pbr dnsmasq detect [--json]
+keen-pbr dnsmasq remove <selector>
+```
+
+**`detect`** lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr's {{< term "drop-in" >}} is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (`explicit`, `adopted` or `automatic`), or why it could not choose.
+
+```text
+dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)
+
+  uci:cfg01411c  [selected: adopted]
+    running:     yes (pid 1842)
+    enabled:     yes
+    endpoint:    127.0.0.1:53 (stamp_verified)
+    listeners:   udp+tcp 0.0.0.0:53, udp+tcp [::]:53
+    keen-pbr:    installed, loaded hash 3f2a9c0e1b7d4a55c6e8f0a1b2c3d4e5
+    conf-dir:    /tmp/dnsmasq.cfg01411c.d (included)
+    problem:     none
+
+Selection: uci:cfg01411c (adopted)
+```
+
+- `--json` prints the same data as one JSON object (`selected`, `selection`, `error_code`, `message`, `warnings`, `instances[]`).
+- Exit code `0` when an instance is selected and has no problem, `1` otherwise.
+- If the choice is ambiguous, the output ends with a hint to set `dns.dnsmasq_instance`.
+
+**`remove <selector>`** restarts one instance so that it stops using keen-pbr's config; on OpenWrt it also returns the server list moved aside. Use it when `detect` shows an instance that still runs keen-pbr's config after you switched the integration off.
+
+- Must run as root. Exit code `64` for a missing or invalid selector.
+- If the integration is still enabled for this instance, the command prints a note: the daemon may apply its config to dnsmasq again on its next sync. Disable the integration first.
 
 ## Signals
 
@@ -125,22 +177,43 @@ Example output:
 
 ```text
 keen-pbr status - config: /etc/keen-pbr/config.json
+Service: running (runtime running: startup complete) - keen-pbr 3.4.0 (build 20261012064940)
 Firewall backend: nftables
 
 Outbounds:
   corp_vpn [interface] iface=corp_vpn fwmark=0x00010000 table=402
+    state ........................................................... HEALTHY
     route   table=402 default dev corp_vpn ............................... OK
     rule    0x00010000/0x00ff0000 -> table=402 pri=402 ........... OK [v4+v6]
-  auto_vpn [urltest] fwmark=0x00060000 table=407
-    route   table=407 default dev corp_vpn ............................... OK
-    rule    0x00060000/0x00ff0000 -> table=407 pri=407 ........... OK [v4+v6]
+  auto_vpn [urltest] fwmark=0x00060000 table=402
+    state ........................................................... HEALTHY
+    member  corp_vpn (corp_vpn) 41 ms ................................ ACTIVE
+    member  backup_vpn (wg1) ....................................... DEGRADED
+      probe failed: timeout
+    route   table=402 default dev corp_vpn ............................... OK
+    rule    0x00060000/0x00ff0000 -> table=402 pri=407 ........... OK [v4+v6]
 
 Firewall:
   chain   KeenPbrTable / prerouting hook ............................... OK
   rule    kpbr4_generic -> MARK 0x00010000 ........................ MISSING
     rule not found in nftables prerouting chain
+  rule    kpbr4_auto -> MARK 0x00060000 selected=corp_vpn .............. OK
 
-Overall: DEGRADED (2 check(s) failed)
+Kernel 6.12.94:
+  capability nfqueue ................................................... OK
+  probe      set_write ................................................. OK
+  probe      conntrack ................................................. OK
+
+Interception: running, DNS hold active, L7 active
+dnsmasq: ok, alive, 127.0.0.1:53 (uci:cfg01411c), 3 rules, 16 domains
+
+Issues:
+  ERROR  Firewall rules do not match: 1
+         kpbr4_generic: rule not found in nftables prerouting chain
+  WARN   auto_vpn: failing members: 1
+         backup_vpn · degraded · probe failed: timeout
+
+Overall: DEGRADED (1 check(s) failed, 1 error(s), 1 warning(s))
 Status values: OK / MISSING / MISMATCH / ERROR
 ```
 
@@ -156,40 +229,6 @@ Example output:
 [google] Not modified (304)
 [internal.site] Skipped (no URL)
 [generic] Skipped (no URL)
-```
-
-Generate resolver config:
-
-```bash {filename="bash"}
-keen-pbr generate-resolver-config dnsmasq-ipset
-```
-
-Example output:
-
-```text
-# Generated by keen-pbr (dnsmasq-ipset) - do not edit manually
-
-address=/use-application-dns.net/
-
-rebind-domain-ok=keen.pbr
-server=/check.keen.pbr/127.0.0.88#53
-
-server=10.100.100.100
-
-# List: google
-ipset=/google.com/www.google.com/.../kpbr4d_google,kpbr6d_google
-```
-
-Print the resolver config hash:
-
-```bash {filename="bash"}
-keen-pbr resolver-config-hash
-```
-
-Example output:
-
-```text
-6aa71fa9012013b242460b9d1e173d82
 ```
 
 Test expected vs actual routing:
@@ -209,3 +248,19 @@ IP                        | List Match               | Expected Outbound  | Actu
 2001:4860:4860::8888      | google (via google.com)  | corp_vpn           | corp_vpn           | OK
 142.250.74.14             | google (via google.com)  | corp_vpn           | corp_vpn           | OK
 ```
+
+By default only list membership is checked. To also match rules that use ports, protocol, source address or DSCP, describe the packet:
+
+| Flag | Description |
+|---|---|
+| `--proto <tcp\|udp\|other>` | Packet protocol. |
+| `--src-addr <ip>` | Source address of the client sending the packet. |
+| `--src-port <port>` | Source port. |
+| `--dest-port <port>` | Destination port. |
+| `--dscp <0-63>` | DSCP value. A packet without `--dscp` is treated as DSCP 0. |
+
+```bash {filename="bash"}
+keen-pbr test-routing google.com --proto tcp --dest-port 443 --src-addr 192.168.1.10
+```
+
+If a rule depends on a field you did not give (for example `src_addr`), that IP shows `(unknown)`.

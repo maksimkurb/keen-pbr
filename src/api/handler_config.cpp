@@ -5,6 +5,9 @@
 
 #include "../auth/password.hpp"
 #include "../config/config.hpp"
+#include "../config/config_defaults.hpp"
+#include "../util/format_compat.hpp"
+#include <keen-pbr/version.hpp>
 #include <nlohmann/json.hpp>
 
 #include <functional>
@@ -31,20 +34,9 @@ nlohmann::json make_validation_error_json(const ConfigValidationError& error) {
 
 } // namespace
 
+// Unset fields stay unset: the web UI saves the document it received, so a
+// default filled in here would end up written to the config file.
 Config normalize_config_for_api_response(Config config) {
-    if (!config.daemon.has_value()) {
-        config.daemon = DaemonConfig{};
-    }
-
-    config.daemon->skip_marked_packets =
-        config.daemon->skip_marked_packets.value_or(true);
-    config.daemon->clear_dynamic_sets_on_apply =
-        config.daemon->clear_dynamic_sets_on_apply.value_or(true);
-    config.daemon->reuse_static_sets_on_runtime_refresh =
-        config.daemon->reuse_static_sets_on_runtime_refresh.value_or(true);
-    config.daemon->ipv6_enabled =
-        config.daemon->ipv6_enabled.value_or(true);
-
     if (config.api && config.api->authentication) {
         config.api->authentication->password_hash.reset();
     }
@@ -66,6 +58,50 @@ void protect_config_password_hash(Config& candidate, const Config& visible) {
     } else if (candidate.api && candidate.api->authentication) {
         candidate.api->authentication->password_hash.reset();
     }
+}
+
+Config make_config_defaults() {
+    namespace d = config_defaults;
+    const auto hex32 = [](uint32_t value) { return format("0x{:08x}", value); };
+
+    Config config;
+    DaemonConfig& daemon = config.daemon.emplace();
+    daemon.strict_enforcement = d::strict_enforcement;
+    daemon.skip_marked_packets = d::skip_marked_packets;
+    daemon.clear_dynamic_sets_on_apply = d::clear_dynamic_sets_on_apply;
+    daemon.reuse_static_sets_on_runtime_refresh = d::reuse_static_sets_on_runtime_refresh;
+    daemon.ipv6_enabled = d::ipv6_enabled;
+    daemon.ipset_hashsize = d::ipset_hashsize;
+    daemon.ipset_maxelem = d::ipset_maxelem;
+
+    FwmarkConfig& fwmark = config.fwmark.emplace();
+    fwmark.start = hex32(d::fwmark_start);
+    fwmark.mask = hex32(d::fwmark_mask);
+
+    IprouteConfig& iproute = config.iproute.emplace();
+    iproute.table_start = d::table_start;
+    iproute.process_router_traffic = d::process_router_traffic;
+
+    config.lists_autoupdate.emplace().enabled = d::lists_autoupdate_enabled;
+
+    InterceptConfig& intercept = config.intercept.emplace();
+    intercept.enabled = d::intercept_enabled;
+    intercept.min_ttl_ms = d::intercept_min_ttl_ms;
+    intercept.max_ttl_ms = d::intercept_max_ttl_ms;
+    InterceptDnsConfig& dns = intercept.dns.emplace();
+    dns.enabled = d::intercept_dns_enabled;
+    dns.queue_num = d::intercept_dns_queue_num;
+    dns.hold_timeout_ms = d::intercept_dns_hold_timeout_ms;
+    api::Marker& marker = dns.marker.emplace();
+    marker.domain = std::string(d::intercept_marker_domain);
+    marker.answer_ipv4 = std::string(d::intercept_marker_answer_ipv4);
+    InterceptL7Config& l7 = intercept.l7.emplace();
+    l7.enabled = d::intercept_l7_enabled;
+    l7.nflog_group = d::intercept_l7_nflog_group;
+    l7.tls = d::intercept_l7_tls;
+    l7.http = d::intercept_l7_http;
+    l7.quic = d::intercept_l7_quic;
+    return config;
 }
 
 std::string serialize_config_pretty(const Config& config) {
@@ -113,14 +149,22 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         return response.dump();
     });
 
+    // GET /api/config/defaults - what the daemon uses for unset values
+    server.get("/api/config/defaults", []() -> std::string {
+        return nlohmann::json(make_config_defaults()).dump();
+    });
+
     // POST /api/config - validate and stage in memory only
     server.post("/api/config", [&ctx](const std::string& body) -> std::string {
         Config staged;
         try {
             staged = parse_config(body);
+            // A saved config is always stamped with the running version.
+            staged.version = KEEN_PBR3_VERSION_STRING;
             const Config visible = ctx.get_visible_config();
             staged.api = visible.api;
-            validate_config(staged);
+            validate_config(staged, ConfigValidationMode::Runtime,
+                            ctx.validation_context());
         } catch (const ConfigValidationError& e) {
             throw ApiError(e.what(), 400, make_validation_error_json(e).dump());
         } catch (const ConfigError& e) {

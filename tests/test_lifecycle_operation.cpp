@@ -32,14 +32,14 @@ TEST_CASE("LifecycleOperationCoordinator records a failing stage") {
     LifecycleOperationStore store;
     LifecycleOperationCoordinator coordinator(store);
     LifecycleOperationSnapshot operation;
-    REQUIRE_FALSE(coordinator.begin(LifecycleOperationType::Start, {{"resolver", "Verify"}}, operation));
-    coordinator.fail_stage(operation.id, "resolver", "dnsmasq process disappeared");
-    coordinator.finish(operation.id, "dnsmasq process disappeared");
+    REQUIRE_FALSE(coordinator.begin(LifecycleOperationType::Start, {{"verify", "Verify"}}, operation));
+    coordinator.fail_stage(operation.id, "verify", "runtime verification failed");
+    coordinator.finish(operation.id, "runtime verification failed");
 
     const auto snapshot = store.snapshot();
     REQUIRE(snapshot);
     CHECK(snapshot->result == LifecycleOperationResult::Failed);
-    CHECK(snapshot->error == "dnsmasq process disappeared");
+    CHECK(snapshot->error == "runtime verification failed");
     CHECK(snapshot->stages[0].status == LifecycleOperationStatus::Failed);
 }
 

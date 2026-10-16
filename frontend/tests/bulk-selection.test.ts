@@ -64,6 +64,7 @@ describe("bulk DNS server delete helpers", () => {
     }
 
     expect(getDnsServerDeleteReferenceInfo(config, ["wan_dns"])).toEqual({
+      matchingRuleIndexes: [0],
       matchingRulesCount: 1,
       usesFallback: true,
     })

@@ -24,6 +24,7 @@ type OutboundSelectProps = {
   emptyLabel?: string
   placeholder?: string
   groupLabel?: string
+  ariaLabelledBy?: string
   ariaInvalid?: boolean
   disabled?: boolean
 }
@@ -37,6 +38,7 @@ export function OutboundSelect({
   placeholder,
   groupLabel,
   ariaInvalid,
+  ariaLabelledBy,
   disabled,
 }: OutboundSelectProps) {
   const { t } = useTranslation()
@@ -67,7 +69,10 @@ export function OutboundSelect({
       onValueChange={(nextValue) => onValueChange(nextValue ?? "")}
       value={selectedValue}
     >
-      <SelectTrigger aria-invalid={ariaInvalid}>
+      <SelectTrigger
+        aria-invalid={ariaInvalid}
+        aria-labelledby={ariaLabelledBy}
+      >
         <SelectValue placeholder={resolvedPlaceholder}>
           {(selected) => {
             if (!selected) {
@@ -76,6 +81,7 @@ export function OutboundSelect({
 
             return (
               <RuntimeOutboundStatusLabel
+                statusDot
                 runtimeState={runtimeOutboundsByTag.get(selected)}
                 t={t}
                 title={selected}
@@ -121,6 +127,7 @@ function OutboundSelectOption({
   return (
     <div className="flex min-w-0 items-center justify-between gap-3">
       <RuntimeOutboundStatusLabel
+        statusDot
         runtimeState={runtimeState}
         t={t}
         title={outbound.tag}

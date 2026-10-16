@@ -45,7 +45,9 @@ TEST_CASE("runtime outbound projection reuses one route snapshot") {
     auto missing = make_outbound("missing", OutboundType::TABLE);
     auto automatic = make_outbound("auto", OutboundType::URLTEST);
     OutboundGroup group;
-    group.outbounds = std::vector<std::string>{"wan"};
+    api::OutboundGroupMemberElement member;
+    member.outbound = "wan";
+    group.members = std::vector<api::OutboundGroupMemberElement>{member};
     automatic.outbound_groups = std::vector<OutboundGroup>{group};
     config.outbounds = std::vector<Outbound>{interface, table, missing, automatic};
 
@@ -74,13 +76,38 @@ TEST_CASE("runtime outbound projection reuses one route snapshot") {
         });
 
     REQUIRE(response.outbounds.size() == 4);
-    CHECK(response.outbounds[0].status == api::ResolverLiveStatus::HEALTHY);
-    CHECK(response.outbounds[1].status == api::ResolverLiveStatus::HEALTHY);
-    CHECK(response.outbounds[2].status == api::ResolverLiveStatus::UNKNOWN);
-    CHECK(response.outbounds[3].status == api::ResolverLiveStatus::HEALTHY);
+    CHECK(response.outbounds[0].status == api::RuntimeOutboundStatusEnum::HEALTHY);
+    CHECK(response.outbounds[1].status == api::RuntimeOutboundStatusEnum::HEALTHY);
+    CHECK(response.outbounds[2].status == api::RuntimeOutboundStatusEnum::UNKNOWN);
+    CHECK(response.outbounds[3].status == api::RuntimeOutboundStatusEnum::HEALTHY);
     CHECK(response.outbounds[3].interfaces.size() == 1);
     CHECK(response.outbounds[3].interfaces[0].status == api::RuntimeInterfaceStatusEnum::ACTIVE);
     CHECK(response.outbounds[3].interfaces[0].latency_ms == 12);
+}
+
+TEST_CASE("runtime outbound projection accepts the resolved auto gateway") {
+    Config config;
+    auto interface = make_outbound("wan", OutboundType::INTERFACE, "lo");
+    interface.gateway = "auto";
+    config.outbounds = std::vector<Outbound>{interface};
+
+    const OutboundMarkMap marks{{"wan", 1U}};
+    const std::vector<RuleSpec> rules{lookup_rule(1U, 100U)};
+    DumpedRoute main_route = default_route(254U, AF_INET, "lo");
+    main_route.gateway = "192.0.2.1";
+    DumpedRoute owned_route = default_route(100U, AF_INET, "lo");
+    owned_route.gateway = "192.0.2.1";
+
+    const auto response = build_runtime_outbounds_response_from_routes(
+        config, marks, rules, {}, {main_route, owned_route},
+        [](const std::string&) -> std::optional<UrltestState> {
+            return std::nullopt;
+        });
+
+    REQUIRE(response.outbounds.size() == 1);
+    REQUIRE(response.outbounds[0].interfaces.size() == 1);
+    CHECK(response.outbounds[0].interfaces[0].status ==
+          api::RuntimeInterfaceStatusEnum::ACTIVE);
 }
 
 TEST_CASE("runtime test-group projection reports table candidate probe state") {
@@ -89,10 +116,10 @@ TEST_CASE("runtime test-group projection reports table candidate probe state") {
     table.table = 200;
     auto automatic = make_outbound("auto", OutboundType::ICMPTEST);
     OutboundGroup group;
-    api::IcmpCandidateElement candidate;
-    candidate.outbound = "external";
-    candidate.target = "1.1.1.1";
-    group.candidates = std::vector<api::IcmpCandidateElement>{candidate};
+    api::OutboundGroupMemberElement member;
+    member.outbound = "external";
+    member.target = "1.1.1.1";
+    group.members = std::vector<api::OutboundGroupMemberElement>{member};
     automatic.outbound_groups = std::vector<OutboundGroup>{group};
     config.outbounds = std::vector<Outbound>{table, automatic};
 
@@ -134,8 +161,54 @@ TEST_CASE("runtime test-group projection reports table candidate probe state") {
     response = build();
     CHECK(response.outbounds[1].interfaces[0].status ==
           api::RuntimeInterfaceStatusEnum::DEGRADED);
-    CHECK(response.outbounds[1].status == api::ResolverLiveStatus::DEGRADED);
+    CHECK(response.outbounds[1].status == api::RuntimeOutboundStatusEnum::DEGRADED);
 }
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("runtime balance projection reports each usable first-tier child active") {
+    Config config;
+    auto first = make_outbound("first", OutboundType::TABLE);
+    auto second = make_outbound("second", OutboundType::TABLE);
+    auto backup = make_outbound("backup", OutboundType::TABLE);
+    auto automatic = make_outbound("auto", OutboundType::URLTEST);
+    automatic.strategy = api::Strategy::BALANCE;
+    OutboundGroup active_group;
+    active_group.members = std::vector<api::OutboundGroupMemberElement>{{"first", std::nullopt, std::nullopt}, {"second", std::nullopt, std::nullopt}};
+    OutboundGroup backup_group;
+    backup_group.members = std::vector<api::OutboundGroupMemberElement>{{"backup", std::nullopt, std::nullopt}};
+    automatic.outbound_groups = std::vector<OutboundGroup>{active_group, backup_group};
+    config.outbounds = std::vector<Outbound>{first, second, backup, automatic};
+
+    const OutboundMarkMap marks{{"first", 1U}, {"second", 2U},
+                                {"backup", 3U}, {"auto", 4U}};
+    const std::vector<RuleSpec> rules{
+        lookup_rule(1U, 100U), lookup_rule(2U, 101U),
+        lookup_rule(3U, 102U), lookup_rule(4U, 103U)};
+    UrltestState state;
+    state.config = automatic;
+    for (const auto* tag : {"first", "second", "backup"}) {
+        state.circuit_breakers.emplace(tag, CircuitBreaker(CircuitBreakerConfig{}));
+    }
+    state.last_results["first"] = URLTestResult{.success = true, .latency_ms = 10};
+    state.last_results["second"] = URLTestResult{.success = true, .latency_ms = 20};
+    state.last_results["backup"] = URLTestResult{.success = true, .latency_ms = 5};
+
+    const auto response = build_runtime_outbounds_response_from_routes(
+        config, marks, rules, {}, {},
+        [&state](const std::string& tag) -> std::optional<UrltestState> {
+            return tag == "auto" ? std::optional<UrltestState>{state} : std::nullopt;
+        });
+
+    REQUIRE(response.outbounds.size() == 4);
+    const auto& balanced = response.outbounds[3];
+    CHECK(balanced.status == api::RuntimeOutboundStatusEnum::HEALTHY);
+    REQUIRE(balanced.interfaces.size() == 3);
+    CHECK(balanced.interfaces[0].status == api::RuntimeInterfaceStatusEnum::ACTIVE);
+    CHECK(balanced.interfaces[1].status == api::RuntimeInterfaceStatusEnum::ACTIVE);
+    CHECK(balanced.interfaces[2].status == api::RuntimeInterfaceStatusEnum::BACKUP);
+    CHECK(balanced.detail == "balancing new connections across active candidates");
+}
+#endif
 
 } // namespace keen_pbr3
 

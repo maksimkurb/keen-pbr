@@ -19,14 +19,6 @@ Config parse_test_config(const std::string& json_str) {
         fallback_server.address = "127.0.0.1";
         cfg.dns->servers = std::vector<DnsServer>{fallback_server};
     }
-    if (!cfg.dns->fallback.has_value()) {
-        cfg.dns->fallback = std::vector<std::string>{"default_dns"};
-    }
-    if (!cfg.dns->system_resolver.has_value()) {
-        api::SystemResolver resolver;
-        resolver.address = "127.0.0.1";
-        cfg.dns->system_resolver = resolver;
-    }
     validate_config(cfg);
     return cfg;
 }

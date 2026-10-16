@@ -11,5 +11,5 @@
   ],
   "lists": {"routed": {"domains": ["routed.test"]}, "direct": {"domains": ["direct.test"]}},
   "route": {"inbound_interfaces": ["lan0"], "rules": [{"list": ["routed"], "outbound": "auto"}]},
-  "dns": {"system_resolver": {"address": "192.0.2.1"}, "servers": [{"tag": "upstream", "address": "10.20.0.2:15353"}], "fallback": ["upstream"], "rules": [{"list": ["routed", "direct"], "server": "upstream", "allow_domain_rebinding": true}]}
+  "dns": {"servers": [{"tag": "upstream", "address": "10.20.0.2:15353"}]}
 }

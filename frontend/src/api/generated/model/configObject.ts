@@ -10,6 +10,7 @@ import type { ConfigObjectLists } from './configObjectLists';
 import type { DaemonConfig } from './daemonConfig';
 import type { DnsConfig } from './dnsConfig';
 import type { FwmarkConfig } from './fwmarkConfig';
+import type { InterceptConfig } from './interceptConfig';
 import type { IprouteConfig } from './iprouteConfig';
 import type { ListsAutoupdateConfig } from './listsAutoupdateConfig';
 import type { Outbound } from './outbound';
@@ -19,6 +20,12 @@ import type { RouteConfig } from './routeConfig';
  * keen-pbr configuration file.
  */
 export interface ConfigObject {
+  /**
+     * keen-pbr version the configuration was written for (`X.Y.Z`). Used to upgrade older configs in memory on load. A config without it is treated as written by 3.3.x. The daemon sets it to its own version when a config is saved.
+
+     * @pattern ^[0-9]+\.[0-9]+\.[0-9]+$
+     */
+  version?: string;
   /**
      * Optional human-readable device name shown in the WebUI and page title.
      * @maxLength 128
@@ -34,4 +41,5 @@ export interface ConfigObject {
   fwmark?: FwmarkConfig;
   iproute?: IprouteConfig;
   lists_autoupdate?: ListsAutoupdateConfig;
+  intercept?: InterceptConfig;
 }

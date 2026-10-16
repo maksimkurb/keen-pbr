@@ -6,6 +6,9 @@
  * OpenAPI spec version: 3.0.0
  */
 
+/**
+ * @deprecated
+ */
 export interface IcmpCandidate {
   /** Candidate interface or table outbound tag. */
   outbound: string;

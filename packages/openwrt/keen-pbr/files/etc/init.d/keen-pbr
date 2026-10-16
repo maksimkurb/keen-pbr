@@ -6,22 +6,21 @@ STOP=10
 
 if type extra_command >/dev/null 2>&1; then
     extra_command "reapply_firewall" " Send SIGUSR1 to the running service"
-    extra_command "reapply_dnsmasq_config" " Regenerate keen-pbr dnsmasq config and restart dnsmasq"
     extra_command "sync_firewall_hook" " Ensure the fw4 include exists for keen-pbr"
     extra_command "remove_firewall_hook" " Remove the fw4 include for keen-pbr"
 else
-    EXTRA_COMMANDS="reapply_firewall reapply_dnsmasq_config sync_firewall_hook remove_firewall_hook"
+    EXTRA_COMMANDS="reapply_firewall sync_firewall_hook remove_firewall_hook"
     EXTRA_HELP="        reapply_firewall        Send SIGUSR1 to the running service
-        reapply_dnsmasq_config  Regenerate keen-pbr dnsmasq config and restart dnsmasq
         sync_firewall_hook      Ensure the fw4 include exists for keen-pbr
         remove_firewall_hook    Remove the fw4 include for keen-pbr"
 fi
 
 PROG=/usr/sbin/keen-pbr
 CONFIG=/etc/keen-pbr/config.json
-HELPER=/usr/lib/keen-pbr/dnsmasq.sh
 UCI_HELPER=/usr/lib/keen-pbr/uci.sh
 PIDFILE=/var/run/keen-pbr.pid
+CLEANUP_FIREWALL=/usr/lib/keen-pbr/cleanup-firewall.sh
+STOP_WAIT_SECONDS=15
 
 script_name() {
     basename "${initscript:-$0}"
@@ -67,9 +66,6 @@ enable() {
 
     ensure_fw4_include || return 1
 
-    if [ -x "$HELPER" ]; then
-        "$HELPER" install-persistent || return 1
-    fi
 }
 
 disable() {
@@ -78,10 +74,6 @@ disable() {
     [ -n "$IPKG_INSTROOT" ] && return 0
 
     remove_fw4_include || return 1
-
-    if [ -x "$HELPER" ]; then
-        "$HELPER" uninstall-persistent || return 1
-    fi
 }
 
 start_service() {
@@ -92,12 +84,39 @@ start_service() {
 
     mkdir -p /var/cache/keen-pbr /var/run/keen-pbr
 
-    [ ! -x "$HELPER" ] || "$HELPER" prepare || return 1
-
     procd_open_instance
     procd_set_param command "$PROG" --config "$CONFIG" --pid-file "$PIDFILE" --log-target syslog service
     procd_set_param respawn
     procd_close_instance
+}
+
+daemon_alive() {
+    local pid
+
+    [ -s "$PIDFILE" ] || return 1
+    read -r pid < "$PIDFILE" || return 1
+    [ -n "$pid" ] && [ -d "/proc/$pid" ]
+}
+
+# procd calls this after it was asked to stop the instance, without waiting
+# for the process to exit.  A clean stop removes the firewall rules and then
+# the PID file; after kill -9 or a crash the rules are still there, and
+# cleanup-firewall.sh removes them (logging a warning).  It runs only once no
+# keen-pbr is alive: it would otherwise pull the rules from under it.
+service_stopped() {
+    local waited=0
+
+    while daemon_alive; do
+        if [ "$waited" -ge "$STOP_WAIT_SECONDS" ]; then
+            logger -t keen-pbr -p user.warning \
+                "keen-pbr is still running after stop; its firewall rules are left in place"
+            return 0
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    [ -x "$CLEANUP_FIREWALL" ] && "$CLEANUP_FIREWALL" --reason stop
+    return 0
 }
 
 reload_service() {
@@ -109,12 +128,6 @@ reload_service() {
 reapply_firewall() {
     [ -s "$PIDFILE" ] || return 1
     kill -SIGUSR1 "$(cat "$PIDFILE")"
-}
-
-reapply_dnsmasq_config() {
-    if [ -x "$HELPER" ]; then
-        "$HELPER" reload || return 1
-    fi
 }
 
 sync_firewall_hook() {

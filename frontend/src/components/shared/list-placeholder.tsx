@@ -1,7 +1,9 @@
 import { Inbox, TriangleAlert } from "lucide-react"
+import type { ReactNode } from "react"
 
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -11,10 +13,12 @@ import {
 export function ListPlaceholder({
   title,
   description,
+  action,
   variant = "empty",
 }: {
   title: string
   description: string
+  action?: ReactNode
   variant?: "empty" | "error"
 }) {
   const Icon = variant === "error" ? TriangleAlert : Inbox
@@ -31,6 +35,7 @@ export function ListPlaceholder({
         <EmptyTitle>{title}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
+      {action ? <EmptyContent>{action}</EmptyContent> : null}
     </Empty>
   )
 }

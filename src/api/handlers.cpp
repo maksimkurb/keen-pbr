@@ -13,6 +13,8 @@
 #include "handler_diagnostics.hpp"
 #include "handler_status_events.hpp"
 
+#include <httplib.h>
+
 namespace keen_pbr3 {
 
 void register_api_handlers(ApiServer& server, ApiContext& ctx) {
@@ -27,6 +29,13 @@ void register_api_handlers(ApiServer& server, ApiContext& ctx) {
     register_dns_test_handler(server, ctx);
     register_diagnostics_handler(server);
     register_status_events_handler(server, ctx);
+    server.get_stream("/metrics", [&ctx](const httplib::Request&, httplib::Response& response) {
+        if (!ctx.get_prometheus_metrics_fn) {
+            throw ApiError("Metrics are unavailable", 503);
+        }
+        response.set_content(ctx.get_prometheus_metrics_fn(),
+                             "text/plain; version=0.0.4; charset=utf-8");
+    });
 }
 
 } // namespace keen_pbr3

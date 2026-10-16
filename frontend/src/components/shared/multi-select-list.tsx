@@ -47,6 +47,8 @@ function OptionLabel({
 
 export function MultiSelectList({
   name,
+  ariaLabelledBy,
+  compact = false,
   options,
   unavailable = [],
   value,
@@ -62,6 +64,8 @@ export function MultiSelectList({
   getSearchText,
 }: {
   name?: string
+  ariaLabelledBy?: string
+  compact?: boolean
   options: string[]
   unavailable?: string[]
   value: string[]
@@ -130,10 +134,11 @@ export function MultiSelectList({
       openOnInputClick
       value={selectValue}
     >
-      <div className="relative w-full sm:w-80">
+      <div className="relative w-full max-w-full sm:w-80">
         <Plus className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Autocomplete.Input
           aria-invalid={Boolean(error)}
+          aria-labelledby={ariaLabelledBy}
           className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent py-1 pr-9 pl-8 text-base transition-colors outline-none placeholder:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:text-muted-foreground disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40"
           disabled={availableOptions.length === 0}
           placeholder={
@@ -189,7 +194,8 @@ export function MultiSelectList({
       {value.length ? (
         <div
           className={cn(
-            "space-y-2 rounded-xl border p-3",
+            "space-y-2",
+            !compact && "rounded-xl border p-3",
             error ? "border-destructive" : "border-border"
           )}
         >
@@ -263,6 +269,8 @@ export function MultiSelectList({
           ))}
           <div>{addSelect}</div>
         </div>
+      ) : compact ? (
+        addSelect
       ) : (
         <div
           className={cn(

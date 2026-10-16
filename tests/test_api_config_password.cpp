@@ -2,7 +2,15 @@
 
 #include <doctest/doctest.h>
 
+#include <httplib.h>
+#include <nlohmann/json.hpp>
+#include <keen-pbr/version.hpp>
+
 #include "../src/api/handler_config.hpp"
+#include "../src/api/server.hpp"
+#include "../src/api/sse_broadcaster.hpp"
+#include "../src/config/config_defaults.hpp"
+#include "../src/intercept/intercept_settings.hpp"
 
 namespace keen_pbr3 {
 
@@ -16,7 +24,122 @@ Config config_with_password(std::string password_hash) {
     return config;
 }
 
+ApiContext make_config_post_context(SseBroadcaster& broadcaster,
+                                    const std::string& config_path,
+                                    int* staged_count,
+                                    RawPreroutingMode raw_prerouting) {
+    ApiContext ctx{
+        config_path,
+        broadcaster,
+        []() { return Config{}; },
+        []() { return false; },
+        [staged_count](Config) { ++*staged_count; },
+        []() -> std::optional<StagedConfigSnapshot> { return std::nullopt; },
+        []() {},
+        [](const Config&) {},
+    };
+    ctx.validation_context_fn = [raw_prerouting]() {
+        return ConfigValidationContext{raw_prerouting};
+    };
+    return ctx;
+}
+
+nlohmann::json post_balance_config(int port, RawPreroutingMode raw_prerouting,
+                                   int* status, int* staged_count) {
+    const std::string config_path = "/tmp/keen-pbr-test-config.json";
+    SseBroadcaster broadcaster;
+    ApiConfig api_config;
+    api_config.listen = "127.0.0.1:" + std::to_string(port);
+    ApiServer server(api_config);
+    auto ctx = make_config_post_context(broadcaster, config_path, staged_count,
+                                        raw_prerouting);
+    register_config_handler(server, ctx);
+    server.start();
+
+    const std::string body = R"({
+      "daemon":{"firewall_backend":"iptables"},
+      "dns":{"servers":[{"tag":"default_dns","address":"127.0.0.1"}]},
+      "outbounds":[
+        {"type":"interface","tag":"wan","interface":"wan"},
+        {"type":"urltest","tag":"auto","url":"http://example.test",
+         "strategy":"balance","outbound_groups":[{"outbounds":["wan"]}]}
+      ]})";
+    httplib::Client client("127.0.0.1", port);
+    const auto response = client.Post("/api/config", body, "application/json");
+    server.stop();
+    REQUIRE(response != nullptr);
+    *status = response->status;
+    return nlohmann::json::parse(response->body);
+}
+
 } // namespace
+
+TEST_CASE("POST /api/config rejects balance when the daemon uses raw PREROUTING") {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    return;
+#endif
+    int status = 0;
+    int staged = 0;
+    const auto body = post_balance_config(18191, RawPreroutingMode{true, false},
+                                          &status, &staged);
+    CHECK(status == 400);
+    CHECK(staged == 0);
+    REQUIRE(body.contains("validation_errors"));
+    bool found = false;
+    for (const auto& issue : body["validation_errors"]) {
+        if (issue["path"] == "outbounds[1].strategy" &&
+            issue["message"].get<std::string>().find("raw table") != std::string::npos) {
+            found = true;
+        }
+    }
+    CHECK(found);
+}
+
+TEST_CASE("POST /api/config accepts balance when the daemon does not use raw PREROUTING") {
+#ifdef KEEN_PBR_PLATFORM_KEENETIC
+    return;
+#endif
+    int status = 0;
+    int staged = 0;
+    (void)post_balance_config(18192, RawPreroutingMode{}, &status, &staged);
+    CHECK(status == 200);
+    CHECK(staged == 1);
+}
+
+TEST_CASE("POST /api/config stamps the running version on the staged config") {
+    SseBroadcaster broadcaster;
+    ApiConfig api_config;
+    api_config.listen = "127.0.0.1:18193";
+    ApiServer server(api_config);
+    std::optional<Config> staged;
+    ApiContext ctx{
+        "/tmp/keen-pbr-test-config.json",
+        broadcaster,
+        []() { return Config{}; },
+        []() { return false; },
+        [&staged](Config config) { staged = std::move(config); },
+        []() -> std::optional<StagedConfigSnapshot> { return std::nullopt; },
+        []() {},
+        [](const Config&) {},
+    };
+    register_config_handler(server, ctx);
+    server.start();
+    httplib::Client client("127.0.0.1", 18193);
+    // Without a version, and with an old one: both are saved as current.
+    const auto bare = client.Post("/api/config", R"({"dns":{"resolver_integration":"none"}})",
+                                  "application/json");
+    REQUIRE(bare != nullptr);
+    CHECK(bare->status == 200);
+    REQUIRE(staged.has_value());
+    CHECK(staged->version == std::string(KEEN_PBR3_VERSION_STRING));
+    staged.reset();
+    const auto old = client.Post("/api/config", R"({"version":"3.3.1"})", "application/json");
+    server.stop();
+    REQUIRE(old != nullptr);
+    CHECK(old->status == 200);
+    REQUIRE(staged.has_value());
+    CHECK(staged->version == std::string(KEEN_PBR3_VERSION_STRING));
+}
 
 TEST_CASE("config API responses never contain the password verifier") {
     const auto internal = config_with_password("secret-verifier");
@@ -58,6 +181,34 @@ TEST_CASE("ipset capacity defaults stay absent in API config responses") {
     const auto serialized = serialize_config_pretty(response);
     CHECK(serialized.find("ipset_hashsize") == std::string::npos);
     CHECK(serialized.find("ipset_maxelem") == std::string::npos);
+}
+
+TEST_CASE("unset daemon defaults stay absent in API config responses") {
+    const auto response = normalize_config_for_api_response(Config{});
+    CHECK_FALSE(response.daemon.has_value());
+    const auto serialized = serialize_config_pretty(response);
+    CHECK(serialized.find("skip_marked_packets") == std::string::npos);
+    CHECK(serialized.find("ipv6_enabled") == std::string::npos);
+}
+
+TEST_CASE("config defaults document matches what the daemon uses for unset values") {
+    const Config defaults = make_config_defaults();
+
+    // Intercept: the document resolves exactly like an empty config.
+    const InterceptCapabilities caps;
+    CHECK(resolve_effective_intercept(defaults, FirewallBackend::iptables, caps) ==
+          resolve_effective_intercept(Config{}, FirewallBackend::iptables, caps));
+
+    REQUIRE(defaults.fwmark.has_value());
+    CHECK(std::stoul(defaults.fwmark->start.value(), nullptr, 16) ==
+          config_defaults::fwmark_start);
+    CHECK(std::stoul(defaults.fwmark->mask.value(), nullptr, 16) ==
+          config_defaults::fwmark_mask);
+    CHECK(defaults.daemon->skip_marked_packets == config_defaults::skip_marked_packets);
+    CHECK(defaults.iproute->table_start == config_defaults::table_start);
+    // Nothing that is not a scalar setting default.
+    CHECK_FALSE(defaults.outbounds.has_value());
+    CHECK_FALSE(defaults.lists_autoupdate->cron.has_value());
 }
 
 TEST_CASE("configured ipset capacities are preserved in API serialization") {

@@ -1,19 +1,32 @@
 import { QueryClient } from "@tanstack/react-query"
 
+import { setStreamAuthState } from "@/api/status-auth"
 import {
+  getGetConfigQueryKey,
+  getGetHealthIssuesQueryKey,
+  getGetHealthRoutingQueryKey,
   getGetHealthServiceQueryKey,
   getGetRuntimeInterfacesQueryKey,
   getGetRuntimeOutboundsQueryKey,
+  type getHealthIssuesResponseSuccess,
+  type getHealthRoutingResponseSuccess,
   type getHealthServiceResponseSuccess,
   type getRuntimeInterfacesResponseSuccess,
   type getRuntimeOutboundsResponseSuccess,
 } from "@/api/generated/keen-api"
 import type {
+  HealthIssuesResponse,
   HealthResponse,
+  RoutingHealthResponse,
   RuntimeInterfaceInventoryResponse,
   RuntimeOutboundsResponse,
+  StatusAuthState,
+  StatusEventAuth,
+  StatusEventConfig,
   StatusEventInterfaces,
+  StatusEventIssues,
   StatusEventOutbounds,
+  StatusEventRouting,
   StatusEventService,
   StatusEventSnapshot,
 } from "@/api/generated/model"
@@ -23,6 +36,10 @@ type StatusEvent =
   | StatusEventService
   | StatusEventOutbounds
   | StatusEventInterfaces
+  | StatusEventIssues
+  | StatusEventRouting
+  | StatusEventAuth
+  | StatusEventConfig
 
 function response<T>(data: T) {
   return { data, status: 200 as const, headers: new Headers() }
@@ -55,11 +72,35 @@ export function applyStatusEvent(
       response(data)
     )
 
+  const setIssues = (data: HealthIssuesResponse) =>
+    queryClient.setQueryData<getHealthIssuesResponseSuccess>(
+      getGetHealthIssuesQueryKey(),
+      response(data)
+    )
+
+  const setRouting = (data: RoutingHealthResponse) =>
+    queryClient.setQueryData<getHealthRoutingResponseSuccess>(
+      getGetHealthRoutingQueryKey(),
+      response(data)
+    )
+
+  const setAuth = (data: StatusAuthState | undefined) => {
+    if (data) {
+      setStreamAuthState({
+        enabled: data.enabled,
+        deviceName: data.device_name,
+      })
+    }
+  }
+
   switch (event?.type) {
     case "snapshot":
       setService(event.data.service)
       setOutbounds(event.data.outbounds)
       setInterfaces(event.data.interfaces)
+      setIssues(event.data.issues)
+      setRouting(event.data.routing)
+      setAuth(event.data.auth)
       break
     case "service":
       setService(event.data)
@@ -70,37 +111,64 @@ export function applyStatusEvent(
     case "interfaces":
       setInterfaces(event.data)
       break
+    case "issues":
+      setIssues(event.data)
+      break
+    case "routing":
+      setRouting(event.data)
+      break
+    case "auth":
+      setAuth(event.data)
+      break
     default:
       return false
   }
   return true
 }
 
-export function getTerminalConfigLifecycleOperationKey(
+/** The last config revision the stream reported, across reconnects. */
+export type ConfigRevisionTracker = { last: number | null }
+
+/**
+ * Invalidates the config query when the stream reports a revision other than
+ * the last one seen. The first value only seeds the tracker; a snapshot after
+ * a reconnect that differs from the last revision means the config changed
+ * while the stream was down.
+ */
+export function observeConfigRevision(
+  queryClient: QueryClient,
+  tracker: ConfigRevisionTracker,
   rawData: string
-): string | null {
+): boolean {
   let event: StatusEvent | null
   try {
     event = JSON.parse(rawData) as StatusEvent
   } catch {
-    return null
+    return false
   }
-
-  const service =
+  const revision =
     event?.type === "snapshot"
-      ? event.data.service
-      : event?.type === "service"
-        ? event.data
-        : null
-  const operation = service?.lifecycle_operation
-  if (
-    !operation ||
-    (operation.type !== "apply_config" &&
-      operation.type !== "rollback_config") ||
-    (operation.status !== "succeeded" && operation.status !== "failed")
-  ) {
-    return null
-  }
+      ? event.data.config?.revision
+      : event?.type === "config"
+        ? event.data.revision
+        : undefined
+  if (typeof revision !== "number") return false
 
-  return `${operation.id}:${operation.status}`
+  const changed = tracker.last !== null && tracker.last !== revision
+  tracker.last = revision
+  if (changed) {
+    void queryClient.invalidateQueries({ queryKey: getGetConfigQueryKey() })
+  }
+  return changed
+}
+
+/** Query keys whose data is owned by the status stream. */
+export function statusStreamQueryKeys() {
+  return [
+    getGetHealthServiceQueryKey(),
+    getGetRuntimeOutboundsQueryKey(),
+    getGetRuntimeInterfacesQueryKey(),
+    getGetHealthIssuesQueryKey(),
+    getGetHealthRoutingQueryKey(),
+  ] as const
 }

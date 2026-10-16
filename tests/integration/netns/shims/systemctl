@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${KPBR_REPO_ROOT:?}"
+: "${KPBR_RUNTIME:?}"
+service="$KPBR_REPO_ROOT/tests/integration/netns/service-control.sh"
+
+# Strip global presentation flags used by diagnostics.
+args=("$@")
+while ((${#args[@]})); do
+  case "${args[0]}" in
+    --no-pager|--full|--plain) args=("${args[@]:1}") ;;
+    *) break ;;
+  esac
+done
+((${#args[@]})) || exit 2
+cmd=${args[0]}
+args=("${args[@]:1}")
+
+unit_action() {
+  local action=$1 unit=$2
+  case "$unit" in
+    keen-pbr|keen-pbr.service) bash "$service" "$action-keen" ;;
+    dnsmasq|dnsmasq.service) bash "$service" "$action-dnsmasq" ;;
+    *) echo "unsupported integration unit: $unit" >&2; return 3 ;;
+  esac
+}
+
+case "$cmd" in
+  start|stop|restart)
+    status=0
+    for unit in "${args[@]}"; do
+      [[ "$unit" == -* ]] && continue
+      unit_action "$cmd" "$unit" || status=$?
+    done
+    exit "$status"
+    ;;
+  reset-failed|daemon-reload|mask|unmask|enable|disable)
+    exit 0
+    ;;
+  is-active)
+    quiet=0 unit=""
+    for item in "${args[@]}"; do
+      [[ "$item" == --quiet || "$item" == -q ]] && { quiet=1; continue; }
+      [[ "$item" == -* ]] || unit=$item
+    done
+    [[ -n "$unit" ]] || exit 2
+    if bash "$service" status "$unit" >/dev/null 2>&1; then
+      [[ $quiet == 1 ]] || echo active
+      exit 0
+    fi
+    [[ $quiet == 1 ]] || echo inactive
+    exit 3
+    ;;
+  show)
+    unit=""
+    for item in "${args[@]}"; do
+      [[ "$item" == -* ]] || unit=$item
+    done
+    [[ -n "$unit" ]] || exit 2
+    bash "$service" mainpid "$unit"
+    ;;
+  kill)
+    signal=TERM unit=""
+    i=0
+    while ((i < ${#args[@]})); do
+      case "${args[$i]}" in
+        -s|--signal)
+          ((i+=1)); signal=${args[$i]} ;;
+        --signal=*) signal=${args[$i]#*=} ;;
+        -*) ;;
+        *) unit=${args[$i]} ;;
+      esac
+      ((i+=1))
+    done
+    [[ "$unit" == keen-pbr || "$unit" == keen-pbr.service ]] || exit 3
+    stat -c %s "$KPBR_RUNTIME/keen-pbr.log" 2>/dev/null >"$KPBR_RUNTIME/journal-since.offset" || echo 0 >"$KPBR_RUNTIME/journal-since.offset"
+    bash "$service" signal-keen "$signal"
+    ;;
+  status)
+    status=0
+    for unit in "${args[@]}"; do
+      [[ "$unit" == -* ]] && continue
+      bash "$service" status "$unit" || status=$?
+    done
+    exit "$status"
+    ;;
+  *)
+    echo "unsupported systemctl operation in netns harness: $cmd ${args[*]}" >&2
+    exit 2
+    ;;
+esac

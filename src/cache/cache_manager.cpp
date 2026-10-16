@@ -7,6 +7,9 @@
 #include <string_view>
 #include <utility>
 
+#include <fcntl.h>
+#include <unistd.h>
+
 namespace keen_pbr3 {
 
 namespace {
@@ -47,6 +50,18 @@ bool cache_contents_equal(const std::filesystem::path& path, const std::string& 
     const std::string existing((std::istreambuf_iterator<char>(input)),
                                std::istreambuf_iterator<char>());
     return existing == body;
+}
+
+// Flushes a file (or directory) to stable storage. Without it a rename can
+// survive a power loss while the renamed file's contents do not.
+bool fsync_path(const std::filesystem::path& path) {
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return false;
+    }
+    const bool ok = ::fsync(fd) == 0;
+    ::close(fd);
+    return ok;
 }
 
 } // namespace
@@ -138,11 +153,19 @@ CacheDownloadResult CacheManager::download(const std::string& name,
         }
     }
 
+    // Contents must be on disk before the renames make them visible.
+    if (!fsync_path(tmp_path) || !fsync_path(tmp_meta)) {
+        std::filesystem::remove(tmp_path);
+        std::filesystem::remove(tmp_meta);
+        return download_failed("failed to flush cache files to disk");
+    }
+
     // Rename body first: on crash here, old meta triggers a re-download (safe).
     // Rename meta second: once both succeed the cache is fully consistent.
     try {
         std::filesystem::rename(tmp_path, final_path);
         std::filesystem::rename(tmp_meta, final_meta);
+        (void)fsync_path(cache_dir_);  // persist the renames themselves
     } catch (const std::exception& e) {
         std::filesystem::remove(tmp_path);
         std::filesystem::remove(tmp_meta);
@@ -192,7 +215,12 @@ void CacheManager::save_metadata(const std::string& name, const CacheMetadata& m
         }
     }
 
+    if (!fsync_path(tmp_meta)) {
+        std::filesystem::remove(tmp_meta);
+        return;
+    }
     std::filesystem::rename(tmp_meta, final_meta);
+    (void)fsync_path(cache_dir_);
 }
 
 } // namespace keen_pbr3

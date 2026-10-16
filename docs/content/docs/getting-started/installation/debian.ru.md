@@ -51,3 +51,37 @@ systemctl restart keen-pbr
 {{< /callout >}}
 
 {{% /steps %}}
+
+## Отдельные DNS-серверы для списков (dnsmasq) {#dnsmasq}
+
+Для маршрутизации keen-pbr не нужен dnsmasq. Ставьте его, если хотите отдельные DNS-серверы для некоторых списков или свои DNS-серверы по умолчанию. Подробнее: [Нужен ли dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
+
+### Установка dnsmasq {#dnsmasq-install}
+
+```bash {filename="bash"}
+apt install dnsmasq
+```
+
+Чтобы применить рекомендуемые настройки dnsmasq, выполните:
+
+```bash {filename="bash"}
+/usr/lib/keen-pbr/dnsmasq-hook.sh install-recommended-config
+```
+
+Команда заменит `/etc/dnsmasq.conf`, прежний файл сохранится как `/etc/dnsmasq.conf.backup-keenpbr`. После этого dnsmasq отвечает только вашим локальным сетям и берёт серверы у keen-pbr.
+
+Затем в веб-интерфейсе откройте **Общее** > **Управление локальным DNS-сервером** и включите **Управлять конфигурацией dnsmasq**. keen-pbr добавит в `/etc/dnsmasq.conf` помеченный блок; в рекомендуемом конфиге он уже есть. Если система ещё не использует dnsmasq, направьте на него системный резолвер или DHCP-сервер.
+
+### Вернуть как было {#dnsmasq-rollback}
+
+1. Выключите **Управлять конфигурацией dnsmasq** и примените конфигурацию. dnsmasq перезапустится и будет использовать серверы из `/etc/keen-pbr/dnsmasq-fallback.conf`. Если у dnsmasq есть свои серверы, эти добавятся к ним. Чтобы этого не было, очистите файл.
+2. Верните системный резолвер, который был до dnsmasq.
+3. Если запускали `install-recommended-config`, верните прежние настройки:
+   ```bash {filename="bash"}
+   cp /etc/dnsmasq.conf.backup-keenpbr /etc/dnsmasq.conf
+   systemctl restart dnsmasq
+   ```
+4. Или удалите пакет:
+   ```bash {filename="bash"}
+   apt remove dnsmasq
+   ```

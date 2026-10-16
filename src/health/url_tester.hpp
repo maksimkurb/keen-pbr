@@ -15,7 +15,13 @@ constexpr uint32_t kDefaultUrltestProbeTimeoutMs = 5000;
 
 struct URLTestResult {
     bool success{false};
+    // Millisecond latency drives selection (thresholds are in ms).
     uint32_t latency_ms{0};
+    // Sub-millisecond latency for metrics; when unset, latency_ms is used.
+    // min/max are only filled by ICMP probes (fastest/slowest reply).
+    std::optional<uint32_t> latency_us;
+    std::optional<uint32_t> latency_min_us;
+    std::optional<uint32_t> latency_max_us;
     std::string error;
     std::optional<std::string> probe_target;
     std::optional<uint32_t> packets_attempted;

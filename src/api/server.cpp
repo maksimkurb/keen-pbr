@@ -410,6 +410,7 @@ struct ApiServer::Impl {
     unsigned failed_logins{0};
     std::chrono::steady_clock::time_point failure_window{};
     std::uint64_t security_generation{0};
+    std::function<bool(const httplib::Request&)> request_authenticated;
 };
 
 ApiServerLimits api_server_limits(const ApiConfig& config) {
@@ -480,6 +481,7 @@ ApiServer::ApiServer(const ApiConfig& config, std::string device_name)
         }
         return valid;
     };
+    impl_->request_authenticated = request_authenticated;
     auto apply_cors = [this](const httplib::Request& req, httplib::Response& res) {
         const auto origin = req.get_header_value("Origin");
         if (origin.empty()) return true;
@@ -523,7 +525,8 @@ ApiServer::ApiServer(const ApiConfig& config, std::string device_name)
                 res.status = 204;
                 return httplib::Server::HandlerResponse::Handled;
             }
-            const bool api = req.path == "/api" || req.path.rfind("/api/", 0) == 0;
+            const bool api = req.path == "/metrics" || req.path == "/api" ||
+                             req.path.rfind("/api/", 0) == 0;
             const bool public_auth = req.path == "/api/auth/status" ||
                                      req.path == "/api/auth/login";
             bool auth_enabled = false;
@@ -680,6 +683,45 @@ void ApiServer::update_runtime_config(const ApiConfig& config,
     }
 }
 
+ApiServer::StreamAuthorization ApiServer::stream_authorization(const httplib::Request& request) {
+    bool enabled = false;
+    std::uint64_t generation = 0;
+    {
+        const std::lock_guard lock(impl_->auth_mutex);
+        enabled = impl_->auth_enabled;
+        generation = impl_->security_generation;
+    }
+    if (!enabled) {
+        // Opened without credentials: it must not outlive that state.
+        return [impl = impl_.get()] {
+            const std::lock_guard lock(impl->auth_mutex);
+            return !impl->auth_enabled;
+        };
+    }
+    // Re-checks what the pre-routing handler checked, using the Basic cache
+    // for a cheap answer; false also covers a change racing with this call.
+    if (!impl_->request_authenticated(request)) {
+        return [] { return false; };
+    }
+    const auto header = request.get_header_value("Authorization");
+    constexpr std::string_view bearer = "Bearer ";
+    std::string token_hash;
+    if (header.compare(0, bearer.size(), bearer.data(), bearer.size()) == 0) {
+        token_hash = auth::blake2b_hex(header.substr(bearer.size()));
+    }
+    return [impl = impl_.get(), generation, token_hash = std::move(token_hash)] {
+        const std::lock_guard lock(impl->auth_mutex);
+        if (!impl->auth_enabled || impl->security_generation != generation) return false;
+        if (token_hash.empty()) {
+            // Basic credentials are tied to the password, i.e. the generation.
+            return true;
+        }
+        return std::chrono::system_clock::now() < impl->session_expires &&
+               !impl->session_token_hash.empty() &&
+               auth::constant_time_equal(token_hash, impl->session_token_hash);
+    };
+}
+
 void ApiServer::get(const std::string& path, RouteHandler handler) {
     impl_->server.Get(path, [h = std::move(handler)](const httplib::Request& req,
                                                       httplib::Response& res) {
@@ -777,6 +819,11 @@ void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) 
         try {
             h(req, res);
             log_request_end(req, "stream", res.status == 0 ? 200 : res.status, started_at);
+        } catch (const ApiError& e) {
+            res.status = e.status();
+            res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
+            log_request_error(req, "stream", e.what(), started_at);
+            log_request_end(req, "stream", res.status, started_at);
         } catch (const std::exception& e) {
             if (!res.status) {
                 res.status = 500;
@@ -1019,6 +1066,16 @@ void ApiServer::stop() {
     if (impl_) {
         impl_->is_listening.store(false, std::memory_order_release);
     }
+}
+
+ApiServer::AuthState ApiServer::auth_state() const {
+    const std::lock_guard lock(impl_->auth_mutex);
+    return {impl_->auth_enabled, impl_->device_name};
+}
+
+bool ApiServer::auth_enabled() const {
+    const std::lock_guard lock(impl_->auth_mutex);
+    return impl_->auth_enabled;
 }
 
 bool ApiServer::listening() const {

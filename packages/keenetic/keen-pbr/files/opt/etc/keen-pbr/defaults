@@ -4,9 +4,6 @@ KEEN_PBR="/opt/usr/bin/keen-pbr"
 # Path to the main keen-pbr JSON configuration file.
 CONFIG="/opt/etc/keen-pbr/config.json"
 
-# Path to the helper that generates and reloads dnsmasq configuration.
-DNSMASQ_HELPER="/opt/usr/lib/keen-pbr/dnsmasq.sh"
-
 # Extra arguments passed to the keen-pbr daemon. Do not add
 # --use-raw-prerouting/--use-raw6-prerouting here; KEEN_PBR_RAW_PREROUTING controls them.
 KEEN_PBR_ARGS=""

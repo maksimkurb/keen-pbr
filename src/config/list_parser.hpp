@@ -31,6 +31,12 @@ public:
                            std::size_t line_number,
                            ParseContext* context = nullptr);
 
+    // Address family of an Ip/Cidr entry using the same validators as
+    // classify_entry(). Domain entries and entries that do not match their
+    // declared type (e.g. an Ip carrying a prefix) yield nullopt.
+    static std::optional<EntryFamily> entry_family(EntryType type,
+                                                   std::string_view entry);
+
     // Validate and normalize a DNS-compatible domain. Leading "*." and one
     // trailing root dot are removed from the returned value.
     static std::optional<std::string> normalize_domain(std::string_view domain);

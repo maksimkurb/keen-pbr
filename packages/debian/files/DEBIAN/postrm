@@ -8,12 +8,17 @@ fi
 
 cat <<'EOF'
 keen-pbr has been removed.
-dnsmasq fallback config from keen-pbr is no longer available.
-If upstream DNS servers are not configured in your dnsmasq settings,
-internet access may stop working.
-Configure upstream DNS servers manually if they are not set yet.
-
-Hint: add "server=8.8.8.8" (or other DNS servers) to the /etc/dnsmasq.conf file.
+The keen-pbr entry was removed from dnsmasq. If dnsmasq had no upstream DNS
+server of its own, /etc/dnsmasq.conf was left with a marked block of fallback
+servers: replace them with your own or delete the block.
 EOF
+
+# Created by the dnsmasq hook, not shipped by the package: it is ours alone,
+# so purge removes it (the hook's uninstall already did when it could).
+case "$1" in
+    purge)
+        rm -rf /etc/keen-pbr/dnsmasq.d
+        ;;
+esac
 
 exit 0

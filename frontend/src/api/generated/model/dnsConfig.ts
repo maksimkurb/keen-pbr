@@ -9,12 +9,26 @@ import type { DnsRule } from './dnsRule';
 import type { DnsServer } from './dnsServer';
 import type { DnsSystemResolver } from './dnsSystemResolver';
 import type { DnsTestServer } from './dnsTestServer';
+import type { ResolverIntegrationMode } from './resolverIntegrationMode';
 
 export interface DnsConfig {
   servers?: DnsServer[];
+  /** Per-list DNS upstream selection. Used only when `resolver_integration` is `dnsmasq`.
+   */
   rules?: DnsRule[];
-  /** Ordered DNS server tags to use when no rule matches. */
+  /** DNS server tags used as dnsmasq's default upstreams. When set, the generated config adds `no-resolv` and unscoped `server=` lines. Used only when `resolver_integration` is `dnsmasq`.
+   */
   fallback?: string[];
+  /** `none` (default) | `dnsmasq`. With `dnsmasq`, keen-pbr generates a dnsmasq config with per-list `server=` lines, installs it via the platform hook and restarts dnsmasq. If absent and `dns.rules` is non-empty, `dnsmasq` is assumed (upgrade compatibility).
+   */
+  resolver_integration?: ResolverIntegrationMode;
+  /** Selector of the dnsmasq instance keen-pbr manages: `uci:<section>` (OpenWrt), `entware:default` (Keenetic), `systemd:<unit>.service` (Debian). Empty or absent means automatic selection. Needed only when `keen-pbr dnsmasq detect` reports DNSMASQ_INSTANCE_AMBIGUOUS.
+   */
+  dnsmasq_instance?: string | null;
   dns_test_server?: DnsTestServer;
+  /**
+     * Ignored since 3.4.0.
+     * @deprecated
+     */
   system_resolver?: DnsSystemResolver;
 }

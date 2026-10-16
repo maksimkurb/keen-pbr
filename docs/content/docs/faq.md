@@ -7,7 +7,7 @@ aliases:
 
 ## What firewall backend will be used?
 
-keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels.
+With `daemon.firewall_backend: "auto"` (the default), keen-pbr uses nftables if the `nft` command is installed, and iptables/ipset otherwise.
 
 ## How do I reload lists without restarting the service?
 
@@ -25,13 +25,13 @@ This triggers a full reload: it re-downloads all remote lists and re-applies fir
 
 ## What happens if a remote list URL is unreachable at startup?
 
-keen-pbr uses the cached copy from `daemon.cache_dir` if available. If no cache exists and the URL is unreachable, the remote source contributes no entries for this run. For a URL-only list, that means the list is effectively empty and no matching set or firewall rule is created.
+keen-pbr uses the cached copy from `daemon.cache_dir` if available. If there is no cache either, a list that has only `url` stays empty until a download succeeds; keen-pbr keeps retrying in the background.
 
-## How does the urltest outbound select the best child?
+## How does the urltest outbound select the best link?
 
-On each probe interval, keen-pbr sends an HTTP request to the configured `url` from each child outbound and measures the round-trip latency. The child with the lowest latency is selected. Children within `tolerance_ms` of the best are considered equivalent and selected by weight.
+Every `interval_ms`, keen-pbr sends an HTTP request to the configured `url` through each link and measures the round-trip latency. With `strategy: "priority"`, the link with the lowest latency is selected. If the new best link is faster than the current one by less than `tolerance_ms`, keen-pbr does not switch. Links are checked group by group: the next group in `outbound_groups` is used only when no link in the previous one works.
 
-The circuit breaker prevents flapping: after `failure_threshold` consecutive failures, the circuit opens and that child is bypassed during the `timeout_ms` cooldown. After cooldown, it enters half-open state and gets limited probe attempts to recover.
+If a link fails `failure_threshold` checks in a row, keen-pbr stops using it for `timeout_ms`, then tries it again with a few checks. This keeps traffic from bouncing between links while one of them is unstable.
 
 ## Can I route DNS queries through a VPN?
 
@@ -54,7 +54,7 @@ Yes. Use the `detour` field in `dns.servers` to bind DNS queries for that server
 One entry per line. Supported formats:
 - IPv4 address: `93.184.216.34`
 - IPv6 address: `2606:2800:220:1:248:1893:25c8:1946`
-- CIDR: `10.0.0.0/8`
+- {{< term "CIDR" >}}: `10.0.0.0/8`
 - Domain: `example.com` (automatically includes all sub-domains)
   - entries like `*.example.com` are also supported and handled the same way as `example.com`
 - Lines starting with `#` are comments and are ignored
@@ -62,13 +62,13 @@ One entry per line. Supported formats:
 
 ## How do I verify routing is correctly applied?
 
-Use the routing health endpoint:
+Run:
 
 ```bash {filename="bash"}
-curl http://127.0.0.1:12121/api/health/routing
+keen-pbr status
 ```
 
-This checks the live kernel state (firewall chain, firewall rules, routing tables, policy rules) against the expected configuration and reports `ok`, `missing`, or `mismatch` for each element.
+keen-pbr compares the firewall rules, routing tables and `ip rule` entries in the kernel with what it expects and marks each item `OK`, `MISSING` or `MISMATCH`. The same check is on the status page of the web UI and in `GET /api/health/routing`. To check a specific site, use `keen-pbr test-routing <domain-or-ip>`.
 
 ## Can I combine multiple sources in one list?
 
@@ -88,5 +88,5 @@ Yes. `url`, `domains`, `ip_cidrs`, and `file` can all be set in the same list en
 ```
 
 {{< callout type="warning" >}}
-In the WebUI combining is supported only for `ip_cidrs` + `domains`. Combining them with `url` or with `file` is not supported in WebUI and discouraged; thus it can be forbidden in the future to prevent mis-understanding.
+The web UI can combine only `ip_cidrs` and `domains`. Combining them with `url` or `file` is not supported in the web UI and is not recommended; it may be disallowed in a future version.
 {{< /callout >}}

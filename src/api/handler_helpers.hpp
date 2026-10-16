@@ -30,6 +30,13 @@ inline std::string format_hex(uint32_t val) {
     return ss.str();
 }
 
+// Safe JSON serialization that replaces invalid UTF-8 sequences with U+FFFD.
+// Use this when the JSON may contain traffic-derived strings (domains, hosts, etc.)
+// that could have invalid UTF-8 bytes.
+inline std::string safe_dump(const nlohmann::json& j) {
+    return j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+}
+
 // Build JSON for a single outbound with fwmark info
 inline nlohmann::json outbound_to_json(const Outbound& ob, const OutboundMarkMap& marks) {
     nlohmann::json j;

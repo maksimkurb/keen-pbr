@@ -34,7 +34,7 @@ permissions:
 jobs:
   draft-release:
     name: Draft GitHub release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository metadata
         uses: actions/checkout@v6

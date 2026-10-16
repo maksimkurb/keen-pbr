@@ -1,1184 +1,1162 @@
+// Policy-agnostic verifier: the kernel state is a REAL dump (fixtures under
+// tests/firewall_it/fixtures/physical/), read through an injected
+// CommandRunner exactly as the health check reads it, and corrupted by editing
+// the fixture text.  The expected side comes from the backend
+// (Firewall::expected_ruleset), never from the fixture.
+
 #include <doctest/doctest.h>
 
-#include "../src/firewall/iptables_verifier.hpp"
-#include "../src/firewall/nftables_verifier.hpp"
-#include "../src/util/safe_exec.hpp"
+#include "../src/firewall/firewall_lowering.hpp"
+#include "../src/firewall/firewall_plan_verifier.hpp"
+#include "../src/firewall/firewall_snapshot.hpp"
+#include "../src/firewall/iptables.hpp"
+#include "firewall_fixtures.hpp"
 
-#include <netinet/in.h>
-#include <array>
+#include <algorithm>
+#include <map>
+#include <nlohmann/json.hpp>
+#include <sstream>
 
-using namespace keen_pbr3;
-
+namespace keen_pbr3 {
 namespace {
 
-CommandResult command_result(std::string stdout_output = {},
-                             int exit_code = 0,
-                             bool truncated = false) {
-    return CommandResult{
-        .stdout_output = std::move(stdout_output),
-        .exit_code = exit_code,
-        .truncated = truncated,
-    };
+using Json = nlohmann::json;
+
+// ---------------------------------------------------------------------------
+// Result helpers
+// ---------------------------------------------------------------------------
+
+std::string describe(const std::vector<FirewallRuleCheck>& checks) {
+  std::ostringstream out;
+  for (const auto& check : checks) {
+    if (check.status == CheckStatus::ok) continue;
+    out << "\n  [" << check.action << " " << check.set_name << "] "
+        << (check.status == CheckStatus::missing ? "missing" : "mismatch")
+        << ": " << check.detail;
+  }
+  return out.str();
 }
 
-bool matches_args(const std::vector<std::string>& actual,
-                  std::initializer_list<const char*> expected) {
-    if (actual.size() != expected.size()) return false;
+std::size_t problems(const std::vector<FirewallRuleCheck>& checks) {
+  return static_cast<std::size_t>(
+      std::count_if(checks.begin(), checks.end(), [](const auto& check) {
+        return check.status != CheckStatus::ok;
+      }));
+}
 
-    size_t i = 0;
-    for (const char* part : expected) {
-        if (actual[i] != part) return false;
-        ++i;
-    }
-    return true;
+// Checks that are not attributed to a plan rule are appended after them.
+std::size_t extras_of(const FirewallPlan& plan,
+                      const std::vector<FirewallRuleCheck>& checks) {
+  return checks.size() > plan.rules.size() ? checks.size() - plan.rules.size()
+                                           : 0U;
+}
+
+bool any_detail(const std::vector<FirewallRuleCheck>& checks,
+                const std::string& needle,
+                CheckStatus status = CheckStatus::mismatch) {
+  return std::any_of(checks.begin(), checks.end(), [&](const auto& check) {
+    return check.status == status &&
+           check.detail.find(needle) != std::string::npos;
+  });
+}
+
+std::size_t plan_index(const FirewallPlan& plan, const std::string& module,
+                       std::size_t nth = 0) {
+  for (std::size_t i = 0; i < plan.rules.size(); ++i) {
+    if (plan.rules[i].key.module_id == module && nth-- == 0) return i;
+  }
+  FAIL("plan has no rule of module " << module);
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// iptables
+// ---------------------------------------------------------------------------
+
+struct IptTexts {
+  std::string v4_mangle, v6_mangle, v4_raw, v6_raw;
+};
+
+std::string table_section(const std::string& save, const std::string& table) {
+  const auto start = save.find("*" + table + "\n");
+  REQUIRE(start != std::string::npos);
+  const auto end = save.find("COMMIT\n", start);
+  REQUIRE(end != std::string::npos);
+  return save.substr(start, end + 7 - start);
+}
+
+IptTexts mangle_texts() {
+  return {read_fixture("iptables_mangle_v4.rules"),
+          read_fixture("iptables_mangle_v6.save"), {}, {}};
+}
+
+IptTexts raw_texts() {
+  const auto v4 = read_fixture("iptables_raw_v4.save");
+  const auto v6 = read_fixture("iptables_raw_v6.save");
+  return {table_section(v4, "mangle"), table_section(v6, "mangle"),
+          table_section(v4, "raw"), table_section(v6, "raw")};
+}
+
+const RawPreroutingMode kRawBoth{true, true};
+
+PhysicalRuleset iptables_expected(const FirewallPlan& plan,
+                                  RawPreroutingMode raw,
+                                  bool comments = true) {
+  // The capability probes need a real kernel; the fixtures stand in for them.
+  IptablesFirewall firewall;
+  firewall.override_capabilities_for_fixtures(comments, raw, true);
+  firewall.set_ipv6_enabled(true);
+  firewall.set_fwmark_mask(plan.fwmark_mask);
+  return firewall.expected_ruleset(plan);
+}
+
+CommandRunner iptables_runner(const IptTexts& texts,
+                              std::vector<std::vector<std::string>>* calls =
+                                  nullptr) {
+  return [texts, calls](const std::vector<std::string>& args) {
+    if (calls != nullptr) calls->push_back(args);
+    REQUIRE(args.size() == 4);
+    REQUIRE(args[1] == "-t");
+    REQUIRE(args[3] == "-S");
+    const bool v6 = args[0] == "ip6tables";
+    const bool raw = args[2] == "raw";
+    return CommandResult{raw ? (v6 ? texts.v6_raw : texts.v4_raw)
+                             : (v6 ? texts.v6_mangle : texts.v4_mangle),
+                         0, false};
+  };
+}
+
+FirewallSnapshot iptables_snapshot(const IptTexts& texts,
+                                   RawPreroutingMode raw) {
+  return inspect_iptables_snapshot(iptables_runner(texts), raw, true);
+}
+
+std::vector<FirewallRuleCheck> verify_iptables(const FirewallPlan& plan,
+                                               const PhysicalRuleset& expected,
+                                               const IptTexts& texts,
+                                               RawPreroutingMode raw) {
+  const auto snapshot = iptables_snapshot(texts, raw);
+  REQUIRE_MESSAGE(snapshot.available, snapshot.error);
+  return verify_firewall_plan(plan, expected, snapshot);
+}
+
+std::string replace_first(std::string text, const std::string& from,
+                          const std::string& to) {
+  const auto position = text.find(from);
+  REQUIRE_MESSAGE(position != std::string::npos, "no '" << from << "'");
+  text.replace(position, from.size(), to);
+  return text;
+}
+
+std::vector<std::string> split_lines(const std::string& text) {
+  std::vector<std::string> lines;
+  std::size_t start = 0;
+  while (start < text.size()) {
+    const auto end = text.find('\n', start);
+    lines.push_back(text.substr(start, end - start));
+    start = end == std::string::npos ? text.size() : end + 1;
+  }
+  return lines;
+}
+
+std::string join_lines(const std::vector<std::string>& lines) {
+  std::string text;
+  for (const auto& line : lines) text += line + "\n";
+  return text;
+}
+
+// Index of the nth line containing `needle`.
+std::size_t line_with(const std::vector<std::string>& lines,
+                      const std::string& needle, std::size_t nth = 0) {
+  for (std::size_t i = 0; i < lines.size(); ++i) {
+    if (lines[i].find(needle) != std::string::npos && nth-- == 0) return i;
+  }
+  FAIL("no line with " << needle);
+  return 0;
+}
+
+std::string without_line(const std::string& text, const std::string& needle,
+                         std::size_t nth = 0) {
+  auto lines = split_lines(text);
+  lines.erase(lines.begin() + static_cast<std::ptrdiff_t>(
+                                  line_with(lines, needle, nth)));
+  return join_lines(lines);
+}
+
+std::string with_line_after(const std::string& text, const std::string& needle,
+                            const std::string& added, std::size_t nth = 0) {
+  auto lines = split_lines(text);
+  lines.insert(lines.begin() + static_cast<std::ptrdiff_t>(
+                                   line_with(lines, needle, nth) + 1),
+               added);
+  return join_lines(lines);
+}
+
+std::string with_duplicated_line(const std::string& text,
+                                 const std::string& needle) {
+  auto lines = split_lines(text);
+  const auto at = line_with(lines, needle);
+  lines.insert(lines.begin() + static_cast<std::ptrdiff_t>(at), lines[at]);
+  return join_lines(lines);
+}
+
+std::string with_swapped_lines(const std::string& text, const std::string& a,
+                               const std::string& b) {
+  auto lines = split_lines(text);
+  std::swap(lines[line_with(lines, a)], lines[line_with(lines, b)]);
+  return join_lines(lines);
+}
+
+// Drops every ` -m comment --comment "..."` ownership match.
+std::string without_comments(std::string text) {
+  const std::string open = " -m comment --comment \"";
+  for (auto at = text.find(open); at != std::string::npos;
+       at = text.find(open)) {
+    const auto close = text.find('"', at + open.size());
+    text.erase(at, close + 1 - at);
+  }
+  return text;
+}
+
+IptTexts map_texts(const IptTexts& texts,
+                   const std::function<std::string(const std::string&)>& fn,
+                   bool v4_mangle = true, bool v6_mangle = false,
+                   bool v4_raw = false) {
+  IptTexts result = texts;
+  if (v4_mangle) result.v4_mangle = fn(texts.v4_mangle);
+  if (v6_mangle) result.v6_mangle = fn(texts.v6_mangle);
+  if (v4_raw) result.v4_raw = fn(texts.v4_raw);
+  return result;
 }
 
 } // namespace
 
-// =============================================================================
-// parse_iptables_s tests
-// =============================================================================
-
-TEST_CASE("parse_iptables_s: empty string") {
-    auto state = parse_iptables_s("");
-    CHECK_FALSE(state.has_keen_pbr_chain);
-    CHECK_FALSE(state.has_prerouting_jump);
-    CHECK(state.rules.empty());
+TEST_CASE("verifier iptables mangle: the real kernel dump is entirely ok") {
+  const auto plan = capture_plan(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  const auto checks = verify_iptables(plan, expected, mangle_texts(), {});
+  CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  CHECK(checks.size() == plan.rules.size());
+  for (const auto& check : checks) CHECK(check.detail == "ok");
+  // Mark rules report the mark they installed.
+  const auto mark = plan_index(plan, "route.mark");
+  CHECK(checks[mark].action == "mark");
+  CHECK(checks[mark].expected_fwmark == 0x10000U);
+  CHECK(checks[mark].actual_fwmark == 0x10000U);
+  CHECK(checks[mark].set_name == "kpbr4_hybrid");
 }
 
-TEST_CASE("parse_nft_json: captures KeenPbrTable set schema") {
-    const auto state = parse_nft_json(R"({"nftables":[
-      {"table":{"family":"inet","name":"KeenPbrTable"}},
-      {"set":{"family":"inet","table":"KeenPbrTable","name":"kpbr4_static","type":"ipv4_addr"}},
-      {"set":{"family":"inet","table":"KeenPbrTable","name":"kpbr6d_dns","type":"ipv6_addr","timeout":300}}
-    ]})");
-    REQUIRE(state.sets.size() == 2);
-    CHECK(state.sets[0].name == "kpbr4_static");
-    CHECK(state.sets[0].timeout_seconds == 0);
-    CHECK(state.sets[1].type == "ipv6_addr");
-    CHECK(state.sets[1].timeout_seconds == 300);
+TEST_CASE("verifier iptables raw layout: the real kernel dump is entirely ok") {
+  const auto plan = capture_plan(false, true, true);
+  const auto expected = iptables_expected(plan, kRawBoth);
+  const auto checks = verify_iptables(plan, expected, raw_texts(), kRawBoth);
+  CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  CHECK(extras_of(plan, checks) == 0);
 }
 
-TEST_CASE("parse_iptables_s: chain declaration only, no jump") {
-    const std::string input =
-        "-N KeenPbrTable\n";
-    auto state = parse_iptables_s(input);
-    CHECK(state.has_keen_pbr_chain);
-    CHECK_FALSE(state.has_prerouting_jump);
-    CHECK(state.rules.empty());
+TEST_CASE("verifier iptables: fixtures are verified without ownership comments") {
+  const auto plan = capture_plan(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  const auto stripped = map_texts(mangle_texts(), without_comments, true, true);
+  CHECK(stripped.v4_mangle.find("comment") == std::string::npos);
+  const auto checks = verify_iptables(plan, expected, stripped, {});
+  CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+
+  // The same when the backend itself could not emit comments.
+  const auto no_comment_expected =
+      iptables_expected(plan, {}, /*comments=*/false);
+  CHECK(problems(verify_iptables(plan, no_comment_expected, stripped, {})) == 0);
+  CHECK(problems(verify_iptables(plan, no_comment_expected, mangle_texts(),
+                                 {})) == 0);
 }
 
-TEST_CASE("parse_ipset_save: captures kpbr set schema and ignores foreign sets") {
-    const auto sets = parse_ipset_save(
-        "create kpbr4_static hash:net family inet hashsize 1024\n"
-        "create kpbr6d_dns hash:net family inet6 timeout 300\n"
-        "create foreign hash:net family inet timeout 5\n");
-    REQUIRE(sets.size() == 2);
-    CHECK(sets[0].name == "kpbr4_static");
-    CHECK(sets[0].family == AF_INET);
-    CHECK(sets[0].timeout_seconds == 0);
-    CHECK(sets[1].family == AF_INET6);
-    CHECK(sets[1].timeout_seconds == 300);
-}
-
-TEST_CASE("parse_iptables_s: prerouting jump present") {
-    const std::string input =
-        "-A PREROUTING -j KeenPbrTable\n";
-    auto state = parse_iptables_s(input);
-    CHECK_FALSE(state.has_keen_pbr_chain);
-    CHECK(state.has_prerouting_jump);
-    CHECK(state.rules.empty());
-}
-
-TEST_CASE("parse_iptables_s: mark rule with decimal fwmark") {
-    const std::string input =
-        "-N KeenPbrTable\n"
-        "-A PREROUTING -j KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-mark 65536\n";
-    auto state = parse_iptables_s(input);
-    CHECK(state.has_keen_pbr_chain);
-    CHECK(state.has_prerouting_jump);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].set_name == "myset");
-    CHECK(state.rules[0].is_mark);
-    CHECK_FALSE(state.rules[0].is_drop);
-    CHECK(state.rules[0].fwmark == 65536u);
-}
-
-TEST_CASE("parse_iptables_s: mark rule with hex fwmark") {
-    const std::string input =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-mark 0x10000\n";
-    auto state = parse_iptables_s(input);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].is_mark);
-    CHECK(state.rules[0].fwmark == 0x10000u);
-}
-
-TEST_CASE("parse_iptables_s: mark rule with full-width xmark") {
-    const std::string input =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-xmark 0x20000/0xffffffff\n";
-    auto state = parse_iptables_s(input);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].is_mark);
-    CHECK(state.rules[0].mark_is_exact);
-    CHECK(state.rules[0].fwmark == 0x20000u);
-    CHECK(state.rules[0].xmark_mask == 0xFFFFFFFFu);
-}
-
-TEST_CASE("parse_iptables_s: mark rule with partial xmark mask") {
-    const std::string input =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-xmark 0x20000/0xff0000\n";
-    auto state = parse_iptables_s(input);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].is_mark);
-    CHECK_FALSE(state.rules[0].mark_is_exact);
-    CHECK(state.rules[0].fwmark == 0x20000u);
-    CHECK(state.rules[0].xmark_mask == 0x00FF0000u);
-}
-
-TEST_CASE("parse_iptables_s: versioned chain mark rule") {
-    const std::string input =
-        "-N KeenPbrTable\n"
-        "-N KeenPbrTable_1\n"
-        "-A KeenPbrTable -j KeenPbrTable_1\n"
-        "-A KeenPbrTable_1 -m set --match-set myset dst -j MARK --set-xmark 0x20000/0xff0000\n";
-    const auto state = parse_iptables_s(input);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].set_name == "myset");
-    CHECK(state.rules[0].is_mark);
-    CHECK(state.rules[0].fwmark == 0x20000u);
-    CHECK(state.rules[0].xmark_mask == 0x00FF0000u);
-}
-
-TEST_CASE("parse_iptables_s: drop rule") {
-    const std::string input =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set blacklist dst -j DROP\n";
-    auto state = parse_iptables_s(input);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].set_name == "blacklist");
-    CHECK(state.rules[0].is_drop);
-    CHECK_FALSE(state.rules[0].is_mark);
-}
-
-TEST_CASE("parse_iptables_s: return rule") {
-    const std::string input =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set allowlist dst -j RETURN\n";
-    auto state = parse_iptables_s(input);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].set_name == "allowlist");
-    CHECK(state.rules[0].is_pass);
-    CHECK_FALSE(state.rules[0].is_mark);
-    CHECK_FALSE(state.rules[0].is_drop);
-}
-
-TEST_CASE("parse_iptables_s: multiple rules parsed in order") {
-    const std::string input =
-        "-N KeenPbrTable\n"
-        "-A PREROUTING -j KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-mark 1\n"
-        "-A KeenPbrTable -m set --match-set set2 dst -j DROP\n"
-        "-A KeenPbrTable -m set --match-set set3 dst -j MARK --set-mark 2\n";
-    auto state = parse_iptables_s(input);
-    CHECK(state.has_keen_pbr_chain);
-    CHECK(state.has_prerouting_jump);
-    REQUIRE(state.rules.size() == 3);
-    CHECK(state.rules[0].set_name == "set1");
-    CHECK(state.rules[0].is_mark);
-    CHECK(state.rules[0].fwmark == 1u);
-    CHECK(state.rules[1].set_name == "set2");
-    CHECK(state.rules[1].is_drop);
-    CHECK(state.rules[2].set_name == "set3");
-    CHECK(state.rules[2].is_mark);
-    CHECK(state.rules[2].fwmark == 2u);
-}
-
-TEST_CASE("parse_iptables_s: chain-only and prerouting outputs can be combined") {
-    const std::string input =
-        "-N KeenPbrTable\n"
-        "-A PREROUTING -j KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-mark 0x20000\n";
-    auto state = parse_iptables_s(input);
-    CHECK(state.has_keen_pbr_chain);
-    CHECK(state.has_prerouting_jump);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].fwmark == 0x20000u);
-}
-
-// =============================================================================
-// parse_nft_json tests
-// =============================================================================
-
-TEST_CASE("parse_nft_json: invalid JSON returns empty state") {
-    auto state = parse_nft_json("not json at all");
-    CHECK_FALSE(state.has_table);
-    CHECK_FALSE(state.has_prerouting_chain);
-    CHECK_FALSE(state.has_prerouting_hook);
-    CHECK(state.rules.empty());
-}
-
-TEST_CASE("parse_nft_json: empty string returns empty state") {
-    auto state = parse_nft_json("");
-    CHECK_FALSE(state.has_table);
-    CHECK(state.rules.empty());
-}
-
-TEST_CASE("parse_nft_json: valid JSON with no KeenPbrTable") {
-    const std::string input = R"({
-        "nftables": [
-            {"table": {"family": "inet", "name": "SomeOtherTable"}}
-        ]
-    })";
-    auto state = parse_nft_json(input);
-    CHECK_FALSE(state.has_table);
-    CHECK_FALSE(state.has_prerouting_chain);
-}
-
-TEST_CASE("parse_nft_json: table present, no chain") {
-    const std::string input = R"({
-        "nftables": [
-            {"table": {"family": "inet", "name": "KeenPbrTable"}}
-        ]
-    })";
-    auto state = parse_nft_json(input);
-    CHECK(state.has_table);
-    CHECK_FALSE(state.has_prerouting_chain);
-    CHECK_FALSE(state.has_prerouting_hook);
-}
-
-TEST_CASE("parse_nft_json: chain present, no hook") {
-    const std::string input = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting"}}
-        ]
-    })";
-    auto state = parse_nft_json(input);
-    CHECK_FALSE(state.has_table);
-    CHECK(state.has_prerouting_chain);
-    CHECK_FALSE(state.has_prerouting_hook);
-}
-
-TEST_CASE("parse_nft_json: chain-only output with prerouting hook") {
-    const std::string input = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
-                       "type": "filter", "hook": "prerouting", "prio": -150}}
-        ]
-    })";
-    auto state = parse_nft_json(input);
-    CHECK_FALSE(state.has_table);
-    CHECK(state.has_prerouting_chain);
-    CHECK(state.has_prerouting_hook);
-    CHECK(state.rules.empty());
-}
-
-TEST_CASE("parse_nft_json: pass rule") {
-    const std::string input = R"({
-        "nftables": [
-            {"rule": {
-                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
-                "expr": [
-                    {"match": {"op": "==",
-                               "left": {"payload": {"protocol": "ip", "field": "daddr"}},
-                               "right": "@allowset"}},
-                    {"accept": null}
-                ]
-            }}
-        ]
-    })";
-    auto state = parse_nft_json(input);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].set_name == "allowset");
-    CHECK(state.rules[0].is_pass);
-    CHECK_FALSE(state.rules[0].is_mark);
-    CHECK_FALSE(state.rules[0].is_drop);
-}
-
-TEST_CASE("parse_nft_json: mark rule with fwmark") {
-    const std::string input = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
-                       "type": "filter", "hook": "prerouting"}},
-            {"rule": {
-                "family": "inet",
-                "table": "KeenPbrTable",
-                "chain": "prerouting",
-                "expr": [
-                    {"match": {"op": "==", "left": {"payload": {"protocol": "ip", "field": "daddr"}},
-                               "right": "@myset"}},
-                    {"mangle": {"key": {"meta": {"key": "mark"}}, "value": 65536}}
-                ]
-            }}
-        ]
-    })";
-    auto state = parse_nft_json(input);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].set_name == "myset");
-    CHECK(state.rules[0].is_mark);
-    CHECK_FALSE(state.rules[0].is_drop);
-    CHECK(state.rules[0].fwmark == 65536u);
-}
-
-TEST_CASE("parse_nft_json: masked mark rule extracts explicit fwmark bits") {
-    const std::string input = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
-                       "type": "filter", "hook": "prerouting"}},
-            {"rule": {
-                "family": "inet",
-                "table": "KeenPbrTable",
-                "chain": "prerouting",
-                "expr": [
-                    {"match": {"op": "==", "left": {"payload": {"protocol": "ip", "field": "daddr"}},
-                               "right": "@myset"}},
-                    {"mangle": {"key": {"meta": {"key": "mark"}},
-                                "value": {"|": [
-                                    {"&": [
-                                        {"meta": {"key": "mark"}},
-                                        4278321151
-                                    ]},
-                                    65536
-                                ]}}}
-                ]
-            }}
-        ]
-    })";
-    auto state = parse_nft_json(input);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].set_name == "myset");
-    CHECK(state.rules[0].is_mark);
-    CHECK(state.rules[0].fwmark == 65536u);
-}
-
-TEST_CASE("NftablesFirewallVerifier parses live CIDR bitmasks and host prefixes") {
-    const std::string canned = R"({"nftables":[
-      {"chain":{"family":"inet","table":"KeenPbrTable","name":"prerouting",
-                 "type":"filter","hook":"prerouting"}},
-      {"rule":{"family":"inet","table":"KeenPbrTable","chain":"prerouting","expr":[
-        {"match":{"op":"==","left":{"payload":{"protocol":"ip","field":"saddr"}},
-                  "right":"192.0.2.2"}},
-        {"match":{"op":"==","left":{"&":[
-                    {"payload":{"protocol":"ip","field":"daddr"}},"255.255.255.0"]},
-                  "right":"198.18.0.0"}},
-        {"mangle":{"key":{"meta":{"key":"mark"}},"value":196608}},
-        {"accept":null}
-      ]}}
-    ]})";
-    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result(canned);
-        }
-        return command_result({}, 1);
-    };
-    NftablesFirewallVerifier verifier(runner);
-    RuleState rule;
-    rule.action_type = RuleActionType::Mark;
-    rule.fwmark = 196608u;
-    rule.criteria.src_addr = {"192.0.2.2/32"};
-    rule.criteria.dst_addr = {"198.18.0.0/24"};
-    const auto checks = verifier.verify_rules({rule});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::ok);
-}
-
-TEST_CASE("parse_nft_json: drop rule") {
-    const std::string input = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
-                       "type": "filter", "hook": "prerouting"}},
-            {"rule": {
-                "family": "inet",
-                "table": "KeenPbrTable",
-                "chain": "prerouting",
-                "expr": [
-                    {"match": {"op": "==",
-                               "left": {"payload": {"protocol": "ip", "field": "daddr"}},
-                               "right": "@blacklist"}},
-                    {"drop": null}
-                ]
-            }}
-        ]
-    })";
-    auto state = parse_nft_json(input);
-    REQUIRE(state.rules.size() == 1);
-    CHECK(state.rules[0].set_name == "blacklist");
-    CHECK(state.rules[0].is_drop);
-    CHECK_FALSE(state.rules[0].is_mark);
-}
-
-TEST_CASE("parse_nft_json: wrong table name returns empty state") {
-    const std::string input = R"({
-        "nftables": [
-            {"table": {"family": "inet", "name": "NotKeenPbrTable"}},
-            {"chain": {"family": "inet", "table": "NotKeenPbrTable", "name": "prerouting",
-                       "hook": "prerouting"}}
-        ]
-    })";
-    auto state = parse_nft_json(input);
-    CHECK_FALSE(state.has_table);
-    CHECK_FALSE(state.has_prerouting_chain);
-}
-
-// =============================================================================
-// IptablesFirewallVerifier::verify_rules with injected CommandRunner
-// =============================================================================
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule ok") {
-    const std::string chain_rules =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-mark 65536\n";
-    const std::string prerouting =
-        "-P PREROUTING ACCEPT\n"
-        "-A PREROUTING -j KeenPbrTable\n";
-
-    auto runner = [&chain_rules, &prerouting](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result(chain_rules);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result(prerouting);
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.list_names = {"mylist"};
-    rs.set_names = {"set1"};
-    rs.outbound_tag = "wan1";
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 65536u;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::ok);
-    CHECK(checks[0].set_name == "set1");
-    CHECK(checks[0].actual_fwmark.has_value());
-    CHECK(*checks[0].actual_fwmark == 65536u);
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: versioned chain mark rule ok") {
-    const std::string main_chain =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -j KeenPbrTable_1\n";
-    const std::string versioned_chain =
-        "-N KeenPbrTable_1\n"
-        "-A KeenPbrTable_1 -m set --match-set set1 dst -j MARK --set-xmark 0x10000/0xff0000\n";
-    auto runner = [&main_chain, &versioned_chain](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result(main_chain);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable_1"})) {
-            return command_result(versioned_chain);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-    verifier.set_expected_fwmark_mask(0x00ff0000u);
-
-    RuleState rule;
-    rule.set_names = {"set1"};
-    rule.action_type = RuleActionType::Mark;
-    rule.fwmark = 0x10000u;
-
-    const auto checks = verifier.verify_rules({rule});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::ok);
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule missing") {
-    const std::string prerouting =
-        "-P PREROUTING ACCEPT\n"
-        "-A PREROUTING -j KeenPbrTable\n";
-
-    auto runner = [&prerouting](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result("-N KeenPbrTable\n");
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result(prerouting);
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"missing_set"};
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 1u;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::missing);
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: fwmark mismatch") {
-    const std::string chain_rules =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-mark 65536\n";
-
-    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result(chain_rules);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"set1"};
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 99999u; // different from actual 65536
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::mismatch);
-    CHECK(checks[0].actual_fwmark.has_value());
-    CHECK(*checks[0].actual_fwmark == 65536u);
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: full-width xmark is accepted") {
-    const std::string chain_rules =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-xmark 0x20000/0xffffffff\n";
-
-    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result(chain_rules);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"set1"};
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 0x20000u;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::ok);
-    CHECK(checks[0].actual_fwmark.has_value());
-    CHECK(*checks[0].actual_fwmark == 0x20000u);
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: full-width xmark mismatch reports actual fwmark") {
-    const std::string chain_rules =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-xmark 0x30000/0xffffffff\n";
-
-    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result(chain_rules);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"set1"};
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 0x20000u;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::mismatch);
-    CHECK(checks[0].actual_fwmark.has_value());
-    CHECK(*checks[0].actual_fwmark == 0x30000u);
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: partial xmark mask reports mismatch") {
-    const std::string chain_rules =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-xmark 0x20000/0xff0000\n";
-
-    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result(chain_rules);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"set1"};
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 0x20000u;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::mismatch);
-    CHECK(checks[0].actual_fwmark.has_value());
-    CHECK(*checks[0].actual_fwmark == 0x20000u);
-    CHECK(checks[0].detail ==
-          "fwmark mask mismatch: expected 0x20000/0xffffffff got 0x20000/0xff0000");
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: matching partial xmark mask is accepted") {
-    const std::string chain_rules =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-xmark 0x20000/0xff0000\n";
-
-    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result(chain_rules);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-    verifier.set_expected_fwmark_mask(0x00ff0000u);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"set1"};
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 0x20000u;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::ok);
-    CHECK(checks[0].actual_fwmark.has_value());
-    CHECK(*checks[0].actual_fwmark == 0x20000u);
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: drop rule ok") {
-    const std::string chain_rules =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set blacklist dst -j DROP\n";
-
-    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result(chain_rules);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"blacklist"};
-    rs.action_type = RuleActionType::Drop;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::ok);
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: return rule ok") {
-    const std::string chain_rules =
-        "-N KeenPbrTable\n"
-        "-A KeenPbrTable -m set --match-set allowlist dst -j RETURN\n";
-
-    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result(chain_rules);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"allowlist"};
-    rs.action_type = RuleActionType::Pass;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::ok);
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_rules: skip rule produces no check") {
-    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result("-N KeenPbrTable\n");
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"skipped_set"};
-    rs.action_type = RuleActionType::Skip;
-
-    auto checks = verifier.verify_rules({rs});
-    CHECK(checks.empty());
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_chain: scaffold without rules is healthy") {
-    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result("-N KeenPbrTable\n");
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    const auto check = verifier.verify_chain();
-    CHECK(check.chain_present);
-    CHECK(check.prerouting_hook_present);
-    CHECK(check.detail == "ok");
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_chain: missing chain with prerouting present is degraded") {
-    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result({}, 1);
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-A PREROUTING -j KeenPbrTable\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    const auto check = verifier.verify_chain();
-    CHECK_FALSE(check.chain_present);
-    CHECK(check.prerouting_hook_present);
-    CHECK(check.detail == "KeenPbrTable chain not found in iptables or ip6tables mangle table");
-}
-
-TEST_CASE("IptablesFirewallVerifier::verify_chain: chain without prerouting jump is degraded") {
-    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
-            return command_result("-N KeenPbrTable\n");
-        }
-        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
-            return command_result("-P PREROUTING ACCEPT\n");
-        }
-        return command_result({}, 1);
-    };
-    IptablesFirewallVerifier verifier(runner);
-
-    const auto check = verifier.verify_chain();
-    CHECK(check.chain_present);
-    CHECK_FALSE(check.prerouting_hook_present);
-    CHECK(check.detail == "KeenPbrTable chain exists but PREROUTING jump not found");
-}
-
-TEST_CASE("IptablesFirewallVerifier queries each family in its configured table") {
-    const std::array<RawPreroutingMode, 4> modes = {
-        RawPreroutingMode{false, false}, RawPreroutingMode{true, false},
-        RawPreroutingMode{false, true}, RawPreroutingMode{true, true}};
-    for (const auto mode : modes) {
-        std::vector<std::vector<std::string>> calls;
-        auto runner = [&calls, mode](const std::vector<std::string>& args) {
-            calls.push_back(args);
-            const auto command = args.front();
-            const bool ipv6 = command == "ip6tables";
-            const bool raw = mode.uses(ipv6);
-            const std::string table = raw ? "raw" : "mangle";
-            const std::string chain = raw ? "KeenPbrRaw" : "KeenPbrTable";
-            if (matches_args(args, {command.c_str(), "-t", table.c_str(), "-S",
-                                    chain.c_str()})) {
-                return command_result("-N " + chain + "\n");
-            }
-            if (matches_args(args, {command.c_str(), "-t", table.c_str(), "-S",
-                                    "PREROUTING"})) {
-                return command_result("-A PREROUTING -j " + chain + "\n");
-            }
-            return command_result({}, 1);
-        };
-        IptablesFirewallVerifier verifier(runner, mode);
-        const auto check = verifier.verify_chain();
-        CHECK(check.chain_present);
-        CHECK(check.prerouting_hook_present);
-
-        bool queried_v4 = false;
-        bool queried_v6 = false;
-        for (const auto& call : calls) {
-            if (call.size() < 4 || call[1] != "-t") continue;
-            if (call.size() > 4 && call[0] == "iptables" &&
-                call[4] == "PREROUTING") queried_v4 = true;
-            if (call.size() > 4 && call[0] == "ip6tables" &&
-                call[4] == "PREROUTING") queried_v6 = true;
-        }
-        CHECK(queried_v4);
-        CHECK(queried_v6);
+TEST_CASE("verifier iptables: classifier corruptions are attributed to their plan rule") {
+  const auto plan = capture_plan(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  const auto first_mark = plan_index(plan, "route.mark");
+  const auto pass = plan_index(plan, "route.pass");
+
+  struct Corruption {
+    const char* name;
+    std::function<std::string(const std::string&)> edit;
+    std::size_t plan_rule;
+    CheckStatus status;
+    const char* detail;
+  };
+  const std::vector<Corruption> corruptions = {
+      {"wrong mark value",
+       [](const std::string& t) {
+         return replace_first(t, "--set-xmark 0x10000/0xff0000",
+                              "--set-xmark 0x30000/0xff0000");
+       },
+       first_mark, CheckStatus::mismatch, "0x30000"},
+      {"wrong mask",
+       [](const std::string& t) {
+         return replace_first(t, "--set-xmark 0x10000/0xff0000",
+                              "--set-xmark 0x10000/0xffff0000");
+       },
+       first_mark, CheckStatus::mismatch, "0xffff0000"},
+      {"wrong set name",
+       [](const std::string& t) {
+         return replace_first(t, "kpbr4_hybrid", "kpbr4_wrong");
+       },
+       first_mark, CheckStatus::mismatch, "kpbr4_wrong"},
+      {"missing rule",
+       [](const std::string& t) { return without_line(t, "-d 8.8.8.8/32"); },
+       pass, CheckStatus::missing, "rule missing"},
+      {"duplicated rule",
+       [](const std::string& t) {
+         return with_duplicated_line(t, "-d 8.8.8.8/32");
+       },
+       pass, CheckStatus::mismatch, "duplicate rule"},
+      {"swapped rules",
+       [](const std::string& t) {
+         return with_swapped_lines(t, "-d 8.8.8.8/32", "-d 9.9.9.9/32");
+       },
+       pass, CheckStatus::mismatch, "rule order differs"},
+  };
+
+  for (const bool with_comments : {true, false}) {
+    for (const auto& corruption : corruptions) {
+      CAPTURE(corruption.name);
+      CAPTURE(with_comments);
+      auto texts = map_texts(mangle_texts(), corruption.edit);
+      if (!with_comments) texts = map_texts(texts, without_comments, true, true);
+      const auto checks = verify_iptables(plan, expected, texts, {});
+      // Exactly the owning plan rule is flagged, nothing else.
+      CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+      REQUIRE(corruption.plan_rule < checks.size());
+      CHECK(checks[corruption.plan_rule].status == corruption.status);
+      CHECK_MESSAGE(checks[corruption.plan_rule].detail.find(corruption.detail) !=
+                        std::string::npos,
+                    checks[corruption.plan_rule].detail);
     }
+  }
+
+  // A wrong mark reports the mark that was observed.
+  const auto wrong = verify_iptables(
+      plan, expected,
+      map_texts(mangle_texts(),
+                [](const std::string& t) {
+                  return replace_first(t, "--set-xmark 0x10000/0xff0000",
+                                       "--set-xmark 0x30000/0xff0000");
+                }),
+      {});
+  CHECK(wrong[first_mark].expected_fwmark == 0x10000U);
+  CHECK(wrong[first_mark].actual_fwmark == 0x30000U);
 }
 
-// =============================================================================
-// NftablesFirewallVerifier::verify_rules with injected CommandRunner
-// =============================================================================
+TEST_CASE("verifier iptables: extra rules in an owned chain are unexpected") {
+  const auto plan = capture_plan(false, false, true);
+  const auto expected = iptables_expected(plan, {});
 
-TEST_CASE("NftablesFirewallVerifier::verify_rules: mark rule ok") {
-    const std::string canned = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
-                       "type": "filter", "hook": "prerouting"}},
-            {"rule": {
-                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
-                "expr": [
-                    {"match": {"op": "==",
-                               "left": {"payload": {"protocol": "ip", "field": "daddr"}},
-                               "right": "@set1"}},
-                    {"mangle": {"key": {"meta": {"key": "mark"}}, "value": 131072}}
-                ]
-            }}
-        ]
-    })";
+  SUBCASE("a foreign rule inserted between owned rules") {
+    const auto texts = map_texts(mangle_texts(), [](const std::string& t) {
+      return with_line_after(t, "-d 8.8.8.8/32", "-A KeenPbrTable -j LOG");
+    });
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK(problems(checks) == 1);
+    CHECK(extras_of(plan, checks) == 1);
+    CHECK_MESSAGE(any_detail(checks, "unexpected rule in mangle/KeenPbrTable at index"),
+                  describe(checks));
+  }
+  SUBCASE("the real kernel dump with foreign rules appended and inserted") {
+    auto texts = mangle_texts();
+    texts.v4_mangle = read_fixture("iptables_mangle_v4_foreign.rules");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    // limit (inserted first), -s 203.0.113.9 and -o eth9 LOG; plus the extra
+    // PREROUTING jump straight into the OUTPUT chain.  Rules of the plan
+    // itself are all in place.
+    CHECK_MESSAGE(extras_of(plan, checks) == 4, describe(checks));
+    CHECK(problems(checks) == 4);
+    CHECK(any_detail(checks, "unexpected rule in mangle/KeenPbrTable at index 0"));
+    CHECK(any_detail(checks, "unexpected rule in mangle/PREROUTING at index 1"));
+    for (std::size_t i = 0; i < plan.rules.size(); ++i) {
+      CHECK(checks[i].status == CheckStatus::ok);
+    }
+  }
+}
 
-    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result(canned);
+TEST_CASE("verifier iptables: hook jumps") {
+  const auto plan = capture_plan(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+
+  SUBCASE("missing PREROUTING jump") {
+    const auto checks = verify_iptables(
+        plan, expected,
+        map_texts(mangle_texts(),
+                  [](const std::string& t) {
+                    return without_line(t, "-A PREROUTING -j KeenPbrTable");
+                  }),
+        {});
+    CHECK(problems(checks) == 1);
+    const auto& extra = checks.back();
+    CHECK(extra.status == CheckStatus::missing);
+    CHECK(extra.action == "hook");
+    CHECK_MESSAGE(extra.detail.find("rule missing in mangle/PREROUTING") !=
+                      std::string::npos,
+                  extra.detail);
+  }
+  SUBCASE("duplicate PREROUTING jump") {
+    const auto checks = verify_iptables(
+        plan, expected,
+        map_texts(mangle_texts(),
+                  [](const std::string& t) {
+                    return with_duplicated_line(t,
+                                                "-A PREROUTING -j KeenPbrTable");
+                  }),
+        {});
+    CHECK(problems(checks) == 1);
+    CHECK_MESSAGE(any_detail(checks, "duplicate rule in mangle/PREROUTING"),
+                  describe(checks));
+  }
+  SUBCASE("duplicate OUTPUT jump") {
+    const auto checks = verify_iptables(
+        plan, expected,
+        map_texts(mangle_texts(),
+                  [](const std::string& t) {
+                    return with_duplicated_line(
+                        t, "-A OUTPUT -j KeenPbrOutput");
+                  }),
+        {});
+    CHECK(problems(checks) == 1);
+    CHECK(any_detail(checks, "mangle/OUTPUT"));
+  }
+  SUBCASE("OUTPUT hook jumping to the wrong chain") {
+    const auto checks = verify_iptables(
+        plan, expected,
+        map_texts(mangle_texts(),
+                  [](const std::string& t) {
+                    return replace_first(t, "-A OUTPUT -j KeenPbrOutput",
+                                         "-A OUTPUT -j KeenPbrTable");
+                  }),
+        {});
+    CHECK(problems(checks) == 1);
+    CHECK_MESSAGE(any_detail(checks, "expected ipv4 -> jump KeenPbrOutput but "
+                                     "observed ipv4 -> jump KeenPbrTable"),
+                  describe(checks));
+  }
+  SUBCASE("the IPv6 tables are checked too") {
+    auto texts = mangle_texts();
+    texts.v6_mangle = replace_first(texts.v6_mangle,
+                                    "-A PREROUTING -j KeenPbrTable\n", "");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK(problems(checks) == 1);
+    CHECK(any_detail(checks, "mangle/PREROUTING (ipv6)", CheckStatus::missing));
+  }
+  SUBCASE("a jump from another builtin chain into keen-pbr is unexpected") {
+    const auto checks = verify_iptables(
+        plan, expected,
+        map_texts(mangle_texts(),
+                  [](const std::string& t) {
+                    return with_line_after(t, "-A OUTPUT -j KeenPbrOutput",
+                                           "-A INPUT -j KeenPbrTable");
+                  }),
+        {});
+    CHECK(problems(checks) == 1);
+    CHECK(any_detail(checks, "unexpected rule in mangle/INPUT"));
+  }
+  SUBCASE("raw layout: raw PREROUTING hook jumping to the wrong chain") {
+    const auto raw_plan = capture_plan(false, true, true);
+    const auto raw_expected = iptables_expected(raw_plan, kRawBoth);
+    auto texts = raw_texts();
+    texts.v4_raw = replace_first(texts.v4_raw, "-A PREROUTING -j KeenPbrRaw",
+                                 "-A PREROUTING -j KeenPbrOutput");
+    const auto checks = verify_iptables(raw_plan, raw_expected, texts, kRawBoth);
+    CHECK(problems(checks) == 1);
+    CHECK(any_detail(checks, "KeenPbrOutput"));
+  }
+}
+
+TEST_CASE("verifier iptables: foreign state is ignored, stale keen-pbr state is not") {
+  const auto plan = capture_plan(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  const auto verify = [&](const std::function<std::string(const std::string&)>& edit) {
+    return verify_iptables(plan, expected, map_texts(mangle_texts(), edit), {});
+  };
+
+  SUBCASE("foreign rules in system chains and foreign chains") {
+    const auto checks = verify([](const std::string& t) {
+      auto text = with_line_after(t, "-A PREROUTING -j KeenPbrTable",
+                                  "-A PREROUTING -i eth0 -j ACCEPT");
+      text = with_line_after(text, "-A OUTPUT -j KeenPbrOutput",
+                             "-A FORWARD -j ACCEPT");
+      text = replace_first(text, "-N KeenPbrTable\n",
+                           "-N KeenPbrTable\n-N SomeoneElse\n");
+      return with_line_after(text, "-A FORWARD -j ACCEPT",
+                             "-A SomeoneElse -j DROP");
+    });
+    CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  }
+  SUBCASE("a clean kernel is ok") {
+    CHECK(problems(verify([](const std::string& t) { return t; })) == 0);
+  }
+  SUBCASE("a leftover legacy A/B chain is drift the next apply removes") {
+    // Apply flushes and deletes KeenPbrTable_A/B, KeenPbrRaw_A/B,
+    // KeenPbrOutput_A/B and KeenPbrTable_OUTPUT, so a leftover is reported.
+    for (const char* legacy : {"KeenPbrTable_A", "KeenPbrTable_B",
+                               "KeenPbrOutput_A", "KeenPbrOutput_B",
+                               "KeenPbrTable_OUTPUT", "KeenPbrRaw_B"}) {
+      CAPTURE(legacy);
+      const auto checks = verify([&](const std::string& t) {
+        return replace_first(t, "-N KeenPbrTable\n",
+                             std::string("-N KeenPbrTable\n-N ") + legacy +
+                                 "\n");
+      });
+      CHECK(problems(checks) == 1);
+      CHECK(any_detail(checks, std::string("unexpected keen-pbr chain mangle/") +
+                                   legacy));
+    }
+  }
+  SUBCASE("a stale legacy chain with rules is reported once") {
+    const auto stale = verify([](const std::string& t) {
+      auto text = replace_first(t, "-N KeenPbrTable\n",
+                                "-N KeenPbrTable\n-N KeenPbrTable_B\n");
+      return with_line_after(text, "-N KeenPbrTable_B",
+                             "-A KeenPbrTable_B -m set --match-set old dst -j "
+                             "MARK --set-xmark 0x70000/0xff0000");
+    });
+    CHECK(problems(stale) == 1);
+    CHECK(any_detail(stale, "unexpected keen-pbr chain mangle/KeenPbrTable_B (1 rules)"));
+  }
+  SUBCASE("the PREROUTING chain missing flags every rule it holds") {
+    const auto checks = verify([](const std::string& t) {
+      std::string text;
+      for (const auto& line : split_lines(t)) {
+        if (line.rfind("-A KeenPbrTable ", 0) == 0 || line == "-N KeenPbrTable") {
+          continue;
         }
-        return command_result({}, 1);
+        text += line + "\n";
+      }
+      return text;
+    });
+    CHECK(any_detail(checks, "chain mangle/KeenPbrTable is missing",
+                     CheckStatus::missing));
+    CHECK(checks[plan_index(plan, "route.pass")].status ==
+          CheckStatus::missing);
+    CHECK(checks[plan_index(plan, "route.drop")].status ==
+          CheckStatus::missing);
+    // IPv6-only rules live in another chain and stay ok.
+    CHECK(checks[plan_index(plan, "route.mark", 1)].status == CheckStatus::ok);
+  }
+  SUBCASE("a leftover chain that is also reachable is reported with its jump") {
+    const auto reachable = verify([](const std::string& t) {
+      auto text = replace_first(t, "-N KeenPbrTable\n",
+                                "-N KeenPbrTable\n-N KeenPbrTable_Unknown\n");
+      return with_line_after(text, "-A KeenPbrTable ",
+                             "-A KeenPbrTable -j KeenPbrTable_Unknown");
+    });
+    CHECK(problems(reachable) == 2);
+    CHECK(any_detail(reachable, "unexpected rule in mangle/KeenPbrTable at"));
+    CHECK(any_detail(reachable,
+                     "unexpected keen-pbr chain mangle/KeenPbrTable_Unknown"));
+  }
+}
+
+TEST_CASE("verifier iptables: an unreadable kernel reports everything missing") {
+  const auto plan = capture_plan(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  const auto fails = [](CommandResult result) {
+    return [result](const std::vector<std::string>&) { return result; };
+  };
+  for (const auto& result : {CommandResult{"", 1, false},
+                             CommandResult{"truncated", 0, true}}) {
+    const auto snapshot = inspect_iptables_snapshot(fails(result), {}, true);
+    CHECK_FALSE(snapshot.available);
+    CHECK_FALSE(snapshot.error.empty());
+    const auto checks = verify_firewall_plan(plan, expected, snapshot);
+    REQUIRE(checks.size() == plan.rules.size());
+    for (const auto& check : checks) {
+      CHECK(check.status == CheckStatus::missing);
+      CHECK(check.detail == snapshot.error);
+    }
+  }
+}
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+// ---------------------------------------------------------------------------
+// nftables
+// ---------------------------------------------------------------------------
+
+namespace {
+
+PhysicalRuleset nft_expected(const FirewallPlan& plan) {
+  FirewallLoweringContext context;
+  context.backend = FirewallBackend::nftables;
+  context.fwmark_mask = plan.fwmark_mask;
+  return lower_firewall_plan(plan, context);
+}
+
+CommandRunner nft_runner(const Json& document,
+                         std::vector<std::vector<std::string>>* calls =
+                             nullptr) {
+  const std::string text = document.dump();
+  return [text, calls](const std::vector<std::string>& args) {
+    if (calls != nullptr) calls->push_back(args);
+    return CommandResult{text, 0, false};
+  };
+}
+
+std::vector<FirewallRuleCheck> verify_nft(const FirewallPlan& plan,
+                                          const PhysicalRuleset& expected,
+                                          const Json& document) {
+  const auto snapshot = inspect_nftables_snapshot(nft_runner(document));
+  REQUIRE_MESSAGE(snapshot.available, snapshot.error);
+  return verify_firewall_plan(plan, expected, snapshot);
+}
+
+Json& items(Json& document) { return document["nftables"]; }
+
+// Position of the rule with this ownership comment inside the item array
+// (nth match: a plan rule can expand to several physical rules).
+std::size_t nft_rule_at(Json& document, const FirewallRuleKey& key,
+                        std::size_t nth = 0) {
+  auto& all = items(document);
+  for (std::size_t i = 0; i < all.size(); ++i) {
+    const auto& item = all[i];
+    if (item.contains("rule") &&
+        item["rule"].value("comment", "") == key.comment() && nth-- == 0) {
+      return i;
+    }
+  }
+  FAIL("no nft rule for " << key.comment());
+  return 0;
+}
+
+std::size_t nft_chain_at(Json& document, const std::string& name) {
+  auto& all = items(document);
+  for (std::size_t i = 0; i < all.size(); ++i) {
+    if (all[i].contains("chain") && all[i]["chain"]["name"] == name) return i;
+  }
+  FAIL("no nft chain " << name);
+  return 0;
+}
+
+std::size_t nft_setter_rule_at(Json& document, const std::string& chain) {
+  auto& all = items(document);
+  for (std::size_t i = 0; i < all.size(); ++i) {
+    if (all[i].contains("rule") && all[i]["rule"]["chain"] == chain) return i;
+  }
+  FAIL("no rule in " << chain);
+  return 0;
+}
+
+void strip_nft_comments(Json& document) {
+  for (auto& item : items(document)) {
+    if (item.contains("rule")) item["rule"].erase("comment");
+  }
+}
+
+Json nft_balance_document() {
+  return Json::parse(read_fixture("nft_balance.json"));
+}
+
+} // namespace
+
+TEST_CASE("verifier nftables: the real kernel dump is entirely ok") {
+  const auto plan = capture_plan(true, true, true);
+  const auto expected = nft_expected(plan);
+  const auto document = nft_balance_document();
+  auto checks = verify_nft(plan, expected, document);
+  CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  CHECK(checks.size() == plan.rules.size());
+
+  SUBCASE("also without ownership comments") {
+    auto stripped = document;
+    strip_nft_comments(stripped);
+    checks = verify_nft(plan, expected, stripped);
+    CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  }
+}
+
+TEST_CASE("verifier nftables: corruptions are attributed to their plan rule") {
+  const auto plan = capture_plan(true, true, true);
+  const auto expected = nft_expected(plan);
+  const auto& first_mark = plan.rules[plan_index(plan, "route.mark")];
+  const auto& drop = plan.rules[plan_index(plan, "route.drop")];
+  const auto& pass = plan.rules[plan_index(plan, "route.pass")];
+  const auto& balance_v4 = plan.rules[plan_index(plan, "route.balance", 0)];
+  const auto index_of = [&](const FirewallRuleKey& key) {
+    for (std::size_t i = 0; i < plan.rules.size(); ++i) {
+      if (plan.rules[i].key == key) return i;
+    }
+    FAIL("unknown key");
+    return std::size_t{0};
+  };
+
+  // Each corruption is applied to the real dump, located by comment, and then
+  // verified with and without ownership comments.
+  using Check = std::function<void(const std::vector<FirewallRuleCheck>&)>;
+  const auto run = [&](const char* name,
+                       const std::function<void(Json&)>& edit,
+                       const Check& check) {
+    for (const bool with_comments : {true, false}) {
+      CAPTURE(name);
+      CAPTURE(with_comments);
+      auto document = nft_balance_document();
+      edit(document);
+      if (!with_comments) strip_nft_comments(document);
+      check(verify_nft(plan, expected, document));
+    }
+  };
+  const auto only = [&](const FirewallRuleKey& key, CheckStatus status,
+                        const std::string& detail) -> Check {
+    return [&, key, status, detail](
+               const std::vector<FirewallRuleCheck>& checks) {
+      CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+      const auto& check = checks[index_of(key)];
+      CHECK(check.status == status);
+      CHECK_MESSAGE(check.detail.find(detail) != std::string::npos,
+                    check.detail);
     };
-    NftablesFirewallVerifier verifier(runner);
+  };
+  const auto rule_expr = [](Json& document, const FirewallRuleKey& key) -> Json& {
+    return items(document)[nft_rule_at(document, key)]["rule"]["expr"];
+  };
 
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"set1"};
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 131072u;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::ok);
-    CHECK(checks[0].actual_fwmark.has_value());
-    CHECK(*checks[0].actual_fwmark == 131072u);
-}
-
-TEST_CASE("NftablesFirewallVerifier::verify_rules: direct dscp mark rule ok") {
-    const std::string canned = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
-                       "type": "filter", "hook": "prerouting"}},
-            {"rule": {
-                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
-                "expr": [
-                    {"match": {"op": "==",
-                               "left": {"payload": {"protocol": "ip", "field": "dscp"}},
-                               "right": "va"}},
-                    {"mangle": {"key": {"meta": {"key": "mark"}}, "value": 327680}},
-                    {"accept": null}
-                ]
-            }},
-            {"rule": {
-                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
-                "expr": [
-                    {"match": {"op": "==",
-                               "left": {"payload": {"protocol": "ip6", "field": "dscp"}},
-                               "right": "va"}},
-                    {"mangle": {"key": {"meta": {"key": "mark"}}, "value": 327680}},
-                    {"accept": null}
-                ]
-            }}
-        ]
-    })";
-
-    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result(canned);
+  run("rule installs another mark (jump to another setter)",
+      [&](Json& document) {
+        auto& expr = rule_expr(document, first_mark.key);
+        expr[expr.size() - 1]["jump"]["target"] = "setmark_00040000";
+      },
+      [&](const std::vector<FirewallRuleCheck>& checks) {
+        only(first_mark.key, CheckStatus::mismatch, "setmark_00040000")(checks);
+        const auto& check = checks[index_of(first_mark.key)];
+        CHECK(check.actual_fwmark == 0x40000U);
+        CHECK(check.expected_fwmark == 0x10000U);
+      });
+  run("wrong set name",
+      [&](Json& document) {
+        rule_expr(document, drop.key)[0]["match"]["right"] = "@kpbr4_other";
+      },
+      only(drop.key, CheckStatus::mismatch, "kpbr4_other"));
+  run("missing rule",
+      [&](Json& document) {
+        const auto at = nft_rule_at(document, pass.key);
+        items(document).erase(items(document).begin() +
+                              static_cast<std::ptrdiff_t>(at));
+      },
+      only(pass.key, CheckStatus::missing, "rule missing"));
+  run("duplicated rule",
+      [&](Json& document) {
+        const auto at = nft_rule_at(document, pass.key);
+        const Json copy = items(document)[at];
+        items(document).insert(
+            items(document).begin() + static_cast<std::ptrdiff_t>(at), copy);
+      },
+      only(pass.key, CheckStatus::mismatch, "duplicate rule"));
+  run("two rules swapped",
+      [&](Json& document) {
+        const auto a = nft_rule_at(document, drop.key);
+        const auto b = nft_rule_at(document, pass.key);
+        std::swap(items(document)[a]["rule"]["expr"],
+                  items(document)[b]["rule"]["expr"]);
+        std::swap(items(document)[a]["rule"]["comment"],
+                  items(document)[b]["rule"]["comment"]);
+      },
+      [&](const std::vector<FirewallRuleCheck>& checks) {
+        // Either order can be reported against the swapped pair.
+        CHECK_MESSAGE(problems(checks) >= 1, describe(checks));
+        const bool reported = any_detail(checks, "rule order differs") ||
+                              any_detail(checks, "rule mismatch");
+        CHECK(reported);
+      });
+  run("balance: wrong numgen modulus",
+      [&](Json& document) {
+        for (auto& statement : rule_expr(document, balance_v4.key)) {
+          if (statement.contains("vmap")) {
+            statement["vmap"]["key"]["numgen"]["mod"] = 3;
+          }
         }
-        return command_result({}, 1);
-    };
-    NftablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 327680u;
-    rs.criteria.dscp = 44;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 2);
-    CHECK(checks[0].status == CheckStatus::ok);
-    CHECK(checks[1].status == CheckStatus::ok);
-}
-
-TEST_CASE("NftablesFirewallVerifier::verify_rules: mark rule missing") {
-    const std::string canned = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
-                       "type": "filter", "hook": "prerouting"}}
-        ]
-    })";
-
-    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result(canned);
+      },
+      only(balance_v4.key, CheckStatus::mismatch, "vmap numgen mod 0x3"));
+  run("balance: vmap entry missing",
+      [&](Json& document) {
+        for (auto& statement : rule_expr(document, balance_v4.key)) {
+          if (statement.contains("vmap")) {
+            statement["vmap"]["data"]["set"].erase(1);
+          }
         }
-        return command_result({}, 1);
-    };
-    NftablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"not_there"};
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 1u;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::missing);
-}
-
-TEST_CASE("NftablesFirewallVerifier::verify_rules: drop rule ok") {
-    const std::string canned = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
-                       "type": "filter", "hook": "prerouting"}},
-            {"rule": {
-                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
-                "expr": [
-                    {"match": {"op": "==",
-                               "left": {"payload": {"protocol": "ip", "field": "daddr"}},
-                               "right": "@dropset"}},
-                    {"drop": null}
-                ]
-            }}
-        ]
-    })";
-
-    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result(canned);
+      },
+      only(balance_v4.key, CheckStatus::mismatch, "vmap"));
+  run("balance: vmap entries reordered",
+      [&](Json& document) {
+        for (auto& statement : rule_expr(document, balance_v4.key)) {
+          if (statement.contains("vmap")) {
+            auto& entries = statement["vmap"]["data"]["set"];
+            std::swap(entries[0][1], entries[1][1]);
+          }
         }
-        return command_result({}, 1);
-    };
-    NftablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"dropset"};
-    rs.action_type = RuleActionType::Drop;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::ok);
+      },
+      only(balance_v4.key, CheckStatus::mismatch, "vmap"));
 }
 
-TEST_CASE("NftablesFirewallVerifier::verify_rules: pass rule ok") {
-    const std::string canned = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
-                       "type": "filter", "hook": "prerouting"}},
-            {"rule": {
-                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
-                "expr": [
-                    {"match": {"op": "==",
-                               "left": {"payload": {"protocol": "ip", "field": "daddr"}},
-                               "right": "@allowset"}},
-                    {"accept": null}
-                ]
-            }}
-        ]
-    })";
+TEST_CASE("verifier nftables: setter chains") {
+  const auto plan = capture_plan(true, true, true);
+  const auto expected = nft_expected(plan);
 
-    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result(canned);
-        }
-        return command_result({}, 1);
-    };
-    NftablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"allowset"};
-    rs.action_type = RuleActionType::Pass;
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::ok);
+  SUBCASE("setter chain installs a wrong mark") {
+    auto document = nft_balance_document();
+    auto& expr = items(document)[nft_setter_rule_at(document,
+                                                     "setmark_00010000")]
+                     ["rule"]["expr"];
+    expr[0]["mangle"]["value"]["|"][1] = 0x70000;
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK(problems(checks) == 1);
+    CHECK(checks.back().action == "setter");
+    CHECK(checks.back().status == CheckStatus::mismatch);
+    CHECK(checks.back().set_name == "setmark_00010000");
+    CHECK_MESSAGE(checks.back().detail.find("set-mark 0x70000") !=
+                      std::string::npos,
+                  checks.back().detail);
+  }
+  SUBCASE("setter chain installs a wrong mask") {
+    auto document = nft_balance_document();
+    auto& expr = items(document)[nft_setter_rule_at(document,
+                                                     "setmark_00010000")]
+                     ["rule"]["expr"];
+    expr[0]["mangle"]["value"]["|"][0]["&"][1] = 4278190335U;
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK(problems(checks) == 1);
+    CHECK(checks.back().action == "setter");
+  }
+  SUBCASE("setter chain missing") {
+    auto document = nft_balance_document();
+    auto& all = items(document);
+    const auto chain = nft_chain_at(document, "setmark_00020000");
+    for (std::size_t i = all.size(); i-- > 0;) {
+      const bool is_chain =
+          all[i].contains("chain") && all[i]["chain"]["name"] == "setmark_00020000";
+      const bool is_rule = all[i].contains("rule") &&
+                           all[i]["rule"]["chain"] == "setmark_00020000";
+      if (is_chain || is_rule) all.erase(all.begin() + static_cast<std::ptrdiff_t>(i));
+    }
+    (void)chain;
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK(problems(checks) == 1);
+    CHECK(checks.back().status == CheckStatus::missing);
+    CHECK(checks.back().action == "setter");
+    CHECK(checks.back().expected_fwmark == 0x20000U);
+  }
+  SUBCASE("stale setter chain present") {
+    // Apply deletes every live setter chain before recreating the needed
+    // ones (nftables.cpp build_apply_document), so a surplus one is stale.
+    auto document = nft_balance_document();
+    auto& all = items(document);
+    all.push_back({{"chain", {{"family", "inet"}, {"table", "KeenPbrTable"},
+                              {"name", "setmark_00090000"}}}});
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK(problems(checks) == 1);
+    CHECK(checks.back().action == "setter");
+    CHECK(checks.back().actual_fwmark == 0x90000U);
+    CHECK(checks.back().detail.find("unexpected keen-pbr chain") !=
+          std::string::npos);
+  }
 }
 
-TEST_CASE("NftablesFirewallVerifier::verify_rules: fwmark mismatch") {
-    const std::string canned = R"({
-        "nftables": [
-            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
-                       "type": "filter", "hook": "prerouting"}},
-            {"rule": {
-                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
-                "expr": [
-                    {"match": {"op": "==",
-                               "left": {"payload": {"protocol": "ip", "field": "daddr"}},
-                               "right": "@myset"}},
-                    {"mangle": {"key": {"meta": {"key": "mark"}}, "value": 100}}
-                ]
-            }}
-        ]
-    })";
+TEST_CASE("verifier nftables: base chain attributes and foreign rules") {
+  const auto plan = capture_plan(true, true, true);
+  const auto expected = nft_expected(plan);
 
-    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result(canned);
-        }
-        return command_result({}, 1);
-    };
-    NftablesFirewallVerifier verifier(runner);
+  SUBCASE("priority and hook are compared") {
+    auto document = nft_balance_document();
+    items(document)[nft_chain_at(document, "prerouting")]["chain"]["prio"] = -100;
+    auto checks = verify_nft(plan, expected, document);
+    CHECK(problems(checks) == 1);
+    CHECK(any_detail(checks, "base chain attributes of prerouting differ"));
 
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"myset"};
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 200u; // different from actual 100
-
-    auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::mismatch);
+    document = nft_balance_document();
+    auto& chain = items(document)[nft_chain_at(document, "output")]["chain"];
+    chain.erase("hook");
+    chain.erase("prio");
+    chain.erase("type");
+    chain.erase("policy");
+    checks = verify_nft(plan, expected, document);
+    CHECK(problems(checks) == 1);
+    CHECK(any_detail(checks, "base chain attributes of output differ"));
+  }
+  SUBCASE("rules appended to the real dump with the stock tool are unexpected") {
+    const auto document = Json::parse(read_fixture("nft_foreign.json"));
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK_MESSAGE(extras_of(plan, checks) == 3, describe(checks));
+    CHECK(problems(checks) == 3);
+    CHECK(any_detail(checks, "unexpected rule in prerouting at index"));
+    for (std::size_t i = 0; i < plan.rules.size(); ++i) {
+      CHECK(checks[i].status == CheckStatus::ok);
+    }
+  }
+  SUBCASE("a chain of another table never reaches the ruleset") {
+    auto document = nft_balance_document();
+    items(document).push_back(
+        {{"chain", {{"family", "inet"}, {"table", "other"}, {"name", "x"}}}});
+    CHECK(problems(verify_nft(plan, expected, document)) == 0);
+  }
 }
 
-TEST_CASE("NftablesFirewallVerifier::verify_chain: missing chain with table present") {
-    const std::string table_json = R"({
-        "nftables": [
-            {"table": {"family": "inet", "name": "KeenPbrTable"}}
-        ]
-    })";
-
-    auto runner = [&table_json](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result({}, 1);
-        }
-        if (matches_args(args, {"nft", "-j", "-t", "list", "table", "inet",
-                                "KeenPbrTable"})) {
-            return command_result(table_json);
-        }
-        return command_result({}, 1);
-    };
-
-    NftablesFirewallVerifier verifier(runner);
-    const auto check = verifier.verify_chain();
-    CHECK_FALSE(check.chain_present);
-    CHECK_FALSE(check.prerouting_hook_present);
-    CHECK(check.detail == "prerouting chain not found in KeenPbrTable table");
+TEST_CASE("verifier nftables: an absent table or failed read reports everything missing") {
+  const auto plan = capture_plan(true, true, true);
+  const auto expected = nft_expected(plan);
+  const auto expect_all_missing = [&](const FirewallSnapshot& snapshot) {
+    CHECK_FALSE(snapshot.available);
+    const auto checks = verify_firewall_plan(plan, expected, snapshot);
+    REQUIRE(checks.size() == plan.rules.size());
+    for (const auto& check : checks) {
+      CHECK(check.status == CheckStatus::missing);
+      CHECK(check.detail == snapshot.error);
+    }
+  };
+  expect_all_missing(inspect_nftables_snapshot(
+      [](const std::vector<std::string>&) { return CommandResult{"", 1, false}; }));
+  expect_all_missing(inspect_nftables_snapshot(
+      nft_runner(Json{{"nftables", Json::array()}})));
 }
 
-TEST_CASE("NftablesFirewallVerifier::verify_chain: missing table") {
-    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result({}, 1);
-        }
-        if (matches_args(args, {"nft", "-j", "-t", "list", "table", "inet",
-                                "KeenPbrTable"})) {
-            return command_result({}, 1);
-        }
-        return command_result({}, 1);
-    };
+#endif // KEEN_PBR_PLATFORM_KEENETIC
+// ---------------------------------------------------------------------------
+// Interception (DNS hold, L7 sniff): pinned iptables jumps and nft base chains
+// ---------------------------------------------------------------------------
 
-    NftablesFirewallVerifier verifier(runner);
-    const auto check = verifier.verify_chain();
-    CHECK_FALSE(check.chain_present);
-    CHECK_FALSE(check.prerouting_hook_present);
-    CHECK(check.detail == "KeenPbrTable table not found in nftables");
+namespace {
+
+IptTexts intercept_texts() {
+  return {read_fixture("iptables_intercept_mangle_v4.rules"),
+          read_fixture("iptables_intercept_mangle_v6.save"), {}, {}};
 }
 
-TEST_CASE("NftablesFirewallVerifier::verify_chain: truncated chain output reports read failure") {
-    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result("{", -1, true);
-        }
-        return command_result({}, 1);
-    };
+} // namespace
 
-    NftablesFirewallVerifier verifier(runner);
-    const auto check = verifier.verify_chain();
-    CHECK_FALSE(check.chain_present);
-    CHECK(check.detail ==
-          "nft verification output exceeded capture limit while reading prerouting chain");
+TEST_CASE("verifier iptables interception: the real kernel dump is entirely ok") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  const auto checks = verify_iptables(plan, expected, intercept_texts(), {});
+  CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  // The two output-hook sniff rules share KeenPbrSniff with their forward
+  // twins and lower to no rule of their own.
+  CHECK(checks.size() == plan.rules.size() - 2);
+  const auto queue = plan_index(plan, "dns.intercept_hold");
+  CHECK(checks[queue].action == "queue");
+  CHECK(checks[plan_index(plan, "l7.sniff")].action == "log");
 }
 
-TEST_CASE("NftablesFirewallVerifier::verify_chain: invalid chain JSON reports parse failure") {
-    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result("not json");
-        }
-        return command_result({}, 1);
-    };
-
-    NftablesFirewallVerifier verifier(runner);
-    const auto check = verifier.verify_chain();
-    CHECK_FALSE(check.chain_present);
-    CHECK(check.detail == "failed to parse nftables JSON while reading prerouting chain");
+TEST_CASE("verifier iptables interception: foreign rules elsewhere are no drift") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  auto texts = intercept_texts();
+  // Behind our jumps, in chains we hook, and in the INPUT chain.
+  texts.v4_mangle = with_line_after(texts.v4_mangle,
+                                    "-A POSTROUTING -j KeenPbrDnsHold",
+                                    "-A POSTROUTING -o eth8 -j ACCEPT");
+  texts.v4_mangle = with_line_after(texts.v4_mangle, "-A FORWARD -j KeenPbrSniff",
+                                    "-A FORWARD -p icmp -j ACCEPT");
+  texts.v4_mangle = with_line_after(texts.v4_mangle, "-P INPUT ACCEPT",
+                                    "-A INPUT -p tcp -j ACCEPT");
+  const auto checks = verify_iptables(plan, expected, texts, {});
+  CHECK_MESSAGE(problems(checks) == 0, describe(checks));
 }
 
-TEST_CASE("NftablesFirewallVerifier::verify_rules: read failure is surfaced in rule detail") {
-    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
-        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
-                                "prerouting"})) {
-            return command_result("{", -1, true);
-        }
-        return command_result({}, 1);
-    };
-
-    NftablesFirewallVerifier verifier(runner);
-
-    RuleState rs;
-    rs.rule_index = 0;
-    rs.set_names = {"set1"};
-    rs.action_type = RuleActionType::Mark;
-    rs.fwmark = 1u;
-
-    const auto checks = verifier.verify_rules({rs});
-    REQUIRE(checks.size() == 1);
-    CHECK(checks[0].status == CheckStatus::missing);
-    CHECK(checks[0].detail ==
-          "nft verification output exceeded capture limit while reading prerouting chain");
+TEST_CASE("verifier iptables interception: a jump that is not first is drift") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  // Real dump with foreign rules inserted in front of every pinned jump.
+  const auto moved = IptTexts{read_fixture("iptables_intercept_mangle_v4_foreign.rules"),
+                              read_fixture("iptables_intercept_mangle_v6.save"),
+                              {}, {}};
+  const auto checks = verify_iptables(plan, expected, moved, {});
+  CHECK_MESSAGE(problems(checks) == 3, describe(checks));
+  CHECK(any_detail(checks, "(position 1)"));
+  CHECK(any_detail(checks, "(position 0)"));
+  CHECK(any_detail(checks, "mangle/POSTROUTING"));
+  CHECK(any_detail(checks, "mangle/FORWARD"));
+  CHECK(any_detail(checks, "mangle/OUTPUT"));
 }
 
-TEST_CASE("safe_exec_capture: max_bytes overflow sets truncated") {
-    const auto result = safe_exec_capture({"head", "-c", "4096", "/dev/zero"},
-                                          /*suppress_stderr=*/true,
-                                          /*max_bytes=*/64);
-    CHECK(result.truncated);
-    CHECK(result.stdout_output.size() > 64);
+TEST_CASE("verifier iptables interception: missing and duplicate jumps") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  SUBCASE("missing jump") {
+    auto texts = intercept_texts();
+    texts.v4_mangle = without_line(texts.v4_mangle,
+                                   "-A POSTROUTING -j KeenPbrDnsHold");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+    CHECK(any_detail(checks, "rule missing in mangle/POSTROUTING",
+                     CheckStatus::missing));
+  }
+  SUBCASE("duplicate jump") {
+    auto texts = intercept_texts();
+    texts.v4_mangle =
+        with_duplicated_line(texts.v4_mangle, "-A FORWARD -j KeenPbrSniff");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) >= 1, describe(checks));
+    CHECK(any_detail(checks, "mangle/FORWARD"));
+  }
+  SUBCASE("v6 hooks are verified too") {
+    auto texts = intercept_texts();
+    texts.v6_mangle = without_line(texts.v6_mangle, "-A OUTPUT -j KeenPbrSniff");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+    CHECK(any_detail(checks, "mangle/OUTPUT (ipv6)", CheckStatus::missing));
+  }
 }
 
-TEST_CASE("safe_exec_capture: nonzero exit code is preserved") {
-    const auto result = safe_exec_capture({"false"});
-    CHECK_FALSE(result.truncated);
-    CHECK(result.exit_code == 1);
+TEST_CASE("verifier iptables interception: wrong queue number or group") {
+  const auto plan = capture_plan_with_intercept(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  SUBCASE("queue number") {
+    auto texts = intercept_texts();
+    texts.v4_mangle =
+        replace_first(texts.v4_mangle, "--queue-num 9053", "--queue-num 9999");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+    CHECK(any_detail(checks, "nfqueue 9999"));
+    CHECK(checks[plan_index(plan, "dns.intercept_hold")].status ==
+          CheckStatus::mismatch);
+  }
+  SUBCASE("queue bypass flag lost") {
+    auto texts = intercept_texts();
+    texts.v4_mangle =
+        replace_first(texts.v4_mangle, " --queue-bypass", "");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+  }
+  SUBCASE("nflog group") {
+    auto texts = intercept_texts();
+    texts.v4_mangle =
+        replace_first(texts.v4_mangle, "--nflog-group 9054", "--nflog-group 1");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+    CHECK(any_detail(checks, "nflog group 1"));
+  }
+  SUBCASE("connbytes window") {
+    auto texts = intercept_texts();
+    texts.v4_mangle =
+        replace_first(texts.v4_mangle, "--connbytes 1:6", "--connbytes 1:9");
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 1, describe(checks));
+    CHECK(any_detail(checks, "connbytes original 1-9"));
+  }
 }
+
+TEST_CASE("verifier iptables interception: leftovers of a disabled feature are reported") {
+  const auto plan = capture_plan(false, false, true);
+  const auto expected = iptables_expected(plan, {});
+  const auto checks = verify_iptables(plan, expected, intercept_texts(), {});
+  CHECK(problems(checks) >= 4);
+  CHECK(any_detail(checks, "unexpected keen-pbr chain mangle/KeenPbrDnsHold"));
+  CHECK(any_detail(checks, "unexpected keen-pbr chain mangle/KeenPbrSniff"));
+  CHECK(any_detail(checks, "unexpected rule in mangle/POSTROUTING"));
+  CHECK(any_detail(checks, "unexpected rule in mangle/FORWARD"));
+}
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("verifier nftables interception: the real kernel dump is entirely ok") {
+  const auto plan = capture_plan_with_intercept(true, true, true);
+  const auto expected = nft_expected(plan);
+  const auto document = Json::parse(read_fixture("nft_intercept.json"));
+  const auto checks = verify_nft(plan, expected, document);
+  CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  CHECK(extras_of(plan, checks) == 0);
+}
+#endif
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("verifier nftables interception: drift") {
+  const auto plan = capture_plan_with_intercept(true, true, true);
+  const auto expected = nft_expected(plan);
+  SUBCASE("wrong queue number") {
+    auto document = Json::parse(read_fixture("nft_intercept.json"));
+    for (auto& item : items(document)) {
+      if (!item.contains("rule") || item["rule"]["chain"] != "dns_hold") continue;
+      for (auto& expr : item["rule"]["expr"]) {
+        if (expr.contains("queue")) expr["queue"]["num"] = 1;
+      }
+    }
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK_MESSAGE(problems(checks) == 2, describe(checks));
+    CHECK(any_detail(checks, "nfqueue 1 bypass"));
+  }
+  SUBCASE("wrong group") {
+    auto document = Json::parse(read_fixture("nft_intercept.json"));
+    for (auto& item : items(document)) {
+      if (!item.contains("rule") || item["rule"]["chain"] != "sniff_out") continue;
+      for (auto& expr : item["rule"]["expr"]) {
+        if (expr.contains("log")) expr["log"]["group"] = 7;
+      }
+    }
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK_MESSAGE(problems(checks) == 2, describe(checks));
+    CHECK(any_detail(checks, "nflog group 7"));
+  }
+  SUBCASE("base chain hook and priority") {
+    auto document = Json::parse(read_fixture("nft_intercept.json"));
+    auto& chain = items(document)[nft_chain_at(document, "sniff_fwd")]["chain"];
+    chain["hook"] = "prerouting";
+    items(document)[nft_chain_at(document, "dns_hold")]["chain"]["prio"] = 0;
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK_MESSAGE(problems(checks) == 2, describe(checks));
+    CHECK(any_detail(checks, "base chain attributes of sniff_fwd differ"));
+    CHECK(any_detail(checks, "base chain attributes of dns_hold differ"));
+  }
+  SUBCASE("missing chain") {
+    auto document = Json::parse(read_fixture("nft_intercept.json"));
+    auto& all = items(document);
+    all.erase(std::remove_if(all.begin(), all.end(), [](const Json& item) {
+                return (item.contains("rule") &&
+                        item["rule"]["chain"] == "sniff_out") ||
+                       (item.contains("chain") &&
+                        item["chain"]["name"] == "sniff_out");
+              }), all.end());
+    const auto checks = verify_nft(plan, expected, document);
+    CHECK_MESSAGE(problems(checks) >= 1, describe(checks));
+    CHECK(any_detail(checks, "chain sniff_out is missing", CheckStatus::missing));
+  }
+  SUBCASE("disabled feature leaves chains behind") {
+    const auto plain = capture_plan(true, true, true);
+    const auto checks = verify_nft(plain, nft_expected(plain),
+                                   Json::parse(read_fixture("nft_intercept.json")));
+    CHECK(any_detail(checks, "unexpected keen-pbr chain dns_hold"));
+    CHECK(any_detail(checks, "unexpected keen-pbr chain sniff_fwd"));
+    CHECK(any_detail(checks, "unexpected keen-pbr chain sniff_out"));
+  }
+}
+#endif
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("verifier: LAN-output skip rules are not drift on either backend") {
+  const auto plan = capture_plan_lan_output();
+  SUBCASE("iptables") {
+    const auto expected = iptables_expected(plan, {});
+    const IptTexts texts{read_fixture("iptables_lan_output_v4.save"),
+                         read_fixture("iptables_lan_output_v6.save"), {}, {}};
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  }
+  SUBCASE("nftables") {
+    const auto expected = nft_expected(plan);
+    const auto checks = verify_nft(
+        plan, expected, Json::parse(read_fixture("nft_lan_output.json")));
+    CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  }
+}
+#endif
+
+#ifndef KEEN_PBR_PLATFORM_KEENETIC
+TEST_CASE("verifier: catch-all destinations are not drift on either backend") {
+  const auto plan = capture_plan_catch_all();
+  SUBCASE("iptables") {
+    const auto expected = iptables_expected(plan, {});
+    const IptTexts texts{read_fixture("iptables_catchall_v4.save"),
+                         read_fixture("iptables_catchall_v6.save"), {}, {}};
+    const auto checks = verify_iptables(plan, expected, texts, {});
+    CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  }
+  SUBCASE("nftables") {
+    const auto expected = nft_expected(plan);
+    const auto checks = verify_nft(
+        plan, expected, Json::parse(read_fixture("nft_catchall.json")));
+    CHECK_MESSAGE(problems(checks) == 0, describe(checks));
+  }
+}
+#endif
+
+} // namespace keen_pbr3

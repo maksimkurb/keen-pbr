@@ -11,6 +11,7 @@ import type { OutboundGroup } from './outboundGroup';
 import type { OutboundStrictEnforcementAction } from './outboundStrictEnforcementAction';
 import type { OutboundType } from './outboundType';
 import type { RetryConfig } from './retryConfig';
+import type { TestGroupStrategy } from './testGroupStrategy';
 
 export interface Outbound {
   /** Outbound type. */
@@ -21,10 +22,10 @@ export interface Outbound {
   /** Egress network interface name. Required for `interface` outbound type.
    */
   interface?: string;
-  /** Optional IPv4 gateway address. Used with `interface` outbound type.
+  /** Optional IPv4 gateway address. Used with `interface` outbound type. Set to `auto` to discover the lowest-metric matching default route in the kernel main table; omit it for a gatewayless route.
    */
   gateway?: string;
-  /** Optional IPv6 gateway address. Used with `interface` outbound type.
+  /** Optional IPv6 gateway address. Used with `interface` outbound type. Set to `auto` to discover the lowest-metric matching default route in the kernel main table; omit it for a gatewayless route.
    */
   gateway6?: string;
   /** Per-outbound override for strict routing enforcement. When enabled for an `interface` outbound, install an unreachable default route if the configured gateway/interface cannot be confirmed reachable. Overrides `daemon.strict_enforcement` when present.
@@ -72,10 +73,13 @@ export interface Outbound {
      * @minimum 0
      */
   tolerance_ms?: number;
-  /** URLTEST/ICMPTEST conntrack handling when a healthy selected child is replaced for latency or priority reasons. `preserve` keeps established flows and `delete` removes entries bearing the test-group mark after the replacement route is active. Entries are always removed when the previously selected child is unhealthy.
+  /** `priority` keeps the stable test-group mark and routes it through one selected child. `balance` distributes new connections by member weight within the first usable healthy tier (nftables or iptables with the xt_statistic module; disabled on Keenetic).
+   */
+  strategy?: TestGroupStrategy;
+  /** URLTEST/ICMPTEST conntrack handling when a healthy selected child is replaced for latency or priority reasons. `preserve` keeps established flows and `delete` removes affected entries after the replacement is active. In balance mode this setting is ignored; only connections using an unhealthy child are removed regardless of this setting.
    */
   conntrack_on_switch?: ConntrackOnSwitch;
-  /** Ordered list of outbound groups. Required for `urltest` and `icmptest`. Groups are tried in order; within a group the outbound is selected by weight.
+  /** Ordered list of outbound groups. Required for `urltest` and `icmptest`. Tiers are tried in array order. In `priority` mode one usable child is selected by latency; in `balance` mode usable members in the first healthy tier receive new connections in proportion to their weights.
    */
   outbound_groups?: OutboundGroup[];
   retry?: RetryConfig;

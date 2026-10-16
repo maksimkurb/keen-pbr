@@ -38,3 +38,11 @@ export const navItems: NavItem[] = [
     group: "rules",
   },
 ]
+
+// Pages that fill the whole content area (full width and height) instead of
+// sitting in the centered max-width container.
+const fullBleedPaths = ["/requests-log"]
+
+export function isFullBleedPath(pathname: string): boolean {
+  return fullBleedPaths.includes(pathname)
+}

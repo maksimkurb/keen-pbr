@@ -1,3 +1,4 @@
+import { DnsManagementDisabled } from "@/components/shared/dns-management-disabled"
 import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react"
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
@@ -13,7 +14,9 @@ import {
   usePostConfigMutation,
 } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
+import { effectiveResolverIntegration } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
@@ -110,16 +113,26 @@ export function DnsServersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-0">
       <PageHeader
         actions={
-          <Button
-            disabled={configMutationPending}
-            onClick={() => navigate("/dns-servers/create")}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t("pages.dnsServers.actions.add")}
-          </Button>
+          effectiveResolverIntegration(config) === "dnsmasq" ? (
+            <>
+              <Button
+                className="hidden md:inline-flex"
+                disabled={configMutationPending}
+                onClick={() => navigate("/dns-servers/create")}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                {t("pages.dnsServers.actions.add")}
+              </Button>
+              <MobileAddFab
+                disabled={configMutationPending}
+                icon={<Plus className="size-4" />}
+                onClick={() => navigate("/dns-servers/create")}
+              />
+            </>
+          ) : null
         }
         description={t("pages.dnsServers.description")}
         title={t("pages.dnsServers.title")}
@@ -135,6 +148,8 @@ export function DnsServersPage() {
           title={t("common.unableToLoadData")}
           variant="error"
         />
+      ) : effectiveResolverIntegration(config) !== "dnsmasq" ? (
+        <DnsManagementDisabled />
       ) : dnsServers.length === 0 ? (
         <ListPlaceholder
           description={t("pages.dnsServers.empty.description")}
@@ -142,8 +157,10 @@ export function DnsServersPage() {
         />
       ) : (
         <div className="space-y-3">
-          {serverSelection.hasSelection ? (
+          {serverSelection.isSelecting ? (
             <BulkSelectionToolbar
+              selection={serverSelection}
+              disabled={configMutationPending}
               countLabel={t("pages.dnsServers.bulk.selected", {
                 count: serverSelection.selectedCount,
               })}
@@ -155,11 +172,14 @@ export function DnsServersPage() {
                 variant="destructive"
               >
                 <Trash2 className="mr-1 h-4 w-4" />
-                {t("pages.dnsServers.bulk.delete")}
+                {t("pages.dnsServers.bulk.delete", {
+                  count: serverSelection.selectedCount,
+                })}
               </Button>
             </BulkSelectionToolbar>
           ) : null}
           <DataTable
+            mobileCards={{ titleColumns: [0], bodyColumns: [1, 2] }}
             headers={[
               t("pages.dnsServers.headers.name"),
               t("pages.dnsServers.headers.address"),
@@ -185,6 +205,7 @@ export function DnsServersPage() {
                 {server.detour || t("pages.dnsServers.none")}
               </Badge>,
               <ActionButtons
+                mobileIcons
                 actions={[
                   {
                     disabled: configMutationPending,
@@ -198,6 +219,7 @@ export function DnsServersPage() {
                   {
                     disabled: configMutationPending,
                     icon: <Trash2 className="h-4 w-4" />,
+                    destructive: true,
                     label: t("common.delete"),
                     onClick: () => deleteServer(server.tag),
                   },
@@ -206,6 +228,8 @@ export function DnsServersPage() {
               />,
             ])}
             selection={{
+              isSelecting: serverSelection.isSelecting,
+              onStartSelecting: serverSelection.startSelecting,
               rowIds: serverRowIds,
               selectedIds: serverSelection.selectedIds,
               disabled: configMutationPending,
@@ -282,7 +306,7 @@ function getDnsServerDeleteImpactItems(
       label: t("pages.dnsServers.deleteDialog.items.fallback"),
       details: [
         formatDetail(
-          t("pages.dnsRules.primaryServers.title"),
+          t("pages.dnsRules.fallback.title"),
           <ChangeValue
             after={formatListValue(
               fallback.filter((tag) => !serverTags.includes(tag)),

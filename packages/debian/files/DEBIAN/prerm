@@ -2,8 +2,6 @@
 
 set -e
 
-DNSMASQ_HELPER="/usr/lib/keen-pbr/dnsmasq.sh"
-
 if command -v systemctl >/dev/null 2>&1; then
     systemctl stop keen-pbr >/dev/null 2>&1 || true
     systemctl disable keen-pbr >/dev/null 2>&1 || true

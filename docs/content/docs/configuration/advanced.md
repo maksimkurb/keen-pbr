@@ -16,14 +16,14 @@ Controls the PID file path, cache directory, and global routing behaviour.
 | `pid_file` | string | — | Path to write the PID file |
 | `cache_dir` | string | `/var/cache/keen-pbr` | Directory for cached list data |
 | `firewall_backend` | string | `"auto"` | Firewall backend selection: `auto`, `iptables`, or `nftables` |
-| `clear_dynamic_sets_on_apply` | boolean | `true` | Clear dnsmasq-managed dynamic sets during a full config apply or runtime restart. Preserve-set and list-only reconciles never clear them. |
-| `ipset_hashsize` | integer | absent | Optional initial hash table size for ipsets created by the iptables backend (default `1024`). Has no effect with nftables. Must be between 1 and 2147483648. Changing it on a running iptables backend recreates owned ipsets and clears dnsmasq-learned entries. |
-| `ipset_maxelem` | integer | absent | Optional maximum element count for ipsets created by the iptables backend (default `65536`). Has no effect with nftables. Must be between 1 and 4294967295. Changing it on a running iptables backend recreates owned ipsets and clears dnsmasq-learned entries. |
-| `reuse_static_sets_on_runtime_refresh` | boolean | `true` | Rebuild rules without streaming or modifying static/dynamic sets for SIGUSR1, URLTEST/ICMPTEST selection, and interface state refreshes. Makes rules applying faster. If `false`, will always re-apply ipset lists. |
-| `strict_enforcement` | boolean | `false` | Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. |
-| `strict_enforcement_action` | string | `"unreachable"` | Terminal action for strict enforcement: `unreachable` returns an immediate network error; `blackhole` silently drops packets until the application times out. |
+| `clear_dynamic_sets_on_apply` | boolean | `false` | Clear the dynamic sets (domain IP addresses collected from DNS replies and connections) on every config apply or service restart. List refreshes and link switches never clear them. |
+| `ipset_hashsize` | integer | absent | Optional initial hash table size for ipsets created by the iptables backend (default `1024`). Has no effect with nftables. Must be between 1 and 2147483648. Changing it recreates the sets and empties the dynamic sets. |
+| `ipset_maxelem` | integer | absent | Optional maximum element count for ipsets created by the iptables backend (default `65536`). Has no effect with nftables. Must be between 1 and 4294967295. Changing it recreates the sets and empties the dynamic sets. |
+| `reuse_static_sets_on_runtime_refresh` | boolean | `true` | Do not refill list sets on `SIGUSR1`, `urltest`/`icmptest` switches and interface state changes: only rules are updated, which is faster. If `false`, sets are refilled every time. |
+| `strict_enforcement` | boolean | `false` | If the interface or gateway of an `interface` outbound is down, do not let its traffic go out through the normal connection: the outbound's table gets the route from `strict_enforcement_action` instead. Can be set per outbound. |
+| `strict_enforcement_action` | string | `"unreachable"` | What to do with traffic under `strict_enforcement`: `unreachable` returns an immediate network error; `blackhole` silently drops packets until the application times out. |
 | `max_file_size_bytes` | integer | `8388608` (8 MiB) | Maximum allowed size in bytes for downloaded remote list content |
-| `firewall_verify_max_bytes` | integer | `262144` | Maximum stdout bytes captured per firewall verification command (`0` = unlimited) |
+| `firewall_verify_max_bytes` | integer | `262144` | How many bytes of `iptables`/`nft` output to read when checking firewall rules (`keen-pbr status`, status page); `0` means no limit |
 
 ```json { filename="config.json" }
 {
@@ -31,7 +31,7 @@ Controls the PID file path, cache directory, and global routing behaviour.
     "pid_file": "/var/run/keen-pbr.pid",
     "cache_dir": "/var/cache/keen-pbr",
     "firewall_backend": "auto",
-    "clear_dynamic_sets_on_apply": true,
+    "clear_dynamic_sets_on_apply": false,
     "ipset_hashsize": null,
     "ipset_maxelem": null,
     "reuse_static_sets_on_runtime_refresh": true,
@@ -67,7 +67,7 @@ The API can also be disabled at runtime with `--no-api`, regardless of the confi
 
 ## fwmark
 
-Controls the firewall mark range used to tag packets for policy routing.
+Sets the range of {{< term "fwmark" >}} values keen-pbr puts on packets to send them to the right routing table. See [fwmark and conntrack]({{< relref "/docs/concepts#fwmark-and-conntrack" >}}).
 
 | Field | Type | Default | Description |
 |---|---|---|---|
@@ -83,7 +83,7 @@ Controls the firewall mark range used to tag packets for policy routing.
 }
 ```
 
-The `mask` must be exactly two adjacent hex nibbles (e.g. `0x00FF0000`). Outbounds are assigned sequential marks starting from `start`, masked by `mask`.
+`mask` must be a run of hex `F` digits, for example `0x00FF0000`. Outbounds get sequential fwmark values starting from `start`, within `mask`.
 
 {{< callout type="warning" >}}
 If other software on your system uses the same fwmark range, adjust `start` and `mask` to avoid conflicts.
@@ -91,66 +91,52 @@ If other software on your system uses the same fwmark range, adjust `start` and 
 
 ## iproute
 
-Controls the routing table ID range used for outbound-specific tables.
+Sets the routing table numbers and `ip rule` priorities keen-pbr uses for outbounds.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `table_start` | integer | `150` | First routing table ID to allocate for outbounds |
-| `rule_priority_start` | integer or null | `table_start` | First RPDB rule priority to allocate; null inherits `table_start` |
+| `rule_priority_start` | integer or null | `table_start` | Priority of the first `ip rule` entry; `null` means the same as `table_start` |
+| `process_router_traffic` | boolean | `false` | Apply route rules to traffic of the router itself and collect domain IPs from it. When `false`, keen-pbr handles only traffic of devices in the network. `detour` of DNS servers works either way. |
 
 ```json { filename="config.json" }
 {
   "iproute": {
     "table_start": 150,
-    "rule_priority_start": null
+    "rule_priority_start": null,
+    "process_router_traffic": false
   }
 }
 ```
 
 Outbounds are assigned sequential table IDs starting from `table_start`. Ensure these IDs don't conflict with existing routing tables on your system.
 
-Keen-pbr removes only the exact routes it created. Unrelated routes in an allocated
-table are preserved during reload and shutdown; an identical pre-existing route is
-treated as already satisfied and is not adopted for cleanup.
+keen-pbr removes only the routes it added itself. Routes added by you or by other software stay in place when keen-pbr reloads or stops.
 
-## Routing boundaries and failover
+## Failover
 
-Rules are evaluated in order. Two identical matching rules are **not** a failover
-pair: the first rule marks the packet for its outbound and terminates the chain,
-so the second rule is unreachable. If that first interface disappears and strict
-enforcement is disabled, its table has no usable route and RPDB continues to the
-main table; traffic may use the ordinary default gateway. With strict enforcement,
-the configured terminal action blocks that lookup instead.
+Rules are checked top to bottom and the first match wins. Two identical rules with different outbounds therefore do not give you a backup: packets never reach the second rule.
 
-Use one `urltest` outbound with both interfaces as candidates for real failover.
-For a healthy latency or priority switch, set `conntrack_on_switch` to
-`preserve` (the default) to keep established flows, or `delete` to remove only
-that test group's owned conntrack entries after its replacement route is active.
-Failed selected paths are always cleaned up after failover.
+If the first outbound's interface goes down, the result depends on `strict_enforcement`:
 
-`ipv6_enabled: false` means IPv6 is unmanaged by keen-pbr; it is not an IPv6
-block. Keen-pbr also does not intercept arbitrary client DNS, DoT, or DoH. Clients
-must use the router resolver, or DNS enforcement must be provided separately.
+- off (the default): traffic falls back to the ISP's default gateway, bypassing the VPN;
+- on: traffic is blocked (`strict_enforcement_action` decides how).
 
-Marks identify active configuration ownership only while that configuration is
-unchanged. After a crash, changing the fwmark mask offline prevents the daemon
-from identifying the old namespace. Dynamic DNS-set TTL expiry affects new
-connections; existing conntrack flows can continue using their established path.
+To switch traffic to a backup link, create one `urltest` outbound and put both interfaces in it. `conntrack_on_switch` controls what happens to open connections when `urltest` moves to a faster link: `preserve` (the default) keeps them on the old link, `delete` deletes their {{< term "conntrack" >}} entries, so applications reconnect through the new one. When the selected link stops working, conntrack entries of its connections are always deleted.
 
-`keen-pbr download` refreshes cache files and can require a restart before the
-runtime consumes changed lists. Use `keen-pbr download --reload` to refresh and
-apply the relevant runtime state immediately.
+## What keen-pbr does not do
 
-## Single-instance requirement
+- `ipv6_enabled: false` does not block IPv6. keen-pbr simply stops routing IPv6 traffic, and it flows as usual.
+- keen-pbr learns domain IPs from ordinary DNS replies passing through the router, even when a client uses a third-party DNS server. It cannot read encrypted DNS ({{< term "DoH" >}}, {{< term "DoT" >}}). If a device uses it, keen-pbr learns the site's address only from the connection itself (the server name in TLS, HTTP or {{< term "QUIC" >}}), and the first connections may bypass the VPN. To avoid this, turn off "secure DNS" on the device and set up DoH/DoT on the router itself.
+- When a learned domain IP expires from a list, only new connections are affected. Connections that are already open keep their route, because their {{< term "fwmark" >}} is stored in {{< term "conntrack" >}}.
+- `keen-pbr download` only downloads lists into the cache. To make the running service use them, run `keen-pbr download --reload` or restart the service.
+- Do not change `fwmark.mask` while keen-pbr is stopped after a crash. On the next start it will not recognise its old rules and cannot remove them. If that has already happened, reboot the router.
 
-Only one keen-pbr daemon is supported in a network namespace. Changing `pid_file`
-does not create an isolated instance: firewall tables, chains, and sets use fixed
-application-wide names. A second instance can replace or remove the first
-instance's firewall state during apply, reload, or shutdown.
+## One instance only
 
-Use one daemon with multiple outbounds and rules. If separate instances are
-required, place them in separate network namespaces with independent firewall
-and routing state.
+Run only one keen-pbr per router. A separate `pid_file` does not help: a second instance uses the same firewall rule and set names and breaks the first one's rules.
+
+Put all outbounds and routing rules into one configuration. If you really need two independent instances, run them in separate network namespaces.
 
 ## lists_autoupdate
 
@@ -175,6 +161,8 @@ If the `lists_autoupdate` section is omitted, automatic refresh is disabled.
 The `cron` field uses the standard 5-field format: `minute hour day-of-month month day-of-week`. The example above runs weekly at 04:00 on Sunday.
 
 The `cron` field is validated even when `enabled` is `false`.
+
+If a remote list could not be downloaded at startup, the daemon keeps retrying it in the background with increasing delays (10 seconds, 30 seconds, 2 minutes, then every 5 minutes) until it succeeds. This does not depend on `lists_autoupdate`. The first download of a list that is not cached yet happens before keen-pbr applies the new dnsmasq settings, so per-list DNS servers may not be used for it. Later retries use them.
 
 You can also trigger a manual refresh at any time:
 - Send `SIGHUP` to the daemon process: `kill -HUP $(cat /var/run/keen-pbr.pid)`

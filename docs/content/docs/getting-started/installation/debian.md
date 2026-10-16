@@ -51,3 +51,37 @@ If pre-built packages are not yet available for your platform, see [Build from S
 {{< /callout >}}
 
 {{% /steps %}}
+
+## Separate DNS servers for lists (dnsmasq) {#dnsmasq}
+
+keen-pbr does not need dnsmasq for routing. Install it only if you want separate DNS servers for some lists or your own default DNS servers. See [Do I need dnsmasq?]({{< relref "/docs/configuration/dns#do-i-need-dnsmasq" >}}).
+
+### Install dnsmasq {#dnsmasq-install}
+
+```bash {filename="bash"}
+apt install dnsmasq
+```
+
+To apply the recommended dnsmasq settings, run:
+
+```bash {filename="bash"}
+/usr/lib/keen-pbr/dnsmasq-hook.sh install-recommended-config
+```
+
+It replaces `/etc/dnsmasq.conf` and saves the previous file as `/etc/dnsmasq.conf.backup-keenpbr`. dnsmasq then answers only your local networks and takes its servers from keen-pbr.
+
+Then, in the Web UI, open **General** > **Local DNS server management** and turn on **Manage dnsmasq configuration**. keen-pbr adds a marked block to `/etc/dnsmasq.conf`; the recommended config already has it. Point the system resolver (or your DHCP server) at dnsmasq if it is not already used.
+
+### Return to how it was {#dnsmasq-rollback}
+
+1. Turn off **Manage dnsmasq configuration** and apply the config. dnsmasq restarts and uses the servers from `/etc/keen-pbr/dnsmasq-fallback.conf`. If dnsmasq has servers of its own, these are added to them; clear the file to avoid that.
+2. Restore the system resolver you used before dnsmasq.
+3. If you ran `install-recommended-config`, put the old settings back:
+   ```bash {filename="bash"}
+   cp /etc/dnsmasq.conf.backup-keenpbr /etc/dnsmasq.conf
+   systemctl restart dnsmasq
+   ```
+4. Or remove the package:
+   ```bash {filename="bash"}
+   apt remove dnsmasq
+   ```

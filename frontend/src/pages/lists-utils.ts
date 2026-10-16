@@ -121,3 +121,15 @@ export function buildUpdatedConfigForListDelete(
     },
   }
 }
+
+export function splitListSourceUrl(value: string) {
+  try {
+    const url = new URL(value)
+    return {
+      domain: url.host,
+      remainder: `${url.pathname}${url.search}${url.hash}`,
+    }
+  } catch {
+    return { domain: value, remainder: "" }
+  }
+}

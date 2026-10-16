@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { RoutingTestListMatch } from './routingTestListMatch';
+import type { RoutingTestSetWriteEvidence } from './routingTestSetWriteEvidence';
 
 export interface RoutingTestRuleIpDiagnostic {
   /** Resolved IP represented by this matrix row. */
@@ -15,8 +16,11 @@ export interface RoutingTestRuleIpDiagnostic {
    */
   in_lists: boolean;
   list_match?: RoutingTestListMatch;
+  /** Whether the packet criteria matched this rule; null when a required value is missing or directness is unknown. */
+  criteria_match?: boolean | null;
   /** Whether the IP exists in this rule's firewall set.
   null when firewall check is unavailable.
    */
   in_ipset?: boolean | null;
+  set_write_evidence?: RoutingTestSetWriteEvidence;
 }

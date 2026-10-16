@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../config/config.hpp"
-#include "../lists/list_set_usage.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
@@ -30,6 +29,20 @@ inline bool is_reserved_table(uint32_t id) {
 using OutboundReachabilityFn = std::function<bool(const Outbound&)>;
 using OutboundFamilyAvailabilityFn = std::function<bool(const Outbound&, int)>;
 
+// Resolve an interface outbound's literal "auto" gateway from the main table.
+// A missing, ambiguous, or multipath default route is unavailable.
+struct InterfaceGatewayDiscovery {
+    bool available{false};           // true also for a selected gatewayless route
+    std::optional<std::string> gateway;
+};
+
+InterfaceGatewayDiscovery discover_interface_gateway(
+    const Outbound& outbound,
+    int family,
+    const std::vector<DumpedRoute>& main_routes);
+
+bool interface_outbound_uses_auto_gateway(const Outbound& outbound);
+
 // Resolve every routable outbound to the table used by its own fwmark. Test
 // groups map to their generated kill-switch table; their live lookup may point
 // at a selected child's table instead.
@@ -43,22 +56,25 @@ void populate_routing_state(const Config& cfg,
                             OutboundReachabilityFn reachability_check = {},
                             const std::map<std::string, std::string>* urltest_selections = nullptr,
                             bool ipv6_enabled = true,
-                            OutboundFamilyAvailabilityFn family_available = {});
+                            OutboundFamilyAvailabilityFn family_available = {},
+                            const std::vector<DumpedRoute>* main_routes = nullptr);
 
 bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& netlink);
 bool is_interface_outbound_reachable(const Outbound& outbound,
                                      const std::vector<DumpedRoute>& routes);
+bool is_interface_outbound_family_reachable(const Outbound& outbound,
+                                            int family,
+                                            const std::vector<DumpedRoute>& routes);
 
 // A link-local address only proves that IPv6 is enabled on the link; it does
 // not make a gatewayless tunnel capable of carrying arbitrary IPv6 traffic.
 bool interface_has_routed_ipv6(const DumpedInterface& interface);
 
-// Build the global firewall prefilter derived from route-level config.
-// Missing or empty inbound_interfaces leaves interface restriction disabled.
-FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg);
-
 // Build the realized firewall selector criteria for a route rule.
-FirewallRuleCriteria build_firewall_rule_criteria(const RouteRule& rule);
+FirewallRuleCriteria build_firewall_rule_criteria(
+    const RouteRule& rule,
+    const std::vector<DumpedRoute>& main_routes = {},
+    const std::vector<DumpedInterface>& interfaces = {});
 
 // Infer the selected child of a URLTEST outbound from its live metric-zero
 // default routes. Equivalent IPv4 and IPv6 routes for one child are accepted.
@@ -73,17 +89,5 @@ std::optional<std::string> infer_urltest_selection_from_routes(
 std::vector<RuleState> build_fw_rule_states(
     const Config& cfg,
     const OutboundMarkMap& marks);
-
-using ListSetUsageFn = std::function<ListSetUsage(const std::string&,
-                                                  const ListConfig&)>;
-
-// Remove set names for list variants that would not produce a live firewall set.
-// This keeps dry-run/verification paths aligned with apply_firewall(), which skips
-// always-empty static or dynamic sets.
-void prune_fw_rule_states_to_realized_sets(
-    const Config& cfg,
-    std::vector<RuleState>& rule_states,
-    const ListSetUsageFn& list_usage_fn,
-    bool ipv6_enabled = true);
 
 } // namespace keen_pbr3

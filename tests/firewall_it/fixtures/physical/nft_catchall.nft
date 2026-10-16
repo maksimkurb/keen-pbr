@@ -1,0 +1,29 @@
+table inet KeenPbrTable {
+	chain prerouting {
+		type filter hook prerouting priority mangle; policy accept;
+		ct direction original ct mark & 0x00ff0000 != 0x00000000 ct mark & 0x00ff0000 vmap { 0x00010000 : jump setmark_00010000 } ct mark & 0x00ff0000 == 0x00010000 accept comment "kpbr:v1:prefilter.restore_conntrack_mark:9a8c6f9a29c8dccb68b5fc837b14b28a"
+		ct direction reply counter packets 0 bytes 0 accept comment "kpbr:v1:prefilter.skip_local_replies:7257c668d9bf18a9c15001249e18c1ef"
+		meta nfproto ipv4 meta l4proto udp counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:f07ef83f847846c4de79471f383975ed"
+		meta nfproto ipv4 meta l4proto udp counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:a1e906a68b81169ee48b0b7115422956"
+		ip daddr 10.0.0.0/8 meta l4proto udp counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:d49723ca14a282e6a7221aa5d9955024"
+		meta nfproto ipv4 tcp dport 443 counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:0bed45e42be3e8bc2d9ae42d60c79bd5"
+		meta nfproto ipv6 meta l4proto udp counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:24affc9fd3cdfffe14572779355f1678"
+		meta nfproto ipv6 counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:8ec6552c14ee431847d4993821610b40"
+	}
+
+	chain output {
+		type route hook output priority mangle; policy accept;
+		ct direction original ct mark & 0x00ff0000 != 0x00000000 ct mark & 0x00ff0000 vmap { 0x00010000 : jump setmark_00010000 } ct mark & 0x00ff0000 == 0x00010000 accept comment "kpbr:v1:prefilter.restore_conntrack_mark:9a8c6f9a29c8dccb68b5fc837b14b28a"
+		ct direction reply counter packets 0 bytes 0 accept comment "kpbr:v1:prefilter.skip_local_replies:7257c668d9bf18a9c15001249e18c1ef"
+		meta nfproto ipv4 meta l4proto udp counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:f07ef83f847846c4de79471f383975ed"
+		meta nfproto ipv4 meta l4proto udp counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:a1e906a68b81169ee48b0b7115422956"
+		ip daddr 10.0.0.0/8 meta l4proto udp counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:d49723ca14a282e6a7221aa5d9955024"
+		meta nfproto ipv4 tcp dport 443 counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:0bed45e42be3e8bc2d9ae42d60c79bd5"
+		meta nfproto ipv6 meta l4proto udp counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:24affc9fd3cdfffe14572779355f1678"
+		meta nfproto ipv6 counter packets 0 bytes 0 jump setmark_00010000 comment "kpbr:v1:route.mark:8ec6552c14ee431847d4993821610b40"
+	}
+
+	chain setmark_00010000 {
+		meta mark set meta mark & 0xff01ffff | 0x00010000 ct mark set ct mark & 0xff01ffff | 0x00010000 accept
+	}
+}

@@ -3,15 +3,19 @@
 [ "$PKG_UPGRADE" = "1" ] && exit 0
 [ -n "$IPKG_INSTROOT" ] && exit 0
 
+# Never runs keen-pbr itself (a broken binary or config must not block or
+# break the removal); every step is best effort.
+
+/etc/init.d/keen-pbr stop >/dev/null 2>&1 || true
 /etc/init.d/keen-pbr disable >/dev/null 2>&1 || true
 
-cat <<'EOF'
-keen-pbr has restored the dnsmasq configuration.
-If internet access stopped working after package removal, restore upstream DNS manually with UCI.
-Example:
-  uci add_list dhcp.@dnsmasq[0].server='8.8.8.8'
-  uci commit dhcp
-  /etc/init.d/dnsmasq restart
-EOF
+/etc/init.d/keen-pbr-dnsmasq disable >/dev/null 2>&1 || true
+
+# Take keen-pbr out of every dnsmasq instance: gives the servers back and
+# removes the drop-in and the jail mounts.
+/usr/lib/keen-pbr/dnsmasq-hook.sh uninstall >/dev/null 2>&1 || true
+
+# Remove firewall rules a crashed daemon may have left behind.
+/usr/lib/keen-pbr/cleanup-firewall.sh >/dev/null 2>&1 || true
 
 exit 0

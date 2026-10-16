@@ -29,7 +29,7 @@ struct HttpTransportResponse {
     std::string body;
     // Lower-case names; values belong only to the final response after redirects.
     std::map<std::string, std::string> headers;
-    std::chrono::milliseconds elapsed{0};
+    std::chrono::microseconds elapsed{0};
 };
 
 class HttpTransportError : public std::runtime_error {

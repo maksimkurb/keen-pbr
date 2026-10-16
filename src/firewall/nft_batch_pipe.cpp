@@ -46,7 +46,7 @@ void NftBatchVisitor::on_entry(EntryType type, std::string_view entry) {
 }
 
 void NftBatchVisitor::finish() {
-    // No-op: buffer is owned externally, applied later by Firewall::apply()
+    // No-op: buffer is owned externally, applied later by Firewall::apply(plan)
 }
 
 } // namespace keen_pbr3

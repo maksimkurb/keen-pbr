@@ -29,7 +29,7 @@ prepare_tree() {
 }
 
 mkdir -p "$RELEASE_DIR"
-bash "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST"
+bash "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST" generic
 
 BUILD_ROOT="$(mktemp -d /tmp/keen-pbr-debian.XXXXXX)"
 trap 'rm -rf "$BUILD_ROOT"' EXIT

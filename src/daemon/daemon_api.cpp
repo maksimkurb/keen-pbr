@@ -1,5 +1,7 @@
 #include "daemon.hpp"
-#include "config_apply_transaction.hpp"
+#include "lifecycle_stages.hpp"
+#include "scheduler.hpp"
+#include "../config/config_defaults.hpp"
 #include "../config/config_writer.hpp"
 
 #ifdef WITH_API
@@ -13,20 +15,14 @@
 
 #include "../api/handlers.hpp"
 #include "../api/handler_config.hpp"
-#include "../api/handler_health_service.hpp"
+#include "../api/prometheus_metrics.hpp"
 #include "../api/server.hpp"
 #include "../api/status_stream.hpp"
 #include "../config/routing_state.hpp"
-#include "../dns/dns_router.hpp"
-#include "../dns/dnsmasq_gen.hpp"
-#include "../util/ipv6_support.hpp"
 #include "../health/routing_health_checker.hpp"
 #include "../health/runtime_interface_inventory.hpp"
-#include "../health/runtime_outbound_state.hpp"
 #include "../keenetic/interface_descriptions.hpp"
-#include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
-#include "../util/system_info.hpp"
 #include "../util/time_utils.hpp"
 
 #ifndef KEEN_PBR_FRONTEND_ROOT
@@ -37,37 +33,8 @@ namespace keen_pbr3 {
 
 namespace {
 
-std::vector<LifecycleOperationStage> lifecycle_stages(LifecycleOperationType type) {
-    switch (type) {
-    case LifecycleOperationType::ApplyConfig:
-        return {{"validate_config", "Validate configuration"},
-                {"prepare_remote_lists", "Prepare remote lists"},
-                {"commit_config", "Commit configuration"},
-                {"reconcile_runtime", "Reconcile routing and firewall"},
-                {"reload_dnsmasq", "Reload dnsmasq"},
-                {"verify_dnsmasq", "Verify dnsmasq configuration"}};
-    case LifecycleOperationType::RollbackConfig:
-        return {{"restore_config", "Restore previous configuration"},
-                {"validate_config", "Validate restored configuration"},
-                {"prepare_remote_lists", "Prepare remote lists"},
-                {"reconcile_runtime", "Reconcile routing and firewall"},
-                {"reload_dnsmasq", "Reload dnsmasq"},
-                {"verify_dnsmasq", "Verify dnsmasq configuration"}};
-    case LifecycleOperationType::Restart:
-        return {{"stop_routing", "Stop routing and firewall"},
-                {"start_routing", "Start routing and firewall"},
-                {"reload_dnsmasq", "Reload dnsmasq"},
-                {"verify_dnsmasq", "Verify dnsmasq configuration"}};
-    case LifecycleOperationType::Start:
-        return {{"start_routing", "Start routing and firewall"},
-                {"reload_dnsmasq", "Reload dnsmasq"},
-                {"verify_dnsmasq", "Verify dnsmasq configuration"}};
-    case LifecycleOperationType::Stop:
-        return {{"stop_routing", "Stop routing and firewall"},
-                {"reload_fallback", "Reload dnsmasq with fallback configuration"}};
-    }
-    return {};
-}
+// How often the routing report is re-checked while a status stream is open.
+constexpr auto kRoutingHealthStreamRefreshInterval = std::chrono::seconds{45};
 
 const char* config_operation_state_name(ConfigOperationState state) {
     switch (state) {
@@ -83,6 +50,14 @@ const char* config_operation_state_name(ConfigOperationState state) {
 
 } // namespace
 
+void Daemon::apply_api_runtime_config() {
+    if (!api_server_) return;
+    api_server_->update_runtime_config(config_.api.value_or(ApiConfig{}),
+                                       config_.device_name.value_or(""));
+    // The stream carries the enabled flag and the device name.
+    if (status_stream_) status_stream_->reconcile(StatusUpdate::Auth);
+}
+
 std::string Daemon::submit_lifecycle_operation(LifecycleRequest request) {
     if (request.type == LifecycleOperationType::RollbackConfig &&
         !rollback_available_.load(std::memory_order_acquire)) {
@@ -94,7 +69,8 @@ std::string Daemon::submit_lifecycle_operation(LifecycleRequest request) {
     }
     LifecycleOperationSnapshot operation;
     if (const auto active = lifecycle_operations_.begin(
-            request.type, lifecycle_stages(request.type), operation)) {
+            request.type, lifecycle_stages(request.type),
+            operation)) {
         throw ApiError("A lifecycle operation is already active", 409,
                        nlohmann::json{{"error", "A lifecycle operation is already active"},
                                       {"active_operation_id", *active}}.dump());
@@ -154,7 +130,8 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             if (!request.config.has_value()) throw DaemonError("Apply request has no configuration");
 
             start_stage("validate_config");
-            validate_config(*request.config);
+            validate_config(*request.config, ConfigValidationMode::Runtime,
+                            validation_context());
             succeed_stage();
 
             start_stage("prepare_remote_lists");
@@ -201,43 +178,9 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
                 reconcile_prepared_runtime(std::move(prepared));
                 config_store_.replace_active_and_clear_staged_if_revision(
                     config_, outbound_marks_, staged_revision);
-                if (api_server_) {
-                    api_server_->update_runtime_config(
-                        config_.api.value_or(ApiConfig{}),
-                        config_.device_name.value_or(""));
-                }
+                apply_api_runtime_config();
             });
 
-            const bool resolver_configured = has_system_resolver(config_store_.active_config());
-            if (resolver_configured) {
-                start_stage("reload_dnsmasq");
-                auto reload = resolver_hook_executor_.submit(
-                    "lifecycle-resolver-reload", [this] { return run_system_resolver_hook_reload(); });
-                if (!reload.get()) throw DaemonError("system resolver reload hook failed");
-                succeed_stage();
-
-                start_stage("verify_dnsmasq");
-                const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-                const std::int64_t apply_started =
-                    apply_started_ts_.load(std::memory_order_acquire);
-                Config candidate = config_store_.active_config();
-                auto verification = resolver_io_executor_.submit(
-                    "lifecycle-resolver-verification",
-                    [this, candidate = std::move(candidate),
-                     expected_hash = resolver_snapshot.expected_hash,
-                     apply_started] {
-                        std::string error;
-                        const bool ok = wait_for_resolver_config_hash_confirmation(
-                            candidate, expected_hash, apply_started, error);
-                        return std::make_pair(ok, error);
-                    });
-                const auto [verified, verification_error] = verification.get();
-                if (!verified) throw DaemonError(verification_error);
-                succeed_stage();
-            } else {
-                lifecycle_operations_.skip_stage(id, "reload_dnsmasq", "No system resolver configured");
-                lifecycle_operations_.skip_stage(id, "verify_dnsmasq", "No system resolver configured");
-            }
 
             enqueue_control_task([this] { complete_running_runtime("config apply verified"); },
                                  true, "lifecycle:" + id + ":finalize-runtime");
@@ -261,7 +204,8 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
                 throw DaemonError("Cannot open restored configuration");
             }
             Config restored = parse_config(restored_stream);
-            validate_config(restored);
+            validate_config(restored, ConfigValidationMode::Runtime,
+                            validation_context());
             succeed_stage();
 
             start_stage("prepare_remote_lists");
@@ -271,41 +215,9 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             run_control("reconcile_runtime", [this, prepared = std::move(prepared)]() mutable {
                 reconcile_prepared_runtime(std::move(prepared));
                 config_store_.replace_active(config_, outbound_marks_);
-                if (api_server_) {
-                    api_server_->update_runtime_config(
-                        config_.api.value_or(ApiConfig{}),
-                        config_.device_name.value_or(""));
-                }
+                apply_api_runtime_config();
             });
 
-            if (has_system_resolver(config_store_.active_config())) {
-                start_stage("reload_dnsmasq");
-                auto reload = resolver_hook_executor_.submit(
-                    "lifecycle-rollback-resolver-reload",
-                    [this] { return run_system_resolver_hook_reload(); });
-                if (!reload.get()) throw DaemonError("system resolver reload hook failed");
-                succeed_stage();
-
-                start_stage("verify_dnsmasq");
-                const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-                Config active = config_store_.active_config();
-                const auto started = apply_started_ts_.load(std::memory_order_acquire);
-                auto verification = resolver_io_executor_.submit(
-                    "lifecycle-rollback-resolver-verification",
-                    [this, active = std::move(active),
-                     expected = resolver_snapshot.expected_hash, started] {
-                        std::string error;
-                        const bool ok = wait_for_resolver_config_hash_confirmation(
-                            active, expected, started, error);
-                        return std::make_pair(ok, error);
-                    });
-                const auto [verified, verification_error] = verification.get();
-                if (!verified) throw DaemonError(verification_error);
-                succeed_stage();
-            } else {
-                lifecycle_operations_.skip_stage(id, "reload_dnsmasq", "No system resolver configured");
-                lifecycle_operations_.skip_stage(id, "verify_dnsmasq", "No system resolver configured");
-            }
 
             enqueue_control_task([this] {
                 complete_running_runtime("configuration rollback verified");
@@ -317,16 +229,6 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
         } else if (request.type == LifecycleOperationType::Stop) {
             runtime_mutated = true;
             run_control("stop_routing", [this] { teardown_routing_and_firewall(true); });
-            start_stage("reload_fallback");
-            if (has_system_resolver(config_store_.active_config())) {
-                auto fallback = resolver_hook_executor_.submit(
-                    "lifecycle-resolver-fallback",
-                    [this] { return run_system_resolver_hook("deactivate"); });
-                if (!fallback.get()) throw DaemonError("system resolver fallback reload failed");
-                succeed_stage();
-            } else {
-                lifecycle_operations_.skip_stage(id, current_stage, "No system resolver configured");
-            }
         } else {
             if (request.type == LifecycleOperationType::Restart) {
                 runtime_mutated = true;
@@ -335,37 +237,14 @@ void Daemon::execute_lifecycle_operation(std::string id, LifecycleRequest reques
             runtime_mutated = true;
             run_control("start_routing", [this] { setup_routing_and_firewall(); });
 
-            const Config active = config_store_.active_config();
-            if (has_system_resolver(active)) {
-                start_stage("reload_dnsmasq");
-                auto reload = resolver_hook_executor_.submit(
-                    "lifecycle-resolver-reload", [this] { return run_system_resolver_hook_reload(); });
-                if (!reload.get()) throw DaemonError("system resolver reload hook failed");
-                succeed_stage();
-
-                start_stage("verify_dnsmasq");
-                const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
-                const auto started = apply_started_ts_.load(std::memory_order_acquire);
-                auto verification = resolver_io_executor_.submit(
-                    "lifecycle-resolver-verification",
-                    [this, active, expected = resolver_snapshot.expected_hash, started] {
-                        std::string error;
-                        const bool ok = wait_for_resolver_config_hash_confirmation(
-                            active, expected, started, error);
-                        return std::make_pair(ok, error);
-                    });
-                const auto [verified, verification_error] = verification.get();
-                if (!verified) throw DaemonError(verification_error);
-                succeed_stage();
-            } else {
-                lifecycle_operations_.skip_stage(id, "reload_dnsmasq", "No system resolver configured");
-                lifecycle_operations_.skip_stage(id, "verify_dnsmasq", "No system resolver configured");
-            }
             enqueue_control_task([this] { complete_running_runtime("lifecycle operation complete"); },
                                  true, "lifecycle:" + id + ":finalize-runtime");
         }
         lifecycle_operations_.finish(id);
     } catch (const std::exception& error) {
+        if (request.type == LifecycleOperationType::ApplyConfig) {
+            config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
+        }
         clear_committed_apply_draft();
         if (!current_stage.empty()) lifecycle_operations_.fail_stage(id, current_stage, error.what());
         if (runtime_mutated || rollback_available_.load(std::memory_order_acquire)) {
@@ -457,15 +336,14 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
     auto prepared = std::make_shared<PreparedRuntimeInputs>();
     auto completion = std::make_shared<std::promise<ConfigApplyResult>>();
     auto completed = std::make_shared<std::atomic<bool>>(false);
-    auto transaction = std::make_shared<ConfigApplyTransaction>();
     auto completion_future = completion->get_future();
     const std::int64_t apply_started_ts = unix_timestamp_now_seconds();
     result->apply_started_ts = apply_started_ts;
-    apply_started_ts_.store(apply_started_ts, std::memory_order_release);
 
     try {
         *prepared = prepare_runtime_inputs(config, true);
     } catch (const std::exception& e) {
+        config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
         result->error = e.what();
         Logger::instance().error("Prepare staged config task failed: {}", e.what());
         return *result;
@@ -477,7 +355,6 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
          prepared,
          completion,
          completed,
-         transaction,
          persist_config,
          saved_config_json = std::move(saved_config_json)]() mutable {
             const auto complete = [completion, completed](ConfigApplyResult value) {
@@ -487,6 +364,7 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
                 }
             };
             auto fail_after_mutation = [this, result, &complete]() mutable {
+                config_reload_errors_.fetch_add(1, std::memory_order_relaxed);
                 std::string ignored_error;
                 (void)runtime_state_machine_.transition(
                     RuntimeState::broken, "config apply failed", ignored_error);
@@ -494,99 +372,33 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
                 complete(*result);
             };
             try {
-                apply_prepared_runtime_inputs(std::move(*prepared), false);
-                transaction->candidate_applied();
-                const std::string expected_hash =
-                    resolver_sync_.snapshot(unix_timestamp_now_seconds()).expected_hash;
-                const Config candidate = config_;
-                const std::int64_t apply_started_ts = result->apply_started_ts.value_or(0);
-                const bool queued = resolver_io_executor_.try_post(
-                    "config-apply-resolver-confirmation",
-                    [this,
-                     result,
-                     completion,
-                     completed,
-                     transaction,
-                     persist_config,
-                     saved_config_json,
-                     candidate,
-                     expected_hash,
-                     apply_started_ts] {
-                        std::string confirmation_error;
-                        bool confirmed = false;
-                        try {
-                            confirmed = wait_for_resolver_config_hash_confirmation(
-                                candidate, expected_hash, apply_started_ts, confirmation_error);
-                        } catch (const std::exception& error) {
-                            confirmation_error = error.what();
-                        } catch (...) {
-                            confirmation_error = "resolver confirmation failed with an unknown error";
-                        }
-                        post_control_task(
-                            [this,
-                             result,
-                             completion,
-                             completed,
-                             transaction,
-                             persist_config,
-                             saved_config_json,
-                             confirmed,
-                             confirmation_error = std::move(confirmation_error)]() mutable {
-                                const auto complete_inner = [completion, completed](ConfigApplyResult value) {
-                                    bool expected = false;
-                                    if (completed->compare_exchange_strong(
-                                            expected, true, std::memory_order_acq_rel)) {
-                                        completion->set_value(std::move(value));
-                                    }
-                                };
-                                auto fail_after_mutation_inner = [this, result,
-                                                                  &complete_inner]() mutable {
-                                    std::string ignored_error;
-                                    (void)runtime_state_machine_.transition(
-                                        RuntimeState::broken, "config apply failed", ignored_error);
-                                    publish_runtime_state();
-                                    complete_inner(*result);
-                                };
-                                if (!confirmed) {
-                                    result->error = confirmation_error;
-                                    Logger::instance().error("Candidate resolver confirmation failed: {}",
-                                                             confirmation_error);
-                                    fail_after_mutation_inner();
-                                    return;
-                                }
-                                try {
-                                    transaction->resolver_confirmed();
-                                    if (!transaction->may_commit()) {
-                                        throw DaemonError("resolver confirmation did not unlock config commit");
-                                    }
-                                    if (persist_config) {
-                                        write_config_atomically(config_path_, saved_config_json);
-                                    }
-                                    config_store_.replace_active(config_, outbound_marks_);
-                                    if (persist_config) {
-                                        config_store_.clear_staged();
-                                    }
-                                    transition_runtime_or_throw(RuntimeState::running,
-                                                                "config apply complete");
-                                    publish_runtime_state();
-                                    result->saved = persist_config;
-                                    result->applied = true;
-                                    transaction->committed();
-                                } catch (const std::exception& error) {
-                                    result->error = error.what();
-                                    Logger::instance().error("Config durable commit failed: {}", error.what());
-                                    // The candidate is already serving successfully. A durable
-                                    // write failure fails only the commit and keeps it as a draft.
-                                    complete_inner(*result);
-                                    return;
-                                }
-                                complete_inner(*result);
-                            },
-                            "config-apply-resolver-confirmation-commit");
-                    });
-                if (!queued) {
-                    throw DaemonError("resolver confirmation executor is unavailable");
+                apply_prepared_runtime_inputs(std::move(*prepared), false, persist_config);
+                // The candidate is serving; what follows is the durable commit.
+                try {
+                    if (persist_config) {
+                        write_config_atomically(config_path_, saved_config_json);
+                        // dnsmasq's conf-script reads config.json: sync only now.
+                        schedule_dnsmasq_sync(dnsmasq_apply_reason("config apply complete"),
+                                            /*explicit_apply=*/true);
+                    }
+                    config_store_.replace_active(config_, outbound_marks_);
+                    if (persist_config) {
+                        config_store_.clear_staged();
+                    }
+                    transition_runtime_or_throw(RuntimeState::running,
+                                                "config apply complete");
+                    publish_runtime_state();
+                    result->saved = persist_config;
+                    result->applied = true;
+                } catch (const std::exception& error) {
+                    result->error = error.what();
+                    Logger::instance().error("Config durable commit failed: {}", error.what());
+                    // The candidate is already serving successfully. A durable
+                    // write failure fails only the commit and keeps it as a draft.
+                    complete(*result);
+                    return;
                 }
+                complete(*result);
             } catch (const std::exception& e) {
                 result->error = e.what();
                 Logger::instance().error("Apply staged config task failed: {}", e.what());
@@ -628,15 +440,13 @@ ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::stri
 
     try {
         const std::set<std::string> relevant_lists = collect_relevant_list_names(config_snapshot);
-        const std::set<std::string> dns_relevant_lists = collect_dns_relevant_list_names(config_snapshot);
         const std::set<std::string> target_lists(target_selection.list_names.begin(),
                                                  target_selection.list_names.end());
         RemoteListsRefreshResult refresh_result = list_service_.refresh_remote_lists(
             config_snapshot,
             marks_snapshot,
             &relevant_lists,
-            requested_name ? &target_lists : nullptr,
-            &dns_relevant_lists);
+            requested_name ? &target_lists : nullptr);
 
         if (!refresh_result.changed_lists.empty()) {
             Logger::instance().info("Lists refresh (api): updated list(s): {}",
@@ -669,7 +479,7 @@ ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::stri
 
                 if (should_reload_runtime_after_list_refresh(runtime_active_snapshot,
                                                             refresh_result)) {
-                    reconcile_lists_only(refresh_result.any_dns_relevant_changed());
+                    reconcile_lists_only();
                     reloaded = true;
                 }
             },
@@ -718,6 +528,30 @@ void Daemon::setup_api() {
     api_server_ = std::make_unique<ApiServer>(
         *config_.api, config_.device_name.value_or(""));
 
+    const auto compute_test_routing_with_criteria =
+        [this](const std::string& target, const TestRoutingCriteria& criteria) {
+            auto job = make_routing_test_job(target, criteria);
+            if (!try_begin_routing_test()) {
+                throw ApiError("Too many routing tests are already running", 503);
+            }
+            auto pending = routing_test_executor_.try_submit(
+                "api-test-routing", [this, job = std::move(job)] {
+                    try {
+                        auto result = job();
+                        finish_routing_test();
+                        return result;
+                    } catch (...) {
+                        finish_routing_test();
+                        throw;
+                    }
+                });
+            if (!pending.has_value()) {
+                finish_routing_test();
+                throw ApiError("Routing test executor queue is full", 503);
+            }
+            return pending->get();
+        };
+
     api_ctx_ = std::make_unique<ApiContext>(ApiContext{
         config_path_,
         *dns_test_broadcaster_,
@@ -739,7 +573,8 @@ void Daemon::setup_api() {
             if (status_stream_) status_stream_->reconcile(StatusUpdate::Service);
         },
         [this](const Config& config) {
-            validate_config(config);
+            validate_config(config, ConfigValidationMode::Runtime,
+                            validation_context());
 
             const auto active_pid_file = config_store_.active_config()
                 .daemon.value_or(DaemonConfig{}).pid_file.value_or("");
@@ -756,98 +591,15 @@ void Daemon::setup_api() {
                 config.fwmark.value_or(FwmarkConfig{}),
                 config.outbounds.value_or(std::vector<Outbound>{}));
             (void)build_fw_rule_states(config, marks);
-
-            ListStreamer streamer(list_service_.cache_manager());
-            const DnsConfig dns_cfg = config.dns.value_or(DnsConfig{});
-            DnsServerRegistry dns_registry(dns_cfg);
-            const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
-            log_ipv6_support_decision_once(ipv6_decision);
-            (void)DnsmasqGenerator::compute_config_hash(
-                dns_registry,
-                streamer,
-                config.route.value_or(RouteConfig{}),
-                dns_cfg,
-                config.lists.value_or(std::map<std::string, ListConfig>{}),
-                KEEN_PBR3_VERSION_FULL_STRING,
-                ipv6_decision.enabled);
         },
         [this]() {
-            const auto runtime_snapshot = runtime_state_store_.service_snapshot();
-            const auto& system_info = cached_system_info();
-            ServiceHealthState service_health;
-            service_health.status = runtime_snapshot.routing_runtime_active
-                ? api::HealthResponseStatus::RUNNING
-                : api::HealthResponseStatus::STOPPED;
-            service_health.runtime_state = runtime_state_name(runtime_snapshot.runtime_state);
-            service_health.runtime_state_reason = runtime_snapshot.runtime_state_reason;
-            service_health.os_type = system_info.os_type;
-            service_health.os_version = system_info.os_version;
-            service_health.build_variant = system_info.build_variant;
-            service_health.resolver_config_hash = runtime_snapshot.resolver_config_hash;
-            service_health.resolver_config_hash_actual = runtime_snapshot.resolver_config_hash_actual;
-            service_health.resolver_config_hash_actual_ts = runtime_snapshot.resolver_config_hash_actual_ts;
-            service_health.resolver_live_status = runtime_snapshot.resolver_live_status;
-            service_health.resolver_config_probe_status =
-                runtime_snapshot.resolver_config_probe_status;
-            service_health.resolver_last_probe_ts = runtime_snapshot.resolver_last_probe_ts;
-            service_health.apply_started_ts = runtime_snapshot.apply_started_ts;
-            service_health.resolver_config_sync_state =
-                runtime_snapshot.resolver_config_sync_state;
-            service_health.config_is_draft = config_store_.config_is_draft();
-            service_health.rollback_available =
-                rollback_available_.load(std::memory_order_acquire);
-            service_health.lifecycle_operation = lifecycle_operation_store_.snapshot();
-            return service_health;
+            return service_health_state();
         },
         [this]() {
-            const auto runtime_snapshot = runtime_state_store_.snapshot();
-
-            if (runtime_snapshot.runtime_state == RuntimeState::starting) {
-                RoutingHealthReport report;
-                report.firewall_backend = firewall_->backend();
-                report.firewall_chain.detail =
-                    "routing runtime initialization is in progress";
-                return report;
-            }
-
-            return build_routing_health_report(
-                firewall_->backend(),
-                firewall_->raw_prerouting_mode(),
-                runtime_snapshot.firewall_state,
-                runtime_snapshot.route_specs,
-                runtime_snapshot.policy_rule_specs,
-                netlink_);
+            return cached_routing_health();
         },
         [this]() {
-            const Config config_snapshot = config_store_.active_config();
-            const auto runtime_snapshot = runtime_state_store_.outbound_snapshot();
-
-            if (runtime_snapshot.runtime_state == RuntimeState::starting) {
-                api::RuntimeOutboundsResponse response;
-                for (const auto& outbound :
-                     config_snapshot.outbounds.value_or(std::vector<Outbound>{})) {
-                    api::RuntimeOutboundStateElement state;
-                    state.tag = outbound.tag;
-                    state.type = outbound.type;
-                    state.status = api::ResolverLiveStatus::UNKNOWN;
-                    response.outbounds.push_back(std::move(state));
-                }
-                return response;
-            }
-
-            return build_runtime_outbounds_response(
-                config_snapshot,
-                runtime_snapshot.outbound_marks,
-                runtime_snapshot.policy_rule_specs,
-                runtime_snapshot.applied_urltest_selections,
-                netlink_,
-                [&runtime_snapshot](const std::string& tag) -> std::optional<UrltestState> {
-                    auto it = runtime_snapshot.urltest_states.find(tag);
-                    if (it == runtime_snapshot.urltest_states.end()) {
-                        return std::nullopt;
-                    }
-                    return it->second;
-                });
+            return runtime_outbounds_state();
         },
         [this]() {
             auto response = build_runtime_interface_inventory_response_or_empty(netlink_);
@@ -857,34 +609,8 @@ void Daemon::setup_api() {
         [this](const Config& config) {
             return build_list_refresh_state_map(config, list_service_.cache_manager());
         },
-        [this](const std::string& target) {
-            const Config active_config = config_store_.active_config();
-            const auto runtime_snapshot = runtime_state_store_.snapshot();
-            const auto realized_rules = runtime_snapshot.firewall_state.get_rules();
-            if (!try_begin_routing_test()) {
-                throw ApiError("Too many routing tests are already running", 503);
-            }
-            auto pending = routing_test_executor_.try_submit(
-                "api-test-routing",
-                [this, active_config, realized_rules, target] {
-                    try {
-                        auto result = compute_test_routing(
-                            active_config,
-                            list_service_.cache_manager(),
-                            target,
-                            &realized_rules);
-                        finish_routing_test();
-                        return result;
-                    } catch (...) {
-                        finish_routing_test();
-                        throw;
-                    }
-                });
-            if (!pending.has_value()) {
-                finish_routing_test();
-                throw ApiError("Routing test executor queue is full", 503);
-            }
-            return pending->get();
+        [compute_test_routing_with_criteria](const std::string& target) {
+            return compute_test_routing_with_criteria(target, TestRoutingCriteria{});
         },
         [this]() {
             begin_config_operation_or_throw(ConfigOperationState::Saving,
@@ -944,13 +670,11 @@ void Daemon::setup_api() {
                 if (!config_.api) config_.api = ApiConfig{};
                 config_.api->authentication = std::move(authentication);
                 config_.api->cors = std::move(cors);
-                validate_config(config_);
+                validate_config(config_, ConfigValidationMode::Runtime,
+                            validation_context());
                 write_config_atomically(config_path_, serialize_config_pretty(config_));
 
-                if (api_server_) {
-                    api_server_->update_runtime_config(
-                        *config_.api, config_.device_name.value_or(""));
-                }
+                apply_api_runtime_config();
                 config_store_.replace_active(config_, outbound_marks_);
 
                 if (const auto staged = config_store_.staged_snapshot()) {
@@ -962,7 +686,57 @@ void Daemon::setup_api() {
             }, true, "api-security-update");
         },
     });
-    status_stream_ = std::make_unique<StatusStream>(
+    api_ctx_->get_prometheus_metrics_fn = [this]() {
+        const auto snapshot = runtime_state_store_.snapshot();
+        ControlRuntimeSnapshot control;
+        control.routing_runtime_active = snapshot.routing_runtime_active;
+        control.runtime_state = snapshot.runtime_state;
+        control.runtime_state_reason = snapshot.runtime_state_reason;
+        for (const auto& rule : snapshot.firewall_state.get_rules()) {
+            if (rule.action_type != RuleActionType::Skip) {
+                control.realized_rules.push_back({rule.rule_index, rule.set_names,
+                    rule.outbound_tag, rule.action_type, rule.fwmark});
+            }
+        }
+        OutboundRuntimeSnapshot outbound;
+        outbound.outbound_marks = snapshot.firewall_state.get_outbound_marks();
+        outbound.policy_rule_specs = snapshot.policy_rule_specs;
+        outbound.applied_urltest_selections = snapshot.firewall_state.get_urltest_selections();
+        outbound.urltest_states = snapshot.urltest_states;
+        outbound.runtime_state = snapshot.runtime_state;
+        DaemonMetrics daemon;
+        daemon.firewall_apply_errors = firewall_apply_errors_.load(std::memory_order_relaxed);
+        daemon.process_start_unix_s = process_start_unix_s_;
+        if (const auto reloaded = config_reload_last_success_s_.load(std::memory_order_relaxed);
+            reloaded > 0) {
+            daemon.config_reload_last_success_unix_s = reloaded;
+        }
+        daemon.config_reload_errors = config_reload_errors_.load(std::memory_order_relaxed);
+        daemon.lists = list_service_.refresh_stats();
+        if (firewall_ && firewall_->backend() == FirewallBackend::iptables) {
+            // nftables has no equivalent per-rule counters here.
+            const auto active = snapshot.firewall_state.active_firewall();
+            if (active) {
+                const bool ipv6 = config_store_.active_config().daemon.value_or(DaemonConfig{})
+                                      .ipv6_enabled.value_or(config_defaults::ipv6_enabled);
+                daemon.firewall_counters = firewall_counter_cache_.get(active.get(), [&]() {
+                    return collect_iptables_counters(
+                        run_command_capture,
+                        build_firewall_counter_index(active->plan, snapshot.firewall_state.get_outbound_marks()),
+                        ipv6, firewall_->raw_prerouting_mode());
+                });
+            }
+        }
+        return prometheus_metrics(
+            intercept_counters_.get(),
+            netlink_.metrics_snapshot(), control, outbound,
+            config_store_.active_config(), daemon,
+            firewall_ && firewall_->backend() == FirewallBackend::nftables ? "nftables" : "iptables");
+    };
+    api_ctx_->compute_test_routing_with_criteria_fn = compute_test_routing_with_criteria;
+    api_ctx_->validation_context_fn = [this]() { return validation_context(); };
+    api_ctx_->get_health_issues_fn = [this]() { return health_issues(); };
+    status_stream_ = std::make_unique<StatusStream>(StatusStream::Builders{
         [this]() {
             return build_health_response(api_ctx_->get_service_health());
         },
@@ -971,7 +745,42 @@ void Daemon::setup_api() {
         },
         [this]() {
             return api_ctx_->get_runtime_interfaces();
-        });
+        },
+        [this]() {
+            return stream_health_issues();
+        },
+        [this]() {
+            // Peek only: a stream rebuild must never start a refresh.
+            return routing_health_report_to_json(peek_routing_health());
+        },
+        [this]() {
+            const auto state = api_server_->auth_state();
+            return nlohmann::json{{"enabled", state.enabled},
+                                  {"device_name", state.device_name}};
+        },
+        [this]() {
+            return nlohmann::json{{"revision", config_store_.revision()}};
+        }});
+    // Any change of the active config, the draft, or the list refresh state
+    // moves the revision; clients refetch /api/config when it does.
+    config_store_.set_change_callback([this]() {
+        if (status_stream_) status_stream_->reconcile(StatusUpdate::Config);
+    });
+    list_service_.set_change_callback([this]() { config_store_.touch(); });
+    // A freshly opened dashboard should not show a report older than one
+    // refresh interval; the worker pushes the result when it is ready.
+    status_stream_->set_subscribe_hook([this]() {
+        request_routing_health_refresh(kRoutingHealthStreamRefreshInterval);
+    });
+    routing_health_stream_task_id_ = scheduler_->schedule_repeating(
+        kRoutingHealthStreamRefreshInterval,
+        [this]() {
+            // Cheap: queues the check on the routing executor, off the loop.
+            if (status_stream_ && status_stream_->has_subscribers()) {
+                request_routing_health_refresh(std::chrono::seconds{0});
+            }
+        },
+        "routing-health-stream");
     api_ctx_->status_stream = status_stream_.get();
     lifecycle_operation_store_.set_publish_callback([this]() {
         if (status_stream_) status_stream_->reconcile(StatusUpdate::Service);

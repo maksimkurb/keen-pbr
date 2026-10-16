@@ -1,7 +1,5 @@
 #pragma once
 
-#ifdef WITH_API
-
 #include "../api/generated/api_types.hpp"
 #include "../config/config.hpp"
 #include "../routing/netlink.hpp"
@@ -33,4 +31,3 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response_from_routes(
 
 } // namespace keen_pbr3
 
-#endif // WITH_API

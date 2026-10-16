@@ -13,12 +13,19 @@ export interface RoutingTestEntry {
   /** Details of the list entry that matched. Absent when no rule matched.
    */
   list_match?: RoutingTestListMatch;
-  /** Outbound tag determined by scanning route rules against cached list data. "(default)" when no rule matches.
+  /** Outbound tag determined by scanning route rules against cached list data. "(default)" when no rule matches. "(unknown)" when packet criteria or address family cannot be evaluated.
    */
   expected_outbound: string;
-  /** Outbound tag found in the live kernel firewall sets. "(default)" when the IP is not present in any set. "(unknown)" when the firewall tool is unavailable.
+  /** Outbound tag found in the live kernel firewall sets. "(default)" when the IP is not present in any set. "(unknown)" when the firewall tool is unavailable or packet criteria or directness cannot be evaluated.
    */
   actual_outbound: string;
-  /** true when expected_outbound equals actual_outbound. */
+  /**
+     * Index of the first route rule matching both list and packet criteria.
+     * @minimum 0
+     */
+  matched_rule_index?: number;
+  /** Whether packet criteria matched the selected rule; null when omitted or unknown. */
+  criteria_match?: boolean | null;
+  /** true when expected_outbound equals actual_outbound and neither side is unknown. */
   ok: boolean;
 }

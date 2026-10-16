@@ -1,0 +1,91 @@
+# Глоссарий для шорткода {{< term >}}. Совпадение по `term` или `abbr` без учёта регистра.
+- term: fwmark
+  abbr: fwmark
+  definition: Firewall mark — число, которое ядро Linux хранит вместе с пакетом. keen-pbr ставит его в firewall, а ip rule по нему выбирает таблицу маршрутизации.
+- term: conntrack
+  abbr: conntrack
+  definition: Connection tracking — таблица открытых соединений в ядре Linux. У каждой записи может быть своя метка (connmark).
+- term: connmark
+  abbr: connmark
+  definition: Метка соединения в записи conntrack. keen-pbr копирует в неё fwmark, чтобы все пакеты соединения шли одним маршрутом.
+- term: ipset
+  abbr: ipset
+  definition: Именованный набор IP-адресов или подсетей в ядре Linux. Правила iptables проверяют по нему сразу много адресов.
+- term: nftset
+  abbr: nftset
+  definition: Именованный набор IP-адресов или подсетей в nftables, аналог ipset.
+- term: netfilter
+  abbr: netfilter
+  definition: Подсистема фильтрации пакетов в ядре Linux. iptables и nftables — программы для её настройки.
+- term: mangle
+  abbr: mangle
+  definition: Таблица iptables для изменения служебных данных пакета, например установки fwmark, до маршрутизации.
+- term: PREROUTING
+  abbr: PREROUTING
+  definition: Точка в firewall, через которую проходят входящие пакеты до выбора маршрута. Здесь keen-pbr ставит fwmark.
+- term: policy routing
+  abbr: policy routing
+  definition: Маршрутизация, при которой таблица выбирается по правилам (ip rule), а не только по адресу назначения, например по fwmark.
+- term: NAT
+  abbr: NAT
+  definition: Network Address Translation — подмена адресов в пакетах, например замена адреса из LAN на WAN-адрес роутера.
+- term: MASQUERADE
+  abbr: MASQUERADE
+  definition: Правило NAT, которое подменяет адрес источника адресом исходящего интерфейса.
+- term: reverse path filter
+  abbr: reverse path filter
+  definition: 'Проверка ядра (rp_filter): пакет отбрасывается, если ответ на него ушёл бы не через тот интерфейс, через который он пришёл.'
+- term: NFQUEUE
+  abbr: NFQUEUE
+  definition: Механизм netfilter, который передаёт пакеты программе и ждёт её решения. keen-pbr так ненадолго задерживает DNS-ответы.
+- term: NFLOG
+  abbr: NFLOG
+  definition: Механизм netfilter, который отправляет программе копии пакетов, не задерживая их.
+- term: netlink
+  abbr: netlink
+  definition: Интерфейс ядра Linux, через который программы читают и меняют маршруты, правила, наборы и другие сетевые настройки.
+- term: CIDR
+  abbr: CIDR
+  definition: 'Запись подсети: адрес и длина префикса, например 192.168.1.0/24.'
+- term: DNS rebinding
+  abbr: DNS rebinding
+  definition: Атака, при которой публичный домен указывает на адрес в локальной сети. dnsmasq умеет блокировать такие ответы.
+- term: DNS over HTTPS
+  abbr: DoH
+  definition: DNS over HTTPS — зашифрованный DNS. Роутер не может прочитать такие запросы.
+- term: DNS over TLS
+  abbr: DoT
+  definition: DNS over TLS — зашифрованный DNS. Роутер не может прочитать такие запросы.
+- term: Differentiated Services Code Point
+  abbr: DSCP
+  definition: 6-битное поле в IP-заголовке, которым помечают класс трафика для QoS.
+- term: Quality of Service
+  abbr: QoS
+  definition: Приоритизация трафика, например звонки важнее загрузок.
+- term: Time To Live
+  abbr: TTL
+  definition: Сколько секунд DNS-ответ можно хранить в кэше.
+- term: Server Name Indication
+  abbr: SNI
+  definition: Имя сайта, которое клиент передаёт в открытом виде в начале TLS-соединения.
+- term: QUIC
+  abbr: QUIC
+  definition: Транспортный протокол поверх UDP, на нём работает HTTP/3.
+- term: Internet Control Message Protocol
+  abbr: ICMP
+  definition: Служебный протокол для диагностики сети. ping использует ICMP Echo.
+- term: Round-trip time
+  abbr: RTT
+  definition: Время от отправки запроса до получения ответа.
+- term: network namespace
+  abbr: network namespace
+  definition: Изолированная копия сетевого стека Linux со своими интерфейсами, маршрутами и firewall.
+- term: drop-in
+  abbr: drop-in
+  definition: Небольшой дополнительный файл конфигурации, который программа читает вместе с основным.
+- term: Entware
+  abbr: Entware
+  definition: Репозиторий пакетов для роутеров. На Keenetic из него ставятся keen-pbr и dnsmasq.
+- term: RCI
+  abbr: RCI
+  definition: Встроенный API настройки роутеров Keenetic.

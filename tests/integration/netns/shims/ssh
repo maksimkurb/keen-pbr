@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+host=""
+command=""
+args=("$@")
+i=0
+while ((i < ${#args[@]})); do
+  item=${args[$i]}
+  case "$item" in
+    -i|-o|-p|-l|-F|-J)
+      ((i+=2)); continue ;;
+    root@*|*@*)
+      host=${item#*@}
+      ((i+=1))
+      if ((i < ${#args[@]})); then command=${args[$i]}; fi
+      break
+      ;;
+    *) ((i+=1)) ;;
+  esac
+done
+
+case "$host" in
+  192.0.2.2) ns=kpbr-client ;;
+  10.10.0.2) ns=kpbr-direct ;;
+  10.20.0.2) ns=kpbr-pbr ;;
+  *) echo "netns ssh shim: unsupported host '$host'" >&2; exit 255 ;;
+esac
+
+[[ -n "$command" ]] || command=true
+exec ip netns exec "$ns" sh -c "$command"

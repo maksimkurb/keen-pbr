@@ -8,6 +8,7 @@
 #include "../config/config.hpp"
 #include "../daemon/config_store.hpp"
 #include "../health/routing_health.hpp"
+#include "../health/service_health.hpp"
 #include "sse_broadcaster.hpp"
 #include "status_stream.hpp"
 #include "../runtime/lifecycle_operation.hpp"
@@ -39,26 +40,6 @@ struct LifecycleRequest {
     LifecycleOperationType type{LifecycleOperationType::Restart};
     std::optional<Config> config;
     std::uint64_t staged_revision{0};
-};
-
-struct ServiceHealthState {
-    api::HealthResponseStatus status{api::HealthResponseStatus::STOPPED};
-    std::string runtime_state;
-    std::string runtime_state_reason;
-    std::string os_type{"unknown"};
-    std::string os_version{"unknown"};
-    std::string build_variant{"unknown"};
-    std::string resolver_config_hash;
-    std::string resolver_config_hash_actual;
-    std::optional<std::int64_t> resolver_config_hash_actual_ts;
-    api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
-    api::ResolverConfigProbeStatus resolver_config_probe_status{api::ResolverConfigProbeStatus::UNKNOWN};
-    std::optional<std::int64_t> resolver_last_probe_ts;
-    std::optional<std::int64_t> apply_started_ts;
-    std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
-    bool config_is_draft{false};
-    bool rollback_available{false};
-    std::optional<LifecycleOperationSnapshot> lifecycle_operation;
 };
 
 struct ListRefreshOperationResult {
@@ -103,6 +84,23 @@ struct ApiContext {
     std::function<bool(std::string, std::function<void()>)> enqueue_lifecycle_task_fn;
     std::function<std::string(LifecycleRequest)> submit_lifecycle_operation_fn;
     std::function<void(AuthenticationConfig, CorsConfig)> commit_api_security_fn;
+    std::function<std::string()> get_prometheus_metrics_fn;
+    // Optional packet-aware routing test callback. Keep the target-only
+    // callback above for API test fixtures and older embedders.
+    std::function<TestRoutingResult(const std::string&, const TestRoutingCriteria&)>
+        compute_test_routing_with_criteria_fn;
+
+    // Daemon facts (e.g. raw PREROUTING placement) that config validation
+    // needs; unset in embedders/tests that do not know them.
+    std::function<ConfigValidationContext()> validation_context_fn;
+
+    // Classified health issues; unset in fixtures that do not serve them.
+    std::function<api::HealthIssuesResponse()> get_health_issues_fn;
+
+    ConfigValidationContext validation_context() const {
+        return validation_context_fn ? validation_context_fn()
+                                     : ConfigValidationContext{};
+    }
 
     bool enqueue_lifecycle_task(std::string label, std::function<void()> task) const {
         return enqueue_lifecycle_task_fn(std::move(label), std::move(task));
@@ -161,6 +159,17 @@ struct ApiContext {
         return compute_test_routing_fn(target);
     }
 
+    TestRoutingResult compute_test_routing(const std::string& target,
+                                           const TestRoutingCriteria& criteria) const {
+        if (compute_test_routing_with_criteria_fn) {
+            return compute_test_routing_with_criteria_fn(target, criteria);
+        }
+        if (criteria.has_any()) {
+            throw ApiError("Packet-aware routing test is unavailable", 503);
+        }
+        return compute_test_routing_fn(target);
+    }
+
     void begin_save_operation() const {
         begin_save_operation_fn();
     }
@@ -203,10 +212,10 @@ struct ApiContext {
 };
 
 // Register all API endpoint handlers on the given ApiServer.
-//   GET  /api/health/service  - daemon version/status + resolver/config summary
-//   POST /api/service/start   - start routing runtime and activate dnsmasq hook
-//   POST /api/service/stop    - stop routing runtime and deactivate dnsmasq hook
-//   POST /api/service/restart - restart routing runtime and activate dnsmasq hook
+//   GET  /api/health/service  - daemon version/status + config summary
+//   POST /api/service/start   - start routing runtime
+//   POST /api/service/stop    - stop routing runtime
+//   POST /api/service/restart - restart routing runtime
 //   POST /api/lists/refresh   - refresh one or all URL-backed lists
 //   GET  /api/config          - return current config and draft status
 //   POST /api/config          - validate + stage config in memory

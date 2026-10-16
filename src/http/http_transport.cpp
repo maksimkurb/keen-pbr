@@ -120,7 +120,7 @@ HttpTransportResponse LibcurlHttpTransport::perform(const HttpTransportRequest& 
     if (headers) setopt(curl.get(), CURLOPT_HTTPHEADER, headers.get());
     const auto started = std::chrono::steady_clock::now();
     const CURLcode result = curl_easy_perform(curl.get());
-    response.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+    response.elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - started);
     if (result != CURLE_OK) {
         std::string message = error_buffer[0] ? error_buffer : curl_easy_strerror(result);
         if (context.mark_errno) message += "; SO_MARK failed: " + std::string(std::strerror(context.mark_errno));

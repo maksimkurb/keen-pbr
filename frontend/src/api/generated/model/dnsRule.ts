@@ -6,6 +6,10 @@
  * OpenAPI spec version: 3.0.0
  */
 
+/**
+ * Routes DNS queries for the domains of the referenced lists to a specific upstream. Applied through the generated dnsmasq config, so it takes effect only when `dns.resolver_integration` is `dnsmasq`.
+
+ */
 export interface DnsRule {
   /** Whether this DNS rule is active. `false` disables the rule. `true`, omitted, or `null` all mean the rule is active.
    */

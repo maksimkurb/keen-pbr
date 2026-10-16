@@ -44,6 +44,10 @@ ConntrackManager::ConntrackManager(CommandRunner runner)
     }
 }
 
+ConntrackPolicy conntrack_policy_for_plan(const FirewallPlan& plan) {
+    return ConntrackPolicy{plan_has_action<SkipEstablishedOrDnatAction>(plan)};
+}
+
 bool ConntrackManager::reconcile(ConntrackPolicy desired) {
     if (active_ == desired) {
         return false;

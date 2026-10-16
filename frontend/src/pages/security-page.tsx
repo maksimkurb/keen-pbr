@@ -1,7 +1,5 @@
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -33,20 +31,22 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { useDraftForm } from "@/lib/draft-form"
 
+/** Names mirror the auth settings API; `password_confirmation` is UI only. */
 type SecurityDraft = {
-  authEnabled: boolean
-  authPassword: string
-  authConfirmation: string
-  allowedOrigins: string
+  authentication: { enabled: boolean }
+  password: string
+  password_confirmation: string
+  cors: { allowed_origins: string }
 }
 
 function getDraftFromSettings(settings: AuthSettingsResponse): SecurityDraft {
   return {
-    authEnabled: settings.authentication.enabled ?? false,
-    authPassword: "",
-    authConfirmation: "",
-    allowedOrigins: (settings.cors.allowed_origins ?? []).join("\n"),
+    authentication: { enabled: settings.authentication.enabled ?? false },
+    password: "",
+    password_confirmation: "",
+    cors: { allowed_origins: (settings.cors.allowed_origins ?? []).join("\n") },
   }
 }
 
@@ -84,66 +84,65 @@ function LoadedSecurityPage({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const postAuthSettingsMutation = usePostAuthSettings()
-  const [error, setError] = useState<string | null>(null)
   const passwordSet = settings.password_set
-  const form = useForm({
-    defaultValues: getDraftFromSettings(settings),
-    validators: {
-      onSubmitAsync: async ({ value }) => {
-        setError(null)
+  const draft = getDraftFromSettings(settings)
 
-        if (value.authEnabled && !value.authPassword && !passwordSet) {
-          setError(t("auth.settings.passwordRequired"))
-          return
-        }
+  const form = useDraftForm<SecurityDraft>(draft, {
+    validate: (value) => {
+      const errors: Record<string, string> = {}
 
-        const origins = value.allowedOrigins
-          .split("\n")
-          .map((origin) => origin.trim())
-          .filter(Boolean)
+      if (value.authentication.enabled && !value.password && !passwordSet) {
+        errors.password = t("auth.settings.passwordRequired")
+      }
 
-        if (origins.some((origin) => !isExactHttpOrigin(origin))) {
-          setError(t("auth.settings.invalidOrigin"))
-          return
-        }
+      if (value.password && value.password !== value.password_confirmation) {
+        errors.password_confirmation = t("auth.settings.passwordMismatch")
+      }
 
-        try {
-          await postAuthSettingsMutation.mutateAsync({
-            data: {
-              authentication: { enabled: value.authEnabled },
-              cors: { allowed_origins: origins },
-              ...(value.authPassword ? { password: value.authPassword } : {}),
-            },
-          })
-          toast.success(t("auth.settings.saved"))
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: getGetAuthSettingsQueryKey() }),
-          ])
-          form.reset(getDraftFromSettings({
-            authentication: { enabled: value.authEnabled },
-            cors: { allowed_origins: origins },
-            password_set: Boolean(value.authPassword) || passwordSet,
-          }))
-        } catch {
-          setError(t("auth.settings.updateFailed"))
-        }
-      },
+      const origins = value.cors.allowed_origins
+        .split("\n")
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+
+      if (origins.some((origin) => !isExactHttpOrigin(origin))) {
+        errors["cors.allowed_origins"] = t("auth.settings.invalidOrigin")
+      }
+
+      return errors
     },
   })
+  const { values } = form
 
-  const cancel = () => {
-    form.reset(getDraftFromSettings(settings))
-    setError(null)
+  const save = async (value: SecurityDraft) => {
+    const origins = value.cors.allowed_origins
+      .split("\n")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+
+    try {
+      await postAuthSettingsMutation.mutateAsync({
+        data: {
+          authentication: { enabled: value.authentication.enabled },
+          cors: { allowed_origins: origins },
+          ...(value.password ? { password: value.password } : {}),
+        },
+      })
+      toast.success(t("auth.settings.saved"))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getGetAuthSettingsQueryKey() }),
+      ])
+      form.reset(getDraftFromSettings({
+        authentication: { enabled: value.authentication.enabled },
+        cors: { allowed_origins: origins },
+        password_set: Boolean(value.password) || passwordSet,
+      }))
+    } catch {
+      form.setServerErrors({ form: t("auth.settings.updateFailed") })
+    }
   }
 
   return (
-    <form
-      className="space-y-6"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void form.handleSubmit()
-      }}
-    >
+    <form className="space-y-6" onSubmit={form.onSubmit(save)}>
       <Card>
         <CardHeader>
           <CardTitle>{t("auth.settings.title")}</CardTitle>
@@ -151,148 +150,115 @@ function LoadedSecurityPage({
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex items-center gap-3">
-            <form.Field name="authEnabled">
-              {(field) => (
-                <Checkbox
-                  checked={field.state.value}
-                  id="authentication-enabled"
-                  onCheckedChange={(value) =>
-                    field.handleChange(value === true)
-                  }
-                />
-              )}
-            </form.Field>
+            <Checkbox
+              checked={values.authentication.enabled}
+              id="authentication-enabled"
+              onCheckedChange={(value) =>
+                form.setValue("authentication.enabled", value === true)
+              }
+            />
             <FieldLabel htmlFor="authentication-enabled">
               {t("auth.settings.enable")}
             </FieldLabel>
           </div>
 
           <div className="space-y-4">
-            <form.Field name="authPassword">
-              {(field) => (
-                <>
-                  <Field>
-                    <FieldLabel htmlFor="new-auth-password">
-                      {t("auth.settings.newPassword")}
-                    </FieldLabel>
-                    <Input
-                      autoComplete="new-password"
-                      id="new-auth-password"
-                      onChange={(event) => {
-                        field.handleChange(event.target.value)
-                        if (!event.target.value) {
-                          form.setFieldValue("authConfirmation", "")
-                        }
-                      }}
-                      placeholder={t(
-                        passwordSet
-                          ? "auth.settings.passwordSetPlaceholder"
-                          : "auth.settings.newPasswordPlaceholder"
-                      )}
-                      type="password"
-                      value={field.state.value}
-                    />
-                  </Field>
-                  {field.state.value ? (
-                    <form.Field
-                      name="authConfirmation"
-                      validators={{
-                        onSubmit: ({ value }) =>
-                          value === form.getFieldValue("authPassword")
-                            ? undefined
-                            : t("auth.settings.passwordMismatch"),
-                      }}
-                    >
-                      {(confirmationField) => {
-                        const confirmationError = getFirstFieldError(
-                          confirmationField.state.meta.errors
-                        )
-
-                        return (
-                          <Field
-                            className="animate-in duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none"
-                            invalid={Boolean(confirmationError)}
-                          >
-                            <FieldLabel htmlFor="confirm-auth-password">
-                              {t("auth.settings.confirmPassword")}
-                            </FieldLabel>
-                            <FieldContent>
-                              <Input
-                                aria-invalid={Boolean(confirmationError)}
-                                autoComplete="new-password"
-                                id="confirm-auth-password"
-                                onBlur={confirmationField.handleBlur}
-                                onChange={(event) =>
-                                  confirmationField.handleChange(
-                                    event.target.value
-                                  )
-                                }
-                                type="password"
-                                value={confirmationField.state.value}
-                              />
-                              <FieldHint error={confirmationError} />
-                            </FieldContent>
-                          </Field>
-                        )
-                      }}
-                    </form.Field>
-                  ) : null}
-                </>
-              )}
-            </form.Field>
+            <Field invalid={Boolean(form.errorFor("password"))}>
+              <FieldLabel htmlFor="new-auth-password">
+                {t("auth.settings.newPassword")}
+              </FieldLabel>
+              <Input
+                aria-invalid={Boolean(form.errorFor("password"))}
+                autoComplete="new-password"
+                id="new-auth-password"
+                onChange={(event) => {
+                  form.setValue("password", event.target.value)
+                  if (!event.target.value) {
+                    form.setValue("password_confirmation", "")
+                  }
+                }}
+                placeholder={t(
+                  passwordSet
+                    ? "auth.settings.passwordSetPlaceholder"
+                    : "auth.settings.newPasswordPlaceholder"
+                )}
+                type="password"
+                value={values.password}
+              />
+              <FieldHint error={form.errorFor("password")} />
+            </Field>
+            {values.password ? (
+              <Field
+                className="animate-in duration-200 fade-in-0 slide-in-from-top-2 motion-reduce:animate-none"
+                invalid={Boolean(form.errorFor("password_confirmation"))}
+              >
+                <FieldLabel htmlFor="confirm-auth-password">
+                  {t("auth.settings.confirmPassword")}
+                </FieldLabel>
+                <FieldContent>
+                  <Input
+                    aria-invalid={Boolean(form.errorFor("password_confirmation"))}
+                    autoComplete="new-password"
+                    id="confirm-auth-password"
+                    onChange={(event) =>
+                      form.setValue("password_confirmation", event.target.value)
+                    }
+                    type="password"
+                    value={values.password_confirmation}
+                  />
+                  <FieldHint error={form.errorFor("password_confirmation")} />
+                </FieldContent>
+              </Field>
+            ) : null}
           </div>
 
-          <form.Field name="allowedOrigins">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor="cors-origins">
-                  {t("auth.settings.allowedOrigins")}
-                </FieldLabel>
-                <Textarea
-                  id="cors-origins"
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder={t("auth.settings.originsPlaceholder")}
-                  value={field.state.value}
-                />
-                <FieldDescription>
-                  {t("auth.settings.originsDescription")}
-                </FieldDescription>
-              </Field>
-            )}
-          </form.Field>
+          <Field invalid={Boolean(form.errorFor("cors.allowed_origins"))}>
+            <FieldLabel htmlFor="cors-origins">
+              {t("auth.settings.allowedOrigins")}
+            </FieldLabel>
+            <Textarea
+              aria-invalid={Boolean(form.errorFor("cors.allowed_origins"))}
+              id="cors-origins"
+              onChange={(event) =>
+                form.setValue("cors.allowed_origins", event.target.value)
+              }
+              placeholder={t("auth.settings.originsPlaceholder")}
+              value={values.cors.allowed_origins}
+            />
+            <FieldDescription>
+              {t("auth.settings.originsDescription")}
+            </FieldDescription>
+            <FieldHint error={form.errorFor("cors.allowed_origins")} />
+          </Field>
 
-          {error ? (
+          {form.formError ? (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{form.formError}</AlertDescription>
             </Alert>
           ) : null}
         </CardContent>
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Button onClick={cancel} size="xl" type="button" variant="outline">
+        <Button
+          onClick={() => form.reset(getDraftFromSettings(settings))}
+          size="xl"
+          type="button"
+          variant="outline"
+        >
           {t("common.cancel")}
         </Button>
-        <form.Subscribe
-          selector={(state) => ({
-            isPristine: state.isPristine,
-            isSubmitting: state.isSubmitting,
-          })}
+        <Button
+          disabled={
+            form.isSubmitting || postAuthSettingsMutation.isPending || !form.isDirty
+          }
+          size="xl"
+          type="submit"
         >
-          {({ isPristine, isSubmitting }) => (
-            <Button
-              disabled={
-                isSubmitting || postAuthSettingsMutation.isPending || isPristine
-              }
-              size="xl"
-              type="submit"
-            >
-              {isSubmitting
-                ? t("pages.settings.actions.saving")
-                : t("pages.settings.actions.save")}
-            </Button>
-          )}
-        </form.Subscribe>
+          {form.isSubmitting
+            ? t("pages.settings.actions.saving")
+            : t("pages.settings.actions.save")}
+        </Button>
       </div>
     </form>
   )
@@ -318,11 +284,6 @@ function SecurityPageSkeleton() {
       </div>
     </>
   )
-}
-
-function getFirstFieldError(errors: unknown[]) {
-  const error = errors.find((item) => typeof item === "string")
-  return typeof error === "string" ? error : null
 }
 
 function isExactHttpOrigin(value: string) {

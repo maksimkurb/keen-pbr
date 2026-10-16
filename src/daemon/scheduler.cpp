@@ -6,6 +6,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <optional>
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
@@ -141,7 +142,36 @@ void Scheduler::on_timer(int timer_fd, uint32_t /*events*/) {
         remove_entry(timer_fd);
     }
     Logger::instance().trace("scheduler_fire", "timer_fd={} label={}", timer_fd, label);
-    cb();
+
+    // A throwing task must not take the event loop down; a repeating task
+    // that keeps throwing is disabled instead of logging every tick.
+    std::optional<std::string> error;
+    try {
+        cb();
+    } catch (const std::exception& e) {
+        error = e.what();
+    } catch (...) {
+        error = "unknown error";
+    }
+    bool disable = false;
+    {
+        KPBR_LOCK_GUARD(entries_mutex_);
+        for (auto& entry : entries_) {
+            if (entry.timer_fd == timer_fd) {
+                entry.consecutive_throws = error ? entry.consecutive_throws + 1 : 0;
+                disable = repeating && entry.consecutive_throws >= kMaxConsecutiveThrows;
+                break;
+            }
+        }
+    }
+    if (error) {
+        Logger::instance().error("Scheduled task '{}' failed: {}", label, *error);
+    }
+    if (disable) {
+        Logger::instance().error("Scheduled task '{}' disabled after {} consecutive failures",
+                                 label, kMaxConsecutiveThrows);
+        remove_entry(timer_fd);
+    }
 }
 
 void Scheduler::cancel(int task_id) {

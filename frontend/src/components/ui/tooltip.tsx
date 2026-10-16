@@ -1,6 +1,14 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
+import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { TooltipTouchGesture } from "./tooltip-touch"
+
+const TouchTooltipContext = React.createContext<{
+  handle: ReturnType<typeof TooltipPrimitive.createHandle>
+  disabled: boolean
+  touchOpen: React.RefObject<boolean>
+} | null>(null)
 
 function TooltipProvider({
   delay = 500,
@@ -15,12 +23,161 @@ function TooltipProvider({
   )
 }
 
-function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+function Tooltip({
+  handle: providedHandle,
+  onOpenChange,
+  ...props
+}: TooltipPrimitive.Root.Props) {
+  const [localHandle] = React.useState(() => TooltipPrimitive.createHandle())
+  const handle = providedHandle ?? localHandle
+  const touchOpen = React.useRef(false)
+  return (
+    <TouchTooltipContext.Provider
+      value={{ handle, disabled: Boolean(props.disabled), touchOpen }}
+    >
+      <TooltipPrimitive.Root
+        data-slot="tooltip"
+        {...props}
+        handle={handle}
+        onOpenChange={(next, details) => {
+          // Compatibility mouse/focus events must not dismiss a touch-opened hint.
+          if (
+            touchOpen.current &&
+            !next &&
+            (details.reason === "trigger-hover" ||
+              details.reason === "trigger-focus")
+          ) {
+            details.cancel()
+            return
+          }
+          onOpenChange?.(next, details)
+          if (!details.isCanceled && !next) touchOpen.current = false
+        }}
+      />
+    </TouchTooltipContext.Provider>
+  )
 }
 
-function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
+function TooltipTrigger({
+  onPointerDownCapture,
+  onClickCapture,
+  onContextMenuCapture,
+  ...props
+}: TooltipPrimitive.Trigger.Props) {
+  const context = React.useContext(TouchTooltipContext)
+  const generatedId = React.useId()
+  const id = props.id ?? generatedId
+  const handle = props.handle ?? context?.handle
+  const [gesture] = React.useState(() => new TooltipTouchGesture())
+  const listeners = React.useRef<AbortController | null>(null)
+  React.useEffect(
+    () => () => {
+      gesture.cancel()
+      listeners.current?.abort()
+    },
+    [gesture]
+  )
+
+  return (
+    <TooltipPrimitive.Trigger
+      data-slot="tooltip-trigger"
+      type="button"
+      {...props}
+      id={id}
+      handle={handle}
+      onPointerDownCapture={(event) => {
+        onPointerDownCapture?.(event)
+        gesture.reset()
+        listeners.current?.abort()
+        if (
+          event.pointerType !== "touch" ||
+          !event.isPrimary ||
+          event.defaultPrevented ||
+          context?.disabled ||
+          props.disabled ||
+          !handle
+        )
+          return
+        const target = event.currentTarget
+        const renderedProps = React.isValidElement<{
+          onClick?: unknown
+          onClickCapture?: unknown
+        }>(props.render)
+          ? props.render.props
+          : undefined
+        const hasAction = Boolean(
+          props.onClick ||
+          onClickCapture ||
+          renderedProps?.onClick ||
+          renderedProps?.onClickCapture ||
+          (props.render &&
+            target.matches(
+              "button, a[href], input, select, textarea, [role=button], [role=link]"
+            )) ||
+          target.parentElement?.closest(
+            "button, a[href], [role=button], [role=link], [role=option]"
+          )
+        )
+        const show = (toggle: boolean) => {
+          if (toggle && handle.isOpen) {
+            handle.close()
+          } else {
+            handle.open(id)
+            if (context) context.touchOpen.current = true
+          }
+        }
+        gesture.start(
+          event.pointerId,
+          event.clientX,
+          event.clientY,
+          hasAction,
+          show
+        )
+        const controller = new AbortController()
+        listeners.current = controller
+        const options = {
+          capture: true,
+          passive: true,
+          signal: controller.signal,
+        }
+        const cancel = () => {
+          gesture.cancel()
+          controller.abort()
+        }
+        window.addEventListener(
+          "pointermove",
+          (move) => gesture.move(move.pointerId, move.clientX, move.clientY),
+          options
+        )
+        window.addEventListener(
+          "pointerup",
+          (up) => {
+            gesture.end(up.pointerId)
+            controller.abort()
+          },
+          options
+        )
+        window.addEventListener("pointercancel", cancel, options)
+        window.addEventListener("scroll", cancel, options)
+      }}
+      onClickCapture={(event) => {
+        if (gesture.consumeClick(event.detail)) {
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+        onClickCapture?.(event)
+      }}
+      onContextMenuCapture={(event) => {
+        if (gesture.contextMenu()) {
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+        onContextMenuCapture?.(event)
+      }}
+    />
+  )
 }
 
 function TooltipContent({

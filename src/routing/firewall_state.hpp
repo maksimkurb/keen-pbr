@@ -1,9 +1,11 @@
 #pragma once
 
 #include "../config/config.hpp"
+#include "../firewall/firewall_plan.hpp"
 
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -28,21 +30,41 @@ struct RuleState {
     FirewallRuleCriteria criteria;      // Realized selector criteria for live rules
 };
 
-// In-memory state of the firewall configuration.
-// Source of truth for API queries. URLTEST selections affect routing state,
-// while the firewall rules retain the URLTEST outbound's stable mark.
+// One successful firewall apply, published as a unit: the desired plan, what
+// the backend realized, and the rule-state API projection. Immutable once
+// built, so readers holding a shared_ptr never see a mix of two applies.
+struct ActiveFirewall {
+    FirewallPlan plan;
+    FirewallApplyResult result;
+    std::vector<RuleState> rule_states;
+};
+
+// In-memory firewall runtime state. The active firewall is canonical; its
+// rule_states are the compatibility/API projection. URLTEST selections affect
+// routing state, while firewall rules retain the URLTEST outbound's stable
+// mark. Copying this object shares the immutable ActiveFirewall (no deep copy);
+// RuntimeStateStore's mutex guards the copy that is published to readers.
 class FirewallState {
 public:
     FirewallState() = default;
 
-    // Replace the current rule state
-    void set_rules(std::vector<RuleState> rules);
+    // Publish a successfully applied firewall as one pointer swap.
+    void publish_active_firewall(ActiveFirewall active);
+
+    // Snapshot of the last firewall whose backend apply completed
+    // successfully; null when none is active. Take it once per operation.
+    std::shared_ptr<const ActiveFirewall> active_firewall() const;
+
+    // Drop the active firewall after the corresponding kernel firewall
+    // cleanup has completed successfully.
+    void clear_active_firewall();
 
     // Update the urltest selection for a given urltest tag
     void set_urltest_selection(const std::string& urltest_tag,
                                const std::string& child_tag);
 
-    // Get current rule state
+    // Rule states of the active firewall (empty when none is active). Prefer
+    // active_firewall() when the plan or result is needed as well.
     const std::vector<RuleState>& get_rules() const;
 
     // Get outbound mark assignments
@@ -50,12 +72,6 @@ public:
 
     // Set outbound mark assignments
     void set_outbound_marks(OutboundMarkMap marks);
-
-    // Get the configured fwmark mask used by mark rules and policy rules.
-    uint32_t get_fwmark_mask() const;
-
-    // Set the configured fwmark mask used by mark rules and policy rules.
-    void set_fwmark_mask(uint32_t fwmark_mask);
 
     // Get urltest selections (urltest_tag -> selected child tag)
     const std::map<std::string, std::string>& get_urltest_selections() const;
@@ -67,8 +83,7 @@ public:
 
 private:
     OutboundMarkMap outbound_marks_;
-    uint32_t fwmark_mask_{0xFFFFFFFFu};
-    std::vector<RuleState> rules_;
+    std::shared_ptr<const ActiveFirewall> active_;
     std::map<std::string, std::string> urltest_selections_;
 };
 

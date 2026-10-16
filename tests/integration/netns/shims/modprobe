@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Harness invariant: never request host-global kernel module changes from user space.
+echo "keen-pbr integration sandbox: modprobe is disabled" >&2
+exit 126

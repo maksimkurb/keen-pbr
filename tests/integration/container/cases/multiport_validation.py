@@ -5,7 +5,6 @@ def register(registry):
         config["outbounds"] = [{"tag": "wan", "type": "interface",
                                 "interface": "wan_direct", "gateway": "10.10.0.2"}]
         config["lists"] = {}
-        config["dns"]["rules"] = []
         config["route"] = {"rules": [{"outbound": "wan", "proto": "tcp",
                                         "dest_addr": "198.51.100.2",
                                         "src_port": "555,666", "dest_port": "555-666"}]}

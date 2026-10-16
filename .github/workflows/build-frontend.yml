@@ -10,7 +10,7 @@ on:
 jobs:
   lint:
     name: Lint frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
@@ -21,7 +21,7 @@ jobs:
 
   build:
     name: Build frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: lint
     steps:
       - uses: actions/checkout@v6

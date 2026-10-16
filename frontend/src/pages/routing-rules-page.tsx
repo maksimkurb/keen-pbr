@@ -1,3 +1,4 @@
+import { DeleteImpactDialog } from "@/components/shared/delete-impact-dialog"
 import {
   ArrowDown,
   ArrowUp,
@@ -20,6 +21,7 @@ import type { RuntimeOutboundState } from "@/api/generated/model"
 import { useGetConfig, useGetRuntimeOutbounds } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { MobileAddFab } from "@/components/shared/mobile-add-fab"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
@@ -49,6 +51,7 @@ export function RoutingRulesPage() {
     null
   )
 
+  const [deleteIds, setDeleteIds] = useState<string[]>([])
   const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
@@ -261,24 +264,18 @@ export function RoutingRulesPage() {
   }
 
   const handleBulkDelete = () => {
-    if (!loadedConfig || ruleSelection.selectedCount === 0) {
-      return
+    if (!configMutationPending && ruleSelection.selectedCount > 0) {
+      setDeleteIds([...ruleSelection.selectedIds])
     }
+  }
 
-    if (
-      !window.confirm(
-        t("pages.routingRules.bulk.confirmDelete", {
-          count: ruleSelection.selectedCount,
-        })
-      )
-    ) {
-      return
-    }
-
+  const confirmBulkDelete = () => {
+    if (!loadedConfig || configMutationPending || deleteIds.length === 0) return
     const nextRules = routeRules.filter(
-      (_rule, index) => !ruleSelection.selectedIds.has(String(index))
+      (_rule, index) => !deleteIds.includes(String(index))
     )
     persistRules(loadedConfig, nextRules, { clearSelection: true })
+    setDeleteIds([])
   }
 
   const handleBulkSetEnabled = (enabled: boolean) => {
@@ -293,16 +290,42 @@ export function RoutingRulesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-0">
+      <DeleteImpactDialog
+        open={deleteIds.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setDeleteIds([])
+        }}
+        onConfirm={confirmBulkDelete}
+        isPending={configMutationPending}
+        title={t("pages.routingRules.bulk.confirmDelete", {
+          count: deleteIds.length,
+        })}
+        description={t("pages.routingRules.bulk.deleteConsequences")}
+        confirmLabel={t("pages.routingRules.bulk.delete", {
+          count: deleteIds.length,
+        })}
+        impactItems={deleteIds.map((id) => ({
+          label: t("common.ruleNumber", { number: Number(id) + 1 }),
+        }))}
+      />
       <PageHeader
         actions={
-          <Button
-            disabled={configMutationPending}
-            onClick={() => navigate("/routing-rules/create")}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t("pages.routingRules.actions.addRule")}
-          </Button>
+          <>
+            <Button
+              className="hidden md:inline-flex"
+              disabled={configMutationPending}
+              onClick={() => navigate("/routing-rules/create")}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              {t("pages.routingRules.actions.addRule")}
+            </Button>
+            <MobileAddFab
+              disabled={configMutationPending}
+              icon={<Plus className="size-4" />}
+              onClick={() => navigate("/routing-rules/create")}
+            />
+          </>
         }
         description={t("pages.routingRules.description")}
         title={t("pages.routingRules.title")}
@@ -325,8 +348,10 @@ export function RoutingRulesPage() {
         />
       ) : (
         <div className="space-y-3">
-          {ruleSelection.hasSelection ? (
+          {ruleSelection.isSelecting ? (
             <BulkSelectionToolbar
+              selection={ruleSelection}
+              disabled={configMutationPending}
               countLabel={t("pages.routingRules.bulk.selected", {
                 count: ruleSelection.selectedCount,
               })}
@@ -337,7 +362,9 @@ export function RoutingRulesPage() {
                 size="sm"
                 variant="outline"
               >
-                {t("pages.routingRules.bulk.enable")}
+                {t("pages.routingRules.bulk.enable", {
+                  count: ruleSelection.selectedCount,
+                })}
               </Button>
               <Button
                 disabled={configMutationPending}
@@ -345,7 +372,9 @@ export function RoutingRulesPage() {
                 size="sm"
                 variant="outline"
               >
-                {t("pages.routingRules.bulk.disable")}
+                {t("pages.routingRules.bulk.disable", {
+                  count: ruleSelection.selectedCount,
+                })}
               </Button>
               <Button
                 disabled={configMutationPending}
@@ -354,11 +383,14 @@ export function RoutingRulesPage() {
                 variant="destructive"
               >
                 <Trash2 className="mr-1 h-4 w-4" />
-                {t("pages.routingRules.bulk.delete")}
+                {t("pages.routingRules.bulk.delete", {
+                  count: ruleSelection.selectedCount,
+                })}
               </Button>
             </BulkSelectionToolbar>
           ) : null}
           <DataTable
+            mobileCards={{ titleColumns: [0, 1], bodyColumns: [3, 2] }}
             headers={[
               "",
               t("pages.routingRules.headers.order"),
@@ -408,12 +440,14 @@ export function RoutingRulesPage() {
               </ul>,
               <div key={`${row.id}-outbound`}>
                 <RuntimeOutboundEntry
+                  statusDot
                   runtimeState={row.runtimeState}
                   title={row.outbound}
                   t={t}
                 />
               </div>,
               <ActionButtons
+                mobileIcons
                 actions={[
                   {
                     disabled: configMutationPending,
@@ -448,6 +482,7 @@ export function RoutingRulesPage() {
                   {
                     disabled: configMutationPending,
                     icon: <Trash2 className="h-4 w-4" />,
+                    destructive: true,
                     label: t("common.delete"),
                     onClick: () => handleDelete(row.index),
                   },
@@ -467,6 +502,8 @@ export function RoutingRulesPage() {
               onDrop: (event) => handleRowDrop(event, rowIndex),
             })}
             selection={{
+              isSelecting: ruleSelection.isSelecting,
+              onStartSelecting: ruleSelection.startSelecting,
               rowIds: ruleRowIds,
               selectedIds: ruleSelection.selectedIds,
               disabled: configMutationPending,
@@ -492,6 +529,14 @@ function getRouteRuleRow(
   runtimeState?: RuntimeOutboundState
 ) {
   const conditions = [
+    rule.default_gateway
+      ? {
+          label: t("pages.routingRuleUpsert.fields.mode"),
+          value: t(
+            `pages.routingRuleUpsert.fields.modeOptions.${rule.default_gateway}`
+          ),
+        }
+      : undefined,
     {
       label: t("pages.routingRules.criteriaLabels.lists"),
       value: (rule.list ?? []).join(", "),
@@ -527,7 +572,9 @@ function getRouteRuleRow(
       label: string
       value: string
     } =>
-      typeof condition.value === "string" && condition.value.trim().length > 0
+      condition !== undefined &&
+      typeof condition.value === "string" &&
+      condition.value.trim().length > 0
   )
 
   return {

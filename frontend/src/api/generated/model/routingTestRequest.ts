@@ -5,8 +5,31 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { RoutingTestRequestProto } from './routingTestRequestProto';
 
 export interface RoutingTestRequest {
   /** IP address or domain name to test routing for. */
   target: string;
+  /** Optional packet transport protocol to evaluate against route rules. */
+  proto?: RoutingTestRequestProto;
+  /**
+     * Optional packet destination port.
+     * @minimum 1
+     * @maximum 65535
+     */
+  dest_port?: number;
+  /** Optional packet source IPv4 or IPv6 address. */
+  src_addr?: string;
+  /**
+     * Optional packet source port.
+     * @minimum 1
+     * @maximum 65535
+     */
+  src_port?: number;
+  /**
+     * Optional packet DSCP value.
+     * @minimum 0
+     * @maximum 63
+     */
+  dscp?: number;
 }

@@ -10,9 +10,8 @@
 namespace keen_pbr3 {
 
 void register_health_routing_handler(ApiServer& server, ApiContext& ctx) {
-    // GET /api/health/routing - verify live routing and firewall state against expected config.
-    // RoutingHealthChecker::check() catches all internal exceptions; if it still throws,
-    // the server wrapper returns HTTP 500. The JSON body contains "overall":"ok"/"degraded"/"error".
+    // GET /api/health/routing - return the daemon's cached canonical report.
+    // A cold or stale cache is refreshed off-loop and reported as degraded/pending.
     server.get("/api/health/routing", [&ctx]() -> std::string {
         try {
             auto report = ctx.get_routing_health();
@@ -23,6 +22,14 @@ void register_health_routing_handler(ApiServer& server, ApiContext& ctx) {
             err.overall = api::RoutingHealthErrorResponseOverall::ERROR;
             throw ApiError("Routing health check failed", 500, nlohmann::json(err).dump());
         }
+    });
+
+    // GET /api/health/issues - the overview's classified problems.
+    server.get("/api/health/issues", [&ctx]() -> std::string {
+        if (!ctx.get_health_issues_fn) {
+            throw ApiError("Health issues are not available", 503);
+        }
+        return nlohmann::json(ctx.get_health_issues_fn()).dump();
     });
 }
 

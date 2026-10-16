@@ -11,4 +11,7 @@ export interface IprouteConfig {
   table_start?: number;
   /** First RPDB priority to allocate. Defaults to table_start. */
   rule_priority_start?: number | null;
+  /** Apply route rules to, and learn from, traffic originated by the router itself. When `false` (default), only forwarded LAN traffic is routed by route rules and observed by DNS interception and L7 sniffing; DNS detour rules still apply to router-originated DNS.
+   */
+  process_router_traffic?: boolean;
 }

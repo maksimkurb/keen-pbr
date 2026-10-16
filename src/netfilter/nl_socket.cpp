@@ -1,0 +1,259 @@
+#include "nl_socket.hpp"
+#include "uapi_compat.hpp"  // IWYU pragma: keep (macro compat shims)
+
+#include <poll.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#include <cerrno>
+#include <algorithm>
+#include <chrono>
+#include <cstring>
+#include <ctime>
+#include <string>
+
+#ifndef SOL_NETLINK
+#define SOL_NETLINK 270
+#endif
+
+namespace keen_pbr3::nfnl {
+
+namespace {
+constexpr std::size_t kMinRxBuf = 16384;
+}
+
+NlSocket::NlSocket(int rcvbuf_bytes, bool no_enobufs) {
+    fd_ = ::socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, NETLINK_NETFILTER);
+    if (fd_ < 0) {
+        throw NlSocketError(std::string("netlink socket(): ") + std::strerror(errno));
+    }
+
+    sockaddr_nl addr;
+    std::memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    if (::bind(fd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+        const int e = errno;
+        close_fd();
+        throw NlSocketError(std::string("netlink bind(): ") + std::strerror(e));
+    }
+
+    socklen_t alen = sizeof(addr);
+    if (::getsockname(fd_, reinterpret_cast<sockaddr*>(&addr), &alen) == 0) {
+        port_id_ = addr.nl_pid;
+    }
+
+    if (rcvbuf_bytes > 0) {
+        if (::setsockopt(fd_, SOL_SOCKET, SO_RCVBUFFORCE, &rcvbuf_bytes, sizeof(rcvbuf_bytes)) < 0) {
+            (void)::setsockopt(fd_, SOL_SOCKET, SO_RCVBUF, &rcvbuf_bytes, sizeof(rcvbuf_bytes));
+        }
+    }
+    const int one = 1;
+    if (no_enobufs) {
+        (void)::setsockopt(fd_, SOL_NETLINK, NETLINK_NO_ENOBUFS, &one, sizeof(one));
+    }
+    (void)::setsockopt(fd_, SOL_NETLINK, NETLINK_EXT_ACK, &one, sizeof(one));
+    (void)::setsockopt(fd_, SOL_NETLINK, NETLINK_CAP_ACK, &one, sizeof(one));
+
+    seq_ = static_cast<uint32_t>(std::time(nullptr));
+}
+
+NlSocket::~NlSocket() {
+    close_fd();
+}
+
+void NlSocket::close_fd() {
+    if (fd_ >= 0) {
+        ::close(fd_);
+        fd_ = -1;
+    }
+}
+
+NlSocket::NlSocket(NlSocket&& other) noexcept
+    : fd_(other.fd_), port_id_(other.port_id_), seq_(other.seq_), rx_(std::move(other.rx_)) {
+    other.fd_ = -1;
+}
+
+NlSocket& NlSocket::operator=(NlSocket&& other) noexcept {
+    if (this != &other) {
+        close_fd();
+        fd_ = other.fd_;
+        port_id_ = other.port_id_;
+        seq_ = other.seq_;
+        rx_ = std::move(other.rx_);
+        other.fd_ = -1;
+    }
+    return *this;
+}
+
+bool NlSocket::send(const uint8_t* data, std::size_t len, int& err) {
+    sockaddr_nl dst;
+    std::memset(&dst, 0, sizeof(dst));
+    dst.nl_family = AF_NETLINK;
+    for (;;) {
+        const ssize_t n = ::sendto(fd_, data, len, 0, reinterpret_cast<sockaddr*>(&dst), sizeof(dst));
+        if (n >= 0) {
+            if (static_cast<std::size_t>(n) == len) { err = 0; return true; }
+            err = EMSGSIZE;
+            return false;
+        }
+        if (errno == EINTR) continue;
+        err = errno;
+        return false;
+    }
+}
+
+ssize_t NlSocket::recv(std::vector<uint8_t>& buf, int& err) {
+    if (buf.size() < kMinRxBuf) buf.resize(kMinRxBuf);
+#ifdef KEEN_PBR3_TESTING
+    if (!injected_recv_.empty()) {
+        const RecvInjection inj = injected_recv_.front();
+        injected_recv_.pop_front();
+        if (inj.size < 0) {
+            err = -static_cast<int>(inj.size);
+            return -1;
+        }
+        if (inj.data != nullptr && static_cast<std::size_t>(inj.size) > buf.size()) {
+            buf.resize(static_cast<std::size_t>(inj.size));
+        }
+        if (inj.data != nullptr) {
+            std::memcpy(buf.data(), inj.data, static_cast<std::size_t>(inj.size));
+        }
+        err = 0;
+        return inj.size;
+    }
+#endif
+    for (;;) {
+        const ssize_t n = ::recv(fd_, buf.data(), buf.size(), MSG_TRUNC);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            err = errno;
+            return -1;
+        }
+        if (static_cast<std::size_t>(n) > buf.size()) {
+            buf.resize(static_cast<std::size_t>(n));
+            err = EMSGSIZE;
+            return -1;
+        }
+        err = 0;
+        return n;
+    }
+}
+
+int NlSocket::transact(const uint8_t* req, std::size_t len, uint32_t first_seq, uint32_t last_seq,
+                       int timeout_ms,
+                       const std::function<void(const MsgView&)>& on_msg,
+                       const std::function<void(uint32_t seq, int err)>& on_ack,
+                       const std::vector<uint32_t>* extra_error_seqs) {
+    if (timeout_ms <= 0) return ETIMEDOUT;
+    int err = 0;
+    const auto send_started = std::chrono::steady_clock::now();
+    const bool sent = send(req, len, err);
+    send_us_ += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+                                          std::chrono::steady_clock::now() - send_started)
+                                          .count());
+    if (!sent) return err;
+
+    const uint32_t count = last_seq - first_seq + 1;  // wrap-safe
+    std::vector<bool> acked(count, false);
+    uint32_t pending = count;
+    int first_error = 0;
+
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+
+    while (pending > 0) {
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= deadline) return first_error != 0 ? first_error : ETIMEDOUT;
+        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
+
+        pollfd pfd;
+        pfd.fd = fd_;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        const int pr = ::poll(&pfd, 1, static_cast<int>(remaining) + 1);
+        if (pr < 0) {
+            if (errno == EINTR) continue;
+            return errno;
+        }
+        if (pr == 0) continue;  // deadline re-checked at loop top
+
+        for (;;) {
+            const ssize_t n = recv(rx_, err);
+            if (n < 0) {
+                if (err == EAGAIN || err == EWOULDBLOCK) break;
+                // MSG_TRUNC consumes the datagram.  Retrying would silently
+                // lose an ACK or an NFQUEUE packet; surface the loss to the
+                // caller so it can fail closed/disable the listener.
+                if (err == EMSGSIZE) return err;
+                return err;
+            }
+            const bool well_formed = for_each_msg(
+                ByteView(rx_.data(), static_cast<std::size_t>(n)),
+                [&](const MsgView& m) {
+                const uint32_t idx = m.seq - first_seq;
+                if (idx >= count) {
+                    if (m.type == NLMSG_ERROR && extra_error_seqs != nullptr) {
+                        int e = 0;
+                        uint32_t orig = 0;
+                        if (std::find(extra_error_seqs->begin(), extra_error_seqs->end(),
+                                      m.seq) != extra_error_seqs->end()) {
+                            if (!parse_error(m, e, orig)) {
+                                if (first_error == 0) first_error = EPROTO;
+                            } else if (e != 0 && first_error == 0) {
+                                first_error = e;
+                            }
+                        }
+                    } else if (m.type != NLMSG_DONE && m.type != NLMSG_NOOP && on_msg) {
+                        // NFQUEUE packet messages can arrive while a config
+                        // transaction is waiting for its ACKs.
+                        on_msg(m);
+                    }
+                    return true;
+                }
+                if (m.type == NLMSG_ERROR) {
+                    int e = 0;
+                    uint32_t orig = 0;
+                    if (!parse_error(m, e, orig)) {
+                        if (!acked[idx]) {
+                            acked[idx] = true;
+                            --pending;
+                        }
+                        if (first_error == 0) first_error = EPROTO;
+                        if (on_ack) on_ack(m.seq, EPROTO);
+                        return true;
+                    }
+                    if (!acked[idx]) {
+                        acked[idx] = true;
+                        --pending;
+                    }
+                    if (e != 0 && first_error == 0) first_error = e;
+                    if (on_ack) on_ack(m.seq, e);
+                } else if (m.type == NLMSG_DONE) {
+                    // A dump request completes with DONE rather than an ACK.
+                    int e = 0;
+                    if (!parse_done_error(m, e)) e = EPROTO;
+                    if (!acked[idx]) {
+                        acked[idx] = true;
+                        --pending;
+                    }
+                    if (e != 0 && first_error == 0) first_error = e;
+                    if (on_ack) on_ack(m.seq, e);
+                } else if (on_msg) {
+                    on_msg(m);
+                }
+                return true;
+            });
+            if (!well_formed) return first_error != 0 ? first_error : EPROTO;
+            // Drain only the datagram just received before checking the
+            // deadline.  This preserves every recoverable NFQUEUE packet ID
+            // in that datagram while preventing a continuous stream of
+            // unrelated messages from starving the transaction forever.
+            if (pending == 0) break;
+            if (std::chrono::steady_clock::now() >= deadline) {
+                return first_error != 0 ? first_error : ETIMEDOUT;
+            }
+        }
+    }
+    return first_error;
+}
+
+} // namespace keen_pbr3::nfnl

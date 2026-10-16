@@ -1,13 +1,10 @@
 #!/bin/sh
 
-cat <<'EOF'
+cat <<'EOF2'
 keen-pbr has been removed.
-dnsmasq fallback config from keen-pbr is no longer available.
-If upstream DNS servers are not configured in your system dnsmasq settings,
-internet access may stop working.
-Configure upstream DNS servers manually if they are not set yet.
-
-Hint: add "server=8.8.8.8" (or other DNS servers) to the /opt/etc/dnsmasq.conf file.
-EOF
+Its entry was removed from /opt/etc/dnsmasq.conf. If dnsmasq had no upstream DNS
+server left, the fallback servers were added there in a block marked
+"keen-pbr fallback upstream": replace them with your own if you like.
+EOF2
 
 exit 0

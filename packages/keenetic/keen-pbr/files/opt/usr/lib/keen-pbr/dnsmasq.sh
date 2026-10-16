@@ -1,60 +1,57 @@
 #!/bin/sh
 
-set -e
+# dnsmasq conf-script entry point (dnsmasq runs it at its own start).
+# dnsmasq-config-entry runs `keen-pbr generate-resolver-config dnsmasq`, which
+# reads config.json and prints keen-pbr's config, or the servers of
+# dnsmasq-fallback.conf while management is off.  If the binary is missing or
+# fails, the fallback servers are printed here, so dnsmasq always gets an answer.
+# All other commands are no-ops kept for old installs.
 
-KEEN_PBR_BIN="/opt/usr/bin/keen-pbr"
-
-log_message() {
-    local level="$1"
-    local message="$2"
-
-    logger -s -t "keen-pbr" -p "user.${level}" "$message"
-}
+KEEN_PBR_BIN="${KEEN_PBR_BIN:-/opt/usr/bin/keen-pbr}"
+FALLBACK_CONF="${FALLBACK_CONF:-/opt/etc/keen-pbr/dnsmasq-fallback.conf}"
 
 log_info() {
-    log_message info "$1"
+    logger -s -t "keen-pbr" -p "user.info" "$1"
 }
 
-emit_dnsmasq_config_entry() {
-    "$KEEN_PBR_BIN" generate-resolver-config dnsmasq
-    log_info "Produced dnsmasq configuration from keen-pbr lifecycle state"
+emit_fallback() {
+    if [ -f "$FALLBACK_CONF" ]; then
+        grep '^[[:space:]]*server=' "$FALLBACK_CONF" || true
+    fi
 }
 
-restart_dnsmasq() {
-    if [ -x /opt/etc/init.d/S56dnsmasq ]; then
-        /opt/etc/init.d/S56dnsmasq restart 2>/dev/null || true
+emit_config_entry() {
+    if [ -x "$KEEN_PBR_BIN" ] && "$KEEN_PBR_BIN" generate-resolver-config dnsmasq; then
         return 0
     fi
-
-    return 1
-}
-
-print_help() {
-    cat <<EOF
-Usage: $0 <command>
-
-Commands:
-  dnsmasq-config-entry   Print managed or fallback config based on daemon lifecycle state.
-  activate               Restart dnsmasq; compatibility alias for reload.
-  deactivate             Restart dnsmasq; compatibility alias for reload.
-  restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
-  reload                 Restart dnsmasq; used by the system resolver hook.
-  help                   Show this help text.
-EOF
+    log_info "keen-pbr did not produce a dnsmasq config; using the fallback upstream servers"
+    emit_fallback
 }
 
 case "$1" in
     dnsmasq-config-entry)
-        emit_dnsmasq_config_entry
+        emit_config_entry
         ;;
-    activate|deactivate|restart-dnsmasq|reload)
-        restart_dnsmasq
+    activate|deactivate|reload|restart-dnsmasq|installed|install-defaults|prepare|uninstall-persistent)
+        # Silently ignore: kept for old installs
+        exit 0
         ;;
     help|-h|--help)
-        print_help
+        cat <<EOT
+Usage: $0 <command>
+
+Commands:
+  dnsmasq-config-entry   Print keen-pbr's dnsmasq config, or the servers from
+                         dnsmasq-fallback.conf while keen-pbr management is off.
+  help                   Show this help text.
+
+The commands activate, deactivate, reload, restart-dnsmasq, installed,
+install-defaults, prepare and uninstall-persistent do nothing and are kept for
+old installs.
+EOT
         ;;
     *)
-        print_help >&2
+        echo "Unknown command. Use 'help' for usage information." >&2
         exit 1
         ;;
 esac

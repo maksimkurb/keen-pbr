@@ -1,5 +1,21 @@
 # Agent Notes
 
+## Motto: protect the flash, spare the RAM
+
+keen-pbr runs on routers with cheap flash storage that survives very few
+writes (low TBW) and little RAM. This applies to this project and to all
+embedded work:
+
+1. Never write to disk without real necessity. Write list updates to storage
+   only when their content changed; keep them in RAM (`/tmp`) where possible.
+2. When no list and no config changed, keen-pbr performs zero disk writes: no
+   state files, stamps, rewrites of unchanged files or logs to flash.
+3. Do not materialize generated data in temporary files, not even in the
+   `/tmp` ramdisk: the file and the program reading it each hold a copy, so
+   RAM is used twice.
+4. Stream generated configuration in real time instead (for example dnsmasq
+   `conf-script`). CPU cycles are cheap; flash wear and RAM are not.
+
 ## Build
 
 Always build using the root `Makefile`:
@@ -8,7 +24,26 @@ Always build using the root `Makefile`:
 make
 ```
 
-This runs `cmake -S . -B cmake-build ...` followed by `cmake --build cmake-build`.
+This runs `cmake -S . -B cmake-build-gcc ...` followed by
+`cmake --build cmake-build-gcc`.
+
+### Leave CPUs free
+
+Never compile on all CPUs: a full-width build freezes the user's machine,
+especially when it runs in the background. Keep 1 CPU free on machines with
+6 or fewer CPUs, and 2 CPUs free on machines with more:
+
+```sh
+JOBS=$(n=$(nproc); if [ "$n" -le 6 ]; then echo $((n > 1 ? n - 1 : 1)); else echo $((n - 2)); fi)
+make -j"$JOBS" BUILD_JOBS="$JOBS" <target>
+```
+
+- Always pass both `-j` (make's own jobs) and `BUILD_JOBS` (forwarded to
+  `cmake --build --parallel`; it defaults to all CPUs).
+- When calling CMake directly, always give an explicit count:
+  `cmake --build <dir> --parallel "$JOBS"`. A bare `--parallel` (or `-j`
+  without a number) means unlimited jobs.
+- The same limit applies to subagents; include it in their instructions.
 
 ## C++
 

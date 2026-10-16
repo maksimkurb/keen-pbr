@@ -124,13 +124,14 @@ TEST_CASE("http client builds JSON POST transport request") {
 
 TEST_CASE("url tester uses discard transport probes and retry policy") {
     auto transport = std::make_shared<FakeTransport>();
-    transport->response = {204, {}, {}, std::chrono::milliseconds(12)};
+    transport->response = {204, {}, {}, std::chrono::microseconds(12345)};
     keen_pbr3::URLTester tester(transport);
     keen_pbr3::RetryConfig retry;
     retry.attempts = 1;
     const auto result = tester.test("https://example.test/health", 77, 456, retry);
     CHECK(result.success);
     CHECK(result.latency_ms == 12);
+    CHECK(result.latency_us.value_or(0) == 12345);
     CHECK(transport->request.discard_body);
     CHECK(transport->request.timeout_ms == 456);
     CHECK(transport->request.fwmark == 77);
