@@ -185,6 +185,13 @@ Config parse_config(const std::string& json_str);
 // upgraded JSON text; nullopt when nothing changes or the text is not JSON.
 // Pure: callers decide whether to persist it, after parse+validate succeeded.
 std::optional<std::string> upgraded_config_text(const std::string& json_str);
+// Runs every load-time migration on the config text, stamps the current
+// version and, when `resolver_integration` is set, stores it in
+// dns.resolver_integration.  nullopt when the text is not a JSON object or its
+// version cannot be migrated (malformed, or newer than this build).
+std::optional<std::string> versioned_config_text(
+    const std::string& json_str,
+    std::optional<ResolverIntegrationMode> resolver_integration);
 Config parse_config(std::istream& json_stream);
 void validate_config(const Config& config,
                      ConfigValidationMode mode = ConfigValidationMode::Runtime,

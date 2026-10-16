@@ -41,6 +41,7 @@ Commands:
   generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
   dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
   dnsmasq remove <selector>          Restart one dnsmasq instance without keen-pbr's generated config (OpenWrt: also return the moved servers)
+  dnsmasq finish-upgrade <keep|off>  After an upgrade from 3.3.x: keep dnsmasq management on or turn it off, and stamp the config version
   hash-password [--update]           Generate an authentication password hash; --update writes config.json
 ```
 
@@ -98,6 +99,7 @@ ip6tables -t raw -S
 | `hash-password [--update]` | Создать хеш пароля для входа в веб-интерфейс и API. |
 | `dnsmasq detect [--json]` | Показать экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr. |
 | `dnsmasq remove <selector>` | Перезапустить один экземпляр dnsmasq без конфигурации keen-pbr. |
+| `dnsmasq finish-upgrade <keep\|off>` | После обновления с 3.3.x оставить управление dnsmasq (`keep`) или выключить его (`off`). Записывает в конфиг поле `version`. Затем перезапустите сервис. |
 | `test-routing <ip-or-domain> [параметры пакета]` | Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. Проверку выполняет служба, так же как проверку маршрутизации в веб-интерфейсе. |
 
 ### `generate-resolver-config dnsmasq`

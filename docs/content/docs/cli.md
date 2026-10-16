@@ -41,6 +41,7 @@ Commands:
   generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
   dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
   dnsmasq remove <selector>          Restart one dnsmasq instance without keen-pbr's generated config (OpenWrt: also return the moved servers)
+  dnsmasq finish-upgrade <keep|off>  After an upgrade from 3.3.x: keep dnsmasq management on or turn it off, and stamp the config version
   hash-password [--update]           Generate an authentication password hash; --update writes config.json
 ```
 
@@ -98,6 +99,7 @@ ip6tables -t raw -S
 | `hash-password [--update]` | Create a password hash for logging in to the web UI and API. |
 | `dnsmasq detect [--json]` | List dnsmasq instances, their DNS endpoints and the instance keen-pbr uses. |
 | `dnsmasq remove <selector>` | Restart one dnsmasq instance without keen-pbr's config. |
+| `dnsmasq finish-upgrade <keep\|off>` | After an upgrade from 3.3.x, keep dnsmasq management on (`keep`) or turn it off (`off`). Writes the `version` field to the config. Restart the service afterwards. |
 | `test-routing <ip-or-domain> [packet options]` | Compare expected and actual routing for the given IP or domain. The daemon runs the check, the same way as the routing test in the web UI. |
 
 ### `generate-resolver-config dnsmasq`
