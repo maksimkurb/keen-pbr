@@ -451,7 +451,7 @@ weight: 6
     // Какой экземпляр dnsmasq использовать: "uci:<секция>" (OpenWrt),
     // "entware:default" (Keenetic) или "systemd:<юнит>.service" (Debian).
     // По умолчанию: пусто, экземпляр выбирается автоматически. Заполняйте,
-    // только если `keen-pbr dnsmasq detect` нашёл несколько экземпляров.
+    // только если `keen-pbr resolver dnsmasq detect` нашёл несколько экземпляров.
     "dnsmasq_instance": "uci:cfg01411c",
 
     // Все поддерживаемые типы DNS-серверов.

@@ -404,7 +404,10 @@ DnsmasqDetection DnsmasqDetector::detect(const DnsmasqDetectOptions& options) co
             const auto& in = det.instances[i];
             if (in.hook.dropin_state == DropinState::Current) {
                 det.warnings.push_back("keen-pbr drop-in is also installed in " + in.selector.str() +
-                                       "; remove it with: keen-pbr dnsmasq remove " + in.selector.str());
+                                       "; delete " +
+                                       (in.hook.dropin_file.empty() ? std::string("it")
+                                                                    : in.hook.dropin_file) +
+                                       " and restart that dnsmasq instance");
             }
         }
 

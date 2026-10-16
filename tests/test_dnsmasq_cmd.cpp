@@ -156,9 +156,7 @@ TEST_CASE("dnsmasq_cmd: JSON keys") {
 TEST_CASE("dnsmasq_cmd: argument validation") {
     CHECK(run_dnsmasq_command({}, "/nonexistent.json", "/h.sh") == 64);
     CHECK(run_dnsmasq_command({"bogus"}, "/nonexistent.json", "/h.sh") == 64);
-    CHECK(run_dnsmasq_command({"remove"}, "/nonexistent.json", "/h.sh") == 64);
-    CHECK(run_dnsmasq_command({"remove", "uci:a", "extra"}, "/nonexistent.json", "/h.sh") == 64);
-    CHECK(run_dnsmasq_command({"remove", "bad selector"}, "/nonexistent.json", "/h.sh") == 64);
+    CHECK(run_dnsmasq_command({"remove", "uci:a"}, "/nonexistent.json", "/h.sh") == 64);
     CHECK(run_dnsmasq_command({"detect", "--bogus"}, "/nonexistent.json", "/h.sh") == 64);
 }
 

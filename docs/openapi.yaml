@@ -1467,7 +1467,7 @@ components:
           description: >
             Selector of the dnsmasq instance keen-pbr manages: `uci:<section>` (OpenWrt),
             `entware:default` (Keenetic), `systemd:<unit>.service` (Debian). Empty or absent
-            means automatic selection. Needed only when `keen-pbr dnsmasq detect` reports
+            means automatic selection. Needed only when `keen-pbr resolver dnsmasq detect` reports
             DNSMASQ_INSTANCE_AMBIGUOUS.
           example: "uci:cfg01411c"
         dns_test_server:

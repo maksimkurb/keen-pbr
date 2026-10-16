@@ -1017,7 +1017,7 @@ export const ruTranslation = {
           "Пример: Использовать DNS 8.8.8.8 по умолчанию, но для разрешения доменов *.corp.acme использовать DNS 10.10.10.10",
         dnsmasqInstanceLabel: "Экземпляр dnsmasq",
         dnsmasqInstanceHint:
-          "Оставьте пустым для автоматического выбора. Заполняйте, только если keen-pbr сообщает, что найдено несколько экземпляров dnsmasq; список покажет команда «keen-pbr dnsmasq detect» на роутере.",
+          "Оставьте пустым для автоматического выбора. Заполняйте, только если keen-pbr сообщает, что найдено несколько экземпляров dnsmasq; список покажет команда «keen-pbr resolver dnsmasq detect» на роутере.",
         dnsmasqInstancePlaceholder: "автоматически",
       },
       general: {

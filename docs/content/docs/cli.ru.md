@@ -38,9 +38,8 @@ Commands:
       --src-port <port>              Packet source port
       --dest-port <port>             Packet destination port
       --dscp <0-63>                  Packet DSCP (default: 0)
-  generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
-  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
-  dnsmasq remove <selector>          Restart one dnsmasq instance without keen-pbr's generated config (OpenWrt: also return the moved servers)
+  resolver dnsmasq print-config      Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
+  resolver dnsmasq detect [--json]   List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
   hash-password [--update]           Generate an authentication password hash; --update writes config.json
 ```
 
@@ -94,20 +93,19 @@ ip6tables -t raw -S
 | `service` | Запустить сервис маршрутизации на переднем плане. |
 | `status` | Показать состояние службы, outbound, маршрутизации, firewall и проверок ядра, затем список проблем, как на главной странице веб-интерфейса, и выйти. Код выхода 1, если какая-то проверка не прошла или есть проблема уровня «ошибка». |
 | `download [--reload]` | Загрузить все списки с URL в кэш и выйти. С `--reload` сервис сразу применяет списки, которые изменились. |
-| `generate-resolver-config dnsmasq` | Вывести конфигурацию dnsmasq для отдельных DNS-серверов списков. |
+| `resolver dnsmasq print-config` | Вывести конфигурацию dnsmasq для отдельных DNS-серверов списков. |
 | `hash-password [--update]` | Создать хеш пароля для входа в веб-интерфейс и API. |
-| `dnsmasq detect [--json]` | Показать экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr. |
-| `dnsmasq remove <selector>` | Перезапустить один экземпляр dnsmasq без конфигурации keen-pbr. |
+| `resolver dnsmasq detect [--json]` | Показать экземпляры dnsmasq, их DNS-адреса и экземпляр, который использует keen-pbr. |
 | `test-routing <ip-or-domain> [параметры пакета]` | Сравнить ожидаемую и фактическую маршрутизацию для данного IP или домена. Проверку выполняет служба, так же как проверку маршрутизации в веб-интерфейсе. |
 
-### `generate-resolver-config dnsmasq`
+### `resolver dnsmasq print-config`
 
 Когда включена `dns.resolver_integration: "dnsmasq"`, эта команда печатает конфигурацию dnsmasq, которую собрал keen-pbr. Списки берутся только из кэша, ничего не скачивается. В ней соответствия «домен → сервер», исключения защиты от {{< term "DNS rebinding" >}} и резервные (`fallback`) серверы.
 
 **Использование:**
 
 ```bash
-keen-pbr generate-resolver-config dnsmasq
+keen-pbr resolver dnsmasq print-config
 ```
 
 **Вывод:** Директивы конфигурации dnsmasq.
@@ -141,16 +139,15 @@ keen-pbr hash-password --update
 
 Без `--update` команда печатает `Password hash: <хеш>`, который вы вставляете в `api.authentication.password_hash` сами. С `--update` она записывает в `config.json` `api.enabled: true`, `api.authentication.enabled: true` и хеш. После этого перезапустите сервис: `Restart the keen-pbr service for authentication changes to take effect.`
 
-### `dnsmasq detect` и `remove` {#dnsmasq-detect-and-remove}
+### `resolver dnsmasq detect` {#resolver-dnsmasq-detect}
 
-Просмотр и очистка интеграции с dnsmasq без демона. Ни одной из команд не нужен управляющий сокет.
+Просмотр интеграции с dnsmasq без демона. Команде не нужен управляющий сокет.
 
 ```bash
-keen-pbr dnsmasq detect [--json]
-keen-pbr dnsmasq remove <selector>
+keen-pbr resolver dnsmasq detect [--json]
 ```
 
-**`detect`** выводит все экземпляры dnsmasq, о которых сообщает hook-скрипт платформы: запущен ли, DNS-адрес и чем он подтверждён, слушающие сокеты, установлен ли {{< term "drop-in" >}} keen-pbr и какую конфигурацию загрузил dnsmasq, а также проблемы. В последней строке указано, какой экземпляр выбрал keen-pbr и как (`explicit`, `adopted` или `automatic`), либо почему выбрать не удалось.
+Команда выводит все экземпляры dnsmasq, о которых сообщает hook-скрипт платформы: запущен ли, DNS-адрес и чем он подтверждён, слушающие сокеты, установлен ли {{< term "drop-in" >}} keen-pbr и какую конфигурацию загрузил dnsmasq, а также проблемы. В последней строке указано, какой экземпляр выбрал keen-pbr и как (`explicit`, `adopted` или `automatic`), либо почему выбрать не удалось.
 
 ```text
 dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)
@@ -170,11 +167,6 @@ Selection: uci:cfg01411c (adopted)
 - `--json` печатает те же данные одним JSON-объектом (`selected`, `selection`, `error_code`, `message`, `warnings`, `instances[]`).
 - Код возврата `0`, если экземпляр выбран и проблем нет, иначе `1`.
 - Если выбор неоднозначен, в конце выводится подсказка задать `dns.dnsmasq_instance`.
-
-**`remove <selector>`** перезапускает один экземпляр, чтобы он перестал использовать конфигурацию keen-pbr; на OpenWrt ещё возвращает убранный список серверов. Команда нужна, если после отключения интеграции `detect` показывает экземпляр, который всё ещё работает с конфигурацией keen-pbr.
-
-- Нужны права root. Код возврата `64`, если селектор не указан или некорректен.
-- Если интеграция для этого экземпляра всё ещё включена, команда напечатает примечание: демон может снова применить свою конфигурацию к dnsmasq при следующей синхронизации. Сначала отключите интеграцию.
 
 ## Сигналы
 

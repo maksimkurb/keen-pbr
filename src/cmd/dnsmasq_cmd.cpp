@@ -1,11 +1,7 @@
 #include "dnsmasq_cmd.hpp"
 
 #include "../config/config.hpp"
-#include "../config/dnsmasq_selector.hpp"
 #include "../daemon/dnsmasq_detector.hpp"
-#include "../util/safe_exec.hpp"
-
-#include <unistd.h>
 
 #include <fstream>
 #include <iostream>
@@ -22,17 +18,8 @@ std::string listener_text(const SocketListener& l) {
     return std::string(proto) + " " + l.local.str();
 }
 
-std::string trim(std::string s) {
-    const char* ws = " \t\r\n";
-    const auto b = s.find_first_not_of(ws);
-    if (b == std::string::npos) return {};
-    const auto e = s.find_last_not_of(ws);
-    return s.substr(b, e - b + 1);
-}
-
 void print_usage_to_stderr() {
-    std::cerr << "Usage: keen-pbr dnsmasq detect [--json]\n"
-                 "       keen-pbr dnsmasq remove <selector>\n";
+    std::cerr << "Usage: keen-pbr resolver dnsmasq detect [--json]\n";
 }
 
 std::optional<Config> load_config_or_warn(const std::string& config_path, bool warn) {
@@ -70,41 +57,6 @@ int run_detect(const std::vector<std::string>& args, const std::string& config_p
     }
     std::cout.flush();
     return dnsmasq_detection_exit_code(detection);
-}
-
-int run_remove(const std::vector<std::string>& args, const std::string& config_path,
-               const std::string& hook_path) {
-    if (args.size() != 2) {
-        print_usage_to_stderr();
-        return 64;
-    }
-    const auto selector = parse_dnsmasq_selector(args[1]);
-    if (!selector) {
-        std::cerr << "invalid selector: " << args[1] << '\n';
-        return 64;
-    }
-    if (::geteuid() != 0) {
-        std::cerr << "keen-pbr dnsmasq remove must run as root\n";
-        return 1;
-    }
-    if (hook_path.empty()) {
-        std::cerr << "no dnsmasq hook is configured in this build\n";
-        return 1;
-    }
-    const auto r = safe_exec_capture({hook_path, "remove", selector->str()}, false, 2048, true);
-    const auto out = trim(r.stdout_output);
-    if (!out.empty()) std::cout << out << '\n';
-
-    const auto config = load_config_or_warn(config_path, false);
-    if (config && effective_resolver_integration(*config) == ResolverIntegrationMode::DNSMASQ) {
-        const auto configured = configured_dnsmasq_selector(*config);
-        if (!configured || *configured == selector->str()) {
-            std::cout << "note: dns.resolver_integration is dnsmasq; the daemon may "
-                         "apply its config to dnsmasq again on its next sync\n";
-        }
-    }
-    std::cout.flush();
-    return r.exit_code < 0 ? 1 : r.exit_code;
 }
 
 } // namespace
@@ -229,7 +181,6 @@ int run_dnsmasq_command(const std::vector<std::string>& args, const std::string&
                         const std::string& hook_path) {
     try {
         if (!args.empty() && args[0] == "detect") return run_detect(args, config_path, hook_path);
-        if (!args.empty() && args[0] == "remove") return run_remove(args, config_path, hook_path);
         print_usage_to_stderr();
         return 64;
     } catch (const std::exception& e) {

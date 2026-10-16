@@ -756,8 +756,9 @@ std::string DnsmasqManager::remove_from_dnsmasq(std::optional<std::string> known
                     joined += (joined.empty() ? "" : ", ") + item;
                 }
                 Logger::instance().warn(
-                    "dnsmasq management disabled; keen-pbr is installed in {}; restart "
-                    "them or run keen-pbr dnsmasq remove <selector>", joined);
+                    "dnsmasq management disabled; keen-pbr drop-in is installed in {}; "
+                    "delete the drop-in from the instances keen-pbr should not use and "
+                    "restart them, or set dns.dnsmasq_instance", joined);
             }
         }
     }

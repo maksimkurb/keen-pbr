@@ -74,8 +74,9 @@ struct CliOptions {
   bool download_reload{false};
   bool resolver_config_hash{false};
   bool run_status{false};
-  bool run_dnsmasq{false};
-  std::vector<std::string> dnsmasq_args;
+  bool run_resolver_detect{false};
+  bool resolver_usage_error{false};
+  std::vector<std::string> detect_args;
   bool run_test_routing{false};
   std::string test_routing_target;
   // Optional packet fields for test-routing, in the API request shape.
@@ -124,11 +125,10 @@ void print_usage(const char *argv0) {
             << "      --src-port <port>              Packet source port\n"
             << "      --dest-port <port>             Packet destination port\n"
             << "      --dscp <0-63>                  Packet DSCP (default: 0)\n"
-            << "  generate-resolver-config dnsmasq   Print the dnsmasq config generated "
+            << "  resolver dnsmasq print-config      Print the dnsmasq config generated "
                "from dns.rules/dns.fallback (cached lists only; used as "
                "dnsmasq conf-script, always exits 0)\n"
-            << "  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses\n"
-            << "  dnsmasq remove <selector>          Restart one dnsmasq instance without keen-pbr's generated config (OpenWrt: also return the moved servers)\n"
+            << "  resolver dnsmasq detect [--json]   List dnsmasq instances, their DNS endpoints and which one keen-pbr uses\n"
             << "  hash-password [--update]           Generate an authentication password hash; --update writes config.json\n";
 }
 
@@ -197,14 +197,33 @@ CliOptions parse_args(int argc, char *argv[]) {
     } else if (std::strcmp(argv[i], "status") == 0) {
       opts.run_status = true;
     } else if (std::strcmp(argv[i], "generate-resolver-config") == 0) {
+      // Old spelling of `resolver dnsmasq print-config`. Installed dnsmasq
+      // drop-ins call this form (conf-script=... generate-resolver-config
+      // dnsmasq), so it must keep working.
       // A missing argument must not fail (dnsmasq conf-script): it is
       // reported as a comment line later.
       if (i + 1 < argc) opts.resolver_type = argv[++i];
       opts.generate_resolver_config = true;
-    } else if (std::strcmp(argv[i], "dnsmasq") == 0) {
-      opts.run_dnsmasq = true;
-      for (++i; i < argc; ++i) opts.dnsmasq_args.emplace_back(argv[i]);
-      break;
+    } else if (std::strcmp(argv[i], "resolver") == 0) {
+      // resolver dnsmasq <print-config|detect [--json]>
+      if (i + 2 >= argc || std::strcmp(argv[i + 1], "dnsmasq") != 0) {
+        opts.resolver_usage_error = true;
+        break;
+      }
+      const char *sub = argv[i + 2];
+      if (std::strcmp(sub, "print-config") == 0) {
+        opts.resolver_type = argv[i + 1];
+        opts.generate_resolver_config = true;
+        i += 2;
+      } else if (std::strcmp(sub, "detect") == 0) {
+        opts.run_resolver_detect = true;
+        opts.detect_args.emplace_back("detect");
+        for (i += 3; i < argc; ++i) opts.detect_args.emplace_back(argv[i]);
+        break;
+      } else {
+        opts.resolver_usage_error = true;
+        break;
+      }
     } else if (std::strcmp(argv[i], "download") == 0) {
       opts.download_lists = true;
     } else if (std::strcmp(argv[i], "--reload") == 0) {
@@ -414,7 +433,8 @@ int main(int argc, char *argv[]) {
 
     if (!opts.download_lists && !opts.generate_resolver_config &&
         !opts.resolver_config_hash && !opts.run_service && !opts.run_status &&
-        !opts.run_test_routing && !opts.hash_password && !opts.run_dnsmasq) {
+        !opts.run_test_routing && !opts.hash_password &&
+        !opts.run_resolver_detect && !opts.resolver_usage_error) {
       print_usage(argv[0]);
       return 0;
     }
@@ -447,8 +467,14 @@ int main(int argc, char *argv[]) {
       return 0;
     }
 
-    if (opts.run_dnsmasq) {
-      return keen_pbr3::run_dnsmasq_command(opts.dnsmasq_args, opts.config_path,
+    if (opts.resolver_usage_error) {
+      std::cerr << "Usage: keen-pbr resolver dnsmasq print-config\n"
+                   "       keen-pbr resolver dnsmasq detect [--json]\n";
+      return 64;
+    }
+
+    if (opts.run_resolver_detect) {
+      return keen_pbr3::run_dnsmasq_command(opts.detect_args, opts.config_path,
                                             KEEN_PBR_DNSMASQ_HOOK);
     }
 

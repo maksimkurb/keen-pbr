@@ -38,9 +38,8 @@ Commands:
       --src-port <port>              Packet source port
       --dest-port <port>             Packet destination port
       --dscp <0-63>                  Packet DSCP (default: 0)
-  generate-resolver-config dnsmasq   Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
-  dnsmasq detect [--json]            List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
-  dnsmasq remove <selector>          Restart one dnsmasq instance without keen-pbr's generated config (OpenWrt: also return the moved servers)
+  resolver dnsmasq print-config      Print the dnsmasq config generated from dns.rules/dns.fallback (cached lists only; used as dnsmasq conf-script, always exits 0)
+  resolver dnsmasq detect [--json]   List dnsmasq instances, their DNS endpoints and which one keen-pbr uses
   hash-password [--update]           Generate an authentication password hash; --update writes config.json
 ```
 
@@ -94,20 +93,19 @@ ip6tables -t raw -S
 | `service` | Start the routing service in the foreground. |
 | `status` | Show service, outbound, routing, firewall and kernel health, then the issue list the web UI overview shows, and exit. Exits with 1 when any check failed or any issue is an error. |
 | `download [--reload]` | Download all URL-backed lists into the cache and exit. With `--reload` the service applies the lists that changed right away. |
-| `generate-resolver-config dnsmasq` | Print the dnsmasq configuration for per-list DNS servers. |
+| `resolver dnsmasq print-config` | Print the dnsmasq configuration for per-list DNS servers. |
 | `hash-password [--update]` | Create a password hash for logging in to the web UI and API. |
-| `dnsmasq detect [--json]` | List dnsmasq instances, their DNS endpoints and the instance keen-pbr uses. |
-| `dnsmasq remove <selector>` | Restart one dnsmasq instance without keen-pbr's config. |
+| `resolver dnsmasq detect [--json]` | List dnsmasq instances, their DNS endpoints and the instance keen-pbr uses. |
 | `test-routing <ip-or-domain> [packet options]` | Compare expected and actual routing for the given IP or domain. The daemon runs the check, the same way as the routing test in the web UI. |
 
-### `generate-resolver-config dnsmasq`
+### `resolver dnsmasq print-config`
 
 When `dns.resolver_integration: "dnsmasq"` is enabled, this command prints the dnsmasq configuration built by keen-pbr. Lists are taken from the cache only; nothing is downloaded. It contains domain-to-server mappings, {{< term "DNS rebinding" >}} protection exceptions, and `fallback` servers.
 
 **Usage:**
 
 ```bash
-keen-pbr generate-resolver-config dnsmasq
+keen-pbr resolver dnsmasq print-config
 ```
 
 **Output:** Dnsmasq configuration directives.
@@ -141,16 +139,15 @@ keen-pbr hash-password --update
 
 Without `--update` the command prints `Password hash: <hash>`, which you paste into `api.authentication.password_hash` yourself. With `--update` it writes `api.enabled: true`, `api.authentication.enabled: true` and the hash into `config.json`. Then restart the service: `Restart the keen-pbr service for authentication changes to take effect.`
 
-### `dnsmasq detect` and `remove` {#dnsmasq-detect-and-remove}
+### `resolver dnsmasq detect` {#resolver-dnsmasq-detect}
 
-Inspect and clean up the dnsmasq integration without the daemon. Neither command needs the control socket.
+Inspect the dnsmasq integration without the daemon. The command does not need the control socket.
 
 ```bash
-keen-pbr dnsmasq detect [--json]
-keen-pbr dnsmasq remove <selector>
+keen-pbr resolver dnsmasq detect [--json]
 ```
 
-**`detect`** lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr's {{< term "drop-in" >}} is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (`explicit`, `adopted` or `automatic`), or why it could not choose.
+The command lists every dnsmasq instance the platform hook reports: whether it runs, its DNS endpoint and how it was confirmed, listening sockets, whether keen-pbr's {{< term "drop-in" >}} is installed and which configuration it loaded, and any problem. The last line tells which instance keen-pbr selected and how (`explicit`, `adopted` or `automatic`), or why it could not choose.
 
 ```text
 dnsmasq hook: /usr/lib/keen-pbr/dnsmasq-hook.sh (platform openwrt, binary /usr/sbin/dnsmasq)
@@ -170,11 +167,6 @@ Selection: uci:cfg01411c (adopted)
 - `--json` prints the same data as one JSON object (`selected`, `selection`, `error_code`, `message`, `warnings`, `instances[]`).
 - Exit code `0` when an instance is selected and has no problem, `1` otherwise.
 - If the choice is ambiguous, the output ends with a hint to set `dns.dnsmasq_instance`.
-
-**`remove <selector>`** restarts one instance so that it stops using keen-pbr's config; on OpenWrt it also returns the server list moved aside. Use it when `detect` shows an instance that still runs keen-pbr's config after you switched the integration off.
-
-- Must run as root. Exit code `64` for a missing or invalid selector.
-- If the integration is still enabled for this instance, the command prints a note: the daemon may apply its config to dnsmasq again on its next sync. Disable the integration first.
 
 ## Signals
 

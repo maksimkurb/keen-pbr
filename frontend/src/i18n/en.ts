@@ -992,7 +992,7 @@ export const enTranslation = {
           "Example: Use DNS 8.8.8.8 by default, but resolve *.corp.acme domains using DNS 10.10.10.10.",
         dnsmasqInstanceLabel: "dnsmasq instance",
         dnsmasqInstanceHint:
-          'Leave empty to select automatically. Set it only if keen-pbr reports that several dnsmasq instances were found; run "keen-pbr dnsmasq detect" on the router to list them.',
+          'Leave empty to select automatically. Set it only if keen-pbr reports that several dnsmasq instances were found; run "keen-pbr resolver dnsmasq detect" on the router to list them.',
         dnsmasqInstancePlaceholder: "automatic",
       },
       general: {

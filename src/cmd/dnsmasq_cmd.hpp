@@ -9,18 +9,19 @@
 
 namespace keen_pbr3 {
 
-// Returns the process exit code. Never throws.
+// `keen-pbr resolver dnsmasq <args>` (args start at the subcommand, i.e.
+// "detect"). Returns the process exit code. Never throws.
 int run_dnsmasq_command(const std::vector<std::string>& args,
                         const std::string& config_path,
                         const std::string& hook_path);
 
-// `dnsmasq detect` text layout (SPEC §15.3). Warnings are not included
+// `resolver dnsmasq detect` text layout (SPEC §15.3). Warnings are not included
 // ("warning: ..." lines are part of the text, after the instance list).
 std::string format_dnsmasq_detection_text(const DnsmasqDetection& detection,
                                           const std::string& hook_path,
                                           const std::string& config_path);
 
-// `dnsmasq detect --json` object.
+// `resolver dnsmasq detect --json` object.
 nlohmann::json format_dnsmasq_detection_json(const DnsmasqDetection& detection);
 
 // 0 when an instance is selected and its problem is None, 1 otherwise.
