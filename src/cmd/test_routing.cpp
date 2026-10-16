@@ -9,6 +9,7 @@
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../util/format_compat.hpp"
+#include "../util/ipv6_support.hpp"
 #include "../util/firewall_backend_utils.hpp"
 #include "../util/string_compat.hpp"
 
@@ -759,10 +760,12 @@ TestRoutingResult compute_test_routing(const Config& config,
                                         const TestRoutingCriteria& packet,
                                         const std::vector<RuleState>* realized_rule_states,
                                         SetWriteEvidenceLookup set_write_evidence_lookup,
-                                        const RoutingDnsResolver* dns_resolver) {
+                                        const RoutingDnsResolver* dns_resolver,
+                                        std::optional<bool> ipv6_enabled) {
     TestRoutingResult result;
     result.target = target;
     result.is_domain = !is_ip_address(target);
+    result.ipv6_enabled = ipv6_enabled.value_or(resolve_ipv6_support(config).enabled);
 
     const auto lookups = build_all_lookups(config, cache);
 
@@ -777,6 +780,14 @@ TestRoutingResult compute_test_routing(const Config& config,
         result.resolved_ips = ips;
     } else {
         ips.push_back(target);
+    }
+
+    // With IPv6 off there are no IPv6 sets to look at, so those addresses are
+    // listed in resolved_ips but never evaluated.
+    std::vector<std::string> eval_ips;
+    eval_ips.reserve(ips.size());
+    for (const auto& ip : ips) {
+        if (result.ipv6_enabled || is_ipv4_address(ip)) eval_ips.push_back(ip);
     }
 
     const bool have_realized_rules = realized_rule_states != nullptr;
@@ -832,9 +843,9 @@ TestRoutingResult compute_test_routing(const Config& config,
         result.rule_diagnostics.push_back(std::move(diag));
     }
 
-    std::vector<PerIpRoutingResult> per_ip_results(ips.size());
+    std::vector<PerIpRoutingResult> per_ip_results(eval_ips.size());
     const auto check_ip = [&](size_t ip_index) {
-        const auto& ip = ips[ip_index];
+        const auto& ip = eval_ips[ip_index];
         auto& per_ip = per_ip_results[ip_index];
 
         per_ip.entry.ip = ip;
@@ -904,7 +915,7 @@ TestRoutingResult compute_test_routing(const Config& config,
                           per_ip.entry.expected_outbound == per_ip.entry.actual_outbound;
     };
 
-    const size_t worker_count = std::min(kTestRoutingMaxConcurrentIps, ips.size());
+    const size_t worker_count = std::min(kTestRoutingMaxConcurrentIps, eval_ips.size());
     if (worker_count > 1) {
         std::atomic_size_t next_ip{0};
         std::vector<std::thread> workers;
@@ -913,7 +924,7 @@ TestRoutingResult compute_test_routing(const Config& config,
             workers.emplace_back([&]() {
                 while (true) {
                     const size_t ip_index = next_ip.fetch_add(1);
-                    if (ip_index >= ips.size()) {
+                    if (ip_index >= eval_ips.size()) {
                         return;
                     }
                     check_ip(ip_index);
@@ -1000,8 +1011,13 @@ int render_test_routing_result(const TestRoutingResult& result,
         for (size_t i = 0; i < result.resolved_ips.size(); ++i) {
             if (i > 0) std::cout << ", ";
             std::cout << result.resolved_ips[i];
+            if (!result.ipv6_enabled && !is_ipv4_address(result.resolved_ips[i])) {
+                std::cout << " (IPv6 disabled, not checked)";
+            }
         }
         std::cout << "\n";
+    } else if (!result.ipv6_enabled && !result.is_domain && !is_ipv4_address(result.target)) {
+        std::cout << "IPv6 is disabled, " << result.target << " is not checked\n";
     }
     std::cout << "\n";
 

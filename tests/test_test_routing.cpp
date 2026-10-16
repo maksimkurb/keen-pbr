@@ -3,6 +3,7 @@
 #include "../src/cache/cache_manager.hpp"
 #include "../src/cmd/test_routing.hpp"
 #include "../src/cmd/test_routing_json.hpp"
+#include "../src/util/kernel_capabilities.hpp"
 #include "fake_dns_server.hpp"
 
 #include <arpa/inet.h>
@@ -44,6 +45,20 @@ public:
             [ips = std::move(ips)](const std::string&) { return ips; });
     }
     ~ScopedDomainResolver() { set_domain_resolver_for_tests(nullptr); }
+};
+
+// compute_test_routing decides IPv6 from the cached capability snapshot; pin
+// it so the tests do not depend on the host (or probe with a stubbed PATH).
+class ScopedIpv6Capabilities {
+public:
+    ScopedIpv6Capabilities() {
+        KernelCapabilities caps;
+        caps.system_ipv6 = true;
+        caps.iptables_ipv6 = true;
+        caps.nftables_ipv6 = true;
+        set_kernel_capabilities_for_tests(caps);
+    }
+    ~ScopedIpv6Capabilities() { set_kernel_capabilities_for_tests(std::nullopt); }
 };
 
 Config build_test_config() {
@@ -90,6 +105,7 @@ void write_executable(const std::filesystem::path& path, const std::string& cont
 } // namespace
 
 TEST_CASE("compute_test_routing resolves domain through the system resolver") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir);
     cache.ensure_dir();
@@ -181,6 +197,7 @@ TEST_CASE("compute_test_routing resolves domain through the system resolver") {
 }
 
 TEST_CASE("compute_test_routing reports no IPs when the system resolver cannot resolve the domain") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir);
     cache.ensure_dir();
@@ -198,6 +215,7 @@ TEST_CASE("compute_test_routing reports no IPs when the system resolver cannot r
 }
 
 TEST_CASE("compute_test_routing includes route rule conditions in diagnostics") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir);
     cache.ensure_dir();
@@ -233,6 +251,7 @@ TEST_CASE("compute_test_routing includes route rule conditions in diagnostics") 
 }
 
 TEST_CASE("compute_test_routing filters expected rules by packet criteria") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir / "cache");
     cache.ensure_dir();
@@ -295,6 +314,7 @@ TEST_CASE("compute_test_routing filters expected rules by packet criteria") {
 }
 
 TEST_CASE("compute_test_routing evaluates source CIDR and negation") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir / "cache");
     cache.ensure_dir();
@@ -353,6 +373,7 @@ TEST_CASE("compute_test_routing evaluates source CIDR and negation") {
 }
 
 TEST_CASE("compute_test_routing treats an omitted DSCP as zero") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir / "cache");
     cache.ensure_dir();
@@ -391,7 +412,58 @@ TEST_CASE("compute_test_routing treats an omitted DSCP as zero") {
     std::filesystem::remove_all(temp_dir);
 }
 
+TEST_CASE("compute_test_routing does not evaluate IPv6 addresses when IPv6 is disabled") {
+    ScopedIpv6Capabilities ipv6_capabilities;
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir / "cache");
+    cache.ensure_dir();
+
+    ScopedDomainResolver resolver({"10.0.0.53", "2001:db8::53"});
+
+    Config config = build_test_config();
+    RouteRule rule;
+    rule.outbound = "vpn";
+    rule.proto = "tcp";
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{rule};
+    config.route = route;
+
+    TestRoutingCriteria criteria;
+    criteria.proto = "tcp";
+    criteria.dest_port = 443;
+    const auto result = compute_test_routing(
+        config, cache, "www.example.com", criteria, nullptr, {}, nullptr, false);
+
+    CHECK_FALSE(result.ipv6_enabled);
+    CHECK(result.resolved_ips == std::vector<std::string>{"10.0.0.53", "2001:db8::53"});
+    REQUIRE(result.entries.size() == 1);
+    CHECK(result.entries.front().ip == "10.0.0.53");
+    REQUIRE(result.rule_diagnostics.size() == 1);
+    REQUIRE(result.rule_diagnostics.front().ip_rows.size() == 1);
+    CHECK(result.rule_diagnostics.front().ip_rows.front().ip == "10.0.0.53");
+    // The "could not be evaluated" warning may only come from entries that
+    // were evaluated, never from the skipped IPv6 address.
+    const bool any_unknown = std::any_of(
+        result.entries.begin(), result.entries.end(), [](const TestRoutingEntry& e) {
+            return e.expected_outbound == "(unknown)" || e.actual_outbound == "(unknown)";
+        });
+    const bool has_warning = std::any_of(
+        result.warnings.begin(), result.warnings.end(), [](const std::string& w) {
+            return w.find("could not be evaluated") != std::string::npos;
+        });
+    CHECK(has_warning == any_unknown);
+
+    const auto literal = compute_test_routing(
+        config, cache, "2001:db8::1", criteria, nullptr, {}, nullptr, false);
+    CHECK_FALSE(literal.ipv6_enabled);
+    CHECK(literal.entries.empty());
+    CHECK(literal.rule_diagnostics.front().ip_rows.empty());
+
+    std::filesystem::remove_all(temp_dir);
+}
+
 TEST_CASE("compute_test_routing reports unknown when packet criteria are incomplete") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir / "cache");
     cache.ensure_dir();
@@ -431,6 +503,7 @@ TEST_CASE("compute_test_routing reports unknown when packet criteria are incompl
 }
 
 TEST_CASE("compute_test_routing keeps no-list and default-gateway actual state honest") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     const auto empty_bin = temp_dir / "empty-bin";
     std::filesystem::create_directories(empty_bin);
@@ -494,6 +567,7 @@ TEST_CASE("compute_test_routing keeps no-list and default-gateway actual state h
 }
 
 TEST_CASE("compute_test_routing uses realized iptables set names") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     const auto bin_dir = temp_dir / "bin";
     const auto invocation_log = temp_dir / "ipset-invocations.txt";
@@ -633,7 +707,7 @@ TEST_CASE("compute_test_routing keeps unknown set membership from proving absenc
     }
 
     const auto v4 = compute_test_routing(
-        config, cache, "203.0.113.10", &states);
+        config, cache, "203.0.113.10", TestRoutingCriteria{}, &states, {}, nullptr, true);
     REQUIRE(v4.rule_diagnostics.size() == names.size());
     CHECK_FALSE(v4.rule_diagnostics[0].ip_rows[0].in_ipset.has_value());
     CHECK(v4.rule_diagnostics[1].ip_rows[0].in_ipset == std::optional<bool>(true));
@@ -642,7 +716,7 @@ TEST_CASE("compute_test_routing keeps unknown set membership from proving absenc
     CHECK(v4.rule_diagnostics[3].ip_rows[0].in_ipset == std::optional<bool>(false));
 
     const auto v6 = compute_test_routing(
-        config, cache, "2001:db8::10", &states);
+        config, cache, "2001:db8::10", TestRoutingCriteria{}, &states, {}, nullptr, true);
     REQUIRE(v6.rule_diagnostics.size() == names.size());
     CHECK_FALSE(v6.rule_diagnostics[4].ip_rows[0].in_ipset.has_value());
     CHECK(v6.rule_diagnostics[5].ip_rows[0].in_ipset == std::optional<bool>(true));
@@ -660,6 +734,7 @@ TEST_CASE("daemon test-routing response is rendered as a human-readable table") 
          {{"target", "example.com"},
           {"is_domain", true},
           {"no_matching_rule", false},
+          {"ipv6_enabled", true},
           {"resolved_ips", {"203.0.113.10"}},
           {"warnings", nlohmann::json::array()},
           {"dns_error", nullptr},
@@ -692,6 +767,7 @@ TEST_CASE("daemon test-routing response is rendered as a human-readable table") 
 }
 
 TEST_CASE("compute_test_routing matches domains through DomainIndex semantics") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir);
     cache.ensure_dir();
@@ -758,6 +834,7 @@ TestRoutingResult routing_with_resolver(const RoutingDnsResolver& resolver) {
 } // namespace
 
 TEST_CASE("compute_test_routing resolves A and AAAA through dnsmasq") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     FakeDnsServer srv([](const fake_dns::Bytes& q, bool) {
         return qtype_of(q) == 28
             ? fake_dns::make_reply(q, 0, {fake_dns::aaaa_rr("2001:db8::1")})
@@ -775,6 +852,7 @@ TEST_CASE("compute_test_routing resolves A and AAAA through dnsmasq") {
 }
 
 TEST_CASE("compute_test_routing tolerates AAAA NODATA from dnsmasq") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     FakeDnsServer srv([](const fake_dns::Bytes& q, bool) {
         return qtype_of(q) == 28
             ? fake_dns::make_reply(q, 0)
@@ -787,6 +865,7 @@ TEST_CASE("compute_test_routing tolerates AAAA NODATA from dnsmasq") {
 }
 
 TEST_CASE("compute_test_routing reports NXDOMAIN from dnsmasq") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     FakeDnsServer srv([](const fake_dns::Bytes& q, bool) {
         return fake_dns::make_reply(q, 3);
     });
@@ -797,6 +876,7 @@ TEST_CASE("compute_test_routing reports NXDOMAIN from dnsmasq") {
 }
 
 TEST_CASE("compute_test_routing does not query when dnsmasq is unavailable") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     std::atomic<int> queries{0};
     FakeDnsServer srv([&queries](const fake_dns::Bytes& q, bool) {
         ++queries;
@@ -812,6 +892,7 @@ TEST_CASE("compute_test_routing does not query when dnsmasq is unavailable") {
 }
 
 TEST_CASE("default_routing_dns_resolver follows the integration setting") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     Config off = build_test_config();
     off.dns->resolver_integration = ResolverIntegrationMode::NONE;
     CHECK(default_routing_dns_resolver(off).source == RoutingDnsSource::System);
@@ -824,6 +905,7 @@ TEST_CASE("default_routing_dns_resolver follows the integration setting") {
 }
 
 TEST_CASE("compute_test_routing leaves dns unset for IP targets") {
+    ScopedIpv6Capabilities ipv6_capabilities;
     const auto temp_dir = make_temp_dir();
     CacheManager cache(temp_dir);
     cache.ensure_dir();

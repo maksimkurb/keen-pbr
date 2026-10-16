@@ -23,6 +23,9 @@ export interface RoutingTestResponse {
   dns_error?: string | null;
   /** true when no routing rule matched target lists. */
   no_matching_rule: boolean;
+  /** false when IPv6 is not in use. IPv6 addresses are then listed in resolved_ips but not evaluated: they have no results entry and no rule_diagnostics rows.
+   */
+  ipv6_enabled: boolean;
   /** Rule-by-rule matrix diagnostics for UI rendering. */
   rule_diagnostics: RoutingTestRuleDiagnostic[];
   /** Per-IP routing test results. */

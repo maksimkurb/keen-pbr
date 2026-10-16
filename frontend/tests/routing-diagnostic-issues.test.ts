@@ -28,6 +28,7 @@ const response: RoutingTestResponse = {
   resolved_ips: [result.ip],
   warnings: [],
   no_matching_rule: false,
+  ipv6_enabled: true,
   results: [result],
   rule_diagnostics: [selectedRule],
 }

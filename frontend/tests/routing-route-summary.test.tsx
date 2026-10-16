@@ -41,6 +41,7 @@ const diagnostics: RoutingTestResponse = {
   resolved_ips: [result.ip],
   warnings: [],
   no_matching_rule: false,
+  ipv6_enabled: true,
   results: [result],
   rule_diagnostics: [rule],
 }
@@ -339,4 +340,90 @@ test("untracked history remains distinct from an empty tracked cache", () => {
   })
   expect(html).toContain("Writes are not tracked for this ipset.")
   expect(html).not.toContain("keen-pbr has no record of adding")
+})
+
+const v6 = "2001:db8::1"
+const twoFamilies: RoutingTestResponse = {
+  ...diagnostics,
+  resolved_ips: [result.ip, v6],
+  results: [
+    { ...result, actual_outbound: "vpn", ok: true },
+    { ...result, ip: v6, actual_outbound: "(unknown)", ok: false },
+  ],
+  rule_diagnostics: [
+    {
+      ...rule,
+      ip_rows: [
+        { ...rule.ip_rows[0], in_ipset: true },
+        { ...rule.ip_rows[0], ip: v6, in_ipset: undefined },
+      ],
+    },
+  ],
+}
+
+test("IPv4 and IPv6 hitting one rule share a single rule block", () => {
+  const html = render(twoFamilies)
+  const ruleStep =
+    html.split(">Firewall check<")[0].split(">Rule selection<")[1] ?? ""
+  expect(ruleStep.match(/Rule #3/g) ?? []).toHaveLength(1)
+  expect(ruleStep).not.toContain('data-testid="ip-group"')
+})
+
+test("a partial IP group shows a counter whose label lists the addresses", () => {
+  const third = "9.9.9.9"
+  const html = render({
+    ...twoFamilies,
+    resolved_ips: [result.ip, v6, third],
+    results: [
+      ...twoFamilies.results,
+      { ...result, ip: third, actual_outbound: "wan", ok: false },
+    ],
+  })
+  expect(html).toContain('data-testid="ip-group"')
+  expect(html).toContain("cursor-help")
+  expect(html).toContain("decoration-dashed")
+  expect(html).toContain("2 of 3 addresses: ")
+  expect(html).toContain(`${result.ip}, ${v6}`)
+})
+
+test("a group with a single IP shows the IP instead of a counter", () => {
+  const html = render(twoFamilies)
+  const firewall = html.split(">Firewall check<")[1]
+  expect(firewall).not.toContain('data-testid="ip-group"')
+  expect(firewall).toContain(`>${v6}</code>`)
+  expect(firewall).toContain(`>${result.ip}</code>`)
+})
+
+test("IPv6 off: addresses are listed muted, noted and left out of the counts", () => {
+  const html = render({
+    ...twoFamilies,
+    ipv6_enabled: false,
+    results: [twoFamilies.results[0]],
+    rule_diagnostics: [
+      { ...rule, ip_rows: [twoFamilies.rule_diagnostics[0].ip_rows[0]] },
+    ],
+  })
+  const dns = html.split(">Firewall check<")[0]
+  expect(dns).toContain(v6)
+  expect(dns).toContain("opacity-60")
+  expect(html).toContain('data-testid="ipv6-disabled-note"')
+  expect(html).toContain('href="/general#ipv6-enabled"')
+  expect(html).toContain("IPv6 support is disabled")
+  expect(html).toContain("Matching routes: 1 of 1")
+  expect(html).not.toContain('data-testid="ip-group"')
+})
+
+test("a literal IPv6 target with IPv6 off is explained, not reported as unknown", () => {
+  const html = render({
+    ...diagnostics,
+    target: v6,
+    is_domain: false,
+    resolved_ips: [],
+    ipv6_enabled: false,
+    results: [],
+    rule_diagnostics: [{ ...rule, ip_rows: [] }],
+  })
+  expect(html).toContain("IPv6 is turned off")
+  expect(html).toContain('data-testid="ipv6-disabled-note"')
+  expect(html).not.toContain("Route problems detected")
 })

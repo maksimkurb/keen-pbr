@@ -28,6 +28,43 @@ import {
 
 type StepTone = "ok" | "warn" | "neutral"
 
+const isIpv6 = (ip: string) => ip.includes(":")
+
+/** "N of M addresses" with the group's IPs in a tooltip; a lone IP is shown as is. */
+function IpGroupLabel({ ips, total }: { ips: string[]; total: number }) {
+  const { t } = useTranslation()
+  if (ips.length === 1) {
+    return <code className="wrap-break-words font-mono text-xs">{ips[0]}</code>
+  }
+  const text = t("overview.routingDiagnostics.trace.ipGroup", {
+    selected: ips.length,
+    count: total,
+  })
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            aria-label={`${text}: ${ips.join(", ")}`}
+            data-testid="ip-group"
+            className="cursor-help underline decoration-dashed underline-offset-2"
+          />
+        }
+      >
+        {text}
+      </TooltipTrigger>
+      <TooltipContent>
+        <ul className="font-mono text-xs">
+          {ips.map((ip) => (
+            <li key={ip}>{ip}</li>
+          ))}
+        </ul>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 export function RoutingRouteSummary({
   diagnostics,
   onRefresh,
@@ -48,27 +85,36 @@ export function RoutingRouteSummary({
         : tag
   const dnsMissing =
     diagnostics.is_domain && diagnostics.resolved_ips.length === 0
-  const entries = diagnostics.results.map((result) => {
-    const rule = getExpectedRoutingRule(diagnostics.rule_diagnostics, result)
-    const listMatch =
-      diagnostics.rule_diagnostics.find(
-        (item) =>
-          item.rule.enabled !== false &&
-          item.outbound === result.expected_outbound
-      )?.target_match ??
-      result.list_match ??
-      diagnostics.rule_diagnostics
-        .filter((item) => item.rule.enabled !== false)
-        .flatMap((item) => item.ip_rows)
-        .find((row) => row.ip === result.ip && row.in_lists)?.list_match
-    return {
-      result,
-      rule,
-      listMatch,
-      issue: getRoutingDiagnosticIssue(diagnostics, result),
-      row: rule?.ip_rows.find((row) => row.ip === result.ip),
-    }
-  })
+  const ipv6Off = diagnostics.ipv6_enabled === false
+  const skippedIpv6 = ipv6Off
+    ? (diagnostics.is_domain
+        ? diagnostics.resolved_ips
+        : [diagnostics.target]
+      ).filter(isIpv6)
+    : []
+  const entries = diagnostics.results
+    .filter((result) => !(ipv6Off && isIpv6(result.ip)))
+    .map((result) => {
+      const rule = getExpectedRoutingRule(diagnostics.rule_diagnostics, result)
+      const listMatch =
+        diagnostics.rule_diagnostics.find(
+          (item) =>
+            item.rule.enabled !== false &&
+            item.outbound === result.expected_outbound
+        )?.target_match ??
+        result.list_match ??
+        diagnostics.rule_diagnostics
+          .filter((item) => item.rule.enabled !== false)
+          .flatMap((item) => item.ip_rows)
+          .find((row) => row.ip === result.ip && row.in_lists)?.list_match
+      return {
+        result,
+        rule,
+        listMatch,
+        issue: getRoutingDiagnosticIssue(diagnostics, result),
+        row: rule?.ip_rows.find((row) => row.ip === result.ip),
+      }
+    })
   const listGroups = new Map<string, typeof entries>()
   const ruleGroups = new Map<string, typeof entries>()
   const issueGroups = new Map<string, typeof entries>()
@@ -78,10 +124,11 @@ export function RoutingRouteSummary({
       : entry.rule && !entry.rule.rule.list?.length
         ? "criteria"
         : "none"
+    // The firewall verdict says nothing about which rule was chosen, so it
+    // stays out of the key: IPv4 and IPv6 hitting one rule share a block.
     const ruleKey = JSON.stringify([
       entry.rule?.rule_index,
       entry.result.expected_outbound,
-      entry.issue,
     ])
     listGroups.set(listKey, [...(listGroups.get(listKey) ?? []), entry])
     ruleGroups.set(ruleKey, [...(ruleGroups.get(ruleKey) ?? []), entry])
@@ -94,26 +141,54 @@ export function RoutingRouteSummary({
   const allOk =
     entries.length > 0 && entries.every((entry) => entry.issue === "ok")
   const ruleUnknown = entries.some((entry) => entry.issue === "criteria")
-  const heading = allOk
-    ? t(
-        entries.length > 1
-          ? "overview.routingDiagnostics.trace.allRoutesMatch"
-          : "overview.routingDiagnostics.trace.issues.ok.title"
-      )
-    : issueGroups.size === 1
+  const nothingChecked = ipv6Off && entries.length === 0 && !dnsMissing
+  const heading = nothingChecked
+    ? t("overview.routingDiagnostics.trace.ipv6Disabled.title")
+    : allOk
       ? t(
-          `overview.routingDiagnostics.trace.issues.${issueGroups.keys().next().value}.title`
+          entries.length > 1
+            ? "overview.routingDiagnostics.trace.allRoutesMatch"
+            : "overview.routingDiagnostics.trace.issues.ok.title"
         )
-      : t("overview.routingDiagnostics.trace.routeProblems")
+      : issueGroups.size === 1
+        ? t(
+            `overview.routingDiagnostics.trace.issues.${issueGroups.keys().next().value}.title`
+          )
+        : t("overview.routingDiagnostics.trace.routeProblems")
   const codes = (ips: string[]) => (
     <span className="inline-flex min-w-0 flex-wrap gap-x-2 gap-y-1">
       {ips.map((ip) => (
-        <code key={ip} className="wrap-break-words font-mono text-xs">
+        <code
+          key={ip}
+          className={cn(
+            "wrap-break-words font-mono text-xs",
+            ipv6Off && isIpv6(ip) && "opacity-60"
+          )}
+        >
           {ip}
         </code>
       ))}
     </span>
   )
+  const ipv6Note =
+    skippedIpv6.length > 0 ? (
+      <p
+        className="text-xs text-muted-foreground"
+        data-testid="ipv6-disabled-note"
+      >
+        <Trans
+          i18nKey="overview.routingDiagnostics.trace.ipv6Disabled.note"
+          components={{
+            settings: (
+              <Link
+                className="underline underline-offset-2"
+                href="/general#ipv6-enabled"
+              />
+            ),
+          }}
+        />
+      </p>
+    ) : null
   const firewallGroups = new Map<string, typeof entries>()
   for (const entry of entries) {
     const key = JSON.stringify([
@@ -137,6 +212,7 @@ export function RoutingRouteSummary({
       ) : diagnostics.is_domain ? (
         <div className="space-y-1">
           {codes(diagnostics.resolved_ips)}
+          {ipv6Note}
           {diagnostics.dns?.resolver === "dnsmasq" ? (
             <p className="text-xs text-muted-foreground">
               {t("overview.routingDiagnostics.trace.dnsResolverDnsmasq", {
@@ -154,9 +230,14 @@ export function RoutingRouteSummary({
           </p>
         </div>
       ) : (
-        t("overview.routingDiagnostics.trace.literalIp", {
-          ip: diagnostics.target,
-        })
+        <div className="space-y-1">
+          <p className={cn(skippedIpv6.length > 0 && "opacity-60")}>
+            {t("overview.routingDiagnostics.trace.literalIp", {
+              ip: diagnostics.target,
+            })}
+          </p>
+          {ipv6Note}
+        </div>
       ),
     },
     {
@@ -205,10 +286,10 @@ export function RoutingRouteSummary({
                 {/* Group label on top, like the firewall step's groups. */}
                 {group.length < entries.length ? (
                   <p className="mb-1 text-xs text-muted-foreground">
-                    {t("overview.routingDiagnostics.trace.ipGroup", {
-                      count: group.length,
-                      total: entries.length,
-                    })}
+                    <IpGroupLabel
+                      ips={group.map(({ result }) => result.ip)}
+                      total={entries.length}
+                    />
                   </p>
                 ) : null}
                 <p>
@@ -272,10 +353,10 @@ export function RoutingRouteSummary({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         {group.length < entries.length ? (
                           <span className="text-xs text-muted-foreground">
-                            {t("overview.routingDiagnostics.trace.ipGroup", {
-                              count: group.length,
-                              total: entries.length,
-                            })}
+                            <IpGroupLabel
+                              ips={group.map(({ result }) => result.ip)}
+                              total={entries.length}
+                            />
                           </span>
                         ) : null}
                         <span
@@ -389,10 +470,10 @@ export function RoutingRouteSummary({
                 ) : null}
                 {group.length < entries.length ? (
                   <p className="text-xs text-muted-foreground">
-                    {t("overview.routingDiagnostics.trace.ipGroup", {
-                      count: group.length,
-                      total: entries.length,
-                    })}
+                    <IpGroupLabel
+                      ips={group.map(({ result }) => result.ip)}
+                      total={entries.length}
+                    />
                   </p>
                 ) : null}
                 <p>
@@ -447,6 +528,18 @@ export function RoutingRouteSummary({
       ),
     },
   ]
+  // Only IPv6 addresses and IPv6 is off: later steps have nothing to show.
+  const shownSteps = nothingChecked
+    ? steps.map((step, index) =>
+        index === 0
+          ? step
+          : {
+              ...step,
+              tone: "neutral" as StepTone,
+              content: t("overview.routingDiagnostics.trace.notChecked"),
+            }
+      )
+    : steps
   const routeTags = new Set(
     entries.flatMap((entry) => [
       entry.result.expected_outbound,
@@ -505,14 +598,14 @@ export function RoutingRouteSummary({
         ) : null}
       </div>
       <ol className="pt-4">
-        {steps.map((step, index) => (
+        {shownSteps.map((step, index) => (
           <li
             key={step.title}
             data-step={index + 1}
             data-tone={step.tone}
             className="relative grid grid-cols-[28px_minmax(0,1fr)] gap-x-3 last:[&_.trace-content]:pb-0"
           >
-            {index < steps.length - 1 ? (
+            {index < shownSteps.length - 1 ? (
               <span
                 aria-hidden
                 className="absolute top-7 bottom-0 left-[13px] w-0.5 bg-border"

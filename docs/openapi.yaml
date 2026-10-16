@@ -2431,7 +2431,7 @@ components:
 
     RoutingTestResponse:
       type: object
-      required: [target, is_domain, resolved_ips, warnings, results, rule_diagnostics, no_matching_rule]
+      required: [target, is_domain, resolved_ips, warnings, results, rule_diagnostics, no_matching_rule, ipv6_enabled]
       properties:
         target:
           type: string
@@ -2462,6 +2462,12 @@ components:
         no_matching_rule:
           type: boolean
           description: true when no routing rule matched target lists.
+        ipv6_enabled:
+          type: boolean
+          description: >
+            false when IPv6 is not in use. IPv6 addresses are then listed in
+            resolved_ips but not evaluated: they have no results entry and no
+            rule_diagnostics rows.
         rule_diagnostics:
           type: array
           description: Rule-by-rule matrix diagnostics for UI rendering.

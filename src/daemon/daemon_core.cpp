@@ -38,6 +38,7 @@
 #include "../ipc/control_protocol.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
+#include "../util/ipv6_support.hpp"
 #include "../util/safe_exec.hpp"
 #include "../util/system_info.hpp"
 #include "scheduler.hpp"
@@ -579,6 +580,8 @@ Daemon::make_routing_test_job(const std::string &target,
       dnsmasq_manager_.routing_resolver(active_config);
   auto realized_rules =
       runtime_state_store_.snapshot().firewall_state.get_rules();
+  // Reads the capability snapshot taken at service start; nothing is probed.
+  const bool ipv6_enabled = resolve_ipv6_support(active_config).enabled;
   std::shared_ptr<InterceptService> intercept_service;
   std::shared_ptr<const InterceptSnapshot> intercept_snapshot;
   {
@@ -591,7 +594,7 @@ Daemon::make_routing_test_job(const std::string &target,
   return [this, active_config = std::move(active_config),
           dns_resolver = std::move(dns_resolver),
           realized_rules = std::move(realized_rules), target, criteria,
-          intercept_service, intercept_snapshot] {
+          ipv6_enabled, intercept_service, intercept_snapshot] {
     return compute_test_routing(
         active_config, list_service_.cache_manager(), target, criteria,
         &realized_rules,
@@ -605,7 +608,7 @@ Daemon::make_routing_test_job(const std::string &target,
               intercept_service->lookup_set_write_evidence(intercept_snapshot,
                                                            set_name, ip));
         },
-        &dns_resolver);
+        &dns_resolver, ipv6_enabled);
   };
 }
 

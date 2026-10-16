@@ -657,7 +657,13 @@ export const enTranslation = {
         allRoutesMatch: "The routes match the rules",
         routeProblems: "Route problems detected",
         ipResults: "Matching routes: {{count}} of {{total}}",
-        ipGroup: "For {{count}} of {{total}} IPs",
+        ipGroup_one: "{{selected}} of {{count}} address",
+        ipGroup_other: "{{selected}} of {{count}} addresses",
+        notChecked: "Not checked.",
+        ipv6Disabled: {
+          title: "IPv6 is turned off",
+          note: "These addresses are not checked: <settings>IPv6 support is disabled</settings>",
+        },
         matches: "Matches",
         differs: "Mismatch",
         pathInterface:

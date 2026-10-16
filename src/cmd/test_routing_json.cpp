@@ -145,6 +145,7 @@ nlohmann::json test_routing_result_to_json(const TestRoutingResult& result) {
     resp.is_domain    = result.is_domain;
     resp.dns_error    = result.dns_error;
     resp.no_matching_rule = result.no_matching_rule;
+    resp.ipv6_enabled = result.ipv6_enabled;
     resp.resolved_ips = result.resolved_ips;
     resp.warnings     = result.warnings;
     if (result.dns) {
@@ -231,6 +232,7 @@ TestRoutingResult test_routing_result_from_json(const nlohmann::json& value) {
     result.is_domain = resp.is_domain;
     result.resolved_ips = resp.resolved_ips;
     result.no_matching_rule = resp.no_matching_rule;
+    result.ipv6_enabled = resp.ipv6_enabled;
     result.dns_error = resp.dns_error;
     result.warnings = resp.warnings;
     if (resp.dns) {

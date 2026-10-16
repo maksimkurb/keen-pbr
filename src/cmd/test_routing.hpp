@@ -103,6 +103,8 @@ struct TestRoutingResult {
     std::vector<TestRoutingEntry> entries;
     std::vector<RuleDiagnostic> rule_diagnostics;
     bool no_matching_rule{false};
+    // false: IPv6 addresses are listed but not evaluated (no entries/ip_rows).
+    bool ipv6_enabled{true};
     std::optional<std::string> dns_error;
     std::vector<std::string> warnings;
     std::optional<TestRoutingDnsInfo> dns;   // set for domain targets
@@ -132,7 +134,8 @@ TestRoutingResult compute_test_routing(const Config& config,
                                         const TestRoutingCriteria& criteria,
                                         const std::vector<RuleState>* realized_rule_states = nullptr,
                                         SetWriteEvidenceLookup set_write_evidence_lookup = {},
-                                        const RoutingDnsResolver* dns_resolver = nullptr);
+                                        const RoutingDnsResolver* dns_resolver = nullptr,
+                                        std::optional<bool> ipv6_enabled = std::nullopt);
 
 // Print table and return 0 if all entries match, 1 otherwise.
 int run_test_routing_command(const Config& config,

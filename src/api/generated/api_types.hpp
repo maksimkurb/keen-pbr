@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes6KMbYm data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesKYy0Pt data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -863,6 +863,7 @@ namespace api {
     struct RoutingTestResponse {
         std::optional<RoutingTestDns> dns;
         std::optional<std::string> dns_error;
+        bool ipv6_enabled;
         bool is_domain;
         bool no_matching_rule;
         std::vector<std::string> resolved_ips;
@@ -993,7 +994,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypes6KMbYm {
+    struct KeenPbrTypesKYy0Pt {
         std::optional<ApiConfig> api_config;
         std::optional<AuthenticationConfigClass> authentication_config;
         std::optional<AuthLoginRequest> auth_login_request;
@@ -1380,8 +1381,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypes6KMbYm & x);
-    void to_json(json & j, const KeenPbrTypes6KMbYm & x);
+    void from_json(const json & j, KeenPbrTypesKYy0Pt & x);
+    void to_json(json & j, const KeenPbrTypesKYy0Pt & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -2988,6 +2989,7 @@ namespace api {
     inline void from_json(const json & j, RoutingTestResponse& x) {
         x.dns = get_stack_optional<RoutingTestDns>(j, "dns");
         x.dns_error = get_stack_optional<std::string>(j, "dns_error");
+        x.ipv6_enabled = j.at("ipv6_enabled").get<bool>();
         x.is_domain = j.at("is_domain").get<bool>();
         x.no_matching_rule = j.at("no_matching_rule").get<bool>();
         x.resolved_ips = j.at("resolved_ips").get<std::vector<std::string>>();
@@ -3001,6 +3003,7 @@ namespace api {
         j = json::object();
         j["dns"] = x.dns;
         j["dns_error"] = x.dns_error;
+        j["ipv6_enabled"] = x.ipv6_enabled;
         j["is_domain"] = x.is_domain;
         j["no_matching_rule"] = x.no_matching_rule;
         j["resolved_ips"] = x.resolved_ips;
@@ -3224,7 +3227,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes6KMbYm& x) {
+    inline void from_json(const json & j, KeenPbrTypesKYy0Pt& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.authentication_config = get_stack_optional<AuthenticationConfigClass>(j, "AuthenticationConfig");
         x.auth_login_request = get_stack_optional<AuthLoginRequest>(j, "AuthLoginRequest");
@@ -3328,7 +3331,7 @@ namespace api {
         x.xt_extension_health = get_stack_optional<XtExtensionHealthElement>(j, "XtExtensionHealth");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes6KMbYm & x) {
+    inline void to_json(json & j, const KeenPbrTypesKYy0Pt & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["AuthenticationConfig"] = x.authentication_config;

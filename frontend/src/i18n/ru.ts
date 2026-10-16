@@ -667,7 +667,15 @@ export const ruTranslation = {
         allRoutesMatch: "Маршруты совпадают с правилами",
         routeProblems: "Есть проблемы с маршрутом",
         ipResults: "Совпало маршрутов: {{count}} из {{total}}",
-        ipGroup: "Для {{count}} из {{total}} IP",
+        ipGroup_one: "{{selected}} из {{count}} адреса",
+        ipGroup_few: "{{selected}} из {{count}} адресов",
+        ipGroup_many: "{{selected}} из {{count}} адресов",
+        ipGroup_other: "{{selected}} из {{count}} адреса",
+        notChecked: "Не проверялось.",
+        ipv6Disabled: {
+          title: "IPv6 выключен",
+          note: "Эти адреса не проверяются: <settings>поддержка IPv6 отключена</settings>",
+        },
         matches: "Совпадает",
         differs: "Расхождение",
         pathInterface:

@@ -51,9 +51,9 @@ export function RoutingDiagnosticsResult({
     () => getVisibleRuleDiagnostics(ruleDiagnostics, showAllRules),
     [ruleDiagnostics, showAllRules]
   )
-  const ipRows = diagnostics.is_domain
-    ? diagnostics.resolved_ips
-    : [diagnostics.target]
+  const ipRows = (
+    diagnostics.is_domain ? diagnostics.resolved_ips : [diagnostics.target]
+  ).filter((ip) => diagnostics.ipv6_enabled !== false || !ip.includes(":"))
 
   return (
     <div className="space-y-4">
