@@ -13,7 +13,9 @@ fi
 /opt/usr/lib/keen-pbr/upgrade-dnsmasq.sh postinst
 
 echo ""
-/opt/etc/init.d/S80keen-pbr start || echo "Failed to start keen-pbr service"
+# restart, not start: when the old package's prerm could not stop its daemon,
+# start would report "already running" and leave the old binary serving.
+/opt/etc/init.d/S80keen-pbr restart || echo "Failed to start keen-pbr service"
 echo ""
 
 echo "Installation complete!"
